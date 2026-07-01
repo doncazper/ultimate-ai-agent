@@ -13,9 +13,12 @@ Implemented shell behavior:
 - labels action preview as preview-only and displays blocked decisions as non-executed safety results.
 - exposes the action preview risk level as policy metadata only.
 - provides route-level headings and accessible loading, empty, error, and mock fallback states for local browser smoke review.
-- shows provider credential readiness as status-only safe refs under Settings,
-  including vault adapter, credential enrollment, validation, invocation,
-  consent, policy, revocation, approval, and blocker state.
+- shows provider credential readiness and CostGovernor binding posture as
+  status-only safe refs in Setup, Settings, Models, and Action Inbox, including
+  vault adapter, credential enrollment, validation, invocation, consent, policy,
+  revocation, approval, blocker state, unknown paid-cost approval, cost
+  estimate refs, budget decision refs, max-approved USD refs, future receipt
+  refs, and provider/model ref posture.
 - falls back to clearly marked mock data when the local backend is unavailable.
 - displays unknown/checking, backend online, degraded, offline-safe, and mock fallback connection states.
 - sanitizes secret-like frontend errors before display.
@@ -33,7 +36,9 @@ Non-goals:
 - no provider credential collection form.
 - no raw provider key, token, secret, or environment-value display.
 - no provider credential resolution, validation call, vault adapter runtime, or
-  credential enrollment runtime, or invocation.
+  provider invocation.
+- no provider spend authority, unknown paid-cost approval bypass, or usage/cost
+  receipt bypass.
 - no remote dispatch.
 - no mobile/native app.
 - no sensor access.
@@ -89,9 +94,10 @@ The design docs do not enable design tools, design SaaS, design-to-code, screens
 v0.18.3 clarifies that this shell is CCC Web, the current TypeScript web
 Control Center. CCC means Control Center Clients and also includes future CCC
 iOS, CCC Android, and CCC macOS planning. Current product direction keeps
-Control Center / Founder Command Center as the first-party product UI and keeps
-OpenWebUI as a supported local/dev conversational shell, while Open Design
-governs custom CCC surfaces and does not replace OpenWebUI.
+Control Center as the first-party product UI, Founder Loop as the bounded
+operator workflow inside it, and Founder Command Center as strategy/north-star
+terminology. OpenWebUI remains a supported local/dev conversational shell,
+while Open Design governs custom CCC surfaces and does not replace OpenWebUI.
 
 This shell remains read-only/preview-only and is not the agent brain. v0.18.3 adds no frontend feature, backend API route, OpenWebUI integration, native CCC implementation, Android app, iOS app, macOS app, mobile sensor access, native build workflow, OS permission integration, or production authority.
 

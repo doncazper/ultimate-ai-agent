@@ -1,5 +1,5 @@
 from ultimate_ai_agent.core.adapters.sdk_manifest import AgentRuntimeAdapterManifest, SDKAdapterBoundaryPolicy
-from ultimate_ai_agent.core.adapters.a2a_manifest import A2AAgentCardMinimal
+from ultimate_ai_agent.core.adapters.a2a_manifest import UAAA2AAgentCardMetadataImport
 
 def validate_adapter_boundary_policy(
     manifest: AgentRuntimeAdapterManifest,
@@ -19,8 +19,8 @@ def validate_adapter_boundary_policy(
 
     return True
 
-def validate_a2a_delegation_block(card: A2AAgentCardMinimal) -> bool:
-    """Confirm that real agent-to-agent (A2A) delegation is blocked before the foundation gate."""
-    # A2A agent card remains inert metadata only
+def validate_a2a_delegation_block(card: UAAA2AAgentCardMetadataImport) -> bool:
+    """Confirm that real A2A delegation is blocked before the foundation gate."""
+    # A2A-shaped metadata imports remain inert metadata only.
     # Real execution delegation returns False/raises error
     raise ValueError(f"Real A2A delegation to agent '{card.agent_id}' is blocked by the Foundation Gate.")

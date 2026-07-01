@@ -45,9 +45,13 @@ REQUIRED_REF_FIELDS = [
 ]
 REQUIRED_BLOCKED_REFS = [
     "blocked-state:no-action-execution",
+    "blocked-state:no-tool-execution",
+    "blocked-state:no-workflow-execution",
     "blocked-state:no-approval-grant-capture",
     "blocked-state:approval-refs-identifiers-only",
+    "blocked-state:no-connector-runtime",
     "blocked-state:no-connector-write",
+    "blocked-state:no-browser-automation",
     "blocked-state:no-shell-subprocess-execution",
     "blocked-state:no-model-provider-authority",
     "blocked-state:no-public-beta-or-distribution",
@@ -58,6 +62,10 @@ DENIED_POSTURE_FLAGS = [
     "approval_grant_capture_enabled",
     "action_execution_enabled",
     "state_change_enabled",
+    "tool_execution_enabled",
+    "workflow_execution_enabled",
+    "browser_execution_enabled",
+    "connector_runtime_enabled",
     "connector_write_enabled",
     "shell_subprocess_execution_enabled",
     "model_provider_authority_allowed",
@@ -174,6 +182,8 @@ def _extract(today: dict, inbox: dict) -> dict:
                 ],
                 "action_review_actions": action["action_review_actions"],
                 "action_expected_receipt_refs": action["action_expected_receipt_refs"],
+                "action_rollback_ref": action["action_rollback_ref"],
+                "action_safe_disable_ref": action["action_safe_disable_ref"],
                 "action_blocked_state_refs": action["action_blocked_state_refs"],
                 "action_envelope_execution_enabled": action[
                     "action_envelope_execution_enabled"
@@ -250,6 +260,12 @@ def _validate_live_contract(schema: dict, failures: list[str]) -> None:
     for plan in contract["plans"]:
         if set(REQUIRED_BLOCKED_REFS) - set(plan["blocked_state_refs"]):
             failures.append(f"{plan['action_envelope_ref']} missing blocked refs")
+        if not plan["expected_receipt_refs"]:
+            failures.append(f"{plan['action_envelope_ref']} missing receipt refs")
+        if not plan["rollback_ref"]:
+            failures.append(f"{plan['action_envelope_ref']} missing rollback ref")
+        if not plan["safe_disable_ref"]:
+            failures.append(f"{plan['action_envelope_ref']} missing safe-disable ref")
         if plan["action_execution_enabled"] is not False:
             failures.append(f"{plan['action_envelope_ref']} enables execution")
         if plan["approval_grant_capture_enabled"] is not False:
@@ -260,6 +276,12 @@ def _validate_live_contract(schema: dict, failures: list[str]) -> None:
     for action in contract["actions"]:
         if set(REQUIRED_BLOCKED_REFS) - set(action["action_blocked_state_refs"]):
             failures.append(f"{action['action_envelope_ref']} missing blocked refs")
+        if not action["action_expected_receipt_refs"]:
+            failures.append(f"{action['action_envelope_ref']} missing receipt refs")
+        if not action["action_rollback_ref"]:
+            failures.append(f"{action['action_envelope_ref']} missing rollback ref")
+        if not action["action_safe_disable_ref"]:
+            failures.append(f"{action['action_envelope_ref']} missing safe-disable ref")
         if action["action_envelope_execution_enabled"] is not False:
             failures.append(f"{action['action_envelope_ref']} enables execution")
         if action["action_envelope_grant_capture_enabled"] is not False:
@@ -277,6 +299,10 @@ def _validate_live_contract(schema: dict, failures: list[str]) -> None:
         "approval_ref_authority",
         "approval_grant_capture_enabled",
         "action_execution_enabled",
+        "tool_execution_enabled",
+        "workflow_execution_enabled",
+        "browser_execution_enabled",
+        "connector_runtime_enabled",
         "connector_write_enabled",
         "shell_subprocess_execution_enabled",
         "model_provider_authority_allowed",
@@ -323,7 +349,11 @@ def main() -> int:
         "reject",
         "defer",
         "blocked-state:no-action-execution",
+        "blocked-state:no-tool-execution",
+        "blocked-state:no-workflow-execution",
         "blocked-state:no-approval-grant-capture",
+        "blocked-state:no-connector-runtime",
+        "blocked-state:no-browser-automation",
         "expected_receipt_refs",
         "rollback_ref",
         "safe_disable_ref",

@@ -40,6 +40,259 @@ Final summary must list files changed, tests/verifiers run, skipped checks with
 reasons, and blocked items.
 ```
 
+## 1A. UAA-P1-088 Agent Module Maturity Review V2 Prompt
+
+Use this prompt to refresh or repair `UAA-P1-088` only. It is a
+repo-evidence review/scoring/read-model lane. It does not grant runtime model
+calls, provider SDK calls, web fetching, browser automation,
+shell/subprocess execution, connector writes, memory writes, context
+injection, action execution, workflow execution, autonomous routing authority,
+public beta, public release, production readiness, or production authority.
+
+```text
+You are working only in doncazper/ultimate-ai-agent.
+
+Task: implement or refresh UAA-P1-088 Agent Module Maturity Review V2 after
+the requested FCC-MEM-015 through FCC-MEM-021 memory hardening sequence.
+
+Goal: review and score every core AI-agent module against actual repo evidence,
+then produce a ranked improvement queue that tells the operator what to build
+next.
+
+Read first:
+- AGENTS.md
+- docs/registry/agent_module_maturity_map.json
+- scripts/verify_agent_module_maturity_map.py
+- tests/test_agent_module_maturity_map.py
+- scripts/benchmark_repo_awareness.py
+- docs/README.md
+- docs/DOCUMENTATION_INDEX.md
+- docs/kanban/current_board.md
+- docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
+
+Required artifacts:
+- docs/registry/agent_module_maturity_review_v2.json
+- docs/registry/AGENT_MODULE_MATURITY_REVIEW_V2.md
+- scripts/verify_uaa_p1_088_agent_module_maturity_review_v2.py
+- tests/test_uaa_p1_088_agent_module_maturity_review_v2.py
+
+The V2 review must cover every module in the V1 maturity map and include
+module id/name, current maturity, current score, prior score/ref, evidence
+refs, implemented capabilities, gaps, blocked authorities, test refs, doc refs,
+operator surface refs, risk notes, ranked next checkpoint, recommended next
+task, dimension scores, and a deterministic composite score.
+
+Required dimensions:
+- product usefulness
+- safety boundary clarity
+- test depth
+- UI visibility
+- CLI parity
+- evidence quality
+- operator ergonomics
+- implementation maturity
+
+If tracked FCC-MEM-015 through FCC-MEM-021 artifacts are not present in the
+current branch, record that as absent repo evidence. Do not score planned or
+untracked memory work as implemented.
+
+Ranked queue must include:
+1. UAA-P1-089 Top-Level Decision Router Contract
+2. UAA-P1-090 Task Decomposition Proposal Engine
+3. FCC-LOOP-002 Founder Loop Ergonomics Pass
+4. FCC-MEM-022 Ranked Retrieval / Recall Tuning
+
+Subagents are required. Use at least one independent repo-evidence reviewer
+and one safety/product-language reviewer before final hardening. For queued
+follow-up prompts, keep the same subagent requirement unless the task is split
+into disjoint implementation workers plus final safety review.
+
+Safety boundaries:
+- no model/provider calls
+- no shell/subprocess execution
+- no web fetching or browser automation
+- no connector writes
+- no memory writes
+- no context injection
+- no action or workflow execution
+- no autonomous routing authority
+- no production/public beta claims
+
+Validation:
+PYTHONPATH=src .venv/bin/python scripts/verify_uaa_p1_088_agent_module_maturity_review_v2.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_agent_module_maturity_map.py tests/test_uaa_p1_088_agent_module_maturity_review_v2.py -q
+.venv/bin/python scripts/verify_documentation_integrity.py
+PYTHONPATH=src .venv/bin/python scripts/benchmark_repo_awareness.py --help
+git diff --check
+```
+
+## 1B. UAA-P1-089 Top-Level Decision Router Contract Prompt
+
+Use this prompt to refresh or repair `UAA-P1-089` only. It is a
+contract/read-model lane for deterministic route outcome proposals. It does
+not grant runtime routing authority, backend routes, model calls, provider SDK
+calls, web fetching, browser automation, shell/subprocess execution, connector
+writes, memory writes, context injection, tool execution, action execution,
+workflow execution, public beta, public release, production readiness, or
+production authority.
+
+```text
+You are working only in doncazper/ultimate-ai-agent.
+
+Task: implement or refresh UAA-P1-089 Top-Level Decision Router Contract.
+
+Goal: define a unified top-level decision router contract so UAA can represent
+whether a bounded safe input should answer directly, use reviewed memory,
+propose an Action Inbox item, ask a human, escalate, defer, or block for
+unsafe/insufficient-evidence posture, without adding runtime authority.
+
+Read first:
+- AGENTS.md
+- docs/registry/agent_module_maturity_review_v2.json
+- docs/registry/AGENT_MODULE_MATURITY_REVIEW_V2.md
+- src/ultimate_ai_agent/core/planning/contracts.py
+- src/ultimate_ai_agent/core/recall/
+- src/ultimate_ai_agent/core/tools/
+- src/ultimate_ai_agent/approvals.py
+- docs/README.md
+- docs/DOCUMENTATION_INDEX.md
+- docs/kanban/current_board.md
+- docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
+
+Required artifacts:
+- src/ultimate_ai_agent/core/decision_router/
+- docs/control_center/UAA_P1_089_TOP_LEVEL_DECISION_ROUTER_CONTRACT.md
+- scripts/verify_uaa_p1_089_top_level_decision_router_contract.py
+- tests/test_uaa_p1_089_top_level_decision_router_contract.py
+
+Define typed models for:
+- DecisionRouterInput
+- DecisionRouterCandidate
+- DecisionRouterOutcome
+- DecisionRouterTrace
+- DecisionRouterBlockedState
+
+Allowed outcome kinds:
+- answer_directly
+- use_reviewed_memory
+- propose_action_inbox_item
+- ask_human
+- escalate_to_review
+- defer
+- blocked_unsafe
+- insufficient_evidence
+
+Each outcome must include safe reason refs, evidence refs, source refs, blocked
+authority refs, confidence and ambiguity posture, next safe operator action,
+downstream proposal refs when present, deterministic trace refs, and explicit
+no-effect flags proving route authority was not granted and no execution,
+model call, tool call, workflow execution, memory write, or context injection
+occurred.
+
+The router may inspect bounded safe refs or fixtures only. Do not add a live
+API route unless a later accepted milestone explicitly scopes it. Source refs
+from model/runtime/OpenWebUI/context-pack outputs must not become route
+authority.
+
+Subagents are required. Use at least one independent repo-evidence reviewer
+and one safety/product-language reviewer before final hardening.
+
+Safety boundaries:
+- no model/provider calls
+- no shell/subprocess execution
+- no web fetching or browser automation
+- no connector writes
+- no memory writes
+- no context injection
+- no tool/action/workflow execution
+- no autonomous routing authority
+- no production/public beta claims
+
+Validation:
+PYTHONPATH=src .venv/bin/python scripts/verify_uaa_p1_089_top_level_decision_router_contract.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_uaa_p1_089_top_level_decision_router_contract.py -q
+.venv/bin/python scripts/verify_documentation_integrity.py
+git diff --check
+```
+
+## 1C. UAA-P1-090 Task Decomposition Proposal Engine Prompt
+
+Use this prompt to refresh or repair `UAA-P1-090` only. It is a
+proposal/read-model lane for deterministic task decomposition proposals. It
+does not grant backend routes, model calls, provider SDK calls, web fetching,
+browser automation, shell/subprocess execution, connector writes, memory
+writes, context injection, tool execution, action execution, workflow
+execution, autonomous planning authority, public beta, public release,
+production readiness, or production authority.
+
+```text
+You are working only in doncazper/ultimate-ai-agent.
+
+Task: implement or refresh UAA-P1-090 Task Decomposition Proposal Engine.
+
+Goal: turn bounded safe operator request refs into review-only task
+decomposition proposals that can feed Plans and Action Inbox as proposal
+artifacts only.
+
+Read first:
+- AGENTS.md
+- docs/registry/agent_module_maturity_review_v2.json
+- docs/registry/AGENT_MODULE_MATURITY_REVIEW_V2.md
+- docs/control_center/UAA_P1_089_TOP_LEVEL_DECISION_ROUTER_CONTRACT.md
+- src/ultimate_ai_agent/core/planning/action_envelopes.py
+- src/ultimate_ai_agent/core/storage/founder_loop.py
+- apps/control-center/src/components/FounderLoopPanels.tsx
+- docs/README.md
+- docs/DOCUMENTATION_INDEX.md
+- docs/kanban/current_board.md
+- docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md
+
+Required artifacts:
+- src/ultimate_ai_agent/core/task_decomposition/proposals.py
+- docs/control_center/UAA_P1_090_TASK_DECOMPOSITION_PROPOSAL_ENGINE.md
+- scripts/verify_uaa_p1_090_task_decomposition_proposal_engine.py
+- tests/test_uaa_p1_090_task_decomposition_proposal_engine.py
+
+Define typed proposal models for:
+- TaskDecompositionRequest
+- TaskDecompositionProposal
+- TaskDecompositionStep
+- TaskDecompositionRisk
+- TaskDecompositionReviewEnvelope
+- TaskDecompositionBlockedState
+
+Each proposal must include the original request safe summary/ref, proposed
+steps, dependencies, ambiguity refs, missing evidence refs, risk class,
+suggested Action Inbox proposal refs, required approvals, blocked authorities,
+why proposed, what this affects, and explicit no-effect flags.
+
+Bridge outputs into Plans and Action Inbox as proposal-only artifacts where the
+existing Founder Loop read model supports it. Add UI and CLI inspection parity
+only when the data stays backend-owned and non-authoritative. Do not add an
+apply/use/run/execute control.
+
+Subagents are required. Use at least one planning-contract/repo-evidence
+reviewer and one proposal-only safety/product-language reviewer before final
+hardening.
+
+Safety boundaries:
+- no model/provider calls
+- no shell/subprocess execution
+- no web fetching or browser automation
+- no connector writes
+- no memory writes
+- no context injection
+- no tool/action/workflow execution
+- no autonomous planning authority
+- no production/public beta claims
+
+Validation:
+PYTHONPATH=src .venv/bin/python scripts/verify_uaa_p1_090_task_decomposition_proposal_engine.py
+PYTHONPATH=src .venv/bin/python -m pytest tests/test_uaa_p1_090_task_decomposition_proposal_engine.py -q
+.venv/bin/python scripts/verify_documentation_integrity.py
+git diff --check
+```
+
 ## 13. UAA-P1-082 Explicit Loopback CORS Allowlist Prompt
 
 Use this prompt only after UAA-P1-081 Centralized FastAPI Security Headers is

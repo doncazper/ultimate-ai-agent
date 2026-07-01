@@ -26,6 +26,7 @@ from ultimate_ai_agent.api.rate_limits import (  # noqa: E402
 from scripts.verification.api_routes import (  # noqa: E402
     EXPECTED_RATE_LIMIT_GROUPS,
     EXPECTED_RATE_LIMIT_POSTURE_SUMMARY,
+    EXPECTED_TARGETED_RATE_LIMIT_ROUTE_COUNT,
     append_expected_route_count,
     append_route_fixture_mismatches,
     route_fixture,
@@ -90,7 +91,9 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     append_expected_route_count(failures, manifest)
 
     policy_schema = load_json(POLICY_SCHEMA)
-    policy_payload = api_rate_limit_policy_payload(targeted_route_count=52)
+    policy_payload = api_rate_limit_policy_payload(
+        targeted_route_count=EXPECTED_TARGETED_RATE_LIMIT_ROUTE_COUNT
+    )
     for error in sorted(
         Draft202012Validator(policy_schema).iter_errors(policy_payload),
         key=lambda error: error.path,
@@ -128,7 +131,7 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
     targeted_routes = {
         key for key, route in routes_by_key.items() if route["rate_limit_targeted"] is True
     }
-    if len(targeted_routes) != 52:
+    if len(targeted_routes) != EXPECTED_TARGETED_RATE_LIMIT_ROUTE_COUNT:
         failures.append(f"targeted rate-limit route count drifted: {len(targeted_routes)}")
     targeted_groups = {
         route["rate_limit_group"]

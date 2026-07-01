@@ -25,7 +25,7 @@ from ultimate_ai_agent.core.tools.runtime.http_fetch import (
     READ_ONLY_HTTP_FETCH_TOOL_REF,
     HttpFetchTransport,
     ReadOnlyHttpFetchPolicy,
-    build_read_only_http_fetch_output,
+    build_read_only_http_fetch_output_via_web_access_gateway,
     http_fetch_policy_reason_codes,
 )
 from ultimate_ai_agent.core.tools.runtime.noop import invoke_noop_tool
@@ -228,7 +228,7 @@ def evaluate_tool_invocation(
         assert http_request is not None
         assert http_policy is not None
         try:
-            output = build_read_only_http_fetch_output(
+            output = build_read_only_http_fetch_output_via_web_access_gateway(
                 invocation_id=request.invocation_id,
                 request=http_request,
                 policy=http_policy,

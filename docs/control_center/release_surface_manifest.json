@@ -5,6 +5,7 @@
   "milestone_ref": "FCC-V1-000",
   "source_routes_ref": "apps/control-center/src/routes.tsx",
   "route_status_manifest_ref": "docs/control_center/route_status_manifest.json",
+  "visual_regression_manifest_ref": "docs/control_center/visual_regression_manifest.json",
   "status_vocabulary": [
     "ship",
     "partial",
@@ -67,7 +68,22 @@
         "scripts/dev/uaa_founder_loop.py",
         "docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md"
       ],
-      "owner": "founder-loop"
+      "owner": "founder-loop",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "checked_in_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:today",
+      "visual_proof_rationale": "Checked-in redacted desktop/mobile baseline is recorded in docs/control_center/visual_regression_manifest.json.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/inbox",
@@ -86,7 +102,7 @@
       ],
       "side_effect_class": "local_dev_workspace_only",
       "route_classification": "local_readonly",
-      "approval_required": false,
+      "approval_required": true,
       "proof_lanes": [
         "scripts/verify_control_center_release_surface.py",
         "tests/test_control_center_release_surface_manifest.py",
@@ -108,7 +124,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "founder-loop"
+      "owner": "founder-loop",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:inbox:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/plans",
@@ -148,7 +179,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "task-decomposition"
+      "owner": "task-decomposition",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "checked_in_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:plans",
+      "visual_proof_rationale": "Checked-in redacted desktop/mobile baseline is recorded in docs/control_center/visual_regression_manifest.json.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/actions",
@@ -207,6 +253,13 @@
           "route_classification": "local_sensitive"
         },
         {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
           "method": "POST",
           "path": "/control-center/today/action-envelope",
           "operation_id": "post_control_center_today_action_envelope",
@@ -240,7 +293,22 @@
         "docs/control_center/operational_maturity_manifest.json",
         "scripts/verify_operational_maturity.py"
       ],
-      "owner": "founder-loop"
+      "owner": "founder-loop",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "checked_in_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:actions",
+      "visual_proof_rationale": "Checked-in redacted desktop/mobile baseline is recorded in docs/control_center/visual_regression_manifest.json.",
+      "promotion_criteria": [
+        "Keep backend route refs present and passing focused route/API tests.",
+        "Keep proof lanes passing with safe refs and redacted summaries only.",
+        "Keep blocked capabilities empty for the claimed route behavior.",
+        "Do not broaden authority beyond the exact proofed route-surface behavior."
+      ],
+      "product_language_caveats": [
+        "Release status is ship for proofed route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/memory",
@@ -279,6 +347,13 @@
         },
         {
           "method": "GET",
+          "path": "/control-center/memory/retrieval-diagnostics",
+          "operation_id": "get_control_center_memory_retrieval_diagnostics",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
           "path": "/control-center/memory/citation-integrity",
           "operation_id": "get_control_center_memory_citation_integrity",
           "side_effect_class": "local_dev_workspace_only",
@@ -286,29 +361,22 @@
         },
         {
           "method": "GET",
+          "path": "/control-center/memory/quality-issues",
+          "operation_id": "get_control_center_memory_quality_issues",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/memory/maintenance-runs",
+          "operation_id": "get_control_center_memory_maintenance_runs",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
           "path": "/control-center/memory/context-manifest",
           "operation_id": "get_control_center_memory_context_manifest",
-          "side_effect_class": "local_dev_workspace_only",
-          "route_classification": "local_sensitive"
-        },
-        {
-          "method": "GET",
-          "path": "/control-center/memory/impact-graph",
-          "operation_id": "get_control_center_memory_impact_graph",
-          "side_effect_class": "local_dev_workspace_only",
-          "route_classification": "local_sensitive"
-        },
-        {
-          "method": "GET",
-          "path": "/control-center/memory/follow-ups",
-          "operation_id": "get_control_center_memory_follow_ups",
-          "side_effect_class": "local_dev_workspace_only",
-          "route_classification": "local_sensitive"
-        },
-        {
-          "method": "GET",
-          "path": "/control-center/memory/recall-health",
-          "operation_id": "get_control_center_memory_recall_health",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         },
@@ -328,22 +396,22 @@
         },
         {
           "method": "GET",
-          "path": "/control-center/memory/maintenance-runs",
-          "operation_id": "get_control_center_memory_maintenance_runs",
+          "path": "/control-center/memory/observation-candidates",
+          "operation_id": "get_control_center_memory_observation_candidates",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         },
         {
           "method": "GET",
-          "path": "/control-center/memory/quality-issues",
-          "operation_id": "get_control_center_memory_quality_issues",
+          "path": "/control-center/memory/probe",
+          "operation_id": "get_control_center_memory_probe",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         },
         {
           "method": "GET",
-          "path": "/control-center/memory/retrieval-diagnostics",
-          "operation_id": "get_control_center_memory_retrieval_diagnostics",
+          "path": "/control-center/memory/contradictions",
+          "operation_id": "get_control_center_memory_contradictions",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         },
@@ -441,11 +509,8 @@
         "apps/control-center/src/App.test.tsx",
         "scripts/verify_governed_cognitive_memory_spine_v1.py",
         "scripts/verify_fcc_v1_005_memory_review_decisions.py",
-        "scripts/verify_fcc_mem_015_memory_impact_graph_followup_queue.py",
-        "scripts/verify_fcc_mem_016_020_memory_diagnostics.py",
         "tests/test_governed_memory_l1_hot_index.py",
         "tests/test_fcc_v1_005_memory_review_decisions.py",
-        "tests/test_fcc_mem_016_020_memory_diagnostics.py",
         "docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md",
         "scripts/verify_founder_loop_v1.py",
         "tests/test_founder_loop_v1_proof_lane.py",
@@ -475,13 +540,24 @@
         "src/ultimate_ai_agent/core/memory/l3_index.py",
         "src/ultimate_ai_agent/core/memory/context_packs.py",
         "src/ultimate_ai_agent/core/memory/execution_hooks.py",
-        "tests/test_governed_memory_phase6_execution_hooks.py",
-        "src/ultimate_ai_agent/core/memory/diagnostics.py",
-        "docs/control_center/FCC_MEM_016_020_MEMORY_DIAGNOSTICS_CITATIONS_FEEDBACK_MAINTENANCE_CONTEXT.md",
-        "scripts/verify_fcc_mem_016_020_memory_diagnostics.py",
-        "tests/test_fcc_mem_016_020_memory_diagnostics.py"
+        "tests/test_governed_memory_phase6_execution_hooks.py"
       ],
-      "owner": "founder-loop"
+      "owner": "founder-loop",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "checked_in_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:memory",
+      "visual_proof_rationale": "Checked-in redacted desktop/mobile baseline is recorded in docs/control_center/visual_regression_manifest.json.",
+      "promotion_criteria": [
+        "Keep backend route refs present and passing focused route/API tests.",
+        "Keep proof lanes passing with safe refs and redacted summaries only.",
+        "Keep blocked capabilities empty for the claimed route behavior.",
+        "Do not broaden authority beyond the exact proofed route-surface behavior."
+      ],
+      "product_language_caveats": [
+        "Release status is ship for proofed route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/evidence",
@@ -544,7 +620,22 @@
         "docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md",
         "scripts/verify_founder_loop_v1.py"
       ],
-      "owner": "evidence-and-audit"
+      "owner": "evidence-and-audit",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "checked_in_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:evidence",
+      "visual_proof_rationale": "Checked-in redacted desktop/mobile baseline is recorded in docs/control_center/visual_regression_manifest.json.",
+      "promotion_criteria": [
+        "Keep backend route refs present and passing focused route/API tests.",
+        "Keep proof lanes passing with safe refs and redacted summaries only.",
+        "Keep blocked capabilities empty for the claimed route behavior.",
+        "Do not broaden authority beyond the exact proofed route-surface behavior."
+      ],
+      "product_language_caveats": [
+        "Release status is ship for proofed route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/settings",
@@ -559,11 +650,25 @@
           "operation_id": "get_control_center_settings_status",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/providers/setup-guide",
+          "operation_id": "get_control_center_providers_setup_guide",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "side_effect_class": "validation_only",
       "route_classification": "local_readonly",
-      "approval_required": false,
+      "approval_required": true,
       "proof_lanes": [
         "scripts/verify_control_center_release_surface.py",
         "tests/test_control_center_release_surface_manifest.py",
@@ -572,19 +677,113 @@
       "blocked_capabilities": [
         "missing_backend:loopback-auth-status",
         "missing_backend:reviewed-local-runtime-settings",
+        "missing_backend:provider-configuration",
+        "missing_backend:kill-switch-execution",
+        "missing_backend:revocation-execution",
+        "missing_backend:runtime-lifecycle-mutation",
         "mutating_settings_controls",
+        "feature_flag_writes",
+        "provider_configuration",
+        "installer_behavior",
+        "runtime_activation",
+        "connector_runtime",
+        "public_beta_claim",
         "public_distribution_claim",
         "production_readiness_claim",
         "production_authority",
+        "model_calls",
+        "provider_sdk_calls",
+        "live_web",
+        "shell_browser_execution",
         "broad_runtime_execution",
         "connector_write"
       ],
       "evidence_refs": [
         "apps/control-center/src/routes.tsx",
         "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
+        "docs/control_center/PRODUCT_LOOP_011_SETTINGS_KILL_SWITCH_CLARITY.md",
+        "scripts/inspect_settings_authority_posture.py",
+        "scripts/verify_product_loop_011_settings_kill_switch_clarity.py"
+      ],
+      "owner": "operator-settings",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "checked_in_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:settings",
+      "visual_proof_rationale": "Checked-in redacted desktop/mobile baseline is recorded in docs/control_center/visual_regression_manifest.json.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
+    },
+    {
+      "path": "/crm",
+      "label": "CRM",
+      "group": "Founder Loop",
+      "ui_status": "fixture-only",
+      "status": "blocked",
+      "backend_routes": [],
+      "side_effect_class": "local_ui_state_only",
+      "route_classification": "none",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "scripts/verify_crm_m1_fixture_only_vertical_shell.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "tests/test_crm_m1_fixture_only_vertical_shell.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:crm-m1-backend-read-model",
+        "missing_backend:control-center-crm-read-route",
+        "missing_backend:crm-cli-inspection-read-model",
+        "missing_backend:crm-connector-runtime-contract",
+        "missing_backend:crm-write-proposal-contract",
+        "connector_runtime",
+        "external_crm_write",
+        "account_sync",
+        "contact_import",
+        "send",
+        "calendar_write",
+        "provider_model_calls",
+        "live_web",
+        "browser_automation",
+        "hidden_context_injection",
+        "public_beta_claim",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "apps/control-center/src/components/CrmM1FixtureShellPanel.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "operator-settings"
+      "owner": "crm-m1-fixture-shell",
+      "backend_contract_rationale": "no-backend-route:crm-fixture-only-shell:explicitly-blocked",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:crm:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline exists for /crm yet; the route is fixture-only and remains blocked from release promotion until a scoped visual proof lane is accepted.",
+      "promotion_criteria": [
+        "Add accepted backend/core CRM read-model contracts before claiming backend-backed CRM behavior.",
+        "Add OpenAPI/API manifest, CLI inspection, and focused tests before any CRM backend route exists.",
+        "Record checked-in redacted visual baseline proof or accepted no-baseline rationale before route maturity promotion.",
+        "Keep connector runtime, external CRM writes, account sync, sends, calendar writes, provider/model calls, live web, browser automation, public release, production readiness, and production authority blocked until separately accepted."
+      ],
+      "product_language_caveats": [
+        "Release status is blocked because /crm is fixture-only and is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only over CRM M1 fixture refs.",
+        "Route visibility does not grant connector writes, CRM writes, sends, calendar writes, provider/model calls, browser execution, hidden context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/briefing",
@@ -624,7 +823,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "founder-loop"
+      "owner": "founder-loop",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:briefing:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/private-trial",
@@ -656,7 +870,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "founder-loop"
+      "owner": "founder-loop",
+      "backend_contract_rationale": "no-backend-route:private-trial:explicitly-blocked-or-experimental",
+      "visual_proof_status": "experimental_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:private-trial:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is experimental for experimental route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/operator-loop",
@@ -707,7 +936,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "control-center"
+      "owner": "control-center",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:operator-loop:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/setup",
@@ -722,11 +966,25 @@
           "operation_id": "get_control_center_setup_assistant_summary",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/providers/setup-guide",
+          "operation_id": "get_control_center_providers_setup_guide",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "side_effect_class": "validation_only",
       "route_classification": "local_readonly",
-      "approval_required": false,
+      "approval_required": true,
       "proof_lanes": [
         "scripts/verify_control_center_release_surface.py",
         "tests/test_control_center_release_surface_manifest.py",
@@ -745,7 +1003,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "macos-setup-assistant"
+      "owner": "macos-setup-assistant",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "checked_in_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:setup",
+      "visual_proof_rationale": "Checked-in redacted desktop/mobile baseline is recorded in docs/control_center/visual_regression_manifest.json.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/chat",
@@ -813,7 +1086,22 @@
         "docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md",
         "scripts/verify_founder_loop_v1.py"
       ],
-      "owner": "local-model-runtime"
+      "owner": "local-model-runtime",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:chat:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Keep backend route refs present and passing focused route/API tests.",
+        "Keep proof lanes passing with safe refs and redacted summaries only.",
+        "Keep blocked capabilities empty for the claimed route behavior.",
+        "Do not broaden authority beyond the exact proofed route-surface behavior."
+      ],
+      "product_language_caveats": [
+        "Release status is ship for proofed route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/models",
@@ -835,11 +1123,25 @@
           "operation_id": "get_control_center_local_models_status",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/providers/setup-guide",
+          "operation_id": "get_control_center_providers_setup_guide",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "side_effect_class": "local_dev_workspace_only",
       "route_classification": "local_sensitive",
-      "approval_required": false,
+      "approval_required": true,
       "proof_lanes": [
         "scripts/verify_control_center_release_surface.py",
         "tests/test_control_center_release_surface_manifest.py",
@@ -860,7 +1162,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "local-model-management"
+      "owner": "local-model-management",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:models:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/approvals",
@@ -898,7 +1215,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "approval-authority"
+      "owner": "approval-authority",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:approvals:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/files",
@@ -944,7 +1276,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "local-file-workbench"
+      "owner": "local-file-workbench",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:files:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/files/review",
@@ -984,7 +1331,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "local-file-workbench"
+      "owner": "local-file-workbench",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "experimental_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:files-review:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is experimental for experimental route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/context/proposals",
@@ -1015,7 +1377,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "context-governance"
+      "owner": "context-governance",
+      "backend_contract_rationale": "no-backend-route:context-proposals:explicitly-blocked-or-experimental",
+      "visual_proof_status": "experimental_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:context-proposals:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is experimental for experimental route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/action-preview",
@@ -1052,7 +1429,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "control-center"
+      "owner": "control-center",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "experimental_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:action-preview:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is experimental for experimental route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/runtime",
@@ -1098,7 +1490,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "runtime-readiness"
+      "owner": "runtime-readiness",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:runtime:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/storage",
@@ -1136,7 +1543,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "founder-loop"
+      "owner": "founder-loop",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:storage:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/runtime/local",
@@ -1181,7 +1603,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "runtime-readiness"
+      "owner": "runtime-readiness",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:runtime-local:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/runtime/manual-smoke",
@@ -1219,7 +1656,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "runtime-readiness"
+      "owner": "runtime-readiness",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:runtime-manual-smoke:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/remote-workers",
@@ -1257,7 +1709,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "remote-worker-governance"
+      "owner": "remote-worker-governance",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "experimental_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:remote-workers:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is experimental for experimental route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/mobile-planning",
@@ -1287,7 +1754,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "mobile-governance"
+      "owner": "mobile-governance",
+      "backend_contract_rationale": "no-backend-route:mobile-planning:explicitly-blocked-or-experimental",
+      "visual_proof_status": "experimental_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:mobile-planning:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is experimental for experimental route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/plugin-governance",
@@ -1317,7 +1799,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "plugin-governance"
+      "owner": "plugin-governance",
+      "backend_contract_rationale": "no-backend-route:plugin-governance:explicitly-blocked-or-experimental",
+      "visual_proof_status": "experimental_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:plugin-governance:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is experimental for experimental route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/foundation-gate",
@@ -1354,7 +1851,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "foundation-gate"
+      "owner": "foundation-gate",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:foundation-gate:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/receipts",
@@ -1392,7 +1904,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "evidence-and-audit"
+      "owner": "evidence-and-audit",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:receipts:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/events",
@@ -1430,7 +1957,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "event-ledger"
+      "owner": "event-ledger",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:events:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/events/timeline",
@@ -1462,7 +2004,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "mixed"
+      "owner": "mixed",
+      "backend_contract_rationale": "no-backend-route:events-timeline:explicitly-blocked-or-experimental",
+      "visual_proof_status": "experimental_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:events-timeline:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is experimental for experimental route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/",
@@ -1513,7 +2070,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "control-center"
+      "owner": "control-center",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "checked_in_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:overview",
+      "visual_proof_rationale": "Checked-in redacted desktop/mobile baseline is recorded in docs/control_center/visual_regression_manifest.json.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/dashboard",
@@ -1550,7 +2122,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "control-center"
+      "owner": "control-center",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:dashboard:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/api-routes",
@@ -1594,7 +2181,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "api-boundary"
+      "owner": "api-boundary",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:api-routes:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     },
     {
       "path": "/differentiators",
@@ -1652,7 +2254,22 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
       ],
-      "owner": "control-center"
+      "owner": "control-center",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:differentiators:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+      ]
     }
   ]
 }

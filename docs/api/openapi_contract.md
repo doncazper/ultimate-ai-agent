@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `152`.
+Current OpenAPI path count: `159`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -29,6 +29,20 @@ Contract rules:
 - Governed web evidence routes may use the `governed_network_read_only`
   side-effect class and must remain HTTPS GET only, allowlisted, bounded,
   redacted, receipt-ref oriented, and blocked from unrestricted browsing.
+- `POST /control-center/providers/credentials/validate` may use the
+  `governed_network_read_only` side-effect class only for the exact-approved
+  credential validation lane. It requires exact approval, policy scope,
+  idempotency, redacted receipt refs, revocation/safe-disable posture, and an
+  approved injected transport before any provider network validation can occur.
+  No built-in provider transport is enabled by default, and the lane remains
+  blocked from model invocation, provider SDKs, raw credential display, provider
+  payload persistence, fallback, autonomous/background calls, billing authority,
+  and production authority.
+- `POST /control-center/providers/router/dry-run` is a proposal-only provider
+  routing posture lane. Its OpenAPI visibility does not grant callable runtime:
+  provider invocation, fallback execution, network calls, provider SDK calls,
+  credential validation, model calls, billing authority, background execution,
+  and raw prompt/response/provider payload persistence remain blocked.
 - The local `/v1` gateway must remain disabled by default, loopback/local-only,
   bearer-gated, and constrained to the accepted local model lane.
 - `GET /extensions/catalog` must remain a read-only inspectable metadata route
@@ -52,17 +66,14 @@ Contract rules:
   `GET /control-center/memory/l1-index`,
   `GET /control-center/memory/l2-index`,
   `GET /control-center/memory/l3-index`,
-  `GET /control-center/memory/context-packs`,
-  `GET /control-center/memory/impact-graph`,
-  `GET /control-center/memory/follow-ups`,
-  `GET /control-center/memory/recall-health`,
   `GET /control-center/memory/retrieval-diagnostics`,
   `GET /control-center/memory/citation-integrity`,
   `GET /control-center/memory/quality-issues`,
   `GET /control-center/memory/maintenance-runs`,
   `GET /control-center/memory/context-manifest`,
-  `POST /control-center/memory/feedback`,
+  `GET /control-center/memory/context-packs`,
   `POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal`,
+  `POST /control-center/memory/feedback`,
   `GET /control-center/memory/review`,
   `GET /control-center/memory/review/{candidate_ref}/receipt`,
   `POST /control-center/memory/review/{candidate_ref}/accept`,
@@ -75,14 +86,10 @@ Contract rules:
   Review decision routes record backend-owned review state and receipt refs;
   accept/correct create reviewed recall-only records. The L1, L2, L3, and context-pack
   routes provide derived read-only recall previews, factual/graph/temporal ref
-  projections, identity/session/preference/commitment representation
-  proposals, proposal-only context-pack envelopes from reviewed source lanes
-  with source/evidence/receipt refs, retrieval diagnostics, citation integrity,
-  feedback-derived quality issues, proposal-only maintenance scans, and context
-  manifest proposal artifacts. Phase 6.1 may create an internal Action
-  proposal receipt from an exact-approved context-pack ref only. Memory
-  feedback records quality signal receipts only and does not rewrite reviewed
-  recall.
+  projections, and identity/session/preference/commitment representation
+  proposals plus proposal-only context-pack envelopes from reviewed source
+  lanes with source, evidence, and receipt refs. Phase 6.1 may create an
+  internal Action proposal receipt from an exact-approved context-pack ref only.
   `local_task_create` commits local task state only after exact local approval,
   idempotency, durable receipt, and Evidence Timeline event posture. They do
   not grant generic action execution,
@@ -128,7 +135,8 @@ API boundary hardening:
   decomposition, action preview/proposal, Action Inbox decisions and the
   Action Inbox local task commit lane,
   Today-to-Action envelope promotion, Chat durable receipts/handoffs, Memory
-  Review decision receipts, and expensive validation or local-model paths. It
+  Review decision receipts, the tiny exact-approved provider lane, and
+  expensive validation or local-model paths. It
   does not add auth, distributed
   quota, dependencies, billing, or production authority.
 - UAA-P1-086 adds enforcement tests for OpenAPI, `/api/manifest`, and route

@@ -150,7 +150,7 @@ def _append_route_failures(failures: list[str]) -> None:
     if feedback:
         if feedback.get("idempotency_required") is not True:
             failures.append("memory feedback route must require idempotency")
-        if feedback.get("rate_limit_group") != "memory_review_decision":
+        if feedback.get("rate_limit_group") != "memory_feedback":
             failures.append("memory feedback route rate-limit group drifted")
 
 

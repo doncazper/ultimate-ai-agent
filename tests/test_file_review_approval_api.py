@@ -1,6 +1,7 @@
 from typing import Any
 from fastapi.testclient import TestClient
 
+from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.app import app
 
@@ -63,7 +64,7 @@ def test_openapi_current_boundary_includes_review_capture_and_m151_smoke_routes(
     schema = app.openapi()
 
     assert schema["info"]["version"] == __version__
-    assert len(schema["paths"]) == 152
+    assert len(schema["paths"]) == EXPECTED_ROUTE_COUNT
     assert "/files/review/approvals/capture" in schema["paths"]
     assert "/files/tree/preview" in schema["paths"]
     assert "/observability/session-events" in schema["paths"]

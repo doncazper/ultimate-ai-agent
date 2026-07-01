@@ -194,3 +194,12 @@ class MemoryRecallEligibility(str, Enum):
     eligible_metadata_only = "eligible_metadata_only"
     context_pack_candidate = "context_pack_candidate"
     blocked = "blocked"
+
+
+class MemoryEpistemicRole(str, Enum):
+    world_fact = "world_fact"
+    experience_fact = "experience_fact"
+    opinion = "opinion"
+    observation = "observation"
+    mental_model = "mental_model"
+    unknown = "unknown"

@@ -11,6 +11,7 @@ from ultimate_ai_agent.core.execution.validation import (
     validate_safe_execution_text,
 )
 from ultimate_ai_agent.core.memory.l1_index import L1HotMemoryIndex, L1HotMemoryPreview
+from ultimate_ai_agent.core.memory.feature_mine import memory_hrr_readiness
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -184,6 +185,7 @@ def _validate_common_item(instance: Any, label: str) -> None:
         "metadata_refs",
         "tag_refs",
         "supporting_refs",
+        "retrieval_strategy_refs",
         "blocked_state_refs",
     ]:
         value = getattr(instance, field_name, None)
@@ -198,6 +200,9 @@ def _validate_common_item(instance: Any, label: str) -> None:
         _validate_safe_text(str(getattr(instance, text_field)), text_field)
     for reason in instance.derivation_reasons:
         _validate_safe_text(str(reason), "derivation_reasons")
+    if getattr(instance, "safe_query_ref", None) is not None:
+        _validate_safe_ref(str(instance.safe_query_ref), "safe_query_ref")
+    _validate_safe_text(str(getattr(instance, "query_mode", "default")), "query_mode")
     _require_ref_list(instance.source_refs, "source_refs")
     _require_ref_list(instance.evidence_refs, "evidence_refs")
     _require_ref_list(instance.receipt_refs, "receipt_refs")
@@ -246,6 +251,10 @@ class L2MemoryFactItem(_L2AuthorityPosture):
     tag_refs: list[str] = Field(default_factory=list)
     derivation_reasons: list[L2DerivationReason] = Field(default_factory=list)
     supporting_refs: list[str] = Field(default_factory=list)
+    score_components: dict[str, float] = Field(default_factory=dict)
+    retrieval_strategy_refs: list[str] = Field(default_factory=list)
+    query_mode: str = "default"
+    safe_query_ref: str | None = None
     stale_state: str = "none"
     conflict_state: str = "none"
     blocked_state_refs: list[str] = Field(
@@ -282,6 +291,10 @@ class L2MemoryGraphRelation(_L2AuthorityPosture):
     tag_refs: list[str] = Field(default_factory=list)
     derivation_reasons: list[L2DerivationReason] = Field(default_factory=list)
     supporting_refs: list[str] = Field(default_factory=list)
+    score_components: dict[str, float] = Field(default_factory=dict)
+    retrieval_strategy_refs: list[str] = Field(default_factory=list)
+    query_mode: str = "default"
+    safe_query_ref: str | None = None
     stale_state: str = "none"
     conflict_state: str = "none"
     blocked_state_refs: list[str] = Field(
@@ -318,6 +331,10 @@ class L2MemoryTemporalItem(_L2AuthorityPosture):
     tag_refs: list[str] = Field(default_factory=list)
     derivation_reasons: list[L2DerivationReason] = Field(default_factory=list)
     supporting_refs: list[str] = Field(default_factory=list)
+    score_components: dict[str, float] = Field(default_factory=dict)
+    retrieval_strategy_refs: list[str] = Field(default_factory=list)
+    query_mode: str = "default"
+    safe_query_ref: str | None = None
     stale_state: str = "none"
     conflict_state: str = "none"
     blocked_state_refs: list[str] = Field(
@@ -343,6 +360,8 @@ class L2FactualGraphTemporalIndex(_L2AuthorityPosture):
     source_l1_contract_ref: str
     source_l1_route_ref: str
     query_ref: str | None = None
+    safe_query_ref: str | None = None
+    query_mode: str = "default"
     generated_at: datetime = Field(default_factory=utc_now)
     source_l1_preview_count: int = Field(default=0, ge=0)
     fact_count: int = Field(default=0, ge=0)
@@ -355,6 +374,9 @@ class L2FactualGraphTemporalIndex(_L2AuthorityPosture):
     skipped_l1_preview_count: int = Field(default=0, ge=0)
     safe_refs_only: bool = True
     deterministic_projection_only: bool = True
+    retrieval_strategy_refs: list[str] = Field(default_factory=list)
+    search_index_status: dict[str, Any] = Field(default_factory=dict)
+    hrr_readiness: dict[str, Any] = Field(default_factory=memory_hrr_readiness)
     semantic_extraction_used: bool = False
     blocked_state_refs: list[str] = Field(
         default_factory=lambda: list(L2_FACTUAL_GRAPH_TEMPORAL_INDEX_BLOCKED_STATE_REFS)
@@ -371,6 +393,11 @@ class L2FactualGraphTemporalIndex(_L2AuthorityPosture):
         _validate_safe_text(self.source_l1_route_ref, "source_l1_route_ref")
         if self.query_ref is not None:
             _validate_safe_ref(self.query_ref, "query_ref")
+        if self.safe_query_ref is not None:
+            _validate_safe_ref(self.safe_query_ref, "safe_query_ref")
+        _validate_safe_text(self.query_mode, "query_mode")
+        for ref in self.retrieval_strategy_refs:
+            _validate_safe_ref(ref, "retrieval_strategy_refs")
         for ref in self.skipped_l1_preview_refs:
             _validate_safe_ref(ref, "skipped_l1_preview_refs")
         for ref in self.blocked_state_refs:
@@ -399,6 +426,7 @@ def build_l2_factual_graph_temporal_index(
     l1_index: L1HotMemoryIndex | dict[str, Any],
     *,
     query_ref: str | None = None,
+    safe_query: str | None = None,
     limit: int = 20,
 ) -> L2FactualGraphTemporalIndex:
     source_index = (
@@ -429,6 +457,8 @@ def build_l2_factual_graph_temporal_index(
         source_l1_contract_ref=source_index.contract_ref,
         source_l1_route_ref=source_index.route_ref,
         query_ref=query_ref or source_index.query_ref,
+        safe_query_ref=source_index.safe_query_ref,
+        query_mode=source_index.query_mode,
         source_l1_preview_count=source_index.preview_count,
         fact_count=len(facts),
         relation_count=len(relations),
@@ -438,6 +468,8 @@ def build_l2_factual_graph_temporal_index(
         temporal_items=temporal_items,
         skipped_l1_preview_refs=skipped_refs,
         skipped_l1_preview_count=len(skipped_refs),
+        retrieval_strategy_refs=_retrieval_strategy_refs(source_index),
+        search_index_status=dict(source_index.search_index_status),
     )
 
 
@@ -475,6 +507,10 @@ def _items_for_preview(
         tag_refs=preview.tag_refs,
         derivation_reasons=reasons,
         supporting_refs=supporting_refs,
+        score_components=dict(preview.score_components),
+        retrieval_strategy_refs=_retrieval_strategy_refs_from_preview(preview),
+        query_mode=preview.query_mode,
+        safe_query_ref=preview.safe_query_ref,
         stale_state=preview.stale_state,
         conflict_state=preview.conflict_state,
     )
@@ -493,6 +529,10 @@ def _items_for_preview(
         tag_refs=preview.tag_refs,
         derivation_reasons=reasons,
         supporting_refs=supporting_refs,
+        score_components=dict(preview.score_components),
+        retrieval_strategy_refs=_retrieval_strategy_refs_from_preview(preview),
+        query_mode=preview.query_mode,
+        safe_query_ref=preview.safe_query_ref,
         stale_state=preview.stale_state,
         conflict_state=preview.conflict_state,
     )
@@ -518,7 +558,27 @@ def _items_for_preview(
         tag_refs=preview.tag_refs,
         derivation_reasons=temporal_reasons,
         supporting_refs=supporting_refs,
+        score_components=dict(preview.score_components),
+        retrieval_strategy_refs=_retrieval_strategy_refs_from_preview(preview),
+        query_mode=preview.query_mode,
+        safe_query_ref=preview.safe_query_ref,
         stale_state=preview.stale_state,
         conflict_state=preview.conflict_state,
     )
     return fact, relation, temporal
+
+
+def _retrieval_strategy_refs(source_index: L1HotMemoryIndex) -> list[str]:
+    refs = [
+        "retrieval-strategy-ref:fcc-mem-022-l2-safe-ref-projection",
+        *source_index.retrieval_strategy_refs,
+    ]
+    return list(dict.fromkeys(refs))
+
+
+def _retrieval_strategy_refs_from_preview(preview: L1HotMemoryPreview) -> list[str]:
+    refs = [
+        "retrieval-strategy-ref:fcc-mem-022-l2-from-l1-preview",
+        *preview.retrieval_strategy_refs,
+    ]
+    return list(dict.fromkeys(refs))

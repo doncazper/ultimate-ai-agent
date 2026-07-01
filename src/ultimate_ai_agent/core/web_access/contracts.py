@@ -45,6 +45,8 @@ class WebAccessAdapterKind(str, Enum):
 
     NONE = "none"
     LOCAL_FETCH = "local_fetch"
+    LOCAL_BROWSER_OBSERVE = "local_browser_observe"
+    LOCAL_BROWSER_ACTION_DRY_RUN = "local_browser_action_dry_run"
     GOVERNED_WEB_EVIDENCE = "governed_web_evidence"
     SEARCH_API = "search_api"
     FIRECRAWL = "firecrawl"
@@ -77,7 +79,9 @@ class WebAccessNetworkLane(str, Enum):
     GOVERNED_WEB_EVIDENCE = "governed_web_evidence"
     LOCAL_MODEL_LOOPBACK = "local_model_loopback"
     MODEL_ACQUISITION = "model_acquisition"
-    TOOL_RUNTIME_LEGACY = "tool_runtime_legacy"
+    TOOL_RUNTIME_READ_ONLY_FETCH = "tool_runtime_read_only_fetch"
+    BROWSER_OBSERVE_ONLY = "browser_observe_only"
+    BROWSER_ACTION_DRY_RUN = "browser_action_dry_run"
 
 
 @dataclass(frozen=True)

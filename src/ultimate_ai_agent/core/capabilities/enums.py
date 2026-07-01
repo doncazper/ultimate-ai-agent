@@ -21,6 +21,36 @@ class SideEffectLevel(str, Enum):
     destructive = "destructive"
 
 
+class CapabilityAuthorityLevel(str, Enum):
+    metadata_only = "metadata_only"
+    read_only = "read_only"
+    mutating = "mutating"
+    external = "external"
+    destructive = "destructive"
+
+
+class CapabilityPrivacyLevel(str, Enum):
+    public = "public"
+    local_private = "local_private"
+    sensitive = "sensitive"
+    secret_ref_only = "secret_ref_only"
+
+
+class CapabilityLatencyClass(str, Enum):
+    unknown = "unknown"
+    interactive = "interactive"
+    background = "background"
+    long_running = "long_running"
+
+
+class CapabilityCostClass(str, Enum):
+    unknown = "unknown"
+    none = "none"
+    low = "low"
+    metered = "metered"
+    high = "high"
+
+
 class RiskLevel(str, Enum):
     safe = "safe"
     low = "low"

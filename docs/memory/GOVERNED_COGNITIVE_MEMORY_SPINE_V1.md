@@ -31,6 +31,22 @@ The spine is UAA-native. `LocalMemoryStore`, source provenance contracts,
 Memory Review decisions, Evidence Timeline events, and route manifests are the
 current authority surfaces.
 
+## Feature-Mine Design References
+
+FCC-MEM-022 records Honcho, Hindsight, and Holographic as design references
+only. UAA may borrow safe product ideas such as perspective-aware recall
+inspection, feedback receipts, contradiction previews, and an explicit future
+path for algebraic vector-like retrieval. UAA does not add an external memory
+provider runtime, cloud memory sync, automatic retain/recall, model extraction,
+semantic/vector search, HRR retrieval, hidden context injection, connector
+writes, or memory-derived execution from those references.
+
+HRR/algebraic retrieval remains disabled with
+`hrr_enabled=false`, `algebraic_retrieval_enabled=false`, and
+`required_milestone_ref=milestone-ref:fcc-mem-hrr-001-explicit-authority`.
+Future HRR work must be explicitly approved as its own milestone and still use
+safe-summary/ref-token inputs only.
+
 ## Current Phase 1
 
 FCC-V1-005 is implemented as backend-owned Memory Review decisions:
@@ -68,6 +84,11 @@ embeddings, use a vector DB, perform semantic search, write memories
 automatically, inject context, sync connectors/CRM/accounts, execute actions,
 or grant public beta or production authority.
 
+FCC-MEM-022 extends L1 read models with optional `safe_query` support. The raw
+query is never echoed; only `safe_query_ref`, `query_mode`,
+`retrieval_strategy_refs`, `score_components`, and `search_index_status` are
+returned.
+
 ## Current Phase 3
 
 Phase 3 L2 factual, graph, and temporal index status is implemented read-only
@@ -104,6 +125,12 @@ semantic extraction, hidden context injection, truth scoring, CRM/account sync,
 connector writes, context-pack injection, action execution, provider/model
 calls, embeddings/vector indexing, semantic search, background indexing, or
 public beta/production authority.
+
+FCC-MEM-022 extends L3 representation items with perspective fields:
+`observer_ref`, `observed_ref`, `perspective_scope`, `peer_card_ref`,
+`session_summary_ref`, and `representation_scope_ref`. These are inspection refs
+only and do not grant truth, identity, approval, context, CRM/account, or action
+authority.
 
 ## Current Phase 5
 
@@ -166,6 +193,26 @@ the internal proposal is recorded. The broad Phase 6 execution-hook contract
 remains blocked for external side effects, connector writes, CRM/account sync,
 shell/browser behavior, provider/model calls, hidden context injection, and
 production authority.
+
+## Current Phase 6.2
+
+FCC-MEM-022 adds ranked retrieval and recall tuning:
+
+- `POST /control-center/memory/feedback`
+- `GET /control-center/memory/observation-candidates`
+- `GET /control-center/memory/probe`
+- `GET /control-center/memory/contradictions`
+
+Feedback is local, approval-bound, and idempotent. It can update trust,
+stale, or conflict posture for reviewed recall records only. It cannot create
+recall records, delete/export memory, write connectors, inject context, execute
+actions, call providers/models, sync cloud memory, or grant production
+authority.
+
+Observation candidates, probe results, and contradiction previews are read-only
+inspection models. They are not truth, automatic opinions, context packs ready
+for prompt injection, merge/forget actions, or authority to operate on external
+systems.
 
 ## Authority Boundary
 

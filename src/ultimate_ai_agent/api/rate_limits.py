@@ -22,8 +22,12 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "chat_durable_receipt": {"max_requests": 60, "window_seconds": 60},
     "memory_review_decision": {"max_requests": 60, "window_seconds": 60},
     "memory_context_pack_action_proposal": {"max_requests": 60, "window_seconds": 60},
+    "memory_feedback": {"max_requests": 60, "window_seconds": 60},
     "action_decision": {"max_requests": 60, "window_seconds": 60},
     "local_model_validation": {"max_requests": 120, "window_seconds": 60},
+    "provider_exact_approved_lane": {"max_requests": 12, "window_seconds": 60},
+    "provider_credential_validation": {"max_requests": 12, "window_seconds": 60},
+    "provider_router_dry_run": {"max_requests": 60, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -91,6 +95,15 @@ MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS = {
 }
 CHAT_DURABLE_RECEIPT_PATHS = {
     "/control-center/chat/turns",
+}
+PROVIDER_EXACT_APPROVED_LANE_PATHS = {
+    "/control-center/providers/exact-approved-lanes/tiny",
+}
+PROVIDER_CREDENTIAL_VALIDATION_PATHS = {
+    "/control-center/providers/credentials/validate",
+}
+PROVIDER_ROUTER_DRY_RUN_PATHS = {
+    "/control-center/providers/router/dry-run",
 }
 
 
@@ -171,7 +184,6 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         normalized_method == "POST"
         and (
             path in MEMORY_MANUAL_CANDIDATE_PATHS
-            or path in MEMORY_FEEDBACK_PATHS
             or (
                 path.startswith("/control-center/memory/review/")
                 and path.endswith(MEMORY_REVIEW_DECISION_SUFFIXES)
@@ -184,8 +196,16 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         and path in MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS
     ):
         return "memory_context_pack_action_proposal"
+    if normalized_method == "POST" and path in MEMORY_FEEDBACK_PATHS:
+        return "memory_feedback"
     if normalized_method == "POST" and path in LOCAL_MODEL_VALIDATION_PATHS:
         return "local_model_validation"
+    if normalized_method == "POST" and path in PROVIDER_EXACT_APPROVED_LANE_PATHS:
+        return "provider_exact_approved_lane"
+    if normalized_method == "POST" and path in PROVIDER_CREDENTIAL_VALIDATION_PATHS:
+        return "provider_credential_validation"
+    if normalized_method == "POST" and path in PROVIDER_ROUTER_DRY_RUN_PATHS:
+        return "provider_router_dry_run"
     return None
 
 

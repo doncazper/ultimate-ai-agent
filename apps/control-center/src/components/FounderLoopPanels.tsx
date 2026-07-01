@@ -16,43 +16,54 @@ import type {
   FounderLoopActionEnvelopePromotionReceipt,
   FounderLoopActionGroupId,
   FounderLoopActionGroupSummary,
+  FounderLoopActionInboxDecisionLaneItem,
+  FounderLoopActionInboxDecisionLaneReadModel,
   FounderLoopActionsInbox,
   FounderLoopActionItem,
   FounderLoopBriefingItem,
+  FounderLoopChatToLoopHandoffReadModel,
+  FounderLoopEvidenceNarrativeEntry,
   FounderLoopEvidenceTimelineEvent,
   FounderLoopEvidenceTimelineIndex,
   FounderLoopEvidenceTimelineItem,
+  FounderLoopEvidenceTimelineNarrativeReadModel,
+  FounderLoopFollowUpTrackerReadModel,
+  FounderLoopFusionRoutingDelegationReadModel,
+  FounderLoopCacheContextEconomics,
+  FounderLoopDelegationProposal,
   FounderLoopLocalTaskCommitReceipt,
   FounderLoopMemoryContextPackProposal,
   FounderLoopMemoryContextPackActionProposalReceipt,
+  FounderLoopMemoryContextPacks,
   FounderLoopMemoryCitationIntegrity,
   FounderLoopMemoryContextManifest,
-  FounderLoopMemoryContextManifestItem,
-  FounderLoopMemoryContextPacks,
-  FounderLoopMemoryFollowUpQueue,
-  FounderLoopMemoryImpactGraph,
-  FounderLoopMemoryImpactNode,
   FounderLoopMemoryMaintenanceRuns,
   FounderLoopMemoryQualityIssue,
   FounderLoopMemoryQualityIssues,
   FounderLoopMemoryReview,
-  FounderLoopMemoryReviewItem,
   FounderLoopMemoryRetrievalDiagnostics,
+  FounderLoopMemoryReviewItem,
   FounderLoopMemoryWorkbench,
   FounderLoopMemoryWorkbenchItem,
   FounderLoopMorningBriefing,
+  FounderLoopMorningBriefingV1ReadModel,
+  FounderLoopOperatorRunTimeline,
   FounderLoopPlanSummary,
+  FounderLoopPlansToActionsBridgeReadModel,
+  FounderLoopProductProofReadModel,
   FounderLoopSourceReadiness,
   FounderLoopSourceReadinessProposalCandidate,
   FounderLoopStorageStatus,
   FounderLoopTodaySummary,
-  FounderLoopRecallHealthV2,
+  FounderLoopWeeklyCeoReviewV1ReadModel,
+  FounderLoopWorkClassification,
   ControlCenterSettingsStatus,
   MemoryReviewDecisionKind,
   MemoryReviewDecisionReceipt,
   ManualMemoryCandidateReceipt,
   MemoryFeedbackKind,
   MemoryFeedbackReceipt,
+  ProviderCredentialReadinessSummary,
 } from "../api/types";
 
 const evidenceHistoryKeys = [
@@ -64,6 +75,13 @@ const evidenceHistoryKeys = [
   "stale",
   "blocked",
 ] as const;
+
+const memoryFeedbackBlockedRefs = [
+  "blocked-state:memory-feedback-no-automatic-memory-write",
+  "blocked-state:memory-feedback-no-context-injection",
+  "blocked-state:memory-feedback-no-action-execution",
+  "blocked-state:memory-feedback-no-production-authority",
+];
 
 const actionGroupFallbacks: FounderLoopActionGroupSummary[] = [
   {
@@ -130,6 +148,7 @@ const unavailableReceiptStates = [
 
 type FounderLoopPrimarySurface =
   | "Today"
+  | "Briefing"
   | "Inbox"
   | "Plans"
   | "Actions"
@@ -184,7 +203,7 @@ export function FounderLoopSpinePanel({
     >
       <div className="loop-spine-header">
         <div>
-          <p className="eyebrow">Founder Command Center</p>
+          <p className="eyebrow">Founder Loop</p>
           <h2 id="founder-loop-spine-heading">Founder daily loop</h2>
         </div>
         <span className="status-pill compact">
@@ -196,7 +215,7 @@ export function FounderLoopSpinePanel({
         Plans, Action Inbox, Memory, Evidence, and Settings stay visible as one
         loop.
         {` ${loopTruthCopy} `}No generic execution is available; the only
-        mutating FCC authority shown
+        mutating Control Center authority shown
         here is the exact local task lane after backend approval.
       </p>
       <div aria-label="Founder daily loop modules" className="loop-spine-grid">
@@ -218,6 +237,7 @@ export function FounderLoopSpinePanel({
           </a>
         ))}
       </div>
+      <OperatorRunTimelineSummary timeline={evidence?.operator_run_timeline} />
       <div
         aria-label="Founder Loop authority boundaries"
         className="loop-authority-strip"
@@ -265,6 +285,7 @@ function buildFounderLoopSpineItems({
     (item) => item.local_task_commit_receipt_ref,
   ).length;
   const memoryReviewGroup = reviewGroups.find((group) => group.kind === "memory");
+  const firstBriefing = today.briefing_items[0];
   const evidenceEvents =
     evidence?.event_count ??
     sections.evidence_timeline_count ??
@@ -287,6 +308,25 @@ function buildFounderLoopSpineItems({
         today.daily_loop_summary?.loop_ref,
         today.product_spine_contract_ref,
         today.storage_ref,
+      ].filter(isPresent),
+    },
+    {
+      surface: "Briefing",
+      label: "Briefing",
+      path: "/briefing",
+      status: today.daily_loop_summary?.home_surface ?? "storage-backed",
+      posture: "partial",
+      summary:
+        firstBriefing?.safe_summary ??
+        "Morning Briefing starts the local loop with bounded preview refs.",
+      nextSafeAction:
+        firstBriefing?.next_safe_action ??
+        today.daily_loop_summary?.next_safe_action ??
+        "Read safe briefing refs before opening Today or Action Inbox.",
+      refs: [
+        firstBriefing?.briefing_ref,
+        today.daily_loop_summary?.loop_ref,
+        today.evidence_history_contract_ref,
       ].filter(isPresent),
     },
     {
@@ -339,7 +379,7 @@ function buildFounderLoopSpineItems({
       nextSafeAction:
         actionItems.find((item) => item.local_task_commit_next_safe_action)
           ?.local_task_commit_next_safe_action ??
-        "Record only supported receipts or commit the approved local task lane.",
+        "Record only supported receipts or the exact local-task commit receipt.",
       refs: [
         inbox?.route_ref,
         inbox?.decision_state_contract_ref,
@@ -419,8 +459,1217 @@ function summarizeLocalTaskLane(items: FounderLoopActionItem[]): string {
   return "Local task lane blocked unless exact approval exists";
 }
 
-function isPresent(value: string | null | undefined): value is string {
+function isPresent<T>(value: T | null | undefined): value is T {
   return Boolean(value);
+}
+
+type DailyLoopCommandItem = {
+  commandRef: string;
+  question: string;
+  surface: string;
+  href: string;
+  status: string;
+  summary: string;
+  whyShown: string;
+  whatThisAffects: string;
+  nextSafeAction: string;
+  refs: string[];
+  posture: "today" | "review" | "waiting" | "influence" | "blocked";
+};
+
+function buildDailyLoopCommandItems(
+  today: FounderLoopTodaySummary,
+): DailyLoopCommandItem[] {
+  const loopReadModel = today.today_loop_read_model;
+  if (!loopReadModel) {
+    const missingSummary =
+      "Today loop digest is missing; Control Center will not infer decision lanes from fallback state.";
+    const missingNextAction =
+      "Wait for the backend-owned Today loop read model before treating refs as decision lanes.";
+    return [
+      {
+        commandRef: "daily-loop-command:what-matters-today",
+        question: "What matters today",
+        surface: "Today",
+        href: "/today",
+        status: "backend digest missing",
+        summary: missingSummary,
+        whyShown:
+          "The Product Loop 003 digest is required before Today can order priority refs.",
+        whatThisAffects: "Today, Briefing, Plans, Action Inbox",
+        nextSafeAction: missingNextAction,
+        refs: [today.product_spine_contract_ref].filter(isPresent),
+        posture: "today",
+      },
+      {
+        commandRef: "daily-loop-command:needs-review",
+        question: "What needs review",
+        surface: "Action Inbox",
+        href: "/actions",
+        status: "backend digest missing",
+        summary: missingSummary,
+        whyShown:
+          "Control Center needs backend-owned review refs before showing a decision lane.",
+        whatThisAffects: "Actions, Plans, Evidence, Memory-derived follow-ups",
+        nextSafeAction: missingNextAction,
+        refs: [],
+        posture: "review",
+      },
+      {
+        commandRef: "daily-loop-command:changed",
+        question: "What changed",
+        surface: "Evidence",
+        href: "/evidence",
+        status: "backend digest missing",
+        summary: missingSummary,
+        whyShown:
+          "Changed refs must come from the backend-owned Today loop read model.",
+        whatThisAffects: "Evidence, Today, Weekly Review, Action Inbox",
+        nextSafeAction: missingNextAction,
+        refs: [],
+        posture: "waiting",
+      },
+      {
+        commandRef: "daily-loop-command:memory-evidence-influence",
+        question: "What memory/evidence is influencing the loop",
+        surface: "Memory and Evidence",
+        href: "/memory",
+        status: "backend digest missing",
+        summary: missingSummary,
+        whyShown:
+          "Influence refs remain review-only and need backend grouping before display as loop posture.",
+        whatThisAffects: "Memory, Evidence, Today, Actions, Briefing",
+        nextSafeAction: missingNextAction,
+        refs: [],
+        posture: "influence",
+      },
+      {
+        commandRef: "daily-loop-command:blocked-unsafe",
+        question: "What is blocked or unsafe",
+        surface: "Blocked states",
+        href: "/evidence",
+        status: "backend digest missing",
+        summary: missingSummary,
+        whyShown:
+          "Blocked posture must be backend-owned so fallback refs cannot imply authority.",
+        whatThisAffects: "All Founder Loop surfaces",
+        nextSafeAction: missingNextAction,
+        refs: [],
+        posture: "blocked",
+      },
+    ];
+  }
+  const needsReviewRefs = loopReadModel.needs_review_refs;
+  const changedRefs = loopReadModel.what_changed_refs;
+  const blockedNowRefs = loopReadModel.blocked_now_refs;
+  const whatMattersNowRefs = loopReadModel.what_matters_now_refs;
+  const evidenceCount =
+    today.sections.evidence_timeline_count ?? today.evidence_timeline.length;
+  const memoryInfluence = today.memory_why_shown_items?.[0];
+  const firstBriefing = today.briefing_items[0];
+  const fallbackNextAction =
+    today.next_safe_actions[0]?.safe_summary ??
+    "Review the daily loop before opening deeper surfaces.";
+
+  return [
+    {
+      commandRef: "daily-loop-command:what-matters-today",
+      question: "What matters today",
+      surface: "Today",
+      href: "/today",
+      status: today.daily_loop_summary?.status ?? today.status,
+      summary:
+        today.daily_loop_summary?.today_plan_summary ??
+        firstBriefing?.safe_summary ??
+        `${today.sections.plan_count} plans and ${today.sections.action_inbox_count} actions need local review.`,
+      whyShown:
+        "Today is the operator home because it binds priorities, blockers, follow-ups, plan/action state, memory, briefing, and next safe actions.",
+      whatThisAffects: "Today, Briefing, Plans, Action Inbox",
+      nextSafeAction: today.daily_loop_summary?.next_safe_action ?? fallbackNextAction,
+      refs: [
+        today.daily_loop_summary?.loop_ref,
+        today.product_spine_contract_ref,
+        ...whatMattersNowRefs.slice(0, 3),
+      ].filter(isPresent),
+      posture: "today",
+    },
+    {
+      commandRef: "daily-loop-command:needs-review",
+      question: "What needs review",
+      surface: "Action Inbox",
+      href: "/actions",
+      status: `${needsReviewRefs.length} backend review refs`,
+      summary:
+        needsReviewRefs.length > 0
+          ? "Backend-owned Today loop refs need review before any supported receipt."
+          : "Review work is currently proposal-only, blocked, or already receipt-backed.",
+      whyShown:
+        "Action Inbox is shown when items require a recorded decision receipt, review posture, or explicit blocked-state inspection.",
+      whatThisAffects: "Actions, Plans, Evidence, Memory-derived follow-ups",
+      nextSafeAction:
+        loopReadModel.next_safe_action ??
+        "Record only supported receipts; proposal-only artifacts stay review-only.",
+      refs: needsReviewRefs.slice(0, 4),
+      posture: "review",
+    },
+    {
+      commandRef: "daily-loop-command:changed",
+      question: "What changed",
+      surface: "Evidence",
+      href: "/evidence",
+      status: `${changedRefs.length} changed refs`,
+      summary:
+        changedRefs.length > 0
+          ? "Backend-owned changed refs are visible for review before carry-forward."
+          : "Evidence, receipts, and local review refs show what changed in the loop.",
+      whyShown:
+        "Changed refs come from backend-owned receipts, evidence history, and safe review posture.",
+      whatThisAffects: "Evidence, Today, Weekly Review, Action Inbox",
+      nextSafeAction:
+        today.weekly_review_narrative?.next_safe_action ??
+        "Inspect receipt and evidence refs before carrying changes forward.",
+      refs: changedRefs.slice(0, 4),
+      posture: "waiting",
+    },
+    {
+      commandRef: "daily-loop-command:memory-evidence-influence",
+      question: "What memory/evidence is influencing the loop",
+      surface: "Memory and Evidence",
+      href: "/memory",
+      status: `${today.memory_to_loop_item_count} memory links, ${evidenceCount} evidence events`,
+      summary:
+        memoryInfluence?.why_shown ??
+        `${today.accepted_recall_refs.length} accepted recall refs and ${evidenceCount} safe-ref evidence events are visible.`,
+      whyShown:
+        "Memory and Evidence are shown as influence and proof, not as truth authority or hidden context.",
+      whatThisAffects: "Memory, Evidence, Today, Actions, Briefing",
+      nextSafeAction:
+        today.weekly_review_narrative?.next_safe_action ??
+        "Inspect why-shown refs and receipt/evidence refs before relying on recall.",
+      refs: [
+        memoryInfluence?.memory_ref,
+        ...today.accepted_recall_refs.slice(0, 2),
+        today.evidence_history_contract_ref,
+      ].filter(isPresent),
+      posture: "influence",
+    },
+    {
+      commandRef: "daily-loop-command:blocked-unsafe",
+      question: "What is blocked or unsafe",
+      surface: "Blocked states",
+      href: "/evidence",
+      status: `${blockedNowRefs.length} backend blocker refs`,
+      summary:
+        today.blocker_refs[0] ??
+        today.blocked_states[0] ??
+        "Hidden execution, connector writes, context injection, shell, browser, provider/model use, public beta, and production authority all remain blocked.",
+      whyShown:
+        "Blocked states are shown to prevent proposal-only refs, memory recall, or approval identifiers from becoming authority.",
+      whatThisAffects: "All Founder Loop surfaces",
+      nextSafeAction:
+        "Keep unsafe or insufficiently scoped work blocked until an exact milestone grants authority.",
+      refs: blockedNowRefs.slice(0, 6),
+      posture: "blocked",
+    },
+  ];
+}
+
+function DailyLoopCommandDeck({
+  actionReadModelAuthoritative,
+  today,
+}: {
+  actionReadModelAuthoritative: boolean;
+  today: FounderLoopTodaySummary;
+}) {
+  const commandItems = buildDailyLoopCommandItems(today);
+  return (
+    <section
+      aria-label="Daily loop command deck"
+      className="daily-loop-command-deck"
+    >
+      <div className="daily-loop-command-header">
+        <div>
+          <p className="eyebrow">Daily loop order</p>
+          <h3>Scan: Today, Review, Changed, Influence, Blocked</h3>
+          <p>
+            This deck is presentation-only. It summarizes backend read-model
+            refs and keeps proposal-only, memory, evidence, and approval
+            posture visibly bounded.
+          </p>
+        </div>
+        <span className="status-pill compact">
+          {actionReadModelAuthoritative
+            ? "backend read model"
+            : "non-authoritative fallback"}
+        </span>
+      </div>
+      <div className="daily-loop-command-grid">
+        {commandItems.map((item, index) => (
+          <article
+            className={`daily-loop-command-card ${item.posture}`}
+            key={item.commandRef}
+          >
+            <div className="daily-loop-command-card-heading">
+              <span>{index + 1}</span>
+              <div>
+                <h4>{item.question}</h4>
+                <p>{item.status}</p>
+              </div>
+            </div>
+            <p>{item.summary}</p>
+            <dl className="detail-list compact">
+              <DetailTerm label="Surface" value={item.surface} />
+              <DetailTerm label="Why shown" value={item.whyShown} />
+              <DetailTerm label="What this affects" value={item.whatThisAffects} />
+              <DetailTerm label="Next safe action" value={item.nextSafeAction} />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Loop refs: none available"
+              refs={item.refs}
+            />
+            <a className="text-link" href={item.href}>
+              Open {item.surface}
+            </a>
+          </article>
+        ))}
+      </div>
+      <div className="loop-authority-strip">
+        <span>Proposal-only refs stay review-only</span>
+        <span>No apply/use/execute control for proposals</span>
+        <span>Memory recall is influence, not truth authority</span>
+        <span>Evidence is safe-ref proof, not hidden context</span>
+      </div>
+    </section>
+  );
+}
+
+function ActionInboxOperatorOverview({
+  actionGroups,
+  inbox,
+}: {
+  actionGroups: ActionLaneGroup[];
+  inbox: FounderLoopActionsInbox;
+}) {
+  const countFor = (groupId: FounderLoopActionGroupId) =>
+    actionGroups.find((group) => group.summary.group_id === groupId)?.summary.count ??
+    0;
+  return (
+    <section
+      aria-label="Action Inbox operator summary"
+      className="operator-loop-summary"
+    >
+      <div className="operator-loop-summary-main">
+        <p className="eyebrow">Review order</p>
+        <h3>Decide what can receive a receipt, keep everything else bounded</h3>
+        <p>
+          The inbox is grouped by backend read-model posture. Ready items can
+          record supported receipts, approved local task lanes stay
+          exact-scoped, and proposal-only artifacts expose no apply/use/execute
+          control.
+        </p>
+      </div>
+      <div className="operator-loop-summary-grid">
+        <Metric label="ready for decision" value={countFor("ready_for_decision")} />
+        <Metric label="local task lane" value={countFor("approved_local_task_lane")} />
+        <Metric label="proposal-only" value={countFor("proposal_only_no_execution_path")} />
+        <Metric label="blocked" value={countFor("blocked_by_authority")} />
+      </div>
+      <dl className="detail-list compact">
+        <DetailTerm
+          label="Fallback posture"
+          value={
+            inbox.storage_ref.includes("mock")
+              ? "non-authoritative fallback"
+              : "backend-owned read model"
+          }
+        />
+        <DetailTerm
+          label="Review receipts"
+          value={
+            inbox.decision_receipts_required
+              ? "required for supported decisions"
+              : "not available"
+          }
+        />
+        <DetailTerm
+          label="Action execution"
+          value={inbox.action_execution_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Proposal boundary"
+          value="proposal-only refs stay review-only"
+        />
+      </dl>
+    </section>
+  );
+}
+
+function BriefingOperatorSummary({
+  briefing,
+}: {
+  briefing: FounderLoopMorningBriefing;
+}) {
+  return (
+    <section
+      aria-label="Briefing operator summary"
+      className="operator-loop-summary"
+    >
+      <div className="operator-loop-summary-main">
+        <p className="eyebrow">Morning context</p>
+        <h3>Start with decisions, changes, blockers, and review groups</h3>
+        <p>
+          Briefing items are bounded previews over local safe refs. Open Today
+          or Action Inbox to record supported receipts; source refresh,
+          notifications, connector runtime, model/provider authority, memory
+          writes, and context injection remain blocked.
+        </p>
+      </div>
+      <div className="operator-loop-summary-grid">
+        <Metric label="briefing items" value={briefing.items.length} />
+        <Metric
+          label="review groups"
+          value={briefing.review_queue_groups?.length ?? 0}
+        />
+        <Metric
+          label="memory reasons"
+          value={briefing.memory_why_shown_items?.length ?? 0}
+        />
+        <Metric
+          label="blocked states"
+          value={briefing.blocked_states?.length ?? 0}
+        />
+      </div>
+      <RefListWithFallback
+        emptyLabel="Briefing blockers: none"
+        refs={briefing.blocked_states ?? []}
+      />
+    </section>
+  );
+}
+
+function MemoryOperatorSummary({
+  contextPacks,
+  today,
+  workbench,
+}: {
+  contextPacks: FounderLoopMemoryContextPacks;
+  today: FounderLoopTodaySummary;
+  workbench: FounderLoopMemoryWorkbench;
+}) {
+  return (
+    <section
+      aria-label="Memory operator summary"
+      className="operator-loop-summary"
+    >
+      <div className="operator-loop-summary-main">
+        <p className="eyebrow">Memory review signals</p>
+        <h3>Review recall, quality pressure, and follow-ups before using it</h3>
+        <p>
+          Memory is shown as reviewed recall and loop signal posture. It is not
+          truth authority, hidden context, connector sync, automatic maintenance,
+          or a write path.
+        </p>
+      </div>
+      <div className="operator-loop-summary-grid">
+        <Metric label="workbench items" value={workbench.items.length} />
+        <Metric
+          label="reviewed recall"
+          value={workbench.health.reviewed_recall_count}
+        />
+        <Metric
+          label="follow-up proposals"
+          value={today.memory_derived_action_proposal_count}
+        />
+        <Metric
+          label="context packs"
+          value={contextPacks.context_pack_count}
+        />
+      </div>
+      <dl className="detail-list compact">
+        <DetailTerm
+          label="Why shown"
+          value={
+            today.memory_why_shown_items?.[0]?.why_shown ??
+            "Memory loop refs are shown when reviewed recall affects Today, Actions, Briefing, or Evidence."
+          }
+        />
+        <DetailTerm
+          label="What this affects"
+          value="Today, Actions, Briefing, Evidence, Weekly Review"
+        />
+        <DetailTerm
+          label="Context injection"
+          value={workbench.context_injection_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Memory truth authority"
+          value={workbench.memory_truth_authority ? "enabled" : "blocked"}
+        />
+      </dl>
+    </section>
+  );
+}
+
+function EvidenceOperatorSummary({
+  evidence,
+  today,
+}: {
+  evidence?: FounderLoopEvidenceTimelineIndex;
+  today: FounderLoopTodaySummary;
+}) {
+  const eventCount = evidence?.event_count ?? today.evidence_timeline.length;
+  const receiptCount =
+    evidence?.receipt_refs.length ??
+    countTimelineRefs(today.evidence_timeline, ["receipt_refs"]);
+  return (
+    <section
+      aria-label="Evidence operator summary"
+      className="operator-loop-summary"
+    >
+      <div className="operator-loop-summary-main">
+        <p className="eyebrow">Proof before claims</p>
+        <h3>Use evidence to answer what changed, what stayed blocked</h3>
+        <p>
+          Evidence is safe-ref history and receipt visibility. It does not
+          include raw private content, hidden context, rollback execution, or
+          release authority.
+        </p>
+      </div>
+      <div className="operator-loop-summary-grid">
+        <Metric label="events" value={eventCount} />
+        <Metric label="groups" value={evidence?.group_count ?? 0} />
+        <Metric label="receipt refs" value={receiptCount} />
+        <Metric
+          label="blocked states"
+          value={
+            evidence?.blocked_states.length ??
+            today.evidence_timeline_blocked_states?.length ??
+            0
+          }
+        />
+      </div>
+      <dl className="detail-list compact">
+        <DetailTerm
+          label="What changed"
+          value="Read the timeline history answers and receipt refs."
+        />
+        <DetailTerm
+          label="What stayed blocked"
+          value="Approval authority, rollback execution, context injection, memory truth, provider/model authority."
+        />
+        <DetailTerm
+          label="Fallback posture"
+          value={evidence ? "backend evidence index" : "Today summary fallback"}
+        />
+      </dl>
+    </section>
+  );
+}
+
+function OperatorRunTimelineSummary({
+  timeline,
+}: {
+  timeline?: FounderLoopOperatorRunTimeline;
+}) {
+  const usage = timeline?.frontier_ai_usage_summary;
+  const control = timeline?.run_control_summary;
+  return (
+    <section
+      aria-label="Operator Run Timeline"
+      className="operator-loop-summary"
+    >
+      <div className="operator-loop-summary-main">
+        <p className="eyebrow">Run control</p>
+        <h3>Operator Run Timeline</h3>
+        <p>
+          Shared run state is projected from Evidence safe refs, with approval,
+          completion, blocked-state, and frontier AI cost posture visible before
+          broader authority exists.
+        </p>
+      </div>
+      <div className="operator-loop-summary-grid">
+        <Metric label="run events" value={timeline?.event_count ?? 0} />
+        <Metric
+          label="waiting"
+          value={control?.waiting_for_approval_count ?? 0}
+        />
+        <Metric
+          label="receipts"
+          value={control?.receipt_recorded_count ?? 0}
+        />
+        <Metric label="cost USD x1000" value={Math.round((usage?.estimated_total_cost_usd ?? 0) * 1000)} />
+      </div>
+      <dl className="detail-list compact">
+        <DetailTerm
+          label="Contract ref"
+          value={timeline?.contract_ref ?? "contract-ref:operator-run-timeline:v1"}
+        />
+        <DetailTerm
+          label="Cost contract"
+          value={
+            usage?.contract_ref ??
+            "contract-ref:frontier-ai-cost-usage-telemetry:v1"
+          }
+        />
+        <DetailTerm
+          label="Cost status"
+          value={usage?.status ?? "accounting_slots_pending_backend"}
+        />
+        <DetailTerm
+          label="Provider/model authority"
+          value={timeline?.provider_model_authority_allowed ? "enabled" : "blocked"}
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Borrowed pattern refs pending"
+        items={(timeline?.borrowed_patterns ?? []).map(
+          (pattern) => `${pattern.pattern_id}: ${pattern.label}`,
+        )}
+      />
+    </section>
+  );
+}
+
+function OperatorRunTimelinePanel({
+  timeline,
+}: {
+  timeline?: FounderLoopOperatorRunTimeline;
+}) {
+  const usage = timeline?.frontier_ai_usage_summary;
+  const events = timeline?.run_events ?? [];
+  const firstCostSlot = events[0]?.cost_usage;
+  if (!timeline) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Operator Run Timeline</h3>
+          <span>pending</span>
+        </div>
+        <p>
+          Run timeline data is unavailable from the backend response; the
+          Evidence Timeline remains the current safe-ref source.
+        </p>
+      </article>
+    );
+  }
+
+  return (
+    <div aria-label="Operator Run Timeline details" className="panel-grid">
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Operator Run Timeline</h3>
+          <span>{timeline.status}</span>
+        </div>
+        <dl className="detail-list">
+          <DetailTerm label="Contract ref" value={timeline.contract_ref} />
+          <DetailTerm label="Source" value={timeline.source} />
+          <DetailTerm label="Route" value={timeline.route_ref} />
+          <DetailTerm
+            label="Provider/model authority"
+            value={timeline.provider_model_authority_allowed ? "enabled" : "blocked"}
+          />
+          <DetailTerm
+            label="Runtime model calls"
+            value={timeline.runtime_model_calls_enabled ? "enabled" : "blocked"}
+          />
+          <DetailTerm
+            label="Prompt content stored"
+            value={timeline.prompt_content_stored ? "yes" : "no"}
+          />
+          <DetailTerm
+            label="Response content stored"
+            value={timeline.response_content_stored ? "yes" : "no"}
+          />
+          <DetailTerm
+            label="Provider exchange content stored"
+            value={timeline.provider_exchange_content_stored ? "yes" : "no"}
+          />
+        </dl>
+        <p>{timeline.authority_boundary}</p>
+      </article>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Five borrowed patterns</h3>
+          <span>{timeline.borrowed_patterns.length}</span>
+        </div>
+        <ul className="ref-list">
+          {timeline.borrowed_patterns.map((pattern) => (
+            <li key={pattern.pattern_id}>
+              <strong>{pattern.pattern_id}</strong>: {pattern.label}.{" "}
+              {pattern.safe_summary}
+            </li>
+          ))}
+        </ul>
+      </article>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Run control states</h3>
+          <span>{timeline.run_control_summary.goal_completion_status}</span>
+        </div>
+        <dl className="detail-list">
+          <DetailTerm
+            label="Waiting"
+            value={String(timeline.run_control_summary.waiting_for_approval_count)}
+          />
+          <DetailTerm
+            label="Receipts"
+            value={String(timeline.run_control_summary.receipt_recorded_count)}
+          />
+          <DetailTerm
+            label="Blocked"
+            value={String(timeline.run_control_summary.blocked_count)}
+          />
+          <DetailTerm
+            label="Needs evidence"
+            value={String(timeline.run_control_summary.needs_evidence_count)}
+          />
+          <DetailTerm
+            label="Pause/resume"
+            value={timeline.run_control_summary.pause_resume_status}
+          />
+        </dl>
+        <RefListWithFallback
+          emptyLabel="No run state refs recorded"
+          refs={timeline.run_control_summary.state_refs}
+        />
+      </article>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Frontier AI cost telemetry</h3>
+          <span>{usage?.status ?? "not_reported"}</span>
+        </div>
+        <dl className="detail-list">
+          <DetailTerm
+            label="Contract ref"
+            value={
+              usage?.contract_ref ??
+              "contract-ref:frontier-ai-cost-usage-telemetry:v1"
+            }
+          />
+          <DetailTerm
+            label="Estimated cost USD"
+            value={formatCostUsd(usage?.estimated_total_cost_usd)}
+          />
+          <DetailTerm
+            label="Captured cost USD"
+            value={formatCostUsd(usage?.captured_total_cost_usd)}
+          />
+          <DetailTerm
+            label="Provider ref"
+            value={firstCostSlot?.provider_ref ?? "provider-ref:not-invoked"}
+          />
+          <DetailTerm
+            label="Model profile"
+            value={
+              firstCostSlot?.model_profile_ref ?? "model-profile-ref:not-invoked"
+            }
+          />
+          <DetailTerm
+            label="Input metered units"
+            value={String(usage?.input_metered_units ?? 0)}
+          />
+          <DetailTerm
+            label="Output metered units"
+            value={String(usage?.output_metered_units ?? 0)}
+          />
+          <DetailTerm label="Budget ref" value={usage?.budget_status_ref ?? "budget-status:pending"} />
+          <DetailTerm
+            label="Unknown paid cost"
+            value={
+              usage?.unknown_paid_cost_requires_approval_before_routing
+                ? "approval required before routing"
+                : "not reported"
+            }
+          />
+        </dl>
+        <RefListWithFallback
+          emptyLabel="No cost event refs recorded"
+          refs={usage?.cost_event_refs ?? []}
+        />
+      </article>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Run events</h3>
+          <span>{events.length}</span>
+        </div>
+        <ul className="ref-list">
+          {events.slice(0, 6).map((event) => (
+            <li key={event.run_event_ref}>
+              <strong>{event.operator_state}</strong>: {event.event_kind} -{" "}
+              {event.condensed_summary_ref} - {event.cost_usage.cost_capture_status}
+            </li>
+          ))}
+        </ul>
+        <RefListWithFallback
+          emptyLabel="No run blockers recorded"
+          refs={timeline.blocked_state_refs}
+        />
+      </article>
+    </div>
+  );
+}
+
+function EvidenceTimelineNarrativeSection({
+  readModel,
+}: {
+  readModel?: FounderLoopEvidenceTimelineNarrativeReadModel;
+}) {
+  if (!readModel) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Evidence narrative</h3>
+          <span>pending</span>
+        </div>
+        <p>
+          Narrative entries are unavailable from the backend response. Evidence
+          remains inspectable through existing safe refs only.
+        </p>
+      </article>
+    );
+  }
+
+  return (
+    <section
+      aria-label="Evidence Timeline narrative"
+      className="compact-stack"
+    >
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Evidence narrative</h3>
+          <span>{readModel.status}</span>
+        </div>
+        <dl className="detail-list">
+          <DetailTerm label="Contract ref" value={readModel.contract_ref} />
+          <DetailTerm label="Source" value={readModel.source} />
+          <DetailTerm label="Entries" value={String(readModel.entry_count)} />
+          <DetailTerm
+            label="Narrative source"
+            value={
+              readModel.narrative_from_existing_refs_only
+                ? "existing refs only"
+                : "blocked"
+            }
+          />
+          <DetailTerm
+            label="Raw content"
+            value={readModel.raw_content_included ? "included" : "omitted"}
+          />
+          <DetailTerm
+            label="Approval authority"
+            value={
+              readModel.approval_ref_authority
+                ? "enabled"
+                : "approval refs are identifiers only"
+            }
+          />
+          <DetailTerm
+            label="Rollback execution"
+            value={readModel.rollback_execution_enabled ? "enabled" : "blocked"}
+          />
+          <DetailTerm
+            label="Provider/model calls"
+            value={
+              readModel.provider_model_call_enabled ||
+              readModel.runtime_model_calls_enabled ||
+              readModel.provider_sdk_call_enabled
+                ? "enabled"
+                : "blocked"
+            }
+          />
+        </dl>
+        <p>{readModel.authority_boundary}</p>
+        <p>{readModel.next_safe_action}</p>
+        <RefListWithFallback
+          emptyLabel="No narrative refs recorded"
+          refs={readModel.narrative_refs}
+        />
+      </article>
+      <div className="review-grid">
+        {readModel.entries.slice(0, 6).map((entry) => (
+          <EvidenceNarrativeEntryCard entry={entry} key={entry.narrative_ref} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function EvidenceNarrativeEntryCard({
+  entry,
+}: {
+  entry: FounderLoopEvidenceNarrativeEntry;
+}) {
+  return (
+    <article className="review-card">
+      <div className="review-card-heading">
+        <h3>Narrative: {entry.title}</h3>
+        <span>{entry.event_type}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Narrative ref" value={entry.narrative_ref} />
+        <DetailTerm label="Event ref" value={entry.event_ref} />
+        <DetailTerm label="Timeline ref" value={entry.timeline_item_ref} />
+        <DetailTerm label="Group ref" value={entry.group_ref} />
+        <DetailTerm label="What happened" value={entry.what_happened} />
+        <DetailTerm label="Why recorded" value={entry.why_recorded} />
+        <DetailTerm label="Approval posture" value={entry.approval_posture} />
+        <DetailTerm label="Changed" value={entry.change_summary} />
+        <DetailTerm label="Still blocked" value={entry.remaining_blocked} />
+        <DetailTerm label="Inspect" value={entry.inspection_summary} />
+        <DetailTerm
+          label="Raw content"
+          value={entry.raw_content_included ? "included" : "omitted"}
+        />
+        <DetailTerm
+          label="Action execution"
+          value={entry.action_execution_enabled ? "enabled" : "blocked"}
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Evidence refs: none recorded"
+        refs={entry.evidence_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Receipt refs: not recorded"
+        refs={entry.receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Approval refs: identifiers only or not present"
+        refs={entry.approval_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Blocked refs: none recorded"
+        refs={entry.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
+type TodayPriorityRow = {
+  affects: string;
+  href: string;
+  item: string;
+  status: string;
+  tone: "green" | "gray" | "orange" | "red";
+  whyShown: string;
+};
+
+function NorthStarTodayCockpit({
+  actionReadModelAuthoritative,
+  today,
+}: {
+  actionReadModelAuthoritative: boolean;
+  today: FounderLoopTodaySummary;
+}) {
+  const commandItems = buildDailyLoopCommandItems(today);
+  const priorityRows = buildTodayPriorityRows(today);
+  const proposalOnlyCount =
+    countProposalOnly(today.actions) +
+    today.memory_derived_action_proposal_count +
+    today.task_decomposition_proposal_count;
+  const receiptBackedCount = countReceiptBacked(today);
+  const blockedCount = countBlockedToday(today);
+  const noActionCount = Math.max(
+    0,
+    today.sections.action_inbox_count +
+      today.sections.plan_count +
+      today.sections.memory_review_count +
+      today.sections.briefing_count -
+      proposalOnlyCount -
+      receiptBackedCount -
+      blockedCount,
+  );
+  const evidenceCount =
+    today.sections.evidence_timeline_count ?? today.evidence_timeline.length;
+
+  return (
+    <section
+      aria-label="North-star Today command deck"
+      className="north-star-today"
+    >
+      <div className="north-star-section-title">
+        <div>
+          <p className="eyebrow">Daily Command Deck</p>
+          <h3>Daily Status</h3>
+        </div>
+        <span className="status-pill compact">
+          {actionReadModelAuthoritative
+            ? "backend-owned read model"
+            : "non-authoritative fallback"}
+        </span>
+      </div>
+      <div className="north-star-status-grid">
+        <TodayStatusTile
+          detail="reviewable today"
+          label="Actions Due"
+          tone={today.sections.action_inbox_count > 0 ? "orange" : "green"}
+          value={String(today.sections.action_inbox_count)}
+        />
+        <TodayStatusTile
+          detail="no receipt yet"
+          label="Proposal Only"
+          tone={proposalOnlyCount > 0 ? "orange" : "gray"}
+          value={String(proposalOnlyCount)}
+        />
+        <TodayStatusTile
+          detail="source proof visible"
+          label="Receipt-Backed"
+          tone="green"
+          value={String(receiptBackedCount)}
+        />
+        <TodayStatusTile
+          detail="requires attention"
+          label="Risks / Alerts"
+          tone={blockedCount > 0 ? "red" : "green"}
+          value={String(blockedCount)}
+        />
+        <TodayStatusTile
+          detail={actionReadModelAuthoritative ? "backend current" : "fallback only"}
+          label="Loop Health"
+          tone={actionReadModelAuthoritative ? "green" : "orange"}
+          value={actionReadModelAuthoritative ? "Live" : "Check"}
+        />
+      </div>
+      <div className="north-star-loop-rail" aria-label="Daily loop order">
+        {commandItems.map((item, index) => (
+          <a
+            className={`north-star-loop-step ${item.posture}`}
+            href={item.href}
+            key={item.commandRef}
+          >
+            <span>{index + 1}</span>
+            <strong>{item.surface}</strong>
+            <small>{northStarLoopCaption(index)}</small>
+          </a>
+        ))}
+      </div>
+      <div className="north-star-work-grid">
+        <article className="north-star-panel north-star-priorities">
+          <div className="north-star-panel-header">
+            <h3>Top Priorities</h3>
+            <span>{priorityRows.length}</span>
+          </div>
+          <div className="north-star-table-wrap">
+            <table className="north-star-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Why shown</th>
+                  <th>Affects</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {priorityRows.map((row) => (
+                  <tr key={`${row.href}:${row.item}`}>
+                    <td>
+                      <a href={row.href}>{row.item}</a>
+                    </td>
+                    <td>{row.whyShown}</td>
+                    <td>{row.affects}</td>
+                    <td>
+                      <span className={`north-star-state ${row.tone}`}>
+                        {row.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <a className="text-link" href="/actions">
+            View Action Inbox
+          </a>
+        </article>
+        <article className="north-star-panel">
+          <div className="north-star-panel-header">
+            <h3>Backend Truth Summary</h3>
+            <span>{today.status}</span>
+          </div>
+          <div className="north-star-summary-list">
+            <TodaySummaryRow label="Receipt-backed" tone="green" value={receiptBackedCount} />
+            <TodaySummaryRow label="Proposal-only" tone="orange" value={proposalOnlyCount} />
+            <TodaySummaryRow label="Blocked" tone="red" value={blockedCount} />
+            <TodaySummaryRow label="No action needed" tone="gray" value={noActionCount} />
+            <TodaySummaryRow label="Evidence added" tone="green" value={evidenceCount} />
+          </div>
+          <dl className="detail-list compact">
+            <DetailTerm
+              label="Why shown"
+              value={
+                today.daily_loop_summary?.safe_summary ??
+                "Today aggregates backend-owned safe refs for the founder loop."
+              }
+            />
+            <DetailTerm
+              label="What this affects"
+              value="Today, Briefing, Action Inbox, Plans, Memory, Evidence"
+            />
+            <DetailTerm
+              label="Blocked authority"
+              value="no generic execution, connector write, shell, provider/model, context injection, or production authority"
+            />
+          </dl>
+          <a className="text-link" href="/evidence">
+            View Evidence
+          </a>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function TodayStatusTile({
+  detail,
+  label,
+  tone,
+  value,
+}: {
+  detail: string;
+  label: string;
+  tone: "green" | "gray" | "orange" | "red";
+  value: string;
+}) {
+  return (
+    <article className={`north-star-status-tile ${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </article>
+  );
+}
+
+function TodaySummaryRow({
+  label,
+  tone,
+  value,
+}: {
+  label: string;
+  tone: "green" | "gray" | "orange" | "red";
+  value: number;
+}) {
+  return (
+    <div className="north-star-summary-row">
+      <span className={`north-star-dot ${tone}`} />
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function northStarLoopCaption(index: number): string {
+  return [
+    "Start here",
+    "Triage and prioritize",
+    "Review and track",
+    "Learn and improve",
+    "Resolve and unlock",
+  ][index] ?? "Inspect safely";
+}
+
+function buildTodayPriorityRows(today: FounderLoopTodaySummary): TodayPriorityRow[] {
+  const actionRows = today.actions.slice(0, 5).map((action) => ({
+    affects: action.surface,
+    href: "/actions",
+    item: action.title,
+    status: action.blocked_state ?? action.approval_envelope_status ?? action.status,
+    tone: toneForState(action.blocked_state ?? action.approval_envelope_status ?? action.status),
+    whyShown: action.safe_summary,
+  }));
+  const planRows = today.plans.slice(0, Math.max(0, 5 - actionRows.length)).map((plan) => ({
+    affects: "Plans",
+    href: "/plans",
+    item: plan.title,
+    status: plan.action_envelope_status ?? plan.status,
+    tone: toneForState(plan.action_envelope_status ?? plan.status),
+    whyShown: plan.next_step_summary || plan.safe_summary,
+  }));
+  const briefingRows = today.briefing_items
+    .slice(0, Math.max(0, 5 - actionRows.length - planRows.length))
+    .map((item) => ({
+      affects: "Briefing",
+      href: "/briefing",
+      item: item.title,
+      status: item.status,
+      tone: toneForState(item.status),
+      whyShown: item.safe_summary,
+    }));
+  return [...actionRows, ...planRows, ...briefingRows].map((row) => ({
+    ...row,
+    status: compactLabel(row.status),
+    whyShown: compactSentence(row.whyShown),
+  }));
+}
+
+function countProposalOnly(actions: FounderLoopActionItem[]): number {
+  return actions.filter((action) =>
+    [
+      action.status,
+      action.approval_envelope_status,
+      action.action_envelope_status,
+      action.state_change_readiness,
+    ]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes("proposal")),
+  ).length;
+}
+
+function countReceiptBacked(today: FounderLoopTodaySummary): number {
+  const actionReceiptCount = today.actions.reduce(
+    (count, action) => count + action.receipt_refs.length,
+    0,
+  );
+  const evidenceReceiptCount = today.evidence_timeline.reduce(
+    (count, item) => count + item.receipt_refs.length,
+    0,
+  );
+  return actionReceiptCount + evidenceReceiptCount;
+}
+
+function countBlockedToday(today: FounderLoopTodaySummary): number {
+  const blockedRefs = new Set([
+    ...today.blocker_refs,
+    ...today.memory_review_blocked_states,
+    ...today.memory_to_loop_blocked_state_refs,
+    ...today.private_beta_readiness_blocked_state_refs,
+    ...today.task_decomposition_required_blocked_refs,
+    ...today.actions.flatMap((action) =>
+      action.blocked_state ? [action.blocked_state] : [],
+    ),
+  ]);
+  return blockedRefs.size;
+}
+
+function toneForState(value: string | undefined | null): "green" | "gray" | "orange" | "red" {
+  const lower = String(value ?? "").toLowerCase();
+  if (lower.includes("blocked") || lower.includes("denied") || lower.includes("risk")) {
+    return "red";
+  }
+  if (
+    lower.includes("proposal") ||
+    lower.includes("pending") ||
+    lower.includes("review") ||
+    lower.includes("partial")
+  ) {
+    return "orange";
+  }
+  if (
+    lower.includes("receipt") ||
+    lower.includes("implemented") ||
+    lower.includes("ready") ||
+    lower.includes("approved")
+  ) {
+    return "green";
+  }
+  return "gray";
+}
+
+function compactSentence(value: string): string {
+  return value.length > 82 ? `${value.slice(0, 79).trim()}...` : value;
+}
+
+function compactLabel(value: string): string {
+  return value.replaceAll("_", " ");
 }
 
 export function TodaySurfacePanel({
@@ -439,12 +1688,21 @@ export function TodaySurfacePanel({
         </div>
         <span className="status-pill compact">{today.status}</span>
       </div>
-      <div className="metric-grid">
-        <Metric label="Actions" value={today.sections.action_inbox_count} />
-        <Metric label="Plans" value={today.sections.plan_count} />
-        <Metric label="Memory" value={today.sections.memory_review_count} />
-        <Metric label="Briefing" value={today.sections.briefing_count} />
-      </div>
+      <NorthStarTodayCockpit
+        actionReadModelAuthoritative={actionReadModelAuthoritative}
+        today={today}
+      />
+      <TodayLoopReadModelPanel today={today} />
+      <FounderLoopProductProofPanel
+        readModel={today.founder_loop_v1_product_proof_read_model}
+      />
+      <FusionRoutingDelegationPanel
+        readModel={today.fusion_routing_delegation_read_model}
+      />
+      <DailyLoopCommandDeck
+        actionReadModelAuthoritative={actionReadModelAuthoritative}
+        today={today}
+      />
       <DailyLoopProductBehaviorPanel today={today} />
       <div className="panel-grid">
         <article className="status-card">
@@ -507,8 +1765,12 @@ export function TodaySurfacePanel({
               value={String(today.plan_action_state.plan_count)}
             />
             <DetailTerm
-              label="Mutation controls"
-              value={today.plan_action_state.mutating_controls_enabled ? "enabled" : "blocked"}
+              label="Receipt/local-task controls"
+              value={
+                today.plan_action_state.mutating_controls_enabled
+                  ? "receipt and exact local-task controls only"
+                  : "blocked"
+              }
             />
           </dl>
           <RefList refs={today.follow_up_refs} />
@@ -719,17 +1981,17 @@ export function TodaySurfacePanel({
         <article className="status-card">
           <div className="status-card-header">
             <h3>Action envelope contract</h3>
-            <span>{today.plans_action_envelope_status}</span>
+            <span>{today.plans_action_envelope_status ?? "backend bridge missing"}</span>
           </div>
           <dl className="detail-list">
             <DetailTerm
               label="Contract ref"
-              value={today.plans_action_envelope_contract_ref}
+              value={today.plans_action_envelope_contract_ref ?? "missing"}
             />
             <DetailTerm
               label="Exact scope"
               value={
-                today.plans_action_envelope_authority_posture.exact_scope_required
+                today.plans_action_envelope_authority_posture?.exact_scope_required
                   ? "required"
                   : "missing"
               }
@@ -738,8 +2000,8 @@ export function TodaySurfacePanel({
               label="Grant capture"
               value={
                 today.plans_action_envelope_authority_posture
-                  .approval_grant_capture_enabled
-                  ? "enabled"
+                  ?.approval_grant_capture_enabled
+                  ? "unsafe"
                   : "disabled"
               }
             />
@@ -747,19 +2009,19 @@ export function TodaySurfacePanel({
               label="Execution"
               value={
                 today.plans_action_envelope_authority_posture
-                  .action_execution_enabled
-                  ? "enabled"
+                  ?.action_execution_enabled
+                  ? "unsafe"
                   : "blocked"
               }
             />
           </dl>
           <InlineListWithFallback
-            emptyLabel="Review actions: missing"
-            items={today.plans_action_envelope_review_postures.map(
-              (posture) => posture.review_action,
+            emptyLabel="Decision receipt options: missing"
+            items={(today.plans_action_envelope_review_postures ?? []).map(
+              (posture) => `decision receipt option: ${posture.review_action}`,
             )}
           />
-          <RefList refs={today.plans_action_envelope_required_blocked_refs} />
+          <RefList refs={today.plans_action_envelope_required_blocked_refs ?? []} />
         </article>
         <article className="status-card">
           <div className="status-card-header">
@@ -828,6 +2090,18 @@ export function TodaySurfacePanel({
           ))}
         </LoopPanel>
         <LoopPanel title="Plans" route="/plans">
+          <ChatToLoopHandoffPanel
+            compact
+            readModel={today.chat_to_loop_handoff_read_model}
+          />
+          <FusionRoutingDelegationPanel
+            compact
+            readModel={today.fusion_routing_delegation_read_model}
+          />
+          <PlansToActionsBridgePanel
+            contractRef={today.plans_to_actions_bridge_contract_ref}
+            readModel={today.plans_to_actions_bridge_read_model}
+          />
           {today.plans.map((plan) => (
             <PlanCard plan={plan} key={plan.plan_ref} />
           ))}
@@ -842,6 +2116,10 @@ export function TodaySurfacePanel({
           ))}
         </LoopPanel>
         <LoopPanel title="Memory review" route="/memory">
+          <ChatToLoopHandoffPanel
+            compact
+            readModel={today.chat_to_loop_handoff_read_model}
+          />
           {today.memory_review_queue.map((item) => (
             <MemoryReviewCard item={item} key={item.review_ref} />
           ))}
@@ -852,6 +2130,648 @@ export function TodaySurfacePanel({
   );
 }
 
+function PlansToActionsBridgePanel({
+  contractRef,
+  readModel,
+}: {
+  contractRef?: string;
+  readModel?: FounderLoopPlansToActionsBridgeReadModel;
+}) {
+  if (!readModel) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Plans to Actions</h3>
+          <span>backend bridge missing</span>
+        </div>
+        <p className="muted">
+          Backend-owned Plans-to-Actions bridge posture is unavailable. Control
+          Center will not infer plan envelopes, risks, receipts, rollback,
+          safe-disable, or authority state from fallback-only data.
+        </p>
+        <dl className="detail-list">
+          <DetailTerm label="Review posture" value="proposal-only" />
+          <DetailTerm label="Action execution" value="blocked" />
+          <DetailTerm label="Tool/workflow execution" value="blocked" />
+          <DetailTerm label="Provider/browser/connector runtime" value="blocked" />
+        </dl>
+      </article>
+    );
+  }
+
+  return (
+    <section
+      aria-label="Plans to reviewable Action envelopes"
+      className="page-section embedded"
+    >
+      <div className="section-heading compact">
+        <div>
+          <p className="eyebrow">Product Loop 006</p>
+          <h3>Plans to Actions</h3>
+        </div>
+        <span className="status-pill compact">{readModel.status}</span>
+      </div>
+      <p className="section-copy">
+        Backend-owned bridge from plan proposals to reviewable Action envelopes.
+        Risks, reasons, expected receipts, rollback, and safe-disable refs are
+        visible; approval refs remain identifiers and decision receipts only.
+      </p>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={contractRef ?? readModel.contract_ref} />
+        <DetailTerm label="Source" value={readModel.source} />
+        <DetailTerm label="Item count" value={String(readModel.item_count)} />
+        <DetailTerm
+          label="Approval alone"
+          value={readModel.approval_alone_executes ? "unsafe" : "does not execute"}
+        />
+        <DetailTerm
+          label="Action execution"
+          value={readModel.action_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Tool/workflow execution"
+          value={
+            readModel.tool_execution_enabled || readModel.workflow_execution_enabled
+              ? "unsafe"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Provider/browser/connector runtime"
+          value={
+            readModel.provider_model_call_enabled ||
+            readModel.browser_execution_enabled ||
+            readModel.connector_runtime_enabled
+              ? "unsafe"
+              : "blocked"
+          }
+        />
+        <DetailTerm label="Next safe action" value={readModel.next_safe_action} />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Bridge blockers: missing"
+        refs={readModel.blocked_state_refs}
+      />
+      <div className="review-grid">
+        {readModel.items.map((item) => (
+          <article className="review-card" key={item.item_ref}>
+            <div className="review-card-heading">
+              <h4>{item.plan_title}</h4>
+              <span>{item.plan_status}</span>
+            </div>
+            <p>{item.safe_summary}</p>
+            <FusionRoutingMetadataCard
+              cacheContext={item.cache_context_economics}
+              delegation={item.delegation_proposal}
+              workClassification={item.work_classification}
+            />
+            <dl className="detail-list">
+              <DetailTerm label="Risk" value={item.risk_class} />
+              <DetailTerm label="Why proposed" value={item.why_proposed} />
+              <DetailTerm label="Action envelope" value={item.action_envelope_ref} />
+              <DetailTerm label="Exact scope" value={item.action_scope_ref} />
+              <DetailTerm
+                label="Approval requirement"
+                value={item.approval_requirement_ref}
+              />
+              <DetailTerm label="Rollback" value={item.rollback_ref} />
+              <DetailTerm label="Safe disable" value={item.safe_disable_ref} />
+              <DetailTerm
+                label="Proposal posture"
+                value={item.proposal_only ? "proposal-only" : "unsafe"}
+              />
+              <DetailTerm
+                label="Execution authorized"
+                value={item.execution_authorized ? "unsafe" : "blocked"}
+              />
+              <DetailTerm
+                label="Provider calls"
+                value={item.provider_model_call_enabled ? "unsafe" : "blocked"}
+              />
+              <DetailTerm label="Next safe action" value={item.next_safe_action} />
+            </dl>
+            <InlineListWithFallback
+              emptyLabel="Decision receipt options: missing"
+              items={item.review_receipt_labels.map(
+                (label) => `decision receipt option: ${label}`,
+              )}
+            />
+            <RefListWithFallback
+              emptyLabel="Expected receipts: missing"
+              refs={item.expected_receipt_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Linked Action Inbox item: none"
+              refs={item.linked_action_item_ref ? [item.linked_action_item_ref] : []}
+            />
+            <RefListWithFallback
+              emptyLabel="Task decomposition steps: none"
+              refs={item.step_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Risk refs: none"
+              refs={item.risk_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Missing evidence refs: none"
+              refs={item.missing_evidence_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Blocked authority refs: missing"
+              refs={item.blocked_authority_refs}
+            />
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FusionRoutingDelegationPanel({
+  compact = false,
+  readModel,
+}: {
+  compact?: boolean;
+  readModel?: FounderLoopFusionRoutingDelegationReadModel;
+}) {
+  if (!readModel) {
+    return null;
+  }
+  const visibleClassifications = compact
+    ? readModel.work_classifications.slice(0, 2)
+    : readModel.work_classifications;
+  const visibleRoutes = compact
+    ? readModel.route_decisions.slice(0, 2)
+    : readModel.route_decisions;
+  return (
+    <article
+      aria-label="Fusion routing and delegation readability"
+      className="status-card"
+    >
+      <div className="status-card-header">
+        <h3>Routing and Delegation</h3>
+        <span>{readModel.status}</span>
+      </div>
+      <p className="section-copy">{readModel.authority_boundary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={readModel.contract_ref} />
+        <DetailTerm label="Source" value={readModel.source} />
+        <DetailTerm
+          label="Action execution"
+          value={readModel.action_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Sidekick execution"
+          value={readModel.sidekick_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Provider/model calls"
+          value={readModel.provider_model_call_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Background dispatch"
+          value={readModel.background_dispatch_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm label="Next safe action" value={readModel.next_safe_action} />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Work type summaries: none"
+        items={visibleClassifications.map(
+          (item) =>
+            `Work type ${compactLabel(item.classification)}; review ${
+              item.human_review_required ? "required" : "not required"
+            }; confidence ${item.confidence_posture}`,
+        )}
+      />
+      <InlineListWithFallback
+        emptyLabel="Route decision summaries: none"
+        items={visibleRoutes.map(
+          (route) =>
+            `${route.status}: ${route.operator_summary}; cost ${route.cost_posture_ref}`,
+        )}
+      />
+      <RefListWithFallback
+        emptyLabel="Routing/delegation blockers: missing"
+        refs={readModel.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
+function FusionRoutingMetadataCard({
+  cacheContext,
+  delegation,
+  workClassification,
+}: {
+  cacheContext?: FounderLoopCacheContextEconomics;
+  delegation?: FounderLoopDelegationProposal;
+  workClassification?: FounderLoopWorkClassification;
+}) {
+  if (!workClassification && !delegation && !cacheContext) {
+    return null;
+  }
+  return (
+    <section
+      aria-label="Fusion routing metadata"
+      className="approval-envelope-card"
+    >
+      <div className="review-card-heading compact">
+        <h4>Routing metadata</h4>
+        <span>review aid only</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm
+          label="Work type"
+          value={
+            workClassification
+              ? compactLabel(workClassification.classification)
+              : "missing"
+          }
+        />
+        <DetailTerm
+          label="Human review"
+          value={
+            workClassification?.human_review_required
+              ? "required"
+              : "not required"
+          }
+        />
+        <DetailTerm
+          label="Proposed delegate"
+          value={delegation?.proposed_delegate_kind ?? "none"}
+        />
+        <DetailTerm
+          label="Delegation state"
+          value={delegation?.proposal_state ?? "missing"}
+        />
+        <DetailTerm
+          label="Worker execution"
+          value={delegation?.worker_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Context/cost posture"
+          value={cacheContext?.estimated_context_cost_posture ?? "missing"}
+        />
+        <DetailTerm
+          label="Runtime model switch"
+          value={cacheContext?.runtime_model_switch_performed ? "unsafe" : "blocked"}
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Classification evidence refs: none"
+        refs={workClassification?.evidence_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Delegation blockers: none"
+        refs={delegation?.blocked_execution_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Context/cost blockers: none"
+        refs={cacheContext?.cache_or_context_blocker_refs ?? []}
+      />
+    </section>
+  );
+}
+
+function TodayLoopReadModelPanel({ today }: { today: FounderLoopTodaySummary }) {
+  const readModel = today.today_loop_read_model;
+  if (!readModel) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Today decisions first</h3>
+          <span>backend digest missing</span>
+        </div>
+        <p className="muted">
+          The backend did not return the Product Loop 003 Today read model.
+          Control Center will not infer decisions, changed refs, blocked
+          posture, or review lanes from fallback-only state.
+        </p>
+      </article>
+    );
+  }
+
+  const lanes = readModel.lane_order
+    .map((laneId) => readModel.lanes.find((lane) => lane.lane_id === laneId))
+    .filter(isPresent);
+  const digestItems = readModel.digest_items.slice(0, 8);
+
+  return (
+    <section
+      aria-label="Backend-owned Today loop digest"
+      className="page-section embedded"
+    >
+      <div className="section-heading compact">
+        <div>
+          <p className="eyebrow">Product Loop 003</p>
+          <h3>Today decisions first</h3>
+        </div>
+        <span className="status-pill compact">{readModel.status}</span>
+      </div>
+      <p className="section-copy">
+        Backend-owned local read models show what matters now, what changed,
+        what is blocked, and what needs review. Receipts only; no execution,
+        connector runtime, source refresh, provider/model call, memory write, or
+        hidden context authority.
+      </p>
+      <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Loop posture</h3>
+            <span>{readModel.backend_owned ? "backend-owned" : "fallback"}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm label="Contract ref" value={readModel.contract_ref} />
+            <DetailTerm label="Source" value={readModel.source} />
+            <DetailTerm
+              label="Safe refs only"
+              value={readModel.safe_refs_only ? "yes" : "no"}
+            />
+            <DetailTerm
+              label="Raw content"
+              value={readModel.raw_content_included ? "included" : "omitted"}
+            />
+            <DetailTerm
+              label="Action execution"
+              value={readModel.action_execution_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Connector runtime"
+              value={readModel.connector_runtime_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Runtime model calls"
+              value={
+                readModel.runtime_model_calls_enabled ? "enabled" : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Memory/context authority"
+              value={
+                readModel.automatic_memory_write_authorized ||
+                readModel.context_injection_authorized
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <p>{readModel.next_safe_action}</p>
+          <RefList refs={readModel.blocked_state_refs} />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Now refs</h3>
+            <span>{readModel.what_matters_now_refs.length}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="What matters now"
+              value={readModel.what_matters_now_refs.join(", ")}
+            />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="What matters now: none"
+            refs={readModel.what_matters_now_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="What changed: none"
+            refs={readModel.what_changed_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Blocked now: none"
+            refs={readModel.blocked_now_refs}
+          />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Review lanes</h3>
+            <span>{lanes.length}</span>
+          </div>
+          <ul className="ref-list">
+            {lanes.map((lane) => (
+              <li key={lane.lane_id}>
+                {lane.label}: {lane.count}; {lane.status}; {lane.next_safe_action}
+              </li>
+            ))}
+          </ul>
+          <RefListWithFallback
+            emptyLabel="Needs review: none"
+            refs={readModel.needs_review_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Follow-ups: none"
+            refs={readModel.follow_up_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Stale or deferred: none"
+            refs={readModel.stale_or_deferred_refs}
+          />
+        </article>
+      </div>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Decision digest</h3>
+          <span>{digestItems.length}</span>
+        </div>
+        <ul className="ref-list">
+          {digestItems.map((item) => (
+            <li key={`${item.lane_id}:${item.item_ref}`}>
+              <strong>{item.surface}</strong>: {item.title}; {item.state_label};{" "}
+              {item.reason} Next: {item.next_safe_action}
+              <RefListWithFallback
+                emptyLabel="Digest refs: none"
+                refs={[
+                  item.item_ref,
+                  ...item.source_refs,
+                  ...item.evidence_refs,
+                  ...item.receipt_refs,
+                  ...item.blocked_state_refs,
+                ]}
+              />
+            </li>
+          ))}
+        </ul>
+      </article>
+    </section>
+  );
+}
+
+function FollowUpTrackerPanel({
+  tracker,
+}: {
+  tracker?: FounderLoopFollowUpTrackerReadModel;
+}) {
+  if (!tracker) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Follow-up tracker</h3>
+          <span>backend tracker missing</span>
+        </div>
+        <p className="muted">
+          The backend did not return the Product Loop 004 follow-up tracker.
+          Control Center will not infer promises, pending replies, deferred
+          decisions, or relationship follow-ups from fallback-only state.
+        </p>
+      </article>
+    );
+  }
+
+  const items = tracker.items.slice(0, 8);
+  const categoryCounts = {
+    relationship_follow_up: tracker.relationship_follow_up_refs.length,
+    promise: tracker.promise_refs.length,
+    open_loop: tracker.open_loop_refs.length,
+    pending_reply: tracker.pending_reply_refs.length,
+    deferred_decision: tracker.deferred_decision_refs.length,
+  };
+  const categoryLabels = {
+    relationship_follow_up: "Relationship follow-ups",
+    promise: "Promises",
+    open_loop: "Open loops",
+    pending_reply: "Pending replies",
+    deferred_decision: "Deferred decisions",
+  };
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <h3>Follow-up tracker</h3>
+        <span>{tracker.status}</span>
+      </div>
+      <p>
+        Review-only local follow-up refs from backend-owned memory and Founder
+        Loop records. No reminders, messages, source fetches, connector runtime,
+        task creation, provider calls, memory writes, context injection, action
+        execution, or production authority are authorized.
+      </p>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={tracker.contract_ref} />
+        <DetailTerm label="Source" value={tracker.source} />
+        <DetailTerm
+          label="Safe refs only"
+          value={tracker.safe_refs_only ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Raw content"
+          value={tracker.raw_content_included ? "included" : "omitted"}
+        />
+        <DetailTerm
+          label="Reminder scheduler"
+          value={tracker.reminder_scheduler_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Message send"
+          value={tracker.message_send_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Connector reads"
+          value={tracker.connector_read_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Connector writes"
+          value={tracker.connector_write_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Email/calendar fetch"
+          value={tracker.email_calendar_fetch_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Task creation"
+          value={
+            tracker.automatic_task_creation_enabled ? "enabled" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Action execution"
+          value={tracker.action_execution_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Runtime model calls"
+          value={tracker.runtime_model_calls_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Hidden memory write"
+          value={
+            tracker.hidden_memory_write_authorized ? "enabled" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Context injection"
+          value={tracker.context_injection_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Production authority"
+          value={tracker.production_authority_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm label="Boundary" value={tracker.authority_boundary} />
+      </dl>
+      <ul className="ref-list">
+        {tracker.category_order.map((category) => (
+          <li key={category}>
+            {categoryLabels[category]}: {categoryCounts[category]}
+          </li>
+        ))}
+      </ul>
+      <ul className="ref-list">
+        {items.map((item) => (
+          <li key={item.item_ref}>
+            <strong>{item.title}</strong>: {item.status}; {item.why_shown} Next:{" "}
+            {item.next_safe_action}
+            <dl className="detail-list compact">
+              <DetailTerm label="Category" value={item.category} />
+              <DetailTerm label="Source state" value={item.source_state} />
+              <DetailTerm
+                label="Stale state"
+                value={item.stale_state ?? "not marked stale"}
+              />
+              <DetailTerm
+                label="No-source state"
+                value={item.no_source_state ? "yes" : "no"}
+              />
+              <DetailTerm
+                label="Review required"
+                value={item.review_required ? "yes" : "no"}
+              />
+              <DetailTerm
+                label="Local review only"
+                value={item.local_review_only ? "yes" : "no"}
+              />
+              <DetailTerm label="Item boundary" value={item.authority_boundary} />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Follow-up refs: none"
+              refs={[
+                item.item_ref,
+                item.relationship_ref,
+                item.promise_ref,
+                item.opportunity_ref,
+                item.action_ref,
+                ...item.memory_refs,
+                ...item.source_refs,
+                ...item.evidence_refs,
+                ...item.receipt_refs,
+                ...item.blocked_state_refs,
+              ].filter(isPresent)}
+            />
+          </li>
+        ))}
+      </ul>
+      <RefListWithFallback
+        emptyLabel="No-source follow-ups: none"
+        refs={tracker.no_source_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Stale follow-ups: none"
+        refs={tracker.stale_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Follow-up blocked refs: none"
+        refs={tracker.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
 function DailyLoopProductBehaviorPanel({
   today,
 }: {
@@ -859,6 +2779,7 @@ function DailyLoopProductBehaviorPanel({
 }) {
   const hasDailyLoop =
     today.daily_loop_summary ||
+    today.follow_up_tracker ||
     today.source_readiness_items?.length ||
     today.crm_lite_followups?.length ||
     today.memory_why_shown_items?.length ||
@@ -878,6 +2799,7 @@ function DailyLoopProductBehaviorPanel({
           items={today.source_readiness_items ?? []}
           posture={today.source_readiness_posture}
         />
+        <FollowUpTrackerPanel tracker={today.follow_up_tracker} />
         <ReviewQueueGroupCards groups={today.review_queue_groups ?? []} />
         <CrmLiteFollowUpCards items={today.crm_lite_followups ?? []} />
         <MemoryWhyShownCards items={today.memory_why_shown_items ?? []} />
@@ -1183,6 +3105,18 @@ function CrmLiteFollowUpCards({
       </ul>
       <dl className="detail-list">
         <DetailTerm
+          label="Contract"
+          value={items[0]?.contract_ref ?? "contract-ref:missing"}
+        />
+        <DetailTerm
+          label="Relationship memory"
+          value={items[0]?.relationship_memory_posture ?? "reviewed recall only"}
+        />
+        <DetailTerm
+          label="Redaction"
+          value={items[0]?.redaction_status ?? "redacted summary only"}
+        />
+        <DetailTerm
           label="CRM sync"
           value={items.some((item) => item.crm_sync_enabled) ? "enabled" : "blocked"}
         />
@@ -1196,7 +3130,52 @@ function CrmLiteFollowUpCards({
             items.some((item) => item.external_write_enabled) ? "enabled" : "blocked"
           }
         />
+        <DetailTerm
+          label="Connector reads"
+          value={
+            items.some((item) => item.connector_read_authorized)
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Account sync"
+          value={
+            items.some((item) => item.account_sync_authorized)
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Context injection"
+          value={
+            items.some((item) => item.context_injection_authorized)
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Hidden memory writes"
+          value={
+            items.some((item) => item.hidden_memory_write_authorized)
+              ? "enabled"
+              : "blocked"
+          }
+        />
       </dl>
+      <RefListWithFallback
+        emptyLabel="Relationship refs: none"
+        refs={items.flatMap((item) => [
+          item.relationship_ref,
+          item.person_ref,
+          item.org_ref,
+          item.project_ref,
+        ])}
+      />
+      <RefListWithFallback
+        emptyLabel="Opportunity and promise refs: none"
+        refs={items.flatMap((item) => [item.opportunity_ref, item.promise_ref])}
+      />
       <RefListWithFallback
         emptyLabel="Memory refs: none"
         refs={items.flatMap((item) => item.memory_refs)}
@@ -1415,6 +3394,342 @@ function WeeklyReviewNarrativeCard({
   );
 }
 
+function WeeklyCeoReviewV1Panel({
+  readModel,
+}: {
+  readModel?: FounderLoopWeeklyCeoReviewV1ReadModel;
+}) {
+  if (!readModel) {
+    return null;
+  }
+  return (
+    <article
+      aria-label="Backend-owned Weekly CEO Review V1 read model"
+      className="status-card"
+    >
+      <div className="status-card-header">
+        <h3>Weekly CEO Review V1</h3>
+        <span>{readModel.status}</span>
+      </div>
+      <p className="eyebrow">Review artifact</p>
+      <p className="section-copy">{readModel.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={readModel.contract_ref} />
+        <DetailTerm label="Source" value={readModel.source} />
+        <DetailTerm label="Review period" value={readModel.review_period_ref} />
+        <DetailTerm label="Completed" value={String(readModel.completed_count)} />
+        <DetailTerm label="Deferred" value={String(readModel.deferred_count)} />
+        <DetailTerm label="Rejected" value={String(readModel.rejected_count)} />
+        <DetailTerm label="Blocked" value={String(readModel.blocked_count)} />
+        <DetailTerm label="Stale" value={String(readModel.stale_count)} />
+        <DetailTerm label="Unresolved" value={String(readModel.unresolved_count)} />
+        <DetailTerm
+          label="Action decisions"
+          value={String(readModel.action_decision_count)}
+        />
+        <DetailTerm
+          label="Memory decisions"
+          value={String(readModel.memory_decision_count)}
+        />
+        <DetailTerm label="Follow-ups" value={String(readModel.follow_up_count)} />
+        <DetailTerm
+          label="Evidence events"
+          value={String(readModel.evidence_event_count)}
+        />
+        <DetailTerm
+          label="Connector runtime"
+          value={readModel.connector_runtime_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Model summaries"
+          value={readModel.model_summary_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Provider/model calls"
+          value={readModel.provider_model_call_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Action execution"
+          value={readModel.action_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Production claim"
+          value={readModel.production_claim_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm label="Authority" value={readModel.authority_boundary} />
+        <DetailTerm label="Next safe action" value={readModel.next_safe_action} />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Completed refs: none"
+        refs={readModel.completed_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Deferred refs: none"
+        refs={readModel.deferred_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Rejected refs: none"
+        refs={readModel.rejected_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Blocked refs: none"
+        refs={readModel.blocked_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Stale refs: none"
+        refs={readModel.stale_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Unresolved refs: none"
+        refs={readModel.unresolved_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Action decision refs: none"
+        refs={readModel.action_decision_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Memory decision refs: none"
+        refs={readModel.memory_decision_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Follow-up refs: none"
+        refs={readModel.follow_up_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence refs: none"
+        refs={readModel.evidence_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence event refs: none"
+        refs={readModel.evidence_event_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Receipt refs: none"
+        refs={readModel.receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Missing source refs: none"
+        refs={readModel.missing_source_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Weekly review authority blockers: missing"
+        refs={readModel.blocked_authority_refs}
+      />
+    </article>
+  );
+}
+
+function FounderLoopProductProofPanel({
+  readModel,
+}: {
+  readModel?: FounderLoopProductProofReadModel;
+}) {
+  if (!readModel) {
+    return null;
+  }
+  return (
+    <section
+      aria-label="Founder Loop V1 product proof"
+      className="compact-stack"
+    >
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Founder Loop V1 product proof</h3>
+          <span>{readModel.status}</span>
+        </div>
+        <p className="eyebrow">Backend-owned proof pass</p>
+        <p className="section-copy">{readModel.safe_summary}</p>
+        <dl className="detail-list">
+          <DetailTerm label="Contract" value={readModel.contract_ref} />
+          <DetailTerm label="Source" value={readModel.source} />
+          <DetailTerm label="Scenario" value={readModel.scenario_ref} />
+          <DetailTerm label="Shared state" value={readModel.shared_state_ref} />
+          <DetailTerm
+            label="Decision receipts"
+            value={readModel.decision_receipt_status}
+          />
+          <DetailTerm
+            label="Memory review"
+            value={
+              readModel.memory_review_status === "candidate_available"
+                ? "candidate visible"
+                : "none"
+            }
+          />
+          <DetailTerm label="Weekly review" value={readModel.weekly_review_status} />
+          <DetailTerm
+            label="Provider/model calls"
+            value={readModel.provider_model_call_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm
+            label="Browser/live web"
+            value={
+              readModel.browser_execution_enabled || readModel.live_web_enabled
+                ? "unsafe"
+                : "blocked"
+            }
+          />
+          <DetailTerm
+            label="Connector writes"
+            value={readModel.connector_write_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm
+            label="Background autonomy"
+            value={readModel.background_autonomy_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm
+            label="Production authority"
+            value={readModel.production_authority_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm label="Authority" value={readModel.authority_boundary} />
+          <DetailTerm label="Next safe action" value={readModel.next_safe_action} />
+        </dl>
+        <InlineListWithFallback
+          emptyLabel="Decision labels: approve, edit, reject, defer"
+          items={readModel.supported_decision_actions.map(
+            (decision) => `decision: ${decision}`,
+          )}
+        />
+        <RefListWithFallback
+          emptyLabel="Receipt refs: none recorded"
+          refs={readModel.receipt_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Memory review candidate: none"
+          refs={readModel.memory_review_candidate_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Evidence refs: none recorded"
+          refs={readModel.evidence_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Evidence event refs: none"
+          refs={readModel.evidence_event_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Blocked authority refs: missing"
+          refs={readModel.blocked_authority_refs}
+        />
+      </article>
+      <div className="review-grid">
+        {readModel.steps.map((step, index) => (
+          <article className="review-card" key={step.step_id}>
+            <div className="review-card-heading">
+              <h3>
+                {index + 1}. {step.surface}
+              </h3>
+              <span>{step.status}</span>
+            </div>
+            <p>{step.safe_summary}</p>
+            <dl className="detail-list">
+              <DetailTerm label="Backend" value={step.backend_route_ref} />
+              <DetailTerm label="Route" value={step.frontend_route_ref} />
+              <DetailTerm label="Next" value={step.next_safe_action} />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Source refs: none"
+              refs={step.source_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Receipt refs: none"
+              refs={step.receipt_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Evidence refs: none"
+              refs={step.evidence_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Blocked refs: none"
+              refs={step.blocked_state_refs}
+            />
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function ChatToLoopHandoffPanel({
+  compact = false,
+  readModel,
+}: {
+  compact?: boolean;
+  readModel?: FounderLoopChatToLoopHandoffReadModel;
+}) {
+  if (!readModel) {
+    return null;
+  }
+  const visibleOutcomes = compact
+    ? readModel.outcomes.slice(0, 3)
+    : readModel.outcomes;
+  return (
+    <article
+      aria-label="Backend-owned Chat to Loop handoff read model"
+      className="status-card"
+    >
+      <div className="status-card-header">
+        <h3>Chat to Loop Handoff</h3>
+        <span>{readModel.status}</span>
+      </div>
+      <p className="eyebrow">Proposal-only</p>
+      <p className="section-copy">{readModel.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={readModel.contract_ref} />
+        <DetailTerm label="Source" value={readModel.source} />
+        <DetailTerm label="Outcomes" value={String(readModel.outcome_count)} />
+        <DetailTerm
+          label="Turn receipts"
+          value={String(readModel.turn_receipt_count)}
+        />
+        <DetailTerm
+          label="Handoff receipts"
+          value={String(readModel.handoff_receipt_count)}
+        />
+        <DetailTerm
+          label="Memory write"
+          value={readModel.direct_memory_write_authorized ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Action execution"
+          value={readModel.action_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Model output authority"
+          value={readModel.model_output_authority ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Next safe action"
+          value={readModel.next_safe_action}
+        />
+      </dl>
+      <div className="note-list" aria-label="Chat to Loop handoff outcomes">
+        {visibleOutcomes.map((outcome) => (
+          <span key={outcome.outcome_ref}>
+            {outcome.safe_label}: {outcome.state}; {outcome.target_surface};{" "}
+            {outcome.proposal_ref}
+          </span>
+        ))}
+      </div>
+      <RefListWithFallback
+        emptyLabel="Outcome refs: none"
+        refs={readModel.outcome_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Handoff receipt refs: none"
+        refs={readModel.handoff_receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Memory proposal refs: none"
+        refs={readModel.memory_proposal_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Chat-to-loop blockers: missing"
+        refs={readModel.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
 export function InboxSurfacePanel({
   sourceReadiness,
 }: {
@@ -1443,7 +3758,7 @@ export function InboxSurfacePanel({
         <span className="status-pill compact">blocked/planned</span>
       </div>
       <p className="section-copy">
-        Inbox is visible as the Founder Command Center triage slot. A dedicated
+        Inbox is visible as the Founder Loop triage slot. A dedicated
         backend Source Readiness route reports read-only source posture, while
         live email, calendar, draft, account, polling, and connector runtime
         behavior remain blocked.
@@ -1492,9 +3807,11 @@ export function InboxSurfacePanel({
 export function ActionInboxSurfacePanel({
   actionReadModelAuthoritative,
   inbox,
+  providerCredentialReadiness,
 }: {
   actionReadModelAuthoritative: boolean;
   inbox: FounderLoopActionsInbox;
+  providerCredentialReadiness?: ProviderCredentialReadinessSummary;
 }) {
   const [selectedActionGroup, setSelectedActionGroup] = useState<
     FounderLoopActionGroupId | "all"
@@ -1549,6 +3866,25 @@ export function ActionInboxSurfacePanel({
         </div>
         <span className="status-pill compact">{inbox.status}</span>
       </div>
+      <ActionInboxOperatorOverview
+        actionGroups={actionGroups}
+        inbox={displayedInbox}
+      />
+      <ActionInboxDecisionLanePanel
+        contractRef={displayedInbox.action_inbox_decision_lane_contract_ref}
+        readModel={displayedInbox.action_inbox_decision_lane_read_model}
+      />
+      <PlansToActionsBridgePanel
+        contractRef={displayedInbox.plans_to_actions_bridge_contract_ref}
+        readModel={displayedInbox.plans_to_actions_bridge_read_model}
+      />
+      {providerCredentialReadiness ? (
+        <ActionInboxProviderCostPosture readiness={providerCredentialReadiness} />
+      ) : null}
+      <ChatToLoopHandoffPanel
+        compact
+        readModel={displayedInbox.chat_to_loop_handoff_read_model}
+      />
       <article className="status-card">
         <div className="status-card-header">
           <h3>State posture</h3>
@@ -1565,8 +3901,12 @@ export function ActionInboxSurfacePanel({
             value={inbox.approval_required_before_mutation ? "required" : "not required"}
           />
           <DetailTerm
-            label="Mutation controls"
-            value={inbox.mutating_controls_enabled ? "scoped" : "disabled"}
+            label="Receipt/local-task controls"
+            value={
+              inbox.mutating_controls_enabled
+                ? "receipt and exact local-task controls only"
+                : "disabled"
+            }
           />
           <DetailTerm
             label="Decision contract"
@@ -1739,6 +4079,7 @@ export function ActionInboxSurfacePanel({
       </article>
       {inbox.source_readiness_items?.length ||
       inbox.source_readiness_proposal_candidates?.length ||
+      inbox.follow_up_tracker ||
       inbox.crm_lite_followups?.length ||
       inbox.memory_why_shown_items?.length ||
       inbox.review_queue_groups?.length ||
@@ -1768,6 +4109,7 @@ export function ActionInboxSurfacePanel({
               />
             </dl>
           </article>
+          <FollowUpTrackerPanel tracker={inbox.follow_up_tracker} />
           <ReviewQueueGroupCards groups={inbox.review_queue_groups ?? []} />
           <CrmLiteFollowUpCards items={inbox.crm_lite_followups ?? []} />
           <MemoryWhyShownCards items={inbox.memory_why_shown_items ?? []} />
@@ -1778,6 +4120,7 @@ export function ActionInboxSurfacePanel({
         <SourceReadinessProposalCards
           proposals={inbox.source_readiness_proposal_candidates ?? []}
         />
+        <TaskDecompositionProposalSummaryCard inbox={inbox} />
         {(inbox.memory_derived_action_proposals ?? []).map((proposal) => (
           <MemoryDerivedActionProposalCard
             key={proposal.proposal_ref}
@@ -1871,6 +4214,335 @@ type ActionLaneGroup = {
   items: FounderLoopActionItem[];
 };
 
+function ActionInboxDecisionLanePanel({
+  contractRef,
+  readModel,
+}: {
+  contractRef?: string;
+  readModel?: FounderLoopActionInboxDecisionLaneReadModel;
+}) {
+  if (!readModel) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Decision lanes</h3>
+          <span>backend decision lanes missing</span>
+        </div>
+        <p>
+          Backend-owned decision-lane posture is unavailable. The UI will not
+          backfill cost, authority, approval, or receipt lanes from mock data.
+        </p>
+        <dl className="detail-list">
+          <DetailTerm
+            label="Approval alone"
+            value="does not execute without exact backend scope"
+          />
+          <DetailTerm label="Action execution" value="blocked" />
+          <DetailTerm label="Provider/model calls" value="blocked" />
+        </dl>
+      </article>
+    );
+  }
+  const laneById = new Map(readModel.lanes.map((lane) => [lane.lane_id, lane]));
+  return (
+    <>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Decision lanes</h3>
+          <span>{readModel.status}</span>
+        </div>
+        <p>
+          Backend-owned lanes show approval, cost, provider/model, evidence,
+          and expected receipt posture before any operator decision. Approval
+          alone does not execute work.
+        </p>
+        <dl className="detail-list">
+          <DetailTerm
+            label="Contract"
+            value={contractRef ?? readModel.contract_ref}
+          />
+          <DetailTerm label="Source" value={readModel.source} />
+          <DetailTerm
+            label="Missing envelope fields"
+            value={
+              readModel.missing_envelope_fields_fail_safe
+                ? "fail safe"
+                : "unchecked"
+            }
+          />
+          <DetailTerm
+            label="Cost before approval"
+            value={
+              readModel.cost_posture_visible_before_approval
+                ? "visible"
+                : "missing"
+            }
+          />
+          <DetailTerm
+            label="Provider authority"
+            value={
+              readModel.provider_authority_visible_before_approval
+                ? "visible"
+                : "missing"
+            }
+          />
+          <DetailTerm
+            label="Cost labels"
+            value="accounting readiness only; no provider calls"
+          />
+          <DetailTerm
+            label="Approval alone"
+            value={readModel.approval_alone_executes ? "unsafe" : "does not execute"}
+          />
+          <DetailTerm
+            label="Action execution"
+            value={readModel.action_execution_enabled ? "unsafe" : "blocked"}
+          />
+        </dl>
+        <InlineListWithFallback
+          emptyLabel="Decision states: missing"
+          items={[
+            "Cost blocked",
+            "Cost approved",
+            "Unknown paid cost",
+            "No provider authority",
+            "Approved / no execution",
+          ]}
+        />
+        <RefListWithFallback
+          emptyLabel="Decision-lane blockers: missing"
+          refs={readModel.blocked_state_refs}
+        />
+      </article>
+      <div
+        aria-label="Action Inbox decision lanes"
+        className="review-grid action-decision-lane-grid"
+      >
+        {readModel.lane_order.map((laneId) => {
+          const lane = laneById.get(laneId);
+          if (!lane) {
+            return null;
+          }
+          return (
+            <article className="review-card" key={lane.lane_id}>
+              <div className="review-card-heading">
+                <h3>{lane.label}</h3>
+                <span>{lane.count}</span>
+              </div>
+              <p>{lane.safe_summary}</p>
+              <dl className="detail-list">
+                <DetailTerm label="Status" value={lane.status} />
+                <DetailTerm
+                  label="Approval alone"
+                  value={lane.approval_alone_executes ? "unsafe" : "does not execute"}
+                />
+                <DetailTerm
+                  label="Action execution"
+                  value={lane.action_execution_enabled ? "unsafe" : "blocked"}
+                />
+                <DetailTerm label="Next safe action" value={lane.next_safe_action} />
+              </dl>
+              <RefListWithFallback
+                emptyLabel="Lane item refs: none"
+                refs={lane.item_refs}
+              />
+              <RefListWithFallback
+                emptyLabel="Lane blockers: missing"
+                refs={lane.blocked_state_refs}
+              />
+            </article>
+          );
+        })}
+      </div>
+      <div
+        aria-label="Action Inbox decision lane item details"
+        className="review-grid action-decision-lane-items"
+      >
+        {readModel.items.map((item) => (
+          <ActionInboxDecisionLaneItemCard item={item} key={item.item_ref} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function ActionInboxDecisionLaneItemCard({
+  item,
+}: {
+  item: FounderLoopActionInboxDecisionLaneItem;
+}) {
+  return (
+    <article className="review-card">
+      <div className="review-card-heading">
+        <h4>{item.title}</h4>
+        <span>{item.lane_label}</span>
+      </div>
+      <p>{item.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Status" value={item.status} />
+        <DetailTerm label="Approval envelope" value={item.approval_envelope_ref ?? "missing"} />
+        <DetailTerm label="Approval status" value={item.approval_envelope_status} />
+        <DetailTerm label="Approval scope" value={item.approval_scope_ref ?? "missing"} />
+        <DetailTerm label="Cost posture" value={item.cost_state_label} />
+        <DetailTerm
+          label="Unknown paid cost"
+          value={
+            item.unknown_paid_cost_requires_explicit_approval
+              ? "requires explicit approval"
+              : "not flagged"
+          }
+        />
+        <DetailTerm
+          label="Provider authority"
+          value={item.provider_authority_state_label}
+        />
+        <DetailTerm
+          label="Provider/model refs"
+          value={`${item.provider_ref ?? "missing"} / ${item.model_profile_ref ?? "missing"}`}
+        />
+        <DetailTerm
+          label="Estimated USD"
+          value={item.estimated_cost_usd.toFixed(4)}
+        />
+        <DetailTerm
+          label="Max approved USD"
+          value={item.max_approved_cost_usd.toFixed(4)}
+        />
+        <DetailTerm
+          label="Metered units"
+          value={String(item.total_metered_units)}
+        />
+        <DetailTerm
+          label="Approval alone"
+          value={item.approval_alone_executes ? "unsafe" : "does not execute"}
+        />
+        <DetailTerm
+          label="Action execution"
+          value={item.action_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm label="Next safe action" value={item.next_safe_action} />
+      </dl>
+      <h5>Expected receipts</h5>
+      <RefListWithFallback
+        emptyLabel="Expected receipts: missing"
+        refs={item.expected_receipt_refs}
+      />
+      <h5>Missing envelope fields</h5>
+      <RefListWithFallback
+        emptyLabel="Missing envelope fields: none"
+        refs={item.missing_envelope_field_states}
+      />
+      <h5>Cost receipt refs</h5>
+      <RefListWithFallback
+        emptyLabel="Cost receipt refs: missing"
+        refs={item.cost_receipt_refs}
+      />
+      <h5>Evidence refs</h5>
+      <RefListWithFallback
+        emptyLabel="Evidence refs: missing"
+        refs={item.evidence_refs}
+      />
+      <h5>Blocked authority</h5>
+      <RefListWithFallback
+        emptyLabel="Blocked authority refs: none"
+        refs={item.blocked_authority_refs}
+      />
+    </article>
+  );
+}
+
+function ActionInboxProviderCostPosture({
+  readiness,
+}: {
+  readiness: ProviderCredentialReadinessSummary;
+}) {
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <h3>Provider cost authority posture</h3>
+        <span>
+          {readiness.cost_governor_binding_required ? "cost blocked" : "missing"}
+        </span>
+      </div>
+      <p>
+        Provider-backed Action proposals remain review-only until provider/model
+        refs, CostGovernor decisions, budget decisions, max-approved refs, and
+        future receipt refs are present.
+      </p>
+      <dl className="detail-list">
+        <DetailTerm
+          label="Configured providers"
+          value={String(readiness.posture_counts.configured)}
+        />
+        <DetailTerm
+          label="Not configured providers"
+          value={String(readiness.posture_counts.not_configured)}
+        />
+        <DetailTerm
+          label="Revoked providers"
+          value={String(readiness.posture_counts.revoked)}
+        />
+        <DetailTerm
+          label="Blocked providers"
+          value={String(readiness.posture_counts.blocked)}
+        />
+        <DetailTerm
+          label="Unknown paid cost"
+          value={
+            readiness.unknown_paid_cost_requires_approval
+              ? "approval required"
+              : "blocked posture missing"
+          }
+        />
+        <DetailTerm
+          label="Usage claims"
+          value={
+            readiness.provider_usage_claim_requires_receipt_refs
+              ? "receipt-bound"
+              : "receipt posture missing"
+          }
+        />
+        <DetailTerm
+          label="Tiny provider lane"
+          value={readiness.tiny_invocation_readiness.status}
+        />
+        <DetailTerm
+          label="Provider authority"
+          value={
+            readiness.tiny_invocation_readiness.invocation_enabled
+              ? "exact scope required"
+              : "No provider authority"
+          }
+        />
+        <DetailTerm
+          label="Redacted receipts"
+          value={
+            readiness.tiny_invocation_readiness.redacted_receipts_only
+              ? "required"
+              : "receipt posture missing"
+          }
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Provider cost blockers: missing"
+        items={[
+          ...readiness.blocker_codes.slice(0, 8),
+          ...readiness.tiny_invocation_readiness.ui_states.filter(
+            (state) =>
+              ![
+                "Usage captured",
+                "Cost captured",
+                "Cost incomplete",
+                "Review required",
+                "Further use blocked",
+              ].includes(state),
+          ),
+        ]}
+      />
+    </article>
+  );
+}
+
 function buildActionLaneGroups(inbox: FounderLoopActionsInbox): ActionLaneGroup[] {
   const summaryById = new Map<FounderLoopActionGroupId, FounderLoopActionGroupSummary>();
   for (const summary of actionGroupFallbacks) {
@@ -1945,6 +4617,79 @@ function ActionLaneSection({
   );
 }
 
+function TaskDecompositionProposalSummaryCard({
+  inbox,
+}: {
+  inbox: FounderLoopActionsInbox;
+}) {
+  const summary = inbox.task_decomposition_proposal_summary;
+  if (!summary) {
+    return null;
+  }
+  return (
+    <article className="review-card">
+      <div className="review-card-heading">
+        <h3>Task decomposition proposals</h3>
+        <span>{summary.status}</span>
+      </div>
+      <p>
+        Backend-owned decomposition proposals from safe refs. These feed Plans
+        and Action Inbox as review artifacts only.
+      </p>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={summary.contract_ref} />
+        <DetailTerm label="Source" value={summary.source} />
+        <DetailTerm label="Action kind" value={summary.action_kind} />
+        <DetailTerm label="Proposal count" value={String(summary.proposal_count)} />
+        <DetailTerm
+          label="Local task commit"
+          value={summary.local_task_commit_eligible ? "eligible" : "blocked"}
+        />
+        <DetailTerm
+          label="Action execution"
+          value={summary.action_execution_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Workflow execution"
+          value={summary.workflow_execution_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Tool execution"
+          value={summary.tool_execution_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Memory write"
+          value={summary.memory_write_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Context injection"
+          value={summary.context_injection_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Connector write"
+          value={summary.connector_write_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Provider authority"
+          value={summary.model_provider_authority_allowed ? "enabled" : "blocked"}
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Task decomposition proposal refs: none"
+        refs={summary.proposal_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Task decomposition Action Inbox refs: none"
+        refs={summary.action_item_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Task decomposition blockers: none"
+        refs={summary.blocked_authority_refs}
+      />
+    </article>
+  );
+}
+
 function MemoryDerivedActionProposalCard({
   proposal,
 }: {
@@ -2004,6 +4749,11 @@ export function MorningBriefingPanel({
         </div>
         <span className="status-pill compact">{briefing.status}</span>
       </div>
+      <BriefingOperatorSummary briefing={briefing} />
+      <MorningBriefingV1Panel
+        contractRef={briefing.morning_briefing_v1_contract_ref}
+        readModel={briefing.morning_briefing_v1_read_model}
+      />
       <div className="panel-grid">
         <article className="status-card">
           <div className="status-card-header">
@@ -2108,6 +4858,152 @@ export function MorningBriefingPanel({
   );
 }
 
+function MorningBriefingV1Panel({
+  contractRef,
+  readModel,
+}: {
+  contractRef?: string;
+  readModel?: FounderLoopMorningBriefingV1ReadModel;
+}) {
+  if (!readModel) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Briefing V1 read model</h3>
+          <span>backend read model missing</span>
+        </div>
+        <p className="muted">
+          Backend-owned Morning Briefing V1 posture is unavailable. Control
+          Center will not infer source readiness, repo/workbench status, or
+          evidence posture from fallback-only data.
+        </p>
+        <dl className="detail-list">
+          <DetailTerm label="Connector runtime" value="blocked" />
+          <DetailTerm label="Email/calendar fetch" value="blocked" />
+          <DetailTerm label="Provider/model calls" value="blocked" />
+          <DetailTerm label="Action execution" value="blocked" />
+        </dl>
+      </article>
+    );
+  }
+  return (
+    <article
+      aria-label="Backend-owned Morning Briefing V1 read model"
+      className="status-card"
+    >
+      <div className="status-card-header">
+        <h3>Briefing V1 read model</h3>
+        <span>{readModel.status}</span>
+      </div>
+      <p className="eyebrow">Morning Briefing V1</p>
+      <p className="muted">Backend-owned local briefing</p>
+      <p className="section-copy">{readModel.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={contractRef ?? readModel.contract_ref} />
+        <DetailTerm label="Source" value={readModel.source} />
+        <DetailTerm label="Briefing items" value={String(readModel.item_count)} />
+        <DetailTerm label="Daily sections" value={String(readModel.section_count)} />
+        <DetailTerm
+          label="Open Action refs"
+          value={String(readModel.open_action_count)}
+        />
+        <DetailTerm label="Follow-ups" value={String(readModel.follow_up_count)} />
+        <DetailTerm
+          label="Memory review"
+          value={String(readModel.memory_review_count)}
+        />
+        <DetailTerm
+          label="Source blockers"
+          value={String(readModel.source_blocker_count)}
+        />
+        <DetailTerm
+          label="Connector runtime"
+          value={readModel.connector_runtime_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Email/calendar fetch"
+          value={readModel.email_calendar_fetch_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Provider/model calls"
+          value={readModel.provider_model_call_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic recommendations"
+          value={
+            readModel.automatic_recommendations_enabled ? "unsafe" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Hidden memory write"
+          value={readModel.hidden_memory_write_authorized ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Repo write"
+          value={readModel.repo_write_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Workbench apply"
+          value={readModel.workbench_apply_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Shell execution"
+          value={
+            readModel.shell_subprocess_execution_enabled ? "unsafe" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Browser execution"
+          value={readModel.browser_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm label="Authority boundary" value={readModel.authority_boundary} />
+        <DetailTerm label="Next safe action" value={readModel.next_safe_action} />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Open Action refs: none"
+        refs={readModel.open_action_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Follow-up refs: none"
+        refs={readModel.follow_up_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Memory review refs: none"
+        refs={readModel.memory_review_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence refs: none"
+        refs={readModel.evidence_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Source readiness refs: missing"
+        refs={readModel.source_readiness_refs}
+      />
+      <p className="muted">Repo/workbench status</p>
+      <RefListWithFallback
+        emptyLabel="Repo status refs: missing"
+        refs={readModel.repo_status_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Workbench status refs: missing"
+        refs={readModel.workbench_status_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Missing sources: none"
+        refs={readModel.missing_source_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence timeline refs: none"
+        refs={readModel.evidence_timeline_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Morning Briefing V1 blockers: missing"
+        refs={readModel.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
 function BriefingDailyLoopPanel({
   briefing,
 }: {
@@ -2116,10 +5012,13 @@ function BriefingDailyLoopPanel({
   const hasDailyLoop =
     briefing.daily_loop_summary ||
     briefing.daily_loop_sections?.length ||
+    briefing.follow_up_tracker ||
     briefing.source_readiness_items?.length ||
     briefing.crm_lite_followups?.length ||
     briefing.memory_why_shown_items?.length ||
     briefing.review_queue_groups?.length ||
+    briefing.weekly_ceo_review_v1_read_model ||
+    briefing.chat_to_loop_handoff_read_model ||
     briefing.weekly_review_narrative ||
     briefing.dogfood_capture;
 
@@ -2136,11 +5035,22 @@ function BriefingDailyLoopPanel({
           items={briefing.source_readiness_items ?? []}
           posture={briefing.source_readiness_posture}
         />
+        <FollowUpTrackerPanel tracker={briefing.follow_up_tracker} />
         <ReviewQueueGroupCards groups={briefing.review_queue_groups ?? []} />
         <CrmLiteFollowUpCards items={briefing.crm_lite_followups ?? []} />
         <MemoryWhyShownCards items={briefing.memory_why_shown_items ?? []} />
+        <FounderLoopProductProofPanel
+          readModel={briefing.founder_loop_v1_product_proof_read_model}
+        />
+        <ChatToLoopHandoffPanel
+          compact
+          readModel={briefing.chat_to_loop_handoff_read_model}
+        />
         <DogfoodCaptureCard capture={briefing.dogfood_capture} />
       </div>
+      <WeeklyCeoReviewV1Panel
+        readModel={briefing.weekly_ceo_review_v1_read_model}
+      />
       <WeeklyReviewNarrativeCard narrative={briefing.weekly_review_narrative} />
     </>
   );
@@ -2183,12 +5093,9 @@ export function MemoryReviewSurfacePanel({
   citationIntegrity,
   contextPacks,
   contextManifest,
-  followUpQueue,
-  impactGraph,
   maintenanceRuns,
   memoryReview,
   qualityIssues,
-  recallHealth,
   retrievalDiagnostics,
   today,
   workbench,
@@ -2196,12 +5103,9 @@ export function MemoryReviewSurfacePanel({
   citationIntegrity: FounderLoopMemoryCitationIntegrity;
   contextPacks: FounderLoopMemoryContextPacks;
   contextManifest: FounderLoopMemoryContextManifest;
-  followUpQueue: FounderLoopMemoryFollowUpQueue;
-  impactGraph: FounderLoopMemoryImpactGraph;
   maintenanceRuns: FounderLoopMemoryMaintenanceRuns;
   memoryReview: FounderLoopMemoryReview;
   qualityIssues: FounderLoopMemoryQualityIssues;
-  recallHealth: FounderLoopRecallHealthV2;
   retrievalDiagnostics: FounderLoopMemoryRetrievalDiagnostics;
   today: FounderLoopTodaySummary;
   workbench: FounderLoopMemoryWorkbench;
@@ -2225,9 +5129,10 @@ export function MemoryReviewSurfacePanel({
       </div>
       <MemoryWorkbenchHealthPanel
         memoryReview={memoryReview}
-        recallHealth={recallHealth}
         workbench={workbench}
       />
+      <MemoryLifecyclePosturePanel workbench={workbench} />
+      <MemoryRankingDiagnosticsPanel workbench={workbench} />
       <div className="panel-grid">
         <MemoryRetrievalDiagnosticsPanel diagnostics={retrievalDiagnostics} />
         <MemoryCitationIntegrityPanel citationIntegrity={citationIntegrity} />
@@ -2237,17 +5142,14 @@ export function MemoryReviewSurfacePanel({
         <MemoryMaintenanceRunPanel maintenanceRuns={maintenanceRuns} />
       </div>
       <MemoryContextManifestPanel contextManifest={contextManifest} />
+      <MemoryOperatorSummary
+        contextPacks={contextPacks}
+        today={today}
+        workbench={workbench}
+      />
       <div className="panel-grid">
         <MemoryWorkbenchSearchPanel items={workbenchItems} />
         <ManualMemoryCandidatePanel />
-      </div>
-      <div className="panel-grid">
-        <MemoryImpactGraphPanel impactGraph={impactGraph} />
-        <MemoryMergeSupersedePanel items={workbenchItems} />
-      </div>
-      <div className="panel-grid">
-        <MemoryFollowUpQueuePanel followUpQueue={followUpQueue} />
-        <MemoryContextPackPreviewPanel impactGraph={impactGraph} />
       </div>
       <div className="review-grid">
         {workbenchItems.map((item) => (
@@ -2275,7 +5177,11 @@ export function MemoryReviewSurfacePanel({
             <DetailTerm label="Storage ref" value={today.storage_ref} />
             <DetailTerm
               label="Memory writes"
-              value={today.memory_write_enabled ? "scoped" : "disabled"}
+              value={
+                today.memory_write_enabled
+                  ? "scoped"
+                  : "general writes blocked; accept/correct may create receipt-bound recall-only records"
+              }
             />
             <DetailTerm
               label="Memory deletes"
@@ -2363,19 +5269,19 @@ export function MemoryReviewSurfacePanel({
               }
             />
             <DetailTerm
-              label="Write authority"
+              label="General write authority"
               value={
                 today.memory_review_decision_authority_posture.memory_write_authorized
                   ? "enabled"
-                  : "disabled"
+                  : "blocked; receipt-bound recall-only records only"
               }
             />
             <DetailTerm
-              label="Recall authority"
+              label="Reviewed recall posture"
               value={
                 today.memory_review_decision_authority_posture.accepted_as_recall
-                  ? "enabled"
-                  : "disabled"
+                  ? "local recall record after scoped receipt"
+                  : "not authority"
               }
             />
           </dl>
@@ -2400,7 +5306,7 @@ export function MemoryReviewSurfacePanel({
               }
             />
             <DetailTerm
-              label="FCC contract"
+              label="Founder Loop contract"
               value={
                 today.fcc_memory_review_decision_contract_ref ??
                 "contract-ref:fcc-v1-005-memory-review-decisions:v1"
@@ -2656,174 +5562,30 @@ export function MemoryReviewSurfacePanel({
   );
 }
 
-function MemoryWorkbenchHealthPanel({
-  memoryReview,
-  recallHealth,
-  workbench,
-}: {
-  memoryReview: FounderLoopMemoryReview;
-  recallHealth: FounderLoopRecallHealthV2;
-  workbench: FounderLoopMemoryWorkbench;
-}) {
-  const health = workbench.health;
-  const metrics = [
-    ["Pending review", health.pending_review_count],
-    ["Stale", health.stale_count],
-    ["Conflicts", health.conflict_count],
-    ["Duplicates", health.duplicate_count],
-    ["Missing evidence", health.missing_evidence_count],
-    ["Reviewed recall", health.reviewed_recall_count],
-    ["Rejected", health.rejected_count],
-  ] as const;
-  const recallHealthMetrics = [
-    ["Stale pressure", recallHealth.stale_pressure],
-    ["Duplicate pressure", recallHealth.duplicate_pressure],
-    ["Conflict pressure", recallHealth.conflict_pressure],
-    ["Missing evidence", recallHealth.missing_evidence_pressure],
-    ["Defer aging", recallHealth.defer_aging_count],
-    ["Forget aging", recallHealth.forget_request_aging_count],
-    ["Suppressed refs", recallHealth.merge_supersede_suppression_count],
-  ] as const;
-
-  return (
-    <article className="status-card">
-      <div className="status-card-header">
-        <div>
-          <h3>Memory Workbench V1</h3>
-          <p className="muted">
-            Backend-owned review model over candidates, receipts, projections,
-            context-pack proposals, and quality states.
-          </p>
-        </div>
-        <span>{workbench.schema_version}</span>
-      </div>
-      <div className="metric-grid">
-        {metrics.map(([label, value]) => (
-          <div className="metric-card" key={label}>
-            <span>{label}</span>
-            <strong>{value}</strong>
-          </div>
-        ))}
-      </div>
-      <div className="metric-grid compact-metric-grid">
-        {recallHealthMetrics.map(([label, value]) => (
-          <div className="metric-card" key={label}>
-            <span>{label}</span>
-            <strong>{value}</strong>
-          </div>
-        ))}
-      </div>
-      <dl className="detail-list">
-        <DetailTerm label="Workbench route" value={workbench.route_ref} />
-        <DetailTerm label="Workbench contract" value={workbench.contract_ref} />
-        <DetailTerm label="Recall health" value={recallHealth.schema_version} />
-        <DetailTerm label="Review route" value={memoryReview.route_ref} />
-        <DetailTerm
-          label="Lifecycle routes"
-          value={String(memoryReview.decision_route_refs.length)}
-        />
-        <DetailTerm
-          label="Safe refs only"
-          value={workbench.safe_refs_only ? "yes" : "no"}
-        />
-        <DetailTerm
-          label="Semantic/vector search"
-          value={
-            workbench.semantic_search_enabled ||
-            workbench.vector_db_enabled ||
-            workbench.embedding_search_enabled
-              ? "enabled"
-              : "blocked"
-          }
-        />
-        <DetailTerm
-          label="Context injection"
-          value={workbench.context_injection_authorized ? "enabled" : "blocked"}
-        />
-        <DetailTerm
-          label="Memory truth authority"
-          value={workbench.memory_truth_authority ? "enabled" : "blocked"}
-        />
-      </dl>
-      <InlineListWithFallback
-        emptyLabel="Workbench groups: none"
-        items={workbench.groups.map(
-          (group) => `${group.group_id}: ${group.count}`,
-        )}
-      />
-      <RefListWithFallback
-        emptyLabel="Needs attention refs: none"
-        refs={health.needs_attention_refs}
-      />
-      <RefListWithFallback
-        emptyLabel="Top loop-driving memories: none"
-        refs={recallHealth.top_memory_refs_driving_current_loop}
-      />
-      <RefListWithFallback
-        emptyLabel="Top relationship refs: none"
-        refs={recallHealth.top_relationship_refs_needing_attention}
-      />
-      <RefListWithFallback
-        emptyLabel="Top commitment refs: none"
-        refs={recallHealth.top_commitment_refs_needing_attention}
-      />
-      <RefListWithFallback
-        emptyLabel="Workbench blockers: none"
-        refs={workbench.blocked_state_refs}
-      />
-    </article>
-  );
-}
-
 function MemoryRetrievalDiagnosticsPanel({
   diagnostics,
 }: {
   diagnostics: FounderLoopMemoryRetrievalDiagnostics;
 }) {
-  const pressure = diagnostics.pressure;
-  const metrics = [
-    ["Candidates", diagnostics.candidate_count],
-    ["Included", diagnostics.included_count],
-    ["Excluded", diagnostics.excluded_count],
-    ["Token estimate", diagnostics.token_estimate],
-    ["Stale pressure", pressure.stale_pressure],
-    ["Conflict pressure", pressure.conflict_pressure],
-  ] as const;
-
   return (
     <article className="status-card">
       <div className="status-card-header">
         <div>
           <h3>Retrieval Diagnostics</h3>
           <p className="muted">
-            Plain QMD-style stats over safe refs, ranking, source mix, pressure,
-            cache posture, and blockers.
+            Safe-ref stats over ranking, source mix, pressure, cache posture,
+            and blocked reasons.
           </p>
         </div>
         <span>{diagnostics.cache_hit ? "cache hit" : diagnostics.cache_status}</span>
       </div>
-      <div className="metric-grid compact-metric-grid">
-        {metrics.map(([label, value]) => (
-          <div className="metric-card" key={label}>
-            <span>{label}</span>
-            <strong>{value}</strong>
-          </div>
-        ))}
-      </div>
       <dl className="detail-list">
         <DetailTerm label="Route" value={diagnostics.route_ref} />
         <DetailTerm label="Contract" value={diagnostics.contract_ref} />
+        <DetailTerm label="Candidates" value={String(diagnostics.candidate_count)} />
+        <DetailTerm label="Included" value={String(diagnostics.included_count)} />
+        <DetailTerm label="Token estimate" value={String(diagnostics.token_estimate)} />
         <DetailTerm label="Cache key" value={diagnostics.cache_key_ref} />
-        <DetailTerm
-          label="Semantic/vector"
-          value={
-            diagnostics.semantic_search_enabled ||
-            diagnostics.vector_db_enabled ||
-            diagnostics.embedding_search_enabled
-              ? "enabled"
-              : "blocked"
-          }
-        />
         <DetailTerm
           label="Context injection"
           value={diagnostics.context_injection_authorized ? "enabled" : "blocked"}
@@ -2844,10 +5606,6 @@ function MemoryRetrievalDiagnosticsPanel({
         refs={diagnostics.included_refs}
       />
       <RefListWithFallback
-        emptyLabel="Excluded refs: none"
-        refs={diagnostics.excluded_refs}
-      />
-      <RefListWithFallback
         emptyLabel="Blocked reason refs: none"
         refs={diagnostics.blocked_reason_refs}
       />
@@ -2860,16 +5618,14 @@ function MemoryCitationIntegrityPanel({
 }: {
   citationIntegrity: FounderLoopMemoryCitationIntegrity;
 }) {
-  const visibleResults = citationIntegrity.results.slice(0, 3);
-
   return (
     <article className="status-card">
       <div className="status-card-header">
         <div>
           <h3>Citation Integrity</h3>
           <p className="muted">
-            Context-pack refs must validate before any future use milestone can
-            consider them.
+            Context-pack refs must validate before future use; this panel grants
+            no context injection or truth authority.
           </p>
         </div>
         <span>{citationIntegrity.status}</span>
@@ -2891,40 +5647,7 @@ function MemoryCitationIntegrityPanel({
             citationIntegrity.context_injection_authorized ? "enabled" : "blocked"
           }
         />
-        <DetailTerm
-          label="Truth authority"
-          value={citationIntegrity.truth_authority_enabled ? "enabled" : "blocked"}
-        />
       </dl>
-      <div className="memory-impact-list">
-        {visibleResults.map((result) => (
-          <div className="memory-impact-row" key={result.citation_integrity_result_ref}>
-            <div className="review-card-heading compact">
-              <h4>{result.context_pack_ref}</h4>
-              <span>{result.status}</span>
-            </div>
-            <dl className="detail-list">
-              <DetailTerm label="Proposal" value={result.proposal_ref} />
-              <DetailTerm
-                label="Blocks use"
-                value={result.blocks_context_pack_use ? "yes" : "no"}
-              />
-              <DetailTerm
-                label="Proof event"
-                value={result.evidence_timeline_event_ref || "not needed"}
-              />
-            </dl>
-            <RefListWithFallback
-              emptyLabel="Invalid refs: none"
-              refs={result.invalid_citation_refs}
-            />
-            <RefListWithFallback
-              emptyLabel="Valid refs: none"
-              refs={result.valid_citation_refs.slice(0, 8)}
-            />
-          </div>
-        ))}
-      </div>
       <RefListWithFallback
         emptyLabel="Citation blockers: none"
         refs={citationIntegrity.blocked_state_refs}
@@ -2938,8 +5661,6 @@ function MemoryQualityIssuePanel({
 }: {
   qualityIssues: FounderLoopMemoryQualityIssues;
 }) {
-  const issues = qualityIssues.issues.slice(0, 4);
-
   return (
     <article className="status-card">
       <div className="status-card-header">
@@ -2959,24 +5680,16 @@ function MemoryQualityIssuePanel({
           label="Memory write"
           value={qualityIssues.memory_write_authorized ? "enabled" : "blocked"}
         />
-        <DetailTerm
-          label="Action execution"
-          value={qualityIssues.action_execution_authorized ? "enabled" : "blocked"}
-        />
       </dl>
       <InlineListWithFallback
         emptyLabel="Quality groups: none"
         items={qualityIssues.groups.map((group) => `${group.group_id}: ${group.count}`)}
       />
       <div className="memory-impact-list">
-        {issues.map((issue) => (
+        {qualityIssues.issues.slice(0, 4).map((issue) => (
           <MemoryQualityIssueRow issue={issue} key={issue.issue_ref} />
         ))}
       </div>
-      <RefListWithFallback
-        emptyLabel="Feedback receipt refs: none"
-        refs={qualityIssues.feedback_receipt_refs}
-      />
       <RefListWithFallback
         emptyLabel="Quality blockers: none"
         refs={qualityIssues.blocked_state_refs}
@@ -2994,7 +5707,6 @@ function MemoryQualityIssueRow({ issue }: { issue: FounderLoopMemoryQualityIssue
       </div>
       <dl className="detail-list">
         <DetailTerm label="Target" value={issue.target_ref} />
-        <DetailTerm label="Target kind" value={issue.target_kind} />
         <DetailTerm label="Severity" value={issue.severity} />
         <DetailTerm label="Rank" value={String(issue.rank_score)} />
         <DetailTerm
@@ -3087,11 +5799,11 @@ function MemoryFeedbackControls({
       {state.message ? <p className="muted">{state.message}</p> : null}
       {state.receipt ? (
         <dl className="detail-list">
-          <DetailTerm label="Receipt" value={state.receipt.receipt_ref} />
+          <DetailTerm label="Feedback receipt" value={state.receipt.receipt_ref} />
           <DetailTerm label="Quality issue" value={state.receipt.quality_issue_ref} />
           <DetailTerm
             label="Memory write"
-            value={state.receipt.memory_write_performed ? "yes" : "no"}
+            value={state.receipt.memory_write_performed ? "performed" : "blocked"}
           />
           <DetailTerm
             label="Context injection"
@@ -3108,93 +5820,30 @@ function MemoryMaintenanceRunPanel({
 }: {
   maintenanceRuns: FounderLoopMemoryMaintenanceRuns;
 }) {
-  const proposals = maintenanceRuns.proposals.slice(0, 4);
-
   return (
     <article className="status-card">
       <div className="status-card-header">
         <div>
-          <h3>Maintenance Proposals</h3>
+          <h3>Memory Maintenance Proposals</h3>
           <p className="muted">
-            Quality scans propose review work only; merge, supersede, forget, and
-            writes stay separate.
+            Proposal-only maintenance; no merge, forget, or memory write is run
+            from the UI.
           </p>
         </div>
         <span>{maintenanceRuns.proposal_count}</span>
       </div>
       <dl className="detail-list">
         <DetailTerm label="Route" value={maintenanceRuns.route_ref} />
-        <DetailTerm label="Run" value={maintenanceRuns.run_ref} />
-        <DetailTerm label="Scan" value={maintenanceRuns.scan_ref} />
+        <DetailTerm label="Run ref" value={maintenanceRuns.run_ref} />
         <DetailTerm
           label="Auto merge"
           value={maintenanceRuns.auto_merge_authorized ? "enabled" : "blocked"}
         />
         <DetailTerm
-          label="Auto forget"
-          value={maintenanceRuns.auto_forget_authorized ? "enabled" : "blocked"}
-        />
-        <DetailTerm
-          label="Memory write"
-          value={
-            maintenanceRuns.automatic_memory_write_authorized ? "enabled" : "blocked"
-          }
+          label="Context injection"
+          value={maintenanceRuns.context_injection_authorized ? "enabled" : "blocked"}
         />
       </dl>
-      <div className="memory-impact-list">
-        {proposals.map((proposal) => (
-          <div
-            className="memory-impact-row"
-            key={proposal.maintenance_proposal_ref}
-          >
-            <div className="review-card-heading compact">
-              <h4>{proposal.maintenance_proposal_ref}</h4>
-              <span>{proposal.maintenance_kind ?? proposal.proposal_kind}</span>
-            </div>
-            <dl className="detail-list">
-              <DetailTerm label="Target" value={proposal.target_ref} />
-              <DetailTerm
-                label="Envelope kind"
-                value={
-                  proposal.inbox_envelope_kind ??
-                  proposal.proposed_decision_kind ??
-                  "memory_maintenance_proposal"
-                }
-              />
-              <DetailTerm label="Severity" value={proposal.severity ?? "medium"} />
-              <DetailTerm label="Rank" value={String(proposal.rank_score)} />
-              <DetailTerm
-                label="Auto maintenance"
-                value={
-                  proposal.auto_apply_authorized ||
-                  proposal.auto_merge_authorized ||
-                  proposal.auto_supersede_authorized ||
-                  proposal.auto_forget_authorized ||
-                  proposal.automatic_memory_write_authorized
-                    ? "enabled"
-                    : "blocked"
-                }
-              />
-            </dl>
-            <RefListWithFallback
-              emptyLabel="Reason refs: none"
-              refs={proposal.reason_refs ?? proposal.source_issue_refs ?? []}
-            />
-            <RefListWithFallback
-              emptyLabel="Source memory refs: none"
-              refs={proposal.source_memory_refs ?? []}
-            />
-            <RefListWithFallback
-              emptyLabel="Expected receipts: none"
-              refs={proposal.expected_receipt_refs ?? []}
-            />
-            <RefListWithFallback
-              emptyLabel="Blocked refs: none"
-              refs={proposal.blocked_state_refs}
-            />
-          </div>
-        ))}
-      </div>
       <RefListWithFallback
         emptyLabel="Maintenance blockers: none"
         refs={maintenanceRuns.blocked_state_refs}
@@ -3208,46 +5857,31 @@ function MemoryContextManifestPanel({
 }: {
   contextManifest: FounderLoopMemoryContextManifest;
 }) {
-  const manifests = contextManifest.manifests.slice(0, 4);
-
   return (
     <article className="status-card">
       <div className="status-card-header">
         <div>
-          <h3>Context Manifest Preview</h3>
+          <h3>Memory Context Manifest</h3>
           <p className="muted">
-            Inspectable proposal manifests only; actual context use is a future
-            explicitly approved milestone.
+            Preview of context refs only; no hidden context use or prompt
+            injection is authorized.
           </p>
         </div>
-        <span>{contextManifest.manifest_count}</span>
+        <span>{contextManifest.status}</span>
       </div>
       <dl className="detail-list">
         <DetailTerm label="Route" value={contextManifest.route_ref} />
         <DetailTerm label="Contract" value={contextManifest.contract_ref} />
-        <DetailTerm
-          label="Cache key"
-          value={contextManifest.retrieval_cache_key_ref ?? "missing"}
-        />
+        <DetailTerm label="Manifests" value={String(contextManifest.manifest_count)} />
         <DetailTerm
           label="Context injection"
           value={contextManifest.context_injection_authorized ? "enabled" : "blocked"}
         />
         <DetailTerm
-          label="Hidden prompt context"
-          value={
-            contextManifest.hidden_prompt_context_authorized ? "enabled" : "blocked"
-          }
+          label="Memory write"
+          value={contextManifest.memory_write_authorized ? "enabled" : "blocked"}
         />
       </dl>
-      <div className="review-grid">
-        {manifests.map((manifest) => (
-          <MemoryContextManifestCard
-            key={manifest.context_manifest_ref}
-            manifest={manifest}
-          />
-        ))}
-      </div>
       <RefListWithFallback
         emptyLabel="Context manifest blockers: none"
         refs={contextManifest.blocked_state_refs}
@@ -3256,49 +5890,321 @@ function MemoryContextManifestPanel({
   );
 }
 
-function MemoryContextManifestCard({
-  manifest,
+function MemoryWorkbenchHealthPanel({
+  memoryReview,
+  workbench,
 }: {
-  manifest: FounderLoopMemoryContextManifestItem;
+  memoryReview: FounderLoopMemoryReview;
+  workbench: FounderLoopMemoryWorkbench;
 }) {
+  const health = workbench.health;
+  const metrics = [
+    ["Pending review", health.pending_review_count],
+    ["Stale", health.stale_count],
+    ["Conflicts", health.conflict_count],
+    ["Duplicates", health.duplicate_count],
+    ["Missing evidence", health.missing_evidence_count],
+    ["Reviewed recall", health.reviewed_recall_count],
+    ["Rejected", health.rejected_count],
+  ] as const;
+
   return (
-    <div className="memory-impact-row">
-      <div className="review-card-heading compact">
-        <h4>{manifest.context_manifest_ref}</h4>
-        <span>{manifest.citation_integrity_status}</span>
+    <article className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Memory Workbench V1</h3>
+          <p className="muted">
+            Backend-owned review model over candidates, receipts, projections,
+            context-pack proposals, and quality states.
+          </p>
+        </div>
+        <span>{workbench.schema_version}</span>
+      </div>
+      <div className="metric-grid">
+        {metrics.map(([label, value]) => (
+          <div className="metric-card" key={label}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </div>
+        ))}
       </div>
       <dl className="detail-list">
-        <DetailTerm label="Context pack" value={manifest.context_pack_ref} />
-        <DetailTerm label="Risk posture" value={manifest.risk_posture_ref} />
-        <DetailTerm label="Token budget" value={String(manifest.token_budget)} />
-        <DetailTerm label="Token estimate" value={String(manifest.token_estimate)} />
-        <DetailTerm label="Expires" value={manifest.expires_at} />
+        <DetailTerm label="Workbench route" value={workbench.route_ref} />
+        <DetailTerm label="Workbench contract" value={workbench.contract_ref} />
+        <DetailTerm label="Review route" value={memoryReview.route_ref} />
         <DetailTerm
-          label="Approval before use"
-          value={manifest.approval_required_before_use ? "required" : "missing"}
+          label="Lifecycle routes"
+          value={String(memoryReview.decision_route_refs.length)}
+        />
+        <DetailTerm
+          label="Safe refs only"
+          value={workbench.safe_refs_only ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Semantic/vector search"
+          value={
+            workbench.semantic_search_enabled ||
+            workbench.vector_db_enabled ||
+            workbench.embedding_search_enabled
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Context injection"
+          value={workbench.context_injection_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Memory truth authority"
+          value={workbench.memory_truth_authority ? "enabled" : "blocked"}
         />
       </dl>
-      <RefListWithFallback
-        emptyLabel="Included refs: none"
-        refs={manifest.included_memory_refs}
+      <InlineListWithFallback
+        emptyLabel="Workbench groups: none"
+        items={workbench.groups.map(
+          (group) => `${group.group_id}: ${group.count}`,
+        )}
       />
       <RefListWithFallback
-        emptyLabel="Excluded refs: none"
-        refs={manifest.excluded_memory_refs}
+        emptyLabel="Needs attention refs: none"
+        refs={health.needs_attention_refs}
       />
       <RefListWithFallback
-        emptyLabel="Why included: none"
-        refs={manifest.why_included_refs}
+        emptyLabel="Workbench blockers: none"
+        refs={workbench.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
+function MemoryLifecyclePosturePanel({
+  workbench,
+}: {
+  workbench: FounderLoopMemoryWorkbench;
+}) {
+  const posture = workbench.lifecycle_posture;
+  if (!posture) {
+    return (
+      <article aria-label="Memory lifecycle receipt posture" className="status-card">
+        <div className="status-card-header">
+          <h3>Memory lifecycle posture</h3>
+          <span>backend posture missing</span>
+        </div>
+        <p>
+          Merge, supersede, and forget-request posture must come from the backend
+          workbench before lifecycle receipts are reviewed.
+        </p>
+      </article>
+    );
+  }
+
+  const postureLanes = posture.lanes ?? [];
+  const receiptRefs = Object.values(posture.decision_receipt_refs_by_kind ?? {})
+    .flatMap((refs) => refs ?? [])
+    .filter((ref, index, refs) => refs.indexOf(ref) === index);
+  const laneSummaries = postureLanes.map((lane) => {
+    const entryLabel = lane.count === 1 ? "entry" : "entries";
+    const decisionLabel = lane.decision_kind
+      ? memoryDecisionReceiptLabel(lane.decision_kind)
+      : "decision receipt";
+    return `${lane.label}: ${lane.count} ${entryLabel}; ${decisionLabel} ${
+      lane.receipt_backed ? "present" : "awaiting"
+    }`;
+  });
+  const laneRefs = postureLanes.flatMap((lane) => [
+    lane.posture_ref,
+    ...(lane.item_refs ?? []),
+    ...(lane.receipt_refs ?? []),
+  ]);
+
+  return (
+    <article aria-label="Memory lifecycle receipt posture" className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Memory lifecycle posture</h3>
+          <p className="muted">
+            Duplicate, stale/recheck, conflict, corrected, merge, supersede, and
+            forget-request entries are review posture signals. They become
+            receipt-backed only when scoped receipt refs are present; they are
+            not delete/export, context-injection, or truth authority.
+          </p>
+        </div>
+        <span>{posture.status}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm
+          label="Contract ref"
+          value={posture.contract_ref ?? "missing"}
+        />
+        <DetailTerm label="Schema" value={posture.schema_version ?? "missing"} />
+        <DetailTerm
+          label="Review-only"
+          value={posture.review_only === true ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Safe refs only"
+          value={posture.safe_refs_only === true ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Receipt bounds"
+          value={posture.receipt_truncation_posture ?? "missing"}
+        />
+        <DetailTerm
+          label="Lifecycle posture"
+          value={posture.reversible_review_posture ?? "missing"}
+        />
+        <DetailTerm
+          label="Hard delete"
+          value={posture.hard_delete_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Export"
+          value={posture.memory_export_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic merge"
+          value={posture.automatic_merge_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic supersede"
+          value={posture.automatic_supersede_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic forget"
+          value={posture.automatic_forget_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Hidden memory write"
+          value={posture.hidden_memory_write_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Context injection"
+          value={posture.context_injection_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Connector write"
+          value={posture.connector_write_authorized ? "enabled" : "blocked"}
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Lifecycle lanes: none"
+        items={laneSummaries}
+      />
+      <InlineListWithFallback
+        emptyLabel="Receipt-backed lifecycle decisions: none"
+        items={posture.receipt_backed_decision_kinds ?? []}
       />
       <RefListWithFallback
-        emptyLabel="Safe-disable refs: none"
-        refs={manifest.safe_disable_refs}
+        emptyLabel="Lifecycle lane refs: none"
+        refs={laneRefs}
       />
       <RefListWithFallback
-        emptyLabel="Quality issue refs: none"
-        refs={manifest.quality_issue_refs}
+        emptyLabel="Lifecycle receipt refs: none recorded"
+        refs={receiptRefs}
       />
-    </div>
+      <RefListWithFallback
+        emptyLabel="Lifecycle blockers: none"
+        refs={posture.blocked_state_refs ?? []}
+      />
+    </article>
+  );
+}
+
+function MemoryRankingDiagnosticsPanel({
+  workbench,
+}: {
+  workbench: FounderLoopMemoryWorkbench;
+}) {
+  const ranking = workbench.ranking;
+  const pressureItems = Object.entries(ranking.pressure_counts).map(
+    ([label, value]) => `${label}: ${value}`,
+  );
+  const excludedReasonRefs = ranking.excluded_refs.flatMap(
+    (entry) => entry.reason_refs,
+  );
+  return (
+    <article
+      aria-label="Ranked retrieval recall diagnostics"
+      className="status-card"
+    >
+      <div className="status-card-header">
+        <div>
+          <h3>Ranked recall diagnostics</h3>
+          <p className="muted">
+            Why ranked is computed from lexical, tag, and safe-ref signals only.
+            The rank is operator review posture, not context injection or memory
+            write authority.
+          </p>
+        </div>
+        <span>{ranking.schema_version}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Ranking contract" value={ranking.contract_ref} />
+        <DetailTerm label="Candidate count" value={String(ranking.candidate_count)} />
+        <DetailTerm
+          label="Excluded from recall/context"
+          value={String(ranking.excluded_ref_count)}
+        />
+        <DetailTerm
+          label="Lexical/tag/ref only"
+          value={ranking.lexical_tag_ref_only ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Embeddings/vector/provider"
+          value={
+            ranking.embedding_search_enabled ||
+            ranking.vector_db_enabled ||
+            ranking.semantic_provider_enabled
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Context injection"
+          value={ranking.context_injection_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Memory writes"
+          value={ranking.memory_write_performed ? "performed" : "blocked"}
+        />
+        <DetailTerm
+          label="Auto maintenance"
+          value={ranking.auto_maintenance_performed ? "performed" : "blocked"}
+        />
+        <DetailTerm
+          label="Action execution"
+          value={ranking.action_execution_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm label="Cache key" value={ranking.cache_key} />
+        <DetailTerm
+          label="Cache hit"
+          value={ranking.cache_hit ? "yes" : "no deterministic recompute"}
+        />
+        <DetailTerm label="Token estimate" value={String(ranking.token_estimate)} />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Pressure counts: none"
+        items={pressureItems}
+      />
+      <InlineListWithFallback
+        emptyLabel="Source mix: none"
+        items={ranking.source_mix.map(
+          (entry) => `${entry.source_ref}: ${entry.count}`,
+        )}
+      />
+      <RefListWithFallback
+        emptyLabel="Ranked candidate refs: none"
+        refs={ranking.ranked_candidate_refs.slice(0, 8)}
+      />
+      <RefListWithFallback
+        emptyLabel="Excluded reason refs: none"
+        refs={excludedReasonRefs}
+      />
+      <RefListWithFallback
+        emptyLabel="Ranking blocked authorities: none"
+        refs={ranking.blocked_authority_refs}
+      />
+    </article>
   );
 }
 
@@ -3322,7 +6228,11 @@ function MemoryWorkbenchSearchPanel({
           item.review_ref,
           ...item.source_refs,
           ...item.related_entity_refs,
+          ...item.tag_refs,
           ...item.quality_state_refs,
+          ...item.why_ranked_refs,
+          ...item.included_reason_refs,
+          ...item.excluded_reason_refs,
         ]
           .join(" ")
           .toLowerCase()
@@ -3362,304 +6272,6 @@ function MemoryWorkbenchSearchPanel({
       <RefListWithFallback
         emptyLabel="Filtered refs: none"
         refs={filteredItems.slice(0, 8).map((item) => item.review_ref)}
-      />
-    </article>
-  );
-}
-
-function MemoryImpactGraphPanel({
-  impactGraph,
-}: {
-  impactGraph: FounderLoopMemoryImpactGraph;
-}) {
-  const nodes = impactGraph.nodes.slice(0, 4);
-
-  return (
-    <article className="status-card">
-      <div className="status-card-header">
-        <div>
-          <h3>Impact Graph</h3>
-          <p className="muted">
-            Memory refs connected to Today, Actions, Briefing, Evidence, and
-            context-pack previews.
-          </p>
-        </div>
-        <span>{impactGraph.node_count}</span>
-      </div>
-      <dl className="detail-list">
-        <DetailTerm label="Route" value={impactGraph.route_ref} />
-        <DetailTerm label="Contract" value={impactGraph.contract_ref} />
-        <DetailTerm
-          label="Truth authority"
-          value={impactGraph.memory_truth_authority ? "enabled" : "blocked"}
-        />
-        <DetailTerm
-          label="Context injection"
-          value={
-            impactGraph.context_injection_authorized ? "enabled" : "blocked"
-          }
-        />
-        <DetailTerm
-          label="Action execution"
-          value={impactGraph.action_execution_authorized ? "enabled" : "blocked"}
-        />
-      </dl>
-      <div className="memory-impact-list">
-        {nodes.map((node) => (
-          <MemoryImpactNodeRow key={node.memory_ref} node={node} />
-        ))}
-      </div>
-      <RefListWithFallback
-        emptyLabel="Impact graph blockers: none"
-        refs={impactGraph.blocked_state_refs}
-      />
-    </article>
-  );
-}
-
-function MemoryImpactNodeRow({
-  node,
-}: {
-  node: FounderLoopMemoryImpactNode;
-}) {
-  return (
-    <div className="memory-impact-row">
-      <div className="review-card-heading compact">
-        <h4>{node.memory_ref}</h4>
-        <span>{node.review_state}</span>
-      </div>
-      <dl className="detail-list">
-        <DetailTerm label="Kind" value={node.candidate_kind} />
-        <DetailTerm
-          label="Affected refs"
-          value={String(node.what_this_affects_refs.length)}
-        />
-        <DetailTerm
-          label="Surfaces"
-          value={node.affected_surface_refs.join(", ") || "none"}
-        />
-      </dl>
-      <RefListWithFallback
-        emptyLabel="What this affects: none"
-        refs={node.what_this_affects_refs}
-      />
-      <RefListWithFallback
-        emptyLabel="Suppressed refs: none"
-        refs={node.suppressed_refs}
-      />
-      <RefListWithFallback
-        emptyLabel="Stayed blocked refs: none"
-        refs={node.stayed_blocked_refs}
-      />
-    </div>
-  );
-}
-
-function MemoryMergeSupersedePanel({
-  items,
-}: {
-  items: FounderLoopMemoryWorkbenchItem[];
-}) {
-  const peerItems = items.filter(
-    (item) =>
-      (item.duplicate_of_refs?.length ?? 0) > 0 ||
-      (item.conflict_with_refs?.length ?? 0) > 0 ||
-      item.group_ids.includes("duplicate") ||
-      item.group_ids.includes("conflict"),
-  );
-  const pickerItems = (peerItems.length > 0 ? peerItems : items).slice(0, 8);
-  const [selectedRefs, setSelectedRefs] = useState<string[]>(
-    pickerItems.slice(0, 2).map((item) => item.memory_ref),
-  );
-  const selectedItems = pickerItems.filter((item) =>
-    selectedRefs.includes(item.memory_ref),
-  );
-
-  function toggleSelected(memoryRef: string) {
-    setSelectedRefs((current) =>
-      current.includes(memoryRef)
-        ? current.filter((ref) => ref !== memoryRef)
-        : [...current, memoryRef],
-    );
-  }
-
-  return (
-    <article className="status-card">
-      <div className="status-card-header">
-        <div>
-          <h3>Merge / Supersede</h3>
-          <p className="muted">
-            Multi-select comparison over duplicate and conflict candidates.
-          </p>
-        </div>
-        <span>{selectedItems.length} selected</span>
-      </div>
-      <div className="memory-compare-grid">
-        <div className="memory-picker-list" aria-label="Memory candidate picker">
-          {pickerItems.map((item) => (
-            <label className="check-row" key={item.memory_ref}>
-              <input
-                checked={selectedRefs.includes(item.memory_ref)}
-                onChange={() => toggleSelected(item.memory_ref)}
-                type="checkbox"
-              />
-              <span>
-                {item.title}
-                <small>{item.review_state}</small>
-              </span>
-            </label>
-          ))}
-        </div>
-        <div className="memory-compare-list">
-          {selectedItems.map((item) => (
-            <div className="memory-compare-row" key={item.memory_ref}>
-              <strong>{item.title}</strong>
-              <dl className="detail-list">
-                <DetailTerm label="Memory ref" value={item.memory_ref} />
-                <DetailTerm label="Kind" value={item.candidate_kind} />
-                <DetailTerm label="State" value={item.review_state} />
-                <DetailTerm label="Rank" value={String(item.rank_score)} />
-              </dl>
-              <InlineListWithFallback
-                emptyLabel="Groups: none"
-                items={item.group_ids}
-              />
-              <RefListWithFallback
-                emptyLabel="Duplicate peers: none"
-                refs={item.duplicate_of_refs ?? []}
-              />
-              <RefListWithFallback
-                emptyLabel="Conflict peers: none"
-                refs={item.conflict_with_refs ?? []}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-      <RefListWithFallback
-        emptyLabel="Selected candidate refs: none"
-        refs={selectedRefs}
-      />
-    </article>
-  );
-}
-
-function MemoryFollowUpQueuePanel({
-  followUpQueue,
-}: {
-  followUpQueue: FounderLoopMemoryFollowUpQueue;
-}) {
-  const candidates = followUpQueue.candidates.slice(0, 4);
-
-  return (
-    <article className="status-card">
-      <div className="status-card-header">
-        <div>
-          <h3>Follow-Up Queue</h3>
-          <p className="muted">
-            Ranked proposal-only candidates from reviewed and reviewable memory.
-          </p>
-        </div>
-        <span>{followUpQueue.candidate_count}</span>
-      </div>
-      <dl className="detail-list">
-        <DetailTerm label="Route" value={followUpQueue.route_ref} />
-        <DetailTerm label="Contract" value={followUpQueue.contract_ref} />
-        <DetailTerm
-          label="Action execution"
-          value={
-            followUpQueue.action_execution_authorized ? "enabled" : "blocked"
-          }
-        />
-        <DetailTerm
-          label="Memory write"
-          value={followUpQueue.memory_write_authorized ? "enabled" : "blocked"}
-        />
-      </dl>
-      <InlineListWithFallback
-        emptyLabel="Follow-up groups: none"
-        items={followUpQueue.groups.map(
-          (group) => `${group.group_id}: ${group.count}`,
-        )}
-      />
-      <div className="memory-impact-list">
-        {candidates.map((candidate) => (
-          <div className="memory-impact-row" key={candidate.follow_up_ref}>
-            <div className="review-card-heading compact">
-              <h4>{candidate.follow_up_ref}</h4>
-              <span>{candidate.rank_score}</span>
-            </div>
-            <InlineListWithFallback
-              emptyLabel="Follow-up groups: none"
-              items={candidate.group_ids}
-            />
-            <RefListWithFallback
-              emptyLabel="Source memories: none"
-              refs={candidate.source_memory_refs}
-            />
-            <RefListWithFallback
-              emptyLabel="Affected refs: none"
-              refs={candidate.what_this_affects_refs}
-            />
-          </div>
-        ))}
-      </div>
-      <RefListWithFallback
-        emptyLabel="Follow-up blockers: none"
-        refs={followUpQueue.blocked_state_refs}
-      />
-    </article>
-  );
-}
-
-function MemoryContextPackPreviewPanel({
-  impactGraph,
-}: {
-  impactGraph: FounderLoopMemoryImpactGraph;
-}) {
-  const previews = impactGraph.context_pack_previews.slice(0, 4);
-
-  return (
-    <article className="status-card">
-      <div className="status-card-header">
-        <div>
-          <h3>Context-Pack Preview</h3>
-          <p className="muted">
-            Inspectable proposal artifacts; context injection remains blocked.
-          </p>
-        </div>
-        <span>{previews.length}</span>
-      </div>
-      <div className="memory-impact-list">
-        {previews.map((preview) => (
-          <div className="memory-impact-row" key={preview.context_pack_ref}>
-            <div className="review-card-heading compact">
-              <h4>{preview.context_pack_ref}</h4>
-              <span>{preview.proposal_only ? "proposal" : "review"}</span>
-            </div>
-            <dl className="detail-list">
-              <DetailTerm label="Proposal" value={preview.proposal_ref} />
-              <DetailTerm
-                label="Context injection"
-                value={
-                  preview.context_injection_authorized ? "enabled" : "blocked"
-                }
-              />
-            </dl>
-            <RefListWithFallback
-              emptyLabel="Included memory refs: none"
-              refs={preview.included_memory_refs}
-            />
-            <RefListWithFallback
-              emptyLabel="Excluded reason refs: none"
-              refs={preview.excluded_reason_refs}
-            />
-          </div>
-        ))}
-      </div>
-      <RefListWithFallback
-        emptyLabel="Preview blockers: none"
-        refs={impactGraph.blocked_state_refs}
       />
     </article>
   );
@@ -3753,7 +6365,7 @@ function ManualMemoryCandidatePanel() {
         onClick={() => void submitManualCandidate()}
         type="button"
       >
-        {pending ? "Recording..." : "Create review candidate"}
+        {pending ? "Recording..." : "Record review candidate"}
       </button>
       {state.message ? <p className="muted">{state.message}</p> : null}
       {state.receipt ? (
@@ -3761,8 +6373,8 @@ function ManualMemoryCandidatePanel() {
           <DetailTerm label="Review ref" value={state.receipt.review_ref} />
           <DetailTerm label="Receipt ref" value={state.receipt.receipt_ref} />
           <DetailTerm
-            label="Approval ref"
-            value={state.receipt.approval_ref ?? "local review approval recorded"}
+            label="Approval scope ref"
+            value={state.receipt.approval_ref ?? "not returned"}
           />
           <DetailTerm
             label="Recall record"
@@ -3802,9 +6414,38 @@ function MemoryWorkbenchItemCard({
         <DetailTerm label="Review ref" value={item.review_ref} />
         <DetailTerm label="Source" value={item.source} />
         <DetailTerm label="Kind" value={item.candidate_kind} />
-        <DetailTerm label="Quality score" value={String(item.rank_score)} />
+        <DetailTerm label="Recall rank" value={String(item.rank_score)} />
+        <DetailTerm label="Cache key" value={item.cache_key} />
+        <DetailTerm label="Token estimate" value={String(item.token_estimate)} />
         <DetailTerm label="Stale posture" value={item.stale_state} />
         <DetailTerm label="Conflict posture" value={item.conflict_state} />
+        <DetailTerm
+          label="Lifecycle posture"
+          value={
+            item.reversible_review_posture ??
+            "later_receipt_can_update_review_posture_no_rollback_execution"
+          }
+        />
+        <DetailTerm
+          label="Hard delete"
+          value={item.hard_delete_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic merge"
+          value={item.automatic_merge_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic supersede"
+          value={item.automatic_supersede_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic forget"
+          value={item.automatic_forget_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Hidden memory write"
+          value={item.hidden_memory_write_authorized ? "enabled" : "blocked"}
+        />
         <DetailTerm label="Side effect" value={item.side_effect_class} />
         <DetailTerm label="Boundary" value={item.authority_boundary} />
         <DetailTerm label="Next safe action" value={item.next_safe_action} />
@@ -3812,6 +6453,52 @@ function MemoryWorkbenchItemCard({
       <InlineListWithFallback
         emptyLabel="Workbench groups: none"
         items={item.group_ids}
+      />
+      <InlineListWithFallback
+        emptyLabel="Lifecycle state refs: none"
+        items={item.lifecycle_state_refs}
+      />
+      <InlineListWithFallback
+        emptyLabel="Available lifecycle decisions: none"
+        items={item.available_lifecycle_decisions}
+      />
+      <RefListWithFallback
+        emptyLabel="Duplicate posture refs: none"
+        refs={item.duplicate_of_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Conflict posture refs: none"
+        refs={item.conflict_with_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Lifecycle receipt refs: none"
+        refs={item.lifecycle_receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Item authority blockers: none"
+        refs={item.blocked_state_refs}
+      />
+      <InlineListWithFallback
+        emptyLabel="Rank components: none"
+        items={formatRankComponents(item.rank_components)}
+      />
+      <InlineListWithFallback
+        emptyLabel="Source mix: none"
+        items={item.source_mix.map(
+          (entry) => `${entry.source_ref}: ${entry.count}`,
+        )}
+      />
+      <RefListWithFallback
+        emptyLabel="Why ranked refs: missing"
+        refs={item.why_ranked_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Included rank reason refs: missing"
+        refs={item.included_reason_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Excluded rank reason refs: none"
+        refs={item.excluded_reason_refs}
       />
       <RefListWithFallback
         emptyLabel="Why shown refs: missing"
@@ -3844,6 +6531,10 @@ function MemoryWorkbenchItemCard({
       <RefListWithFallback
         emptyLabel="Missing evidence or contracts: none"
         refs={item.missing_contract_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Ranking blocked authorities: none"
+        refs={item.ranking_blocked_authority_refs}
       />
       {reviewLifecycleAvailable ? (
         <MemoryReviewDecisionControls subject={subject} />
@@ -4034,7 +6725,7 @@ function MemoryContextPackProposalCard({
             onClick={() => void createActionProposal()}
             type="button"
           >
-            {pending ? "Recording" : "Create Action Inbox proposal"}
+            {pending ? "Recording" : "Record Action Inbox proposal receipt"}
           </button>
         </div>
         {!hasReviewedL3Refs ? (
@@ -4196,6 +6887,11 @@ export function EvidenceTimelineSurfacePanel({
           }
         />
       </div>
+      <EvidenceOperatorSummary evidence={evidence} today={today} />
+      <OperatorRunTimelinePanel timeline={evidence?.operator_run_timeline} />
+      <EvidenceTimelineNarrativeSection
+        readModel={evidence?.narrative_read_model}
+      />
       <div className="panel-grid">
         <article className="status-card">
           <div className="status-card-header">
@@ -4261,6 +6957,9 @@ export function EvidenceTimelineSurfacePanel({
             material, and secret-like values stay omitted.
           </p>
         </article>
+        <WeeklyCeoReviewV1Panel
+          readModel={today.weekly_ceo_review_v1_read_model}
+        />
         <WeeklyReviewNarrativeCard narrative={today.weekly_review_narrative} />
         <article className="status-card">
           <div className="status-card-header">
@@ -4715,6 +7414,21 @@ const missingActionEnvelope: NonNullable<FounderLoopActionItem["approval_envelop
   idempotency_ref: "missing",
   expected_receipt_refs: [],
   rollback_safe_disable_posture: "missing",
+  estimated_cost_usd: 0,
+  max_approved_cost_usd: 0,
+  provider_ref: "provider-ref:not-invoked",
+  model_profile_ref: "model-profile-ref:not-invoked",
+  input_metered_units: 0,
+  output_metered_units: 0,
+  total_metered_units: 0,
+  cost_estimate_ref: "cost-estimate-ref:not-invoked",
+  captured_usage_ref: "usage-capture-ref:not-invoked",
+  budget_decision_ref: "budget-decision-ref:not-invoked",
+  cost_receipt_refs: [],
+  cost_state_label: "Cost blocked",
+  provider_authority_state_label: "No provider authority",
+  unknown_paid_cost_requires_explicit_approval: true,
+  frontier_usage_claimed: false,
   blocked_authority_refs: ["blocked-state:backend-owned-envelope-missing"],
   evidence_refs: [],
   missing_field_states: ["approval_envelope:missing"],
@@ -4784,6 +7498,85 @@ function canShowLocalTaskCommitControl(
     item.action_kind === "local_task_create" &&
     Boolean(item.local_task_commit_approval_ref)
   );
+}
+
+type ActionCostGatePosture = {
+  approved: boolean;
+  summary: string;
+  blockers: string[];
+};
+
+function uniqueText(values: string[]) {
+  return values.filter((value, index) => value && values.indexOf(value) === index);
+}
+
+function actionCostGatePosture(item: FounderLoopActionItem): ActionCostGatePosture {
+  const envelope = actionEnvelopeOrFallback(item.approval_envelope);
+  const costStateLabel =
+    item.action_envelope_cost_state_label ?? envelope.cost_state_label ?? "Cost blocked";
+  const providerAuthorityStateLabel =
+    item.action_envelope_provider_authority_state_label ??
+    envelope.provider_authority_state_label ??
+    "No provider authority";
+  const providerRef =
+    item.action_envelope_provider_ref ?? envelope.provider_ref ?? "provider-ref:not-invoked";
+  const modelProfileRef =
+    item.action_envelope_model_profile_ref ??
+    envelope.model_profile_ref ??
+    "model-profile-ref:not-invoked";
+  const estimatedCostUsd =
+    item.action_envelope_estimated_cost_usd ?? envelope.estimated_cost_usd;
+  const maxApprovedCostUsd =
+    item.action_envelope_max_approved_cost_usd ?? envelope.max_approved_cost_usd;
+  const frontierUsageClaimed =
+    item.action_envelope_frontier_usage_claimed ??
+    envelope.frontier_usage_claimed ??
+    false;
+  const costReceiptRefs =
+    item.action_envelope_cost_receipt_refs ?? envelope.cost_receipt_refs ?? [];
+  const costBlockers =
+    item.action_envelope_cost_blocked_state_refs ??
+    envelope.cost_blocked_state_refs ??
+    [];
+  const blockers: string[] = [];
+
+  if (costStateLabel === "Unknown paid cost") {
+    blockers.push("Unknown paid cost");
+  } else if (costStateLabel !== "Cost approved") {
+    blockers.push("Cost blocked");
+  }
+  if (
+    providerAuthorityStateLabel === "No provider authority" ||
+    providerRef === "provider-ref:not-invoked" ||
+    modelProfileRef === "model-profile-ref:not-invoked"
+  ) {
+    blockers.push("No provider authority");
+  }
+  if (
+    typeof estimatedCostUsd !== "number" ||
+    typeof maxApprovedCostUsd !== "number" ||
+    estimatedCostUsd > maxApprovedCostUsd
+  ) {
+    blockers.push("Cost blocked");
+  }
+  if (costReceiptRefs.length === 0) {
+    blockers.push("Cost blocked");
+  }
+  if (frontierUsageClaimed && costReceiptRefs.length === 0) {
+    blockers.push("Cost blocked");
+  }
+
+  const activeBlockers = uniqueText(blockers);
+  const refsSummary =
+    costBlockers.length > 0 ? ` Cost refs: ${costBlockers.slice(0, 3).join(", ")}` : "";
+  return {
+    approved: activeBlockers.length === 0,
+    summary:
+      activeBlockers.length === 0
+        ? "Cost approved"
+        : `${activeBlockers.join(", ")}.${refsSummary}`.trim(),
+    blockers: activeBlockers,
+  };
 }
 
 function committedSafeRef(value: string | null | undefined): string | null {
@@ -4886,6 +7679,7 @@ function ActionItemCard({
         ? "eligible"
         : "blocked"
       : "backend_read_model_unavailable";
+  const costGate = actionCostGatePosture(displayedItem);
   const memoryProposalReviewOnly = isMemoryRecommendationProposal(displayedItem);
 
   return (
@@ -4900,8 +7694,14 @@ function ActionItemCard({
       </p>
       <ApprovalEnvelopeCard envelope={approvalEnvelope} />
       <ReceiptVisibilityCard visibility={receiptVisibility} />
+      <FusionRoutingMetadataCard
+        cacheContext={displayedItem.cache_context_economics}
+        delegation={displayedItem.delegation_proposal}
+        workClassification={displayedItem.work_classification}
+      />
       <SourceReadinessProposalItemDetails item={displayedItem} />
       <HealthRecommendationItemDetails item={displayedItem} />
+      <TaskDecompositionActionProposalDetails item={displayedItem} />
       <LocalTaskCommitPostureCard item={displayedItem} />
       <dl className="detail-list">
         <DetailTerm label="Item ref" value={displayedItem.item_ref} />
@@ -4984,6 +7784,7 @@ function ActionItemCard({
           label="Local task approval ref"
           value={displayedItem.local_task_commit_approval_ref ?? "missing"}
         />
+        <DetailTerm label="Cost approval gate" value={costGate.summary} />
         <DetailTerm
           label={localTaskRefLabel}
           value={localTaskRefValue}
@@ -5002,6 +7803,13 @@ function ActionItemCard({
           onReconciledItem={reconcileActionItem}
         />
       ) : null}
+      {actionGroupId === "ready_for_decision" &&
+      (!backendReadModelAvailable || !actionReadModelAuthoritative) ? (
+        <p className="muted">
+          Decision controls unavailable until the local backend supplies an
+          authoritative Action Inbox read model.
+        </p>
+      ) : null}
       {memoryProposalReviewOnly &&
       backendReadModelAvailable &&
       actionReadModelAuthoritative ? (
@@ -5016,13 +7824,6 @@ function ActionItemCard({
         <p className="muted">
           Memory proposal receipt controls require the local backend Action Inbox
           read model; no memory maintenance action is available from React state.
-        </p>
-      ) : null}
-      {actionGroupId === "ready_for_decision" &&
-      (!backendReadModelAvailable || !actionReadModelAuthoritative) ? (
-        <p className="muted">
-          Decision controls unavailable until the local backend supplies an
-          authoritative Action Inbox read model.
         </p>
       ) : null}
       {actionGroupId === "approved_local_task_lane" ? (
@@ -5223,6 +8024,143 @@ function isMemoryRecommendationProposal(item: FounderLoopActionItem): boolean {
   );
 }
 
+function TaskDecompositionActionProposalDetails({
+  item,
+}: {
+  item: FounderLoopActionItem;
+}) {
+  if (!item.task_decomposition_proposal_ref) {
+    return null;
+  }
+  return (
+    <section
+      aria-label="Task decomposition proposal detail"
+      className="local-task-posture-card"
+    >
+      <div className="review-card-heading compact">
+        <h4>Task decomposition proposal</h4>
+        <span>
+          {item.task_decomposition_proposal_only
+            ? "proposal_only_review_required"
+            : "posture_missing"}
+        </span>
+      </div>
+      <p className="muted">
+        Backend-owned decomposition metadata for planning review. React renders
+        these refs without creating tasks, approvals, memory changes, context
+        use, tool calls, connector writes, shell work, browser work, or provider
+        calls.
+      </p>
+      <dl className="detail-list">
+        <DetailTerm
+          label="Proposal ref"
+          value={item.task_decomposition_proposal_ref}
+        />
+        <DetailTerm
+          label="Envelope ref"
+          value={item.task_decomposition_review_envelope_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="Plans bridge"
+          value={item.task_decomposition_plans_bridge_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="Action bridge"
+          value={item.task_decomposition_action_inbox_bridge_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="Why proposed"
+          value={item.task_decomposition_why_proposed ?? "missing"}
+        />
+        <DetailTerm
+          label="Review posture"
+          value={item.task_decomposition_review_only ? "review-only" : "missing"}
+        />
+        <DetailTerm
+          label="Execution authorized"
+          value={
+            item.task_decomposition_execution_authorized ? "unsafe" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Action execution"
+          value={
+            item.task_decomposition_action_execution_enabled
+              ? "unsafe"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Workflow execution"
+          value={
+            item.task_decomposition_workflow_execution_enabled
+              ? "unsafe"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Tool execution"
+          value={
+            item.task_decomposition_tool_execution_enabled ? "unsafe" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Memory write"
+          value={
+            item.task_decomposition_memory_write_authorized
+              ? "unsafe"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Context injection"
+          value={
+            item.task_decomposition_context_injection_authorized
+              ? "unsafe"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Provider authority"
+          value={
+            item.task_decomposition_model_provider_authority_allowed
+              ? "unsafe"
+              : "blocked"
+          }
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Affected surfaces: missing"
+        items={item.task_decomposition_what_this_affects ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Task decomposition steps: missing"
+        refs={item.task_decomposition_step_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Task decomposition dependencies: none"
+        refs={item.task_decomposition_dependency_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Task decomposition ambiguity refs: none"
+        refs={item.task_decomposition_ambiguity_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Task decomposition missing evidence refs: none"
+        refs={item.task_decomposition_missing_evidence_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Task decomposition required approvals: missing"
+        refs={item.task_decomposition_required_approvals ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Task decomposition blockers: missing"
+        refs={item.task_decomposition_blocked_authority_refs ?? []}
+      />
+    </section>
+  );
+}
+
 function LocalTaskCommitPostureCard({
   item,
 }: {
@@ -5380,6 +8318,40 @@ function ApprovalEnvelopeCard({
           value={envelope.rollback_safe_disable_posture}
         />
         <DetailTerm
+          label="Cost state"
+          value={envelope.cost_state_label}
+        />
+        <DetailTerm
+          label="Estimated cost USD"
+          value={formatCostUsd(envelope.estimated_cost_usd)}
+        />
+        <DetailTerm
+          label="Max approved USD"
+          value={formatCostUsd(envelope.max_approved_cost_usd)}
+        />
+        <DetailTerm label="Provider ref" value={envelope.provider_ref} />
+        <DetailTerm label="Model profile" value={envelope.model_profile_ref} />
+        <DetailTerm
+          label="Input metered units"
+          value={String(envelope.input_metered_units)}
+        />
+        <DetailTerm
+          label="Output metered units"
+          value={String(envelope.output_metered_units)}
+        />
+        <DetailTerm
+          label="Unknown paid cost"
+          value={
+            envelope.unknown_paid_cost_requires_explicit_approval
+              ? "explicit approval required"
+              : "not required"
+          }
+        />
+        <DetailTerm
+          label="Provider authority"
+          value={envelope.provider_authority_state_label}
+        />
+        <DetailTerm
           label="Backend owned"
           value={backendOwned ? "yes" : "unavailable"}
         />
@@ -5387,6 +8359,14 @@ function ApprovalEnvelopeCard({
       <RefListWithFallback
         emptyLabel="Expected receipt refs: missing"
         refs={envelope.expected_receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Cost receipt refs: missing"
+        refs={envelope.cost_receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Cost blockers: missing"
+        refs={envelope.cost_blocked_state_refs ?? []}
       />
       <RefListWithFallback
         emptyLabel="Blocked authority refs: not applicable"
@@ -5465,10 +8445,10 @@ function ReceiptVisibilityCard({
 }
 
 const actionDecisionLabels: Record<FounderLoopActionDecisionKind, string> = {
-  approve: "Record approval",
-  edit: "Record edit",
-  reject: "Record rejection",
-  defer: "Record defer",
+  approve: "Record approval receipt",
+  edit: "Record edit receipt",
+  reject: "Record rejection receipt",
+  defer: "Record defer receipt",
 };
 
 function ActionDecisionControls({
@@ -5494,6 +8474,7 @@ function ActionDecisionControls({
     refreshMessage?: string;
   }>({ status: "idle", refreshStatus: "idle" });
   const pending = state.status === "pending";
+  const costGate = actionCostGatePosture(item);
 
   async function refreshDecisionActionItem(
     receipt: FounderLoopActionDecisionReceipt,
@@ -5600,20 +8581,27 @@ function ActionDecisionControls({
   return (
     <div className="decision-controls" aria-label={`${item.title} decisions`}>
       <div className="decision-button-row">
-        {decisions.map((decision) => (
-          <button
-            className="secondary-button"
-            disabled={pending}
-            key={decision}
-            onClick={() => void recordDecision(decision)}
-            type="button"
-          >
-            {pending && state.decision === decision
-              ? "Recording"
-              : actionDecisionLabels[decision]}
-          </button>
-        ))}
+        {decisions.map((decision) => {
+          const costBlocked = decision === "approve" && !costGate.approved;
+          return (
+            <button
+              className="secondary-button"
+              disabled={pending || costBlocked}
+              key={decision}
+              onClick={() => void recordDecision(decision)}
+              title={costBlocked ? costGate.summary : undefined}
+              type="button"
+            >
+              {pending && state.decision === decision
+                ? "Recording"
+                : actionDecisionLabels[decision]}
+            </button>
+          );
+        })}
       </div>
+      {!costGate.approved ? (
+        <p className="muted">Approval blocked by cost posture: {costGate.summary}</p>
+      ) : null}
       {state.message ? <p className="muted">{state.message}</p> : null}
       {state.refreshMessage ? (
         <p className="muted">{state.refreshMessage}</p>
@@ -5671,6 +8659,7 @@ function LocalTaskCommitControls({
   }
   const commitApprovalRef = approvalRef as string;
   const pending = state.status === "pending";
+  const costGate = actionCostGatePosture(item);
 
   async function refreshCommittedActionItem(
     receipt: FounderLoopLocalTaskCommitReceipt,
@@ -5767,13 +8756,18 @@ function LocalTaskCommitControls({
         <div className="decision-button-row">
           <button
             className="secondary-button"
-            disabled={pending}
+            data-contract-label="Commit local task"
+            disabled={pending || !costGate.approved}
             onClick={() => void recordLocalTaskCommit()}
+            title={!costGate.approved ? costGate.summary : undefined}
             type="button"
           >
-            {pending ? "Committing" : "Commit local task"}
+            {pending ? "Recording commit receipt" : "Record local-task commit receipt"}
           </button>
         </div>
+      ) : null}
+      {!costGate.approved ? (
+        <p className="muted">Commit blocked by cost posture: {costGate.summary}</p>
       ) : null}
       <p className="muted">
         Local-only task commit. Connector writes, shell, model authority,
@@ -5828,6 +8822,11 @@ function PlanCard({ plan }: { plan: FounderLoopPlanSummary }) {
       </div>
       <p>{plan.safe_summary}</p>
       <p className="muted">{plan.next_step_summary}</p>
+      <p className="muted">
+        Plan envelope refs are review metadata only. Provider/model/cost refs do
+        not invoke providers, tools, workflows, browser, shell, connectors, or
+        action execution.
+      </p>
       <dl className="detail-list">
         <DetailTerm
           label="Action envelope contract"
@@ -5860,17 +8859,57 @@ function PlanCard({ plan }: { plan: FounderLoopPlanSummary }) {
           value={plan.safe_disable_ref ?? "missing"}
         />
         <DetailTerm
-          label="Execution"
-          value={plan.action_execution_enabled ? "enabled" : "blocked"}
+          label="Execution flag"
+          value={plan.action_execution_enabled ? "unsafe" : "blocked"}
         />
         <DetailTerm
-          label="Grant capture"
-          value={plan.approval_grant_capture_enabled ? "enabled" : "disabled"}
+          label="Grant capture flag"
+          value={plan.approval_grant_capture_enabled ? "unsafe" : "disabled"}
+        />
+        <DetailTerm
+          label="Cost state"
+          value={plan.action_envelope_cost_state_label ?? "Cost blocked"}
+        />
+        <DetailTerm
+          label="Estimated cost USD"
+          value={formatCostUsd(plan.action_envelope_estimated_cost_usd)}
+        />
+        <DetailTerm
+          label="Max approved USD"
+          value={formatCostUsd(plan.action_envelope_max_approved_cost_usd)}
+        />
+        <DetailTerm
+          label="Provider ref"
+          value={plan.action_envelope_provider_ref ?? "provider-ref:not-invoked"}
+        />
+        <DetailTerm
+          label="Model profile"
+          value={
+            plan.action_envelope_model_profile_ref ??
+            "model-profile-ref:not-invoked"
+          }
+        />
+        <DetailTerm
+          label="Provider authority"
+          value={
+            plan.action_envelope_provider_authority_state_label ??
+            "No provider authority"
+          }
+        />
+        <DetailTerm
+          label="Unknown paid cost"
+          value={
+            plan.action_envelope_unknown_paid_cost_requires_explicit_approval
+              ? "explicit approval required"
+              : "not required"
+          }
         />
       </dl>
       <InlineListWithFallback
-        emptyLabel="Review actions: missing"
-        items={plan.review_actions ?? []}
+        emptyLabel="Decision receipt options: missing"
+        items={(plan.review_actions ?? []).map(
+          (label) => `decision receipt option: ${label}`,
+        )}
       />
       <RefListWithFallback
         emptyLabel="Expected receipt refs: missing until scoped contract"
@@ -5880,8 +8919,170 @@ function PlanCard({ plan }: { plan: FounderLoopPlanSummary }) {
         emptyLabel="Action envelope blockers: missing"
         refs={plan.blocked_state_refs ?? []}
       />
+      <RefListWithFallback
+        emptyLabel="Cost receipt refs: missing"
+        refs={plan.action_envelope_cost_receipt_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Cost blockers: missing"
+        refs={plan.action_envelope_cost_blocked_state_refs ?? []}
+      />
+      <TaskDecompositionPlanDetails plan={plan} />
       <RefList refs={plan.evidence_refs} />
     </article>
+  );
+}
+
+function TaskDecompositionPlanDetails({
+  plan,
+}: {
+  plan: FounderLoopPlanSummary;
+}) {
+  if (!plan.task_decomposition_proposal_ref) {
+    return null;
+  }
+  return (
+    <section
+      aria-label="Task decomposition plan detail"
+      className="local-task-posture-card"
+    >
+      <div className="review-card-heading compact">
+        <h4>Task decomposition proposal</h4>
+        <span>{plan.task_decomposition_status ?? "proposal_only"}</span>
+      </div>
+      <p className="muted">
+        Plan-facing decomposition output is an inspectable proposal. It keeps
+        task execution, workflow execution, memory writes, context use, shell,
+        browser, connector, and provider authority blocked.
+      </p>
+      <dl className="detail-list">
+        <DetailTerm
+          label="Contract"
+          value={plan.task_decomposition_contract_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="Request ref"
+          value={plan.task_decomposition_request_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="Original request"
+          value={plan.task_decomposition_original_request_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="Proposal ref"
+          value={plan.task_decomposition_proposal_ref}
+        />
+        <DetailTerm
+          label="Review envelope"
+          value={plan.task_decomposition_review_envelope_ref ?? "missing"}
+        />
+        <DetailTerm
+          label="Risk"
+          value={plan.task_decomposition_risk_class ?? "missing"}
+        />
+        <DetailTerm
+          label="Why proposed"
+          value={plan.task_decomposition_why_proposed ?? "missing"}
+        />
+        <DetailTerm
+          label="Review posture"
+          value={plan.task_decomposition_review_only ? "review-only" : "missing"}
+        />
+        <DetailTerm
+          label="Proposal posture"
+          value={plan.task_decomposition_proposal_only ? "proposal-only" : "missing"}
+        />
+        <DetailTerm
+          label="Execution authorized"
+          value={
+            plan.task_decomposition_execution_authorized ? "unsafe" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Action execution"
+          value={
+            plan.task_decomposition_action_execution_enabled
+              ? "unsafe"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Tool execution"
+          value={
+            plan.task_decomposition_tool_execution_enabled ? "unsafe" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Memory write"
+          value={
+            plan.task_decomposition_memory_write_authorized
+              ? "unsafe"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Context injection"
+          value={
+            plan.task_decomposition_context_injection_authorized
+              ? "unsafe"
+              : "blocked"
+          }
+        />
+      </dl>
+      <TaskDecompositionStepList steps={plan.task_decomposition_steps ?? []} />
+      <InlineListWithFallback
+        emptyLabel="Affected surfaces: missing"
+        items={plan.task_decomposition_what_this_affects ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Action Inbox proposal refs: missing"
+        refs={plan.task_decomposition_suggested_action_inbox_proposal_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Task decomposition dependencies: none"
+        refs={plan.task_decomposition_dependency_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Task decomposition ambiguity refs: none"
+        refs={plan.task_decomposition_ambiguity_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Task decomposition missing evidence refs: none"
+        refs={plan.task_decomposition_missing_evidence_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Task decomposition required approvals: missing"
+        refs={plan.task_decomposition_required_approvals ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Task decomposition blockers: missing"
+        refs={plan.task_decomposition_blocked_authority_refs ?? []}
+      />
+    </section>
+  );
+}
+
+function TaskDecompositionStepList({
+  steps,
+}: {
+  steps: NonNullable<FounderLoopPlanSummary["task_decomposition_steps"]>;
+}) {
+  if (!steps.length) {
+    return (
+      <p className="empty-state">
+        No task decomposition steps are available from the backend read model.
+      </p>
+    );
+  }
+  return (
+    <ol className="ref-list">
+      {steps.map((step) => (
+        <li key={step.step_ref}>
+          <strong>{step.title}</strong>: {step.safe_summary} Risk{" "}
+          {step.risk_class}; {step.review_only ? "review-only" : "posture missing"}.
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -5956,6 +9157,10 @@ const memoryDecisionLabels: Record<MemoryReviewDecisionKind, string> = {
   forget_request: "Record forget-request receipt",
 };
 
+function memoryDecisionReceiptLabel(decision: MemoryReviewDecisionKind): string {
+  return memoryDecisionLabels[decision].replace(/^Record /, "");
+}
+
 const memoryDecisionOrder: MemoryReviewDecisionKind[] = [
   "accept",
   "correct",
@@ -5987,15 +9192,6 @@ const manualMemoryCandidateBlockedRefs = [
   "blocked-state:manual-memory-intake-no-production-authority",
 ];
 
-const memoryFeedbackBlockedRefs = [
-  "blocked-state:memory-feedback-no-automatic-memory-write",
-  "blocked-state:memory-feedback-no-auto-rerank-authority",
-  "blocked-state:memory-feedback-no-delete-execution",
-  "blocked-state:memory-feedback-no-context-injection",
-  "blocked-state:memory-feedback-no-action-execution",
-  "blocked-state:memory-feedback-no-production-authority",
-];
-
 type MemoryDecisionControlState = {
   status: "idle" | "pending" | "recorded" | "replayed" | "failed";
   decision?: MemoryReviewDecisionKind;
@@ -6013,6 +9209,13 @@ type MemoryReviewDecisionSubject = {
   conflictRefs: string[];
   availableDecisionStates?: string[];
 };
+
+function formatRankComponents(components: Record<string, number>): string[] {
+  return Object.entries(components)
+    .filter(([, value]) => value > 0)
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .map(([label, value]) => `${label.replaceAll("_", " ")}: ${value}`);
+}
 
 function memoryDecisionSubjectFromReviewItem(
   item: FounderLoopMemoryReviewItem,
@@ -6040,7 +9243,7 @@ function memoryDecisionSubjectFromWorkbenchItem(
     evidenceRefs: item.evidence_refs ?? [],
     duplicateRefs: item.duplicate_of_refs ?? [],
     conflictRefs: item.conflict_with_refs ?? [],
-    availableDecisionStates: memoryDecisionOrder,
+    availableDecisionStates: item.available_lifecycle_decisions ?? [],
   };
 }
 
@@ -6175,7 +9378,10 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
           label="Provenance ref status"
           value={item.provenance_refs_status}
         />
-        <DetailTerm label="Accepted as truth" value={item.accepted_as_truth ? "yes" : "no"} />
+        <DetailTerm
+          label="Truth authority"
+          value={item.accepted_as_truth ? "enabled" : "blocked"}
+        />
         <DetailTerm
           label="Memory write authority"
           value={item.memory_write_authorized ? "yes" : "no"}
@@ -6358,9 +9564,11 @@ function MemoryReviewDecisionControls({
     >
       <label className="field-label">
         Corrected safe-summary ref
-        <input
+        <textarea
           className="text-input"
           onChange={(event) => setCorrectedSummaryRef(event.target.value)}
+          rows={2}
+          spellCheck={false}
           value={correctedSummaryRef}
         />
       </label>
@@ -6406,8 +9614,8 @@ function MemoryReviewDecisionControls({
             value={state.receipt.evidence_timeline_event_ref}
           />
           <DetailTerm
-            label="Approval ref"
-            value={state.receipt.approval_ref ?? "local review approval recorded"}
+            label="Approval scope ref"
+            value={state.receipt.approval_ref ?? "not returned"}
           />
           <DetailTerm
             label="Suppressed recall refs"
@@ -6516,7 +9724,7 @@ function TodayActionEnvelopeControls({
         onClick={() => void createEnvelope()}
         type="button"
       >
-        {pending ? "Creating" : "Create Action envelope"}
+        {pending ? "Recording receipt" : "Record Action-envelope receipt"}
       </button>
       {state.message ? <p className="muted">{state.message}</p> : null}
       {state.receipt ? (
@@ -6545,6 +9753,10 @@ function Metric({ label, value }: { label: string; value: number }) {
       <strong>{value}</strong>
     </article>
   );
+}
+
+function formatCostUsd(value?: number) {
+  return typeof value === "number" ? `$${value.toFixed(6)}` : "missing";
 }
 
 function BlockedStateList({ states }: { states: string[] }) {
@@ -6584,12 +9796,13 @@ function RefListWithFallback({
   refs,
 }: {
   emptyLabel: string;
-  refs: string[];
+  refs?: string[];
 }) {
-  if (refs.length === 0) {
+  const safeRefs = refs ?? [];
+  if (safeRefs.length === 0) {
     return <p className="muted">{emptyLabel}</p>;
   }
-  return <RefList refs={refs} />;
+  return <RefList refs={safeRefs} />;
 }
 
 function InlineListWithFallback({
@@ -6597,14 +9810,15 @@ function InlineListWithFallback({
   items,
 }: {
   emptyLabel: string;
-  items: string[];
+  items?: string[];
 }) {
-  if (items.length === 0) {
+  const safeItems = items ?? [];
+  if (safeItems.length === 0) {
     return <p className="muted">{emptyLabel}</p>;
   }
   return (
     <ul className="ref-list">
-      {items.map((item, index) => (
+      {safeItems.map((item, index) => (
         <li key={`${item}-${index}`}>{item}</li>
       ))}
     </ul>

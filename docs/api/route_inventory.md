@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `152`.
+Current OpenAPI path count: `159`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -43,9 +43,9 @@ Current route classification summary:
 | Classification | Count |
 |---|---:|
 | `public_metadata` | 3 |
-| `local_readonly` | 17 |
-| `local_sensitive` | 101 |
-| `mutating_requires_authority` | 31 |
+| `local_readonly` | 18 |
+| `local_sensitive` | 104 |
+| `mutating_requires_authority` | 34 |
 
 Allowed current side-effect classes are:
 
@@ -90,7 +90,9 @@ UAA-P1-085 implements targeted local fixed-window rate-limit posture for
 model/chat, task decomposition, action preview/proposal, Action Inbox decisions,
 Today-to-Action envelope promotion, Chat durable receipts/handoffs, Memory
 Review decision receipts, Memory context-pack internal Action proposal receipts,
-and local model validation route groups.
+Memory feedback receipts, the exact-approved provider credential validation
+lane, the tiny exact-approved provider lane, and local model validation route
+groups.
 `/api/manifest` and the frozen route inventory expose
 `rate_limit_targeted`, `rate_limit_posture`, `rate_limit_policy_ref`, and
 `rate_limit_group`. This is not auth, distributed quota, billing, production
@@ -194,19 +196,19 @@ readiness, or execute rollback.
 - `POST /control-center/actions/{action_id}/defer`
 - `GET /control-center/actions/{action_id}/receipt`
 - `GET /control-center/memory/review`
+- `GET /control-center/memory/contradictions`
+- `POST /control-center/memory/feedback`
+- `GET /control-center/memory/observation-candidates`
+- `GET /control-center/memory/probe`
 - `GET /control-center/memory/l1-index`
 - `GET /control-center/memory/l2-index`
 - `GET /control-center/memory/l3-index`
-- `GET /control-center/memory/context-packs`
-- `GET /control-center/memory/impact-graph`
-- `GET /control-center/memory/follow-ups`
-- `GET /control-center/memory/recall-health`
 - `GET /control-center/memory/retrieval-diagnostics`
 - `GET /control-center/memory/citation-integrity`
 - `GET /control-center/memory/quality-issues`
 - `GET /control-center/memory/maintenance-runs`
 - `GET /control-center/memory/context-manifest`
-- `POST /control-center/memory/feedback`
+- `GET /control-center/memory/context-packs`
 - `GET /control-center/memory/review/{candidate_ref}/receipt`
 - `POST /control-center/memory/review/{candidate_ref}/accept`
 - `POST /control-center/memory/review/{candidate_ref}/correct`
@@ -217,12 +219,10 @@ readiness, or execute rollback.
 These routes expose storage-backed Founder Loop v1 summaries for Today, Action
 Inbox, Memory Review, Morning Briefing, local storage status, Action Inbox
 decision receipts, Memory Review decision receipts, read-only L1 hot local
-memory index previews, L2 ref projections, L3 representation proposals,
-Phase 5 context-pack proposal envelopes, FCC-MEM-015 impact graph,
-follow-up queue, Recall Health V2 read models, FCC-MEM-016 retrieval
-diagnostics, FCC-MEM-017 citation integrity, FCC-MEM-018 feedback quality
-issues, FCC-MEM-019 proposal-only maintenance runs, and FCC-MEM-020 context
-manifest proposals.
+memory index previews, L2 ref projections, L3 representation proposals, and
+Phase 5 context-pack proposal envelopes, plus FCC-MEM-022 feedback receipts,
+observation-candidate previews, probe index summaries, and contradiction
+previews.
 Action decision routes record backend-owned
 approve/edit/reject/defer state, validate exact approval scope for approve where
 required, handle idempotency replay/conflict locally, and return safe receipt
@@ -231,8 +231,7 @@ idempotency-required receipt routes; accept/correct create reviewed recall-only
 records, and reject preserves blocked review state. The L1 route derives safe
 recall previews from reviewed recall-only records only; the L2, L3, and
 context-pack routes derive deterministic safe-ref inspection/proposal items
-from reviewed source lanes only. Memory feedback records operator quality
-signal receipts only and does not rewrite reviewed recall. These routes do not execute the
+from reviewed source lanes only. They do not execute the
 underlying action, run, send, install, enable, dispatch, call providers, perform
 connector writes, read email/calendar data, automatically write memory, inject
 context, run shell/subprocess work, deliver notifications, use embeddings or
@@ -257,6 +256,23 @@ provider, connector, or production authority.
 These groups keep their existing validation, preview, evaluate, dry-run,
 summary, readiness, and local-dev scoped boundaries. Mutating local-dev paths
 remain approval-bound and blocked from production authority.
+
+Provider credential validation is represented by
+`POST /control-center/providers/credentials/validate` as an exact-approved,
+idempotency-required, redacted-receipt lane for one provider credential check.
+It has no built-in live validation transport by default and is not model
+invocation, provider SDK authority, provider payload persistence, fallback
+routing, billing authority, autonomous/background calls, or production
+authority.
+
+Provider router dry-run is represented by
+`POST /control-center/providers/router/dry-run` as a proposal-only local
+posture lane. It can return exact-approval candidate provider refs, blocked provider refs,
+missing credential refs, cost-risky refs, validation-required refs,
+no-authority refs, and recommended exact approval scope refs. It performs no
+provider invocation, fallback execution, network calls, provider SDK calls,
+credential validation, model calls, billing authority, autonomous/background
+calls, or raw provider payload persistence.
 
 ## Verification
 

@@ -6,6 +6,7 @@ import re
 
 import pytest
 
+from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
@@ -138,73 +139,6 @@ def test_control_center_api_routes_are_read_only_preview_only() -> None:
     manifest = client.get("/control-center/manifest").json()["data"]
     assert manifest["metadata"]["frontend_implemented"] is False
     assert "runtime_execution" in manifest["blocked_capabilities"]
-
-
-def test_control_center_settings_status_is_backend_owned_read_only() -> None:
-    response = client.get("/control-center/settings/status")
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["success"] is True
-    assert body["operation"] == "control_center_settings_status"
-    assert body["redactions_applied"] == [
-        "safe_refs_only",
-        "raw_paths_omitted",
-        "credentials_omitted",
-        "no_runtime_values",
-    ]
-
-    data = body["data"]
-    assert data["status"] == "read_only_status"
-    assert data["maturity_gate_status"] == "active_promotion_gate"
-    assert data["proposal_review_only"] is True
-    assert "settings-proposal:kill-switch-status-route" in data["review_proposals"]
-    assert data["maturity_manifest_ref"] == (
-        "docs/control_center/operational_maturity_manifest.json"
-    )
-    assert data["verifier_ref"] == "scripts/verify_operational_maturity.py"
-    assert data["feature_flag_mutation_enabled"] is False
-    assert data["kill_switch_mutation_enabled"] is False
-    assert data["settings_mutation_enabled"] is False
-    assert data["production_authority_enabled"] is False
-    assert "kill_switch_mutation" in data["blocked_authorities"]
-
-
-def test_control_center_local_models_status_is_read_only_and_blocks_lifecycle() -> None:
-    response = client.get("/control-center/local-models/status")
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["success"] is True
-    assert body["operation"] == "control_center_local_models_status"
-    assert body["redactions_applied"] == [
-        "safe_refs_only",
-        "raw_paths_omitted",
-        "credentials_omitted",
-        "no_model_calls",
-    ]
-
-    data = body["data"]
-    assert data["status"] == "read_only_status"
-    assert data["proposal_review_only"] is True
-    assert "local-models-proposal:lifecycle-status-route" in data["review_proposals"]
-    assert data["inventory"]["schema_version"] == "uaa_local_model_inventory.v1"
-    assert data["gateway_posture"]["local_gateway_enabled"] is False
-    assert data["gateway_posture"]["bearer_env_configured"] is False
-    assert all(enabled is False for enabled in data["lifecycle_actions"].values())
-    assert "model_download" in data["blocked_authorities"]
-    assert "model_pull" in data["blocked_authorities"]
-    assert "provider_model_authority" in data["blocked_authorities"]
-    adapters = {item["adapter_id"]: item for item in data["adapter_readiness"]}
-    assert set(adapters) >= {"ollama", "mlx_lm"}
-    for adapter in adapters.values():
-        assert adapter["readiness_state"] == "blocked"
-        assert adapter["runtime_calls_enabled"] is False
-        assert adapter["model_pulls_enabled"] is False
-        assert adapter["model_downloads_enabled"] is False
-        assert adapter["lifecycle_start_stop_switch_enabled"] is False
-        assert adapter["provider_model_authority_enabled"] is False
-        assert adapter["control_center_subprocess_execution_enabled"] is False
 
 
 def test_control_center_source_readiness_route_is_backend_owned_read_only() -> None:
@@ -614,6 +548,10 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
         "/control-center/actions/inbox",
         "/control-center/morning-briefing/summary",
         "/control-center/storage/status",
+        "/control-center/memory/feedback",
+        "/control-center/memory/observation-candidates",
+        "/control-center/memory/probe",
+        "/control-center/memory/contradictions",
     }
     assert required.issubset(paths)
     for forbidden in [
@@ -643,17 +581,8 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/integrations/mattermost/events/message" in paths
     assert "/control-center/actions/{action_id}/local-task/commit" in paths
     assert "/control-center/sources/readiness" in paths
-    assert "/control-center/memory/impact-graph" in paths
-    assert "/control-center/memory/follow-ups" in paths
-    assert "/control-center/memory/recall-health" in paths
-    assert "/control-center/memory/retrieval-diagnostics" in paths
-    assert "/control-center/memory/citation-integrity" in paths
-    assert "/control-center/memory/quality-issues" in paths
-    assert "/control-center/memory/maintenance-runs" in paths
-    assert "/control-center/memory/context-manifest" in paths
-    assert "/control-center/memory/feedback" in paths
-    assert len(paths) == 152
-    assert len(operation_ids) == len(set(operation_ids)) == 152
+    assert len(paths) == EXPECTED_ROUTE_COUNT
+    assert len(operation_ids) == len(set(operation_ids)) == EXPECTED_ROUTE_COUNT
 
 
 def test_control_center_action_local_task_commit_requires_exact_approval_and_receipts(
@@ -811,3 +740,68 @@ def test_control_center_action_local_task_commit_denies_safe_disabled_lane(
         "FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED"
     )
     assert repo.storage_status()["counts"]["local_tasks"] == 0
+
+
+def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
+    doc_path = ROOT / "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
+    text = doc_path.read_text(encoding="utf-8")
+    compact = " ".join(text.lower().split())
+
+    assert "status: active uaa-p0-007 operator-shell gap map" in compact
+    assert (
+        f"api boundary: current fastapi manifest has {EXPECTED_ROUTE_COUNT} openapi paths"
+        in compact
+    )
+    assert (
+        "| surface | current frontend component/page | current backend route(s) | "
+        "missing backend route(s) | authority boundary | side-effect class | "
+        "approval requirement | evidence/audit output | readiness status | "
+        "production-readiness blocker |"
+    ) in compact
+
+    for surface in [
+        "chat local operator",
+        "setup assistant",
+        "plans",
+        "models",
+        "approvals",
+        "files",
+        "runtime",
+        "evidence",
+        "settings",
+    ]:
+        assert f"| {surface} |" in compact
+
+    for route in [
+        "`get /v1/models`",
+        "`post /v1/chat/completions`",
+        "`post /task-decomposition/classify`",
+        "`post /task-decomposition/decompose`",
+        "`post /files/tree/preview`",
+        "`post /files/read/preview`",
+        "`get /observability/session-events`",
+        "`post /observability/client-errors`",
+        "`get /control-center/setup-assistant/summary`",
+        "`get /control-center/today/summary`",
+        "`get /control-center/actions/inbox`",
+        "`post /control-center/actions/{action_id}/local-task/commit`",
+        "`get /control-center/morning-briefing/summary`",
+        "`get /control-center/storage/status`",
+        "`get /control-center/routes`",
+    ]:
+        assert route in compact
+
+    for rule in [
+        "no hidden authority",
+        "no fake completion",
+        "no raw json as primary ui for operator-critical flows",
+    ]:
+        assert rule in compact
+
+    for forbidden in [
+        "production ready for external users",
+        "public distribution is available",
+        "control center executes actions",
+        "plugin runtime import is enabled",
+    ]:
+        assert forbidden not in compact

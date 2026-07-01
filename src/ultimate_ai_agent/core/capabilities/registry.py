@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Type
 
 from pydantic import BaseModel
 
-from ultimate_ai_agent.core.adapters import A2AAgentCardMinimal
+from ultimate_ai_agent.core.adapters import UAAA2AAgentCardMetadataImport
 from ultimate_ai_agent.core.capabilities.enums import (
     CapabilityHealthStatus,
     CapabilityKind,
@@ -301,31 +302,24 @@ class CapabilityRegistry:
 
     def manifest_from_a2a_agent_card(
         self,
-        card: A2AAgentCardMinimal,
+        card: UAAA2AAgentCardMetadataImport,
         *,
         examples: list[str] | None = None,
         anti_examples: list[str] | None = None,
     ) -> CapabilityManifest:
-        return CapabilityManifest(
-            id=card.agent_id,
-            version=card.version,
-            kind=CapabilityKind.a2a_agent,
-            name=card.name,
-            description="A2A agent card metadata import. Runtime delegation remains adapter-bound.",
-            owner=card.owner,
-            tags=["a2a", *card.declared_capabilities],
-            examples=examples or ["Use after a reviewed A2A adapter is explicitly registered in-process."],
-            anti_examples=anti_examples or ["Do not use as proof of live remote dispatch authority."],
-            input_schema={"type": "object"},
-            output_schema={"type": "object"},
-            input_modes=["structured_ref"],
-            output_modes=["artifact"],
-            side_effects=SideEffectLevel.read,
-            risk_level=CoordinationRiskLevel.medium,
-            allowed_coordination_modes=[CoordinationMode.agent_as_tool, CoordinationMode.handoff],
-            concurrency_safe=False,
-            single_writer_required=False,
-            metadata={"schema_version": card.schema_version, "endpoint_declared": bool(card.endpoint_url)},
+        from ultimate_ai_agent.core.capabilities.a2a_gateway import (
+            a2a_agent_card_to_metadata,
+            a2a_agent_metadata_to_capability_candidate,
+        )
+
+        metadata = a2a_agent_card_to_metadata(card)
+        manifest = a2a_agent_metadata_to_capability_candidate(metadata)
+        return manifest.model_copy(
+            update={
+                "examples": examples or manifest.examples,
+                "anti_examples": anti_examples or manifest.anti_examples,
+                "tags": ["a2a", "gateway-foundation", "metadata-only", *card.declared_capabilities],
+            }
         )
 
     def manifest_from_mcp_tool_spec(
@@ -336,26 +330,38 @@ class CapabilityRegistry:
         examples: list[str] | None = None,
         anti_examples: list[str] | None = None,
     ) -> CapabilityManifest:
+        from ultimate_ai_agent.core.capabilities.mcp_gateway import (
+            McpAuthPosture,
+            McpDiscoveryToolMetadata,
+            McpTransportPosture,
+            mcp_tool_metadata_to_capability_candidate,
+        )
+
         name = str(spec.get("name") or capability_id or "mcp_tool")
-        return CapabilityManifest(
-            id=capability_id or f"mcp:{name}",
-            version=str(spec.get("version") or "0.0.0"),
-            kind=CapabilityKind.mcp_tool,
+        safe_name = re.sub(r"[^A-Za-z0-9_.:-]+", "-", name).strip("-") or "mcp_tool"
+        metadata = McpDiscoveryToolMetadata(
+            server_ref=str(spec.get("server_ref") or "mcp-server-ref:unknown"),
+            tool_ref=str(spec.get("tool_ref") or f"mcp-tool-ref:{safe_name}"),
             name=name,
             description=str(spec.get("description") or "MCP tool spec metadata import."),
-            tags=["mcp", *list(spec.get("tags") or [])],
-            examples=examples or [f"Use {name} only after a reviewed MCP adapter is explicitly registered."],
-            anti_examples=anti_examples or [f"Do not expose {name} as live tool authority from metadata alone."],
             input_schema=dict(spec.get("inputSchema") or spec.get("input_schema") or {"type": "object"}),
             output_schema=dict(spec.get("outputSchema") or spec.get("output_schema") or {"type": "object"}),
-            input_modes=["structured_ref"],
-            output_modes=["artifact"],
-            side_effects=SideEffectLevel.read,
-            risk_level=CoordinationRiskLevel.medium,
-            allowed_coordination_modes=[CoordinationMode.direct_tool],
-            concurrency_safe=False,
-            single_writer_required=False,
-            metadata={"source": "mcp_tool_spec"},
+            provenance_ref=str(spec.get("provenance_ref") or "provenance-ref:mcp:unreviewed"),
+            transport_posture=McpTransportPosture.unknown_blocked,
+            auth_posture=McpAuthPosture.unknown_blocked,
+            audit_ref=str(spec.get("audit_ref") or "audit-ref:mcp:unreviewed"),
+            replay_ref=str(spec.get("replay_ref") or "replay-ref:mcp:unreviewed"),
+            revocation_ref=str(spec.get("revocation_ref") or "revocation-ref:mcp:unreviewed"),
+            safe_disable_ref=str(spec.get("safe_disable_ref") or "safe-disable-ref:mcp:unreviewed"),
+            expected_receipt_ref=str(spec.get("expected_receipt_ref") or "receipt-ref:mcp:blocked-unreviewed"),
+        )
+        manifest = mcp_tool_metadata_to_capability_candidate(metadata, capability_id=capability_id)
+        return manifest.model_copy(
+            update={
+                "examples": examples or manifest.examples,
+                "anti_examples": anti_examples or manifest.anti_examples,
+                "tags": ["mcp", "gateway-foundation", "metadata-only", *list(spec.get("tags") or [])],
+            }
         )
 
     @staticmethod

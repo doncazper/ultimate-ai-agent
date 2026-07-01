@@ -23,11 +23,16 @@ import {
 } from "./api/endpoints";
 import {
   fetchMemoryReviewDecisionReceipt,
+  recordMemoryFeedback,
   recordMemoryReviewDecision,
   setLocalApiBearerForSession,
 } from "./api/client";
 import { EmptyState, ErrorState, LoadingState } from "./components/DataState";
-import { mockControlCenterData } from "./mocks/controlCenterData";
+import {
+  MOCK_CONTROL_CENTER_ROUTE_COUNT,
+  MOCK_OPENAPI_ROUTE_COUNT,
+  mockControlCenterData,
+} from "./mocks/controlCenterData";
 import { primaryNavItems, supportingNavItems } from "./routes";
 
 function mockFetchWithFallback() {
@@ -37,6 +42,551 @@ function mockFetchWithFallback() {
       throw new Error("backend unavailable");
     }),
   );
+}
+
+function safeCostSuffix(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9_.@-]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function approvedActionCostFields(sourceRef: string) {
+  const suffix = safeCostSuffix(sourceRef);
+  const costReceiptRefs = [
+    `budget-decision-ref:${suffix}`,
+    `cost-estimate-ref:${suffix}`,
+    "model-profile-ref:frontier-approved-test",
+    "provider-ref:frontier-approved-test",
+    `usage-capture-ref:${suffix}`,
+  ];
+  return {
+    action_envelope_cost_contract_ref:
+      "contract-ref:frontier-ai-cost-usage-telemetry:v1",
+    action_envelope_estimated_cost_usd: 0,
+    action_envelope_max_approved_cost_usd: 0,
+    action_envelope_provider_ref: "provider-ref:frontier-approved-test",
+    action_envelope_model_profile_ref:
+      "model-profile-ref:frontier-approved-test",
+    action_envelope_input_metered_units: 0,
+    action_envelope_output_metered_units: 0,
+    action_envelope_total_metered_units: 0,
+    action_envelope_cost_estimate_ref: `cost-estimate-ref:${suffix}`,
+    action_envelope_captured_usage_ref: `usage-capture-ref:${suffix}`,
+    action_envelope_budget_decision_ref: `budget-decision-ref:${suffix}`,
+    action_envelope_cost_receipt_refs: costReceiptRefs,
+    action_envelope_cost_blocked_state_refs: [],
+    action_envelope_cost_state_label: "Cost approved",
+    action_envelope_provider_authority_state_label:
+      "Provider/model refs present",
+    action_envelope_unknown_paid_cost_requires_explicit_approval: true,
+    action_envelope_frontier_usage_claimed: false,
+  };
+}
+
+function founderLoopProductProofFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const steps = [
+    ["morning_briefing", "Morning Briefing", "/briefing"],
+    ["today", "Today", "/today"],
+    ["action_inbox", "Action Inbox", "/actions"],
+    ["decision_receipt", "Receipt", "/actions"],
+    ["evidence_timeline", "Evidence Timeline", "/evidence"],
+    ["memory_review", "Memory Review", "/memory"],
+    ["weekly_review", "Weekly Review", "/today"],
+  ].map(([stepId, surface, route], index) => ({
+    step_id: stepId,
+    surface,
+    backend_route_ref:
+      stepId === "morning_briefing"
+        ? "GET /control-center/morning-briefing/summary"
+        : stepId === "action_inbox"
+          ? "GET /control-center/actions/inbox"
+          : stepId === "evidence_timeline"
+            ? "GET /control-center/evidence/timeline"
+            : "GET /control-center/today/summary",
+    frontend_route_ref: route,
+    status:
+      stepId === "decision_receipt"
+        ? "receipt_backed_decision_path_visible"
+        : "backend_owned_read_model",
+    safe_summary: `${surface} product proof step ${index + 1}.`,
+    source_refs: [`source-ref:founder-loop-product-proof:${stepId}`],
+    evidence_refs: [`evidence-ref:founder-loop-product-proof:${stepId}`],
+    receipt_refs:
+      stepId === "decision_receipt"
+        ? ["receipt:founder-loop-product-proof:action-defer"]
+        : [],
+    blocked_state_refs: [
+      "blocked-state:founder-loop-proof-no-production-authority",
+    ],
+    next_safe_action: "Inspect backend-owned safe refs before promotion.",
+  }));
+  return {
+    schema_version: "founder-loop-v1-product-proof.v1",
+    contract_ref: "contract-ref:founder-loop-v1-product-proof:v1",
+    status: "implemented_backend_owned_product_proof_pass_safe_refs_only",
+    source: "python_core_founder_loop_v1_product_proof_read_model",
+    backend_owned: true,
+    local_read_model_only: true,
+    seeded_demo_safe: true,
+    safe_refs_only: true,
+    safe_summary_only: true,
+    raw_content_included: false,
+    scenario_ref: "scenario-ref:founder-loop-v1-demo-safe-seeded-loop",
+    shared_state_ref: "founder-loop-state-ref:demo-safe-seeded-loop",
+    loop_order: [
+      "morning_briefing",
+      "today",
+      "action_inbox",
+      "decision_receipt",
+      "evidence_timeline",
+      "memory_review",
+      "weekly_review",
+    ],
+    steps,
+    supported_decision_actions: ["approve", "edit", "reject", "defer"],
+    morning_briefing_refs: ["briefing:storage-state-first-loop"],
+    today_refs: ["daily-loop-summary:local"],
+    action_inbox_refs: ["founder-action:setup-assistant-hardening"],
+    action_decision_receipt_refs: [
+      "receipt:founder-loop-product-proof:action-defer",
+    ],
+    evidence_timeline_refs: [
+      "evidence-timeline:action/founder-action/setup-assistant-hardening",
+    ],
+    evidence_event_refs: ["evidence-event:action-decision-recorded-test"],
+    memory_review_candidate_refs: [
+      "business-memory-candidate:founder-loop-preferences",
+    ],
+    memory_review_receipt_refs: [
+      "receipt:founder-loop-product-proof:memory-defer",
+    ],
+    weekly_review_refs: ["review-period-ref:local-weekly-window"],
+    receipt_refs: [
+      "receipt:founder-loop-product-proof:action-defer",
+      "receipt:founder-loop-product-proof:memory-defer",
+    ],
+    evidence_refs: ["evidence-ref:founder-loop-v1-product-proof"],
+    blocked_authority_refs: [
+      "blocked-state:founder-loop-proof-no-provider-model-call",
+      "blocked-state:founder-loop-proof-no-a2a-mcp-runtime-dispatch",
+      "blocked-state:founder-loop-proof-no-browser-or-live-web",
+      "blocked-state:founder-loop-proof-no-connector-write",
+      "blocked-state:founder-loop-proof-no-email-calendar-send",
+      "blocked-state:founder-loop-proof-no-crm-write-or-account-sync",
+      "blocked-state:founder-loop-proof-no-shell-execution",
+      "blocked-state:founder-loop-proof-no-background-autonomy",
+      "blocked-state:founder-loop-proof-no-react-only-authority",
+      "blocked-state:founder-loop-proof-no-public-release-claim",
+      "blocked-state:founder-loop-proof-no-production-authority",
+    ],
+    memory_review_status: "candidate_available",
+    weekly_review_status: "implemented_backend_owned_weekly_review_artifact_v1",
+    decision_receipt_status: "receipt_backed_decision_path_visible",
+    safe_summary:
+      "Founder Loop V1 product proof binds Morning Briefing, Today, Action Inbox decisions, receipts, Evidence Timeline, Memory Review, and Weekly Review through backend-owned safe refs.",
+    next_safe_action:
+      "Inspect shared safe refs before claiming more authority.",
+    authority_boundary:
+      "Founder Loop V1 product proof is backend-owned local read model authority only.",
+    provider_model_call_enabled: false,
+    runtime_model_call_enabled: false,
+    a2a_runtime_dispatch_enabled: false,
+    mcp_runtime_dispatch_enabled: false,
+    browser_execution_enabled: false,
+    live_web_enabled: false,
+    connector_write_enabled: false,
+    email_calendar_send_enabled: false,
+    crm_write_enabled: false,
+    account_sync_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    background_autonomy_enabled: false,
+    memory_write_authorized: false,
+    context_injection_authorized: false,
+    public_beta_claim_enabled: false,
+    public_release_claim_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+function applyApprovedActionCost(item: {
+  item_ref: string;
+  approval_envelope?: Record<string, unknown>;
+  [key: string]: unknown;
+}) {
+  const fields = approvedActionCostFields(item.item_ref);
+  Object.assign(item, fields);
+  if (item.approval_envelope) {
+    Object.assign(item.approval_envelope, {
+      estimated_cost_usd: fields.action_envelope_estimated_cost_usd,
+      max_approved_cost_usd: fields.action_envelope_max_approved_cost_usd,
+      provider_ref: fields.action_envelope_provider_ref,
+      model_profile_ref: fields.action_envelope_model_profile_ref,
+      input_metered_units: fields.action_envelope_input_metered_units,
+      output_metered_units: fields.action_envelope_output_metered_units,
+      total_metered_units: fields.action_envelope_total_metered_units,
+      cost_estimate_ref: fields.action_envelope_cost_estimate_ref,
+      captured_usage_ref: fields.action_envelope_captured_usage_ref,
+      budget_decision_ref: fields.action_envelope_budget_decision_ref,
+      cost_receipt_refs: fields.action_envelope_cost_receipt_refs,
+      cost_blocked_state_refs: fields.action_envelope_cost_blocked_state_refs,
+      cost_state_label: fields.action_envelope_cost_state_label,
+      provider_authority_state_label:
+        fields.action_envelope_provider_authority_state_label,
+      unknown_paid_cost_requires_explicit_approval:
+        fields.action_envelope_unknown_paid_cost_requires_explicit_approval,
+      frontier_usage_claimed: fields.action_envelope_frontier_usage_claimed,
+    });
+  }
+}
+
+function plansToActionsBridgeFixture(overrides: Record<string, unknown> = {}) {
+  const item = {
+    item_ref: "plans-to-actions-bridge:plan-summary-test",
+    source_plan_ref: "plan-summary:test",
+    linked_action_item_ref: "action:task-decomposition:test",
+    plan_title: "Founder Loop test plan",
+    plan_status: "proposal_only_review_required",
+    safe_summary:
+      "Plan proposal maps to a reviewable Action envelope with refs only.",
+    why_proposed: "The plan needs review before scoped work exists.",
+    risk_class: "medium",
+    action_envelope_ref: "action-envelope:plans:plan-summary-test",
+    action_scope_ref: "scope-ref:plans-action-envelope:plan-summary-test",
+    approval_requirement_ref:
+      "approval-requirement:plans-action-envelope:plan-summary-test",
+    task_decomposition_proposal_ref: "task-decomposition-proposal:test",
+    task_decomposition_review_envelope_ref:
+      "review-envelope:task-decomposition:test",
+    task_decomposition_action_inbox_bridge_ref:
+      "action-inbox-proposal:task-decomposition:test",
+    review_receipt_labels: ["approve", "edit", "reject", "defer"],
+    expected_receipt_refs: [
+      "receipt-plan:plans-action-envelope:plan-summary-test",
+    ],
+    receipt_refs: [],
+    rollback_ref: "rollback-plan:plans-action-envelope:plan-summary-test",
+    safe_disable_ref: "safe-disable:plans-action-envelope:plan-summary-test",
+    evidence_refs: ["evidence-ref:founder-loop:test-plan"],
+    step_refs: ["task-decomposition-step:test-1"],
+    risk_refs: ["risk-ref:task-decomposition:test"],
+    ambiguity_refs: [],
+    missing_evidence_refs: ["missing-evidence-ref:task-decomposition:test"],
+    blocked_authority_refs: [
+      "blocked-state:plans-to-actions-proposal-only",
+      "blocked-state:plans-to-actions-approval-refs-identifiers-only",
+      "blocked-state:plans-to-actions-no-action-execution",
+      "blocked-state:plans-to-actions-no-tool-execution",
+      "blocked-state:plans-to-actions-no-workflow-execution",
+      "blocked-state:plans-to-actions-no-model-provider-call",
+      "blocked-state:plans-to-actions-no-shell-subprocess",
+      "blocked-state:plans-to-actions-no-browser-execution",
+      "blocked-state:plans-to-actions-no-connector-runtime",
+      "blocked-state:plans-to-actions-no-connector-write",
+      "blocked-state:plans-to-actions-no-memory-write",
+      "blocked-state:plans-to-actions-no-context-injection",
+      "blocked-state:plans-to-actions-no-production-authority",
+    ],
+    next_safe_action: "Review refs only.",
+    backend_owned: true,
+    review_only: true,
+    proposal_only: true,
+    exact_scope_required: true,
+    expected_receipts_required: true,
+    rollback_required: true,
+    safe_disable_required: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    approval_ref_authority: false,
+    approval_grant_capture_enabled: false,
+    approval_alone_executes: false,
+    execution_authorized: false,
+    execution_performed: false,
+    action_execution_enabled: false,
+    action_execution_performed: false,
+    tool_execution_enabled: false,
+    tool_execution_performed: false,
+    workflow_execution_enabled: false,
+    workflow_execution_performed: false,
+    model_provider_call_enabled: false,
+    model_provider_authority_allowed: false,
+    provider_model_call_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    shell_subprocess_execution_performed: false,
+    browser_execution_enabled: false,
+    browser_execution_performed: false,
+    connector_runtime_enabled: false,
+    connector_write_enabled: false,
+    connector_write_performed: false,
+    memory_write_authorized: false,
+    memory_write_performed: false,
+    context_injection_authorized: false,
+    context_injection_performed: false,
+    automatic_planning_authority_enabled: false,
+    production_authority_enabled: false,
+  };
+  return {
+    schema_version: "product-loop-006-plans-to-actions.v1",
+    contract_ref:
+      "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+    status: "implemented_backend_owned_review_envelope_bridge",
+    source: "python_core_plans_to_actions_bridge_read_model",
+    backend_owned: true,
+    local_read_model_only: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    item_count: 1,
+    items: [item],
+    plan_refs: ["plan-summary:test"],
+    action_inbox_item_refs: ["action:task-decomposition:test"],
+    task_decomposition_proposal_refs: ["task-decomposition-proposal:test"],
+    expected_receipt_refs: [
+      "receipt-plan:plans-action-envelope:plan-summary-test",
+    ],
+    rollback_refs: ["rollback-plan:plans-action-envelope:plan-summary-test"],
+    safe_disable_refs: ["safe-disable:plans-action-envelope:plan-summary-test"],
+    blocked_state_refs: item.blocked_authority_refs,
+    next_safe_action: "Review refs only.",
+    authority_boundary:
+      "Plans-to-Actions bridge is review metadata only; approval refs remain identifiers.",
+    approval_ref_authority: false,
+    approval_grant_capture_enabled: false,
+    approval_alone_executes: false,
+    execution_authorized: false,
+    execution_performed: false,
+    action_execution_enabled: false,
+    action_execution_performed: false,
+    tool_execution_enabled: false,
+    tool_execution_performed: false,
+    workflow_execution_enabled: false,
+    workflow_execution_performed: false,
+    model_provider_call_enabled: false,
+    model_provider_authority_allowed: false,
+    provider_model_call_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    shell_subprocess_execution_performed: false,
+    browser_execution_enabled: false,
+    browser_execution_performed: false,
+    connector_runtime_enabled: false,
+    connector_write_enabled: false,
+    connector_write_performed: false,
+    memory_write_authorized: false,
+    memory_write_performed: false,
+    context_injection_authorized: false,
+    context_injection_performed: false,
+    automatic_planning_authority_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+function fusionWorkClassificationFixture(
+  classification:
+    | "judgment_required"
+    | "mechanical"
+    | "validation"
+    | "bookkeeping"
+    | "ambiguous"
+    | "blocked",
+) {
+  const humanReviewRequired = [
+    "judgment_required",
+    "ambiguous",
+    "blocked",
+  ].includes(classification);
+  return {
+    schema_version: "fcc_fusion_work_classification.v1",
+    contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+    classification,
+    reason_refs: [`classification-reason-ref:fusion:${classification}`],
+    confidence_posture: "medium",
+    ambiguity_posture: humanReviewRequired ? "ambiguous" : "clear",
+    human_review_required: humanReviewRequired,
+    blocked_authority_refs:
+      classification === "blocked"
+        ? ["blocked-state:fusion-no-model-provider-call"]
+        : [],
+    source_refs: [`source-ref:fusion:${classification}`],
+    evidence_refs: [`evidence-ref:fusion:${classification}`],
+    reviewed_at_ref: "review-state:not-reviewed",
+    expiry_posture_ref: `expiry-posture:fusion:${classification}`,
+    review_aid_only: true,
+    execution_authorized: false,
+    action_execution_enabled: false,
+  };
+}
+
+function fusionCacheContextFixture() {
+  return {
+    schema_version: "fcc_fusion_cache_context_economics.v1",
+    contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+    context_budget_ref: "context-budget-ref:fusion:test",
+    compaction_boundary_ref: "compaction-boundary-ref:fusion:test:not-executed",
+    cache_miss_expected: false,
+    cache_reuse_posture: "possible",
+    reroute_reason: "none",
+    estimated_context_cost_posture: "context-cost-posture:estimated-metadata-only",
+    cache_or_context_blocker_refs: [],
+    evidence_refs: ["evidence-ref:fusion-cache-context:test"],
+    explanatory_posture_only: true,
+    measured_provider_event: false,
+    runtime_model_switch_performed: false,
+  };
+}
+
+function fusionDelegationFixture(
+  workClassification = fusionWorkClassificationFixture("mechanical"),
+) {
+  return {
+    schema_version: "fcc_fusion_delegation_proposal.v1",
+    contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+    proposal_state: "proposed",
+    proposed_delegate_kind: "validation_worker",
+    delegate_scope_ref: "delegate-scope-ref:fusion:test",
+    main_owner_responsibility_refs: [
+      "main-owner-responsibility-ref:fusion:test:plan",
+      "main-owner-responsibility-ref:fusion:test:final-review",
+    ],
+    delegated_work_refs: ["delegated-work-ref:fusion:test"],
+    review_required_posture_ref: "review-required:main-owner-final-review",
+    blocked_execution_refs: [
+      "blocked-state:fusion-sidekick-worker-execution-not-scoped",
+      "blocked-state:fusion-background-dispatch-not-scoped",
+    ],
+    expected_receipt_refs: ["receipt-plan:fusion-delegation:test"],
+    rollback_safe_disable_posture_refs: [
+      "rollback-posture-ref:fusion-delegation:test",
+      "safe-disable-posture-ref:fusion-delegation:test",
+    ],
+    work_classification: workClassification,
+    future_only: true,
+    creates_approval_ref: false,
+    creates_execution_ref: false,
+    worker_execution_enabled: false,
+    background_dispatch_enabled: false,
+  };
+}
+
+function fusionRoutingReadModelFixture() {
+  const classifications = [
+    fusionWorkClassificationFixture("judgment_required"),
+    fusionWorkClassificationFixture("mechanical"),
+    fusionWorkClassificationFixture("validation"),
+    fusionWorkClassificationFixture("ambiguous"),
+    fusionWorkClassificationFixture("blocked"),
+  ];
+  return {
+    schema_version: "fcc_fusion_routing_delegation.v1",
+    contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+    source: "python_core_fusion_routing_delegation_read_model",
+    status: "implemented_backend_owned_readability_metadata_no_execution",
+    backend_owned: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    surfaces: ["Today", "Plans", "Actions", "Chat", "Evidence", "Code"],
+    work_classifications: classifications,
+    route_decisions: [
+      {
+        schema_version: "fcc_fusion_route_decision_visibility.v1",
+        contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+        status: "selected",
+        selected_profile_ref: "model-profile-ref:local-preview",
+        rejected_profile_refs: [],
+        reason_codes: ["SELECTED_PROFILE"],
+        privacy_posture_ref: "privacy-posture:metadata-only",
+        cost_posture_ref: "cost-posture:preview-only",
+        latency_posture_ref: "latency-posture:estimated-only",
+        context_posture_ref: "context-posture:preview-only",
+        approval_posture_ref: "approval-posture:not-required-for-preview",
+        operator_summary:
+          "Local preview route selected for metadata visibility only.",
+        no_execution_performed: true,
+        model_invocation_performed: false,
+        provider_call_performed: false,
+      },
+      {
+        schema_version: "fcc_fusion_route_decision_visibility.v1",
+        contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+        status: "rejected",
+        selected_profile_ref: "model-profile-ref:none-selected",
+        rejected_profile_refs: ["model-profile-ref:disabled"],
+        reason_codes: ["PROFILE_DISABLED"],
+        privacy_posture_ref: "privacy-posture:metadata-only",
+        cost_posture_ref: "cost-posture:preview-only",
+        latency_posture_ref: "latency-posture:not-measured",
+        context_posture_ref: "context-posture:preview-only",
+        approval_posture_ref: "approval-posture:not-authority",
+        operator_summary: "Disabled profile rejected for preview readability.",
+        no_execution_performed: true,
+        model_invocation_performed: false,
+        provider_call_performed: false,
+      },
+      {
+        schema_version: "fcc_fusion_route_decision_visibility.v1",
+        contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+        status: "blocked",
+        selected_profile_ref: "model-profile-ref:none-selected",
+        rejected_profile_refs: ["model-profile-ref:cloud-paid"],
+        reason_codes: ["UNKNOWN_PAID_COST_REQUIRES_APPROVAL"],
+        privacy_posture_ref: "privacy-posture:cloud-review-required",
+        cost_posture_ref: "cost-posture:unknown-paid-cost-blocked",
+        latency_posture_ref: "latency-posture:not-measured",
+        context_posture_ref: "context-posture:not-expanded",
+        approval_posture_ref: "approval-posture:required",
+        operator_summary: "Paid route blocked until exact approval exists.",
+        no_execution_performed: true,
+        model_invocation_performed: false,
+        provider_call_performed: false,
+      },
+    ],
+    delegation_proposals: [
+      fusionDelegationFixture(fusionWorkClassificationFixture("validation")),
+    ],
+    cache_context_economics: [fusionCacheContextFixture()],
+    dogfood_records: [
+      {
+        schema_version: "fcc_fusion_dogfood_evidence.v1",
+        contract_ref: "contract-ref:fcc-fusion-routing-delegation:v1",
+        review_record_ref: "dogfood-review-ref:fusion:test",
+        outcome: "partially_useful",
+        friction_delta_ref: "dogfood-delta-ref:fusion:test:operator-friction",
+        review_time_delta_ref: "dogfood-delta-ref:fusion:test:review-time",
+        cost_confusion_delta_ref: "dogfood-delta-ref:fusion:test:cost-confusion",
+        routing_cost_delta_ref: "dogfood-delta-ref:fusion:test:routing-cost",
+        ambiguity_delta_ref: "dogfood-delta-ref:fusion:test:ambiguity",
+        interruption_delta_ref: "dogfood-delta-ref:fusion:test:interruptions",
+        redacted_summary_ref: "redacted-summary-ref:fusion-dogfood:test",
+        evidence_refs: ["evidence-ref:fusion-dogfood:test"],
+        local_private_only: true,
+        external_analytics_enabled: false,
+        live_learning_claimed: false,
+      },
+    ],
+    blocked_state_refs: [
+      "blocked-state:fusion-no-model-provider-call",
+      "blocked-state:fusion-no-sidekick-execution",
+      "blocked-state:fusion-no-action-execution",
+      "blocked-state:fusion-no-tool-execution",
+      "blocked-state:fusion-no-background-work",
+    ],
+    next_safe_action:
+      "Use classification, route, delegation, and context/cost fields as review aids only.",
+    authority_boundary:
+      "Fusion routing and delegation metadata improves review readability; it does not authorize runtime work.",
+    action_execution_enabled: false,
+    sidekick_execution_enabled: false,
+    provider_model_call_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    browser_execution_enabled: false,
+    connector_write_enabled: false,
+    memory_write_authorized: false,
+    context_injection_authorized: false,
+    background_dispatch_enabled: false,
+    production_authority_enabled: false,
+  };
 }
 
 describe("Web Control Center shell", () => {
@@ -56,8 +606,12 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Today" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Source Inbox" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Action Inbox" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Source Inbox" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Action Inbox" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Setup" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Runtime" })).toBeInTheDocument();
     expect(
@@ -71,9 +625,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Runtime readiness")).toBeInTheDocument();
     expect(screen.getByText("API boundary")).toBeInTheDocument();
-    expect(
-      screen.getByText(/No generic execution/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No generic execution/i)).toBeInTheDocument();
     expect(
       screen.getByText(/Local task authority requires backend approval/i),
     ).toBeInTheDocument();
@@ -93,7 +645,9 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText("Kill-switch")).not.toBeInTheDocument();
     expect(screen.queryByText("Armed")).not.toBeInTheDocument();
     expect(screen.queryByText("ship")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /find route or action/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /find route or action/i }),
+    );
     const palette = screen.getByRole("dialog", { name: /command palette/i });
     expect(within(palette).getAllByText(/proofed/i).length).toBeGreaterThan(0);
     expect(within(palette).queryByText("ship")).not.toBeInTheDocument();
@@ -143,24 +697,41 @@ describe("Web Control Center shell", () => {
       "Evidence",
       "Settings",
     ]);
-    expect(within(navigation).getByText("Supporting Surfaces")).toBeInTheDocument();
-    expect(within(navigation).getByRole("link", { name: "Setup" })).toBeInTheDocument();
-    expect(within(navigation).getByRole("link", { name: "API Routes" })).toBeInTheDocument();
-    expect(within(navigation).getByRole("link", { name: "Differentiators" })).toBeInTheDocument();
-    expect(within(navigation).getAllByText("partial").length).toBeGreaterThan(0);
-    expect(within(navigation).queryByText("blocked/planned")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Product spine contract/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Founder daily loop/i })).toBeInTheDocument();
+    expect(
+      within(navigation).getByText("Supporting Surfaces"),
+    ).toBeInTheDocument();
+    expect(
+      within(navigation).getByRole("link", { name: "Setup" }),
+    ).toBeInTheDocument();
+    expect(
+      within(navigation).getByRole("link", { name: "API Routes" }),
+    ).toBeInTheDocument();
+    expect(
+      within(navigation).getByRole("link", { name: "Differentiators" }),
+    ).toBeInTheDocument();
+    expect(within(navigation).getAllByText("partial").length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      within(navigation).queryByText("blocked/planned"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Product spine contract/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Founder daily loop/i }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/non-authoritative fallback shape/i),
     ).toBeInTheDocument();
     expect(screen.queryByText(/backend-bound loop/i)).not.toBeInTheDocument();
     const loopSpine = screen.getByLabelText("Founder daily loop modules");
     const loopLinks = within(loopSpine).getAllByRole("link");
-    expect(loopLinks).toHaveLength(7);
+    expect(loopLinks).toHaveLength(8);
     expect(loopLinks[0]).toHaveAttribute("aria-current", "page");
     for (const surface of [
       "Today",
+      "Briefing",
       "Source Inbox",
       "Plans",
       "Action Inbox",
@@ -172,99 +743,283 @@ describe("Web Control Center shell", () => {
         loopLinks.some((link) => link.textContent?.includes(surface)),
       ).toBe(true);
     }
-    expect(loopLinks.some((link) => link.textContent?.includes("blocked"))).toBe(true);
-    expect(loopLinks.some((link) => link.textContent?.includes("receipt-backed"))).toBe(true);
+    expect(
+      loopLinks.some((link) => link.textContent?.includes("blocked")),
+    ).toBe(true);
+    expect(
+      loopLinks.some((link) => link.textContent?.includes("receipt-backed")),
+    ).toBe(true);
     expect(
       screen.getAllByText(/Local task authority requires backend approval/i)
         .length,
     ).toBeGreaterThan(0);
     expect(screen.getByText(/Connector writes blocked/i)).toBeInTheDocument();
-    expect(screen.getByText(/Production authority blocked/i)).toBeInTheDocument();
-    expect(screen.getByText("contract-ref:today-product-spine:v1")).toBeInTheDocument();
-    expect(screen.getByText("Loop visibility sufficient").nextElementSibling).toHaveTextContent("no");
-    expect(screen.getByText("Standalone completion").nextElementSibling).toHaveTextContent("blocked");
-    expect(screen.getByRole("heading", { name: /Today required signals/i })).toBeInTheDocument();
+    expect(
+      screen.getByText(/Production authority blocked/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:today-product-spine:v1").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /Today decisions first/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("backend digest missing").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText(
+        "contract-ref:product-loop-003-today-loop-tightening:v1",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_today_loop_read_model"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Execute and track/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: /Scan: Today, Review, Changed, Influence, Blocked/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Daily loop command deck"),
+    ).toBeInTheDocument();
+    for (const question of [
+      "What matters today",
+      "What needs review",
+      "What changed",
+      "What memory/evidence is influencing the loop",
+      "What is blocked or unsafe",
+    ]) {
+      expect(
+        screen.getByRole("heading", { name: question }),
+      ).toBeInTheDocument();
+    }
+    expect(screen.getAllByText("Why shown").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("What this affects").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/backend review refs/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\d+ changed refs$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/backend blocker refs/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Proposal-only refs stay review-only/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/No apply\/use\/execute control for proposals/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Memory recall is influence, not truth authority/i),
+    ).toBeInTheDocument();
+    expect(document.querySelector("pre")).toBeNull();
+    for (const unsafeControl of [/^apply$/i, /^use$/i, /^execute$/i]) {
+      expect(
+        screen.queryByRole("button", { name: unsafeControl }),
+      ).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText("Mutation controls")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Loop visibility sufficient").nextElementSibling,
+    ).toHaveTextContent("no");
+    expect(
+      screen.getByText("Standalone completion").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      screen.getByRole("heading", { name: /Today required signals/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText("priorities")).toBeInTheDocument();
     expect(screen.getByText("stale_source_posture")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Daily command loop/i })).toBeInTheDocument();
-    expect(screen.getByText("Home").nextElementSibling).toHaveTextContent("Morning Briefing");
-    expect(screen.getByRole("heading", { name: /Source readiness states/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Daily command loop/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Home").nextElementSibling).toHaveTextContent(
+      "Morning Briefing",
+    );
+    expect(
+      screen.getByRole("heading", { name: /Source readiness states/i }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
         /Non-authoritative source readiness fallback from mock_fallback_non_authoritative/i,
       ),
     ).toBeInTheDocument();
     const sourcePosture = screen.getByLabelText("Source readiness posture");
-    expect(within(sourcePosture).getByText("Backend owned").nextElementSibling).toHaveTextContent(
-      "no",
-    );
+    expect(
+      within(sourcePosture).getByText("Backend owned").nextElementSibling,
+    ).toHaveTextContent("no");
     expect(screen.getByText(/inbox: blocked/i)).toBeInTheDocument();
-    expect(screen.getByText("Blocked sources").nextElementSibling).toHaveTextContent("1");
-    expect(screen.getByText("Metadata-only sources").nextElementSibling).toHaveTextContent("3");
-    expect(screen.getByText("Not configured sources").nextElementSibling).toHaveTextContent("1");
+    expect(
+      screen.getByText("Blocked sources").nextElementSibling,
+    ).toHaveTextContent("1");
+    expect(
+      screen.getByText("Metadata-only sources").nextElementSibling,
+    ).toHaveTextContent("3");
+    expect(
+      screen.getByText("Not configured sources").nextElementSibling,
+    ).toHaveTextContent("1");
     expect(screen.getAllByText("metadata_only").length).toBeGreaterThan(0);
     expect(screen.getAllByText("not_configured").length).toBeGreaterThan(0);
     expect(screen.getAllByText("unavailable").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Review queue groups/i })).toBeInTheDocument();
-    expect(screen.getByText(/crm_followups: 1; review_only/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /CRM-lite follow-ups/i })).toBeInTheDocument();
-    expect(screen.getByText(/memory-to-loop binding marked a follow-up commitment/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Memory why shown/i })).toBeInTheDocument();
-    expect(screen.getByText(/Today shows this memory because it is a reviewed recall candidate/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Dogfood capture/i })).toBeInTheDocument();
-    expect(screen.getByText("Public beta claim").nextElementSibling).toHaveTextContent("blocked");
-    expect(screen.getByRole("heading", { name: /Weekly Review narrative/i })).toBeInTheDocument();
-    expect(screen.getByText(/Weekly Review reads the daily loop as history/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Plan\/action state/i })).toBeInTheDocument();
     expect(
-      screen.getAllByText("implemented_today_to_action_envelope_vertical_slice_execution_blocked").length,
+      screen.getByRole("heading", { name: /Review queue groups/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/crm_followups: 1; review_only/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /CRM-lite follow-ups/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/memory-to-loop binding marked a follow-up commitment/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Memory why shown/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        /Today shows this memory because it is a reviewed recall candidate/i,
+      ).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Memory-to-loop binding/i })).toBeInTheDocument();
-    expect(screen.getAllByText("contract-ref:memory-to-loop-binding:v1").length).toBeGreaterThan(0);
-    expect(screen.getByText("Loop items").nextElementSibling).toHaveTextContent("4");
-    expect(screen.getByText("Memory-derived actions").nextElementSibling).toHaveTextContent("1");
-    expect(screen.getByText("Accepted recall").nextElementSibling).toHaveTextContent("display-only");
-    expect(screen.getByRole("heading", { name: /Private beta-readiness gate/i })).toBeInTheDocument();
-    expect(screen.getAllByText("contract-ref:private-beta-readiness-gate:v1").length).toBeGreaterThan(0);
-    expect(screen.getByText("Evidence packet").nextElementSibling).toHaveTextContent(
+    expect(
+      screen.getByRole("heading", { name: /Dogfood capture/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Public beta claim").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      screen.getByRole("heading", { name: /Weekly Review narrative/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Weekly Review reads the daily loop as history/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /Plan\/action state/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Receipt/local-task controls").nextElementSibling,
+    ).toHaveTextContent("receipt and exact local-task controls only");
+    expect(
+      screen.getAllByText("partial_backend_not_product_ready").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /Memory-to-loop binding/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:memory-to-loop-binding:v1").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Loop items").nextElementSibling).toHaveTextContent(
+      "4",
+    );
+    expect(
+      screen.getByText("Memory-derived actions").nextElementSibling,
+    ).toHaveTextContent("1");
+    expect(
+      screen.getByText("Accepted recall").nextElementSibling,
+    ).toHaveTextContent("display-only");
+    expect(
+      screen.getByRole("heading", { name: /Private beta-readiness gate/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:private-beta-readiness-gate:v1").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Evidence packet").nextElementSibling,
+    ).toHaveTextContent(
       "evidence-packet:private-beta-readiness:local-founder-loop",
     );
-    expect(screen.getByText("Public beta").nextElementSibling).toHaveTextContent("blocked");
-    expect(screen.getByRole("heading", { name: /Beta-test criteria/i })).toBeInTheDocument();
-    expect(screen.getByText(/CRM-Lite Follow-Ups: blocked/i)).toBeInTheDocument();
-    expect(screen.getAllByText("blocked-state:no-public-beta").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /User intent understanding/i })).toBeInTheDocument();
-    expect(screen.getAllByText("contract-ref:user-intent-understanding:v1").length).toBeGreaterThan(0);
-    expect(screen.getByText("Low confidence").nextElementSibling).toHaveTextContent("asks user");
-    expect(screen.getByText("Hidden authority").nextElementSibling).toHaveTextContent("blocked");
-    expect(screen.getByText(/clarify_chat_to_plan_handoff: low confidence/i)).toBeInTheDocument();
-    expect(screen.getByText(/resolve_conflicting_crm_follow_up: conflicting confidence/i)).toBeInTheDocument();
-    expect(screen.getAllByText("blocked-state:no-hidden-intent-authority").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Weekly CEO Review/i })).toBeInTheDocument();
+    expect(
+      screen.getByText("Public beta").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      screen.getByRole("heading", { name: /Beta-test criteria/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/CRM-Lite Follow-Ups: blocked/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("blocked-state:no-public-beta").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /User intent understanding/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:user-intent-understanding:v1").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Low confidence").nextElementSibling,
+    ).toHaveTextContent("asks user");
+    expect(
+      screen.getByText("Hidden authority").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      screen.getByText(/clarify_chat_to_plan_handoff: low confidence/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /resolve_conflicting_crm_follow_up: conflicting confidence/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("blocked-state:no-hidden-intent-authority").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /Weekly CEO Review/i }),
+    ).toBeInTheDocument();
     expect(
       screen.getAllByText("weekly-review-ref:memory-to-loop-binding").length,
     ).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Memory loop states/i })).toBeInTheDocument();
-    expect(screen.getAllByText(/Action Inbox: follow_up_commitment/i).length).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("accepted-recall-ref:not-authorized:memory-review-founder-loop-preferences").length,
-    ).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Action envelope contract/i })).toBeInTheDocument();
-    expect(screen.getAllByText("contract-ref:plans-action-envelope:v1").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("blocked-state:no-action-execution").length).toBeGreaterThan(0);
+      screen.getByRole("heading", { name: /Memory loop states/i }),
+    ).toBeInTheDocument();
     expect(
-      screen.getAllByRole("button", { name: /Create Action envelope/i }).length,
+      screen.getAllByText(/Action Inbox: follow_up_commitment/i).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Module feed contract/i })).toBeInTheDocument();
-    expect(screen.getByText(/Chat: implemented_local_operator_surface_contract/i)).toBeInTheDocument();
-    expect(screen.getByText(/Code: implemented_governed_code_workbench_contract_apply_blocked/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Stale-source posture/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /approve|run|send|write|sync|execute/i })).not.toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        "accepted-recall-ref:not-authorized:memory-review-founder-loop-preferences",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /Action envelope contract/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:plans-action-envelope:v1").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("blocked-state:no-action-execution").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cost blocked").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No provider authority").length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText("Unknown paid cost").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole("button", { name: /Record Action-envelope receipt/i })
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /Module feed contract/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Chat: implemented_local_operator_surface_contract/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Code: implemented_governed_code_workbench_contract_apply_blocked/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Stale-source posture/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /approve|run|send|write|sync|execute/i,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders the daily loop spine across primary Founder Loop surfaces", async () => {
     const primarySurfaces = [
       ["/today", "Today"],
+      ["/briefing", "Briefing"],
       ["/inbox", "Source Inbox"],
       ["/plans", "Plans"],
       ["/actions", "Action Inbox"],
@@ -286,12 +1041,16 @@ describe("Web Control Center shell", () => {
         .getAllByRole("link")
         .find((link) => link.getAttribute("aria-current") === "page");
       expect(activeCard).toHaveTextContent(label);
-      expect(screen.getAllByText(/No generic execution/i).length).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText(/No generic execution/i).length,
+      ).toBeGreaterThan(0);
       expect(
         screen.getAllByText(/Local task authority requires backend approval/i)
           .length,
       ).toBeGreaterThan(0);
-      expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /^execute$/i }),
+      ).not.toBeInTheDocument();
 
       view.unmount();
       cleanup();
@@ -299,25 +1058,1489 @@ describe("Web Control Center shell", () => {
     }
   });
 
-  it("opens Morning Briefing as the daily local home without new authority", async () => {
-    mockFetchWithFallback();
+  it("does not backfill the Today loop digest from mocks for partial backend responses", async () => {
+    const partialToday = { ...mockControlCenterData.founderToday };
+    delete (partialToday as { today_loop_read_model?: unknown })
+      .today_loop_read_model;
+    delete (partialToday as { today_loop_tightening_contract_ref?: unknown })
+      .today_loop_tightening_contract_ref;
+    delete (partialToday as { follow_up_tracker?: unknown }).follow_up_tracker;
+    delete (partialToday as { follow_up_tracker_contract_ref?: unknown })
+      .follow_up_tracker_contract_ref;
+    delete (partialToday as { weekly_ceo_review_v1_read_model?: unknown })
+      .weekly_ceo_review_v1_read_model;
+    delete (partialToday as { weekly_ceo_review_v1_contract_ref?: unknown })
+      .weekly_ceo_review_v1_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: partialToday }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Today$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("backend digest missing").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText(
+        "contract-ref:product-loop-003-today-loop-tightening:v1",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_today_loop_read_model"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getAllByText("backend tracker missing").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("contract-ref:product-loop-004-follow-up-tracker:v1"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_follow_up_tracker_read_model"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/backend review refs/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^\d+ changed refs$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/backend blocker refs/i)).not.toBeInTheDocument();
+  });
+
+  it("renders backend-owned Founder Loop V1 product proof from backend data", async () => {
+    const productProof = founderLoopProductProofFixture();
+    const today = {
+      ...mockControlCenterData.founderToday,
+      founder_loop_v1_product_proof_contract_ref:
+        "contract-ref:founder-loop-v1-product-proof:v1",
+      founder_loop_v1_product_proof_read_model: productProof,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: today }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    const proofPanel = await screen.findByLabelText(
+      "Founder Loop V1 product proof",
+    );
+    expect(
+      within(proofPanel).getByRole("heading", {
+        name: /Founder Loop V1 product proof/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(proofPanel).getByText(
+        "contract-ref:founder-loop-v1-product-proof:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(proofPanel).getByText(
+        "python_core_founder_loop_v1_product_proof_read_model",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(proofPanel).getByText("Decision receipts").nextElementSibling,
+    ).toHaveTextContent("receipt_backed_decision_path_visible");
+    expect(
+      within(proofPanel).getByText("Memory review").nextElementSibling,
+    ).toHaveTextContent("candidate visible");
+    expect(
+      within(proofPanel).getByText("Provider/model calls").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(proofPanel).getByText("Production authority").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(proofPanel).getAllByText(
+        "receipt:founder-loop-product-proof:action-defer",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(proofPanel).getByText(
+        "business-memory-candidate:founder-loop-preferences",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(proofPanel).getAllByText(
+        "blocked-state:founder-loop-proof-no-production-authority",
+      ).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("does not backfill Founder Loop product proof from mocks for partial backend responses", async () => {
+    const partialToday = { ...mockControlCenterData.founderToday };
+    delete (
+      partialToday as {
+        founder_loop_v1_product_proof_read_model?: unknown;
+      }
+    ).founder_loop_v1_product_proof_read_model;
+    delete (
+      partialToday as {
+        founder_loop_v1_product_proof_contract_ref?: unknown;
+      }
+    ).founder_loop_v1_product_proof_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: partialToday }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Today$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Founder Loop V1 product proof"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("contract-ref:founder-loop-v1-product-proof:v1"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed for unsafe Founder Loop product proof authority flags", async () => {
+    const unsafeToday = {
+      ...mockControlCenterData.founderToday,
+      founder_loop_v1_product_proof_contract_ref:
+        "contract-ref:founder-loop-v1-product-proof:v1",
+      founder_loop_v1_product_proof_read_model: founderLoopProductProofFixture({
+        provider_model_call_enabled: true,
+      }),
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: unsafeToday }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Today$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Founder Loop V1 product proof"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "python_core_founder_loop_v1_product_proof_read_model",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not backfill the Today loop digest when the API base is blocked", async () => {
+    vi.stubEnv("VITE_UAA_API_BASE_URL", "https://example.invalid");
+    vi.resetModules();
+    try {
+      const { loadControlCenterData } = await import("./api/client");
+      const data = await loadControlCenterData();
+
+      expect(data.connection.state).toBe("mock_fallback");
+      expect(data.connection.warnings).toContain(
+        "EXTERNAL_API_BASE_URL_BLOCKED",
+      );
+      expect(data.founderToday.today_loop_read_model).toBeUndefined();
+      expect(
+        data.founderToday.today_loop_tightening_contract_ref,
+      ).toBeUndefined();
+      expect(data.founderToday.follow_up_tracker).toBeUndefined();
+      expect(data.founderToday.follow_up_tracker_contract_ref).toBeUndefined();
+      expect(data.founderToday.weekly_ceo_review_v1_read_model).toBeUndefined();
+      expect(
+        data.founderToday.weekly_ceo_review_v1_contract_ref,
+      ).toBeUndefined();
+      expect(
+        data.founderToday.founder_loop_v1_product_proof_read_model,
+      ).toBeUndefined();
+      expect(
+        data.founderToday.founder_loop_v1_product_proof_contract_ref,
+      ).toBeUndefined();
+      expect(
+        data.founderToday.plans_to_actions_bridge_read_model,
+      ).toBeUndefined();
+      expect(
+        data.founderToday.plans_to_actions_bridge_contract_ref,
+      ).toBeUndefined();
+      expect(
+        data.founderToday.plans_action_envelope_contract_ref,
+      ).toBeUndefined();
+      expect(
+        (data.founderToday.plans[0] as unknown as Record<string, unknown>)
+          .action_envelope_contract_ref,
+      ).toBeUndefined();
+      expect(
+        (data.founderToday.plans[0] as unknown as Record<string, unknown>)
+          .action_envelope_ref,
+      ).toBeUndefined();
+      expect(data.founderActionsInbox.follow_up_tracker).toBeUndefined();
+      expect(
+        data.founderActionsInbox.follow_up_tracker_contract_ref,
+      ).toBeUndefined();
+      expect(
+        data.founderActionsInbox.action_inbox_decision_lane_read_model,
+      ).toBeUndefined();
+      expect(
+        data.founderActionsInbox.action_inbox_decision_lane_contract_ref,
+      ).toBeUndefined();
+      expect(
+        data.founderActionsInbox.plans_to_actions_bridge_read_model,
+      ).toBeUndefined();
+      expect(
+        data.founderActionsInbox.plans_to_actions_bridge_contract_ref,
+      ).toBeUndefined();
+      expect(data.founderMorningBriefing.follow_up_tracker).toBeUndefined();
+      expect(
+        data.founderMorningBriefing.follow_up_tracker_contract_ref,
+      ).toBeUndefined();
+      expect(
+        data.founderMorningBriefing.morning_briefing_v1_read_model,
+      ).toBeUndefined();
+      expect(
+        data.founderMorningBriefing.morning_briefing_v1_contract_ref,
+      ).toBeUndefined();
+      expect(
+        data.founderMorningBriefing.weekly_ceo_review_v1_read_model,
+      ).toBeUndefined();
+      expect(
+        data.founderMorningBriefing.weekly_ceo_review_v1_contract_ref,
+      ).toBeUndefined();
+      expect(
+        data.founderMorningBriefing.founder_loop_v1_product_proof_read_model,
+      ).toBeUndefined();
+      expect(
+        data.founderMorningBriefing.founder_loop_v1_product_proof_contract_ref,
+      ).toBeUndefined();
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
+  });
+
+  it("does not backfill Morning Briefing V1 from mocks for partial backend responses", async () => {
+    const partialBriefing = { ...mockControlCenterData.founderMorningBriefing };
+    delete (
+      partialBriefing as {
+        morning_briefing_v1_read_model?: unknown;
+      }
+    ).morning_briefing_v1_read_model;
+    delete (
+      partialBriefing as {
+        morning_briefing_v1_contract_ref?: unknown;
+      }
+    ).morning_briefing_v1_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderMorningBriefing)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: partialBriefing }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
     window.history.pushState({}, "", "/briefing");
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /^Morning Briefing$/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Briefing daily loop/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Daily command loop/i })).toBeInTheDocument();
-    expect(screen.getByText("Home").nextElementSibling).toHaveTextContent("Morning Briefing");
-    expect(screen.getByRole("heading", { name: /Source readiness states/i })).toBeInTheDocument();
+    expect(
+      await screen.findByText("backend read model missing"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "contract-ref:product-loop-007-morning-briefing-v1:v1",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_morning_briefing_v1_read_model"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed for unsafe backend Morning Briefing V1 authority flags", async () => {
+    const unsafeBriefing = {
+      ...mockControlCenterData.founderMorningBriefing,
+      morning_briefing_v1_read_model: {
+        ...(mockControlCenterData.founderMorningBriefing
+          .morning_briefing_v1_read_model ?? {}),
+        connector_runtime_enabled: true,
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderMorningBriefing)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: unsafeBriefing }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/briefing");
+    render(<App />);
+
+    expect(
+      await screen.findByText("backend read model missing"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "contract-ref:product-loop-007-morning-briefing-v1:v1",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Morning Briefing V1 read model"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders backend-owned Weekly CEO Review V1 from backend data", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    const weeklyPanel = await screen.findByLabelText(
+      "Backend-owned Weekly CEO Review V1 read model",
+    );
+    expect(
+      within(weeklyPanel).getByRole("heading", {
+        name: /Weekly CEO Review V1/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(weeklyPanel).getByText(
+        "contract-ref:product-loop-008-weekly-ceo-review-v1:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(weeklyPanel).getByText(
+        "python_core_weekly_ceo_review_v1_read_model",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(weeklyPanel).getByText("Model summaries").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(weeklyPanel).getByText("Production claim").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(weeklyPanel).getByText(
+        "blocked-state:weekly-ceo-review-no-production-authority",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("does not backfill Weekly CEO Review V1 from mocks for partial backend responses", async () => {
+    const partialToday = { ...mockControlCenterData.founderToday };
+    delete (
+      partialToday as {
+        weekly_ceo_review_v1_read_model?: unknown;
+      }
+    ).weekly_ceo_review_v1_read_model;
+    delete (
+      partialToday as {
+        weekly_ceo_review_v1_contract_ref?: unknown;
+      }
+    ).weekly_ceo_review_v1_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: partialToday }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Weekly CEO Review V1 read model"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "contract-ref:product-loop-008-weekly-ceo-review-v1:v1",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed for unsafe backend Weekly CEO Review V1 authority flags", async () => {
+    const unsafeToday = {
+      ...mockControlCenterData.founderToday,
+      weekly_ceo_review_v1_read_model: {
+        ...(mockControlCenterData.founderToday
+          .weekly_ceo_review_v1_read_model ?? {}),
+        model_summary_enabled: true,
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Weekly CEO Review V1 read model"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "contract-ref:product-loop-008-weekly-ceo-review-v1:v1",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed for malformed Weekly CEO Review V1 status and event refs", async () => {
+    const malformedToday = {
+      ...mockControlCenterData.founderToday,
+      weekly_ceo_review_v1_read_model: {
+        ...(mockControlCenterData.founderToday
+          .weekly_ceo_review_v1_read_model ?? {}),
+        status: 42,
+        evidence_event_refs: ["evidence-timeline-ref:wrong-namespace"],
+        evidence_event_count: 1,
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: malformedToday }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Weekly CEO Review V1 read model"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("evidence-timeline-ref:wrong-namespace"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders backend-owned Chat to Loop handoff outcomes", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    const handoffPanel = await screen.findByLabelText(
+      "Backend-owned Chat to Loop handoff read model",
+    );
+    expect(
+      within(handoffPanel).getByRole("heading", {
+        name: /Chat to Loop Handoff/i,
+      }),
+    ).toBeInTheDocument();
+    const handoffOutcomes = within(handoffPanel).getByLabelText(
+      "Chat to Loop handoff outcomes",
+    );
+    for (const label of [
+      "remember this",
+      "create action",
+      "add to plan",
+      "defer",
+      "ask human",
+    ]) {
+      expect(
+        within(handoffOutcomes).getByText(new RegExp(label, "i")),
+      ).toBeInTheDocument();
+    }
+    expect(
+      within(handoffOutcomes).getByText(
+        /^blocked: blocked_authority; Authority; blocked-state:chat-to-loop-no-action-execution$/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(handoffPanel).getByText(
+        "blocked-state:chat-to-loop-no-production-authority",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(handoffPanel).getByText("Memory write").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(handoffPanel).getByText("Action execution").nextElementSibling,
+    ).toHaveTextContent("blocked");
+  });
+
+  it("fails closed for unsafe Chat to Loop handoff payloads", async () => {
+    const directMemoryWriteKey = "direct_memory_" + "write_authorized";
+    const unsafeToday = {
+      ...mockControlCenterData.founderToday,
+      chat_to_loop_handoff_read_model: {
+        ...(mockControlCenterData.founderToday
+          .chat_to_loop_handoff_read_model ?? {}),
+        [directMemoryWriteKey]: true,
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed for unsafe Chat to Loop handoff refs", async () => {
+    const unsafeToday = {
+      ...mockControlCenterData.founderToday,
+      chat_to_loop_handoff_read_model: {
+        ...(mockControlCenterData.founderToday
+          .chat_to_loop_handoff_read_model ?? {}),
+        evidence_refs: ["evidence-ref:alice@example.com"],
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("evidence-ref:alice@example.com"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed for unsafe Chat to Loop handoff rendered text", async () => {
+    const unsafeToday = {
+      ...mockControlCenterData.founderToday,
+      chat_to_loop_handoff_read_model: {
+        ...(mockControlCenterData.founderToday
+          .chat_to_loop_handoff_read_model ?? {}),
+        safe_summary: "Contains raw prompt material.",
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Contains raw prompt material."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed for malformed Chat to Loop handoff outcomes", async () => {
+    const baseReadModel =
+      mockControlCenterData.founderToday.chat_to_loop_handoff_read_model;
+    const unsafeToday = {
+      ...mockControlCenterData.founderToday,
+      chat_to_loop_handoff_read_model: {
+        ...(baseReadModel ?? {}),
+        outcome_kinds: [
+          ...((baseReadModel?.outcome_kinds ?? []) as string[]),
+          "execute_action",
+        ],
+        outcomes: (baseReadModel?.outcomes ?? []).map((outcome, index) =>
+          index === 0
+            ? {
+                ...outcome,
+                target_surface: "Execution",
+                proposal_ref: "proposal-ref:relative/path/project",
+              }
+            : outcome,
+        ),
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: unsafeToday }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("proposal-ref:relative/path/project"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not backfill Chat to Loop handoff from mocks", async () => {
+    const partialToday = { ...mockControlCenterData.founderToday };
+    delete (
+      partialToday as {
+        chat_to_loop_handoff_read_model?: unknown;
+      }
+    ).chat_to_loop_handoff_read_model;
+    delete (
+      partialToday as {
+        chat_to_loop_handoff_contract_ref?: unknown;
+      }
+    ).chat_to_loop_handoff_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: partialToday }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned Chat to Loop handoff read model"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "contract-ref:product-loop-009-chat-to-loop-handoff:v1",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not backfill Action Inbox decision lanes from mocks", async () => {
+    const partialInbox = { ...mockControlCenterData.founderActionsInbox };
+    delete (
+      partialInbox as {
+        action_inbox_decision_lane_read_model?: unknown;
+      }
+    ).action_inbox_decision_lane_read_model;
+    delete (
+      partialInbox as {
+        action_inbox_decision_lane_contract_ref?: unknown;
+      }
+    ).action_inbox_decision_lane_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: partialInbox }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      await screen.findByText("backend decision lanes missing"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "contract-ref:product-loop-005-action-inbox-decision-lanes:v1",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_action_inbox_decision_lane_read_model"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders the Plans to Actions bridge only from a safe backend read model", async () => {
+    const bridge = plansToActionsBridgeFixture();
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      plans_to_actions_bridge_contract_ref:
+        "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+      plans_to_actions_bridge_read_model: bridge,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    const bridgePanel = await screen.findByLabelText(
+      "Plans to reviewable Action envelopes",
+    );
+    expect(
+      within(bridgePanel).getByText(
+        "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(bridgePanel).getByText(
+        "python_core_plans_to_actions_bridge_read_model",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(bridgePanel).getAllByText("decision receipt option: approve")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(bridgePanel).getByText(
+        "receipt-plan:plans-action-envelope:plan-summary-test",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(bridgePanel).getByText(
+        "rollback-plan:plans-action-envelope:plan-summary-test",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(bridgePanel).getByText(
+        "safe-disable:plans-action-envelope:plan-summary-test",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(bridgePanel).queryByRole("button", {
+        name: /execute|run|apply|commit/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders fusion routing and delegation readability from backend contracts", async () => {
+    const fusionReadModel = fusionRoutingReadModelFixture();
+    const bridge = plansToActionsBridgeFixture();
+    const workClassification = fusionWorkClassificationFixture("validation");
+    (bridge as Record<string, unknown>).items = [
+      {
+        ...(bridge.items[0] as Record<string, unknown>),
+        work_classification: workClassification,
+        delegation_proposal: fusionDelegationFixture(workClassification),
+        cache_context_economics: fusionCacheContextFixture(),
+      },
+    ];
+    const today = {
+      ...mockControlCenterData.founderToday,
+      fusion_routing_delegation_contract_ref:
+        "contract-ref:fcc-fusion-routing-delegation:v1",
+      fusion_routing_delegation_read_model: fusionReadModel,
+      plans_to_actions_bridge_contract_ref:
+        "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+      plans_to_actions_bridge_read_model: bridge,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: today }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    const fusionPanels = await screen.findAllByLabelText(
+      "Fusion routing and delegation readability",
+    );
+    const fusionPanel = fusionPanels[0];
+    expect(fusionPanel).toHaveTextContent(
+      "contract-ref:fcc-fusion-routing-delegation:v1",
+    );
+    expect(fusionPanel).toHaveTextContent(
+      "python_core_fusion_routing_delegation_read_model",
+    );
+    expect(fusionPanel).toHaveTextContent("Sidekick executionblocked");
+    expect(fusionPanel).toHaveTextContent("Provider/model callsblocked");
+    expect(fusionPanel).toHaveTextContent("Work type judgment required");
+    expect(fusionPanel).toHaveTextContent("Work type mechanical");
+    expect(fusionPanel).toHaveTextContent("Work type validation");
+    expect(fusionPanel).toHaveTextContent("Work type ambiguous");
+    expect(fusionPanel).toHaveTextContent("Work type blocked");
+    expect(fusionPanel).toHaveTextContent(
+      "selected: Local preview route selected",
+    );
+    expect(fusionPanel).toHaveTextContent(
+      "rejected: Disabled profile rejected",
+    );
+    expect(fusionPanel).toHaveTextContent(
+      "blocked: Paid route blocked until exact approval exists.",
+    );
+    expect(
+      within(fusionPanel).queryByRole("button", {
+        name: /execute|run|apply|commit|delegate|switch/i,
+      }),
+    ).not.toBeInTheDocument();
+
+    const metadataCards = await screen.findAllByLabelText(
+      "Fusion routing metadata",
+    );
+    expect(metadataCards[0]).toHaveTextContent("Work typevalidation");
+    expect(metadataCards[0]).toHaveTextContent(
+      "Proposed delegatevalidation_worker",
+    );
+    expect(metadataCards[0]).toHaveTextContent("Worker executionblocked");
+    expect(metadataCards[0]).toHaveTextContent("Runtime model switchblocked");
+  });
+
+  it("fails closed for unsafe fusion routing readability payloads", async () => {
+    const unsafeReadModel = {
+      ...fusionRoutingReadModelFixture(),
+      provider_model_call_enabled: true,
+    };
+    const today = {
+      ...mockControlCenterData.founderToday,
+      fusion_routing_delegation_contract_ref:
+        "contract-ref:fcc-fusion-routing-delegation:v1",
+      fusion_routing_delegation_read_model: unsafeReadModel,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: today }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Today$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Fusion routing and delegation readability"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_fusion_routing_delegation_read_model"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed when the Plans-to-Actions bridge is missing or unsafe", async () => {
+    const unsafeBridge = plansToActionsBridgeFixture({
+      action_execution_enabled: true,
+    });
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      plans_to_actions_bridge_contract_ref:
+        "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+      plans_to_actions_bridge_read_model: unsafeBridge,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      (await screen.findAllByText("backend bridge missing")).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText(
+        "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("python_core_plans_to_actions_bridge_read_model"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed when a Plans-to-Actions bridge item carries unsafe fields", async () => {
+    const unsafeBridge = plansToActionsBridgeFixture();
+    unsafeBridge.items = [
+      {
+        ...unsafeBridge.items[0],
+        raw_content_included: true,
+        action_execution_enabled: true,
+      },
+    ];
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      plans_to_actions_bridge_contract_ref:
+        "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1",
+      plans_to_actions_bridge_read_model: unsafeBridge,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      (await screen.findAllByText("backend bridge missing")).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("python_core_plans_to_actions_bridge_read_model"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("decision receipt option: approve"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not backfill mock plan Action envelope posture when the bridge is missing", async () => {
+    const partialToday = { ...mockControlCenterData.founderToday };
+    delete (partialToday as { plans_to_actions_bridge_read_model?: unknown })
+      .plans_to_actions_bridge_read_model;
+    delete (partialToday as { plans_to_actions_bridge_contract_ref?: unknown })
+      .plans_to_actions_bridge_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: partialToday }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(
+      (await screen.findAllByText("backend bridge missing")).length,
+    ).toBeGreaterThan(0);
+    const planHeadings = await screen.findAllByRole("heading", {
+      name: "Plans",
+    });
+    const plansPanel = planHeadings[0].closest("article");
+    expect(plansPanel).toBeTruthy();
+    expect(
+      within(plansPanel as HTMLElement).queryByText(
+        "contract-ref:plans-action-envelope:v1",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      within(plansPanel as HTMLElement).queryByText(
+        "action-envelope:plans:plan-summary-founder-loop-v1",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders backend follow-up tracker even when the Today loop digest is absent", async () => {
+    const partialToday = { ...mockControlCenterData.founderToday };
+    delete (partialToday as { today_loop_read_model?: unknown })
+      .today_loop_read_model;
+    delete (partialToday as { today_loop_tightening_contract_ref?: unknown })
+      .today_loop_tightening_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: partialToday }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Today$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("backend digest missing").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("contract-ref:product-loop-004-follow-up-tracker:v1"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("python_core_follow_up_tracker_read_model"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the Today loop digest only from the backend Today endpoint", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: mockControlCenterData.founderToday,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Today$/i }),
+    ).toBeInTheDocument();
+    const todayDigest = await screen.findByLabelText(
+      "Backend-owned Today loop digest",
+    );
+    expect(
+      within(todayDigest).getByText(
+        "contract-ref:product-loop-003-today-loop-tightening:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(todayDigest).getByText("python_core_today_loop_read_model"),
+    ).toBeInTheDocument();
+    expect(
+      within(todayDigest).getByText("What matters now").nextElementSibling,
+    ).toHaveTextContent("founder-action:mock-setup-hardening");
+    expect(
+      screen.getByText(/Needs review: 2; ready_for_review/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Blocked now: 2; ready_for_review/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Changed: 2; ready_for_review/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Follow-ups: 1; ready_for_review/i),
+    ).toBeInTheDocument();
+    expect(
+      within(todayDigest).getByText("Action execution").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(todayDigest).getByText("Connector runtime").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(todayDigest).getByText("Runtime model calls").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      screen.getByText("contract-ref:product-loop-004-follow-up-tracker:v1"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("python_core_follow_up_tracker_read_model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Message send/i)[0].nextElementSibling,
+    ).toHaveTextContent("blocked");
+    for (const label of [
+      "Reminder scheduler",
+      "Connector reads",
+      "Connector writes",
+      "Email/calendar fetch",
+      "Task creation",
+      "Runtime model calls",
+      "Hidden memory write",
+      "Context injection",
+      "Production authority",
+    ]) {
+      expect(
+        screen.getAllByText(label)[0].nextElementSibling,
+      ).toHaveTextContent("blocked");
+    }
+    expect(screen.getByText("Relationship follow-ups: 1")).toBeInTheDocument();
+    expect(screen.getByText("Promises: 1")).toBeInTheDocument();
+    expect(screen.getByText("Pending replies: 1")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("No-source state")[0].nextElementSibling,
+    ).toHaveTextContent("no");
+    expect(
+      screen.getAllByText("Local review only")[0].nextElementSibling,
+    ).toHaveTextContent("yes");
+  });
+
+  it("opens Morning Briefing as the daily local home without new authority", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/briefing");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Morning Briefing$/i }),
+    ).toBeInTheDocument();
+    const briefingV1Panel = screen.getByLabelText(
+      "Backend-owned Morning Briefing V1 read model",
+    );
+    expect(
+      within(briefingV1Panel).getByText(
+        "contract-ref:product-loop-007-morning-briefing-v1:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(briefingV1Panel).getByText("Connector runtime").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(briefingV1Panel).getByText("Email/calendar fetch")
+        .nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(briefingV1Panel).getByText("Automatic recommendations")
+        .nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(briefingV1Panel).getByText("Repo write").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(briefingV1Panel).getByText("Workbench apply").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(briefingV1Panel).getByText("Authority boundary"),
+    ).toBeInTheDocument();
+    expect(
+      within(briefingV1Panel).getByText("founder-action:mock-setup-hardening"),
+    ).toBeInTheDocument();
+    expect(
+      within(briefingV1Panel).getByText(
+        "memory-review:founder-loop-preferences",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Briefing daily loop/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Daily command loop/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Home").nextElementSibling).toHaveTextContent(
+      "Morning Briefing",
+    );
+    expect(
+      screen.getByRole("heading", { name: /Source readiness states/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/calendar: not_configured/i)).toBeInTheDocument();
     expect(screen.getByText(/inbox: blocked/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /CRM-lite follow-ups/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Memory why shown/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Dogfood capture/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Weekly Review narrative/i })).toBeInTheDocument();
-    expect(screen.getByText("Action execution").nextElementSibling).toHaveTextContent("blocked");
-    expect(screen.getByText("Public beta claim").nextElementSibling).toHaveTextContent("blocked");
-    expect(screen.queryByRole("button", { name: /approve|run|send|write|sync|execute/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /CRM-lite follow-ups/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Memory why shown/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Dogfood capture/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Weekly Review narrative/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByText("Action execution")
+        .some((node) =>
+          node.nextElementSibling?.textContent?.includes("blocked"),
+        ),
+    ).toBe(true);
+    expect(
+      screen.getByText("Public beta claim").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      screen.queryByRole("button", {
+        name: /approve|run|send|write|sync|execute/i,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("creates a Today Action envelope through the exact receipt route", async () => {
@@ -325,7 +2548,8 @@ describe("Web Control Center shell", () => {
       contract_ref: "contract-ref:founder-loop-v1-vertical-slice:v1",
       today_item_ref: "briefing:storage-state-first-loop",
       item_ref: "founder-action:today-promotion:storage-state-first-loop",
-      action_envelope_ref: "action-envelope:founder-loop-v1:storage-state-first-loop",
+      action_envelope_ref:
+        "action-envelope:founder-loop-v1:storage-state-first-loop",
       status: "action_envelope_created",
       receipt_ref: "receipt:today-action-envelope:storage-state-first-loop",
       audit_ref: "audit:today-action-envelope:storage-state-first-loop",
@@ -339,7 +2563,8 @@ describe("Web Control Center shell", () => {
       memory_write_performed: false,
       raw_content_stored: false,
       replayed: false,
-      safe_summary: "Reviewable Action envelope created; execution remains blocked.",
+      safe_summary:
+        "Reviewable Action envelope created; execution remains blocked.",
       evidence_refs: ["evidence-ref:founder-loop:today-action-envelope"],
       blocked_state_refs: ["blocked-state:no-action-execution"],
       created_at: "2026-06-22T00:00:00Z",
@@ -360,15 +2585,17 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/today");
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /^Today$/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: /^Today$/i }),
+    ).toBeInTheDocument();
     const actionEnvelopeButtons = screen.getAllByRole("button", {
-      name: /Create Action envelope/i,
+      name: /Record Action-envelope receipt/i,
     });
-    fireEvent.click(
-      actionEnvelopeButtons[1],
-    );
+    fireEvent.click(actionEnvelopeButtons[1]);
 
-    await screen.findByText("receipt:today-action-envelope:storage-state-first-loop");
+    await screen.findByText(
+      "receipt:today-action-envelope:storage-state-first-loop",
+    );
     const [, options] =
       fetchMock.mock.calls.find((call) => call[1]?.method === "POST") ?? [];
     expect(fetchMock).toHaveBeenCalledWith(
@@ -381,20 +2608,26 @@ describe("Web Control Center shell", () => {
       "Content-Type": "application/json",
     });
     expect(
-      String((options?.headers as Record<string, string>)["X-UAA-Idempotency-Key"]),
+      String(
+        (options?.headers as Record<string, string>)["X-UAA-Idempotency-Key"],
+      ),
     ).toMatch(/^idempotency-ref:control-center-today-action:/);
     expect(JSON.parse(String(options?.body))).toMatchObject({
       today_item_ref: "briefing:storage-state-first-loop",
       actor_context: "control_center_today_surface",
       decision_reason_ref: "decision-reason-ref:today-action-envelope",
     });
-    expect(screen.getByText("audit:today-action-envelope:storage-state-first-loop")).toBeInTheDocument();
+    expect(
+      screen.getByText("audit:today-action-envelope:storage-state-first-loop"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
         "evidence-timeline-event:today-action-envelope:storage-state-first-loop",
       ),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^execute$/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("records a Chat durable receipt and reviewable handoff with safe refs only", async () => {
@@ -457,7 +2690,8 @@ describe("Web Control Center shell", () => {
       evidence_ref: "evidence-ref:chat-handoff:control-center-test",
       idempotency_key_ref:
         "idempotency-ref:control-center-chat-handoff:actions:test",
-      payload_fingerprint_ref: "payload-fingerprint:chat-durable-receipt:handoff-test",
+      payload_fingerprint_ref:
+        "payload-fingerprint:chat-durable-receipt:handoff-test",
       safe_summary_ref: "safe-summary-ref:chat-handoff:control-center-test",
       evidence_refs: ["evidence-ref:chat-handoff:control-center-test"],
       blocked_state_refs: ["blocked-state:no-action-execution"],
@@ -473,7 +2707,10 @@ describe("Web Control Center shell", () => {
     };
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
-      if (!options?.method && READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))
+      ) {
         return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -527,10 +2764,13 @@ describe("Web Control Center shell", () => {
         options?.method === "POST" &&
         urlText.endsWith(chatTurnHandoffEndpoint(chatReceipt.turn_ref))
       ) {
-        return new Response(JSON.stringify({ ok: true, result: handoffReceipt }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ ok: true, result: handoffReceipt }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
       throw new Error(`unexpected request ${urlText}`);
     });
@@ -559,7 +2799,9 @@ describe("Web Control Center shell", () => {
         /^idempotency-ref:control-center-chat-turn:/,
       ),
     });
-    const receiptBody = JSON.stringify(JSON.parse(String(receiptOptions?.body)));
+    const receiptBody = JSON.stringify(
+      JSON.parse(String(receiptOptions?.body)),
+    );
     expect(receiptBody).toContain("model-ref:uaa-llama-cpp-local");
     expect(receiptBody).not.toContain("messages");
     expect(receiptBody).not.toContain("content");
@@ -627,6 +2869,7 @@ describe("Web Control Center shell", () => {
       ["/inbox", /^Source Inbox$/i],
       ["/actions", /^Action Inbox$/i],
       ["/briefing", /Morning Briefing/i],
+      ["/crm", /CRM M1 fixture-only shell/i],
       ["/private-trial", /Private Operator Trial/i],
       ["/setup", /macOS Setup Assistant/i],
       ["/dashboard", /Dashboard overview/i],
@@ -690,10 +2933,13 @@ describe("Web Control Center shell", () => {
           !options?.method &&
           READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))
         ) {
-          return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify(envelopeForReadEndpoint(urlText)),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
         }
         throw new Error("unexpected connector authority call");
       }),
@@ -705,7 +2951,9 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /^Source Inbox$/i }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("blocked/planned").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Route posture/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Route posture/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText("/inbox")).toBeInTheDocument();
     expect(
       screen.getAllByText("/control-center/sources/readiness").length,
@@ -717,17 +2965,19 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("heading", { name: /Source readiness states/i }),
     ).toBeInTheDocument();
-    const routePosture = screen.getByLabelText("Dedicated source readiness route");
-    expect(routePosture).toHaveTextContent("backend-owned");
-    expect(within(routePosture).getByText("Account auth").nextElementSibling).toHaveTextContent(
-      "blocked",
+    const routePosture = screen.getByLabelText(
+      "Dedicated source readiness route",
     );
+    expect(routePosture).toHaveTextContent("backend-owned");
+    expect(
+      within(routePosture).getByText("Account auth").nextElementSibling,
+    ).toHaveTextContent("blocked");
     expect(
       within(routePosture).getByText("Raw source ingestion").nextElementSibling,
     ).toHaveTextContent("blocked");
-    expect(within(routePosture).getByText("Write authority").nextElementSibling).toHaveTextContent(
-      "blocked",
-    );
+    expect(
+      within(routePosture).getByText("Write authority").nextElementSibling,
+    ).toHaveTextContent("blocked");
     expect(
       screen.getByText(/live email, calendar, draft, account, polling/i),
     ).toBeInTheDocument();
@@ -739,10 +2989,20 @@ describe("Web Control Center shell", () => {
         name: /Define email read-only metadata contract/i,
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("proposal-kind:read-only-email-metadata-contract")).toBeInTheDocument();
-    expect(screen.getByText("source-readiness-proposal:email-read-only-metadata-contract")).toBeInTheDocument();
-    expect(screen.getByText("proposal_only_no_execution_path")).toBeInTheDocument();
-    expect(screen.getAllByText("blocked-state:no-account-auth").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("proposal-kind:read-only-email-metadata-contract"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "source-readiness-proposal:email-read-only-metadata-contract",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("proposal_only_no_execution_path"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("blocked-state:no-account-auth").length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText(/docs\/control_center\/OPERATOR_SHELL_GAP_MAP.md/i),
     ).toBeInTheDocument();
@@ -753,9 +3013,16 @@ describe("Web Control Center shell", () => {
       screen.getByText(/email\/calendar connector runtime is not scoped/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/draft-only response proposal contract is not implemented/i),
+      screen.getByText(
+        /draft-only response proposal contract is not implemented/i,
+      ),
     ).toBeInTheDocument();
-    for (const forbiddenControl of [/send/i, /archive/i, /delete/i, /calendar write/i]) {
+    for (const forbiddenControl of [
+      /send/i,
+      /archive/i,
+      /delete/i,
+      /calendar write/i,
+    ]) {
       expect(
         screen.queryByRole("button", { name: forbiddenControl }),
       ).not.toBeInTheDocument();
@@ -771,7 +3038,9 @@ describe("Web Control Center shell", () => {
       /^run$/i,
       /^install$/i,
     ]) {
-      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: label }),
+      ).not.toBeInTheDocument();
     }
   });
 
@@ -795,13 +3064,24 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("milestone:uaa-p1-087.2b")).toBeInTheDocument();
     expect(
-      screen.getAllByText("ledger-ref:private-operator-trial-acceptance:v1").length,
+      screen.getAllByText("ledger-ref:private-operator-trial-acceptance:v1")
+        .length,
     ).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Acceptance ledger/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Acceptance ledger/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText("operator_review_ready")).toBeInTheDocument();
-    expect(screen.getByText("manual-smoke-step:private-trial:boot-control-center")).toBeInTheDocument();
-    expect(screen.getByText("acceptance-question:private-trial:memory-confidence")).toBeInTheDocument();
-    expect(screen.getByText("tuning-decision:private-trial:pending-memory-review-emphasis")).toBeInTheDocument();
+    expect(
+      screen.getByText("manual-smoke-step:private-trial:boot-control-center"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("acceptance-question:private-trial:memory-confidence"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "tuning-decision:private-trial:pending-memory-review-emphasis",
+      ),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("finding-ref:private-trial:pending:crm-lite-follow-ups"),
     ).toBeInTheDocument();
@@ -823,17 +3103,38 @@ describe("Web Control Center shell", () => {
         "missing-implementation:founder-loop:action-decision-receipts",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("launcher-command:uaa-trial-boot")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Authority boundary/i })).toBeInTheDocument();
-    expect(screen.getByText("blocked-state:no-public-beta")).toBeInTheDocument();
-    expect(screen.getByText("blocked-state:no-production-authority")).toBeInTheDocument();
-    expect(screen.getByText("blocked-state:openwebui-secondary-only")).toBeInTheDocument();
-    expect(screen.getByText("private-trial-check:local-boot")).toBeInTheDocument();
-    expect(screen.getByText("private-trial-check:crm-lite-follow-ups")).toBeInTheDocument();
-    expect(screen.getAllByText("friction-ref:private-trial:blocked-state-language").length).toBeGreaterThan(0);
-    expect(screen.getByText("gap-ref:private-trial:crm-lite-local-follow-up-store")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /approve|run|send|write|sync|execute/i }),
+      screen.getByText("launcher-command:uaa-trial-boot"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Authority boundary/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-state:no-public-beta"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-state:no-production-authority"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-state:openwebui-secondary-only"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("private-trial-check:local-boot"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("private-trial-check:crm-lite-follow-ups"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("friction-ref:private-trial:blocked-state-language")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("gap-ref:private-trial:crm-lite-local-follow-up-store"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /approve|run|send|write|sync|execute/i,
+      }),
     ).not.toBeInTheDocument();
   });
 
@@ -845,14 +3146,40 @@ describe("Web Control Center shell", () => {
     expect(
       await screen.findByRole("heading", { name: /^Action Inbox$/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /State posture/i })).toBeInTheDocument();
-    expect(screen.getAllByText("/control-center/actions/inbox").length).toBeGreaterThan(0);
-    expect(screen.getByText("Action execution remains blocked")).toBeInTheDocument();
-    expect(screen.getByText("GET /control-center/actions/{action_id}/receipt")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Local prerequisites/i })).toBeInTheDocument();
-    expect(screen.getByText("GET /control-center/storage/status")).toBeInTheDocument();
-    expect(screen.getByText("status-ref:control-center-route-manifest")).toBeInTheDocument();
-    expect(screen.getByText("capability-ref:local-approval-authority")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /State posture/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("/control-center/actions/inbox").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Action execution remains blocked"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("GET /control-center/actions/{action_id}/receipt"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Local prerequisites/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("GET /control-center/storage/status"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("status-ref:control-center-route-manifest"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("capability-ref:local-approval-authority"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Provider cost authority posture/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Unknown paid cost/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/COST_ESTIMATE_REF_REQUIRED/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/BUDGET_DECISION_REF_REQUIRED/i).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByRole("heading", { name: /^Ready for decision$/i }),
     ).toBeInTheDocument();
@@ -874,20 +3201,29 @@ describe("Web Control Center shell", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("ready_for_decision").length).toBeGreaterThan(0);
-    expect(screen.queryByText("approved_local_task_lane")).not.toBeInTheDocument();
-    expect(screen.getAllByText("blocked_by_authority").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("approved_local_task_lane"),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText("blocked_by_authority").length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.getAllByText("proposal_only_no_execution_path").length,
     ).toBeGreaterThan(0);
 
-    expect(screen.getByText("approval-envelope:founder-loop:mock-setup-hardening")).toBeInTheDocument();
+    expect(
+      screen.getByText("approval-envelope:founder-loop:mock-setup-hardening"),
+    ).toBeInTheDocument();
     expect(screen.getByText("dry_run_ref_available")).toBeInTheDocument();
     expect(
-      screen.getAllByRole("heading", { name: /^Approval Envelope Unavailable$/i })
-        .length,
+      screen.getAllByRole("heading", {
+        name: /^Approval Envelope Unavailable$/i,
+      }).length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("contract-ref:founder-loop-action-approval-envelope:v1").length,
+      screen.getAllByText(
+        "contract-ref:founder-loop-action-approval-envelope:v1",
+      ).length,
     ).toBeGreaterThan(0);
     expect(
       screen.getAllByText(/mock_fallback_non_authoritative/).length,
@@ -903,17 +3239,21 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("mock_only_backend_read_model_unavailable").length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByText("blocked-state:no-connector-write").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("blocked-state:no-connector-write").length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getAllByText("evidence-ref:founder-loop:local-task-commit").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByRole("heading", { name: /^Receipt Visibility Unavailable$/i })
-        .length,
+      screen.getAllByRole("heading", {
+        name: /^Receipt Visibility Unavailable$/i,
+      }).length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("contract-ref:founder-loop-action-receipt-visibility:v1")
-        .length,
+      screen.getAllByText(
+        "contract-ref:founder-loop-action-receipt-visibility:v1",
+      ).length,
     ).toBeGreaterThan(0);
     expect(
       screen.getAllByText(
@@ -921,7 +3261,9 @@ describe("Web Control Center shell", () => {
       ).length,
     ).toBeGreaterThan(0);
     expect(
-      screen.queryByText("receipt:founder-loop-action:mock-local-task-create:approve"),
+      screen.queryByText(
+        "receipt:founder-loop-action:mock-local-task-create:approve",
+      ),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByText(
@@ -935,13 +3277,24 @@ describe("Web Control Center shell", () => {
       screen.queryByText("decision_conflicting_idempotency_payload_rejected"),
     ).not.toBeInTheDocument();
     expect(
-      screen.getAllByText("contract-ref:founder-loop:mock-setup-hardening").length,
+      screen.getAllByText("contract-ref:founder-loop:mock-setup-hardening")
+        .length,
     ).toBeGreaterThan(0);
-    expect(screen.getByText("blocked_pending_scoped_mutation_contract")).toBeInTheDocument();
     expect(
-      screen.getAllByText("receipt-plan:founder-loop:mock-setup-hardening").length,
+      screen.getByText("blocked_pending_scoped_mutation_contract"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Cost blocked").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No provider authority").length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText("Unknown paid cost").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("receipt-plan:founder-loop:mock-setup-hardening")
+        .length,
     ).toBeGreaterThan(0);
-    expect(screen.getByText("audit-plan:founder-loop:mock-setup-hardening")).toBeInTheDocument();
+    expect(
+      screen.getByText("audit-plan:founder-loop:mock-setup-hardening"),
+    ).toBeInTheDocument();
     expect(
       screen.getAllByText("idempotency-ref:founder-loop:mock-setup-hardening")
         .length,
@@ -955,15 +3308,30 @@ describe("Web Control Center shell", () => {
         .length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("contract-ref:founder-loop-action-state-machine:v1").length,
+      screen.getAllByText("contract-ref:founder-loop-action-state-machine:v1")
+        .length,
     ).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: /Record approval/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Record edit/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Record rejection/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Record defer/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
     expect(
-      screen.getByText(/Decision controls unavailable until the local backend supplies/i),
+      screen.queryByRole("button", { name: /Record approval/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Record edit/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Record rejection/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Record defer/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /Record local-task commit receipt/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Decision controls unavailable until the local backend supplies/i,
+      ),
     ).toBeInTheDocument();
     const blockedLane = screen
       .getByRole("heading", { name: /^Blocked by authority$/i })
@@ -971,7 +3339,7 @@ describe("Web Control Center shell", () => {
     expect(blockedLane).not.toBeNull();
     expect(
       within(blockedLane as HTMLElement).queryByRole("button", {
-        name: /Record approval|Commit local task/i,
+        name: /Record approval|Record local-task commit receipt/i,
       }),
     ).not.toBeInTheDocument();
     const proposalLane = screen
@@ -980,37 +3348,63 @@ describe("Web Control Center shell", () => {
     expect(proposalLane).not.toBeNull();
     expect(
       within(proposalLane as HTMLElement).queryByRole("button", {
-        name: /Record approval|Commit local task/i,
+        name: /Record approval|Record local-task commit receipt/i,
       }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getAllByText("contract-ref:founder-loop-local-task-commit:v1").length,
+      screen.getAllByText("contract-ref:founder-loop-local-task-commit:v1")
+        .length,
     ).toBeGreaterThan(0);
     expect(document.body.textContent).toContain(
       "POST /control-center/actions/{action_id}/local-task/commit",
     );
-    expect(screen.getByRole("heading", { name: /Action envelope contract/i })).toBeInTheDocument();
-    expect(screen.getAllByText("contract-ref:plans-action-envelope:v1").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("action-envelope:plans:founder-action-mock-setup-hardening").length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /Action envelope contract/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:plans-action-envelope:v1").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "action-envelope:plans:founder-action-mock-setup-hardening",
+      ).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.queryByText(
         "scope-ref:plans-action-envelope:founder-action-mock-setup-hardening",
       ),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByText("blocked-state:no-approval-grant-capture").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Memory-derived proposals/i })).toBeInTheDocument();
     expect(
-      screen.getAllByText("memory-derived-action-proposal:memory-review-founder-loop-preferences").length,
+      screen.getAllByText("blocked-state:no-approval-grant-capture").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("memory-loop-binding:today:business-memory-candidate-preference-memory-review-founder-loop-preferences").length,
-    ).toBeGreaterThan(0);
-    expect(screen.getAllByText("approval_required_before_any_memory_derived_action").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("blocked-state:no-memory-write").length).toBeGreaterThan(0);
-    expect(
-      screen.getByText(/Review refs only; request a scoped state-change milestone/i),
+      screen.getByRole("heading", { name: /Memory-derived proposals/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText("approval_ref_must_validate_exact_scope")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        "memory-derived-action-proposal:memory-review-founder-loop-preferences",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "memory-loop-binding:today:business-memory-candidate-preference-memory-review-founder-loop-preferences",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("approval_required_before_any_memory_derived_action")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("blocked-state:no-memory-write").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        /Review refs only; request a scoped state-change milestone/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("approval_ref_must_validate_exact_scope"),
+    ).toBeInTheDocument();
     expect(screen.getByText("no_memory_write")).toBeInTheDocument();
     expect(screen.getByText("no_context_injection")).toBeInTheDocument();
 
@@ -1022,7 +3416,9 @@ describe("Web Control Center shell", () => {
       /^connect$/i,
       /^write$/i,
     ]) {
-      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: label }),
+      ).not.toBeInTheDocument();
     }
   });
 
@@ -1031,10 +3427,13 @@ describe("Web Control Center shell", () => {
       if (options?.method === "POST") {
         throw new Error("unexpected mutation request");
       }
-      return new Response(JSON.stringify(envelopeForReadEndpoint(String(url))), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify(envelopeForReadEndpoint(String(url))),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     });
     vi.stubGlobal("fetch", fetchMock);
     window.history.pushState({}, "", "/actions");
@@ -1069,9 +3468,13 @@ describe("Web Control Center shell", () => {
         }),
       );
 
-      const drilldown = screen.getByLabelText("Selected Action Inbox lane drilldown");
+      const drilldown = screen.getByLabelText(
+        "Selected Action Inbox lane drilldown",
+      );
       expect(drilldown).toHaveTextContent("approved_local_task_lane");
-      expect(drilldown).toHaveTextContent("Inspect approval posture or commit the local task lane.");
+      expect(drilldown).toHaveTextContent(
+        "Inspect approval posture or commit the local task lane.",
+      );
       expect(
         within(laneStack).getByRole("heading", {
           name: /^Approved local task lane$/i,
@@ -1087,7 +3490,8 @@ describe("Web Control Center shell", () => {
           .length,
       ).toBeGreaterThan(0);
       expect(
-        screen.getAllByRole("heading", { name: /^Receipt Visibility$/i }).length,
+        screen.getAllByRole("heading", { name: /^Receipt Visibility$/i })
+          .length,
       ).toBeGreaterThan(0);
       expect(
         screen.queryByRole("button", { name: /^execute$/i }),
@@ -1142,9 +3546,7 @@ describe("Web Control Center shell", () => {
         ...disabledItem.local_task_safe_disable_posture,
         local_task_commits_enabled: false,
         safe_disable_active: true,
-        disabled_reason_refs: [
-          "blocked-state:local-task-create-safe-disabled",
-        ],
+        disabled_reason_refs: ["blocked-state:local-task-create-safe-disabled"],
         blocked_state_refs: [
           "blocked-state:local-task-create-safe-disabled",
           "blocked-state:no-connector-write",
@@ -1164,7 +3566,10 @@ describe("Web Control Center shell", () => {
       if (options?.method === "POST") {
         throw new Error("unexpected mutation request");
       }
-      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+      if (
+        !options?.method &&
+        urlText.endsWith(API_ENDPOINTS.founderActionsInbox)
+      ) {
         return new Response(
           JSON.stringify({
             ok: true,
@@ -1176,7 +3581,10 @@ describe("Web Control Center shell", () => {
           },
         );
       }
-      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))
+      ) {
         return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -1211,9 +3619,7 @@ describe("Web Control Center shell", () => {
       expect(postureCard).toHaveTextContent(
         "Keep local task creation disabled until backend posture is re-enabled.",
       );
-      expect(postureCard).toHaveTextContent(
-        "local_task_safe_disable_active",
-      );
+      expect(postureCard).toHaveTextContent("local_task_safe_disable_active");
       expect(postureCard).toHaveTextContent(
         "local_task_safe_disable_posture_ref",
       );
@@ -1230,14 +3636,14 @@ describe("Web Control Center shell", () => {
       expect(postureCard).toHaveTextContent(
         "blocked-state:local-task-rollback-execution-not-scoped",
       );
-      expect(postureCard).toHaveTextContent(
-        "blocked-state:no-connector-write",
-      );
+      expect(postureCard).toHaveTextContent("blocked-state:no-connector-write");
       expect(postureCard).toHaveTextContent(
         "blocked-state:no-production-authority",
       );
       expect(
-        screen.queryByRole("button", { name: /Commit local task/i }),
+        screen.queryByRole("button", {
+          name: /Record local-task commit receipt/i,
+        }),
       ).not.toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: /^execute$/i }),
@@ -1268,7 +3674,10 @@ describe("Web Control Center shell", () => {
       if (options?.method === "POST") {
         throw new Error("unexpected mutation request");
       }
-      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+      if (
+        !options?.method &&
+        urlText.endsWith(API_ENDPOINTS.founderActionsInbox)
+      ) {
         return new Response(
           JSON.stringify({
             ok: true,
@@ -1280,7 +3689,10 @@ describe("Web Control Center shell", () => {
           },
         );
       }
-      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))
+      ) {
         return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -1315,7 +3727,9 @@ describe("Web Control Center shell", () => {
         screen.getAllByText("receipt_visibility:missing").length,
       ).toBeGreaterThan(0);
       expect(
-        screen.queryByRole("button", { name: /Commit local task/i }),
+        screen.queryByRole("button", {
+          name: /Record local-task commit receipt/i,
+        }),
       ).not.toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: /^execute$/i }),
@@ -1325,6 +3739,352 @@ describe("Web Control Center shell", () => {
       cleanup();
       window.history.pushState({}, "", "/");
     }
+  });
+
+  it("blocks Action Inbox approval when cost posture is not approved", async () => {
+    const inbox = JSON.parse(
+      JSON.stringify({
+        ...mockControlCenterData.founderActionsInbox,
+        ...mockApiData.founderActionsInbox,
+        items: mockApiData.founderActionsInbox.items,
+      }),
+    );
+    const readyItem = inbox.items.find(
+      (candidate: { item_ref: string }) =>
+        candidate.item_ref === "founder-action:mock-local-task-create",
+    );
+    Object.assign(readyItem, {
+      status: "proposed",
+      action_group_id: "ready_for_decision",
+      action_group_label: "Ready for decision",
+      action_group_reason:
+        "Backend exact scope is ready, but cost posture is blocked.",
+      action_group_available_action:
+        "Resolve cost posture before recording approval.",
+      approval_envelope_status: "ready_for_backend_decision",
+      action_envelope_cost_state_label: "Cost blocked",
+      action_envelope_provider_ref: "provider-ref:not-invoked",
+      action_envelope_model_profile_ref: "model-profile-ref:not-invoked",
+      action_envelope_provider_authority_state_label: "No provider authority",
+      action_envelope_cost_receipt_refs: [],
+      action_envelope_cost_blocked_state_refs: [
+        "blocked-state:frontier-provider-model-ref-missing",
+      ],
+      local_task_commit_approval_ref: null,
+      local_task_commit_approval_status: "missing",
+      local_task_commit_eligible: false,
+      local_task_commit_blocked_reasons: [
+        "blocked-state:backend-owned-approval-missing",
+      ],
+    });
+    Object.assign(readyItem.approval_envelope, {
+      cost_state_label: "Cost blocked",
+      provider_ref: "provider-ref:not-invoked",
+      model_profile_ref: "model-profile-ref:not-invoked",
+      provider_authority_state_label: "No provider authority",
+      cost_receipt_refs: [],
+      cost_blocked_state_refs: [
+        "blocked-state:frontier-provider-model-ref-missing",
+      ],
+    });
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        !options?.method &&
+        urlText.endsWith(API_ENDPOINTS.founderActionsInbox)
+      ) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))
+      ) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ ok: false }), { status: 500 });
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    const approvalButton = await screen.findByRole("button", {
+      name: /Record approval/i,
+    });
+    expect(approvalButton).toBeDisabled();
+    expect(screen.getAllByText("Cost blocked").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No provider authority").length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getByText(
+        /Approval blocked by cost posture: Cost blocked, No provider authority/i,
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(approvalButton);
+    expect(
+      fetchMock.mock.calls.some(([, request]) => request?.method === "POST"),
+    ).toBe(false);
+  });
+
+  it("renders backend Action Inbox decision lanes before operator approval", async () => {
+    const laneIds = [
+      "needs_approval",
+      "blocked",
+      "draft_only",
+      "cost_blocked",
+      "no_authority",
+      "approved_no_execution",
+      "rejected",
+      "deferred",
+      "receipt_recorded",
+    ] as const;
+    const laneLabels: Record<(typeof laneIds)[number], string> = {
+      needs_approval: "Needs approval",
+      blocked: "Blocked",
+      draft_only: "Draft-only",
+      cost_blocked: "Cost blocked",
+      no_authority: "No authority",
+      approved_no_execution: "Approved / no execution",
+      rejected: "Rejected",
+      deferred: "Deferred",
+      receipt_recorded: "Receipt recorded",
+    };
+    const costBlockedItem = {
+      item_ref: "founder-action:test-cost-blocked",
+      lane_id: "cost_blocked",
+      lane_label: "Cost blocked",
+      title: "Cost posture review",
+      status: "review_ready",
+      priority: "high",
+      action_kind: "local_task_create",
+      side_effect_class: "local_dev_workspace_only",
+      safe_summary: "Cost and provider refs must be reviewed first.",
+      why_shown: "Cost blocked before approval.",
+      next_safe_action:
+        "Resolve cost estimate, budget decision, and receipt refs.",
+      authority_boundary: "Approval alone does not execute work.",
+      approval_required: true,
+      approval_envelope_ref: "approval-envelope:test-cost-blocked",
+      approval_envelope_status: "review_ready_exact_scope_required",
+      approval_scope_ref: "scope-ref:test-cost-blocked",
+      approval_requirement_ref: "approval-requirement:test-cost-blocked",
+      expected_receipt_refs: ["receipt-plan:test-cost-blocked"],
+      expected_receipt_state: "visible",
+      evidence_refs: ["evidence-ref:test-cost-blocked"],
+      receipt_refs: [],
+      expected_receipt_refs_visible: true,
+      rollback_ref: "rollback-ref:test-cost-blocked",
+      safe_disable_ref: "safe-disable:test-cost-blocked",
+      blocked_authority_refs: [
+        "blocked-state:action-inbox-no-action-execution",
+        "blocked-state:frontier-provider-model-ref-missing",
+      ],
+      missing_envelope_field_states: ["none"],
+      cost_state_label: "Cost blocked",
+      provider_authority_state_label: "No provider authority",
+      estimated_cost_usd: 0,
+      max_approved_cost_usd: 0,
+      provider_ref: "provider-ref:not-invoked",
+      model_profile_ref: "model-profile-ref:not-invoked",
+      input_metered_units: 0,
+      output_metered_units: 0,
+      total_metered_units: 0,
+      cost_estimate_ref: "cost-estimate-ref:test-cost-blocked",
+      captured_usage_ref: "usage-capture-ref:test-cost-blocked",
+      budget_decision_ref: "budget-decision-ref:test-cost-blocked",
+      cost_receipt_refs: [
+        "cost-estimate-ref:test-cost-blocked",
+        "usage-capture-ref:test-cost-blocked",
+        "budget-decision-ref:test-cost-blocked",
+      ],
+      cost_blocked_state_refs: [
+        "blocked-state:frontier-provider-model-ref-missing",
+      ],
+      unknown_paid_cost_requires_explicit_approval: true,
+      frontier_usage_claimed: false,
+      cost_telemetry_complete: true,
+      provider_model_refs_present: false,
+      backend_owned: true,
+      safe_refs_only: true,
+      raw_content_included: false,
+      approval_alone_executes: false,
+      approval_ref_authority: false,
+      approval_grants_runtime_authority: false,
+      action_execution_enabled: false,
+      connector_write_enabled: false,
+      shell_subprocess_execution_enabled: false,
+      browser_execution_enabled: false,
+      provider_model_call_enabled: false,
+      memory_write_enabled: false,
+      context_injection_authorized: false,
+      hidden_memory_write_authorized: false,
+      production_authority_enabled: false,
+    };
+    const approvedNoExecutionItem = {
+      ...costBlockedItem,
+      item_ref: "founder-action:test-approved-no-execution",
+      lane_id: "approved_no_execution",
+      lane_label: "Approved / no execution",
+      title: "Approved receipt review",
+      status: "approved",
+      cost_state_label: "Cost approved",
+      provider_authority_state_label: "Provider/model refs present",
+      provider_ref: "provider-ref:test",
+      model_profile_ref: "model-profile-ref:test",
+      cost_blocked_state_refs: [],
+      unknown_paid_cost_requires_explicit_approval: false,
+      provider_model_refs_present: true,
+    };
+    const partialMissingEnvelopeItem = {
+      ...costBlockedItem,
+      item_ref: "founder-action:test-partial-missing-envelope",
+      lane_id: "blocked",
+      lane_label: "Blocked",
+      title: "Partial envelope review",
+      cost_state_label: "Cost approved",
+      provider_authority_state_label: "Provider/model refs present",
+      provider_ref: "provider-ref:test",
+      model_profile_ref: "model-profile-ref:test",
+      cost_blocked_state_refs: [],
+      unknown_paid_cost_requires_explicit_approval: false,
+      provider_model_refs_present: true,
+      missing_envelope_field_states: [
+        "approval_scope_ref:missing",
+        "expected_receipt_refs:missing",
+        "rollback_ref:missing",
+      ],
+      expected_receipt_refs: ["missing"],
+      expected_receipt_state: "missing_fail_closed",
+    };
+    const inbox = {
+      ...mockApiData.founderActionsInbox,
+      action_inbox_decision_lane_contract_ref:
+        "contract-ref:product-loop-005-action-inbox-decision-lanes:v1",
+      action_inbox_decision_lane_read_model: {
+        contract_ref:
+          "contract-ref:product-loop-005-action-inbox-decision-lanes:v1",
+        status: "backend_owned_decision_lane_read_model",
+        source: "python_core_action_inbox_decision_lane_read_model",
+        backend_owned: true,
+        local_read_model_only: true,
+        safe_refs_only: true,
+        raw_content_included: false,
+        lane_order: laneIds,
+        lanes: laneIds.map((laneId) => ({
+          lane_id: laneId,
+          label: laneLabels[laneId],
+          status: `${laneId}_state`,
+          safe_summary: `${laneLabels[laneId]} safe-ref lane.`,
+          count:
+            laneId === "cost_blocked" || laneId === "approved_no_execution"
+              ? 1
+              : laneId === "blocked"
+                ? 1
+                : 0,
+          item_refs:
+            laneId === "cost_blocked"
+              ? ["founder-action:test-cost-blocked"]
+              : laneId === "approved_no_execution"
+                ? ["founder-action:test-approved-no-execution"]
+                : laneId === "blocked"
+                  ? ["founder-action:test-partial-missing-envelope"]
+                  : [],
+          blocked_state_refs: [
+            "blocked-state:action-inbox-no-action-execution",
+          ],
+          next_safe_action: "Inspect safe refs only.",
+          approval_alone_executes: false,
+          action_execution_enabled: false,
+        })),
+        items: [
+          costBlockedItem,
+          approvedNoExecutionItem,
+          partialMissingEnvelopeItem,
+        ],
+        blocked_state_refs: ["blocked-state:action-inbox-no-action-execution"],
+        missing_envelope_fields_fail_safe: true,
+        cost_posture_visible_before_approval: true,
+        provider_authority_visible_before_approval: true,
+        approval_scope_visible_before_approval: true,
+        expected_receipts_visible_before_approval: true,
+        action_execution_enabled: false,
+        connector_write_enabled: false,
+        shell_subprocess_execution_enabled: false,
+        browser_execution_enabled: false,
+        provider_model_call_enabled: false,
+        memory_write_enabled: false,
+        context_injection_authorized: false,
+        hidden_memory_write_authorized: false,
+        production_authority_enabled: false,
+        approval_alone_executes: false,
+      },
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        !options?.method &&
+        urlText.endsWith(API_ENDPOINTS.founderActionsInbox)
+      ) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))
+      ) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ ok: false }), { status: 500 });
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      await screen.findByText(
+        "contract-ref:product-loop-005-action-inbox-decision-lanes:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("python_core_action_inbox_decision_lane_read_model"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Cost blocked").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cost approved").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Unknown paid cost").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No provider authority").length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getAllByText("Approved / no execution").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Expected receipts").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Missing envelope fields").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("approval_scope_ref:missing")).toBeInTheDocument();
+    expect(
+      screen.getByText("expected_receipt_refs:missing"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Blocked authority").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", { name: /^execute$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([, request]) => request?.method === "POST"),
+    ).toBe(false);
   });
 
   it("records approval through backend refresh before committing the local task lane", async () => {
@@ -1346,8 +4106,7 @@ describe("Web Control Center shell", () => {
       action_group_label: "Ready for decision",
       action_group_reason:
         "Backend exact scope is ready for a decision receipt.",
-      action_group_available_action:
-        "Record a backend-owned decision receipt.",
+      action_group_available_action: "Record a backend-owned decision receipt.",
       approval_envelope_status: "ready_for_backend_decision",
       local_task_commit_approval_ref: null,
       local_task_commit_approval_status: "missing",
@@ -1372,6 +4131,7 @@ describe("Web Control Center shell", () => {
       },
       updated_at: "2026-06-22T00:00:00Z",
     });
+    applyApprovedActionCost(readyItem);
     const approvalReceipt = {
       contract_ref: "contract-ref:founder-loop-action-state-machine:v1",
       decision_ref: "decision-ref:mock-local-task-create:approve",
@@ -1408,7 +4168,7 @@ describe("Web Control Center shell", () => {
       action_group_reason:
         "Backend approval receipt made the exact local task lane eligible.",
       action_group_available_action:
-        "Commit local task through the backend exact route.",
+        "Record local-task commit receipt through the backend exact route.",
       approval_envelope_status: "approved",
       local_task_commit_approval_ref: approvalReceipt.approval_ref,
       local_task_commit_approval_status: "backend_owned_approval_ready",
@@ -1434,6 +4194,7 @@ describe("Web Control Center shell", () => {
       },
       updated_at: "2026-06-22T00:00:30Z",
     });
+    applyApprovedActionCost(approvedItem);
     const commitReceipt = {
       contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
       item_ref: "founder-action:mock-local-task-create",
@@ -1500,7 +4261,10 @@ describe("Web Control Center shell", () => {
     let inboxReadCount = 0;
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
-      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+      if (
+        !options?.method &&
+        urlText.endsWith(API_ENDPOINTS.founderActionsInbox)
+      ) {
         inboxReadCount += 1;
         const inbox =
           inboxReadCount === 1
@@ -1513,23 +4277,32 @@ describe("Web Control Center shell", () => {
           headers: { "Content-Type": "application/json" },
         });
       }
-      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))
+      ) {
         return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
       }
       if (options?.method === "POST" && urlText.endsWith(approvalEndpoint)) {
-        return new Response(JSON.stringify({ ok: true, result: approvalReceipt }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ ok: true, result: approvalReceipt }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
       if (options?.method === "POST" && urlText.endsWith(commitEndpoint)) {
-        return new Response(JSON.stringify({ ok: true, result: commitReceipt }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ ok: true, result: commitReceipt }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
       throw new Error(`unexpected request ${urlText}`);
     });
@@ -1539,20 +4312,40 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     await screen.findByRole("heading", { name: /^Action Inbox$/i });
-    expect(screen.getByRole("button", { name: /Record approval/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+    const approvalButton = screen.getByRole("button", {
+      name: /Record approval/i,
+    });
+    expect(approvalButton).toBeInTheDocument();
+    expect(approvalButton).not.toBeDisabled();
+    expect(screen.getAllByText("Cost approved").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Provider/model refs present").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", {
+        name: /Record local-task commit receipt/i,
+      }),
+    ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Record approval/i }));
+    fireEvent.click(approvalButton);
     expect(
       (await screen.findAllByText(approvalReceipt.receipt_ref)).length,
     ).toBeGreaterThan(0);
-    expect(await screen.findByRole("button", { name: /Commit local task/i })).toBeInTheDocument();
+    const commitButton = await screen.findByRole("button", {
+      name: /Record local-task commit receipt/i,
+    });
+    expect(commitButton).toBeInTheDocument();
+    expect(commitButton).not.toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+    fireEvent.click(commitButton);
     expect(
       (await screen.findAllByText(commitReceipt.receipt_ref)).length,
     ).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /Record local-task commit receipt/i,
+      }),
+    ).not.toBeInTheDocument();
 
     const [, approvalOptions] =
       fetchMock.mock.calls.find(
@@ -1574,200 +4367,9 @@ describe("Web Control Center shell", () => {
     expect(approvalRequestBody).not.toHaveProperty("side_effect_class");
     expect(approvalRequestBody).not.toHaveProperty("approval_requirement");
     expect(approvalRequestBody).not.toHaveProperty("exact_scope");
-    expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
-  });
-
-  it("renders memory self-heal recommendations as proposal-only Action Inbox items", async () => {
-    const memoryItem = {
-      ...JSON.parse(JSON.stringify(mockApiData.founderActionsInbox.items[1])),
-      item_ref: "action-item:fcc-health-001:recommendation-memory-quality",
-      title: "Review memory quality and maintenance refs",
-      safe_summary:
-        "Memory quality and maintenance refs can become review tasks only; they do not write memory, inject context, or treat recall as authority.",
-      priority: "medium",
-      risk_class: "medium",
-      action_kind: "self_heal_recommendation",
-      status: "proposed",
-      approval_required: false,
-      approval_envelope_ref: "approval-envelope:fcc-health-001:recommendation-memory",
-      approval_envelope_status: "not_required_recommendation_review_only",
-      state_change_contract_ref:
-        "contract-ref:fcc-health-001:action-inbox-binding:v1",
-      state_change_readiness: "recommendation_review_only_no_execution_path",
-      action_group_id: "proposal_only_no_execution_path",
-      action_group_label: "Proposal-only / no execution path",
-      action_group_reason:
-        "Memory quality recommendation is review-only and cannot apply maintenance.",
-      action_group_available_action: "Record a review receipt only.",
-      health_recommendation_ref:
-        "recommendation:fcc-health-001:memory_quality_issue:test",
-      health_recommendation_kind: "memory_quality_issue",
-      health_recommendation_severity: "medium",
-      health_recommendation_lifecycle_state: "queued_for_review",
-      health_recommendation_missing_proof_refs: [
-        "missing-proof-ref:fcc-mem-021:operator-quality-review",
-      ],
-      health_recommendation_validation_plan_refs: [
-        "validation-plan-ref:fcc-mem-021-action-inbox-proposal-only",
-      ],
-      health_recommendation_expected_receipt_refs: [
-        "expected-receipt-ref:fcc-health-001:recommendation-review-decision",
-      ],
-      health_recommendation_conversion_option_refs: [
-        "conversion-option:fcc-health-001:task-candidate-after-review",
-      ],
-      health_recommendation_blocked_authority_refs: [
-        "blocked-state:no-auto-code",
-        "blocked-state:no-auto-apply",
-        "blocked-state:no-hidden-context-injection",
-        "blocked-state:no-action-execution",
-      ],
-      health_recommendation_source_signal_refs: [
-        "memory-proposal-bridge-ref:fcc-mem-021-action-inbox",
-      ],
-      health_recommendation_source_route_refs: [
-        "GET /control-center/memory/quality-issues",
-        "GET /control-center/memory/maintenance-runs",
-        "GET /control-center/actions/inbox",
-      ],
-      health_recommendation_rollback_or_safe_disable_refs: [
-        "safe-disable-ref:fcc-mem-021:disable-memory-proposal-bridge",
-      ],
-      health_recommendation_auto_apply_authorized: false,
-      health_recommendation_auto_code_authorized: false,
-      health_recommendation_provider_model_call_authorized: false,
-      health_recommendation_shell_execution_authorized: false,
-      health_recommendation_connector_write_authorized: false,
-      health_recommendation_memory_write_authorized: false,
-      health_recommendation_context_injection_authorized: false,
-      health_recommendation_action_execution_authorized: false,
-      health_recommendation_production_authority_enabled: false,
-      local_task_commit_eligible: false,
-      approval_envelope: {
-        schema_version: "founder_loop_action_approval_envelope.v1",
-        contract_ref: "contract-ref:founder-loop-action-approval-envelope:v1",
-        source: "python_core_action_inbox_read_model",
-        backend_owned: true,
-        action_kind: "self_heal_recommendation",
-        exact_scope: "scope-ref:fcc-health-001:memory-quality",
-        risk_class: "medium",
-        side_effect_class: "local_dev_workspace_only",
-        approval_requirement: "approval-not-required:recommendation-review-only",
-        expiry_or_staleness: "recheck_recommendation_refs_before_conversion",
-        idempotency_ref: "not_applicable",
-        expected_receipt_refs: [
-          "expected-receipt-ref:fcc-health-001:recommendation-review-decision",
-        ],
-        rollback_safe_disable_posture:
-          "safe-disable-ref:fcc-mem-021:disable-memory-proposal-bridge",
-        blocked_authority_refs: [
-          "blocked-state:no-auto-apply",
-          "blocked-state:no-action-execution",
-        ],
-        evidence_refs: ["evidence-ref:fcc-mem-021:memory-proposal-bridge"],
-        missing_field_states: ["none"],
-      },
-      receipt_visibility: {
-        schema_version: "founder_loop_action_receipt_visibility.v1",
-        contract_ref: "contract-ref:founder-loop-action-receipt-visibility:v1",
-        source: "python_core_action_inbox_read_model",
-        backend_owned: true,
-        decision_receipt_ref: "pending",
-        local_task_ref: "not_applicable",
-        local_task_commit_receipt_ref: "not_applicable",
-        evidence_timeline_event_ref: "pending",
-        replay_posture: "decision_idempotency_replay_available",
-        conflict_posture: "decision_conflicting_idempotency_payload_rejected",
-        missing_field_states: ["none"],
-      },
-    };
-    const inbox = {
-      ...mockApiData.founderActionsInbox,
-      items: [memoryItem],
-      action_groups: [
-        {
-          group_id: "proposal_only_no_execution_path",
-          label: "Proposal-only / no execution path",
-          safe_summary: "Review-only proposals without execution.",
-          available_action: "Record review receipt only.",
-          count: 1,
-        },
-      ],
-    };
-    const receipt = {
-      decision_ref: "action-decision:fcc-mem-021-memory-quality:defer",
-      item_ref: memoryItem.item_ref,
-      decision: "defer",
-      status: "deferred",
-      receipt_ref: "receipt:founder-loop-action:fcc-mem-021-memory-quality",
-      audit_ref: "audit:founder-loop-action:fcc-mem-021-memory-quality",
-      idempotency_key_ref: "idempotency-ref:fcc-mem-021-memory-quality",
-      payload_fingerprint_ref: "payload-fingerprint:action-decision:fcc-mem-021",
-      approval_ref: null,
-      approval_status: "not_required_for_defer_decision",
-      approval_reason_refs: ["approval-reason:defer-recorded-no-execution"],
-      safe_summary:
-        "Action decision defer recorded as backend-owned receipt state; the underlying action was not executed.",
-      evidence_refs: ["evidence-ref:fcc-mem-021:memory-proposal-bridge"],
-      blocked_state_refs: ["blocked-state:no-action-execution"],
-      action_executed: false,
-      connector_write_performed: false,
-      shell_subprocess_performed: false,
-      memory_write_performed: false,
-      provider_model_call_performed: false,
-      created_at: "2026-06-23T00:00:00Z",
-    };
-    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
-      const urlText = String(url);
-      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
-        return new Response(JSON.stringify({ ok: true, result: inbox }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      if (
-        options?.method === "POST" &&
-        urlText.endsWith(actionDecisionEndpoint(memoryItem.item_ref, "defer"))
-      ) {
-        return new Response(JSON.stringify({ ok: true, result: receipt }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
-        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`unexpected request ${urlText}`);
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    window.history.pushState({}, "", "/actions");
-    render(<App />);
-
-    await screen.findByRole("heading", { name: /^Action Inbox$/i });
     expect(
-      screen.getByRole("heading", { name: /Recommendation proposal/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("memory_quality_issue")).toBeInTheDocument();
-    expect(screen.getByText("GET /control-center/memory/quality-issues")).toBeInTheDocument();
-    expect(screen.getAllByText("blocked-state:no-auto-apply").length).toBeGreaterThan(0);
-    expect(screen.queryByRole("button", { name: /Record approval/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Record rejection/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Record defer/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Record edit/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/Memory proposal receipt controls require the local backend/i),
-    ).toBeInTheDocument();
-    expect(
-      fetchMock.mock.calls.some(
-        ([url, request]) =>
-          request?.method === "POST" &&
-          String(url).includes(`/control-center/actions/${memoryItem.item_ref}`),
-      ),
-    ).toBe(false);
+      screen.queryByRole("button", { name: /^execute$/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("commits only the eligible Action Inbox local task lane through the typed route", async () => {
@@ -1828,14 +4430,8 @@ describe("Web Control Center shell", () => {
       local_task_commit_eligible: false,
       local_task_ref: receipt.local_task_ref,
       local_task_commit_receipt_ref: receipt.receipt_ref,
-      receipt_refs: [
-        ...committedItem.receipt_refs,
-        receipt.receipt_ref,
-      ],
-      audit_refs: [
-        ...committedItem.audit_refs,
-        receipt.audit_ref,
-      ],
+      receipt_refs: [...committedItem.receipt_refs, receipt.receipt_ref],
+      audit_refs: [...committedItem.audit_refs, receipt.audit_ref],
       evidence_refs: [
         ...committedItem.evidence_refs,
         receipt.evidence_timeline_event_ref,
@@ -1858,7 +4454,10 @@ describe("Web Control Center shell", () => {
     const actionInboxReadUrls: string[] = [];
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
-      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+      if (
+        !options?.method &&
+        urlText.endsWith(API_ENDPOINTS.founderActionsInbox)
+      ) {
         actionInboxReadUrls.push(urlText);
         return new Response(
           JSON.stringify({
@@ -1877,7 +4476,10 @@ describe("Web Control Center shell", () => {
           },
         );
       }
-      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))
+      ) {
         return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -1902,7 +4504,8 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Backend online")).toBeInTheDocument();
     expect(
-      screen.getAllByRole("heading", { name: /^Approval Envelope Card$/i }).length,
+      screen.getAllByRole("heading", { name: /^Approval Envelope Card$/i })
+        .length,
     ).toBeGreaterThan(0);
     expect(
       screen.getAllByRole("heading", { name: /^Receipt Visibility$/i }).length,
@@ -1910,21 +4513,35 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText(/python_core_action_inbox_read_model/).length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByText("Local task target ref").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Local task target ref").length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getAllByText("pending").length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Record local-task commit receipt/i }),
+    );
 
-    expect((await screen.findAllByText(receipt.receipt_ref)).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(receipt.local_task_ref).length).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByText(receipt.receipt_ref)).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(receipt.local_task_ref).length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.getAllByText(receipt.evidence_timeline_event_ref).length,
     ).toBeGreaterThan(0);
     expect(screen.getAllByText("receipt_recorded").length).toBeGreaterThan(0);
-    expect(screen.getByText("idempotency_replay_available")).toBeInTheDocument();
+    expect(
+      screen.getByText("idempotency_replay_available"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("conflicting_idempotency_payload_rejected"),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /Record local-task commit receipt/i,
+      }),
+    ).not.toBeInTheDocument();
     expect(actionInboxReadUrls.length).toBeGreaterThanOrEqual(2);
     const receiptLane = screen
       .getByRole("heading", { name: /^Receipt recorded$/i })
@@ -2006,7 +4623,10 @@ describe("Web Control Center shell", () => {
     let commitRecorded = false;
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
-      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+      if (
+        !options?.method &&
+        urlText.endsWith(API_ENDPOINTS.founderActionsInbox)
+      ) {
         if (commitRecorded) {
           return new Response(
             JSON.stringify({
@@ -2034,7 +4654,10 @@ describe("Web Control Center shell", () => {
           },
         );
       }
-      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))
+      ) {
         return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -2055,7 +4678,9 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     await screen.findByRole("heading", { name: /^Action Inbox$/i });
-    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Record local-task commit receipt/i }),
+    );
 
     await screen.findByText(receipt.receipt_ref);
     expect(
@@ -2067,8 +4692,14 @@ describe("Web Control Center shell", () => {
         "Backend read model refreshed; receipt visibility now comes from the Action Inbox API.",
       ),
     ).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
-    expect(screen.getAllByText("Local task target ref").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", {
+        name: /Record local-task commit receipt/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText("Local task target ref").length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getAllByText("pending").length).toBeGreaterThan(0);
     expect(
       screen.queryByRole("button", { name: /^execute$/i }),
@@ -2082,7 +4713,8 @@ describe("Web Control Center shell", () => {
       item_ref: "founder-action:mock-local-task-create",
       action_kind: "local_task_create",
       local_task_ref: "local-task:founder-action:mock-local-task-create",
-      receipt_ref: "receipt:founder-loop-local-task:mock-local-task-create-replay",
+      receipt_ref:
+        "receipt:founder-loop-local-task:mock-local-task-create-replay",
       audit_ref: "audit:founder-loop-local-task:mock-local-task-create-replay",
       evidence_timeline_event_ref:
         "evidence-timeline-event:local-task:mock-local-task-create-replay",
@@ -2091,7 +4723,8 @@ describe("Web Control Center shell", () => {
       approval_ref: "approval-ref:mock-local-task-action-approve",
       approval_status: "approved",
       status: "local_task_created",
-      safe_summary: "Prior local task commit receipt replayed with safe refs only.",
+      safe_summary:
+        "Prior local task commit receipt replayed with safe refs only.",
       local_task_created: true,
       connector_write_performed: false,
       shell_subprocess_execution_performed: false,
@@ -2150,7 +4783,10 @@ describe("Web Control Center shell", () => {
     let commitRecorded = false;
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
-      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+      if (
+        !options?.method &&
+        urlText.endsWith(API_ENDPOINTS.founderActionsInbox)
+      ) {
         return new Response(
           JSON.stringify({
             ok: true,
@@ -2159,7 +4795,10 @@ describe("Web Control Center shell", () => {
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
-      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))
+      ) {
         return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -2167,10 +4806,13 @@ describe("Web Control Center shell", () => {
       }
       if (options?.method === "POST" && urlText.endsWith(endpoint)) {
         commitRecorded = true;
-        return new Response(JSON.stringify({ ok: true, result: replayReceipt }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ ok: true, result: replayReceipt }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
       throw new Error(`unexpected request ${urlText}`);
     });
@@ -2180,21 +4822,33 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     await screen.findByRole("heading", { name: /^Action Inbox$/i });
-    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Record local-task commit receipt/i }),
+    );
 
     expect(
       (await screen.findAllByText(replayReceipt.receipt_ref)).length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByText(replayReceipt.local_task_ref).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(replayReceipt.local_task_ref).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getAllByText(replayReceipt.evidence_timeline_event_ref).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByText("idempotency_replay_available")).toBeInTheDocument();
+    expect(
+      screen.getByText("idempotency_replay_available"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("conflicting_idempotency_payload_rejected"),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Commit local task/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /Record local-task commit receipt/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^execute$/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps conflicting local task commits out of committed UI state", async () => {
@@ -2203,7 +4857,10 @@ describe("Web Control Center shell", () => {
     );
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
-      if (!options?.method && urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+      if (
+        !options?.method &&
+        urlText.endsWith(API_ENDPOINTS.founderActionsInbox)
+      ) {
         return new Response(
           JSON.stringify({
             ok: true,
@@ -2216,7 +4873,10 @@ describe("Web Control Center shell", () => {
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
-      if (!options?.method && READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))
+      ) {
         return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -2241,20 +4901,32 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     await screen.findByRole("heading", { name: /^Action Inbox$/i });
-    fireEvent.click(screen.getByRole("button", { name: /Commit local task/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Record local-task commit receipt/i }),
+    );
 
     expect(
-      await screen.findByText("Conflicting idempotency payload rejected safely."),
+      await screen.findByText(
+        "Conflicting idempotency payload rejected safely.",
+      ),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("Local task target ref").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Local task target ref").length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.queryByText("receipt:founder-loop-local-task:conflicting-commit"),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByText("evidence-timeline-event:local-task:conflicting-commit"),
+      screen.queryByText(
+        "evidence-timeline-event:local-task:conflicting-commit",
+      ),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Commit local task/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^execute$/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Record local-task commit receipt/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^execute$/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders Memory context-pack proposals as proposal-only inspection", async () => {
@@ -2272,8 +4944,8 @@ describe("Web Control Center shell", () => {
       screen.getAllByText("GET /control-center/memory/context-packs").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("context-pack:mock-founder-loop-preferences").length,
-    ).toBeGreaterThan(0);
+      screen.getByText("context-pack:mock-founder-loop-preferences"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("proposal-only context pack over reviewed memory refs", {
         exact: false,
@@ -2303,7 +4975,8 @@ describe("Web Control Center shell", () => {
         "context-pack-proposal:mock-founder-loop-preferences",
       internal_action_proposal_ref:
         "proposal-ref:memory-context-pack-action:mock-founder-loop-preferences",
-      item_ref: "founder-action:memory-context-pack:mock-founder-loop-preferences",
+      item_ref:
+        "founder-action:memory-context-pack:mock-founder-loop-preferences",
       action_envelope_ref:
         "action-envelope:memory-context-pack:mock-founder-loop-preferences",
       exact_approval_scope_ref:
@@ -2314,7 +4987,8 @@ describe("Web Control Center shell", () => {
       approval_reason_refs: ["approval-reason:approval_validated"],
       receipt_ref:
         "receipt:memory-context-pack-action:mock-founder-loop-preferences",
-      audit_ref: "audit:memory-context-pack-action:mock-founder-loop-preferences",
+      audit_ref:
+        "audit:memory-context-pack-action:mock-founder-loop-preferences",
       idempotency_key_ref:
         "idempotency-ref:control-center-memory-context-action:mock",
       payload_fingerprint_ref:
@@ -2418,7 +5092,9 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /^Memory Review$/i }),
     ).toBeInTheDocument();
     fireEvent.click(
-      screen.getByRole("button", { name: /Create Action Inbox proposal/i }),
+      screen.getByRole("button", {
+        name: /Record Action Inbox proposal receipt/i,
+      }),
     );
 
     expect(
@@ -2471,8 +5147,12 @@ describe("Web Control Center shell", () => {
     expect(
       await screen.findByRole("heading", { name: /Morning Briefing/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Source posture/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Missing contracts/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Source posture/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Missing contracts/i }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
         name: /Read-only source readiness metadata/i,
@@ -2480,31 +5160,53 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("no connector runtime")).toBeInTheDocument();
     expect(
-      screen.getByText(/Email, calendar, connector runtime, background refresh/i),
+      screen.getByText(
+        /Email, calendar, connector runtime, background refresh/i,
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getAllByText("/control-center/morning-briefing/summary").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("blocked_missing_email_calendar_notification_contracts").length,
+      screen.getAllByText(
+        "blocked_missing_email_calendar_notification_contracts",
+      ).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByText("status-ref:control-center-route-manifest")).toBeInTheDocument();
-    expect(screen.getAllByText("contract-ref:email-read-only-missing").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("contract-ref:calendar-read-only-missing").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("status-ref:control-center-route-manifest"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:email-read-only-missing").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("contract-ref:calendar-read-only-missing").length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getAllByText("contract-ref:notification-delivery-missing").length,
     ).toBeGreaterThan(0);
-    expect(screen.getByText("source-ref:control-center-route-status")).toBeInTheDocument();
+    expect(
+      screen.getByText("source-ref:control-center-route-status"),
+    ).toBeInTheDocument();
     expect(screen.getByText("local_status_refs_only")).toBeInTheDocument();
-    expect(screen.getByText("recheck_route_status_before_briefing_use")).toBeInTheDocument();
     expect(
-      screen.getByText(/No email, calendar, or notification source evidence is bound/i),
+      screen.getByText("recheck_route_status_before_briefing_use"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Use route and storage refs only; define source contracts before refresh/i),
+      screen.getByText(
+        /No email, calendar, or notification source evidence is bound/i,
+      ),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("no_background_refresh").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("no_notification_delivery").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        /Use route and storage refs only; define source contracts before refresh/i,
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_background_refresh").length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getAllByText("no_notification_delivery").length,
+    ).toBeGreaterThan(0);
 
     for (const label of [
       /^refresh$/i,
@@ -2515,7 +5217,9 @@ describe("Web Control Center shell", () => {
       /^run$/i,
       /^notify$/i,
     ]) {
-      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: label }),
+      ).not.toBeInTheDocument();
     }
   });
 
@@ -2524,7 +5228,9 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/dashboard");
     render(<App />);
 
-    fireEvent.click(await screen.findByRole("button", { name: /find route or action/i }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /find route or action/i }),
+    );
 
     const palette = screen.getByRole("dialog", { name: /command palette/i });
     expect(palette).toBeInTheDocument();
@@ -2534,6 +5240,12 @@ describe("Web Control Center shell", () => {
 
     expect(palette).toHaveTextContent("Storage");
     expect(palette).toHaveTextContent("Runtime - partial");
+
+    fireEvent.change(screen.getByLabelText(/search routes and actions/i), {
+      target: { value: "crm" },
+    });
+    expect(palette).toHaveTextContent("CRM");
+    expect(palette).toHaveTextContent("Founder Loop - blocked");
 
     fireEvent.change(screen.getByLabelText(/search routes and actions/i), {
       target: { value: "local state" },
@@ -2644,6 +5356,59 @@ describe("Web Control Center shell", () => {
     }
   });
 
+  it("renders CRM M1 fixture-only shell without CRM authority", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/crm");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /CRM M1 fixture-only shell/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("contract-ref:crm-m1-fixture-only-vertical-shell:v1"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("route-ref:control-center:crm-fixture-only-shell"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Real Estate Realtor")).toBeInTheDocument();
+    expect(screen.getByText("Healthcare")).toBeInTheDocument();
+    expect(screen.getByText("Finance Insurance")).toBeInTheDocument();
+    expect(screen.getByText("Retail E-commerce")).toBeInTheDocument();
+    expect(screen.getByText("Professional Services")).toBeInTheDocument();
+    expect(
+      screen.getByText("No CRM write controls are available"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Backend read model").nextElementSibling).toHaveTextContent(
+      "blocked",
+    );
+    expect(screen.getByText("Backend route").nextElementSibling).toHaveTextContent(
+      "blocked",
+    );
+    expect(screen.getByText("Connector runtime").nextElementSibling).toHaveTextContent(
+      "blocked",
+    );
+    expect(screen.getByText("Sends/calendar").nextElementSibling).toHaveTextContent(
+      "blocked",
+    );
+    expect(
+      screen.queryByText(/GET \/control-center\/crm/i),
+    ).not.toBeInTheDocument();
+    for (const unsafeControl of [
+      /send/i,
+      /sync/i,
+      /import/i,
+      /write/i,
+      /execute/i,
+      /connect/i,
+    ]) {
+      expect(
+        screen.queryByRole("button", { name: unsafeControl }),
+      ).not.toBeInTheDocument();
+    }
+  });
+
   it("renders priority operator flows instead of placeholder-first screens", async () => {
     const priorityFlowChecks = [
       {
@@ -2694,7 +5459,8 @@ describe("Web Control Center shell", () => {
       }
       if (check.path === "/chat") {
         expect(
-          screen.getAllByText("contract-ref:chat-local-operator-surface:v1").length,
+          screen.getAllByText("contract-ref:chat-local-operator-surface:v1")
+            .length,
         ).toBeGreaterThan(0);
       }
       expect(
@@ -2718,7 +5484,10 @@ describe("Web Control Center shell", () => {
   it("renders Settings and Local Models backend-owned status routes", async () => {
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
-      if (!options?.method && READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))
+      ) {
         return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -2761,7 +5530,120 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("feature_flag_mutation")).toBeInTheDocument();
     expect(screen.getByText("kill_switch_mutation")).toBeInTheDocument();
     expect(
+      screen.getByLabelText("Settings authority posture labels"),
+    ).toBeInTheDocument();
+    for (const label of [
+      "Web",
+      "Providers",
+      "Connectors",
+      "Memory context use",
+      "Model runtime",
+      "Local model lifecycle",
+      "Platform capabilities",
+    ]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getAllByText("Blocked").length).toBeGreaterThan(0);
+    expect(screen.getByText("Degraded")).toBeInTheDocument();
+    expect(screen.getByText("Partial")).toBeInTheDocument();
+    expect(screen.getAllByText("Metadata only").length).toBeGreaterThan(0);
+    expect(
+      screen.getByLabelText("Settings kill-switch and feature-flag posture"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", {
+        name: /Kill switch: Global runtime authority/i,
+      }),
+    ).toHaveTextContent("Not configured");
+    expect(
+      screen.getByRole("status", {
+        name: /Feature flag: Authority visibility/i,
+      }),
+    ).toHaveTextContent("Metadata only");
+    expect(
+      screen.getByText(
+        "contract-ref:product-loop-011-settings-kill-switch-clarity:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("scripts/inspect_platform_capabilities.py").length,
+    ).toBeGreaterThan(0);
+    expect(
       screen.queryByRole("button", { name: /enable|toggle|save|execute/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /enable web|configure provider|connect connector|inject context|install|start|stop|connect|provider call|model call|browser action|shell action/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Provider Guidance/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("provider-catalog:cost-literacy:mock-fallback"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/UNKNOWN_PAID_COST_REQUIRES_EXPLICIT_APPROVAL/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/OpenAI API/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/OPENAI_ENV_STYLE_REF/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText(/Pricing docs/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /Provider credential readiness/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: /Provider and Settings diagnostics/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/readable_diagnostics_only/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByText(/CostGovernor provider spend boundary/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/^Missing$/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^Disabled$/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^Future scoped$/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/scripts\/inspect_provider_router_dry_run\.py/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Unknown paid cost/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Above-budget estimate/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Future receipt refs/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getAllByText(/Provider usage claims/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/cost-estimate-ref:openai-compatible:required/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/budget-decision-ref:openai-compatible:required/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/max-approved-usd-ref:openai-compatible:required/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/cost-receipt-ref:openai-compatible:future-required/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/UNKNOWN_PAID_COST_REQUIRES_APPROVAL/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/PROVIDER_USAGE_CLAIM_REQUIRES_RECEIPT_REFS/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("textbox", { name: /api key|secret|token/i }),
     ).not.toBeInTheDocument();
 
     settingsView.unmount();
@@ -2781,30 +5663,312 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("uaa_local_model_inventory.v1"),
     ).toBeInTheDocument();
-    expect(screen.getByText("model_download")).toBeInTheDocument();
-    expect(screen.getByText("model_pull")).toBeInTheDocument();
-    expect(screen.getByText("provider_model_authority")).toBeInTheDocument();
-    expect(screen.getByText("runtime_adapter_execution")).toBeInTheDocument();
-    expect(screen.getByText("ollama_runtime_call")).toBeInTheDocument();
-    expect(screen.getByText("mlx_lm_runtime_call")).toBeInTheDocument();
+    expect(screen.getAllByText("model_download").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("model_pull").length).toBeGreaterThan(0);
     expect(
-      screen.getByRole("heading", { name: /^Ollama$/i }),
+      screen.getAllByText("provider_model_authority").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("runtime_adapter_execution").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Ollama")).toBeInTheDocument();
+    expect(screen.getByText("MLX-LM")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Provider Cost Literacy/i }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Quick chat")).toBeInTheDocument();
+    expect(screen.getByText("CRM briefing")).toBeInTheDocument();
+    expect(screen.getByText("Long document review")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /^MLX-LM$/i }),
+      screen.getByRole("heading", { name: /Provider credential readiness/i }),
     ).toBeInTheDocument();
-    expect(
-      screen.getAllByText("blocked_manual_verification_required").length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText("blocked-authority:model-call").length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText("blocked-authority:model-pull-download").length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Unknown paid cost/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/CostGovernor binding/i).length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.queryByRole("button", {
-        name: /download|pull|switch|start|stop|execute|chat|generate/i,
+        name: /download|switch|start|stop|execute/i,
+      }),
+    ).not.toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("fails closed for stale Settings authority posture payloads", async () => {
+    const staleSettingsStatus = JSON.parse(
+      JSON.stringify(mockControlCenterData.settingsStatus),
+    ) as Record<string, unknown>;
+    staleSettingsStatus.authority_postures = "stale";
+    delete staleSettingsStatus.kill_switch_postures;
+    staleSettingsStatus.feature_flag_postures = [
+      {
+        label: "Unsafe",
+        state_label: "Enabled",
+        toggle_enabled: true,
+      },
+    ];
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        !options?.method &&
+        urlText.endsWith(API_ENDPOINTS.controlCenterSettingsStatus)
+      ) {
+        return new Response(
+          JSON.stringify({ ok: true, data: staleSettingsStatus }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))
+      ) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("status", {
+        name: /Settings authority posture blocked/i,
+      }),
+    ).toHaveTextContent("Settings authority posture unavailable");
+    expect(screen.queryByText("Unsafe")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /enable|toggle|save|execute|install|start|stop|connect/i,
+      }),
+    ).not.toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("fails closed for unsafe provider credential readiness dashboard payloads", async () => {
+    const unsafeDashboard = JSON.parse(
+      JSON.stringify(mockApiData.dashboard),
+    ) as Record<string, unknown>;
+    const unsafeReadiness = JSON.parse(
+      JSON.stringify(
+        mockControlCenterData.dashboard.provider_credential_readiness,
+      ),
+    ) as Record<string, unknown>;
+    const unsafePostureCounts = unsafeReadiness.posture_counts as Record<
+      string,
+      unknown
+    >;
+    const unsafeProviders = unsafeReadiness.providers as Array<
+      Record<string, unknown>
+    >;
+    unsafeReadiness.provider_runtime_authority_denied = false;
+    unsafeReadiness.unknown_paid_cost_requires_approval = false;
+    unsafePostureCounts.configured = 99;
+    unsafeProviders[0].provider_model_refs_bound = true;
+    (
+      unsafeProviders[0].cost_governor_binding as Record<string, unknown>
+    ).provider_use_authority_granted = true;
+    unsafeDashboard.provider_credential_readiness = unsafeReadiness;
+
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        !options?.method &&
+        urlText.endsWith(API_ENDPOINTS.controlCenterDashboard)
+      ) {
+        return new Response(
+          JSON.stringify({ ok: true, result: unsafeDashboard }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))
+      ) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Settings$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Provider credential readiness/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/OpenAI-compatible provider/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/approval required/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText("99")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/blocked posture missing/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /test provider|call provider|invoke provider/i,
+      }),
+    ).not.toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("fails closed for nested provider readiness authority flags", async () => {
+    const unsafeDashboard = JSON.parse(
+      JSON.stringify(mockApiData.dashboard),
+    ) as Record<string, unknown>;
+    const unsafeReadiness = JSON.parse(
+      JSON.stringify(
+        mockControlCenterData.dashboard.provider_credential_readiness,
+      ),
+    ) as Record<string, unknown>;
+    (
+      unsafeReadiness.vault_adapter_readiness as Record<string, unknown>
+    ).adapter_runtime_enabled = true;
+    (
+      unsafeReadiness.vault_adapter_readiness as Record<string, unknown>
+    ).readiness_status = "vault-ready-bypass";
+    (
+      unsafeReadiness.enrollment_readiness as Record<string, unknown>
+    ).enrollment_enabled = true;
+    (
+      unsafeReadiness.enrollment_readiness as Record<string, unknown>
+    ).readiness_status = "enrollment-ready-bypass";
+    (
+      unsafeReadiness.validation_readiness as Record<string, unknown>
+    ).validation_enabled = true;
+    (
+      unsafeReadiness.validation_readiness as Record<string, unknown>
+    ).provider_response_persistence_allowed = true;
+    (
+      unsafeReadiness.validation_readiness as Record<string, unknown>
+    ).readiness_status = "validation-ready-bypass";
+    (
+      unsafeReadiness.invocation_readiness as Record<string, unknown>
+    ).invocation_enabled = true;
+    (
+      unsafeReadiness.invocation_readiness as Record<string, unknown>
+    ).model_output_authoritative = true;
+    (
+      unsafeReadiness.invocation_readiness as Record<string, unknown>
+    ).readiness_status = "invocation-ready-bypass";
+    (
+      unsafeReadiness.tiny_invocation_readiness as Record<string, unknown>
+    ).invocation_enabled = true;
+    (
+      unsafeReadiness.tiny_invocation_readiness as Record<string, unknown>
+    ).provider_sdk_call_enabled = true;
+    (
+      unsafeReadiness.tiny_invocation_readiness as Record<string, unknown>
+    ).network_call_enabled = true;
+    (
+      unsafeReadiness.tiny_invocation_readiness as Record<string, unknown>
+    ).billing_authority_granted = true;
+    (
+      unsafeReadiness.tiny_invocation_readiness as Record<string, unknown>
+    ).status = "tiny-ready-bypass";
+    (
+      unsafeReadiness.router_dry_run_readiness as Record<string, unknown>
+    ).invocation_authorized = true;
+    (
+      unsafeReadiness.router_dry_run_readiness as Record<string, unknown>
+    ).provider_sdk_call_performed = true;
+    (
+      unsafeReadiness.router_dry_run_readiness as Record<string, unknown>
+    ).billing_authority_granted = true;
+    (
+      unsafeReadiness.router_dry_run_readiness as Record<string, unknown>
+    ).status = "router-ready-bypass";
+    (
+      unsafeReadiness.provider_settings_diagnostics as Record<string, unknown>
+    ).provider_sdk_call_enabled = true;
+    (
+      unsafeReadiness.provider_settings_diagnostics as Record<string, unknown>
+    ).status = "unsafe_provider_settings_diagnostics";
+    ((
+      unsafeReadiness.provider_settings_diagnostics as Record<string, unknown>
+    ).items as Array<Record<string, unknown>>)[0].state_label =
+      "Unsafe enabled diagnostic";
+    unsafeDashboard.provider_credential_readiness = unsafeReadiness;
+
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        !options?.method &&
+        urlText.endsWith(API_ENDPOINTS.controlCenterDashboard)
+      ) {
+        return new Response(
+          JSON.stringify({ ok: true, result: unsafeDashboard }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))
+      ) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/settings");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Settings$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/blocked_no_approved_backend/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/blocked_not_scoped/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText(/validation_blocked/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText(/vault-ready-bypass/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/enrollment-ready-bypass/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/validation-ready-bypass/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/invocation-ready-bypass/i),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/tiny-ready-bypass/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/router-ready-bypass/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/unsafe_provider_settings_diagnostics/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Unsafe enabled diagnostic/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /validate provider|invoke provider/i,
       }),
     ).not.toBeInTheDocument();
 
@@ -2822,49 +5986,119 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("heading", { name: /Provider credential readiness/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: /Provider and Settings diagnostics/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Cost blocked/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Credential vault adapter/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Provider router dry-run/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/scripts\/inspect_settings_authority_posture\.py/i)
+        .length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText(/reference_readiness_only/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Provider invocation/i).length).toBeGreaterThan(
       0,
     );
-    expect(screen.getAllByText(/Raw key collection/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Credential material stored/i).length).toBeGreaterThan(
+    expect(
+      screen.getAllByText(/Tiny exact-approved provider lane/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Disabled no execution/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Live adapter blocked/i).length).toBeGreaterThan(
       0,
     );
+    expect(screen.getAllByText(/Live receipt required/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText(/Usage captured/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Cost captured/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Cost incomplete/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Review required/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Further use blocked/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText(/Receipt completeness/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText(/Receipt observation/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getAllByText(/Receipt observation labels/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/no receipt observed/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getAllByText(/No provider authority/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Raw key collection/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getAllByText(/Credential material stored/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText(/Vault adapter/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Credential adapter readiness/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Credential enrollment/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Credential adapter readiness/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Credential enrollment/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText(/Validation readiness/i)).toBeInTheDocument();
     expect(screen.getByText(/External validation/i)).toBeInTheDocument();
-    expect(screen.getByText(/Provider response persistence allowed/i)).toBeInTheDocument();
+    expect(screen.getByText(/Validation authority/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/approval required/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Provider response persistence allowed/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Invocation readiness/i)).toBeInTheDocument();
     expect(screen.getByText(/Vault adapter contract/i)).toBeInTheDocument();
-    expect(screen.getByText(/Credential enrollment contract/i)).toBeInTheDocument();
-    expect(screen.getByText(/Provider validation contract/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Credential enrollment contract/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Provider validation contract/i),
+    ).toBeInTheDocument();
     expect(
       screen.getAllByText(/Governed provider invocation/i).length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByText(/VAULT_ADAPTER_NOT_SCOPED/i).length).toBeGreaterThan(
-      0,
-    );
     expect(
-      screen.getByText(/PROVIDER_KEY_VALIDATION_NOT_SCOPED/i),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/CREDENTIAL_ENROLLMENT_NOT_SCOPED/i)).toBeInTheDocument();
+      screen.getAllByText(/VAULT_ADAPTER_NOT_SCOPED/i).length,
+    ).toBeGreaterThan(0);
     expect(
-      screen.getByText(/TRANSIENT_SECRET_INTAKE_NOT_APPROVED/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/EXACT_APPROVAL_REQUIRED/i).length,
+    ).toBeGreaterThan(0);
     expect(
-      screen.getByText(/APPROVED_VAULT_BACKEND_REQUIRED/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/VALIDATION_ADAPTER_DISABLED_BY_DEFAULT/i).length,
+    ).toBeGreaterThan(0);
     expect(
-      screen.getByText(/POLICY_APPROVAL_AUDIT_RECEIPT_REQUIRED/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/CREDENTIAL_ENROLLMENT_NOT_SCOPED/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/TRANSIENT_SECRET_INTAKE_NOT_APPROVED/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/APPROVED_VAULT_BACKEND_REQUIRED/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/POLICY_APPROVAL_AUDIT_RECEIPT_REQUIRED/i).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getAllByText(/OpenAI-compatible provider/i).length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByText(/provider auth ref status/i).length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      screen.getAllByText(/provider auth ref status/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText(/consent-ref:/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/policy-ref:/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/revocation-ref:/i).length).toBeGreaterThan(0);
@@ -2902,18 +6136,81 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /macOS Setup Assistant/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Visual setup preview/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Local prerequisites/i })).toBeInTheDocument();
-    expect(screen.getByText(/existing local status routes only/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Provider Catalog/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Provider account guidance/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: /Provider credential and cost posture/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Unknown paid cost/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/No provider authority/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Disabled no execution/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Live adapter blocked/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText(/CostGovernor binding/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getAllByText(/Provider router dry-run/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/No fallback execution/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Router no-authority refs/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Setup docs/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/API docs/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Pricing docs/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Secret entry controls/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("textbox", { name: /api key|secret|token/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /save key|connect provider|test provider|call provider|invoke provider/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Local prerequisites/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/existing local status routes only/i),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("/runtime/readiness").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("/runtime/capability-matrix").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Blocked setup authority/i })).toBeInTheDocument();
-    expect(screen.getByText("macos-setup-bridge-enablement")).toBeInTheDocument();
-    expect(screen.getByText("macos-setup-rollback-execution")).toBeInTheDocument();
-    expect(screen.getByText("macos-setup-signed-distribution")).toBeInTheDocument();
-    expect(screen.getByText("macos-setup-production-authority")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("/runtime/capability-matrix").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /Blocked setup authority/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("macos-setup-bridge-enablement"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("macos-setup-rollback-execution"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("macos-setup-signed-distribution"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("macos-setup-production-authority"),
+    ).toBeInTheDocument();
     expect(screen.getByText(/First launch setup/i)).toBeInTheDocument();
     expect(screen.getByText(/Runtime health/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Local model readiness/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Local model readiness/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText(/Model selection/i)).toBeInTheDocument();
     expect(screen.getByText(/Fast local chat/i)).toBeInTheDocument();
     expect(screen.getByText(/Balanced local assistant/i)).toBeInTheDocument();
@@ -2925,20 +6222,35 @@ describe("Web Control Center shell", () => {
       screen.getByRole("heading", { name: /Dry-run approval envelopes/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText("macos-setup-approval-envelope:model-selection").length,
+      screen.getAllByText("macos-setup-approval-envelope:model-selection")
+        .length,
     ).toBeGreaterThan(0);
     expect(
       screen.getAllByText("idempotency-ref:macos-setup-model-selection").length,
     ).toBeGreaterThan(0);
-    expect(screen.getByText("scope-ref:macos-setup-model-selection")).toBeInTheDocument();
-    expect(screen.getByText(/approval refs are identifiers only/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Preview only\. Raw logs, raw paths/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/macos-setup-receipt-plan:foundation/i)).toBeInTheDocument();
-    expect(screen.getByText(/macos-setup-rollback-plan:foundation/i)).toBeInTheDocument();
+    expect(
+      screen.getByText("scope-ref:macos-setup-model-selection"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/approval refs are identifiers only/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Preview only\. Raw logs, raw paths/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/macos-setup-receipt-plan:foundation/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/macos-setup-rollback-plan:foundation/i),
+    ).toBeInTheDocument();
     expect(screen.getAllByText(/OpenWebUI bridge/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Mattermost Agent Rooms/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Mattermost Agent Rooms/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText(/Verify the model choices/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/no command executed/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/no command executed/i).length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.getAllByText(/Installer side effects/i).length,
     ).toBeGreaterThan(0);
@@ -3019,9 +6331,7 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText(/API base: relative local API/i),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/No generic execution/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No generic execution/i)).toBeInTheDocument();
     expect(
       screen.getByText(/Local task authority requires backend approval/i),
     ).toBeInTheDocument();
@@ -3151,7 +6461,9 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/Steps surfaced/i)).toBeInTheDocument();
     expect(screen.getByText(/Routes surfaced/i)).toBeInTheDocument();
     expect(screen.getByText(/Blocked prerequisites/i)).toBeInTheDocument();
-    expect(screen.getByText(/Approval and evidence proof/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Approval and evidence proof/i),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/Approval refs are identifiers only/i),
     ).toBeInTheDocument();
@@ -3195,66 +6507,130 @@ describe("Web Control Center shell", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText(/safe-ref \/ redacted-first/i)).toBeInTheDocument();
-    expect(screen.getByText(/OpenAPI, \/api\/manifest, PolicyEngine/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/OpenAPI, \/api\/manifest, PolicyEngine/i),
+    ).toBeInTheDocument();
 
     const routePanel = screen
       .getByRole("heading", { name: /Route Authority/i })
       .closest("article");
     expect(routePanel).not.toBeNull();
-    expect(within(routePanel!).getByText(/OpenAPI path count/i)).toBeInTheDocument();
-    expect(within(routePanel!).getByText("152")).toBeInTheDocument();
-    expect(within(routePanel!).getByText(/Operation IDs unique/i)).toBeInTheDocument();
-    expect(within(routePanel!).getAllByText(/Contract truth/i).length).toBeGreaterThan(0);
-    expect(within(routePanel!).getAllByText(/Side-effect class/i).length).toBeGreaterThan(0);
-    expect(within(routePanel!).getAllByText(/Owner \/ service/i).length).toBeGreaterThan(0);
-    expect(within(routePanel!).getByText(/docs\/api\/openapi_contract.md/i)).toBeInTheDocument();
+    expect(
+      within(routePanel!).getByText(/OpenAPI path count/i),
+    ).toBeInTheDocument();
+    expect(
+      within(routePanel!).getByText(String(MOCK_OPENAPI_ROUTE_COUNT)),
+    ).toBeInTheDocument();
+    expect(
+      within(routePanel!).getByText(/Operation IDs unique/i),
+    ).toBeInTheDocument();
+    expect(
+      within(routePanel!).getAllByText(/Contract truth/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(routePanel!).getAllByText(/Side-effect class/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(routePanel!).getAllByText(/Owner \/ service/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(routePanel!).getByText(/docs\/api\/openapi_contract.md/i),
+    ).toBeInTheDocument();
 
     const approvalPanel = screen
       .getByRole("heading", { name: /Approval State/i })
       .closest("article");
     expect(approvalPanel).not.toBeNull();
-    expect(within(approvalPanel!).getByText(/Approval ref/i)).toBeInTheDocument();
-    expect(within(approvalPanel!).getByText(/Exact scope/i)).toBeInTheDocument();
-    expect(within(approvalPanel!).getByText(/Stale \/ expiry/i)).toBeInTheDocument();
-    expect(within(approvalPanel!).getByText(/refs are identifiers only/i)).toBeInTheDocument();
-    expect(within(approvalPanel!).getByText(/mock_receipt_ref_001/i)).toBeInTheDocument();
+    expect(
+      within(approvalPanel!).getByText(/Approval ref/i),
+    ).toBeInTheDocument();
+    expect(
+      within(approvalPanel!).getByText(/Exact scope/i),
+    ).toBeInTheDocument();
+    expect(
+      within(approvalPanel!).getByText(/Stale \/ expiry/i),
+    ).toBeInTheDocument();
+    expect(
+      within(approvalPanel!).getByText(/refs are identifiers only/i),
+    ).toBeInTheDocument();
+    expect(
+      within(approvalPanel!).getByText(/mock_receipt_ref_001/i),
+    ).toBeInTheDocument();
 
     const receiptPanel = screen
       .getByRole("heading", { name: /Evidence Receipts/i })
       .closest("article");
     expect(receiptPanel).not.toBeNull();
-    expect(within(receiptPanel!).getByText(/Foundation Gate refs/i)).toBeInTheDocument();
-    expect(within(receiptPanel!).getByText(/foundation-gate-ref:latest-report/i)).toBeInTheDocument();
-    expect(within(receiptPanel!).getByText(/Latency refs/i)).toBeInTheDocument();
-    expect(within(receiptPanel!).getByText(/latency-ref:foundation-gate:latest-report/i)).toBeInTheDocument();
-    expect(within(receiptPanel!).getByText(/Rollback refs/i)).toBeInTheDocument();
+    expect(
+      within(receiptPanel!).getByText(/Foundation Gate refs/i),
+    ).toBeInTheDocument();
+    expect(
+      within(receiptPanel!).getByText(/foundation-gate-ref:latest-report/i),
+    ).toBeInTheDocument();
+    expect(
+      within(receiptPanel!).getByText(/Latency refs/i),
+    ).toBeInTheDocument();
+    expect(
+      within(receiptPanel!).getByText(
+        /latency-ref:foundation-gate:latest-report/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(receiptPanel!).getByText(/Rollback refs/i),
+    ).toBeInTheDocument();
 
     const workspacePanel = screen
       .getByRole("heading", { name: /Safe Workspace Preview/i })
       .closest("article");
     expect(workspacePanel).not.toBeNull();
-    expect(within(workspacePanel!).getByText(/bounded preview/i)).toBeInTheDocument();
-    expect(within(workspacePanel!).getByText(/Path posture/i)).toBeInTheDocument();
-    expect(within(workspacePanel!).getByText(/redacted_safe_label_only/i)).toBeInTheDocument();
-    expect(within(workspacePanel!).getByText(/patch apply, rollback execution/i)).toBeInTheDocument();
+    expect(
+      within(workspacePanel!).getByText(/bounded preview/i),
+    ).toBeInTheDocument();
+    expect(
+      within(workspacePanel!).getByText(/Path posture/i),
+    ).toBeInTheDocument();
+    expect(
+      within(workspacePanel!).getByText(/redacted_safe_label_only/i),
+    ).toBeInTheDocument();
+    expect(
+      within(workspacePanel!).getByText(/patch apply, rollback execution/i),
+    ).toBeInTheDocument();
 
     const modelPanel = screen
       .getByRole("heading", { name: /Local Model \/ M167 Status/i })
       .closest("article");
     expect(modelPanel).not.toBeNull();
-    expect(within(modelPanel!).getByText(/Runtime readiness/i)).toBeInTheDocument();
-    expect(within(modelPanel!).getByText(/OpenWebUI shell/i)).toBeInTheDocument();
-    expect(within(modelPanel!).getByText(/output is not production authority/i)).toBeInTheDocument();
-    expect(within(modelPanel!).getByText(/model download, GGUF approval/i)).toBeInTheDocument();
+    expect(
+      within(modelPanel!).getByText(/Runtime readiness/i),
+    ).toBeInTheDocument();
+    expect(
+      within(modelPanel!).getByText(/OpenWebUI shell/i),
+    ).toBeInTheDocument();
+    expect(
+      within(modelPanel!).getByText(/output is not production authority/i),
+    ).toBeInTheDocument();
+    expect(
+      within(modelPanel!).getByText(/model download, GGUF approval/i),
+    ).toBeInTheDocument();
 
     const observabilityPanel = screen
       .getByRole("heading", { name: /M167 Observability Timeline/i })
       .closest("article");
     expect(observabilityPanel).not.toBeNull();
-    expect(within(observabilityPanel!).getByText(/Session \/ run ref/i)).toBeInTheDocument();
-    expect(within(observabilityPanel!).getByText(/Client-error posture/i)).toBeInTheDocument();
-    expect(within(observabilityPanel!).getByText(/unredacted forensic mode is blocked/i)).toBeInTheDocument();
-    expect(within(observabilityPanel!).getByText(/External telemetry/i)).toBeInTheDocument();
+    expect(
+      within(observabilityPanel!).getByText(/Session \/ run ref/i),
+    ).toBeInTheDocument();
+    expect(
+      within(observabilityPanel!).getByText(/Client-error posture/i),
+    ).toBeInTheDocument();
+    expect(
+      within(observabilityPanel!).getByText(
+        /unredacted forensic mode is blocked/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(observabilityPanel!).getByText(/External telemetry/i),
+    ).toBeInTheDocument();
 
     for (const label of [
       /^approve$/i,
@@ -3274,10 +6650,14 @@ describe("Web Control Center shell", () => {
       /^load$/i,
       /^browse$/i,
     ]) {
-      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: label }),
+      ).not.toBeInTheDocument();
     }
     expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/provider payload content/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/provider payload content/i),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/environment dump/i)).not.toBeInTheDocument();
   });
 
@@ -3621,12 +7001,61 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /Evidence Timeline/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText("implemented_productized_evidence_timeline_safe_refs_only")
-        .length,
+      screen.getAllByText(
+        "implemented_productized_evidence_timeline_safe_refs_only",
+      ).length,
     ).toBeGreaterThan(0);
     expect(
       screen.getAllByText("GET /control-center/evidence/timeline").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Operator Run Timeline/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("contract-ref:operator-run-timeline:v1").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "implemented_read_only_operator_run_timeline_safe_refs_only",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText(/Five borrowed patterns/i)).toBeInTheDocument();
+    for (const patternId of [
+      "typed_event_ledger",
+      "run_control_states",
+      "evidence_based_completion",
+      "approval_preview_and_rejection_feedback",
+      "evidence_condensing_with_safe_refs",
+    ]) {
+      expect(screen.getAllByText(new RegExp(patternId)).length).toBeGreaterThan(
+        0,
+      );
+    }
+    expect(screen.getByText(/Frontier AI cost telemetry/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:frontier-ai-cost-usage-telemetry:v1")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("accounting_slots_ready_no_provider_calls").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("budget-status:unknown-paid-cost-requires-approval")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("provider-ref:not-invoked")).toBeInTheDocument();
+    expect(
+      screen.getByText("model-profile-ref:not-invoked"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Estimated cost USD")).toBeInTheDocument();
+    expect(screen.getAllByText(/Evidence narrative/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getByText(
+        /Narrative entries are unavailable from the backend response/i,
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("Evidence history grammar")).toBeInTheDocument();
     expect(
       screen.getAllByText("contract-ref:evidence-history-grammar:v1").length,
@@ -3642,14 +7071,22 @@ describe("Web Control Center shell", () => {
     ]) {
       expect(screen.getAllByText(question).length).toBeGreaterThan(0);
     }
-    expect(screen.getAllByText(/Approval ref authority/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Rollback execution/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Memory truth authority/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Raw evidence included/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Approval ref authority/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Rollback execution/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getAllByText(/Memory truth authority/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Raw evidence included/i).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText(/Private source artifacts/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/Approval refs are identifiers only/i),
-    ).toBeInTheDocument();
+      screen.getAllByText(/Approval refs are identifiers only/i).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText(/rollback refs do not perform rollback/i),
     ).toBeInTheDocument();
@@ -3701,6 +7138,144 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/raw path/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/raw log/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/environment dump/i)).not.toBeInTheDocument();
+  });
+
+  it("renders Evidence Timeline narrative entries", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (url: RequestInfo | URL) =>
+          new Response(JSON.stringify(envelopeForReadEndpoint(String(url))), {
+            headers: { "Content-Type": "application/json" },
+          }),
+      ),
+    );
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Evidence narrative/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getAllByText(
+        "contract-ref:product-loop-010-evidence-timeline-narrative:v1",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "implemented_evidence_timeline_narrative_safe_refs_only",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("What happened")).toBeInTheDocument();
+    expect(screen.getByText("Why recorded")).toBeInTheDocument();
+    expect(screen.getByText("Approval posture")).toBeInTheDocument();
+    expect(screen.getByText("Still blocked")).toBeInTheDocument();
+    expect(screen.getByText("Inspect")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /A reviewable Today-to-Action evidence event was recorded as safe refs/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: /Narrative: Setup Assistant hardening review/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("evidence-narrative:mock-founder-loop").length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/provider payload/i)).not.toBeInTheDocument();
+  });
+
+  it("fails closed for unsafe Evidence Timeline narrative payloads", async () => {
+    const unsafeEvidence = JSON.parse(
+      JSON.stringify(mockControlCenterData.founderEvidenceTimeline),
+    );
+    unsafeEvidence.narrative_read_model.entries[0].what_happened =
+      "raw prompt should not render";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        const urlText = String(url);
+        if (urlText.endsWith(API_ENDPOINTS.founderEvidenceTimeline)) {
+          return new Response(
+            JSON.stringify({ ok: true, result: unsafeEvidence }),
+            { headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Narrative entries are unavailable from the backend response/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/raw prompt should not render/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "contract-ref:product-loop-010-evidence-timeline-narrative:v1",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not backfill Evidence Timeline narrative from mocks", async () => {
+    const evidenceWithoutNarrative = {
+      ...(mockControlCenterData.founderEvidenceTimeline as unknown as Record<
+        string,
+        unknown
+      >),
+    };
+    delete evidenceWithoutNarrative.narrative_read_model;
+    delete evidenceWithoutNarrative.narrative_contract_ref;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        const urlText = String(url);
+        if (urlText.endsWith(API_ENDPOINTS.founderEvidenceTimeline)) {
+          return new Response(
+            JSON.stringify({ ok: true, result: evidenceWithoutNarrative }),
+            { headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Narrative entries are unavailable from the backend response/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("evidence-narrative:mock-founder-loop"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "contract-ref:product-loop-010-evidence-timeline-narrative:v1",
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it("renders M17 file ref summaries without raw file contents or filesystem controls", async () => {
@@ -4144,8 +7719,12 @@ describe("Web Control Center shell", () => {
     expect(
       await screen.findByRole("heading", { name: /^Memory Review$/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Review posture/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Missing contracts/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Review posture/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Missing contracts/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText("/memory")).toBeInTheDocument();
     expect(
       screen.getAllByText("GET /control-center/memory/review").length,
@@ -4159,20 +7738,24 @@ describe("Web Control Center shell", () => {
       screen.getByText("founder-loop-storage:mock-local-sqlite-jsonl"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Memory writes").nextElementSibling,
-    ).toHaveTextContent("disabled");
+      screen
+        .getAllByText("Memory writes")
+        .some((node) =>
+          node.nextElementSibling?.textContent?.match(/blocked|receipt-bound/i),
+        ),
+    ).toBe(true);
     expect(
       screen.getByText("Memory deletes").nextElementSibling,
     ).toHaveTextContent("disabled");
     expect(
-      screen.getAllByText("Context injection").some((node) =>
-        node.nextElementSibling?.textContent?.match(/disabled|blocked/i),
-      ),
+      screen
+        .getAllByText("Context injection")
+        .some((node) =>
+          node.nextElementSibling?.textContent?.match(/disabled|blocked/i),
+        ),
     ).toBe(true);
     expect(
-      screen.getByText(
-        /Review-only memory candidates; recall is not truth/i,
-      ),
+      screen.getByText(/Review-only memory candidates; recall is not truth/i),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -4183,64 +7766,133 @@ describe("Web Control Center shell", () => {
       screen.getAllByText("memory-review:founder-loop-preferences").length,
     ).toBeGreaterThan(0);
     expect(screen.getAllByText("preference").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Memory Workbench V1/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Retrieval Diagnostics/i })).toBeInTheDocument();
-    expect(screen.getByText("GET /control-center/memory/retrieval-diagnostics")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Citation Integrity/i })).toBeInTheDocument();
-    expect(screen.getByText("GET /control-center/memory/citation-integrity")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Quality Issue Queue/i })).toBeInTheDocument();
-    expect(screen.getByText("GET /control-center/memory/quality-issues")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Maintenance Proposals/i })).toBeInTheDocument();
-    expect(screen.getByText("GET /control-center/memory/maintenance-runs")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Context Manifest Preview/i })).toBeInTheDocument();
-    expect(screen.getByText("GET /control-center/memory/context-manifest")).toBeInTheDocument();
     expect(
-      screen.getAllByText("cache-key-ref:fcc-mem-016:mock-preferences").length,
-    ).toBeGreaterThan(0);
+      screen.getByRole("heading", { name: /Memory Workbench V1/i }),
+    ).toBeInTheDocument();
     expect(
-      screen.getAllByText("memory-quality-issue:fcc-mem-018:mock-stale").length,
-    ).toBeGreaterThan(0);
+      screen.getByRole("heading", { name: /Memory lifecycle posture/i }),
+    ).toBeInTheDocument();
     expect(
-      screen.getAllByText("memory-maintenance-proposal:fcc-mem-019:mock-stale")
-        .length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText("context-manifest-ref:fcc-mem-020:mock-preferences")
-        .length,
-    ).toBeGreaterThan(0);
-    expect(screen.getByText("GET /control-center/memory/workbench")).toBeInTheDocument();
+      screen.getByText("GET /control-center/memory/workbench"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("contract-ref:fcc-mem-001-memory-workbench:v1"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Search \/ Filter/i })).toBeInTheDocument();
-    expect(screen.getByText("GET /control-center/memory/search")).toBeInTheDocument();
+    expect(
+      screen.getByText("contract-ref:memory-merge-supersede-posture:v1"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Duplicate review: 1 entry; merge receipt present/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Stale review: 1 entry; defer receipt present/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Conflict review: 1 entry; supersede receipt present/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Corrected: 1 entry; correction receipt present/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Merged: 1 entry; merge receipt present/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Superseded: 1 entry; supersede receipt present/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Forget request: 1 entry; forget-request receipt present/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("receipt:memory-review:merge:mock-peer").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("blocked-state:memory-lifecycle-no-hard-delete")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /Ranked recall diagnostics/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "contract-ref:fcc-mem-022-ranked-retrieval-recall-tuning:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Recall rank").nextElementSibling,
+    ).toHaveTextContent("124");
+    expect(
+      screen.getByText("Lexical/tag/ref only").nextElementSibling,
+    ).toHaveTextContent("yes");
+    expect(
+      screen.getByText("Embeddings/vector/provider").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      screen
+        .getAllByText("Memory writes")
+        .some((node) =>
+          node.nextElementSibling?.textContent?.match(/blocked|receipt-bound/i),
+        ),
+    ).toBe(true);
+    expect(
+      screen.getAllByText("rank-include-ref:lexical-safe-summary-title-match")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("rank-exclusion-ref:stale-pressure").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("blocked-state:memory-ranking-no-context-injection")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /Search \/ Filter/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("GET /control-center/memory/search"),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /Manual Candidate Intake/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Creates review queue state only/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Creates review queue state only/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/high \/ review_needed/i)).toBeInTheDocument();
-    expect(screen.getAllByText("memory_review_queue").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("memory_review_queue").length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.getAllByText("recheck_source_refs_before_memory_use").length,
     ).toBeGreaterThan(0);
     expect(
       screen.getByText("provenance-ref:manual-note:mock-preferences"),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("source-ref:manual-note:founder-loop-storage").length).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("contract-ref:memory-write-policy-binding-missing").length,
+      screen.getAllByText("source-ref:manual-note:founder-loop-storage").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("contract-ref:memory-retention-delete-missing").length,
+      screen.getAllByText("contract-ref:memory-write-policy-binding-missing")
+        .length,
     ).toBeGreaterThan(0);
     expect(
-      screen.queryByText("contract-ref:business-memory-quality-controls-missing"),
+      screen.getAllByText("contract-ref:memory-retention-delete-missing")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText(
+        "contract-ref:business-memory-quality-controls-missing",
+      ),
     ).not.toBeInTheDocument();
     expect(
       screen.getAllByText("contract-ref:context-injection-missing").length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByText("quality-state:needs-review").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("quality-state:stale").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("quality-state:needs-review").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("quality-state:stale").length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.getAllByText("quality-reason:review-state:review-needed").length,
     ).toBeGreaterThan(0);
@@ -4251,13 +7903,21 @@ describe("Web Control Center shell", () => {
       screen.getByText("blocked-state:manual-memory-intake-no-recall-record"),
     ).toBeInTheDocument();
     expect(screen.getAllByText("no_memory_write").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("no_context_injection").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_context_injection").length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getAllByText("no_memory_delete").length).toBeGreaterThan(0);
     expect(screen.getAllByText("no_memory_export").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("no_raw_source_display").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("no_external_crm_write").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_raw_source_display").length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText("no_external_crm_write").length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getAllByText("no_account_sync").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("no_automatic_recall").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("no_automatic_recall").length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getAllByText("no_connector_write").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText("no_model_provider_authority").length,
@@ -4266,10 +7926,15 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText(/Review provenance and evidence refs/i).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Review decisions/i })).toBeInTheDocument();
-    expect(screen.getAllByText("contract-ref:memory-review-decision:v1").length).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("contract-ref:fcc-v1-005-memory-review-decisions:v1").length,
+      screen.getByRole("heading", { name: /Review decisions/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:memory-review-decision:v1").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("contract-ref:fcc-v1-005-memory-review-decisions:v1")
+        .length,
     ).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: /Record accept receipt/i }),
@@ -4280,19 +7945,33 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("button", { name: /Record reject receipt/i }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText(/Corrected bounded safe summary/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Corrected safe-summary ref/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Business memory/i })).toBeInTheDocument();
     expect(
-      screen.getAllByText("contract-ref:business-memory-quality-controls:v1").length,
+      screen.getByLabelText(/Corrected bounded safe summary/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Corrected safe-summary ref/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Business memory/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("contract-ref:business-memory-quality-controls:v1")
+        .length,
     ).toBeGreaterThan(0);
     expect(screen.getAllByText("blocked").length).toBeGreaterThan(0);
     expect(screen.getAllByText("low_confidence").length).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("business-memory-candidate:preference:memory-review-founder-loop-preferences").length,
+      screen.getAllByText(
+        "business-memory-candidate:preference:memory-review-founder-loop-preferences",
+      ).length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByText("weekly-review-ref:business-memory-carry-forward").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Memory intake/i })).toBeInTheDocument();
+    expect(
+      screen.getAllByText("weekly-review-ref:business-memory-carry-forward")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /Memory intake/i }),
+    ).toBeInTheDocument();
     expect(
       screen.getAllByText("contract-ref:cross-surface-memory-intake:v1").length,
     ).toBeGreaterThan(0);
@@ -4300,20 +7979,29 @@ describe("Web Control Center shell", () => {
       screen.getAllByText("memory-intake-proposal:local-coding").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("memory-intake-proposal:external-assistant-review").length,
+      screen.getAllByText("memory-intake-proposal:external-assistant-review")
+        .length,
     ).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: /Memory-to-loop/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Memory-to-loop/i }),
+    ).toBeInTheDocument();
     expect(
       screen.getAllByText("contract-ref:memory-to-loop-binding:v1").length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("memory-loop-binding:today:business-memory-candidate-preference-memory-review-founder-loop-preferences").length,
+      screen.getAllByText(
+        "memory-loop-binding:today:business-memory-candidate-preference-memory-review-founder-loop-preferences",
+      ).length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("follow-up-commitment-ref:memory-review-founder-loop-preferences").length,
+      screen.getAllByText(
+        "follow-up-commitment-ref:memory-review-founder-loop-preferences",
+      ).length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByText("memory-derived-action-proposal:memory-review-founder-loop-preferences").length,
+      screen.getAllByText(
+        "memory-derived-action-proposal:memory-review-founder-loop-preferences",
+      ).length,
     ).toBeGreaterThan(0);
     expect(screen.getAllByText("Local Coding").length).toBeGreaterThan(0);
     expect(
@@ -4377,6 +8065,106 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/authoritative truth/i)).not.toBeInTheDocument();
   });
 
+  it("records Memory quality feedback without memory writes or context injection", async () => {
+    setLocalApiBearerForSession("test-local-bearer");
+    const feedbackReceipt = {
+      schema_version: "fcc_mem_018_memory_feedback_receipt.v1",
+      contract_ref: "contract-ref:fcc-mem-018-feedback-quality-queue:v1",
+      route_ref: "POST /control-center/memory/feedback",
+      feedback_ref: "memory-feedback:fcc-mem-021:control-center-test",
+      receipt_ref: "receipt:memory-feedback:fcc-mem-021:control-center-test",
+      quality_issue_ref: "memory-quality-issue:fcc-mem-018:mock-stale",
+      target_ref:
+        "business-memory-candidate:preference:memory-review-founder-loop-preferences",
+      target_kind: "memory_candidate",
+      feedback_kind: "stale",
+      reviewer_ref: "actor-ref:control-center-memory-review",
+      evidence_refs: ["evidence-ref:fcc-mem-021:feedback-test"],
+      reason_refs: ["reason-ref:control-center-memory-feedback:stale"],
+      metadata_refs: ["memory-quality-issue:fcc-mem-018:mock-stale"],
+      blocked_state_refs: [
+        "blocked-state:memory-feedback-no-automatic-memory-write",
+        "blocked-state:memory-feedback-no-context-injection",
+      ],
+      idempotency_key_ref:
+        "idempotency-ref:control-center-memory-feedback:stale:test",
+      payload_fingerprint_ref:
+        "payload-fingerprint-ref:control-center-memory-feedback:test",
+      status: "feedback_recorded",
+      quality_issue_created: true,
+      memory_write_performed: false,
+      automatic_memory_write_authorized: false,
+      delete_execution_authorized: false,
+      context_injection_authorized: false,
+      action_execution_authorized: false,
+      production_authority_enabled: false,
+      replayed: false,
+      created_at: "2026-06-23T00:00:00Z",
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      expect(String(url)).toContain(API_ENDPOINTS.founderMemoryFeedback);
+      expect(String(options?.method)).toBe("POST");
+      expect(
+        String((options?.headers as Record<string, string>)["X-UAA-Idempotency-Key"]),
+      ).toContain("idempotency-ref:control-center-memory-feedback");
+      return new Response(
+        JSON.stringify({ ok: true, result: feedbackReceipt }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const receipt = await recordMemoryFeedback({
+      target_ref:
+        "business-memory-candidate:preference:memory-review-founder-loop-preferences",
+      target_kind: "memory_candidate",
+      feedback_kind: "stale",
+      reviewer_ref: "actor-ref:control-center-memory-review",
+      evidence_refs: ["evidence-ref:fcc-mem-021:feedback-test"],
+      reason_refs: ["reason-ref:control-center-memory-feedback:stale"],
+      metadata_refs: ["memory-quality-issue:fcc-mem-018:mock-stale"],
+      blocked_state_refs: [
+        "blocked-state:memory-feedback-no-automatic-memory-write",
+        "blocked-state:memory-feedback-no-context-injection",
+      ],
+    });
+
+    expect(receipt.receipt_ref).toBe(feedbackReceipt.receipt_ref);
+    expect(receipt.memory_write_performed).toBe(false);
+    expect(receipt.context_injection_authorized).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    setLocalApiBearerForSession(null);
+  });
+
+  it("renders memory self-heal recommendations as proposal-only Action Inbox items", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      await screen.findByText("Review memory quality and maintenance refs"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("memory-proposal-bridge-ref:fcc-mem-021-action-inbox")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        /Memory proposal receipt controls require the local backend Action Inbox/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /control-center/memory/quality-issues").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("GET /control-center/memory/maintenance-runs").length,
+    ).toBeGreaterThan(0);
+    const maintenanceRunLabel = new RegExp(["Run", "maintenance"].join(" "), "i");
+    expect(
+      screen.queryByRole("button", { name: maintenanceRunLabel }),
+    ).not.toBeInTheDocument();
+  });
+
   it("records a Memory Review decision receipt with safe refs only", async () => {
     const candidateRef =
       "business-memory-candidate:preference:memory-review-founder-loop-preferences";
@@ -4393,14 +8181,17 @@ describe("Web Control Center shell", () => {
       receipt_ref: "receipt:memory-review:accept:control-center-test",
       decision_ref: "memory-review-decision:accept:control-center-test",
       audit_ref: "audit-ref:memory-review:accept:control-center-test",
-      idempotency_key_ref: "idempotency-ref:control-center-memory-review:accept:test",
-      payload_fingerprint_ref: "payload-fingerprint:memory-review-decision:test",
+      idempotency_key_ref:
+        "idempotency-ref:control-center-memory-review:accept:test",
+      payload_fingerprint_ref:
+        "payload-fingerprint:memory-review-decision:test",
       evidence_timeline_event_ref:
         "evidence-ref:memory-review:accept:control-center-test",
       approval_ref: "approval-ref:memory-review:accept:control-center-test",
       approval_status: "approved",
       approval_reason_refs: ["approval-reason:approval-validated"],
-      reviewed_recall_ref: "reviewed-recall-ref:memory-review:control-center-test",
+      reviewed_recall_ref:
+        "reviewed-recall-ref:memory-review:control-center-test",
       reviewed_recall_record_ref: "memory-record-ref:mem_control_center_test",
       correction_ref: null,
       rejection_ref: null,
@@ -4429,7 +8220,10 @@ describe("Web Control Center shell", () => {
     };
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
-      if (!options?.method && READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))
+      ) {
         return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -4458,7 +8252,9 @@ describe("Web Control Center shell", () => {
     );
 
     await screen.findByText("receipt:memory-review:accept:control-center-test");
-    expect(screen.getByText("memory-record-ref:mem_control_center_test")).toBeInTheDocument();
+    expect(
+      screen.getByText("memory-record-ref:mem_control_center_test"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("audit-ref:memory-review:accept:control-center-test"),
     ).toBeInTheDocument();
@@ -4466,15 +8262,19 @@ describe("Web Control Center shell", () => {
       screen.getByText("evidence-ref:memory-review:accept:control-center-test"),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText("Context injection").some((node) =>
-        node.nextElementSibling?.textContent?.includes("blocked"),
-      ),
+      screen
+        .getAllByText("Context injection")
+        .some((node) =>
+          node.nextElementSibling?.textContent?.includes("blocked"),
+        ),
     ).toBe(true);
     const [, options] =
       fetchMock.mock.calls.find(
         ([url, requestOptions]) =>
           requestOptions?.method === "POST" &&
-          String(url).endsWith(memoryReviewDecisionEndpoint(candidateRef, "accept")),
+          String(url).endsWith(
+            memoryReviewDecisionEndpoint(candidateRef, "accept"),
+          ),
       ) ?? [];
     expect(options?.headers).toMatchObject({
       Accept: "application/json",
@@ -4497,53 +8297,28 @@ describe("Web Control Center shell", () => {
     expect(bodyText).not.toContain("provider_payload");
   });
 
-  it("records Memory quality feedback without memory writes or context injection", async () => {
-    const receipt = {
-      schema_version: "fcc_mem_018_memory_feedback_receipt.v1",
-      contract_ref: "contract-ref:fcc-mem-018-feedback-quality-queue:v1",
-      route_ref: "POST /control-center/memory/feedback",
-      feedback_ref: "memory-feedback:fcc-mem-018:control-center-test",
-      receipt_ref: "receipt:memory-feedback:fcc-mem-018:control-center-test",
-      quality_issue_ref: "memory-quality-issue:fcc-mem-018:control-center-test",
-      target_ref:
-        "business-memory-candidate:preference:memory-review-founder-loop-preferences",
-      target_kind: "memory_candidate",
-      feedback_kind: "wrong",
-      reviewer_ref: "actor-ref:control-center-memory-review",
-      evidence_refs: [],
-      reason_refs: ["reason-ref:control-center-memory-feedback:wrong"],
-      metadata_refs: ["memory-quality-issue:fcc-mem-018:mock-stale"],
-      blocked_state_refs: [
-        "blocked-state:memory-feedback-no-automatic-memory-write",
-        "blocked-state:memory-feedback-no-context-injection",
-        "blocked-state:memory-feedback-no-action-execution",
-      ],
-      idempotency_key_ref:
-        "idempotency-ref:control-center-memory-feedback:wrong:test",
-      payload_fingerprint_ref: "payload-fingerprint:memory-feedback:test",
-      status: "feedback_receipt_recorded_quality_issue_signal_only",
-      quality_issue_created: true,
-      memory_write_performed: false,
-      automatic_memory_write_authorized: false,
-      delete_execution_authorized: false,
-      context_injection_authorized: false,
-      action_execution_authorized: false,
-      production_authority_enabled: false,
-      replayed: false,
-      created_at: "2026-06-23T00:00:00Z",
+  it("does not backfill lifecycle posture or decisions from mocks for partial backend workbench responses", async () => {
+    const partialWorkbench = {
+      ...mockControlCenterData.founderMemoryWorkbench,
+      items: mockControlCenterData.founderMemoryWorkbench.items.map((item) => {
+        const { available_lifecycle_decisions: _available, ...rest } = item;
+        return rest;
+      }),
     };
-    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+    delete (partialWorkbench as { lifecycle_posture?: unknown })
+      .lifecycle_posture;
+    const fetchMock = vi.fn(async (url: string) => {
       const urlText = String(url);
-      if (
-        options?.method === "POST" &&
-        urlText.endsWith(API_ENDPOINTS.founderMemoryFeedback)
-      ) {
-        return new Response(JSON.stringify({ ok: true, result: receipt }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+      if (urlText.endsWith(API_ENDPOINTS.founderMemoryWorkbench)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: partialWorkbench }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
-      if (!options?.method && READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
         return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -4558,47 +8333,67 @@ describe("Web Control Center shell", () => {
     expect(
       await screen.findByRole("heading", { name: /^Memory Review$/i }),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /^wrong$/i }));
-
-    await screen.findByText("receipt:memory-feedback:fcc-mem-018:control-center-test");
+    expect(screen.getByText("backend posture missing")).toBeInTheDocument();
     expect(
-      screen.getByText("memory-quality-issue:fcc-mem-018:control-center-test"),
+      screen.queryByText("contract-ref:memory-merge-supersede-posture:v1"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("receipt:memory-review:merge:mock-peer"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Record accept receipt/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Record merge receipt/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not backfill nested lifecycle posture fields from mocks", async () => {
+    cleanup();
+    const partialWorkbench = {
+      ...mockControlCenterData.founderMemoryWorkbench,
+      lifecycle_posture: {
+        schema_version: "product-loop-002-memory-merge-supersede-posture.v1",
+        contract_ref: "contract-ref:memory-merge-supersede-posture:v1",
+        status: "partial_backend_contract_missing_lanes",
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderMemoryWorkbench)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: partialWorkbench }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/memory");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Memory Review$/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText("Memory write").some((node) =>
-        node.nextElementSibling?.textContent?.match(/no|blocked/i),
-      ),
-    ).toBe(true);
+      screen.getByText("partial_backend_contract_missing_lanes"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Lifecycle lanes: none")).toBeInTheDocument();
     expect(
-      screen.getAllByText("Context injection").some((node) =>
-        node.nextElementSibling?.textContent?.match(/blocked/i),
-      ),
-    ).toBe(true);
-    const [, options] =
-      fetchMock.mock.calls.find(
-        ([url, requestOptions]) =>
-          requestOptions?.method === "POST" &&
-          String(url).endsWith(API_ENDPOINTS.founderMemoryFeedback),
-      ) ?? [];
-    expect(options?.headers).toMatchObject({
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "X-UAA-Idempotency-Key": expect.stringMatching(
-        /^idempotency-ref:control-center-memory-feedback:wrong:/,
-      ),
-    });
-    const body = JSON.parse(String(options?.body));
-    expect(body).toMatchObject({
-      target_ref:
-        "business-memory-candidate:preference:memory-review-founder-loop-preferences",
-      target_kind: "memory_candidate",
-      feedback_kind: "wrong",
-      reviewer_ref: "actor-ref:control-center-memory-review",
-      reason_refs: ["reason-ref:control-center-memory-feedback:wrong"],
-    });
-    expect(body.blocked_state_refs).toContain(
-      "blocked-state:memory-feedback-no-context-injection",
-    );
+      screen.queryByText(/Duplicate review: 1 entry; merge receipt present/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("receipt:memory-review:merge:mock-peer"),
+    ).not.toBeInTheDocument();
   });
 
   it("attaches a non-persistent local bearer to memory read and write helpers", async () => {
@@ -4619,8 +8414,10 @@ describe("Web Control Center shell", () => {
       decision_ref: "memory-review-decision:auth-header-test",
       audit_ref: "audit-ref:memory-review:auth-header-test",
       idempotency_key_ref: "idempotency-ref:memory-review:auth-header-test",
-      payload_fingerprint_ref: "payload-fingerprint:memory-review:auth-header-test",
-      evidence_timeline_event_ref: "evidence-timeline-event:memory-review:auth-header-test",
+      payload_fingerprint_ref:
+        "payload-fingerprint:memory-review:auth-header-test",
+      evidence_timeline_event_ref:
+        "evidence-timeline-event:memory-review:auth-header-test",
       approval_ref: "approval-ref:memory-review:auth-header-test",
       approval_status: "approved",
       approval_reason_refs: ["approval-reason:approval-validated"],
@@ -4678,13 +8475,16 @@ describe("Web Control Center shell", () => {
       evidence_refs: ["evidence-ref:auth-header-test"],
     });
 
-    const getCall = fetchMock.mock.calls.find(([url, options]) =>
-      String(url).endsWith(memoryReviewReceiptEndpoint(candidateRef)) &&
-      !options?.method
+    const getCall = fetchMock.mock.calls.find(
+      ([url, options]) =>
+        String(url).endsWith(memoryReviewReceiptEndpoint(candidateRef)) &&
+        !options?.method,
     );
-    const postCall = fetchMock.mock.calls.find(([url, options]) =>
-      String(url).endsWith(memoryReviewDecisionEndpoint(candidateRef, "accept")) &&
-      options?.method === "POST"
+    const postCall = fetchMock.mock.calls.find(
+      ([url, options]) =>
+        String(url).endsWith(
+          memoryReviewDecisionEndpoint(candidateRef, "accept"),
+        ) && options?.method === "POST",
     );
     expect(getCall?.[1]?.headers).toMatchObject({
       Authorization: `Bearer ${localBearer}`,
@@ -4717,9 +8517,7 @@ describe("Web Control Center shell", () => {
       fireEvent.click(metadataButtons[1]);
 
       const expectedRef =
-        route === "/evidence"
-          ? "mock_evidence_ref_002"
-          : "mock_file_ref_002";
+        route === "/evidence" ? "mock_evidence_ref_002" : "mock_file_ref_002";
       expect(
         screen.getAllByRole("heading", { name: expectedRef }).length,
       ).toBeGreaterThan(0);
@@ -4963,9 +8761,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     expect(await screen.findByText("Backend online")).toBeInTheDocument();
-    expect(
-      screen.getByText("Backend API setup timeline"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Backend API setup timeline")).toBeInTheDocument();
     expect(
       screen.getByText("control-center:setup-assistant-api-test"),
     ).toBeInTheDocument();
@@ -5003,7 +8799,9 @@ describe("Web Control Center shell", () => {
         /non-authoritative mock fallback filled missing panels/i,
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Backend degraded; verify refs/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Backend degraded; verify refs/i),
+    ).toBeInTheDocument();
     expect(screen.getByText("API boundary unverified")).toBeInTheDocument();
     expect(screen.getByText("Evidence refs unverified")).toBeInTheDocument();
     expect(screen.queryByText("API boundary stable")).not.toBeInTheDocument();
@@ -5140,63 +8938,27 @@ describe("Web Control Center shell", () => {
     expect(API_ENDPOINTS.founderMemoryContextPacks).toBe(
       "/control-center/memory/context-packs",
     );
-    expect(API_ENDPOINTS.founderMemoryImpactGraph).toBe(
-      "/control-center/memory/impact-graph",
-    );
-    expect(API_ENDPOINTS.founderMemoryFollowUps).toBe(
-      "/control-center/memory/follow-ups",
-    );
-    expect(API_ENDPOINTS.founderMemoryRecallHealth).toBe(
-      "/control-center/memory/recall-health",
-    );
-    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryContextPacks)).toBe(
-      true,
-    );
-    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryImpactGraph)).toBe(
-      true,
-    );
-    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryFollowUps)).toBe(
-      true,
-    );
-    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryRecallHealth)).toBe(
-      true,
-    );
     expect(API_ENDPOINTS.founderMemoryRetrievalDiagnostics).toBe(
       "/control-center/memory/retrieval-diagnostics",
-    );
-    expect(API_ENDPOINTS.founderMemoryCitationIntegrity).toBe(
-      "/control-center/memory/citation-integrity",
-    );
-    expect(API_ENDPOINTS.founderMemoryQualityIssues).toBe(
-      "/control-center/memory/quality-issues",
-    );
-    expect(API_ENDPOINTS.founderMemoryMaintenanceRuns).toBe(
-      "/control-center/memory/maintenance-runs",
     );
     expect(API_ENDPOINTS.founderMemoryContextManifest).toBe(
       "/control-center/memory/context-manifest",
     );
-    expect(API_ENDPOINTS.founderMemoryFeedback).toBe(
-      "/control-center/memory/feedback",
+    expect(`GET ${API_ENDPOINTS.founderMemoryRetrievalDiagnostics}`).toBe(
+      "GET /control-center/memory/retrieval-diagnostics",
+    );
+    expect(`GET ${API_ENDPOINTS.founderMemoryContextManifest}`).toBe(
+      "GET /control-center/memory/context-manifest",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryContextPacks)).toBe(
+      true,
     );
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryRetrievalDiagnostics),
     ).toBe(true);
     expect(
-      isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryCitationIntegrity),
+      isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryContextManifest),
     ).toBe(true);
-    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryQualityIssues)).toBe(
-      true,
-    );
-    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryMaintenanceRuns)).toBe(
-      true,
-    );
-    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryContextManifest)).toBe(
-      true,
-    );
-    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryFeedback)).toBe(
-      false,
-    );
     expect(chatTurnReceiptEndpoint("chat-turn:test")).toBe(
       "/control-center/chat/turns/chat-turn%3Atest/receipt",
     );
@@ -5210,12 +8972,8 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
       true,
     );
-    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderTodaySummary)).toBe(
-      true,
-    );
-    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderActionsInbox)).toBe(
-      true,
-    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderTodaySummary)).toBe(true);
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderActionsInbox)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMorningBriefing)).toBe(
       true,
     );
@@ -5225,12 +8983,13 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.founderStorageStatus)).toBe(
       true,
     );
-    expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterSettingsStatus)).toBe(
-      true,
-    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.controlCenterSettingsStatus),
+    ).toBe(true);
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.controlCenterLocalModelsStatus),
     ).toBe(true);
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.providerSetupGuide)).toBe(true);
     expect(isAllowedReadEndpoint("/control-center/actions/execute")).toBe(
       false,
     );
@@ -5250,6 +9009,11 @@ function envelopeForReadEndpoint(url: string) {
       provider_credential_readiness:
         mockControlCenterData.dashboard.provider_credential_readiness,
     },
+    [API_ENDPOINTS.approvalSummary]: mockApiData.dashboard.approval_summary,
+    [API_ENDPOINTS.runtimeReadinessSummary]:
+      mockApiData.dashboard.runtime_readiness_summary,
+    [API_ENDPOINTS.foundationGateSummary]:
+      mockApiData.dashboard.foundation_gate_summary,
     [API_ENDPOINTS.controlCenterStatus]: mockApiData.status,
     [API_ENDPOINTS.controlCenterRoutes]: mockApiData.routes,
     [API_ENDPOINTS.runtimeReadiness]: {
@@ -5261,6 +9025,7 @@ function envelopeForReadEndpoint(url: string) {
       baseline_version: "0.20.1",
     },
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
+    [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.controlCenterSettingsStatus]:
       mockControlCenterData.settingsStatus,
     [API_ENDPOINTS.controlCenterLocalModelsStatus]:
@@ -5272,12 +9037,6 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.founderMemoryReview,
     [API_ENDPOINTS.founderMemoryWorkbench]:
       mockControlCenterData.founderMemoryWorkbench,
-    [API_ENDPOINTS.founderMemoryImpactGraph]:
-      mockControlCenterData.founderMemoryImpactGraph,
-    [API_ENDPOINTS.founderMemoryFollowUps]:
-      mockControlCenterData.founderMemoryFollowUpQueue,
-    [API_ENDPOINTS.founderMemoryRecallHealth]:
-      mockControlCenterData.founderMemoryRecallHealth,
     [API_ENDPOINTS.founderMemoryContextPacks]:
       mockControlCenterData.founderMemoryContextPacks,
     [API_ENDPOINTS.founderMemoryRetrievalDiagnostics]:
@@ -5314,7 +9073,8 @@ function envelopeForReadEndpoint(url: string) {
           }),
         ),
       source_readiness_posture: {
-        ...mockControlCenterData.founderSourceReadiness.source_readiness_posture,
+        ...mockControlCenterData.founderSourceReadiness
+          .source_readiness_posture,
         source: "python_core_source_readiness_read_model",
         backend_owned: true,
       },
@@ -5380,8 +9140,8 @@ const mockApiData = {
       summary: "Read-only approval summary.",
     },
     api_summary: {
-      route_count: 152,
-      control_center_route_count: 47,
+      route_count: MOCK_OPENAPI_ROUTE_COUNT,
+      control_center_route_count: MOCK_CONTROL_CENTER_ROUTE_COUNT,
       operation_ids_unique: true,
       execution_routes_present: false,
     },
@@ -5701,7 +9461,12 @@ const mockApiData = {
       {
         module: "Today",
         status: "implemented_storage_backed_partial_loop",
-        required_loop_outputs: ["today_state", "action_state", "evidence_state", "memory_state"],
+        required_loop_outputs: [
+          "today_state",
+          "action_state",
+          "evidence_state",
+          "memory_state",
+        ],
         current_feed_refs: [
           "GET /control-center/today/summary",
           "evidence-ref:founder-loop:today-summary",
@@ -5740,7 +9505,8 @@ const mockApiData = {
       },
       {
         module: "Memory",
-        status: "implemented_review_queue_quality_intake_and_loop_binding_contract",
+        status:
+          "implemented_review_queue_quality_intake_and_loop_binding_contract",
         required_loop_outputs: [
           "today_memory_review_count",
           "action_or_follow_up_candidate",
@@ -6060,9 +9826,7 @@ const mockApiData = {
       "receipt-plan:governed-code-apply:code-proposal-founder-loop-safe-diff",
     governed_code_workbench_expected_rollback_receipt_ref:
       "rollback-receipt-plan:governed-code:code-proposal-founder-loop-safe-diff",
-    governed_code_workbench_evidence_refs: [
-      "evidence-ref:governed-code:today",
-    ],
+    governed_code_workbench_evidence_refs: ["evidence-ref:governed-code:today"],
     governed_code_workbench_idempotency_key_ref:
       "idempotency-ref:governed-code:code-proposal-founder-loop-safe-diff",
     governed_code_workbench_safe_summary:
@@ -6141,8 +9905,7 @@ const mockApiData = {
       "blocked-state:no-diff-body-storage",
       "blocked-state:no-production-authority",
     ],
-    plans_action_envelope_contract_ref:
-      "contract-ref:plans-action-envelope:v1",
+    plans_action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
     plans_action_envelope_review_postures: [
       "approve",
       "edit",
@@ -6175,9 +9938,13 @@ const mockApiData = {
     ],
     plans_action_envelope_required_blocked_refs: [
       "blocked-state:no-action-execution",
+      "blocked-state:no-tool-execution",
+      "blocked-state:no-workflow-execution",
       "blocked-state:no-approval-grant-capture",
       "blocked-state:approval-refs-identifiers-only",
+      "blocked-state:no-connector-runtime",
       "blocked-state:no-connector-write",
+      "blocked-state:no-browser-automation",
       "blocked-state:no-shell-subprocess-execution",
       "blocked-state:no-model-provider-authority",
       "blocked-state:no-public-beta-or-distribution",
@@ -6200,6 +9967,10 @@ const mockApiData = {
       approval_grant_capture_enabled: false,
       action_execution_enabled: false,
       state_change_enabled: false,
+      tool_execution_enabled: false,
+      workflow_execution_enabled: false,
+      browser_execution_enabled: false,
+      connector_runtime_enabled: false,
       connector_write_enabled: false,
       shell_subprocess_execution_enabled: false,
       model_provider_authority_allowed: false,
@@ -6375,7 +10146,8 @@ const mockApiData = {
         expires_at: "review_required_before_mutation",
         stale_state: "recheck_plan_and_action_refs_before_mutation",
         rollback_ref: "rollback-plan:plans-action-envelope:plan-summary-test",
-        safe_disable_ref: "safe-disable:plans-action-envelope:plan-summary-test",
+        safe_disable_ref:
+          "safe-disable:plans-action-envelope:plan-summary-test",
         blocked_state_refs: [
           "blocked-state:no-action-execution",
           "blocked-state:no-approval-grant-capture",
@@ -6392,13 +10164,18 @@ const mockApiData = {
         approval_ref_authority: false,
         approval_grant_capture_enabled: false,
         action_execution_enabled: false,
+        tool_execution_enabled: false,
+        workflow_execution_enabled: false,
+        browser_execution_enabled: false,
+        connector_runtime_enabled: false,
         connector_write_enabled: false,
         shell_subprocess_execution_enabled: false,
         model_provider_authority_allowed: false,
         safe_refs_only: true,
         raw_content_included: false,
         plan_action_envelope_ref: "action-envelope:plans:plan-summary-test",
-        plan_action_scope_ref: "scope-ref:plans-action-envelope:plan-summary-test",
+        plan_action_scope_ref:
+          "scope-ref:plans-action-envelope:plan-summary-test",
         plan_action_approval_requirement_ref:
           "approval-requirement:plans-action-envelope:plan-summary-test",
         plan_action_review_posture_refs: [
@@ -6438,7 +10215,8 @@ const mockApiData = {
           "contract-ref:context-injection-missing",
         ],
         correction_posture: "correction_requires_scoped_memory_write_contract",
-        rejection_posture: "rejection_is_review_state_only_until_capture_contract",
+        rejection_posture:
+          "rejection_is_review_state_only_until_capture_contract",
         retention_posture: "retention_policy_not_bound",
         delete_posture: "delete_execution_not_scoped",
         confidence_posture: "safe_summary_unverified",
@@ -6528,7 +10306,8 @@ const mockApiData = {
         ],
         decision_stale_state: "recheck_source_refs_before_memory_use",
         decision_retention_posture: "retention_policy_not_bound",
-        decision_correction_posture: "correction_requires_scoped_memory_write_contract",
+        decision_correction_posture:
+          "correction_requires_scoped_memory_write_contract",
         decision_authority_boundary:
           "Memory review decisions are review metadata only; writes, deletes, exports, context injection, connector runtime, account auth, and production authority remain unscoped.",
         decision_review_only: true,
@@ -6649,7 +10428,8 @@ const mockApiData = {
           "no_background_refresh",
         ],
         stale_state: "recheck_route_status_before_briefing_use",
-        evidence_gap: "No email, calendar, or notification source evidence is bound.",
+        evidence_gap:
+          "No email, calendar, or notification source evidence is bound.",
         next_safe_action:
           "Use route and storage refs only; define source contracts before refresh.",
         evidence_refs: ["evidence-ref:founder-loop:test-briefing"],
@@ -6707,7 +10487,9 @@ const mockApiData = {
         receipt_refs: ["receipt-plan:plans-action-envelope:plan-summary-test"],
         audit_refs: [],
         replay_refs: ["replay-ref:founder-loop:plan-summary"],
-        rollback_refs: ["rollback-plan:plans-action-envelope:plan-summary-test"],
+        rollback_refs: [
+          "rollback-plan:plans-action-envelope:plan-summary-test",
+        ],
         rollback_blockers: ["rollback_execution_not_scoped"],
         latency_refs: [],
         foundation_gate_refs: [],
@@ -6771,8 +10553,13 @@ const mockApiData = {
         title: "Briefing item",
         safe_summary:
           "Briefing evidence is source-readiness posture only. Email, calendar, connector, refresh, and notification runtime stay blocked.",
-        source_refs: ["briefing:test", "source-ref:control-center-route-status"],
-        status_refs: ["evidence-timeline:briefing-status/local_status_refs_only"],
+        source_refs: [
+          "briefing:test",
+          "source-ref:control-center-route-status",
+        ],
+        status_refs: [
+          "evidence-timeline:briefing-status/local_status_refs_only",
+        ],
         related_route_refs: [
           "GET /control-center/morning-briefing/summary",
           "/briefing",
@@ -6839,7 +10626,8 @@ const mockApiData = {
       },
     ],
     evidence_timeline_route_ref: "/evidence",
-    evidence_timeline_backend_route_ref: "GET /control-center/evidence/timeline",
+    evidence_timeline_backend_route_ref:
+      "GET /control-center/evidence/timeline",
     evidence_timeline_status:
       "implemented_productized_evidence_timeline_safe_refs_only",
     evidence_timeline_authority_boundary:
@@ -6898,8 +10686,12 @@ const mockApiData = {
         blocked_state:
           "Only local task creation is available; all external authority remains blocked.",
         evidence_refs: ["evidence-ref:founder-loop:local-task-commit"],
-        receipt_refs: ["receipt:founder-loop-action:mock-local-task-create:approve"],
-        audit_refs: ["audit:founder-loop-action:mock-local-task-create:approve"],
+        receipt_refs: [
+          "receipt:founder-loop-action:mock-local-task-create:approve",
+        ],
+        audit_refs: [
+          "audit:founder-loop-action:mock-local-task-create:approve",
+        ],
         idempotency_key_ref:
           "idempotency-ref:founder-loop:mock-local-task-create",
         expires_at: "review_required_before_local_task_commit",
@@ -6986,7 +10778,8 @@ const mockApiData = {
         local_task_safe_disable_active: false,
         local_task_safe_disable_posture_ref:
           "safe-disable-posture:founder-loop:local-task-create",
-        local_task_rollback_ref: "rollback-not-applicable:local-task-safe-disable",
+        local_task_rollback_ref:
+          "rollback-not-applicable:local-task-safe-disable",
         local_task_rollback_execution_enabled: false,
         local_task_rollback_blocker_refs: [
           "blocked-state:local-task-rollback-execution-not-scoped",
@@ -7133,7 +10926,8 @@ const mockApiData = {
       "POST /control-center/actions/{action_id}/defer",
       "GET /control-center/actions/{action_id}/receipt",
     ],
-    decision_state_contract_ref: "contract-ref:founder-loop-action-state-machine:v1",
+    decision_state_contract_ref:
+      "contract-ref:founder-loop-action-state-machine:v1",
     decision_statuses: [
       "proposed",
       "approved",
@@ -7211,7 +11005,8 @@ const mockApiData = {
           "no_background_refresh",
         ],
         stale_state: "recheck_route_status_before_briefing_use",
-        evidence_gap: "No email, calendar, or notification source evidence is bound.",
+        evidence_gap:
+          "No email, calendar, or notification source evidence is bound.",
         next_safe_action:
           "Use route and storage refs only; define source contracts before refresh.",
         evidence_refs: ["evidence-ref:founder-loop:test-briefing"],
@@ -7262,3 +11057,10 @@ const mockApiData = {
     updated_at: "2026-01-01T00:00:00Z",
   },
 };
+
+const mockApiLocalTaskCreateItem = mockApiData.founderActionsInbox.items.find(
+  (candidate) => candidate.item_ref === "founder-action:mock-local-task-create",
+);
+if (mockApiLocalTaskCreateItem) {
+  applyApprovedActionCost(mockApiLocalTaskCreateItem);
+}

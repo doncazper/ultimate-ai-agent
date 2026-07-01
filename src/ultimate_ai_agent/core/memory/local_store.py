@@ -9,6 +9,7 @@ from ultimate_ai_agent import __version__
 from ultimate_ai_agent.core.memory.enums import (
     MemoryAuthorityLevel,
     MemoryConflictState,
+    MemoryEpistemicRole,
     MemoryLayer,
     MemoryProviderKind,
     MemoryRetentionState,
@@ -37,6 +38,7 @@ class LocalMemoryStore(MemoryProvider):
     def __init__(self, storage_path: Optional[Path] = None) -> None:
         self.storage_path = Path(storage_path) if storage_path is not None else None
         self._records: Dict[str, MemoryRecord] = {}
+        self._fts_enabled = False
         provider_kind = MemoryProviderKind.local_sqlite if self.storage_path else MemoryProviderKind.local_in_memory
         self.manifest: MemoryProviderManifest = build_default_memory_provider_manifest(
             baseline_version=__version__,
@@ -55,6 +57,24 @@ class LocalMemoryStore(MemoryProvider):
                 )
                 """
             )
+            try:
+                self._conn.execute(
+                    """
+                    CREATE VIRTUAL TABLE IF NOT EXISTS memory_record_fts
+                    USING fts5(
+                        memory_id UNINDEXED,
+                        safe_summary,
+                        tag_text,
+                        source_ref_text,
+                        evidence_ref_text,
+                        receipt_ref_text,
+                        metadata_ref_text
+                    )
+                    """
+                )
+                self._fts_enabled = True
+            except sqlite3.OperationalError:
+                self._fts_enabled = False
             self._conn.commit()
 
     def put_record(self, request: MemoryProviderWriteRequest) -> Any:
@@ -88,6 +108,7 @@ class LocalMemoryStore(MemoryProvider):
             memory_id=memory_id,
             memory_kind=request.memory_kind,
             memory_layer=MemoryLayer.record,
+            epistemic_role=request.epistemic_role or MemoryEpistemicRole.unknown,
             provider_kind=provider_kind,
             review_state=MemoryReviewState.user_reviewed,
             authority_level=MemoryAuthorityLevel.recall_only,
@@ -102,6 +123,7 @@ class LocalMemoryStore(MemoryProvider):
             file_refs=request.file_refs,
             confidence_score=request.confidence_score,
             trust_score=request.trust_score,
+            confidence=request.confidence_score,
             recall_metadata=MemoryRecallMetadata(
                 recall_id=f"recall_{uuid.uuid4().hex[:10]}",
                 context_pack_eligible=request.context_pack_eligible,
@@ -152,6 +174,48 @@ class LocalMemoryStore(MemoryProvider):
         record.updated_at = utc_now()
         record.metadata["deletion_reason"] = request.reason
         record.metadata["user_requested_delete"] = request.user_requested
+        self._save(record)
+        return record
+
+    def record_feedback(
+        self,
+        *,
+        memory_id: str,
+        feedback_kind: str,
+        receipt_ref: str,
+    ) -> MemoryRecord:
+        record = self.get_record(memory_id)
+        if record is None:
+            raise KeyError(memory_id)
+        delta = 0.0
+        if feedback_kind == "helpful":
+            delta = 0.05
+        elif feedback_kind in {"unhelpful", "not_relevant"}:
+            delta = -0.10
+        record.trust_score = max(0.0, min(1.0, float(record.trust_score) + delta))
+        if feedback_kind == "stale":
+            record.stale_state = MemoryConflictState.stale
+        if feedback_kind == "conflict":
+            record.conflict_state = MemoryConflictState.possible_conflict
+        record.updated_at = utc_now()
+        if receipt_ref not in record.receipt_refs:
+            record.receipt_refs.append(receipt_ref)
+        record.metadata_refs = list(
+            dict.fromkeys(
+                [
+                    *record.metadata_refs,
+                    f"feedback-kind-ref:memory:{feedback_kind}",
+                    receipt_ref,
+                ]
+            )
+        )
+        record.metadata["latest_feedback_receipt_ref"] = receipt_ref
+        record.metadata["latest_feedback_kind"] = feedback_kind
+        if record.lifecycle is not None:
+            record.lifecycle.conflict_state = record.conflict_state
+            record.lifecycle.stale_state = record.stale_state
+            record.lifecycle.metadata["latest_feedback_receipt_ref"] = receipt_ref
+            record.lifecycle.metadata["latest_feedback_kind"] = feedback_kind
         self._save(record)
         return record
 
@@ -207,6 +271,7 @@ class LocalMemoryStore(MemoryProvider):
                 "event_refs": record.event_refs,
                 "receipt_refs": record.receipt_refs,
                 "file_refs": record.file_refs,
+                "epistemic_role": record.epistemic_role,
                 "data_classification": record.data_classification,
                 "retention_state": record.retention_state,
                 "redaction_status": record.redaction_status,
@@ -224,6 +289,53 @@ class LocalMemoryStore(MemoryProvider):
             records=safe_records,
         )
 
+    def search_index_status(self) -> dict[str, Any]:
+        if self._conn is None:
+            return {
+                "status": "deterministic_lexical_fallback_in_memory",
+                "provider_kind": MemoryProviderKind.local_in_memory.value,
+                "fts5_enabled": False,
+                "indexed_record_count": len(self._records),
+                "safe_summary_refs_only": True,
+                "raw_content_indexed": False,
+                "embedding_index_enabled": False,
+                "vector_db_enabled": False,
+                "semantic_search_enabled": False,
+                "hrr_enabled": False,
+                "algebraic_retrieval_enabled": False,
+            }
+        indexed = 0
+        if self._fts_enabled:
+            try:
+                row = self._conn.execute(
+                    "SELECT COUNT(*) AS count FROM memory_record_fts"
+                ).fetchone()
+                indexed = int(row[0]) if row is not None else 0
+            except sqlite3.OperationalError:
+                indexed = 0
+        else:
+            row = self._conn.execute(
+                "SELECT COUNT(*) AS count FROM memory_records"
+            ).fetchone()
+            indexed = int(row[0]) if row is not None else 0
+        return {
+            "status": (
+                "fts5_enabled_safe_summary_refs_only"
+                if self._fts_enabled
+                else "deterministic_lexical_fallback_sqlite"
+            ),
+            "provider_kind": MemoryProviderKind.local_sqlite.value,
+            "fts5_enabled": self._fts_enabled,
+            "indexed_record_count": indexed,
+            "safe_summary_refs_only": True,
+            "raw_content_indexed": False,
+            "embedding_index_enabled": False,
+            "vector_db_enabled": False,
+            "semantic_search_enabled": False,
+            "hrr_enabled": False,
+            "algebraic_retrieval_enabled": False,
+        }
+
     def close(self) -> None:
         if self._conn is not None:
             self._conn.close()
@@ -238,4 +350,48 @@ class LocalMemoryStore(MemoryProvider):
             "INSERT OR REPLACE INTO memory_records (memory_id, payload_json, updated_at) VALUES (?, ?, ?)",
             (record.memory_id, payload, utc_now().isoformat()),
         )
+        if self._fts_enabled:
+            self._conn.execute(
+                "DELETE FROM memory_record_fts WHERE memory_id = ?",
+                (record.memory_id,),
+            )
+            self._conn.execute(
+                """
+                INSERT INTO memory_record_fts (
+                    memory_id, safe_summary, tag_text, source_ref_text,
+                    evidence_ref_text, receipt_ref_text, metadata_ref_text
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record.memory_id,
+                    record.safe_summary or record.summary or "",
+                    " ".join(record.tags),
+                    _source_ref_text(record.source_refs),
+                    " ".join(record.evidence_refs),
+                    " ".join(record.receipt_refs),
+                    " ".join(record.metadata_refs),
+                ),
+            )
         self._conn.commit()
+
+
+def _source_ref_text(source_refs: List[MemorySourceRef]) -> str:
+    refs: list[str] = []
+    for source_ref in source_refs:
+        refs.extend(
+            str(value)
+            for value in [
+                source_ref.source_ref,
+                source_ref.source_id,
+                source_ref.evidence_ref,
+                source_ref.event_ref,
+                *source_ref.evidence_refs,
+                *source_ref.event_refs,
+                *source_ref.file_refs,
+                *source_ref.receipt_refs,
+                *source_ref.metadata_refs,
+            ]
+            if value
+        )
+    return " ".join(refs)

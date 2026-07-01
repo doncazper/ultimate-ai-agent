@@ -28,20 +28,24 @@
           "action_preview_proposal",
           "chat_durable_receipt",
           "local_model_validation",
+          "memory_feedback",
           "memory_context_pack_action_proposal",
           "memory_review_decision",
           "model_chat",
+          "provider_credential_validation",
+          "provider_exact_approved_lane",
+          "provider_router_dry_run",
           "today_to_action_envelope",
           "action_decision",
           "task_decomposition"
         ]
       },
-      "minItems": 9,
-      "maxItems": 9,
+      "minItems": 13,
+      "maxItems": 13,
       "uniqueItems": true
     },
     "targeted_route_count": {
-      "const": 52
+      "const": 55
     },
     "posture_field": {
       "const": "rate_limit_posture"

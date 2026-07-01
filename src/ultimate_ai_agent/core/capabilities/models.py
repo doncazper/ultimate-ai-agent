@@ -9,8 +9,12 @@ from typing import Any, Callable, Type
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ultimate_ai_agent.core.capabilities.enums import (
+    CapabilityAuthorityLevel,
     CapabilityHealthStatus,
     CapabilityKind,
+    CapabilityCostClass,
+    CapabilityLatencyClass,
+    CapabilityPrivacyLevel,
     CoordinationMode,
     PolicyDecisionStatus,
     RiskLevel as CoordinationRiskLevel,
@@ -327,7 +331,20 @@ class CapabilityManifest(_CoordinatorCapabilityModel):
     output_modes: list[str] = Field(default_factory=list)
     side_effects: SideEffectLevel = SideEffectLevel.none
     risk_level: CoordinationRiskLevel = CoordinationRiskLevel.low
+    authority_level: CapabilityAuthorityLevel = CapabilityAuthorityLevel.metadata_only
     approval_required: bool | str | None = None
+    deterministic: bool = False
+    rollback_supported: bool = False
+    receipt_required: bool = True
+    privacy_level: CapabilityPrivacyLevel = CapabilityPrivacyLevel.local_private
+    estimated_latency_class: CapabilityLatencyClass = CapabilityLatencyClass.unknown
+    estimated_cost_class: CapabilityCostClass = CapabilityCostClass.unknown
+    evidence_required: bool = True
+    memory_write_allowed: bool = False
+    context_injection_allowed: bool = False
+    provider_runtime_allowed: bool = False
+    browser_runtime_allowed: bool = False
+    connector_write_allowed: bool = False
     auth_scopes: list[str] = Field(default_factory=list)
     data_classes: list[str] = Field(default_factory=list)
     sandbox_profile: str | None = None
@@ -366,13 +383,59 @@ class CapabilityManifest(_CoordinatorCapabilityModel):
             raise ValueError("Capability manifests require allowed_coordination_modes.")
         if self.risk_level == CoordinationRiskLevel.forbidden:
             raise ValueError("Forbidden capabilities cannot be registered.")
+        if self.authority_level == CapabilityAuthorityLevel.metadata_only:
+            if self.side_effects == SideEffectLevel.write:
+                self.authority_level = CapabilityAuthorityLevel.mutating
+            elif self.side_effects == SideEffectLevel.external:
+                self.authority_level = CapabilityAuthorityLevel.external
+            elif self.side_effects == SideEffectLevel.destructive:
+                self.authority_level = CapabilityAuthorityLevel.destructive
+        if self.side_effects == SideEffectLevel.none and self.authority_level not in {
+            CapabilityAuthorityLevel.metadata_only,
+            CapabilityAuthorityLevel.read_only,
+        }:
+            raise ValueError("No-effect capabilities cannot declare mutating authority.")
+        if self.side_effects == SideEffectLevel.read and self.authority_level not in {
+            CapabilityAuthorityLevel.metadata_only,
+            CapabilityAuthorityLevel.read_only,
+        }:
+            raise ValueError("Read-only capabilities cannot declare mutating authority.")
+        if self.side_effects == SideEffectLevel.write and self.authority_level not in {
+            CapabilityAuthorityLevel.mutating,
+            CapabilityAuthorityLevel.external,
+            CapabilityAuthorityLevel.destructive,
+        }:
+            raise ValueError("Write capabilities must declare mutating authority.")
+        if self.side_effects == SideEffectLevel.external and self.authority_level not in {
+            CapabilityAuthorityLevel.external,
+            CapabilityAuthorityLevel.destructive,
+        }:
+            raise ValueError("External side-effect capabilities must declare external authority.")
+        if self.side_effects == SideEffectLevel.destructive and self.authority_level != CapabilityAuthorityLevel.destructive:
+            raise ValueError("Destructive side-effect capabilities must declare destructive authority.")
         if is_mutating_side_effect(self.side_effects) and not self.single_writer_required:
             raise ValueError("Mutating capabilities must require single-writer coordination.")
         if is_mutating_side_effect(self.side_effects) and not self.safety.require_single_writer:
             raise ValueError("Mutating capabilities must set safety.require_single_writer.")
+        if self.memory_write_allowed and self.authority_level in {
+            CapabilityAuthorityLevel.metadata_only,
+            CapabilityAuthorityLevel.read_only,
+        }:
+            raise ValueError("Memory write authority cannot be enabled for metadata/read-only capabilities.")
+        if self.context_injection_allowed and self.authority_level == CapabilityAuthorityLevel.metadata_only:
+            raise ValueError("Context injection authority cannot be enabled for metadata-only capabilities.")
+        if self.browser_runtime_allowed and not self.provider_runtime_allowed:
+            raise ValueError("Browser runtime authority requires an explicit provider/runtime authority posture.")
+        if self.connector_write_allowed and self.authority_level not in {
+            CapabilityAuthorityLevel.external,
+            CapabilityAuthorityLevel.destructive,
+        }:
+            raise ValueError("Connector write authority requires external or destructive authority.")
         if self.approval_required and self.risk_level in {CoordinationRiskLevel.safe, CoordinationRiskLevel.low}:
             if isinstance(self.approval_required, bool):
                 raise ValueError("Low-risk approval requirements must include a reason string.")
+        if self.deterministic and self.runtime_policy.deterministic is False:
+            self.runtime_policy.deterministic = True
         return self
 
 
@@ -388,10 +451,23 @@ class CapabilityCatalogEntry(_CoordinatorCapabilityModel):
     output_modes: list[str] = Field(default_factory=list)
     side_effects: SideEffectLevel
     risk_level: CoordinationRiskLevel
+    authority_level: CapabilityAuthorityLevel = CapabilityAuthorityLevel.metadata_only
     allowed_coordination_modes: list[CoordinationMode] = Field(default_factory=list)
     concurrency_safe: bool = False
     single_writer_required: bool = False
     approval_required: bool | str | None = None
+    deterministic: bool = False
+    rollback_supported: bool = False
+    receipt_required: bool = True
+    privacy_level: CapabilityPrivacyLevel = CapabilityPrivacyLevel.local_private
+    estimated_latency_class: CapabilityLatencyClass = CapabilityLatencyClass.unknown
+    estimated_cost_class: CapabilityCostClass = CapabilityCostClass.unknown
+    evidence_required: bool = True
+    memory_write_allowed: bool = False
+    context_injection_allowed: bool = False
+    provider_runtime_allowed: bool = False
+    browser_runtime_allowed: bool = False
+    connector_write_allowed: bool = False
     auth_scopes: list[str] = Field(default_factory=list)
     deprecated: bool = False
     health_status: CapabilityHealthStatus = CapabilityHealthStatus.unknown
@@ -419,10 +495,23 @@ class CapabilityCatalogEntry(_CoordinatorCapabilityModel):
             output_modes=list(manifest.output_modes),
             side_effects=manifest.side_effects,
             risk_level=manifest.risk_level,
+            authority_level=manifest.authority_level,
             allowed_coordination_modes=list(manifest.allowed_coordination_modes),
             concurrency_safe=manifest.concurrency_safe,
             single_writer_required=manifest.single_writer_required,
             approval_required=manifest.approval_required,
+            deterministic=manifest.deterministic,
+            rollback_supported=manifest.rollback_supported,
+            receipt_required=manifest.receipt_required,
+            privacy_level=manifest.privacy_level,
+            estimated_latency_class=manifest.estimated_latency_class,
+            estimated_cost_class=manifest.estimated_cost_class,
+            evidence_required=manifest.evidence_required,
+            memory_write_allowed=manifest.memory_write_allowed,
+            context_injection_allowed=manifest.context_injection_allowed,
+            provider_runtime_allowed=manifest.provider_runtime_allowed,
+            browser_runtime_allowed=manifest.browser_runtime_allowed,
+            connector_write_allowed=manifest.connector_write_allowed,
             auth_scopes=list(manifest.auth_scopes),
             deprecated=manifest.quality.deprecated,
             health_status=health_status,

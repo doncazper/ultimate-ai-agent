@@ -20,9 +20,30 @@ blocked, planned, and future-scoped states distinct.
 | Version and baseline | `VERSION.md`, `docs/release_notes/v0_104_0.md`, `docs/release_notes/checkpoint_m169.md` |
 | Tag history and release convention | `docs/releases/TAG_CATALOG.md`, `docs/maintenance/RELEASE_PROCESS.md`, `docs/maintenance/SEMVER_POLICY.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
-| Governed cognitive memory spine | FCC-MEM-001 Memory Workbench V1, FCC-MEM-015 Memory Impact Graph, FCC-MEM-016 through FCC-MEM-020 diagnostics/context manifest layer, FCC-MEM-021 Memory UI + Action Inbox proposal bridge, and the GoatCitadel comparison: `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md`, `docs/memory/MEMORY_MODULE_HARDENING_AND_GOATCITADEL_COMPARISON_2026_06_24.md`, `docs/codex/GOVERNED_COGNITIVE_MEMORY_SPINE_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`, `docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md`, `docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md`, `docs/control_center/FCC_MEM_015_MEMORY_IMPACT_GRAPH_AND_FOLLOW_UP_QUEUE.md`, `docs/control_center/FCC_MEM_016_020_MEMORY_DIAGNOSTICS_CITATIONS_FEEDBACK_MAINTENANCE_CONTEXT.md`, `docs/control_center/FCC_MEM_021_MEMORY_READ_MODELS_UI_ACTION_INBOX_BRIDGE.md` |
+| Governed cognitive memory spine | FCC-MEM-001 Memory Workbench V1 and FCC-MEM-022 Ranked Retrieval / Recall Tuning: `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md`, `docs/codex/GOVERNED_COGNITIVE_MEMORY_SPINE_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`, `docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md`, `docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md`, `docs/control_center/FCC_MEM_022_RANKED_RETRIEVAL_RECALL_TUNING.md` |
+| Agent module maturity review | `docs/registry/agent_module_maturity_map.json`, `docs/registry/agent_module_maturity_review_v2.json`, `docs/registry/AGENT_MODULE_MATURITY_REVIEW_V2.md` |
+| Top-level decision router contract | `docs/control_center/UAA_P1_089_TOP_LEVEL_DECISION_ROUTER_CONTRACT.md`, `src/ultimate_ai_agent/core/decision_router/contracts.py`, `scripts/verify_uaa_p1_089_top_level_decision_router_contract.py` |
+| Task decomposition proposal engine | `docs/control_center/UAA_P1_090_TASK_DECOMPOSITION_PROPOSAL_ENGINE.md`, `src/ultimate_ai_agent/core/task_decomposition/proposals.py`, `scripts/verify_uaa_p1_090_task_decomposition_proposal_engine.py` |
+| Agent runtime compatibility | `docs/architecture/UAA_P2_AGENT_RUNTIME_COMPATIBILITY.md`, `docs/codex/UAA_P2_AGENT_RUNTIME_COMPATIBILITY_PROMPTS.md`, `scripts/verify_agent_runtime_compatibility.py`, `scripts/verify_compatibility_schema_drift.py` |
+| Product Loop 006 Plans to Actions bridge | `docs/control_center/PRODUCT_LOOP_006_PLANS_TO_ACTIONS.md`, `src/ultimate_ai_agent/core/control_center/plans_to_actions.py`, `scripts/inspect_plans_to_actions_bridge.py`, `scripts/verify_product_loop_006_plans_to_actions.py` |
+| Product Loop 007 Morning Briefing V1 | `docs/control_center/PRODUCT_LOOP_007_MORNING_BRIEFING_V1.md`, `src/ultimate_ai_agent/core/control_center/morning_briefing.py`, `scripts/inspect_morning_briefing_v1.py`, `scripts/verify_product_loop_007_morning_briefing_v1.py` |
+| Product Loop 008 Weekly CEO Review | `docs/control_center/PRODUCT_LOOP_008_WEEKLY_CEO_REVIEW.md`, `src/ultimate_ai_agent/core/control_center/weekly_ceo_review.py`, `scripts/inspect_weekly_ceo_review.py`, `scripts/verify_product_loop_008_weekly_ceo_review.py` |
+| Product Loop 009 Chat to loop handoff | `docs/control_center/PRODUCT_LOOP_009_CHAT_TO_LOOP_HANDOFF.md`, `src/ultimate_ai_agent/core/control_center/chat_to_loop_handoff.py`, `scripts/inspect_chat_to_loop_handoff.py`, `scripts/verify_product_loop_009_chat_to_loop_handoff.py` |
+| Product Loop 010 Evidence Timeline narrative | `docs/control_center/PRODUCT_LOOP_010_EVIDENCE_TIMELINE_NARRATIVE.md`, `src/ultimate_ai_agent/core/storage/founder_loop.py`, `scripts/inspect_evidence_timeline_narrative.py`, `scripts/verify_product_loop_010_evidence_timeline_narrative.py` |
+| Product Loop 011 Settings and kill-switch clarity | `docs/control_center/PRODUCT_LOOP_011_SETTINGS_KILL_SWITCH_CLARITY.md`, `src/ultimate_ai_agent/core/control_center/operational_status.py`, `scripts/inspect_settings_authority_posture.py`, `scripts/verify_product_loop_011_settings_kill_switch_clarity.py` |
+| Product Loop 012 Private product loop trial script | `docs/control_center/PRODUCT_LOOP_012_PRIVATE_PRODUCT_LOOP_TRIAL_SCRIPT.md`, `src/ultimate_ai_agent/core/readiness/private_operator_trial.py`, `docs/control_center/private_product_loop_trial_script_v1.json`, `scripts/inspect_product_loop_trial_script.py`, `scripts/verify_product_loop_012_private_trial_script.py` |
+| Founder Loop V1 product proof pass | `docs/control_center/FOUNDER_LOOP_V1_PRODUCT_PROOF_PASS.md`, `src/ultimate_ai_agent/core/control_center/founder_loop_product_proof.py`, `scripts/inspect_founder_loop_v1_product_proof.py`, `scripts/verify_founder_loop_v1_product_proof.py`, `tests/test_founder_loop_v1_product_proof.py` |
+| FCC fusion routing/delegation readability | `docs/control_center/FCC_FUSION_ROUTING_DELEGATION.md`, `src/ultimate_ai_agent/core/control_center/fusion_routing.py`, `scripts/verify_fcc_fusion_routing_delegation.py`, `tests/test_fcc_fusion_routing_delegation.py` |
+| Provider Catalog + Cost Literacy | `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, `docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md`, `docs/control_center/PROVIDER_SETTINGS_DIAGNOSTICS.md`, `docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md`, `docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md`, `docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md`, `docs/control_center/EXACT_APPROVED_PROVIDER_FALLBACK.md`, `docs/control_center/BACKGROUND_AUTONOMOUS_PROVIDER_CALLS_PROMOTION_PLAN.md`, `docs/control_center/PROVIDER_BILLING_AUTHORITY_BOUNDARY.md`, `docs/control_center/PROVIDER_CREDENTIAL_VALIDATION_LANE.md`, `docs/control_center/PROVIDER_ROUTER_DRY_RUN.md`, `src/ultimate_ai_agent/core/providers/catalog.py`, `src/ultimate_ai_agent/core/providers/readiness.py`, `src/ultimate_ai_agent/core/providers/invocation.py`, `src/ultimate_ai_agent/core/providers/live_invocation_adapter.py`, `src/ultimate_ai_agent/core/providers/fallback.py`, `src/ultimate_ai_agent/core/providers/credential_validation.py`, `src/ultimate_ai_agent/core/providers/router_dry_run.py`, `src/ultimate_ai_agent/core/secrets/vault_contracts.py`, `src/ultimate_ai_agent/core/secrets/vault_backend.py`, `scripts/inspect_provider_setup_guide.py`, `scripts/inspect_provider_credential_readiness.py`, `scripts/inspect_credential_vault_contract.py`, `scripts/inspect_credential_vault_backend.py`, `scripts/inspect_tiny_provider_invocation_lane.py`, `scripts/inspect_provider_credential_validation_lane.py`, `scripts/inspect_provider_router_dry_run.py`, `scripts/inspect_exact_approved_provider_fallback.py`, `scripts/verify_provider_catalog_cost_literacy.py`, `scripts/verify_provider_credential_cost_binding.py`, `scripts/verify_credential_vault_contract_shell.py`, `scripts/verify_credential_vault_backend_v1.py`, `scripts/verify_provider_invocation_promotion_plan.py`, `scripts/verify_tiny_provider_invocation_lane.py`, `scripts/verify_provider_credential_validation_lane.py`, `scripts/verify_provider_router_dry_run.py`, `scripts/verify_background_autonomous_provider_plan.py`, `scripts/verify_provider_billing_authority_boundary.py`, `tests/test_provider_catalog_cost_literacy.py`, `tests/test_provider_credential_readiness_contracts.py`, `tests/test_credential_vault_contract_shell.py`, `tests/test_credential_vault_backend_v1.py`, `tests/test_provider_invocation_promotion_plan.py`, `tests/test_tiny_provider_invocation_lane.py`, `tests/test_provider_credential_validation_lane.py`, `tests/test_provider_router_dry_run.py`, `tests/test_exact_approved_provider_fallback.py`, `tests/test_background_autonomous_provider_plan.py`, `tests/test_provider_billing_authority_boundary.py` |
+| A2A gateway foundation | `docs/remote/UAA_A2A_GATEWAY_FOUNDATION.md`, `docs/schemas/a2a_agent_card_v1.schema.json`, `src/ultimate_ai_agent/core/capabilities/a2a_gateway.py`, `scripts/verify_a2a_gateway_foundation.py`, `scripts/verify_compatibility_schema_drift.py`, `tests/test_a2a_gateway_foundation.py` |
+| Browser Gateway Ladder | `docs/browser/UAA_BROWSER_GATEWAY_LADDER.md`, `src/ultimate_ai_agent/core/web_access/browser_gateway_ladder.py`, `scripts/verify_browser_gateway_ladder.py`, `tests/test_browser_gateway_ladder.py` |
 | Active roadmap | `docs/canonical/09_roadmap.md`, `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md`, `docs/kanban/current_board.md` |
-| Founder Command Center product narrative and strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, `docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md`, `docs/control_center/release_surface_manifest.json`, `docs/control_center/founder_loop_api_perimeter_manifest.json`, `docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md`, `docs/control_center/FCC_INBOX_001_APPROVAL_ENVELOPE_UX.md`, `docs/control_center/FCC_BRIEFING_001_MORNING_BRIEFING_TODAY_PLAN.md`, `docs/control_center/FCC_SOURCES_001_SOURCE_READINESS_DRAFT_ONLY_INPUTS.md`, `docs/control_center/FCC_MEMORY_CRM_001_PROFESSIONAL_MEMORY_CRM_LITE_BINDING.md`, `docs/control_center/FCC_REVIEW_001_EVIDENCE_NARRATIVE_WEEKLY_REVIEW.md`, `docs/control_center/FCC_HEALTH_001_SELF_HEALING_RECOMMENDATIONS_TO_INBOX.md`, `docs/macos/FCC_DOGFOOD_001_FOURTEEN_DAY_PRIVATE_HARNESS.md`, `docs/macos/private_operator_14_day_dogfood_harness_v1.json`, `docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md`, `docs/control_center/FCC_POLISH_001_NATIVE_APPLE_GRADE_UX_LAYER.md`, `docs/control_center/visual_regression_manifest.json`, `docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md`, `docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`, `docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md`, `docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`, `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`, `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`, `docs/macos/UAA_P1_087_2A_PRIVATE_TRIAL_PACKET_AND_UI_TUNING_SURFACE.md`, `docs/macos/UAA_P1_087_2B_PRIVATE_TRIAL_ACCEPTANCE_LEDGER.md`, `docs/macos/UAA_P1_087_2C_PRIVATE_TRIAL_MANUAL_REVIEW_SCAFFOLD.md` |
+| Control Center UI wiring report | `docs/control_center/UI_WIRING_REPORT.md`, `apps/control-center/src/routes.tsx`, `apps/control-center/src/api/client.ts`, `docs/control_center/release_surface_manifest.json` |
+| Founder Command Center product narrative and strategy | `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`, `docs/strategy/MACOS_OF_AGENTS_PRODUCT_PRINCIPLES.md`, `docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md`, `docs/kanban/founder_command_center_board.md`, `docs/implementation/FOUNDER_COMMAND_CENTER_PHASE_0_1_TASKS.md`, `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`, `docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md`, `docs/control_center/release_surface_manifest.json`, `docs/control_center/founder_loop_api_perimeter_manifest.json`, `docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md`, `docs/control_center/FCC_INBOX_001_APPROVAL_ENVELOPE_UX.md`, `docs/control_center/FCC_BRIEFING_001_MORNING_BRIEFING_TODAY_PLAN.md`, `docs/control_center/FCC_SOURCES_001_SOURCE_READINESS_DRAFT_ONLY_INPUTS.md`, `docs/control_center/FCC_MEMORY_CRM_001_PROFESSIONAL_MEMORY_CRM_LITE_BINDING.md`, `docs/control_center/FCC_REVIEW_001_EVIDENCE_NARRATIVE_WEEKLY_REVIEW.md`, `docs/control_center/FCC_HEALTH_001_SELF_HEALING_RECOMMENDATIONS_TO_INBOX.md`, `docs/macos/FCC_DOGFOOD_001_FOURTEEN_DAY_PRIVATE_HARNESS.md`, `docs/macos/private_operator_14_day_dogfood_harness_v1.json`, `docs/control_center/FCC_ACTION_001_APPROVAL_BOUND_LOCAL_MICRO_LANES.md`, `docs/control_center/FCC_POLISH_001_NATIVE_APPLE_GRADE_UX_LAYER.md`, `docs/control_center/visual_regression_manifest.json`, `docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md`, `docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`, `docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md`, `docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md`, `docs/control_center/FOUNDER_LOOP_V1_PRODUCT_PROOF_PASS.md`, `docs/control_center/FCC_LOOP_002_FOUNDER_LOOP_ERGONOMICS_PASS.md`, `docs/control_center/PRODUCT_LOOP_004_FOLLOW_UP_TRACKER.md`, `docs/control_center/PRODUCT_LOOP_005_ACTION_INBOX_DECISION_LANES.md`, `docs/control_center/PRODUCT_LOOP_009_CHAT_TO_LOOP_HANDOFF.md`, `docs/control_center/PRODUCT_LOOP_010_EVIDENCE_TIMELINE_NARRATIVE.md`, `docs/control_center/PRODUCT_LOOP_011_SETTINGS_KILL_SWITCH_CLARITY.md`, `docs/control_center/UAA_P1_065_FOUNDER_COMMAND_CENTER_REVIEW_CLEANUP.md`, `docs/control_center/UAA_P1_068_TODAY_PRODUCT_SPINE_CONTRACT.md`, `docs/control_center/UAA_P1_069_EVIDENCE_HISTORY_GRAMMAR.md`, `docs/control_center/UAA_P1_070_MEMORY_SOURCE_PROVENANCE_MODEL.md`, `docs/control_center/UAA_P1_071_MEMORY_REVIEW_DECISION_CAPTURE.md`, `docs/control_center/UAA_P1_072_BUSINESS_MEMORY_QUALITY_CONTROLS.md`, `docs/control_center/UAA_P1_073_PLANS_ACTION_ENVELOPES.md`, `docs/control_center/UAA_P1_074_CHAT_LOCAL_OPERATOR_SURFACE.md`, `docs/control_center/UAA_P1_075_GOVERNED_CODE_WORKBENCH.md`, `docs/control_center/UAA_P1_076_CROSS_SURFACE_MEMORY_INTAKE.md`, `docs/control_center/UAA_P1_077_MEMORY_TO_LOOP_BINDING.md`, `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`, `docs/macos/UAA_P1_087_2A_PRIVATE_TRIAL_PACKET_AND_UI_TUNING_SURFACE.md`, `docs/macos/UAA_P1_087_2B_PRIVATE_TRIAL_ACCEPTANCE_LEDGER.md`, `docs/macos/UAA_P1_087_2C_PRIVATE_TRIAL_MANUAL_REVIEW_SCAFFOLD.md` |
+| Next capability and product prompt pack | `docs/prompts/uaa_next_capability_product_prompts.md` |
+| Public-facing portfolio/developer-preview readiness prompt | `docs/prompts/uaa_public_preview_perfection_pass.prompt.md` |
+| CRM + Communications Spine M0 | `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`, `src/ultimate_ai_agent/core/crm/contracts.py`, `scripts/verify_crm_communications_spine_m0.py`, `tests/test_crm_communications_spine_contracts.py` |
+| CRM M1 Fixture-Only Vertical Shell | `docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md`, `src/ultimate_ai_agent/core/crm/fixtures.py`, `scripts/verify_crm_m1_fixture_only_vertical_shell.py`, `tests/test_crm_m1_fixture_only_vertical_shell.py` |
 | Operational maturity and authority ramp | `docs/control_center/OPERATIONALIZATION_LADDER.md`, `docs/control_center/operational_maturity_manifest.json`, `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, `docs/control_center/authority_candidate_scorecard.json` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md`, `docs/api/FCC_V1_001_API_PERIMETER_FOR_REAL_MUTATIONS.md` |
@@ -30,7 +51,7 @@ blocked, planned, and future-scoped states distinct.
 | Computer Use / CUA contract lane | `docs/cua/COMPUTER_USE_CUA_CONTRACT.md`, `docs/cua/cua_release_surface_manifest.json` |
 | Security posture | `SECURITY.md`, `docs/security/SECURITY_TRIAGE_RUNBOOK.md` |
 | Release evidence | `docs/production/RELEASE_VERIFICATION_LANES.md`, `docs/production/RELEASE_EVIDENCE_PACKET.md` |
-| Governed web evidence | `docs/truth/GOVERNED_WEB_EVIDENCE.md` |
+| Governed web evidence and WebAccess runtime authority | `docs/truth/GOVERNED_WEB_EVIDENCE.md`, `docs/network/WEB_ACCESS_GATEWAY.md`, `docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md`, `docs/network/WEB_RUNTIME_AUTHORITY_HARDENING.md` |
 | Local model lane | `docs/production/M167_LIVE_MODEL_EVIDENCE_MATRIX.md`, `docs/production/M167_LOCAL_MODEL_E2E_SMOKE_HARNESS.md`, `docs/production/M167_OPENWEBUI_LOCAL_INSTALLER.md`, `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md`, `docs/model_management/UAA_P1_062_LOCAL_MODEL_MANAGER_SCOPE.md`, `docs/model_management/UAA_P1_064_LOCAL_MODEL_INVENTORY_READ_ONLY.md`, `docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md` |
 | Redacted observability | `docs/observability/SESSION_LOGGING_M167.md` |
 | Plugin/skill ecosystem | `docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md`, `docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md`, `docs/tooling/EXTENSION_ACTIVATION_GRANTS.md`, `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md` |
@@ -38,6 +59,120 @@ blocked, planned, and future-scoped states distinct.
 
 Use the curated table first. The long list below is intentionally retained as
 the repo-owned audit catalog for active and historical documentation refs.
+
+Product Loop 010 Evidence Timeline narrative is safe-ref-only local history:
+no live web, no public beta, and no production authority are granted by its
+visibility in this index.
+
+Product Loop 011 Settings and kill-switch clarity is backend-owned read-only posture with blocked/degraded/partial labels only: no toggles that grant authority, no provider configuration, no installer behavior, no runtime activation, no feature-flag writes, no kill-switch execution, no revocation execution, no connector runtime, no connector writes, no model calls, no provider SDK calls, no live web, no shell/browser execution, no public beta, no production readiness claims, and no production authority.
+
+Product Loop 012 Private product loop trial script is a local/private, safe-ref-only manual operator review artifact for Boot, Today, Morning Briefing, Follow-Ups, Memory, Actions, Plans, Chat Handoff, Evidence, Weekly Review, and Settings. `scripts/inspect_product_loop_trial_script.py` provides CLI parity for the same checklist and acceptance ledger posture. It adds no public beta, no public distribution, no telemetry export, no connector runtime, no connector reads/writes, no provider/model calls, no live web, no shell/browser execution, no production readiness claims, and no production authority.
+
+FCC fusion routing/delegation readability is backend-owned review metadata in
+`docs/control_center/FCC_FUSION_ROUTING_DELEGATION.md`, backed by
+`src/ultimate_ai_agent/core/control_center/fusion_routing.py`,
+`scripts/verify_fcc_fusion_routing_delegation.py`, and
+`tests/test_fcc_fusion_routing_delegation.py`. It adds work classification,
+route visibility, future-only delegation proposals, cache/context posture, and
+private dogfood safe refs without adding worker runtime, action execution,
+model/provider invocation, shell/browser execution, connector writes, memory
+writes, context injection, public distribution, or production authority.
+
+CRM + Communications Spine M0 is contract-only product-line truth in
+`docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`, backed by
+`src/ultimate_ai_agent/core/crm/contracts.py`,
+`scripts/verify_crm_communications_spine_m0.py`, and
+`tests/test_crm_communications_spine_contracts.py`. It defines safe-ref
+contract nouns and fixture/proposal posture for future CRM and Communications
+work while adding no /crm UI, no backend endpoints, no connector runtime, no
+connector writes, no sends, no calendar writes, no silent merges, no silent
+contact creation, no provider/model calls, no live web, no browser runtime, no
+public beta, and no production authority.
+
+CRM M1 Fixture-Only Vertical Shell is a deterministic screen-ready fixture map
+in `docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md`, backed by
+`src/ultimate_ai_agent/core/crm/fixtures.py`,
+`scripts/verify_crm_m1_fixture_only_vertical_shell.py`, and
+`tests/test_crm_m1_fixture_only_vertical_shell.py`. It adds fixture_only
+vertical metadata for Real Estate/Realtor, Healthcare, Finance/Insurance,
+Retail/E-commerce, and Professional Services plus a fixture-only `/crm`
+Control Center shell route while adding no backend endpoints, no backend CRM
+read model, no connector runtime, no connector writes, no external CRM writes,
+no account sync, no sends, no calendar writes, no provider/model calls, no
+live web, no browser runtime, no public beta, and no production authority.
+
+Provider Catalog + Cost Literacy is backend-owned read-only metadata in
+`docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, with Provider
+Credential Readiness + Cost Governor Binding in
+`docs/control_center/PROVIDER_CREDENTIAL_READINESS_COST_BINDING.md`,
+Provider And Settings Diagnostics in
+`docs/control_center/PROVIDER_SETTINGS_DIAGNOSTICS.md`, and the
+Credential Vault Contract Shell in
+`docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md`, Credential Vault
+Backend V1 in `docs/control_center/CREDENTIAL_VAULT_BACKEND_V1.md`, with the
+Exact-Approved Provider Invocation Promotion Plan in
+`docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md` and
+Exact-Approved Provider Credential Validation Lane in
+`docs/control_center/PROVIDER_CREDENTIAL_VALIDATION_LANE.md`, Exact-Approved
+Provider Fallback in `docs/control_center/EXACT_APPROVED_PROVIDER_FALLBACK.md`,
+Background and Autonomous Provider Calls Promotion Plan in
+`docs/control_center/BACKGROUND_AUTONOMOUS_PROVIDER_CALLS_PROMOTION_PLAN.md`,
+Provider Billing Authority Boundary in
+`docs/control_center/PROVIDER_BILLING_AUTHORITY_BOUNDARY.md`,
+and Provider Router Dry-Run in `docs/control_center/PROVIDER_ROUTER_DRY_RUN.md`.
+The fallback lane is limited to two named single-provider adapter scopes and
+requires per-attempt exact approval, CostGovernor posture, durable receipt refs,
+and complete usage/cost receipts. Background/autonomous provider calls remain
+blocked until a later scoped promotion proves a scoped autonomy window, exact
+provider/model refs, exact credential refs, queue inspection, kill switch,
+revocation, replay/audit, red-team checks, UI/CLI parity, CostGovernor hard
+blocks, incomplete-cost receipt blocking, explicit human approval boundaries,
+and safe-disable/rollback posture. Provider billing authority remains blocked
+until a later scoped promotion proves exact per-request or per-session max USD
+approval, CostGovernor hard limits, actual usage/cost receipts,
+incomplete-cost blocking, revocation, UI/CLI inspection, audit/replay posture,
+safe-disable/rollback posture, and no broad spend toggle. The contracts are
+backed by
+`src/ultimate_ai_agent/core/providers/catalog.py`,
+`src/ultimate_ai_agent/core/providers/readiness.py`,
+`src/ultimate_ai_agent/core/providers/invocation.py`,
+`src/ultimate_ai_agent/core/providers/fallback.py`,
+`src/ultimate_ai_agent/core/providers/credential_validation.py`,
+`src/ultimate_ai_agent/core/providers/router_dry_run.py`,
+`src/ultimate_ai_agent/core/secrets/vault_contracts.py`,
+`src/ultimate_ai_agent/core/secrets/vault_backend.py`,
+`GET /control-center/providers/setup-guide`,
+`POST /control-center/providers/exact-approved-lanes/tiny`,
+`POST /control-center/providers/credentials/validate`,
+`POST /control-center/providers/router/dry-run`,
+`scripts/inspect_provider_setup_guide.py`,
+`scripts/inspect_provider_credential_readiness.py`,
+`scripts/inspect_credential_vault_contract.py`, and
+`scripts/inspect_credential_vault_backend.py`, and
+`scripts/inspect_tiny_provider_invocation_lane.py`, and
+`scripts/inspect_provider_credential_validation_lane.py`, and
+`scripts/inspect_provider_router_dry_run.py`, and
+`scripts/inspect_exact_approved_provider_fallback.py`, with provider posture
+checked by `scripts/verify_provider_invocation_promotion_plan.py` and
+`scripts/verify_tiny_provider_invocation_lane.py`,
+`scripts/verify_provider_credential_validation_lane.py`,
+`scripts/verify_provider_router_dry_run.py`,
+`scripts/verify_background_autonomous_provider_plan.py`,
+`scripts/verify_provider_billing_authority_boundary.py`, plus
+`scripts/verify_credential_vault_backend_v1.py`, with fallback sequencing covered
+by `tests/test_exact_approved_provider_fallback.py` and planning coverage by
+`tests/test_background_autonomous_provider_plan.py` and
+`tests/test_provider_billing_authority_boundary.py`. It adds no secret resolution
+API, no raw secret display, no provider SDK calls, no provider network call by
+default, no provider network outside named exact-scoped tiny live adapters, no broad
+provider router authority, no unbounded or router-dry-run fallback execution, no
+autonomous model calls, no background execution, no scheduler, no runtime
+activation, no automatic pricing fetch, no billing authority, no provider output
+authority, no unknown paid-cost bypass, no incomplete-cost bypass, no vault
+runtime authority, no invocation authority from vault presence, no new API
+runtime route, and no broad callable runtime authority.
+Credential validation is exact-approved, one-provider, redacted-receipt only and
+does not grant provider/model runtime authority.
 
 ## Founder Command Center / Product Strategy
 
@@ -66,7 +201,7 @@ verifier, and focused tests. UAA-P1-079 User Intent Understanding V1 completes
 reviewable intent proposals with confidence, source refs, evidence refs,
 ambiguity posture, and ask/act/defer routing. UAA-P1-080 API Route
 Classification And Public/Protected Inventory completes typed route
-classification in `/api/manifest`, the current 152-route inventory fixture,
+classification in `/api/manifest`, the current 147-route inventory fixture,
 route-status manifest alignment, and Control Center API Routes visibility.
 UAA-P1-081 Centralized FastAPI Security Headers completes centralized response
 headers, HTTPS-only HSTS, manifest capability posture, and focused verifier
@@ -107,6 +242,27 @@ revised manual-review answers. Full UAA-P1-087.2 remains planned and deferred
 until more Founder Loop implementation exists and accepted or revised
 local/private findings are recorded later, followed by UAA-P1-087.3 native
 SwiftUI boot cockpit planning/source-only scaffold.
+UAA-P1-088 Agent Module Maturity Review V2 completes a review/scoring/read-model
+lane for the existing core agent modules, ranked improvement queue, verifier,
+tests, and benchmark evidence integration without runtime model calls,
+provider calls, shell/subprocess execution, network/browser authority,
+connector writes, memory writes, context injection, action execution, workflow
+execution, autonomous routing authority, public beta, or production authority.
+UAA-P1-089 Top-Level Decision Router Contract completes a core
+contract/read-model package for answer-direct, reviewed-memory, Action Inbox
+proposal, ask-human, escalate, defer, blocked-unsafe, and
+insufficient-evidence route outcome proposals without model/provider calls,
+tool execution, action execution, workflow execution, memory writes, context
+injection, shell/subprocess execution, browser/network access, connector
+writes, autonomous routing authority, backend routes, public beta, or
+production authority.
+UAA-P1-090 Task Decomposition Proposal Engine completes a deterministic
+proposal/read-model lane that turns bounded safe request refs into
+review-only decomposition proposals for Plans and Action Inbox visibility,
+with CLI inspection parity, no backend route, no model/provider calls, no
+tool/action/workflow execution, no memory writes, no context injection, no
+shell/subprocess execution, no browser/network access, no connector writes, no
+autonomous planning authority, and no production authority.
 FCC-V1-000 Control Center Release Surface Manifest completes release-status
 truth for every visible Control Center route with
 `docs/control_center/release_surface_manifest.json`,
@@ -130,21 +286,10 @@ receipts, deterministic quality grouping, Control Center workbench cards, CLI
 parity, and `scripts/verify_fcc_mem_001_memory_workbench.py` without
 delete/export execution, semantic/vector search, connector writes, context
 injection, public beta, or production authority.
-FCC-MEM-015 Memory Impact Graph And Follow-Up Queue adds backend-owned
-impact-graph, follow-up queue, and Recall Health V2 read models, Control Center
-merge/supersede comparison, context-pack preview inspection, CLI parity, and
-`scripts/verify_fcc_mem_015_memory_impact_graph_followup_queue.py` without
-action execution, memory write, context injection, CRM/account sync,
-semantic/vector search, provider/model calls, public beta, or production
-authority.
-`docs/control_center/FCC_MEM_016_020_MEMORY_DIAGNOSTICS_CITATIONS_FEEDBACK_MAINTENANCE_CONTEXT.md`
-records the implemented FCC-MEM-016 through FCC-MEM-020 retrieval diagnostics,
-citation integrity, feedback quality, maintenance run, and context manifest
-lane. `docs/control_center/FCC_MEM_021_MEMORY_READ_MODELS_UI_ACTION_INBOX_BRIDGE.md`
-records the implemented Control Center UI wiring and proposal-only Action Inbox
-bridge for those read models. `docs/memory/MEMORY_MODULE_HARDENING_AND_GOATCITADEL_COMPARISON_2026_06_24.md`
-records the 2026-06-24 memory hardening pass and GoatCitadel comparison that
-informed this lane.
+FCC-LOOP-002 Founder Loop Ergonomics Pass adds the Control Center daily-loop
+command deck, Briefing spine entry, and grouped Action Inbox, Briefing, Memory,
+and Evidence operator summaries over existing backend read models without new
+backend authority.
 Every module
 feeds Today, Actions, Evidence, and Memory;
 source provenance, reviewed business memory, Evidence-as-history,
@@ -172,11 +317,9 @@ docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md
 docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md
 docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md
 docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md
-docs/control_center/FCC_MEM_015_MEMORY_IMPACT_GRAPH_AND_FOLLOW_UP_QUEUE.md
-docs/control_center/FCC_MEM_016_020_MEMORY_DIAGNOSTICS_CITATIONS_FEEDBACK_MAINTENANCE_CONTEXT.md
-docs/control_center/FCC_MEM_021_MEMORY_READ_MODELS_UI_ACTION_INBOX_BRIDGE.md
 docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md
 docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md
+docs/control_center/FCC_LOOP_002_FOUNDER_LOOP_ERGONOMICS_PASS.md
 docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md
 docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md
 docs/codex/GOVERNED_COGNITIVE_MEMORY_SPINE_HANDOFF.md
@@ -719,6 +862,7 @@ docs/network/WEB_ACCESS_GATEWAY_PR_BODY.md
 docs/network/WEB_ACCESS_GATEWAY_PR_SEQUENCE.md
 docs/network/WEB_ACCESS_GATEWAY_SECURITY_REVIEW_CHECKLIST.md
 docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md
+docs/network/WEB_RUNTIME_AUTHORITY_HARDENING.md
 docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION.md
 docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_POLICY.md
 docs/network/AUTHLESS_NETWORK_TOOL_EXPANSION_AUTHORITY_BOUNDARY.md
@@ -969,6 +1113,7 @@ docs/control_center/RECEIPT_EVENT_VIEWER.md
 docs/control_center/APPROVAL_RECEIPT_UI_SAFETY.md
 docs/control_center/EVENT_TIMELINE_UI.md
 docs/control_center/RUN_RECEIPT_TRACE_VIEWER.md
+docs/control_center/OPERATOR_RUN_TIMELINE.md
 docs/control_center/TRACE_REDACTION_POLICY.md
 docs/control_center/EVIDENCE_VIEWER.md
 docs/control_center/FILE_REFERENCE_VIEWER.md
@@ -989,7 +1134,7 @@ Key active canonical groups:
 - user control: `docs/canonical/20_user_control_center.md`
 - consent, tools, approvals, planning, execution state, and authority: `docs/canonical/21_consent_and_permissions_ledger.md`, `docs/canonical/37_tool_broker.md`, `docs/tools/TOOL_BROKER_V2.md`, `docs/tools/SAFE_TOOL_INTENT_CONTRACTS.md`, `docs/tools/TOOL_AUTHORITY_BOUNDARY.md`, `docs/tools/TOOL_INTENT_RECEIPT_PLAN.md`, `docs/tools/M27_TO_M28_BOUNDARY.md`, `docs/tools/TOOL_RUNTIME_ADAPTER.md`, `docs/tools/NOOP_TOOL_RUNTIME.md`, `docs/tools/TOOL_RUNTIME_INVOCATION_CONTRACT.md`, `docs/tools/TOOL_RUNTIME_AUTHORITY_BOUNDARY.md`, `docs/tools/TOOL_RUNTIME_REPLAY_POLICY.md`, `docs/tools/TOOL_RUNTIME_RECEIPT_PLAN.md`, `docs/tools/TOOL_RUNTIME_NON_GOALS.md`, `docs/tools/M31_TO_M32_BOUNDARY.md`, `docs/tools/FILESYSTEM_METADATA_TOOL.md`, `docs/tools/FILESYSTEM_METADATA_PATH_POLICY.md`, `docs/tools/FILESYSTEM_METADATA_RESULT_CONTRACT.md`, `docs/tools/FILESYSTEM_METADATA_AUTHORITY_BOUNDARY.md`, `docs/tools/FILESYSTEM_METADATA_NON_GOALS.md`, `docs/tools/M32_TO_M33_BOUNDARY.md`, `docs/approvals/APPROVAL_AUTHORITY_V2.md`, `docs/approvals/ACTION_POLICY.md`, `docs/approvals/APPROVAL_GRANT_BINDING.md`, `docs/approvals/APPROVAL_EXPIRY_REVOCATION_REPLAY.md`, `docs/approvals/ACTION_RISK_AND_SIDE_EFFECT_POLICY.md`, `docs/approvals/APPROVAL_REF_NOT_AUTHORITY.md`, `docs/approvals/ACTION_POLICY_DECISION_ENVELOPE.md`, `docs/approvals/APPROVAL_RECEIPT_PLAN.md`, `docs/approvals/APPROVAL_AUTHORITY_V2_NON_GOALS.md`, `docs/approvals/M28_TO_M29_BOUNDARY.md`, `docs/planning/TASK_PLANNING_ENGINE.md`, `docs/planning/TASK_GOAL_STEP_PLAN_CONTRACTS.md`, `docs/planning/TASK_DEPENDENCY_GRAPH.md`, `docs/planning/TASK_INPUT_BOUNDARY.md`, `docs/planning/TASK_RISK_AND_AUTHORITY_POLICY.md`, `docs/planning/TASK_PLAN_DECISION_ENVELOPE.md`, `docs/planning/TASK_PLAN_RECEIPT_PLAN.md`, `docs/planning/TASK_PLANNING_NON_GOALS.md`, `docs/planning/M29_TO_M30_BOUNDARY.md`, `docs/execution/MULTI_STEP_EXECUTION_FRAMEWORK.md`, `docs/execution/EXECUTION_STATE_MACHINE.md`, `docs/execution/EXECUTION_STEP_CONTRACTS.md`, `docs/execution/EXECUTION_DEPENDENCY_POLICY.md`, `docs/execution/EXECUTION_TRANSITION_POLICY.md`, `docs/execution/EXECUTION_INPUT_BOUNDARY.md`, `docs/execution/EXECUTION_RECEIPT_PLAN.md`, `docs/execution/EXECUTION_NON_GOALS.md`, `docs/execution/M30_TO_M31_BOUNDARY.md`, `docs/canonical/42_autonomy_levels_and_standing_approvals.md`, `docs/canonical/48_actor_authority_and_identity.md`
 - truth, evidence, memory, and files: `docs/canonical/03_memory_system.md`, `docs/canonical/10_file_management.md`, `docs/canonical/59_truth_grounding_and_evidence_governance.md`, `docs/canonical/60_truth_source_router.md`, `docs/canonical/61_evidence_manifest_and_claim_verification.md`, `docs/truth/TRUTH_SOURCE_ROUTER.md`, `docs/truth/EVIDENCE_CLAIM_CHECKER.md`, `docs/truth/TRUTH_SOURCE_PRIORITY.md`, `docs/truth/CLAIM_EVIDENCE_CHAIN.md`, `docs/truth/CLAIM_VERIFICATION_POLICY.md`, `docs/truth/CLAIM_CONFLICT_AND_STALENESS.md`, `docs/truth/MEMORY_TRUTH_BOUNDARY.md`, `docs/truth/TRUTH_NON_GOALS.md`, `docs/truth/M25_TO_M26_BOUNDARY.md`
-- runtime and adapters: `docs/canonical/57_local_runtime_and_offline_agent_infrastructure.md`, `docs/canonical/58_agent_sdk_and_a2a_adapter_strategy.md`
+- runtime and adapters: `docs/canonical/57_local_runtime_and_offline_agent_infrastructure.md`, `docs/canonical/58_agent_sdk_and_a2a_adapter_strategy.md`, `docs/platform/PLATFORM_CAPABILITY_REGISTRY.md`
 - security and privacy: `docs/canonical/23_security_threat_model.md`, `docs/canonical/24_data_lifecycle_and_privacy.md`, `docs/canonical/45_trusted_computing_base.md`, `docs/canonical/50_data_classification_policy.md`, `docs/canonical/51_redaction_and_safe_debugging.md`
 - mobile/device planning: `docs/canonical/64_mobile_companion_and_device_capability_broker.md`, `docs/canonical/65_mobile_device_registry_and_sensor_permission_manifest.md`, `docs/device_capabilities/DEVICE_CAPABILITY_BROKER_CONTRACT.md`, `docs/device_capabilities/CAPABILITY_MANIFEST_SCHEMA.md`, `docs/device_capabilities/DEVICE_PERMISSION_LIFECYCLE.md`, `docs/device_capabilities/CAPTURE_INTENT_CONTRACT.md`, `docs/device_capabilities/SENSOR_BOUNDARY_AND_NON_GOALS.md`, `docs/device_capabilities/DEVICE_TRUST_AND_REVOCATION_CONTRACT.md`, `docs/device_capabilities/DEVICE_RECEIPT_AND_REDACTION_POLICY.md`, `docs/device_capabilities/DEVICE_CAPABILITY_SECURITY_MODEL.md`, `docs/device_capabilities/DEVICE_CAPABILITY_BROKER_NON_GOALS.md`, `docs/mobile/MOBILE_COMPANION_CONTRACT.md`, `docs/mobile/MOBILE_SENSOR_BOUNDARY.md`, `docs/mobile/MOBILE_SECURITY_MODEL.md`
 - external tooling and Codex plugin governance: `docs/canonical/66_external_tooling_and_codex_plugin_governance.md`
@@ -1020,6 +1165,8 @@ docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md
 docs/control_center/OPERATOR_SHELL_GAP_MAP.md
 docs/control_center/ROUTE_STATUS_MANIFEST.md
 docs/control_center/route_status_manifest.json
+docs/control_center/UI_WIRING_REPORT.md
+docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md
 docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md
 docs/control_center/PRODUCT_LANGUAGE_RULES.md
 docs/control_center/LOCAL_BACKEND_CONNECTION.md
@@ -1108,9 +1255,14 @@ docs/runtime/LOCAL_RUNTIME_HEALTH_PROBE_PLAN.md
 docs/runtime/LOCAL_RUNTIME_ACTIVATION_SECURITY_MODEL.md
 docs/runtime/LOCAL_RUNTIME_ACTIVATION_NON_GOALS.md
 docs/runtime/LOCAL_RUNTIME_M22_TO_M23_BOUNDARY.md
+docs/platform/PLATFORM_CAPABILITY_REGISTRY.md
 ```
 
 Model runtime docs distinguish simulated runtime behavior, dev/manual loopback readiness, fixed-prompt manual smoke, and non-authoritative model output. They do not describe general production model execution.
+
+The Platform Capability Registry is a metadata and readiness contract only. It
+does not grant platform runtime, installer, read, write, provider, credential,
+service, or production authority.
 
 M11 runtime readiness docs describe status/report validation only. They do not describe production runtime execution. v0.15.1 clarifies local loopback policy as supported validation-only and `fake_manual_loopback_smoke` as a fake/test report origin only.
 
@@ -1331,6 +1483,9 @@ Historical release notes remain under `docs/release_notes/`. Historical docs may
 Historical release import and master-plan packets live under `docs/archive/releases/`.
 Retired planning packets live under `docs/archive/retired_plans/`. Archive docs are
 audit records, not current implementation guidance.
+Legacy files still present under `docs/master_plans/*` are historical planning
+artifacts only; their top-of-file banners govern any old "working baseline" or
+compatibility wording inside those files.
 
 Future milestone and review prompts must follow
 `docs/maintenance/DOCUMENTATION_ORGANIZATION_POLICY.md`, including the rule that

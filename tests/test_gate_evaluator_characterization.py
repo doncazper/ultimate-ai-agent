@@ -2,7 +2,9 @@ import json
 from pathlib import Path
 
 from ultimate_ai_agent.api.app import app
-from ultimate_ai_agent.core.gate import FoundationGateEvaluator as PackageFoundationGateEvaluator
+from ultimate_ai_agent.core.gate import (
+    FoundationGateEvaluator as PackageFoundationGateEvaluator,
+)
 from ultimate_ai_agent.core.gate.criteria import default_foundation_gate_criteria
 from ultimate_ai_agent.core.gate.evaluator_modules.route_contracts import (
     evaluate_route_contract,
@@ -15,12 +17,13 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES,
     FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES,
     CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
+    CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES,
+    CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES,
     FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES,
     FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES,
     FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES,
-    FOUNDER_LOOP_MEMORY_FEEDBACK_ROUTES,
-    FOUNDER_LOOP_MEMORY_READ_MODEL_ROUTES,
+    FOUNDER_LOOP_MEMORY_FEATURE_MINE_ROUTES,
     FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES,
     POST_MILESTONE_SAFE_ROUTE_FAMILIES,
     _historical_openapi_path_set,
@@ -52,7 +55,9 @@ def test_foundation_gate_legacy_imports_remain_compatible() -> None:
     assert callable(m167_openapi_route_failures)
 
 
-def test_route_contract_module_delegates_to_legacy_facade_without_output_drift() -> None:
+def test_route_contract_module_delegates_to_legacy_facade_without_output_drift() -> (
+    None
+):
     paths = app.openapi()["paths"].keys()
 
     assert evaluate_route_contract(36, paths) == m36_openapi_route_failures(paths)
@@ -78,18 +83,13 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/memory/review",
         "/control-center/memory/context-packs",
         "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
-        "/control-center/memory/citation-integrity",
-        "/control-center/memory/context-manifest",
+        "/control-center/memory/contradictions",
         "/control-center/memory/feedback",
-        "/control-center/memory/follow-ups",
-        "/control-center/memory/impact-graph",
         "/control-center/memory/l1-index",
         "/control-center/memory/l2-index",
         "/control-center/memory/l3-index",
-        "/control-center/memory/maintenance-runs",
-        "/control-center/memory/quality-issues",
-        "/control-center/memory/recall-health",
-        "/control-center/memory/retrieval-diagnostics",
+        "/control-center/memory/observation-candidates",
+        "/control-center/memory/probe",
         "/control-center/memory/search",
         "/control-center/memory/workbench",
         "/control-center/memory/review/{candidate_ref}/accept",
@@ -146,26 +146,29 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     assert FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES == {
         "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
     }
-    assert FOUNDER_LOOP_MEMORY_READ_MODEL_ROUTES == {
-        "/control-center/memory/citation-integrity",
-        "/control-center/memory/context-manifest",
-        "/control-center/memory/follow-ups",
-        "/control-center/memory/impact-graph",
-        "/control-center/memory/maintenance-runs",
-        "/control-center/memory/quality-issues",
-        "/control-center/memory/recall-health",
-        "/control-center/memory/retrieval-diagnostics",
-    }
-    assert FOUNDER_LOOP_MEMORY_FEEDBACK_ROUTES == {
+    assert FOUNDER_LOOP_MEMORY_FEATURE_MINE_ROUTES == {
+        "/control-center/memory/contradictions",
         "/control-center/memory/feedback",
+        "/control-center/memory/observation-candidates",
+        "/control-center/memory/probe",
     }
     assert CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES == {
         "/control-center/local-models/status",
         "/control-center/settings/status",
     }
+    assert CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES == {
+        "/control-center/providers/credentials/validate",
+    }
+    assert CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES == {
+        "/control-center/providers/router/dry-run",
+    }
     assert set(POST_MILESTONE_SAFE_ROUTE_FAMILIES) == {
         "control_center_operational_status",
+        "control_center_provider_catalog",
+        "control_center_provider_credential_validation",
+        "control_center_provider_router_dry_run",
         "control_center_setup_assistant",
+        "control_center_tiny_provider_lane",
         "founder_loop",
         "mattermost",
         "packaging_proof",
@@ -174,13 +177,19 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "visual_proof",
         "v1_local_model_gateway",
     }
-    assert len(_post_m151_route_boundary_path_set(paths)) == EXPECTED_M167_OPENAPI_PATH_COUNT
+    assert (
+        len(_post_m151_route_boundary_path_set(paths))
+        == EXPECTED_M167_OPENAPI_PATH_COUNT
+    )
     assert len(_historical_openapi_path_set(paths)) == EXPECTED_M36_OPENAPI_PATH_COUNT
 
 
 def test_route_side_effect_helpers_match_current_manifest_contract() -> None:
     from ultimate_ai_agent.api.manifest import iter_api_route_items
-    from ultimate_ai_agent.api.openapi import FORBIDDEN_ROUTE_FRAGMENT_EXEMPTIONS, FORBIDDEN_ROUTE_FRAGMENTS
+    from ultimate_ai_agent.api.openapi import (
+        FORBIDDEN_ROUTE_FRAGMENT_EXEMPTIONS,
+        FORBIDDEN_ROUTE_FRAGMENTS,
+    )
 
     routes = iter_api_route_items(app)
 
@@ -216,7 +225,9 @@ def test_foundation_gate_failure_classification_fixture_is_safe_and_bounded() ->
 
 
 def test_static_safety_evaluator_data_file_exemption_is_exact() -> None:
-    route_boundary_data_file = "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py"
+    route_boundary_data_file = (
+        "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py"
+    )
 
     assert STATIC_SAFETY_EVALUATOR_DATA_FILES == frozenset({route_boundary_data_file})
     assert _is_static_safety_scan_allowed_file(route_boundary_data_file, frozenset())
@@ -268,7 +279,10 @@ def test_evaluator_registry_marks_route_contracts_as_extracted() -> None:
 
     route_entry = entries["route_contract_evaluators"]
     assert route_entry.status == "extracted_route_boundary"
-    assert route_entry.module == "ultimate_ai_agent.core.gate.evaluator_modules.route_contracts"
+    assert (
+        route_entry.module
+        == "ultimate_ai_agent.core.gate.evaluator_modules.route_contracts"
+    )
 
 
 def test_foundation_gate_openapi_characterization_report_shape() -> None:
@@ -373,7 +387,9 @@ def test_m13_playwright_ci_exception_rejects_chained_execution(tmp_path: Path) -
     )
 
 
-def test_m21_packaging_proof_exception_only_allows_compose_fragment(tmp_path: Path) -> None:
+def test_m21_packaging_proof_exception_only_allows_compose_fragment(
+    tmp_path: Path,
+) -> None:
     script = tmp_path / "scripts/run_local_runtime_packaging_proof.py"
     script.parent.mkdir(parents=True)
     script.write_text('PROOF_SCOPE = "local docker-compose only"\n', encoding="utf-8")
@@ -381,7 +397,7 @@ def test_m21_packaging_proof_exception_only_allows_compose_fragment(tmp_path: Pa
     assert m21_forbidden_openwebui_runtime_fragment_failures(tmp_path) == []
 
     script.write_text(
-        '\n'.join(
+        "\n".join(
             [
                 'PROOF_SCOPE = "local docker-compose only"',
                 'UNSAFE = "openwebui_base_url /openwebui/execute"',
@@ -395,7 +411,9 @@ def test_m21_packaging_proof_exception_only_allows_compose_fragment(tmp_path: Pa
     assert any("/openwebui/execute" in failure for failure in failures)
 
 
-def test_representative_static_safety_criteria_ignore_extracted_route_boundary_data() -> None:
+def test_representative_static_safety_criteria_ignore_extracted_route_boundary_data() -> (
+    None
+):
     criteria_by_id = {
         criterion.criterion_id: criterion
         for criterion in default_foundation_gate_criteria()
@@ -437,4 +455,6 @@ def test_static_safety_scans_still_fail_non_exempt_source_files(tmp_path: Path) 
     )
 
     assert report.overall_status == "failed"
-    assert any("backend_route_added=True" in failure for failure in report.results[0].failures)
+    assert any(
+        "backend_route_added=True" in failure for failure in report.results[0].failures
+    )

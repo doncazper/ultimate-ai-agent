@@ -6,12 +6,12 @@ from fastapi.routing import APIRoute
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest, route_side_effect_class
+from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT
 
 
 ROOT = Path(__file__).resolve().parents[1]
 ROUTE_GROUPING_MAP = ROOT / "docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md"
 ROUTE_STATUS_MANIFEST = ROOT / "docs/control_center/route_status_manifest.json"
-EXPECTED_ROUTE_COUNT = 152
 
 EVIDENCE_BEHAVIOR_BY_ROUTE_GROUP = {
     "adapter-boundary": "validation decision refs",

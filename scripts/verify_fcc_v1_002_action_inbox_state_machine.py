@@ -15,6 +15,10 @@ from scripts.verification.api_lane import (  # noqa: E402
     ApiVerifierContext,
     default_api_verifier_context,
 )
+from scripts.verification.api_routes import (  # noqa: E402
+    EXPECTED_MUTATING_ROUTE_COUNT,
+    EXPECTED_ROUTE_COUNT,
+)
 from scripts.verification.repo import (  # noqa: E402
     append_forbidden_claims,
     load_json,
@@ -128,10 +132,19 @@ def _append_manifest_failures(
     context: ApiVerifierContext,
 ) -> None:
     manifest = context.manifest
-    if manifest.get("route_count") != 152:
-        failures.append("FCC-V1-002 expects current API route_count 152")
-    if manifest.get("route_classification_summary", {}).get("mutating_requires_authority") != 31:
-        failures.append("FCC-V1-002 expects 31 mutating routes")
+    if manifest.get("route_count") != EXPECTED_ROUTE_COUNT:
+        failures.append(
+            f"FCC-V1-002 expects current API route_count {EXPECTED_ROUTE_COUNT}"
+        )
+    if (
+        manifest.get("route_classification_summary", {}).get(
+            "mutating_requires_authority"
+        )
+        != EXPECTED_MUTATING_ROUTE_COUNT
+    ):
+        failures.append(
+            f"FCC-V1-002 expects {EXPECTED_MUTATING_ROUTE_COUNT} mutating routes"
+        )
     for key, (operation_id, route_classification) in ACTION_ROUTES.items():
         route = context.routes_by_key.get(key)
         if route is None:

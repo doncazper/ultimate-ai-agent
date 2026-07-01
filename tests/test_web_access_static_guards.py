@@ -87,6 +87,11 @@ TEMPORARY_BASELINE_EXCEPTIONS = {
         "scope=legacy governed evidence source wrapped by WebAccessGateway; "
         "authority=not_general_agent_web; migration=wrapped in PR 1"
     ),
+    "src/ultimate_ai_agent/core/providers/live_invocation_adapter.py": (
+        "lane=tiny_exact_approved_provider_invocation; "
+        "scope=one provider/model scoped live adapter after exact approval and CostGovernor; "
+        "authority=not_agent_public_web; migration=provider-runtime scoped adapter"
+    ),
 }
 
 BANNED_PROVIDER_SURFACE_TERMS = {
@@ -164,6 +169,16 @@ def test_no_new_direct_public_web_or_browser_imports_outside_gateway() -> None:
         "ultimate_ai_agent.core.web_access adapters or an explicit temporary "
         "exception. Violations:\n" + "\n".join(violations)
     )
+
+
+def test_disabled_provider_shells_do_not_import_provider_sdks() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    adapter_file = repo_root / "src/ultimate_ai_agent/core/web_access/adapters.py"
+
+    imported = _direct_imports(adapter_file)
+    banned = sorted(module for module in imported if _is_banned(module))
+
+    assert banned == []
 
 
 def test_no_new_browser_search_provider_cli_surfaces_outside_exceptions() -> None:

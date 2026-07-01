@@ -57,6 +57,8 @@ CAPABILITIES_DECLARED = [
     "control_center_chat_reviewable_handoffs",
     "control_center_memory_review_decision_receipts",
     "control_center_memory_workbench_read_model",
+    "control_center_memory_ranked_retrieval_read_model",
+    "control_center_memory_safe_query_hashed_read_model",
     "control_center_memory_search_filters",
     "control_center_memory_impact_graph_read_model",
     "control_center_memory_follow_up_queue_proposals",
@@ -73,8 +75,33 @@ CAPABILITIES_DECLARED = [
     "control_center_memory_l3_identity_session_preference_modeling",
     "control_center_memory_context_pack_proposals",
     "control_center_memory_context_pack_internal_action_proposal",
+    "control_center_memory_feedback_receipts",
+    "control_center_memory_observation_candidates",
+    "control_center_memory_probe_index",
+    "control_center_memory_contradiction_previews",
+    "control_center_memory_hrr_readiness_blocked_contract",
     "control_center_evidence_timeline_productization",
     "control_center_morning_briefing_summary",
+    "control_center_provider_setup_guide_read_only",
+    "control_center_provider_credential_readiness_cost_binding_read_only",
+    "control_center_provider_credential_readiness_cli_inspection",
+    "provider_credential_vault_contract_shell_metadata_only",
+    "provider_credential_vault_contract_cli_inspection",
+    "provider_credential_vault_local_secret_ref_backend_v1",
+    "provider_credential_vault_backend_cli_inspection",
+    "control_center_tiny_exact_approved_provider_lane_disabled_default",
+    "control_center_tiny_exact_approved_provider_lane_cost_governed",
+    "control_center_tiny_exact_approved_provider_lane_redacted_receipts",
+    "control_center_tiny_exact_approved_provider_lane_receipt_completeness",
+    "control_center_tiny_exact_approved_second_single_provider_adapter_scope_metadata_only",
+    "provider_exact_approved_two_provider_fallback_core_cli_metadata",
+    "provider_exact_approved_two_provider_fallback_cli_inspection",
+    "provider_exact_approved_two_provider_fallback_per_attempt_receipts",
+    "control_center_provider_credential_validation_exact_approved_lane",
+    "control_center_provider_credential_validation_redacted_receipts",
+    "control_center_provider_credential_validation_cli_inspection",
+    "control_center_provider_router_dry_run_proposal_only",
+    "control_center_provider_router_dry_run_cli_inspection",
     "control_center_source_readiness_status",
     "control_center_storage_status",
     "openwebui_local_test_gateway_disabled_by_default",
@@ -97,6 +124,9 @@ CAPABILITIES_DECLARED = [
     "governed_web_evidence_status",
     "governed_web_evidence_allowlisted_https_get",
     "governed_web_evidence_chatbot_disclosure",
+    "web_access_provider_adapter_shells_disabled",
+    "web_access_provider_diagnostics_metadata_only",
+    "web_access_provider_catalog_visibility_metadata_only",
     "mattermost_agent_rooms_disabled_by_default",
     "mattermost_role_catalog",
     "mattermost_redacted_message_ingress",
@@ -156,6 +186,20 @@ CAPABILITIES_BLOCKED = [
     "control_center_manual_memory_candidate_as_recall_record",
     "control_center_manual_memory_candidate_delete_or_export_execution",
     "control_center_memory_workbench_ui_only_truth",
+    "control_center_memory_ranked_retrieval_embeddings",
+    "control_center_memory_ranked_retrieval_vector_db",
+    "control_center_memory_ranked_retrieval_provider_calls",
+    "control_center_memory_ranked_retrieval_context_injection",
+    "control_center_memory_ranked_retrieval_memory_writes",
+    "control_center_memory_ranked_retrieval_auto_maintenance",
+    "control_center_memory_ranked_retrieval_action_execution",
+    "control_center_memory_ranked_retrieval_connector_writes",
+    "control_center_memory_ranked_retrieval_background_indexing",
+    "control_center_memory_ranked_retrieval_truth_authority",
+    "control_center_memory_ranked_retrieval_hrr",
+    "control_center_memory_ranked_retrieval_algebraic_retrieval",
+    "control_center_memory_safe_query_raw_echo",
+    "control_center_memory_ranked_retrieval_production_authority",
     "control_center_memory_search_embeddings",
     "control_center_memory_search_vector_db",
     "control_center_memory_search_semantic_search",
@@ -251,7 +295,84 @@ CAPABILITIES_BLOCKED = [
     "control_center_memory_context_pack_phase6_execution_hooks",
     "control_center_memory_context_pack_internal_action_proposal_as_execution",
     "control_center_memory_context_pack_external_side_effects",
+    "control_center_memory_feedback_recall_record_create",
+    "control_center_memory_feedback_delete_or_export_execution",
+    "control_center_memory_feedback_context_injection",
+    "control_center_memory_feedback_action_execution",
+    "control_center_memory_feedback_connector_writes",
+    "control_center_memory_feedback_provider_model_calls",
+    "control_center_memory_feedback_cloud_sync",
+    "control_center_memory_observation_candidates_truth_authority",
+    "control_center_memory_observation_candidates_automatic_opinion",
+    "control_center_memory_observation_candidates_context_injection",
+    "control_center_memory_probe_context_injection",
+    "control_center_memory_probe_action_execution",
+    "control_center_memory_contradictions_auto_merge",
+    "control_center_memory_contradictions_auto_forget",
+    "control_center_memory_contradictions_truth_authority",
+    "control_center_memory_hrr_enabled_without_explicit_milestone",
+    "control_center_memory_hrr_ranking_influence",
+    "control_center_memory_hrr_raw_content_input",
+    "control_center_memory_hrr_embeddings_provider",
+    "control_center_memory_hrr_vector_db",
+    "control_center_memory_hrr_context_injection",
     "control_center_plugin_enablement",
+    "control_center_provider_setup_guide_as_credential_enrollment",
+    "control_center_provider_setup_guide_as_billing_authority",
+    "control_center_provider_setup_guide_runtime_pricing_fetch",
+    "control_center_provider_setup_guide_provider_validation",
+    "control_center_provider_setup_guide_provider_invocation",
+    "control_center_provider_credential_readiness_secret_entry",
+    "control_center_provider_credential_readiness_provider_validation",
+    "control_center_provider_credential_readiness_provider_invocation",
+    "control_center_provider_credential_readiness_as_runtime_authority",
+    "control_center_provider_cost_binding_as_billing_authority",
+    "control_center_provider_cost_binding_without_budget_decision",
+    "control_center_provider_cost_binding_without_receipts",
+    "control_center_provider_unknown_paid_cost_without_explicit_approval",
+    "control_center_provider_router_dry_run_as_invocation_authority",
+    "control_center_provider_router_dry_run_fallback_execution",
+    "control_center_provider_router_dry_run_provider_sdk_calls",
+    "control_center_provider_router_dry_run_credential_validation",
+    "control_center_provider_router_dry_run_model_calls",
+    "control_center_provider_router_dry_run_billing_authority",
+    "control_center_provider_router_dry_run_background_execution",
+    "provider_credential_vault_secret_collection",
+    "provider_credential_vault_raw_secret_storage",
+    "provider_credential_vault_secret_resolution_api",
+    "provider_credential_vault_raw_secret_display",
+    "provider_credential_vault_os_backend_access",
+    "provider_credential_vault_validation_authority",
+    "provider_credential_vault_invocation_authority",
+    "provider_credential_vault_presence_as_authority",
+    "tiny_provider_lane_without_exact_approval",
+    "tiny_provider_lane_unknown_paid_cost",
+    "tiny_provider_lane_without_provider_model_credential_refs",
+    "tiny_provider_lane_without_cost_budget_receipt_refs",
+    "tiny_provider_lane_incomplete_actual_paid_cost_without_review",
+    "tiny_provider_lane_broad_provider_router",
+    "tiny_provider_lane_unbounded_multi_provider_fallback",
+    "tiny_provider_lane_router_dry_run_as_fallback_execution",
+    "tiny_provider_lane_fallback_without_per_attempt_exact_approval",
+    "tiny_provider_lane_fallback_without_per_attempt_receipts",
+    "tiny_provider_lane_fallback_after_incomplete_cost_without_review",
+    "tiny_provider_lane_raw_prompt_response_or_provider_exchange_persistence",
+    "tiny_provider_lane_autonomous_model_calls",
+    "tiny_provider_lane_background_execution",
+    "tiny_provider_lane_billing_authority",
+    "tiny_provider_lane_provider_sdk_or_network_call_by_default",
+    "tiny_provider_lane_network_call_outside_scoped_adapter",
+    "provider_credential_validation_without_exact_approval",
+    "provider_credential_validation_without_idempotency",
+    "provider_credential_validation_without_redacted_receipt",
+    "provider_credential_validation_model_invocation",
+    "provider_credential_validation_chat_completions",
+    "provider_credential_validation_provider_payload_persistence",
+    "provider_credential_validation_raw_credential_display",
+    "provider_credential_validation_broad_provider_router",
+    "provider_credential_validation_multi_provider_fallback",
+    "provider_credential_validation_billing_authority",
+    "provider_credential_validation_autonomous_background_calls",
     "control_center_frontend_native_build_control",
     "control_center_mobile_sensor_access",
     "control_center_remote_dispatch",
@@ -297,6 +418,13 @@ CAPABILITIES_BLOCKED = [
     "governed_web_evidence_downloads",
     "governed_web_evidence_redirect_following",
     "governed_web_evidence_hidden_network_access",
+    "web_access_provider_shells_as_runtime_authority",
+    "web_access_provider_sdk_imports",
+    "web_access_provider_credentials",
+    "search_provider_live_calls",
+    "firecrawl_provider_calls",
+    "firecrawl_scrape_jobs",
+    "browserbase_provider_sessions",
     "mattermost_raw_transcript_storage",
     "mattermost_unapproved_connector_writes",
     "mattermost_credential_or_cookie_handling",
@@ -398,6 +526,18 @@ CONTROL_CENTER_ACTION_LOCAL_TASK_COMMIT_PATHS = {
 CONTROL_CENTER_MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS = {
     "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
 }
+CONTROL_CENTER_MEMORY_FEEDBACK_PATHS = {
+    "/control-center/memory/feedback",
+}
+CONTROL_CENTER_PROVIDER_TINY_EXACT_APPROVED_LANE_PATHS = {
+    "/control-center/providers/exact-approved-lanes/tiny",
+}
+CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_PATHS = {
+    "/control-center/providers/credentials/validate",
+}
+CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_PATHS = {
+    "/control-center/providers/router/dry-run",
+}
 CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
 }
@@ -406,6 +546,7 @@ LOCAL_READONLY_PATHS = {
     "/control-center/foundation-gate/summary",
     "/control-center/local-models/status",
     "/control-center/manifest",
+    "/control-center/providers/setup-guide",
     "/control-center/routes",
     "/control-center/runtime-readiness/summary",
     "/control-center/setup-assistant/summary",
@@ -553,6 +694,12 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
         return ApiRouteSideEffectClass.governed_network_read_only
     if path in CONTROL_CENTER_VALIDATION_ONLY_PATHS:
         return ApiRouteSideEffectClass.validation_only
+    if path in CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_PATHS:
+        return ApiRouteSideEffectClass.governed_network_read_only
+    if path in CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_PATHS:
+        return ApiRouteSideEffectClass.validation_only
+    if path in CONTROL_CENTER_PROVIDER_TINY_EXACT_APPROVED_LANE_PATHS:
+        return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith(CONTROL_CENTER_LOCAL_STATE_PREFIXES):
         return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith(LOCAL_DEV_WORKSPACE_PREFIXES):
@@ -603,6 +750,35 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Memory context-pack internal Action proposal authority route; exact approval, idempotency, receipt, rollback, and evidence posture required while execution stays blocked",
+        )
+    if normalized_method == "POST" and path in CONTROL_CENTER_MEMORY_FEEDBACK_PATHS:
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Memory feedback receipt route; exact local authority, approval, idempotency, audit, and evidence posture required while deletes, exports, context injection, connector writes, and execution stay blocked",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_PROVIDER_TINY_EXACT_APPROVED_LANE_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Tiny exact-approved provider lane; exact approval, CostGovernor decision, idempotency, redacted receipt refs, actual usage/cost refs, receipt completeness, two named disabled-by-default single-provider live adapter scopes, and safe-disable posture required while incomplete actual paid cost blocks further use until review and broad provider authority and fallback execution stay blocked",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Exact-approved provider credential validation lane; exact approval, policy, idempotency, redacted validation receipt, revocation, and safe-disable posture required while model invocation, provider SDKs, fallback, and billing authority stay blocked",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Provider router dry-run proposal lane; safe task/model refs, local provider readiness, CostGovernor posture, exact approval scope recommendations, idempotency, and redacted refs required while invocation, fallback execution, provider SDK calls, credential validation, model calls, billing authority, and background execution stay blocked",
         )
     if (
         normalized_method == "POST"

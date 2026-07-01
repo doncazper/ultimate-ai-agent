@@ -2,6 +2,7 @@
 from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
+from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
@@ -57,7 +58,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     manifest = build_api_manifest(app)
     routes = {route.path: route for route in manifest.routes}
 
-    assert manifest.route_count == 152
+    assert manifest.route_count == EXPECTED_ROUTE_COUNT
     for path in [
         "/control-center/today/summary",
         "/control-center/actions/inbox",
@@ -66,15 +67,10 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/memory/l1-index",
         "/control-center/memory/l2-index",
         "/control-center/memory/l3-index",
+        "/control-center/memory/contradictions",
         "/control-center/memory/context-packs",
-        "/control-center/memory/impact-graph",
-        "/control-center/memory/follow-ups",
-        "/control-center/memory/recall-health",
-        "/control-center/memory/retrieval-diagnostics",
-        "/control-center/memory/citation-integrity",
-        "/control-center/memory/quality-issues",
-        "/control-center/memory/maintenance-runs",
-        "/control-center/memory/context-manifest",
+        "/control-center/memory/observation-candidates",
+        "/control-center/memory/probe",
         "/control-center/memory/review",
         "/control-center/memory/workbench",
         "/control-center/memory/search",
@@ -112,6 +108,15 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         assert routes[path].idempotency_required is True
         assert routes[path].rate_limit_group == "action_decision"
 
+    feedback_path = "/control-center/memory/feedback"
+    assert feedback_path in routes
+    assert routes[feedback_path].method == "POST"
+    assert routes[feedback_path].side_effect_class == "local_dev_workspace_only"
+    assert routes[feedback_path].route_classification == "mutating_requires_authority"
+    assert routes[feedback_path].approval_posture == "required_before_mutation_authority"
+    assert routes[feedback_path].idempotency_required is True
+    assert routes[feedback_path].rate_limit_group == "memory_feedback"
+
     for path in [
         "/control-center/memory/review/{candidate_ref}/accept",
         "/control-center/memory/review/{candidate_ref}/correct",
@@ -121,7 +126,6 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/memory/review/{candidate_ref}/supersede",
         "/control-center/memory/review/{candidate_ref}/forget-request",
         "/control-center/memory/review/manual-candidate",
-        "/control-center/memory/feedback",
     ]:
         assert path in routes
         assert routes[path].method == "POST"
@@ -160,31 +164,11 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         in manifest.capabilities_declared
     )
     assert (
+        "control_center_memory_ranked_retrieval_read_model"
+        in manifest.capabilities_declared
+    )
+    assert (
         "control_center_memory_search_filters"
-        in manifest.capabilities_declared
-    )
-    assert (
-        "control_center_memory_retrieval_diagnostics"
-        in manifest.capabilities_declared
-    )
-    assert (
-        "control_center_memory_citation_integrity"
-        in manifest.capabilities_declared
-    )
-    assert (
-        "control_center_memory_feedback_quality_queue"
-        in manifest.capabilities_declared
-    )
-    assert (
-        "control_center_memory_feedback_receipts"
-        in manifest.capabilities_declared
-    )
-    assert (
-        "control_center_memory_proposal_only_maintenance_runs"
-        in manifest.capabilities_declared
-    )
-    assert (
-        "control_center_memory_context_manifest"
         in manifest.capabilities_declared
     )
     assert (
@@ -203,3 +187,17 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "control_center_source_readiness_status"
         in manifest.capabilities_declared
     )
+    for blocked_capability in [
+        "control_center_memory_ranked_retrieval_embeddings",
+        "control_center_memory_ranked_retrieval_vector_db",
+        "control_center_memory_ranked_retrieval_provider_calls",
+        "control_center_memory_ranked_retrieval_context_injection",
+        "control_center_memory_ranked_retrieval_memory_writes",
+        "control_center_memory_ranked_retrieval_auto_maintenance",
+        "control_center_memory_ranked_retrieval_action_execution",
+        "control_center_memory_ranked_retrieval_connector_writes",
+        "control_center_memory_ranked_retrieval_background_indexing",
+        "control_center_memory_ranked_retrieval_truth_authority",
+        "control_center_memory_ranked_retrieval_production_authority",
+    ]:
+        assert blocked_capability in manifest.capabilities_blocked

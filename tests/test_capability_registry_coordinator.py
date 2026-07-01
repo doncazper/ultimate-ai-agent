@@ -7,11 +7,15 @@ from pydantic import ValidationError
 
 from ultimate_ai_agent.core.capabilities import (
     Artifact,
+    CapabilityAuthorityLevel,
+    CapabilityCostClass,
     CapabilityKind,
     CapabilityApprovalGrant,
     CapabilityHealthReport,
     CapabilityHealthStatus,
+    CapabilityLatencyClass,
     CapabilityManifest,
+    CapabilityPrivacyLevel,
     CapabilityRegistry,
     CapabilitySearchFilters,
     CapabilitySelection,
@@ -143,6 +147,35 @@ def test_manifest_validation_requires_examples_and_single_writer_for_mutation() 
             risk_level=RiskLevel.medium,
             single_writer_required=False,
         )
+
+
+def test_manifest_agent_runtime_metadata_defaults_fail_closed() -> None:
+    manifest = _manifest("cap:agent_runtime_metadata")
+
+    assert manifest.authority_level == CapabilityAuthorityLevel.metadata_only
+    assert manifest.deterministic is False
+    assert manifest.rollback_supported is False
+    assert manifest.receipt_required is True
+    assert manifest.evidence_required is True
+    assert manifest.privacy_level == CapabilityPrivacyLevel.local_private
+    assert manifest.estimated_latency_class == CapabilityLatencyClass.unknown
+    assert manifest.estimated_cost_class == CapabilityCostClass.unknown
+    assert manifest.memory_write_allowed is False
+    assert manifest.context_injection_allowed is False
+    assert manifest.provider_runtime_allowed is False
+    assert manifest.browser_runtime_allowed is False
+    assert manifest.connector_write_allowed is False
+
+
+def test_manifest_authority_flags_are_validated() -> None:
+    unsafe_payload = _manifest("cap:unsafe_memory").model_dump()
+    unsafe_payload["memory_write_allowed"] = True
+    with pytest.raises(ValidationError, match="Memory write authority"):
+        CapabilityManifest.model_validate(unsafe_payload)
+
+    writer = _manifest("cap:writer_authority", side_effects=SideEffectLevel.write, risk_level=RiskLevel.medium)
+
+    assert writer.authority_level == CapabilityAuthorityLevel.mutating
 
 
 def test_registry_register_search_load_and_compact_catalog_rendering() -> None:

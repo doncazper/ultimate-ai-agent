@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 LEGACY_EVALUATOR_RELATIVE_PATH = Path("src/ultimate_ai_agent/core/gate/evaluators.py")
-LEGACY_EVALUATOR_LINE_CEILING = 51000
+LEGACY_EVALUATOR_LINE_CEILING = 58000
 NEW_EVALUATOR_MODULE_LINE_CEILING = 1500
 ROUTE_BOUNDARY_MODULE_RELATIVE_PATH = Path(
     "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py"

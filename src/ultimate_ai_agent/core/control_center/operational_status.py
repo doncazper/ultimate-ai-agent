@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -14,15 +15,23 @@ from ultimate_ai_agent.core.local_model_management.readiness import (
     inspect_local_model_gateway,
 )
 from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
+from ultimate_ai_agent.core.platform_capabilities import build_platform_capability_snapshot
+from ultimate_ai_agent.core.runtime_readiness import build_matrix
 
 
 SETTINGS_STATUS_ROUTE_REF = "GET /control-center/settings/status"
 LOCAL_MODELS_STATUS_ROUTE_REF = "GET /control-center/local-models/status"
+SETTINGS_KILL_SWITCH_CLARITY_CONTRACT_REF = (
+    "contract-ref:product-loop-011-settings-kill-switch-clarity:v1"
+)
 OPERATIONAL_MATURITY_MANIFEST_REF = (
     "docs/control_center/operational_maturity_manifest.json"
 )
 OPERATIONALIZATION_LADDER_REF = "docs/control_center/OPERATIONALIZATION_LADDER.md"
 OPERATIONAL_MATURITY_VERIFIER_REF = "scripts/verify_operational_maturity.py"
+SETTINGS_KILL_SWITCH_CLARITY_VERIFIER_REF = (
+    "scripts/verify_product_loop_011_settings_kill_switch_clarity.py"
+)
 
 
 SETTINGS_BLOCKED_AUTHORITIES = [
@@ -47,6 +56,165 @@ LOCAL_MODEL_BLOCKED_AUTHORITIES = [
     "control_center_subprocess_execution",
     "production_authority",
 ]
+SETTINGS_AUTHORITY_CAPABILITY_KEYS = [
+    "web",
+    "providers",
+    "connectors",
+    "memory_context_use",
+    "model_runtime",
+    "local_model_lifecycle",
+    "platform_capabilities",
+]
+SETTINGS_AUTHORITY_DENIED_FLAGS = [
+    "callable_runtime_authority",
+    "setting_toggle_grants_authority",
+    "provider_configuration_enabled",
+    "connector_write_enabled",
+    "context_injection_enabled",
+    "model_call_enabled",
+    "local_lifecycle_enabled",
+    "installer_behavior_enabled",
+    "production_authority_enabled",
+    "authority_from_visibility",
+]
+SETTINGS_ALLOWED_REDACTION_MARKERS = frozenset({"raw_paths_omitted"})
+SETTINGS_UNSAFE_TEXT_PATTERNS = (
+    re.compile(r"(?i)\braw[\s_-]?prompt\b"),
+    re.compile(r"(?i)\braw[\s_-]?response\b"),
+    re.compile(r"(?i)\braw[\s_-]?provider[\s_-]?(?:payload|exchange|content)?\b"),
+    re.compile(r"(?i)\braw[\s_-]?log\b"),
+    re.compile(r"(?i)\braw[\s_-]?path\b"),
+    re.compile(r"(?i)\busername\b"),
+    re.compile(r"(?i)\bhostname\b"),
+    re.compile(r"(?i)\benv(?:ironment)?[\s_-]?dump\b"),
+    re.compile(r"(?i)\bserial\b"),
+    re.compile(r"(?:/Users/|/home/|[A-Za-z]:\\Users\\|\\\\Users\\\\)"),
+)
+
+
+def _settings_contains_private_or_raw_content(value: Any) -> bool:
+    if isinstance(value, str):
+        if value in SETTINGS_ALLOWED_REDACTION_MARKERS:
+            return False
+        return any(pattern.search(value) for pattern in SETTINGS_UNSAFE_TEXT_PATTERNS)
+    if isinstance(value, dict):
+        return any(_settings_contains_private_or_raw_content(item) for item in value.values())
+    if isinstance(value, list | tuple | set):
+        return any(_settings_contains_private_or_raw_content(item) for item in value)
+    return False
+
+
+def _assert_settings_safe_payload(value: Any, error_code: str) -> None:
+    if contains_secret_like(value) or _settings_contains_private_or_raw_content(value):
+        raise ValueError(error_code)
+
+
+class ControlCenterSettingsAuthorityPosture(BaseModel):
+    capability_key: Literal[
+        "web",
+        "providers",
+        "connectors",
+        "memory_context_use",
+        "model_runtime",
+        "local_model_lifecycle",
+        "platform_capabilities",
+    ]
+    label: str
+    state_label: Literal["Blocked", "Degraded", "Partial", "Metadata only"]
+    posture_ref: str
+    source_refs: list[str]
+    safe_summary: str
+    blocked_authority_refs: list[str]
+    next_safe_action: str
+    callable_runtime_authority: bool = False
+    setting_toggle_grants_authority: bool = False
+    provider_configuration_enabled: bool = False
+    connector_write_enabled: bool = False
+    context_injection_enabled: bool = False
+    model_call_enabled: bool = False
+    local_lifecycle_enabled: bool = False
+    installer_behavior_enabled: bool = False
+    production_authority_enabled: bool = False
+    authority_from_visibility: bool = False
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def no_authority_from_posture_row(self) -> "ControlCenterSettingsAuthorityPosture":
+        if any(getattr(self, field_name) for field_name in SETTINGS_AUTHORITY_DENIED_FLAGS):
+            raise ValueError("CONTROL_CENTER_SETTINGS_AUTHORITY_ROW_DENIED")
+        _assert_settings_safe_payload(
+            self.model_dump(mode="json"),
+            "CONTROL_CENTER_SETTINGS_AUTHORITY_ROW_PRIVATE_OR_RAW_VALUE_REJECTED",
+        )
+        return self
+
+
+class ControlCenterSettingsKillSwitchPosture(BaseModel):
+    posture_ref: str
+    label: str
+    state_label: Literal["Not configured", "Blocked", "Metadata only"]
+    safe_summary: str
+    revocation_ref: str
+    safe_disable_ref: str
+    evidence_refs: list[str]
+    next_safe_action: str
+    execution_enabled: bool = False
+    revocation_execution_enabled: bool = False
+    approval_revocation_enabled: bool = False
+    authority_granted: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def no_kill_switch_execution(self) -> "ControlCenterSettingsKillSwitchPosture":
+        if (
+            self.execution_enabled
+            or self.revocation_execution_enabled
+            or self.approval_revocation_enabled
+            or self.authority_granted
+            or self.production_authority_enabled
+        ):
+            raise ValueError("CONTROL_CENTER_SETTINGS_KILL_SWITCH_EXECUTION_DENIED")
+        _assert_settings_safe_payload(
+            self.model_dump(mode="json"),
+            "CONTROL_CENTER_SETTINGS_KILL_SWITCH_PRIVATE_OR_RAW_VALUE_REJECTED",
+        )
+        return self
+
+
+class ControlCenterSettingsFeatureFlagPosture(BaseModel):
+    posture_ref: str
+    label: str
+    state_label: Literal["Metadata only", "Blocked", "Partial"]
+    safe_summary: str
+    owner_ref: str
+    evidence_refs: list[str]
+    next_safe_action: str
+    writable: bool = False
+    toggle_enabled: bool = False
+    runtime_activation_enabled: bool = False
+    authority_granted: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def no_feature_flag_write(self) -> "ControlCenterSettingsFeatureFlagPosture":
+        if (
+            self.writable
+            or self.toggle_enabled
+            or self.runtime_activation_enabled
+            or self.authority_granted
+            or self.production_authority_enabled
+        ):
+            raise ValueError("CONTROL_CENTER_SETTINGS_FEATURE_FLAG_WRITE_DENIED")
+        _assert_settings_safe_payload(
+            self.model_dump(mode="json"),
+            "CONTROL_CENTER_SETTINGS_FEATURE_FLAG_PRIVATE_OR_RAW_VALUE_REJECTED",
+        )
+        return self
 
 
 class ControlCenterSettingsStatus(BaseModel):
@@ -68,10 +236,20 @@ class ControlCenterSettingsStatus(BaseModel):
     verifier_ref: Literal[OPERATIONAL_MATURITY_VERIFIER_REF] = (
         OPERATIONAL_MATURITY_VERIFIER_REF
     )
+    settings_authority_contract_ref: Literal[SETTINGS_KILL_SWITCH_CLARITY_CONTRACT_REF]
+    settings_authority_verifier_ref: Literal[SETTINGS_KILL_SWITCH_CLARITY_VERIFIER_REF]
     route_status_manifest_ref: Literal["docs/control_center/route_status_manifest.json"] = (
         "docs/control_center/route_status_manifest.json"
     )
     api_manifest_route_ref: Literal["GET /api/manifest"] = "GET /api/manifest"
+    runtime_readiness_route_ref: Literal["GET /control-center/runtime-readiness/summary"] = (
+        "GET /control-center/runtime-readiness/summary"
+    )
+    runtime_capability_matrix_ref: str
+    platform_capability_snapshot_ref: str
+    platform_capability_inspection_ref: Literal["scripts/inspect_platform_capabilities.py"] = (
+        "scripts/inspect_platform_capabilities.py"
+    )
     review_proposals: list[str] = Field(
         default_factory=lambda: [
             "settings-proposal:feature-flag-status-route",
@@ -90,7 +268,15 @@ class ControlCenterSettingsStatus(BaseModel):
     feature_flag_mutation_enabled: bool = False
     kill_switch_mutation_enabled: bool = False
     settings_mutation_enabled: bool = False
+    callable_runtime_authority_enabled: bool = False
+    provider_configuration_enabled: bool = False
+    installer_behavior_enabled: bool = False
+    settings_toggle_grants_authority: bool = False
+    catalog_visibility_grants_authority: bool = False
     production_authority_enabled: bool = False
+    authority_postures: list[ControlCenterSettingsAuthorityPosture]
+    kill_switch_postures: list[ControlCenterSettingsKillSwitchPosture]
+    feature_flag_postures: list[ControlCenterSettingsFeatureFlagPosture]
     blocked_authorities: list[str] = Field(
         default_factory=lambda: list(SETTINGS_BLOCKED_AUTHORITIES)
     )
@@ -118,11 +304,43 @@ class ControlCenterSettingsStatus(BaseModel):
             self.feature_flag_mutation_enabled
             or self.kill_switch_mutation_enabled
             or self.settings_mutation_enabled
+            or self.callable_runtime_authority_enabled
+            or self.provider_configuration_enabled
+            or self.installer_behavior_enabled
+            or self.settings_toggle_grants_authority
+            or self.catalog_visibility_grants_authority
             or self.production_authority_enabled
         ):
             raise ValueError("CONTROL_CENTER_SETTINGS_MUTATION_DENIED")
-        if contains_secret_like(self.model_dump(mode="json")):
-            raise ValueError("CONTROL_CENTER_SETTINGS_STATUS_SECRET_LIKE_VALUE_REJECTED")
+        posture_keys = [posture.capability_key for posture in self.authority_postures]
+        if posture_keys != SETTINGS_AUTHORITY_CAPABILITY_KEYS:
+            raise ValueError("CONTROL_CENTER_SETTINGS_AUTHORITY_POSTURE_KEYS_REQUIRED")
+        if any(
+            posture.callable_runtime_authority
+            or posture.setting_toggle_grants_authority
+            or posture.authority_from_visibility
+            for posture in self.authority_postures
+        ):
+            raise ValueError("CONTROL_CENTER_SETTINGS_AUTHORITY_POSTURE_DENIED")
+        if any(
+            posture.execution_enabled
+            or posture.revocation_execution_enabled
+            or posture.authority_granted
+            for posture in self.kill_switch_postures
+        ):
+            raise ValueError("CONTROL_CENTER_SETTINGS_KILL_SWITCH_AUTHORITY_DENIED")
+        if any(
+            posture.writable
+            or posture.toggle_enabled
+            or posture.runtime_activation_enabled
+            or posture.authority_granted
+            for posture in self.feature_flag_postures
+        ):
+            raise ValueError("CONTROL_CENTER_SETTINGS_FEATURE_FLAG_AUTHORITY_DENIED")
+        _assert_settings_safe_payload(
+            self.model_dump(mode="json"),
+            "CONTROL_CENTER_SETTINGS_STATUS_PRIVATE_OR_RAW_VALUE_REJECTED",
+        )
         return self
 
 
@@ -206,7 +424,187 @@ class ControlCenterLocalModelsStatus(BaseModel):
 
 
 def build_control_center_settings_status() -> ControlCenterSettingsStatus:
-    return ControlCenterSettingsStatus()
+    runtime_matrix = build_matrix()
+    platform_snapshot = build_platform_capability_snapshot()
+    return ControlCenterSettingsStatus(
+        settings_authority_contract_ref=SETTINGS_KILL_SWITCH_CLARITY_CONTRACT_REF,
+        settings_authority_verifier_ref=SETTINGS_KILL_SWITCH_CLARITY_VERIFIER_REF,
+        runtime_capability_matrix_ref=runtime_matrix.matrix_id,
+        platform_capability_snapshot_ref=platform_snapshot.snapshot_ref,
+        authority_postures=_settings_authority_postures(platform_snapshot.snapshot_ref),
+        kill_switch_postures=_settings_kill_switch_postures(),
+        feature_flag_postures=_settings_feature_flag_postures(),
+    )
+
+
+def _settings_authority_postures(
+    platform_snapshot_ref: str,
+) -> list[ControlCenterSettingsAuthorityPosture]:
+    return [
+        ControlCenterSettingsAuthorityPosture(
+            capability_key="web",
+            label="Web",
+            state_label="Blocked",
+            posture_ref="settings-authority:web",
+            source_refs=[
+                "GET /api/manifest",
+                "docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md",
+            ],
+            safe_summary=(
+                "Public web visibility is metadata only; unrestricted fetching and browser execution remain blocked."
+            ),
+            blocked_authority_refs=[
+                "blocked-state:settings-no-live-web",
+                "blocked-state:settings-no-browser-execution",
+            ],
+            next_safe_action="Inspect WebAccessGateway posture before scoping any web runtime.",
+        ),
+        ControlCenterSettingsAuthorityPosture(
+            capability_key="providers",
+            label="Providers",
+            state_label="Blocked",
+            posture_ref="settings-authority:providers",
+            source_refs=[
+                "GET /api/manifest",
+                "provider-readiness:reference-only",
+            ],
+            safe_summary=(
+                "Provider diagnostics and provider safe refs are visible only as readiness metadata."
+            ),
+            blocked_authority_refs=[
+                "blocked-state:settings-no-provider-sdk-call",
+                "blocked-state:settings-no-provider-configuration",
+            ],
+            next_safe_action="Review provider refs without collecting credentials or invoking providers.",
+        ),
+        ControlCenterSettingsAuthorityPosture(
+            capability_key="connectors",
+            label="Connectors",
+            state_label="Blocked",
+            posture_ref="settings-authority:connectors",
+            source_refs=[
+                "GET /control-center/sources/readiness",
+                "docs/control_center/SETTINGS_KILL_SWITCH_FEATURE_FLAGS_SPEC.md",
+            ],
+            safe_summary="Connector runtime and connector writes are not enabled from Settings.",
+            blocked_authority_refs=[
+                "blocked-state:settings-no-connector-runtime",
+                "blocked-state:settings-no-connector-write",
+            ],
+            next_safe_action="Use source readiness refs before any connector milestone is scoped.",
+        ),
+        ControlCenterSettingsAuthorityPosture(
+            capability_key="memory_context_use",
+            label="Memory context use",
+            state_label="Partial",
+            posture_ref="settings-authority:memory-context-use",
+            source_refs=[
+                "GET /control-center/memory/context-packs",
+                "docs/control_center/PRODUCT_LANGUAGE_RULES.md",
+            ],
+            safe_summary=(
+                "Memory context packs are reviewable proposals only; hidden injection and truth authority remain blocked."
+            ),
+            blocked_authority_refs=[
+                "blocked-state:settings-no-hidden-context-injection",
+                "blocked-state:settings-memory-recall-not-truth",
+            ],
+            next_safe_action="Review memory proposals as recall only before any context-use milestone.",
+        ),
+        ControlCenterSettingsAuthorityPosture(
+            capability_key="model_runtime",
+            label="Model runtime",
+            state_label="Degraded",
+            posture_ref="settings-authority:model-runtime",
+            source_refs=[
+                "GET /control-center/runtime-readiness/summary",
+                "runtime-capability-matrix:m11",
+            ],
+            safe_summary=(
+                "Model runtime posture is readiness-only; runtime model calls and provider calls are blocked here."
+            ),
+            blocked_authority_refs=[
+                "blocked-state:settings-no-runtime-model-call",
+                "blocked-state:settings-no-provider-model-call",
+            ],
+            next_safe_action="Inspect runtime readiness and local model status before lifecycle work.",
+        ),
+        ControlCenterSettingsAuthorityPosture(
+            capability_key="local_model_lifecycle",
+            label="Local model lifecycle",
+            state_label="Blocked",
+            posture_ref="settings-authority:local-model-lifecycle",
+            source_refs=[
+                "GET /control-center/local-models/status",
+                "docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md",
+            ],
+            safe_summary=(
+                "Local model inventory is readable, but download switch start stop and calls remain blocked."
+            ),
+            blocked_authority_refs=[
+                "blocked-state:settings-no-model-download",
+                "blocked-state:settings-no-model-start-stop",
+            ],
+            next_safe_action="Inspect local model status without starting or switching models.",
+        ),
+        ControlCenterSettingsAuthorityPosture(
+            capability_key="platform_capabilities",
+            label="Platform capabilities",
+            state_label="Metadata only",
+            posture_ref="settings-authority:platform-capabilities",
+            source_refs=[
+                platform_snapshot_ref,
+                "scripts/inspect_platform_capabilities.py",
+            ],
+            safe_summary=(
+                "Platform capabilities are safe bucketed metadata and do not grant install service credential or OS data authority."
+            ),
+            blocked_authority_refs=[
+                "blocked-state:settings-no-installer-behavior",
+                "blocked-state:settings-no-platform-permission-grant",
+            ],
+            next_safe_action="Inspect platform capability metadata before any OS adapter milestone.",
+        ),
+    ]
+
+
+def _settings_kill_switch_postures() -> list[ControlCenterSettingsKillSwitchPosture]:
+    return [
+        ControlCenterSettingsKillSwitchPosture(
+            posture_ref="settings-kill-switch:global-runtime-authority",
+            label="Global runtime authority",
+            state_label="Not configured",
+            safe_summary=(
+                "Settings can show kill-switch posture only; no kill switch or revocation execution is available."
+            ),
+            revocation_ref="revocation-ref:settings:global-runtime-authority-review-only",
+            safe_disable_ref="safe-disable-ref:settings:global-runtime-authority-review-only",
+            evidence_refs=[
+                "docs/control_center/SETTINGS_KILL_SWITCH_FEATURE_FLAGS_SPEC.md",
+                "docs/control_center/PRODUCT_LANGUAGE_RULES.md",
+            ],
+            next_safe_action="Define an exact scoped kill-switch milestone before execution exists.",
+        )
+    ]
+
+
+def _settings_feature_flag_postures() -> list[ControlCenterSettingsFeatureFlagPosture]:
+    return [
+        ControlCenterSettingsFeatureFlagPosture(
+            posture_ref="settings-feature-flag:authority-visibility",
+            label="Authority visibility",
+            state_label="Metadata only",
+            safe_summary=(
+                "Settings feature-flag labels are readable posture only and cannot enable runtime behavior."
+            ),
+            owner_ref="owner-ref:python-agent-core-settings-status",
+            evidence_refs=[
+                "GET /control-center/settings/status",
+                "docs/control_center/SETTINGS_KILL_SWITCH_FEATURE_FLAGS_SPEC.md",
+            ],
+            next_safe_action="Keep flags read-only until a scoped mutation contract exists.",
+        )
+    ]
 
 
 def build_control_center_local_models_status(

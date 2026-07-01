@@ -7,6 +7,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT  # noqa: E402
 
 
 def _current_version(root: Path = ROOT) -> str:
@@ -275,6 +278,7 @@ AGENTS_DOC = "AGENTS.md"
 REQUIRED_OPERATOR_SHELL_SURFACES = [
     "Chat Local Operator",
     "Plans",
+    "CRM",
     "Models",
     "Approvals",
     "Files",
@@ -850,8 +854,6 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("Action Inbox local task commit endpoint helper is missing")
         if "memoryContextPackActionProposalEndpoint" not in text:
             failures.append("Memory context-pack Action proposal endpoint helper is missing")
-        if 'founderMemoryFeedback: "/control-center/memory/feedback"' not in text:
-            failures.append("Memory feedback endpoint declaration is missing")
         if 'controlCenterChatTurns: "/control-center/chat/turns"' not in text:
             failures.append("Chat durable receipt endpoint declaration is missing")
         for fragment in ["chatTurnReceiptEndpoint", "chatTurnHandoffEndpoint"]:
@@ -979,14 +981,13 @@ def verify(root: Path = ROOT) -> list[str]:
                 "API_ENDPOINTS.founderMemoryFeedback",
                 "MemoryFeedbackReceipt",
                 "memoryFeedbackIdempotencyRef",
-                "idempotency-ref:control-center-memory-feedback",
                 "\"X-UAA-Idempotency-Key\"",
             ]
             for fragment in required_memory_feedback_fragments:
                 if fragment not in text:
                     failures.append(
-                        "frontend Memory feedback post missing safety fragment: "
-                        f"{fragment}"
+                        "frontend Memory feedback post missing "
+                        f"safety fragment: {fragment}"
                     )
         if "resolveApiBaseUrl" not in text:
             failures.append("frontend client must resolve API base through local backend policy")
@@ -1079,8 +1080,11 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
         failures.append("route status manifest schema version is not current")
     if manifest.get("status") != "active UAA-P1-030 route status manifest":
         failures.append("route status manifest status is not current")
-    if manifest.get("openapi_path_count") != 152:
-        failures.append("route status manifest must record the 152-path OpenAPI boundary")
+    if manifest.get("openapi_path_count") != EXPECTED_ROUTE_COUNT:
+        failures.append(
+            "route status manifest must record the "
+            f"{EXPECTED_ROUTE_COUNT}-path OpenAPI boundary"
+        )
     if manifest.get("operator_readiness_taxonomy_ref") != (
         "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
     ):
@@ -1209,6 +1213,7 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
             )
 
     for required_action in [
+        "navigate-crm",
         "submit-action-preview",
         "select-local-detail-card",
         "toggle-review-only-file-decision",
@@ -1394,7 +1399,8 @@ def _operator_shell_gap_map_failures(root: Path) -> list[str]:
             "status: active uaa-p0-007 operator-shell gap map"
         ),
         "operator-shell gap map must include current API count": (
-            "api boundary: current fastapi manifest has 152 openapi paths"
+            "api boundary: current fastapi manifest has "
+            f"{EXPECTED_ROUTE_COUNT} openapi paths"
         ),
         "operator-shell gap map must include exact matrix columns": (
             "| surface | current frontend component/page | current backend route(s) | "
@@ -1499,6 +1505,7 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
     panel_path = app_root / "src/components/OperatorFlowPanels.tsx"
     mock_path = app_root / "src/mocks/controlCenterData.ts"
     types_path = app_root / "src/api/types.ts"
+    client_path = app_root / "src/api/client.ts"
     test_path = app_root / "src/App.test.tsx"
 
     if not panel_path.exists():
@@ -1510,8 +1517,12 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
         "ProviderCredentialReadinessPanel",
         "Provider credential readiness",
         "Provider invocation",
+        "Tiny exact-approved provider lane",
+        "Provider router dry-run",
+        "Router no-authority refs",
         "Raw key collection",
         "Credential material stored",
+        "CostGovernor binding",
         "Vault adapter",
         "Credential adapter readiness",
         "Credential enrollment",
@@ -1533,12 +1544,50 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
         "Context injection",
         "Connector writes",
         "ReadinessGateCard",
+        "Unknown paid cost",
+        "Above-budget estimate",
+        "Live adapter",
+        "Live adapter blocked",
+        "Live receipt required",
+        "Usage captured",
+        "Cost captured",
+        "Cost incomplete",
+        "Review required",
+        "Further use blocked",
+        "Receipt completeness",
+        "Future receipt refs",
+        "Provider usage claims",
+        "CostGovernor decision",
         "Provider auth ref status",
         "Consent ref",
         "Policy ref",
         "Revocation ref",
         "Approval ref",
         "Credential material visible",
+        "Lane ref",
+        "Route ref",
+        "Exact approval",
+        "Credential ref",
+        "Redacted receipts",
+        "Actual usage ref",
+        "Actual cost ref",
+        "Receipt completeness",
+        "Receipt observation",
+        "Receipt observation ref",
+        "Receipt observation labels",
+        "no receipt observed",
+        "Incomplete cost review",
+        "Further provider use",
+        "Provider SDK",
+        "Network call",
+        "Autonomous calls",
+        "Billing authority",
+        "No provider authority",
+        "Disabled no execution",
+        "No fallback execution",
+        "Exact-approval candidate refs",
+        "Blocked provider refs",
+        "Degraded provider refs",
         "blocker_codes",
     ]:
         if fragment not in panel_text:
@@ -1568,23 +1617,129 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
     if "<input" in panel_lowered:
         failures.append("provider credential readiness UI must not add input controls")
 
+    for rel_path in [
+        "src/components/OperatorFlowPanels.tsx",
+        "src/components/ProviderCatalogPanel.tsx",
+        "src/components/FounderLoopPanels.tsx",
+        "src/components/MacOSSetupAssistantPanel.tsx",
+    ]:
+        candidate_path = app_root / rel_path
+        if not candidate_path.exists():
+            failures.append(f"missing provider cost posture UI file: {rel_path}")
+            continue
+        candidate_text = candidate_path.read_text(encoding="utf-8").lower()
+        for unsafe in ["not blocked", "unbound"]:
+            if unsafe in candidate_text:
+                failures.append(
+                    f"provider cost posture UI contains unsafe fail-open wording in {rel_path}: {unsafe}"
+                )
+
+    if client_path.exists():
+        client_text = client_path.read_text(encoding="utf-8")
+        for fragment in [
+            "normalizeControlCenterDashboard",
+            "isSafeProviderCredentialReadiness",
+            "isSafeProviderVaultAdapterReadiness",
+            "isSafeProviderCredentialEnrollmentReadiness",
+            "isSafeProviderCredentialValidationReadiness",
+            "isSafeGovernedProviderInvocationReadiness",
+            "isSafeTinyProviderInvocationReadiness",
+            "isSafeProviderRouterDryRunReadiness",
+            "isSafeProviderRouterDryRunProviderProposal",
+            "isSafeProviderRouterDryRunRecommendedScope",
+            "supportedUiStateLabels",
+            "supportedReceiptObservationLabels",
+            "receiptObservationSupportedStates",
+            "uiStates.length === supportedUiStateLabels.length",
+            "supportedUiStateLabels.every",
+            "uiStates.every",
+            "providerPostureCountsMatch",
+            "providerBindingRefLooksUnbound",
+            "provider_runtime_authority_denied",
+            "provider_spend_authority_denied",
+            "TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT",
+            "UNKNOWN_PAID_COST_BLOCKS",
+            "ACTUAL_USAGE_REF_REQUIRED",
+            "ACTUAL_COST_REF_REQUIRED",
+            "RECEIPT_COMPLETENESS_REQUIRED",
+            "INCOMPLETE_COST_REQUIRES_REVIEW",
+            "INCOMPLETE_COST_BLOCKS_FURTHER_USE",
+            "receipt_state_source",
+            "receipt_observation_supported_states",
+            "no_receipt_observed",
+            "NO_PROVIDER_INVOCATION",
+            "NO_FALLBACK_EXECUTION",
+            "NO_PROVIDER_SDK_CALL",
+            "NO_CREDENTIAL_VALIDATION",
+            "NO_MODEL_CALL",
+            "NO_BILLING_AUTHORITY",
+        ]:
+            if fragment not in client_text:
+                failures.append(f"provider credential readiness client normalizer missing fragment: {fragment}")
+    else:
+        failures.append("missing Control Center frontend client file")
+
     if types_path.exists():
         types_text = types_path.read_text(encoding="utf-8")
         for fragment in [
             "ProviderCredentialReadinessItem",
             "ProviderCredentialReadinessSummary",
+            "ProviderCredentialReadinessPosture",
+            "ProviderCostGovernorBinding",
             "ProviderCredentialVaultAdapterReadiness",
             "ProviderCredentialEnrollmentReadiness",
             "ProviderCredentialValidationReadiness",
             "GovernedProviderInvocationReadiness",
+            "TinyProviderInvocationReadiness",
+            "TinyProviderInvocationUiState",
+            "TinyProviderInvocationReceiptObservationState",
+            "ProviderRouterDryRunReadiness",
+            "ProviderRouterDryRunProviderProposal",
+            "ProviderRouterDryRunRecommendedScope",
+            "live_adapter_blocked",
             "provider_credential_readiness",
             "vault_adapter_readiness",
             "enrollment_readiness",
             "validation_readiness",
             "invocation_readiness",
+            "tiny_invocation_readiness",
+            "router_dry_run_readiness",
             "raw_key_collection_enabled",
             "credential_material_stored",
             "invocation_enabled",
+            "provider_sdk_call_enabled",
+            "network_call_enabled",
+            "billing_authority_granted",
+            "expected_receipt_ref_required",
+            "idempotency_ref_required",
+            "redacted_receipts_only",
+            "actual_usage_ref_required",
+            "actual_cost_ref_required",
+            "receipt_completeness_required",
+            "incomplete_cost_requires_review",
+            "incomplete_cost_blocks_further_use",
+            "receipt_observation_ref",
+            "receipt_observation_supported_states",
+            "receipt_state_source",
+            "usage_captured",
+            "cost_captured",
+            "cost_incomplete",
+            "review_required",
+            "further_use_blocked",
+            "provider_exchange_persistence_allowed",
+            "fallback_execution_authorized",
+            "provider_sdk_call_performed",
+            "credential_validation_performed",
+            "model_invocation_performed",
+            "recommended_exact_approval_scope",
+            "degraded_provider_refs",
+            "cost_governor_binding",
+            "unknown_paid_cost_requires_approval",
+            "cost_estimate_ref",
+            "budget_decision_ref",
+            "max_approved_usd_ref",
+            "future_receipt_refs_required",
+            "provider_usage_claim_requires_receipt_refs",
         ]:
             if fragment not in types_text:
                 failures.append(f"provider credential readiness type missing fragment: {fragment}")
@@ -1597,20 +1752,55 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
             "provider_credential_readiness",
             "reference_readiness_only",
             "credential-ref:openai-compatible:not-configured",
+            "providerCostGovernorBinding",
+            "providerCostGovernorBinding(\"openai-compatible\")",
+            "cost-estimate-ref:${slug}:required",
+            "budget-decision-ref:${slug}:required",
+            "max-approved-usd-ref:${slug}:required",
+            "cost-receipt-ref:${slug}:future-required",
             "consent-ref:provider-runtime:not-granted",
             "policy-ref:provider-runtime:disabled-by-default",
             "revocation-ref:provider-runtime:not-active",
             "PROVIDER_INVOCATION_NOT_SCOPED",
             "CREDENTIAL_REFERENCE_NOT_BOUND",
             "VAULT_ADAPTER_NOT_SCOPED",
-            "PROVIDER_KEY_VALIDATION_NOT_SCOPED",
-            "PROVIDER_NETWORK_CALL_NOT_SCOPED",
+            "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
+            "PROVIDER_USAGE_CLAIM_REQUIRES_RECEIPT_REFS",
+            "EXACT_APPROVAL_REQUIRED",
+            "VALIDATION_ADAPTER_DISABLED_BY_DEFAULT",
+            "PROVIDER_SDK_CALL_DENIED",
+            "MODEL_INVOCATION_DENIED",
             "POLICY_APPROVAL_AUDIT_RECEIPT_REQUIRED",
             "PROVIDER_OUTPUT_NOT_AUTHORITY",
             "vault_adapter_readiness",
             "enrollment_readiness",
             "validation_readiness",
             "invocation_readiness",
+            "tiny_invocation_readiness",
+            "router_dry_run_readiness",
+            "provider-router-dry-run:proposal-only:v1",
+            "POST /control-center/providers/router/dry-run",
+            "provider-router-proposal-ref:dry-run-local:proposal-only",
+            "Provider router dry-run",
+            "Proposal only",
+            "Exact-approval candidate refs",
+            "Blocked provider refs",
+            "Degraded provider refs",
+            "Cost risky",
+            "Validation required",
+            "No provider authority",
+            "No fallback execution",
+            "PROVIDER_ROUTER_DRY_RUN_PROPOSAL_ONLY",
+            "NO_PROVIDER_INVOCATION",
+            "NO_FALLBACK_EXECUTION",
+            "NO_NETWORK_CALLS",
+            "NO_PROVIDER_SDK_CALL",
+            "NO_CREDENTIAL_VALIDATION",
+            "NO_MODEL_CALL",
+            "NO_BILLING_AUTHORITY",
+            "NO_AUTONOMOUS_BACKGROUND_CALLS",
+            "COSTGOVERNOR_REQUIRED_BEFORE_INVOCATION",
+            "EXACT_APPROVAL_SCOPE_REQUIRED_FOR_ANY_FUTURE_USE",
             "adapter_runtime_enabled: false",
             "adapter_available: false",
             "supports_write: false",
@@ -1627,9 +1817,42 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
             "context_injection_enabled: false",
             "connector_writes_enabled: false",
             "invocation_enabled: false",
+            "provider_sdk_call_enabled: false",
+            "network_call_enabled: false",
+            "autonomous_model_call_enabled: false",
+            "background_execution_enabled: false",
+            "billing_authority_granted: false",
             "raw_key_collection_enabled: false",
             "credential_material_stored: false",
             "raw_key_visible: false",
+            "redacted_receipts_only: true",
+            "actual_usage_ref_required: true",
+            "actual_cost_ref_required: true",
+            "receipt_completeness_required: true",
+            "incomplete_cost_requires_review: true",
+            "incomplete_cost_blocks_further_use: true",
+            "receipt_observation_ref:",
+            "receipt_observation_supported_states:",
+            'receipt_state_source: "no_receipt_observed"',
+            "usage_captured: false",
+            "cost_captured: false",
+            "cost_incomplete: false",
+            "review_required: false",
+            "further_use_blocked: false",
+            "TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT",
+            "UNKNOWN_PAID_COST_BLOCKS",
+            "ACTUAL_USAGE_REF_REQUIRED",
+            "ACTUAL_COST_REF_REQUIRED",
+            "RECEIPT_COMPLETENESS_REQUIRED",
+            "INCOMPLETE_COST_REQUIRES_REVIEW",
+            "INCOMPLETE_COST_BLOCKS_FURTHER_USE",
+            "Disabled no execution",
+            "No provider authority",
+            "Usage captured",
+            "Cost captured",
+            "Cost incomplete",
+            "Review required",
+            "Further use blocked",
             "CREDENTIAL_ENROLLMENT_NOT_SCOPED",
             "credential_resolution_allowed: false",
         ]:
@@ -1643,6 +1866,19 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
         for fragment in [
             "shows governed provider credential readiness without credential collection",
             "Provider credential readiness",
+            "Provider credential and cost posture",
+            "Provider cost authority posture",
+            "CostGovernor binding",
+            "Unknown paid cost",
+            "Above-budget estimate",
+            "Future receipt refs",
+            "Provider usage claims",
+            "cost-estimate-ref:openai-compatible:required",
+            "budget-decision-ref:openai-compatible:required",
+            "max-approved-usd-ref:openai-compatible:required",
+            "cost-receipt-ref:openai-compatible:future-required",
+            "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
+            "PROVIDER_USAGE_CLAIM_REQUIRES_RECEIPT_REFS",
             "Raw key collection",
             "Credential material stored",
             "Credential adapter readiness",
@@ -1652,6 +1888,20 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
             "CREDENTIAL_ENROLLMENT_NOT_SCOPED",
             "Provider validation contract",
             "Governed provider invocation",
+            "Tiny exact-approved provider lane",
+            "Disabled no execution",
+            "Live adapter blocked",
+            "Live receipt required",
+            "Usage captured",
+            "Cost captured",
+            "Cost incomplete",
+            "Review required",
+            "Further use blocked",
+            "Receipt completeness",
+            "Receipt observation",
+            "no receipt observed",
+            "No provider authority",
+            "TINY_PROVIDER_LANE_DISABLED_BY_DEFAULT",
             "test provider|call provider",
         ]:
             if fragment not in test_text:

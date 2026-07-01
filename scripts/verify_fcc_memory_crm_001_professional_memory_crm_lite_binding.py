@@ -24,6 +24,8 @@ APP_TEST = ROOT / "apps/control-center/src/App.test.tsx"
 CONTROL_CENTER_ROUTE_TEST = ROOT / "tests/test_control_center_api_routes.py"
 STORAGE_TEST = ROOT / "tests/test_founder_loop_storage.py"
 STORAGE_SAFETY_TEST = ROOT / "tests/test_founder_loop_storage_safety.py"
+BUSINESS_MEMORY = ROOT / "src/ultimate_ai_agent/core/memory/business_memory.py"
+CLI_INSPECT = ROOT / "scripts/inspect_relationship_crm_lite_memory.py"
 
 DOC_REF = "docs/control_center/FCC_MEMORY_CRM_001_PROFESSIONAL_MEMORY_CRM_LITE_BINDING.md"
 VERIFIER_REF = "scripts/verify_fcc_memory_crm_001_professional_memory_crm_lite_binding.py"
@@ -68,8 +70,13 @@ def _validate_doc(root: Path, failures: list[str]) -> None:
             "Primary surfaces: `/today`, `/briefing`, `/actions`, and `/memory`",
             "crm_lite_followups",
             "memory_why_shown_items",
+            "CrmLiteRelationshipFollowUp",
+            "contract-ref:relationship-crm-lite-memory:v1",
             "FounderLoopCrmLiteFollowUp",
             "FounderLoopMemoryWhyShownItem",
+            "scripts/inspect_relationship_crm_lite_memory.py",
+            "state_not_found_no_write",
+            "existing_state_unreadable_redacted",
             "reviewed professional memory",
             "recall, not truth or authority",
             "stale state",
@@ -85,15 +92,32 @@ def _validate_doc(root: Path, failures: list[str]) -> None:
 
 def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
     requirements = {
+        BUSINESS_MEMORY: [
+            "CRM_LITE_RELATIONSHIP_MEMORY_CONTRACT_REF",
+            "CrmLiteRelationshipFollowUp",
+            "crm_lite_relationship_authority_posture",
+            "review_only_stale_check_required",
+            "blocked-state:crm-lite-no-connector-read",
+            "blocked-state:crm-lite-no-hidden-context-injection",
+            "hidden_memory_write_authorized",
+        ],
         STORAGE: [
             "def _crm_lite_followups(",
             "def _memory_why_shown_items(",
+            "build_crm_lite_relationship_followup",
+            "crm_lite_relationship_authority_posture",
             "crm_lite_followups",
             "memory_why_shown_items",
             "relationship_ref",
+            "person_ref",
+            "org_ref",
+            "project_ref",
             "opportunity_ref",
-            "review_only_stale_check_required",
+            "promise_ref",
+            "crm_lite_relationship_memory_contract_ref",
             "draft_available",
+            "blocked-state:crm-lite-no-connector-read",
+            "blocked-state:crm-lite-no-hidden-memory-write",
             "blocked-state:no-external-crm-write",
             "blocked-state:no-account-sync",
             "blocked-state:no-connector-write",
@@ -105,12 +129,21 @@ def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
         API_TYPES: [
             "FounderLoopCrmLiteFollowUp",
             "FounderLoopMemoryWhyShownItem",
+            "contract_ref",
             "relationship_ref",
+            "person_ref",
+            "org_ref",
+            "project_ref",
             "opportunity_ref",
+            "promise_ref",
+            "relationship_memory_posture",
             "draft_available",
             "crm_sync_enabled",
             "crm_write_enabled",
             "external_write_enabled",
+            "connector_read_authorized",
+            "hidden_memory_write_authorized",
+            "model_provider_call_authorized",
             "reviewed_recall_only",
             "context_injection_authorized",
             "memory_truth_authority",
@@ -120,9 +153,12 @@ def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
             "MemoryWhyShownCards",
             "CRM-lite follow-ups",
             "Memory why shown",
+            "Relationship memory",
             "CRM sync",
             "CRM writes",
             "External writes",
+            "Connector reads",
+            "Hidden memory writes",
             "Reviewed recall only",
             "Context injection",
             "Memory truth",
@@ -147,6 +183,18 @@ def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
         STORAGE_SAFETY_TEST: [
             "memory_truth_authority",
             "context_injection_authorized",
+        ],
+        CLI_INSPECT: [
+            "repo-local-command:inspect-relationship-crm-lite-memory",
+            "CrmLiteRelationshipFollowUp",
+            "read_only=True",
+            "state_not_found_no_write",
+            "existing_state_unreadable_redacted",
+            "read-failed-redacted",
+            "crm_lite_relationship_authority_posture",
+            "raw_content_omitted",
+            "connector_runtime_enabled",
+            "production_authority_enabled",
         ],
     }
     for path, fragments in requirements.items():

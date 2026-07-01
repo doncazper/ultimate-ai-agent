@@ -9,6 +9,10 @@ from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
 )
+from ultimate_ai_agent.core.memory.feature_mine import (
+    memory_hrr_readiness,
+    validate_query_mode,
+)
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -208,6 +212,11 @@ class L1HotMemoryPreview(BaseModel):
     match_reasons: list[str] = Field(default_factory=list)
     supporting_ref_groups: dict[str, list[str]] = Field(default_factory=dict)
     score: float = Field(default=1.0, ge=0.0, le=1.0)
+    score_components: dict[str, float] = Field(default_factory=dict)
+    retrieval_strategy_refs: list[str] = Field(default_factory=list)
+    query_mode: str = "default"
+    safe_query_ref: str | None = None
+    epistemic_role: str = "unknown"
     context_injection_authorized: bool = False
     automatic_recall_authorized: bool = False
     automatic_memory_write_authorized: bool = False
@@ -240,6 +249,7 @@ class L1HotMemoryPreview(BaseModel):
             "event_refs",
             "metadata_refs",
             "tag_refs",
+            "retrieval_strategy_refs",
             "blocked_state_refs",
         ]:
             value = getattr(self, field_name)
@@ -252,6 +262,10 @@ class L1HotMemoryPreview(BaseModel):
                 _validate_safe_ref(value, field_name)
         for text_field in ["memory_id", "safe_summary", "preview_summary", "memory_kind"]:
             _validate_safe_text(str(getattr(self, text_field)), text_field)
+        _validate_safe_text(self.query_mode, "query_mode")
+        _validate_safe_text(self.epistemic_role, "epistemic_role")
+        if self.safe_query_ref is not None:
+            _validate_safe_ref(self.safe_query_ref, "safe_query_ref")
         for reason in self.match_reasons:
             _validate_safe_text(reason, "match_reasons")
         for group_name, refs in self.supporting_ref_groups.items():
@@ -277,6 +291,8 @@ class L1HotMemoryIndex(BaseModel):
     route_ref: str = L1_HOT_MEMORY_INDEX_ROUTE_REF
     status: str = L1_HOT_MEMORY_INDEX_STATUS
     query_ref: str | None = None
+    safe_query_ref: str | None = None
+    query_mode: str = "default"
     generated_at: datetime = Field(default_factory=utc_now)
     indexed_record_count: int = Field(default=0, ge=0)
     preview_count: int = Field(default=0, ge=0)
@@ -284,6 +300,9 @@ class L1HotMemoryIndex(BaseModel):
     skipped_record_refs: list[str] = Field(default_factory=list)
     skipped_record_count: int = Field(default=0, ge=0)
     safe_refs_only: bool = True
+    retrieval_strategy_refs: list[str] = Field(default_factory=list)
+    search_index_status: dict[str, Any] = Field(default_factory=dict)
+    hrr_readiness: dict[str, Any] = Field(default_factory=memory_hrr_readiness)
     raw_content_stored: bool = False
     context_injection_authorized: bool = False
     automatic_recall_authorized: bool = False
@@ -312,6 +331,11 @@ class L1HotMemoryIndex(BaseModel):
         _validate_safe_text(self.status, "status")
         if self.query_ref is not None:
             _validate_safe_ref(self.query_ref, "query_ref")
+        if self.safe_query_ref is not None:
+            _validate_safe_ref(self.safe_query_ref, "safe_query_ref")
+        _validate_safe_text(self.query_mode, "query_mode")
+        for ref in self.retrieval_strategy_refs:
+            _validate_safe_ref(ref, "retrieval_strategy_refs")
         for ref in self.skipped_record_refs:
             _validate_safe_ref(ref, "skipped_record_refs")
         for ref in self.blocked_state_refs:
@@ -334,10 +358,15 @@ def build_l1_hot_memory_index(
     records: Iterable[dict[str, Any] | Any],
     *,
     query_ref: str | None = None,
+    safe_query: str | None = None,
+    search_index_status: dict[str, Any] | None = None,
     limit: int = 20,
 ) -> L1HotMemoryIndex:
-    if query_ref is not None:
-        _validate_safe_ref(query_ref, "query_ref")
+    safe_query_ref, hashed_safe_query_ref, query_mode = validate_query_mode(
+        query_ref=query_ref,
+        safe_query=safe_query,
+    )
+    safe_query_text = _safe_text(safe_query, "safe_query") if safe_query else None
     previews: list[L1HotMemoryPreview] = []
     skipped_record_refs: list[str] = []
     for raw_record in records:
@@ -347,7 +376,13 @@ def build_l1_hot_memory_index(
             else dict(raw_record)
         )
         try:
-            preview = _preview_for_record(record, query_ref=query_ref)
+            preview = _preview_for_record(
+                record,
+                query_ref=safe_query_ref,
+                safe_query=safe_query_text,
+                safe_query_ref=hashed_safe_query_ref,
+                query_mode=query_mode,
+            )
         except ValueError:
             try:
                 skipped_record_refs.append(_record_ref(record))
@@ -362,12 +397,19 @@ def build_l1_hot_memory_index(
     )[: _bounded_limit(limit)]
     skipped_record_refs = list(dict.fromkeys(skipped_record_refs))
     return L1HotMemoryIndex(
-        query_ref=query_ref,
+        query_ref=safe_query_ref,
+        safe_query_ref=hashed_safe_query_ref,
+        query_mode=query_mode,
         indexed_record_count=len(previews),
         preview_count=len(previews),
         previews=previews,
         skipped_record_refs=skipped_record_refs,
         skipped_record_count=len(skipped_record_refs),
+        retrieval_strategy_refs=_retrieval_strategy_refs(
+            query_mode=query_mode,
+            search_index_status=search_index_status,
+        ),
+        search_index_status=_search_index_status(search_index_status),
     )
 
 
@@ -375,6 +417,9 @@ def _preview_for_record(
     record: dict[str, Any],
     *,
     query_ref: str | None,
+    safe_query: str | None,
+    safe_query_ref: str | None,
+    query_mode: str,
 ) -> L1HotMemoryPreview | None:
     if _status(record.get("review_state")) != "user_reviewed":
         raise ValueError("unreviewed memory records are not L1 eligible")
@@ -424,13 +469,52 @@ def _preview_for_record(
         )
     )
     match_reasons = ["reviewed_recall_record"]
-    score = 1.0
+    score_components = {
+        "reviewed_status": 0.30,
+        "source_refs": 0.15 if source_refs else 0.0,
+        "evidence_refs": 0.15 if evidence_refs else 0.0,
+        "receipt_refs": 0.15 if receipt_refs else 0.0,
+        "query_match": 0.0,
+        "confidence": max(0.0, min(float(record.get("confidence_score") or 0.0), 1.0)) * 0.10,
+        "trust": max(0.0, min(float(record.get("trust_score") or 0.0), 1.0)) * 0.10,
+        "stale_penalty": -0.15
+        if _status(record.get("stale_state") or "none") != "none"
+        else 0.0,
+        "conflict_penalty": -0.15
+        if _status(record.get("conflict_state") or "none") != "none"
+        else 0.0,
+    }
     if query_ref is None:
-        match_reasons.append("recent_reviewed_recall_preview")
+        if safe_query:
+            query_tokens = set(_tokenize_query_text(safe_query))
+            record_tokens = set(
+                _tokenize_query_text(
+                    " ".join(
+                        [
+                            str(record.get("safe_summary") or ""),
+                            str(record.get("summary") or ""),
+                            str(record.get("memory_kind") or ""),
+                            " ".join(record.get("tags") or []),
+                            " ".join(supporting_refs),
+                        ]
+                    )
+                )
+            )
+            if not query_tokens or not query_tokens.intersection(record_tokens):
+                return None
+            score_components["query_match"] = min(
+                0.20,
+                len(query_tokens.intersection(record_tokens)) * 0.05,
+            )
+            match_reasons.append("safe_query_ref_matched_safe_summary_or_refs")
+        else:
+            match_reasons.append("recent_reviewed_recall_preview")
     elif query_ref in supporting_refs:
         match_reasons.append("query_ref_matched_supporting_ref")
+        score_components["query_match"] = 0.20
     else:
         return None
+    score = max(0.0, min(1.0, sum(score_components.values())))
 
     safe_summary = _safe_text(record.get("safe_summary"), "safe_summary")[:320]
     return L1HotMemoryPreview(
@@ -463,4 +547,62 @@ def _preview_for_record(
             "record_refs": [memory_record_ref],
         },
         score=score,
+        score_components=score_components,
+        retrieval_strategy_refs=_retrieval_strategy_refs(query_mode=query_mode),
+        query_mode=query_mode,
+        safe_query_ref=safe_query_ref,
+        epistemic_role=_safe_text(record.get("epistemic_role") or "unknown", "epistemic_role"),
     )
+
+
+def _retrieval_strategy_refs(
+    *,
+    query_mode: str,
+    search_index_status: dict[str, Any] | None = None,
+) -> list[str]:
+    refs = [
+        "retrieval-strategy-ref:fcc-mem-022-l1-safe-summary",
+        "retrieval-strategy-ref:fcc-mem-022-l1-safe-refs",
+        "retrieval-strategy-ref:fcc-mem-022-deterministic-score-components",
+    ]
+    if query_mode == "query_ref":
+        refs.append("retrieval-strategy-ref:fcc-mem-022-query-ref")
+    if query_mode == "safe_query":
+        refs.append("retrieval-strategy-ref:fcc-mem-022-safe-query-hashed")
+    if (search_index_status or {}).get("fts5_enabled"):
+        refs.append("retrieval-strategy-ref:fcc-mem-022-local-sqlite-fts5-safe-fields")
+    else:
+        refs.append("retrieval-strategy-ref:fcc-mem-022-lexical-fallback")
+    return list(dict.fromkeys(refs))
+
+
+def _search_index_status(status: dict[str, Any] | None) -> dict[str, Any]:
+    if status:
+        return dict(status)
+    return {
+        "status": "deterministic_lexical_fallback_unavailable_status",
+        "fts5_enabled": False,
+        "indexed_record_count": 0,
+        "safe_summary_refs_only": True,
+        "raw_content_indexed": False,
+        "embedding_index_enabled": False,
+        "vector_db_enabled": False,
+        "semantic_search_enabled": False,
+        "hrr_enabled": False,
+        "algebraic_retrieval_enabled": False,
+    }
+
+
+def _tokenize_query_text(value: str) -> list[str]:
+    token = []
+    tokens: list[str] = []
+    for char in value.lower():
+        if char.isalnum():
+            token.append(char)
+            continue
+        if token:
+            tokens.append("".join(token))
+            token = []
+    if token:
+        tokens.append("".join(token))
+    return [part for part in tokens if len(part) > 1]

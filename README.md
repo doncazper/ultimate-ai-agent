@@ -1,6 +1,6 @@
 # Ultimate AI Agent
 
-**A local-first governed agent foundation and emerging Founder Command Center.**
+**A local-first governed agent foundation and emerging Control Center for the Founder Loop.**
 
 Ultimate AI Agent helps a single founder/operator plan the day, review safe
 action proposals, inspect evidence, and keep agent behavior inside explicit
@@ -20,17 +20,18 @@ distribution, or broad-authority runtime.
 |---|---|
 | What is it? | A Python Agent Core with a FastAPI contract boundary, a React/TypeScript Control Center shell, and local-first governance for proposals, approvals, receipts, memory review, and evidence. |
 | What does it demonstrate? | API contracts, route classification, local approval authority, idempotency posture, redacted evidence, durable receipts, frontend/backend parity, and disciplined product-language controls. |
-| What is usable now? | Proofed route surfaces for `/actions`, `/chat`, `/memory`, and `/evidence`; partial/status surfaces for Today, Plans, Settings, Runtime, and local model readiness. |
+| What is usable now? | Proofed route surfaces for `/actions`, `/chat`, `/memory`, and `/evidence`; partial/status surfaces for Today, Plans, Settings, Runtime, and local model readiness; and a fixture-only `/crm` shell for blocked CRM vertical review. |
 | What is intentionally not claimed? | Production readiness, public release, broad autonomy, connector writes, unrestricted shell/browser/network authority, provider/model authority, hidden context injection, and generic action execution. |
 
 ## Product North Star
 
-The current product north star is a calm Founder Command Center cockpit for
+The current product north star is a calm Control Center for the Founder Loop:
 Today, Action Inbox, Plans, Chat, Memory, Evidence, Settings, and Setup
-Assistant. The current UI is not yet close to these images. They are product
-vision targets, not current implementation screenshots or implementation
-evidence; current truth still comes from route/API contracts, tests, verifiers,
-and redacted evidence.
+Assistant. Founder Command Center remains strategy and north-star terminology,
+not a separate app shell. The current UI is not yet close to these images. They
+are product vision targets, not current implementation screenshots or
+implementation evidence; current truth still comes from route/API contracts,
+tests, verifiers, and redacted evidence.
 
 See [docs/portfolio/PRODUCT_NORTH_STAR.md](docs/portfolio/PRODUCT_NORTH_STAR.md)
 for the full visual target, per-surface truth labels, and current UI gap.
@@ -73,12 +74,13 @@ curated gallery and snapshot caveats.
 
 | Area | Current status | What to inspect |
 |---|---|---|
-| API boundary | Implemented for the current 152-path FastAPI/OpenAPI boundary and `/api/manifest` metadata. | [docs/api/README.md](docs/api/README.md) |
+| API boundary | Implemented for the current **159** OpenAPI paths and `/api/manifest` metadata. | [docs/api/README.md](docs/api/README.md) |
 | Action Inbox | Backend-owned approve/edit/reject/defer decisions, receipts, evidence refs, and one exact approved local-task lane. Generic execution remains blocked. | [docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md](docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md) |
 | Chat handoff | Durable safe Chat turn receipts and reviewable Actions/Plans handoff receipts. Model output is not authority. | [docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md](docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md) |
-| Memory | Review receipts, reviewed recall-only records, read-only L1/L2/L3 indexes, proposal-only context packs, impact graph/follow-up queues, retrieval diagnostics, citation integrity, feedback quality issues, proposal-only maintenance runs, context manifests, and internal Action proposal receipts. Memory remains recall, not truth or authority. | [docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) |
+| Memory | Review receipts, reviewed recall-only records, read-only L1/L2/L3 indexes, proposal-only context packs, and internal Action proposal receipts. Memory remains recall, not truth or authority. | [docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) |
 | Evidence | Productized safe-ref timeline for proposals, decisions, receipts, and memory-review events. | [docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md](docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md) |
 | Today, Plans, Settings, Runtime, Models | Partial/status/readiness surfaces. Useful for inspection, not full product completion. | [docs/control_center/OPERATOR_SHELL_GAP_MAP.md](docs/control_center/OPERATOR_SHELL_GAP_MAP.md) |
+| CRM | Fixture-only `/crm` Control Center shell for vertical review. No backend CRM route, connector runtime, account sync, sends, calendar writes, or CRM write authority exists. | [docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md](docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md) |
 | Inbox/email/calendar connectors | Planned or blocked contract lanes only. No live connector runtime or writes. | [docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md](docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md) |
 
 ## Architecture At A Glance
@@ -104,8 +106,10 @@ authority or own product truth.
 
 ## Product Shape
 
-Ultimate AI Agent is the product foundation for a **Founder Command Center**.
-The web shell is the **Control Center**. The Python Agent Core remains the
+Ultimate AI Agent is the product foundation for a local founder/operator loop.
+The web shell is the **Control Center**. The primary workflow inside it is the
+**Founder Loop**. Founder Command Center remains strategy and north-star naming,
+not a different app or authority layer. The Python Agent Core remains the
 authority boundary.
 
 The intended loop is compact:
@@ -131,7 +135,7 @@ Morning Briefing
 - **Memory Review**: accept/correct/reject receipts for reviewed recall only.
 - **Governed memory spine**: L1/L2/L3 read-only indexes over safe reviewed refs.
 - **Safe workspace previews**: patch proposals, validation proof, and rollback posture.
-- **Local model lane**: Optional Local Model Stack readiness evidence for Docker, llama.cpp, OpenWebUI, Ollama, and MLX-LM with local-first limits.
+- **Local model lane**: llama.cpp/OpenWebUI readiness evidence with local-first limits.
 - **Verification gates**: Foundation Gate, OpenAPI, docs, backend, frontend, and product-truth checks.
 
 ## Current Technical Snapshot
@@ -143,9 +147,9 @@ Morning Briefing
 | Latest repository checkpoint | **checkpoint-m169** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
 | Local model lane | **M160-M167**, including **M166** local readiness evidence and **M167** live evidence hardening; non-production by default |
-| API boundary | FastAPI route contract with **152** OpenAPI paths |
+| API boundary | FastAPI route contract with **159** OpenAPI paths |
 | Founder Loop V1 | `FCC-V1-000` through `FCC-V1-007` complete for bounded proofed route surfaces |
-| Governed Cognitive Memory Spine | Phases 1-5 plus FCC-MEM-001, FCC-MEM-015, and FCC-MEM-016 through FCC-MEM-020 implemented as reviewed/read-only/proposal lanes; Phase 6.1 is internal Action proposal receipts only |
+| Governed Cognitive Memory Spine | Phases 1-5 implemented as reviewed/read-only/proposal lanes; Phase 6.1 is internal Action proposal receipts only |
 | Deferred lane | `UAA-P1-087.2` in-person private UI functional tuning |
 | Implemented support | `UAA-P1-066` read-only Local Model Control Center inventory/status support |
 | Release posture | Local-first, review-gated, disabled by default, non-production by default |
@@ -156,11 +160,11 @@ Morning Briefing
 |---|---|---|
 | Agent Core | Python 3.10+, Pydantic | Contracts, policy, approval, memory, evidence, and storage logic |
 | API | FastAPI, Uvicorn | Local API boundary and `/api/manifest` route metadata |
-| Web Shell | React, TypeScript, Vite | Control Center / Founder Command Center UI |
+| Web Shell | React, TypeScript, Vite | Control Center UI |
 | Frontend Tests | Vitest, Playwright | Component, safety, and interaction checks |
 | Backend Tests | pytest, repo verifiers | Contract, storage, route, docs, and product-truth checks |
 | Local Tooling | Make, local CLI scripts, npm | Development, launch, inspection, and verification |
-| Optional Model Shell | Docker, llama.cpp, OpenWebUI, Ollama, MLX-LM | Read-only readiness and inventory evidence, secondary shell support, and future exact-scoped local runtime adapters |
+| Optional Model Shell | Docker, llama.cpp, OpenWebUI, Ollama, MLX-LM | Local model readiness evidence and secondary shell support |
 
 ## Quick Start
 
@@ -168,7 +172,7 @@ Morning Briefing
 
 - Python 3.10 or newer.
 - `npm` for the Control Center app.
-- Optional Docker/OpenWebUI/Ollama/MLX-LM tooling for local model experiments; UAA only reports read-only readiness posture here.
+- Optional Docker/OpenWebUI tooling for local model experiments.
 
 ### Installation
 
@@ -218,8 +222,48 @@ Run focused checks before broad gates.
 ```bash
 make doctor
 make verify
+make verify-fast
+make verify-dev-fast
+make test-sharded
+make verify-dev-sharded
 make frontend-check
 ```
+
+`make verify` preserves the conservative serial all-in verification contract and
+remains the release-grade local gate. `make verify-fast` keeps the older serial
+local shard composition. `make verify-dev-fast` is the opt-in faster local lane:
+it runs `ruff`, `test`, `verify-static`, and `verify-gate-architecture` through
+a bounded `make -j$(VERIFY_DEV_FAST_JOBS)` fanout, then generates a serialized
+report-only Foundation Gate summary with `--no-write-latest`. It records static
+verification timings through `VERIFY_TIMINGS_JSON`, uses the normal non-xdist
+pytest suite, and is local verification evidence, not a release-readiness claim
+by itself. PR final proof should still include full `make verify` until parallel
+equivalence is accepted.
+
+`make test-sharded` is an opt-in local/dev pytest file sharding lane. It uses
+`scripts/verification/run_pytest_shards.py` with `PYTEST_SHARDS`, stores
+inspectable shard logs and isolated pytest temp dirs under ignored `/tmp`
+paths, and writes file timing data to `PYTEST_SHARD_TIMINGS_JSON`. When that
+timing file is complete, the runner greedily balances files by prior duration;
+when timing data is missing or partial, it falls back to deterministic
+file-count sharding. `make verify-dev-sharded` runs the same local/dev
+composition through `scripts/verification/run_dev_fast_gate.py`: `ruff`,
+sharded pytest, static verification, and gate architecture run in bounded local
+fanout, then Foundation Gate runs serialized in report-only mode with
+`--no-write-latest`. The runner captures per-phase logs under ignored `/tmp`
+paths, writes a timing summary, prints concise pass/fail phase summaries, and
+prints detailed log tails when a phase fails. This is local pre-review feedback
+only; full `make verify` remains the conservative release-grade proof.
+
+The sharded lane parallelizes the same default-safe contract test posture. It
+does not opt into live GGUF search or acquisition, local model root
+enumeration, model loading, model benchmarking, llama.cpp startup, OpenWebUI
+startup, provider live-network tests, or model-router sweeps. Shard
+subprocesses strip known live/model-heavy opt-in environment variables before
+pytest starts, so optional live tests remain skipped by default.
+
+No unchanged-file cache shortcut is used by the fast lanes. Any future cache
+shortcut needs deterministic invalidation and must remain local/dev-only.
 
 Useful direct checks:
 
@@ -258,6 +302,7 @@ npm --prefix apps/control-center run test -- --run
 | `/memory` | Proofed bounded route surface | Review decisions and L1/L2/L3 read-only indexes exist. |
 | `/evidence` | Proofed bounded route surface | Productized timeline events and receipts exist. |
 | `/today` | Partial | Product spine exists; broader workflow is still staged. |
+| `/crm` | Fixture-only/blocked | Presentation shell only; backend CRM read models, API routes, connector runtime, and writes remain blocked. |
 | `/inbox` | Blocked/future | Connector workflows are not granted. |
 | `/settings` | Partial/support | Runtime authority is not granted by settings UI. |
 | Local models | Partial/support | Readiness evidence only; no broad production authority. |
@@ -313,7 +358,7 @@ These lines keep the active docs and verifiers aligned.
 - UAA-P1-087.2a Private Trial Packet And UI Tuning Surface is complete.
 - UAA-P1-087.2b Private Trial Findings Capture And Acceptance Ledger is complete.
 - UAA-P1-087.2c Private Trial Manual Review Scaffold is complete.
-- UAA-P1-066 is implemented as read-only Local Model Control Center inventory/status support via `GET /control-center/local-models/status`, including Ollama and MLX-LM as readiness surfaces only. No lifecycle, switching, activation, downloads, model pulls, runtime adapters, model calls, provider/model authority, or production-readiness claim is added.
+- UAA-P1-066 is implemented as read-only Local Model Control Center inventory/status support via `GET /control-center/local-models/status`. No lifecycle, switching, activation, downloads, model pulls, model calls, runtime adapters, provider/model authority, or production-readiness claim is added.
 - P0-016 hardens tuning advice without granting runtime authority.
 - P0-017 adds safe local model operational recovery guidance.
 

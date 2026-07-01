@@ -73,6 +73,7 @@ The JSON manifest covers these UAA-P0-007 surfaces:
 - Inbox
 - Action Inbox
 - Morning Briefing
+- CRM
 - Memory Review
 - Chat Local Operator
 - Plans
@@ -93,7 +94,7 @@ mock-only, or local-UI-state-only.
 The JSON manifest covers the current visible Control Center routes and actions:
 
 - Setup Assistant, Overview, Dashboard, and Operator Loop navigation
-- Today, Inbox, Actions, Briefing, Chat Local Operator, Plans, Models, Runtime,
+- Today, Inbox, Actions, Briefing, CRM, Chat Local Operator, Plans, Models, Runtime,
   Foundation Gate, API Routes, Approvals,
   Receipts, Events, Timeline, Evidence, Files, File Review, Context Proposals,
   Memory, Local Runtime, Manual Smoke, Remote Workers, Mobile Planning, Plugin
@@ -101,6 +102,10 @@ The JSON manifest covers the current visible Control Center routes and actions:
 - Action Preview submission
 - Action Inbox approval-envelope/state-change posture inspection
 - Morning Briefing source-readiness and missing-contract posture inspection
+- CRM M1 fixture-only shell inspection with backend CRM routes, backend CRM
+  read models, connector runtime, writes, sends, calendar writes, provider/model
+  calls, live web, browser automation, public release, and production authority
+  blocked
 - Memory Review candidate provenance/source/evidence posture inspection
 - Local detail-card selection
 - File Review approve/deny review-only local state

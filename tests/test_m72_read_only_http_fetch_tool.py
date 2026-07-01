@@ -1,6 +1,8 @@
 from typing import Any
+
 import pytest
 
+import ultimate_ai_agent.core.tools.runtime as tool_runtime
 from ultimate_ai_agent.core.tools.runtime import (
     READ_ONLY_HTTP_FETCH_TOOL_NAME,
     READ_ONLY_HTTP_FETCH_TOOL_REF,
@@ -11,9 +13,15 @@ from ultimate_ai_agent.core.tools.runtime import (
     ToolInvocationRequest,
     ToolInvocationStatus,
     ToolRuntimeAdapter,
-    build_read_only_http_fetch_output,
+    build_read_only_http_fetch_output_via_web_access_gateway,
     http_fetch_policy_reason_codes,
     normalize_http_fetch_target,
+)
+from ultimate_ai_agent.core.web_access import (
+    WebAccessAuthorityMode,
+    WebAccessGateway,
+    WebAccessNetworkLane,
+    WebAccessRequestKind,
 )
 
 
@@ -62,8 +70,8 @@ def _fake_transport(_request: Any, _policy: Any) -> Any:
     )
 
 
-def test_read_only_http_fetch_redacts_before_return_and_stores_no_raw_body() -> None:
-    output = build_read_only_http_fetch_output(
+def test_read_only_http_fetch_gateway_redacts_before_return_and_stores_no_raw_body() -> None:
+    output = build_read_only_http_fetch_output_via_web_access_gateway(
         invocation_id="tool-runtime-invocation:m72-direct",
         request=_fetch_request(),
         policy=_policy(),
@@ -89,6 +97,11 @@ def test_read_only_http_fetch_redacts_before_return_and_stores_no_raw_body() -> 
     assert output.side_effects_performed == []
 
 
+def test_tool_runtime_package_exports_gateway_fetch_builder_not_direct_bypass() -> None:
+    assert hasattr(tool_runtime, "build_read_only_http_fetch_output_via_web_access_gateway")
+    assert not hasattr(tool_runtime, "build_read_only_http_fetch_output")
+
+
 def test_tool_runtime_adapter_invokes_only_with_fake_transport_and_allowlisted_host() -> None:
     adapter = ToolRuntimeAdapter()
 
@@ -106,11 +119,59 @@ def test_tool_runtime_adapter_invokes_only_with_fake_transport_and_allowlisted_h
     assert "READ_ONLY_HTTP_FETCH_REDACTED_PREVIEW_RETURNED" in decision.reason_codes
 
 
+def test_tool_runtime_http_fetch_routes_through_web_access_gateway(monkeypatch: Any) -> None:
+    calls = []
+    results = []
+    original_execute = WebAccessGateway.execute
+
+    def spy_execute(self: WebAccessGateway, request: Any) -> Any:
+        calls.append((self, request))
+        result = original_execute(self, request)
+        results.append(result)
+        return result
+
+    monkeypatch.setattr(WebAccessGateway, "execute", spy_execute)
+
+    decision = ToolRuntimeAdapter().invoke(_tool_request(), http_fetch_transport=_fake_transport)
+
+    assert decision.invocation_allowed is True
+    assert calls
+    gateway, web_request = calls[0]
+    assert gateway.policy.allow_read_only_fetch is True
+    assert web_request.kind == WebAccessRequestKind.READ_ONLY_FETCH
+    assert web_request.authority_mode == WebAccessAuthorityMode.READ_ONLY
+    assert web_request.network_lane == WebAccessNetworkLane.TOOL_RUNTIME_READ_ONLY_FETCH
+    assert web_request.allowed_domains == ("docs.example.test",)
+    assert web_request.metadata["tool_ref"] == READ_ONLY_HTTP_FETCH_TOOL_REF
+    assert results[0].evidence_bundle is not None
+    evidence_payload = repr(results[0].evidence_bundle.payload)
+    assert "https://docs.example.test/status" not in evidence_payload
+    assert "http-fetch-url:docs-example-test/status" in evidence_payload
+
+
 def test_tool_runtime_denies_http_fetch_without_transport() -> None:
     decision = ToolRuntimeAdapter().invoke(_tool_request())
 
     assert decision.invocation_allowed is False
     assert "HTTP_FETCH_TRANSPORT_REQUIRED" in decision.reason_codes
+
+
+def test_tool_runtime_http_fetch_missing_transport_is_gateway_bound(monkeypatch: Any) -> None:
+    calls = []
+    original_execute = WebAccessGateway.execute
+
+    def spy_execute(self: WebAccessGateway, request: Any) -> Any:
+        calls.append(request)
+        return original_execute(self, request)
+
+    monkeypatch.setattr(WebAccessGateway, "execute", spy_execute)
+
+    decision = ToolRuntimeAdapter().invoke(_tool_request())
+
+    assert decision.invocation_allowed is False
+    assert "HTTP_FETCH_TRANSPORT_REQUIRED" in decision.reason_codes
+    assert calls
+    assert calls[0].network_lane == WebAccessNetworkLane.TOOL_RUNTIME_READ_ONLY_FETCH
 
 
 @pytest.mark.parametrize(

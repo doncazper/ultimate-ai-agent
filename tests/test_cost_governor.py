@@ -124,6 +124,33 @@ def test_unknown_paid_cost_requires_approval() -> None:
     assert decision.approval_required is True
 
 
+def test_provider_invocation_unknown_paid_cost_blocks_before_budget_authority() -> None:
+    decision = CostGovernor().evaluate(
+        CostEstimate(
+            estimate_id="cost-estimate-ref:provider-runtime:unknown",
+            input_tokens=10,
+            output_tokens=5,
+            total_tokens=15,
+            estimated_cost_usd=None,
+            model_profile_id="model-ref:provider-runtime:unknown-cost",
+            provider_id="provider-ref:provider-runtime:unknown-cost",
+            unknown_cost=True,
+        ),
+        [
+            CostBudget(
+                budget_id="budget-decision-ref:provider-runtime:tiny",
+                scope=BudgetScope.provider,
+                scope_id="provider-ref:provider-runtime:unknown-cost",
+                max_cost_usd=1.00,
+            )
+        ],
+    )
+
+    assert decision.allowed is False
+    assert decision.status == BudgetStatus.approval_required
+    assert decision.reason_codes == ["UNKNOWN_PAID_COST_REQUIRES_APPROVAL"]
+
+
 def test_local_zero_cost_route_still_checks_token_budget() -> None:
     estimate = CostGovernor().estimate_route_cost(route_request(profiles=[local_profile()]), local_profile())
     decision = CostGovernor().evaluate(

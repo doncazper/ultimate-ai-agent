@@ -10,6 +10,33 @@ The release surface manifest is the promotion gate for every visible Control
 Center route. It records what the route can truthfully claim today and what
 proof is required before the route can be promoted.
 
+## Proof Chain Fields
+
+Every visible route in `docs/control_center/release_surface_manifest.json`
+must carry the full proof chain below:
+
+- Route path, label, group, UI status, release status, and owner copied from
+  the active Control Center route metadata.
+- Backend route refs or an explicit `no-backend-route:*` rationale. A
+  no-backend rationale is a blocked/planned posture, not a runtime permission.
+- Side-effect class, route classification, and approval posture for the
+  referenced backend contracts.
+- Proof lanes and evidence refs that use repo-local, redacted artifacts only.
+- Visual proof status, visual baseline ref, and visual rationale. Routes with
+  checked-in redacted desktop/mobile baselines must match
+  `docs/control_center/visual_regression_manifest.json`; routes without a
+  checked-in baseline must say whether the visual gap is blocked or
+  experimental.
+- Blocked capabilities, promotion criteria, and product-language caveats that
+  keep public distribution, release, production authority, connector writes,
+  provider/model calls, browser execution, memory/context injection, and broad
+  runtime claims out of route truth.
+
+The verifier fails on missing visible routes, unknown statuses, missing proof
+lanes, missing visual baseline refs or missing no-baseline rationales, backend
+status drift, raw evidence fragments, unsupported release claims, and schema
+drift.
+
 ## Status Vocabulary
 
 The status vocabulary is exactly:
@@ -38,6 +65,9 @@ A visible route cannot be promoted to `ship` unless all of these are true:
 - The route has backend route refs or an explicitly documented no-backend proof
   rationale accepted by a later scoped milestone.
 - Relevant proof lanes are present and run cleanly.
+- The route has visual proof: either a checked-in redacted baseline referenced
+  by the visual regression manifest, or an explicit blocked/experimental
+  no-baseline rationale.
 - Evidence uses safe refs, redacted summaries, bounded previews, and explicit
   blocked states only.
 - Mutating behavior is exact-scoped, idempotent, approval-bound where required,
@@ -74,5 +104,9 @@ backend-owned accept/correct/reject receipts. FCC-V1-006 Evidence Timeline
 Productization is complete for the backend-owned timeline index. FCC-V1-007
 Promotion And Proof Lane is complete for proofing only `/actions`, `/chat`,
 `/memory`, and `/evidence`; `/today`, `/inbox`, `/settings`, model lifecycle,
-product-readiness claims, public beta, public distribution, and production
-authority remain outside this release-surface proof.
+and product-readiness claims remain outside this release-surface proof. CRM M1
+adds `/crm` only as a fixture-only blocked shell; backend CRM read models,
+backend CRM routes, connector runtime, writes, sends, calendar writes,
+provider/model calls, live web, browser automation, public beta, public
+distribution, and production authority remain outside this release-surface
+proof.

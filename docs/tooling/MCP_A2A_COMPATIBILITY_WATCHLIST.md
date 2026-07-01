@@ -3,16 +3,24 @@
 Status: active UAA-P2-051 MCP/A2A compatibility watchlist
 
 Scope: strategy/watchlist only for future Model Context Protocol (MCP) and
-agent-to-agent (A2A) compatibility planning. This document records concepts,
+agent-to-agent (A2A) compatibility planning, with links to accepted
+metadata/import foundation docs. MCP has a metadata/import foundation in
+`docs/tooling/UAA_MCP_GATEWAY_FOUNDATION.md`; A2A has a metadata/import foundation in
+`docs/remote/UAA_A2A_GATEWAY_FOUNDATION.md`. This document records concepts,
 risks, future gates, open questions, and likely manifest/capability
 implications before any runtime authority exists.
 
-This watchlist does not imply MCP/A2A support is shipped. It adds no runtime
+This watchlist does not imply MCP/A2A support is shipped. It also does not
+imply callable MCP/A2A support is shipped. The MCP and A2A foundations are
+metadata/import only: unknown MCP tools and unknown A2A agents are blocked and
+review-required, not read-only or delegation-ready. They add no runtime
 authority, no connector writes, no plugin execution, no broad tool invocation,
-and no network authority. It does not add backend routes, OpenAPI paths,
-runtime imports, package execution, model/provider authority, shell/subprocess
-execution, browser automation, mobile control, autonomous background execution,
-public distribution, or production authority.
+no remote dispatch, and no network authority. They do not add backend routes,
+OpenAPI paths, runtime imports, package execution, model/provider authority,
+shell/subprocess execution, browser automation, mobile control, autonomous
+background execution, public distribution, or production authority.
+The short import rule remains: treat unknown MCP tools as blocked and unknown
+A2A agents as blocked until reviewed.
 
 Related ecosystem docs:
 
@@ -20,6 +28,9 @@ Related ecosystem docs:
 docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md
 docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md
 docs/tooling/EXTENSION_ACTIVATION_GRANTS.md
+docs/tooling/CAPABILITY_PROMOTION_LADDER.md
+docs/tooling/UAA_MCP_GATEWAY_FOUNDATION.md
+docs/remote/UAA_A2A_GATEWAY_FOUNDATION.md
 docs/roadmap/ECOSYSTEM_WATCHLIST.md
 docs/canonical/66_external_tooling_and_codex_plugin_governance.md
 docs/capability_registry.md
@@ -47,8 +58,10 @@ Planning refs that may be useful later:
 
 A2A-style ecosystems commonly describe agent identity, agent cards, task or
 handoff envelopes, capability discovery, status exchange, and delegation
-contracts. For UAA planning, those concepts remain inert metadata and cannot
-become delegation authority without future approval.
+contracts. UAA now models these as local safe-ref metadata, capability
+candidates, proposal-only handoff envelopes, exact approval-binding contracts,
+blocked receipts, and replay/audit refs. They remain non-delegating metadata
+until a later exact-scoped runtime lane is accepted.
 
 Planning refs that may be useful later:
 

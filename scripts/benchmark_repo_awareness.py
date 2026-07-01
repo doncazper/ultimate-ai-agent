@@ -115,15 +115,19 @@ REQUIRED_EVIDENCE_PATHS = (
     "scripts/verify_documentation_integrity.py",
     "scripts/verify_openapi_contract.py",
     "scripts/verify_agent_module_maturity_map.py",
+    "scripts/verify_uaa_p1_088_agent_module_maturity_review_v2.py",
     "scripts/verify_release_lanes.py",
     "scripts/verify_release_evidence_packet.py",
     "scripts/benchmark_foundation_gate.py",
+    "docs/registry/agent_module_maturity_review_v2.json",
+    "docs/registry/AGENT_MODULE_MATURITY_REVIEW_V2.md",
     "docs/production/RELEASE_VERIFICATION_LANES.md",
     "docs/production/RELEASE_EVIDENCE_PACKET.md",
     "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md",
     "docs/control_center/ROUTE_STATUS_MANIFEST.md",
     "docs/control_center/route_status_manifest.json",
     "tests/test_agent_module_maturity_map.py",
+    "tests/test_uaa_p1_088_agent_module_maturity_review_v2.py",
     "tests/test_release_evidence_packet.py",
     "tests/test_foundation_gate_latency_scripts.py",
 )
@@ -226,6 +230,7 @@ def _category(
 
 def _score_module_maturity(root: Path) -> dict[str, Any]:
     evidence_ref = "docs/registry/agent_module_maturity_map.json"
+    v2_review_ref = "docs/registry/agent_module_maturity_review_v2.json"
     payload = _load_json(root, evidence_ref)
     if payload is None:
         return _category(
@@ -262,18 +267,40 @@ def _score_module_maturity(root: Path) -> dict[str, Any]:
     distribution: dict[str, int] = {}
     for module_score in scores:
         distribution[str(module_score)] = distribution.get(str(module_score), 0) + 1
+    v2_review = _load_json(root, v2_review_ref)
+    v2_summary = v2_review.get("summary_metrics") if isinstance(v2_review, dict) else {}
+    v2_queue = v2_review.get("ranked_improvement_queue") if isinstance(v2_review, dict) else []
+    v2_next_tasks = [
+        str(item.get("task_ref"))
+        for item in v2_queue
+        if isinstance(item, dict) and isinstance(item.get("task_ref"), str)
+    ]
     return _category(
         category_id="module_maturity",
         label="Module maturity",
         score=score,
-        safe_summary="Average requested-module maturity derived from the active module maturity map.",
-        evidence_refs=[evidence_ref, "scripts/verify_agent_module_maturity_map.py"],
+        safe_summary=(
+            "Average requested-module maturity derived from the active module maturity map; "
+            "V2 review adds evidence detail and a ranked improvement queue without changing the score model."
+        ),
+        evidence_refs=[
+            evidence_ref,
+            v2_review_ref,
+            "docs/registry/AGENT_MODULE_MATURITY_REVIEW_V2.md",
+            "scripts/verify_agent_module_maturity_map.py",
+            "scripts/verify_uaa_p1_088_agent_module_maturity_review_v2.py",
+        ],
         metrics={
             "module_count": len(modules),
             "average_maturity_score": round(sum(scores) / len(scores), 2) if scores else 0,
             "max_maturity_score": max(scores) if scores else 0,
             "score_distribution": distribution,
             "modules_below_validated_contract": len(low_modules),
+            "v2_review_available": isinstance(v2_review, dict),
+            "v2_average_composite_score": v2_summary.get("v2_average_composite_score")
+            if isinstance(v2_summary, dict)
+            else None,
+            "v2_ranked_next_tasks": v2_next_tasks[:4],
         },
         blockers=[f"module_below_validated_contract:{module_id}" for module_id in low_modules],
     )

@@ -2,7 +2,7 @@
 
 Status: active gated foundation map
 Baseline: v0.104.0 / 0.104.0
-Current OpenAPI path count: 152
+Current OpenAPI path count: 159
 Scope: documentation and route ownership inventory only
 
 This map records the current FastAPI route groups for UAA-P1-058 and future
@@ -18,13 +18,13 @@ typed metadata endpoint for route inventory and capabilities.
 
 | Contract surface | Result |
 |---|---|
-| OpenAPI path count | 152 paths. |
-| `/api/manifest` route count | 152 routes. |
+| OpenAPI path count | 159 paths. |
+| `/api/manifest` route count | 159 routes. |
 | Operation ID posture | Stable generated IDs are unique for all current routes. |
 | Side-effect classes | All current routes use `none`, `validation_only`, `local_dev_workspace_only`, or `governed_network_read_only`. |
 | Route-module ownership tests | UAA-P1-059 checks every current route against this map for owner, target service module, side-effect class, risk class, auth posture, release status, route-count posture, operation ID posture, and evidence behavior. |
 | Control Center route-status manifest | Backend route refs checked against `/api/manifest`; 0 missing and 0 path/method/operation/side-effect mismatches. |
-| Route inventory doc | Current count matches 152; inventory is summarized by group and remains subordinate to `/api/manifest`. |
+| Route inventory doc | Current count matches 159; inventory is summarized by group and remains subordinate to `/api/manifest`. |
 
 ## Mismatch Findings
 
@@ -32,7 +32,7 @@ typed metadata endpoint for route inventory and capabilities.
 |---|---|---|
 | OpenAPI vs `/api/manifest` | No current route count, path, operation ID, or side-effect mismatch found by required verifiers. | Keep checks release-blocking. |
 | Control Center route-status manifest vs `/api/manifest` | No current mismatch for manifest entries that name backend routes. The route-status manifest is a visible-action subset, not an all-route inventory. | Do not use it as the source for non-Control Center service extraction. |
-| `docs/api/route_inventory.md` vs `/api/manifest` | Count and high-level groups agree. The doc intentionally summarizes broad groups rather than listing all 152 rows. | This UAA-P1-021 map is the exhaustive grouping companion. |
+| `docs/api/route_inventory.md` vs `/api/manifest` | Count and high-level groups agree. The doc intentionally summarizes broad groups rather than listing every current route row. | This UAA-P1-021 map is the exhaustive grouping companion. |
 | UAA-P1-058 readiness | First extraction is now limited to `GET /health` and `GET /version` under `system_service`; broader extraction remains gated by this map, UAA-P1-020, UAA-P1-052, Foundation Gate, OpenAPI, and API manifest stability. | Do not start broader extraction until all are accepted and green on the target branch. |
 | UAA-P1-059 ownership gate | `tests/test_route_module_ownership.py` now fails if a route appears without ownership, module, risk, auth, release, operation ID, side-effect, route-count, or evidence behavior coverage. | Keep this check in the route-modularity lane before broader extraction. |
 
@@ -46,7 +46,7 @@ typed metadata endpoint for route inventory and capabilities.
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
-| `control-center` | 53 | `control-center` | `control_center_service` | local status or future auth per route | `local_dev_workspace_only`:42, `validation_only`:11 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
+| `control-center` | 60 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:1, `local_dev_workspace_only`:46, `validation_only`:13 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `extension-catalog` | 1 | `extension-catalog` | `extension_catalog_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | `status_available_not_completion` |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
@@ -137,17 +137,20 @@ Columns: method, path, operation ID, side-effect class, validation-only, future-
 | GET | `/control-center/foundation-gate/summary` | `get_control_center_foundation_gate_summary` | `validation_only` | yes | future | yes |
 | GET | `/control-center/local-models/status` | `get_control_center_local_models_status` | `validation_only` | yes | future | yes |
 | GET | `/control-center/manifest` | `get_control_center_manifest` | `validation_only` | yes | future | yes |
-| GET | `/control-center/memory/context-packs` | `get_control_center_memory_context_packs` | `local_dev_workspace_only` | no | future | yes |
-| POST | `/control-center/memory/context-packs/{context_pack_ref}/action-proposal` | `post_control_center_memory_context_packs_context_pack_ref_action_proposal` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/citation-integrity` | `get_control_center_memory_citation_integrity` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/context-manifest` | `get_control_center_memory_context_manifest` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/memory/context-packs` | `get_control_center_memory_context_packs` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/memory/context-packs/{context_pack_ref}/action-proposal` | `post_control_center_memory_context_packs_context_pack_ref_action_proposal` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/memory/contradictions` | `get_control_center_memory_contradictions` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/memory/feedback` | `post_control_center_memory_feedback` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/follow-ups` | `get_control_center_memory_follow_ups` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/impact-graph` | `get_control_center_memory_impact_graph` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/l1-index` | `get_control_center_memory_l1_index` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/l2-index` | `get_control_center_memory_l2_index` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/l3-index` | `get_control_center_memory_l3_index` | `local_dev_workspace_only` | no | future | yes |
-| POST | `/control-center/memory/feedback` | `post_control_center_memory_feedback` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/maintenance-runs` | `get_control_center_memory_maintenance_runs` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/memory/observation-candidates` | `get_control_center_memory_observation_candidates` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/memory/probe` | `get_control_center_memory_probe` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/quality-issues` | `get_control_center_memory_quality_issues` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/recall-health` | `get_control_center_memory_recall_health` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/retrieval-diagnostics` | `get_control_center_memory_retrieval_diagnostics` | `local_dev_workspace_only` | no | future | yes |
@@ -164,6 +167,10 @@ Columns: method, path, operation ID, side-effect class, validation-only, future-
 | GET | `/control-center/memory/search` | `get_control_center_memory_search` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/workbench` | `get_control_center_memory_workbench` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/morning-briefing/summary` | `get_control_center_morning_briefing_summary` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/providers/credentials/validate` | `post_control_center_providers_credentials_validate` | `governed_network_read_only` | no | future | yes |
+| POST | `/control-center/providers/exact-approved-lanes/tiny` | `post_control_center_providers_exact_approved_lanes_tiny` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/providers/router/dry-run` | `post_control_center_providers_router_dry_run` | `validation_only` | yes | future | yes |
+| GET | `/control-center/providers/setup-guide` | `get_control_center_providers_setup_guide` | `validation_only` | yes | future | yes |
 | GET | `/control-center/routes` | `get_control_center_routes` | `validation_only` | yes | future | yes |
 | GET | `/control-center/runtime-readiness/summary` | `get_control_center_runtime_readiness_summary` | `validation_only` | yes | future | yes |
 | GET | `/control-center/settings/status` | `get_control_center_settings_status` | `validation_only` | yes | future | yes |

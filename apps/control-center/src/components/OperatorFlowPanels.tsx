@@ -13,17 +13,32 @@ import type {
   ChatTurnReceipt,
   ChatTurnReceiptRequest,
   ControlCenterData,
+  ControlCenterSettingsAuthorityPosture,
+  ControlCenterSettingsFeatureFlagPosture,
+  ControlCenterSettingsKillSwitchPosture,
   LocalModelsInspectionStatus,
   OperatorLoopStepSummary,
   OperatorRouteInspectionState,
   ProviderCredentialReadinessSummary,
+  ProviderSettingsDiagnosticsSummary,
   RedactedLocalChatProbeStatus,
 } from "../api/types";
 import { EmptyState } from "./DataState";
 import { EvidenceViewerPanel } from "./EvidenceFileMemoryViewerPanel";
+import { ChatToLoopHandoffPanel } from "./FounderLoopPanels";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
+import { ProviderCatalogPanel } from "./ProviderCatalogPanel";
 
 const DEFAULT_MODEL_ID = "uaa-llama-cpp-local";
+const SETTINGS_AUTHORITY_KEYS = [
+  "web",
+  "providers",
+  "connectors",
+  "memory_context_use",
+  "model_runtime",
+  "local_model_lifecycle",
+  "platform_capabilities",
+] as const;
 const TASK_DECOMPOSITION_ROUTE_REFS = [
   "/task-decomposition/status",
   "/task-decomposition/catalog",
@@ -46,8 +61,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
   const [handoffReceipt, setHandoffReceipt] = useState<ChatHandoffReceipt>();
   const [probePending, setProbePending] = useState(false);
   const [receiptPending, setReceiptPending] = useState(false);
-  const [handoffPending, setHandoffPending] =
-    useState<ChatHandoffTarget>();
+  const [handoffPending, setHandoffPending] = useState<ChatHandoffTarget>();
   const [receiptError, setReceiptError] = useState<string>();
   const chatStep = useOperatorStep(data, "uaa_v1_chat");
   const localModelStep = useOperatorStep(data, "local_model_readiness");
@@ -139,6 +153,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
     <section className="page-section" aria-labelledby="chat-shell-heading">
       <OperatorHeader
         eyebrow="Local operator flow"
+        headingId="chat-shell-heading"
         heading="Chat Local Operator"
         status={statusLabel(models.state)}
         summary="Control Center can probe a redacted local turn through UAA /v1, record a durable receipt, and show model, runtime, auth, and tool-denial truth without treating output as authority."
@@ -355,11 +370,15 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
         </div>
       </div>
 
+      <ChatToLoopHandoffPanel
+        readModel={today.chat_to_loop_handoff_read_model}
+      />
+
       {handoffReceipt ? (
         <article className="panel">
           <div className="panel-heading">
             <h3>Handoff receipt</h3>
-            <span>{handoffReceipt.handoff_target}</span>
+            <span>pending backend refresh</span>
           </div>
           <dl className="metadata-list">
             <div>
@@ -380,16 +399,16 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
             </div>
             <div>
               <dt>Action execution</dt>
-              <dd>{handoffReceipt.action_executed ? "enabled" : "blocked"}</dd>
+              <dd>{receiptDeniedLabel(handoffReceipt.action_executed)}</dd>
             </div>
             <div>
               <dt>Plan execution</dt>
-              <dd>{handoffReceipt.plan_executed ? "enabled" : "blocked"}</dd>
+              <dd>{receiptDeniedLabel(handoffReceipt.plan_executed)}</dd>
             </div>
             <div>
               <dt>Memory write</dt>
               <dd>
-                {handoffReceipt.memory_write_performed ? "enabled" : "blocked"}
+                {receiptDeniedLabel(handoffReceipt.memory_write_performed)}
               </dd>
             </div>
           </dl>
@@ -405,6 +424,10 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
       <OperatorSurfaceStates surface="Chat Local Operator" />
     </section>
   );
+}
+
+function receiptDeniedLabel(value: boolean): string {
+  return value ? "blocked (unsafe receipt flag)" : "blocked";
 }
 
 function chatTurnReceiptRequestFromProbe(
@@ -451,6 +474,7 @@ export function PlansOperatorPanel({ data }: { data: ControlCenterData }) {
     <section className="page-section" aria-labelledby="plans-heading">
       <OperatorHeader
         eyebrow="Local operator flow"
+        headingId="plans-heading"
         heading="Plans"
         status={planStep?.status ?? "backend gated"}
         summary="Plans expose the task decomposition route family, approval requirements, and durable evidence refs without implying plan execution from the browser."
@@ -544,9 +568,15 @@ export function ModelsOperatorPanel({ data }: { data: ControlCenterData }) {
     <section className="page-section" aria-labelledby="models-heading">
       <OperatorHeader
         eyebrow="Local operator flow"
+        headingId="models-heading"
         heading="Models"
         status={localModelsStatus.status}
         summary="Local Models display backend-owned read-only inventory, gateway posture, and optional Ollama/MLX-LM readiness. Model pulls/downloads, switch, start/stop, runtime adapter execution, and provider/model authority stay blocked."
+      />
+
+      <ProviderCatalogPanel catalog={data.providerCatalog} mode="models" />
+      <ProviderCredentialReadinessPanel
+        readiness={data.dashboard.provider_credential_readiness}
       />
 
       <div className="operator-flow-grid">
@@ -701,6 +731,7 @@ export function EvidenceOperatorPanel({ data }: { data: ControlCenterData }) {
     >
       <OperatorHeader
         eyebrow="Local operator flow"
+        headingId="evidence-operator-heading"
         heading="Evidence"
         status="redacted summaries"
         summary="Evidence is presented as bounded safe refs, receipts, gate summaries, latency posture, and rollback status. Source material is not rendered as the primary interface."
@@ -758,6 +789,40 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   const localModelStep = useOperatorStep(data, "local_model_readiness");
   const taskStep = useOperatorStep(data, "task_decomposition_plan");
   const settingsStatus = data.settingsStatus;
+  const settingsStatusRecord = settingsStatus as unknown as Record<
+    string,
+    unknown
+  >;
+  const rawAuthorityPostures = Array.isArray(
+    settingsStatusRecord.authority_postures,
+  )
+    ? settingsStatusRecord.authority_postures
+    : [];
+  const rawKillSwitchPostures = Array.isArray(
+    settingsStatusRecord.kill_switch_postures,
+  )
+    ? settingsStatusRecord.kill_switch_postures
+    : [];
+  const rawFeatureFlagPostures = Array.isArray(
+    settingsStatusRecord.feature_flag_postures,
+  )
+    ? settingsStatusRecord.feature_flag_postures
+    : [];
+  const safeAuthorityPostures = rawAuthorityPostures.filter(
+    isSafeSettingsAuthorityPosture,
+  );
+  const authorityPosturesValid =
+    safeAuthorityPostures.length === SETTINGS_AUTHORITY_KEYS.length &&
+    safeAuthorityPostures.every(
+      (posture, index) =>
+        posture.capability_key === SETTINGS_AUTHORITY_KEYS[index],
+    );
+  const safeKillSwitchPostures = rawKillSwitchPostures.filter(
+    isSafeSettingsKillSwitchPosture,
+  );
+  const safeFeatureFlagPostures = rawFeatureFlagPostures.filter(
+    isSafeSettingsFeatureFlagPosture,
+  );
   const disabledBoundaries = [
     ["Shell/subprocess authority", "not available from Control Center"],
     ["Browser/network automation", "not available from Control Center"],
@@ -772,10 +837,13 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
     <section className="page-section" aria-labelledby="settings-heading">
       <OperatorHeader
         eyebrow="Local operator flow"
+        headingId="settings-heading"
         heading="Settings"
         status={settingsStatus.status}
         summary="Settings show backend-owned read-only maturity, feature-flag, kill-switch, route-safety, and blocked-authority posture. Mutation controls are not exposed."
       />
+
+      <ProviderCatalogPanel catalog={data.providerCatalog} mode="settings" />
 
       <div className="panel-grid">
         <article className="panel">
@@ -788,6 +856,10 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
             <div>
               <dt>Route</dt>
               <dd>{settingsStatus.route_ref}</dd>
+            </div>
+            <div>
+              <dt>Authority contract</dt>
+              <dd>{settingsStatus.settings_authority_contract_ref}</dd>
             </div>
             <div>
               <dt>Feature flag posture</dt>
@@ -804,6 +876,14 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
             <div>
               <dt>Maturity manifest</dt>
               <dd>{settingsStatus.maturity_manifest_ref}</dd>
+            </div>
+            <div>
+              <dt>Runtime matrix</dt>
+              <dd>{settingsStatus.runtime_capability_matrix_ref}</dd>
+            </div>
+            <div>
+              <dt>Platform snapshot</dt>
+              <dd>{settingsStatus.platform_capability_snapshot_ref}</dd>
             </div>
             <div>
               <dt>Proposal review only</dt>
@@ -850,21 +930,21 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
           </div>
           <ul className="compact-list">
             <li>
-              <strong>Inspect prerequisites</strong>
+              <strong>Review prerequisites</strong>
               <small>
                 Use the local setup helper and review safe findings before
                 starting services.
               </small>
             </li>
             <li>
-              <strong>Start UAA locally</strong>
+              <strong>Review local launcher path</strong>
               <small>
                 Use the launcher path documented for loopback-only backend and
                 frontend.
               </small>
             </li>
             <li>
-              <strong>Connect OpenWebUI</strong>
+              <strong>Review OpenWebUI loopback reference</strong>
               <small>
                 Point OpenWebUI at UAA&apos;s local /v1 gateway with the
                 configured local bearer.
@@ -879,11 +959,106 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
 
       <div
         className="operator-boundary-list"
+        aria-label="Settings authority posture labels"
+      >
+        {authorityPosturesValid ? (
+          safeAuthorityPostures.map((posture) => (
+            <article
+              className={`surface-state-card ${settingsPostureClass(
+                posture.state_label,
+              )}`}
+              aria-label={`${posture.label} ${posture.state_label}`}
+              key={posture.capability_key}
+              role="status"
+            >
+              <span className="surface-state-kind">{posture.state_label}</span>
+              <strong>{posture.label}</strong>
+              <p>{posture.safe_summary}</p>
+              <div className="note-list" aria-label={`${posture.label} refs`}>
+                {posture.source_refs.slice(0, 3).map((ref) => (
+                  <span key={ref}>{ref}</span>
+                ))}
+              </div>
+              <small>{posture.next_safe_action}</small>
+            </article>
+          ))
+        ) : (
+          <article
+            aria-label="Settings authority posture blocked"
+            className="surface-state-card blocked"
+            role="status"
+          >
+            <span className="surface-state-kind">Blocked</span>
+            <strong>Settings authority posture unavailable</strong>
+            <p>
+              Backend Settings authority rows failed validation. Runtime,
+              provider, connector, memory, model, lifecycle, and platform
+              authority remain blocked.
+            </p>
+            <small>
+              Next safe action: inspect the backend Settings status route and
+              verifier before trusting labels.
+            </small>
+          </article>
+        )}
+      </div>
+
+      <div
+        className="operator-boundary-list"
+        aria-label="Settings kill-switch and feature-flag posture"
+      >
+        {safeKillSwitchPostures.map((posture) => (
+          <article
+            className="surface-state-card blocked"
+            aria-label={`Kill switch: ${posture.label}`}
+            key={posture.posture_ref}
+            role="status"
+          >
+            <span className="surface-state-kind">{posture.state_label}</span>
+            <strong>Kill switch: {posture.label}</strong>
+            <p>{posture.safe_summary}</p>
+            <div
+              className="note-list"
+              aria-label={`${posture.label} kill-switch refs`}
+            >
+              <span>{posture.revocation_ref}</span>
+              <span>{posture.safe_disable_ref}</span>
+            </div>
+            <small>{posture.next_safe_action}</small>
+          </article>
+        ))}
+        {safeFeatureFlagPostures.map((posture) => (
+          <article
+            className="surface-state-card denied"
+            aria-label={`Feature flag: ${posture.label}`}
+            key={posture.posture_ref}
+            role="status"
+          >
+            <span className="surface-state-kind">{posture.state_label}</span>
+            <strong>Feature flag: {posture.label}</strong>
+            <p>{posture.safe_summary}</p>
+            <div
+              className="note-list"
+              aria-label={`${posture.label} feature-flag refs`}
+            >
+              <span>{posture.owner_ref}</span>
+              {posture.evidence_refs.slice(0, 2).map((ref) => (
+                <span key={ref}>{ref}</span>
+              ))}
+            </div>
+            <small>{posture.next_safe_action}</small>
+          </article>
+        ))}
+      </div>
+
+      <div
+        className="operator-boundary-list"
         aria-label="Disabled settings boundaries"
       >
         {disabledBoundaries.map(([label, state]) => (
           <article
             className="surface-state-card denied"
+            aria-label={`${label} disabled`}
             key={label}
             role="status"
           >
@@ -903,7 +1078,125 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   );
 }
 
-function ProviderCredentialReadinessPanel({
+function settingsPostureClass(stateLabel: string) {
+  if (stateLabel === "Blocked") {
+    return "blocked";
+  }
+  if (stateLabel === "Metadata only") {
+    return "denied";
+  }
+  if (stateLabel === "Degraded" || stateLabel === "Partial") {
+    return "partial";
+  }
+  return "blocked";
+}
+
+function isSafeSettingsAuthorityPosture(
+  posture: unknown,
+): posture is ControlCenterSettingsAuthorityPosture {
+  if (!isSettingsRecord(posture)) {
+    return false;
+  }
+  const capabilityKey = posture.capability_key;
+  return (
+    typeof capabilityKey === "string" &&
+    SETTINGS_AUTHORITY_KEYS.includes(
+      capabilityKey as (typeof SETTINGS_AUTHORITY_KEYS)[number],
+    ) &&
+    isOneOfString(posture.state_label, [
+      "Blocked",
+      "Degraded",
+      "Partial",
+      "Metadata only",
+    ]) &&
+    isNonEmptyString(posture.label) &&
+    isNonEmptyString(posture.safe_summary) &&
+    isNonEmptyString(posture.next_safe_action) &&
+    isStringArray(posture.source_refs) &&
+    posture.source_refs.length > 0 &&
+    isStringArray(posture.blocked_authority_refs) &&
+    posture.blocked_authority_refs.length > 0 &&
+    posture.callable_runtime_authority === false &&
+    posture.setting_toggle_grants_authority === false &&
+    posture.provider_configuration_enabled === false &&
+    posture.connector_write_enabled === false &&
+    posture.context_injection_enabled === false &&
+    posture.model_call_enabled === false &&
+    posture.local_lifecycle_enabled === false &&
+    posture.installer_behavior_enabled === false &&
+    posture.production_authority_enabled === false &&
+    posture.authority_from_visibility === false
+  );
+}
+
+function isSafeSettingsKillSwitchPosture(
+  posture: unknown,
+): posture is ControlCenterSettingsKillSwitchPosture {
+  if (!isSettingsRecord(posture)) {
+    return false;
+  }
+  return (
+    isOneOfString(posture.state_label, [
+      "Not configured",
+      "Blocked",
+      "Metadata only",
+    ]) &&
+    isNonEmptyString(posture.label) &&
+    isNonEmptyString(posture.safe_summary) &&
+    isNonEmptyString(posture.revocation_ref) &&
+    isNonEmptyString(posture.safe_disable_ref) &&
+    posture.execution_enabled === false &&
+    posture.revocation_execution_enabled === false &&
+    posture.approval_revocation_enabled === false &&
+    posture.authority_granted === false &&
+    posture.production_authority_enabled === false
+  );
+}
+
+function isSafeSettingsFeatureFlagPosture(
+  posture: unknown,
+): posture is ControlCenterSettingsFeatureFlagPosture {
+  if (!isSettingsRecord(posture)) {
+    return false;
+  }
+  return (
+    isOneOfString(posture.state_label, [
+      "Metadata only",
+      "Blocked",
+      "Partial",
+    ]) &&
+    isNonEmptyString(posture.label) &&
+    isNonEmptyString(posture.safe_summary) &&
+    isNonEmptyString(posture.owner_ref) &&
+    isStringArray(posture.evidence_refs) &&
+    posture.evidence_refs.length > 0 &&
+    posture.writable === false &&
+    posture.toggle_enabled === false &&
+    posture.runtime_activation_enabled === false &&
+    posture.authority_granted === false &&
+    posture.production_authority_enabled === false
+  );
+}
+
+function isSettingsRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
+}
+
+function isOneOfString(value: unknown, allowed: string[]): value is string {
+  return typeof value === "string" && allowed.includes(value);
+}
+
+export function ProviderCredentialReadinessPanel({
   readiness,
 }: {
   readiness: ProviderCredentialReadinessSummary;
@@ -915,6 +1208,9 @@ function ProviderCredentialReadinessPanel({
         <span>{readiness.status}</span>
       </div>
       <p>{readiness.safe_summary}</p>
+      <ProviderSettingsDiagnosticsPanel
+        diagnostics={readiness.provider_settings_diagnostics}
+      />
       <dl className="metadata-list">
         <div>
           <dt>Provider invocation</dt>
@@ -930,7 +1226,65 @@ function ProviderCredentialReadinessPanel({
         </div>
         <div>
           <dt>Vault adapter</dt>
-          <dd>{readiness.vault_adapter_configured ? "configured" : "not scoped"}</dd>
+          <dd>
+            {readiness.vault_adapter_configured ? "configured" : "not scoped"}
+          </dd>
+        </div>
+        <div>
+          <dt>Configured providers</dt>
+          <dd>{readiness.posture_counts.configured}</dd>
+        </div>
+        <div>
+          <dt>Not configured providers</dt>
+          <dd>{readiness.posture_counts.not_configured}</dd>
+        </div>
+        <div>
+          <dt>Revoked providers</dt>
+          <dd>{readiness.posture_counts.revoked}</dd>
+        </div>
+        <div>
+          <dt>Blocked provider postures</dt>
+          <dd>{readiness.posture_counts.blocked}</dd>
+        </div>
+        <div>
+          <dt>CostGovernor binding</dt>
+          <dd>
+            {readiness.cost_governor_binding_required
+              ? "required"
+              : "blocked posture missing"}
+          </dd>
+        </div>
+        <div>
+          <dt>Unknown paid cost</dt>
+          <dd>
+            {readiness.unknown_paid_cost_requires_approval
+              ? "approval required"
+              : "blocked posture missing"}
+          </dd>
+        </div>
+        <div>
+          <dt>Above-budget estimate</dt>
+          <dd>
+            {readiness.estimated_cost_above_budget_blocks_use
+              ? "blocked"
+              : "blocked posture missing"}
+          </dd>
+        </div>
+        <div>
+          <dt>Future receipt refs</dt>
+          <dd>
+            {readiness.future_receipt_refs_required
+              ? "required"
+              : "receipt posture missing"}
+          </dd>
+        </div>
+        <div>
+          <dt>Provider usage claims</dt>
+          <dd>
+            {readiness.provider_usage_claim_requires_receipt_refs
+              ? "receipt-bound"
+              : "receipt posture missing"}
+          </dd>
         </div>
         <div>
           <dt>Credential adapter readiness</dt>
@@ -946,7 +1300,19 @@ function ProviderCredentialReadinessPanel({
         </div>
         <div>
           <dt>External validation</dt>
-          <dd>{readiness.validation_readiness.external_validation_allowed ? "yes" : "no"}</dd>
+          <dd>
+            {readiness.validation_readiness.external_validation_allowed
+              ? "yes"
+              : "no"}
+          </dd>
+        </div>
+        <div>
+          <dt>Validation authority</dt>
+          <dd>
+            {readiness.validation_readiness.exact_approval_required
+              ? "approval required"
+              : "authority missing"}
+          </dd>
         </div>
         <div>
           <dt>Provider response persistence allowed</dt>
@@ -961,11 +1327,75 @@ function ProviderCredentialReadinessPanel({
           <dt>Invocation readiness</dt>
           <dd>{readiness.invocation_readiness.readiness_status}</dd>
         </div>
+        <div>
+          <dt>Tiny provider lane</dt>
+          <dd>{readiness.tiny_invocation_readiness.status}</dd>
+        </div>
+        <div>
+          <dt>Provider router dry-run</dt>
+          <dd>{readiness.router_dry_run_readiness.status}</dd>
+        </div>
+        <div>
+          <dt>Router no-authority refs</dt>
+          <dd>{readiness.router_dry_run_readiness.no_authority_refs.length}</dd>
+        </div>
       </dl>
       <div
         className="provider-readiness-list"
         aria-label="Provider credential readiness gates"
       >
+        <ReadinessGateCard
+          title="CostGovernor binding"
+          status={
+            readiness.cost_governor_binding_required
+              ? "required"
+              : "blocked posture missing"
+          }
+          summary="Provider/model refs, cost estimate refs, budget decisions, max-approved refs, and future receipt refs are required before any paid provider use."
+          details={[
+            ["Posture ref", readiness.cost_governor_posture_ref],
+            ["Decision ref", readiness.cost_governor_decision_ref],
+            [
+              "Provider/model refs",
+              readiness.provider_model_refs_required
+                ? "required"
+                : "blocked posture missing",
+            ],
+            [
+              "Cost estimate ref",
+              readiness.cost_estimate_ref_required
+                ? "required"
+                : "blocked posture missing",
+            ],
+            [
+              "Budget decision ref",
+              readiness.budget_decision_ref_required
+                ? "required"
+                : "blocked posture missing",
+            ],
+            [
+              "Max approved USD ref",
+              readiness.max_approved_usd_ref_required
+                ? "required"
+                : "blocked posture missing",
+            ],
+            [
+              "Future receipts",
+              readiness.future_receipt_refs_required
+                ? "required"
+                : "receipt posture missing",
+            ],
+          ]}
+          blockerCodes={[
+            "UNKNOWN_PAID_COST_REQUIRES_APPROVAL",
+            "PROVIDER_MODEL_REFS_REQUIRED",
+            "COST_ESTIMATE_REF_REQUIRED",
+            "BUDGET_DECISION_REF_REQUIRED",
+            "MAX_APPROVED_USD_REF_REQUIRED",
+            "FUTURE_RECEIPT_REFS_REQUIRED",
+            "PROVIDER_USAGE_CLAIM_REQUIRES_RECEIPT_REFS",
+          ]}
+        />
         <ReadinessGateCard
           title="Vault adapter contract"
           status={readiness.vault_adapter_readiness.readiness_status}
@@ -1001,7 +1431,8 @@ function ProviderCredentialReadinessPanel({
             ],
             [
               "Repo-stored credential material",
-              readiness.vault_adapter_readiness.credential_material_stored_by_repo
+              readiness.vault_adapter_readiness
+                .credential_material_stored_by_repo
                 ? "yes"
                 : "no",
             ],
@@ -1062,7 +1493,8 @@ function ProviderCredentialReadinessPanel({
             ],
             [
               "Evidence contains credential material",
-              readiness.enrollment_readiness.evidence_contains_credential_material
+              readiness.enrollment_readiness
+                .evidence_contains_credential_material
                 ? "yes"
                 : "no",
             ],
@@ -1074,6 +1506,7 @@ function ProviderCredentialReadinessPanel({
           status={readiness.validation_readiness.readiness_status}
           summary={readiness.validation_readiness.safe_summary}
           details={[
+            ["Route", readiness.validation_readiness.route_ref],
             [
               "Provider manifest ref",
               readiness.validation_readiness.provider_manifest_ref,
@@ -1081,6 +1514,20 @@ function ProviderCredentialReadinessPanel({
             [
               "Validation enabled",
               readiness.validation_readiness.validation_enabled ? "yes" : "no",
+            ],
+            [
+              "Approval required",
+              readiness.validation_readiness.exact_approval_required
+                ? "yes"
+                : "no",
+            ],
+            [
+              "No provider authority",
+              readiness.validation_readiness.ui_states.includes(
+                "no provider authority",
+              )
+                ? "shown"
+                : "missing",
             ],
             [
               "Validation receipt ref",
@@ -1114,7 +1561,8 @@ function ProviderCredentialReadinessPanel({
             ],
             [
               "Provider allowlist required",
-              readiness.invocation_readiness.provider_manifest_allowlist_required
+              readiness.invocation_readiness
+                .provider_manifest_allowlist_required
                 ? "yes"
                 : "no",
             ],
@@ -1164,7 +1612,9 @@ function ProviderCredentialReadinessPanel({
             ],
             [
               "Memory writes",
-              readiness.invocation_readiness.memory_write_enabled ? "yes" : "no",
+              readiness.invocation_readiness.memory_write_enabled
+                ? "yes"
+                : "no",
             ],
             [
               "Context injection",
@@ -1193,19 +1643,330 @@ function ProviderCredentialReadinessPanel({
           ]}
           blockerCodes={readiness.invocation_readiness.blocker_codes}
         />
+        <ReadinessGateCard
+          title="Tiny exact-approved provider lane"
+          status={readiness.tiny_invocation_readiness.status}
+          summary={readiness.tiny_invocation_readiness.safe_summary}
+          details={[
+            ["Lane ref", readiness.tiny_invocation_readiness.lane_ref],
+            ["Route ref", readiness.tiny_invocation_readiness.route_ref],
+            ["Provider ref", readiness.tiny_invocation_readiness.provider_ref],
+            ["Model ref", readiness.tiny_invocation_readiness.model_ref],
+            [
+              "Provider scope refs",
+              readiness.tiny_invocation_readiness.provider_scope_refs.join(", "),
+            ],
+            [
+              "Model scope refs",
+              readiness.tiny_invocation_readiness.model_scope_refs.join(", "),
+            ],
+            [
+              "Policy scope refs",
+              readiness.tiny_invocation_readiness.policy_scope_refs.join(", "),
+            ],
+            [
+              "Adapter scope refs",
+              readiness.tiny_invocation_readiness.adapter_scope_refs.join(", "),
+            ],
+            [
+              "Exact approval",
+              readiness.tiny_invocation_readiness.exact_approval_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Credential ref",
+              readiness.tiny_invocation_readiness.credential_ref_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Cost estimate ref",
+              readiness.tiny_invocation_readiness.cost_estimate_ref_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Budget decision ref",
+              readiness.tiny_invocation_readiness.budget_decision_ref_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Max approved USD",
+              readiness.tiny_invocation_readiness.max_approved_usd_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Unknown paid cost",
+              readiness.tiny_invocation_readiness.unknown_paid_cost_blocks
+                ? "blocked"
+                : "missing",
+            ],
+            [
+              "Redacted receipts",
+              readiness.tiny_invocation_readiness.redacted_receipts_only
+                ? "only"
+                : "missing",
+            ],
+            [
+              "Actual usage ref",
+              readiness.tiny_invocation_readiness.actual_usage_ref_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Actual cost ref",
+              readiness.tiny_invocation_readiness.actual_cost_ref_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Receipt completeness",
+              readiness.tiny_invocation_readiness.receipt_completeness_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Receipt observation",
+              readiness.tiny_invocation_readiness.receipt_state_source,
+            ],
+            [
+              "Receipt observation ref",
+              readiness.tiny_invocation_readiness.receipt_observation_ref,
+            ],
+            [
+              "Receipt observation labels",
+              readiness.tiny_invocation_readiness.receipt_observation_supported_states.join(
+                ", ",
+              ),
+            ],
+            [
+              "Usage captured",
+              readiness.tiny_invocation_readiness.usage_captured
+                ? "receipt-backed"
+                : "no receipt observed",
+            ],
+            [
+              "Cost captured",
+              readiness.tiny_invocation_readiness.cost_captured
+                ? "receipt-backed"
+                : "no receipt observed",
+            ],
+            [
+              "Cost incomplete",
+              readiness.tiny_invocation_readiness.cost_incomplete
+                ? "review required"
+                : "no receipt observed",
+            ],
+            [
+              "Review required",
+              readiness.tiny_invocation_readiness.review_required
+                ? "required"
+                : "no receipt observed",
+            ],
+            [
+              "Further use blocked",
+              readiness.tiny_invocation_readiness.further_use_blocked
+                ? "blocked pending review"
+                : "no receipt observed",
+            ],
+            [
+              "Incomplete cost review",
+              readiness.tiny_invocation_readiness.incomplete_cost_requires_review
+                ? "required if cost incomplete observed"
+                : "requires backend posture",
+            ],
+            [
+              "Further provider use",
+              readiness.tiny_invocation_readiness
+                .incomplete_cost_blocks_further_use
+                ? "blocks after incomplete cost"
+                : "requires backend posture",
+            ],
+            [
+              "Provider SDK",
+              readiness.tiny_invocation_readiness.provider_sdk_call_enabled
+                ? "blocked"
+                : "disabled",
+            ],
+            [
+              "Network call",
+              readiness.tiny_invocation_readiness.network_call_enabled
+                ? "scoped adapter only"
+                : "disabled by default",
+            ],
+            [
+              "Live adapter",
+              readiness.tiny_invocation_readiness.ui_states.includes(
+                "Live adapter blocked",
+              )
+                ? "blocked"
+                : "not scoped",
+            ],
+            [
+              "Live receipt",
+              readiness.tiny_invocation_readiness.ui_states.includes(
+                "Live receipt required",
+              )
+                ? "required"
+                : "not recorded",
+            ],
+            [
+              "Autonomous calls",
+              readiness.tiny_invocation_readiness.autonomous_model_call_enabled
+                ? "blocked"
+                : "disabled",
+            ],
+            [
+              "Billing authority",
+              readiness.tiny_invocation_readiness.billing_authority_granted
+                ? "blocked until exact billing scope"
+                : "not granted",
+            ],
+            [
+              "Provider authority label",
+              readiness.tiny_invocation_readiness.invocation_enabled
+                ? "exact scope required"
+                : "No provider authority",
+            ],
+            [
+              "Default execution label",
+              readiness.tiny_invocation_readiness.status ===
+              "approved_no_execution"
+                ? "Approved no execution"
+                : "Disabled no execution",
+            ],
+          ]}
+          blockerCodes={[
+            ...readiness.tiny_invocation_readiness.blocker_codes,
+            ...readiness.tiny_invocation_readiness.ui_states.filter(
+              (state) =>
+                ![
+                  "Usage captured",
+                  "Cost captured",
+                  "Cost incomplete",
+                  "Review required",
+                  "Further use blocked",
+                ].includes(state),
+            ),
+          ]}
+        />
+        <ReadinessGateCard
+          title="Provider router dry-run"
+          status={readiness.router_dry_run_readiness.status}
+          summary={readiness.router_dry_run_readiness.safe_summary}
+          details={[
+            ["Contract", readiness.router_dry_run_readiness.contract_ref],
+            ["Route ref", readiness.router_dry_run_readiness.route_ref],
+            ["Proposal ref", readiness.router_dry_run_readiness.proposal_ref],
+            [
+              "Recommended exact scope",
+              readiness.router_dry_run_readiness
+                .recommended_exact_approval_scope_ref,
+            ],
+            [
+              "Exact-approval candidate refs",
+              String(
+                readiness.router_dry_run_readiness.eligible_provider_refs
+                  .length,
+              ),
+            ],
+            [
+              "Blocked provider refs",
+              String(
+                readiness.router_dry_run_readiness.blocked_provider_refs
+                  .length,
+              ),
+            ],
+            [
+              "Degraded provider refs",
+              String(
+                readiness.router_dry_run_readiness.degraded_provider_refs
+                  .length,
+              ),
+            ],
+            [
+              "Missing credential refs",
+              String(
+                readiness.router_dry_run_readiness.missing_credential_refs
+                  .length,
+              ),
+            ],
+            [
+              "Cost risky",
+              String(readiness.router_dry_run_readiness.cost_risky_refs.length),
+            ],
+            [
+              "Validation required",
+              String(
+                readiness.router_dry_run_readiness.validation_required_refs
+                  .length,
+              ),
+            ],
+            [
+              "No provider authority",
+              String(
+                readiness.router_dry_run_readiness.no_authority_refs.length,
+              ),
+            ],
+            [
+              "No fallback execution",
+              readiness.router_dry_run_readiness.fallback_execution_authorized
+                ? "blocked"
+                : "not authorized",
+            ],
+            [
+              "Provider SDK",
+              readiness.router_dry_run_readiness.provider_sdk_call_performed
+                ? "blocked"
+                : "not performed",
+            ],
+            [
+              "Credential validation",
+              readiness.router_dry_run_readiness.credential_validation_performed
+                ? "blocked"
+                : "not performed",
+            ],
+            [
+              "Model invocation",
+              readiness.router_dry_run_readiness.model_invocation_performed
+                ? "blocked"
+                : "not performed",
+            ],
+            [
+              "Billing authority",
+              readiness.router_dry_run_readiness.billing_authority_granted
+                ? "blocked"
+                : "not granted",
+            ],
+          ]}
+          blockerCodes={[
+            ...readiness.router_dry_run_readiness.blocker_codes,
+            ...readiness.router_dry_run_readiness.ui_states,
+          ]}
+        />
       </div>
       <div
         className="provider-readiness-list"
         aria-label="Provider auth reference statuses"
       >
         {readiness.providers.map((provider) => (
-          <section className="provider-readiness-item" key={provider.provider_id}>
+          <section
+            className="provider-readiness-item"
+            key={provider.provider_id}
+          >
             <div className="panel-heading compact-heading">
               <h4>{provider.provider_label}</h4>
-              <span>{provider.readiness_status}</span>
+              <span>{provider.readiness_posture}</span>
             </div>
             <p>{provider.safe_summary}</p>
             <dl className="metadata-list">
+              <div>
+                <dt>Readiness status</dt>
+                <dd>{provider.readiness_status}</dd>
+              </div>
               <div>
                 <dt>Provider auth ref status</dt>
                 <dd>{provider.credential_ref_status}</dd>
@@ -1230,6 +1991,32 @@ function ProviderCredentialReadinessPanel({
                 <dt>Credential material visible</dt>
                 <dd>{provider.raw_key_visible ? "yes" : "no"}</dd>
               </div>
+              <div>
+                <dt>Cost estimate ref</dt>
+                <dd>{provider.cost_governor_binding.cost_estimate_ref}</dd>
+              </div>
+              <div>
+                <dt>Budget decision ref</dt>
+                <dd>{provider.cost_governor_binding.budget_decision_ref}</dd>
+              </div>
+              <div>
+                <dt>Max approved USD ref</dt>
+                <dd>{provider.cost_governor_binding.max_approved_usd_ref}</dd>
+              </div>
+              <div>
+                <dt>Cost receipt ref</dt>
+                <dd>{provider.cost_governor_binding.cost_receipt_ref}</dd>
+              </div>
+              <div>
+                <dt>CostGovernor decision</dt>
+                <dd>
+                  {provider.cost_governor_binding.cost_governor_decision_ref}
+                </dd>
+              </div>
+              <div>
+                <dt>Model ref status</dt>
+                <dd>{provider.cost_governor_binding.model_ref_status}</dd>
+              </div>
             </dl>
             <div
               className="note-list"
@@ -1244,6 +2031,122 @@ function ProviderCredentialReadinessPanel({
       </div>
     </article>
   );
+}
+
+function ProviderSettingsDiagnosticsPanel({
+  diagnostics,
+}: {
+  diagnostics: ProviderSettingsDiagnosticsSummary;
+}) {
+  return (
+    <section
+      className="provider-settings-diagnostics"
+      aria-label="Provider and Settings diagnostics"
+    >
+      <div className="panel-heading compact-heading">
+        <h4>Provider and Settings diagnostics</h4>
+        <span>{diagnostics.status}</span>
+      </div>
+      <p>{diagnostics.safe_summary}</p>
+      <dl className="metadata-list">
+        <div>
+          <dt>Missing</dt>
+          <dd>{diagnostics.state_counts.missing}</dd>
+        </div>
+        <div>
+          <dt>Cost blocked</dt>
+          <dd>{diagnostics.state_counts.cost_blocked}</dd>
+        </div>
+        <div>
+          <dt>Disabled</dt>
+          <dd>{diagnostics.state_counts.disabled}</dd>
+        </div>
+        <div>
+          <dt>Future scoped</dt>
+          <dd>{diagnostics.state_counts.future_scoped}</dd>
+        </div>
+        <div>
+          <dt>Revoked</dt>
+          <dd>{diagnostics.state_counts.revoked}</dd>
+        </div>
+        <div>
+          <dt>Expired</dt>
+          <dd>{diagnostics.state_counts.expired}</dd>
+        </div>
+      </dl>
+      <div
+        className="note-list"
+        aria-label="Provider and Settings diagnostics CLI refs"
+      >
+        {diagnostics.cli_inspection_refs.map((ref) => (
+          <span key={ref}>{ref}</span>
+        ))}
+      </div>
+      <div
+        className="provider-readiness-list"
+        aria-label="Provider and Settings diagnostic items"
+      >
+        {diagnostics.items.map((item) => (
+          <section
+            className={`provider-readiness-item ${providerDiagnosticClass(
+              item.state,
+            )}`}
+            key={item.diagnostic_ref}
+          >
+            <div className="panel-heading compact-heading">
+              <h4>{item.label}</h4>
+              <span>{item.state_label}</span>
+            </div>
+            <p>{item.safe_summary}</p>
+            <dl className="metadata-list">
+              <div>
+                <dt>Provider ref</dt>
+                <dd>{item.provider_ref}</dd>
+              </div>
+              <div>
+                <dt>Credential ref</dt>
+                <dd>{item.credential_ref}</dd>
+              </div>
+              <div>
+                <dt>Next safe action</dt>
+                <dd>{item.next_safe_action}</dd>
+              </div>
+            </dl>
+            <div
+              className="note-list"
+              aria-label={`${item.label} diagnostic reason codes`}
+            >
+              {item.reason_codes.slice(0, 5).map((code) => (
+                <span key={code}>{code}</span>
+              ))}
+            </div>
+            <div
+              className="note-list"
+              aria-label={`${item.label} inspection refs`}
+            >
+              {item.cli_inspection_refs.slice(0, 3).map((ref) => (
+                <span key={ref}>{ref}</span>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+      <p className="safe-copy">Next safe action: {diagnostics.next_safe_action}</p>
+    </section>
+  );
+}
+
+function providerDiagnosticClass(state: string) {
+  if (state === "configured") {
+    return "ready";
+  }
+  if (state === "degraded") {
+    return "degraded";
+  }
+  if (state === "future_scoped") {
+    return "planned";
+  }
+  return "blocked";
 }
 
 function ReadinessGateCard({
@@ -1285,11 +2188,13 @@ function ReadinessGateCard({
 
 function OperatorHeader({
   eyebrow,
+  headingId,
   heading,
   status,
   summary,
 }: {
   eyebrow: string;
+  headingId?: string;
   heading: string;
   status: string;
   summary: string;
@@ -1299,7 +2204,7 @@ function OperatorHeader({
       <div className="section-heading">
         <div>
           <p className="eyebrow">{eyebrow}</p>
-          <h2>{heading}</h2>
+          <h2 id={headingId}>{heading}</h2>
         </div>
         <span className="status-pill compact">{status}</span>
       </div>

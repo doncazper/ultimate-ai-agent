@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `152`, generated from the FastAPI application and
+Current OpenAPI path count: `159`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -68,7 +68,8 @@ Current boundary summary:
   decomposition, action preview/proposal, Action Inbox decisions, Today to
   Action envelope promotion, Chat durable receipt/handoff routes, Memory Review
   decision receipt routes, Memory context-pack internal Action proposal routes,
-  and local model validation route groups. It does not
+  the exact-approved provider credential validation lane, the tiny
+  exact-approved provider lane, and local model validation route groups. It does not
   add auth, distributed quota,
   dependencies, billing, or production
   authority.
@@ -107,12 +108,6 @@ Current boundary summary:
   as an exact-approved internal Action proposal receipt hook. It does not
   execute actions, inject prompt context, call providers, write connectors,
   sync CRM/accounts, or grant broad Phase 6 execution authority.
-- FCC-MEM-016 through FCC-MEM-020 add retrieval diagnostics, citation
-  integrity, feedback-derived quality issues, proposal-only maintenance runs,
-  and context manifest proposal artifacts. `POST /control-center/memory/feedback`
-  records idempotent operator feedback receipts only; it does not rewrite
-  memory, apply maintenance, inject context, execute actions, call providers,
-  write connectors, or grant production authority.
 - Governed Cognitive Memory Spine Phase 4 adds
   `GET /control-center/memory/l3-index` as read-only deterministic
   identity/session/preference/commitment representation proposals over L2 safe
@@ -148,6 +143,10 @@ Current boundary summary:
   They do not enable unrestricted browsing, browser automation, request bodies,
   redirects, downloads, raw page/body storage, raw header storage, or hidden
   network access.
+- `GET /control-center/providers/setup-guide` exposes reviewed static provider
+  setup and cost-literacy metadata only. It does not collect credential values,
+  store keys, validate providers, call provider SDKs, invoke models, fetch live
+  pricing, or claim billing authority.
 - `/integrations/mattermost` exposes a disabled-by-default local bridge for
   Mattermost agent-room role metadata, bounded message ingress, role bindings,
   receipts, and audit summaries. It does not store raw transcripts, handle

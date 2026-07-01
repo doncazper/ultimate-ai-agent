@@ -79,3 +79,49 @@ runtime system prompts, and they do not grant authority by themselves. Use
 to run the sequence from baseline audit through workbench read model,
 lifecycle expansion, quality/ranking/search/intake, cross-surface bindings, UI,
 CLI parity, tests, docs, review, hardening, annotated tag, and push gates.
+
+## Fusion routing and delegation prompts
+
+Stored execution prompts for work classification, route/delegation visibility,
+future-only sidekick proposal envelopes, cache/context economics refs, private
+dogfood evidence, and product-language guards live in
+`docs/prompts/fcc_fusion_routing_delegation_prompts.md`. They are operator-run
+prompts, not runtime system prompts, and they do not grant runtime model calls,
+sidekick execution, action execution, provider/model authority, connector
+writes, memory writes, context injection, public beta, production authority, or
+broader autonomy. Use Prompt 00 in that file to run the nine-task sequence end
+to end.
+
+## CRM product sequence prompts
+
+Stored execution prompts for the CRM product-line sequence live in
+`docs/prompts/crm_product_sequence.md`. They start from the contract-only
+CRM + Communications Spine M0 foundation and gate CRM M1 fixture-only vertical
+screens, M2 read-model planning, communications metadata, work queues,
+relationship graph posture, proposal lanes, and later exact local-write
+candidates without granting connector runtime, external CRM writes, sends,
+calendar writes, account sync, provider/model calls, public beta, or
+production authority. Use Prompt 00 in that file for an end-to-end gated run.
+
+## Next capability and product prompts
+
+Stored execution prompts for the next capability/product catch-up sequence live
+in `docs/prompts/uaa_next_capability_product_prompts.md`. They cover MCP
+gateway foundation, A2A gateway foundation, browser automation through
+WebAccessGateway, release-surface proof, macOS setup polish, visual
+regression, durable operator-state recovery, provider/settings diagnostics,
+product-forward front-door copy, and the unified Chat -> Plan -> Action ->
+Evidence thread. They are operator-run prompts, not runtime system prompts,
+and they do not grant MCP/A2A/browser/runtime authority by themselves. Use
+Prompt 00 in that file to split the pack into small, merge-gated PR lanes;
+do not run the whole pack as one implementation by default.
+
+## Public-facing portfolio/developer-preview readiness pass
+
+The UAA-specific public-facing readiness prompt lives in
+`docs/prompts/uaa_public_preview_perfection_pass.prompt.md`. It adapts a
+generic repo-polish/public-preview prompt to UAA's current truth: Founder
+Command Center positioning, local-first governed Agent Core, public
+portfolio/developer-preview readiness, product-language honesty, sanitized
+visuals, release-surface proof, and no public beta/release/distribution or
+broad runtime authority claims.

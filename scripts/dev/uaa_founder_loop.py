@@ -98,6 +98,89 @@ def _safe_action_projection(action: dict[str, Any]) -> dict[str, Any]:
         "rollback_ref": action.get("rollback_ref"),
         "safe_disable_ref": action.get("safe_disable_ref"),
         "next_safe_action": action.get("next_safe_action"),
+        "task_decomposition_proposal_ref": action.get(
+            "task_decomposition_proposal_ref"
+        ),
+        "task_decomposition_review_envelope_ref": action.get(
+            "task_decomposition_review_envelope_ref"
+        ),
+        "task_decomposition_step_refs": list(
+            action.get("task_decomposition_step_refs") or []
+        ),
+        "task_decomposition_dependency_refs": list(
+            action.get("task_decomposition_dependency_refs") or []
+        ),
+        "task_decomposition_ambiguity_refs": list(
+            action.get("task_decomposition_ambiguity_refs") or []
+        ),
+        "task_decomposition_missing_evidence_refs": list(
+            action.get("task_decomposition_missing_evidence_refs") or []
+        ),
+        "task_decomposition_blocked_authority_refs": list(
+            action.get("task_decomposition_blocked_authority_refs") or []
+        ),
+        "task_decomposition_review_only": action.get(
+            "task_decomposition_review_only"
+        ),
+        "task_decomposition_proposal_only": action.get(
+            "task_decomposition_proposal_only"
+        ),
+        "task_decomposition_execution_performed": action.get(
+            "task_decomposition_execution_performed"
+        ),
+    }
+
+
+def _safe_plan_projection(plan: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "plan_ref": plan.get("plan_ref"),
+        "title": plan.get("title"),
+        "status": plan.get("status"),
+        "task_decomposition_contract_ref": plan.get(
+            "task_decomposition_contract_ref"
+        ),
+        "task_decomposition_request_ref": plan.get(
+            "task_decomposition_request_ref"
+        ),
+        "task_decomposition_review_envelope_ref": plan.get(
+            "task_decomposition_review_envelope_ref"
+        ),
+        "task_decomposition_proposal_ref": plan.get(
+            "task_decomposition_proposal_ref"
+        ),
+        "task_decomposition_status": plan.get("task_decomposition_status"),
+        "task_decomposition_step_refs": list(
+            plan.get("task_decomposition_step_refs") or []
+        ),
+        "task_decomposition_dependency_refs": list(
+            plan.get("task_decomposition_dependency_refs") or []
+        ),
+        "task_decomposition_ambiguity_refs": list(
+            plan.get("task_decomposition_ambiguity_refs") or []
+        ),
+        "task_decomposition_missing_evidence_refs": list(
+            plan.get("task_decomposition_missing_evidence_refs") or []
+        ),
+        "task_decomposition_suggested_action_inbox_proposal_refs": list(
+            plan.get("task_decomposition_suggested_action_inbox_proposal_refs")
+            or []
+        ),
+        "task_decomposition_required_approvals": list(
+            plan.get("task_decomposition_required_approvals") or []
+        ),
+        "task_decomposition_blocked_authority_refs": list(
+            plan.get("task_decomposition_blocked_authority_refs") or []
+        ),
+        "task_decomposition_review_only": plan.get(
+            "task_decomposition_review_only"
+        ),
+        "task_decomposition_proposal_only": plan.get(
+            "task_decomposition_proposal_only"
+        ),
+        "task_decomposition_execution_performed": plan.get(
+            "task_decomposition_execution_performed"
+        ),
+        "evidence_refs": list(plan.get("evidence_refs") or []),
     }
 
 
@@ -120,12 +203,26 @@ def _safe_evidence_projection(item: dict[str, Any]) -> dict[str, Any]:
 def _inspect_state(args: argparse.Namespace) -> int:
     repo = _repository(args)
     today = repo.today_summary(limit=args.limit)
+    plans = repo.list_plan_summaries(limit=args.limit)
     output = {
         "schema_version": "founder-loop-cli:v1",
         "command_ref": "repo-local-command:founder-loop-inspect",
         "storage_status": repo.storage_status(),
         "today_status": today.get("status"),
         "plan_action_state": today.get("plan_action_state"),
+        "plans": [_safe_plan_projection(plan) for plan in plans],
+        "task_decomposition_proposal_summary": {
+            "contract_ref": today.get("task_decomposition_proposal_contract_ref"),
+            "status": today.get("task_decomposition_proposal_status"),
+            "proposal_count": today.get("task_decomposition_proposal_count"),
+            "action_proposal_refs": list(
+                today.get("task_decomposition_action_proposal_refs") or []
+            ),
+            "blocked_authority_refs": list(
+                today.get("task_decomposition_required_blocked_refs") or []
+            ),
+            "authority_posture": today.get("task_decomposition_authority_posture"),
+        },
         "actions": [
             _safe_action_projection(action)
             for action in repo.list_action_inbox(limit=args.limit)

@@ -220,6 +220,7 @@ def build_latency_gate_summary(
     *,
     foundation_gate_report_json: str | None,
     foundation_gate_report_md: str | None,
+    write_report: bool = True,
     precomputed_foundation_gate_ms: float | None = None,
     precomputed_foundation_gate_status: str | None = None,
     precomputed_foundation_gate_result_count: int | None = None,
@@ -229,6 +230,7 @@ def build_latency_gate_summary(
     summary = run_latency_gate_summary(
         foundation_gate_report_json=foundation_gate_report_json,
         foundation_gate_report_md=foundation_gate_report_md,
+        write_report=write_report,
         precomputed_foundation_gate_ms=precomputed_foundation_gate_ms,
         precomputed_foundation_gate_status=precomputed_foundation_gate_status,
         precomputed_foundation_gate_result_count=precomputed_foundation_gate_result_count,
@@ -436,6 +438,7 @@ def main(argv: list[str] | None = None) -> int:
         precomputed_foundation_gate_ms=foundation_gate_elapsed_ms,
         precomputed_foundation_gate_status=str(report.overall_status),
         precomputed_foundation_gate_result_count=len(report.results),
+        write_report=not args.no_write_latest,
     )
     report.release_verification_lanes = build_release_lane_summary()
     report_payload = report.model_dump_json(indent=2)

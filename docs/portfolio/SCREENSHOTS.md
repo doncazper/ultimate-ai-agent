@@ -55,11 +55,19 @@ above memory recall.
 
 ![Memory](assets/control-center-memory.png)
 
+### CRM
+
+No portfolio snapshot is checked in for the fixture-only `/crm` shell yet. The
+route remains blocked from visual-proof promotion until a scoped visual pass
+captures a sanitized baseline or records an accepted no-baseline rationale.
+
 ## Snapshot Boundaries
 
 - Static visual-test snapshots only.
 - No backend route, frontend control, runtime authority, connector runtime, or
   product behavior is added by this gallery.
+- Missing snapshots do not imply the route is unavailable, shipped, production
+  ready, or visually proofed.
 - Mock/degraded UI state remains mock/degraded UI state.
 - Memory is recall, not truth or authority.
 - Approval refs are identifiers until exact backend scope is validated.

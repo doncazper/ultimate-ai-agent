@@ -32,6 +32,7 @@ from ultimate_ai_agent.api.manifest import (
 )
 from ultimate_ai_agent.api.mattermost import register_mattermost_routes
 from ultimate_ai_agent.api.openapi import configure_openapi_contract
+from ultimate_ai_agent.api.provider_setup import register_provider_setup_routes
 from ultimate_ai_agent.api.rate_limits import (
     API_TARGETED_RATE_LIMIT_POLICY_REF,
     rate_limit_failure,
@@ -234,6 +235,7 @@ configure_loopback_cors(app)
 register_governed_web_evidence_routes(app)
 register_mattermost_routes(app)
 register_founder_loop_routes(app)
+register_provider_setup_routes(app)
 
 _file_review_approval_store = FileReviewApprovalStore()
 _task_decomposition_service = TaskDecompositionService.from_env()

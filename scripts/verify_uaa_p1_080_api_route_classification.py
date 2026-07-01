@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from scripts.verification.api_routes import (  # noqa: E402
+    EXPECTED_ROUTE_COUNT,
     append_expected_route_count,
     append_route_fixture_mismatches,
     classification_counter,
@@ -33,10 +34,10 @@ ALLOWED_CLASSIFICATIONS = {
     "mutating_requires_authority",
 }
 EXPECTED_SIDE_EFFECT_MIX = {
-    "validation_only": 67,
+    "validation_only": 69,
     "none": 4,
-    "local_dev_workspace_only": 80,
-    "governed_network_read_only": 1,
+    "local_dev_workspace_only": 84,
+    "governed_network_read_only": 2,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
     ("GET", "/api/manifest"),
@@ -56,6 +57,8 @@ HIGH_RISK_EXPECTATIONS = {
     ("POST", "/integrations/mattermost/events/message"): "mutating_requires_authority",
     ("POST", "/integrations/mattermost/roles/bind"): "mutating_requires_authority",
     ("POST", "/control-center/actions/{action_id}/local-task/commit"): "mutating_requires_authority",
+    ("POST", "/control-center/providers/exact-approved-lanes/tiny"): "mutating_requires_authority",
+    ("POST", "/control-center/providers/router/dry-run"): "mutating_requires_authority",
     ("POST", "/web-evidence/request"): "local_sensitive",
 }
 REQUIRED_DOC_SNIPPETS = {
@@ -79,7 +82,7 @@ REQUIRED_DOC_SNIPPETS = {
     ],
     "docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md": [
         "Status: Implemented",
-        "152",
+        str(EXPECTED_ROUTE_COUNT),
         "public_metadata",
         "local_readonly",
         "local_sensitive",

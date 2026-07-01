@@ -151,12 +151,13 @@ The following remain blocked or not implemented by FCC-P1-011:
 Settings copy must keep these states visible as blocked, missing, not scoped, or
 future-scoped. It must not describe them as complete or available.
 
-## Future Route Posture
+## Route Posture
 
-No Settings route is added by FCC-P1-011. Current Settings behavior remains a
-local UI state surface that can point to existing safe status refs such as
-Control Center status, runtime readiness, capability matrix, and API manifest
-summaries.
+FCC-P1-011 did not add a mutating Settings route. Current Settings behavior has
+a read-only status route, `GET /control-center/settings/status`, that can point
+to existing safe status refs such as Control Center status, runtime readiness,
+capability matrix, API manifest summaries, and Product Loop 011 authority
+posture labels.
 
 Future route candidates require separate scoped approval and may include:
 

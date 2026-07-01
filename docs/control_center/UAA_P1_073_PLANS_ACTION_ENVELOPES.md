@@ -5,7 +5,8 @@ Evidence Timeline, and read-only Control Center metadata slice.
 
 This milestone makes Plans produce reviewable Action envelope metadata with
 approve/edit/reject/defer posture. It does not add action execution, approval
-grant capture, connector writes, shell/subprocess execution, model/provider
+grant capture, tool execution, workflow execution, browser automation,
+connector runtime, connector writes, shell/subprocess execution, model/provider
 authority, public beta, public distribution, or production authority.
 
 ## Contract Ref
@@ -72,10 +73,14 @@ Plans Action envelopes feed these surfaces as safe refs only:
 Denied states remain explicit:
 
 - `blocked-state:no-action-execution`: no action execution.
+- `blocked-state:no-tool-execution`: no tool execution.
+- `blocked-state:no-workflow-execution`: no workflow execution.
 - `blocked-state:no-approval-grant-capture`: no approval grant capture.
 - `blocked-state:approval-refs-identifiers-only`: approval refs are
-  identifiers only.
+  identifiers only and do not execute.
+- `blocked-state:no-connector-runtime`: no connector runtime or reads.
 - `blocked-state:no-connector-write`: no connector write.
+- `blocked-state:no-browser-automation`: no browser automation.
 - `blocked-state:no-shell-subprocess-execution`: no shell/subprocess
   execution.
 - `blocked-state:no-model-provider-authority`: no model/provider authority.
@@ -83,9 +88,14 @@ Denied states remain explicit:
   distribution claim.
 - `blocked-state:no-production-authority`: no production authority.
 
-Denied authority flags include `approval_grant_capture_enabled: false` and
-`action_execution_enabled: false` on Today, Plans, and Action Inbox envelope
-metadata.
+Denied authority flags include `approval_grant_capture_enabled: false`,
+`action_execution_enabled: false`, `tool_execution_enabled: false`,
+`workflow_execution_enabled: false`, `browser_execution_enabled: false`, and
+`connector_runtime_enabled: false` on Today, Plans, and Action Inbox envelope
+metadata. Approval refs are identifiers and decision receipts only; they do not
+authorize or execute actions, tools, workflows, model/provider calls,
+shell/browser work, connectors, memory writes, context injection, or production
+work.
 
 Plan and Action envelope data is redacted safe-ref metadata only. Raw prompts,
 raw responses, raw provider payloads, raw local paths, raw logs, account

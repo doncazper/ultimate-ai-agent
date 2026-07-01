@@ -26,8 +26,122 @@ Morning Briefing source-readiness posture, Memory Review candidate-review
 posture, read-only email/calendar metadata contracts, the Human-Readable
 Evidence Timeline, the draft-only email response proposal contract, and the
 relationship/follow-up memory schema have scoped implementation slices ready
-for review. The FCC-P1-011 Settings kill-switch and feature-flag spec is now a
-docs-only spec slice ready for review. FCC-P1-012 now aligns Founder Command
+for review. The FCC-P1-011 Settings kill-switch and feature-flag spec now has
+Product Loop 011 read-only Settings posture labels without mutation authority.
+Product Loop 012 now adds the Private product loop trial script as a
+local/private, safe-ref-only manual operator review artifact with
+`scripts/inspect_product_loop_trial_script.py` CLI parity and no authority
+promotion.
+CRM + Communications Spine M0 is now a contract-only product-line foundation in
+`docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md` and
+`src/ultimate_ai_agent/core/crm/contracts.py`, with
+`scripts/verify_crm_communications_spine_m0.py` guard coverage. It adds no /crm
+UI, no backend endpoints, no connector runtime, no connector writes, no sends,
+no calendar writes, no silent merges, no silent contact creation, no
+provider/model calls, no live web, no browser runtime, no public beta, and no
+production authority.
+CRM M1 Fixture-Only Vertical Shell now adds a deterministic screen-ready
+fixture map in `docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md`,
+`src/ultimate_ai_agent/core/crm/fixtures.py`,
+`scripts/verify_crm_m1_fixture_only_vertical_shell.py`, and
+`tests/test_crm_m1_fixture_only_vertical_shell.py`. It covers Real
+Estate/Realtor, Healthcare, Finance/Insurance, Retail/E-commerce, and
+Professional Services as fixture_only metadata with read_only, proposal_only,
+and blocked state labels, plus a fixture-only `/crm` Control Center shell
+route. It adds no backend endpoints, no backend CRM read model, no connector
+runtime, no connector writes, no external CRM writes, no account sync, no
+contact import, no sends, no calendar writes, no provider/model calls, no live
+web, no browser runtime, no hidden context injection, no public beta, and no
+production authority.
+Provider Catalog + Cost Literacy now adds a backend-owned read-only setup guide
+at `GET /control-center/providers/setup-guide`, with typed catalog contracts,
+CLI inspection, route manifest coverage, and cost/budget posture language. It
+adds no credential input, no key storage, no broad provider validation, no
+provider SDK calls, no model invocation, no automatic pricing fetch, no billing
+authority, no provider output authority, and no callable runtime authority.
+Provider Credential Readiness + Cost Governor Binding now adds typed readiness
+postures and CostGovernor binding refs inside the backend-owned dashboard read
+model with `scripts/inspect_provider_credential_readiness.py` CLI parity. Setup,
+Settings, Models, and Action Inbox may show configured/not-configured/revoked
+and blocked cost posture only from backend data; unknown paid cost, missing
+provider/model refs, missing budget decisions, missing max-approved USD refs,
+and missing usage/cost receipt refs remain blockers. It adds no secret entry,
+credential storage, credential validation, provider SDK call, model invocation,
+runtime pricing fetch, billing authority, provider output authority, or callable
+runtime authority.
+Credential Vault Contract Shell now adds metadata-only vault posture contracts
+and CLI inspection through `scripts/inspect_credential_vault_contract.py`. Vault
+presence remains non-authorizing: no secret collection, raw key storage, OS
+credential backend access, provider validation, provider SDK call, model
+invocation, billing authority, or provider invocation is granted.
+Credential Vault Backend V1 adds `scripts/inspect_credential_vault_backend.py`
+and a local safe-ref ledger for enroll/revoke/rotation posture only. It exposes
+no secret resolution API, raw secret display, broad provider validation,
+provider SDK call, model invocation, billing authority, or callable provider
+runtime authority.
+Exact-Approved Provider Credential Validation Lane now adds
+`POST /control-center/providers/credentials/validate`, one disabled-by-default
+OpenAI-compatible credential validation lane with exact approval, policy,
+idempotency, revocation/safe-disable, safe-ref public request, internal
+transient adapter secret, exact endpoint allowlist, and redacted-receipt scope.
+The default app route blocks without an exact approval grant and enabled
+adapter; blocked provider-network attempts record redacted receipts, and the
+lane adds no model invocation, provider SDK, broad provider router, fallback,
+billing authority, raw credential display, provider payload persistence,
+autonomous/background calls, or provider output authority.
+Tiny Exact-Approved Provider Invocation Lane now adds disabled-default
+contract paths for two named single-provider scopes with credential/provider/model refs,
+exact approval scope, CostGovernor decision, unknown paid cost blocked by
+default, max-approved USD, idempotency, redacted receipt refs, safe-disable
+posture, CLI parity, UI blocked/approved/cost-blocked states, and a core-only
+OpenAI-compatible live adapter plus an Anthropic-compatible live adapter that
+remain disabled by default and blocked unless explicitly constructed with exact
+approval, known cost, transient credential resolution, matching scoped
+transport, and durable receipt replay storage. The second adapter is
+prerequisite evidence for exact-approved fallback. Exact-approved two-provider
+fallback now exists as a core/CLI lane with per-attempt approval, CostGovernor,
+budget, idempotency, receipt, and safe-disable refs. The default API route
+blocks without exact approval and uses the disabled adapter by default; metadata
+visibility does not create callable provider authority. The lane adds no
+provider SDK calls, credential validation authority beyond the separate
+exact-approved validation lane, broad provider router, unbounded or
+router-dry-run fallback execution, autonomous model calls, background execution,
+billing authority, provider output authority, or broad callable runtime
+authority.
+Provider Router Dry-Run now adds `POST /control-center/providers/router/dry-run`
+and `scripts/inspect_provider_router_dry_run.py` as proposal-only local posture:
+it can explain exact-approval candidate, blocked, degraded, cost-risky,
+validation-required, missing-credential, and no-authority provider refs and
+recommend exact approval scope refs. It adds no provider invocation, no fallback
+execution authority by itself, no network calls, no provider SDK calls, no
+credential validation, no model calls, no billing authority, no
+autonomous/background calls, no raw prompt/response/provider payload
+persistence, and no broad provider router authority.
+Background and Autonomous Provider Calls Promotion Plan is now a planning-only
+authority gate in
+`docs/control_center/BACKGROUND_AUTONOMOUS_PROVIDER_CALLS_PROMOTION_PLAN.md`
+with `scripts/verify_background_autonomous_provider_plan.py` coverage. It
+requires future proof for scoped autonomy windows, exact allowed
+provider/model refs, exact allowed credential refs, max spend per window,
+per-request and per-session budget limits, CostGovernor hard blocks, queue
+inspection, kill switch, revocation, replay/audit, red-team checks, UI/CLI
+parity, no hidden prompt injection, no raw payload persistence,
+incomplete-cost receipt blocking, explicit human approval boundaries, and
+safe-disable/rollback posture before any promotion. It adds no background
+execution, no scheduler, no autonomous model calls, no provider calls, no
+runtime activation, no billing authority, no broad provider router, no new API
+runtime route, no public beta, and no production authority.
+Provider Billing Authority Boundary is now a planning-only authority gate in
+`docs/control_center/PROVIDER_BILLING_AUTHORITY_BOUNDARY.md` with
+`scripts/verify_provider_billing_authority_boundary.py` coverage. Provider
+billing authority remains blocked until a later scoped promotion proves exact
+per-request or per-session max USD approval, CostGovernor hard limits, actual
+usage/cost receipts, incomplete-cost blocking, revocation, UI/CLI inspection,
+audit/replay posture, safe-disable/rollback posture, and no broad spend toggle.
+It adds no billing integration, no payment methods, no subscription management,
+no broad spend toggle, no provider calls, no autonomous/background calls, no
+runtime activation, no public beta, and no production authority.
+FCC-P1-012 now aligns Founder Command
 Center surfaces to the accepted UAA-P1-052 service-module plan without adding
 routes or implementing extraction. UAA-P1-058, UAA-P1-059, and UAA-P1-053 are
 accepted guardrails for route extraction and CI lane evidence. UAA-P1-054 adds
@@ -64,7 +178,7 @@ V1 complete, and marks UAA-P1-080 API Route Classification And
 Public/Protected Inventory complete, and marks UAA-P1-081 Centralized FastAPI
 Security Headers complete, and marks UAA-P1-082 Explicit Loopback CORS
 Allowlist complete, and marks UAA-P1-083 Local Bearer Or Session Gate For
-Sensitive Routes complete. UAA-P1-084 is complete for mutating-route idempotency gating. UAA-P1-085 is complete for targeted local rate-limit hardening. UAA-P1-086 is complete for API boundary enforcement tests. UAA-P1-087.1 is complete for local launcher dual-surface boot readiness. UAA-P1-087.2a is complete for the private trial packet and read-only Control Center tuning surface. UAA-P1-087.2b is complete for the private trial findings capture and acceptance ledger. UAA-P1-087.2c is complete for the unanswered manual review scaffold. FCC-V1-000 is complete for Control Center release-surface truth, manifest/schema, verifier, and focused tests. FCC-V1-001 is complete for API perimeter contract/verifier coverage with duplicate replay runtime still blocked until route-owner receipt storage exists outside routes that implement their own receipt-backed replay. FCC-V1-002 is complete for Action Inbox backend decisions, FCC-V1-003 is complete for the first Today-to-Action receipt-bearing vertical slice, FCC-V1-004 is complete for Chat durable receipt and handoff, FCC-V1-005 is complete for Memory Review decisions, FCC-V1-006 is complete for Evidence Timeline productization, and FCC-V1-007 is complete for exact proofed route-surface promotion. FCC-MEM-001 is complete for Memory Workbench V1: a backend-owned workbench/search/manual-intake read model, expanded lifecycle receipts, deterministic quality grouping, Control Center cards, CLI parity, and prompt bundle, without delete/export execution, semantic/vector search, connector writes, context injection, public beta, or production authority. FCC-MEM-015 is complete for the safe Memory Impact Graph and Follow-Up Queue slice: backend-owned impact graph, follow-up queue, Recall Health V2, merge/supersede comparison UI, context-pack previews, CLI parity, and verifier coverage without action execution, memory writes, context injection, CRM/account sync, semantic/vector search, provider/model calls, public beta, or production authority. FCC-MEM-016 through FCC-MEM-020 are complete for backend-owned retrieval diagnostics, citation integrity, feedback quality issues, proposal-only maintenance runs, context manifest proposals, CLI parity, prompt bundle expansion, and verifier coverage without automatic memory writes, auto-merge, auto-forget, delete/export execution, hidden context injection, provider/model calls, connector writes, action execution, public beta, or production authority. FCC-MEM-021 is complete for Memory read-model UI wiring, bounded feedback controls, and a proposal-only Action Inbox bridge for memory quality/maintenance recommendations without context injection, auto-maintenance, memory writes, provider/model calls, connector writes, shell/subprocess execution, action execution, public beta, or production authority. Full UAA-P1-087.2 in-person private UI functional tuning and UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold are deferred until more Founder Loop implementation exists.
+Sensitive Routes complete. UAA-P1-084 is complete for mutating-route idempotency gating. UAA-P1-085 is complete for targeted local rate-limit hardening. UAA-P1-086 is complete for API boundary enforcement tests. UAA-P1-087.1 is complete for local launcher dual-surface boot readiness. UAA-P1-087.2a is complete for the private trial packet and read-only Control Center tuning surface. UAA-P1-087.2b is complete for the private trial findings capture and acceptance ledger. UAA-P1-087.2c is complete for the unanswered manual review scaffold. FCC-V1-000 is complete for Control Center release-surface truth, manifest/schema, verifier, and focused tests. FCC-V1-001 is complete for API perimeter contract/verifier coverage with duplicate replay runtime still blocked until route-owner receipt storage exists outside routes that implement their own receipt-backed replay. FCC-V1-002 is complete for Action Inbox backend decisions, FCC-V1-003 is complete for the first Today-to-Action receipt-bearing vertical slice, FCC-V1-004 is complete for Chat durable receipt and handoff, FCC-V1-005 is complete for Memory Review decisions, FCC-V1-006 is complete for Evidence Timeline productization, and FCC-V1-007 is complete for exact proofed route-surface promotion. FCC-MEM-001 is complete for Memory Workbench V1: a backend-owned workbench/search/manual-intake read model, expanded lifecycle receipts, deterministic quality grouping, Control Center cards, CLI parity, and prompt bundle, without delete/export execution, semantic/vector search, connector writes, context injection, public beta, or production authority. Full UAA-P1-087.2 in-person private UI functional tuning and UAA-P1-087.3 native SwiftUI boot cockpit planning/source-only scaffold are deferred until more Founder Loop implementation exists.
 The bounded FCC-V1 Founder Loop V1 conveyor is complete through
 `FCC-V1-000` through `FCC-V1-007`: release surface manifest, API perimeter for
 real mutations, Action Inbox backend state machine, first Today-to-Action
@@ -73,6 +187,39 @@ accept/correct/reject backend decisions, Evidence Timeline productization, and
 proofed route-surface promotion. Detailed goals, routes, model fields, storage
 semantics, UI outcomes, proof commands, and authority boundaries live in
 `docs/control_center/FOUNDER_LOOP_V1_MILESTONES.md`.
+UAA-P1-088 is complete as an Agent Module Maturity Review V2
+review/scoring/read-model lane with a ranked improvement queue, verifier, and
+tests. It adds no runtime model calls, provider calls, shell/subprocess
+execution, network/browser authority, connector writes, memory writes, context
+injection, action execution, workflow execution, autonomous routing authority,
+public beta, or production authority.
+UAA-P1-089 is complete as a Top-Level Decision Router Contract
+contract/read-model lane. It models answer-direct, reviewed-memory, Action
+Inbox proposal, ask-human, escalate, defer, blocked-unsafe, and
+insufficient-evidence route outcome proposals with deterministic no-effect
+traces, blocked authority refs, verifier coverage, and no backend route,
+runtime model calls, provider calls, tool execution, action execution,
+workflow execution, memory writes, context injection, shell/subprocess
+execution, browser/network access, connector writes, autonomous routing
+authority, public beta, or production authority.
+UAA-P1-090 is complete as a Task Decomposition Proposal Engine
+proposal/read-model lane. It turns bounded safe request refs into review-only
+decomposition proposals for Plans, Action Inbox, and CLI inspection while
+remaining separate from execution-capable task runtime paths. It adds no
+backend route, model/provider calls, tool execution, action execution, workflow
+execution, memory writes, context injection, shell/subprocess execution,
+browser/network access, connector writes, autonomous planning authority, public
+beta, or production authority.
+UAA-P2 Agent Runtime Compatibility is implemented as a contract-only
+compatibility slice with a charter, capability-manifest authority metadata,
+inert agent-runtime adapter/handoff/trace/receipt contracts, static OpenAI/MCP
+schema exports with UAA authority metadata, a deterministic in-process
+specialist demo, focused tests, and a static guardrail verifier. It does not
+adopt the OpenAI Agents SDK as UAA architecture and adds no backend route,
+Control Center control, runtime model/provider call, provider SDK import, live
+web fetch, browser automation, shell/subprocess execution, connector write,
+memory write, context injection, plugin runtime import, public beta, public
+release, production authority, or broad autonomy.
 Governed Cognitive Memory Spine Phase 2 is implemented as a read-only L1 hot
 local memory index over reviewed recall-only `LocalMemoryStore` records at
 `GET /control-center/memory/l1-index`. Phase 3 L2 factual/graph/temporal
@@ -85,10 +232,20 @@ implemented as read-only, proposal-only inspection envelopes at
 remain future blocked.
 UAA-P1-066 is implemented as a strictly read-only Local Model Control Center
 inventory/status support lane. It exposes backend-owned local model inventory
-and gateway posture plus Ollama and MLX-LM readiness posture through
-`GET /control-center/local-models/status` while leaving lifecycle, switching,
-activation, downloads, model pulls, model calls, runtime adapters,
-provider/model authority, and production-readiness claims blocked.
+and gateway posture through `GET /control-center/local-models/status` while
+leaving lifecycle, switching, activation, downloads, runtime adapters, and
+production-readiness claims blocked.
+Web Runtime Authority Promotion Ladder is now an explicit P1 shaping lane for
+the next web/provider authority sequence. Current authority still flows through
+`ultimate_ai_agent.core.web_access`; older M72/M74/M75/M94/M95 and M121-M140
+docs remain historical/contract evidence, not blanket callable runtime
+authority. Keep the runtime authority WIP limit at one lane. This lane adds no
+live web fetching, browser automation, provider SDK calls, POST/click/form/
+download/upload, generic public-web mutation, or callable runtime authority.
+Provider shells and diagnostics are metadata-only until a later exact milestone
+adds WebAccessGateway routing, durable audit, side-effect ledger blockers,
+exact approval scope, blocked/degraded/partial operator labels, CostGovernor
+posture for paid/frontier use, CLI/UI inspection, and verifier evidence.
 
 Mattermost, plugin ecosystem, packaging/distribution, extra integrations, and
 new runtime authority lanes must not displace this first product-loop sequence.
@@ -117,26 +274,106 @@ Gate = required acceptance evidence before Done
 ## Now / Building
 
 ```text
-FCC-LOOP-001 First Product Loop Readability is implemented as a Control Center
-shell/readability lane. The primary Founder Loop surfaces now share a compact
-daily-loop spine that exposes Today, Inbox, Plans, Actions, Memory, Evidence,
-and Settings status from existing backend-backed summaries, keeps blocked
-states visible, and names the only current mutating FCC authority as the
-backend-approved local task lane. UAA-P1-067 through UAA-P1-087.2c and
-FCC-V1-000 through FCC-V1-007 remain complete. Full UAA-P1-087.2 manual UI
-testing is deferred until more Founder Loop implementation exists and accepted
-or revised findings can be recorded later.
+No current P0 implementation lane is open in this board slice. UAA-P1-067
+through UAA-P1-090, FCC-V1-000 through FCC-V1-007, FCC-LOOP-001,
+FCC-LOOP-002, FCC-MEM-001, and FCC-MEM-022 are represented as completed or
+truth-accounted lanes below. Full UAA-P1-087.2 manual UI testing is deferred
+until more Founder Loop implementation exists and accepted or revised findings
+can be recorded later.
+```
+
+## Done
+
+```text
+UAA-P1-088 Agent Module Maturity Review V2
+Goal: review and score each core AI-agent module against repo evidence, then
+produce a ranked improvement queue.
+Scope: implemented as a review/scoring/read-model lane only; no runtime model
+calls, provider calls, shell/subprocess execution, connector writes, memory
+writes, context injection, action execution, workflow execution, autonomous
+routing authority, public beta, or production authority.
+
+UAA-P1-089 Top-Level Decision Router Contract
+Goal: define a unified top-level route-decision contract across direct answer,
+reviewed memory, Action Inbox proposal, ask-human, escalation, defer, blocked,
+and insufficient-evidence outcomes.
+Scope: implemented as deterministic no-effect contracts/tests/docs only; no
+backend route, model/provider calls, tool execution, workflow execution, memory
+writes, context injection, shell/subprocess execution, connector writes,
+autonomous routing authority, public beta, or production authority.
+
+UAA-P1-090 Task Decomposition Proposal Engine
+Goal: turn bounded safe requests into review-only decomposition proposals for
+Plans, Action Inbox, and CLI inspection.
+Scope: implemented as proposal/read-model contracts and display parity only; no
+model/provider calls, shell/subprocess execution, connector writes, workflow
+execution, action execution, memory writes, context injection, autonomous
+planning authority, public beta, or production authority.
+
+FCC-LOOP-002 Founder Loop Ergonomics Pass
+Goal: organize Today, Briefing, Action Inbox, Memory, Evidence, and related
+surfaces around the daily founder/operator loop.
+Scope: implemented as a Control Center ergonomics/readability pass over
+existing backend read models; no backend authority, action execution, context
+injection, provider/model calls, connector writes, shell/subprocess execution,
+hidden memory writes, automatic maintenance, public beta, or production
+authority.
+
+FCC-MEM-022 Ranked Retrieval / Recall Tuning
+Goal: use safe retrieval diagnostics, feedback receipts, epistemic roles,
+observation candidates, probe, and contradiction previews to improve memory
+recall inspection with deterministic lexical, tag, and ref scoring only.
+Scope: implemented as Memory read models and a local idempotent feedback
+receipt lane; no external memory provider runtime, cloud sync, embeddings,
+vector database, HRR/algebraic retrieval, semantic provider calls, context
+injection, model/provider calls, connector writes, hidden memory writes,
+automatic maintenance, action execution, or production claim. HRR remains
+blocked until `milestone-ref:fcc-mem-hrr-001-explicit-authority`.
 ```
 
 ## Ready Next
 
 ```text
-Final review, verifier repair, commit, tag, and push
-Goal: run the full review/verification pass for the completed prompt sequence,
-repair any regressions, then create the requested commit/tag/push if the
-repository is clean enough to do so safely.
-Scope: verification, scoped repairs, git hygiene, and release metadata only.
-Do not rewrite old tags or historical release records.
+Post-FCC-MEM-022 Memory Follow-up Selection
+Goal: choose the next exact-scoped memory lane from merge/supersede UX,
+relationship/CRM-lite schema, recall tuning evidence, or future context-use
+approval gating.
+Scope: selection/read-model planning only; actual context use remains blocked
+until a separate milestone grants explicit approval, receipt, rollback,
+safe-disable, redaction, citation validation, and Evidence proof.
+Subagents: required. Use an independent repo-evidence reviewer and a
+safety/product-language reviewer before final hardening.
+
+CRM + Communications Spine M0
+Goal: lock the Global Identity -> Workspace Context -> Pipeline Object ->
+Communications Spine -> Work Queue / Proposal -> Action Inbox / Evidence /
+Memory architecture as typed safe-ref contracts and product language before
+adding any CRM shell or communications runtime.
+Scope: contract-only M0 in `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`,
+`src/ultimate_ai_agent/core/crm/contracts.py`,
+`scripts/verify_crm_communications_spine_m0.py`, and focused tests. No /crm UI,
+no backend endpoints, no connector runtime, no connector writes, no sends, no
+calendar writes, no silent merges, no silent contact creation, no
+provider/model calls, no live web, no browser runtime, no public beta, or
+production authority is authorized.
+Next: after the CRM M1 fixture-only `/crm` shell is reviewed, consider a
+separate CRM M2 backend read-model planning/contract PR. That later PR must
+keep connector runtime, external CRM writes, account sync, sends, calendar
+writes, provider/model calls, live web, browser runtime, public beta, and
+production authority blocked unless separately accepted.
+
+WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
+Goal: promote the web/provider/browser authority ladder into active roadmap and
+board truth before any new web runtime authority is implemented.
+Scope: P1 shaping lane only. Order future work as roadmap/currentness stitching,
+governed read-only fetch, provider shells and diagnostics, read-only provider
+adapter, browser observe, browser action dry-run, low-risk clicks,
+connector-specific writes, and callable runtime authority. No live web fetching,
+browser automation, provider SDK calls, POST/click/form/download/upload,
+mutation execution, or callable runtime authority is authorized in this slice.
+Paid/frontier provider use must remain CostGovernor-bound with cost estimate
+refs, budget decision refs, provider/model safe refs, cost receipt refs,
+unknown paid-cost approval, and budget-exceeded blocking before routing.
 ```
 
 ## Shaping
@@ -156,11 +393,9 @@ UAA-P1-075 completed Governed Code Workbench V1, UAA-P1-076 completed
 Cross-Surface Memory Intake, UAA-P1-077 completed Memory-To-Loop Binding,
 UAA-P1-078 completed the Private Beta-Readiness Gate, and UAA-P1-079 completed
 the User Intent Understanding V1 lane.
-UAA-P1-066 is implemented as read-only local model status support, including
-Ollama and MLX-LM readiness posture only. Later Local Model Manager lifecycle,
-switching, Desktop/Hermes activation, MLX/Ollama/LM Studio runtime adapters,
-model calls, and model pulls/downloads still require separate exact scoped
-milestones.
+UAA-P1-066 is implemented as read-only local model status support. Later Local Model Manager lifecycle,
+switching, Desktop/Hermes activation, MLX/Ollama/LM Studio adapters, and
+downloads still require separate exact scoped milestones.
 ```
 
 ## Spec Draft
@@ -366,29 +601,155 @@ forget-request are posture/receipt states only. Delete/export execution,
 semantic/vector search, provider/model calls, connector writes, context
 injection, public beta, and production authority remain blocked.
 
-FCC-MEM-015 Memory Impact Graph And Follow-Up Queue
-Goal met: Memory Review now has backend-owned `GET /control-center/memory/impact-graph`,
-`GET /control-center/memory/follow-ups`, and
-`GET /control-center/memory/recall-health` read models, Control Center
-merge/supersede multi-select comparison, context-pack preview inspection, and
-repo-local CLI/verifier parity. Follow-ups remain proposal-only; action
-execution, memory writes, CRM/account sync, context injection, semantic/vector
-search, provider/model calls, public beta, and production authority remain
-blocked.
+Product Loop 002 Memory Merge/Supersede UX
+Goal met: Memory Workbench now exposes backend-owned lifecycle posture for
+duplicate, stale/recheck, conflict, corrected, merged, superseded, and
+forget-request states with safe item refs, receipt refs, Control Center labels,
+and `scripts/inspect_memory_merge_supersede_posture.py` CLI parity. The lane
+displays review receipt posture only; the scoped Memory Review routes record
+receipts. Hard delete, export, automatic merge, automatic supersede, automatic
+forget, hidden memory writes, context injection, connector writes,
+provider/model calls, public beta, and production authority remain blocked.
 
-FCC-MEM-016 Through FCC-MEM-020 Memory Diagnostics And Context Manifest
-Goal met: Memory Review now has backend-owned
-`GET /control-center/memory/retrieval-diagnostics`,
-`GET /control-center/memory/citation-integrity`,
-`GET /control-center/memory/quality-issues`,
-`POST /control-center/memory/feedback`,
-`GET /control-center/memory/maintenance-runs`, and
-`GET /control-center/memory/context-manifest` routes, repo-local CLI parity,
-stored execution prompts, and verifier coverage. Feedback records quality
-signal receipts only. Maintenance and context manifests remain proposal-only;
-automatic memory writes, auto-merge, auto-forget, delete/export execution,
-hidden context injection, provider/model calls, connector writes, action
+Product Loop 003 Today Loop Tightening
+Goal met: Today now exposes a backend-owned
+`today_loop_read_model` for what matters now, what changed, what is blocked,
+what needs review, follow-ups, and stale/deferred refs, with Control Center
+decision-first rendering and `scripts/inspect_today_loop.py` CLI parity. The
+lane is local read-model readability only; connector reads, source refresh,
+model/provider calls, automatic memory writes, context injection, action
 execution, public beta, and production authority remain blocked.
+
+Product Loop 004 Follow-Up Tracker
+Goal met: Today, Action Inbox, and Morning Briefing now expose a backend-owned
+`follow_up_tracker` for reviewed relationship follow-ups, promises, open loops,
+pending replies, and deferred decisions with Control Center rendering and
+`scripts/inspect_follow_up_tracker.py` CLI parity. The lane is local
+review-only posture over safe refs; reminders, messages, email/calendar fetch,
+connector runtime, automatic task creation, action execution, model/provider
+calls, hidden memory writes, context injection, public beta, and production
+authority remain blocked.
+
+Product Loop 005 Action Inbox Decision-Lane Polish
+Goal met: Action Inbox now exposes a backend-owned
+`action_inbox_decision_lane_read_model` for needs-approval, blocked,
+draft-only, cost-blocked, no-authority, approved/no-execution, rejected,
+deferred, and receipt-recorded operator lanes with Control Center rendering and
+`scripts/inspect_action_inbox_decision_lanes.py` CLI parity. The rule
+"approval alone does not execute" remains explicit; missing envelope fields fail
+closed; cost/provider posture is
+visible before approval. The lane is review metadata only and adds no action
+execution, connector writes, provider/model calls, shell/browser execution,
+memory writes, context injection, public beta, or production authority.
+
+Product Loop 006 Plans To Reviewable Action Envelopes Upgrade
+Goal met: Today and Action Inbox now expose a backend-owned
+`plans_to_actions_bridge_read_model` that maps plan proposals and
+task-decomposition proposal refs into reviewable Action envelope posture with
+risk, reason, expected receipt, rollback, safe-disable, linked Action Inbox, and
+blocked authority refs. `scripts/inspect_plans_to_actions_bridge.py` provides
+CLI parity. Plans remain proposal-only; approval refs are identifiers and
+decision receipts only. This lane adds no action execution, no tool execution,
+no workflow execution, no provider/model calls, no connector runtime, no shell/browser execution,
+no context injection, no connector writes, no memory writes, no public beta,
+and no production authority.
+
+Product Loop 007 Morning Briefing V1
+Goal met: Morning Briefing now exposes a backend-owned
+`morning_briefing_v1_read_model` for local Today summary refs, open Action
+refs, follow-up refs, memory review refs, evidence timeline refs, repo and
+workbench status refs, source-readiness blockers, and missing-source refs.
+`scripts/inspect_morning_briefing_v1.py` provides CLI parity. The briefing is
+safe-ref-only, bounded, backend-owned local read-model posture. Missing
+integrations remain blocked/readiness states; recommendation refs and
+next-safe-action labels are review candidates only. This lane adds no
+connector reads, no connector runtime, no connector writes, no
+email/calendar/account fetch, no live web, no runtime model/provider calls, no
+automatic recommendations, no hidden memory writes, no memory writes, no
+context injection, no repo writes, no workbench apply, no notification
+delivery, no source refresh, no action execution, no shell/browser execution,
+no public beta, and no production authority.
+No-authority phrases: no connector reads; no connector runtime; no connector writes; no email/calendar/account fetch; no live web; no runtime model/provider calls; no automatic recommendations; no hidden memory writes; no repo writes; no workbench apply; no shell/browser execution; no action execution; no public beta; no production authority.
+
+Product Loop 008 Weekly CEO Review
+Goal met: Today and Morning Briefing now expose a backend-owned
+`weekly_ceo_review_v1_read_model` for completed, deferred, rejected, blocked,
+stale, unresolved, carry-forward, action decision, memory decision, follow-up,
+evidence event, and missing-source refs. `scripts/inspect_weekly_ceo_review.py`
+provides CLI parity and returns `state_not_found_no_write` without creating
+storage when local Founder Loop state is absent. The artifact is safe-ref-only,
+safe-summary-only, evidence-backed, and review-only. It adds no connector
+reads, no connector runtime, no connector writes, no email/calendar/account
+fetch, no live web, no model summaries, no runtime model/provider calls, no
+automatic memory writes, no context injection, no action execution, no
+shell/browser execution, no public beta claims, no production claims, and no
+production authority.
+No-authority phrases: no connector reads; no connector runtime; no connector writes; no email/calendar/account fetch; no live web; no model summaries; no runtime model/provider calls; no automatic memory writes; no context injection; no action execution; no shell/browser execution; no public beta claims; no production claims; no production authority.
+
+Product Loop 009 Chat to loop handoff
+Goal met: Today, Action Inbox, and Morning Briefing now expose a backend-owned
+`chat_to_loop_handoff_read_model` over durable Chat turn receipts and handoff
+receipts. The read model classifies reviewable outcomes as remember-this,
+create-action, add-to-plan, defer, ask-human, and blocked while preserving the
+rule that model output is not authority. `remember-this` is a reviewed
+memory-intake proposal only, not a memory write or context-injection path.
+`scripts/inspect_chat_to_loop_handoff.py` provides CLI parity and returns
+`state_not_found_no_write` without creating storage when local Founder Loop
+state is absent. Control Center renders the handoff state only when the
+backend-owned payload validates; unsafe backend payloads and mock-only fallback
+fail closed. This lane adds no model output authority, no direct memory
+writes, no automatic memory writes, no context injection, no tool execution, no
+connector writes, no action execution, no plan execution, no provider/model
+calls, no live web, no shell/browser execution, no public beta, and no
+production authority.
+No-authority phrases: no model output authority; no direct memory writes; no automatic memory writes; no context injection; no tool execution; no connector writes; no action execution; no plan execution; no provider/model calls; no live web; no shell/browser execution; no public beta; no production authority.
+
+Product Loop 010 Evidence Timeline narrative
+Goal met: Evidence Timeline now exposes a backend-owned
+`narrative_read_model` over existing evidence events and timeline safe refs so
+operators can read what happened, why it was recorded, approval posture, what
+changed, what remains blocked, and what can be inspected.
+`scripts/inspect_evidence_timeline_narrative.py` provides CLI parity and
+returns `state_not_found_no_write` without creating storage when local Founder
+Loop state is absent. Control Center renders the narrative only when the
+backend-owned payload validates; unsafe backend payloads and mock-only fallback
+fail closed. This lane adds no approval authority, no rollback execution, no
+action execution, no connector writes, no provider SDK calls, no runtime
+model/provider calls, no prompt/response/provider exchange storage, no memory
+truth authority, no context injection, no live web, no shell/browser execution,
+no public beta, and no production authority.
+No-authority phrases: no approval authority; no rollback execution; no action execution; no connector writes; no provider SDK calls; no runtime model/provider calls; no prompt/response/provider exchange storage; no memory truth authority; no context injection; no live web; no shell/browser execution; no public beta; no production authority.
+
+Product Loop 011 Settings and kill-switch clarity
+Goal met: Settings now exposes backend-owned `authority_postures`,
+`kill_switch_postures`, and `feature_flag_postures` from
+`GET /control-center/settings/status` with blocked/degraded/partial labels for
+web, providers, connectors, memory context use, model runtime, local model
+lifecycle, and platform capabilities. `scripts/inspect_settings_authority_posture.py`
+provides CLI parity over the same safe schema. The UI renders these labels
+without enabling controls. This lane adds no toggles that grant authority, no
+provider configuration, no installer behavior, no runtime activation, no
+feature-flag writes, no kill-switch execution, no revocation execution, no
+connector runtime, no connector writes, no model calls, no provider SDK calls,
+no live web, no shell/browser execution, no public beta, no production
+readiness claims, and no production authority.
+No-authority phrases: no toggles that grant authority; no provider configuration; no installer behavior; no runtime activation; no feature-flag writes; no kill-switch execution; no revocation execution; no connector runtime; no connector writes; no model calls; no provider SDK calls; no live web; no shell/browser execution; no public beta; no production readiness claims; no production authority.
+
+Product Loop 012 Private product loop trial script
+Goal met: the Product Loop 012 Private product loop trial script now provides a
+repeatable local/private, safe-ref-only manual operator review checklist and
+acceptance ledger for Boot, Today, Morning Briefing, Follow-Ups, Memory,
+Actions, Plans, Chat Handoff, Evidence, Weekly Review, and Settings.
+`scripts/inspect_product_loop_trial_script.py` provides CLI parity over the same
+contract and `docs/control_center/private_product_loop_trial_script_v1.json`
+records the checked-in artifact. Findings remain pending manual operator
+review and the future Product Loop Completion Report template remains a
+local/private, evidence-backed gap report. This lane adds no public beta, no public
+distribution, no telemetry export, no connector runtime, no connector writes,
+no provider/model calls, no provider SDK calls, no live web, no shell/browser
+execution, no action execution, no memory writes, no backend route, no runtime
+authority, no production readiness claims, and no production authority.
+No-authority phrases: no public beta; no public distribution; no telemetry export; no connector runtime; no connector reads/writes; no provider/model calls; no provider SDK calls; no live web; no shell/browser execution; no action execution; no memory writes; no backend route; no runtime authority; no production readiness claims; no production authority.
 ```
 
 ## QA / Verification

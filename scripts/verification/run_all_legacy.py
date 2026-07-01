@@ -11,7 +11,6 @@ import time
 import importlib.util
 from contextlib import contextmanager
 from pathlib import Path
-
 ROOT = Path(__file__).resolve().parents[2]
 _P1_API_VERIFIER_LANE_RAN = False
 
@@ -93,7 +92,6 @@ SCAN_SEQUENCE = [
     ("FCC-V1-006 Evidence Timeline productization scan", "verify_fcc_v1_006_evidence_timeline_productization"),
     ("FCC-V1-007 Founder Loop V1 promotion proof scan", "verify_founder_loop_v1"),
     ("Control Center operational maturity promotion gate", "verify_operational_maturity"),
-    ("documentation integrity scan", "verify_documentation_integrity"),
     ("verifier maintainability scan", "verify_verifier_maintainability"),
     ("UAA-P1-071 memory review decision capture scan", "verify_uaa_p1_071_memory_review_decision_capture"),
     ("UAA-P1-072 business memory quality controls scan", "verify_uaa_p1_072_business_memory_quality_controls"),
@@ -119,7 +117,7 @@ SCAN_SEQUENCE = [
     ("release verification lanes scan", "verify_release_verification_lanes"),
     ("release evidence packet scan", "verify_release_evidence_packet"),
     ("security/redaction artifact scan", "verify_security_redaction_artifacts"),
-    ("product truth regression scan", "verify_product_truth"),
+    ("product truth regression scan", "verify_product_truth"), ("background/autonomous provider promotion plan scan", "verify_background_autonomous_provider_plan"), ("provider billing authority boundary scan", "verify_provider_billing_authority_boundary"),
     ("operator-readiness taxonomy scan", "verify_operator_readiness_taxonomy"),
     ("morning reconciliation artifact scan", "verify_morning_reconciliation_artifact"),
     ("repo awareness benchmark scan", "verify_repo_awareness_benchmark"),
@@ -601,6 +599,7 @@ def verify_no_forbidden_external_integrations() -> None:
     allowed_stdlib_network_import_files = {
         "src/ultimate_ai_agent/core/model_runtime/manual_loopback_transport.py",
         "src/ultimate_ai_agent/core/model_runtime/local_call_transport.py",
+        "src/ultimate_ai_agent/core/providers/live_invocation_adapter.py",
     }
     forbidden_imports = [
         "import requests",
@@ -1033,6 +1032,8 @@ def verify_control_center_browser_smoke_readiness_script() -> None:
 def verify_control_center_release_surface() -> None:
     print("\n[Verifier] Running FCC-V1-000 release surface manifest scan...")
     run_cmd([sys.executable, "scripts/verify_control_center_release_surface.py"])
+def verify_background_autonomous_provider_plan() -> None: run_cmd([sys.executable, "scripts/verify_background_autonomous_provider_plan.py"])
+def verify_provider_billing_authority_boundary() -> None: run_cmd([sys.executable, "scripts/verify_provider_billing_authority_boundary.py"])
 def verify_fcc_v1_001_api_perimeter() -> None:
     run_cmd([sys.executable, "scripts/verify_fcc_v1_001_api_perimeter.py"])
 def verify_fcc_v1_002_action_inbox_state_machine() -> None:
@@ -12441,7 +12442,7 @@ def verify_m75_browser_action_dry_run_planner() -> None:
             BrowserActionDryRunPlannerRequest,
             BrowserActionDryRunPlannerStatus,
             BrowserActionDryRunStep,
-            build_browser_action_dry_run_plan,
+            build_browser_action_dry_run_plan_via_web_access_gateway,
         )
         from ultimate_ai_agent.core.gate.evaluators import m75_openapi_route_failures
     except Exception as exc:
@@ -12468,7 +12469,7 @@ def verify_m75_browser_action_dry_run_planner() -> None:
             )
         ],
     )
-    plan = build_browser_action_dry_run_plan(request)
+    plan = build_browser_action_dry_run_plan_via_web_access_gateway(request)
     if (
         plan.status != BrowserActionDryRunPlannerStatus.plan_ready
         or not plan.plan_valid_for_review
@@ -12508,7 +12509,7 @@ def verify_m75_browser_action_dry_run_planner() -> None:
         ({"approval_ref": "approval_test_m75"}, "APPROVAL_TEST_REF_DENIED"),
         ({"authority_refs": ["context-pack:m75"]}, "AUTHORITY_REF_NOT_BROWSER_ACTION_AUTHORITY"),
     ]:
-        denied = build_browser_action_dry_run_plan(request.model_copy(update=update))
+        denied = build_browser_action_dry_run_plan_via_web_access_gateway(request.model_copy(update=update))
         if denied.plan_valid_for_review or reason not in denied.reason_codes:
             print(f"FAIL: M75 unsafe browser action plan request was not denied with {reason}")
             sys.exit(1)

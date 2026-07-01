@@ -3,6 +3,7 @@ import { ActionPreviewForm } from "./components/ActionPreviewForm";
 import { ApprovalQueuePanel } from "./components/ApprovalQueuePanel";
 import { ApiRouteInventoryPanel } from "./components/ApiRouteInventoryPanel";
 import { ContextProposalSurfacePanel } from "./components/ContextProposalSurfacePanel";
+import { CrmM1FixtureShellPanel } from "./components/CrmM1FixtureShellPanel";
 import { DashboardSummary } from "./components/DashboardSummary";
 import { DifferentiatorScreensPanel } from "./components/DifferentiatorScreensPanel";
 import {
@@ -82,6 +83,7 @@ export const navItems: NavItem[] = [
   { path: "/evidence", label: "Evidence", group: "Founder Loop", status: "timeline", releaseStatus: "ship", role: "primary" },
   { path: "/settings", label: "Settings", group: "Founder Loop", status: "status-backed", releaseStatus: "partial", role: "primary" },
   { path: "/briefing", label: "Briefing", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "supporting" },
+  { path: "/crm", label: "CRM", group: "Founder Loop", status: "fixture-only", releaseStatus: "blocked", role: "supporting" },
   { path: "/private-trial", label: "Trial Packet", group: "Founder Loop", status: "087.2a-2c packet", releaseStatus: "experimental", role: "supporting" },
   { path: "/operator-loop", label: "Operator Loop", group: "Review", status: "readable proof", releaseStatus: "partial", role: "supporting" },
   { path: "/setup", label: "Setup", group: "Review", status: "dry-run", releaseStatus: "partial", role: "supporting" },
@@ -167,16 +169,16 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/today":
       return (
         <>
+          <TodaySurfacePanel
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            today={data.founderToday}
+          />
           <FounderLoopSpinePanel
             activeSurface="Today"
             actionReadModelAuthoritative={isAuthoritativeConnection(data)}
             evidence={data.founderEvidenceTimeline}
             inbox={data.founderActionsInbox}
             settingsStatus={data.settingsStatus}
-            today={data.founderToday}
-          />
-          <TodaySurfacePanel
-            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
             today={data.founderToday}
           />
         </>
@@ -209,17 +211,42 @@ export function renderRoute(path: string, data: ControlCenterData) {
           <ActionInboxSurfacePanel
             actionReadModelAuthoritative={isAuthoritativeConnection(data)}
             inbox={data.founderActionsInbox}
+            providerCredentialReadiness={
+              data.dashboard.provider_credential_readiness
+            }
           />
         </>
       );
     case "/briefing":
-      return <MorningBriefingPanel briefing={data.founderMorningBriefing} />;
+      return (
+        <>
+          <FounderLoopSpinePanel
+            activeSurface="Briefing"
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            evidence={data.founderEvidenceTimeline}
+            inbox={data.founderActionsInbox}
+            settingsStatus={data.settingsStatus}
+            today={data.founderToday}
+          />
+          <MorningBriefingPanel briefing={data.founderMorningBriefing} />
+        </>
+      );
+    case "/crm":
+      return <CrmM1FixtureShellPanel fixture={data.crmM1FixtureShell} />;
     case "/private-trial":
       return <PrivateOperatorTrialPanel />;
     case "/storage":
       return <FounderLoopStoragePanel storage={data.founderStorageStatus} />;
     case "/setup":
-      return <MacOSSetupAssistantPanel setup={data.macosSetupAssistant} />;
+      return (
+        <MacOSSetupAssistantPanel
+          providerCatalog={data.providerCatalog}
+          providerCredentialReadiness={
+            data.dashboard.provider_credential_readiness
+          }
+          setup={data.macosSetupAssistant}
+        />
+      );
     case "/chat":
       return <ChatOperatorPanel data={data} />;
     case "/plans":
@@ -258,7 +285,12 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/differentiators":
       return <DifferentiatorScreensPanel data={data} />;
     case "/approvals":
-      return <ApprovalQueuePanel review={data.m15Review} />;
+      return (
+        <ApprovalQueuePanel
+          review={data.m15Review}
+          summary={data.dashboard.approval_summary}
+        />
+      );
     case "/receipts":
       return <ReceiptViewerPanel review={data.m15Review} />;
     case "/events":
@@ -306,12 +338,9 @@ export function renderRoute(path: string, data: ControlCenterData) {
             citationIntegrity={data.founderMemoryCitationIntegrity}
             contextPacks={data.founderMemoryContextPacks}
             contextManifest={data.founderMemoryContextManifest}
-            followUpQueue={data.founderMemoryFollowUpQueue}
-            impactGraph={data.founderMemoryImpactGraph}
             maintenanceRuns={data.founderMemoryMaintenanceRuns}
             memoryReview={data.founderMemoryReview}
             qualityIssues={data.founderMemoryQualityIssues}
-            recallHealth={data.founderMemoryRecallHealth}
             retrievalDiagnostics={data.founderMemoryRetrievalDiagnostics}
             today={data.founderToday}
             workbench={data.founderMemoryWorkbench}

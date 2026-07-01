@@ -1,5 +1,9 @@
 # Ultimate AI Agent Master Plan v0.4.1
 
+> [!IMPORTANT]
+> Historical planning artifact. This file is not active product truth, does not grant runtime authority, and must not be used as current implementation guidance. Active truth starts in README.md, docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md, docs/kanban/current_board.md, and accepted foundation docs such as docs/tooling/UAA_MCP_GATEWAY_FOUNDATION.md and docs/remote/UAA_A2A_GATEWAY_FOUNDATION.md.
+
+
 Status: Working baseline expanded with trust/control infrastructure, user-governed autonomy, observability, rollback, privacy, cost controls, model routing, source credibility, interoperability, an explicit agent constitution, and a layered brain/onion architecture designed for stable evolution.
 Project: Ultimate AI Agent
 Purpose: Build a reliable, companion-style, self-improving agentic operating system that turns vague user goals into verified completed outcomes while learning with the user over time and remaining inspectable, permissioned, reversible, and modular.

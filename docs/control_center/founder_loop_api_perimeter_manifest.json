@@ -28,7 +28,7 @@
     "same_key_conflicting_payload": "required_future_reject_conflict",
     "evidence_requirement_ref": "receipt-backed append-first route-owner storage"
   },
-  "current_mutating_route_count": 31,
+  "current_mutating_route_count": 34,
   "current_mutating_routes": [
     {
       "method": "POST",
@@ -145,7 +145,7 @@
       "idempotency_posture": "required_before_mutation_authority",
       "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
       "rate_limit_posture": "targeted_local_fixed_window",
-      "rate_limit_group": "memory_review_decision"
+      "rate_limit_group": "memory_feedback"
     },
     {
       "method": "POST",
@@ -250,6 +250,45 @@
       "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
       "rate_limit_posture": "targeted_local_fixed_window",
       "rate_limit_group": "memory_review_decision"
+    },
+    {
+      "method": "POST",
+      "path": "/control-center/providers/credentials/validate",
+      "operation_id": "post_control_center_providers_credentials_validate",
+      "side_effect_class": "governed_network_read_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "provider_credential_validation"
+    },
+    {
+      "method": "POST",
+      "path": "/control-center/providers/exact-approved-lanes/tiny",
+      "operation_id": "post_control_center_providers_exact_approved_lanes_tiny",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "provider_exact_approved_lane"
+    },
+    {
+      "method": "POST",
+      "path": "/control-center/providers/router/dry-run",
+      "operation_id": "post_control_center_providers_router_dry_run",
+      "side_effect_class": "validation_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "provider_router_dry_run"
     },
     {
       "method": "POST",
@@ -504,6 +543,20 @@
       ],
       "duplicate_replay_required_before_runtime": true,
       "receipt_requirement_ref": "future-memory-review-decision-receipt"
+    },
+    {
+      "family_ref": "memory_feedback_receipt",
+      "status": "blocked_until_route_owner_storage",
+      "required_manifest_posture": [
+        "approval_posture",
+        "auth_posture",
+        "idempotency_posture",
+        "rate_limit_posture",
+        "route_classification",
+        "side_effect_class"
+      ],
+      "duplicate_replay_required_before_runtime": true,
+      "receipt_requirement_ref": "future-memory-feedback-receipt"
     },
     {
       "family_ref": "evidence_timeline_mutation",

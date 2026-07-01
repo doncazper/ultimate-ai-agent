@@ -17,6 +17,7 @@ interface AppShellProps {
 
 const visibleSupportingLabels = new Set([
   "Briefing",
+  "CRM",
   "Trial Packet",
   "Operator Loop",
   "Setup",
@@ -92,9 +93,9 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
           <span className="window-dot green" />
         </div>
         <div className="brand">
-          <span className="brand-mark">FCC</span>
+          <span className="brand-mark">CC</span>
           <span>
-            <strong>Founder Command Center</strong>
+            <strong>Control Center</strong>
             <small><span className="live-dot" /> {loopStatusLabel}</small>
           </span>
         </div>
@@ -132,32 +133,67 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
       </aside>
       <div className="workspace">
         <header className="topbar">
-          <div className="topbar-route">
-            <NorthStarIcon className="chrome-arrow" name="chevron-left" />
-            <NorthStarIcon className="chrome-arrow" name="chevron-right" />
-            <strong>{activeRoute}</strong>
+          <div className="topbar-title-block">
+            <div className="topbar-title-row">
+              <h1>Control Center</h1>
+              <span>Founder Loop</span>
+              <span>Operator Shell</span>
+              <span>Backend Truth</span>
+              <span>Safety First</span>
+            </div>
+            <p>
+              Operate with facts. Act with confidence. Every item shows why,
+              what it affects, and backend evidence.
+            </p>
+            <div className="topbar-route" aria-label="Current surface">
+              <NorthStarIcon className="chrome-arrow" name="chevron-left" />
+              <NorthStarIcon className="chrome-arrow" name="chevron-right" />
+              <strong>{activeRoute}</strong>
+            </div>
           </div>
           <div
             className="topbar-actions"
             aria-label="Control Center safety status"
           >
-            <CommandPalette activePath={activePath} />
-            <StatusChip
-              tone={apiBoundaryTone}
-              label={apiBoundaryLabel}
-              detail={connection?.apiBaseLabel}
-            />
-            <StatusChip tone="blue" label={runtimeLabel} />
-            <StatusChip tone="red" label={sourcesLabel} />
-            <StatusChip
-              tone={backendAuthoritative ? "green" : "blue"}
-              label={evidenceLabel}
-            />
-            <StatusChip tone="orange" label={actionAuthorityLabel} />
-            <StatusChip
-              tone={backendAuthoritative ? "green" : "orange"}
-              label={localTaskAuthorityLabel}
-            />
+            <div className="authority-legend" aria-label="Operator state legend">
+              <LegendItem
+                detail="Requires your action"
+                label="Blocked"
+                tone="red"
+              />
+              <LegendItem
+                detail="No receipt yet"
+                label="Proposal Only"
+                tone="orange"
+              />
+              <LegendItem
+                detail="Verified by source"
+                label="Receipt-Backed"
+                tone="green"
+              />
+              <LegendItem detail="Read-only" label="Info Only" tone="gray" />
+            </div>
+            <div className="topbar-control-row">
+              <CommandPalette activePath={activePath} />
+              <StatusChip
+                tone={apiBoundaryTone}
+                label={apiBoundaryLabel}
+                detail={connection?.apiBaseLabel}
+              />
+            </div>
+            <div className="topbar-status-strip" aria-label="Backend boundary summary">
+              <StatusChip tone="blue" label={runtimeLabel} />
+              <StatusChip tone="red" label={sourcesLabel} />
+              <StatusChip
+                tone={backendAuthoritative ? "green" : "blue"}
+                label={evidenceLabel}
+              />
+              <StatusChip tone="orange" label={actionAuthorityLabel} />
+              <StatusChip
+                tone={backendAuthoritative ? "green" : "orange"}
+                label={localTaskAuthorityLabel}
+              />
+            </div>
           </div>
         </header>
         <main>{children}</main>
@@ -212,6 +248,7 @@ function navIconForLabel(label: string): string {
     Evidence: "file-text",
     Settings: "settings",
     Briefing: "map",
+    CRM: "briefcase",
     Chat: "chat",
     Setup: "sliders",
     Runtime: "terminal",
@@ -239,6 +276,26 @@ function StatusChip({
     <span className={`top-status-chip ${tone}`} title={detail}>
       <NorthStarIcon className="chip-icon" name={icon} />
       {label}
+    </span>
+  );
+}
+
+function LegendItem({
+  detail,
+  label,
+  tone,
+}: {
+  detail: string;
+  label: string;
+  tone: "green" | "gray" | "orange" | "red";
+}) {
+  return (
+    <span className="legend-item">
+      <span className={`legend-swatch ${tone}`} aria-hidden="true" />
+      <span>
+        <strong>{label}</strong>
+        <small>{detail}</small>
+      </span>
     </span>
   );
 }

@@ -74,7 +74,6 @@ from ultimate_ai_agent.core.storage.founder_loop import (
     FounderLoopMemoryReviewRecord,
 )
 
-
 HISTORY_KEYS = {
     "proposed",
     "approved",

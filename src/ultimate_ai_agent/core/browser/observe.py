@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from enum import Enum
 import re
 from typing import Any
@@ -8,6 +9,17 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.autonomy.modes import _validate_m61_ref, _validate_safe_payload
+from ultimate_ai_agent.core.web_access.contracts import (
+    WebAccessAdapterKind,
+    WebAccessAuthorityMode,
+    WebAccessNetworkLane,
+    WebAccessPolicyDecision,
+    WebAccessPolicyStatus,
+    WebAccessRequest,
+    WebAccessRequestKind,
+)
+from ultimate_ai_agent.core.web_access.gateway import WebAccessGateway
+from ultimate_ai_agent.core.web_access.policy import WebAccessPolicy
 
 
 BROWSER_OBSERVE_ONLY_ADAPTER_REF = "browser-adapter:m74-observe-only"
@@ -255,14 +267,14 @@ class BrowserObserveOnlyAdapter:
         *,
         observe_transport: BrowserObserveTransport | None = None,
     ) -> BrowserObserveOnlyOutput:
-        return build_browser_observe_only_output(
+        return build_browser_observe_only_output_via_web_access_gateway(
             request=request,
             policy=self.policy,
             observe_transport=observe_transport,
         )
 
 
-def build_browser_observe_only_output(
+def _build_browser_observe_only_output(
     *,
     request: BrowserObserveOnlyRequest,
     policy: BrowserObserveOnlyPolicy | None = None,
@@ -322,6 +334,212 @@ def build_browser_observe_only_output(
         ],
         safe_message="BROWSER_OBSERVE_ONLY_REDACTED_PREVIEW_RETURNED",
     )
+
+
+@dataclass(frozen=True)
+class _BrowserObserveOnlyWebAccessAdapter:
+    observe_request: BrowserObserveOnlyRequest
+    policy: BrowserObserveOnlyPolicy
+    observe_transport: BrowserObserveTransport | None
+    adapter_kind: WebAccessAdapterKind = WebAccessAdapterKind.LOCAL_BROWSER_OBSERVE
+
+    def execute(
+        self,
+        request: WebAccessRequest,
+        decision: WebAccessPolicyDecision,
+    ) -> Mapping[str, Any]:
+        if request.kind != WebAccessRequestKind.BROWSER_OBSERVE:
+            output = _decision_output(
+                request=self.observe_request,
+                status=BrowserObserveOnlyStatus.denied,
+                observe_allowed=False,
+                reason_codes=["BROWSER_OBSERVE_GATEWAY_KIND_MISMATCH"],
+                safe_message="BROWSER_OBSERVE_ONLY_REQUEST_DENIED",
+            )
+            return _blocked_browser_observe_adapter_result(output)
+
+        output = _build_browser_observe_only_output(
+            request=self.observe_request,
+            policy=self.policy,
+            observe_transport=self.observe_transport,
+        )
+        if output.status != BrowserObserveOnlyStatus.observation_ready or not output.observe_allowed:
+            return _blocked_browser_observe_adapter_result(output)
+
+        return {
+            "adapter_ref": "web-access-adapter:browser-observe-only.v1",
+            "allowed": True,
+            "status": output.status.value,
+            "target_ref": output.target_ref,
+            "safe_url_ref": output.safe_url_ref,
+            "output": output.model_dump(mode="python"),
+            "preview": output.redacted_text_preview,
+            "source_refs": [
+                {
+                    "target_ref": output.target_ref,
+                    "safe_url_ref": output.safe_url_ref,
+                    "content_untrusted": True,
+                }
+            ],
+        }
+
+
+def build_browser_observe_only_output_via_web_access_gateway(
+    *,
+    request: BrowserObserveOnlyRequest,
+    policy: BrowserObserveOnlyPolicy | None = None,
+    observe_transport: BrowserObserveTransport | None,
+) -> BrowserObserveOnlyOutput:
+    """Route the M74 injected observe-only adapter through WebAccessGateway."""
+
+    active_policy = policy or BrowserObserveOnlyPolicy()
+    adapter = _BrowserObserveOnlyWebAccessAdapter(
+        observe_request=request,
+        policy=active_policy,
+        observe_transport=observe_transport,
+    )
+    gateway = WebAccessGateway(
+        policy=WebAccessPolicy(allow_browser_observe=True),
+        adapters={WebAccessRequestKind.BROWSER_OBSERVE: adapter},
+    )
+    result = gateway.execute(
+        WebAccessRequest(
+            kind=WebAccessRequestKind.BROWSER_OBSERVE,
+            method="GET",
+            authority_mode=WebAccessAuthorityMode.BROWSER_OBSERVE_ONLY,
+            network_lane=WebAccessNetworkLane.BROWSER_OBSERVE_ONLY,
+            actor="browser_observe_adapter",
+            session_id=request.request_ref,
+            metadata={
+                "adapter_ref": "web-access-adapter:browser-observe-only.v1",
+                "browser_adapter_ref": BROWSER_OBSERVE_ONLY_ADAPTER_REF,
+                "request_ref": request.request_ref,
+                "target_ref": request.target_ref,
+                "safe_url_ref": request.safe_url_ref,
+                "request_body": False,
+                "raw_dom": request.raw_dom_requested,
+                "screenshot": request.screenshot_requested,
+                "navigation": request.navigation_requested,
+                "click": request.click_requested,
+                "form_fill": request.form_fill_requested,
+                "uses_auth": request.authenticated_profile_requested,
+                "cookies": request.cookies_or_credentials_requested,
+                "download": request.download_or_upload_requested,
+                "upload": request.download_or_upload_requested,
+                "network_interception": request.network_interception_requested,
+                "network_call": request.network_call_requested,
+                "model_call": request.model_call_requested,
+                "tool_execution": request.tool_execution_requested,
+                "memory_write": request.memory_write_requested,
+                "context_injection": request.context_injection_requested,
+                "backend_route": request.backend_route_requested,
+                "control_center_control": request.control_center_control_requested,
+                "production_authority": request.production_authority_requested,
+            },
+        )
+    )
+    output = _output_from_web_access_payload(result.evidence_bundle.payload if result.evidence_bundle else None)
+    if output is not None:
+        return output
+    if result.status != WebAccessPolicyStatus.ALLOWED:
+        return _decision_output(
+            request=request,
+            status=BrowserObserveOnlyStatus.denied,
+            observe_allowed=False,
+            reason_codes=_browser_observe_reasons_from_web_access_result(result.decision.reasons),
+            safe_message="BROWSER_OBSERVE_ONLY_REQUEST_DENIED",
+        )
+    return _decision_output(
+        request=request,
+        status=BrowserObserveOnlyStatus.denied,
+        observe_allowed=False,
+        reason_codes=["BROWSER_OBSERVE_GATEWAY_OUTPUT_MISSING"],
+        safe_message="BROWSER_OBSERVE_ONLY_REQUEST_DENIED",
+    )
+
+
+def _blocked_browser_observe_adapter_result(output: BrowserObserveOnlyOutput) -> Mapping[str, Any]:
+    return {
+        "adapter_ref": "web-access-adapter:browser-observe-only.v1",
+        "allowed": False,
+        "status": "denied",
+        "reason_codes": output.reason_codes,
+        "output": output.model_dump(mode="python"),
+        "source_refs": [
+            {
+                "target_ref": output.target_ref,
+                "safe_url_ref": output.safe_url_ref,
+                "content_untrusted": True,
+            }
+        ],
+    }
+
+
+def _output_from_web_access_payload(payload: Mapping[str, Any] | None) -> BrowserObserveOnlyOutput | None:
+    if not payload:
+        return None
+    output_payload = payload.get("output")
+    if not isinstance(output_payload, Mapping):
+        return None
+    return BrowserObserveOnlyOutput.model_validate(output_payload)
+
+
+def _browser_observe_reasons_from_web_access_result(reasons: tuple[str, ...]) -> list[str]:
+    mapped: list[str] = []
+    for reason in reasons:
+        if reason.startswith("adapter_reason:"):
+            mapped.append(_safe_reason(reason.split(":", 1)[1], "BROWSER_OBSERVE_GATEWAY_DENIED"))
+        elif reason == "browser_observe_not_enabled":
+            mapped.append("BROWSER_OBSERVE_GATEWAY_NOT_ENABLED")
+        elif reason == "browser_observe_authority_mode_required":
+            mapped.append("BROWSER_OBSERVE_AUTHORITY_MODE_REQUIRED")
+        elif reason == "browser_observe_lane_required":
+            mapped.append("BROWSER_OBSERVE_GATEWAY_LANE_REQUIRED")
+        elif reason == "browser_observe_raw_url_denied":
+            mapped.append("RAW_ABSOLUTE_URL_DENIED")
+        elif reason == "browser_observe_safe_url_ref_required":
+            mapped.append("BROWSER_OBSERVE_SAFE_REF_ONLY_REQUIRED")
+        elif reason == "browser_observe_control_or_raw_content_denied":
+            mapped.append("BROWSER_OBSERVE_CONTROL_OR_RAW_CONTENT_DENIED")
+        elif reason == "browser_observe_navigation_denied":
+            mapped.append("BROWSER_NAVIGATION_DENIED")
+        elif reason == "browser_observe_click_denied":
+            mapped.append("BROWSER_CLICK_DENIED")
+        elif reason == "browser_observe_form_fill_denied":
+            mapped.append("FORM_FILL_DENIED")
+        elif reason == "browser_observe_screenshot_denied":
+            mapped.append("SCREENSHOT_DENIED")
+        elif reason == "browser_observe_raw_dom_denied":
+            mapped.append("RAW_DOM_DENIED")
+        elif reason == "browser_observe_authenticated_profile_denied":
+            mapped.append("AUTHENTICATED_PROFILE_DENIED")
+        elif reason == "browser_observe_cookies_or_credentials_denied":
+            mapped.append("COOKIES_OR_CREDENTIALS_DENIED")
+        elif reason == "browser_observe_download_or_upload_denied":
+            mapped.append("DOWNLOAD_OR_UPLOAD_DENIED")
+        elif reason == "browser_observe_network_interception_denied":
+            mapped.append("NETWORK_INTERCEPTION_DENIED")
+        elif reason == "browser_observe_network_call_denied":
+            mapped.append("NETWORK_CALL_DENIED")
+        elif reason == "browser_observe_model_call_denied":
+            mapped.append("MODEL_CALL_DENIED")
+        elif reason == "browser_observe_tool_execution_denied":
+            mapped.append("TOOL_EXECUTION_DENIED")
+        elif reason == "browser_observe_memory_write_denied":
+            mapped.append("MEMORY_WRITE_DENIED")
+        elif reason == "browser_observe_context_injection_denied":
+            mapped.append("CONTEXT_INJECTION_DENIED")
+        elif reason == "browser_observe_backend_route_denied":
+            mapped.append("BACKEND_ROUTE_DENIED")
+        elif reason == "browser_observe_control_center_control_denied":
+            mapped.append("CONTROL_CENTER_CONTROL_DENIED")
+        elif reason == "browser_observe_production_authority_denied":
+            mapped.append("PRODUCTION_AUTHORITY_DENIED")
+        elif reason == "browser_observe_request_body_denied":
+            mapped.append("REQUEST_BODY_DENIED")
+        elif reason.startswith("method_not_allowed:"):
+            mapped.append("BROWSER_OBSERVE_NON_GET_METHOD_DENIED")
+    return list(dict.fromkeys(mapped or ["BROWSER_OBSERVE_GATEWAY_DENIED"]))
 
 
 def browser_observe_policy_reason_codes(policy: BrowserObserveOnlyPolicy) -> list[str]:

@@ -31,6 +31,7 @@ def _use_fast_gate_report(monkeypatch: pytest.MonkeyPatch) -> None:
         *,
         foundation_gate_report_json: Any,
         foundation_gate_report_md: Any,
+        write_report: bool = True,
         precomputed_foundation_gate_ms: Any | None = None,
         precomputed_foundation_gate_status: Any | None = None,
         precomputed_foundation_gate_result_count: Any | None = None,
@@ -52,7 +53,9 @@ def _use_fast_gate_report(monkeypatch: pytest.MonkeyPatch) -> None:
             hot_path_profile_status="passed",
             accepted_failures=[],
             failures=[],
-            report_refs={
+            report_refs={}
+            if not write_report
+            else {
                 "release_latency_report_json": (
                     "reports/performance/latest_release_latency_baseline.json"
                 )
@@ -140,6 +143,7 @@ def _use_fast_gate_report(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_run_foundation_gate_writes_requested_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _use_fast_gate_report(monkeypatch)
+    monkeypatch.setattr(run_foundation_gate, "ROOT", tmp_path)
     output_path = tmp_path / "gate_report.json"
 
     exit_code = run_foundation_gate.main(["--skip-commands", "--output", str(output_path)])
@@ -178,6 +182,8 @@ def test_run_foundation_gate_ci_mode_records_external_verify_receipt(tmp_path: P
     assert payload["command_receipts"][0]["command_ref"] == "command:scripts.verify_all"
     assert payload["command_receipts"][0]["status"] == "satisfied_external"
     assert payload["command_receipts"][0]["satisfied_by"] == "ci-master-verification"
+    assert payload["latency_gate"]["foundation_gate_report_json"] is None
+    assert payload["latency_gate"]["report_refs"] == {}
 
 
 def test_run_foundation_gate_parallel_ci_mode_records_external_verify_receipt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -194,6 +200,8 @@ def test_run_foundation_gate_parallel_ci_mode_records_external_verify_receipt(tm
     assert payload["command_receipts"][0]["command_ref"] == "command:ci.parallel_verification"
     assert payload["command_receipts"][0]["status"] == "satisfied_external"
     assert payload["command_receipts"][0]["satisfied_by"] == "ci-parallel-required-jobs"
+    assert payload["latency_gate"]["foundation_gate_report_json"] is None
+    assert payload["latency_gate"]["report_refs"] == {}
 
 
 def test_atomic_report_write_leaves_latest_json_valid_after_repeated_writes(tmp_path: Path) -> None:

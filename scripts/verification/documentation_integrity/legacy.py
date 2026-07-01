@@ -5,6 +5,11 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
+from scripts.verification.api_routes import (
+    EXPECTED_CONTROL_CENTER_ROUTE_COUNT,
+    EXPECTED_ROUTE_COUNT,
+)
+
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -1622,7 +1627,7 @@ ACTIVE_BASELINE_LABEL_PATTERNS = [
     ),
 ]
 
-EXPECTED_CURRENT_OPENAPI_PATH_COUNT = 152
+EXPECTED_CURRENT_OPENAPI_PATH_COUNT = EXPECTED_ROUTE_COUNT
 
 
 def _verify_active_baseline_labels(root: Path, version: str) -> list[str]:
@@ -1847,7 +1852,7 @@ def _verify_operator_runtime_currentness(root: Path) -> list[str]:
             "| product shell |"
         ),
         "product truth packet must mark shipped API boundary": (
-            "shipped for the 152-path api boundary"
+            f"shipped for the {EXPECTED_CURRENT_OPENAPI_PATH_COUNT}-path api boundary"
         ),
         "product truth packet must mark blocked local model claims": (
             "blocked for production-readiness claims"
@@ -4995,7 +5000,8 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
             "source plan: `docs/roadmap/operator_runtime_excellence_roadmap.md` m172"
         ),
         "gap map must include current API count": (
-            "api boundary: current fastapi manifest has 152 openapi paths"
+            "api boundary: current fastapi manifest has "
+            f"{EXPECTED_CURRENT_OPENAPI_PATH_COUNT} openapi paths"
         ),
         "gap map must preserve shell authority boundary": (
             "control center and openwebui remain shells"
@@ -5100,8 +5106,22 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
         failures.append("product truth packet must keep product-shell claims blocked")
 
     mock_data = read_lower("apps/control-center/src/mocks/controlCenterData.ts")
-    if "route_count: 152" not in mock_data:
-        failures.append("Control Center mock data must use current 152 route count")
+    current_route_literal = f"route_count: {EXPECTED_CURRENT_OPENAPI_PATH_COUNT}"
+    current_route_constant = "route_count: mock_openapi_route_count"
+    if current_route_literal not in mock_data and current_route_constant not in mock_data:
+        failures.append(
+            "Control Center mock data must use current "
+            f"{EXPECTED_CURRENT_OPENAPI_PATH_COUNT} route count"
+        )
+    current_control_center_constant = (
+        "const mock_control_center_route_count = "
+        f"{EXPECTED_CONTROL_CENTER_ROUTE_COUNT}"
+    )
+    if current_control_center_constant not in mock_data:
+        failures.append(
+            "Control Center mock data must use current "
+            f"{EXPECTED_CONTROL_CENTER_ROUTE_COUNT} Control Center route count"
+        )
     for stale_count in (128, 117, 112, 95, 94, 74):
         if f"route_count: {stale_count}" in mock_data:
             failures.append(

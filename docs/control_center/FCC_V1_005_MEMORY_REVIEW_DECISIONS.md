@@ -72,6 +72,10 @@ auditable posture without deleting, exporting, or silently rewriting memory.
 Reject/merge/supersede/forget-request suppress prior recall projections by
 marking local recall records inactive; the records remain inspectable audit
 state and are not deleted.
+The Memory Workbench `lifecycle_posture` read model and
+`scripts/inspect_memory_merge_supersede_posture.py` expose duplicate,
+stale/recheck, conflict, corrected, merged, superseded, and forget-request
+posture as safe refs and receipt refs only.
 
 Denied authority flags stay false: no context injection, no source truth
 authority, no connector/CRM/account sync, no action execution, and no production
@@ -97,6 +101,7 @@ Primary proof lanes:
 
 - `scripts/verify_fcc_v1_005_memory_review_decisions.py`
 - `tests/test_fcc_mem_001_memory_workbench.py`
+- `scripts/inspect_memory_merge_supersede_posture.py`
 - `tests/test_fcc_v1_005_memory_review_decisions.py`
 - `tests/test_governed_memory_l2_factual_graph_temporal_index.py`
 - `apps/control-center/src/components/FounderLoopPanels.tsx`

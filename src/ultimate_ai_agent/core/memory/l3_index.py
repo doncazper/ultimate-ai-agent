@@ -16,6 +16,7 @@ from ultimate_ai_agent.core.memory.l2_index import (
     L2MemoryGraphRelation,
     L2MemoryTemporalItem,
 )
+from ultimate_ai_agent.core.memory.feature_mine import memory_hrr_readiness
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -208,8 +209,14 @@ class L3MemoryModelItem(_L3AuthorityPosture):
     l3_item_ref: str = Field(..., min_length=1)
     l3_kind: L3MemoryKind
     subject_ref: str = Field(..., min_length=1)
+    observer_ref: str = "peer-ref:local-operator"
+    observed_ref: str = "observed-ref:l3-unbound"
+    perspective_scope: str = "perspective-scope-ref:local-operator-to-observed-entity"
+    peer_card_ref: str = "peer-card-ref:local-operator:unbound"
     workspace_ref: str = Field(..., min_length=1)
     session_ref: str = Field(..., min_length=1)
+    session_summary_ref: str = "session-summary-ref:l3-reviewed-recall:unbound"
+    representation_scope_ref: str = "representation-scope-ref:l3:unbound"
     safe_summary_ref: str = Field(..., min_length=1)
     supporting_memory_record_refs: list[str] = Field(default_factory=list)
     supporting_l1_preview_refs: list[str] = Field(default_factory=list)
@@ -218,6 +225,10 @@ class L3MemoryModelItem(_L3AuthorityPosture):
     evidence_refs: list[str] = Field(default_factory=list)
     receipt_refs: list[str] = Field(default_factory=list)
     derivation_reason_refs: list[L3DerivationReasonRef] = Field(default_factory=list)
+    score_components: dict[str, float] = Field(default_factory=dict)
+    retrieval_strategy_refs: list[str] = Field(default_factory=list)
+    query_mode: str = "default"
+    safe_query_ref: str | None = None
     confidence_posture: str = "confidence-posture:l3-review-required"
     stale_state_refs: list[str] = Field(default_factory=list)
     conflict_state_refs: list[str] = Field(default_factory=list)
@@ -235,12 +246,21 @@ class L3MemoryModelItem(_L3AuthorityPosture):
             "contract_ref",
             "l3_item_ref",
             "subject_ref",
+            "observer_ref",
+            "observed_ref",
+            "perspective_scope",
+            "peer_card_ref",
             "workspace_ref",
             "session_ref",
+            "session_summary_ref",
+            "representation_scope_ref",
             "safe_summary_ref",
             "confidence_posture",
         ]:
             _validate_safe_ref(str(getattr(self, field_name)), field_name)
+        if self.safe_query_ref is not None:
+            _validate_safe_ref(self.safe_query_ref, "safe_query_ref")
+        _validate_safe_text(self.query_mode, "query_mode")
         _validate_safe_text(self.l3_kind, "l3_kind")
         for field_name in [
             "supporting_memory_record_refs",
@@ -250,6 +270,7 @@ class L3MemoryModelItem(_L3AuthorityPosture):
             "evidence_refs",
             "receipt_refs",
             "derivation_reason_refs",
+            "retrieval_strategy_refs",
             "stale_state_refs",
             "conflict_state_refs",
             "blocked_state_refs",
@@ -283,6 +304,8 @@ class L3IdentitySessionPreferenceIndex(_L3AuthorityPosture):
     source_l2_contract_ref: str
     source_l2_route_ref: str
     query_ref: str | None = None
+    safe_query_ref: str | None = None
+    query_mode: str = "default"
     generated_at: datetime = Field(default_factory=utc_now)
     source_l2_fact_count: int = Field(default=0, ge=0)
     source_l2_relation_count: int = Field(default=0, ge=0)
@@ -294,6 +317,9 @@ class L3IdentitySessionPreferenceIndex(_L3AuthorityPosture):
     safe_refs_only: bool = True
     representation_proposal_only: bool = True
     deterministic_projection_only: bool = True
+    retrieval_strategy_refs: list[str] = Field(default_factory=list)
+    search_index_status: dict[str, Any] = Field(default_factory=dict)
+    hrr_readiness: dict[str, Any] = Field(default_factory=memory_hrr_readiness)
     semantic_extraction_used: bool = False
     blocked_state_refs: list[str] = Field(
         default_factory=lambda: list(L3_IDENTITY_SESSION_MODELING_BLOCKED_STATE_REFS)
@@ -310,6 +336,11 @@ class L3IdentitySessionPreferenceIndex(_L3AuthorityPosture):
         _validate_safe_text(self.source_l2_route_ref, "source_l2_route_ref")
         if self.query_ref is not None:
             _validate_safe_ref(self.query_ref, "query_ref")
+        if self.safe_query_ref is not None:
+            _validate_safe_ref(self.safe_query_ref, "safe_query_ref")
+        _validate_safe_text(self.query_mode, "query_mode")
+        for ref in self.retrieval_strategy_refs:
+            _validate_safe_ref(ref, "retrieval_strategy_refs")
         for ref in self.skipped_l2_item_refs:
             _validate_safe_ref(ref, "skipped_l2_item_refs")
         for ref in self.blocked_state_refs:
@@ -336,6 +367,7 @@ def build_l3_identity_session_preference_index(
     l2_index: L2FactualGraphTemporalIndex | dict[str, Any],
     *,
     query_ref: str | None = None,
+    safe_query: str | None = None,
     limit: int = 20,
 ) -> L3IdentitySessionPreferenceIndex:
     source_index = (
@@ -372,6 +404,8 @@ def build_l3_identity_session_preference_index(
         source_l2_contract_ref=source_index.contract_ref,
         source_l2_route_ref=source_index.route_ref,
         query_ref=query_ref or source_index.query_ref,
+        safe_query_ref=source_index.safe_query_ref,
+        query_mode=source_index.query_mode,
         source_l2_fact_count=source_index.fact_count,
         source_l2_relation_count=source_index.relation_count,
         source_l2_temporal_count=source_index.temporal_count,
@@ -379,6 +413,8 @@ def build_l3_identity_session_preference_index(
         items=items,
         skipped_l2_item_refs=skipped_refs,
         skipped_l2_item_count=len(skipped_refs),
+        retrieval_strategy_refs=_retrieval_strategy_refs(source_index),
+        search_index_status=dict(source_index.search_index_status),
     )
 
 
@@ -413,6 +449,7 @@ def _item_for_fact_relation_temporal(
     subject_ref = fact.fact_subject_ref
     workspace_ref = _workspace_ref(fact)
     session_ref = f"session-ref:l3-reviewed-recall:{suffix}"
+    observed_ref = _observed_ref(fact, relation)
     stale_state_refs = [_state_ref("stale-state-ref", fact.stale_state)]
     conflict_state_refs = [_state_ref("conflict-state-ref", fact.conflict_state)]
     derivation_reason_refs: list[L3DerivationReasonRef] = [
@@ -426,8 +463,14 @@ def _item_for_fact_relation_temporal(
         l3_item_ref=f"l3-item-ref:{l3_kind}:{suffix}",
         l3_kind=l3_kind,
         subject_ref=subject_ref,
+        observer_ref="peer-ref:local-operator",
+        observed_ref=observed_ref,
+        perspective_scope="perspective-scope-ref:local-operator-to-observed-entity",
+        peer_card_ref=f"peer-card-ref:local-operator:{suffix}",
         workspace_ref=workspace_ref,
         session_ref=session_ref,
+        session_summary_ref=f"session-summary-ref:l3-reviewed-recall:{suffix}",
+        representation_scope_ref=f"representation-scope-ref:l3:{l3_kind}:{suffix}",
         safe_summary_ref=fact.fact_value_ref,
         supporting_memory_record_refs=memory_record_refs,
         supporting_l1_preview_refs=l1_preview_refs,
@@ -436,6 +479,10 @@ def _item_for_fact_relation_temporal(
         evidence_refs=evidence_refs,
         receipt_refs=receipt_refs,
         derivation_reason_refs=derivation_reason_refs,
+        score_components=dict(fact.score_components),
+        retrieval_strategy_refs=_retrieval_strategy_refs_from_fact(fact),
+        query_mode=fact.query_mode,
+        safe_query_ref=fact.safe_query_ref,
         stale_state_refs=stale_state_refs,
         conflict_state_refs=conflict_state_refs,
     )
@@ -463,3 +510,35 @@ def _workspace_ref(fact: L2MemoryFactItem) -> str:
         if "workspace" in lowered:
             return ref
     return "workspace-ref:local-founder-loop"
+
+
+def _observed_ref(fact: L2MemoryFactItem, relation: L2MemoryGraphRelation) -> str:
+    for ref in [
+        *fact.metadata_refs,
+        *fact.source_refs,
+        relation.target_node_ref,
+        fact.fact_subject_ref,
+    ]:
+        lowered = str(ref).lower()
+        if any(marker in lowered for marker in ["person", "org", "project", "deal"]):
+            return str(ref)
+    for ref in [*fact.source_refs, *fact.metadata_refs, relation.target_node_ref]:
+        if ref:
+            return str(ref)
+    return fact.fact_subject_ref
+
+
+def _retrieval_strategy_refs(source_index: L2FactualGraphTemporalIndex) -> list[str]:
+    refs = [
+        "retrieval-strategy-ref:fcc-mem-022-l3-perspective-projection",
+        *source_index.retrieval_strategy_refs,
+    ]
+    return list(dict.fromkeys(refs))
+
+
+def _retrieval_strategy_refs_from_fact(fact: L2MemoryFactItem) -> list[str]:
+    refs = [
+        "retrieval-strategy-ref:fcc-mem-022-l3-from-l2-safe-projection",
+        *fact.retrieval_strategy_refs,
+    ]
+    return list(dict.fromkeys(refs))

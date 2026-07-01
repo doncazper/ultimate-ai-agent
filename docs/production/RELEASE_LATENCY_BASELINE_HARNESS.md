@@ -49,11 +49,14 @@ caching.
 release latency evidence in `reports/foundation_gate/latest_foundation_gate_report.json`
 under `latency_gate`, and in
 `reports/foundation_gate/latest_foundation_gate_report.md` under the Latency Gate
-section. The Foundation Gate integration reports p50/p95 status, pass/fail/
-skipped path state, accepted failures, report refs, optional prerequisite state,
-and an environment-safe summary. It does not include raw paths, raw logs,
-hostname, username, serial number, environment dumps, prompts, responses,
-provider payloads, or credential material.
+section. With `--no-write-latest`, the script still measures latency but skips
+updating Foundation Gate and performance latest files; refreshed latest report
+refs are omitted rather than pointing at stale artifacts. The Foundation Gate
+integration reports p50/p95 status, pass/fail/skipped path state, accepted
+failures, report refs when written, optional prerequisite state, and an
+environment-safe summary. It does not include raw paths, raw logs, hostname,
+username, serial number, environment dumps, prompts, responses, provider
+payloads, or credential material.
 
 ## Budgets
 
