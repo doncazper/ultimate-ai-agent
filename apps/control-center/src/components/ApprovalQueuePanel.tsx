@@ -1,9 +1,19 @@
 import { useState } from "react";
-import type { ApprovalQueueItem, M15ReviewData } from "../api/types";
+import type {
+  ApprovalQueueItem,
+  ApprovalSummary,
+  M15ReviewData,
+} from "../api/types";
 import { EmptyState } from "./DataState";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
-export function ApprovalQueuePanel({ review }: { review: M15ReviewData }) {
+export function ApprovalQueuePanel({
+  review,
+  summary,
+}: {
+  review: M15ReviewData;
+  summary?: ApprovalSummary;
+}) {
   const [selectedRef, setSelectedRef] = useState(review.approvalQueue[0]?.approvalRef ?? "");
   const selected =
     review.approvalQueue.find((item) => item.approvalRef === selectedRef) ??
@@ -25,6 +35,7 @@ export function ApprovalQueuePanel({ review }: { review: M15ReviewData }) {
         This UI cannot grant, deny, execute, or bypass approvals. Approval refs are identifiers only
         and never authority. Python Agent Core remains the only approval authority.
       </p>
+      {summary ? <ApprovalSummaryStrip summary={summary} /> : null}
       <OperatorSurfaceStates surface="Approvals" />
       <ReviewWarningBar codes={review.warningCodes} />
       {review.approvalQueue.length > 0 && selected ? (
@@ -48,6 +59,26 @@ export function ApprovalQueuePanel({ review }: { review: M15ReviewData }) {
         />
       )}
     </section>
+  );
+}
+
+function ApprovalSummaryStrip({ summary }: { summary: ApprovalSummary }) {
+  return (
+    <div className="panel-grid compact-grid" aria-label="Backend approval summary">
+      <div className="metric-card">
+        <span>Pending summaries</span>
+        <strong>{summary.pending_count}</strong>
+      </div>
+      <div className="metric-card">
+        <span>Approval grants created</span>
+        <strong>{summary.approval_grants_created ? "yes" : "no"}</strong>
+      </div>
+      <div className="metric-card">
+        <span>Arbitrary ref authority</span>
+        <strong>{summary.arbitrary_approval_ref_authority ? "yes" : "no"}</strong>
+      </div>
+      <p className="safe-copy">{summary.summary}</p>
+    </div>
   );
 }
 

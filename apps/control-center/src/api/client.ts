@@ -213,6 +213,15 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.founderSourceReadiness,
     ),
     readEnvelope<FounderLoopStorageStatus>(API_ENDPOINTS.founderStorageStatus),
+    readEnvelope<ControlCenterDashboardSnapshot["approval_summary"]>(
+      API_ENDPOINTS.approvalSummary,
+    ),
+    readEnvelope<ControlCenterDashboardSnapshot["runtime_readiness_summary"]>(
+      API_ENDPOINTS.runtimeReadinessSummary,
+    ),
+    readEnvelope<ControlCenterDashboardSnapshot["foundation_gate_summary"]>(
+      API_ENDPOINTS.foundationGateSummary,
+    ),
   ] as const);
 
   const manifest = fulfilledValue(results[0]);
@@ -222,8 +231,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const routes = fulfilledValue(results[3]);
   const runtimeReadiness = fulfilledValue(results[4]);
   const capabilityMatrix = fulfilledValue(results[5]);
+  const setupAssistantSource = fulfilledValue(results[6]);
   const setupAssistant = normalizeMacOSSetupAssistant(
-    fulfilledValue(results[6]),
+    setupAssistantSource,
     mockControlCenterData.macosSetupAssistant,
   );
   const providerCatalog = fulfilledValue(results[7]);
@@ -238,6 +248,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const founderMorningBriefing = fulfilledValue(results[16]);
   const founderSourceReadiness = fulfilledValue(results[17]);
   const founderStorageStatus = fulfilledValue(results[18]);
+  const approvalSummary = fulfilledValue(results[19]);
+  const runtimeReadinessSummary = fulfilledValue(results[20]);
+  const foundationGateSummary = fulfilledValue(results[21]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderEvidenceTimeline = normalizeFounderEvidenceTimeline(
     founderEvidenceTimeline,
@@ -273,9 +286,36 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedFounderSourceReadiness.usedFallback;
   const providerCredentialReadinessFallbackUsed =
     normalizedDashboard.usedFallback;
+  const dashboardSummaryEndpointFallbackUsed =
+    approvalSummary === undefined ||
+    runtimeReadinessSummary === undefined ||
+    foundationGateSummary === undefined;
+  const generalMockFallbackUsed =
+    manifest === undefined ||
+    dashboard === undefined ||
+    status === undefined ||
+    routes === undefined ||
+    runtimeReadiness === undefined ||
+    capabilityMatrix === undefined ||
+    setupAssistantSource === undefined ||
+    providerCatalog === undefined ||
+    controlCenterSettingsStatus === undefined ||
+    controlCenterLocalModelsStatus === undefined ||
+    founderStorageStatus === undefined;
   const fulfilledCount = results.filter(
     (result) => result.status === "fulfilled",
   ).length;
+  const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
+    ...normalizedDashboard.value,
+    approval_summary:
+      approvalSummary ?? normalizedDashboard.value.approval_summary,
+    runtime_readiness_summary:
+      runtimeReadinessSummary ??
+      normalizedDashboard.value.runtime_readiness_summary,
+    foundation_gate_summary:
+      foundationGateSummary ??
+      normalizedDashboard.value.foundation_gate_summary,
+  };
 
   if (fulfilledCount === 0) {
     return withConnection(
@@ -300,7 +340,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
 
   const data: ControlCenterData = {
     manifest: manifest ?? mockControlCenterData.manifest,
-    dashboard: normalizedDashboard.value,
+    dashboard: dashboardWithEndpointSummaries,
     status: status ?? mockControlCenterData.status,
     routes: routes ?? mockControlCenterData.routes,
     runtimeReadiness:
@@ -336,7 +376,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   if (
     fulfilledCount === results.length &&
     !founderLoopFieldFallbackUsed &&
-    !providerCredentialReadinessFallbackUsed
+    !providerCredentialReadinessFallbackUsed &&
+    !dashboardSummaryEndpointFallbackUsed
   ) {
     return withConnection(data, {
       state: "online",
@@ -347,17 +388,27 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     });
   }
 
+  const mockFallbackUsed =
+    generalMockFallbackUsed ||
+    founderLoopFieldFallbackUsed ||
+    providerCredentialReadinessFallbackUsed;
+
   return withConnection(data, {
     state: "degraded",
     safeMessage: providerCredentialReadinessFallbackUsed
       ? "Provider credential and cost posture was unavailable or unsafe; non-authoritative mock fallback kept provider readiness blocked."
       : founderLoopFieldFallbackUsed
         ? "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels."
-        : "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.",
-    usingMockData: true,
+        : dashboardSummaryEndpointFallbackUsed
+          ? "Some dedicated Control Center summary routes were unavailable; backend dashboard summaries kept the visible state bounded."
+          : "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.",
+    usingMockData: mockFallbackUsed,
     warnings: [
       "LOCAL_BACKEND_DEGRADED",
-      "PARTIAL_MOCK_FALLBACK",
+      ...(mockFallbackUsed ? ["PARTIAL_MOCK_FALLBACK"] : []),
+      ...(dashboardSummaryEndpointFallbackUsed
+        ? ["CONTROL_CENTER_SUMMARY_ENDPOINT_FALLBACK"]
+        : []),
       ...(founderLoopFieldFallbackUsed
         ? ["PARTIAL_FOUNDER_LOOP_FIELD_FALLBACK"]
         : []),
