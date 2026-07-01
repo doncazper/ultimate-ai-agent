@@ -93,17 +93,20 @@ evidence, but it does not by itself create populated release evidence packets or
 claim release readiness. Use full `make verify` for release-grade local proof
 until parallel equivalence is accepted.
 
-`verify-dev-sharded` is a second opt-in local/dev lane. It replaces the serial
-pytest target inside the local fanout with `test-sharded`, which runs
-`scripts/verification/run_pytest_shards.py` across deterministic test-file
-shards. The runner records inspectable per-shard logs and isolated pytest temp
-directories under ignored `/tmp` paths, writes file timing data to
-`PYTEST_SHARD_TIMINGS_JSON`, and uses that complete timing file for greedy
-duration-aware balancing on later runs. If timing data is missing, unreadable,
-or partial, it falls back to deterministic file-count sharding. This lane does
-not change `make verify`, does not add pytest-xdist or dependency churn, and
-does not become the release gate unless a later accepted equivalence milestone
-promotes it with verifier-backed proof.
+`verify-dev-sharded` is a second opt-in local/dev lane. It uses
+`scripts/verification/run_dev_fast_gate.py` to run `ruff`, sharded pytest,
+static verification, and gate-architecture checks in bounded local fanout, then
+runs Foundation Gate serialized in report-only mode with `--no-write-latest`.
+The sharded pytest phase runs `scripts/verification/run_pytest_shards.py` across
+deterministic test-file shards. The runners record inspectable per-phase and
+per-shard logs under ignored `/tmp` paths, write timing summaries, and print
+concise phase summaries on success while preserving detailed log tails on
+failure. Complete timing data is used for greedy duration-aware balancing on
+later runs. If timing data is missing, unreadable, or partial, it falls back to
+deterministic file-count sharding. This lane does not change `make verify`, does
+not add pytest-xdist or dependency churn, and does not become the release gate
+unless a later accepted equivalence milestone promotes it with verifier-backed
+proof.
 
 The sharded lane is not a live/model-heavy lane. Shard subprocesses strip known
 opt-in environment variables for live GGUF search/acquisition, local model root
@@ -112,6 +115,10 @@ provider live-network smoke tests, model loading, benchmarking, and
 model-router sweep posture. Existing optional/live tests remain env-gated and
 skipped by default, so `verify-dev-sharded` stays local/dev contract
 verification rather than model discovery or runtime activation.
+
+No unchanged-file cache shortcut is active in the local/dev lanes. Cache
+shortcuts remain planned-only until their invalidation rules are deterministic
+and verifier-backed.
 
 For lane-focused review, use the command refs from
 `scripts/verify_release_lanes.py --json`. Split CI may satisfy a lane with an
