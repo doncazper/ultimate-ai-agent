@@ -197,6 +197,24 @@
       ]
     },
     {
+      "surface": "CRM",
+      "owner": "crm-m1-fixture-shell",
+      "auth_posture": "fixture_only_no_backend_route",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "medium",
+      "release_status": "blocked_missing_backend",
+      "approval_requirement": "None for fixture-only inspection. Backend CRM read models, backend CRM routes, connector runtime, external CRM writes, account sync, sends, calendar writes, provider/model calls, live web, browser automation, and production authority require later accepted exact-scoped milestones.",
+      "evidence_audit_output": "Python-core CRM M1 fixture contract refs, route ref, safe display labels, screen-section refs, evidence refs, and blocked authority refs only; no backend CRM route, connector runtime, writes, sends, calendar writes, raw payloads, provider/model calls, live web, browser automation, hidden context injection, public release, or production authority.",
+      "current_backend_routes": [],
+      "missing_backend_routes": [
+        "crm-m1-backend-read-model",
+        "control-center-crm-read-route",
+        "crm-cli-inspection-read-model",
+        "crm-connector-runtime-contract",
+        "crm-write-proposal-contract"
+      ]
+    },
+    {
       "surface": "Memory Review",
       "owner": "founder-loop",
       "auth_posture": "local_storage_backed_receipt_decisions",
@@ -977,6 +995,27 @@
         "email-calendar-read-only-contract",
         "briefing-refresh-contract",
         "briefing-notification-contract"
+      ]
+    },
+    {
+      "action_id": "navigate-crm",
+      "label": "Navigate CRM",
+      "ui_surface": "CRM",
+      "frontend_route": "/crm",
+      "owner": "crm-m1-fixture-shell",
+      "auth_posture": "fixture_only_no_backend_route",
+      "side_effect_class": "local_ui_state_only",
+      "risk_class": "medium",
+      "release_status": "blocked_missing_backend",
+      "approval_requirement": "No approval is required to inspect the fixture-only shell. Backend CRM read models, backend CRM routes, connector runtime, external CRM writes, account sync, sends, calendar writes, provider/model calls, live web, browser automation, and production authority remain blocked until later accepted exact-scoped milestones.",
+      "evidence_audit_output": "Fixture-only CRM M1 safe refs and blocked-authority refs; the route has no backend CRM route, no CRM write controls, no connector runtime, no sends, no calendar writes, no provider/model calls, and no production authority.",
+      "backend_routes": [],
+      "missing_backend_routes": [
+        "crm-m1-backend-read-model",
+        "control-center-crm-read-route",
+        "crm-cli-inspection-read-model",
+        "crm-connector-runtime-contract",
+        "crm-write-proposal-contract"
       ]
     },
     {

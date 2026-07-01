@@ -788,6 +788,41 @@ main {
   color: #102a43;
 }
 
+.crm-fixture-shell .panel-grid {
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+}
+
+.crm-fixture-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.crm-fixture-card {
+  display: grid;
+  gap: 12px;
+}
+
+.crm-fixture-lanes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.safe-ref,
+.safe-ref-list {
+  overflow-wrap: anywhere;
+  color: #52606d;
+  font-size: 0.82rem;
+}
+
+.safe-ref-list {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
 .data-state {
   display: grid;
   gap: 6px;

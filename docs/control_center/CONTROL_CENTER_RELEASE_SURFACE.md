@@ -74,5 +74,9 @@ backend-owned accept/correct/reject receipts. FCC-V1-006 Evidence Timeline
 Productization is complete for the backend-owned timeline index. FCC-V1-007
 Promotion And Proof Lane is complete for proofing only `/actions`, `/chat`,
 `/memory`, and `/evidence`; `/today`, `/inbox`, `/settings`, model lifecycle,
-product-readiness claims, public beta, public distribution, and production
-authority remain outside this release-surface proof.
+and product-readiness claims remain outside this release-surface proof. CRM M1
+adds `/crm` only as a fixture-only blocked shell; backend CRM read models,
+backend CRM routes, connector runtime, writes, sends, calendar writes,
+provider/model calls, live web, browser automation, public beta, public
+distribution, and production authority remain outside this release-surface
+proof.

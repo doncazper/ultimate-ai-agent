@@ -129,11 +129,12 @@ fixtures are documented in
 `tests/test_crm_m1_fixture_only_vertical_shell.py`. It covers Real
 Estate/Realtor, Healthcare, Finance/Insurance, Retail/E-commerce, and
 Professional Services with fixture_only, read_only, proposal_only, and blocked
-state labels while adding no /crm UI, no backend endpoints, no connector
-runtime, no connector writes, no external CRM writes, no account sync, no
-contact import, no sends, no calendar writes, no provider/model calls, no live
-web, no browser runtime, no hidden context injection, no public beta, no public
-release, no production readiness claims, and no production authority.
+state labels plus a fixture-only `/crm` Control Center shell route while adding
+no backend endpoints, no backend CRM read model, no connector runtime, no
+connector writes, no external CRM writes, no account sync, no contact import,
+no sends, no calendar writes, no provider/model calls, no live web, no browser
+runtime, no hidden context injection, no public beta, no public release, no
+production readiness claims, and no production authority.
 
 FCC-REVIEW-001 current truth: Evidence Narrative and Weekly Review are
 implemented as read-only safe-ref projections over `GET

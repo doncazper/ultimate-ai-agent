@@ -249,6 +249,112 @@ export interface FounderLoopFusionRoutingDelegationReadModel {
   production_authority_enabled: boolean;
 }
 
+export type CrmM1ImplementationState =
+  | "fixture_only"
+  | "read_only"
+  | "proposal_only"
+  | "blocked";
+
+export type CrmM1WorkspaceKind =
+  | "real_estate"
+  | "finance_insurance"
+  | "healthcare"
+  | "retail_ecommerce"
+  | "professional_services";
+
+export interface CrmM1FixtureLane {
+  lane_ref: string;
+  safe_label: string;
+  state: "fixture_only";
+  item_refs: string[];
+  evidence_refs: string[];
+}
+
+export interface CrmM1FixtureSection {
+  section_ref: string;
+  section_kind:
+    | "pipeline"
+    | "relationship_inspector"
+    | "work_queue"
+    | "communications_metadata"
+    | "evidence"
+    | "memory_provenance"
+    | "blocked_authority"
+    | "vertical_context";
+  safe_label: string;
+  state: CrmM1ImplementationState;
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+}
+
+export interface CrmM1VerticalFixture {
+  workspace_kind: CrmM1WorkspaceKind;
+  source_m0_contract_ref: string;
+  source_preset_pack_ref: string;
+  safe_display_label: string;
+  state: "fixture_only";
+  nav_refs: string[];
+  object_kind_refs: string[];
+  work_queue_refs: string[];
+  pipeline_refs: string[];
+  inspector_section_refs: string[];
+  state_labels: CrmM1ImplementationState[];
+  pipeline_lanes: CrmM1FixtureLane[];
+  screen_sections: CrmM1FixtureSection[];
+  communications_metadata_refs: string[];
+  evidence_refs: string[];
+  memory_provenance_refs: string[];
+  next_safe_action_refs: string[];
+  blocked_authority_refs: string[];
+  fixture_only: boolean;
+  backend_read_model_added: boolean;
+  backend_route_added: boolean;
+  control_center_route_added: boolean;
+  control_center_route_ref: string;
+  connector_runtime_enabled: boolean;
+  connector_write_enabled: boolean;
+  account_sync_enabled: boolean;
+  send_enabled: boolean;
+  calendar_write_enabled: boolean;
+  contact_import_enabled: boolean;
+  silent_identity_merge_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  live_web_enabled: boolean;
+  browser_runtime_enabled: boolean;
+  hidden_context_injection_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface CrmM1FixtureShell {
+  contract_ref: string;
+  docs_refs: string[];
+  source_m0_contract_ref: string;
+  source: "python_core_crm_m1_fixture_contract";
+  state: "fixture_only";
+  state_labels: CrmM1ImplementationState[];
+  verticals: CrmM1VerticalFixture[];
+  blocked_authority_refs: string[];
+  prompts_executed_refs: string[];
+  fixture_only: boolean;
+  backend_read_model_added: boolean;
+  backend_route_added: boolean;
+  control_center_route_added: boolean;
+  control_center_route_ref: string;
+  connector_runtime_enabled: boolean;
+  connector_write_enabled: boolean;
+  account_sync_enabled: boolean;
+  send_enabled: boolean;
+  calendar_write_enabled: boolean;
+  contact_import_enabled: boolean;
+  silent_identity_merge_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  live_web_enabled: boolean;
+  browser_runtime_enabled: boolean;
+  hidden_context_injection_enabled: boolean;
+  public_beta_claimed: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopTaskDecompositionStep {
   step_ref: string;
   title: string;
@@ -5281,6 +5387,7 @@ export interface ControlCenterData {
   founderMorningBriefing: FounderLoopMorningBriefing;
   founderSourceReadiness: FounderLoopSourceReadiness;
   founderStorageStatus: FounderLoopStorageStatus;
+  crmM1FixtureShell: CrmM1FixtureShell;
   source: "api" | "mock";
   connection: BackendConnectionSummary;
 }

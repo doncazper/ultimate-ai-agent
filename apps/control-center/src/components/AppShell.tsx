@@ -17,6 +17,7 @@ interface AppShellProps {
 
 const visibleSupportingLabels = new Set([
   "Briefing",
+  "CRM",
   "Trial Packet",
   "Operator Loop",
   "Setup",
@@ -247,6 +248,7 @@ function navIconForLabel(label: string): string {
     Evidence: "file-text",
     Settings: "settings",
     Briefing: "map",
+    CRM: "briefcase",
     Chat: "chat",
     Setup: "sliders",
     Runtime: "terminal",

@@ -1,6 +1,6 @@
 # CRM M1 Fixture-Only Vertical Shell
 
-Status: fixture_only contract and planning proof
+Status: fixture_only Control Center shell proof
 Baseline: v0.104.0 / 0.104.0
 Source prompt pack: `docs/prompts/crm_product_sequence.md`
 Python contract: `src/ultimate_ai_agent/core/crm/fixtures.py`
@@ -10,20 +10,24 @@ Verifier: `scripts/verify_crm_m1_fixture_only_vertical_shell.py`
 
 CRM M1 shapes the first screen-ready CRM product lane without adding runtime
 authority. It turns the accepted CRM + Communications Spine M0 preset packs
-into deterministic fixture-only vertical fixtures for later Control Center
-work.
+into deterministic fixture-only vertical fixtures and a `/crm` Control Center
+shell that presents those refs as screen structure only.
 
-This artifact adds no `/crm` route, no backend CRM endpoints, no connector
-runtime, no connector writes, no external CRM writes, no account sync, no
-contact import, no sends, no calendar writes, no provider/model calls, no live
-web, no browser automation, no hidden context injection, no public beta, no
-public release, no production readiness claims, and no production authority.
+This artifact adds the `/crm` Control Center route as fixture-only
+presentation. It adds no backend CRM endpoints, no backend CRM read model, no
+connector runtime, no connector writes, no external CRM writes, no account
+sync, no contact import, no sends, no calendar writes, no provider/model
+calls, no live web, no browser automation, no hidden context injection, no
+public beta, no public release, no production readiness claims, and no
+production authority.
 
 ## Allowed M1 Boundary
 
 Allowed now:
 
 - Deterministic Python-core fixture map for five CRM verticals.
+- Fixture-only `/crm` Control Center shell route and route-status manifest
+  entry using `route-ref:control-center:crm-fixture-only-shell`.
 - Safe refs and redacted fixture labels only.
 - Screen-ready fixture metadata for navigation, object kinds, work queues,
   pipelines, inspector sections, communications metadata placeholders,
@@ -35,7 +39,8 @@ Allowed now:
 
 Not allowed in M1:
 
-- Control Center route implementation or route-status promotion.
+- Backend CRM routes or route-status promotion beyond fixture-only blocked
+  posture.
 - Backend CRM read models or read-only API routes.
 - Connector runtime or connector writes.
 - External CRM writes, account sync, contact import, silent contact creation,
@@ -52,12 +57,12 @@ Not allowed in M1:
 |---|---|---|
 | Prompt 01 | implemented as fixture_only scope proof | This document is the M1 entry point and records the exact no-go posture. |
 | Prompt 02 | implemented as Python fixture contract | `build_crm_m1_fixture_map()` converts M0 preset packs into screen-ready deterministic fixtures. |
-| Prompt 03 | planned, route blocked | The `/crm` Control Center shell route is not accepted by current repo truth. |
-| Prompt 04 | specified, fixture data implemented | Real Estate/Realtor fixture sections exist, but no screen route is added. |
-| Prompt 05 | specified, fixture data implemented | Healthcare fixture sections exist, but no screen route is added. |
-| Prompt 06 | specified, fixture data implemented | Finance/Insurance fixture sections exist, but no screen route is added. |
-| Prompt 07 | specified, fixture data implemented | Retail/E-commerce fixture sections exist, but no screen route is added. |
-| Prompt 08 | specified, fixture data implemented | Professional Services fixture sections exist, but no screen route is added. |
+| Prompt 03 | implemented as fixture-only route/status proof | The `/crm` Control Center shell route is accepted only as presentation over fixture refs with blocked backend authority. |
+| Prompt 04 | implemented as fixture shell rendering | Real Estate/Realtor fixture sections render through `/crm` with no write controls. |
+| Prompt 05 | implemented as fixture shell rendering | Healthcare fixture sections render through `/crm` with no connector/runtime controls. |
+| Prompt 06 | implemented as fixture shell rendering | Finance/Insurance fixture sections render through `/crm` with no provider/model or billing authority. |
+| Prompt 07 | implemented as fixture shell rendering | Retail/E-commerce fixture sections render through `/crm` with no commerce sync, sends, or live tracking. |
+| Prompt 08 | implemented as fixture shell rendering | Professional Services fixture sections render through `/crm` with no external CRM write, send, calendar, or account authority. |
 | Prompt 09 | planned, backend blocked | CRM M2 backend read models and API routes remain future gated work. |
 | Prompt 10 | planned, connector blocked | Inbox communications metadata remains planned until accepted read-only authority exists. |
 | Prompt 11 | planned, review-only blocked | Work queues, signals, and relationship graph stay fixture/read-only planning surfaces. |
@@ -102,6 +107,8 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_crm_m1_fixture_only_vertica
 PYTHONPATH=src .venv/bin/python scripts/verify_crm_m1_fixture_only_vertical_shell.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_crm_communications_spine_contracts.py -q
 PYTHONPATH=src .venv/bin/python scripts/verify_crm_communications_spine_m0.py
+cd apps/control-center && npm test -- --run src/App.test.tsx
+PYTHONPATH=src .venv/bin/python scripts/verify_control_center_frontend.py
 .venv/bin/python scripts/verify_documentation_integrity.py
 git diff --check
 ```
