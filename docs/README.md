@@ -323,6 +323,8 @@ Use these before release-facing claims or milestone status changes:
 make verify
 make verify-fast
 make verify-dev-fast
+make test-sharded
+make verify-dev-sharded
 .venv/bin/python scripts/verify_documentation_integrity.py
 .venv/bin/python scripts/verify_verifier_maintainability.py
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
@@ -340,6 +342,32 @@ timings through `VERIFY_TIMINGS_JSON` and keeps pytest on the normal non-xdist
 runner. It does not grant release readiness or replace populated release
 evidence packets; PR final proof should still include full `make verify` until
 parallel equivalence is accepted.
+
+Use `make test-sharded` or `make verify-dev-sharded` for opt-in local/dev
+pytest sharding. The shard runner discovers `tests/test_*.py`, stores logs and
+isolated pytest temp dirs under ignored `/tmp` paths by default, and writes
+file-level timing data to `PYTEST_SHARD_TIMINGS_JSON`. Complete timing data is
+used for greedy timing-aware balancing; missing or partial timing data falls
+back to deterministic file-count sharding. This lane does not change
+`make verify`, does not add dependencies such as pytest-xdist, and is not the
+release gate.
+
+`make verify-dev-sharded` uses `scripts/verification/run_dev_fast_gate.py` to
+keep local output readable: phase output is captured to ignored `/tmp` logs,
+successful phases print concise timing summaries, and failed phases print log
+tails plus log paths for full diagnostics. The runner still includes static
+verification, documentation integrity, product truth, OpenAPI, redaction,
+authority-boundary, route-classification, gate-architecture, and Foundation
+Gate report-only coverage through the same underlying commands.
+
+The sharded lane does not broaden test authority. Shard subprocesses strip
+known live/model-heavy opt-in environment variables for GGUF search,
+acquisition, local model roots, llama.cpp gateways, OpenWebUI test gateways,
+and provider live-network smoke tests. Existing optional/live tests remain
+env-gated and skipped by default.
+
+No local unchanged-file cache shortcut is currently enabled. Cache shortcuts are
+planned-only until deterministic invalidation can be reviewed.
 
 The named release lanes are described in
 `docs/production/RELEASE_VERIFICATION_LANES.md`. Release evidence packets are
