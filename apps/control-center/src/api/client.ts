@@ -2255,6 +2255,16 @@ function normalizeFounderToday(value: FounderLoopTodaySummary | undefined): {
     delete normalized.weekly_ceo_review_v1_read_model;
     delete normalized.weekly_ceo_review_v1_contract_ref;
   }
+  const productProof = valueRecord.founder_loop_v1_product_proof_read_model;
+  if (isSafeFounderLoopProductProofReadModel(productProof)) {
+    normalized.founder_loop_v1_product_proof_read_model = productProof;
+    normalized.founder_loop_v1_product_proof_contract_ref = (
+      productProof as Record<string, unknown>
+    ).contract_ref;
+  } else {
+    delete normalized.founder_loop_v1_product_proof_read_model;
+    delete normalized.founder_loop_v1_product_proof_contract_ref;
+  }
   if (
     isSafePlansToActionsBridgeReadModel(
       valueRecord.plans_to_actions_bridge_read_model,
@@ -2444,6 +2454,53 @@ const WEEKLY_CEO_REVIEW_V1_COUNT_ARRAY_PAIRS = [
   ["memory_decision_count", "memory_decision_refs"],
   ["follow_up_count", "follow_up_refs"],
   ["evidence_event_count", "evidence_event_refs"],
+] as const;
+
+const FOUNDER_LOOP_PRODUCT_PROOF_DENIED_FLAGS = [
+  "provider_model_call_enabled",
+  "runtime_model_call_enabled",
+  "a2a_runtime_dispatch_enabled",
+  "mcp_runtime_dispatch_enabled",
+  "browser_execution_enabled",
+  "live_web_enabled",
+  "connector_write_enabled",
+  "email_calendar_send_enabled",
+  "crm_write_enabled",
+  "account_sync_enabled",
+  "shell_subprocess_execution_enabled",
+  "background_autonomy_enabled",
+  "memory_write_authorized",
+  "context_injection_authorized",
+  "public_beta_claim_enabled",
+  "public_release_claim_enabled",
+  "production_authority_enabled",
+] as const;
+
+const FOUNDER_LOOP_PRODUCT_PROOF_REQUIRED_ARRAYS = [
+  "loop_order",
+  "supported_decision_actions",
+  "morning_briefing_refs",
+  "today_refs",
+  "action_inbox_refs",
+  "action_decision_receipt_refs",
+  "evidence_timeline_refs",
+  "evidence_event_refs",
+  "memory_review_candidate_refs",
+  "memory_review_receipt_refs",
+  "weekly_review_refs",
+  "receipt_refs",
+  "evidence_refs",
+  "blocked_authority_refs",
+] as const;
+
+const FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER = [
+  "morning_briefing",
+  "today",
+  "action_inbox",
+  "decision_receipt",
+  "evidence_timeline",
+  "memory_review",
+  "weekly_review",
 ] as const;
 
 const CHAT_TO_LOOP_HANDOFF_DENIED_FLAGS = [
@@ -2742,6 +2799,16 @@ function normalizeFounderMorningBriefing(
     delete normalized.weekly_ceo_review_v1_read_model;
     delete normalized.weekly_ceo_review_v1_contract_ref;
   }
+  const productProof = valueRecord.founder_loop_v1_product_proof_read_model;
+  if (isSafeFounderLoopProductProofReadModel(productProof)) {
+    normalized.founder_loop_v1_product_proof_read_model = productProof;
+    normalized.founder_loop_v1_product_proof_contract_ref = (
+      productProof as Record<string, unknown>
+    ).contract_ref;
+  } else {
+    delete normalized.founder_loop_v1_product_proof_read_model;
+    delete normalized.founder_loop_v1_product_proof_contract_ref;
+  }
   const chatToLoopHandoff = valueRecord.chat_to_loop_handoff_read_model;
   if (isSafeChatToLoopHandoffReadModel(chatToLoopHandoff)) {
     normalized.chat_to_loop_handoff_read_model = chatToLoopHandoff;
@@ -2813,6 +2880,88 @@ function hasMatchingWeeklyCeoReviewV1Counts(
       typeof count === "number" && Array.isArray(refs) && count === refs.length
     );
   });
+}
+
+function isSafeFounderLoopProductProofReadModel(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.schema_version !== "founder-loop-v1-product-proof.v1" ||
+    value.contract_ref !== "contract-ref:founder-loop-v1-product-proof:v1" ||
+    value.source !== "python_core_founder_loop_v1_product_proof_read_model"
+  ) {
+    return false;
+  }
+  if (
+    value.backend_owned !== true ||
+    value.local_read_model_only !== true ||
+    value.seeded_demo_safe !== true ||
+    value.safe_refs_only !== true ||
+    value.safe_summary_only !== true ||
+    value.raw_content_included !== false ||
+    typeof value.status !== "string" ||
+    typeof value.scenario_ref !== "string" ||
+    typeof value.shared_state_ref !== "string" ||
+    typeof value.memory_review_status !== "string" ||
+    typeof value.weekly_review_status !== "string" ||
+    typeof value.decision_receipt_status !== "string" ||
+    typeof value.safe_summary !== "string" ||
+    typeof value.next_safe_action !== "string" ||
+    typeof value.authority_boundary !== "string" ||
+    !hasDeniedFlagsFalse(value, FOUNDER_LOOP_PRODUCT_PROOF_DENIED_FLAGS) ||
+    !hasStringArrays(value, FOUNDER_LOOP_PRODUCT_PROOF_REQUIRED_ARRAYS) ||
+    !hasExactStringList(value.loop_order, FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER) ||
+    !hasExactStringList(value.supported_decision_actions, [
+      "approve",
+      "edit",
+      "reject",
+      "defer",
+    ]) ||
+    !Array.isArray(value.steps) ||
+    value.steps.length !== FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER.length ||
+    !value.steps.every(isSafeFounderLoopProductProofStep) ||
+    !hasExactStringList(
+      (value.steps as Record<string, unknown>[]).map((step) =>
+        String(step.step_id),
+      ),
+      FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER,
+    ) ||
+    !Array.isArray(value.blocked_authority_refs) ||
+    !value.blocked_authority_refs.includes(
+      "blocked-state:founder-loop-proof-no-production-authority",
+    )
+  ) {
+    return false;
+  }
+  return (
+    value.memory_review_status === "candidate_available" ||
+    value.memory_review_status === "none"
+  );
+}
+
+function isSafeFounderLoopProductProofStep(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.step_id === "string" &&
+    FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER.includes(
+      value.step_id as (typeof FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER)[number],
+    ) &&
+    typeof value.surface === "string" &&
+    typeof value.backend_route_ref === "string" &&
+    typeof value.frontend_route_ref === "string" &&
+    typeof value.status === "string" &&
+    typeof value.safe_summary === "string" &&
+    typeof value.next_safe_action === "string" &&
+    hasStringArrays(value, [
+      "source_refs",
+      "evidence_refs",
+      "receipt_refs",
+      "blocked_state_refs",
+    ])
+  );
 }
 
 function isSafeChatToLoopHandoffReadModel(value: unknown): boolean {

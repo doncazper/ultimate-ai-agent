@@ -73,6 +73,13 @@ for `founder_loop_v1_proofed` promotion of `/actions`, `/chat`, `/memory`, and
 and `/models` still blocked or partial; it adds no action execution, context
 injection, connector writes, public beta, public release, or production
 authority. The
+Founder Loop V1 product proof pass adds a backend-owned
+`founder_loop_v1_product_proof_read_model` across Today and Morning Briefing
+for one seeded/demo-safe loop from Morning Briefing to Today, Action Inbox
+decision receipts, Evidence Timeline, Memory Review, and Weekly Review, with
+CLI inspection parity and no provider/model calls, connector writes,
+browser/live web, background autonomy, public release, or production authority.
+The
 sequence is tracked in
 `docs/macos/UAA_P1_087_PRIVATE_OPERATOR_BOOT_AND_UI_TRIAL_SEQUENCE.md`.
 The completed bounded Founder Loop V1 productization conveyor is tracked in

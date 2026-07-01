@@ -93,9 +93,9 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
           <span className="window-dot green" />
         </div>
         <div className="brand">
-          <span className="brand-mark">FCC</span>
+          <span className="brand-mark">CC</span>
           <span>
-            <strong>Founder Command Center</strong>
+            <strong>Control Center</strong>
             <small><span className="live-dot" /> {loopStatusLabel}</small>
           </span>
         </div>
@@ -135,9 +135,9 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
         <header className="topbar">
           <div className="topbar-title-block">
             <div className="topbar-title-row">
-              <h1>Founder Command Center</h1>
-              <span>AI</span>
-              <span>Operator Cockpit</span>
+              <h1>Control Center</h1>
+              <span>Founder Loop</span>
+              <span>Operator Shell</span>
               <span>Backend Truth</span>
               <span>Safety First</span>
             </div>

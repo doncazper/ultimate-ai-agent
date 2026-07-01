@@ -43,6 +43,7 @@ import type {
   FounderLoopOperatorRunTimeline,
   FounderLoopPlanSummary,
   FounderLoopPlansToActionsBridgeReadModel,
+  FounderLoopProductProofReadModel,
   FounderLoopSourceReadiness,
   FounderLoopSourceReadinessProposalCandidate,
   FounderLoopStorageStatus,
@@ -186,7 +187,7 @@ export function FounderLoopSpinePanel({
     >
       <div className="loop-spine-header">
         <div>
-          <p className="eyebrow">Founder Command Center</p>
+          <p className="eyebrow">Founder Loop</p>
           <h2 id="founder-loop-spine-heading">Founder daily loop</h2>
         </div>
         <span className="status-pill compact">
@@ -198,7 +199,7 @@ export function FounderLoopSpinePanel({
         Plans, Action Inbox, Memory, Evidence, and Settings stay visible as one
         loop.
         {` ${loopTruthCopy} `}No generic execution is available; the only
-        mutating FCC authority shown
+        mutating Control Center authority shown
         here is the exact local task lane after backend approval.
       </p>
       <div aria-label="Founder daily loop modules" className="loop-spine-grid">
@@ -1676,6 +1677,9 @@ export function TodaySurfacePanel({
         today={today}
       />
       <TodayLoopReadModelPanel today={today} />
+      <FounderLoopProductProofPanel
+        readModel={today.founder_loop_v1_product_proof_read_model}
+      />
       <FusionRoutingDelegationPanel
         readModel={today.fusion_routing_delegation_read_model}
       />
@@ -3499,6 +3503,136 @@ function WeeklyCeoReviewV1Panel({
   );
 }
 
+function FounderLoopProductProofPanel({
+  readModel,
+}: {
+  readModel?: FounderLoopProductProofReadModel;
+}) {
+  if (!readModel) {
+    return null;
+  }
+  return (
+    <section
+      aria-label="Founder Loop V1 product proof"
+      className="compact-stack"
+    >
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Founder Loop V1 product proof</h3>
+          <span>{readModel.status}</span>
+        </div>
+        <p className="eyebrow">Backend-owned proof pass</p>
+        <p className="section-copy">{readModel.safe_summary}</p>
+        <dl className="detail-list">
+          <DetailTerm label="Contract" value={readModel.contract_ref} />
+          <DetailTerm label="Source" value={readModel.source} />
+          <DetailTerm label="Scenario" value={readModel.scenario_ref} />
+          <DetailTerm label="Shared state" value={readModel.shared_state_ref} />
+          <DetailTerm
+            label="Decision receipts"
+            value={readModel.decision_receipt_status}
+          />
+          <DetailTerm
+            label="Memory review"
+            value={
+              readModel.memory_review_status === "candidate_available"
+                ? "candidate visible"
+                : "none"
+            }
+          />
+          <DetailTerm label="Weekly review" value={readModel.weekly_review_status} />
+          <DetailTerm
+            label="Provider/model calls"
+            value={readModel.provider_model_call_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm
+            label="Browser/live web"
+            value={
+              readModel.browser_execution_enabled || readModel.live_web_enabled
+                ? "unsafe"
+                : "blocked"
+            }
+          />
+          <DetailTerm
+            label="Connector writes"
+            value={readModel.connector_write_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm
+            label="Background autonomy"
+            value={readModel.background_autonomy_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm
+            label="Production authority"
+            value={readModel.production_authority_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm label="Authority" value={readModel.authority_boundary} />
+          <DetailTerm label="Next safe action" value={readModel.next_safe_action} />
+        </dl>
+        <InlineListWithFallback
+          emptyLabel="Decision labels: approve, edit, reject, defer"
+          items={readModel.supported_decision_actions.map(
+            (decision) => `decision: ${decision}`,
+          )}
+        />
+        <RefListWithFallback
+          emptyLabel="Receipt refs: none recorded"
+          refs={readModel.receipt_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Memory review candidate: none"
+          refs={readModel.memory_review_candidate_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Evidence refs: none recorded"
+          refs={readModel.evidence_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Evidence event refs: none"
+          refs={readModel.evidence_event_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Blocked authority refs: missing"
+          refs={readModel.blocked_authority_refs}
+        />
+      </article>
+      <div className="review-grid">
+        {readModel.steps.map((step, index) => (
+          <article className="review-card" key={step.step_id}>
+            <div className="review-card-heading">
+              <h3>
+                {index + 1}. {step.surface}
+              </h3>
+              <span>{step.status}</span>
+            </div>
+            <p>{step.safe_summary}</p>
+            <dl className="detail-list">
+              <DetailTerm label="Backend" value={step.backend_route_ref} />
+              <DetailTerm label="Route" value={step.frontend_route_ref} />
+              <DetailTerm label="Next" value={step.next_safe_action} />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Source refs: none"
+              refs={step.source_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Receipt refs: none"
+              refs={step.receipt_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Evidence refs: none"
+              refs={step.evidence_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Blocked refs: none"
+              refs={step.blocked_state_refs}
+            />
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function ChatToLoopHandoffPanel({
   compact = false,
   readModel,
@@ -3608,7 +3742,7 @@ export function InboxSurfacePanel({
         <span className="status-pill compact">blocked/planned</span>
       </div>
       <p className="section-copy">
-        Inbox is visible as the Founder Command Center triage slot. A dedicated
+        Inbox is visible as the Founder Loop triage slot. A dedicated
         backend Source Readiness route reports read-only source posture, while
         live email, calendar, draft, account, polling, and connector runtime
         behavior remain blocked.
@@ -4889,6 +5023,9 @@ function BriefingDailyLoopPanel({
         <ReviewQueueGroupCards groups={briefing.review_queue_groups ?? []} />
         <CrmLiteFollowUpCards items={briefing.crm_lite_followups ?? []} />
         <MemoryWhyShownCards items={briefing.memory_why_shown_items ?? []} />
+        <FounderLoopProductProofPanel
+          readModel={briefing.founder_loop_v1_product_proof_read_model}
+        />
         <ChatToLoopHandoffPanel
           compact
           readModel={briefing.chat_to_loop_handoff_read_model}
@@ -5134,7 +5271,7 @@ export function MemoryReviewSurfacePanel({
               }
             />
             <DetailTerm
-              label="FCC contract"
+              label="Founder Loop contract"
               value={
                 today.fcc_memory_review_decision_contract_ref ??
                 "contract-ref:fcc-v1-005-memory-review-decisions:v1"

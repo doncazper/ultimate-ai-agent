@@ -1,6 +1,6 @@
 # Ultimate AI Agent
 
-**A local-first governed agent foundation and emerging Founder Command Center.**
+**A local-first governed agent foundation and emerging Control Center for the Founder Loop.**
 
 Ultimate AI Agent helps a single founder/operator plan the day, review safe
 action proposals, inspect evidence, and keep agent behavior inside explicit
@@ -25,12 +25,13 @@ distribution, or broad-authority runtime.
 
 ## Product North Star
 
-The current product north star is a calm Founder Command Center cockpit for
+The current product north star is a calm Control Center for the Founder Loop:
 Today, Action Inbox, Plans, Chat, Memory, Evidence, Settings, and Setup
-Assistant. The current UI is not yet close to these images. They are product
-vision targets, not current implementation screenshots or implementation
-evidence; current truth still comes from route/API contracts, tests, verifiers,
-and redacted evidence.
+Assistant. Founder Command Center remains strategy and north-star terminology,
+not a separate app shell. The current UI is not yet close to these images. They
+are product vision targets, not current implementation screenshots or
+implementation evidence; current truth still comes from route/API contracts,
+tests, verifiers, and redacted evidence.
 
 See [docs/portfolio/PRODUCT_NORTH_STAR.md](docs/portfolio/PRODUCT_NORTH_STAR.md)
 for the full visual target, per-surface truth labels, and current UI gap.
@@ -105,8 +106,10 @@ authority or own product truth.
 
 ## Product Shape
 
-Ultimate AI Agent is the product foundation for a **Founder Command Center**.
-The web shell is the **Control Center**. The Python Agent Core remains the
+Ultimate AI Agent is the product foundation for a local founder/operator loop.
+The web shell is the **Control Center**. The primary workflow inside it is the
+**Founder Loop**. Founder Command Center remains strategy and north-star naming,
+not a different app or authority layer. The Python Agent Core remains the
 authority boundary.
 
 The intended loop is compact:
@@ -157,7 +160,7 @@ Morning Briefing
 |---|---|---|
 | Agent Core | Python 3.10+, Pydantic | Contracts, policy, approval, memory, evidence, and storage logic |
 | API | FastAPI, Uvicorn | Local API boundary and `/api/manifest` route metadata |
-| Web Shell | React, TypeScript, Vite | Control Center / Founder Command Center UI |
+| Web Shell | React, TypeScript, Vite | Control Center UI |
 | Frontend Tests | Vitest, Playwright | Component, safety, and interaction checks |
 | Backend Tests | pytest, repo verifiers | Contract, storage, route, docs, and product-truth checks |
 | Local Tooling | Make, local CLI scripts, npm | Development, launch, inspection, and verification |
