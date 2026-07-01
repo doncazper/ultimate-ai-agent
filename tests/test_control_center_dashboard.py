@@ -9,6 +9,8 @@ from ultimate_ai_agent.core.control_center import (
     ProviderCredentialReadinessSummary,
     ProviderCredentialValidationReadiness,
     ProviderCredentialVaultAdapterReadiness,
+    ProviderSettingsDiagnosticItem,
+    ProviderSettingsDiagnosticsSummary,
     build_control_center_dashboard,
     build_provider_credential_readiness_summary,
 )
@@ -214,6 +216,43 @@ def test_provider_credential_readiness_is_reference_only() -> None:
     assert summary.cost_governor_binding_required is True
     assert summary.unknown_paid_cost_requires_approval is True
     assert summary.provider_usage_claim_requires_receipt_refs is True
+    assert summary.provider_settings_diagnostics.status == "readable_diagnostics_only"
+    assert summary.provider_settings_diagnostics.provider_sdk_call_enabled is False
+    assert summary.provider_settings_diagnostics.model_invocation_enabled is False
+    assert summary.provider_settings_diagnostics.provider_validation_performed is False
+    assert summary.provider_settings_diagnostics.router_execution_authorized is False
+    assert summary.provider_settings_diagnostics.paid_authority_granted is False
+    assert (
+        summary.provider_settings_diagnostics.model_dump(mode="json")[
+            "billing_authority_granted"
+        ]
+        is False
+    )
+    assert summary.provider_settings_diagnostics.settings_mutation_enabled is False
+    assert summary.provider_settings_diagnostics.production_authority_enabled is False
+    assert summary.provider_settings_diagnostics.supported_states == [
+        "configured",
+        "missing",
+        "blocked",
+        "degraded",
+        "revoked",
+        "expired",
+        "cost_blocked",
+        "disabled",
+        "future_scoped",
+    ]
+    assert summary.provider_settings_diagnostics.state_counts["missing"] == len(
+        summary.providers
+    )
+    assert summary.provider_settings_diagnostics.state_counts["cost_blocked"] == 1
+    assert summary.provider_settings_diagnostics.state_counts["disabled"] == 3
+    assert summary.provider_settings_diagnostics.state_counts["future_scoped"] == 2
+    diagnostic_labels = {
+        item.label for item in summary.provider_settings_diagnostics.items
+    }
+    assert "CostGovernor provider spend boundary" in diagnostic_labels
+    assert "Provider credential validation" in diagnostic_labels
+    assert "Provider router dry-run" in diagnostic_labels
     assert "PROVIDER_INVOCATION_NOT_SCOPED" in summary.blocker_codes
     assert "CREDENTIAL_REFERENCE_NOT_BOUND" in summary.blocker_codes
     assert "VAULT_ADAPTER_NOT_SCOPED" in summary.blocker_codes
@@ -261,6 +300,22 @@ def test_provider_credential_readiness_is_reference_only() -> None:
             "FUTURE_RECEIPT_REFS_REQUIRED"
             in provider.cost_governor_binding.blocker_codes
         )
+
+    for item in summary.provider_settings_diagnostics.items:
+        assert item.reason_codes
+        assert item.safe_summary
+        assert item.next_safe_action
+        assert item.blocked_authority_refs
+        assert item.evidence_refs
+        assert item.cli_inspection_refs
+        assert item.provider_sdk_call_enabled is False
+        assert item.model_invocation_enabled is False
+        assert item.provider_validation_performed is False
+        assert item.router_execution_authorized is False
+        assert item.paid_authority_granted is False
+        assert item.model_dump(mode="json")["billing_authority_granted"] is False
+        assert item.raw_credential_visible is False
+        assert item.raw_provider_payload_persisted is False
 
 
 def test_provider_credential_readiness_rejects_authority_or_secret_like_refs() -> None:
@@ -398,4 +453,40 @@ def test_provider_credential_readiness_rejects_authority_or_secret_like_refs() -
             approval_ref="approval-ref:provider-runtime:not-granted",
             blocker_codes=["CREDENTIAL_REFERENCE_NOT_BOUND"],
             safe_summary="Unsafe credential ref is rejected before readiness is persisted.",
+        )
+
+    with pytest.raises(ValidationError, match="DIAGNOSTIC_AUTHORITY_DENIED"):
+        ProviderSettingsDiagnosticItem(
+            diagnostic_ref="provider-settings-diagnostic:test",
+            label="Unsafe provider diagnostic",
+            state="blocked",
+            state_label="Blocked",
+            reason_codes=["UNSAFE"],
+            safe_summary="Unsafe diagnostic.",
+            next_safe_action="Review only.",
+            blocked_authority_refs=["blocked-state:test"],
+            evidence_refs=["evidence-ref:test"],
+            cli_inspection_refs=["scripts/inspect_provider_credential_readiness.py"],
+            provider_sdk_call_enabled=True,
+        )
+
+    with pytest.raises(ValidationError, match="DIAGNOSTICS_AUTHORITY_DENIED"):
+        ProviderSettingsDiagnosticsSummary(
+            provider_sdk_call_enabled=True,
+            items=[
+                ProviderSettingsDiagnosticItem(
+                    diagnostic_ref="provider-settings-diagnostic:test",
+                    label="Provider diagnostic",
+                    state="blocked",
+                    state_label="Blocked",
+                    reason_codes=["BLOCKED"],
+                    safe_summary="Provider diagnostic is blocked.",
+                    next_safe_action="Review only.",
+                    blocked_authority_refs=["blocked-state:test"],
+                    evidence_refs=["evidence-ref:test"],
+                    cli_inspection_refs=[
+                        "scripts/inspect_provider_credential_readiness.py"
+                    ],
+                )
+            ],
         )

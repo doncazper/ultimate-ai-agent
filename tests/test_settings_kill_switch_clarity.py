@@ -233,6 +233,14 @@ def test_settings_authority_cli_inspection_matches_backend_contract() -> None:
     assert payload["contract_ref"] == (
         "contract-ref:product-loop-011-settings-kill-switch-clarity:v1"
     )
+    assert payload["provider_settings_diagnostics"]["status"] == (
+        "readable_diagnostics_only"
+    )
+    assert payload["provider_settings_diagnostics"]["state_counts"]["missing"] >= 3
+    assert payload["provider_settings_diagnostics"]["state_counts"][
+        "cost_blocked"
+    ] == 1
+    assert payload["provider_settings_diagnostics"]["state_counts"]["disabled"] >= 3
     assert [row["capability_key"] for row in payload["authority_postures"]] == (
         CANONICAL_KEYS
     )

@@ -20,6 +20,7 @@ import type {
   OperatorLoopStepSummary,
   OperatorRouteInspectionState,
   ProviderCredentialReadinessSummary,
+  ProviderSettingsDiagnosticsSummary,
   RedactedLocalChatProbeStatus,
 } from "../api/types";
 import { EmptyState } from "./DataState";
@@ -1142,6 +1143,9 @@ export function ProviderCredentialReadinessPanel({
         <span>{readiness.status}</span>
       </div>
       <p>{readiness.safe_summary}</p>
+      <ProviderSettingsDiagnosticsPanel
+        diagnostics={readiness.provider_settings_diagnostics}
+      />
       <dl className="metadata-list">
         <div>
           <dt>Provider invocation</dt>
@@ -1962,6 +1966,122 @@ export function ProviderCredentialReadinessPanel({
       </div>
     </article>
   );
+}
+
+function ProviderSettingsDiagnosticsPanel({
+  diagnostics,
+}: {
+  diagnostics: ProviderSettingsDiagnosticsSummary;
+}) {
+  return (
+    <section
+      className="provider-settings-diagnostics"
+      aria-label="Provider and Settings diagnostics"
+    >
+      <div className="panel-heading compact-heading">
+        <h4>Provider and Settings diagnostics</h4>
+        <span>{diagnostics.status}</span>
+      </div>
+      <p>{diagnostics.safe_summary}</p>
+      <dl className="metadata-list">
+        <div>
+          <dt>Missing</dt>
+          <dd>{diagnostics.state_counts.missing}</dd>
+        </div>
+        <div>
+          <dt>Cost blocked</dt>
+          <dd>{diagnostics.state_counts.cost_blocked}</dd>
+        </div>
+        <div>
+          <dt>Disabled</dt>
+          <dd>{diagnostics.state_counts.disabled}</dd>
+        </div>
+        <div>
+          <dt>Future scoped</dt>
+          <dd>{diagnostics.state_counts.future_scoped}</dd>
+        </div>
+        <div>
+          <dt>Revoked</dt>
+          <dd>{diagnostics.state_counts.revoked}</dd>
+        </div>
+        <div>
+          <dt>Expired</dt>
+          <dd>{diagnostics.state_counts.expired}</dd>
+        </div>
+      </dl>
+      <div
+        className="note-list"
+        aria-label="Provider and Settings diagnostics CLI refs"
+      >
+        {diagnostics.cli_inspection_refs.map((ref) => (
+          <span key={ref}>{ref}</span>
+        ))}
+      </div>
+      <div
+        className="provider-readiness-list"
+        aria-label="Provider and Settings diagnostic items"
+      >
+        {diagnostics.items.map((item) => (
+          <section
+            className={`provider-readiness-item ${providerDiagnosticClass(
+              item.state,
+            )}`}
+            key={item.diagnostic_ref}
+          >
+            <div className="panel-heading compact-heading">
+              <h4>{item.label}</h4>
+              <span>{item.state_label}</span>
+            </div>
+            <p>{item.safe_summary}</p>
+            <dl className="metadata-list">
+              <div>
+                <dt>Provider ref</dt>
+                <dd>{item.provider_ref}</dd>
+              </div>
+              <div>
+                <dt>Credential ref</dt>
+                <dd>{item.credential_ref}</dd>
+              </div>
+              <div>
+                <dt>Next safe action</dt>
+                <dd>{item.next_safe_action}</dd>
+              </div>
+            </dl>
+            <div
+              className="note-list"
+              aria-label={`${item.label} diagnostic reason codes`}
+            >
+              {item.reason_codes.slice(0, 5).map((code) => (
+                <span key={code}>{code}</span>
+              ))}
+            </div>
+            <div
+              className="note-list"
+              aria-label={`${item.label} inspection refs`}
+            >
+              {item.cli_inspection_refs.slice(0, 3).map((ref) => (
+                <span key={ref}>{ref}</span>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+      <p className="safe-copy">Next safe action: {diagnostics.next_safe_action}</p>
+    </section>
+  );
+}
+
+function providerDiagnosticClass(state: string) {
+  if (state === "configured") {
+    return "ready";
+  }
+  if (state === "degraded") {
+    return "degraded";
+  }
+  if (state === "future_scoped") {
+    return "planned";
+  }
+  return "blocked";
 }
 
 function ReadinessGateCard({
