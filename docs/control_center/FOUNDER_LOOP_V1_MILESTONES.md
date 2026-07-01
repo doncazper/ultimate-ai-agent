@@ -415,3 +415,30 @@ Still denied: action execution, handoff execution, context injection, automatic
 memory writes, memory truth authority, connector writes, CRM/account sync,
 provider/model authority, shell/subprocess authority, public beta, public
 release, and production authority.
+
+## Founder Loop V1 Product Proof Pass
+
+Status: Implemented.
+
+Goal: make one seeded/demo-safe founder/operator loop obvious, inspectable,
+receipt-backed, and honest about remaining authority gaps.
+
+This pass adds a backend-owned `founder_loop_v1_product_proof_read_model`
+across Today and Morning Briefing for the same local loop state. The proof path
+connects Morning Briefing, Today, Action Inbox decision receipt refs, Evidence
+Timeline events, Memory Review candidate posture, and Weekly CEO Review summary
+refs without adding new runtime authority.
+
+Proof:
+
+- `docs/control_center/FOUNDER_LOOP_V1_PRODUCT_PROOF_PASS.md`
+- `src/ultimate_ai_agent/core/control_center/founder_loop_product_proof.py`
+- `scripts/inspect_founder_loop_v1_product_proof.py`
+- `scripts/verify_founder_loop_v1_product_proof.py`
+- `tests/test_founder_loop_v1_product_proof.py`
+- `apps/control-center/src/components/FounderLoopPanels.tsx`
+
+Still denied: provider/model calls, A2A/MCP runtime dispatch, browser/live web
+execution, connector writes, email/calendar sends, CRM writes, account sync,
+shell/subprocess execution, background autonomy, memory writes, context
+injection, public beta, public release, distribution, and production authority.

@@ -3139,6 +3139,82 @@ export interface FounderLoopWeeklyCeoReviewV1ReadModel {
   production_authority_enabled: boolean;
 }
 
+export type FounderLoopProductProofStepId =
+  | "morning_briefing"
+  | "today"
+  | "action_inbox"
+  | "decision_receipt"
+  | "evidence_timeline"
+  | "memory_review"
+  | "weekly_review";
+
+export interface FounderLoopProductProofStep {
+  step_id: FounderLoopProductProofStepId;
+  surface: string;
+  backend_route_ref: string;
+  frontend_route_ref: string;
+  status: string;
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  receipt_refs: string[];
+  blocked_state_refs: string[];
+  next_safe_action: string;
+}
+
+export interface FounderLoopProductProofReadModel {
+  schema_version: "founder-loop-v1-product-proof.v1";
+  contract_ref: string;
+  status: string;
+  source: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  seeded_demo_safe: boolean;
+  safe_refs_only: boolean;
+  safe_summary_only: boolean;
+  raw_content_included: boolean;
+  scenario_ref: string;
+  shared_state_ref: string;
+  loop_order: FounderLoopProductProofStepId[];
+  steps: FounderLoopProductProofStep[];
+  supported_decision_actions: string[];
+  morning_briefing_refs: string[];
+  today_refs: string[];
+  action_inbox_refs: string[];
+  action_decision_receipt_refs: string[];
+  evidence_timeline_refs: string[];
+  evidence_event_refs: string[];
+  memory_review_candidate_refs: string[];
+  memory_review_receipt_refs: string[];
+  weekly_review_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  memory_review_status: "candidate_available" | "none";
+  weekly_review_status: string;
+  decision_receipt_status: string;
+  safe_summary: string;
+  next_safe_action: string;
+  authority_boundary: string;
+  provider_model_call_enabled: boolean;
+  runtime_model_call_enabled: boolean;
+  a2a_runtime_dispatch_enabled: boolean;
+  mcp_runtime_dispatch_enabled: boolean;
+  browser_execution_enabled: boolean;
+  live_web_enabled: boolean;
+  connector_write_enabled: boolean;
+  email_calendar_send_enabled: boolean;
+  crm_write_enabled: boolean;
+  account_sync_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  public_beta_claim_enabled: boolean;
+  public_release_claim_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export type FounderLoopChatToLoopOutcomeKind =
   | "remember_this"
   | "create_action"
@@ -3695,6 +3771,8 @@ export interface FounderLoopTodaySummary {
   follow_up_tracker?: FounderLoopFollowUpTrackerReadModel;
   weekly_ceo_review_v1_contract_ref?: string;
   weekly_ceo_review_v1_read_model?: FounderLoopWeeklyCeoReviewV1ReadModel;
+  founder_loop_v1_product_proof_contract_ref?: string;
+  founder_loop_v1_product_proof_read_model?: FounderLoopProductProofReadModel;
   plans_to_actions_bridge_contract_ref?: string;
   plans_to_actions_bridge_read_model?: FounderLoopPlansToActionsBridgeReadModel;
   daily_loop_summary?: FounderLoopDailyLoopSummary;
@@ -3859,6 +3937,8 @@ export interface FounderLoopMorningBriefing {
   weekly_review_narrative?: FounderLoopWeeklyReviewNarrative;
   weekly_ceo_review_v1_contract_ref?: string;
   weekly_ceo_review_v1_read_model?: FounderLoopWeeklyCeoReviewV1ReadModel;
+  founder_loop_v1_product_proof_contract_ref?: string;
+  founder_loop_v1_product_proof_read_model?: FounderLoopProductProofReadModel;
   chat_to_loop_handoff_contract_ref?: string;
   chat_to_loop_handoff_read_model?: FounderLoopChatToLoopHandoffReadModel;
   dogfood_capture?: FounderLoopDogfoodCaptureSummary;

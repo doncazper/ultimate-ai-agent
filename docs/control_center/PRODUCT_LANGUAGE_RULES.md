@@ -16,9 +16,11 @@ Control Center and OpenWebUI remain shells. Python Agent Core, PolicyEngine,
 LocalApprovalAuthority, route side-effect classification, OpenAPI checks, and
 Foundation Gate checks remain the authority boundaries.
 
-Control Center / Founder Command Center is the first-party product UI for
-Today, Inbox, Plans, Actions, Memory, Evidence, Settings, Models, and future
-first-party Chat. OpenWebUI is a supported local/dev conversational shell and
+Control Center is the first-party product UI for Today, Inbox, Plans, Actions,
+Memory, Evidence, Settings, Models, and future first-party Chat. Founder Loop
+is the bounded operator workflow inside that shell. Founder Command Center is a
+strategy and north-star planning label, not a second app name or a separate
+runtime surface. OpenWebUI is a supported local/dev conversational shell and
 compatibility surface only; copy must not imply that OpenWebUI owns product
 state or is where every UAA workflow will be wired.
 
@@ -26,14 +28,15 @@ Today, Inbox, Plans, Actions, Memory, Evidence, and Settings remain the core
 operator loop surfaces for product-language enforcement.
 
 CRM and Communications copy is allowed as a contract-first product-line
-language lane only when it preserves Founder Command Center as the current
-first-party shell. CRM copy must distinguish fixture/read/proposal posture from
-callable runtime. It may name the `/crm` Control Center route only as the CRM
-M1 fixture-only shell with blocked backend authority. It must not imply backend
-CRM endpoints, backend CRM read models, connector runtime, connector writes,
-account auth, contact sync, sends, calendar writes, silent merges, silent
-contact creation, model/provider calls, live web, browser runtime, public beta,
-or production authority until an accepted milestone adds the exact capability.
+language lane only when it preserves Control Center as the current first-party
+shell and Founder Loop as the bounded operator workflow. CRM copy must
+distinguish fixture/read/proposal posture from callable runtime. It may name the
+`/crm` Control Center route only as the CRM M1 fixture-only shell with blocked
+backend authority. It must not imply backend CRM endpoints, backend CRM read
+models, connector runtime, connector writes, account auth, contact sync, sends,
+calendar writes, silent merges, silent contact creation, model/provider calls,
+live web, browser runtime, public beta, or production authority until an
+accepted milestone adds the exact capability.
 
 North-star visuals are allowed only as design direction. They must be labeled
 as north-star visual targets and must not be described as shipped
@@ -147,11 +150,11 @@ UI. Preview-only controls use preview/review/view wording. Local-state-only
 controls must say review-only or local state. Disabled or missing work must stay
 blocked, partial, or not scoped.
 
-Future Founder Command Center surfaces for Today, Inbox, Plans, Actions, Memory,
-Evidence, Settings, Models, and first-party Chat must remain inspectable through
-backend/core contracts and, where appropriate, CLI commands or repo-local
-scripts. The frontend can make those workflows easier to operate, but it cannot
-become the only access path.
+Future Control Center surfaces for Today, Inbox, Plans, Actions, Memory,
+Evidence, Settings, Models, and first-party Chat must remain inspectable
+through backend/core contracts and, where appropriate, CLI commands or
+repo-local scripts. The frontend can make those workflows easier to operate,
+but it cannot become the only access path.
 
 Status panels must avoid standalone readiness claims. When a backend field uses
 a readiness-shaped name, the UI must frame it as a claim status or evidence

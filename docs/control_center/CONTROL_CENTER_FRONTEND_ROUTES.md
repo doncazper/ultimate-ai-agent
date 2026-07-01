@@ -41,10 +41,11 @@ Implemented frontend pages:
 - `/action-preview`
 - `/private-trial`
 
-Current IA note: the primary Founder Command Center loop is Today, Inbox,
-Plans, Actions, Memory, Evidence, and Settings. Supporting review, runtime,
-evidence, and system surfaces remain reachable but do not visually displace the
-daily loop. FCC-LOOP-001 adds a shared daily-loop spine to the primary routes
+Current IA note: the primary Founder Loop inside Control Center is Today,
+Inbox, Plans, Actions, Memory, Evidence, and Settings. Supporting review,
+runtime, evidence, and system surfaces remain reachable but do not visually
+displace the daily loop. FCC-LOOP-001 adds a shared daily-loop spine to the
+primary routes
 using existing backend-backed Today, Action Inbox, Evidence Timeline, source
 readiness, review queue, memory why-shown, weekly review, and dogfood capture
 summaries. The spine is composition only: it adds no route, OpenAPI operation,

@@ -83,6 +83,134 @@ function approvedActionCostFields(sourceRef: string) {
   };
 }
 
+function founderLoopProductProofFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const steps = [
+    ["morning_briefing", "Morning Briefing", "/briefing"],
+    ["today", "Today", "/today"],
+    ["action_inbox", "Action Inbox", "/actions"],
+    ["decision_receipt", "Receipt", "/actions"],
+    ["evidence_timeline", "Evidence Timeline", "/evidence"],
+    ["memory_review", "Memory Review", "/memory"],
+    ["weekly_review", "Weekly Review", "/today"],
+  ].map(([stepId, surface, route], index) => ({
+    step_id: stepId,
+    surface,
+    backend_route_ref:
+      stepId === "morning_briefing"
+        ? "GET /control-center/morning-briefing/summary"
+        : stepId === "action_inbox"
+          ? "GET /control-center/actions/inbox"
+          : stepId === "evidence_timeline"
+            ? "GET /control-center/evidence/timeline"
+            : "GET /control-center/today/summary",
+    frontend_route_ref: route,
+    status:
+      stepId === "decision_receipt"
+        ? "receipt_backed_decision_path_visible"
+        : "backend_owned_read_model",
+    safe_summary: `${surface} product proof step ${index + 1}.`,
+    source_refs: [`source-ref:founder-loop-product-proof:${stepId}`],
+    evidence_refs: [`evidence-ref:founder-loop-product-proof:${stepId}`],
+    receipt_refs:
+      stepId === "decision_receipt"
+        ? ["receipt:founder-loop-product-proof:action-defer"]
+        : [],
+    blocked_state_refs: [
+      "blocked-state:founder-loop-proof-no-production-authority",
+    ],
+    next_safe_action: "Inspect backend-owned safe refs before promotion.",
+  }));
+  return {
+    schema_version: "founder-loop-v1-product-proof.v1",
+    contract_ref: "contract-ref:founder-loop-v1-product-proof:v1",
+    status: "implemented_backend_owned_product_proof_pass_safe_refs_only",
+    source: "python_core_founder_loop_v1_product_proof_read_model",
+    backend_owned: true,
+    local_read_model_only: true,
+    seeded_demo_safe: true,
+    safe_refs_only: true,
+    safe_summary_only: true,
+    raw_content_included: false,
+    scenario_ref: "scenario-ref:founder-loop-v1-demo-safe-seeded-loop",
+    shared_state_ref: "founder-loop-state-ref:demo-safe-seeded-loop",
+    loop_order: [
+      "morning_briefing",
+      "today",
+      "action_inbox",
+      "decision_receipt",
+      "evidence_timeline",
+      "memory_review",
+      "weekly_review",
+    ],
+    steps,
+    supported_decision_actions: ["approve", "edit", "reject", "defer"],
+    morning_briefing_refs: ["briefing:storage-state-first-loop"],
+    today_refs: ["daily-loop-summary:local"],
+    action_inbox_refs: ["founder-action:setup-assistant-hardening"],
+    action_decision_receipt_refs: [
+      "receipt:founder-loop-product-proof:action-defer",
+    ],
+    evidence_timeline_refs: [
+      "evidence-timeline:action/founder-action/setup-assistant-hardening",
+    ],
+    evidence_event_refs: ["evidence-event:action-decision-recorded-test"],
+    memory_review_candidate_refs: [
+      "business-memory-candidate:founder-loop-preferences",
+    ],
+    memory_review_receipt_refs: [
+      "receipt:founder-loop-product-proof:memory-defer",
+    ],
+    weekly_review_refs: ["review-period-ref:local-weekly-window"],
+    receipt_refs: [
+      "receipt:founder-loop-product-proof:action-defer",
+      "receipt:founder-loop-product-proof:memory-defer",
+    ],
+    evidence_refs: ["evidence-ref:founder-loop-v1-product-proof"],
+    blocked_authority_refs: [
+      "blocked-state:founder-loop-proof-no-provider-model-call",
+      "blocked-state:founder-loop-proof-no-a2a-mcp-runtime-dispatch",
+      "blocked-state:founder-loop-proof-no-browser-or-live-web",
+      "blocked-state:founder-loop-proof-no-connector-write",
+      "blocked-state:founder-loop-proof-no-email-calendar-send",
+      "blocked-state:founder-loop-proof-no-crm-write-or-account-sync",
+      "blocked-state:founder-loop-proof-no-shell-execution",
+      "blocked-state:founder-loop-proof-no-background-autonomy",
+      "blocked-state:founder-loop-proof-no-react-only-authority",
+      "blocked-state:founder-loop-proof-no-public-release-claim",
+      "blocked-state:founder-loop-proof-no-production-authority",
+    ],
+    memory_review_status: "candidate_available",
+    weekly_review_status: "implemented_backend_owned_weekly_review_artifact_v1",
+    decision_receipt_status: "receipt_backed_decision_path_visible",
+    safe_summary:
+      "Founder Loop V1 product proof binds Morning Briefing, Today, Action Inbox decisions, receipts, Evidence Timeline, Memory Review, and Weekly Review through backend-owned safe refs.",
+    next_safe_action:
+      "Inspect shared safe refs before claiming more authority.",
+    authority_boundary:
+      "Founder Loop V1 product proof is backend-owned local read model authority only.",
+    provider_model_call_enabled: false,
+    runtime_model_call_enabled: false,
+    a2a_runtime_dispatch_enabled: false,
+    mcp_runtime_dispatch_enabled: false,
+    browser_execution_enabled: false,
+    live_web_enabled: false,
+    connector_write_enabled: false,
+    email_calendar_send_enabled: false,
+    crm_write_enabled: false,
+    account_sync_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    background_autonomy_enabled: false,
+    memory_write_authorized: false,
+    context_injection_authorized: false,
+    public_beta_claim_enabled: false,
+    public_release_claim_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
 function applyApprovedActionCost(item: {
   item_ref: string;
   approval_envelope?: Record<string, unknown>;
@@ -993,6 +1121,172 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/backend blocker refs/i)).not.toBeInTheDocument();
   });
 
+  it("renders backend-owned Founder Loop V1 product proof from backend data", async () => {
+    const productProof = founderLoopProductProofFixture();
+    const today = {
+      ...mockControlCenterData.founderToday,
+      founder_loop_v1_product_proof_contract_ref:
+        "contract-ref:founder-loop-v1-product-proof:v1",
+      founder_loop_v1_product_proof_read_model: productProof,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: today }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    const proofPanel = await screen.findByLabelText(
+      "Founder Loop V1 product proof",
+    );
+    expect(
+      within(proofPanel).getByRole("heading", {
+        name: /Founder Loop V1 product proof/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(proofPanel).getByText(
+        "contract-ref:founder-loop-v1-product-proof:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(proofPanel).getByText(
+        "python_core_founder_loop_v1_product_proof_read_model",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(proofPanel).getByText("Decision receipts").nextElementSibling,
+    ).toHaveTextContent("receipt_backed_decision_path_visible");
+    expect(
+      within(proofPanel).getByText("Memory review").nextElementSibling,
+    ).toHaveTextContent("candidate visible");
+    expect(
+      within(proofPanel).getByText("Provider/model calls").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(proofPanel).getByText("Production authority").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(
+      within(proofPanel).getAllByText(
+        "receipt:founder-loop-product-proof:action-defer",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(proofPanel).getByText(
+        "business-memory-candidate:founder-loop-preferences",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(proofPanel).getAllByText(
+        "blocked-state:founder-loop-proof-no-production-authority",
+      ).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("does not backfill Founder Loop product proof from mocks for partial backend responses", async () => {
+    const partialToday = { ...mockControlCenterData.founderToday };
+    delete (
+      partialToday as {
+        founder_loop_v1_product_proof_read_model?: unknown;
+      }
+    ).founder_loop_v1_product_proof_read_model;
+    delete (
+      partialToday as {
+        founder_loop_v1_product_proof_contract_ref?: unknown;
+      }
+    ).founder_loop_v1_product_proof_contract_ref;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: partialToday }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Today$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Founder Loop V1 product proof"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("contract-ref:founder-loop-v1-product-proof:v1"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed for unsafe Founder Loop product proof authority flags", async () => {
+    const unsafeToday = {
+      ...mockControlCenterData.founderToday,
+      founder_loop_v1_product_proof_contract_ref:
+        "contract-ref:founder-loop-v1-product-proof:v1",
+      founder_loop_v1_product_proof_read_model: founderLoopProductProofFixture({
+        provider_model_call_enabled: true,
+      }),
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: unsafeToday }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Today$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Founder Loop V1 product proof"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "python_core_founder_loop_v1_product_proof_read_model",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
   it("does not backfill the Today loop digest when the API base is blocked", async () => {
     vi.stubEnv("VITE_UAA_API_BASE_URL", "https://example.invalid");
     vi.resetModules();
@@ -1013,6 +1307,12 @@ describe("Web Control Center shell", () => {
       expect(data.founderToday.weekly_ceo_review_v1_read_model).toBeUndefined();
       expect(
         data.founderToday.weekly_ceo_review_v1_contract_ref,
+      ).toBeUndefined();
+      expect(
+        data.founderToday.founder_loop_v1_product_proof_read_model,
+      ).toBeUndefined();
+      expect(
+        data.founderToday.founder_loop_v1_product_proof_contract_ref,
       ).toBeUndefined();
       expect(
         data.founderToday.plans_to_actions_bridge_read_model,
@@ -1062,6 +1362,12 @@ describe("Web Control Center shell", () => {
       ).toBeUndefined();
       expect(
         data.founderMorningBriefing.weekly_ceo_review_v1_contract_ref,
+      ).toBeUndefined();
+      expect(
+        data.founderMorningBriefing.founder_loop_v1_product_proof_read_model,
+      ).toBeUndefined();
+      expect(
+        data.founderMorningBriefing.founder_loop_v1_product_proof_contract_ref,
       ).toBeUndefined();
     } finally {
       vi.unstubAllEnvs();

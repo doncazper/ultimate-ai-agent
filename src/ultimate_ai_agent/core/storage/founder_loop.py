@@ -137,6 +137,10 @@ from ultimate_ai_agent.core.control_center.weekly_ceo_review import (
     WEEKLY_CEO_REVIEW_V1_CONTRACT_REF,
     build_weekly_ceo_review_v1_read_model,
 )
+from ultimate_ai_agent.core.control_center.founder_loop_product_proof import (
+    FOUNDER_LOOP_PRODUCT_PROOF_CONTRACT_REF,
+    build_founder_loop_product_proof_read_model,
+)
 from ultimate_ai_agent.core.control_center.chat_to_loop_handoff import (
     CHAT_TO_LOOP_HANDOFF_CONTRACT_REF,
     build_chat_to_loop_handoff_read_model,
@@ -5515,6 +5519,19 @@ class FounderLoopRepository:
             source_readiness_items=source_readiness_items,
             evidence_event_refs=evidence_event_refs,
         )
+        founder_loop_v1_product_proof_read_model = (
+            build_founder_loop_product_proof_read_model(
+                actions=actions,
+                briefing_items=briefing_items,
+                memory_items=memory_items,
+                evidence_timeline=evidence_timeline,
+                memory_review_decisions=memory_review_decisions,
+                today_loop_read_model=today_loop_read_model,
+                weekly_ceo_review_v1_read_model=weekly_ceo_review_v1_read_model,
+                daily_loop_summary=daily_loop_summary,
+                evidence_event_refs=evidence_event_refs,
+            )
+        )
         plans_to_actions_bridge_read_model = (
             build_plans_to_actions_bridge_read_model(
                 plans=plans,
@@ -5637,6 +5654,12 @@ class FounderLoopRepository:
             "follow_up_tracker": follow_up_tracker,
             "weekly_ceo_review_v1_contract_ref": WEEKLY_CEO_REVIEW_V1_CONTRACT_REF,
             "weekly_ceo_review_v1_read_model": weekly_ceo_review_v1_read_model,
+            "founder_loop_v1_product_proof_contract_ref": (
+                FOUNDER_LOOP_PRODUCT_PROOF_CONTRACT_REF
+            ),
+            "founder_loop_v1_product_proof_read_model": (
+                founder_loop_v1_product_proof_read_model
+            ),
             "plans_to_actions_bridge_contract_ref": (
                 PLANS_TO_ACTIONS_BRIDGE_CONTRACT_REF
             ),
@@ -6011,6 +6034,50 @@ class FounderLoopRepository:
             "production_authority_enabled": False,
             "weekly_ceo_review_v1_contract_ref": WEEKLY_CEO_REVIEW_V1_CONTRACT_REF,
             "weekly_ceo_review_v1_read_model": read_model,
+            "evidence_refs": read_model["evidence_refs"],
+            "blocked_authority_refs": read_model["blocked_authority_refs"],
+            "next_safe_action": read_model["next_safe_action"],
+            "authority_boundary": read_model["authority_boundary"],
+        }
+
+    def founder_loop_product_proof(self, *, limit: int = 6) -> dict[str, Any]:
+        today = self.today_summary(limit=min(max(int(limit), 6), 50))
+        read_model = today["founder_loop_v1_product_proof_read_model"]
+        return {
+            "schema_version": "founder-loop-v1-product-proof.index.v1",
+            "contract_ref": FOUNDER_LOOP_PRODUCT_PROOF_CONTRACT_REF,
+            "status": read_model["status"],
+            "surface": "Founder Loop V1 Product Proof",
+            "source_today_route_ref": "GET /control-center/today/summary",
+            "source_morning_briefing_route_ref": (
+                "GET /control-center/morning-briefing/summary"
+            ),
+            "source_evidence_route_ref": "GET /control-center/evidence/timeline",
+            "storage_ref": today["storage_ref"],
+            "side_effect_class": "local_dev_workspace_only",
+            "read_only": True,
+            "safe_refs_only": True,
+            "safe_summary_only": True,
+            "raw_content_included": False,
+            "provider_model_call_enabled": False,
+            "runtime_model_call_enabled": False,
+            "a2a_runtime_dispatch_enabled": False,
+            "mcp_runtime_dispatch_enabled": False,
+            "browser_execution_enabled": False,
+            "live_web_enabled": False,
+            "connector_write_enabled": False,
+            "email_calendar_send_enabled": False,
+            "crm_write_enabled": False,
+            "account_sync_enabled": False,
+            "shell_subprocess_execution_enabled": False,
+            "background_autonomy_enabled": False,
+            "memory_write_authorized": False,
+            "context_injection_authorized": False,
+            "public_beta_claim_enabled": False,
+            "public_release_claim_enabled": False,
+            "production_authority_enabled": False,
+            "founder_loop_v1_product_proof_read_model": read_model,
+            "receipt_refs": read_model["receipt_refs"],
             "evidence_refs": read_model["evidence_refs"],
             "blocked_authority_refs": read_model["blocked_authority_refs"],
             "next_safe_action": read_model["next_safe_action"],
@@ -8585,6 +8652,31 @@ class FounderLoopRepository:
             source_readiness_items=source_readiness_items,
             evidence_event_refs=evidence_event_refs,
         )
+        today_loop_read_model = build_today_loop_read_model(
+            actions=actions,
+            plans=plans,
+            memory_items=memory_items,
+            briefing_items=items,
+            evidence_timeline=evidence_timeline,
+            chat_turn_receipts=chat_turn_receipts,
+            chat_handoff_receipts=chat_handoff_receipts,
+            memory_review_decisions=memory_review_decisions,
+            crm_lite_followups=crm_lite_followups,
+            source_readiness_items=source_readiness_items,
+        )
+        founder_loop_v1_product_proof_read_model = (
+            build_founder_loop_product_proof_read_model(
+                actions=actions,
+                briefing_items=items,
+                memory_items=memory_items,
+                evidence_timeline=evidence_timeline,
+                memory_review_decisions=memory_review_decisions,
+                today_loop_read_model=today_loop_read_model,
+                weekly_ceo_review_v1_read_model=weekly_ceo_review_v1_read_model,
+                daily_loop_summary=daily_loop_summary,
+                evidence_event_refs=evidence_event_refs,
+            )
+        )
         storage_status = self.storage_status()
         memory_workbench = self._memory_workbench_read_only_status()
         payload = {
@@ -8728,6 +8820,12 @@ class FounderLoopRepository:
             "weekly_review_narrative": weekly_review_narrative,
             "weekly_ceo_review_v1_contract_ref": WEEKLY_CEO_REVIEW_V1_CONTRACT_REF,
             "weekly_ceo_review_v1_read_model": weekly_ceo_review_v1_read_model,
+            "founder_loop_v1_product_proof_contract_ref": (
+                FOUNDER_LOOP_PRODUCT_PROOF_CONTRACT_REF
+            ),
+            "founder_loop_v1_product_proof_read_model": (
+                founder_loop_v1_product_proof_read_model
+            ),
             "chat_to_loop_handoff_contract_ref": CHAT_TO_LOOP_HANDOFF_CONTRACT_REF,
             "chat_to_loop_handoff_read_model": chat_to_loop_handoff_read_model,
             "dogfood_capture": dogfood_capture,
