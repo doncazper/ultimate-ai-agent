@@ -122,6 +122,11 @@ Current boundary summary:
 - `/api/manifest` may cache only process-local static manifest metadata; policy
   decisions, approvals, runtime authority, user data, mutable state, and secrets
   remain excluded.
+- `/api/manifest` exposes `web_access_posture` to identify
+  `ultimate_ai_agent.core.web_access` as the central WebAccessGateway
+  policy/audit boundary. This is boundary-only wording: unrestricted web
+  fetching, browser execution, provider configuration, mutations, clicks,
+  forms, auth/cookies, downloads, and uploads remain unavailable.
 - Validation, preview, evaluate, dry-run, readiness, and status routes remain
   non-production authority surfaces.
 - Local `/v1/models` and `/v1/chat/completions` are disabled by default,
