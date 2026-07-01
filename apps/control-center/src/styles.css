@@ -3604,6 +3604,13 @@ main {
   background: #fffaf0;
 }
 
+.proof-path-copy {
+  margin: 0;
+  color: #4b5563;
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
 .proof-path-summary {
   display: flex;
   gap: 10px;
@@ -3618,7 +3625,7 @@ main {
 }
 
 .proof-path-rail {
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   min-height: 52px;
   border-radius: 7px;
 }
@@ -3981,6 +3988,13 @@ main {
   color: #667085;
   font-size: 0.58rem;
   text-transform: uppercase;
+}
+
+.proof-path-rail .north-star-loop-step strong,
+.proof-path-rail .north-star-loop-step small {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .north-star-loop-step.blocked {

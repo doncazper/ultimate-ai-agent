@@ -1192,6 +1192,11 @@ describe("Web Control Center shell", () => {
     expect(within(proofPath).getAllByText("Weekly Review").length).toBeGreaterThan(
       0,
     );
+    const currentProofLinks = within(proofPath)
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("aria-current") === "page");
+    expect(currentProofLinks).toHaveLength(1);
+    expect(currentProofLinks[0]).toHaveTextContent("Today");
     expect(within(proofPath).queryByRole("button")).not.toBeInTheDocument();
 
     const proofPanel = await screen.findByLabelText(
@@ -1267,7 +1272,37 @@ describe("Web Control Center shell", () => {
     );
     expect(within(proofPath).getByText("No provider/model calls")).toBeInTheDocument();
     expect(within(proofPath).getByText("No connector writes")).toBeInTheDocument();
+    const currentProofLinks = within(proofPath)
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("aria-current") === "page");
+    expect(currentProofLinks).toHaveLength(1);
+    expect(currentProofLinks[0]).toHaveTextContent("Action Inbox");
     expect(within(proofPath).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("labels adjacent Founder Loop surfaces without faking a current proof step", async () => {
+    const productProof = founderLoopProductProofFixture();
+    const today = {
+      ...mockControlCenterData.founderToday,
+      founder_loop_v1_product_proof_contract_ref:
+        "contract-ref:founder-loop-v1-product-proof:v1",
+      founder_loop_v1_product_proof_read_model: productProof,
+    };
+    stubFounderTodayReadEndpoint(today);
+    window.history.pushState({}, "", "/plans");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /^Plans$/i })).toBeInTheDocument();
+    const proofPath = screen.getByLabelText("Founder Loop proof path");
+    expect(
+      within(proofPath).getByText(
+        /This surface is adjacent to the seeded proof path/i,
+      ),
+    ).toBeInTheDocument();
+    const currentProofLinks = within(proofPath)
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("aria-current") === "page");
+    expect(currentProofLinks).toHaveLength(0);
   });
 
   it.each([
