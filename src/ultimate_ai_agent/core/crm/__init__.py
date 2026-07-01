@@ -34,6 +34,20 @@ from ultimate_ai_agent.core.crm.contracts import (
     build_crm_communications_spine_contract,
     validate_crm_communications_spine_contract,
 )
+from ultimate_ai_agent.core.crm.fixtures import (
+    CRM_M1_FIXTURE_CONTRACT_REF,
+    CRM_M1_FIXTURE_DOC_REF,
+    CRM_M1_FIXTURE_VERIFIER_REF,
+    CRM_M1_REQUIRED_BLOCKED_REFS,
+    CRM_M1_REQUIRED_STATE_LABELS,
+    CRM_M1_VERTICAL_ORDER,
+    CrmM1FixtureLane,
+    CrmM1FixtureMap,
+    CrmM1FixtureSection,
+    CrmM1VerticalFixture,
+    build_crm_m1_fixture_map,
+    validate_crm_m1_fixture_map,
+)
 
 __all__ = [
     "CRM_COMMUNICATIONS_CANONICAL_NOUNS",
@@ -43,6 +57,12 @@ __all__ = [
     "CRM_COMMUNICATIONS_SPINE_DOC_REF",
     "CRM_COMMUNICATIONS_SPINE_LOCKED_ARCHITECTURE",
     "CRM_COMMUNICATIONS_SPINE_VERIFIER_REF",
+    "CRM_M1_FIXTURE_CONTRACT_REF",
+    "CRM_M1_FIXTURE_DOC_REF",
+    "CRM_M1_FIXTURE_VERIFIER_REF",
+    "CRM_M1_REQUIRED_BLOCKED_REFS",
+    "CRM_M1_REQUIRED_STATE_LABELS",
+    "CRM_M1_VERTICAL_ORDER",
     "CrmActivity",
     "CrmApprovalRecord",
     "CrmApprovalState",
@@ -56,6 +76,10 @@ __all__ = [
     "CrmGovernedPlaybook",
     "CrmIdentityMatchCandidate",
     "CrmImplementationState",
+    "CrmM1FixtureLane",
+    "CrmM1FixtureMap",
+    "CrmM1FixtureSection",
+    "CrmM1VerticalFixture",
     "CrmMemoryProvenance",
     "CrmOrganization",
     "CrmPerson",
@@ -69,5 +93,7 @@ __all__ = [
     "CrmWorkspaceContext",
     "CrmWorkspaceKind",
     "build_crm_communications_spine_contract",
+    "build_crm_m1_fixture_map",
     "validate_crm_communications_spine_contract",
+    "validate_crm_m1_fixture_map",
 ]

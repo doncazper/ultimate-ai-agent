@@ -5,6 +5,16 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.control_center.fusion_routing import (
+    CacheContextEconomics,
+    DelegationProposalEnvelope,
+    WorkClassification,
+    WorkClassificationValue,
+    build_cache_context_economics,
+    build_delegation_proposal,
+    build_work_classification,
+)
+
 
 PLANS_TO_ACTIONS_BRIDGE_CONTRACT_REF = (
     "contract-ref:product-loop-006-plans-to-reviewable-action-envelopes:v1"
@@ -135,6 +145,9 @@ class PlansToActionsBridgeItem(BaseModel):
     ambiguity_refs: list[str] = Field(default_factory=list)
     missing_evidence_refs: list[str] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list, min_length=1)
+    work_classification: WorkClassification
+    delegation_proposal: DelegationProposalEnvelope
+    cache_context_economics: CacheContextEconomics
     next_safe_action: str = Field(..., min_length=1, max_length=500)
     backend_owned: bool = True
     review_only: bool = True
@@ -217,6 +230,12 @@ class PlansToActionsBridgeItem(BaseModel):
             "blocked_authority_refs",
         ):
             _validate_ref_list(getattr(self, field_name), field_name)
+        if self.work_classification.execution_authorized:
+            raise ValueError("work classification cannot authorize execution")
+        if self.delegation_proposal.worker_execution_enabled:
+            raise ValueError("delegation proposal cannot execute")
+        if self.cache_context_economics.runtime_model_switch_performed:
+            raise ValueError("cache/context economics cannot switch models")
         if set(PLANS_TO_ACTIONS_REVIEW_RECEIPT_LABELS) - set(
             self.review_receipt_labels
         ):
@@ -502,6 +521,13 @@ def _bridge_item_for_plan(
     action_envelope_ref = (
         action_envelope_ref_from_payload or f"action-envelope:plans-to-actions:{suffix}"
     )
+    work_classification = build_work_classification(
+        WorkClassificationValue.judgment_required,
+        suffix_ref=plan_ref,
+        source_ref=plan_ref,
+        evidence_ref=(expected_receipts[0] if expected_receipts else f"evidence-ref:plans-to-actions:{suffix}"),
+        reason_ref=f"classification-reason-ref:plans-to-actions:{suffix}",
+    )
     return PlansToActionsBridgeItem(
         item_ref=f"plans-to-actions-bridge:{suffix}",
         source_plan_ref=plan_ref,
@@ -557,6 +583,15 @@ def _bridge_item_for_plan(
             plan.get("task_decomposition_missing_evidence_refs") or []
         ),
         blocked_authority_refs=blocked_refs,
+        work_classification=work_classification,
+        delegation_proposal=build_delegation_proposal(
+            work_classification=work_classification,
+            suffix_ref=plan_ref,
+        ),
+        cache_context_economics=build_cache_context_economics(
+            suffix_ref=plan_ref,
+            blocker_refs=missing_field_blocked_refs,
+        ),
         next_safe_action=(
             "Review the envelope, risks, reasons, expected receipts, rollback, "
             "and safe-disable refs; create executable work only in a separate "

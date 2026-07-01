@@ -122,6 +122,133 @@ export interface FounderLoopActionReceiptVisibility {
   missing_field_states: string[];
 }
 
+export type FounderLoopWorkClassificationValue =
+  | "judgment_required"
+  | "mechanical"
+  | "validation"
+  | "bookkeeping"
+  | "ambiguous"
+  | "blocked";
+
+export interface FounderLoopWorkClassification {
+  schema_version: "fcc_fusion_work_classification.v1";
+  contract_ref: string;
+  classification: FounderLoopWorkClassificationValue;
+  reason_refs: string[];
+  confidence_posture: string;
+  ambiguity_posture: string;
+  human_review_required: boolean;
+  blocked_authority_refs: string[];
+  source_refs: string[];
+  evidence_refs: string[];
+  reviewed_at_ref: string;
+  expiry_posture_ref: string;
+  review_aid_only: boolean;
+  execution_authorized: boolean;
+  action_execution_enabled: boolean;
+}
+
+export interface FounderLoopRouteDecisionVisibility {
+  schema_version: "fcc_fusion_route_decision_visibility.v1";
+  contract_ref: string;
+  status: "selected" | "rejected" | "blocked";
+  selected_profile_ref: string;
+  rejected_profile_refs: string[];
+  reason_codes: string[];
+  privacy_posture_ref: string;
+  cost_posture_ref: string;
+  latency_posture_ref: string;
+  context_posture_ref: string;
+  approval_posture_ref: string;
+  operator_summary: string;
+  no_execution_performed: boolean;
+  model_invocation_performed: boolean;
+  provider_call_performed: boolean;
+}
+
+export interface FounderLoopCacheContextEconomics {
+  schema_version: "fcc_fusion_cache_context_economics.v1";
+  contract_ref: string;
+  context_budget_ref: string;
+  compaction_boundary_ref: string;
+  cache_miss_expected: boolean;
+  cache_reuse_posture: string;
+  reroute_reason: string;
+  estimated_context_cost_posture: string;
+  cache_or_context_blocker_refs: string[];
+  evidence_refs: string[];
+  explanatory_posture_only: boolean;
+  measured_provider_event: boolean;
+  runtime_model_switch_performed: boolean;
+}
+
+export interface FounderLoopDelegationProposal {
+  schema_version: "fcc_fusion_delegation_proposal.v1";
+  contract_ref: string;
+  proposal_state: "proposed" | "rejected" | "deferred" | "blocked" | "future_only";
+  proposed_delegate_kind: string;
+  delegate_scope_ref: string;
+  main_owner_responsibility_refs: string[];
+  delegated_work_refs: string[];
+  review_required_posture_ref: string;
+  blocked_execution_refs: string[];
+  expected_receipt_refs: string[];
+  rollback_safe_disable_posture_refs: string[];
+  work_classification: FounderLoopWorkClassification;
+  future_only: boolean;
+  creates_approval_ref: boolean;
+  creates_execution_ref: boolean;
+  worker_execution_enabled: boolean;
+  background_dispatch_enabled: boolean;
+}
+
+export interface FounderLoopFusionDogfoodEvidenceRecord {
+  schema_version: "fcc_fusion_dogfood_evidence.v1";
+  contract_ref: string;
+  review_record_ref: string;
+  outcome: string;
+  friction_delta_ref: string;
+  review_time_delta_ref: string;
+  cost_confusion_delta_ref: string;
+  routing_cost_delta_ref: string;
+  ambiguity_delta_ref: string;
+  interruption_delta_ref: string;
+  redacted_summary_ref: string;
+  evidence_refs: string[];
+  local_private_only: boolean;
+  external_analytics_enabled: boolean;
+  live_learning_claimed: boolean;
+}
+
+export interface FounderLoopFusionRoutingDelegationReadModel {
+  schema_version: "fcc_fusion_routing_delegation.v1";
+  contract_ref: string;
+  source: string;
+  status: string;
+  backend_owned: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  surfaces: string[];
+  work_classifications: FounderLoopWorkClassification[];
+  route_decisions: FounderLoopRouteDecisionVisibility[];
+  delegation_proposals: FounderLoopDelegationProposal[];
+  cache_context_economics: FounderLoopCacheContextEconomics[];
+  dogfood_records: FounderLoopFusionDogfoodEvidenceRecord[];
+  blocked_state_refs: string[];
+  next_safe_action: string;
+  authority_boundary: string;
+  action_execution_enabled: boolean;
+  sidekick_execution_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  background_dispatch_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopTaskDecompositionStep {
   step_ref: string;
   title: string;
@@ -324,6 +451,9 @@ export interface FounderLoopActionItem {
   action_group_available_action?: string;
   approval_envelope?: FounderLoopActionApprovalEnvelope;
   receipt_visibility?: FounderLoopActionReceiptVisibility;
+  work_classification?: FounderLoopWorkClassification;
+  delegation_proposal?: FounderLoopDelegationProposal;
+  cache_context_economics?: FounderLoopCacheContextEconomics;
   source_readiness_proposal_ref?: string;
   source_readiness_proposal_kind?: string;
   source_readiness_missing_contract_ref?: string;
@@ -1950,6 +2080,9 @@ export interface FounderLoopPlansToActionsBridgeItem {
   ambiguity_refs: string[];
   missing_evidence_refs: string[];
   blocked_authority_refs: string[];
+  work_classification?: FounderLoopWorkClassification;
+  delegation_proposal?: FounderLoopDelegationProposal;
+  cache_context_economics?: FounderLoopCacheContextEconomics;
   next_safe_action: string;
   backend_owned: boolean;
   review_only: boolean;
@@ -3434,6 +3567,9 @@ export interface FounderLoopTodaySummary {
   governed_code_workbench_expected_rollback_receipt_ref: string;
   governed_code_workbench_evidence_refs: string[];
   governed_code_workbench_idempotency_key_ref: string;
+  governed_code_workbench_work_classification?: FounderLoopWorkClassification;
+  governed_code_workbench_delegation_proposal?: FounderLoopDelegationProposal;
+  governed_code_workbench_cache_context_economics?: FounderLoopCacheContextEconomics;
   governed_code_workbench_safe_summary: string;
   governed_code_workbench_validation_plan_summary: string;
   governed_code_workbench_required_ref_fields: string[];
@@ -3441,6 +3577,12 @@ export interface FounderLoopTodaySummary {
   governed_code_workbench_surface_bindings: FounderLoopGovernedCodeWorkbenchSurfaceBinding[];
   governed_code_workbench_authority_posture: FounderLoopGovernedCodeWorkbenchAuthorityPosture;
   governed_code_workbench_blocked_state_refs: string[];
+  fusion_routing_delegation_contract_ref?: string;
+  fusion_routing_delegation_status?: string;
+  fusion_routing_delegation_read_model?: FounderLoopFusionRoutingDelegationReadModel;
+  fusion_routing_delegation_surface_bindings?: Array<Record<string, string>>;
+  fusion_routing_delegation_authority_posture?: Record<string, boolean>;
+  fusion_routing_delegation_blocked_state_refs?: string[];
   today_loop_tightening_contract_ref?: string;
   today_loop_read_model?: FounderLoopTodayLoopReadModel;
   follow_up_tracker_contract_ref?: string;

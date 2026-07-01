@@ -2081,6 +2081,8 @@ function normalizeFounderToday(value: FounderLoopTodaySummary | undefined): {
     delete fallbackWithoutDigest.chat_to_loop_handoff_contract_ref;
     delete fallbackWithoutDigest.plans_to_actions_bridge_read_model;
     delete fallbackWithoutDigest.plans_to_actions_bridge_contract_ref;
+    delete fallbackWithoutDigest.fusion_routing_delegation_read_model;
+    delete fallbackWithoutDigest.fusion_routing_delegation_contract_ref;
     return {
       value: stripPlansActionEnvelopePosture(
         fallbackWithoutDigest,
@@ -2144,6 +2146,16 @@ function normalizeFounderToday(value: FounderLoopTodaySummary | undefined): {
   } else {
     delete normalized.chat_to_loop_handoff_read_model;
     delete normalized.chat_to_loop_handoff_contract_ref;
+  }
+  const fusionReadModel = valueRecord.fusion_routing_delegation_read_model;
+  if (isSafeFusionRoutingReadModel(fusionReadModel)) {
+    normalized.fusion_routing_delegation_read_model = fusionReadModel;
+    normalized.fusion_routing_delegation_contract_ref = (
+      fusionReadModel as Record<string, unknown>
+    ).contract_ref;
+  } else {
+    delete normalized.fusion_routing_delegation_read_model;
+    delete normalized.fusion_routing_delegation_contract_ref;
   }
   return {
     value: normalized as unknown as FounderLoopTodaySummary,
@@ -3152,9 +3164,99 @@ function isSafePlansToActionsBridgeItem(value: unknown): boolean {
     hasDeniedFlagsFalse(value, PLANS_TO_ACTIONS_BRIDGE_DENIED_FLAGS) &&
     hasStringArrays(value, PLANS_TO_ACTIONS_BRIDGE_ITEM_REQUIRED_ARRAYS) &&
     hasRequiredReviewReceiptLabels(value.review_receipt_labels) &&
+    isOptionalSafeFusionMetadata(value) &&
     (value.expected_receipt_refs as unknown[]).length > 0 &&
     (value.evidence_refs as unknown[]).length > 0 &&
     (value.blocked_authority_refs as unknown[]).length > 0
+  );
+}
+
+function isSafeFusionRoutingReadModel(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.schema_version !== "fcc_fusion_routing_delegation.v1" ||
+    value.source !== "python_core_fusion_routing_delegation_read_model" ||
+    value.contract_ref !== "contract-ref:fcc-fusion-routing-delegation:v1" ||
+    value.backend_owned !== true ||
+    value.safe_refs_only !== true ||
+    value.raw_content_included !== false
+  ) {
+    return false;
+  }
+  if (
+    value.action_execution_enabled !== false ||
+    value.sidekick_execution_enabled !== false ||
+    value.provider_model_call_enabled !== false ||
+    value.background_dispatch_enabled !== false ||
+    value.production_authority_enabled !== false
+  ) {
+    return false;
+  }
+  return (
+    Array.isArray(value.work_classifications) &&
+    Array.isArray(value.route_decisions) &&
+    Array.isArray(value.delegation_proposals) &&
+    Array.isArray(value.cache_context_economics) &&
+    Array.isArray(value.dogfood_records) &&
+    Array.isArray(value.blocked_state_refs)
+  );
+}
+
+function isOptionalSafeFusionMetadata(value: Record<string, unknown>): boolean {
+  const classification = value.work_classification;
+  const delegation = value.delegation_proposal;
+  const cacheContext = value.cache_context_economics;
+  if (classification !== undefined && !isSafeFusionWorkClassification(classification)) {
+    return false;
+  }
+  if (delegation !== undefined && !isSafeFusionDelegation(delegation)) {
+    return false;
+  }
+  if (cacheContext !== undefined && !isSafeFusionCacheContext(cacheContext)) {
+    return false;
+  }
+  return true;
+}
+
+function isSafeFusionWorkClassification(value: unknown): boolean {
+  return (
+    isPlainRecord(value) &&
+    value.schema_version === "fcc_fusion_work_classification.v1" &&
+    value.contract_ref === "contract-ref:fcc-fusion-routing-delegation:v1" &&
+    value.review_aid_only === true &&
+    value.execution_authorized === false &&
+    value.action_execution_enabled === false &&
+    Array.isArray(value.reason_refs) &&
+    Array.isArray(value.source_refs) &&
+    Array.isArray(value.evidence_refs)
+  );
+}
+
+function isSafeFusionDelegation(value: unknown): boolean {
+  return (
+    isPlainRecord(value) &&
+    value.schema_version === "fcc_fusion_delegation_proposal.v1" &&
+    value.contract_ref === "contract-ref:fcc-fusion-routing-delegation:v1" &&
+    value.future_only === true &&
+    value.creates_approval_ref === false &&
+    value.creates_execution_ref === false &&
+    value.worker_execution_enabled === false &&
+    value.background_dispatch_enabled === false &&
+    Array.isArray(value.blocked_execution_refs) &&
+    isSafeFusionWorkClassification(value.work_classification)
+  );
+}
+
+function isSafeFusionCacheContext(value: unknown): boolean {
+  return (
+    isPlainRecord(value) &&
+    value.schema_version === "fcc_fusion_cache_context_economics.v1" &&
+    value.contract_ref === "contract-ref:fcc-fusion-routing-delegation:v1" &&
+    value.explanatory_posture_only === true &&
+    value.runtime_model_switch_performed === false &&
+    Array.isArray(value.cache_or_context_blocker_refs)
   );
 }
 

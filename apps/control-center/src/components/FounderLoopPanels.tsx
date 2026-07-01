@@ -27,6 +27,9 @@ import type {
   FounderLoopEvidenceTimelineItem,
   FounderLoopEvidenceTimelineNarrativeReadModel,
   FounderLoopFollowUpTrackerReadModel,
+  FounderLoopFusionRoutingDelegationReadModel,
+  FounderLoopCacheContextEconomics,
+  FounderLoopDelegationProposal,
   FounderLoopLocalTaskCommitReceipt,
   FounderLoopMemoryContextPackProposal,
   FounderLoopMemoryContextPackActionProposalReceipt,
@@ -45,6 +48,7 @@ import type {
   FounderLoopStorageStatus,
   FounderLoopTodaySummary,
   FounderLoopWeeklyCeoReviewV1ReadModel,
+  FounderLoopWorkClassification,
   ControlCenterSettingsStatus,
   MemoryReviewDecisionKind,
   MemoryReviewDecisionReceipt,
@@ -1672,6 +1676,9 @@ export function TodaySurfacePanel({
         today={today}
       />
       <TodayLoopReadModelPanel today={today} />
+      <FusionRoutingDelegationPanel
+        readModel={today.fusion_routing_delegation_read_model}
+      />
       <DailyLoopCommandDeck
         actionReadModelAuthoritative={actionReadModelAuthoritative}
         today={today}
@@ -2067,6 +2074,10 @@ export function TodaySurfacePanel({
             compact
             readModel={today.chat_to_loop_handoff_read_model}
           />
+          <FusionRoutingDelegationPanel
+            compact
+            readModel={today.fusion_routing_delegation_read_model}
+          />
           <PlansToActionsBridgePanel
             contractRef={today.plans_to_actions_bridge_contract_ref}
             readModel={today.plans_to_actions_bridge_read_model}
@@ -2189,6 +2200,11 @@ function PlansToActionsBridgePanel({
               <span>{item.plan_status}</span>
             </div>
             <p>{item.safe_summary}</p>
+            <FusionRoutingMetadataCard
+              cacheContext={item.cache_context_economics}
+              delegation={item.delegation_proposal}
+              workClassification={item.work_classification}
+            />
             <dl className="detail-list">
               <DetailTerm label="Risk" value={item.risk_class} />
               <DetailTerm label="Why proposed" value={item.why_proposed} />
@@ -2247,6 +2263,152 @@ function PlansToActionsBridgePanel({
           </article>
         ))}
       </div>
+    </section>
+  );
+}
+
+function FusionRoutingDelegationPanel({
+  compact = false,
+  readModel,
+}: {
+  compact?: boolean;
+  readModel?: FounderLoopFusionRoutingDelegationReadModel;
+}) {
+  if (!readModel) {
+    return null;
+  }
+  const visibleClassifications = compact
+    ? readModel.work_classifications.slice(0, 2)
+    : readModel.work_classifications;
+  const visibleRoutes = compact
+    ? readModel.route_decisions.slice(0, 2)
+    : readModel.route_decisions;
+  return (
+    <article
+      aria-label="Fusion routing and delegation readability"
+      className="status-card"
+    >
+      <div className="status-card-header">
+        <h3>Routing and Delegation</h3>
+        <span>{readModel.status}</span>
+      </div>
+      <p className="section-copy">{readModel.authority_boundary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={readModel.contract_ref} />
+        <DetailTerm label="Source" value={readModel.source} />
+        <DetailTerm
+          label="Action execution"
+          value={readModel.action_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Sidekick execution"
+          value={readModel.sidekick_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Provider/model calls"
+          value={readModel.provider_model_call_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Background dispatch"
+          value={readModel.background_dispatch_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm label="Next safe action" value={readModel.next_safe_action} />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Work type summaries: none"
+        items={visibleClassifications.map(
+          (item) =>
+            `Work type ${compactLabel(item.classification)}; review ${
+              item.human_review_required ? "required" : "not required"
+            }; confidence ${item.confidence_posture}`,
+        )}
+      />
+      <InlineListWithFallback
+        emptyLabel="Route decision summaries: none"
+        items={visibleRoutes.map(
+          (route) =>
+            `${route.status}: ${route.operator_summary}; cost ${route.cost_posture_ref}`,
+        )}
+      />
+      <RefListWithFallback
+        emptyLabel="Routing/delegation blockers: missing"
+        refs={readModel.blocked_state_refs}
+      />
+    </article>
+  );
+}
+
+function FusionRoutingMetadataCard({
+  cacheContext,
+  delegation,
+  workClassification,
+}: {
+  cacheContext?: FounderLoopCacheContextEconomics;
+  delegation?: FounderLoopDelegationProposal;
+  workClassification?: FounderLoopWorkClassification;
+}) {
+  if (!workClassification && !delegation && !cacheContext) {
+    return null;
+  }
+  return (
+    <section
+      aria-label="Fusion routing metadata"
+      className="approval-envelope-card"
+    >
+      <div className="review-card-heading compact">
+        <h4>Routing metadata</h4>
+        <span>review aid only</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm
+          label="Work type"
+          value={
+            workClassification
+              ? compactLabel(workClassification.classification)
+              : "missing"
+          }
+        />
+        <DetailTerm
+          label="Human review"
+          value={
+            workClassification?.human_review_required
+              ? "required"
+              : "not required"
+          }
+        />
+        <DetailTerm
+          label="Proposed delegate"
+          value={delegation?.proposed_delegate_kind ?? "none"}
+        />
+        <DetailTerm
+          label="Delegation state"
+          value={delegation?.proposal_state ?? "missing"}
+        />
+        <DetailTerm
+          label="Worker execution"
+          value={delegation?.worker_execution_enabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Context/cost posture"
+          value={cacheContext?.estimated_context_cost_posture ?? "missing"}
+        />
+        <DetailTerm
+          label="Runtime model switch"
+          value={cacheContext?.runtime_model_switch_performed ? "unsafe" : "blocked"}
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Classification evidence refs: none"
+        refs={workClassification?.evidence_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Delegation blockers: none"
+        refs={delegation?.blocked_execution_refs ?? []}
+      />
+      <RefListWithFallback
+        emptyLabel="Context/cost blockers: none"
+        refs={cacheContext?.cache_or_context_blocker_refs ?? []}
+      />
     </section>
   );
 }
@@ -7031,6 +7193,11 @@ function ActionItemCard({
       </p>
       <ApprovalEnvelopeCard envelope={approvalEnvelope} />
       <ReceiptVisibilityCard visibility={receiptVisibility} />
+      <FusionRoutingMetadataCard
+        cacheContext={displayedItem.cache_context_economics}
+        delegation={displayedItem.delegation_proposal}
+        workClassification={displayedItem.work_classification}
+      />
       <SourceReadinessProposalItemDetails item={displayedItem} />
       <TaskDecompositionActionProposalDetails item={displayedItem} />
       <LocalTaskCommitPostureCard item={displayedItem} />
