@@ -3,16 +3,21 @@
 Status: active UAA-P2-051 MCP/A2A compatibility watchlist
 
 Scope: strategy/watchlist only for future Model Context Protocol (MCP) and
-agent-to-agent (A2A) compatibility planning. This document records concepts,
-risks, future gates, open questions, and likely manifest/capability
-implications before any runtime authority exists.
+agent-to-agent (A2A) compatibility planning. MCP now has a metadata/import
+foundation in `docs/tooling/UAA_MCP_GATEWAY_FOUNDATION.md`; A2A remains
+watchlist-only. This document records concepts, risks, future gates, open
+questions, and likely manifest/capability implications before any runtime
+authority exists.
 
-This watchlist does not imply MCP/A2A support is shipped. It adds no runtime
-authority, no connector writes, no plugin execution, no broad tool invocation,
-and no network authority. It does not add backend routes, OpenAPI paths,
-runtime imports, package execution, model/provider authority, shell/subprocess
-execution, browser automation, mobile control, autonomous background execution,
-public distribution, or production authority.
+This watchlist does not imply MCP/A2A support is shipped. It also does not
+imply callable MCP/A2A support is shipped. The MCP foundation is
+metadata/import only and treats unknown MCP tools as blocked and
+review-required, not read-only. It adds no runtime authority, no connector
+writes, no plugin execution, no broad tool invocation, and no network authority.
+It does not add backend routes, OpenAPI paths, runtime imports, package
+execution, model/provider authority, shell/subprocess execution, browser
+automation, mobile control, autonomous background execution, public
+distribution, or production authority.
 
 Related ecosystem docs:
 
@@ -20,6 +25,8 @@ Related ecosystem docs:
 docs/tooling/PLUGIN_SKILL_ECOSYSTEM_BOUNDARY.md
 docs/tooling/INSPECTABLE_EXTENSION_CATALOG.md
 docs/tooling/EXTENSION_ACTIVATION_GRANTS.md
+docs/tooling/CAPABILITY_PROMOTION_LADDER.md
+docs/tooling/UAA_MCP_GATEWAY_FOUNDATION.md
 docs/roadmap/ECOSYSTEM_WATCHLIST.md
 docs/canonical/66_external_tooling_and_codex_plugin_governance.md
 docs/capability_registry.md
