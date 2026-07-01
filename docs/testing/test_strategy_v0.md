@@ -481,8 +481,9 @@ Dev environment verifier confirms `ultimate_ai_agent`, pytest, and Ruff are impo
 Dev environment verifier prints remediation using `python3 -m venv .venv` and `.venv/bin/python -m pip install -e ".[dev]"`.
 Control Center package metadata is detected when `apps/control-center` exists.
 Missing npm is a warning unless frontend checks are explicitly required by the current repo convention.
-Makefile targets `doctor`, `test`, `verify`, `verify-static`, `verify-gate-architecture`, `verify-fast`, `verify-local`, `frontend-check`, `openapi`, and `ruff` use `.venv/bin/python`.
-`verify-fast` shards local verification across `ruff`, `test`, `verify-static`, and `verify-gate-architecture`, then runs Foundation Gate in `report-only --no-write-latest` mode without implying release readiness.
+Makefile targets `doctor`, `test`, `verify`, `verify-static`, `verify-gate-architecture`, `verify-fast`, `verify-dev-fast`, `verify-local`, `frontend-check`, `openapi`, and `ruff` use `.venv/bin/python`.
+`verify-fast` keeps the serial local shard composition. `verify-dev-fast` runs `ruff`, `test`, `verify-static`, and `verify-gate-architecture` through bounded `make -j$(VERIFY_DEV_FAST_JOBS)` fanout, then runs Foundation Gate in `report-only --no-write-latest` mode without implying release readiness.
+`verify-dev-fast` keeps pytest on the normal non-xdist runner because pytest-xdist is not an accepted dev dependency.
 Repo verification commands should use `.venv/bin/python` or Makefile targets, not bare `python`.
 Shell aliases are not reliable for Codex/non-interactive shells.
 No global Python alias is required.

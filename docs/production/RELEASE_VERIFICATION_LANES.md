@@ -80,14 +80,17 @@ For a local release candidate, run:
 For faster local pre-review feedback, run:
 
 ```bash
-make verify-fast
+make verify-dev-fast
 ```
 
-`verify-fast` runs `ruff`, `test`, `verify-static`, and
-`verify-gate-architecture` as make prerequisites, then generates a report-only
-Foundation Gate summary with `--no-write-latest`. It is useful local evidence,
-but it does not by itself create populated release evidence packets or claim
-release readiness.
+`verify-dev-fast` runs `ruff`, `test`, `verify-static`, and
+`verify-gate-architecture` through a bounded `make -j$(VERIFY_DEV_FAST_JOBS)`
+fanout, then generates a serialized report-only Foundation Gate summary with
+`--no-write-latest`. It uses the normal non-xdist pytest suite and the existing
+`VERIFY_TIMINGS_JSON` static-verifier timing output. It is useful local
+evidence, but it does not by itself create populated release evidence packets or
+claim release readiness. Use full `make verify` for release-grade local proof
+until parallel equivalence is accepted.
 
 For lane-focused review, use the command refs from
 `scripts/verify_release_lanes.py --json`. Split CI may satisfy a lane with an

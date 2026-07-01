@@ -9,6 +9,18 @@ SCRIPT = ROOT / "scripts/verify_dev_environment.py"
 MAKEFILE = ROOT / "Makefile"
 
 
+def make_target_body(text: str, target: str) -> list[str]:
+    lines = text.splitlines()
+    start = lines.index(f"{target}:") + 1
+    body: list[str] = []
+    for line in lines[start:]:
+        if line and not line.startswith("\t"):
+            break
+        if line.startswith("\t"):
+            body.append(line.strip())
+    return body
+
+
 def load_verifier() -> Any:
     spec = importlib.util.spec_from_file_location("verify_dev_environment", SCRIPT)
     assert spec is not None
@@ -69,6 +81,7 @@ def test_makefile_uses_project_venv_python_for_verification_commands() -> None:
         "verify-static:",
         "verify-gate-architecture:",
         "verify-fast:",
+        "verify-dev-fast:",
         "verify-local:",
         "frontend-check:",
         "openapi:",
@@ -77,12 +90,15 @@ def test_makefile_uses_project_venv_python_for_verification_commands() -> None:
         assert target in text
     assert "PYTHON := .venv/bin/python" in text
     assert "VERIFY_TIMINGS_JSON ?= /tmp/uaa_verify_all_timings.json" in text
+    assert "VERIFY_DEV_FAST_JOBS ?= 4" in text
     assert "PYTHONPATH=src $(PYTHON) -m pytest" in text
     assert "$(PYTHON) scripts/verify_all.py" in text
     assert (
         "$(PYTHON) scripts/verify_all.py --skip-ruff --skip-pytest --timings-json $(VERIFY_TIMINGS_JSON)"
         in text
     )
+    assert "$(MAKE) -j$(VERIFY_DEV_FAST_JOBS) ruff test verify-static verify-gate-architecture" in text
+    assert "verify-local: verify-dev-fast" in text
     assert "PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py" in text
     assert "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only" in text
     assert (
@@ -91,3 +107,22 @@ def test_makefile_uses_project_venv_python_for_verification_commands() -> None:
     )
     assert "$(PYTHON) -m ruff check ." in text
     assert "python scripts/" not in text
+
+
+def test_make_verify_remains_serial_release_gate_and_dev_fast_is_opt_in() -> None:
+    text = MAKEFILE.read_text(encoding="utf-8")
+
+    verify_body = make_target_body(text, "verify")
+    assert verify_body == [
+        "$(PYTHON) scripts/verify_all.py",
+        "PYTHONPATH=src $(PYTHON) scripts/verify_gate_architecture.py",
+        "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only",
+    ]
+    assert not any("verify-dev-fast" in line or "-j$(VERIFY_DEV_FAST_JOBS)" in line for line in verify_body)
+
+    verify_dev_fast_body = make_target_body(text, "verify-dev-fast")
+    assert verify_dev_fast_body == [
+        "$(MAKE) -j$(VERIFY_DEV_FAST_JOBS) ruff test verify-static verify-gate-architecture",
+        "$(PYTHON) scripts/run_foundation_gate.py --command-mode report-only --no-write-latest",
+    ]
+    assert not any("verify " in line or "scripts/verify_all.py" in line for line in verify_dev_fast_body)
