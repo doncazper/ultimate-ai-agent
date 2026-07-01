@@ -11,6 +11,7 @@
     "milestone_ref",
     "source_routes_ref",
     "route_status_manifest_ref",
+    "visual_regression_manifest_ref",
     "status_vocabulary",
     "promotion_rules_ref",
     "release_claims_enabled",
@@ -38,6 +39,9 @@
     },
     "route_status_manifest_ref": {
       "const": "docs/control_center/route_status_manifest.json"
+    },
+    "visual_regression_manifest_ref": {
+      "const": "docs/control_center/visual_regression_manifest.json"
     },
     "status_vocabulary": {
       "type": "array",
@@ -131,12 +135,18 @@
         "ui_status",
         "status",
         "backend_routes",
+        "backend_contract_rationale",
+        "visual_proof_status",
+        "visual_baseline_ref",
+        "visual_proof_rationale",
         "side_effect_class",
         "route_classification",
         "approval_required",
         "proof_lanes",
         "blocked_capabilities",
         "evidence_refs",
+        "promotion_criteria",
+        "product_language_caveats",
         "owner"
       ],
       "properties": {
@@ -170,6 +180,25 @@
             "$ref": "#/$defs/backend_route"
           }
         },
+        "backend_contract_rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "visual_proof_status": {
+          "enum": [
+            "checked_in_baseline",
+            "blocked_no_baseline",
+            "experimental_no_baseline"
+          ]
+        },
+        "visual_baseline_ref": {
+          "type": "string",
+          "pattern": "^visual-baseline:control-center:[A-Za-z0-9_.:-]+$"
+        },
+        "visual_proof_rationale": {
+          "type": "string",
+          "minLength": 1
+        },
         "side_effect_class": {
           "type": "string",
           "minLength": 1
@@ -199,6 +228,24 @@
           "uniqueItems": true
         },
         "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "promotion_criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "product_language_caveats": {
           "type": "array",
           "minItems": 1,
           "items": {
