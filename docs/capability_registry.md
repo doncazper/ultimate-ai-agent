@@ -178,7 +178,7 @@ delegation, call providers, fetch the web, or dispatch tools.
 
 ## MCP And A2A Extension Points
 
-Use `manifest_from_mcp_tool_spec()` and `manifest_from_a2a_agent_card()` to convert external metadata into local manifests. These helpers do not create live remote dispatch, network access, provider calls, or plugin execution. MCP imports now fail closed by default: unknown MCP tools become blocked, review-required UAA capability candidates, not read-only capabilities. A future adapter can be registered only after its manifest, policy, exact approval, receipt, replay, revocation, and authority boundary are reviewed.
+Use `manifest_from_mcp_tool_spec()` and `manifest_from_a2a_agent_card()` to convert external metadata into local manifests. These helpers do not create live remote dispatch, network access, provider calls, or plugin execution. MCP and A2A imports fail closed by default: unknown MCP tools and unknown A2A agents become blocked, review-required UAA capability candidates, not read-only or delegation-ready capabilities. A future adapter can be registered only after its manifest, policy, exact approval, receipt, replay, revocation, and authority boundary are reviewed.
 
 ## Local Smoke Harness
 

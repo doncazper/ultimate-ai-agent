@@ -307,26 +307,19 @@ class CapabilityRegistry:
         examples: list[str] | None = None,
         anti_examples: list[str] | None = None,
     ) -> CapabilityManifest:
-        return CapabilityManifest(
-            id=card.agent_id,
-            version=card.version,
-            kind=CapabilityKind.a2a_agent,
-            name=card.name,
-            description="A2A agent card metadata import. Runtime delegation remains adapter-bound.",
-            owner=card.owner,
-            tags=["a2a", *card.declared_capabilities],
-            examples=examples or ["Use after a reviewed A2A adapter is explicitly registered in-process."],
-            anti_examples=anti_examples or ["Do not use as proof of live remote dispatch authority."],
-            input_schema={"type": "object"},
-            output_schema={"type": "object"},
-            input_modes=["structured_ref"],
-            output_modes=["artifact"],
-            side_effects=SideEffectLevel.read,
-            risk_level=CoordinationRiskLevel.medium,
-            allowed_coordination_modes=[CoordinationMode.agent_as_tool, CoordinationMode.handoff],
-            concurrency_safe=False,
-            single_writer_required=False,
-            metadata={"schema_version": card.schema_version, "endpoint_declared": bool(card.endpoint_url)},
+        from ultimate_ai_agent.core.capabilities.a2a_gateway import (
+            a2a_agent_card_to_metadata,
+            a2a_agent_metadata_to_capability_candidate,
+        )
+
+        metadata = a2a_agent_card_to_metadata(card)
+        manifest = a2a_agent_metadata_to_capability_candidate(metadata)
+        return manifest.model_copy(
+            update={
+                "examples": examples or manifest.examples,
+                "anti_examples": anti_examples or manifest.anti_examples,
+                "tags": ["a2a", "gateway-foundation", "metadata-only", *card.declared_capabilities],
+            }
         )
 
     def manifest_from_mcp_tool_spec(
