@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/verification/run_pytest_shards.py"
@@ -166,6 +168,144 @@ def test_build_pytest_command_is_isolated_and_duration_aware(tmp_path: Path) -> 
     assert "--durations-min=0" in command
     assert f"--junitxml={tmp_path / 'junit' / 'pytest-shard-3.xml'}" in command
     assert command[-1] == "tests/test_a.py"
+
+
+def test_shard_env_strips_live_model_opt_in_flags(tmp_path: Path) -> None:
+    runner = load_runner()
+    inherited = {
+        "PYTHONPATH": "existing",
+        "UAA_M160_LIVE_HF_GGUF_SEARCH": "1",
+        "UAA_M160_LIVE_HF_QUERY": "qwen gguf",
+        "UAA_M162_LIVE_HF_ACQUISITION": "1",
+        "UAA_M162_LIVE_HF_REPO": "org/model",
+        "UAA_LLAMA_CPP_GATEWAY_ENABLED": "1",
+        "UAA_LLAMA_CPP_MODEL_PATH": "model-path-ref:test",
+        "UAA_MODEL_ROUTER_SWEEP_ENABLED": "1",
+        "UAA_OPENWEBUI_TEST_GATEWAY_ENABLED": "1",
+        "UAA_TINY_LIVE_PROVIDER_REAL_NETWORK": "1",
+        "UAA_TINY_LIVE_PROVIDER_TRANSIENT_CREDENTIAL": "credential-ref:test",
+        "UAA_LOCAL_MODEL_ROOTS": "model-root-ref:test",
+        "UAA_LOCAL_MODEL_REF": "local-model-ref:test",
+        "SAFE_UNRELATED_ENV": "kept",
+    }
+
+    env = runner.build_shard_env(tmp_path, inherited)
+
+    assert env["PYTHONPATH"] == f"{tmp_path / 'src'}:existing"
+    assert env["SAFE_UNRELATED_ENV"] == "kept"
+    assert "UAA_M160_LIVE_HF_GGUF_SEARCH" not in env
+    assert "UAA_M160_LIVE_HF_QUERY" not in env
+    assert "UAA_M162_LIVE_HF_ACQUISITION" not in env
+    assert "UAA_M162_LIVE_HF_REPO" not in env
+    assert "UAA_LLAMA_CPP_GATEWAY_ENABLED" not in env
+    assert "UAA_LLAMA_CPP_MODEL_PATH" not in env
+    assert "UAA_MODEL_ROUTER_SWEEP_ENABLED" not in env
+    assert "UAA_OPENWEBUI_TEST_GATEWAY_ENABLED" not in env
+    assert "UAA_TINY_LIVE_PROVIDER_REAL_NETWORK" not in env
+    assert "UAA_TINY_LIVE_PROVIDER_TRANSIENT_CREDENTIAL" not in env
+    assert "UAA_LOCAL_MODEL_ROOTS" not in env
+    assert "UAA_LOCAL_MODEL_REF" not in env
+
+
+def test_live_model_opt_in_env_guard_covers_known_live_lanes() -> None:
+    runner = load_runner()
+
+    guarded = {
+        "UAA_M160_LIVE_HF_GGUF_SEARCH",
+        "UAA_M160_LIVE_HF_QUERY",
+        "UAA_M162_LIVE_HF_ACQUISITION",
+        "UAA_M162_LIVE_HF_FILENAME",
+        "UAA_LLAMA_CPP_GATEWAY_ENABLED",
+        "UAA_LLAMA_CPP_API_KEY",
+        "UAA_LLAMA_CPP_BASE_URL",
+        "UAA_LLAMA_CPP_MODEL_CACHE_ROOT",
+        "UAA_LLAMA_CPP_MODEL_PATH",
+        "UAA_MODEL_ROUTER_SWEEP_ENABLED",
+        "UAA_OPENWEBUI_TEST_GATEWAY_ENABLED",
+        "UAA_OPENWEBUI_TEST_MODEL_ID",
+        "UAA_TINY_LIVE_PROVIDER_REAL_NETWORK",
+        "UAA_TINY_LIVE_PROVIDER_TRANSIENT_CREDENTIAL",
+        "UAA_LOCAL_MODEL_ROOTS",
+        "UAA_LOCAL_MODEL_REF",
+    }
+
+    assert all(runner.is_live_model_opt_in_env_var(name) for name in guarded)
+    assert not runner.is_live_model_opt_in_env_var("UAA_ENV")
+    assert not runner.is_live_model_opt_in_env_var("PYTHONPATH")
+
+
+def test_sharded_command_does_not_select_live_or_model_heavy_markers(tmp_path: Path) -> None:
+    runner = load_runner()
+    plan = runner.ShardPlan(
+        index=0,
+        files=("tests/test_m160_hf_gguf_search.py", "tests/test_m162_model_acquisition.py"),
+        expected_seconds=1.0,
+    )
+
+    command = runner.build_pytest_command(
+        plan,
+        tmp_path / "basetemp",
+        write_timings=False,
+        junit_dir=None,
+    )
+
+    assert command[1:3] == ["-m", "pytest"]
+    assert "-m" not in command[3:]
+    assert "--runxfail" not in command
+    assert "--durations=0" not in command
+    assert "UAA_M160_LIVE_HF_GGUF_SEARCH=1" not in " ".join(command)
+    assert "UAA_M162_LIVE_HF_ACQUISITION=1" not in " ".join(command)
+
+
+def test_shard_subprocess_preserves_default_skips_for_live_model_tests(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = load_runner()
+    root = tmp_path / "repo"
+    tests_dir = root / "tests"
+    (root / "src").mkdir(parents=True)
+    tests_dir.mkdir()
+    (tests_dir / "test_live_model_guard.py").write_text(
+        "\n".join(
+            [
+                "import os",
+                "import pytest",
+                "",
+                "@pytest.mark.skipif(",
+                "    os.getenv('UAA_M160_LIVE_HF_GGUF_SEARCH') != '1',",
+                "    reason='explicit live smoke only',",
+                ")",
+                "def test_live_smoke_would_fail_if_env_leaked():",
+                "    raise AssertionError('live smoke env leaked into shard')",
+                "",
+                "def test_live_model_env_is_not_visible():",
+                "    assert os.getenv('UAA_M160_LIVE_HF_GGUF_SEARCH') is None",
+                "    assert os.getenv('UAA_M162_LIVE_HF_ACQUISITION') is None",
+                "    assert os.getenv('UAA_LLAMA_CPP_GATEWAY_ENABLED') is None",
+                "    assert os.getenv('UAA_OPENWEBUI_TEST_GATEWAY_ENABLED') is None",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("UAA_M160_LIVE_HF_GGUF_SEARCH", "1")
+    monkeypatch.setenv("UAA_M162_LIVE_HF_ACQUISITION", "1")
+    monkeypatch.setenv("UAA_LLAMA_CPP_GATEWAY_ENABLED", "1")
+    monkeypatch.setenv("UAA_OPENWEBUI_TEST_GATEWAY_ENABLED", "1")
+
+    results = runner.run_shards(
+        [runner.ShardPlan(0, ("tests/test_live_model_guard.py",), 0.0)],
+        root=root,
+        basetemp=tmp_path / "shards",
+        junit_dir=None,
+        write_timings=False,
+        quiet=True,
+    )
+
+    assert runner.overall_return_code(results) == 0
+    log_text = results[0].log_path.read_text(encoding="utf-8")
+    assert "1 passed, 1 skipped" in log_text
 
 
 def test_overall_return_code_fails_if_any_shard_failed(tmp_path: Path) -> None:

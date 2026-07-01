@@ -18,6 +18,21 @@ TIMING_SCHEMA_VERSION = "uaa_pytest_file_timings.v1"
 DEFAULT_BASETEMP = "/tmp/uaa_pytest_shards"
 DEFAULT_SHARDS = 4
 DURATION_RE = re.compile(r"^\s*(?P<seconds>\d+(?:\.\d+)?)s\s+\w+\s+(?P<nodeid>.+)$")
+LIVE_MODEL_ENV_DENYLIST_PREFIXES = (
+    "UAA_M160_LIVE_HF_",
+    "UAA_M162_LIVE_HF_",
+    "UAA_M164_LLAMA_CPP_",
+    "UAA_LLAMA_CPP_",
+    "UAA_MODEL_ROUTER_SWEEP",
+    "UAA_OPENWEBUI_TEST_",
+    "UAA_TINY_LIVE_PROVIDER_",
+)
+LIVE_MODEL_ENV_DENYLIST_EXACT = frozenset(
+    {
+        "UAA_LOCAL_MODEL_REF",
+        "UAA_LOCAL_MODEL_ROOTS",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -191,8 +206,7 @@ def run_shards(
     if junit_dir is not None:
         junit_dir.mkdir(parents=True, exist_ok=True)
 
-    env = os.environ.copy()
-    env["PYTHONPATH"] = _prepend_pythonpath(str(root / "src"), env.get("PYTHONPATH"))
+    env = build_shard_env(root)
 
     active: dict[int, tuple[subprocess.Popen[str], Any, float, Path, ShardPlan]] = {}
     results: dict[int, ShardResult] = {}
@@ -257,6 +271,27 @@ def _prepend_pythonpath(src_path: str, existing: str | None) -> str:
     if not existing:
         return src_path
     return f"{src_path}{os.pathsep}{existing}"
+
+
+def is_live_model_opt_in_env_var(name: str) -> bool:
+    if name in LIVE_MODEL_ENV_DENYLIST_EXACT:
+        return True
+    return any(name.startswith(prefix) for prefix in LIVE_MODEL_ENV_DENYLIST_PREFIXES)
+
+
+def strip_live_model_opt_in_env(env: dict[str, str]) -> dict[str, str]:
+    return {
+        name: value
+        for name, value in env.items()
+        if not is_live_model_opt_in_env_var(name)
+    }
+
+
+def build_shard_env(root: Path, inherited: dict[str, str] | None = None) -> dict[str, str]:
+    base_env = dict(os.environ if inherited is None else inherited)
+    env = strip_live_model_opt_in_env(base_env)
+    env["PYTHONPATH"] = _prepend_pythonpath(str(root / "src"), env.get("PYTHONPATH"))
+    return env
 
 
 def collect_file_timings(

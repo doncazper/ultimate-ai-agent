@@ -248,6 +248,13 @@ same bounded local fanout, then runs Foundation Gate report-only with
 `--no-write-latest`. This is local pre-review feedback only; full `make verify`
 remains the conservative release-grade proof.
 
+The sharded lane parallelizes the same default-safe contract test posture. It
+does not opt into live GGUF search or acquisition, local model root
+enumeration, model loading, model benchmarking, llama.cpp startup, OpenWebUI
+startup, provider live-network tests, or model-router sweeps. Shard
+subprocesses strip known live/model-heavy opt-in environment variables before
+pytest starts, so optional live tests remain skipped by default.
+
 Useful direct checks:
 
 ```bash

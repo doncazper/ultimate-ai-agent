@@ -105,6 +105,14 @@ not change `make verify`, does not add pytest-xdist or dependency churn, and
 does not become the release gate unless a later accepted equivalence milestone
 promotes it with verifier-backed proof.
 
+The sharded lane is not a live/model-heavy lane. Shard subprocesses strip known
+opt-in environment variables for live GGUF search/acquisition, local model root
+enumeration, llama.cpp gateway/startup paths, OpenWebUI test gateway startup,
+provider live-network smoke tests, model loading, benchmarking, and
+model-router sweep posture. Existing optional/live tests remain env-gated and
+skipped by default, so `verify-dev-sharded` stays local/dev contract
+verification rather than model discovery or runtime activation.
+
 For lane-focused review, use the command refs from
 `scripts/verify_release_lanes.py --json`. Split CI may satisfy a lane with an
 equivalent required job only when the release evidence packet records the job

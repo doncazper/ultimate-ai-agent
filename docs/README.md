@@ -352,6 +352,12 @@ back to deterministic file-count sharding. This lane does not change
 `make verify`, does not add dependencies such as pytest-xdist, and is not the
 release gate.
 
+The sharded lane does not broaden test authority. Shard subprocesses strip
+known live/model-heavy opt-in environment variables for GGUF search,
+acquisition, local model roots, llama.cpp gateways, OpenWebUI test gateways,
+and provider live-network smoke tests. Existing optional/live tests remain
+env-gated and skipped by default.
+
 The named release lanes are described in
 `docs/production/RELEASE_VERIFICATION_LANES.md`. Release evidence packets are
 defined in `docs/production/RELEASE_EVIDENCE_PACKET.md`.
