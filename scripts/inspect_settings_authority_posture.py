@@ -8,11 +8,18 @@ from typing import Any
 from ultimate_ai_agent.core.control_center.operational_status import (
     build_control_center_settings_status,
 )
+from ultimate_ai_agent.core.control_center import (
+    build_provider_credential_readiness_summary,
+)
 
 
 def inspect_settings_authority_posture() -> dict[str, Any]:
     status = build_control_center_settings_status()
+    provider_readiness = build_provider_credential_readiness_summary()
     payload = status.model_dump(mode="json")
+    provider_diagnostics = (
+        provider_readiness.provider_settings_diagnostics.model_dump(mode="json")
+    )
     return {
         "ok": True,
         "schema_version": payload["schema_version"],
@@ -23,6 +30,7 @@ def inspect_settings_authority_posture() -> dict[str, Any]:
         "kill_switch_postures": payload["kill_switch_postures"],
         "feature_flag_postures": payload["feature_flag_postures"],
         "blocked_authorities": payload["blocked_authorities"],
+        "provider_settings_diagnostics": provider_diagnostics,
         "redactions_applied": payload["redactions_applied"],
         "authority_denied": {
             "callable_runtime_authority_enabled": payload[
