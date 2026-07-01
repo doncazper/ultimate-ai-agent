@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from ultimate_ai_agent.core.adapters import A2AAgentCardMinimal
+from ultimate_ai_agent.core.adapters import A2AAgentCardV1, UAAA2AAgentCardMetadataImport
 from ultimate_ai_agent.core.capabilities.enums import (
     CapabilityAuthorityLevel,
     CapabilityCostClass,
@@ -209,6 +209,19 @@ class A2AExactDelegationApprovalBinding(BaseModel):
         return [_safe_ref(value) for value in values]
 
 
+class A2AExactDelegationApprovalContext(BaseModel):
+    task_ref: str
+    handoff_ref: str
+    expires_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("task_ref", "handoff_ref", "expires_ref")
+    @classmethod
+    def validate_safe_ref(cls, value: str) -> str:
+        return _safe_ref(value)
+
+
 class A2AApprovalBindingDecision(BaseModel):
     allowed: bool
     status: Literal["approval_bound", "blocked"]
@@ -274,7 +287,7 @@ class A2AReplayAuditRecord(BaseModel):
 
 
 def a2a_agent_card_to_metadata(
-    card: A2AAgentCardMinimal,
+    card: UAAA2AAgentCardMetadataImport,
     *,
     provenance_ref: str = "provenance-ref:a2a:unreviewed",
 ) -> A2AAgentMetadata:
@@ -301,6 +314,47 @@ def a2a_agent_card_to_metadata(
         safe_disable_ref=f"safe-disable-ref:a2a:{safe_agent}",
         expected_receipt_ref=f"receipt-ref:a2a:{safe_agent}:blocked",
         evidence_refs=[f"evidence-ref:a2a:{safe_agent}:agent-card-metadata"],
+    )
+
+
+def a2a_v1_agent_card_to_metadata(
+    card: A2AAgentCardV1,
+    *,
+    provenance_ref: str = "provenance-ref:a2a:v1-unreviewed",
+) -> A2AAgentMetadata:
+    safe_agent = _safe_token(f"{card.name}-{card.version}")
+    skill_refs = [f"capability-ref:a2a-declared:{_safe_token(skill.id)}" for skill in card.skills]
+    protocol_refs = [
+        f"interface-ref:a2a:{_safe_token(interface.protocol_binding)}:{_safe_token(interface.protocol_version)}"
+        for interface in card.supported_interfaces
+    ]
+    peer_auth_declared = bool(card.security_schemes or card.security)
+    provider_owner = card.provider.organization if card.provider else "unknown-provider"
+    return A2AAgentMetadata(
+        agent_ref=f"a2a-agent-ref:{safe_agent}",
+        card_ref=f"a2a-card-ref:{safe_agent}:v1",
+        name=card.name,
+        owner_ref=f"owner-ref:a2a:{_safe_token(provider_owner)}",
+        version_ref=f"version-ref:a2a:{_safe_token(card.version)}",
+        schema_version_ref="schema-version-ref:a2a:1.0",
+        declared_capability_refs=skill_refs,
+        requested_grant_refs=["grant-ref:a2a:peer-auth-review-required"] if peer_auth_declared else [],
+        endpoint_ref="endpoint-ref:a2a:v1:supported-interface-redacted",
+        endpoint_declared=True,
+        provenance_ref=provenance_ref,
+        trust_posture=A2ATrustPosture.untrusted_metadata,
+        auth_posture=A2AAuthPosture.peer_auth_blocked if peer_auth_declared else A2AAuthPosture.none_declared,
+        status_ref=f"status-ref:a2a:{safe_agent}:v1-metadata-only",
+        audit_ref=f"audit-ref:a2a:{safe_agent}:v1",
+        replay_ref=f"replay-ref:a2a:{safe_agent}:v1",
+        revocation_ref=f"revocation-ref:a2a:{safe_agent}:v1",
+        safe_disable_ref=f"safe-disable-ref:a2a:{safe_agent}:v1",
+        expected_receipt_ref=f"receipt-ref:a2a:{safe_agent}:v1-blocked",
+        evidence_refs=[
+            f"evidence-ref:a2a:{safe_agent}:agent-card-v1",
+            f"evidence-ref:a2a:{safe_agent}:supported-interfaces-redacted",
+            *protocol_refs,
+        ],
     )
 
 
@@ -410,6 +464,7 @@ def evaluate_a2a_exact_approval_binding(
     binding: A2AExactDelegationApprovalBinding,
     metadata: A2AAgentMetadata,
     manifest: CapabilityManifest,
+    context: A2AExactDelegationApprovalContext,
 ) -> A2AApprovalBindingDecision:
     reason_codes: list[str] = []
     if binding.agent_ref != metadata.agent_ref:
@@ -418,6 +473,12 @@ def evaluate_a2a_exact_approval_binding(
         reason_codes.append("A2A_APPROVAL_CARD_MISMATCH")
     if binding.capability_id != manifest.id:
         reason_codes.append("A2A_APPROVAL_CAPABILITY_MISMATCH")
+    if binding.task_ref != context.task_ref:
+        reason_codes.append("A2A_APPROVAL_TASK_MISMATCH")
+    if binding.handoff_ref != context.handoff_ref:
+        reason_codes.append("A2A_APPROVAL_HANDOFF_MISMATCH")
+    if binding.expires_ref != context.expires_ref:
+        reason_codes.append("A2A_APPROVAL_EXPIRES_MISMATCH")
     if binding.expected_receipt_ref != metadata.expected_receipt_ref:
         reason_codes.append("A2A_APPROVAL_RECEIPT_MISMATCH")
     if binding.revocation_ref != metadata.revocation_ref:

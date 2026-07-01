@@ -9,7 +9,7 @@ from typing import Any, Callable, Iterable, Mapping, Type
 
 from pydantic import BaseModel
 
-from ultimate_ai_agent.core.adapters import A2AAgentCardMinimal
+from ultimate_ai_agent.core.adapters import UAAA2AAgentCardMetadataImport
 from ultimate_ai_agent.core.capabilities.enums import (
     CapabilityHealthStatus,
     CapabilityKind,
@@ -302,7 +302,7 @@ class CapabilityRegistry:
 
     def manifest_from_a2a_agent_card(
         self,
-        card: A2AAgentCardMinimal,
+        card: UAAA2AAgentCardMetadataImport,
         *,
         examples: list[str] | None = None,
         anti_examples: list[str] | None = None,

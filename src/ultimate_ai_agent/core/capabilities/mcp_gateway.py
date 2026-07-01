@@ -185,6 +185,20 @@ class McpExactApprovalBinding(BaseModel):
         return [_safe_ref(value) for value in values]
 
 
+class McpExactApprovalContext(BaseModel):
+    argument_ref: str
+    scope_ref: str
+    budget_ref: str
+    expires_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("argument_ref", "scope_ref", "budget_ref", "expires_ref")
+    @classmethod
+    def validate_safe_ref(cls, value: str) -> str:
+        return _safe_ref(value)
+
+
 class McpApprovalBindingDecision(BaseModel):
     allowed: bool
     status: Literal["approval_bound", "blocked"]
@@ -349,6 +363,7 @@ def evaluate_mcp_exact_approval_binding(
     binding: McpExactApprovalBinding,
     metadata: McpDiscoveryToolMetadata,
     manifest: CapabilityManifest,
+    context: McpExactApprovalContext,
 ) -> McpApprovalBindingDecision:
     reason_codes: list[str] = []
     if binding.server_ref != metadata.server_ref:
@@ -357,6 +372,14 @@ def evaluate_mcp_exact_approval_binding(
         reason_codes.append("MCP_APPROVAL_TOOL_MISMATCH")
     if binding.capability_id != manifest.id:
         reason_codes.append("MCP_APPROVAL_CAPABILITY_MISMATCH")
+    if binding.argument_ref != context.argument_ref:
+        reason_codes.append("MCP_APPROVAL_ARGUMENT_MISMATCH")
+    if binding.scope_ref != context.scope_ref:
+        reason_codes.append("MCP_APPROVAL_SCOPE_MISMATCH")
+    if binding.budget_ref != context.budget_ref:
+        reason_codes.append("MCP_APPROVAL_BUDGET_MISMATCH")
+    if binding.expires_ref != context.expires_ref:
+        reason_codes.append("MCP_APPROVAL_EXPIRES_MISMATCH")
     if binding.expected_receipt_ref != metadata.expected_receipt_ref:
         reason_codes.append("MCP_APPROVAL_RECEIPT_MISMATCH")
     if binding.revocation_ref != metadata.revocation_ref:
