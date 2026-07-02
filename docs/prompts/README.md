@@ -50,14 +50,16 @@ Added `agent_gateway_guard.system.md` to protect the API boundary and prevent Op
 
 Active registry: `prompt_registry_v0_5_2.json`.
 
-## Founder Command Center authority ramp prompts
+## Founder Command Center Authority Graduation Program prompts
 
-Stored execution prompts for `FCC-AUTH-RAMP-001` live in
-`docs/prompts/fcc_authority_ramp/`. They are operator-run prompts, not runtime
-system prompts, and they do not grant authority by themselves. Use
+Stored execution prompts for the `FCC-AUTH-RAMP-001` Authority Graduation
+Program live in `docs/prompts/fcc_authority_ramp/`. They are operator-run
+prompts, not runtime system prompts, and they do not grant authority by
+themselves. Use
 `docs/prompts/fcc_authority_ramp/00_execute_all_review_verify_harden.prompt.md`
-to run the sequence from charter through read-only/proposal foundation,
-authority candidate ranking, and the first exact micro-lane gate.
+to run the sequence from charter through the fixed first implementation lane:
+`read_only_real_world_web_fetch` through `WebAccessGateway`, follow-on
+authority candidate ranking, and the follow-on micro-lane graduation gate.
 
 ## Founder Command Center planned sequence prompts
 

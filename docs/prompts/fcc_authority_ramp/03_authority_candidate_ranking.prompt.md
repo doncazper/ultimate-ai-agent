@@ -1,4 +1,4 @@
-# FCC-AUTH-RAMP-001b Authority Candidate Ranking
+# FCC-AUTH-RAMP-001b Authority Graduation Candidate Ranking
 
 Role: You are a Principal Software Engineer building an adversarial scorecard
 for future Founder Command Center authority candidates.
@@ -17,10 +17,11 @@ Read first:
   maturity verifier code/tests
 
 Goal:
-Rank future authority candidates so the repo can choose one narrow micro-lane
-at a time instead of drifting into broad autonomy.
+Rank follow-on authority candidates so the repo can choose one narrow
+micro-lane at a time after the fixed `read_only_real_world_web_fetch`
+implementation prompt, instead of drifting into broad autonomy.
 
-Candidate classes:
+Follow-on candidate classes:
 - connector writes
 - memory writes
 - shell/subprocess local maintenance
@@ -55,13 +56,17 @@ Implementation requirements:
    - `micro_lane_candidate`
    - `blocked_by_policy`
 4. Require explicit blockers and smallest next safe action for every candidate.
-5. Add verifier checks that prevent a candidate from being marked
+5. Treat `read_only_real_world_web_fetch` through `WebAccessGateway` as the
+   fixed first implementation lane, not a substitute scorecard candidate for
+   broader authority. If that lane is blocked, follow-on candidates stay blocked
+   too.
+6. Add verifier checks that prevent any candidate from being marked
    `micro_lane_candidate` without exact scope, approval plan, idempotency plan,
    receipt/evidence plan, rollback/safe-disable plan, CLI/API/core parity refs,
    and focused tests or test refs.
-6. Provider/model output must not become production authority. At most it may
+7. Provider/model output must not become production authority. At most it may
    propose candidates for Python core/policy review.
-7. Context injection must remain blocked unless context-pack proposals are
+8. Context injection must remain blocked unless context-pack proposals are
    inspectable, approval-bound, receipt-backed, and explicitly scoped.
 
 Tests to add or update:
