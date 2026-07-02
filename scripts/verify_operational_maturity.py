@@ -14,10 +14,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
-from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E402
 from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E402
     FounderLoopActionDecisionRequest,
-    action_approval_request,
 )
 from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
     FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
@@ -1895,33 +1893,10 @@ def _approve_probe_local_task_action(
     repo: FounderLoopRepository,
     action: dict[str, Any],
 ) -> dict[str, Any]:
-    request = FounderLoopActionDecisionRequest(
-        decision_reason_ref="decision-reason-ref:operational-maturity-action-approval"
-    )
-    approval_request = action_approval_request(
-        item_ref=str(action["item_ref"]),
-        actor_context=request.actor_context,
-        risk_class=str(action["risk_class"]),
-        resource_refs=[
-            str(action["item_ref"]),
-            str(action["action_envelope_ref"]),
-            str(action["action_scope_ref"]),
-            str(action["action_approval_requirement_ref"]),
-        ],
-    )
-    authority = LocalApprovalAuthority()
-    authority.create_request(approval_request)
-    grant = authority.grant(
-        approval_request.approval_request_id,
-        approved_by_actor_id="local_operational_maturity_probe",
-        approval_ref="approval-ref:operational-maturity-action-approve",
-    )
     repo.record_action_decision(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            approval_ref=grant.approval_ref,
-            approval_grants=[grant],
             decision_reason_ref="decision-reason-ref:operational-maturity-action-approval",
         ),
         idempotency_key_ref="idempotency-ref:operational-maturity-action-approval",

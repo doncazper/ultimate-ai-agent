@@ -29,46 +29,11 @@ from ultimate_ai_agent.core.storage import (
 from ultimate_ai_agent.core.storage.founder_loop import FounderLoopActionRecord
 
 
-def _approval_grant_for_request(approval_request, approval_ref: str):
-    authority = LocalApprovalAuthority()
-    authority.create_request(approval_request)
-    return authority.grant(
-        approval_request.approval_request_id,
-        approved_by_actor_id="local-test-reviewer",
-        approval_ref=approval_ref,
-    )
-
-
 def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, object]:
-    action = next(
-        item
-        for item in repo.list_action_inbox()
-        if item["item_ref"] == "founder-action:local-task-create-scorecard"
-    )
-    request = FounderLoopActionDecisionRequest(
-        decision_reason_ref="decision-reason-ref:test-local-task-action-approval"
-    )
-    approval_request = action_approval_request(
-        item_ref=str(action["item_ref"]),
-        actor_context=request.actor_context,
-        risk_class=str(action["risk_class"]),
-        resource_refs=[
-            str(action["item_ref"]),
-            str(action["action_envelope_ref"]),
-            str(action["action_scope_ref"]),
-            str(action["action_approval_requirement_ref"]),
-        ],
-    )
-    grant = _approval_grant_for_request(
-        approval_request,
-        "approval-ref:test-local-task-action-approve",
-    )
     receipt = repo.record_action_decision(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            approval_ref=grant.approval_ref,
-            approval_grants=[grant],
             decision_reason_ref="decision-reason-ref:test-local-task-action-approval",
         ),
         idempotency_key_ref="idempotency-ref:test-local-task-action-approval",
@@ -111,6 +76,54 @@ def test_action_inbox_backend_owned_approval_makes_local_task_lane_eligible(
     assert action["receipt_visibility"]["decision_receipt_ref"] == approval_receipt[
         "receipt_ref"
     ]
+
+
+def test_action_decision_ignores_caller_supplied_approval_grants(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    action = next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:setup-assistant-hardening"
+    )
+    request = FounderLoopActionDecisionRequest(
+        decision_reason_ref="decision-reason-ref:test-caller-grant-denied"
+    )
+    approval_request = action_approval_request(
+        item_ref=str(action["item_ref"]),
+        actor_context=request.actor_context,
+        risk_class=str(action["risk_class"]),
+        resource_refs=[
+            str(action["item_ref"]),
+            str(action["action_envelope_ref"]),
+            str(action["action_scope_ref"]),
+            str(action["action_approval_requirement_ref"]),
+        ],
+    )
+    authority = LocalApprovalAuthority()
+    authority.create_request(approval_request)
+    forged_grant = authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="local-test-reviewer",
+        approval_ref="approval-ref:test-caller-supplied-action-approve",
+    )
+
+    receipt = repo.record_action_decision(
+        action_id="setup-assistant-hardening",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            approval_ref=forged_grant.approval_ref,
+            approval_grants=[forged_grant],
+            decision_reason_ref="decision-reason-ref:test-caller-grant-denied",
+        ),
+        idempotency_key_ref="idempotency-ref:test-caller-grant-denied",
+    )
+
+    assert receipt["status"] == "blocked"
+    assert receipt["approval_status"] != "approved"
+    assert receipt["approval_grants_execution"] is False
+    assert receipt["action_executed"] is False
 
 
 def _local_task_commit_request_for_action(

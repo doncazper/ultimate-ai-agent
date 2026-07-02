@@ -65,6 +65,7 @@ import type {
   MemoryFeedbackKind,
   MemoryFeedbackReceipt,
   ProviderCredentialReadinessSummary,
+  RunAttachedApprovalQueue,
 } from "../api/types";
 
 const evidenceHistoryKeys = [
@@ -4129,10 +4130,12 @@ export function InboxSurfacePanel({
 
 export function ActionInboxSurfacePanel({
   actionReadModelAuthoritative,
+  approvalReview,
   inbox,
   providerCredentialReadiness,
 }: {
   actionReadModelAuthoritative: boolean;
+  approvalReview?: RunAttachedApprovalQueue;
   inbox: FounderLoopActionsInbox;
   providerCredentialReadiness?: ProviderCredentialReadinessSummary;
 }) {
@@ -4193,6 +4196,9 @@ export function ActionInboxSurfacePanel({
         actionGroups={actionGroups}
         inbox={displayedInbox}
       />
+      {approvalReview ? (
+        <ActionInboxApprovalReviewStrip queue={approvalReview} />
+      ) : null}
       <ActionInboxDecisionLanePanel
         contractRef={displayedInbox.action_inbox_decision_lane_contract_ref}
         readModel={displayedInbox.action_inbox_decision_lane_read_model}
@@ -4536,6 +4542,38 @@ type ActionLaneGroup = {
   summary: FounderLoopActionGroupSummary;
   items: FounderLoopActionItem[];
 };
+
+function ActionInboxApprovalReviewStrip({
+  queue,
+}: {
+  queue: RunAttachedApprovalQueue;
+}) {
+  const review = queue.unified_review;
+  const sourceLabel = review.backend_owned
+    ? "backend-owned"
+    : "mock-only / non-authoritative";
+  return (
+    <article className="status-card" aria-label="Action Inbox approval review">
+      <div className="status-card-header">
+        <h3>Approval review</h3>
+        <span>{sourceLabel}</span>
+      </div>
+      <p>
+        {review.safe_summary} Approval refs are identifiers only; this Action
+        Inbox strip has no approve, deny, revoke, resume, execute, connector
+        send, provider call, worker, or scheduler control.
+      </p>
+      <dl className="detail-list">
+        <DetailTerm label="Review items" value={String(review.history_count)} />
+        <DetailTerm label="Pending refs" value={String(review.pending_count)} />
+        <DetailTerm label="Blocked refs" value={String(review.blocked_count)} />
+        <DetailTerm label="Route" value={review.route_ref} />
+        <DetailTerm label="CLI" value={review.cli_ref} />
+      </dl>
+      <RefList refs={review.blocked_authority_refs.slice(0, 8)} />
+    </article>
+  );
+}
 
 function ActionInboxDecisionLanePanel({
   contractRef,

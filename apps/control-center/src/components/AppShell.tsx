@@ -128,7 +128,7 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
             value={killSwitchPosture}
             tone="orange"
           />
-          <PostureRow label="Local-first" value="Status-only shell" tone="blue" />
+          <PostureRow label="Local-first" value="Status + exact backend lanes" tone="blue" />
         </div>
       </aside>
       <div className="workspace">

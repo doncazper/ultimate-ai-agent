@@ -52,6 +52,7 @@ from ultimate_ai_agent.core.code import (
     governed_code_workbench_surface_bindings,
 )
 from ultimate_ai_agent.core.control_center.action_decisions import (
+    ACTION_DECISION_REQUESTED_ACTION,
     FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS,
     FOUNDER_LOOP_ACTION_DECISION_KINDS,
     FOUNDER_LOOP_ACTION_DECISION_ROUTE_REFS,
@@ -10740,10 +10741,63 @@ class FounderLoopRepository:
             approved_by_actor_id=request.actor_context.actor_id,
             approval_ref=approval_ref,
         )
+        grant_payload = grant.model_dump(mode="json")
+        receipt_payload = {
+            "contract_ref": "contract-ref:founder-loop-internal-approval-capture:v1",
+            "approval_kind": "founder_loop_action_decision",
+            "approval_ref": approval_ref,
+            "subject_ref": str(action["item_ref"]),
+            "requested_action": ACTION_DECISION_REQUESTED_ACTION,
+            "exact_scope_ref": str(action["action_approval_requirement_ref"]),
+            "idempotency_key_ref": idempotency_key_ref,
+            "status": "approved",
+            "safe_summary": (
+                "Backend-owned approval captured for Founder Loop Action "
+                "decision state only."
+            ),
+            "safe_refs_only": True,
+            "raw_content_omitted": True,
+            "created_at": _utc_iso(),
+            "expires_at": grant.expires_at.isoformat() if grant.expires_at else "",
+        }
+        _validate_safe_payload(receipt_payload, "founder_loop_action_approval_capture")
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO founder_loop_internal_approval_grants (
+                    approval_ref, approval_kind, subject_ref, requested_action,
+                    exact_scope_ref, idempotency_key_ref, grant_json, receipt_json,
+                    created_at, expires_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(approval_ref) DO UPDATE SET
+                    approval_kind = excluded.approval_kind,
+                    subject_ref = excluded.subject_ref,
+                    requested_action = excluded.requested_action,
+                    exact_scope_ref = excluded.exact_scope_ref,
+                    idempotency_key_ref = excluded.idempotency_key_ref,
+                    grant_json = excluded.grant_json,
+                    receipt_json = excluded.receipt_json,
+                    created_at = excluded.created_at,
+                    expires_at = excluded.expires_at
+                """,
+                (
+                    approval_ref,
+                    "founder_loop_action_decision",
+                    str(action["item_ref"]),
+                    ACTION_DECISION_REQUESTED_ACTION,
+                    str(action["action_approval_requirement_ref"]),
+                    idempotency_key_ref,
+                    _json_dumps(grant_payload),
+                    _json_dumps(receipt_payload),
+                    str(receipt_payload["created_at"]),
+                    str(receipt_payload["expires_at"]),
+                ),
+            )
         return request.model_copy(
             update={
                 "approval_ref": approval_ref,
-                "approval_grants": [grant],
+                "approval_grants": [],
             }
         )
 
@@ -11459,6 +11513,7 @@ class FounderLoopRepository:
             action=action,
             decision=decision,
             request=request,
+            idempotency_key_ref=idempotency_key_ref,
         )
         receipt_ref = action_decision_receipt_ref(
             item_ref,
@@ -11539,6 +11594,7 @@ class FounderLoopRepository:
         action: dict[str, Any],
         decision: str,
         request: FounderLoopActionDecisionRequest,
+        idempotency_key_ref: str,
     ) -> tuple[str, str, list[str]]:
         if decision == "approve":
             if request.approval_ref is None:
@@ -11560,7 +11616,15 @@ class FounderLoopRepository:
             )
             authority = LocalApprovalAuthority()
             authority.create_request(approval_request)
-            for grant in request.approval_grants:
+            grant = self._internal_approval_grant_for_ref(
+                approval_ref=request.approval_ref,
+                approval_kind="founder_loop_action_decision",
+                subject_ref=str(action["item_ref"]),
+                requested_action=ACTION_DECISION_REQUESTED_ACTION,
+                exact_scope_ref=str(action["action_approval_requirement_ref"]),
+                idempotency_key_ref=idempotency_key_ref,
+            )
+            if grant is not None:
                 authority.load_grant_for_validation(grant)
             decision_result = authority.validate_for_request(
                 approval_request,
@@ -11637,7 +11701,7 @@ class FounderLoopRepository:
             else FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF
         )
         state_change_readiness = (
-            "execution_ready_contract_approval_recorded"
+            "local_task_commit_ready_contract_approval_recorded"
             if local_task_approved
             else "decision_receipt_recorded_no_action_execution"
         )
@@ -14998,7 +15062,7 @@ class FounderLoopRepository:
                     approval_envelope_ref="approval-envelope:founder-loop:local-task-create-scorecard",
                     approval_envelope_status="review_ready_exact_scope_required",
                     state_change_contract_ref=FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
-                    state_change_readiness="execution_ready_contract_requires_approval",
+                    state_change_readiness="local_task_commit_contract_requires_approval",
                     blocked_state=(
                         "Local task commit is blocked until this Action item is "
                         "approved with exact scope and idempotency."

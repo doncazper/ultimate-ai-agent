@@ -145,6 +145,99 @@ export interface RunAttachedApprovalQueueSummary {
   ui_mutation_controls_enabled: boolean;
 }
 
+export type UnifiedApprovalReviewSource =
+  | "durable_run"
+  | "provider_tool_contract"
+  | "connector_delivery"
+  | "coworker_handoff";
+
+export interface UnifiedApprovalReviewItem {
+  schema_version: "unified_approval_review_item.v1";
+  item_ref: string;
+  source_type: UnifiedApprovalReviewSource;
+  title: string;
+  approval_state: RunAttachedApprovalState;
+  run_ref: string;
+  source_ref: string;
+  approval_ref?: string | null;
+  approval_request_ref?: string | null;
+  approval_decision_ref?: string | null;
+  approval_receipt_ref?: string | null;
+  requested_scope_ref: string;
+  approval_scope_validation_ref?: string | null;
+  expiry_ref?: string | null;
+  revocation_ref?: string | null;
+  provider_tool_contract_refs: string[];
+  connector_delivery_refs: string[];
+  coworker_handoff_refs: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  receipt_refs: string[];
+  audit_refs: string[];
+  replay_refs: string[];
+  rollback_refs: string[];
+  blocked_authority_refs: string[];
+  route_refs: string[];
+  safe_summary: string;
+  next_safe_action: string;
+  safe_refs_only: boolean;
+  raw_payloads_persisted: boolean;
+  approval_refs_are_identifiers_only: boolean;
+  approval_ref_grants_authority: boolean;
+  local_approval_authority_scope_validated: boolean;
+  ui_mutation_controls_enabled: boolean;
+  execution_authority_enabled: boolean;
+  provider_model_calls_enabled: boolean;
+  tool_execution_enabled: boolean;
+  connector_writes_enabled: boolean;
+  connector_sends_enabled: boolean;
+  background_worker_enabled: boolean;
+  scheduler_enabled: boolean;
+}
+
+export interface UnifiedApprovalReview {
+  schema_version: "unified_approval_review.v1";
+  source:
+    | "python_core_unified_approval_review_read_model"
+    | "mock_fallback_non_authoritative";
+  backend_owned: boolean;
+  review_ref: string;
+  route_ref: string;
+  route_refs: string[];
+  cli_ref: string;
+  review_items: UnifiedApprovalReviewItem[];
+  pending_approval_refs: string[];
+  approval_history_refs: string[];
+  run_refs: string[];
+  provider_tool_contract_refs: string[];
+  connector_delivery_refs: string[];
+  coworker_handoff_refs: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  receipt_refs: string[];
+  blocked_authority_refs: string[];
+  pending_count: number;
+  history_count: number;
+  blocked_count: number;
+  expired_count: number;
+  revoked_count: number;
+  scope_mismatch_blocked_count: number;
+  safe_summary: string;
+  next_safe_action: string;
+  safe_refs_only: boolean;
+  raw_payloads_persisted: boolean;
+  approval_refs_are_identifiers_only: boolean;
+  approval_ref_grants_authority: boolean;
+  ui_mutation_controls_enabled: boolean;
+  execution_authority_enabled: boolean;
+  provider_model_calls_enabled: boolean;
+  tool_execution_enabled: boolean;
+  connector_writes_enabled: boolean;
+  connector_sends_enabled: boolean;
+  background_worker_enabled: boolean;
+  scheduler_enabled: boolean;
+}
+
 export interface RunAttachedApprovalQueue {
   schema_version: "run_attached_approval_queue.v1";
   source:
@@ -161,6 +254,7 @@ export interface RunAttachedApprovalQueue {
   pending_approvals_by_run: RunAttachedApprovalRunBucket[];
   approval_history_by_run: RunAttachedApprovalRunBucket[];
   summary: RunAttachedApprovalQueueSummary;
+  unified_review: UnifiedApprovalReview;
   safe_refs_only: boolean;
   raw_payloads_persisted: boolean;
   approval_refs_are_identifiers_only: boolean;

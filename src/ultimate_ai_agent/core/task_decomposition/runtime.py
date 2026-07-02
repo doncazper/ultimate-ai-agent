@@ -937,6 +937,14 @@ class TaskDecompositionService:
         )
         return model.model_dump(mode="json")
 
+    def approval_review(
+        self,
+        run_id: str | None = None,
+        *,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        return self.run_attached_approval_queue(run_id, limit=limit)["unified_review"]
+
     def audit_events(self, limit: int = 100) -> list[dict[str, Any]]:
         events = self.registry_store.load_audit_events()
         return [event.model_dump(mode="json") for event in events[-limit:]]

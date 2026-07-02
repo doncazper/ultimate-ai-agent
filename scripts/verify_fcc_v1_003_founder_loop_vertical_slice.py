@@ -23,13 +23,10 @@ from scripts.verification.repo import (  # noqa: E402
     print_failures_or_success,
 )
 from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
-from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E402
 from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E402
     FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF,
     FounderLoopActionDecisionRequest,
-    action_approval_request,
 )
-from ultimate_ai_agent.core.storage import FounderLoopRepository  # noqa: E402
 
 
 SUCCESS_MESSAGE = "FCC-V1-003 Founder Loop vertical slice verification passed."
@@ -355,32 +352,10 @@ def _exercise_decisions(
 
 
 def _approval_body(state_dir: str, item_ref: str) -> dict[str, Any]:
-    repo = FounderLoopRepository(Path(state_dir))
-    action = next(item for item in repo.list_action_inbox(limit=200) if item["item_ref"] == item_ref)
     request = FounderLoopActionDecisionRequest(
         decision_reason_ref="decision-reason-ref:fcc-v1-003-approve"
     )
-    approval_request = action_approval_request(
-        item_ref=item_ref,
-        actor_context=request.actor_context,
-        risk_class=str(action["risk_class"]),
-        resource_refs=[
-            item_ref,
-            str(action["action_envelope_ref"]),
-            str(action["action_scope_ref"]),
-            str(action["action_approval_requirement_ref"]),
-        ],
-    )
-    authority = LocalApprovalAuthority()
-    authority.create_request(approval_request)
-    grant = authority.grant(
-        approval_request.approval_request_id,
-        approved_by_actor_id="local-fcc-v1-003-reviewer",
-        approval_ref="approval-ref:fcc-v1-003-exact",
-    )
     return {
-        "approval_ref": grant.approval_ref,
-        "approval_grants": [grant.model_dump(mode="json")],
         "decision_reason_ref": request.decision_reason_ref,
     }
 

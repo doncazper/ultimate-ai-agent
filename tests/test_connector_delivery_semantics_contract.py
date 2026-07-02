@@ -118,6 +118,29 @@ def test_valid_envelope_validates_contract_only_without_delivery_authority() -> 
     assert envelope.credential_collection_enabled is False
 
 
+@pytest.mark.parametrize("approval_state", ["not_validated", "requested"])
+def test_connector_delivery_requires_metadata_only_approval_posture(
+    approval_state: str,
+) -> None:
+    envelope = _envelope()
+
+    decision = validate_connector_delivery_envelope(
+        envelope,
+        ConnectorDeliveryValidationContext(
+            known_connector_refs=[CONNECTOR_REF],
+            known_channel_refs=[CHANNEL_REF],
+            outbound_approval_ref=APPROVAL_REF,
+            outbound_approval_state=approval_state,
+        ),
+    )
+
+    assert decision.validation_status == "approval_required"
+    assert decision.contract_valid is False
+    assert decision.blocked is True
+    assert decision.delivery_permitted is False
+    assert "OUTBOUND_APPROVAL_REQUIRED" in decision.reason_codes
+
+
 def test_missing_target_approval_idempotency_and_origin_cleanup_block() -> None:
     payload = _envelope().model_dump(mode="json")
     for key in [

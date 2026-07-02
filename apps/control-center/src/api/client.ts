@@ -479,7 +479,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     return withConnection(data, {
       state: "online",
       safeMessage:
-        "Live data came from local read-only/preview-only backend API routes.",
+        "Live data came from local read, preview, and exact receipt backend routes; mutating receipt routes remain backend-authority, approval/idempotency gated, and no generic execution.",
       usingMockData: false,
       warnings: [],
     });

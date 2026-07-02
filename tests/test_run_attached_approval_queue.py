@@ -7,9 +7,14 @@ from pydantic import ValidationError
 
 from ultimate_ai_agent.core.execution import (
     AppendFirstRunStorage,
+    BackgroundCoworkerWorkerEventContract,
+    ConnectorDeliveryEnvelopeContract,
+    ConnectorDeliveryTimelineEventContract,
     DurableRunRecord,
     RunAttachedApprovalQueueItemReadModel,
     build_durable_run_lifecycle_read_model,
+    record_background_coworker_worker_event,
+    record_connector_delivery_event,
     record_run_attached_approval_event,
 )
 from ultimate_ai_agent.core.execution.approval_queue import (
@@ -82,6 +87,127 @@ def test_run_attached_approval_queue_projects_requests_and_grants(tmp_path: Path
     ]
     assert approved_items[0]["approval_scope_validation_ref"] is None
     assert queue["pending_approvals_by_run"] == []
+
+
+def test_unified_approval_review_projects_run_provider_connector_and_coworker_refs(
+    tmp_path: Path,
+) -> None:
+    service = _service(tmp_path)
+    run_ref = "task-decomposition-run:unified-approval-review"
+    request = service.build_approval_request(
+        TaskCapabilityApprovalRequestPayload(
+            capability_id="capability:example-echo-summary",
+            run_id=run_ref,
+            actor_id="local_actor",
+        )
+    )
+    service.grant_approval(
+        TaskDecompositionApprovalGrantRequest(
+            approval_request_id=request.approval_request_id,
+            approved_by_actor_id="local_reviewer",
+        )
+    )
+    envelope = ConnectorDeliveryEnvelopeContract(
+        delivery_ref="connector-delivery-ref:test:unified-review",
+        run_ref=run_ref,
+        connector_ref="connector-ref:test:email",
+        channel_ref="connector-channel-ref:test:draft",
+        target_session_ref="target-session-ref:test:founder-local",
+        origin_ref="origin-ref:test:unified-review",
+        origin_cleanup_posture_ref="origin-cleanup-posture-ref:test:no-effect",
+        outbound_approval_ref="approval-ref:test:connector:metadata-only",
+        idempotency_key_ref="idempotency-ref:test:connector:unified-review",
+        redacted_subject_ref="redacted-subject-ref:test:connector",
+        redacted_body_summary_ref="redacted-body-summary-ref:test:connector",
+        evidence_refs=["evidence-ref:test:connector-unified-review"],
+        expected_receipt_refs=["receipt-ref:test:connector:expected"],
+        rollback_posture_ref="rollback-posture-ref:test:connector",
+        safe_disable_posture_ref="safe-disable-posture-ref:test:connector",
+        audit_ref="audit-ref:test:connector",
+        replay_ref="replay-ref:test:connector",
+    )
+    connector_event = ConnectorDeliveryTimelineEventContract.from_envelope(
+        envelope,
+        event_ref="connector-delivery-event-ref:test:unified-review:pending",
+        delivery_state="pending_approval",
+        safe_summary="Connector delivery waits for metadata-only approval.",
+    )
+    record_connector_delivery_event(
+        service.durable_run_storage,
+        connector_event,
+        idempotency_key_ref="idempotency-ref:test:connector:record",
+        audit_ref="audit-ref:test:connector:record",
+        receipt_ref="receipt-ref:test:connector:record",
+        rollback_ref="rollback-ref:test:connector:record",
+    )
+    coworker_event = BackgroundCoworkerWorkerEventContract(
+        event_ref="coworker-event-ref:test:unified-review:handoff",
+        worker_ref="worker-ref:test:unified-review",
+        worker_kind="review_worker",
+        event_type="handoff_recorded",
+        run_ref=run_ref,
+        parent_run_ref=run_ref,
+        child_run_ref="task-decomposition-run:unified-approval-review-child",
+        handoff_ref="handoff-ref:test:unified-review",
+        lease_ref="lease-ref:test:unified-review",
+        heartbeat_ref="heartbeat-ref:test:unified-review",
+        evidence_refs=["evidence-ref:test:coworker-unified-review"],
+        blocked_authority_refs=["blocked-state:test:no-coworker-runtime"],
+        safe_summary="Coworker handoff is metadata-only.",
+    )
+    record_background_coworker_worker_event(
+        service.durable_run_storage,
+        coworker_event,
+        idempotency_key_ref="idempotency-ref:test:coworker:record",
+        audit_ref="audit-ref:test:coworker:record",
+        receipt_ref="receipt-ref:test:coworker:record",
+        rollback_ref="rollback-ref:test:coworker:record",
+    )
+
+    review = service.approval_review(run_ref, limit=20)
+
+    assert review["schema_version"] == "unified_approval_review.v1"
+    assert review["backend_owned"] is True
+    assert review["safe_refs_only"] is True
+    assert review["raw_payloads_persisted"] is False
+    assert review["approval_refs_are_identifiers_only"] is True
+    assert review["approval_ref_grants_authority"] is False
+    assert review["ui_mutation_controls_enabled"] is False
+    assert review["execution_authority_enabled"] is False
+    assert review["provider_model_calls_enabled"] is False
+    assert review["tool_execution_enabled"] is False
+    assert review["connector_writes_enabled"] is False
+    assert review["connector_sends_enabled"] is False
+    assert review["background_worker_enabled"] is False
+    assert review["scheduler_enabled"] is False
+    source_types = {item["source_type"] for item in review["review_items"]}
+    assert {
+        "durable_run",
+        "provider_tool_contract",
+        "connector_delivery",
+        "coworker_handoff",
+    }.issubset(source_types)
+    assert review["run_refs"]
+    assert review["provider_tool_contract_refs"]
+    assert review["connector_delivery_refs"]
+    assert review["coworker_handoff_refs"]
+    assert review["proof_refs"]
+    assert review["evidence_refs"]
+    assert review["receipt_refs"]
+    assert review["blocked_authority_refs"]
+    assert review["pending_count"] == len(review["pending_approval_refs"])
+    for item in review["review_items"]:
+        assert item["approval_refs_are_identifiers_only"] is True
+        assert item["approval_ref_grants_authority"] is False
+        assert item["local_approval_authority_scope_validated"] is False
+        assert item["ui_mutation_controls_enabled"] is False
+        assert item["execution_authority_enabled"] is False
+        assert item["provider_model_calls_enabled"] is False
+        assert item["tool_execution_enabled"] is False
+        assert item["connector_writes_enabled"] is False
+        assert item["connector_sends_enabled"] is False
+        assert item["background_worker_enabled"] is False
+        assert item["scheduler_enabled"] is False
 
 
 def test_real_approval_paths_emit_named_durable_lifecycle_events(tmp_path: Path) -> None:
@@ -383,3 +509,24 @@ def test_task_decomposition_cli_inspects_run_attached_approval_queue(
     assert '"execution_authority_enabled": false' in output
     assert "provider payload" not in output.lower()
     assert "raw prompt" not in output.lower()
+
+
+def test_task_decomposition_cli_inspects_unified_approval_review(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    registry_path = str(tmp_path / "registry.json")
+
+    assert task_decomposition_cli_main(["--registry", registry_path, "init-examples"]) == 0
+    assert task_decomposition_cli_main(["--registry", registry_path, "inspect-approval-review"]) == 0
+
+    output = capsys.readouterr().out
+    assert '"command_ref": "cli:task-decomposition:inspect-approval-review"' in output
+    assert '"schema_version": "unified_approval_review.v1"' in output
+    assert '"approval_refs_are_identifiers_only": true' in output
+    assert '"ui_mutation_controls_enabled": false' in output
+    assert '"execution_authority_enabled": false' in output
+    assert '"connector_writes_enabled": false' in output
+    assert '"background_worker_enabled": false' in output
+    assert "raw prompt" not in output.lower()
+    assert "provider payload" not in output.lower()

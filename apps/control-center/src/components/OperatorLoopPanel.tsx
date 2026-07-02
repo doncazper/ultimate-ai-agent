@@ -81,7 +81,7 @@ export function OperatorLoopPanel({ summary }: { summary?: OperatorLoopSummary }
       <div className="panel-grid" aria-label="Operator loop authority boundaries">
         <BoundaryPanel label="Frontend authority" enabled={safeSummary.frontend_authority} />
         <BoundaryPanel
-          label="Mutation allowed"
+          label="Frontend/generic mutation authority"
           enabled={safeSummary.control_center_mutation_allowed}
         />
         <BoundaryPanel

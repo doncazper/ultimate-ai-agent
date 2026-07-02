@@ -810,6 +810,13 @@ def validate_connector_delivery_envelope(
             "Connector delivery envelope is blocked before any send or write authority.",
             envelope.delivery_ref,
         )
+    if validation_context.outbound_approval_state != "approved_metadata_only":
+        return _decision(
+            "approval_required",
+            ["OUTBOUND_APPROVAL_REQUIRED"],
+            "Connector delivery envelope still requires approved metadata-only posture before contract validation.",
+            envelope.delivery_ref,
+        )
     return _decision(
         "valid_contract_only",
         ["CONNECTOR_DELIVERY_CONTRACT_VALID_NO_SEND"],

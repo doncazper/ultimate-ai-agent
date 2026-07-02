@@ -6,11 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
-from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.control_center.action_decisions import (
     FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF,
     FounderLoopActionDecisionRequest,
-    action_approval_request,
 )
 from ultimate_ai_agent.core.storage import (
     FounderLoopRepository,
@@ -86,39 +84,10 @@ def test_approval_decision_records_backend_owned_exact_local_approval(
     assert backend_owned["action_executed"] is False
     assert backend_owned["connector_write_performed"] is False
 
-    action = next(
-        item
-        for item in repo.list_action_inbox()
-        if item["item_ref"] == "founder-action:setup-assistant-hardening"
-    )
-    request = FounderLoopActionDecisionRequest(
-        decision_reason_ref="decision-reason-ref:test-approval-valid"
-    )
-    approval_request = action_approval_request(
-        item_ref=action["item_ref"],
-        actor_context=request.actor_context,
-        risk_class=action["risk_class"],
-        resource_refs=[
-            action["item_ref"],
-            action["action_envelope_ref"],
-            action["action_scope_ref"],
-            action["action_approval_requirement_ref"],
-        ],
-    )
-    authority = LocalApprovalAuthority()
-    authority.create_request(approval_request)
-    grant = authority.grant(
-        approval_request.approval_request_id,
-        approved_by_actor_id="local-test-reviewer",
-        approval_ref="approval-ref:founder-loop-action:test-approve",
-    )
-
     approved = repo.record_action_decision(
         action_id="setup-assistant-hardening",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            approval_ref=grant.approval_ref,
-            approval_grants=[grant],
             decision_reason_ref="decision-reason-ref:test-approval-valid",
         ),
         idempotency_key_ref="idempotency-ref:test-approval-approved",
