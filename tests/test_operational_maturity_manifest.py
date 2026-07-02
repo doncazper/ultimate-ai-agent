@@ -8,6 +8,7 @@ from scripts.verify_operational_maturity import (
     AUTHORITY_SCORECARD_PATH,
     EXPECTED_AUTHORITY_CANDIDATES,
     EXPECTED_AUTHORITY_FOUNDATIONS,
+    EXPECTED_FOLLOW_ON_CANDIDATE_RANKING,
     FIRST_IMPLEMENTATION_LANE_ID,
     FIRST_IMPLEMENTATION_PROMPT_REF,
     FIRST_IMPLEMENTATION_REQUIRED_ALLOWED_SCOPE,
@@ -328,6 +329,14 @@ def test_authority_candidate_scorecard_declares_no_go_graduation_program() -> No
     assert {
         candidate["candidate_id"] for candidate in scorecard["authority_candidates"]
     } == EXPECTED_AUTHORITY_CANDIDATES
+    ranking = scorecard["follow_on_candidate_ranking"]
+    assert ranking["status"] == "ranked_no_authority_granted"
+    assert ranking["fixed_first_lane_ref"] == FIRST_IMPLEMENTATION_LANE_ID
+    assert tuple(ranking["ranked_candidate_ids"]) == EXPECTED_FOLLOW_ON_CANDIDATE_RANKING
+    assert ranking["safest_candidate_id"] == EXPECTED_FOLLOW_ON_CANDIDATE_RANKING[0]
+    assert ranking["safest_candidate_status"] == "proposal_only_ready"
+    assert ranking["no_authority_granted"] is True
+    assert "memory_write" in ranking["selection_blocked_reason"]
     assert all(
         candidate["selected_for_micro_lane"] is False
         for candidate in scorecard["authority_candidates"]
@@ -363,6 +372,81 @@ def test_authority_scorecard_rejects_first_lane_as_follow_on_candidate() -> None
     assert any(
         "fixed first implementation lane must not be a follow-on authority candidate"
         in failure
+        for failure in failures
+    )
+
+
+def test_authority_scorecard_rejects_first_lane_in_follow_on_ranking() -> None:
+    scorecard = _scorecard_copy()
+    scorecard["follow_on_candidate_ranking"]["ranked_candidate_ids"][0] = (
+        FIRST_IMPLEMENTATION_LANE_ID
+    )
+
+    failures = verify(scorecard_override=scorecard)
+
+    assert any(
+        "follow-on candidate ranking order drifted" in failure
+        for failure in failures
+    )
+    assert any(
+        "follow-on ranking must not include the fixed first lane" in failure
+        for failure in failures
+    )
+
+
+def test_authority_scorecard_rejects_ranking_authority_claim() -> None:
+    scorecard = _scorecard_copy()
+    scorecard["follow_on_candidate_ranking"]["no_authority_granted"] = False
+
+    failures = verify(scorecard_override=scorecard)
+
+    assert any(
+        "follow-on ranking must not grant authority" in failure
+        for failure in failures
+    )
+
+
+def test_authority_scorecard_rejects_duplicate_or_missing_follow_on_ranking_ids() -> None:
+    scorecard = _scorecard_copy()
+    ranked_ids = scorecard["follow_on_candidate_ranking"]["ranked_candidate_ids"]
+    ranked_ids[-1] = ranked_ids[0]
+
+    failures = verify(scorecard_override=scorecard)
+
+    assert any(
+        "follow-on candidate ranking order drifted" in failure
+        for failure in failures
+    )
+    assert any(
+        "follow-on ranking contains duplicate candidates" in failure
+        for failure in failures
+    )
+
+
+def test_authority_scorecard_rejects_mismatched_safest_candidate() -> None:
+    scorecard = _scorecard_copy()
+    scorecard["follow_on_candidate_ranking"]["safest_candidate_id"] = (
+        "context_injection"
+    )
+
+    failures = verify(scorecard_override=scorecard)
+
+    assert any(
+        "follow-on ranking safest candidate must match rank 1" in failure
+        for failure in failures
+    )
+
+
+def test_authority_scorecard_rejects_mismatched_safest_candidate_status() -> None:
+    scorecard = _scorecard_copy()
+    scorecard["follow_on_candidate_ranking"]["safest_candidate_status"] = (
+        "micro_lane_candidate"
+    )
+
+    failures = verify(scorecard_override=scorecard)
+
+    assert any(
+        "follow-on ranking safest candidate status drifted" in failure
         for failure in failures
     )
 

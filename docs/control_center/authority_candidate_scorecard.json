@@ -503,6 +503,25 @@
       "smallest_next_safe_action": "Keep context packs proposal-only and define exact approval plus receipt/evidence before any injection lane."
     }
   ],
+  "follow_on_candidate_ranking": {
+    "status": "ranked_no_authority_granted",
+    "fixed_first_lane_ref": "read_only_real_world_web_fetch",
+    "ranking_method": "Rank the fixed follow-on candidate set by local-first value, existing maturity, exact-scope clarity, approval/receipt feasibility, reversibility, redaction complexity, blast radius, and external dependency risk. The fixed first WebAccessGateway lane is excluded and no ranked candidate receives authority.",
+    "ranked_candidate_ids": [
+      "memory_write",
+      "context_injection",
+      "shell_subprocess_local_maintenance",
+      "connector_write",
+      "browser_automation",
+      "provider_model_authority"
+    ],
+    "safest_candidate_id": "memory_write",
+    "safest_candidate_status": "proposal_only_ready",
+    "safe_summary": "The safest follow-on candidate is memory_write because it is local-first, high-value in the Founder Loop, already has reviewed-memory decision evidence, and avoids external service credentials; it is still proposal-only and grants no write authority.",
+    "no_authority_granted": true,
+    "selection_blocked_reason": "memory_write is not a micro_lane_candidate because exact write scope, LocalApprovalAuthority binding, rollback/safe-disable posture, CLI parity, and focused verifier refs are still incomplete.",
+    "next_safe_action": "Prepare a no-authority reviewed-memory write policy proposal with exact scope, approval binding, receipt/evidence refs, rollback/safe-disable posture, CLI parity, and tests before any Prompt 04 graduation attempt."
+  },
   "first_micro_lane_decision": {
     "status": "no_go",
     "selected_candidate_id": null,
