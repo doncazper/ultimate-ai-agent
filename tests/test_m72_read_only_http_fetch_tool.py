@@ -23,6 +23,10 @@ from ultimate_ai_agent.core.web_access import (
     WebAccessNetworkLane,
     WebAccessRequestKind,
 )
+import ultimate_ai_agent.core.web_access.read_only_http_fetch_transport as real_world_transport
+from ultimate_ai_agent.core.web_access.read_only_http_fetch_transport import (
+    build_read_only_real_world_http_fetch_transport,
+)
 
 
 def _policy(**overrides: Any) -> Any:
@@ -70,6 +74,114 @@ def _fake_transport(_request: Any, _policy: Any) -> Any:
     )
 
 
+class _FakeTcpSocket:
+    def __init__(self) -> None:
+        self.timeout: float | None = None
+        self.connected_to: Any | None = None
+        self.closed = False
+
+    def settimeout(self, timeout: float) -> None:
+        self.timeout = timeout
+
+    def connect(self, sockaddr: Any) -> None:
+        self.connected_to = sockaddr
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _FakeTlsSocket:
+    def __init__(self, response: bytes, peer_ip: str) -> None:
+        self._response = response
+        self._peer_ip = peer_ip
+        self.sent = b""
+        self.closed = False
+
+    def getpeername(self) -> tuple[str, int]:
+        return self._peer_ip, 443
+
+    def sendall(self, payload: bytes) -> None:
+        self.sent += payload
+
+    def recv(self, limit: int) -> bytes:
+        if not self._response:
+            return b""
+        chunk = self._response[:limit]
+        self._response = self._response[limit:]
+        return chunk
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _FakeSslContext:
+    def __init__(self, response: bytes, peer_ip: str) -> None:
+        self.response = response
+        self.peer_ip = peer_ip
+        self.server_hostname: str | None = None
+        self.tls_socket: _FakeTlsSocket | None = None
+
+    def wrap_socket(self, _raw_socket: Any, *, server_hostname: str) -> _FakeTlsSocket:
+        self.server_hostname = server_hostname
+        self.tls_socket = _FakeTlsSocket(self.response, self.peer_ip)
+        return self.tls_socket
+
+
+def _http_response(
+    *,
+    status: int = 200,
+    body: bytes = b"public status ok\napi_key=super-secret-value\n",
+    headers: dict[str, str] | None = None,
+) -> bytes:
+    response_headers = {
+        "Content-Type": "text/plain",
+        "Content-Length": str(len(body)),
+        "Connection": "close",
+        **(headers or {}),
+    }
+    header_lines = [f"HTTP/1.1 {status} OK"]
+    header_lines.extend(f"{name}: {value}" for name, value in response_headers.items())
+    return ("\r\n".join(header_lines) + "\r\n\r\n").encode("ascii") + body
+
+
+def _install_fake_real_world_peer(
+    monkeypatch: Any,
+    *,
+    resolved_ip: str = "93.184.216.34",
+    connected_peer_ip: str | None = None,
+    response: bytes | None = None,
+) -> tuple[_FakeTcpSocket, _FakeSslContext]:
+    fake_tcp = _FakeTcpSocket()
+    fake_context = _FakeSslContext(
+        response or _http_response(),
+        connected_peer_ip or resolved_ip,
+    )
+    monkeypatch.setattr(
+        real_world_transport.socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (
+                real_world_transport.socket.AF_INET,
+                real_world_transport.socket.SOCK_STREAM,
+                6,
+                "",
+                (resolved_ip, 443),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        real_world_transport.socket,
+        "socket",
+        lambda *_args, **_kwargs: fake_tcp,
+    )
+    monkeypatch.setattr(
+        real_world_transport.ssl,
+        "create_default_context",
+        lambda: fake_context,
+    )
+    return fake_tcp, fake_context
+
+
 def test_read_only_http_fetch_gateway_redacts_before_return_and_stores_no_raw_body() -> None:
     output = build_read_only_http_fetch_output_via_web_access_gateway(
         invocation_id="tool-runtime-invocation:m72-direct",
@@ -97,6 +209,111 @@ def test_read_only_http_fetch_gateway_redacts_before_return_and_stores_no_raw_bo
     assert output.side_effects_performed == []
 
 
+def test_read_only_real_world_transport_uses_gateway_and_safe_output(monkeypatch: Any) -> None:
+    fake_tcp, fake_context = _install_fake_real_world_peer(monkeypatch)
+
+    output = build_read_only_http_fetch_output_via_web_access_gateway(
+        invocation_id="tool-runtime-invocation:m72-real-world",
+        request=_fetch_request(),
+        policy=_policy(),
+        transport=build_read_only_real_world_http_fetch_transport(),
+    )
+
+    assert output.status == "preview_generated"
+    assert output.fetch_performed is True
+    assert output.real_world_transport_performed is True
+    assert (
+        output.transport_ref
+        == "http-fetch-transport:web-access-gateway-real-world-v1"
+    )
+    assert output.web_access_audit_ref.startswith("web-access-audit:")
+    assert output.web_access_request_ref.startswith("web-access-request:")
+    assert output.safe_url_ref == "http-fetch-url:docs-example-test/status"
+    assert "https://docs.example.test/status" not in output.model_dump_json()
+    assert "super-secret-value" not in output.redacted_preview
+    assert "[REDACTED:SECRET_ASSIGNMENT]" in output.redacted_preview
+    assert output.raw_response_body_stored is False
+    assert output.raw_headers_stored is False
+    assert output.redirect_followed is False
+    assert output.browser_automation_performed is False
+    assert output.context_injection_performed is False
+    assert output.production_authority_granted is False
+    assert fake_tcp.connected_to == ("93.184.216.34", 443)
+    assert fake_tcp.closed is True
+    assert fake_context.server_hostname == "docs.example.test"
+    assert fake_context.tls_socket is not None
+    assert b"GET /status HTTP/1.1\r\n" in fake_context.tls_socket.sent
+    assert b"Host: docs.example.test\r\n" in fake_context.tls_socket.sent
+    assert fake_context.tls_socket.closed is True
+
+
+def test_read_only_real_world_transport_denies_private_dns_resolution(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        real_world_transport.socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (
+                real_world_transport.socket.AF_INET,
+                real_world_transport.socket.SOCK_STREAM,
+                6,
+                "",
+                ("10.0.0.2", 443),
+            )
+        ],
+    )
+
+    with pytest.raises(ValueError, match="PRIVATE_OR_LOCAL_RESOLVED_HOST_DENIED"):
+        build_read_only_http_fetch_output_via_web_access_gateway(
+            invocation_id="tool-runtime-invocation:m72-private-dns",
+            request=_fetch_request(),
+            policy=_policy(),
+            transport=build_read_only_real_world_http_fetch_transport(),
+        )
+
+
+def test_read_only_real_world_transport_denies_private_connected_peer(monkeypatch: Any) -> None:
+    _fake_tcp, fake_context = _install_fake_real_world_peer(
+        monkeypatch,
+        connected_peer_ip="10.0.0.2",
+    )
+
+    with pytest.raises(ValueError, match="PRIVATE_OR_LOCAL_RESOLVED_HOST_DENIED"):
+        build_read_only_http_fetch_output_via_web_access_gateway(
+            invocation_id="tool-runtime-invocation:m72-rebound-peer",
+            request=_fetch_request(),
+            policy=_policy(),
+            transport=build_read_only_real_world_http_fetch_transport(),
+        )
+
+    assert fake_context.tls_socket is not None
+    assert fake_context.tls_socket.sent == b""
+
+
+def test_read_only_real_world_transport_decodes_bounded_chunked_response(monkeypatch: Any) -> None:
+    chunked_response = (
+        b"HTTP/1.1 200 OK\r\n"
+        b"Content-Type: text/plain\r\n"
+        b"Transfer-Encoding: chunked\r\n"
+        b"Connection: close\r\n"
+        b"\r\n"
+        b"11\r\npublic status ok\n\r\n"
+        b"1b\r\napi_key=super-secret-value\n\r\n"
+        b"0\r\n\r\n"
+    )
+    _install_fake_real_world_peer(monkeypatch, response=chunked_response)
+
+    output = build_read_only_http_fetch_output_via_web_access_gateway(
+        invocation_id="tool-runtime-invocation:m72-chunked",
+        request=_fetch_request(),
+        policy=_policy(),
+        transport=build_read_only_real_world_http_fetch_transport(),
+    )
+
+    assert output.real_world_transport_performed is True
+    assert output.redacted_preview == "public status ok\n[REDACTED:SECRET_ASSIGNMENT]\n"
+    assert "super-secret-value" not in output.model_dump_json()
+
+
 def test_tool_runtime_package_exports_gateway_fetch_builder_not_direct_bypass() -> None:
     assert hasattr(tool_runtime, "build_read_only_http_fetch_output_via_web_access_gateway")
     assert not hasattr(tool_runtime, "build_read_only_http_fetch_output")
@@ -117,6 +334,36 @@ def test_tool_runtime_adapter_invokes_only_with_fake_transport_and_allowlisted_h
     assert decision.result.output.redacted_preview == "public status ok\n[REDACTED:SECRET_ASSIGNMENT]\n"
     assert decision.result.output.raw_response_body_stored is False
     assert "READ_ONLY_HTTP_FETCH_REDACTED_PREVIEW_RETURNED" in decision.reason_codes
+
+
+def test_tool_runtime_adapter_reports_exact_real_world_network_truth(monkeypatch: Any) -> None:
+    _fake_tcp, fake_context = _install_fake_real_world_peer(monkeypatch)
+
+    decision = ToolRuntimeAdapter().invoke(
+        _tool_request(),
+        http_fetch_transport=build_read_only_real_world_http_fetch_transport(),
+    )
+
+    assert decision.status == ToolInvocationStatus.http_fetch_completed
+    assert decision.invocation_allowed is True
+    assert decision.execution_performed is True
+    assert decision.network_call_performed is True
+    assert decision.side_effects_performed == []
+    assert decision.raw_content_stored is False
+    assert decision.memory_write_performed is False
+    assert decision.model_call_performed is False
+    assert decision.shell_execution_performed is False
+    assert decision.result is not None
+    assert decision.result.network_call_performed is True
+    assert decision.result.output.real_world_transport_performed is True
+    assert (
+        decision.result.output.transport_ref
+        == "http-fetch-transport:web-access-gateway-real-world-v1"
+    )
+    assert "https://docs.example.test/status" not in decision.model_dump_json()
+    assert "super-secret-value" not in decision.model_dump_json()
+    assert fake_context.tls_socket is not None
+    assert b"Host: docs.example.test\r\n" in fake_context.tls_socket.sent
 
 
 def test_tool_runtime_http_fetch_routes_through_web_access_gateway(monkeypatch: Any) -> None:

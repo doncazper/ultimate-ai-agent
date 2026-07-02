@@ -83,3 +83,25 @@ def test_m72_static_gate_scans_unsafe_http_fetch_fragments(tmp_path: Path) -> No
 
     assert result.status == "failed"
     assert any("credentials_allowed=True" in failure for failure in result.failures)
+
+
+def test_m72_static_gate_transport_exception_is_fragment_scoped(tmp_path: Path) -> None:
+    transport_file = (
+        tmp_path
+        / "src/ultimate_ai_agent/core/web_access/read_only_http_fetch_transport.py"
+    )
+    transport_file.parent.mkdir(parents=True)
+    transport_file.write_text("socket.\nrequests.get(\n", encoding="utf-8")
+
+    evaluator = FoundationGateEvaluator(root=tmp_path)
+    criteria = {
+        criterion.criterion_id: criterion
+        for criterion in default_foundation_gate_criteria()
+    }
+
+    report = evaluator.evaluate([criteria["m72_read_only_http_fetch_static_safety"]])
+    result = report.results[0]
+
+    assert result.status == "failed"
+    assert any("requests.get(" in failure for failure in result.failures)
+    assert not any("socket." in failure for failure in result.failures)

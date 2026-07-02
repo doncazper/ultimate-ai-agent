@@ -23165,6 +23165,11 @@ class FoundationGateEvaluator:
             "src/ultimate_ai_agent/api/openapi.py",
             "src/ultimate_ai_agent/core/tools/runtime/http_fetch.py",
         }
+        allowed_fragments_by_file = {
+            "src/ultimate_ai_agent/core/web_access/read_only_http_fetch_transport.py": {
+                "socket.",
+            },
+        }
         source_roots = [
             self.root / "src" / "ultimate_ai_agent",
             self.root / "apps" / "control-center" / "src",
@@ -23193,7 +23198,10 @@ class FoundationGateEvaluator:
                     continue
                 text = path.read_text(encoding="utf-8")
                 for fragment in forbidden_source_fragments:
-                    if fragment in text:
+                    if (
+                        fragment in text
+                        and fragment not in allowed_fragments_by_file.get(rel, set())
+                    ):
                         failures.append(
                             f"M72 forbidden HTTP fetch fragment in {rel}: {fragment}"
                         )

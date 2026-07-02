@@ -242,6 +242,7 @@ def evaluate_tool_invocation(
             tool_ref=READ_ONLY_HTTP_FETCH_TOOL_REF,
             status=ToolInvocationStatus.http_fetch_completed,
             output=output,
+            network_call_performed=output.real_world_transport_performed,
             receipt_plan=receipt,
         )
         return ToolInvocationDecision(
@@ -259,6 +260,7 @@ def evaluate_tool_invocation(
             ),
             result=result,
             receipt_plan=receipt,
+            network_call_performed=output.real_world_transport_performed,
         )
 
     output = invoke_noop_tool(request)

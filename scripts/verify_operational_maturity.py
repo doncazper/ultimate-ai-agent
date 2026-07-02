@@ -191,7 +191,7 @@ FIRST_IMPLEMENTATION_REQUIRED_ALLOWED_SCOPE = {
     "explicit_public_allowlist",
     "bounded_redacted_preview",
     "safe_refs_only",
-    "durable_audit_posture",
+    "gateway_audit_request_ref_posture",
 }
 FIRST_IMPLEMENTATION_REQUIRED_BLOCKED_AUTHORITIES = {
     "browser_observe",
@@ -211,6 +211,9 @@ FIRST_IMPLEMENTATION_REQUIRED_BLOCKED_AUTHORITIES = {
     "production_authority",
 }
 FIRST_IMPLEMENTATION_REQUIRED_VERIFICATION_REFS = {
+    "scripts/inspect_read_only_web_fetch.py",
+    "tests/test_inspect_read_only_web_fetch.py",
+    "tests/test_m72_gate_integration.py",
     "tests/test_m72_read_only_http_fetch_tool.py",
     "tests/test_web_access_gateway.py",
     "tests/test_web_access_static_guards.py",
@@ -551,9 +554,15 @@ def _append_first_implementation_lane_failures(
         failures.append("first implementation lane requires safe_summary")
     if not lane.get("next_safe_action"):
         failures.append("first implementation lane requires next_safe_action")
-    if "Prompt 02" not in str(lane.get("next_safe_action", "")):
+    status = lane.get("status")
+    next_safe_action = str(lane.get("next_safe_action", ""))
+    if status != "implemented" and "Prompt 02" not in next_safe_action:
         failures.append(
             "first implementation lane next_safe_action must point to Prompt 02"
+        )
+    if status == "implemented" and "follow-on" not in next_safe_action:
+        failures.append(
+            "implemented first lane next_safe_action must point follow-on authority to the scorecard"
         )
     allowed_scope = set(lane.get("allowed_scope", []))
     for scope in sorted(FIRST_IMPLEMENTATION_REQUIRED_ALLOWED_SCOPE):
