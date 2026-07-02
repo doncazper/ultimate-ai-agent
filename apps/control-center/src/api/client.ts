@@ -38,6 +38,8 @@ import type {
   FounderLoopMemoryReview,
   FounderLoopMemoryRetrievalDiagnostics,
   FounderLoopMemoryWorkbench,
+  FounderLoopRunsIntegrationReadModel,
+  FounderLoopTraceRefs,
   FounderLoopLocalTaskCommitReceipt,
   FounderLoopLocalTaskCommitRequest,
   ManualMemoryCandidateReceipt,
@@ -2392,6 +2394,9 @@ function normalizeFounderToday(value: FounderLoopTodaySummary | undefined): {
     delete fallbackWithoutDigest.follow_up_tracker_contract_ref;
     delete fallbackWithoutDigest.weekly_ceo_review_v1_read_model;
     delete fallbackWithoutDigest.weekly_ceo_review_v1_contract_ref;
+    delete fallbackWithoutDigest.founder_loop_runs_integration_read_model;
+    delete fallbackWithoutDigest.founder_loop_runs_integration_contract_ref;
+    delete fallbackWithoutDigest.loop_trace_refs;
     delete fallbackWithoutDigest.unified_work_thread_read_model;
     delete fallbackWithoutDigest.unified_work_thread_contract_ref;
     delete fallbackWithoutDigest.chat_to_loop_handoff_read_model;
@@ -2450,6 +2455,7 @@ function normalizeFounderToday(value: FounderLoopTodaySummary | undefined): {
     delete normalized.founder_loop_v1_product_proof_read_model;
     delete normalized.founder_loop_v1_product_proof_contract_ref;
   }
+  normalizeFounderLoopRunsIntegration(normalized, valueRecord);
   const unifiedWorkThread = valueRecord.unified_work_thread_read_model;
   if (isSafeUnifiedWorkThreadReadModel(unifiedWorkThread)) {
     normalized.unified_work_thread_read_model = unifiedWorkThread;
@@ -2598,10 +2604,34 @@ function normalizeFounderEvidenceTimeline(
     delete normalized.narrative_read_model;
     delete normalized.narrative_contract_ref;
   }
+  normalizeFounderLoopRunsIntegration(normalized, valueRecord);
   return {
     value: normalized as unknown as FounderLoopEvidenceTimelineIndex,
     usedFallback: merged.usedFallback,
   };
+}
+
+function normalizeFounderLoopRunsIntegration(
+  normalized: Record<string, unknown>,
+  valueRecord: Record<string, unknown>,
+): void {
+  const readModel = valueRecord.founder_loop_runs_integration_read_model;
+  const loopTraceRefs = valueRecord.loop_trace_refs;
+  if (isSafeFounderLoopRunsIntegrationReadModel(readModel)) {
+    normalized.founder_loop_runs_integration_read_model = readModel;
+    normalized.founder_loop_runs_integration_contract_ref = (
+      readModel as FounderLoopRunsIntegrationReadModel
+    ).contract_ref;
+    if (isSafeFounderLoopTraceRefs(loopTraceRefs)) {
+      normalized.loop_trace_refs = loopTraceRefs;
+    } else {
+      delete normalized.loop_trace_refs;
+    }
+  } else {
+    delete normalized.founder_loop_runs_integration_read_model;
+    delete normalized.founder_loop_runs_integration_contract_ref;
+    delete normalized.loop_trace_refs;
+  }
 }
 
 function stripFollowUpTrackerIfMissing<T>(
@@ -2758,6 +2788,39 @@ const FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER = [
   "evidence_timeline",
   "memory_review",
   "weekly_review",
+] as const;
+
+const FOUNDER_LOOP_RUNS_INTEGRATION_DENIED_FLAGS = [
+  "provider_model_call_enabled",
+  "runtime_model_call_enabled",
+  "connector_write_enabled",
+  "connector_send_enabled",
+  "browser_execution_enabled",
+  "live_web_enabled",
+  "shell_subprocess_execution_enabled",
+  "scheduler_enabled",
+  "background_autonomy_enabled",
+  "action_execution_enabled",
+  "approval_authority_enabled",
+  "memory_write_authorized",
+  "context_injection_authorized",
+  "ui_mutation_authority_enabled",
+  "production_authority_enabled",
+] as const;
+
+const FOUNDER_LOOP_RUNS_INTEGRATION_REQUIRED_ARRAYS = [
+  "surface_order",
+  "run_refs",
+  "proof_refs",
+  "proof_detail_refs",
+  "action_source_refs",
+  "approval_refs",
+  "receipt_refs",
+  "evidence_refs",
+  "evidence_event_refs",
+  "memory_candidate_refs",
+  "operator_run_event_refs",
+  "blocked_authority_refs",
 ] as const;
 
 const UNIFIED_WORK_THREAD_DENIED_FLAGS = [
@@ -3133,6 +3196,7 @@ function normalizeFounderMorningBriefing(
     delete normalized.founder_loop_v1_product_proof_read_model;
     delete normalized.founder_loop_v1_product_proof_contract_ref;
   }
+  normalizeFounderLoopRunsIntegration(normalized, valueRecord);
   const chatToLoopHandoff = valueRecord.chat_to_loop_handoff_read_model;
   if (isSafeChatToLoopHandoffReadModel(chatToLoopHandoff)) {
     normalized.chat_to_loop_handoff_read_model = chatToLoopHandoff;
@@ -3262,6 +3326,162 @@ function isSafeFounderLoopProductProofReadModel(value: unknown): boolean {
     value.memory_review_status === "candidate_available" ||
     value.memory_review_status === "none"
   );
+}
+
+function isSafeFounderLoopRunsIntegrationReadModel(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.schema_version !== "founder-loop-runs-integration.v1" ||
+    value.contract_ref !== "contract-ref:founder-loop-runs-integration:v1" ||
+    value.source !== "python_core_founder_loop_runs_integration_read_model"
+  ) {
+    return false;
+  }
+  if (
+    value.backend_owned !== true ||
+    value.local_read_model_only !== true ||
+    value.safe_refs_only !== true ||
+    value.redacted_summaries_only !== true ||
+    value.raw_payloads_persisted !== false ||
+    value.ui_truth_source !== "python_core_read_model" ||
+    value.primary_run_ref !== "run-ref:founder-loop-v1:governed-local-loop" ||
+    value.primary_proof_ref !== "proof-ref:founder-loop-v1:governed-local-loop" ||
+    typeof value.status !== "string" ||
+    typeof value.surface_count !== "number" ||
+    typeof value.action_origin_posture !== "string" ||
+    typeof value.decision_receipt_posture !== "string" ||
+    typeof value.evidence_path_posture !== "string" ||
+    typeof value.proof_detail_posture !== "string" ||
+    typeof value.memory_candidate_posture !== "string" ||
+    typeof value.weekly_review_posture !== "string" ||
+    typeof value.authority_boundary !== "string" ||
+    typeof value.next_safe_action !== "string" ||
+    !isSafeEvidenceNarrativeText(value.status) ||
+    !isSafeEvidenceNarrativeText(value.action_origin_posture) ||
+    !isSafeEvidenceNarrativeText(value.decision_receipt_posture) ||
+    !isSafeEvidenceNarrativeText(value.evidence_path_posture) ||
+    !isSafeEvidenceNarrativeText(value.proof_detail_posture) ||
+    !isSafeEvidenceNarrativeText(value.memory_candidate_posture) ||
+    !isSafeEvidenceNarrativeText(value.weekly_review_posture) ||
+    !isSafeEvidenceNarrativeText(value.authority_boundary) ||
+    !isSafeEvidenceNarrativeText(value.next_safe_action) ||
+    !hasDeniedFlagsFalse(value, FOUNDER_LOOP_RUNS_INTEGRATION_DENIED_FLAGS) ||
+    !hasStringArrays(value, FOUNDER_LOOP_RUNS_INTEGRATION_REQUIRED_ARRAYS) ||
+    !hasExactStringList(value.surface_order, FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER) ||
+    !Array.isArray(value.surface_bindings) ||
+    value.surface_count !== value.surface_bindings.length ||
+    value.surface_bindings.length !== FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER.length ||
+    !value.surface_bindings.every(isSafeFounderLoopRunsIntegrationBinding) ||
+    !hasExactStringList(
+      (value.surface_bindings as Record<string, unknown>[]).map((binding) =>
+        String(binding.surface_id),
+      ),
+      FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER,
+    ) ||
+    !hasSafeFounderLoopTraceRefArrays(
+      value,
+      FOUNDER_LOOP_RUNS_INTEGRATION_REQUIRED_ARRAYS,
+    ) ||
+    !Array.isArray(value.blocked_authority_refs) ||
+    !value.blocked_authority_refs.includes(
+      "blocked-state:founder-loop-runs-no-production-authority",
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function isSafeFounderLoopRunsIntegrationBinding(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const requiredArrays = [
+    "action_source_refs",
+    "approval_refs",
+    "receipt_refs",
+    "evidence_refs",
+    "memory_candidate_refs",
+    "operator_run_event_refs",
+    "blocked_state_refs",
+  ] as const;
+  return (
+    typeof value.surface_id === "string" &&
+    FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER.includes(
+      value.surface_id as (typeof FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER)[number],
+    ) &&
+    typeof value.surface === "string" &&
+    typeof value.status === "string" &&
+    typeof value.frontend_route_ref === "string" &&
+    typeof value.backend_route_ref === "string" &&
+    typeof value.run_ref === "string" &&
+    typeof value.proof_ref === "string" &&
+    typeof value.proof_detail_ref === "string" &&
+    typeof value.proof_detail_route_ref === "string" &&
+    typeof value.safe_summary === "string" &&
+    typeof value.next_safe_action === "string" &&
+    isSafeEvidenceNarrativeText(value.surface) &&
+    isSafeEvidenceNarrativeText(value.status) &&
+    isSafeEvidenceNarrativeText(value.frontend_route_ref) &&
+    isSafeEvidenceNarrativeText(value.backend_route_ref) &&
+    isSafeEvidenceNarrativeText(value.proof_detail_route_ref) &&
+    isSafeEvidenceNarrativeText(value.safe_summary) &&
+    isSafeEvidenceNarrativeText(value.next_safe_action) &&
+    isSafeFounderLoopTraceRef(value.run_ref) &&
+    isSafeFounderLoopTraceRef(value.proof_ref) &&
+    isSafeFounderLoopTraceRef(value.proof_detail_ref) &&
+    hasSafeFounderLoopTraceRefArrays(value, requiredArrays)
+  );
+}
+
+function isSafeFounderLoopTraceRefs(value: unknown): value is FounderLoopTraceRefs {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const requiredArrays = [
+    "run_refs",
+    "operator_run_event_refs",
+    "receipt_refs",
+    "evidence_refs",
+    "evidence_event_refs",
+    "proof_refs",
+    "approval_refs",
+    "blocked_authority_refs",
+  ] as const;
+  return hasSafeFounderLoopTraceRefArrays(value, requiredArrays);
+}
+
+function hasSafeFounderLoopTraceRefArrays(
+  record: Record<string, unknown>,
+  fields: readonly string[],
+): boolean {
+  return fields.every((field) => {
+    const value = record[field];
+    return Array.isArray(value) && value.every(isSafeFounderLoopTraceRef);
+  });
+}
+
+function isSafeFounderLoopTraceRef(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0) {
+    return false;
+  }
+  const lowered = value.toLowerCase();
+  if (
+    EVIDENCE_NARRATIVE_UNSAFE_REF_FRAGMENTS.some((fragment) =>
+      lowered.includes(fragment),
+    )
+  ) {
+    return false;
+  }
+  if (value.includes("@") || value.includes("\\") || value.includes(".")) {
+    return false;
+  }
+  if (value.includes("/") && !value.startsWith("evidence-timeline:")) {
+    return false;
+  }
+  return /^[A-Za-z0-9:_./-]+$/.test(value);
 }
 
 function isSafeFounderLoopProductProofStep(value: unknown): boolean {

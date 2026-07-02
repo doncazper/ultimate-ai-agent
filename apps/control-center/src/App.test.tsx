@@ -214,6 +214,172 @@ function founderLoopProductProofFixture(
   };
 }
 
+function founderLoopRunsIntegrationFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const surfaceOrder = [
+    "morning_briefing",
+    "today",
+    "action_inbox",
+    "decision_receipt",
+    "evidence_timeline",
+    "memory_review",
+    "weekly_review",
+  ];
+  const surfaceLabels: Record<string, string> = {
+    morning_briefing: "Morning Briefing",
+    today: "Today",
+    action_inbox: "Action Inbox",
+    decision_receipt: "Decision Receipt",
+    evidence_timeline: "Evidence Timeline",
+    memory_review: "Memory Review",
+    weekly_review: "Weekly Review",
+  };
+  const surfaceRoutes: Record<string, string> = {
+    morning_briefing: "/briefing",
+    today: "/today",
+    action_inbox: "/actions",
+    decision_receipt: "/actions",
+    evidence_timeline: "/evidence",
+    memory_review: "/memory",
+    weekly_review: "/today",
+  };
+  const bindings = surfaceOrder.map((surfaceId) => ({
+    surface_id: surfaceId,
+    surface: surfaceLabels[surfaceId],
+    status: "backend_owned_run_ref_projection",
+    frontend_route_ref: surfaceRoutes[surfaceId],
+    backend_route_ref:
+      surfaceId === "morning_briefing"
+        ? "GET /control-center/morning-briefing/summary"
+        : surfaceId === "action_inbox"
+          ? "GET /control-center/actions/inbox"
+          : surfaceId === "evidence_timeline"
+            ? "GET /control-center/evidence/timeline"
+            : surfaceId === "memory_review"
+              ? "GET /control-center/memory/review"
+              : "GET /control-center/today/summary",
+    run_ref: "run-ref:founder-loop-v1:governed-local-loop",
+    proof_ref: `proof-ref:founder-loop-v1:${surfaceId}`,
+    proof_detail_ref: `proof-detail-ref:founder-loop-v1:${surfaceId}`,
+    proof_detail_route_ref: "proof-detail-route:planned-universal-proof",
+    action_source_refs:
+      surfaceId === "action_inbox" || surfaceId === "decision_receipt"
+        ? ["founder-action:setup-assistant-hardening"]
+        : [],
+    approval_refs:
+      surfaceId === "action_inbox"
+        ? ["approval-envelope:founder-loop:setup-assistant-hardening"]
+        : [],
+    receipt_refs:
+      surfaceId === "decision_receipt" || surfaceId === "memory_review"
+        ? ["receipt:founder-loop-runs:decision"]
+        : [],
+    evidence_refs: [
+      `proof-ref:founder-loop-v1:${surfaceId}`,
+      "evidence-ref:founder-loop-runs-integration",
+    ],
+    evidence_event_refs:
+      surfaceId === "evidence_timeline"
+        ? ["evidence-event:action-decision-recorded-test"]
+        : [],
+    memory_candidate_refs:
+      surfaceId === "memory_review"
+        ? ["business-memory-candidate:founder-loop-preferences"]
+        : [],
+    operator_run_event_refs: [
+      "operator-run-event:evidence-event-action-decision-recorded-test",
+    ],
+    blocked_state_refs: [
+      "blocked-state:founder-loop-runs-no-production-authority",
+    ],
+    safe_summary: `${surfaceLabels[surfaceId]} is tied to backend-owned run and proof refs.`,
+    next_safe_action:
+      "Inspect run and proof refs before claiming this surface outcome.",
+  }));
+  return {
+    schema_version: "founder-loop-runs-integration.v1",
+    contract_ref: "contract-ref:founder-loop-runs-integration:v1",
+    status: "implemented_backend_owned_run_proof_refs_safe_refs_only",
+    source: "python_core_founder_loop_runs_integration_read_model",
+    backend_owned: true,
+    local_read_model_only: true,
+    safe_refs_only: true,
+    redacted_summaries_only: true,
+    raw_payloads_persisted: false,
+    ui_truth_source: "python_core_read_model",
+    primary_run_ref: "run-ref:founder-loop-v1:governed-local-loop",
+    primary_proof_ref: "proof-ref:founder-loop-v1:governed-local-loop",
+    surface_order: surfaceOrder,
+    surface_count: surfaceOrder.length,
+    run_refs: ["run-ref:founder-loop-v1:governed-local-loop"],
+    proof_refs: [
+      "proof-ref:founder-loop-v1:governed-local-loop",
+      ...surfaceOrder.map((surfaceId) => `proof-ref:founder-loop-v1:${surfaceId}`),
+    ],
+    proof_detail_refs: surfaceOrder.map(
+      (surfaceId) => `proof-detail-ref:founder-loop-v1:${surfaceId}`,
+    ),
+    action_source_refs: ["founder-action:setup-assistant-hardening"],
+    approval_refs: ["approval-envelope:founder-loop:setup-assistant-hardening"],
+    receipt_refs: ["receipt:founder-loop-runs:decision"],
+    evidence_refs: [
+      "proof-ref:founder-loop-v1:governed-local-loop",
+      "evidence-ref:founder-loop-runs-integration",
+    ],
+    evidence_event_refs: ["evidence-event:action-decision-recorded-test"],
+    memory_candidate_refs: [
+      "business-memory-candidate:founder-loop-preferences",
+    ],
+    operator_run_event_refs: [
+      "operator-run-event:evidence-event-action-decision-recorded-test",
+    ],
+    blocked_authority_refs: [
+      "blocked-state:founder-loop-runs-no-provider-model-call",
+      "blocked-state:founder-loop-runs-no-connector-write",
+      "blocked-state:founder-loop-runs-no-browser-or-live-web",
+      "blocked-state:founder-loop-runs-no-shell-execution",
+      "blocked-state:founder-loop-runs-no-background-autonomy",
+      "blocked-state:founder-loop-runs-no-ui-only-truth",
+      "blocked-state:founder-loop-runs-no-memory-write-authority",
+      "blocked-state:founder-loop-runs-no-context-injection",
+      "blocked-state:founder-loop-runs-no-production-authority",
+    ],
+    surface_bindings: bindings,
+    action_origin_posture:
+      "action_refs_are_bound_to_the_shared_founder_loop_run_ref",
+    decision_receipt_posture:
+      "decisions_are_explained_by_backend_receipt_refs_or_explicit_none",
+    evidence_path_posture:
+      "state_is_supported_by_safe_evidence_refs_and_operator_run_event_refs",
+    proof_detail_posture:
+      "proof_refs_available_dedicated_universal_proof_route_not_present",
+    memory_candidate_posture: "memory_candidate_refs_visible",
+    weekly_review_posture:
+      "weekly_review_summarizes_same_loop_state_from_safe_refs",
+    authority_boundary:
+      "Founder Loop runs integration is backend-owned local safe-ref provenance only.",
+    next_safe_action:
+      "Inspect run, proof, receipt, evidence, and blocker refs before claiming a Founder Loop outcome.",
+    provider_model_call_enabled: false,
+    runtime_model_call_enabled: false,
+    connector_write_enabled: false,
+    connector_send_enabled: false,
+    browser_execution_enabled: false,
+    live_web_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    scheduler_enabled: false,
+    background_autonomy_enabled: false,
+    action_execution_enabled: false,
+    approval_authority_enabled: false,
+    memory_write_authorized: false,
+    context_injection_authorized: false,
+    ui_mutation_authority_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
 function unifiedWorkThreadFixture(overrides: Record<string, unknown> = {}) {
   const steps = [
     ["chat_handoff", "Chat", "/chat"],
@@ -1544,7 +1710,73 @@ describe("Web Control Center shell", () => {
       within(proofPanel).getAllByText(
         "blocked-state:founder-loop-proof-no-production-authority",
       ).length,
-      ).toBeGreaterThan(0);
+    ).toBeGreaterThan(0);
+  });
+
+  it("renders backend-owned Founder Loop run and proof refs without mutation controls", async () => {
+    const runsIntegration = founderLoopRunsIntegrationFixture();
+    const today = {
+      ...mockControlCenterData.founderToday,
+      founder_loop_runs_integration_contract_ref:
+        "contract-ref:founder-loop-runs-integration:v1",
+      founder_loop_runs_integration_read_model: runsIntegration,
+      loop_trace_refs: {
+        run_refs: runsIntegration.run_refs,
+        operator_run_event_refs: runsIntegration.operator_run_event_refs,
+        receipt_refs: runsIntegration.receipt_refs,
+        evidence_refs: runsIntegration.evidence_refs,
+        evidence_event_refs: runsIntegration.evidence_event_refs,
+        proof_refs: runsIntegration.proof_refs,
+        approval_refs: runsIntegration.approval_refs,
+        blocked_authority_refs: runsIntegration.blocked_authority_refs,
+      },
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderTodaySummary)) {
+        return new Response(JSON.stringify({ ok: true, result: today }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    const panel = await screen.findByLabelText("Founder Loop run and proof refs");
+    expect(
+      within(panel).getAllByText("run-ref:founder-loop-v1:governed-local-loop")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(panel).getAllByText("proof-ref:founder-loop-v1:governed-local-loop")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(panel).getAllByText("receipt:founder-loop-runs:decision").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(panel).getAllByText(
+        "operator-run-event:evidence-event-action-decision-recorded-test",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(panel).getAllByText(
+        "blocked-state:founder-loop-runs-no-production-authority",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(panel).getByText("Execution").nextElementSibling,
+    ).toHaveTextContent("blocked");
+    expect(within(panel).queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("renders backend-owned Unified Work Thread from backend data", async () => {
