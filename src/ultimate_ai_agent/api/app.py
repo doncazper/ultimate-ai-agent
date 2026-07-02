@@ -1320,6 +1320,29 @@ def get_task_decomposition_run_lifecycle(
     )
 
 
+@app.get("/task-decomposition/runs/{run_id}/approvals", response_model=ResultEnvelope)
+def get_task_decomposition_run_approvals(
+    run_id: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    authorization: str | None = Header(default=None),
+) -> Any:
+    _require_task_decomposition_local_authority(authorization)
+    queue = _task_decomposition_service.run_attached_approval_queue(run_id, limit=limit)
+    return ResultEnvelope(
+        success=True,
+        operation="task_decomposition_run_attached_approvals",
+        service="TaskDecompositionAPI",
+        trace_id=run_id,
+        data=_safe_task_decomposition_payload(queue),
+        redactions_applied=[
+            "safe_refs_only",
+            "approval_refs_identifier_only",
+            "raw_payloads_omitted",
+            "read_only_approval_queue_inspection",
+        ],
+    )
+
+
 @app.post("/task-decomposition/examples/init", response_model=ResultEnvelope)
 def post_task_decomposition_init_examples(authorization: str | None = Header(default=None)) -> Any:
     _require_task_decomposition_local_authority(authorization)
@@ -1937,6 +1960,27 @@ def get_control_center_approvals_summary() -> Any:
         service="ControlCenterAPI",
         trace_id="system",
         data=dashboard.approval_summary.model_dump(mode="json"),
+    )
+
+
+@app.get("/control-center/approvals/queue", response_model=ResultEnvelope)
+def get_control_center_approvals_queue(
+    run_ref: str | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+) -> Any:
+    queue = _task_decomposition_service.run_attached_approval_queue(run_ref, limit=limit)
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_approvals_queue",
+        service="ControlCenterAPI",
+        trace_id=run_ref or "control-center:approvals-queue",
+        data=_safe_task_decomposition_payload(queue),
+        redactions_applied=[
+            "safe_refs_only",
+            "approval_refs_identifier_only",
+            "raw_payloads_omitted",
+            "read_only_control_center_projection",
+        ],
     )
 
 

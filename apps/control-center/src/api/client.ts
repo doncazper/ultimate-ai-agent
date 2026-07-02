@@ -18,6 +18,7 @@ import type {
   ProviderCatalog,
   RedactedLocalChatProbeStatus,
   ResultEnvelope,
+  RunAttachedApprovalQueue,
   RuntimeCapabilityMatrix,
   RuntimeReadinessReport,
   ApiRouteInventory,
@@ -249,6 +250,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<ControlCenterDashboardSnapshot["approval_summary"]>(
       API_ENDPOINTS.approvalSummary,
     ),
+    readEnvelope<RunAttachedApprovalQueue>(API_ENDPOINTS.approvalQueue),
     readEnvelope<ControlCenterDashboardSnapshot["runtime_readiness_summary"]>(
       API_ENDPOINTS.runtimeReadinessSummary,
     ),
@@ -287,8 +289,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const founderSourceReadiness = fulfilledValue(results[22]);
   const founderStorageStatus = fulfilledValue(results[23]);
   const approvalSummary = fulfilledValue(results[24]);
-  const runtimeReadinessSummary = fulfilledValue(results[25]);
-  const foundationGateSummary = fulfilledValue(results[26]);
+  const approvalQueue = fulfilledValue(results[25]);
+  const runtimeReadinessSummary = fulfilledValue(results[26]);
+  const foundationGateSummary = fulfilledValue(results[27]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderEvidenceTimeline = normalizeFounderEvidenceTimeline(
     founderEvidenceTimeline,
@@ -349,6 +352,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedFounderSourceReadiness.usedFallback;
   const providerCredentialReadinessFallbackUsed =
     normalizedDashboard.usedFallback;
+  const approvalQueueEndpointFallbackUsed = approvalQueue === undefined;
   const dashboardSummaryEndpointFallbackUsed =
     approvalSummary === undefined ||
     runtimeReadinessSummary === undefined ||
@@ -411,6 +415,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     capabilityMatrix:
       capabilityMatrix ?? mockControlCenterData.capabilityMatrix,
     m15Review: mockControlCenterData.m15Review,
+    runAttachedApprovalQueue:
+      approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
     m16Trace: mockControlCenterData.m16Trace,
     m17Knowledge: mockControlCenterData.m17Knowledge,
     m18Runtime: mockControlCenterData.m18Runtime,
@@ -461,7 +467,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const mockFallbackUsed =
     generalMockFallbackUsed ||
     founderLoopFieldFallbackUsed ||
-    providerCredentialReadinessFallbackUsed;
+    providerCredentialReadinessFallbackUsed ||
+    approvalQueueEndpointFallbackUsed;
 
   return withConnection(data, {
     state: "degraded",
@@ -469,6 +476,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ? "Provider credential and cost posture was unavailable or unsafe; non-authoritative mock fallback kept provider readiness blocked."
       : founderLoopFieldFallbackUsed
         ? "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels."
+        : approvalQueueEndpointFallbackUsed
+          ? "Run-attached approval queue endpoint was unavailable; non-authoritative mock fallback is shown without approval authority."
         : dashboardSummaryEndpointFallbackUsed
           ? "Some dedicated Control Center summary routes were unavailable; backend dashboard summaries kept the visible state bounded."
           : "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.",
@@ -478,6 +487,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ...(mockFallbackUsed ? ["PARTIAL_MOCK_FALLBACK"] : []),
       ...(dashboardSummaryEndpointFallbackUsed
         ? ["CONTROL_CENTER_SUMMARY_ENDPOINT_FALLBACK"]
+        : []),
+      ...(approvalQueueEndpointFallbackUsed
+        ? ["RUN_ATTACHED_APPROVAL_QUEUE_MOCK_FALLBACK"]
         : []),
       ...(founderLoopFieldFallbackUsed
         ? ["PARTIAL_FOUNDER_LOOP_FIELD_FALLBACK"]

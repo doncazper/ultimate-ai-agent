@@ -102,6 +102,26 @@ def _cmd_inspect_run(args: Any) -> int:
     return 0
 
 
+def _cmd_inspect_approvals(args: Any) -> int:
+    service = _service(args)
+    queue = service.run_attached_approval_queue(args.run_id, limit=args.limit)
+    print(
+        dump_json(
+            {
+                "schema_version": "task-decomposition-cli-inspect-approvals.v1",
+                "command_ref": "cli:task-decomposition:inspect-approvals",
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "approval_authority_enabled": False,
+                "execution_authority_enabled": False,
+                "success": True,
+                "approval_queue": queue,
+            }
+        )
+    )
+    return 0
+
+
 def _cmd_serve_api(args: Any) -> int:
     import uvicorn
 
@@ -141,6 +161,14 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_run.add_argument("--limit", type=int, default=50)
     inspect_run.add_argument("--omit-receipts", action="store_true")
     inspect_run.set_defaults(func=_cmd_inspect_run)
+
+    inspect_approvals = subparsers.add_parser(
+        "inspect-approvals",
+        help="Inspect run-attached approval queue refs without granting authority.",
+    )
+    inspect_approvals.add_argument("run_id", nargs="?")
+    inspect_approvals.add_argument("--limit", type=int, default=50)
+    inspect_approvals.set_defaults(func=_cmd_inspect_approvals)
 
     serve = subparsers.add_parser("serve-api", help="Serve the local/dev task decomposition API.")
     serve.add_argument("--host", default="127.0.0.1")

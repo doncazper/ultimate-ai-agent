@@ -2,7 +2,7 @@
 
 Status: active gated foundation plan
 Baseline: v0.104.0 / 0.104.0
-Current OpenAPI path count: 160
+Current OpenAPI path count: 162
 Scope: planning, extraction guardrails, and first low-risk extraction status
 
 This plan accepts the service-module boundary used by UAA-P1-058 for the first
@@ -56,14 +56,14 @@ FCC-P1-012 accepts this document as the route-extraction plan for Founder
 Command Center surfaces. It does not create a separate extraction plan, route
 inventory, route module, or product roadmap. The surface mapping below is an
 alignment layer over UAA-P1-021 and UAA-P1-052 so later FCC work can point to
-the accepted service-module boundary without changing the current 160-path API.
+the accepted service-module boundary without changing the current 162-path API.
 
 | FCC surface | Current route families or status refs | Accepted target service module | Extraction posture |
 |---|---|---|---|
 | Today / workflow aggregation | `GET /control-center/today/summary`, current safe summary refs | `ultimate_ai_agent.api.routes.control_center_service` first; future aggregate-only work may use `workflow_service` after a scoped route contract exists | No new route in FCC-P1-012; preserve local-dev side-effect class and safe refs. |
 | Morning Briefing | `GET /control-center/morning-briefing/summary` | `ultimate_ai_agent.api.routes.control_center_service`; future dedicated aggregation may use `workflow_service` | No email/calendar/notification runtime; preserve source-readiness and missing-contract posture. |
-| Action Inbox / approvals | `/control-center/actions/*`, `/control-center/approvals/summary`, `/approvals/*` | `ultimate_ai_agent.api.routes.control_center_service` for UI summaries; `ultimate_ai_agent.api.routes.approval_service` for approval contracts | Approval refs remain identifiers; no action execution or grant shortcut. |
-| Plans | `/task-decomposition/*` | `ultimate_ai_agent.api.routes.task_decomposition_service` | Use the accepted extraction name rather than a new `planning_service` module until a later contract changes it. |
+| Action Inbox / approvals | `/control-center/actions/*`, `/control-center/approvals/summary`, `/control-center/approvals/queue`, `/approvals/*` | `ultimate_ai_agent.api.routes.control_center_service` for UI summaries and read-only run-attached approval queue projection; `ultimate_ai_agent.api.routes.approval_service` for approval contracts | Approval refs remain identifiers; no action execution or grant shortcut. |
+| Plans | `/task-decomposition/*`, including read-only run lifecycle and run-attached approval inspection routes | `ultimate_ai_agent.api.routes.task_decomposition_service` | Use the accepted extraction name rather than a new `planning_service` module until a later contract changes it. |
 | Memory | `/memory/*` plus current Founder Loop memory-review summaries | `ultimate_ai_agent.api.routes.memory_service` and, for current `/control-center/*` summaries, `ultimate_ai_agent.api.routes.control_center_service` | Preserve review-only memory posture, safe refs, and no context injection. |
 | Evidence | `/receipts/*`, `/events/*`, `/gate/*`, `/observability/*`, `/control-center/foundation-gate/summary`, current Evidence Timeline refs | `ultimate_ai_agent.api.routes.evidence_service`, `ultimate_ai_agent.api.routes.verification_service`, and `ultimate_ai_agent.api.routes.observability_service` | Preserve validation/report-only posture and redacted summaries. |
 | Files | `/files/*` | `ultimate_ai_agent.api.routes.workspace_files_service` | Use the accepted extraction name rather than a new `file_service` module; preserve approval, redaction, idempotency, and rollback gates. |

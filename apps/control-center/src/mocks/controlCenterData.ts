@@ -18,12 +18,13 @@ import type {
   ProviderCostGovernorBinding,
   ProviderSettingsDiagnosticItem,
   ProviderSettingsDiagnosticsSummary,
+  RunAttachedApprovalQueue,
 } from "../api/types";
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 159;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 60;
+export const MOCK_OPENAPI_ROUTE_COUNT = 162;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 61;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -688,6 +689,127 @@ const providerSettingsDiagnostics: ProviderSettingsDiagnosticsSummary = {
   settings_mutation_enabled: false,
   raw_payload_persistence_enabled: false,
   production_authority_enabled: false,
+};
+
+const runAttachedApprovalQueue: RunAttachedApprovalQueue = {
+  schema_version: "run_attached_approval_queue.v1",
+  source: "mock_fallback_non_authoritative",
+  backend_owned: false,
+  queue_ref: "run-attached-approval-queue:mock-fallback",
+  route_ref: "/control-center/approvals/queue",
+  route_refs: ["GET /control-center/approvals/queue"],
+  cli_ref: "python -m ultimate_ai_agent.core.task_decomposition.cli inspect-approvals",
+  supported_approval_states: [
+    "requested",
+    "approved",
+    "denied",
+    "expired",
+    "revoked",
+    "scope_mismatch_blocked",
+    "blocked",
+  ],
+  supported_approval_event_types: [
+    "approval_required",
+    "approval_attached",
+    "approval_denied",
+    "approval_expired",
+    "approval_revoked",
+    "approval_scope_mismatch_blocked",
+  ],
+  queue_items: [
+    {
+      schema_version: "run_attached_approval_queue_item.v1",
+      item_ref: "run-approval-queue-item:mock-fallback:requested",
+      approval_request_ref: "approval-request:mock-fallback:requested",
+      approval_grant_ref: null,
+      run_ref: "task-decomposition-run:mock-fallback",
+      step_ref: "step:mock-fallback:review",
+      requested_scope_ref: "approval-scope:mock-fallback:review-only",
+      approval_state: "requested",
+      approval_event_type: "approval_required",
+      approval_decision_ref: null,
+      approval_receipt_ref: null,
+      approval_scope_validation_ref: null,
+      expiry_ref: "approval-expiry:mock-fallback:not-set",
+      revocation_ref: null,
+      evidence_refs: ["evidence-ref:mock-fallback:approval-queue"],
+      blocked_authority_refs: [
+        "blocked-state:no-ui-approval-authority",
+        "blocked-state:no-run-execution-authority",
+      ],
+      receipt_refs: [],
+      audit_refs: [],
+      replay_refs: [],
+      rollback_refs: [],
+      idempotency_key_refs: [],
+      durable_attachment_status: "durable_attachment_missing",
+      safe_summary:
+        "Mock fallback row mirrors the run-attached queue shape; it cannot grant, deny, revoke, resume, execute, or bypass LocalApprovalAuthority.",
+      required_next_action: "inspect_only_no_ui_mutation",
+      safe_refs_only: true,
+      raw_payloads_persisted: false,
+      approval_refs_are_identifiers_only: true,
+      approval_authority_enabled: false,
+      execution_authority_enabled: false,
+      ui_mutation_controls_enabled: false,
+      tool_execution_enabled: false,
+      connector_writes_enabled: false,
+      model_call_enabled: false,
+    },
+  ],
+  pending_approvals_by_run: [
+    {
+      run_ref: "task-decomposition-run:mock-fallback",
+      pending_approval_refs: ["run-approval-queue-item:mock-fallback:requested"],
+      approval_history_refs: ["run-approval-queue-item:mock-fallback:requested"],
+      latest_approval_state: "requested",
+      durable_attachment_statuses: ["durable_attachment_missing"],
+      safe_refs_only: true,
+    },
+  ],
+  approval_history_by_run: [
+    {
+      run_ref: "task-decomposition-run:mock-fallback",
+      pending_approval_refs: ["run-approval-queue-item:mock-fallback:requested"],
+      approval_history_refs: ["run-approval-queue-item:mock-fallback:requested"],
+      latest_approval_state: "requested",
+      durable_attachment_statuses: ["durable_attachment_missing"],
+      safe_refs_only: true,
+    },
+  ],
+  summary: {
+    schema_version: "run_attached_approval_queue_summary.v1",
+    queue_ref: "run-attached-approval-queue:mock-fallback",
+    queue_item_count: 1,
+    run_count: 1,
+    pending_count: 1,
+    requested_count: 1,
+    approved_count: 0,
+    denied_count: 0,
+    expired_count: 0,
+    revoked_count: 0,
+    scope_mismatch_blocked_count: 0,
+    blocked_count: 0,
+    durable_attachment_missing_count: 1,
+    approval_grants_created: false,
+    arbitrary_approval_ref_authority: false,
+    safe_summary:
+      "Run-attached approval queue fallback is mock-only and non-authoritative; approval refs remain identifiers.",
+    safe_refs_only: true,
+    raw_payloads_persisted: false,
+    approval_refs_are_identifiers_only: true,
+    execution_authority_enabled: false,
+    ui_mutation_controls_enabled: false,
+  },
+  safe_refs_only: true,
+  raw_payloads_persisted: false,
+  approval_refs_are_identifiers_only: true,
+  approval_authority_enabled: false,
+  execution_authority_enabled: false,
+  ui_mutation_controls_enabled: false,
+  tool_execution_enabled: false,
+  connector_writes_enabled: false,
+  model_call_enabled: false,
 };
 
 function providerCatalogCard({
@@ -5550,6 +5672,7 @@ export const mockControlCenterData: ControlCenterData = {
       },
     ],
   },
+  runAttachedApprovalQueue,
   m16Trace: {
     status: "mock_preview_only",
     readOnly: true,

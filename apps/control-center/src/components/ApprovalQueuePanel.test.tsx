@@ -8,6 +8,7 @@ describe("ApprovalQueuePanel", () => {
     render(
       <ApprovalQueuePanel
         review={mockControlCenterData.m15Review}
+        queue={mockControlCenterData.runAttachedApprovalQueue}
         summary={{
           ...mockControlCenterData.dashboard.approval_summary,
           pending_count: 3,
@@ -29,6 +30,53 @@ describe("ApprovalQueuePanel", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /^grant approval$/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders run-attached queue refs as read-only backend state", () => {
+    const backendOwnedQueue = {
+      ...mockControlCenterData.runAttachedApprovalQueue,
+      source: "python_core_run_attached_approval_queue_read_model" as const,
+      backend_owned: true,
+    };
+    render(
+      <ApprovalQueuePanel
+        review={mockControlCenterData.m15Review}
+        queue={backendOwnedQueue}
+        summary={mockControlCenterData.dashboard.approval_summary}
+      />,
+    );
+
+    const queueSummary = screen.getByLabelText("Run-attached approval queue summary");
+    expect(within(queueSummary).getByText("Run-attached items")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Backend-owned run-attached approval queue"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("approval request attached").length).toBeGreaterThan(0);
+    expect(screen.getByText("Preview-only approval cards")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^deny$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^revoke$/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("labels mock approval queue fallback as non-authoritative", () => {
+    render(
+      <ApprovalQueuePanel
+        review={mockControlCenterData.m15Review}
+        queue={mockControlCenterData.runAttachedApprovalQueue}
+        summary={mockControlCenterData.dashboard.approval_summary}
+      />,
+    );
+
+    expect(
+      screen.getByLabelText("Mock-only non-authoritative approval queue fallback"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("mock-only / non-authoritative")).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned run-attached approval queue"),
     ).not.toBeInTheDocument();
   });
 });

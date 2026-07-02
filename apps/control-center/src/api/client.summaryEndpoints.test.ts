@@ -22,6 +22,15 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       ...mockControlCenterData.dashboard.foundation_gate_summary,
       status: "dedicated_foundation_summary",
     };
+    const directApprovalQueue = {
+      ...mockControlCenterData.runAttachedApprovalQueue,
+      source: "python_core_run_attached_approval_queue_read_model" as const,
+      backend_owned: true,
+      summary: {
+        ...mockControlCenterData.runAttachedApprovalQueue.summary,
+        queue_item_count: 4,
+      },
+    };
 
     stubControlCenterFetch({
       ...baseRouteData(),
@@ -41,6 +50,7 @@ describe("loadControlCenterData summary endpoint wiring", () => {
         },
       },
       [API_ENDPOINTS.approvalSummary]: directApprovalSummary,
+      [API_ENDPOINTS.approvalQueue]: directApprovalQueue,
       [API_ENDPOINTS.runtimeReadinessSummary]: directRuntimeSummary,
       [API_ENDPOINTS.foundationGateSummary]: directFoundationSummary,
     });
@@ -54,6 +64,7 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.dashboard.foundation_gate_summary).toEqual(
       directFoundationSummary,
     );
+    expect(data.runAttachedApprovalQueue).toEqual(directApprovalQueue);
     expect(data.connection.state).toBe("online");
     expect(data.connection.usingMockData).toBe(false);
   });
@@ -83,9 +94,36 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     );
     expect(data.connection.warnings).not.toContain("PARTIAL_MOCK_FALLBACK");
   });
+
+  it("marks missing approval queue route as non-authoritative mock fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.approvalQueue];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.runAttachedApprovalQueue.source).toBe(
+      "mock_fallback_non_authoritative",
+    );
+    expect(data.runAttachedApprovalQueue.backend_owned).toBe(false);
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+    expect(data.connection.warnings).toContain(
+      "RUN_ATTACHED_APPROVAL_QUEUE_MOCK_FALLBACK",
+    );
+    expect(data.connection.safeMessage).toContain(
+      "non-authoritative mock fallback",
+    );
+  });
 });
 
 function baseRouteData(): Record<string, unknown> {
+  const backendOwnedApprovalQueue = {
+    ...mockControlCenterData.runAttachedApprovalQueue,
+    source: "python_core_run_attached_approval_queue_read_model" as const,
+    backend_owned: true,
+  };
   return {
     [API_ENDPOINTS.controlCenterManifest]: mockControlCenterData.manifest,
     [API_ENDPOINTS.controlCenterDashboard]: mockControlCenterData.dashboard,
@@ -130,6 +168,7 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.founderStorageStatus,
     [API_ENDPOINTS.approvalSummary]:
       mockControlCenterData.dashboard.approval_summary,
+    [API_ENDPOINTS.approvalQueue]: backendOwnedApprovalQueue,
     [API_ENDPOINTS.runtimeReadinessSummary]:
       mockControlCenterData.dashboard.runtime_readiness_summary,
     [API_ENDPOINTS.foundationGateSummary]:

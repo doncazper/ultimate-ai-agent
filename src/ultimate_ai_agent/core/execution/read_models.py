@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -48,6 +48,9 @@ CanonicalRunEventType = Literal[
     "approval_required",
     "approval_attached",
     "approval_denied",
+    "approval_expired",
+    "approval_revoked",
+    "approval_scope_mismatch_blocked",
     "step_started",
     "step_progress",
     "step_blocked",
@@ -90,6 +93,9 @@ CANONICAL_RUN_EVENT_TYPES: tuple[CanonicalRunEventType, ...] = (
     "approval_required",
     "approval_attached",
     "approval_denied",
+    "approval_expired",
+    "approval_revoked",
+    "approval_scope_mismatch_blocked",
     "step_started",
     "step_progress",
     "step_blocked",
@@ -109,6 +115,15 @@ CANONICAL_RUN_EVENT_TYPES: tuple[CanonicalRunEventType, ...] = (
     "replay_event_emitted",
     "replay_completed",
 )
+
+_APPROVAL_RECEIPT_EVENT_TYPES: set[CanonicalRunEventType] = {
+    "approval_required",
+    "approval_attached",
+    "approval_denied",
+    "approval_expired",
+    "approval_revoked",
+    "approval_scope_mismatch_blocked",
+}
 
 
 _STATE_MAP: dict[DurableRunState, CanonicalRunLifecycleState] = {
@@ -156,6 +171,10 @@ def _record_from_entry(entry: DurableRunStorageEntry) -> DurableRunRecord | None
 
 def _event_type_for_entry(entry: DurableRunStorageEntry, sequence: int) -> CanonicalRunEventType:
     if entry.kind == DurableRunStorageEntryKind.receipt:
+        if isinstance(entry.receipt_summary, dict):
+            approval_event_type = entry.receipt_summary.get("run_approval_event_type")
+            if approval_event_type in _APPROVAL_RECEIPT_EVENT_TYPES:
+                return cast(CanonicalRunEventType, approval_event_type)
         return "receipt_recorded"
     record = _record_from_entry(entry)
     if record is None:

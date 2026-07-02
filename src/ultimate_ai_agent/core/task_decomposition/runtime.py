@@ -26,6 +26,10 @@ from ultimate_ai_agent.core.execution import (
     DurableRunTransitionStatus,
     apply_durable_run_transition,
     build_durable_run_lifecycle_read_model,
+    build_run_attached_approval_queue_read_model,
+    record_run_attached_approval_event,
+    run_attached_approval_item_from_grant,
+    run_attached_approval_item_from_request,
 )
 from ultimate_ai_agent.core.execution.validation import validate_execution_ref
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
@@ -690,9 +694,13 @@ class TaskDecompositionService:
         contract = self.registry.get(request.capability_id)
         if contract is None:
             raise KeyError("CAPABILITY_NOT_REGISTERED")
+        durable_run_id = self._durable_run_id(request.run_id)
+        approval_request_id = f"areq_{durable_run_id}_{request.capability_id}".replace(":", "_")
+        if approval_request_id in self._approval_requests:
+            return self._approval_requests[approval_request_id]
         approval_request = ApprovalRequest(
-            approval_request_id=f"areq_{request.run_id}_{request.capability_id}".replace(":", "_"),
-            run_id=request.run_id,
+            approval_request_id=approval_request_id,
+            run_id=durable_run_id,
             subject_type=ApprovalSubjectType.tool_request,
             subject_id=request.capability_id,
             actor_context=ActorContext(
@@ -709,17 +717,38 @@ class TaskDecompositionService:
         )
         self.approval_authority.create_request(approval_request)
         self._approval_requests[approval_request.approval_request_id] = approval_request
-        self._save_persisted_approval_state()
-        record = self._ensure_durable_run(
-            request.run_id,
-            safe_summary="Task decomposition durable run was attached to an approval request.",
-        )
-        approval_refs = [self._safe_external_ref("approval-request", approval_request.approval_request_id)]
-        record = self._append_durable_attachment(
-            record,
-            safe_summary="Task decomposition approval request was bound to durable run truth.",
-            approval_refs=approval_refs,
-        )
+        durable_attached = False
+        try:
+            record = self._ensure_durable_run(
+                durable_run_id,
+                safe_summary="Task decomposition durable run was attached to an approval request.",
+            )
+            approval_refs = [self._safe_external_ref("approval-request", approval_request.approval_request_id)]
+            record = self._append_durable_attachment(
+                record,
+                safe_summary="Task decomposition approval request was bound to durable run truth.",
+                idempotency_key=self._safe_ref(
+                    "idempotency",
+                    durable_run_id,
+                    "approval-request-attachment",
+                    approval_request.approval_request_id,
+                ),
+                approval_refs=approval_refs,
+            )
+            durable_attached = True
+            self._record_approval_state_after_durable_attachment(
+                record.run_id,
+                run_attached_approval_item_from_request(
+                    approval_request,
+                    durable_attachment_status="attached",
+                ),
+                operation="approval-required",
+            )
+        except Exception:
+            if not durable_attached:
+                self._approval_requests.pop(approval_request.approval_request_id, None)
+                self.approval_authority._requests.pop(approval_request.approval_request_id, None)
+            raise
         binding = self.durable_binding(record.run_id)
         self.record_audit_event(
             "approval_requested",
@@ -746,17 +775,37 @@ class TaskDecompositionService:
             approved_actions=request.approved_actions,
             approved_resource_refs=request.approved_resource_refs,
         )
-        self._save_persisted_approval_state()
-        record = self._ensure_durable_run(
-            grant.run_id,
-            safe_summary="Task decomposition durable run was attached to an approval grant.",
-        )
-        approval_refs = [self._safe_external_ref("approval", grant.approval_ref)]
-        record = self._append_durable_attachment(
-            record,
-            safe_summary="Task decomposition approval grant was bound to durable run truth.",
-            approval_refs=approval_refs,
-        )
+        durable_attached = False
+        try:
+            record = self._ensure_durable_run(
+                grant.run_id,
+                safe_summary="Task decomposition durable run was attached to an approval grant.",
+            )
+            approval_refs = [self._safe_external_ref("approval", grant.approval_ref)]
+            record = self._append_durable_attachment(
+                record,
+                safe_summary="Task decomposition approval grant was bound to durable run truth.",
+                idempotency_key=self._safe_ref(
+                    "idempotency",
+                    grant.run_id,
+                    "approval-grant-attachment",
+                    grant.approval_ref,
+                ),
+                approval_refs=approval_refs,
+            )
+            durable_attached = True
+            self._record_approval_state_after_durable_attachment(
+                record.run_id,
+                run_attached_approval_item_from_grant(
+                    grant,
+                    durable_attachment_status="attached",
+                ),
+                operation="approval-attached",
+            )
+        except Exception:
+            if not durable_attached:
+                self.approval_authority._grants.pop(grant.approval_ref, None)
+            raise
         binding = self.durable_binding(record.run_id)
         self.record_audit_event(
             "approval_granted",
@@ -774,18 +823,39 @@ class TaskDecompositionService:
 
     def revoke_approval(self, request: TaskDecompositionApprovalRevokeRequest) -> ApprovalGrant:
         self._check_rate_limit("approval_revocation")
+        previous_grant = self.approval_authority.get_grant(request.approval_ref)
         revoked = self.approval_authority.revoke(request.approval_ref, request.reason)
-        self._save_persisted_approval_state()
-        record = self._ensure_durable_run(
-            revoked.run_id,
-            safe_summary="Task decomposition durable run was attached to approval revocation.",
-        )
-        approval_refs = [self._safe_external_ref("approval", revoked.approval_ref)]
-        record = self._append_durable_attachment(
-            record,
-            safe_summary="Task decomposition approval revocation was bound to durable run truth.",
-            approval_refs=approval_refs,
-        )
+        durable_attached = False
+        try:
+            record = self._ensure_durable_run(
+                revoked.run_id,
+                safe_summary="Task decomposition durable run was attached to approval revocation.",
+            )
+            approval_refs = [self._safe_external_ref("approval", revoked.approval_ref)]
+            record = self._append_durable_attachment(
+                record,
+                safe_summary="Task decomposition approval revocation was bound to durable run truth.",
+                idempotency_key=self._safe_ref(
+                    "idempotency",
+                    revoked.run_id,
+                    "approval-revocation-attachment",
+                    revoked.approval_ref,
+                ),
+                approval_refs=approval_refs,
+            )
+            durable_attached = True
+            self._record_approval_state_after_durable_attachment(
+                record.run_id,
+                run_attached_approval_item_from_grant(
+                    revoked,
+                    durable_attachment_status="attached",
+                ),
+                operation="approval-revoked",
+            )
+        except Exception:
+            if not durable_attached and previous_grant is not None:
+                self.approval_authority._grants[previous_grant.approval_ref] = previous_grant
+            raise
         binding = self.durable_binding(record.run_id)
         self.record_audit_event(
             "approval_revoked",
@@ -806,6 +876,22 @@ class TaskDecompositionService:
             "requests": [request.model_dump(mode="json") for request in self._approval_requests.values()],
             "grants": [grant.model_dump(mode="json") for grant in self.approval_authority.list_grants()],
         }
+
+    def run_attached_approval_queue(
+        self,
+        run_id: str | None = None,
+        *,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        durable_run_id = self._durable_run_id(run_id) if run_id else None
+        model = build_run_attached_approval_queue_read_model(
+            approval_requests=self._approval_requests.values(),
+            approval_grants=self.approval_authority.list_grants(durable_run_id),
+            durable_run_storage=self.durable_run_storage,
+            run_ref=durable_run_id,
+            limit=limit,
+        )
+        return model.model_dump(mode="json")
 
     def audit_events(self, limit: int = 100) -> list[dict[str, Any]]:
         events = self.registry_store.load_audit_events()
@@ -1185,6 +1271,48 @@ class TaskDecompositionService:
             evidence_refs=[evidence_ref],
             safe_summary=safe_summary,
         )
+
+    def _record_run_attached_approval_event(
+        self,
+        run_id: str,
+        item: Any,
+        *,
+        operation: str,
+    ) -> None:
+        event_seed = self._safe_ref("run-approval-event", run_id, operation, item.item_ref)
+        try:
+            record_run_attached_approval_event(
+                self.durable_run_storage,
+                item,
+                idempotency_key_ref=self._safe_ref("idempotency", event_seed),
+                audit_ref=self._safe_ref("audit", event_seed),
+                receipt_ref=self._safe_ref("receipt", event_seed),
+                rollback_ref=self._safe_ref("rollback", event_seed),
+            )
+        except DurableRunStorageDuplicateError:
+            return
+
+    def _record_approval_state_after_durable_attachment(
+        self,
+        run_id: str,
+        item: Any,
+        *,
+        operation: str,
+    ) -> None:
+        event_error: Exception | None = None
+        save_error: Exception | None = None
+        try:
+            self._record_run_attached_approval_event(run_id, item, operation=operation)
+        except Exception as exc:
+            event_error = exc
+        try:
+            self._save_persisted_approval_state()
+        except Exception as exc:
+            save_error = exc
+        if event_error is not None:
+            raise event_error
+        if save_error is not None:
+            raise save_error
 
     def _append_durable_snapshot(
         self,

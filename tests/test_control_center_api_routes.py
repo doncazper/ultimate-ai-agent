@@ -120,6 +120,7 @@ def test_control_center_api_routes_are_read_only_preview_only() -> None:
         "/control-center/status",
         "/control-center/routes",
         "/control-center/approvals/summary",
+        "/control-center/approvals/queue",
         "/control-center/runtime-readiness/summary",
         "/control-center/foundation-gate/summary",
         "/control-center/setup-assistant/summary",
@@ -139,6 +140,32 @@ def test_control_center_api_routes_are_read_only_preview_only() -> None:
     manifest = client.get("/control-center/manifest").json()["data"]
     assert manifest["metadata"]["frontend_implemented"] is False
     assert "runtime_execution" in manifest["blocked_capabilities"]
+
+
+def test_control_center_approval_queue_is_backend_owned_read_only() -> None:
+    response = client.get("/control-center/approvals/queue")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "control_center_approvals_queue"
+    assert body["redactions_applied"] == [
+        "safe_refs_only",
+        "approval_refs_identifier_only",
+        "raw_payloads_omitted",
+        "read_only_control_center_projection",
+    ]
+    data = body["data"]
+    assert data["schema_version"] == "run_attached_approval_queue.v1"
+    assert data["source"] == "python_core_run_attached_approval_queue_read_model"
+    assert data["backend_owned"] is True
+    assert data["safe_refs_only"] is True
+    assert data["raw_payloads_persisted"] is False
+    assert data["approval_refs_are_identifiers_only"] is True
+    assert data["approval_authority_enabled"] is False
+    assert data["execution_authority_enabled"] is False
+    assert data["ui_mutation_controls_enabled"] is False
+    assert "approve" not in data
 
 
 def test_control_center_source_readiness_route_is_backend_owned_read_only() -> None:
