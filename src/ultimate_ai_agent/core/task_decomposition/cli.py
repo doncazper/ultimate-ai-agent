@@ -157,6 +157,29 @@ def _cmd_inspect_run_progress(args: Any) -> int:
     return 0
 
 
+def _cmd_inspect_coworker_workers(args: Any) -> int:
+    service = _service(args)
+    workers = service.background_coworker_workers(args.run_id, limit=args.limit)
+    print(
+        dump_json(
+            {
+                "schema_version": "task-decomposition-cli-inspect-coworker-workers.v1",
+                "command_ref": "cli:task-decomposition:inspect-coworker-workers",
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "background_execution_enabled": False,
+                "scheduler_enabled": False,
+                "worker_runtime_started": False,
+                "queue_consumer_enabled": False,
+                "execution_authority_enabled": False,
+                "success": True,
+                "coworker_workers": workers,
+            }
+        )
+    )
+    return 0
+
+
 def _cmd_serve_api(args: Any) -> int:
     import uvicorn
 
@@ -212,6 +235,14 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_run_progress.add_argument("run_id")
     inspect_run_progress.add_argument("--limit", type=int, default=50)
     inspect_run_progress.set_defaults(func=_cmd_inspect_run_progress)
+
+    inspect_coworker_workers = subparsers.add_parser(
+        "inspect-coworker-workers",
+        help="Inspect metadata-only coworker worker refs without background execution authority.",
+    )
+    inspect_coworker_workers.add_argument("run_id", nargs="?")
+    inspect_coworker_workers.add_argument("--limit", type=int, default=100)
+    inspect_coworker_workers.set_defaults(func=_cmd_inspect_coworker_workers)
 
     serve = subparsers.add_parser("serve-api", help="Serve the local/dev task decomposition API.")
     serve.add_argument("--host", default="127.0.0.1")
