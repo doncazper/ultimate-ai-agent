@@ -180,6 +180,32 @@ def _cmd_inspect_coworker_workers(args: Any) -> int:
     return 0
 
 
+def _cmd_inspect_connector_deliveries(args: Any) -> int:
+    service = _service(args)
+    deliveries = service.connector_deliveries(args.run_id, limit=args.limit)
+    print(
+        dump_json(
+            {
+                "schema_version": "task-decomposition-cli-inspect-connector-deliveries.v1",
+                "command_ref": "cli:task-decomposition:inspect-connector-deliveries",
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "connector_write_enabled": False,
+                "connector_send_enabled": False,
+                "account_sync_enabled": False,
+                "oauth_enabled": False,
+                "credential_collection_enabled": False,
+                "background_delivery_worker_enabled": False,
+                "scheduler_enabled": False,
+                "delivery_authority_enabled": False,
+                "success": True,
+                "connector_deliveries": deliveries,
+            }
+        )
+    )
+    return 0
+
+
 def _cmd_serve_api(args: Any) -> int:
     import uvicorn
 
@@ -243,6 +269,14 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_coworker_workers.add_argument("run_id", nargs="?")
     inspect_coworker_workers.add_argument("--limit", type=int, default=100)
     inspect_coworker_workers.set_defaults(func=_cmd_inspect_coworker_workers)
+
+    inspect_connector_deliveries = subparsers.add_parser(
+        "inspect-connector-deliveries",
+        help="Inspect contract-only connector delivery refs without send or write authority.",
+    )
+    inspect_connector_deliveries.add_argument("run_id", nargs="?")
+    inspect_connector_deliveries.add_argument("--limit", type=int, default=100)
+    inspect_connector_deliveries.set_defaults(func=_cmd_inspect_connector_deliveries)
 
     serve = subparsers.add_parser("serve-api", help="Serve the local/dev task decomposition API.")
     serve.add_argument("--host", default="127.0.0.1")
