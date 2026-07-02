@@ -43,7 +43,7 @@ Non-goals:
   authority claims.
 
 Implementation requirements:
-1. Add or update the smallest canonical docs to define the conveyor.
+1. Add or update the smallest canonical docs to define the program.
 2. Add structured maturity/readiness fields where appropriate, without changing
    operational ranks unless verifier-backed behavior already exists.
 3. Define candidate classes:
@@ -93,7 +93,7 @@ Required verification:
 
 Final response must include:
 - files changed
-- conveyor fields/docs added
+- program fields/docs added
 - verifier rules added
 - behavior explicitly not added
 - tests/verifiers run
