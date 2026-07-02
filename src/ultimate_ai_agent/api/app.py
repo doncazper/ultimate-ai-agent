@@ -1984,6 +1984,33 @@ def get_control_center_approvals_queue(
     )
 
 
+@app.get("/control-center/runs/observability", response_model=ResultEnvelope)
+def get_control_center_runs_observability(
+    run_ref: str | None = None,
+    lifecycle_limit: int = Query(default=50, ge=1, le=200),
+    related_limit: int = Query(default=50, ge=1, le=200),
+) -> Any:
+    observability = _task_decomposition_service.run_observability(
+        run_ref,
+        lifecycle_limit=lifecycle_limit,
+        related_limit=related_limit,
+    )
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_runs_observability",
+        service="ControlCenterAPI",
+        trace_id=run_ref or "control-center:runs-observability",
+        data=_safe_task_decomposition_payload(observability),
+        redactions_applied=[
+            "safe_refs_only",
+            "redacted_summaries_only",
+            "raw_payloads_omitted",
+            "read_only_control_center_projection",
+            "runtime_authority_blocked",
+        ],
+    )
+
+
 @app.get("/control-center/runtime-readiness/summary", response_model=ResultEnvelope)
 def get_control_center_runtime_readiness_summary() -> Any:
     dashboard = build_control_center_dashboard()

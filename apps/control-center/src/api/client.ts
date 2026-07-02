@@ -19,6 +19,7 @@ import type {
   RedactedLocalChatProbeStatus,
   ResultEnvelope,
   RunAttachedApprovalQueue,
+  RunObservabilityReadModel,
   RuntimeCapabilityMatrix,
   RuntimeReadinessReport,
   ApiRouteInventory,
@@ -274,6 +275,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.approvalSummary,
     ),
     readEnvelope<RunAttachedApprovalQueue>(API_ENDPOINTS.approvalQueue),
+    readEnvelope<RunObservabilityReadModel>(API_ENDPOINTS.runObservability),
     readEnvelope<ControlCenterDashboardSnapshot["runtime_readiness_summary"]>(
       API_ENDPOINTS.runtimeReadinessSummary,
     ),
@@ -313,8 +315,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const founderStorageStatus = fulfilledValue(results[23]);
   const approvalSummary = fulfilledValue(results[24]);
   const approvalQueue = fulfilledValue(results[25]);
-  const runtimeReadinessSummary = fulfilledValue(results[26]);
-  const foundationGateSummary = fulfilledValue(results[27]);
+  const runObservability = fulfilledValue(results[26]);
+  const safeObservedRunObservability = safeRunObservability(runObservability);
+  const runtimeReadinessSummary = fulfilledValue(results[27]);
+  const foundationGateSummary = fulfilledValue(results[28]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderEvidenceTimeline = normalizeFounderEvidenceTimeline(
     founderEvidenceTimeline,
@@ -376,6 +380,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const providerCredentialReadinessFallbackUsed =
     normalizedDashboard.usedFallback;
   const approvalQueueEndpointFallbackUsed = approvalQueue === undefined;
+  const runObservabilityEndpointFallbackUsed =
+    safeObservedRunObservability === undefined;
   const dashboardSummaryEndpointFallbackUsed =
     approvalSummary === undefined ||
     runtimeReadinessSummary === undefined ||
@@ -440,6 +446,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
+    runObservability:
+      safeObservedRunObservability ?? mockControlCenterData.runObservability,
     m16Trace: mockControlCenterData.m16Trace,
     m17Knowledge: mockControlCenterData.m17Knowledge,
     m18Runtime: mockControlCenterData.m18Runtime,
@@ -476,6 +484,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     fulfilledCount === results.length &&
     !founderLoopFieldFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
+    !runObservabilityEndpointFallbackUsed &&
     !dashboardSummaryEndpointFallbackUsed
   ) {
     return withConnection(data, {
@@ -491,7 +500,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     generalMockFallbackUsed ||
     founderLoopFieldFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
-    approvalQueueEndpointFallbackUsed;
+    approvalQueueEndpointFallbackUsed ||
+    runObservabilityEndpointFallbackUsed;
 
   return withConnection(data, {
     state: "degraded",
@@ -501,9 +511,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ? "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels."
         : approvalQueueEndpointFallbackUsed
           ? "Run-attached approval queue endpoint was unavailable; non-authoritative mock fallback is shown without approval authority."
-        : dashboardSummaryEndpointFallbackUsed
-          ? "Some dedicated Control Center summary routes were unavailable; backend dashboard summaries kept the visible state bounded."
-          : "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.",
+          : runObservabilityEndpointFallbackUsed
+            ? "Run observability endpoint was unavailable; Evidence remains read-only and uses non-authoritative mock fallback refs."
+            : dashboardSummaryEndpointFallbackUsed
+              ? "Some dedicated Control Center summary routes were unavailable; backend dashboard summaries kept the visible state bounded."
+              : "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.",
     usingMockData: mockFallbackUsed,
     warnings: [
       "LOCAL_BACKEND_DEGRADED",
@@ -513,6 +525,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         : []),
       ...(approvalQueueEndpointFallbackUsed
         ? ["RUN_ATTACHED_APPROVAL_QUEUE_MOCK_FALLBACK"]
+        : []),
+      ...(runObservabilityEndpointFallbackUsed
+        ? ["RUN_OBSERVABILITY_MOCK_FALLBACK"]
         : []),
       ...(founderLoopFieldFallbackUsed
         ? ["PARTIAL_FOUNDER_LOOP_FIELD_FALLBACK"]
@@ -1315,6 +1330,54 @@ function withConnection(
 
 function fulfilledValue<T>(result: PromiseSettledResult<T>): T | undefined {
   return result.status === "fulfilled" ? result.value : undefined;
+}
+
+function safeRunObservability(
+  value: RunObservabilityReadModel | undefined,
+): RunObservabilityReadModel | undefined {
+  if (value === undefined || !isPlainRecord(value)) {
+    return undefined;
+  }
+  const record = value as unknown as Record<string, unknown>;
+  if (
+    record.schema_version !== "run_observability_read_model.v1" ||
+    record.source !== "python_core_run_observability_read_model" ||
+    record.backend_owned !== true ||
+    record.safe_refs_only !== true ||
+    record.redacted_summaries_only !== true ||
+    record.approval_refs_are_identifiers_only !== true ||
+    record.control_center_presentation_only !== true ||
+    !Array.isArray(record.run_refs) ||
+    !Array.isArray(record.blocked_authority_refs) ||
+    !Array.isArray(record.proof_refs) ||
+    !isPlainRecord(record.approval_queue) ||
+    !isPlainRecord(record.connector_delivery_review_queue)
+  ) {
+    return undefined;
+  }
+  for (const deniedFlag of [
+    "raw_payloads_persisted",
+    "prompt_content_stored",
+    "response_content_stored",
+    "provider_payload_content_stored",
+    "approval_ref_grants_authority",
+    "ui_mutation_controls_enabled",
+    "cancel_resume_controls_enabled",
+    "live_streaming_runtime_enabled",
+    "provider_model_calls_enabled",
+    "tool_execution_enabled",
+    "connector_writes_enabled",
+    "connector_sends_enabled",
+    "background_worker_enabled",
+    "scheduler_enabled",
+    "autonomous_execution_enabled",
+    "production_authority_enabled",
+  ] as const) {
+    if (record[deniedFlag] !== false) {
+      return undefined;
+    }
+  }
+  return value;
 }
 
 function mergeMissingFields<T>(

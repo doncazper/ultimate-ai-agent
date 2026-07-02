@@ -29,6 +29,7 @@ from ultimate_ai_agent.core.execution import (
     build_connector_delivery_review_queue,
     build_connector_delivery_read_model,
     build_durable_run_lifecycle_read_model,
+    build_run_observability_read_model,
     build_run_progress_read_model,
     build_run_attached_approval_queue_read_model,
     record_run_attached_approval_event,
@@ -948,6 +949,24 @@ class TaskDecompositionService:
             durable_run_storage=self.durable_run_storage,
             run_ref=durable_run_id,
             limit=limit,
+        )
+        return model.model_dump(mode="json")
+
+    def run_observability(
+        self,
+        run_id: str | None = None,
+        *,
+        lifecycle_limit: int = 50,
+        related_limit: int = 50,
+    ) -> dict[str, Any]:
+        durable_run_id = self._durable_run_id(run_id) if run_id else None
+        model = build_run_observability_read_model(
+            self.durable_run_storage,
+            run_ref=durable_run_id,
+            approval_requests=self._approval_requests.values(),
+            approval_grants=self.approval_authority.list_grants(durable_run_id),
+            lifecycle_limit=lifecycle_limit,
+            related_limit=related_limit,
         )
         return model.model_dump(mode="json")
 

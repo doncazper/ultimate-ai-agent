@@ -313,6 +313,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           />
           <EvidenceTimelineSurfacePanel
             evidence={data.founderEvidenceTimeline}
+            runObservability={data.runObservability}
             today={data.founderToday}
           />
           <EvidenceOperatorPanel data={data} />

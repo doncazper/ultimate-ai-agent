@@ -4,7 +4,7 @@
   "baseline": "v0.104.0 / 0.104.0",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
-  "openapi_path_count": 162,
+  "openapi_path_count": 163,
   "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",
   "allowed_release_statuses": [
     "status_available_not_completion",
@@ -792,7 +792,7 @@
       "risk_class": "medium",
       "release_status": "founder_loop_v1_proofed",
       "approval_requirement": "No approval for read-only evidence inspection; the productized Evidence Timeline index is backend-owned safe refs only, and mutating evidence generation follows owner routes.",
-      "evidence_audit_output": "Backend-owned Evidence Timeline route surface is proofed for safe-ref-only events from action_envelope_created, action_decision_recorded, chat_turn_receipt_recorded, chat_handoff_created, and memory_review_decision_recorded grouped by Today item, Action, Chat turn, and Memory candidate. The proofed route surface shows receipt refs, approval identifiers, idempotency refs, blocked states, and rollback posture, and remains read-only without approval authority, rollback execution, action execution, context injection, connector writes, or production authority.",
+      "evidence_audit_output": "Backend-owned Evidence Timeline route surface is proofed for safe-ref-only events from action_envelope_created, action_decision_recorded, chat_turn_receipt_recorded, chat_handoff_created, and memory_review_decision_recorded grouped by Today item, Action, Chat turn, and Memory candidate. Run observability joins durable run lifecycle, progress, approvals, coworker, connector delivery, receipt, evidence, and proof refs as read-only metadata. The proofed route surface shows receipt refs, approval identifiers, idempotency refs, blocked states, and rollback posture, and remains read-only without approval authority, rollback execution, action execution, context injection, connector writes, provider/model calls, live streaming, background workers, or production authority.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -807,6 +807,13 @@
           "operation_id": "get_control_center_evidence_timeline",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/runs/observability",
+          "operation_id": "get_control_center_runs_observability",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         },
         {
           "method": "POST",
@@ -1613,7 +1620,7 @@
       "risk_class": "medium",
       "release_status": "founder_loop_v1_proofed",
       "approval_requirement": "None for read-only evidence inspection; Evidence Timeline events are safe refs only and do not approve, execute, roll back, inject context, or grant production authority.",
-      "evidence_audit_output": "Proofed Evidence Timeline route surface with safe-ref-only action_envelope_created, action_decision_recorded, chat_turn_receipt_recorded, chat_handoff_created, and memory_review_decision_recorded history plus receipt refs, approval identifiers, idempotency refs, blocked states, and rollback posture; no approval authority, rollback execution, action execution, context injection, connector write, public beta, or production authority.",
+      "evidence_audit_output": "Proofed Evidence Timeline route surface with safe-ref-only action_envelope_created, action_decision_recorded, chat_turn_receipt_recorded, chat_handoff_created, and memory_review_decision_recorded history plus durable run observability refs for lifecycle, progress, approvals, coworker handoffs, connector delivery metadata, receipt refs, evidence refs, proof refs, idempotency refs, blocked states, and rollback posture; no approval authority, rollback execution, action execution, live streaming, provider/model call, connector write/send, background worker, public beta, or production authority.",
       "backend_routes": [
         {
           "method": "GET",
@@ -1628,6 +1635,13 @@
           "operation_id": "get_control_center_evidence_timeline",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/runs/observability",
+          "operation_id": "get_control_center_runs_observability",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         },
         {
           "method": "GET",

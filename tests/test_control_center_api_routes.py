@@ -84,6 +84,7 @@ def test_control_center_api_routes_are_read_only_preview_only() -> None:
         "/control-center/routes",
         "/control-center/approvals/summary",
         "/control-center/approvals/queue",
+        "/control-center/runs/observability",
         "/control-center/runtime-readiness/summary",
         "/control-center/foundation-gate/summary",
         "/control-center/setup-assistant/summary",

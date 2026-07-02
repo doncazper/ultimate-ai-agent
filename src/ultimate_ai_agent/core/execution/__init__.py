@@ -117,6 +117,17 @@ from ultimate_ai_agent.core.execution.approval_queue import (
     run_attached_approval_item_from_grant,
     run_attached_approval_item_from_request,
 )
+from ultimate_ai_agent.core.execution.run_observability import (
+    RUN_OBSERVABILITY_BLOCKED_AUTHORITY_REFS,
+    RUN_OBSERVABILITY_CLI_REF,
+    RUN_OBSERVABILITY_CONTRACT_REF,
+    RUN_OBSERVABILITY_READ_MODEL_SCHEMA_VERSION,
+    RUN_OBSERVABILITY_ROUTE_REF,
+    RUN_OBSERVABILITY_SOURCE,
+    RUN_OBSERVABILITY_STATE_NOT_FOUND_REF,
+    RunObservabilityReadModel,
+    build_run_observability_read_model,
+)
 from ultimate_ai_agent.core.execution.receipts import ExecutionReceiptPlan
 from ultimate_ai_agent.core.execution.read_models import (
     CANONICAL_RUN_EVENT_TYPES,
@@ -199,6 +210,13 @@ __all__ = [
     "RUN_PROGRESS_EVENT_RECEIPT_SCHEMA_VERSION",
     "RUN_PROGRESS_EVENT_TYPES",
     "RUN_PROGRESS_READ_MODEL_SCHEMA_VERSION",
+    "RUN_OBSERVABILITY_BLOCKED_AUTHORITY_REFS",
+    "RUN_OBSERVABILITY_CLI_REF",
+    "RUN_OBSERVABILITY_CONTRACT_REF",
+    "RUN_OBSERVABILITY_READ_MODEL_SCHEMA_VERSION",
+    "RUN_OBSERVABILITY_ROUTE_REF",
+    "RUN_OBSERVABILITY_SOURCE",
+    "RUN_OBSERVABILITY_STATE_NOT_FOUND_REF",
     "UNIFIED_APPROVAL_REVIEW_ITEM_SCHEMA_VERSION",
     "UNIFIED_APPROVAL_REVIEW_SCHEMA_VERSION",
     "DurableRunCorruptionError",
@@ -261,6 +279,7 @@ __all__ = [
     "RunAttachedApprovalQueueReadModel",
     "RunAttachedApprovalQueueSummaryReadModel",
     "RunAttachedApprovalRunBucketReadModel",
+    "RunObservabilityReadModel",
     "UnifiedApprovalReviewItemReadModel",
     "UnifiedApprovalReviewReadModel",
     "RunProgressEventReadModel",
@@ -275,6 +294,7 @@ __all__ = [
     "build_connector_delivery_read_model",
     "build_execution_framework_manifest",
     "build_durable_run_lifecycle_read_model",
+    "build_run_observability_read_model",
     "build_run_progress_read_model",
     "build_receipt_summary_hash_ref",
     "build_durable_run_snapshot",
