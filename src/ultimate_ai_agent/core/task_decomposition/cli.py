@@ -183,6 +183,38 @@ def _cmd_inspect_run_progress(args: Any) -> int:
     return 0
 
 
+def _cmd_inspect_run_observability(args: Any) -> int:
+    service = _service(args)
+    observability = service.run_observability(
+        args.run_id,
+        lifecycle_limit=args.lifecycle_limit,
+        related_limit=args.related_limit,
+    )
+    print(
+        dump_json(
+            {
+                "schema_version": "task-decomposition-cli-inspect-run-observability.v1",
+                "command_ref": "cli:task-decomposition:inspect-run-observability",
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "read_only": True,
+                "cancel_resume_controls_enabled": False,
+                "live_streaming_runtime_enabled": False,
+                "provider_model_calls_enabled": False,
+                "tool_execution_enabled": False,
+                "connector_writes_enabled": False,
+                "connector_sends_enabled": False,
+                "background_worker_enabled": False,
+                "scheduler_enabled": False,
+                "autonomous_execution_enabled": False,
+                "success": True,
+                "run_observability": observability,
+            }
+        )
+    )
+    return 0
+
+
 def _cmd_inspect_coworker_workers(args: Any) -> int:
     service = _service(args)
     workers = service.background_coworker_workers(args.run_id, limit=args.limit)
@@ -325,6 +357,15 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_run_progress.add_argument("run_id")
     inspect_run_progress.add_argument("--limit", type=int, default=50)
     inspect_run_progress.set_defaults(func=_cmd_inspect_run_progress)
+
+    inspect_run_observability = subparsers.add_parser(
+        "inspect-run-observability",
+        help="Inspect aggregate run observability refs without runtime authority.",
+    )
+    inspect_run_observability.add_argument("run_id", nargs="?")
+    inspect_run_observability.add_argument("--lifecycle-limit", type=int, default=50)
+    inspect_run_observability.add_argument("--related-limit", type=int, default=50)
+    inspect_run_observability.set_defaults(func=_cmd_inspect_run_observability)
 
     inspect_coworker_workers = subparsers.add_parser(
         "inspect-coworker-workers",

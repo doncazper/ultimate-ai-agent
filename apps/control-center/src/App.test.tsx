@@ -8223,6 +8223,67 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/provider payload/i)).not.toBeInTheDocument();
   });
 
+  it("renders Run Observability on Evidence without runtime controls", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async (url: RequestInfo | URL) =>
+          new Response(JSON.stringify(envelopeForReadEndpoint(String(url))), {
+            headers: { "Content-Type": "application/json" },
+          }),
+      ),
+    );
+    window.history.pushState({}, "", "/evidence");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /Evidence Timeline/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Run Observability/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("implemented_read_only").length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getAllByText("GET /control-center/runs/observability").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "python -m ultimate_ai_agent.core.task_decomposition.cli inspect-run-observability",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/blocked_no_live_stream_runtime/).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/blocked_no_connector_write_or_send/).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("presentation only").length).toBeGreaterThan(0);
+    for (const label of [
+      /^cancel$/i,
+      /^resume$/i,
+      /^stream$/i,
+      /^execute$/i,
+      /^send$/i,
+      /^retry$/i,
+      /^deliver$/i,
+      /^approve$/i,
+    ]) {
+      expect(
+        screen.queryByRole("button", { name: label }),
+      ).not.toBeInTheDocument();
+    }
+    expect(
+      [...primaryNavItems, ...supportingNavItems].some(
+        (item) => item.path === "/runs" || item.path === "/proof",
+      ),
+    ).toBe(false);
+    expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw response/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/provider payload/i)).not.toBeInTheDocument();
+  });
+
   it("fails closed for unsafe Evidence Timeline narrative payloads", async () => {
     const unsafeEvidence = JSON.parse(
       JSON.stringify(mockControlCenterData.founderEvidenceTimeline),
@@ -10021,6 +10082,7 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.controlCenterLocalModelsStatus),
     ).toBe(true);
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runObservability)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.providerSetupGuide)).toBe(true);
     expect(isAllowedReadEndpoint("/control-center/actions/execute")).toBe(
       false,
@@ -10043,6 +10105,35 @@ function envelopeForReadEndpoint(url: string) {
     },
     [API_ENDPOINTS.approvalSummary]: mockApiData.dashboard.approval_summary,
     [API_ENDPOINTS.approvalQueue]: mockControlCenterData.runAttachedApprovalQueue,
+    [API_ENDPOINTS.runObservability]: {
+      ...mockControlCenterData.runObservability,
+      source: "python_core_run_observability_read_model",
+      backend_owned: true,
+      status: "implemented_read_only",
+      run_ref: "task-decomposition-run:app-test-observability",
+      selected_run_ref: "task-decomposition-run:app-test-observability",
+      lifecycle: {
+        schema_version: "durable_run_lifecycle_read_model.v1",
+      },
+      progress: {
+        schema_version: "run_progress_read_model.v1",
+      },
+      run_refs: ["task-decomposition-run:app-test-observability"],
+      lifecycle_event_refs: ["durable-run-storage-entry:test:app"],
+      progress_event_refs: ["durable-run-event-ref:test:app"],
+      approval_refs: ["approval-ref:test:app"],
+      coworker_handoff_refs: ["handoff-ref:test:app"],
+      connector_delivery_refs: ["connector-delivery-ref:test:app"],
+      receipt_refs: ["receipt-ref:test:app"],
+      evidence_refs: ["evidence-ref:test:app"],
+      proof_refs: ["proof-ref:test:app"],
+      event_count: 1,
+      progress_event_count: 1,
+      approval_item_count: 1,
+      coworker_event_count: 1,
+      connector_delivery_count: 1,
+      connector_delivery_review_count: 1,
+    },
     [API_ENDPOINTS.runtimeReadinessSummary]:
       mockApiData.dashboard.runtime_readiness_summary,
     [API_ENDPOINTS.foundationGateSummary]:

@@ -69,6 +69,7 @@ import type {
   MemoryFeedbackReceipt,
   ProviderCredentialReadinessSummary,
   RunAttachedApprovalQueue,
+  RunObservabilityReadModel,
 } from "../api/types";
 
 const evidenceHistoryKeys = [
@@ -1400,6 +1401,236 @@ function OperatorRunTimelinePanel({
         />
       </article>
     </div>
+  );
+}
+
+function RunObservabilityPanel({
+  readModel,
+}: {
+  readModel?: RunObservabilityReadModel;
+}) {
+  if (!readModel) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Run Observability</h3>
+          <span>pending</span>
+        </div>
+        <p>
+          Run observability is unavailable from the backend response; Evidence
+          remains inspectable through existing timeline refs.
+        </p>
+      </article>
+    );
+  }
+  const sourceLabel =
+    readModel.source === "python_core_run_observability_read_model"
+      ? "backend-owned"
+      : "mock fallback";
+  const authorityStates = [
+    `Cancel: ${readModel.cancel_control_status}`,
+    `Resume: ${readModel.resume_control_status}`,
+    `Streaming: ${readModel.streaming_status}`,
+    `Background: ${readModel.background_worker_status}`,
+    `Provider/model: ${readModel.provider_model_status}`,
+    `Tool use: ${readModel.tool_execution_status}`,
+    `Connector delivery: ${readModel.connector_execution_status}`,
+    `Autonomy: ${readModel.autonomous_execution_status}`,
+  ];
+
+  return (
+    <section aria-label="Run Observability details" className="compact-stack">
+      <div className="section-heading compact-heading">
+        <div>
+          <p className="eyebrow">Evidence</p>
+          <h3>Run Observability</h3>
+        </div>
+        <span className="status-pill compact">{readModel.status}</span>
+      </div>
+      <div className="metric-grid">
+        <Metric label="Run events" value={readModel.event_count} />
+        <Metric label="Progress events" value={readModel.progress_event_count} />
+        <Metric label="Approvals" value={readModel.approval_item_count} />
+        <Metric label="Coworker refs" value={readModel.coworker_event_count} />
+        <Metric
+          label="Connector refs"
+          value={readModel.connector_delivery_count}
+        />
+        <Metric
+          label="Delivery reviews"
+          value={readModel.connector_delivery_review_count}
+        />
+      </div>
+      <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Run read model</h3>
+            <span>{sourceLabel}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm label="Contract ref" value={readModel.contract_ref} />
+            <DetailTerm label="Run ref" value={readModel.run_ref} />
+            <DetailTerm
+              label="Selected run"
+              value={readModel.selected_run_ref ?? "none"}
+            />
+            <DetailTerm label="Route" value={readModel.route_ref} />
+            <DetailTerm label="CLI" value={readModel.cli_ref} />
+            <DetailTerm
+              label="Proof posture"
+              value={readModel.proof_detail_status}
+            />
+            <DetailTerm
+              label="Control Center"
+              value={
+                readModel.control_center_presentation_only
+                  ? "presentation only"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <p>{readModel.safe_summary}</p>
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Runtime controls</h3>
+            <span>blocked/planned</span>
+          </div>
+          <InlineListWithFallback
+            emptyLabel="Runtime controls remain blocked"
+            items={authorityStates}
+          />
+          <dl className="detail-list">
+            <DetailTerm
+              label="UI mutation controls"
+              value={readModel.ui_mutation_controls_enabled ? "enabled" : "disabled"}
+            />
+            <DetailTerm
+              label="Cancel/resume"
+              value={readModel.cancel_resume_controls_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Live streaming"
+              value={readModel.live_streaming_runtime_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Provider/model calls"
+              value={readModel.provider_model_calls_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Tool execution"
+              value={readModel.tool_execution_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Connector writes"
+              value={readModel.connector_writes_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Connector sends"
+              value={readModel.connector_sends_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Background worker"
+              value={readModel.background_worker_enabled ? "enabled" : "blocked"}
+            />
+          </dl>
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Run refs</h3>
+            <span>{readModel.run_refs.length}</span>
+          </div>
+          <RefListWithFallback
+            emptyLabel="Run refs: none"
+            refs={readModel.run_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Lifecycle event refs: none"
+            refs={readModel.lifecycle_event_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Progress event refs: none"
+            refs={readModel.progress_event_refs}
+          />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Review refs</h3>
+            <span>{readModel.approval_refs.length}</span>
+          </div>
+          <RefListWithFallback
+            emptyLabel="Approval refs: none"
+            refs={readModel.approval_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Coworker refs: none"
+            refs={readModel.coworker_handoff_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Connector delivery refs: none"
+            refs={readModel.connector_delivery_refs}
+          />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Evidence and proof refs</h3>
+            <span>{readModel.proof_refs.length}</span>
+          </div>
+          <RefListWithFallback
+            emptyLabel="Receipt refs: none"
+            refs={readModel.receipt_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Evidence refs: none"
+            refs={readModel.evidence_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Proof refs: none"
+            refs={readModel.proof_refs}
+          />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Blocked authority</h3>
+            <span>{readModel.blocked_authority_refs.length}</span>
+          </div>
+          <RefListWithFallback
+            emptyLabel="Blocked authority refs: none"
+            refs={readModel.blocked_authority_refs}
+          />
+          <dl className="detail-list">
+            <DetailTerm
+              label="Safe refs"
+              value={readModel.safe_refs_only ? "only" : "blocked"}
+            />
+            <DetailTerm
+              label="Summaries"
+              value={readModel.redacted_summaries_only ? "redacted only" : "blocked"}
+            />
+            <DetailTerm
+              label="Payload persistence"
+              value={readModel.raw_payloads_persisted ? "enabled" : "omitted"}
+            />
+            <DetailTerm
+              label="Prompt stored"
+              value={readModel.prompt_content_stored ? "yes" : "no"}
+            />
+            <DetailTerm
+              label="Response stored"
+              value={readModel.response_content_stored ? "yes" : "no"}
+            />
+            <DetailTerm
+              label="Provider exchange stored"
+              value={readModel.provider_payload_content_stored ? "yes" : "no"}
+            />
+            <DetailTerm
+              label="Approval ref authority"
+              value={readModel.approval_ref_grants_authority ? "enabled" : "blocked"}
+            />
+          </dl>
+        </article>
+      </div>
+    </section>
   );
 }
 
@@ -7405,9 +7636,11 @@ function MemoryIntakeProposalCard({
 
 export function EvidenceTimelineSurfacePanel({
   evidence,
+  runObservability,
   today,
 }: {
   evidence?: FounderLoopEvidenceTimelineIndex;
+  runObservability?: RunObservabilityReadModel;
   today: FounderLoopTodaySummary;
 }) {
   const timeline = today.evidence_timeline;
@@ -7460,6 +7693,7 @@ export function EvidenceTimelineSurfacePanel({
           today.founder_loop_runs_integration_read_model
         }
       />
+      <RunObservabilityPanel readModel={runObservability} />
       <EvidenceTimelineNarrativeSection
         readModel={evidence?.narrative_read_model}
       />

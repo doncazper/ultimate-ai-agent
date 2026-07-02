@@ -20,12 +20,13 @@ import type {
   ProviderSettingsDiagnosticsSummary,
   ConnectorDeliveryReviewQueue,
   RunAttachedApprovalQueue,
+  RunObservabilityReadModel,
 } from "../api/types";
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 162;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 61;
+export const MOCK_OPENAPI_ROUTE_COUNT = 163;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 62;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -1236,6 +1237,103 @@ const runAttachedApprovalQueue: RunAttachedApprovalQueue = {
   tool_execution_enabled: false,
   connector_writes_enabled: false,
   model_call_enabled: false,
+};
+
+const runObservability: RunObservabilityReadModel = {
+  schema_version: "run_observability_read_model.v1",
+  contract_ref: "contract-ref:run-observability-surface:v1",
+  source: "mock_fallback_non_authoritative",
+  backend_owned: false,
+  status: "state_not_found_no_write",
+  run_ref: "task-decomposition-run:observability:state-not-found",
+  selected_run_ref: null,
+  route_ref: "GET /control-center/runs/observability",
+  route_refs: [
+    "GET /control-center/runs/observability",
+    "GET /control-center/evidence/timeline",
+    "GET /control-center/approvals/queue",
+  ],
+  cli_ref:
+    "python -m ultimate_ai_agent.core.task_decomposition.cli inspect-run-observability",
+  lifecycle: null,
+  progress: null,
+  approval_queue: runAttachedApprovalQueue,
+  coworker_workers: {
+    schema_version: "background_coworker_read_model.v1",
+    event_count: 0,
+    worker_count: 0,
+    safe_refs_only: true,
+    background_worker_enabled: false,
+  },
+  connector_deliveries: {
+    schema_version: "connector_delivery_read_model.v1",
+    event_count: 0,
+    delivery_count: 0,
+    safe_refs_only: true,
+    no_send_action: true,
+    connector_writes_enabled: false,
+    connector_sends_enabled: false,
+  },
+  connector_delivery_review_queue:
+    runAttachedApprovalQueue.connector_delivery_review_queue!,
+  run_refs: ["task-decomposition-run:observability:state-not-found"],
+  lifecycle_event_refs: [],
+  progress_event_refs: [],
+  approval_refs: [],
+  coworker_handoff_refs: [],
+  connector_delivery_refs: [],
+  receipt_refs: [],
+  evidence_refs: ["evidence-ref:mock-fallback:run-observability"],
+  proof_refs: ["proof-ref:mock-fallback:run-observability"],
+  blocked_authority_refs: [
+    "blocked-state:run-observability:no-cancel-control",
+    "blocked-state:run-observability:no-resume-control",
+    "blocked-state:run-observability:no-live-stream-runtime",
+    "blocked-state:run-observability:no-background-worker",
+    "blocked-state:run-observability:no-provider-model-call",
+    "blocked-state:run-observability:no-tool-execution",
+    "blocked-state:run-observability:no-connector-write-or-send",
+    "blocked-state:run-observability:no-autonomous-execution",
+    "blocked-state:run-observability:no-raw-payload-persistence",
+  ],
+  event_count: 0,
+  progress_event_count: 0,
+  approval_item_count: 1,
+  coworker_event_count: 0,
+  connector_delivery_count: 0,
+  connector_delivery_review_count: 1,
+  safe_summary:
+    "Mock fallback mirrors the run observability contract; backend durable run refs are unavailable and no runtime controls are enabled.",
+  next_safe_action: "inspect_run_observability_refs_only",
+  cancel_control_status: "blocked_no_cancel_route",
+  resume_control_status: "blocked_no_resume_route",
+  streaming_status: "blocked_no_live_stream_runtime",
+  background_worker_status: "planned_blocked_no_worker_runtime",
+  provider_model_status: "blocked_no_provider_model_authority",
+  tool_execution_status: "blocked_no_tool_execution_authority",
+  connector_execution_status: "blocked_no_connector_write_or_send",
+  autonomous_execution_status: "blocked_no_autonomous_execution",
+  proof_detail_status: "evidence_surface_projection_no_competing_proof_system",
+  safe_refs_only: true,
+  redacted_summaries_only: true,
+  raw_payloads_persisted: false,
+  prompt_content_stored: false,
+  response_content_stored: false,
+  provider_payload_content_stored: false,
+  approval_refs_are_identifiers_only: true,
+  approval_ref_grants_authority: false,
+  control_center_presentation_only: true,
+  ui_mutation_controls_enabled: false,
+  cancel_resume_controls_enabled: false,
+  live_streaming_runtime_enabled: false,
+  provider_model_calls_enabled: false,
+  tool_execution_enabled: false,
+  connector_writes_enabled: false,
+  connector_sends_enabled: false,
+  background_worker_enabled: false,
+  scheduler_enabled: false,
+  autonomous_execution_enabled: false,
+  production_authority_enabled: false,
 };
 
 function providerCatalogCard({
@@ -6099,6 +6197,7 @@ export const mockControlCenterData: ControlCenterData = {
     ],
   },
   runAttachedApprovalQueue,
+  runObservability,
   m16Trace: {
     status: "mock_preview_only",
     readOnly: true,

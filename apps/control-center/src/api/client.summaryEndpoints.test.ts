@@ -116,6 +116,25 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       "non-authoritative mock fallback",
     );
   });
+
+  it("marks missing run observability route as non-authoritative mock fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.runObservability];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.runObservability.source).toBe("mock_fallback_non_authoritative");
+    expect(data.runObservability.backend_owned).toBe(false);
+    expect(data.runObservability.ui_mutation_controls_enabled).toBe(false);
+    expect(data.runObservability.connector_sends_enabled).toBe(false);
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+    expect(data.connection.warnings).toContain(
+      "RUN_OBSERVABILITY_MOCK_FALLBACK",
+    );
+  });
 });
 
 function baseRouteData(): Record<string, unknown> {
@@ -169,6 +188,11 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.approvalSummary]:
       mockControlCenterData.dashboard.approval_summary,
     [API_ENDPOINTS.approvalQueue]: backendOwnedApprovalQueue,
+    [API_ENDPOINTS.runObservability]: {
+      ...mockControlCenterData.runObservability,
+      source: "python_core_run_observability_read_model" as const,
+      backend_owned: true,
+    },
     [API_ENDPOINTS.runtimeReadinessSummary]:
       mockControlCenterData.dashboard.runtime_readiness_summary,
     [API_ENDPOINTS.foundationGateSummary]:

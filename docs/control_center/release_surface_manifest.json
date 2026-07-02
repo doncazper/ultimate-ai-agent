@@ -582,6 +582,13 @@
         },
         {
           "method": "GET",
+          "path": "/control-center/runs/observability",
+          "operation_id": "get_control_center_runs_observability",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
           "path": "/task-decomposition/audit",
           "operation_id": "get_task_decomposition_audit",
           "side_effect_class": "local_dev_workspace_only",
@@ -607,7 +614,8 @@
         "apps/control-center/src/App.test.tsx",
         "scripts/verify_founder_loop_v1.py",
         "tests/test_founder_loop_v1_proof_lane.py",
-        "docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md"
+        "docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md",
+        "tests/test_run_observability_surface.py"
       ],
       "blocked_capabilities": [],
       "evidence_refs": [
@@ -618,7 +626,8 @@
         "scripts/verify_fcc_v1_006_evidence_timeline_productization.py",
         "tests/test_fcc_v1_006_evidence_timeline_productization.py",
         "docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md",
-        "scripts/verify_founder_loop_v1.py"
+        "scripts/verify_founder_loop_v1.py",
+        "tests/test_run_observability_surface.py"
       ],
       "owner": "evidence-and-audit",
       "backend_contract_rationale": "backend-route-refs-present",

@@ -386,6 +386,78 @@ export interface RunAttachedApprovalQueue {
   model_call_enabled: boolean;
 }
 
+export type RunObservabilityStatus =
+  | "implemented_read_only"
+  | "state_not_found_no_write";
+
+export interface RunObservabilityReadModel {
+  schema_version: "run_observability_read_model.v1";
+  contract_ref: string;
+  source:
+    | "python_core_run_observability_read_model"
+    | "mock_fallback_non_authoritative";
+  backend_owned: boolean;
+  status: RunObservabilityStatus;
+  run_ref: string;
+  selected_run_ref?: string | null;
+  route_ref: string;
+  route_refs: string[];
+  cli_ref: string;
+  lifecycle?: Record<string, unknown> | null;
+  progress?: Record<string, unknown> | null;
+  approval_queue: RunAttachedApprovalQueue;
+  coworker_workers: Record<string, unknown>;
+  connector_deliveries: Record<string, unknown>;
+  connector_delivery_review_queue: ConnectorDeliveryReviewQueue;
+  run_refs: string[];
+  lifecycle_event_refs: string[];
+  progress_event_refs: string[];
+  approval_refs: string[];
+  coworker_handoff_refs: string[];
+  connector_delivery_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  event_count: number;
+  progress_event_count: number;
+  approval_item_count: number;
+  coworker_event_count: number;
+  connector_delivery_count: number;
+  connector_delivery_review_count: number;
+  safe_summary: string;
+  next_safe_action: string;
+  cancel_control_status: string;
+  resume_control_status: string;
+  streaming_status: string;
+  background_worker_status: string;
+  provider_model_status: string;
+  tool_execution_status: string;
+  connector_execution_status: string;
+  autonomous_execution_status: string;
+  proof_detail_status: string;
+  safe_refs_only: boolean;
+  redacted_summaries_only: boolean;
+  raw_payloads_persisted: boolean;
+  prompt_content_stored: boolean;
+  response_content_stored: boolean;
+  provider_payload_content_stored: boolean;
+  approval_refs_are_identifiers_only: boolean;
+  approval_ref_grants_authority: boolean;
+  control_center_presentation_only: boolean;
+  ui_mutation_controls_enabled: boolean;
+  cancel_resume_controls_enabled: boolean;
+  live_streaming_runtime_enabled: boolean;
+  provider_model_calls_enabled: boolean;
+  tool_execution_enabled: boolean;
+  connector_writes_enabled: boolean;
+  connector_sends_enabled: boolean;
+  background_worker_enabled: boolean;
+  scheduler_enabled: boolean;
+  autonomous_execution_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface ApiSummary {
   route_count: number;
   control_center_route_count: number;
@@ -6367,6 +6439,7 @@ export interface ControlCenterData {
   founderMorningBriefing: FounderLoopMorningBriefing;
   founderSourceReadiness: FounderLoopSourceReadiness;
   founderStorageStatus: FounderLoopStorageStatus;
+  runObservability: RunObservabilityReadModel;
   crmM1FixtureShell: CrmM1FixtureShell;
   source: "api" | "mock";
   connection: BackendConnectionSummary;
