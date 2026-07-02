@@ -539,6 +539,7 @@ def _append_authority_scorecard_failures(
         failures,
         scorecard.get("first_micro_lane_decision"),
         selected,
+        scorecard.get("follow_on_candidate_ranking"),
     )
 
 
@@ -818,6 +819,7 @@ def _append_first_micro_lane_decision_failures(
     failures: list[str],
     decision: Any,
     selected: list[dict[str, Any]],
+    ranking: Any,
 ) -> None:
     if not isinstance(decision, dict):
         failures.append("authority scorecard requires first_micro_lane_decision")
@@ -837,6 +839,30 @@ def _append_first_micro_lane_decision_failures(
             failures.append(
                 "no_go authority decision requires smallest_next_safe_action"
             )
+        if isinstance(ranking, dict):
+            safest_candidate_id = str(ranking.get("safest_candidate_id", ""))
+            safest_candidate_status = str(ranking.get("safest_candidate_status", ""))
+            no_go_reason = str(decision.get("no_go_reason", ""))
+            next_safe_action = str(decision.get("smallest_next_safe_action", ""))
+            if safest_candidate_id and safest_candidate_id not in no_go_reason:
+                failures.append(
+                    "no_go authority decision must explain the top-ranked candidate blocker"
+                )
+            if safest_candidate_status and safest_candidate_status not in no_go_reason:
+                failures.append(
+                    "no_go authority decision must include the top-ranked candidate status"
+                )
+            for fragment in [
+                "exact scope",
+                "LocalApprovalAuthority",
+                "rollback/safe-disable",
+                "CLI parity",
+                "tests",
+            ]:
+                if fragment not in f"{no_go_reason} {next_safe_action}":
+                    failures.append(
+                        f"no_go authority decision missing blocker fragment {fragment}"
+                    )
         return
     selected_id = str(selected[0].get("candidate_id"))
     if decision.get("status") != "selected":

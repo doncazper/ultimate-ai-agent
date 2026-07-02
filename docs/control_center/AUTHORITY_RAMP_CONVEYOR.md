@@ -118,6 +118,12 @@ tool-runtime/CLI path. It is not a follow-on authority candidate and cannot be
 used to justify broader browser, provider, connector, memory, action, or
 production authority.
 
+Prompt 04 is a no-go hardening result, not an implementation lane:
+`memory_write` is the top-ranked follow-on candidate, but it is not a
+`micro_lane_candidate` because exact write scope, LocalApprovalAuthority
+binding, rollback/safe-disable posture, CLI parity, and focused verifier refs
+are still incomplete.
+
 ## Non-Goals
 
 This program does not add generic execution, connector writes,

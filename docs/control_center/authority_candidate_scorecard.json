@@ -525,8 +525,8 @@
   "first_micro_lane_decision": {
     "status": "no_go",
     "selected_candidate_id": null,
-    "decision_ref": "decision-ref:fcc-auth-ramp-001:no-new-micro-lane",
-    "no_go_reason": "No future authority candidate has all exact-scope, approval, idempotency, receipt/evidence, rollback/safe-disable, redaction, CLI/API/core parity, and focused-test refs.",
-    "smallest_next_safe_action": "Build the read-only/proposal foundation and fill candidate blockers before selecting one exact micro-lane."
+    "decision_ref": "decision-ref:fcc-auth-ramp-001c:prompt-04-follow-on-no-go",
+    "no_go_reason": "Prompt 04 is no-go: the top-ranked follow-on candidate memory_write remains proposal_only_ready, not micro_lane_candidate, because exact write scope, LocalApprovalAuthority binding, rollback/safe-disable posture, CLI parity, and focused verifier refs are still incomplete.",
+    "smallest_next_safe_action": "Prepare a no-authority reviewed-memory write policy proposal with exact scope, approval binding, idempotency, receipt/evidence refs, rollback/safe-disable posture, CLI parity, and tests before any future Prompt 04 graduation attempt."
   }
 }
