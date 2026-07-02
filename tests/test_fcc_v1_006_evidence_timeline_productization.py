@@ -8,10 +8,8 @@ from pydantic import ValidationError
 
 from scripts import verify_fcc_v1_006_evidence_timeline_productization as verifier
 from ultimate_ai_agent.api.app import app
-from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
-    action_approval_request,
 )
 from ultimate_ai_agent.core.control_center.local_tasks import (
     FounderLoopLocalTaskCommitRequest,
@@ -78,47 +76,12 @@ def _safe_event(**overrides: object) -> dict:
     return payload
 
 
-def _approval_grant_for_request(approval_request, approval_ref: str):
-    authority = LocalApprovalAuthority()
-    authority.create_request(approval_request)
-    return authority.grant(
-        approval_request.approval_request_id,
-        approved_by_actor_id="local-test-reviewer",
-        approval_ref=approval_ref,
-    )
-
-
 def _approve_local_task_seed_action() -> dict[str, object]:
     repo = FounderLoopRepository.from_env()
-    action = next(
-        item
-        for item in repo.list_action_inbox()
-        if item["item_ref"] == "founder-action:local-task-create-scorecard"
-    )
-    request = FounderLoopActionDecisionRequest(
-        decision_reason_ref="decision-reason-ref:fcc-v1-006-local-task-approval"
-    )
-    approval_request = action_approval_request(
-        item_ref=str(action["item_ref"]),
-        actor_context=request.actor_context,
-        risk_class=str(action["risk_class"]),
-        resource_refs=[
-            str(action["item_ref"]),
-            str(action["action_envelope_ref"]),
-            str(action["action_scope_ref"]),
-            str(action["action_approval_requirement_ref"]),
-        ],
-    )
-    grant = _approval_grant_for_request(
-        approval_request,
-        "approval-ref:fcc-v1-006-local-task-action",
-    )
     receipt = repo.record_action_decision(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            approval_ref=grant.approval_ref,
-            approval_grants=[grant],
             decision_reason_ref="decision-reason-ref:fcc-v1-006-local-task-approval",
         ),
         idempotency_key_ref="idempotency-ref:fcc-v1-006-local-task-action",

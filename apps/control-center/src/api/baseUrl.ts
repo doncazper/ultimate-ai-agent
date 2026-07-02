@@ -55,7 +55,7 @@ function allowedPolicy(baseUrl: string, label: string): ApiBaseUrlPolicy {
     baseUrl,
     label,
     safeMessage:
-      "Local API base is allowed for read-only and preview-only Control Center requests.",
+      "Local API base is allowed for local reads, previews, and exact receipt routes; mutating receipt routes remain backend-authority, approval/idempotency gated, and no generic execution.",
     warnings: [],
   };
 }

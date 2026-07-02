@@ -1641,6 +1641,10 @@ describe("Web Control Center shell", () => {
     expect(currentProofLinks).toHaveLength(1);
     expect(currentProofLinks[0]).toHaveTextContent("Action Inbox");
     expect(within(proofPath).queryByRole("button")).not.toBeInTheDocument();
+    const approvalReview = screen.getByLabelText("Action Inbox approval review");
+    expect(within(approvalReview).getByText("Review items")).toBeInTheDocument();
+    expect(within(approvalReview).getByText("Pending refs")).toBeInTheDocument();
+    expect(within(approvalReview).queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("labels adjacent Founder Loop surfaces without faking a current proof step", async () => {
@@ -7090,7 +7094,9 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText(/Frontend authority/i).length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByText(/Mutation allowed/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Frontend\/generic mutation authority/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Production readiness claim/i)).toBeInTheDocument();
     expect(screen.getByText(/Model output authoritative/i)).toBeInTheDocument();
     expect(screen.getByText(/Prompt content recording/i)).toBeInTheDocument();
@@ -9513,7 +9519,7 @@ describe("Web Control Center shell", () => {
     expect(await screen.findByText("Backend online")).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Live data came from local read-only\/preview-only backend API routes/i,
+        /Live data came from local read, preview, and exact receipt backend routes/i,
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Mock fallback active/i)).not.toBeInTheDocument();
@@ -11459,7 +11465,7 @@ const mockApiData = {
         approval_envelope_status: "approved_receipt_recorded",
         state_change_contract_ref:
           "contract-ref:founder-loop-local-task-commit:v1",
-        state_change_readiness: "execution_ready_contract_requires_commit",
+        state_change_readiness: "local_task_commit_contract_requires_commit",
         blocked_state:
           "Only local task creation is available; all external authority remains blocked.",
         evidence_refs: ["evidence-ref:founder-loop:local-task-commit"],

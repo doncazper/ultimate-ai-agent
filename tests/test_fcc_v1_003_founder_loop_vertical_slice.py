@@ -7,48 +7,18 @@ from pathlib import Path
 from scripts import verify_fcc_v1_003_founder_loop_vertical_slice as verifier
 from scripts.dev import uaa_founder_loop
 from scripts.verification.repo import load_json
-from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
-    action_approval_request,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
 
 
 def _approve_local_task_seed_action(state_dir: Path) -> None:
     repo = FounderLoopRepository(state_dir)
-    action = next(
-        item
-        for item in repo.list_action_inbox()
-        if item["item_ref"] == "founder-action:local-task-create-scorecard"
-    )
-    request = FounderLoopActionDecisionRequest(
-        decision_reason_ref="decision-reason-ref:test-cli-local-task-action-approval"
-    )
-    approval_request = action_approval_request(
-        item_ref=str(action["item_ref"]),
-        actor_context=request.actor_context,
-        risk_class=str(action["risk_class"]),
-        resource_refs=[
-            str(action["item_ref"]),
-            str(action["action_envelope_ref"]),
-            str(action["action_scope_ref"]),
-            str(action["action_approval_requirement_ref"]),
-        ],
-    )
-    authority = LocalApprovalAuthority()
-    authority.create_request(approval_request)
-    grant = authority.grant(
-        approval_request.approval_request_id,
-        approved_by_actor_id="local-test-reviewer",
-        approval_ref="approval-ref:test-cli-local-task-action-approve",
-    )
     receipt = repo.record_action_decision(
         action_id="local-task-create-scorecard",
         decision="approve",
         request=FounderLoopActionDecisionRequest(
-            approval_ref=grant.approval_ref,
-            approval_grants=[grant],
             decision_reason_ref="decision-reason-ref:test-cli-local-task-action-approval",
         ),
         idempotency_key_ref="idempotency-ref:test-cli-local-task-action-approval",

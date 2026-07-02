@@ -5,6 +5,8 @@ import type {
   M15ReviewData,
   RunAttachedApprovalQueue,
   RunAttachedApprovalQueueItem,
+  UnifiedApprovalReview,
+  UnifiedApprovalReviewItem,
 } from "../api/types";
 import { EmptyState } from "./DataState";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
@@ -53,6 +55,9 @@ export function ApprovalQueuePanel({
       </p>
       {summary ? <ApprovalSummaryStrip summary={summary} /> : null}
       {queue ? <RunAttachedApprovalSummaryStrip queue={queue} /> : null}
+      {queue?.unified_review ? (
+        <UnifiedApprovalReviewPanel review={queue.unified_review} />
+      ) : null}
       <OperatorSurfaceStates surface="Approvals" />
       <ReviewWarningBar codes={review.warningCodes} />
       {queueItems.length > 0 && selectedQueueItem ? (
@@ -126,7 +131,7 @@ function ApprovalSummaryStrip({ summary }: { summary: ApprovalSummary }) {
         <strong>{summary.pending_count}</strong>
       </div>
       <div className="metric-card">
-        <span>Approval grants created</span>
+        <span>Backend grant records present</span>
         <strong>{summary.approval_grants_created ? "yes" : "no"}</strong>
       </div>
       <div className="metric-card">
@@ -166,6 +171,95 @@ function RunAttachedApprovalSummaryStrip({
       </div>
       <p className="safe-copy">{queue.summary.safe_summary}</p>
     </div>
+  );
+}
+
+function UnifiedApprovalReviewPanel({
+  review,
+}: {
+  review: UnifiedApprovalReview;
+}) {
+  const sourceLabel = review.backend_owned
+    ? "backend-owned"
+    : "mock-only / non-authoritative";
+  return (
+    <section className="page-section compact-section" aria-label="Unified approval review">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Unified review</p>
+          <h3>Approval Review Across Runs And Handoffs</h3>
+        </div>
+        <span className="status-pill compact">{sourceLabel}</span>
+      </div>
+      <p className="safe-copy">{review.safe_summary}</p>
+      <div className="panel-grid compact-grid" aria-label="Unified approval review counts">
+        <div className="metric-card">
+          <span>Review items</span>
+          <strong>{review.history_count}</strong>
+        </div>
+        <div className="metric-card">
+          <span>Pending refs</span>
+          <strong>{review.pending_count}</strong>
+        </div>
+        <div className="metric-card">
+          <span>Blocked refs</span>
+          <strong>{review.blocked_count}</strong>
+        </div>
+        <div className="metric-card">
+          <span>Mutation authority</span>
+          <strong>{review.ui_mutation_controls_enabled ? "enabled" : "blocked"}</strong>
+        </div>
+      </div>
+      <div className="review-list" aria-label="Unified approval review sources">
+        {review.review_items.map((item) => (
+          <UnifiedApprovalReviewRow key={item.item_ref} item={item} />
+        ))}
+      </div>
+      <TagList label="Unified proof refs" values={review.proof_refs} />
+      <TagList label="Unified blocked authority refs" values={review.blocked_authority_refs} />
+      <p className="safe-copy">
+        This unified review has no approve, deny, revoke, resume, execute, connector send, tool
+        execution, provider call, worker, or scheduler control.
+      </p>
+    </section>
+  );
+}
+
+function UnifiedApprovalReviewRow({
+  item,
+}: {
+  item: UnifiedApprovalReviewItem;
+}) {
+  const sourceLabel = item.source_type.replaceAll("_", " ");
+  return (
+    <article className="review-card" aria-label={`Approval review source ${item.source_type}`}>
+      <div className="review-card-heading">
+        <h3>{item.title}</h3>
+        <span>{stateLabel(item.approval_state)}</span>
+      </div>
+      <p>{item.safe_summary}</p>
+      <p className="review-meta">
+        source: {sourceLabel} | run: {item.run_ref}
+      </p>
+      <dl className="detail-grid compact-detail-grid">
+        <div>
+          <dt>Scope ref</dt>
+          <dd>{item.requested_scope_ref}</dd>
+        </div>
+        <div>
+          <dt>Proof ref</dt>
+          <dd>{item.proof_refs[0] ?? "not recorded"}</dd>
+        </div>
+        <div>
+          <dt>Next safe action</dt>
+          <dd>{item.next_safe_action}</dd>
+        </div>
+      </dl>
+      <TagList
+        label={`${sourceLabel} authority blockers`}
+        values={item.blocked_authority_refs}
+      />
+    </article>
   );
 }
 

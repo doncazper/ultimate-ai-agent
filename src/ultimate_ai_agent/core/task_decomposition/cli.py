@@ -122,6 +122,32 @@ def _cmd_inspect_approvals(args: Any) -> int:
     return 0
 
 
+def _cmd_inspect_approval_review(args: Any) -> int:
+    service = _service(args)
+    review = service.approval_review(args.run_id, limit=args.limit)
+    print(
+        dump_json(
+            {
+                "schema_version": "task-decomposition-cli-inspect-approval-review.v1",
+                "command_ref": "cli:task-decomposition:inspect-approval-review",
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "approval_refs_are_identifiers_only": True,
+                "approval_authority_enabled": False,
+                "execution_authority_enabled": False,
+                "provider_model_calls_enabled": False,
+                "tool_execution_enabled": False,
+                "connector_writes_enabled": False,
+                "background_worker_enabled": False,
+                "scheduler_enabled": False,
+                "success": True,
+                "approval_review": review,
+            }
+        )
+    )
+    return 0
+
+
 def _cmd_inspect_run_progress(args: Any) -> int:
     service = _service(args)
     progress = service.durable_run_progress(args.run_id, limit=args.limit)
@@ -253,6 +279,14 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_approvals.add_argument("run_id", nargs="?")
     inspect_approvals.add_argument("--limit", type=int, default=50)
     inspect_approvals.set_defaults(func=_cmd_inspect_approvals)
+
+    inspect_approval_review = subparsers.add_parser(
+        "inspect-approval-review",
+        help="Inspect the unified approval review without granting authority.",
+    )
+    inspect_approval_review.add_argument("run_id", nargs="?")
+    inspect_approval_review.add_argument("--limit", type=int, default=50)
+    inspect_approval_review.set_defaults(func=_cmd_inspect_approval_review)
 
     inspect_run_progress = subparsers.add_parser(
         "inspect-run-progress",

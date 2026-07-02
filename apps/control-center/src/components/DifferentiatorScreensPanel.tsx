@@ -129,7 +129,7 @@ export function DifferentiatorScreensPanel({
                 value: data.dashboard.approval_summary.pending_count,
               },
               {
-                label: "Approval grants",
+                label: "Backend grant records",
                 value: data.dashboard.approval_summary.approval_grants_created
                   ? "created"
                   : "not created",

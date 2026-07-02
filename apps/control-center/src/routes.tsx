@@ -210,6 +210,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           />
           <ActionInboxSurfacePanel
             actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            approvalReview={data.runAttachedApprovalQueue}
             inbox={data.founderActionsInbox}
             providerCredentialReadiness={
               data.dashboard.provider_credential_readiness
