@@ -1,7 +1,7 @@
-# FCC-AUTH-RAMP-001 Charter: Proposal-To-Authority Conveyor
+# FCC-AUTH-RAMP-001 Charter: Authority Graduation Program
 
 Role: You are a Principal Software Engineer defining a production-grade
-Founder Command Center authority-readiness conveyor.
+Founder Command Center Authority Graduation Program.
 
 Mode: docs + manifest + verifier hardening. Do not add runtime authority.
 
@@ -16,15 +16,18 @@ Read first:
 - `docs/control_center/PRODUCT_LANGUAGE_RULES.md`
 
 Goal:
-Create the canonical `FCC-AUTH-RAMP-001` conveyor that moves a candidate from:
+Create the canonical `FCC-AUTH-RAMP-001` program that moves a candidate from:
 
 ```text
 read-only status
 -> proposal-only UX
 -> readiness score
 -> approved micro-lane candidate
--> exact-scoped authority implementation later
+-> exact-scoped authority implementation
 ```
+
+The first implementation prompt in this program is fixed:
+`read_only_real_world_web_fetch` through `WebAccessGateway`.
 
 Non-goals:
 - Do not add generic execution.
@@ -40,10 +43,11 @@ Non-goals:
   authority claims.
 
 Implementation requirements:
-1. Add or update the smallest canonical docs to define the conveyor.
+1. Add or update the smallest canonical docs to define the program.
 2. Add structured maturity/readiness fields where appropriate, without changing
    operational ranks unless verifier-backed behavior already exists.
 3. Define candidate classes:
+   - read-only real-world web fetch through `WebAccessGateway`
    - read-only connector metadata
    - memory-to-loop proposals
    - context-pack proposal display
@@ -65,8 +69,14 @@ Implementation requirements:
    - redaction posture
    - focused tests
    - verifier coverage
-5. Add verifier rules only when they are conservative and low false-positive.
-6. Keep all claims proposal-only unless implementation exists.
+5. Define a first-lane rule: Prompt 02 may not choose
+   any candidate except `read_only_real_world_web_fetch` through
+   `WebAccessGateway`. If that lane is blocked, the program must record a
+   no-go posture instead of substituting connector writes, memory writes,
+   browser automation, provider/model authority, shell/subprocess execution, or
+   context injection.
+6. Add verifier rules only when they are conservative and low false-positive.
+7. Keep all claims proposal-only unless implementation exists.
 
 Review and hardening loop:
 1. Inspect the diff adversarially for authority expansion, stale product claims,
@@ -83,7 +93,7 @@ Required verification:
 
 Final response must include:
 - files changed
-- conveyor fields/docs added
+- program fields/docs added
 - verifier rules added
 - behavior explicitly not added
 - tests/verifiers run

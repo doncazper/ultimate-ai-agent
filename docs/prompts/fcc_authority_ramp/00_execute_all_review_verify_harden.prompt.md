@@ -1,15 +1,19 @@
-# Execute FCC-AUTH-RAMP-001 End To End
+# Execute FCC Authority Graduation Program End To End
 
 Role: You are a Principal Software Engineer performing implementation,
 adversarial review, hardening, verification, and git finalization.
 
-Mode: execute the stored prompt sequence in order. Keep scope tight.
+Mode: execute the stored Authority Graduation Program prompt sequence in order.
+Keep scope tight.
 
 Prompt sequence:
 1. `docs/prompts/fcc_authority_ramp/01_fcc_auth_ramp_charter.prompt.md`
 2. `docs/prompts/fcc_authority_ramp/02_read_only_proposal_foundation.prompt.md`
+   - first implementation lane: `read_only_real_world_web_fetch` through
+     `WebAccessGateway`
 3. `docs/prompts/fcc_authority_ramp/03_authority_candidate_ranking.prompt.md`
 4. `docs/prompts/fcc_authority_ramp/04_first_micro_lane_graduation.prompt.md`
+   - follow-on micro-lane gate after the fixed WebAccessGateway lane
 
 Global rules:
 - Treat `AGENTS.md` as binding.
@@ -20,6 +24,12 @@ Global rules:
   beta/release claims, production authority, or broad autonomy unless the
   current prompt explicitly reaches an accepted exact micro-lane and every gate
   passes.
+- The only first implementation lane in this bundle is
+  `read_only_real_world_web_fetch` through `WebAccessGateway`; it must not be
+  broadened into browser observe, browser action dry-run, provider SDK calls,
+  connector reads/writes, authenticated sessions, downloads/uploads, POST-style
+  mutations, memory writes, context injection, action execution, or generic
+  browsing.
 - Python Agent Core remains the brain.
 - Control Center and OpenWebUI are shells, not authority.
 - CLI/API/core parity is required for operator-relevant mutation.
@@ -36,22 +46,28 @@ Execution loop:
      UI-only truth, route/API drift, redaction leaks, missing tests, and
      unsupported product language;
    - fix and harden until no in-scope faults remain.
-4. If Prompt 4 cannot safely graduate one exact micro-lane, do not fake it.
-   Record the blocked/no-go posture and harden the verifier instead.
-5. Run final focused verification:
+4. If Prompt 2 cannot safely graduate
+   `read_only_real_world_web_fetch` through `WebAccessGateway`, do not select a
+   substitute lane. Record the blocked/no-go posture and harden the verifier
+   instead.
+5. If Prompt 4 cannot safely graduate a follow-on exact micro-lane, do not fake
+   it. Record the blocked/no-go posture and harden the verifier instead.
+6. Run final focused verification:
    - `.venv/bin/python scripts/verify_operational_maturity.py`
    - `PYTHONPATH=src .venv/bin/python -m pytest tests/test_operational_maturity_manifest.py -q`
+   - `PYTHONPATH=src .venv/bin/python -m pytest tests/test_m72_read_only_http_fetch_tool.py tests/test_web_access_gateway.py tests/test_web_access_static_guards.py -q` if WebAccessGateway or fetch behavior changes
+   - `.venv/bin/python scripts/verify_web_runtime_authority.py` if WebAccessGateway or web runtime authority docs/contracts change
    - `.venv/bin/python scripts/verify_documentation_integrity.py`
    - `PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py`
    - `PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py -q`
    - `PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.py -q`
    - `make frontend-check` if frontend files changed
-6. Clean the working directory by staging only intentional changes.
-7. Commit with a scoped message.
-8. If working on a feature branch, merge to `main` after verification and push.
+7. Clean the working directory by staging only intentional changes.
+8. Commit with a scoped message.
+9. If working on a feature branch, merge to `main` after verification and push.
    If already on `main`, commit on `main` only when the operator explicitly
    requested it, then push `main`.
-9. Never force-push and never mutate tags.
+10. Never force-push and never mutate tags.
 
 Final response must include:
 - prompt sequence executed

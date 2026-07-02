@@ -1,9 +1,9 @@
-# FCC-AUTH-RAMP-001c First Authority Micro-Lane Graduation
+# FCC-AUTH-RAMP-001c Follow-On Authority Micro-Lane Graduation Gate
 
-Role: You are a Principal Software Engineer implementing the first approved
-authority micro-lane after the authority candidate ranking gate.
+Role: You are a Principal Software Engineer implementing the first follow-on
+authority micro-lane after the fixed `read_only_real_world_web_fetch` lane.
 
-Mode: implementation only if a single candidate is explicitly ranked
+Mode: implementation only if a single follow-on candidate is explicitly ranked
 `micro_lane_candidate` and all prerequisites are satisfied. Otherwise produce a
 blocked/no-go hardening patch instead of adding authority.
 
@@ -16,11 +16,11 @@ Read first:
 - `docs/control_center/OPERATIONALIZATION_LADDER.md`
 - `docs/control_center/operational_maturity_manifest.json`
 - relevant Python core/API, CLI/script, Evidence Timeline, Action Inbox, UI,
-  route metadata, OpenAPI, docs, and tests for the selected candidate
+  route metadata, OpenAPI, docs, and tests for the selected follow-on candidate
 
 Hard gate:
-Implement exactly one micro-lane only if the repository already identifies it
-as the selected candidate and it has:
+Implement exactly one follow-on micro-lane only if the repository already
+identifies it as the selected candidate and it has:
 - exact scope
 - backend/core ownership
 - LocalApprovalAuthority validation where mutating
@@ -73,6 +73,6 @@ Required verification:
 - `make frontend-check` if frontend files changed
 
 Definition of done:
-- Either one exact micro-lane is implemented and verifier-backed, or the repo is
-  hardened to explain why no lane can graduate yet.
+- Either one exact follow-on micro-lane is implemented and verifier-backed, or
+  the repo is hardened to explain why no follow-on lane can graduate yet.
 - No broader authority leaks into routes, UI, docs, tests, fixtures, or evidence.
