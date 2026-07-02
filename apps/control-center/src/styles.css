@@ -3640,6 +3640,15 @@ main {
   box-shadow: inset 0 3px 0 #2f6fed;
 }
 
+.unified-work-thread .status-card {
+  border-color: #cbd7ea;
+  background: #fbfcff;
+}
+
+.unified-work-thread-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
 .loop-authority-strip {
   gap: 5px;
 }

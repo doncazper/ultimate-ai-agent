@@ -145,6 +145,10 @@ from ultimate_ai_agent.core.control_center.chat_to_loop_handoff import (
     CHAT_TO_LOOP_HANDOFF_CONTRACT_REF,
     build_chat_to_loop_handoff_read_model,
 )
+from ultimate_ai_agent.core.control_center.unified_work_thread import (
+    UNIFIED_WORK_THREAD_CONTRACT_REF,
+    build_unified_work_thread_read_model,
+)
 from ultimate_ai_agent.core.control_center.health_recommendations import (
     FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
     FCC_HEALTH_RECOMMENDATION_BINDING_CONTRACT_REF,
@@ -5578,6 +5582,20 @@ class FounderLoopRepository:
                 action_items=bridge_action_items,
             )
         )
+        unified_work_thread_read_model = build_unified_work_thread_read_model(
+            actions=actions,
+            plans=plans,
+            memory_items=memory_items,
+            memory_review_decisions=memory_review_decisions,
+            evidence_timeline=evidence_timeline,
+            chat_to_loop_handoff_read_model=chat_to_loop_handoff_read_model,
+            plans_to_actions_bridge_read_model=plans_to_actions_bridge_read_model,
+            weekly_ceo_review_v1_read_model=weekly_ceo_review_v1_read_model,
+            founder_loop_product_proof_read_model=(
+                founder_loop_v1_product_proof_read_model
+            ),
+            evidence_event_refs=evidence_event_refs,
+        )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_partial_loop",
@@ -5706,6 +5724,8 @@ class FounderLoopRepository:
             "plans_to_actions_bridge_read_model": (
                 plans_to_actions_bridge_read_model
             ),
+            "unified_work_thread_contract_ref": UNIFIED_WORK_THREAD_CONTRACT_REF,
+            "unified_work_thread_read_model": unified_work_thread_read_model,
             "daily_loop_summary": daily_loop_summary,
             "source_readiness_route_ref": source_readiness["route_ref"],
             "source_readiness_items": source_readiness_items,
