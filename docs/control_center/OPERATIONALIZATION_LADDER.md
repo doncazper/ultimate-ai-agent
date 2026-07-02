@@ -36,13 +36,16 @@ module rank from any graduated lane rank.
   refs, or the module is explicitly marked backend-only with a documented
   reason and blocker. Backend-only status is not a silent promotion escape
   hatch.
-- Future authority classes must pass the Authority Ramp conveyor before they
-  can become a new micro-lane. The canonical scorecard is
-  `docs/control_center/authority_candidate_scorecard.json`, the conveyor doc is
-  `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, and the same verifier owns
-  the gate. A future candidate may not become selected authority unless exact
-  scope, approval, idempotency, receipt/evidence, rollback or safe-disable,
-  redaction, CLI/API/core parity, and focused test refs all resolve.
+- Future authority classes must pass the Authority Graduation Program before
+  they can become a new micro-lane. The canonical scorecard is
+  `docs/control_center/authority_candidate_scorecard.json`; the legacy-stable
+  program doc path is `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`; and
+  the same verifier owns the gate. The fixed first implementation lane is
+  `read_only_real_world_web_fetch` through `WebAccessGateway`; it is not a
+  follow-on authority candidate. A future candidate may not become selected
+  authority unless exact scope, approval, idempotency, receipt/evidence,
+  rollback or safe-disable, redaction, CLI/API/core parity, and focused test
+  refs all resolve.
 - Support modules such as Evidence can rank by the operational receipts they
   index, but must say they support operations rather than perform them.
 - No broad execution route, connector write, shell/subprocess execution,

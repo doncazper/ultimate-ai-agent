@@ -11,6 +11,7 @@
     "conveyor_doc_ref",
     "verifier_ref",
     "operational_maturity_manifest_ref",
+    "first_implementation_lane",
     "proposal_foundation",
     "authority_candidates",
     "first_micro_lane_decision"
@@ -29,6 +30,9 @@
     "verifier_ref": { "const": "scripts/verify_operational_maturity.py" },
     "operational_maturity_manifest_ref": {
       "const": "docs/control_center/operational_maturity_manifest.json"
+    },
+    "first_implementation_lane": {
+      "$ref": "#/$defs/first_implementation_lane"
     },
     "proposal_foundation": {
       "type": "array",
@@ -58,6 +62,45 @@
     }
   },
   "$defs": {
+    "first_implementation_lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lane_id",
+        "prompt_ref",
+        "foundation_ref",
+        "status",
+        "safe_summary",
+        "allowed_scope",
+        "blocked_authorities",
+        "verification_refs",
+        "next_safe_action"
+      ],
+      "properties": {
+        "lane_id": { "const": "read_only_real_world_web_fetch" },
+        "prompt_ref": {
+          "const": "docs/prompts/fcc_authority_ramp/02_read_only_proposal_foundation.prompt.md"
+        },
+        "foundation_ref": { "const": "read_only_real_world_web_fetch" },
+        "status": {
+          "enum": ["partial", "blocked", "implemented"]
+        },
+        "safe_summary": { "type": "string" },
+        "allowed_scope": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "blocked_authorities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "verification_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "next_safe_action": { "type": "string" }
+      }
+    },
     "score": {
       "type": "integer",
       "minimum": 0,

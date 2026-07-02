@@ -5,7 +5,85 @@
   "conveyor_doc_ref": "docs/control_center/AUTHORITY_RAMP_CONVEYOR.md",
   "verifier_ref": "scripts/verify_operational_maturity.py",
   "operational_maturity_manifest_ref": "docs/control_center/operational_maturity_manifest.json",
+  "first_implementation_lane": {
+    "lane_id": "read_only_real_world_web_fetch",
+    "prompt_ref": "docs/prompts/fcc_authority_ramp/02_read_only_proposal_foundation.prompt.md",
+    "foundation_ref": "read_only_real_world_web_fetch",
+    "status": "partial",
+    "safe_summary": "M72 read-only HTTP fetch contracts, fake-transport tests, WebAccessGateway routing, and static guards exist. Prompt 02 owns any real-world transport graduation through WebAccessGateway.",
+    "allowed_scope": [
+      "https_get_only",
+      "explicit_public_allowlist",
+      "bounded_redacted_preview",
+      "safe_refs_only",
+      "durable_audit_posture"
+    ],
+    "blocked_authorities": [
+      "browser_observe",
+      "browser_action_dry_run",
+      "browser_automation",
+      "provider_sdk_call",
+      "connector_read",
+      "connector_write",
+      "authenticated_session",
+      "credential_or_cookie_use",
+      "download_upload",
+      "non_get_method",
+      "memory_write",
+      "context_injection",
+      "action_execution",
+      "generic_browsing",
+      "production_authority"
+    ],
+    "verification_refs": [
+      "tests/test_m72_read_only_http_fetch_tool.py",
+      "tests/test_web_access_gateway.py",
+      "tests/test_web_access_static_guards.py",
+      "scripts/verify_web_runtime_authority.py",
+      "scripts/verify_operational_maturity.py"
+    ],
+    "next_safe_action": "Run Prompt 02 to either graduate read_only_real_world_web_fetch through WebAccessGateway with verifier-backed safety or record a blocked/no-go posture."
+  },
   "proposal_foundation": [
+    {
+      "foundation_id": "read_only_real_world_web_fetch",
+      "status": "partial",
+      "safe_summary": "Read-only HTTP fetch has a gateway-routed contract and fake-transport tests. Real-world HTTPS GET transport remains the fixed first implementation lane and must route through WebAccessGateway.",
+      "route_refs": [],
+      "surface_refs": [
+        "docs/network/WEB_ACCESS_GATEWAY.md",
+        "docs/network/WEB_RUNTIME_AUTHORITY_HARDENING.md",
+        "docs/network/M72_TO_M73_BOUNDARY.md"
+      ],
+      "test_refs": [
+        "tests/test_m72_read_only_http_fetch_tool.py",
+        "tests/test_web_access_gateway.py",
+        "tests/test_web_access_static_guards.py"
+      ],
+      "blocked_authorities": [
+        "browser_observe",
+        "browser_action_dry_run",
+        "browser_automation",
+        "provider_sdk_call",
+        "connector_read",
+        "connector_write",
+        "authenticated_session",
+        "credential_or_cookie_use",
+        "download_upload",
+        "non_get_method",
+        "memory_write",
+        "context_injection",
+        "action_execution",
+        "generic_browsing",
+        "production_authority"
+      ],
+      "missing_contracts": [
+        "real_world_transport_graduation_prompt_02",
+        "durable_audit_storage_if_required_by_prompt_02",
+        "cli_inspection_path_if_transport_graduates"
+      ],
+      "next_safe_action": "Execute Prompt 02 for the fixed read_only_real_world_web_fetch lane; do not substitute another authority lane if it is blocked."
+    },
     {
       "foundation_id": "read_only_connector_metadata",
       "status": "partial",
