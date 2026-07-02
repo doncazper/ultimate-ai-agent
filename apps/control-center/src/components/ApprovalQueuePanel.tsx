@@ -9,6 +9,7 @@ import type {
   UnifiedApprovalReviewItem,
 } from "../api/types";
 import { EmptyState } from "./DataState";
+import { ConnectorDeliveryReviewQueuePanel } from "./ConnectorDeliveryReviewQueuePanel";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
 export function ApprovalQueuePanel({
@@ -58,6 +59,9 @@ export function ApprovalQueuePanel({
       {queue?.unified_review ? (
         <UnifiedApprovalReviewPanel review={queue.unified_review} />
       ) : null}
+      <ConnectorDeliveryReviewQueuePanel
+        queue={queue?.connector_delivery_review_queue}
+      />
       <OperatorSurfaceStates surface="Approvals" />
       <ReviewWarningBar codes={review.warningCodes} />
       {queueItems.length > 0 && selectedQueueItem ? (

@@ -238,6 +238,125 @@ export interface UnifiedApprovalReview {
   scheduler_enabled: boolean;
 }
 
+export type ConnectorDeliveryState =
+  | "draft_created_metadata_only"
+  | "pending_approval"
+  | "approval_denied"
+  | "delivery_blocked"
+  | "delivery_ready_not_sent"
+  | "retry_scheduled_metadata_only"
+  | "failed_metadata_only"
+  | "canceled_metadata_only"
+  | "sent_not_supported";
+
+export interface ConnectorDeliveryReviewQueueItem {
+  schema_version: "connector_delivery_review_queue_item.v1";
+  item_ref: string;
+  delivery_ref: string;
+  run_ref: string;
+  connector_ref: string;
+  channel_ref: string;
+  target_session_ref: string;
+  latest_state: ConnectorDeliveryState;
+  delivery_state_label: string;
+  delivery_execution_posture: string;
+  event_refs: string[];
+  redacted_subject_refs: string[];
+  redacted_body_summary_refs: string[];
+  outbound_approval_refs: string[];
+  idempotency_key_refs: string[];
+  blocked_reason_refs: string[];
+  retry_refs: string[];
+  failure_receipt_refs: string[];
+  evidence_refs: string[];
+  receipt_refs: string[];
+  proof_refs: string[];
+  audit_refs: string[];
+  replay_refs: string[];
+  rollback_refs: string[];
+  safe_disable_refs: string[];
+  blocked_authority_refs: string[];
+  safe_summary: string;
+  next_safe_action: string;
+  safe_refs_only: boolean;
+  no_send_action: boolean;
+  metadata_only: boolean;
+  raw_payloads_persisted: boolean;
+  raw_body_persisted: boolean;
+  raw_content_persisted: boolean;
+  file_content_persisted: boolean;
+  contact_data_persisted: boolean;
+  credential_material_persisted: boolean;
+  outbound_approval_refs_are_identifiers_only: boolean;
+  target_session_ref_grants_authority: boolean;
+  delivery_execution_performed: boolean;
+  connector_write_enabled: boolean;
+  connector_send_enabled: boolean;
+  account_sync_enabled: boolean;
+  oauth_enabled: boolean;
+  credential_collection_enabled: boolean;
+  provider_model_calls_enabled: boolean;
+  live_web_runtime_enabled: boolean;
+  browser_runtime_enabled: boolean;
+  shell_runtime_enabled: boolean;
+  background_delivery_worker_enabled: boolean;
+  scheduler_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface ConnectorDeliveryReviewQueue {
+  schema_version: "connector_delivery_review_queue.v1";
+  source:
+    | "python_core_connector_delivery_review_queue_read_model"
+    | "mock_fallback_non_authoritative";
+  backend_owned: boolean;
+  review_ref: string;
+  route_ref: string;
+  route_refs: string[];
+  cli_ref: string;
+  queue_items: ConnectorDeliveryReviewQueueItem[];
+  delivery_refs: string[];
+  run_refs: string[];
+  connector_refs: string[];
+  channel_refs: string[];
+  target_session_refs: string[];
+  outbound_approval_refs: string[];
+  idempotency_key_refs: string[];
+  evidence_refs: string[];
+  receipt_refs: string[];
+  proof_refs: string[];
+  blocked_reason_refs: string[];
+  blocked_authority_refs: string[];
+  state_counts: Record<string, number>;
+  delivery_count: number;
+  pending_count: number;
+  delivery_ready_not_sent_count: number;
+  blocked_count: number;
+  retry_count: number;
+  failure_count: number;
+  safe_summary: string;
+  next_safe_action: string;
+  safe_refs_only: boolean;
+  raw_payloads_persisted: boolean;
+  no_send_action: boolean;
+  metadata_only: boolean;
+  outbound_approval_refs_are_identifiers_only: boolean;
+  target_session_refs_grant_authority: boolean;
+  delivery_execution_enabled: boolean;
+  connector_writes_enabled: boolean;
+  connector_sends_enabled: boolean;
+  account_sync_enabled: boolean;
+  oauth_enabled: boolean;
+  credential_collection_enabled: boolean;
+  provider_model_calls_enabled: boolean;
+  live_web_runtime_enabled: boolean;
+  browser_runtime_enabled: boolean;
+  shell_runtime_enabled: boolean;
+  background_delivery_worker_enabled: boolean;
+  scheduler_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface RunAttachedApprovalQueue {
   schema_version: "run_attached_approval_queue.v1";
   source:
@@ -255,6 +374,7 @@ export interface RunAttachedApprovalQueue {
   approval_history_by_run: RunAttachedApprovalRunBucket[];
   summary: RunAttachedApprovalQueueSummary;
   unified_review: UnifiedApprovalReview;
+  connector_delivery_review_queue?: ConnectorDeliveryReviewQueue;
   safe_refs_only: boolean;
   raw_payloads_persisted: boolean;
   approval_refs_are_identifiers_only: boolean;

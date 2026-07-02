@@ -128,6 +128,17 @@ def test_control_center_approval_queue_is_backend_owned_read_only() -> None:
     assert data["approval_authority_enabled"] is False
     assert data["execution_authority_enabled"] is False
     assert data["ui_mutation_controls_enabled"] is False
+    connector_review = data["connector_delivery_review_queue"]
+    assert connector_review["schema_version"] == "connector_delivery_review_queue.v1"
+    assert connector_review["source"] == "python_core_connector_delivery_review_queue_read_model"
+    assert connector_review["backend_owned"] is True
+    assert connector_review["safe_refs_only"] is True
+    assert connector_review["raw_payloads_persisted"] is False
+    assert connector_review["no_send_action"] is True
+    assert connector_review["connector_sends_enabled"] is False
+    assert connector_review["connector_writes_enabled"] is False
+    assert connector_review["delivery_execution_enabled"] is False
+    assert connector_review["background_delivery_worker_enabled"] is False
     assert "approve" not in data
 
 

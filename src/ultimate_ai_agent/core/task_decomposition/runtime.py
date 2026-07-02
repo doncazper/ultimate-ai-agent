@@ -26,6 +26,7 @@ from ultimate_ai_agent.core.execution import (
     DurableRunTransitionStatus,
     apply_durable_run_transition,
     build_background_coworker_read_model,
+    build_connector_delivery_review_queue,
     build_connector_delivery_read_model,
     build_durable_run_lifecycle_read_model,
     build_run_progress_read_model,
@@ -511,6 +512,19 @@ class TaskDecompositionService:
         limit: int = 100,
     ) -> dict[str, Any]:
         model = build_connector_delivery_read_model(
+            self.durable_run_storage,
+            run_ref=self._durable_run_id(run_id) if run_id else None,
+            limit=limit,
+        )
+        return model.model_dump(mode="json")
+
+    def connector_delivery_review_queue(
+        self,
+        run_id: str | None = None,
+        *,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        model = build_connector_delivery_review_queue(
             self.durable_run_storage,
             run_ref=self._durable_run_id(run_id) if run_id else None,
             limit=limit,

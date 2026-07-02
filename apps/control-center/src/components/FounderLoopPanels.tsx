@@ -10,6 +10,7 @@ import {
   submitActionDecision,
   submitTodayActionEnvelope,
 } from "../api/client";
+import { ConnectorDeliveryReviewQueuePanel } from "./ConnectorDeliveryReviewQueuePanel";
 import type {
   FounderLoopActionDecisionKind,
   FounderLoopActionDecisionReceipt,
@@ -4197,7 +4198,13 @@ export function ActionInboxSurfacePanel({
         inbox={displayedInbox}
       />
       {approvalReview ? (
-        <ActionInboxApprovalReviewStrip queue={approvalReview} />
+        <>
+          <ActionInboxApprovalReviewStrip queue={approvalReview} />
+          <ConnectorDeliveryReviewQueuePanel
+            compact
+            queue={approvalReview.connector_delivery_review_queue}
+          />
+        </>
       ) : null}
       <ActionInboxDecisionLanePanel
         contractRef={displayedInbox.action_inbox_decision_lane_contract_ref}
