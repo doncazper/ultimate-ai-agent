@@ -160,6 +160,14 @@ EXPECTED_AUTHORITY_CANDIDATES = {
     "provider_model_authority",
     "context_injection",
 }
+EXPECTED_FOLLOW_ON_CANDIDATE_RANKING = (
+    "memory_write",
+    "context_injection",
+    "shell_subprocess_local_maintenance",
+    "connector_write",
+    "browser_automation",
+    "provider_model_authority",
+)
 AUTHORITY_CANDIDATE_STATUSES = {
     "not_ready",
     "proposal_only_ready",
@@ -349,6 +357,7 @@ def _append_authority_scorecard_schema_failures(
         "first_implementation_lane",
         "proposal_foundation",
         "authority_candidates",
+        "follow_on_candidate_ranking",
         "first_micro_lane_decision",
     ]:
         if field not in required:
@@ -521,6 +530,11 @@ def _append_authority_scorecard_failures(
             routes_by_ref,
             root,
         )
+    _append_follow_on_candidate_ranking_failures(
+        failures,
+        scorecard.get("follow_on_candidate_ranking"),
+        candidates,
+    )
     _append_first_micro_lane_decision_failures(
         failures,
         scorecard.get("first_micro_lane_decision"),
@@ -748,6 +762,56 @@ def _append_authority_candidate_failures(
                 str(ref),
                 f"{candidate_id}.prerequisite_refs.{field}",
             )
+
+
+def _append_follow_on_candidate_ranking_failures(
+    failures: list[str],
+    ranking: Any,
+    candidates: list[dict[str, Any]],
+) -> None:
+    if not isinstance(ranking, dict):
+        failures.append("authority scorecard requires follow_on_candidate_ranking")
+        return
+    if ranking.get("status") != "ranked_no_authority_granted":
+        failures.append(
+            "follow-on candidate ranking must be ranked_no_authority_granted"
+        )
+    if ranking.get("fixed_first_lane_ref") != FIRST_IMPLEMENTATION_LANE_ID:
+        failures.append("follow-on ranking must reference the fixed first lane")
+    ranked_ids = tuple(
+        str(candidate_id)
+        for candidate_id in ranking.get("ranked_candidate_ids", [])
+    )
+    if ranked_ids != EXPECTED_FOLLOW_ON_CANDIDATE_RANKING:
+        failures.append(
+            f"follow-on candidate ranking order drifted: {list(ranked_ids)}"
+        )
+    if FIRST_IMPLEMENTATION_LANE_ID in ranked_ids:
+        failures.append("follow-on ranking must not include the fixed first lane")
+    if len(ranked_ids) != len(set(ranked_ids)):
+        failures.append("follow-on ranking contains duplicate candidates")
+    if ranking.get("no_authority_granted") is not True:
+        failures.append("follow-on ranking must not grant authority")
+    if ranking.get("safest_candidate_id") != EXPECTED_FOLLOW_ON_CANDIDATE_RANKING[0]:
+        failures.append("follow-on ranking safest candidate must match rank 1")
+
+    candidate_by_id = {
+        str(candidate.get("candidate_id")): candidate
+        for candidate in candidates
+    }
+    safest_candidate = candidate_by_id.get(str(ranking.get("safest_candidate_id")))
+    if safest_candidate is None:
+        failures.append("follow-on ranking safest candidate is not in candidates")
+    elif ranking.get("safest_candidate_status") != safest_candidate.get("status"):
+        failures.append("follow-on ranking safest candidate status drifted")
+    for field in [
+        "ranking_method",
+        "safe_summary",
+        "selection_blocked_reason",
+        "next_safe_action",
+    ]:
+        if not ranking.get(field):
+            failures.append(f"follow-on ranking requires {field}")
 
 
 def _append_first_micro_lane_decision_failures(

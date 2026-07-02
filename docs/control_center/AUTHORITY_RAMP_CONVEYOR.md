@@ -66,6 +66,21 @@ The scorecard ranks these future authority classes:
 - provider/model authority
 - context injection
 
+The deterministic follow-on ranking is:
+
+1. `memory_write`
+2. `context_injection`
+3. `shell_subprocess_local_maintenance`
+4. `connector_write`
+5. `browser_automation`
+6. `provider_model_authority`
+
+`memory_write` is the safest next candidate to prepare because it is
+local-first, Founder Loop valuable, and already adjacent to reviewed-memory
+decision evidence. It remains `proposal_only_ready`, not a selected micro-lane,
+because exact write scope, LocalApprovalAuthority binding,
+rollback/safe-disable posture, CLI parity, and verifier refs are incomplete.
+
 The scorecard may mark a class as `not_ready`, `proposal_only_ready`,
 `contract_ready`, `micro_lane_candidate`, or `blocked_by_policy`.
 

@@ -14,6 +14,7 @@
     "first_implementation_lane",
     "proposal_foundation",
     "authority_candidates",
+    "follow_on_candidate_ranking",
     "first_micro_lane_decision"
   ],
   "properties": {
@@ -41,6 +42,9 @@
     "authority_candidates": {
       "type": "array",
       "items": { "$ref": "#/$defs/authority_candidate" }
+    },
+    "follow_on_candidate_ranking": {
+      "$ref": "#/$defs/follow_on_candidate_ranking"
     },
     "first_micro_lane_decision": {
       "type": "object",
@@ -255,6 +259,45 @@
           "items": { "type": "string" }
         },
         "smallest_next_safe_action": { "type": "string" }
+      }
+    },
+    "follow_on_candidate_ranking": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "fixed_first_lane_ref",
+        "ranking_method",
+        "ranked_candidate_ids",
+        "safest_candidate_id",
+        "safest_candidate_status",
+        "safe_summary",
+        "no_authority_granted",
+        "selection_blocked_reason",
+        "next_safe_action"
+      ],
+      "properties": {
+        "status": { "const": "ranked_no_authority_granted" },
+        "fixed_first_lane_ref": { "const": "read_only_real_world_web_fetch" },
+        "ranking_method": { "type": "string" },
+        "ranked_candidate_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "safest_candidate_id": { "type": "string" },
+        "safest_candidate_status": {
+          "enum": [
+            "not_ready",
+            "proposal_only_ready",
+            "contract_ready",
+            "micro_lane_candidate",
+            "blocked_by_policy"
+          ]
+        },
+        "safe_summary": { "type": "string" },
+        "no_authority_granted": { "const": true },
+        "selection_blocked_reason": { "type": "string" },
+        "next_safe_action": { "type": "string" }
       }
     }
   }
