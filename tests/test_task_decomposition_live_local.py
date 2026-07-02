@@ -1,4 +1,5 @@
 from pathlib import Path
+import hashlib
 import pytest
 from datetime import timedelta
 
@@ -147,14 +148,23 @@ def test_kernel_adapter_previews_local_decomposition(tmp_path: Path) -> None:
 
 def test_cli_init_catalog_decompose_and_run(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     registry_path = str(tmp_path / "registry.json")
+    request = "Summarize this request."
+    plan_id = f"task-decomposition-plan:{hashlib.sha1(request.encode()).hexdigest()[:12]}"
 
     assert cli_main(["--registry", registry_path, "init-examples"]) == 0
     assert cli_main(["--registry", registry_path, "catalog"]) == 0
-    assert cli_main(["--registry", registry_path, "decompose", "Summarize this request."]) == 0
-    assert cli_main(["--registry", registry_path, "run", "Summarize this request."]) == 0
+    assert cli_main(["--registry", registry_path, "decompose", request]) == 0
+    assert cli_main(["--registry", registry_path, "run", request]) == 0
+    initial_output = capsys.readouterr().out
+    assert "capability:example-echo-summary" in initial_output
+    assert cli_main(["--registry", registry_path, "inspect-run", plan_id]) == 0
 
     output = capsys.readouterr().out
-    assert "capability:example-echo-summary" in output
+    assert '"command_ref": "cli:task-decomposition:inspect-run"' in output
+    assert '"safe_refs_only": true' in output
+    assert '"raw_content_omitted": true' in output
+    assert '"execution_authority_enabled": false' in output
+    assert request not in output
 
 
 def test_api_routes_initialize_decompose_and_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

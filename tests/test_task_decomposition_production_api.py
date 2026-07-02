@@ -165,6 +165,30 @@ def test_task_decomposition_api_returns_safe_durable_binding(monkeypatch: pytest
     assert all(":" in ref for ref in binding["receipt_refs"])
     assert "Summarize this request directly" not in response.text
 
+    lifecycle_response = client.get(
+        f"/task-decomposition/runs/{binding['run_id']}/lifecycle",
+        headers=TASK_API_HEADERS,
+    )
+    assert lifecycle_response.status_code == 200
+    lifecycle = lifecycle_response.json()["data"]
+    assert lifecycle["run_id"] == binding["run_id"]
+    assert lifecycle["status"] == "succeeded"
+    assert lifecycle["events"]
+    assert lifecycle["receipt_hash_refs"]
+    assert lifecycle["safe_refs_only"] is True
+    assert lifecycle["raw_payloads_persisted"] is False
+    assert lifecycle["approval_refs_are_identifiers_only"] is True
+    assert lifecycle["execution_authority_enabled"] is False
+    assert lifecycle["execution_performed"] is False
+    assert lifecycle["scheduler_enabled"] is False
+    assert lifecycle["background_worker_enabled"] is False
+    assert lifecycle["provider_model_calls_enabled"] is False
+    assert lifecycle["tool_execution_expansion_enabled"] is False
+    assert lifecycle["connector_writes_enabled"] is False
+    assert lifecycle["streaming_runtime_enabled"] is False
+    assert lifecycle["api_mutation_routes_added"] is False
+    assert "Summarize this request directly" not in lifecycle_response.text
+
 
 def test_task_decomposition_explicit_idempotency_key_denies_duplicate_mutation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     client, _service = _client(monkeypatch, tmp_path)

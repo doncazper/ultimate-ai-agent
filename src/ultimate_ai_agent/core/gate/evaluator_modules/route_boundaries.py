@@ -2498,6 +2498,7 @@ TASK_DECOMPOSITION_CANONICAL_ROUTES = frozenset(
         "/task-decomposition/plans/validate",
         "/task-decomposition/registry/export",
         "/task-decomposition/run",
+        "/task-decomposition/runs/{run_id}/lifecycle",
         "/task-decomposition/status",
     }
 )

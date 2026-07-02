@@ -2,16 +2,16 @@
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
-    "not_required_for_route_classification": 125,
+    "not_required_for_route_classification": 126,
     "required_before_mutation_authority": 34
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 156,
+    "protected_local_bearer_required": 157,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 18,
-    "local_sensitive": 104,
+    "local_sensitive": 105,
     "mutating_requires_authority": 34,
     "public_metadata": 3
   },
@@ -21,14 +21,14 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 159,
+  "route_count": 160,
   "route_idempotency_posture_summary": {
-    "not_required_for_route_classification": 125,
+    "not_required_for_route_classification": 126,
     "required_before_mutation_authority": 34
   },
   "route_rate_limit_posture_summary": {
     "not_targeted_for_route": 104,
-    "targeted_local_fixed_window": 55
+    "targeted_local_fixed_window": 56
   },
   "routes": [
     {
@@ -2887,6 +2887,26 @@
       "route_classification": "mutating_requires_authority",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Post task decomposition run",
+      "tags": [
+        "task-decomposition"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "GET",
+      "operation_id": "get_task_decomposition_runs_run_id_lifecycle",
+      "path": "/task-decomposition/runs/{run_id}/lifecycle",
+      "rate_limit_group": "task_decomposition",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Get task decomposition runs run id lifecycle",
       "tags": [
         "task-decomposition"
       ]
