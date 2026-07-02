@@ -16,7 +16,7 @@ Agent / Tool / API Route
   -> Adapters
 ```
 
-The system remains API-first and browser-fallback, but browser capability is not a default execution path. Injected browser observe-only summaries and dry-run action plans may sit behind the gateway when explicitly policy-enabled; real browser actions remain later scoped-authority work.
+The system remains API-first and browser-fallback, but browser capability is not a default execution path. Browser observe-only summaries and dry-run action plans remain future/contract-only for this Prompt 02 lane; real browser actions remain later scoped-authority work.
 
 ## Why this exists
 
@@ -72,20 +72,22 @@ Allowed:
 
 ```text
 - governed web evidence path behind WebAccessGateway
-- optional injected read-only HTTPS GET adapter in tests
-- injected browser observe-only summaries when explicitly policy-enabled
-- injected browser action dry-run plans when explicitly policy-enabled
+- explicit injected read-only HTTPS GET transport for
+  `read_only_real_world_web_fetch`, routed through `WebAccessGateway`
 - disabled provider adapter shells for Firecrawl, Browserbase, and search diagnostics
 - normalized WebAccessAuditRecord for allowed and denied paths
 - SourceMetadata with content_untrusted=true
 - quarantined WebAccessEvidenceBundle for adapter payloads
 - static guard tests against new direct public-web/browser imports
+- CLI inspection through `scripts/inspect_read_only_web_fetch.py`, returning
+  safe refs and bounded redacted preview only
 ```
 
 Denied:
 
 ```text
 - POST / PUT / PATCH / DELETE
+- browser observe/dry-run execution in the Prompt 02 lane
 - browser observe by default
 - live browser observe execution
 - browser action dry-run by default
@@ -154,7 +156,8 @@ Provider and dangerous-authority details are governed by
 ```text
 PR 1: Boundary contracts/policy/audit/static guards/wrapper
 PR 2: API/manifest wording only, no routes
-PR 3: migrate existing read-only http_fetch behind gateway
+PR 3: exact `read_only_real_world_web_fetch` through gateway for allowlisted
+HTTPS GET, with CLI inspection and no route/UI/browser/provider/connector authority
 PR 4: browser observe behind gateway, no cookies/clicks/raw DOM
 PR 5: browser dry-run plans only, consuming observation bundles
 Later: scoped execution only after approval, audit/replay, revocation, sandboxing, and red-team review

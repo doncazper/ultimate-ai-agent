@@ -40,6 +40,7 @@ BANNED_PUBLIC_WEB_IMPORTS = {
 APPROVED_ADAPTER_FILES = {
     "src/ultimate_ai_agent/core/web_access/adapters.py",
 }
+APPROVED_ADAPTER_PUBLIC_WEB_IMPORTS: set[str] = set()
 
 TEMPORARY_BASELINE_EXCEPTIONS = {
     "scripts/dev/uaa_launcher.py": (
@@ -179,6 +180,21 @@ def test_disabled_provider_shells_do_not_import_provider_sdks() -> None:
     banned = sorted(module for module in imported if _is_banned(module))
 
     assert banned == []
+
+
+def test_web_access_adapter_public_web_imports_are_exact_transport_allowlist() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    adapter_file = (
+        repo_root
+        / "src/ultimate_ai_agent/core/web_access/read_only_http_fetch_transport.py"
+    )
+
+    imported = _direct_imports(adapter_file)
+    adapter_public_web_imports = {
+        module for module in imported if _is_banned(module)
+    }
+
+    assert adapter_public_web_imports <= APPROVED_ADAPTER_PUBLIC_WEB_IMPORTS
 
 
 def test_no_new_browser_search_provider_cli_surfaces_outside_exceptions() -> None:

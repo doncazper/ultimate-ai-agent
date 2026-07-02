@@ -315,7 +315,7 @@ def test_authority_candidate_scorecard_declares_no_go_graduation_program() -> No
     assert first_lane["lane_id"] == FIRST_IMPLEMENTATION_LANE_ID
     assert first_lane["prompt_ref"] == FIRST_IMPLEMENTATION_PROMPT_REF
     assert first_lane["foundation_ref"] == FIRST_IMPLEMENTATION_LANE_ID
-    assert first_lane["status"] == "partial"
+    assert first_lane["status"] == "implemented"
     assert FIRST_IMPLEMENTATION_REQUIRED_ALLOWED_SCOPE.issubset(
         set(first_lane["allowed_scope"])
     )
@@ -373,6 +373,7 @@ def test_authority_scorecard_rejects_first_lane_missing_blockers() -> None:
     first_lane["allowed_scope"] = []
     first_lane["blocked_authorities"] = []
     first_lane["verification_refs"] = []
+    first_lane["status"] = "partial"
     first_lane["next_safe_action"] = "Pick a different lane."
 
     failures = verify(scorecard_override=scorecard)

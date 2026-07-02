@@ -33,6 +33,11 @@ from ultimate_ai_agent.core.tools.runtime.validation import (
 )
 
 
+READ_ONLY_REAL_WORLD_HTTP_FETCH_TRANSPORT_REF = (
+    "http-fetch-transport:web-access-gateway-real-world-v1"
+)
+
+
 class ToolRuntimeAdapterDescriptor(BaseModel):
     adapter_ref: str = "tool-runtime-adapter:read_only_http_fetch.v1"
     status: ToolRuntimeAdapterStatus = ToolRuntimeAdapterStatus.read_only_http_fetch_allowlisted
@@ -349,12 +354,15 @@ class ToolInvocationResult(BaseModel):
             self.raw_input_echoed,
             self.raw_content_stored,
             self.memory_write_performed,
-            self.network_call_performed,
             self.model_call_performed,
             self.shell_execution_performed,
         ]
         if any(unsafe_flags):
             raise ValueError("M32 runtime result must not report side effects")
+        if self.network_call_performed and not _is_exact_read_only_http_network_result(self):
+            raise ValueError(
+                "M72 network call reporting is allowed only for exact read-only WebAccessGateway HTTP fetch"
+            )
         return self
 
 
@@ -404,10 +412,34 @@ class ToolInvocationDecision(BaseModel):
             self.raw_input_echoed,
             self.raw_content_stored,
             self.memory_write_performed,
-            self.network_call_performed,
             self.model_call_performed,
             self.shell_execution_performed,
         ]
         if any(unsafe_flags):
             raise ValueError("M32 tool runtime decisions must not report side effects")
+        if self.network_call_performed and not _is_exact_read_only_http_network_decision(self):
+            raise ValueError(
+                "M72 network call reporting is allowed only for exact read-only WebAccessGateway HTTP fetch"
+            )
         return self
+
+
+def _is_exact_read_only_http_network_result(result: ToolInvocationResult) -> bool:
+    output = result.output
+    return (
+        result.tool_ref == READ_ONLY_HTTP_FETCH_TOOL_REF
+        and result.status == ToolInvocationStatus.http_fetch_completed
+        and isinstance(output, ReadOnlyHttpFetchOutput)
+        and output.real_world_transport_performed is True
+        and output.transport_ref == READ_ONLY_REAL_WORLD_HTTP_FETCH_TRANSPORT_REF
+    )
+
+
+def _is_exact_read_only_http_network_decision(decision: ToolInvocationDecision) -> bool:
+    return (
+        decision.tool_ref == READ_ONLY_HTTP_FETCH_TOOL_REF
+        and decision.status == ToolInvocationStatus.http_fetch_completed
+        and decision.result is not None
+        and decision.result.network_call_performed is True
+        and _is_exact_read_only_http_network_result(decision.result)
+    )

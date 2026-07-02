@@ -2,6 +2,9 @@
 
 M72 implements Read-Only HTTP Fetch Tool, Allowlisted. It introduces a bounded
 allowlisted read-only HTTP fetch tool through the governed tool runtime adapter.
+The Authority Graduation Program Prompt 02 lane adds an explicit real-world
+HTTPS GET transport through `WebAccessGateway` plus CLI inspection, while
+keeping the default tool runtime fail-closed unless that transport is supplied.
 
 M72 allows only:
 
@@ -13,6 +16,8 @@ M72 allows only:
 - redaction before return
 - safe result metadata
 - fake transport in tests and Foundation Gate
+- explicit real-world transport through `WebAccessGateway`
+- CLI inspection via `scripts/inspect_read_only_web_fetch.py`
 
 M72 does not add:
 
@@ -35,6 +40,8 @@ M72 does not add:
 - backend route
 - Control Center control
 - dependency
+- unrestricted web fetching
+- browser/provider/connector authority
 - production authority
 
 M73 is the future Browser Automation Contract Review milestone. M73 may add

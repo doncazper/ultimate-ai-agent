@@ -221,6 +221,10 @@ class ReadOnlyHttpFetchOutput(BaseModel):
     response_limit_bytes: int = DEFAULT_HTTP_FETCH_MAX_RESPONSE_BYTES
     response_bytes_read: int = 0
     fetch_performed: bool = True
+    transport_ref: str = "http-fetch-transport:injected"
+    real_world_transport_performed: bool = False
+    web_access_audit_ref: str = "web-access-audit:unpersisted"
+    web_access_request_ref: str = "web-access-request:unpersisted"
     raw_response_body_returned: bool = False
     raw_response_body_stored: bool = False
     raw_headers_returned: bool = False
@@ -245,7 +249,15 @@ class ReadOnlyHttpFetchOutput(BaseModel):
 
     @model_validator(mode="after")
     def validate_output(self) -> Any:
-        for ref in [self.output_ref, self.request_ref, self.safe_url_ref, self.host_ref]:
+        for ref in [
+            self.output_ref,
+            self.request_ref,
+            self.safe_url_ref,
+            self.host_ref,
+            self.transport_ref,
+            self.web_access_audit_ref,
+            self.web_access_request_ref,
+        ]:
             validate_tool_runtime_ref(ref, "http_fetch_ref")
         validate_safe_tool_runtime_text(self.safe_message, "safe_message")
         validate_safe_tool_runtime_text(self.content_type, "content_type")
@@ -451,6 +463,16 @@ def _build_read_only_http_fetch_output(
         content_type=response.content_type,
         redacted_preview=redacted_preview,
         redaction_summary=redaction_summary,
+        transport_ref=str(
+            getattr(
+                transport,
+                "transport_ref",
+                "http-fetch-transport:injected",
+            )
+        ),
+        real_world_transport_performed=bool(
+            getattr(transport, "real_world_transport_performed", False)
+        ),
         preview_truncated=len(text) > policy.max_preview_bytes or len(response.body) > policy.max_response_bytes,
         preview_limit_bytes=policy.max_preview_bytes,
         response_limit_bytes=policy.max_response_bytes,
@@ -555,7 +577,14 @@ def build_read_only_http_fetch_output_via_web_access_gateway(
     output_payload = payload.get("output")
     if not isinstance(output_payload, Mapping):
         raise ValueError("HTTP_FETCH_GATEWAY_OUTPUT_MISSING")
-    return ReadOnlyHttpFetchOutput.model_validate(output_payload)
+    output = ReadOnlyHttpFetchOutput.model_validate(output_payload)
+    safe_request_suffix = result.request_id.split(":", 1)[-1].replace("-", "")
+    return output.model_copy(
+        update={
+            "web_access_request_ref": result.request_id,
+            "web_access_audit_ref": f"web-access-audit:{safe_request_suffix}",
+        }
+    )
 
 
 def _blocked_http_fetch_adapter_result(reason: str) -> Mapping[str, Any]:
