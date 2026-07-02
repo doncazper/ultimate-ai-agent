@@ -26,6 +26,7 @@ from ultimate_ai_agent.core.execution import (
     DurableRunTransitionStatus,
     apply_durable_run_transition,
     build_durable_run_lifecycle_read_model,
+    build_run_progress_read_model,
     build_run_attached_approval_queue_read_model,
     record_run_attached_approval_event,
     run_attached_approval_item_from_grant,
@@ -467,6 +468,21 @@ class TaskDecompositionService:
             self.durable_run_storage,
             self._durable_run_id(run_id),
             include_receipts=include_receipts,
+            limit=limit,
+        )
+        if model is None:
+            return None
+        return model.model_dump(mode="json")
+
+    def durable_run_progress(
+        self,
+        run_id: str,
+        *,
+        limit: int = 50,
+    ) -> dict[str, Any] | None:
+        model = build_run_progress_read_model(
+            self.durable_run_storage,
+            self._durable_run_id(run_id),
             limit=limit,
         )
         if model is None:

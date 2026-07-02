@@ -122,6 +122,41 @@ def _cmd_inspect_approvals(args: Any) -> int:
     return 0
 
 
+def _cmd_inspect_run_progress(args: Any) -> int:
+    service = _service(args)
+    progress = service.durable_run_progress(args.run_id, limit=args.limit)
+    if progress is None:
+        print(
+            dump_json(
+                {
+                    "schema_version": "task-decomposition-cli-inspect-run-progress.v1",
+                    "command_ref": "cli:task-decomposition:inspect-run-progress",
+                    "safe_refs_only": True,
+                    "raw_content_omitted": True,
+                    "success": False,
+                    "error_ref": "error-ref:task-decomposition:durable-run-progress-not-found",
+                }
+            )
+        )
+        return 1
+    print(
+        dump_json(
+            {
+                "schema_version": "task-decomposition-cli-inspect-run-progress.v1",
+                "command_ref": "cli:task-decomposition:inspect-run-progress",
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "live_streaming_runtime_enabled": False,
+                "provider_model_calls_enabled": False,
+                "execution_authority_enabled": False,
+                "success": True,
+                "progress": progress,
+            }
+        )
+    )
+    return 0
+
+
 def _cmd_serve_api(args: Any) -> int:
     import uvicorn
 
@@ -169,6 +204,14 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_approvals.add_argument("run_id", nargs="?")
     inspect_approvals.add_argument("--limit", type=int, default=50)
     inspect_approvals.set_defaults(func=_cmd_inspect_approvals)
+
+    inspect_run_progress = subparsers.add_parser(
+        "inspect-run-progress",
+        help="Inspect a durable run progress read model without live streaming authority.",
+    )
+    inspect_run_progress.add_argument("run_id")
+    inspect_run_progress.add_argument("--limit", type=int, default=50)
+    inspect_run_progress.set_defaults(func=_cmd_inspect_run_progress)
 
     serve = subparsers.add_parser("serve-api", help="Serve the local/dev task decomposition API.")
     serve.add_argument("--host", default="127.0.0.1")
