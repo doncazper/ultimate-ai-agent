@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Header, HTTPException, Request, Response
+from fastapi import FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -1287,6 +1287,36 @@ def get_task_decomposition_registry_export(authorization: str | None = Header(de
         service="TaskDecompositionAPI",
         trace_id="system",
         data=_safe_task_decomposition_payload(_task_decomposition_service.export_registry_document()),
+    )
+
+
+@app.get("/task-decomposition/runs/{run_id}/lifecycle", response_model=ResultEnvelope)
+def get_task_decomposition_run_lifecycle(
+    run_id: str,
+    include_receipts: bool = True,
+    limit: int = Query(default=50, ge=1, le=200),
+    authorization: str | None = Header(default=None),
+) -> Any:
+    _require_task_decomposition_local_authority(authorization)
+    lifecycle = _task_decomposition_service.durable_run_lifecycle(
+        run_id,
+        include_receipts=include_receipts,
+        limit=limit,
+    )
+    if lifecycle is None:
+        raise HTTPException(status_code=404, detail="Durable run lifecycle not found.")
+    return ResultEnvelope(
+        success=True,
+        operation="task_decomposition_durable_run_lifecycle",
+        service="TaskDecompositionAPI",
+        trace_id=run_id,
+        data=_safe_task_decomposition_payload(lifecycle),
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_lifecycle_events",
+            "raw_payloads_omitted",
+            "read_only_lifecycle_inspection",
+        ],
     )
 
 

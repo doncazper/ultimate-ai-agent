@@ -544,6 +544,12 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         ]
         == "task_decomposition"
     )
+    lifecycle_route = routes_by_path["/task-decomposition/runs/{run_id}/lifecycle"]
+    assert lifecycle_route["side_effect_class"] == "local_dev_workspace_only"
+    assert lifecycle_route["route_classification"] == "local_sensitive"
+    assert lifecycle_route["approval_posture"] == "not_required_for_route_classification"
+    assert lifecycle_route["idempotency_required"] is False
+    assert lifecycle_route["rate_limit_group"] == "task_decomposition"
     assert routes_by_path["/files/tree/preview"]["idempotency_posture"] == (
         "not_required_for_route_classification"
     )

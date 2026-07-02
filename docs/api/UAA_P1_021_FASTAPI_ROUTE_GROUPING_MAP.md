@@ -2,7 +2,7 @@
 
 Status: active gated foundation map
 Baseline: v0.104.0 / 0.104.0
-Current OpenAPI path count: 159
+Current OpenAPI path count: 160
 Scope: documentation and route ownership inventory only
 
 This map records the current FastAPI route groups for UAA-P1-058 and future
@@ -18,13 +18,13 @@ typed metadata endpoint for route inventory and capabilities.
 
 | Contract surface | Result |
 |---|---|
-| OpenAPI path count | 159 paths. |
-| `/api/manifest` route count | 159 routes. |
+| OpenAPI path count | 160 paths. |
+| `/api/manifest` route count | 160 routes. |
 | Operation ID posture | Stable generated IDs are unique for all current routes. |
 | Side-effect classes | All current routes use `none`, `validation_only`, `local_dev_workspace_only`, or `governed_network_read_only`. |
 | Route-module ownership tests | UAA-P1-059 checks every current route against this map for owner, target service module, side-effect class, risk class, auth posture, release status, route-count posture, operation ID posture, and evidence behavior. |
 | Control Center route-status manifest | Backend route refs checked against `/api/manifest`; 0 missing and 0 path/method/operation/side-effect mismatches. |
-| Route inventory doc | Current count matches 159; inventory is summarized by group and remains subordinate to `/api/manifest`. |
+| Route inventory doc | Current count matches 160; inventory is summarized by group and remains subordinate to `/api/manifest`. |
 
 ## Mismatch Findings
 
@@ -65,7 +65,7 @@ typed metadata endpoint for route inventory and capabilities.
 | `runtime-readiness` | 3 | `runtime-readiness` | `runtime_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | `status_available_not_completion` |
 | `secret-broker` | 2 | `secret-broker` | `secret_service` | future auth required | `validation_only`:2 | high | stable/generated from path; unique | `preview_available_not_execution` |
 | `system` | 2 | `system` | `system_service` | none | `none`:2 | low | stable/generated from path; unique | `status_available_not_completion` |
-| `task-decomposition` | 16 | `task-decomposition` | `task_decomposition_service` | disabled by default and explicit local auth | `local_dev_workspace_only`:16 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
+| `task-decomposition` | 17 | `task-decomposition` | `task_decomposition_service` | disabled by default and explicit local auth | `local_dev_workspace_only`:17 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `tool-broker` | 3 | `tool-broker` | `tool_service` | future auth required | `validation_only`:3 | high | stable/generated from path; unique | `preview_available_not_execution` |
 | `truth` | 6 | `truth` | `truth_service` | future auth required | `validation_only`:6 | medium | stable/generated from path; unique | `preview_available_not_execution` |
 | `web-evidence` | 2 | `governed-web-evidence` | `governed_web_evidence_service` | future auth required for request path | `governed_network_read_only`:1, `none`:1 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
@@ -350,6 +350,7 @@ Columns: method, path, operation ID, side-effect class, validation-only, future-
 | POST | `/task-decomposition/plans/validate` | `post_task_decomposition_plans_validate` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/task-decomposition/registry/export` | `get_task_decomposition_registry_export` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/task-decomposition/run` | `post_task_decomposition_run` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/task-decomposition/runs/{run_id}/lifecycle` | `get_task_decomposition_runs_run_id_lifecycle` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/task-decomposition/status` | `get_task_decomposition_status` | `local_dev_workspace_only` | no | future | yes |
 
 ### `tool-broker`

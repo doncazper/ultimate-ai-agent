@@ -32,6 +32,15 @@ from ultimate_ai_agent.core.execution.durable_runs import (
 )
 from ultimate_ai_agent.core.execution.manifests import ExecutionFrameworkManifest, build_execution_framework_manifest
 from ultimate_ai_agent.core.execution.receipts import ExecutionReceiptPlan
+from ultimate_ai_agent.core.execution.read_models import (
+    CANONICAL_RUN_EVENT_TYPES,
+    CANONICAL_RUN_LIFECYCLE_STATES,
+    DURABLE_RUN_LIFECYCLE_EVENT_READ_MODEL_SCHEMA_VERSION,
+    DURABLE_RUN_LIFECYCLE_READ_MODEL_SCHEMA_VERSION,
+    DurableRunLifecycleEventReadModel,
+    DurableRunLifecycleReadModel,
+    build_durable_run_lifecycle_read_model,
+)
 from ultimate_ai_agent.core.execution.run_storage import (
     DURABLE_RECEIPT_HASH_SCHEMA_VERSION,
     DURABLE_RUN_STORAGE_SCHEMA_VERSION,
@@ -53,6 +62,10 @@ from ultimate_ai_agent.core.execution.transitions import ExecutionTransitionDeci
 __all__ = [
     "ALLOWED_DURABLE_RUN_TRANSITIONS",
     "AppendFirstRunStorage",
+    "CANONICAL_RUN_EVENT_TYPES",
+    "CANONICAL_RUN_LIFECYCLE_STATES",
+    "DURABLE_RUN_LIFECYCLE_EVENT_READ_MODEL_SCHEMA_VERSION",
+    "DURABLE_RUN_LIFECYCLE_READ_MODEL_SCHEMA_VERSION",
     "DURABLE_RECEIPT_HASH_SCHEMA_VERSION",
     "DURABLE_RUN_SCHEMA_VERSION",
     "DURABLE_RUN_STORAGE_SCHEMA_VERSION",
@@ -60,6 +73,8 @@ __all__ = [
     "DurableRunCorruptionError",
     "DurableRunError",
     "DurableRunIdempotencyRecord",
+    "DurableRunLifecycleEventReadModel",
+    "DurableRunLifecycleReadModel",
     "DurableRunPersistenceModel",
     "DurableRunRecord",
     "DurableRunSnapshot",
@@ -93,6 +108,7 @@ __all__ = [
     "ExecutionTransitionStatus",
     "apply_durable_run_transition",
     "build_execution_framework_manifest",
+    "build_durable_run_lifecycle_read_model",
     "build_receipt_summary_hash_ref",
     "build_durable_run_snapshot",
     "dependency_graph_reason_codes",

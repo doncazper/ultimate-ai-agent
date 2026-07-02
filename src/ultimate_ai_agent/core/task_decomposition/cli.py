@@ -66,6 +66,42 @@ def _cmd_run(args: Any) -> int:
     return 0 if result.execution is not None and result.execution.status == "succeeded" else 2
 
 
+def _cmd_inspect_run(args: Any) -> int:
+    service = _service(args)
+    lifecycle = service.durable_run_lifecycle(
+        args.run_id,
+        include_receipts=not args.omit_receipts,
+        limit=args.limit,
+    )
+    if lifecycle is None:
+        print(
+            dump_json(
+                {
+                    "schema_version": "task-decomposition-cli-inspect-run.v1",
+                    "command_ref": "cli:task-decomposition:inspect-run",
+                    "safe_refs_only": True,
+                    "raw_content_omitted": True,
+                    "success": False,
+                    "error_ref": "error-ref:task-decomposition:durable-run-not-found",
+                }
+            )
+        )
+        return 1
+    print(
+        dump_json(
+            {
+                "schema_version": "task-decomposition-cli-inspect-run.v1",
+                "command_ref": "cli:task-decomposition:inspect-run",
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "success": True,
+                "lifecycle": lifecycle,
+            }
+        )
+    )
+    return 0
+
+
 def _cmd_serve_api(args: Any) -> int:
     import uvicorn
 
@@ -99,6 +135,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--actor-id", default="local_cli_user")
     run.add_argument("--approval-ref", action="append", help="Bind capability_id=approval_ref for LocalApprovalAuthority.")
     run.set_defaults(func=_cmd_run)
+
+    inspect_run = subparsers.add_parser("inspect-run", help="Inspect a durable run lifecycle read model.")
+    inspect_run.add_argument("run_id")
+    inspect_run.add_argument("--limit", type=int, default=50)
+    inspect_run.add_argument("--omit-receipts", action="store_true")
+    inspect_run.set_defaults(func=_cmd_inspect_run)
 
     serve = subparsers.add_parser("serve-api", help="Serve the local/dev task decomposition API.")
     serve.add_argument("--host", default="127.0.0.1")

@@ -52,6 +52,7 @@ TASK_DECOMPOSITION_PATHS = {
     "/task-decomposition/plans/validate",
     "/task-decomposition/registry/export",
     "/task-decomposition/run",
+    "/task-decomposition/runs/{run_id}/lifecycle",
     "/task-decomposition/status",
 }
 LOCAL_MODEL_VALIDATION_PATHS = {
