@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 from pathlib import Path
 
 import pytest
@@ -10,8 +11,11 @@ from ultimate_ai_agent.core.execution import (
     AppendFirstRunStorage,
     CONNECTOR_DELIVERY_SOURCE_FREEZE_REF,
     ConnectorDeliveryEnvelopeContract,
+    ConnectorDeliveryReviewQueueItemReadModel,
+    ConnectorDeliveryReviewQueueReadModel,
     ConnectorDeliveryTimelineEventContract,
     ConnectorDeliveryValidationContext,
+    build_connector_delivery_review_queue,
     build_connector_delivery_read_model,
     record_connector_delivery_event,
     validate_connector_delivery_contract_payload,
@@ -258,6 +262,112 @@ def test_retry_failure_and_sent_not_supported_states_are_safe_ref_only(tmp_path:
     assert read_model.background_delivery_worker_enabled is False
 
 
+def test_connector_delivery_review_queue_projects_safe_operator_review(tmp_path: Path) -> None:
+    storage = _storage(tmp_path)
+    _record_event(storage, _event("delivery_ready_not_sent"), "ready-not-sent")
+    blocked_event = ConnectorDeliveryTimelineEventContract.from_envelope(
+        _envelope(delivery_ref="connector-delivery-ref:test:email-blocked"),
+        event_ref="connector-delivery-event-ref:test:delivery-blocked",
+        delivery_state="delivery_blocked",
+        blocked_reason_refs=["blocked-authority-ref:test:no-send"],
+        safe_summary="Connector delivery is blocked as metadata only and does not send or write.",
+    )
+    _record_event(storage, blocked_event, "blocked")
+
+    review_queue = build_connector_delivery_review_queue(storage, run_ref=RUN_REF)
+    dumped = json.dumps(review_queue.model_dump(mode="json"), sort_keys=True)
+
+    assert review_queue.schema_version == "connector_delivery_review_queue.v1"
+    assert review_queue.source == "python_core_connector_delivery_review_queue_read_model"
+    assert review_queue.backend_owned is True
+    assert review_queue.delivery_count == 2
+    assert review_queue.delivery_ready_not_sent_count == 1
+    assert review_queue.blocked_count == 1
+    assert review_queue.safe_refs_only is True
+    assert review_queue.raw_payloads_persisted is False
+    assert review_queue.no_send_action is True
+    assert review_queue.connector_sends_enabled is False
+    assert review_queue.connector_writes_enabled is False
+    assert review_queue.delivery_execution_enabled is False
+    assert review_queue.background_delivery_worker_enabled is False
+    ready_item = next(
+        item
+        for item in review_queue.queue_items
+        if item.latest_state == "delivery_ready_not_sent"
+    )
+    assert ready_item.delivery_state_label == "delivery ready metadata only / not sent"
+    assert ready_item.delivery_execution_posture == "blocked_planned_no_delivery_execution"
+    assert ready_item.redacted_subject_refs == ["redacted-subject-ref:test:connector-delivery"]
+    assert ready_item.redacted_body_summary_refs == ["redacted-body-summary-ref:test:connector-delivery"]
+    assert ready_item.outbound_approval_refs == [APPROVAL_REF]
+    assert ready_item.idempotency_key_refs == ["idempotency-ref:test:connector-delivery"]
+    assert "blocked-state:no-connector-send" in ready_item.blocked_authority_refs
+    assert "blocked-state:no-background-delivery-worker" in ready_item.blocked_authority_refs
+    blocked_item = next(
+        item for item in review_queue.queue_items if item.latest_state == "delivery_blocked"
+    )
+    assert "blocked-authority-ref:test:no-send" in blocked_item.blocked_reason_refs
+    assert "blocked-authority-ref:test:no-send" in review_queue.blocked_reason_refs
+    assert "founder@example.com" not in dumped
+    assert "raw message body" not in dumped.lower()
+    assert "bearer token" not in dumped.lower()
+    assert "/Users/" not in dumped
+
+
+def test_connector_delivery_review_queue_denies_authority_flags(tmp_path: Path) -> None:
+    storage = _storage(tmp_path)
+    _record_event(storage, _event("delivery_ready_not_sent"), "ready-not-sent")
+    review_queue = build_connector_delivery_review_queue(storage, run_ref=RUN_REF)
+    item_payload = review_queue.queue_items[0].model_dump(mode="json")
+    queue_payload = review_queue.model_dump(mode="json")
+
+    with pytest.raises(
+        ValidationError,
+        match="CONNECTOR_DELIVERY_REVIEW_READY_STATE_MUST_LABEL_NOT_SENT",
+    ):
+        ConnectorDeliveryReviewQueueItemReadModel.model_validate(
+            {**item_payload, "delivery_state_label": "delivery ready metadata only"}
+        )
+
+    for field_name in [
+        "delivery_execution_performed",
+        "connector_write_enabled",
+        "connector_send_enabled",
+        "account_sync_enabled",
+        "oauth_enabled",
+        "credential_collection_enabled",
+        "provider_model_calls_enabled",
+        "live_web_runtime_enabled",
+        "browser_runtime_enabled",
+        "shell_runtime_enabled",
+        "background_delivery_worker_enabled",
+        "scheduler_enabled",
+    ]:
+        with pytest.raises(ValidationError, match="CONNECTOR_DELIVERY_REVIEW_ITEM_AUTHORITY_DENIED"):
+            ConnectorDeliveryReviewQueueItemReadModel.model_validate(
+                {**item_payload, field_name: True}
+            )
+
+    for field_name in [
+        "delivery_execution_enabled",
+        "connector_writes_enabled",
+        "connector_sends_enabled",
+        "account_sync_enabled",
+        "oauth_enabled",
+        "credential_collection_enabled",
+        "provider_model_calls_enabled",
+        "live_web_runtime_enabled",
+        "browser_runtime_enabled",
+        "shell_runtime_enabled",
+        "background_delivery_worker_enabled",
+        "scheduler_enabled",
+    ]:
+        with pytest.raises(ValidationError, match="CONNECTOR_DELIVERY_REVIEW_QUEUE_AUTHORITY_DENIED"):
+            ConnectorDeliveryReviewQueueReadModel.model_validate(
+                {**queue_payload, field_name: True}
+            )
+
+
 def test_delivery_event_duplicate_idempotency_is_denied(tmp_path: Path) -> None:
     storage = _storage(tmp_path)
     event = _event("delivery_blocked", blocked_reason_refs=["blocked-authority-ref:test:no-send"])
@@ -280,6 +390,35 @@ def test_task_decomposition_cli_inspects_connector_deliveries_safe_refs_only(
     output = capsys.readouterr().out
 
     assert '"command_ref": "cli:task-decomposition:inspect-connector-deliveries"' in output
+    assert '"safe_refs_only": true' in output
+    assert '"connector_send_enabled": false' in output
+    assert '"connector_write_enabled": false' in output
+    assert '"background_delivery_worker_enabled": false' in output
+    assert "raw message body" not in output.lower()
+    assert "founder@example.com" not in output
+    assert "bearer token" not in output.lower()
+
+
+def test_task_decomposition_cli_inspects_connector_delivery_review_queue(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    registry_path = str(tmp_path / "registry.json")
+    store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=registry_path))
+    service = TaskDecompositionService(registry_store=store)
+    _record_event(service.durable_run_storage, _event("delivery_ready_not_sent"), "ready-not-sent")
+
+    assert (
+        task_decomposition_cli_main(
+            ["--registry", registry_path, "inspect-connector-delivery-review", RUN_REF]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+
+    assert '"command_ref": "cli:task-decomposition:inspect-connector-delivery-review"' in output
+    assert '"schema_version": "connector_delivery_review_queue.v1"' in output
+    assert '"delivery_state_label": "delivery ready metadata only / not sent"' in output
     assert '"safe_refs_only": true' in output
     assert '"connector_send_enabled": false' in output
     assert '"connector_write_enabled": false' in output

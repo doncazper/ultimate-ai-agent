@@ -232,6 +232,36 @@ def _cmd_inspect_connector_deliveries(args: Any) -> int:
     return 0
 
 
+def _cmd_inspect_connector_delivery_review(args: Any) -> int:
+    service = _service(args)
+    review_queue = service.connector_delivery_review_queue(args.run_id, limit=args.limit)
+    print(
+        dump_json(
+            {
+                "schema_version": "task-decomposition-cli-inspect-connector-delivery-review.v1",
+                "command_ref": "cli:task-decomposition:inspect-connector-delivery-review",
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "connector_write_enabled": False,
+                "connector_send_enabled": False,
+                "account_sync_enabled": False,
+                "oauth_enabled": False,
+                "credential_collection_enabled": False,
+                "provider_model_calls_enabled": False,
+                "live_web_runtime_enabled": False,
+                "browser_runtime_enabled": False,
+                "shell_runtime_enabled": False,
+                "background_delivery_worker_enabled": False,
+                "scheduler_enabled": False,
+                "delivery_authority_enabled": False,
+                "success": True,
+                "connector_delivery_review_queue": review_queue,
+            }
+        )
+    )
+    return 0
+
+
 def _cmd_serve_api(args: Any) -> int:
     import uvicorn
 
@@ -311,6 +341,14 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_connector_deliveries.add_argument("run_id", nargs="?")
     inspect_connector_deliveries.add_argument("--limit", type=int, default=100)
     inspect_connector_deliveries.set_defaults(func=_cmd_inspect_connector_deliveries)
+
+    inspect_connector_delivery_review = subparsers.add_parser(
+        "inspect-connector-delivery-review",
+        help="Inspect the connector delivery review queue without send or write authority.",
+    )
+    inspect_connector_delivery_review.add_argument("run_id", nargs="?")
+    inspect_connector_delivery_review.add_argument("--limit", type=int, default=100)
+    inspect_connector_delivery_review.set_defaults(func=_cmd_inspect_connector_delivery_review)
 
     serve = subparsers.add_parser("serve-api", help="Serve the local/dev task decomposition API.")
     serve.add_argument("--host", default="127.0.0.1")

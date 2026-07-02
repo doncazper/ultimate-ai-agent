@@ -1645,6 +1645,24 @@ describe("Web Control Center shell", () => {
     expect(within(approvalReview).getByText("Review items")).toBeInTheDocument();
     expect(within(approvalReview).getByText("Pending refs")).toBeInTheDocument();
     expect(within(approvalReview).queryByRole("button")).not.toBeInTheDocument();
+    const connectorQueue = screen.getByLabelText("Connector delivery review queue");
+    expect(
+      within(connectorQueue).getByText("Connector Delivery Review Queue"),
+    ).toBeInTheDocument();
+    expect(
+      within(connectorQueue).getByText(/delivery-ready metadata only \/ not sent/i),
+    ).toBeInTheDocument();
+    expect(
+      within(connectorQueue).getByText("Delivery execution"),
+    ).toBeInTheDocument();
+    expect(within(connectorQueue).getByText("blocked/planned")).toBeInTheDocument();
+    expect(
+      within(connectorQueue).queryByRole("button", { name: /send|deliver|retry|sync|write|execute/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/raw message body/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/founder@example\.com/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/bearer token/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/Users\//i)).not.toBeInTheDocument();
   });
 
   it("labels adjacent Founder Loop surfaces without faking a current proof step", async () => {

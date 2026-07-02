@@ -24,6 +24,8 @@ CONNECTOR_DELIVERY_ENVELOPE_SCHEMA_VERSION = "connector_delivery_envelope_contra
 CONNECTOR_DELIVERY_EVENT_SCHEMA_VERSION = "connector_delivery_event_contract.v1"
 CONNECTOR_DELIVERY_EVENT_RECEIPT_SCHEMA_VERSION = "connector_delivery_event_receipt.v1"
 CONNECTOR_DELIVERY_READ_MODEL_SCHEMA_VERSION = "connector_delivery_read_model.v1"
+CONNECTOR_DELIVERY_REVIEW_QUEUE_ITEM_SCHEMA_VERSION = "connector_delivery_review_queue_item.v1"
+CONNECTOR_DELIVERY_REVIEW_QUEUE_SCHEMA_VERSION = "connector_delivery_review_queue.v1"
 CONNECTOR_DELIVERY_STATUS_SCHEMA_VERSION = "connector_delivery_status_read_model.v1"
 CONNECTOR_DELIVERY_VALIDATION_SCHEMA_VERSION = "connector_delivery_validation_decision.v1"
 CONNECTOR_DELIVERY_SOURCE_FREEZE_REF = "connector-safety-freeze:m130"
@@ -736,6 +738,422 @@ class ConnectorDeliveryReadModel(_ConnectorDeliveryContractModel):
             "CONNECTOR_DELIVERY_READ_MODEL_AUTHORITY_DENIED",
         )
         return self
+
+
+class ConnectorDeliveryReviewQueueItemReadModel(_ConnectorDeliveryContractModel):
+    schema_version: str = CONNECTOR_DELIVERY_REVIEW_QUEUE_ITEM_SCHEMA_VERSION
+    item_ref: str = Field(..., min_length=1)
+    delivery_ref: str = Field(..., min_length=1)
+    run_ref: str = Field(..., min_length=1)
+    connector_ref: str = Field(..., min_length=1)
+    channel_ref: str = Field(..., min_length=1)
+    target_session_ref: str = Field(..., min_length=1)
+    latest_state: ConnectorDeliveryState
+    delivery_state_label: str = Field(..., min_length=1)
+    delivery_execution_posture: str = "blocked_planned_no_delivery_execution"
+    event_refs: list[str] = Field(default_factory=list)
+    redacted_subject_refs: list[str] = Field(default_factory=list)
+    redacted_body_summary_refs: list[str] = Field(default_factory=list)
+    outbound_approval_refs: list[str] = Field(default_factory=list)
+    idempotency_key_refs: list[str] = Field(default_factory=list)
+    blocked_reason_refs: list[str] = Field(default_factory=list)
+    retry_refs: list[str] = Field(default_factory=list)
+    failure_receipt_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    audit_refs: list[str] = Field(default_factory=list)
+    replay_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    safe_disable_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    safe_summary: str = Field(..., min_length=1)
+    next_safe_action: str = "inspect_connector_delivery_review_refs_only"
+    safe_refs_only: bool = True
+    no_send_action: bool = True
+    metadata_only: bool = True
+    raw_payloads_persisted: bool = False
+    raw_body_persisted: bool = False
+    raw_content_persisted: bool = False
+    file_content_persisted: bool = False
+    contact_data_persisted: bool = False
+    credential_material_persisted: bool = False
+    outbound_approval_refs_are_identifiers_only: bool = True
+    target_session_ref_grants_authority: bool = False
+    delivery_execution_performed: bool = False
+    connector_write_enabled: bool = False
+    connector_send_enabled: bool = False
+    account_sync_enabled: bool = False
+    oauth_enabled: bool = False
+    credential_collection_enabled: bool = False
+    provider_model_calls_enabled: bool = False
+    live_web_runtime_enabled: bool = False
+    browser_runtime_enabled: bool = False
+    shell_runtime_enabled: bool = False
+    background_delivery_worker_enabled: bool = False
+    scheduler_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    @model_validator(mode="after")
+    def validate_review_item(self) -> Any:
+        for value, field_name in [
+            (self.item_ref, "item_ref"),
+            (self.delivery_ref, "delivery_ref"),
+            (self.run_ref, "run_ref"),
+            (self.connector_ref, "connector_ref"),
+            (self.channel_ref, "channel_ref"),
+            (self.target_session_ref, "target_session_ref"),
+        ]:
+            _validate_ref(value, field_name)
+        for ref in [
+            *self.event_refs,
+            *self.redacted_subject_refs,
+            *self.redacted_body_summary_refs,
+            *self.outbound_approval_refs,
+            *self.idempotency_key_refs,
+            *self.blocked_reason_refs,
+            *self.retry_refs,
+            *self.failure_receipt_refs,
+            *self.evidence_refs,
+            *self.receipt_refs,
+            *self.proof_refs,
+            *self.audit_refs,
+            *self.replay_refs,
+            *self.rollback_refs,
+            *self.safe_disable_refs,
+            *self.blocked_authority_refs,
+        ]:
+            _validate_ref(ref, "connector_delivery_review_queue_ref")
+        for text, field_name in [
+            (self.schema_version, "schema_version"),
+            (self.latest_state, "latest_state"),
+            (self.delivery_state_label, "delivery_state_label"),
+            (self.delivery_execution_posture, "delivery_execution_posture"),
+            (self.safe_summary, "safe_summary"),
+            (self.next_safe_action, "next_safe_action"),
+        ]:
+            _validate_safe_contract_text(text, field_name)
+        if self.latest_state == "delivery_ready_not_sent" and "not sent" not in self.delivery_state_label:
+            raise ValueError("CONNECTOR_DELIVERY_REVIEW_READY_STATE_MUST_LABEL_NOT_SENT")
+        if not self.safe_refs_only or not self.no_send_action or not self.metadata_only:
+            raise ValueError("CONNECTOR_DELIVERY_REVIEW_ITEM_SAFE_REFS_REQUIRED")
+        if not self.outbound_approval_refs_are_identifiers_only:
+            raise ValueError("CONNECTOR_DELIVERY_REVIEW_APPROVAL_REFS_IDENTIFIER_ONLY_REQUIRED")
+        if _raw_delivery_reasons(self.model_dump(mode="json")):
+            raise ValueError("CONNECTOR_DELIVERY_REVIEW_ITEM_RAW_CONTENT_DENIED")
+        _deny_true_flags(
+            self,
+            [
+                "raw_payloads_persisted",
+                "raw_body_persisted",
+                "raw_content_persisted",
+                "file_content_persisted",
+                "contact_data_persisted",
+                "credential_material_persisted",
+                "target_session_ref_grants_authority",
+                "delivery_execution_performed",
+                "connector_write_enabled",
+                "connector_send_enabled",
+                "account_sync_enabled",
+                "oauth_enabled",
+                "credential_collection_enabled",
+                "provider_model_calls_enabled",
+                "live_web_runtime_enabled",
+                "browser_runtime_enabled",
+                "shell_runtime_enabled",
+                "background_delivery_worker_enabled",
+                "scheduler_enabled",
+                "production_authority_enabled",
+            ],
+            "CONNECTOR_DELIVERY_REVIEW_ITEM_AUTHORITY_DENIED",
+        )
+        return self
+
+
+class ConnectorDeliveryReviewQueueReadModel(_ConnectorDeliveryContractModel):
+    schema_version: str = CONNECTOR_DELIVERY_REVIEW_QUEUE_SCHEMA_VERSION
+    source: str = "python_core_connector_delivery_review_queue_read_model"
+    backend_owned: bool = True
+    review_ref: str = Field(..., min_length=1)
+    route_ref: str = "/control-center/approvals/queue"
+    route_refs: list[str] = Field(default_factory=lambda: ["GET /control-center/approvals/queue"])
+    cli_ref: str = "python -m ultimate_ai_agent.core.task_decomposition.cli inspect-connector-delivery-review"
+    queue_items: list[ConnectorDeliveryReviewQueueItemReadModel] = Field(default_factory=list)
+    delivery_refs: list[str] = Field(default_factory=list)
+    run_refs: list[str] = Field(default_factory=list)
+    connector_refs: list[str] = Field(default_factory=list)
+    channel_refs: list[str] = Field(default_factory=list)
+    target_session_refs: list[str] = Field(default_factory=list)
+    outbound_approval_refs: list[str] = Field(default_factory=list)
+    idempotency_key_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    blocked_reason_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    state_counts: dict[str, int] = Field(default_factory=dict)
+    delivery_count: int = Field(..., ge=0)
+    pending_count: int = Field(default=0, ge=0)
+    delivery_ready_not_sent_count: int = Field(default=0, ge=0)
+    blocked_count: int = Field(default=0, ge=0)
+    retry_count: int = Field(default=0, ge=0)
+    failure_count: int = Field(default=0, ge=0)
+    safe_summary: str = Field(
+        default=(
+            "Connector delivery review queue is backend-owned and read-only; "
+            "delivery execution remains blocked and planned."
+        ),
+        min_length=1,
+    )
+    next_safe_action: str = "inspect_connector_delivery_review_refs_only"
+    safe_refs_only: bool = True
+    raw_payloads_persisted: bool = False
+    no_send_action: bool = True
+    metadata_only: bool = True
+    outbound_approval_refs_are_identifiers_only: bool = True
+    target_session_refs_grant_authority: bool = False
+    delivery_execution_enabled: bool = False
+    connector_writes_enabled: bool = False
+    connector_sends_enabled: bool = False
+    account_sync_enabled: bool = False
+    oauth_enabled: bool = False
+    credential_collection_enabled: bool = False
+    provider_model_calls_enabled: bool = False
+    live_web_runtime_enabled: bool = False
+    browser_runtime_enabled: bool = False
+    shell_runtime_enabled: bool = False
+    background_delivery_worker_enabled: bool = False
+    scheduler_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    @model_validator(mode="after")
+    def validate_review_queue(self) -> Any:
+        _validate_ref(self.review_ref, "review_ref")
+        for text, field_name in [
+            (self.schema_version, "schema_version"),
+            (self.source, "source"),
+            (self.route_ref, "route_ref"),
+            (self.cli_ref, "cli_ref"),
+            (self.safe_summary, "safe_summary"),
+            (self.next_safe_action, "next_safe_action"),
+        ]:
+            _validate_safe_contract_text(text, field_name)
+        for route_ref in self.route_refs:
+            _validate_safe_contract_text(route_ref, "route_ref")
+        for state in self.state_counts:
+            _validate_safe_contract_text(state, "state_count_key")
+        for ref in [
+            *self.delivery_refs,
+            *self.run_refs,
+            *self.connector_refs,
+            *self.channel_refs,
+            *self.target_session_refs,
+            *self.outbound_approval_refs,
+            *self.idempotency_key_refs,
+            *self.evidence_refs,
+            *self.receipt_refs,
+            *self.proof_refs,
+            *self.blocked_reason_refs,
+            *self.blocked_authority_refs,
+        ]:
+            _validate_ref(ref, "connector_delivery_review_queue_ref")
+        if not self.backend_owned:
+            raise ValueError("CONNECTOR_DELIVERY_REVIEW_QUEUE_BACKEND_OWNED_REQUIRED")
+        if self.delivery_count != len(self.queue_items):
+            raise ValueError("CONNECTOR_DELIVERY_REVIEW_QUEUE_COUNT_MISMATCH")
+        if self.delivery_ready_not_sent_count != sum(
+            1 for item in self.queue_items if item.latest_state == "delivery_ready_not_sent"
+        ):
+            raise ValueError("CONNECTOR_DELIVERY_REVIEW_QUEUE_READY_COUNT_MISMATCH")
+        if not self.safe_refs_only or not self.no_send_action or not self.metadata_only:
+            raise ValueError("CONNECTOR_DELIVERY_REVIEW_QUEUE_SAFE_REFS_REQUIRED")
+        if not self.outbound_approval_refs_are_identifiers_only:
+            raise ValueError("CONNECTOR_DELIVERY_REVIEW_QUEUE_APPROVAL_REFS_IDENTIFIER_ONLY_REQUIRED")
+        if _raw_delivery_reasons(self.model_dump(mode="json")):
+            raise ValueError("CONNECTOR_DELIVERY_REVIEW_QUEUE_RAW_CONTENT_DENIED")
+        _deny_true_flags(
+            self,
+            [
+                "raw_payloads_persisted",
+                "target_session_refs_grant_authority",
+                "delivery_execution_enabled",
+                "connector_writes_enabled",
+                "connector_sends_enabled",
+                "account_sync_enabled",
+                "oauth_enabled",
+                "credential_collection_enabled",
+                "provider_model_calls_enabled",
+                "live_web_runtime_enabled",
+                "browser_runtime_enabled",
+                "shell_runtime_enabled",
+                "background_delivery_worker_enabled",
+                "scheduler_enabled",
+                "production_authority_enabled",
+            ],
+            "CONNECTOR_DELIVERY_REVIEW_QUEUE_AUTHORITY_DENIED",
+        )
+        return self
+
+
+def _delivery_state_label(state: ConnectorDeliveryState) -> str:
+    labels: dict[ConnectorDeliveryState, str] = {
+        "draft_created_metadata_only": "draft metadata only / not sent",
+        "pending_approval": "approval requested / not sent",
+        "approval_denied": "approval denied / not sent",
+        "delivery_blocked": "delivery blocked / not sent",
+        "delivery_ready_not_sent": "delivery ready metadata only / not sent",
+        "retry_scheduled_metadata_only": "retry posture metadata only / not sent",
+        "failed_metadata_only": "failure metadata only / not sent",
+        "canceled_metadata_only": "canceled metadata only / not sent",
+        "sent_not_supported": "sent unsupported / not sent",
+    }
+    return labels[state]
+
+
+def _build_connector_delivery_review_items(
+    events: list[ConnectorDeliveryTimelineEventContract],
+) -> list[ConnectorDeliveryReviewQueueItemReadModel]:
+    by_delivery: dict[str, list[ConnectorDeliveryTimelineEventContract]] = defaultdict(list)
+    for event in events:
+        by_delivery[event.delivery_ref].append(event)
+
+    items: list[ConnectorDeliveryReviewQueueItemReadModel] = []
+    for delivery_ref, delivery_events in sorted(by_delivery.items()):
+        latest = delivery_events[-1]
+        proof_ref = _stable_ref("proof-ref", delivery_ref)
+        blocked_authority_refs = _sorted_unique(
+            [
+                "blocked-state:no-connector-write",
+                "blocked-state:no-connector-send",
+                "blocked-state:no-account-sync",
+                "blocked-state:no-oauth",
+                "blocked-state:no-auth-material-collection",
+                "blocked-state:no-provider-model-call",
+                "blocked-state:no-live-web-runtime",
+                "blocked-state:no-browser-runtime",
+                "blocked-state:no-shell-runtime",
+                "blocked-state:no-background-delivery-worker",
+                "blocked-state:no-scheduler",
+                "blocked-state:delivery-execution-blocked-planned",
+                *[ref for event in delivery_events for ref in event.blocked_reason_refs],
+            ]
+        )
+        receipt_refs = _sorted_unique(
+            ref
+            for event in delivery_events
+            for ref in [*event.expected_receipt_refs, *event.failure_receipt_refs]
+        )
+        items.append(
+            ConnectorDeliveryReviewQueueItemReadModel(
+                item_ref=_stable_ref("connector-delivery-review-item", delivery_ref),
+                delivery_ref=delivery_ref,
+                run_ref=latest.run_ref,
+                connector_ref=latest.connector_ref,
+                channel_ref=latest.channel_ref,
+                target_session_ref=latest.target_session_ref,
+                latest_state=latest.delivery_state,
+                delivery_state_label=_delivery_state_label(latest.delivery_state),
+                event_refs=_sorted_unique(event.event_ref for event in delivery_events),
+                redacted_subject_refs=_sorted_unique(
+                    event.redacted_subject_ref for event in delivery_events
+                ),
+                redacted_body_summary_refs=_sorted_unique(
+                    event.redacted_body_summary_ref for event in delivery_events
+                ),
+                outbound_approval_refs=_sorted_unique(
+                    event.outbound_approval_ref for event in delivery_events
+                ),
+                idempotency_key_refs=_sorted_unique(
+                    event.idempotency_key_ref for event in delivery_events
+                ),
+                blocked_reason_refs=_sorted_unique(
+                    ref for event in delivery_events for ref in event.blocked_reason_refs
+                ),
+                retry_refs=_sorted_unique(event.retry_ref for event in delivery_events),
+                failure_receipt_refs=_sorted_unique(
+                    ref for event in delivery_events for ref in event.failure_receipt_refs
+                ),
+                evidence_refs=_sorted_unique(
+                    ref for event in delivery_events for ref in event.evidence_refs
+                ),
+                receipt_refs=receipt_refs,
+                proof_refs=[proof_ref],
+                audit_refs=_sorted_unique(
+                    ref for event in delivery_events for ref in event.audit_refs
+                ),
+                replay_refs=_sorted_unique(
+                    ref for event in delivery_events for ref in event.replay_refs
+                ),
+                rollback_refs=_sorted_unique(
+                    ref for event in delivery_events for ref in event.rollback_refs
+                ),
+                safe_disable_refs=_sorted_unique(
+                    ref for event in delivery_events for ref in event.safe_disable_refs
+                ),
+                blocked_authority_refs=blocked_authority_refs,
+                safe_summary=(
+                    f"Connector delivery is {_delivery_state_label(latest.delivery_state)}; "
+                    "review refs only, with no send, write, account sync, retry worker, or scheduler."
+                ),
+            )
+        )
+    return items
+
+
+def build_connector_delivery_review_queue(
+    storage: AppendFirstRunStorage,
+    *,
+    run_ref: str | None = None,
+    limit: int = 100,
+) -> ConnectorDeliveryReviewQueueReadModel:
+    events = connector_delivery_events_from_storage(storage, run_ref=run_ref, limit=limit)
+    items = _build_connector_delivery_review_items(events)
+    state_counts = Counter(item.latest_state for item in items)
+    blocked_authority_refs = _sorted_unique(
+        ref for item in items for ref in item.blocked_authority_refs
+    )
+    review_ref = _stable_ref("connector-delivery-review-queue", run_ref or "all-runs", str(len(items)))
+    return ConnectorDeliveryReviewQueueReadModel(
+        review_ref=review_ref,
+        queue_items=items,
+        delivery_refs=_sorted_unique(item.delivery_ref for item in items),
+        run_refs=_sorted_unique(item.run_ref for item in items),
+        connector_refs=_sorted_unique(item.connector_ref for item in items),
+        channel_refs=_sorted_unique(item.channel_ref for item in items),
+        target_session_refs=_sorted_unique(item.target_session_ref for item in items),
+        outbound_approval_refs=_sorted_unique(
+            ref for item in items for ref in item.outbound_approval_refs
+        ),
+        idempotency_key_refs=_sorted_unique(
+            ref for item in items for ref in item.idempotency_key_refs
+        ),
+        evidence_refs=_sorted_unique(ref for item in items for ref in item.evidence_refs),
+        receipt_refs=_sorted_unique(ref for item in items for ref in item.receipt_refs),
+        proof_refs=_sorted_unique(ref for item in items for ref in item.proof_refs),
+        blocked_reason_refs=_sorted_unique(
+            ref for item in items for ref in item.blocked_reason_refs
+        ),
+        blocked_authority_refs=blocked_authority_refs,
+        state_counts=dict(sorted(state_counts.items())),
+        delivery_count=len(items),
+        pending_count=sum(
+            1
+            for item in items
+            if item.latest_state in {"pending_approval", "delivery_ready_not_sent"}
+        ),
+        delivery_ready_not_sent_count=state_counts["delivery_ready_not_sent"],
+        blocked_count=sum(
+            1
+            for item in items
+            if item.latest_state in {"approval_denied", "delivery_blocked", "sent_not_supported"}
+        ),
+        retry_count=sum(1 for item in items if item.latest_state == "retry_scheduled_metadata_only"),
+        failure_count=sum(
+            1
+            for item in items
+            if item.latest_state in {"failed_metadata_only", "canceled_metadata_only"}
+        ),
+    )
 
 
 def _decision(

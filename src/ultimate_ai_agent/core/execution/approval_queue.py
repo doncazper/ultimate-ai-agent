@@ -9,6 +9,10 @@ from typing import Any, Iterable, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.approvals import ApprovalGrant, ApprovalRequest
+from ultimate_ai_agent.core.execution.connector_delivery import (
+    ConnectorDeliveryReviewQueueReadModel,
+    build_connector_delivery_review_queue,
+)
 from ultimate_ai_agent.core.execution.run_storage import (
     AppendFirstRunStorage,
     DurableRunStorageEntryKind,
@@ -603,6 +607,7 @@ class RunAttachedApprovalQueueReadModel(BaseModel):
     approval_history_by_run: list[RunAttachedApprovalRunBucketReadModel] = Field(default_factory=list)
     summary: RunAttachedApprovalQueueSummaryReadModel
     unified_review: UnifiedApprovalReviewReadModel
+    connector_delivery_review_queue: ConnectorDeliveryReviewQueueReadModel
     safe_refs_only: bool = True
     raw_payloads_persisted: bool = False
     approval_refs_are_identifiers_only: bool = True
@@ -1235,6 +1240,22 @@ def build_run_attached_approval_queue_read_model(
         run_ref=run_ref,
         limit=limit,
     )
+    connector_delivery_review_queue = (
+        build_connector_delivery_review_queue(
+            durable_run_storage,
+            run_ref=run_ref,
+            limit=limit,
+        )
+        if durable_run_storage is not None
+        else ConnectorDeliveryReviewQueueReadModel(
+            review_ref=_stable_ref(
+                "connector-delivery-review-queue",
+                run_ref or "all-runs",
+                "0",
+            ),
+            delivery_count=0,
+        )
+    )
     return RunAttachedApprovalQueueReadModel(
         queue_ref=queue_ref,
         queue_items=ordered_items,
@@ -1242,4 +1263,5 @@ def build_run_attached_approval_queue_read_model(
         approval_history_by_run=history_buckets,
         summary=summary,
         unified_review=unified_review,
+        connector_delivery_review_queue=connector_delivery_review_queue,
     )

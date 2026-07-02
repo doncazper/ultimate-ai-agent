@@ -209,6 +209,54 @@ def test_unified_approval_review_projects_run_provider_connector_and_coworker_re
         assert item["background_worker_enabled"] is False
         assert item["scheduler_enabled"] is False
 
+    queue = service.run_attached_approval_queue(run_ref, limit=20)
+    connector_review = queue["connector_delivery_review_queue"]
+    assert connector_review["schema_version"] == "connector_delivery_review_queue.v1"
+    assert connector_review["backend_owned"] is True
+    assert connector_review["safe_refs_only"] is True
+    assert connector_review["metadata_only"] is True
+    assert connector_review["no_send_action"] is True
+    assert connector_review["raw_payloads_persisted"] is False
+    assert connector_review["outbound_approval_refs_are_identifiers_only"] is True
+    assert connector_review["target_session_refs_grant_authority"] is False
+    assert connector_review["delivery_execution_enabled"] is False
+    assert connector_review["connector_writes_enabled"] is False
+    assert connector_review["connector_sends_enabled"] is False
+    assert connector_review["account_sync_enabled"] is False
+    assert connector_review["oauth_enabled"] is False
+    assert connector_review["credential_collection_enabled"] is False
+    assert connector_review["provider_model_calls_enabled"] is False
+    assert connector_review["live_web_runtime_enabled"] is False
+    assert connector_review["browser_runtime_enabled"] is False
+    assert connector_review["shell_runtime_enabled"] is False
+    assert connector_review["background_delivery_worker_enabled"] is False
+    assert connector_review["scheduler_enabled"] is False
+    assert connector_review["delivery_count"] == 1
+    assert connector_review["pending_count"] == 1
+    assert connector_review["state_counts"] == {"pending_approval": 1}
+    connector_item = connector_review["queue_items"][0]
+    assert connector_item["latest_state"] == "pending_approval"
+    assert connector_item["delivery_state_label"] == "approval requested / not sent"
+    assert connector_item["outbound_approval_refs"] == [
+        "approval-ref:test:connector:metadata-only"
+    ]
+    assert connector_item["connector_ref"] == "connector-ref:test:email"
+    assert connector_item["channel_ref"] == "connector-channel-ref:test:draft"
+    assert connector_item["redacted_subject_refs"] == [
+        "redacted-subject-ref:test:connector"
+    ]
+    assert connector_item["redacted_body_summary_refs"] == [
+        "redacted-body-summary-ref:test:connector"
+    ]
+    assert connector_item["target_session_ref_grants_authority"] is False
+    assert connector_item["delivery_execution_performed"] is False
+    assert connector_item["connector_write_enabled"] is False
+    assert connector_item["connector_send_enabled"] is False
+    assert connector_item["account_sync_enabled"] is False
+    assert connector_item["oauth_enabled"] is False
+    assert connector_item["background_delivery_worker_enabled"] is False
+    assert connector_item["scheduler_enabled"] is False
+
 
 def test_real_approval_paths_emit_named_durable_lifecycle_events(tmp_path: Path) -> None:
     service = _service(tmp_path)
