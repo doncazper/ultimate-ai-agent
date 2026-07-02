@@ -8,6 +8,11 @@ from scripts.verify_operational_maturity import (
     AUTHORITY_SCORECARD_PATH,
     EXPECTED_AUTHORITY_CANDIDATES,
     EXPECTED_AUTHORITY_FOUNDATIONS,
+    FIRST_IMPLEMENTATION_LANE_ID,
+    FIRST_IMPLEMENTATION_PROMPT_REF,
+    FIRST_IMPLEMENTATION_REQUIRED_ALLOWED_SCOPE,
+    FIRST_IMPLEMENTATION_REQUIRED_BLOCKED_AUTHORITIES,
+    FIRST_IMPLEMENTATION_REQUIRED_VERIFICATION_REFS,
     LADDER_LABELS,
     LOCAL_MODEL_CLI_REF,
     LOCAL_TASK_REPEATABILITY_GATE_REF,
@@ -295,7 +300,7 @@ def test_operational_maturity_read_only_status_probe_passes() -> None:
     assert failures == []
 
 
-def test_authority_candidate_scorecard_declares_no_go_conveyor() -> None:
+def test_authority_candidate_scorecard_declares_no_go_graduation_program() -> None:
     scorecard = load_json(AUTHORITY_SCORECARD_PATH)
 
     assert (
@@ -306,6 +311,20 @@ def test_authority_candidate_scorecard_declares_no_go_conveyor() -> None:
     assert {
         lane["foundation_id"] for lane in scorecard["proposal_foundation"]
     } == EXPECTED_AUTHORITY_FOUNDATIONS
+    first_lane = scorecard["first_implementation_lane"]
+    assert first_lane["lane_id"] == FIRST_IMPLEMENTATION_LANE_ID
+    assert first_lane["prompt_ref"] == FIRST_IMPLEMENTATION_PROMPT_REF
+    assert first_lane["foundation_ref"] == FIRST_IMPLEMENTATION_LANE_ID
+    assert first_lane["status"] == "partial"
+    assert FIRST_IMPLEMENTATION_REQUIRED_ALLOWED_SCOPE.issubset(
+        set(first_lane["allowed_scope"])
+    )
+    assert FIRST_IMPLEMENTATION_REQUIRED_BLOCKED_AUTHORITIES.issubset(
+        set(first_lane["blocked_authorities"])
+    )
+    assert FIRST_IMPLEMENTATION_REQUIRED_VERIFICATION_REFS.issubset(
+        set(first_lane["verification_refs"])
+    )
     assert {
         candidate["candidate_id"] for candidate in scorecard["authority_candidates"]
     } == EXPECTED_AUTHORITY_CANDIDATES
@@ -318,6 +337,64 @@ def test_authority_candidate_scorecard_declares_no_go_conveyor() -> None:
     assert "local_task_create" not in {
         candidate["candidate_id"] for candidate in scorecard["authority_candidates"]
     }
+    assert FIRST_IMPLEMENTATION_LANE_ID not in {
+        candidate["candidate_id"] for candidate in scorecard["authority_candidates"]
+    }
+
+
+def test_authority_scorecard_rejects_missing_first_implementation_lane() -> None:
+    scorecard = _scorecard_copy()
+    scorecard.pop("first_implementation_lane")
+
+    failures = verify(scorecard_override=scorecard)
+
+    assert any(
+        "authority scorecard requires first_implementation_lane" in failure
+        for failure in failures
+    )
+
+
+def test_authority_scorecard_rejects_first_lane_as_follow_on_candidate() -> None:
+    scorecard = _scorecard_copy()
+    scorecard["authority_candidates"][0]["candidate_id"] = FIRST_IMPLEMENTATION_LANE_ID
+
+    failures = verify(scorecard_override=scorecard)
+
+    assert any(
+        "fixed first implementation lane must not be a follow-on authority candidate"
+        in failure
+        for failure in failures
+    )
+
+
+def test_authority_scorecard_rejects_first_lane_missing_blockers() -> None:
+    scorecard = _scorecard_copy()
+    first_lane = scorecard["first_implementation_lane"]
+    first_lane["allowed_scope"] = []
+    first_lane["blocked_authorities"] = []
+    first_lane["verification_refs"] = []
+    first_lane["next_safe_action"] = "Pick a different lane."
+
+    failures = verify(scorecard_override=scorecard)
+
+    assert any(
+        "first implementation lane missing allowed scope https_get_only" in failure
+        for failure in failures
+    )
+    assert any(
+        "first implementation lane must block provider_sdk_call" in failure
+        for failure in failures
+    )
+    assert any(
+        "first implementation lane missing verification ref tests/test_m72_read_only_http_fetch_tool.py"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        "first implementation lane next_safe_action must point to Prompt 02"
+        in failure
+        for failure in failures
+    )
 
 
 def test_authority_scorecard_rejects_selected_candidate_without_micro_lane_status() -> (

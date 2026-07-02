@@ -147,6 +147,7 @@ STALE_UI_STATUS_PHRASES = [
     "placeholder",
 ]
 EXPECTED_AUTHORITY_FOUNDATIONS = {
+    "read_only_real_world_web_fetch",
     "read_only_connector_metadata",
     "memory_to_loop_proposal_ux",
     "context_pack_proposal_display",
@@ -181,6 +182,41 @@ MICRO_LANE_REQUIRED_PREREQUISITE_LIST_FIELDS = [
     "focused_test_refs",
     "verifier_refs",
 ]
+FIRST_IMPLEMENTATION_LANE_ID = "read_only_real_world_web_fetch"
+FIRST_IMPLEMENTATION_PROMPT_REF = (
+    "docs/prompts/fcc_authority_ramp/02_read_only_proposal_foundation.prompt.md"
+)
+FIRST_IMPLEMENTATION_REQUIRED_ALLOWED_SCOPE = {
+    "https_get_only",
+    "explicit_public_allowlist",
+    "bounded_redacted_preview",
+    "safe_refs_only",
+    "durable_audit_posture",
+}
+FIRST_IMPLEMENTATION_REQUIRED_BLOCKED_AUTHORITIES = {
+    "browser_observe",
+    "browser_action_dry_run",
+    "browser_automation",
+    "provider_sdk_call",
+    "connector_read",
+    "connector_write",
+    "authenticated_session",
+    "credential_or_cookie_use",
+    "download_upload",
+    "non_get_method",
+    "memory_write",
+    "context_injection",
+    "action_execution",
+    "generic_browsing",
+    "production_authority",
+}
+FIRST_IMPLEMENTATION_REQUIRED_VERIFICATION_REFS = {
+    "tests/test_m72_read_only_http_fetch_tool.py",
+    "tests/test_web_access_gateway.py",
+    "tests/test_web_access_static_guards.py",
+    "scripts/verify_web_runtime_authority.py",
+    "scripts/verify_operational_maturity.py",
+}
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -307,6 +343,7 @@ def _append_authority_scorecard_schema_failures(
         "conveyor_doc_ref",
         "verifier_ref",
         "operational_maturity_manifest_ref",
+        "first_implementation_lane",
         "proposal_foundation",
         "authority_candidates",
         "first_micro_lane_decision",
@@ -322,6 +359,24 @@ def _append_authority_scorecard_schema_failures(
     )
     if candidate_statuses != AUTHORITY_CANDIDATE_STATUSES:
         failures.append("authority scorecard schema candidate statuses drifted")
+    first_lane_required = set(
+        schema.get("$defs", {}).get("first_implementation_lane", {}).get("required", [])
+    )
+    for field in [
+        "lane_id",
+        "prompt_ref",
+        "foundation_ref",
+        "status",
+        "safe_summary",
+        "allowed_scope",
+        "blocked_authorities",
+        "verification_refs",
+        "next_safe_action",
+    ]:
+        if field not in first_lane_required:
+            failures.append(
+                f"authority scorecard schema missing first implementation lane field {field}"
+            )
     prerequisite_required = set(
         schema.get("$defs", {})
         .get("authority_candidate", {})
@@ -396,12 +451,22 @@ def _append_authority_scorecard_failures(
 
     for snippet in [
         "does not grant authority by itself",
+        "authority graduation program",
+        "fixed first implementation lane",
+        "read_only_real_world_web_fetch through webaccessgateway",
+        "not a follow-on authority candidate",
         "at most one candidate may be selected",
         "no new authority candidate is selected",
         "local_task_create",
     ]:
         if snippet not in conveyor_text:
-            failures.append(f"authority ramp conveyor doc missing '{snippet}'")
+            failures.append(f"authority graduation program doc missing '{snippet}'")
+
+    _append_first_implementation_lane_failures(
+        failures,
+        scorecard.get("first_implementation_lane"),
+        root,
+    )
 
     foundations = scorecard.get("proposal_foundation")
     if not isinstance(foundations, list):
@@ -433,6 +498,10 @@ def _append_authority_scorecard_failures(
         )
     if len(candidate_ids) != len(set(candidate_ids)):
         failures.append("authority scorecard contains duplicate authority candidates")
+    if FIRST_IMPLEMENTATION_LANE_ID in set(candidate_ids):
+        failures.append(
+            "fixed first implementation lane must not be a follow-on authority candidate"
+        )
     selected = [
         candidate
         for candidate in candidates
@@ -456,6 +525,66 @@ def _append_authority_scorecard_failures(
     )
 
 
+def _append_first_implementation_lane_failures(
+    failures: list[str],
+    lane: Any,
+    root: Path,
+) -> None:
+    if not isinstance(lane, dict):
+        failures.append("authority scorecard requires first_implementation_lane")
+        return
+    if lane.get("lane_id") != FIRST_IMPLEMENTATION_LANE_ID:
+        failures.append(
+            "first implementation lane id must be read_only_real_world_web_fetch"
+        )
+    if lane.get("prompt_ref") != FIRST_IMPLEMENTATION_PROMPT_REF:
+        failures.append(
+            f"first implementation lane prompt_ref must be {FIRST_IMPLEMENTATION_PROMPT_REF}"
+        )
+    if lane.get("foundation_ref") != FIRST_IMPLEMENTATION_LANE_ID:
+        failures.append(
+            "first implementation lane foundation_ref must match read_only_real_world_web_fetch"
+        )
+    if lane.get("status") not in {"partial", "blocked", "implemented"}:
+        failures.append("first implementation lane status is invalid")
+    if not lane.get("safe_summary"):
+        failures.append("first implementation lane requires safe_summary")
+    if not lane.get("next_safe_action"):
+        failures.append("first implementation lane requires next_safe_action")
+    if "Prompt 02" not in str(lane.get("next_safe_action", "")):
+        failures.append(
+            "first implementation lane next_safe_action must point to Prompt 02"
+        )
+    allowed_scope = set(lane.get("allowed_scope", []))
+    for scope in sorted(FIRST_IMPLEMENTATION_REQUIRED_ALLOWED_SCOPE):
+        if scope not in allowed_scope:
+            failures.append(f"first implementation lane missing allowed scope {scope}")
+    blocked_authorities = set(lane.get("blocked_authorities", []))
+    for authority in sorted(FIRST_IMPLEMENTATION_REQUIRED_BLOCKED_AUTHORITIES):
+        if authority not in blocked_authorities:
+            failures.append(f"first implementation lane must block {authority}")
+    verification_refs = set(lane.get("verification_refs", []))
+    for ref in sorted(FIRST_IMPLEMENTATION_REQUIRED_VERIFICATION_REFS):
+        if ref not in verification_refs:
+            failures.append(
+                f"first implementation lane missing verification ref {ref}"
+            )
+    _append_source_ref_failure(
+        failures,
+        root,
+        FIRST_IMPLEMENTATION_PROMPT_REF,
+        "first_implementation_lane.prompt_ref",
+    )
+    for ref in verification_refs:
+        _append_authority_ref_failure(
+            failures,
+            root,
+            {},
+            str(ref),
+            "first_implementation_lane.verification_refs",
+        )
+
+
 def _append_authority_foundation_failures(
     failures: list[str],
     foundation: dict[str, Any],
@@ -471,7 +600,6 @@ def _append_authority_foundation_failures(
         failures.append(f"{foundation_id} has invalid foundation status")
     for field in [
         "safe_summary",
-        "route_refs",
         "surface_refs",
         "test_refs",
         "blocked_authorities",
@@ -479,6 +607,8 @@ def _append_authority_foundation_failures(
     ]:
         if not foundation.get(field):
             failures.append(f"{foundation_id} authority foundation requires {field}")
+    if foundation_id != FIRST_IMPLEMENTATION_LANE_ID and not foundation.get("route_refs"):
+        failures.append(f"{foundation_id} authority foundation requires route_refs")
     if foundation.get("status") == "partial" and not foundation.get(
         "missing_contracts"
     ):
