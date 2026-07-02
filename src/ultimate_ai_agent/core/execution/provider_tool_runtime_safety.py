@@ -63,7 +63,8 @@ _RAW_PAYLOAD_FIELD_RE = re.compile(
     r")($|[_-])"
 )
 _RAW_PAYLOAD_VALUE_RE = re.compile(
-    r"(?i)(raw prompt|raw response|provider payload|tool payload|env dump|"
+    r"(?i)(raw\s+(prompt|response|chunk|text|payload|local\s+path|file\s+content)|"
+    r"provider[\s_-]?payload|tool[\s_-]?payload|env[\s_-]?dump|"
     r"credential|secret|api[_-]?key|bearer\s+|cookie|token|/Users/|/home/|"
     r"-----BEGIN)"
 )
@@ -99,6 +100,13 @@ def _scan_raw_payload_like_fields(value: Any, path: str = "payload") -> list[str
     if isinstance(value, str) and _RAW_PAYLOAD_VALUE_RE.search(value):
         reasons.append("RAW_PAYLOAD_LIKE_VALUE_BLOCKED")
     return dedupe_reasons(reasons)
+
+
+def _validate_safe_contract_text(value: str, field_name: str) -> None:
+    validate_safe_execution_text(value, field_name)
+    raw_reasons = _scan_raw_payload_like_fields(value, field_name)
+    if raw_reasons:
+        raise ValueError(f"{field_name.upper()}_RAW_PAYLOAD_LIKE_VALUE_BLOCKED")
 
 
 def _missing_required_reasons(payload: Mapping[str, Any]) -> list[str]:
@@ -171,7 +179,7 @@ class ProviderToolRuntimeInvocationEnvelope(_ProviderToolRuntimeContractModel):
         _validate_optional_ref(self.tool_ref, "tool_ref")
         _validate_ref_list(self.authority_boundary_refs, "authority_boundary_refs")
         _validate_ref_list(self.evidence_refs, "evidence_refs")
-        validate_safe_execution_text(self.safe_summary, "safe_summary")
+        _validate_safe_contract_text(self.safe_summary, "safe_summary")
         if self.target_kind == "provider" and not self.provider_ref:
             raise ValueError("PROVIDER_REF_REQUIRED")
         if self.target_kind == "tool" and not self.tool_ref:
@@ -223,7 +231,7 @@ class ProviderToolRuntimeResultContract(_ProviderToolRuntimeContractModel):
         _validate_ref_list(self.usage_receipt_refs, "usage_receipt_refs")
         _validate_ref_list(self.cost_receipt_refs, "cost_receipt_refs")
         _validate_ref_list(self.evidence_refs, "evidence_refs")
-        validate_safe_execution_text(self.safe_summary, "safe_summary")
+        _validate_safe_contract_text(self.safe_summary, "safe_summary")
         if self.status == "redacted_result_ready" and not self.redacted_output_ref:
             raise ValueError("REDACTED_OUTPUT_REF_REQUIRED")
         denied_flags = [
@@ -266,7 +274,7 @@ class ProviderToolRuntimeStreamEventContract(_ProviderToolRuntimeContractModel):
         _validate_optional_ref(self.redaction_posture_ref, "redaction_posture_ref")
         _validate_ref_list(self.receipt_refs, "receipt_refs")
         _validate_ref_list(self.evidence_refs, "evidence_refs")
-        validate_safe_execution_text(self.safe_summary, "safe_summary")
+        _validate_safe_contract_text(self.safe_summary, "safe_summary")
         if self.event_type == "stream_delta_redacted" and not self.redacted_delta_ref:
             raise ValueError("REDACTED_DELTA_REF_REQUIRED")
         if self.event_type == "stream_heartbeat" and not self.heartbeat_ref:
@@ -326,7 +334,7 @@ class ProviderToolRuntimeValidationDecision(_ProviderToolRuntimeContractModel):
     @model_validator(mode="after")
     def validate_decision(self) -> Any:
         _validate_optional_ref(self.invocation_ref, "invocation_ref")
-        validate_safe_execution_text(self.safe_message, "safe_message")
+        _validate_safe_contract_text(self.safe_message, "safe_message")
         if self.execution_permitted or self.execution_performed or self.runtime_activation_enabled:
             raise ValueError("VALIDATION_DECISION_MUST_NOT_GRANT_RUNTIME_AUTHORITY")
         if self.validation_status == "valid_contract_only" and (self.blocked or not self.contract_valid):
@@ -362,7 +370,7 @@ class ProviderToolRuntimeSanitizedReplay(_ProviderToolRuntimeContractModel):
         _validate_ref_list(self.receipt_refs, "receipt_refs")
         _validate_ref_list(self.evidence_refs, "evidence_refs")
         _validate_ref_list(self.redacted_refs, "redacted_refs")
-        validate_safe_execution_text(self.safe_summary, "safe_summary")
+        _validate_safe_contract_text(self.safe_summary, "safe_summary")
         if not self.safe_refs_only or not self.raw_content_omitted or self.execution_performed:
             raise ValueError("SANITIZED_REPLAY_AUTHORITY_DENIED")
         return self

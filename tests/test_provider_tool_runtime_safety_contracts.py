@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from ultimate_ai_agent.core.execution import (
     ProviderToolRuntimeInvocationEnvelope,
     ProviderToolRuntimeResultContract,
+    ProviderToolRuntimeSanitizedReplay,
     ProviderToolRuntimeStreamEventContract,
     ProviderToolRuntimeValidationContext,
     sanitize_provider_tool_runtime_replay,
@@ -235,7 +236,7 @@ def test_stream_events_preserve_ordered_durable_run_shape() -> None:
             event_type="stream_delta_redacted",
             durable_run_event_ref="run-event-ref:test:stream:2",
             redacted_delta_ref="redacted-delta-ref:test:stream:2",
-            safe_summary="Redacted delta ref recorded; raw chunk omitted.",
+            safe_summary="Redacted delta ref recorded; source content omitted.",
         ),
         ProviderToolRuntimeStreamEventContract(
             run_ref="run-ref:test:provider-tool",
@@ -362,6 +363,54 @@ def test_stream_events_reject_raw_chunk_fields_and_bad_order() -> None:
         in duplicate_durable_event_ref_decision.reason_codes
     )
     assert "STREAM_TERMINAL_EVENT_MUST_BE_LAST" in terminal_not_last_decision.reason_codes
+
+
+def test_result_stream_and_replay_reject_raw_like_safe_summaries() -> None:
+    for summary in [
+        "raw response: hidden provider text",
+        "provider payload contains details",
+        "tool_payload includes details",
+        "raw chunk content",
+    ]:
+        try:
+            ProviderToolRuntimeResultContract(
+                run_ref="run-ref:test:provider-tool",
+                invocation_ref="invocation-ref:test:provider-tool",
+                status="failed",
+                error_safe_summary_ref="error-safe-summary-ref:test:provider-tool",
+                safe_summary=summary,
+            )
+        except ValidationError as exc:
+            assert "SAFE_SUMMARY_RAW_PAYLOAD_LIKE_VALUE_BLOCKED" in str(exc)
+        else:
+            raise AssertionError("raw-like result safe summary must not validate")
+
+        try:
+            ProviderToolRuntimeStreamEventContract(
+                run_ref="run-ref:test:provider-tool",
+                invocation_ref="invocation-ref:test:provider-tool",
+                sequence=1,
+                event_type="stream_started",
+                durable_run_event_ref="run-event-ref:test:stream:raw-summary",
+                safe_summary=summary,
+            )
+        except ValidationError as exc:
+            assert "SAFE_SUMMARY_RAW_PAYLOAD_LIKE_VALUE_BLOCKED" in str(exc)
+        else:
+            raise AssertionError("raw-like stream safe summary must not validate")
+
+        try:
+            ProviderToolRuntimeSanitizedReplay(
+                run_ref="run-ref:test:provider-tool",
+                invocation_ref="invocation-ref:test:provider-tool",
+                target_kind="provider",
+                target_ref=KNOWN_PROVIDER_REF,
+                safe_summary=summary,
+            )
+        except ValidationError as exc:
+            assert "SAFE_SUMMARY_RAW_PAYLOAD_LIKE_VALUE_BLOCKED" in str(exc)
+        else:
+            raise AssertionError("raw-like replay safe summary must not validate")
 
 
 def test_replay_sanitization_excludes_raw_content() -> None:
