@@ -31,6 +31,22 @@ from ultimate_ai_agent.core.execution.durable_runs import (
     restore_durable_run_snapshot,
 )
 from ultimate_ai_agent.core.execution.manifests import ExecutionFrameworkManifest, build_execution_framework_manifest
+from ultimate_ai_agent.core.execution.provider_tool_runtime_safety import (
+    PROVIDER_TOOL_RUNTIME_INVOCATION_SCHEMA_VERSION,
+    PROVIDER_TOOL_RUNTIME_REPLAY_SCHEMA_VERSION,
+    PROVIDER_TOOL_RUNTIME_RESULT_SCHEMA_VERSION,
+    PROVIDER_TOOL_RUNTIME_STREAM_EVENT_SCHEMA_VERSION,
+    PROVIDER_TOOL_RUNTIME_VALIDATION_SCHEMA_VERSION,
+    ProviderToolRuntimeInvocationEnvelope,
+    ProviderToolRuntimeResultContract,
+    ProviderToolRuntimeSanitizedReplay,
+    ProviderToolRuntimeStreamEventContract,
+    ProviderToolRuntimeValidationContext,
+    ProviderToolRuntimeValidationDecision,
+    sanitize_provider_tool_runtime_replay,
+    validate_provider_tool_runtime_invocation,
+    validate_provider_tool_stream_events,
+)
 from ultimate_ai_agent.core.execution.receipts import ExecutionReceiptPlan
 from ultimate_ai_agent.core.execution.read_models import (
     CANONICAL_RUN_EVENT_TYPES,
@@ -70,6 +86,11 @@ __all__ = [
     "DURABLE_RUN_SCHEMA_VERSION",
     "DURABLE_RUN_STORAGE_SCHEMA_VERSION",
     "LIFECYCLE_DURABLE_RUN_TRANSITIONS",
+    "PROVIDER_TOOL_RUNTIME_INVOCATION_SCHEMA_VERSION",
+    "PROVIDER_TOOL_RUNTIME_REPLAY_SCHEMA_VERSION",
+    "PROVIDER_TOOL_RUNTIME_RESULT_SCHEMA_VERSION",
+    "PROVIDER_TOOL_RUNTIME_STREAM_EVENT_SCHEMA_VERSION",
+    "PROVIDER_TOOL_RUNTIME_VALIDATION_SCHEMA_VERSION",
     "DurableRunCorruptionError",
     "DurableRunError",
     "DurableRunIdempotencyRecord",
@@ -106,6 +127,12 @@ __all__ = [
     "ExecutionTransitionKind",
     "ExecutionTransitionRequest",
     "ExecutionTransitionStatus",
+    "ProviderToolRuntimeInvocationEnvelope",
+    "ProviderToolRuntimeResultContract",
+    "ProviderToolRuntimeSanitizedReplay",
+    "ProviderToolRuntimeStreamEventContract",
+    "ProviderToolRuntimeValidationContext",
+    "ProviderToolRuntimeValidationDecision",
     "apply_durable_run_transition",
     "build_execution_framework_manifest",
     "build_durable_run_lifecycle_read_model",
@@ -115,5 +142,8 @@ __all__ = [
     "evaluate_execution_transition",
     "evaluate_durable_run_transition",
     "restore_durable_run_snapshot",
+    "sanitize_provider_tool_runtime_replay",
     "validate_receipt_summary_hash_ref",
+    "validate_provider_tool_runtime_invocation",
+    "validate_provider_tool_stream_events",
 ]
