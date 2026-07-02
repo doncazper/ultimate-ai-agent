@@ -343,6 +343,22 @@ def test_authority_candidate_scorecard_declares_no_go_graduation_program() -> No
     )
     assert scorecard["first_micro_lane_decision"]["status"] == "no_go"
     assert scorecard["first_micro_lane_decision"]["selected_candidate_id"] is None
+    assert (
+        scorecard["first_micro_lane_decision"]["decision_ref"]
+        == "decision-ref:fcc-auth-ramp-001c:prompt-04-follow-on-no-go"
+    )
+    assert (
+        "memory_write"
+        in scorecard["first_micro_lane_decision"]["no_go_reason"]
+    )
+    assert (
+        "proposal_only_ready"
+        in scorecard["first_micro_lane_decision"]["no_go_reason"]
+    )
+    assert (
+        "LocalApprovalAuthority"
+        in scorecard["first_micro_lane_decision"]["no_go_reason"]
+    )
     assert "local_task_create" not in {
         candidate["candidate_id"] for candidate in scorecard["authority_candidates"]
     }
@@ -575,6 +591,33 @@ def test_authority_scorecard_requires_documented_no_go_when_none_selected() -> N
     )
     assert any(
         "no_go authority decision requires smallest_next_safe_action" in failure
+        for failure in failures
+    )
+
+
+def test_authority_scorecard_no_go_must_explain_top_ranked_candidate_blocker() -> None:
+    scorecard = _scorecard_copy()
+    scorecard["first_micro_lane_decision"]["no_go_reason"] = (
+        "No candidate is ready."
+    )
+    scorecard["first_micro_lane_decision"]["smallest_next_safe_action"] = (
+        "Keep planning."
+    )
+
+    failures = verify(scorecard_override=scorecard)
+
+    assert any(
+        "no_go authority decision must explain the top-ranked candidate blocker"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        "no_go authority decision must include the top-ranked candidate status"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        "no_go authority decision missing blocker fragment exact scope" in failure
         for failure in failures
     )
 
