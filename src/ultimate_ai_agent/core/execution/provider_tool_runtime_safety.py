@@ -46,6 +46,22 @@ ProviderToolRuntimeValidationStatus = Literal[
     "cost_blocked",
 ]
 ProviderToolRuntimeTerminalStreamEventType = Literal["stream_completed", "stream_failed", "stream_canceled"]
+ProviderToolRuntimeApprovalDecisionStatus = Literal[
+    "approved",
+    "denied",
+    "expired",
+    "revoked",
+    "scope_mismatch_blocked",
+    "blocked",
+    "not_validated",
+]
+ProviderToolRuntimeCostGovernorDecisionStatus = Literal[
+    "allowed",
+    "blocked",
+    "unknown_paid_cost",
+    "incomplete_actual_cost",
+    "not_validated",
+]
 
 
 class _ProviderToolRuntimeContractModel(BaseModel):
@@ -232,8 +248,13 @@ class ProviderToolRuntimeResultContract(_ProviderToolRuntimeContractModel):
         _validate_ref_list(self.cost_receipt_refs, "cost_receipt_refs")
         _validate_ref_list(self.evidence_refs, "evidence_refs")
         _validate_safe_contract_text(self.safe_summary, "safe_summary")
-        if self.status == "redacted_result_ready" and not self.redacted_output_ref:
-            raise ValueError("REDACTED_OUTPUT_REF_REQUIRED")
+        if self.status == "redacted_result_ready":
+            if not self.redacted_output_ref:
+                raise ValueError("REDACTED_OUTPUT_REF_REQUIRED")
+            if not self.usage_receipt_refs:
+                raise ValueError("USAGE_RECEIPT_REF_REQUIRED")
+            if not self.cost_receipt_refs:
+                raise ValueError("COST_RECEIPT_REF_REQUIRED")
         denied_flags = [
             self.execution_performed,
             self.provider_model_called,
@@ -292,9 +313,11 @@ class ProviderToolRuntimeValidationContext(_ProviderToolRuntimeContractModel):
     known_provider_refs: list[str] = Field(default_factory=list)
     known_tool_refs: list[str] = Field(default_factory=list)
     local_approval_authority_decision_ref: str | None = None
+    local_approval_authority_decision_status: ProviderToolRuntimeApprovalDecisionStatus = "not_validated"
     approval_grant_ref: str | None = None
     approved_scope_ref: str | None = None
     cost_governor_decision_ref: str | None = None
+    cost_governor_decision_status: ProviderToolRuntimeCostGovernorDecisionStatus = "not_validated"
     budget_decision_ref: str | None = None
     cost_estimate_ref: str | None = None
     max_approved_usd_ref: str | None = None
@@ -415,19 +438,13 @@ def validate_provider_tool_runtime_invocation(
                 status = "cost_blocked"
             return _decision(status, missing_reasons, "Provider/tool runtime invocation contract is missing required refs.")
     try:
-        envelope = (
-            payload
-            if isinstance(payload, ProviderToolRuntimeInvocationEnvelope)
-            else ProviderToolRuntimeInvocationEnvelope.model_validate(payload)
-        )
+        envelope_source = payload.model_dump(mode="python") if isinstance(payload, ProviderToolRuntimeInvocationEnvelope) else payload
+        envelope = ProviderToolRuntimeInvocationEnvelope.model_validate(envelope_source)
+        context_source = context.model_dump(mode="python") if isinstance(context, ProviderToolRuntimeValidationContext) else context
         validation_context = (
             ProviderToolRuntimeValidationContext()
             if context is None
-            else (
-                context
-                if isinstance(context, ProviderToolRuntimeValidationContext)
-                else ProviderToolRuntimeValidationContext.model_validate(context)
-            )
+            else ProviderToolRuntimeValidationContext.model_validate(context_source)
         )
     except (TypeError, ValueError, ValidationError) as exc:
         return _decision(
@@ -444,6 +461,7 @@ def validate_provider_tool_runtime_invocation(
         reasons.append(unknown_reason)
     if (
         not validation_context.local_approval_authority_decision_ref
+        or validation_context.local_approval_authority_decision_status != "approved"
         or not validation_context.approval_grant_ref
         or not validation_context.approved_scope_ref
     ):
@@ -458,6 +476,7 @@ def validate_provider_tool_runtime_invocation(
         reasons.append("APPROVAL_SCOPE_MISMATCH_BLOCKED")
     if (
         not validation_context.cost_governor_decision_ref
+        or validation_context.cost_governor_decision_status != "allowed"
         or not validation_context.budget_decision_ref
         or not validation_context.cost_estimate_ref
         or validation_context.cost_estimate_ref != envelope.cost_estimate_ref
@@ -506,11 +525,12 @@ def validate_provider_tool_stream_events(
     parsed_events: list[ProviderToolRuntimeStreamEventContract] = []
     try:
         for event in events:
-            parsed_events.append(
-                event
+            event_source = (
+                event.model_dump(mode="python")
                 if isinstance(event, ProviderToolRuntimeStreamEventContract)
-                else ProviderToolRuntimeStreamEventContract.model_validate(event)
+                else event
             )
+            parsed_events.append(ProviderToolRuntimeStreamEventContract.model_validate(event_source))
     except (TypeError, ValueError, ValidationError) as exc:
         return _decision(
             "validation_failed",
@@ -569,6 +589,13 @@ def sanitize_provider_tool_runtime_replay(
     result: ProviderToolRuntimeResultContract | None = None,
     stream_events: Sequence[ProviderToolRuntimeStreamEventContract] = (),
 ) -> ProviderToolRuntimeSanitizedReplay:
+    envelope = ProviderToolRuntimeInvocationEnvelope.model_validate(envelope.model_dump(mode="python"))
+    if result is not None:
+        result = ProviderToolRuntimeResultContract.model_validate(result.model_dump(mode="python"))
+    stream_events = [
+        ProviderToolRuntimeStreamEventContract.model_validate(event.model_dump(mode="python"))
+        for event in stream_events
+    ]
     target_ref = envelope.provider_ref if envelope.target_kind == "provider" else envelope.tool_ref
     assert target_ref is not None
     receipt_refs: list[str] = []

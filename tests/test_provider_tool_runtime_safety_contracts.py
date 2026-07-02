@@ -61,9 +61,11 @@ def _valid_context(**overrides: object) -> ProviderToolRuntimeValidationContext:
         "known_provider_refs": [KNOWN_PROVIDER_REF],
         "known_tool_refs": [KNOWN_TOOL_REF],
         "local_approval_authority_decision_ref": "approval-decision-ref:test:exact",
+        "local_approval_authority_decision_status": "approved",
         "approval_grant_ref": "approval-ref:test:exact",
         "approved_scope_ref": "approval-scope-ref:test:exact",
         "cost_governor_decision_ref": "cost-governor-decision-ref:test:provider-tool",
+        "cost_governor_decision_status": "allowed",
         "budget_decision_ref": "budget-decision-ref:test:provider-tool",
         "cost_estimate_ref": "cost-estimate-ref:test:provider-tool",
         "max_approved_usd_ref": "max-usd-ref:test:provider-tool",
@@ -106,6 +108,18 @@ def test_unknown_provider_and_tool_block_by_default() -> None:
     assert "UNKNOWN_TOOL_BLOCKED" in tool_decision.reason_codes
 
 
+def test_prebuilt_invocation_envelope_is_revalidated_before_decision() -> None:
+    envelope = ProviderToolRuntimeInvocationEnvelope.model_validate(_provider_payload())
+    envelope.authority_boundary_refs.clear()
+
+    decision = validate_provider_tool_runtime_invocation(envelope, _valid_context())
+
+    assert decision.validation_status == "validation_failed"
+    assert decision.blocked is True
+    assert decision.contract_valid is False
+    assert "PROVIDER_TOOL_RUNTIME_CONTRACT_VALIDATION_FAILED" in decision.reason_codes
+
+
 def test_missing_approval_and_scope_mismatch_block() -> None:
     missing_approval = _provider_payload()
     missing_approval.pop("approval_ref")
@@ -119,6 +133,14 @@ def test_missing_approval_and_scope_mismatch_block() -> None:
         _provider_payload(),
         _valid_context(local_approval_authority_decision_ref=None),
     )
+    refs_only_decision = validate_provider_tool_runtime_invocation(
+        _provider_payload(),
+        _valid_context(local_approval_authority_decision_status="not_validated"),
+    )
+    denied_decision = validate_provider_tool_runtime_invocation(
+        _provider_payload(),
+        _valid_context(local_approval_authority_decision_status="denied"),
+    )
 
     assert missing_decision.validation_status == "approval_required"
     assert "MISSING_EXACT_APPROVAL_BLOCKED" in missing_decision.reason_codes
@@ -126,6 +148,10 @@ def test_missing_approval_and_scope_mismatch_block() -> None:
     assert "APPROVAL_SCOPE_MISMATCH_BLOCKED" in mismatch_decision.reason_codes
     assert caller_asserted_decision.validation_status == "approval_required"
     assert "EXACT_APPROVAL_SCOPE_NOT_VALIDATED_BLOCKED" in caller_asserted_decision.reason_codes
+    assert refs_only_decision.validation_status == "approval_required"
+    assert "EXACT_APPROVAL_SCOPE_NOT_VALIDATED_BLOCKED" in refs_only_decision.reason_codes
+    assert denied_decision.validation_status == "approval_required"
+    assert "EXACT_APPROVAL_SCOPE_NOT_VALIDATED_BLOCKED" in denied_decision.reason_codes
 
 
 def test_unknown_paid_cost_and_incomplete_actual_cost_block() -> None:
@@ -141,6 +167,14 @@ def test_unknown_paid_cost_and_incomplete_actual_cost_block() -> None:
         _provider_payload(),
         _valid_context(cost_governor_decision_ref=None),
     )
+    refs_only_cost = validate_provider_tool_runtime_invocation(
+        _provider_payload(),
+        _valid_context(cost_governor_decision_status="not_validated"),
+    )
+    blocked_cost = validate_provider_tool_runtime_invocation(
+        _provider_payload(),
+        _valid_context(cost_governor_decision_status="blocked"),
+    )
 
     assert unknown_cost.validation_status == "cost_blocked"
     assert "UNKNOWN_PAID_COST_BLOCKED" in unknown_cost.reason_codes
@@ -148,6 +182,10 @@ def test_unknown_paid_cost_and_incomplete_actual_cost_block() -> None:
     assert "INCOMPLETE_ACTUAL_COST_BLOCKED" in incomplete_cost.reason_codes
     assert missing_cost_decision_ref.validation_status == "cost_blocked"
     assert "COST_GOVERNOR_DECISION_REF_REQUIRED_BLOCKED" in missing_cost_decision_ref.reason_codes
+    assert refs_only_cost.validation_status == "cost_blocked"
+    assert "COST_GOVERNOR_DECISION_REF_REQUIRED_BLOCKED" in refs_only_cost.reason_codes
+    assert blocked_cost.validation_status == "cost_blocked"
+    assert "COST_GOVERNOR_DECISION_REF_REQUIRED_BLOCKED" in blocked_cost.reason_codes
 
 
 def test_missing_cost_idempotency_and_redaction_refs_block_before_execution() -> None:
@@ -211,6 +249,19 @@ def test_result_contract_rejects_execution_flags_and_requires_redacted_output() 
         assert "REDACTED_OUTPUT_REF_REQUIRED" in str(exc)
     else:
         raise AssertionError("missing redacted output ref should fail")
+    try:
+        ProviderToolRuntimeResultContract(
+            run_ref="run-ref:test:provider-tool",
+            invocation_ref="invocation-ref:test:provider-tool",
+            status="redacted_result_ready",
+            redacted_output_ref="redacted-output-ref:test:provider-tool",
+            safe_summary="Missing usage and cost receipts must fail.",
+        )
+    except ValidationError as exc:
+        error_text = str(exc)
+        assert "USAGE_RECEIPT_REF_REQUIRED" in error_text or "COST_RECEIPT_REF_REQUIRED" in error_text
+    else:
+        raise AssertionError("ready redacted result without usage/cost receipts should fail")
     try:
         result.model_copy(update={"execution_performed": True})
     except ValidationError as exc:

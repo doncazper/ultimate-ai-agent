@@ -77,6 +77,11 @@ Result contracts can include:
 - evidence refs
 - safe error summary refs
 
+`redacted_result_ready` requires redacted output, usage receipt, and cost
+receipt refs. A ready result without those refs remains blocked/invalid; refs
+are inspection evidence only and do not mean a provider/model/tool call
+occurred.
+
 They cannot include raw prompts, raw responses, raw provider payloads, raw tool
 payloads, raw local paths, environment dumps, credentials, usernames, hostnames,
 tokens, cookies, or secret-like values. They cannot claim execution was
@@ -107,10 +112,13 @@ The validator fails closed. It blocks or fails validation when:
 
 - run ref is missing
 - exact approval scope or approval ref is missing
-- LocalApprovalAuthority validation has not been represented
+- LocalApprovalAuthority validation has not been represented as an explicit
+  approved decision status plus matching approval/scope refs
 - approval scope mismatches
 - provider/tool ref is unknown
 - cost estimate ref is missing
+- CostGovernor validation has not been represented as an explicit allowed
+  decision status plus matching budget/cost refs
 - paid cost is unknown
 - actual cost is incomplete
 - idempotency ref is missing
