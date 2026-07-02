@@ -72,6 +72,7 @@ import { sanitizeForDisplay } from "./redaction";
 const API_BASE_POLICY = resolveApiBaseUrl(
   import.meta.env.VITE_UAA_API_BASE_URL,
 );
+export const CONTROL_CENTER_READ_TIMEOUT_MS = 8000;
 const DEFAULT_LOCAL_MODEL_ID = "uaa-llama-cpp-local";
 const CHAT_OPERATOR_CONTRACT_REF =
   "contract-ref:chat-local-operator-surface:v1";
@@ -148,9 +149,12 @@ function withLocalApiAuthHeaders(
 }
 
 async function readEnvelope<T>(endpoint: string): Promise<T> {
-  const response = await fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
-    headers: withLocalApiAuthHeaders({ Accept: "application/json" }),
-  });
+  const response = await withReadTimeout(
+    fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
+      headers: withLocalApiAuthHeaders({ Accept: "application/json" }),
+    }),
+    endpoint,
+  );
   const data = (await response.json()) as ResultEnvelope<T> | T;
   if (!response.ok) {
     throw new Error(sanitizeForDisplay(data));
@@ -171,6 +175,23 @@ async function readEnvelope<T>(endpoint: string): Promise<T> {
     return result;
   }
   return data as T;
+}
+
+function withReadTimeout<T>(promise: Promise<T>, endpoint: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`Timed out reading ${endpoint}`));
+    }, CONTROL_CENTER_READ_TIMEOUT_MS);
+  });
+  return Promise.race([
+    promise.finally(() => {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    }),
+    timeout,
+  ]);
 }
 
 export async function loadControlCenterData(): Promise<ControlCenterData> {
@@ -2210,6 +2231,20 @@ function hasStringArrays(
   });
 }
 
+function hasStringFields(
+  record: Record<string, unknown>,
+  fields: readonly string[],
+): boolean {
+  return fields.every((field) => typeof record[field] === "string");
+}
+
+function hasNumberFields(
+  record: Record<string, unknown>,
+  fields: readonly string[],
+): boolean {
+  return fields.every((field) => typeof record[field] === "number");
+}
+
 const CHAT_TO_LOOP_SAFE_REF_RE = /^[A-Za-z0-9][A-Za-z0-9:_#=-]{0,239}$/;
 const CHAT_TO_LOOP_UNSAFE_TEXT_FRAGMENTS = [
   "raw prompt",
@@ -2459,10 +2494,72 @@ function normalizeFounderToday(value: FounderLoopTodaySummary | undefined): {
     delete normalized.fusion_routing_delegation_read_model;
     delete normalized.fusion_routing_delegation_contract_ref;
   }
+  const safeShape = normalizeTodayRouteShape(normalized, valueRecord);
   return {
-    value: normalized as unknown as FounderLoopTodaySummary,
-    usedFallback: merged.usedFallback,
+    value: safeShape.value as unknown as FounderLoopTodaySummary,
+    usedFallback: merged.usedFallback || safeShape.usedFallback,
   };
+}
+
+const TODAY_ROUTE_REQUIRED_ARRAY_FIELDS = [
+  "actions",
+  "plans",
+  "memory_review_queue",
+  "briefing_items",
+  "evidence_timeline",
+] as const;
+
+function normalizeTodayRouteShape(
+  record: Record<string, unknown>,
+  source: Record<string, unknown>,
+): {
+  value: Record<string, unknown>;
+  usedFallback: boolean;
+} {
+  const fallbackRecord = mockControlCenterData.founderToday as unknown as Record<
+    string,
+    unknown
+  >;
+  const normalized: Record<string, unknown> = { ...record };
+  let usedFallback = false;
+
+  for (const key of TODAY_ROUTE_REQUIRED_ARRAY_FIELDS) {
+    const fallbackValue = fallbackRecord[key];
+    if (
+      Object.prototype.hasOwnProperty.call(source, key) &&
+      Array.isArray(fallbackValue) &&
+      !Array.isArray(normalized[key])
+    ) {
+      normalized[key] = fallbackValue;
+      usedFallback = true;
+    }
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(source, "sections") &&
+    !isPlainRecord(normalized.sections)
+  ) {
+    normalized.sections = fallbackRecord.sections;
+    usedFallback = true;
+  } else if (
+    Object.prototype.hasOwnProperty.call(source, "sections") &&
+    isPlainRecord(normalized.sections) &&
+    isPlainRecord(fallbackRecord.sections)
+  ) {
+    const sections: Record<string, unknown> = { ...normalized.sections };
+    for (const [key, fallbackValue] of Object.entries(fallbackRecord.sections)) {
+      if (
+        typeof fallbackValue === "number" &&
+        typeof sections[key] !== "number"
+      ) {
+        sections[key] = fallbackValue;
+        usedFallback = true;
+      }
+    }
+    normalized.sections = sections;
+  }
+
+  return { value: normalized, usedFallback };
 }
 
 function normalizeFounderEvidenceTimeline(
@@ -3837,6 +3934,63 @@ function isSafeFusionCacheContext(value: unknown): boolean {
   );
 }
 
+const ACTION_DECISION_LANE_REQUIRED_STRING_ARRAYS = [
+  "lane_order",
+  "blocked_state_refs",
+] as const;
+
+const ACTION_DECISION_LANE_ITEM_REQUIRED_STRINGS = [
+  "item_ref",
+  "lane_id",
+  "lane_label",
+  "title",
+  "status",
+  "priority",
+  "action_kind",
+  "side_effect_class",
+  "safe_summary",
+  "why_shown",
+  "next_safe_action",
+  "authority_boundary",
+  "approval_envelope_status",
+  "expected_receipt_state",
+  "cost_state_label",
+  "provider_authority_state_label",
+] as const;
+
+const ACTION_DECISION_LANE_ITEM_REQUIRED_NUMBERS = [
+  "estimated_cost_usd",
+  "max_approved_cost_usd",
+  "input_metered_units",
+  "output_metered_units",
+  "total_metered_units",
+] as const;
+
+const ACTION_DECISION_LANE_ITEM_REQUIRED_ARRAYS = [
+  "expected_receipt_refs",
+  "evidence_refs",
+  "receipt_refs",
+  "blocked_authority_refs",
+  "missing_envelope_field_states",
+  "cost_receipt_refs",
+  "cost_blocked_state_refs",
+] as const;
+
+const ACTION_DECISION_LANE_ITEM_DENIED_FLAGS = [
+  "approval_alone_executes",
+  "approval_ref_authority",
+  "approval_grants_runtime_authority",
+  "action_execution_enabled",
+  "connector_write_enabled",
+  "shell_subprocess_execution_enabled",
+  "browser_execution_enabled",
+  "provider_model_call_enabled",
+  "memory_write_enabled",
+  "context_injection_authorized",
+  "hidden_memory_write_authorized",
+  "production_authority_enabled",
+] as const;
+
 function isSafeActionInboxDecisionLaneReadModel(value: unknown): boolean {
   if (!isPlainRecord(value)) {
     return false;
@@ -3854,7 +4008,52 @@ function isSafeActionInboxDecisionLaneReadModel(value: unknown): boolean {
     value.memory_write_enabled === false &&
     value.context_injection_authorized === false &&
     value.production_authority_enabled === false &&
-    value.approval_alone_executes === false
+    value.approval_alone_executes === false &&
+    hasStringArrays(value, ACTION_DECISION_LANE_REQUIRED_STRING_ARRAYS) &&
+    Array.isArray(value.lanes) &&
+    value.lanes.every(isSafeActionInboxDecisionLane) &&
+    Array.isArray(value.items) &&
+    value.items.every(isSafeActionInboxDecisionLaneItem)
+  );
+}
+
+function isSafeActionInboxDecisionLane(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    hasStringFields(value, [
+      "lane_id",
+      "label",
+      "status",
+      "safe_summary",
+      "next_safe_action",
+    ]) &&
+    typeof value.count === "number" &&
+    hasStringArrays(value, ["item_refs", "blocked_state_refs"]) &&
+    value.approval_alone_executes === false &&
+    value.action_execution_enabled === false
+  );
+}
+
+function isSafeActionInboxDecisionLaneItem(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    hasStringFields(value, ACTION_DECISION_LANE_ITEM_REQUIRED_STRINGS) &&
+    hasNumberFields(value, ACTION_DECISION_LANE_ITEM_REQUIRED_NUMBERS) &&
+    hasStringArrays(value, ACTION_DECISION_LANE_ITEM_REQUIRED_ARRAYS) &&
+    value.backend_owned === true &&
+    value.safe_refs_only === true &&
+    value.raw_content_included === false &&
+    typeof value.approval_required === "boolean" &&
+    value.expected_receipt_refs_visible === true &&
+    typeof value.unknown_paid_cost_requires_explicit_approval === "boolean" &&
+    typeof value.frontier_usage_claimed === "boolean" &&
+    typeof value.cost_telemetry_complete === "boolean" &&
+    typeof value.provider_model_refs_present === "boolean" &&
+    hasDeniedFlagsFalse(value, ACTION_DECISION_LANE_ITEM_DENIED_FLAGS)
   );
 }
 
