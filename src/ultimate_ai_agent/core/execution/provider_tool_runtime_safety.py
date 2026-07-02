@@ -45,6 +45,15 @@ ProviderToolRuntimeValidationStatus = Literal[
     "approval_required",
     "cost_blocked",
 ]
+ProviderToolRuntimeTerminalStreamEventType = Literal["stream_completed", "stream_failed", "stream_canceled"]
+
+
+class _ProviderToolRuntimeContractModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True, frozen=True, validate_assignment=True)
+
+    def model_copy(self, *, update: Mapping[str, Any] | None = None, deep: bool = False) -> Any:
+        copied = super().model_copy(update=update, deep=deep)
+        return type(self).model_validate(copied.model_dump(mode="python"))
 
 _RAW_PAYLOAD_FIELD_RE = re.compile(
     r"(?i)(^|[_-])("
@@ -104,7 +113,7 @@ def _missing_required_reasons(payload: Mapping[str, Any]) -> list[str]:
     return dedupe_reasons([reason for key, reason in checks.items() if not payload.get(key)])
 
 
-class ProviderToolRuntimeInvocationEnvelope(BaseModel):
+class ProviderToolRuntimeInvocationEnvelope(_ProviderToolRuntimeContractModel):
     schema_version: str = PROVIDER_TOOL_RUNTIME_INVOCATION_SCHEMA_VERSION
     run_ref: str = Field(..., min_length=1)
     invocation_ref: str = Field(..., min_length=1)
@@ -137,8 +146,6 @@ class ProviderToolRuntimeInvocationEnvelope(BaseModel):
     background_worker_enabled: bool = False
     billing_authority_enabled: bool = False
     production_authority_enabled: bool = False
-
-    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     @model_validator(mode="after")
     def validate_invocation_envelope(self) -> Any:
@@ -190,7 +197,7 @@ class ProviderToolRuntimeInvocationEnvelope(BaseModel):
         return self
 
 
-class ProviderToolRuntimeResultContract(BaseModel):
+class ProviderToolRuntimeResultContract(_ProviderToolRuntimeContractModel):
     schema_version: str = PROVIDER_TOOL_RUNTIME_RESULT_SCHEMA_VERSION
     run_ref: str = Field(..., min_length=1)
     invocation_ref: str = Field(..., min_length=1)
@@ -206,8 +213,6 @@ class ProviderToolRuntimeResultContract(BaseModel):
     provider_sdk_used: bool = False
     tool_executed: bool = False
     connector_write_performed: bool = False
-
-    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     @model_validator(mode="after")
     def validate_result_contract(self) -> Any:
@@ -233,7 +238,7 @@ class ProviderToolRuntimeResultContract(BaseModel):
         return self
 
 
-class ProviderToolRuntimeStreamEventContract(BaseModel):
+class ProviderToolRuntimeStreamEventContract(_ProviderToolRuntimeContractModel):
     schema_version: str = PROVIDER_TOOL_RUNTIME_STREAM_EVENT_SCHEMA_VERSION
     run_ref: str = Field(..., min_length=1)
     invocation_ref: str = Field(..., min_length=1)
@@ -250,8 +255,6 @@ class ProviderToolRuntimeStreamEventContract(BaseModel):
     live_streaming_runtime_enabled: bool = False
     provider_stream_called: bool = False
     tool_stream_called: bool = False
-
-    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     @model_validator(mode="after")
     def validate_stream_event(self) -> Any:
@@ -277,24 +280,38 @@ class ProviderToolRuntimeStreamEventContract(BaseModel):
         return self
 
 
-class ProviderToolRuntimeValidationContext(BaseModel):
+class ProviderToolRuntimeValidationContext(_ProviderToolRuntimeContractModel):
     known_provider_refs: list[str] = Field(default_factory=list)
     known_tool_refs: list[str] = Field(default_factory=list)
-    local_approval_authority_validated: bool = False
-    approval_scope_matches: bool = True
+    local_approval_authority_decision_ref: str | None = None
+    approval_grant_ref: str | None = None
+    approved_scope_ref: str | None = None
+    cost_governor_decision_ref: str | None = None
+    budget_decision_ref: str | None = None
+    cost_estimate_ref: str | None = None
+    max_approved_usd_ref: str | None = None
+    paid_cost_posture_ref: str | None = None
+    actual_cost_receipt_ref: str | None = None
     paid_cost_known: bool = True
     actual_cost_complete: bool = True
-
-    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     @model_validator(mode="after")
     def validate_context_refs(self) -> Any:
         _validate_ref_list(self.known_provider_refs, "known_provider_refs")
         _validate_ref_list(self.known_tool_refs, "known_tool_refs")
+        _validate_optional_ref(self.local_approval_authority_decision_ref, "local_approval_authority_decision_ref")
+        _validate_optional_ref(self.approval_grant_ref, "approval_grant_ref")
+        _validate_optional_ref(self.approved_scope_ref, "approved_scope_ref")
+        _validate_optional_ref(self.cost_governor_decision_ref, "cost_governor_decision_ref")
+        _validate_optional_ref(self.budget_decision_ref, "budget_decision_ref")
+        _validate_optional_ref(self.cost_estimate_ref, "cost_estimate_ref")
+        _validate_optional_ref(self.max_approved_usd_ref, "max_approved_usd_ref")
+        _validate_optional_ref(self.paid_cost_posture_ref, "paid_cost_posture_ref")
+        _validate_optional_ref(self.actual_cost_receipt_ref, "actual_cost_receipt_ref")
         return self
 
 
-class ProviderToolRuntimeValidationDecision(BaseModel):
+class ProviderToolRuntimeValidationDecision(_ProviderToolRuntimeContractModel):
     schema_version: str = PROVIDER_TOOL_RUNTIME_VALIDATION_SCHEMA_VERSION
     validation_status: ProviderToolRuntimeValidationStatus
     contract_valid: bool = False
@@ -305,8 +322,6 @@ class ProviderToolRuntimeValidationDecision(BaseModel):
     execution_permitted: bool = False
     execution_performed: bool = False
     runtime_activation_enabled: bool = False
-
-    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     @model_validator(mode="after")
     def validate_decision(self) -> Any:
@@ -321,7 +336,7 @@ class ProviderToolRuntimeValidationDecision(BaseModel):
         return self
 
 
-class ProviderToolRuntimeSanitizedReplay(BaseModel):
+class ProviderToolRuntimeSanitizedReplay(_ProviderToolRuntimeContractModel):
     schema_version: str = PROVIDER_TOOL_RUNTIME_REPLAY_SCHEMA_VERSION
     run_ref: str = Field(..., min_length=1)
     invocation_ref: str = Field(..., min_length=1)
@@ -337,8 +352,6 @@ class ProviderToolRuntimeSanitizedReplay(BaseModel):
     safe_refs_only: bool = True
     raw_content_omitted: bool = True
     execution_performed: bool = False
-
-    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     @model_validator(mode="after")
     def validate_replay(self) -> Any:
@@ -421,17 +434,43 @@ def validate_provider_tool_runtime_invocation(
     unknown_reason = "UNKNOWN_PROVIDER_BLOCKED" if envelope.target_kind == "provider" else "UNKNOWN_TOOL_BLOCKED"
     if target_ref not in set(known_refs):
         reasons.append(unknown_reason)
-    if not validation_context.local_approval_authority_validated:
+    if (
+        not validation_context.local_approval_authority_decision_ref
+        or not validation_context.approval_grant_ref
+        or not validation_context.approved_scope_ref
+    ):
         reasons.append("EXACT_APPROVAL_SCOPE_NOT_VALIDATED_BLOCKED")
-    if not validation_context.approval_scope_matches:
+    if (
+        validation_context.approval_grant_ref
+        and validation_context.approval_grant_ref != envelope.approval_ref
+    ) or (
+        validation_context.approved_scope_ref
+        and validation_context.approved_scope_ref != envelope.exact_approval_scope_ref
+    ):
         reasons.append("APPROVAL_SCOPE_MISMATCH_BLOCKED")
-    if not validation_context.paid_cost_known:
+    if (
+        not validation_context.cost_governor_decision_ref
+        or not validation_context.budget_decision_ref
+        or not validation_context.cost_estimate_ref
+        or validation_context.cost_estimate_ref != envelope.cost_estimate_ref
+        or not validation_context.max_approved_usd_ref
+        or validation_context.max_approved_usd_ref != envelope.max_approved_usd_ref
+    ):
+        reasons.append("COST_GOVERNOR_DECISION_REF_REQUIRED_BLOCKED")
+    if not validation_context.paid_cost_known or not validation_context.paid_cost_posture_ref:
         reasons.append("UNKNOWN_PAID_COST_BLOCKED")
-    if not validation_context.actual_cost_complete:
+    if not validation_context.actual_cost_complete or not validation_context.actual_cost_receipt_ref:
         reasons.append("INCOMPLETE_ACTUAL_COST_BLOCKED")
 
     if reasons:
-        if any(reason in reasons for reason in ["UNKNOWN_PAID_COST_BLOCKED", "INCOMPLETE_ACTUAL_COST_BLOCKED"]):
+        if any(
+            reason in reasons
+            for reason in [
+                "COST_GOVERNOR_DECISION_REF_REQUIRED_BLOCKED",
+                "UNKNOWN_PAID_COST_BLOCKED",
+                "INCOMPLETE_ACTUAL_COST_BLOCKED",
+            ]
+        ):
             status = "cost_blocked"
         elif any(reason in reasons for reason in ["EXACT_APPROVAL_SCOPE_NOT_VALIDATED_BLOCKED"]):
             status = "approval_required"
@@ -475,8 +514,26 @@ def validate_provider_tool_stream_events(
 
     reasons: list[str] = []
     sequence_values = [event.sequence for event in parsed_events]
-    if sequence_values != sorted(sequence_values) or len(sequence_values) != len(set(sequence_values)):
+    expected_sequence_values = list(range(1, len(parsed_events) + 1))
+    if sequence_values != expected_sequence_values:
         reasons.append("STREAM_EVENT_SEQUENCE_NOT_MONOTONIC")
+    durable_run_event_refs = [event.durable_run_event_ref for event in parsed_events]
+    if len(durable_run_event_refs) != len(set(durable_run_event_refs)):
+        reasons.append("STREAM_EVENT_DURABLE_RUN_EVENT_REF_DUPLICATE")
+    if parsed_events[0].event_type != "stream_started":
+        reasons.append("STREAM_STARTED_EVENT_REQUIRED")
+    terminal_event_types: set[ProviderToolRuntimeTerminalStreamEventType] = {
+        "stream_completed",
+        "stream_failed",
+        "stream_canceled",
+    }
+    terminal_indexes = [
+        index for index, event in enumerate(parsed_events) if event.event_type in terminal_event_types
+    ]
+    if len(terminal_indexes) > 1:
+        reasons.append("STREAM_TERMINAL_EVENT_DUPLICATE")
+    if terminal_indexes and terminal_indexes[0] != len(parsed_events) - 1:
+        reasons.append("STREAM_TERMINAL_EVENT_MUST_BE_LAST")
     run_refs = {event.run_ref for event in parsed_events}
     invocation_refs = {event.invocation_ref for event in parsed_events}
     if len(run_refs) != 1:
@@ -510,12 +567,20 @@ def sanitize_provider_tool_runtime_replay(
     evidence_refs: list[str] = list(envelope.evidence_refs)
     redacted_refs = [envelope.redacted_input_ref]
     if result is not None:
+        if result.run_ref != envelope.run_ref or result.invocation_ref != envelope.invocation_ref:
+            raise ValueError("PROVIDER_TOOL_REPLAY_RESULT_REF_MISMATCH")
         receipt_refs.extend(result.usage_receipt_refs)
         receipt_refs.extend(result.cost_receipt_refs)
         evidence_refs.extend(result.evidence_refs)
         if result.redacted_output_ref:
             redacted_refs.append(result.redacted_output_ref)
+    if stream_events:
+        stream_decision = validate_provider_tool_stream_events(stream_events)
+        if stream_decision.blocked or stream_decision.validation_status != "valid_contract_only":
+            raise ValueError("PROVIDER_TOOL_REPLAY_STREAM_EVENTS_INVALID")
     for event in stream_events:
+        if event.run_ref != envelope.run_ref or event.invocation_ref != envelope.invocation_ref:
+            raise ValueError("PROVIDER_TOOL_REPLAY_STREAM_REF_MISMATCH")
         receipt_refs.extend(event.receipt_refs)
         evidence_refs.extend(event.evidence_refs)
         if event.redacted_delta_ref:

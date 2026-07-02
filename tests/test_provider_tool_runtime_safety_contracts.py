@@ -59,8 +59,15 @@ def _valid_context(**overrides: object) -> ProviderToolRuntimeValidationContext:
     payload: dict[str, object] = {
         "known_provider_refs": [KNOWN_PROVIDER_REF],
         "known_tool_refs": [KNOWN_TOOL_REF],
-        "local_approval_authority_validated": True,
-        "approval_scope_matches": True,
+        "local_approval_authority_decision_ref": "approval-decision-ref:test:exact",
+        "approval_grant_ref": "approval-ref:test:exact",
+        "approved_scope_ref": "approval-scope-ref:test:exact",
+        "cost_governor_decision_ref": "cost-governor-decision-ref:test:provider-tool",
+        "budget_decision_ref": "budget-decision-ref:test:provider-tool",
+        "cost_estimate_ref": "cost-estimate-ref:test:provider-tool",
+        "max_approved_usd_ref": "max-usd-ref:test:provider-tool",
+        "paid_cost_posture_ref": "paid-cost-posture-ref:test:known",
+        "actual_cost_receipt_ref": "actual-cost-receipt-ref:test:complete",
         "paid_cost_known": True,
         "actual_cost_complete": True,
     }
@@ -105,13 +112,19 @@ def test_missing_approval_and_scope_mismatch_block() -> None:
     missing_decision = validate_provider_tool_runtime_invocation(missing_approval, _valid_context())
     mismatch_decision = validate_provider_tool_runtime_invocation(
         _provider_payload(),
-        _valid_context(approval_scope_matches=False),
+        _valid_context(approved_scope_ref="approval-scope-ref:test:mismatch"),
+    )
+    caller_asserted_decision = validate_provider_tool_runtime_invocation(
+        _provider_payload(),
+        _valid_context(local_approval_authority_decision_ref=None),
     )
 
     assert missing_decision.validation_status == "approval_required"
     assert "MISSING_EXACT_APPROVAL_BLOCKED" in missing_decision.reason_codes
     assert mismatch_decision.blocked is True
     assert "APPROVAL_SCOPE_MISMATCH_BLOCKED" in mismatch_decision.reason_codes
+    assert caller_asserted_decision.validation_status == "approval_required"
+    assert "EXACT_APPROVAL_SCOPE_NOT_VALIDATED_BLOCKED" in caller_asserted_decision.reason_codes
 
 
 def test_unknown_paid_cost_and_incomplete_actual_cost_block() -> None:
@@ -123,11 +136,17 @@ def test_unknown_paid_cost_and_incomplete_actual_cost_block() -> None:
         _provider_payload(),
         _valid_context(actual_cost_complete=False),
     )
+    missing_cost_decision_ref = validate_provider_tool_runtime_invocation(
+        _provider_payload(),
+        _valid_context(cost_governor_decision_ref=None),
+    )
 
     assert unknown_cost.validation_status == "cost_blocked"
     assert "UNKNOWN_PAID_COST_BLOCKED" in unknown_cost.reason_codes
     assert incomplete_cost.validation_status == "cost_blocked"
     assert "INCOMPLETE_ACTUAL_COST_BLOCKED" in incomplete_cost.reason_codes
+    assert missing_cost_decision_ref.validation_status == "cost_blocked"
+    assert "COST_GOVERNOR_DECISION_REF_REQUIRED_BLOCKED" in missing_cost_decision_ref.reason_codes
 
 
 def test_missing_cost_idempotency_and_redaction_refs_block_before_execution() -> None:
@@ -191,6 +210,12 @@ def test_result_contract_rejects_execution_flags_and_requires_redacted_output() 
         assert "REDACTED_OUTPUT_REF_REQUIRED" in str(exc)
     else:
         raise AssertionError("missing redacted output ref should fail")
+    try:
+        result.model_copy(update={"execution_performed": True})
+    except ValidationError as exc:
+        assert "PROVIDER_TOOL_RESULT_EXECUTION_AUTHORITY_DENIED" in str(exc)
+    else:
+        raise AssertionError("model_copy update must revalidate execution-denied invariants")
 
 
 def test_stream_events_preserve_ordered_durable_run_shape() -> None:
@@ -265,10 +290,78 @@ def test_stream_events_reject_raw_chunk_fields_and_bad_order() -> None:
             ),
         ]
     )
+    missing_start_decision = validate_provider_tool_stream_events(
+        [
+            ProviderToolRuntimeStreamEventContract(
+                run_ref="run-ref:test:provider-tool",
+                invocation_ref="invocation-ref:test:provider-tool",
+                sequence=1,
+                event_type="stream_delta_redacted",
+                durable_run_event_ref="run-event-ref:test:stream:1",
+                redacted_delta_ref="redacted-delta-ref:test:stream:1",
+                safe_summary="Delta cannot be first without a stream start event.",
+            ),
+        ]
+    )
+    duplicate_durable_event_ref_decision = validate_provider_tool_stream_events(
+        [
+            ProviderToolRuntimeStreamEventContract(
+                run_ref="run-ref:test:provider-tool",
+                invocation_ref="invocation-ref:test:provider-tool",
+                sequence=1,
+                event_type="stream_started",
+                durable_run_event_ref="run-event-ref:test:stream:dupe",
+                safe_summary="Stream started.",
+            ),
+            ProviderToolRuntimeStreamEventContract(
+                run_ref="run-ref:test:provider-tool",
+                invocation_ref="invocation-ref:test:provider-tool",
+                sequence=2,
+                event_type="stream_completed",
+                durable_run_event_ref="run-event-ref:test:stream:dupe",
+                safe_summary="Duplicate durable run event ref must block.",
+            ),
+        ]
+    )
+    terminal_not_last_decision = validate_provider_tool_stream_events(
+        [
+            ProviderToolRuntimeStreamEventContract(
+                run_ref="run-ref:test:provider-tool",
+                invocation_ref="invocation-ref:test:provider-tool",
+                sequence=1,
+                event_type="stream_started",
+                durable_run_event_ref="run-event-ref:test:stream:1",
+                safe_summary="Stream started.",
+            ),
+            ProviderToolRuntimeStreamEventContract(
+                run_ref="run-ref:test:provider-tool",
+                invocation_ref="invocation-ref:test:provider-tool",
+                sequence=2,
+                event_type="stream_completed",
+                durable_run_event_ref="run-event-ref:test:stream:2",
+                safe_summary="Terminal event cannot be followed by more stream metadata.",
+            ),
+            ProviderToolRuntimeStreamEventContract(
+                run_ref="run-ref:test:provider-tool",
+                invocation_ref="invocation-ref:test:provider-tool",
+                sequence=3,
+                event_type="stream_heartbeat",
+                durable_run_event_ref="run-event-ref:test:stream:3",
+                heartbeat_ref="heartbeat-ref:test:stream:3",
+                safe_summary="Heartbeat after terminal event must block.",
+            ),
+        ]
+    )
 
     assert raw_event_decision.validation_status == "validation_failed"
     assert bad_order_decision.blocked is True
     assert "STREAM_EVENT_SEQUENCE_NOT_MONOTONIC" in bad_order_decision.reason_codes
+    assert "STREAM_STARTED_EVENT_REQUIRED" in missing_start_decision.reason_codes
+    assert (
+        "STREAM_EVENT_DURABLE_RUN_EVENT_REF_DUPLICATE"
+        in duplicate_durable_event_ref_decision.reason_codes
+    )
+    assert "STREAM_TERMINAL_EVENT_MUST_BE_LAST" in terminal_not_last_decision.reason_codes
 
 
 def test_replay_sanitization_excludes_raw_content() -> None:
@@ -283,17 +376,25 @@ def test_replay_sanitization_excludes_raw_content() -> None:
         evidence_refs=["evidence-ref:test:result"],
         safe_summary="Redacted result ref only.",
     )
-    event = ProviderToolRuntimeStreamEventContract(
+    start_event = ProviderToolRuntimeStreamEventContract(
         run_ref=envelope.run_ref,
         invocation_ref=envelope.invocation_ref,
         sequence=1,
-        event_type="stream_delta_redacted",
+        event_type="stream_started",
         durable_run_event_ref="run-event-ref:test:stream:1",
-        redacted_delta_ref="redacted-delta-ref:test:stream:1",
+        safe_summary="Stream metadata started.",
+    )
+    delta_event = ProviderToolRuntimeStreamEventContract(
+        run_ref=envelope.run_ref,
+        invocation_ref=envelope.invocation_ref,
+        sequence=2,
+        event_type="stream_delta_redacted",
+        durable_run_event_ref="run-event-ref:test:stream:2",
+        redacted_delta_ref="redacted-delta-ref:test:stream:2",
         safe_summary="Redacted delta ref only.",
     )
 
-    replay = sanitize_provider_tool_runtime_replay(envelope, result, [event])
+    replay = sanitize_provider_tool_runtime_replay(envelope, result, [start_event, delta_event])
     replay_json = json.dumps(replay.model_dump(mode="json"), sort_keys=True)
 
     assert replay.safe_refs_only is True
@@ -303,6 +404,39 @@ def test_replay_sanitization_excludes_raw_content() -> None:
     assert "raw prompt" not in replay_json.lower()
     assert "provider payload" not in replay_json.lower()
     assert "tool payload" not in replay_json.lower()
+
+
+def test_replay_sanitization_rejects_mismatched_refs_and_invalid_streams() -> None:
+    envelope = ProviderToolRuntimeInvocationEnvelope.model_validate(_provider_payload())
+    mismatched_result = ProviderToolRuntimeResultContract(
+        run_ref="run-ref:test:other",
+        invocation_ref=envelope.invocation_ref,
+        status="failed",
+        error_safe_summary_ref="error-safe-summary-ref:test:other",
+        safe_summary="Mismatched result must not be spliced into replay.",
+    )
+    invalid_event = ProviderToolRuntimeStreamEventContract(
+        run_ref=envelope.run_ref,
+        invocation_ref=envelope.invocation_ref,
+        sequence=1,
+        event_type="stream_delta_redacted",
+        durable_run_event_ref="run-event-ref:test:stream:invalid",
+        redacted_delta_ref="redacted-delta-ref:test:stream:invalid",
+        safe_summary="Invalid because stream start is missing.",
+    )
+
+    try:
+        sanitize_provider_tool_runtime_replay(envelope, mismatched_result, [])
+    except ValueError as exc:
+        assert "PROVIDER_TOOL_REPLAY_RESULT_REF_MISMATCH" in str(exc)
+    else:
+        raise AssertionError("mismatched result refs must not sanitize")
+    try:
+        sanitize_provider_tool_runtime_replay(envelope, None, [invalid_event])
+    except ValueError as exc:
+        assert "PROVIDER_TOOL_REPLAY_STREAM_EVENTS_INVALID" in str(exc)
+    else:
+        raise AssertionError("invalid stream event shape must not sanitize")
 
 
 def test_contract_module_does_not_import_provider_sdk_network_or_executors() -> None:
