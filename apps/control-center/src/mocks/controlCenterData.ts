@@ -693,8 +693,8 @@ const providerSettingsDiagnostics: ProviderSettingsDiagnosticsSummary = {
 
 const runAttachedApprovalQueue: RunAttachedApprovalQueue = {
   schema_version: "run_attached_approval_queue.v1",
-  source: "python_core_run_attached_approval_queue_read_model",
-  backend_owned: true,
+  source: "mock_fallback_non_authoritative",
+  backend_owned: false,
   queue_ref: "run-attached-approval-queue:mock-fallback",
   route_ref: "/control-center/approvals/queue",
   route_refs: ["GET /control-center/approvals/queue"],
@@ -794,7 +794,7 @@ const runAttachedApprovalQueue: RunAttachedApprovalQueue = {
     approval_grants_created: false,
     arbitrary_approval_ref_authority: false,
     safe_summary:
-      "Run-attached approval queue fallback is read-only and safe-ref-only; approval refs remain identifiers.",
+      "Run-attached approval queue fallback is mock-only and non-authoritative; approval refs remain identifiers.",
     safe_refs_only: true,
     raw_payloads_persisted: false,
     approval_refs_are_identifiers_only: true,

@@ -21,6 +21,7 @@ from ultimate_ai_agent.core.task_decomposition.runtime import (
     CapabilityRegistryStoreConfig,
     TaskCapabilityApprovalRequestPayload,
     TaskDecompositionApprovalGrantRequest,
+    TaskDecompositionApprovalRevokeRequest,
     TaskDecompositionService,
 )
 
@@ -67,6 +68,7 @@ def test_run_attached_approval_queue_projects_requests_and_grants(tmp_path: Path
 
     assert queue["summary"]["queue_item_count"] == 2
     assert queue["summary"]["approved_count"] == 1
+    assert queue["summary"]["pending_count"] == 0
     assert queue["summary"]["approval_grants_created"] is True
     assert queue["summary"]["arbitrary_approval_ref_authority"] is False
     assert queue["summary"]["execution_authority_enabled"] is False
@@ -75,6 +77,206 @@ def test_run_attached_approval_queue_projects_requests_and_grants(tmp_path: Path
         "approved",
     }
     assert {item["durable_attachment_status"] for item in queue["queue_items"]} == {"attached"}
+    approved_items = [
+        item for item in queue["queue_items"] if item["approval_state"] == "approved"
+    ]
+    assert approved_items[0]["approval_scope_validation_ref"] is None
+    assert queue["pending_approvals_by_run"] == []
+
+
+def test_real_approval_paths_emit_named_durable_lifecycle_events(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    request = service.build_approval_request(
+        TaskCapabilityApprovalRequestPayload(
+            capability_id="capability:example-echo-summary",
+            run_id="task-decomposition-run:approval-lifecycle",
+            actor_id="local_actor",
+        )
+    )
+    grant = service.grant_approval(
+        TaskDecompositionApprovalGrantRequest(
+            approval_request_id=request.approval_request_id,
+            approved_by_actor_id="local_reviewer",
+        )
+    )
+    service.revoke_approval(
+        TaskDecompositionApprovalRevokeRequest(
+            approval_ref=grant.approval_ref,
+            reason="No longer needed for the local test run.",
+        )
+    )
+
+    lifecycle = service.durable_run_lifecycle("task-decomposition-run:approval-lifecycle")
+
+    assert lifecycle is not None
+    event_types = [event["event_type"] for event in lifecycle["events"]]
+    assert "approval_required" in event_types
+    assert "approval_attached" in event_types
+    assert "approval_revoked" in event_types
+    queue = service.run_attached_approval_queue("task-decomposition-run:approval-lifecycle")
+    assert queue["summary"]["approval_grants_created"] is True
+    assert queue["summary"]["revoked_count"] == 1
+    assert queue["summary"]["pending_count"] == 0
+    assert {item["durable_attachment_status"] for item in queue["queue_items"]} == {"attached"}
+    assert queue["pending_approvals_by_run"] == []
+
+
+def test_durable_write_failure_does_not_persist_approval_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    service = _service(tmp_path)
+
+    def fail_append_run_record(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("durable write failed")
+
+    monkeypatch.setattr(service.durable_run_storage, "append_run_record", fail_append_run_record)
+
+    with pytest.raises(RuntimeError, match="durable write failed"):
+        service.build_approval_request(
+            TaskCapabilityApprovalRequestPayload(
+                capability_id="capability:example-echo-summary",
+                run_id="task-decomposition-run:approval-write-failure",
+                actor_id="local_actor",
+            )
+        )
+
+    persisted = service.registry_store.load_approval_state()
+    assert persisted.requests == []
+    assert persisted.grants == []
+    assert service.approval_queue() == {"requests": [], "grants": []}
+
+
+def test_durable_write_failure_does_not_create_visible_grant_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _service(tmp_path)
+    request = service.build_approval_request(
+        TaskCapabilityApprovalRequestPayload(
+            capability_id="capability:example-echo-summary",
+            run_id="task-decomposition-run:approval-grant-write-failure",
+            actor_id="local_actor",
+        )
+    )
+
+    def fail_append_run_record(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("durable write failed")
+
+    monkeypatch.setattr(service.durable_run_storage, "append_run_record", fail_append_run_record)
+
+    with pytest.raises(RuntimeError, match="durable write failed"):
+        service.grant_approval(
+            TaskDecompositionApprovalGrantRequest(
+                approval_request_id=request.approval_request_id,
+                approved_by_actor_id="local_reviewer",
+            )
+        )
+
+    persisted = service.registry_store.load_approval_state()
+    queue = service.approval_queue()
+    assert persisted.grants == []
+    assert queue["grants"] == []
+
+
+def test_persist_failure_keeps_approval_visible_from_durable_receipt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _service(tmp_path)
+
+    def fail_save_approval_state(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("approval state save failed")
+
+    monkeypatch.setattr(service.registry_store, "save_approval_state", fail_save_approval_state)
+
+    with pytest.raises(RuntimeError, match="approval state save failed"):
+        service.build_approval_request(
+            TaskCapabilityApprovalRequestPayload(
+                capability_id="capability:example-echo-summary",
+                run_id="task-decomposition-run:approval-persist-failure",
+                actor_id="local_actor",
+            )
+        )
+
+    restarted = TaskDecompositionService(registry_store=service.registry_store)
+    queue = restarted.run_attached_approval_queue("task-decomposition-run:approval-persist-failure")
+
+    assert queue["summary"]["queue_item_count"] == 1
+    assert queue["queue_items"][0]["approval_state"] == "requested"
+    assert queue["queue_items"][0]["durable_attachment_status"] == "attached"
+
+
+def test_durable_write_failure_restores_visible_grant_on_revoke(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _service(tmp_path)
+    request = service.build_approval_request(
+        TaskCapabilityApprovalRequestPayload(
+            capability_id="capability:example-echo-summary",
+            run_id="task-decomposition-run:approval-revoke-write-failure",
+            actor_id="local_actor",
+        )
+    )
+    grant = service.grant_approval(
+        TaskDecompositionApprovalGrantRequest(
+            approval_request_id=request.approval_request_id,
+            approved_by_actor_id="local_reviewer",
+        )
+    )
+
+    def fail_append_run_record(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("durable write failed")
+
+    monkeypatch.setattr(service.durable_run_storage, "append_run_record", fail_append_run_record)
+
+    with pytest.raises(RuntimeError, match="durable write failed"):
+        service.revoke_approval(
+            TaskDecompositionApprovalRevokeRequest(
+                approval_ref=grant.approval_ref,
+                reason="Durable failure should restore prior grant.",
+            )
+        )
+
+    persisted = service.registry_store.load_approval_state()
+    visible_grants = service.approval_queue()["grants"]
+    assert [saved.status for saved in persisted.grants] == ["granted"]
+    assert [saved["status"] for saved in visible_grants] == ["granted"]
+
+
+def test_invalid_approval_run_id_uses_one_durable_run_ref(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    request = service.build_approval_request(
+        TaskCapabilityApprovalRequestPayload(
+            capability_id="capability:example-echo-summary",
+            run_id="local approval run with spaces",
+            actor_id="local_actor",
+        )
+    )
+
+    queue = service.run_attached_approval_queue("local approval run with spaces")
+    lifecycle = service.durable_run_lifecycle(request.run_id)
+
+    assert lifecycle is not None
+    assert queue["summary"]["queue_item_count"] == 1
+    assert queue["queue_items"][0]["run_ref"] == request.run_id
+    assert lifecycle["run_id"] == request.run_id
+
+
+def test_duplicate_approval_request_does_not_duplicate_durable_events(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    payload = TaskCapabilityApprovalRequestPayload(
+        capability_id="capability:example-echo-summary",
+        run_id="task-decomposition-run:approval-idempotent",
+        actor_id="local_actor",
+    )
+
+    first = service.build_approval_request(payload)
+    second = service.build_approval_request(payload)
+    lifecycle = service.durable_run_lifecycle("task-decomposition-run:approval-idempotent")
+
+    assert first.approval_request_id == second.approval_request_id
+    assert lifecycle is not None
+    event_types = [event["event_type"] for event in lifecycle["events"]]
+    assert event_types.count("approval_required") == 1
 
 
 def test_run_attached_approval_queue_state_specific_refs_are_required() -> None:

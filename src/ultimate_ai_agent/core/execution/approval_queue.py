@@ -87,6 +87,21 @@ PENDING_RUN_ATTACHED_APPROVAL_STATES = {
     "scope_mismatch_blocked",
     "blocked",
 }
+RESOLVED_RUN_ATTACHED_APPROVAL_STATES = {
+    "approved",
+    "denied",
+    "expired",
+    "revoked",
+}
+RUN_ATTACHED_APPROVAL_STATE_ORDER: dict[RunAttachedApprovalState, int] = {
+    "requested": 10,
+    "scope_mismatch_blocked": 20,
+    "blocked": 30,
+    "approved": 40,
+    "denied": 50,
+    "expired": 60,
+    "revoked": 70,
+}
 
 
 def _stable_ref(prefix: str, *parts: str) -> str:
@@ -225,8 +240,6 @@ class RunAttachedApprovalQueueItemReadModel(BaseModel):
         if self.approval_state == "approved":
             if not self.approval_decision_ref or not self.approval_receipt_ref:
                 raise ValueError("RUN_ATTACHED_APPROVAL_APPROVED_REFS_REQUIRED")
-            if not self.approval_scope_validation_ref:
-                raise ValueError("RUN_ATTACHED_APPROVAL_SCOPE_VALIDATION_REF_REQUIRED")
         if self.approval_state == "denied" and not self.approval_decision_ref:
             raise ValueError("RUN_ATTACHED_APPROVAL_DENIAL_DECISION_REF_REQUIRED")
         if self.approval_state == "expired" and not self.expiry_ref:
@@ -477,7 +490,6 @@ def run_attached_approval_item_from_grant(
         approval_event_type=run_attached_approval_event_type(state),
         approval_decision_ref=_stable_ref("approval-decision", grant.approval_ref, state),
         approval_receipt_ref=_stable_ref("approval-receipt", grant.approval_ref),
-        approval_scope_validation_ref=_stable_ref("approval-scope-validation", grant.approval_ref),
         expiry_ref=expiry_ref,
         revocation_ref=revocation_ref,
         evidence_refs=evidence_refs,
@@ -495,12 +507,12 @@ def run_attached_approval_item_from_receipt_summary(
     state = receipt_summary.get("approval_state")
     if state not in RUN_ATTACHED_APPROVAL_STATES:
         return None
+    item_ref_seed = receipt_summary.get("approval_grant_ref") or receipt_summary.get("approval_request_ref")
     return RunAttachedApprovalQueueItemReadModel(
         item_ref=_stable_ref(
             "run-approval-queue-item",
-            str(receipt_summary.get("approval_request_ref")),
+            str(item_ref_seed),
             str(state),
-            "receipt",
         ),
         approval_request_ref=str(receipt_summary["approval_request_ref"]),
         approval_grant_ref=receipt_summary.get("approval_grant_ref"),
@@ -623,18 +635,33 @@ def build_run_attached_approval_queue_read_model(
         deduped[item.item_ref] = item
     ordered_items = sorted(
         deduped.values(),
-        key=lambda item: (item.run_ref, item.approval_request_ref, item.approval_state, item.item_ref),
+        key=lambda item: (
+            item.run_ref,
+            item.approval_request_ref,
+            RUN_ATTACHED_APPROVAL_STATE_ORDER[item.approval_state],
+            item.item_ref,
+        ),
     )[:limit]
 
     counts = Counter(item.approval_state for item in ordered_items)
+    resolved_request_refs = {
+        item.approval_request_ref
+        for item in ordered_items
+        if item.approval_state in RESOLVED_RUN_ATTACHED_APPROVAL_STATES
+    }
     missing_count = sum(
         1 for item in ordered_items if item.durable_attachment_status == "durable_attachment_missing"
     )
+    pending_items: list[RunAttachedApprovalQueueItemReadModel] = []
     pending_by_run: dict[str, list[RunAttachedApprovalQueueItemReadModel]] = defaultdict(list)
     history_by_run: dict[str, list[RunAttachedApprovalQueueItemReadModel]] = defaultdict(list)
     for item in ordered_items:
         history_by_run[item.run_ref].append(item)
-        if item.approval_state in PENDING_RUN_ATTACHED_APPROVAL_STATES:
+        if (
+            item.approval_state in PENDING_RUN_ATTACHED_APPROVAL_STATES
+            and item.approval_request_ref not in resolved_request_refs
+        ):
+            pending_items.append(item)
             pending_by_run[item.run_ref].append(item)
 
     history_buckets = [
@@ -663,7 +690,7 @@ def build_run_attached_approval_queue_read_model(
         queue_ref=queue_ref,
         queue_item_count=len(ordered_items),
         run_count=len(history_by_run),
-        pending_count=sum(counts[state] for state in PENDING_RUN_ATTACHED_APPROVAL_STATES),
+        pending_count=len(pending_items),
         requested_count=counts["requested"],
         approved_count=counts["approved"],
         denied_count=counts["denied"],
@@ -672,7 +699,9 @@ def build_run_attached_approval_queue_read_model(
         scope_mismatch_blocked_count=counts["scope_mismatch_blocked"],
         blocked_count=counts["blocked"],
         durable_attachment_missing_count=missing_count,
-        approval_grants_created=counts["approved"] > 0,
+        approval_grants_created=any(
+            counts[state] > 0 for state in ("approved", "expired", "revoked")
+        ),
         safe_summary=(
             "Run-attached approval queue is read-only and safe-ref-only; "
             "approval refs are identifiers and do not grant execution authority."

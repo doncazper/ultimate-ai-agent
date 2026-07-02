@@ -22,6 +22,12 @@ export function ApprovalQueuePanel({
   const [selectedQueueRef, setSelectedQueueRef] = useState(queueItems[0]?.item_ref ?? "");
   const selectedQueueItem =
     queueItems.find((item) => item.item_ref === selectedQueueRef) ?? queueItems[0];
+  const queueTruthLabel = queue?.backend_owned
+    ? "Backend-owned run-attached approval queue"
+    : "Mock-only non-authoritative approval queue fallback";
+  const emptyQueueMessage = queue?.backend_owned === false
+    ? "Only mock-only non-authoritative approval queue fallback refs are available."
+    : "No backend-owned run-attached approval queue refs are available yet.";
   const [selectedPreviewRef, setSelectedPreviewRef] = useState(review.approvalQueue[0]?.approvalRef ?? "");
   const selectedPreview =
     review.approvalQueue.find((item) => item.approvalRef === selectedPreviewRef) ??
@@ -53,7 +59,7 @@ export function ApprovalQueuePanel({
         <div className="review-layout">
           <div
             className="review-list"
-            aria-label="Backend-owned run-attached approval queue"
+            aria-label={queueTruthLabel}
           >
             {queueItems.map((item) => (
               <RunAttachedApprovalQueueRow
@@ -69,7 +75,7 @@ export function ApprovalQueuePanel({
       ) : (
         <EmptyState
           title="No run-attached approval refs"
-          message="No backend-owned run-attached approval queue refs are available yet."
+          message={emptyQueueMessage}
         />
       )}
       {review.approvalQueue.length > 0 && selectedPreview ? (
@@ -137,6 +143,9 @@ function RunAttachedApprovalSummaryStrip({
 }: {
   queue: RunAttachedApprovalQueue;
 }) {
+  const sourceLabel = queue.backend_owned
+    ? "backend-owned"
+    : "mock-only / non-authoritative";
   return (
     <div className="panel-grid compact-grid" aria-label="Run-attached approval queue summary">
       <div className="metric-card">
@@ -150,6 +159,10 @@ function RunAttachedApprovalSummaryStrip({
       <div className="metric-card">
         <span>Missing attachment refs</span>
         <strong>{queue.summary.durable_attachment_missing_count}</strong>
+      </div>
+      <div className="metric-card">
+        <span>Queue source</span>
+        <strong>{sourceLabel}</strong>
       </div>
       <p className="safe-copy">{queue.summary.safe_summary}</p>
     </div>
@@ -187,7 +200,7 @@ function RunAttachedApprovalQueueDetail({ item }: { item: RunAttachedApprovalQue
     <article className="panel review-detail" aria-label="Run-attached approval detail">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Backend-owned run ref</p>
+          <p className="eyebrow">Run ref</p>
           <h3>{item.approval_request_ref}</h3>
         </div>
         <span>{stateLabel(item.approval_state)}</span>

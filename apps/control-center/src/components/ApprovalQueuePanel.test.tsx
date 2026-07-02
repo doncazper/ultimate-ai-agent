@@ -34,10 +34,15 @@ describe("ApprovalQueuePanel", () => {
   });
 
   it("renders run-attached queue refs as read-only backend state", () => {
+    const backendOwnedQueue = {
+      ...mockControlCenterData.runAttachedApprovalQueue,
+      source: "python_core_run_attached_approval_queue_read_model" as const,
+      backend_owned: true,
+    };
     render(
       <ApprovalQueuePanel
         review={mockControlCenterData.m15Review}
-        queue={mockControlCenterData.runAttachedApprovalQueue}
+        queue={backendOwnedQueue}
         summary={mockControlCenterData.dashboard.approval_summary}
       />,
     );
@@ -54,6 +59,24 @@ describe("ApprovalQueuePanel", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /^revoke$/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("labels mock approval queue fallback as non-authoritative", () => {
+    render(
+      <ApprovalQueuePanel
+        review={mockControlCenterData.m15Review}
+        queue={mockControlCenterData.runAttachedApprovalQueue}
+        summary={mockControlCenterData.dashboard.approval_summary}
+      />,
+    );
+
+    expect(
+      screen.getByLabelText("Mock-only non-authoritative approval queue fallback"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("mock-only / non-authoritative")).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Backend-owned run-attached approval queue"),
     ).not.toBeInTheDocument();
   });
 });

@@ -147,7 +147,9 @@ export interface RunAttachedApprovalQueueSummary {
 
 export interface RunAttachedApprovalQueue {
   schema_version: "run_attached_approval_queue.v1";
-  source: "python_core_run_attached_approval_queue_read_model";
+  source:
+    | "python_core_run_attached_approval_queue_read_model"
+    | "mock_fallback_non_authoritative";
   backend_owned: boolean;
   queue_ref: string;
   route_ref: string;

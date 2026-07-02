@@ -352,9 +352,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedFounderSourceReadiness.usedFallback;
   const providerCredentialReadinessFallbackUsed =
     normalizedDashboard.usedFallback;
+  const approvalQueueEndpointFallbackUsed = approvalQueue === undefined;
   const dashboardSummaryEndpointFallbackUsed =
     approvalSummary === undefined ||
-    approvalQueue === undefined ||
     runtimeReadinessSummary === undefined ||
     foundationGateSummary === undefined;
   const generalMockFallbackUsed =
@@ -467,7 +467,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const mockFallbackUsed =
     generalMockFallbackUsed ||
     founderLoopFieldFallbackUsed ||
-    providerCredentialReadinessFallbackUsed;
+    providerCredentialReadinessFallbackUsed ||
+    approvalQueueEndpointFallbackUsed;
 
   return withConnection(data, {
     state: "degraded",
@@ -475,6 +476,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ? "Provider credential and cost posture was unavailable or unsafe; non-authoritative mock fallback kept provider readiness blocked."
       : founderLoopFieldFallbackUsed
         ? "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels."
+        : approvalQueueEndpointFallbackUsed
+          ? "Run-attached approval queue endpoint was unavailable; non-authoritative mock fallback is shown without approval authority."
         : dashboardSummaryEndpointFallbackUsed
           ? "Some dedicated Control Center summary routes were unavailable; backend dashboard summaries kept the visible state bounded."
           : "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.",
@@ -484,6 +487,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ...(mockFallbackUsed ? ["PARTIAL_MOCK_FALLBACK"] : []),
       ...(dashboardSummaryEndpointFallbackUsed
         ? ["CONTROL_CENTER_SUMMARY_ENDPOINT_FALLBACK"]
+        : []),
+      ...(approvalQueueEndpointFallbackUsed
+        ? ["RUN_ATTACHED_APPROVAL_QUEUE_MOCK_FALLBACK"]
         : []),
       ...(founderLoopFieldFallbackUsed
         ? ["PARTIAL_FOUNDER_LOOP_FIELD_FALLBACK"]

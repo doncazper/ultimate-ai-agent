@@ -61,6 +61,8 @@ from ultimate_ai_agent.core.execution.approval_queue import (
     build_run_attached_approval_queue_read_model,
     record_run_attached_approval_event,
     run_attached_approval_event_type,
+    run_attached_approval_item_from_grant,
+    run_attached_approval_item_from_request,
 )
 from ultimate_ai_agent.core.execution.receipts import ExecutionReceiptPlan
 from ultimate_ai_agent.core.execution.read_models import (
@@ -170,6 +172,8 @@ __all__ = [
     "restore_durable_run_snapshot",
     "record_run_attached_approval_event",
     "run_attached_approval_event_type",
+    "run_attached_approval_item_from_grant",
+    "run_attached_approval_item_from_request",
     "sanitize_provider_tool_runtime_replay",
     "validate_receipt_summary_hash_ref",
     "validate_provider_tool_runtime_invocation",
