@@ -25,6 +25,7 @@ from ultimate_ai_agent.core.execution import (
     DurableRunTransitionRequest,
     DurableRunTransitionStatus,
     apply_durable_run_transition,
+    build_background_coworker_read_model,
     build_durable_run_lifecycle_read_model,
     build_run_progress_read_model,
     build_run_attached_approval_queue_read_model,
@@ -487,6 +488,19 @@ class TaskDecompositionService:
         )
         if model is None:
             return None
+        return model.model_dump(mode="json")
+
+    def background_coworker_workers(
+        self,
+        run_id: str | None = None,
+        *,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        model = build_background_coworker_read_model(
+            self.durable_run_storage,
+            run_ref=self._durable_run_id(run_id) if run_id else None,
+            limit=limit,
+        )
         return model.model_dump(mode="json")
 
     def durable_binding(
