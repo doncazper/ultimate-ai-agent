@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -22,6 +23,7 @@ import {
   READ_ENDPOINTS,
 } from "./api/endpoints";
 import {
+  CONTROL_CENTER_READ_TIMEOUT_MS,
   fetchMemoryReviewDecisionReceipt,
   recordMemoryFeedback,
   recordMemoryReviewDecision,
@@ -362,6 +364,59 @@ function stubFounderTodayReadEndpoint(today: unknown) {
   return fetchMock;
 }
 
+function stubReadEndpointsWithHungEndpoint(hungEndpoint: string) {
+  const fetchMock = vi.fn((url: string) => {
+    const urlText = String(url);
+    if (urlText.endsWith(hungEndpoint)) {
+      return new Promise<Response>(() => {
+        // Intentionally unresolved: exercises the bounded read timeout path.
+      });
+    }
+    if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+      return Promise.resolve(
+        new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    }
+    throw new Error(`unexpected request ${urlText}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+function stubReadEndpointOverrides(overrides: Record<string, unknown>) {
+  const fetchMock = vi.fn(async (url: string) => {
+    const urlText = String(url);
+    const endpoint = READ_ENDPOINTS.find((candidate) =>
+      urlText.endsWith(candidate),
+    );
+    if (!endpoint) {
+      throw new Error(`unexpected request ${urlText}`);
+    }
+    const override = overrides[endpoint];
+    if (override !== undefined) {
+      return new Response(JSON.stringify({ ok: true, result: override }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+async function advanceControlCenterReadTimeout() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(CONTROL_CENTER_READ_TIMEOUT_MS + 1);
+  });
+}
+
 function applyApprovedActionCost(item: {
   item_ref: string;
   approval_envelope?: Record<string, unknown>;
@@ -529,6 +584,123 @@ function plansToActionsBridgeFixture(overrides: Record<string, unknown> = {}) {
     context_injection_performed: false,
     automatic_planning_authority_enabled: false,
     production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+function actionDecisionLaneReadModelFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const item = {
+    item_ref: "founder-action:test-cost-blocked",
+    lane_id: "cost_blocked",
+    lane_label: "Cost blocked",
+    title: "Cost posture review",
+    status: "review_ready",
+    priority: "high",
+    action_kind: "local_task_create",
+    side_effect_class: "local_dev_workspace_only",
+    safe_summary: "Cost and provider refs must be reviewed first.",
+    why_shown: "Cost blocked before approval.",
+    next_safe_action: "Resolve cost estimate, budget decision, and receipt refs.",
+    authority_boundary: "Approval alone does not execute work.",
+    approval_required: true,
+    approval_envelope_ref: "approval-envelope:test-cost-blocked",
+    approval_envelope_status: "review_ready_exact_scope_required",
+    approval_scope_ref: "scope-ref:test-cost-blocked",
+    approval_requirement_ref: "approval-requirement:test-cost-blocked",
+    expected_receipt_refs: ["receipt-plan:test-cost-blocked"],
+    expected_receipt_state: "visible",
+    evidence_refs: ["evidence-ref:test-cost-blocked"],
+    receipt_refs: [],
+    expected_receipt_refs_visible: true,
+    rollback_ref: "rollback-ref:test-cost-blocked",
+    safe_disable_ref: "safe-disable:test-cost-blocked",
+    blocked_authority_refs: [
+      "blocked-state:action-inbox-no-action-execution",
+      "blocked-state:frontier-provider-model-ref-missing",
+    ],
+    missing_envelope_field_states: ["none"],
+    cost_state_label: "Cost blocked",
+    provider_authority_state_label: "No provider authority",
+    estimated_cost_usd: 0,
+    max_approved_cost_usd: 0,
+    provider_ref: "provider-ref:not-invoked",
+    model_profile_ref: "model-profile-ref:not-invoked",
+    input_metered_units: 0,
+    output_metered_units: 0,
+    total_metered_units: 0,
+    cost_estimate_ref: "cost-estimate-ref:test-cost-blocked",
+    captured_usage_ref: "usage-capture-ref:test-cost-blocked",
+    budget_decision_ref: "budget-decision-ref:test-cost-blocked",
+    cost_receipt_refs: [
+      "cost-estimate-ref:test-cost-blocked",
+      "usage-capture-ref:test-cost-blocked",
+      "budget-decision-ref:test-cost-blocked",
+    ],
+    cost_blocked_state_refs: [
+      "blocked-state:frontier-provider-model-ref-missing",
+    ],
+    unknown_paid_cost_requires_explicit_approval: true,
+    frontier_usage_claimed: false,
+    cost_telemetry_complete: true,
+    provider_model_refs_present: false,
+    backend_owned: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    approval_alone_executes: false,
+    approval_ref_authority: false,
+    approval_grants_runtime_authority: false,
+    action_execution_enabled: false,
+    connector_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    browser_execution_enabled: false,
+    provider_model_call_enabled: false,
+    memory_write_enabled: false,
+    context_injection_authorized: false,
+    hidden_memory_write_authorized: false,
+    production_authority_enabled: false,
+  };
+  return {
+    contract_ref: "contract-ref:action-inbox-decision-lanes:v1",
+    status: "implemented_backend_owned_decision_lanes",
+    source: "python_core_action_inbox_decision_lane_read_model",
+    backend_owned: true,
+    local_read_model_only: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    lane_order: ["cost_blocked"],
+    lanes: [
+      {
+        lane_id: "cost_blocked",
+        label: "Cost blocked",
+        status: "review_ready",
+        safe_summary: "Cost posture blocks receipt capture.",
+        count: 1,
+        item_refs: [item.item_ref],
+        blocked_state_refs: ["blocked-state:frontier-provider-model-ref-missing"],
+        next_safe_action: "Resolve exact cost posture.",
+        approval_alone_executes: false,
+        action_execution_enabled: false,
+      },
+    ],
+    items: [item],
+    blocked_state_refs: ["blocked-state:action-inbox-no-action-execution"],
+    missing_envelope_fields_fail_safe: true,
+    cost_posture_visible_before_approval: true,
+    provider_authority_visible_before_approval: true,
+    approval_scope_visible_before_approval: true,
+    expected_receipts_visible_before_approval: true,
+    action_execution_enabled: false,
+    connector_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    browser_execution_enabled: false,
+    provider_model_call_enabled: false,
+    memory_write_enabled: false,
+    context_injection_authorized: false,
+    hidden_memory_write_authorized: false,
+    production_authority_enabled: false,
+    approval_alone_executes: false,
     ...overrides,
   };
 }
@@ -1494,6 +1666,191 @@ describe("Web Control Center shell", () => {
       .getAllByRole("link")
       .filter((link) => link.getAttribute("aria-current") === "page");
     expect(currentProofLinks).toHaveLength(0);
+  });
+
+  it("renders Action Inbox when an optional shared read times out", async () => {
+    vi.useFakeTimers();
+    const fetchMock = stubReadEndpointsWithHungEndpoint(
+      API_ENDPOINTS.providerSetupGuide,
+    );
+    window.history.pushState({}, "", "/actions");
+    const view = render(<App />);
+
+    try {
+      expect(screen.getByText("Loading local Control Center")).toBeInTheDocument();
+      await advanceControlCenterReadTimeout();
+      vi.useRealTimers();
+
+      expect(
+        await screen.findByRole("heading", { name: /^Action Inbox$/i }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Loading local Control Center")).not.toBeInTheDocument();
+      expect(screen.getByText("Backend degraded")).toBeInTheDocument();
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).endsWith(API_ENDPOINTS.founderActionsInbox),
+        ),
+      ).toBe(true);
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).endsWith(API_ENDPOINTS.founderTodaySummary),
+        ),
+      ).toBe(true);
+      const actionExecutionValues = screen
+        .getAllByText("Action execution")
+        .map((term) => term.nextElementSibling?.textContent);
+      expect(actionExecutionValues).toContain("blocked");
+      expect(
+        screen.queryByRole("button", { name: /^execute$/i }),
+      ).not.toBeInTheDocument();
+      for (const blockedControl of [
+        /Record approval receipt/i,
+        /Record edit receipt/i,
+        /Record rejection receipt/i,
+        /Record defer receipt/i,
+        /Record local-task commit receipt/i,
+      ]) {
+        expect(
+          screen.queryByRole("button", { name: blockedControl }),
+        ).not.toBeInTheDocument();
+      }
+    } finally {
+      view.unmount();
+      cleanup();
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it("renders Plans when an optional shared read times out", async () => {
+    vi.useFakeTimers();
+    const fetchMock = stubReadEndpointsWithHungEndpoint(
+      API_ENDPOINTS.providerSetupGuide,
+    );
+    window.history.pushState({}, "", "/plans");
+    const view = render(<App />);
+
+    try {
+      expect(screen.getByText("Loading local Control Center")).toBeInTheDocument();
+      await advanceControlCenterReadTimeout();
+      vi.useRealTimers();
+
+      expect(
+        await screen.findByRole("heading", { name: /^Plans$/i }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Loading local Control Center")).not.toBeInTheDocument();
+      expect(screen.getByText("Backend degraded")).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: /Task decomposition route posture/i }),
+      ).toBeInTheDocument();
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).endsWith(API_ENDPOINTS.founderActionsInbox),
+        ),
+      ).toBe(true);
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).endsWith(API_ENDPOINTS.founderTodaySummary),
+        ),
+      ).toBe(true);
+      expect(
+        screen.queryByRole("button", { name: /^execute$/i }),
+      ).not.toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it("drops incomplete Action Inbox decision lanes instead of crashing the route", async () => {
+    const unsafeInbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      action_inbox_decision_lane_contract_ref:
+        "contract-ref:action-inbox-decision-lanes:v1",
+      action_inbox_decision_lane_read_model: {
+        ...actionDecisionLaneReadModelFixture(),
+        items: actionDecisionLaneReadModelFixture().items.map(
+          (item, index) => {
+            if (index !== 0) {
+              return item;
+            }
+            const unsafeItem = { ...item } as Record<string, unknown>;
+            delete unsafeItem.estimated_cost_usd;
+            delete unsafeItem.max_approved_cost_usd;
+            return unsafeItem;
+          },
+        ),
+      },
+    };
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.founderActionsInbox]: unsafeInbox,
+    });
+    window.history.pushState({}, "", "/actions");
+    const view = render(<App />);
+
+    try {
+      expect(
+        await screen.findByRole("heading", { name: /^Action Inbox$/i }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Loading local Control Center")).not.toBeInTheDocument();
+      expect(
+        screen.getByText("backend decision lanes missing"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/will not backfill cost, authority, approval, or receipt lanes/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /^execute$/i }),
+      ).not.toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("renders Plans with degraded fallback when Today arrays are null", async () => {
+    const unsafeToday = {
+      ...mockControlCenterData.founderToday,
+      actions: null,
+      plans: null,
+      briefing_items: null,
+      memory_review_queue: null,
+      evidence_timeline: null,
+      sections: {
+        ...mockControlCenterData.founderToday.sections,
+        action_inbox_count: null,
+        plan_count: null,
+      },
+    };
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.founderTodaySummary]: unsafeToday,
+    });
+    window.history.pushState({}, "", "/plans");
+    const view = render(<App />);
+
+    try {
+      expect(
+        await screen.findByRole("heading", { name: /^Plans$/i }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Loading local Control Center")).not.toBeInTheDocument();
+      expect(screen.getByText("Backend degraded")).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: /Founder daily loop/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: /Task decomposition route posture/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /^execute$/i }),
+      ).not.toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      vi.unstubAllGlobals();
+    }
   });
 
   it.each([
