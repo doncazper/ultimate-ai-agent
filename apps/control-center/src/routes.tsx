@@ -215,6 +215,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
             providerCredentialReadiness={
               data.dashboard.provider_credential_readiness
             }
+            today={data.founderToday}
           />
         </>
       );

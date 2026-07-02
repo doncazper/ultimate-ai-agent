@@ -2265,6 +2265,9 @@ export interface FounderLoopEvidenceTimelineIndex {
   groups: FounderLoopEvidenceTimelineGroup[];
   events: FounderLoopEvidenceTimelineEvent[];
   operator_run_timeline?: FounderLoopOperatorRunTimeline;
+  founder_loop_runs_integration_contract_ref?: string;
+  founder_loop_runs_integration_read_model?: FounderLoopRunsIntegrationReadModel;
+  loop_trace_refs?: FounderLoopTraceRefs;
   narrative_contract_ref?: string;
   narrative_read_model?: FounderLoopEvidenceTimelineNarrativeReadModel;
   narrative_items?: FounderLoopEvidenceTimelineItem[];
@@ -3840,6 +3843,100 @@ export interface FounderLoopProductProofReadModel {
   production_authority_enabled: boolean;
 }
 
+export interface FounderLoopTraceRefs {
+  run_refs: string[];
+  operator_run_event_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  evidence_event_refs: string[];
+  proof_refs: string[];
+  approval_refs: string[];
+  blocked_authority_refs: string[];
+}
+
+export type FounderLoopRunsIntegrationSurfaceId =
+  | "morning_briefing"
+  | "today"
+  | "action_inbox"
+  | "decision_receipt"
+  | "evidence_timeline"
+  | "memory_review"
+  | "weekly_review";
+
+export interface FounderLoopRunsIntegrationSurfaceBinding {
+  surface_id: FounderLoopRunsIntegrationSurfaceId;
+  surface: string;
+  status: string;
+  frontend_route_ref: string;
+  backend_route_ref: string;
+  run_ref: string;
+  proof_ref: string;
+  proof_detail_ref: string;
+  proof_detail_route_ref: string;
+  action_source_refs: string[];
+  approval_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  evidence_event_refs?: string[];
+  memory_candidate_refs: string[];
+  operator_run_event_refs: string[];
+  blocked_state_refs: string[];
+  safe_summary: string;
+  next_safe_action: string;
+}
+
+export interface FounderLoopRunsIntegrationReadModel {
+  schema_version: "founder-loop-runs-integration.v1";
+  contract_ref: string;
+  status: string;
+  source: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  redacted_summaries_only: boolean;
+  raw_payloads_persisted: boolean;
+  ui_truth_source: string;
+  primary_run_ref: string;
+  primary_proof_ref: string;
+  surface_order: FounderLoopRunsIntegrationSurfaceId[];
+  surface_count: number;
+  run_refs: string[];
+  proof_refs: string[];
+  proof_detail_refs: string[];
+  action_source_refs: string[];
+  approval_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  evidence_event_refs: string[];
+  memory_candidate_refs: string[];
+  operator_run_event_refs: string[];
+  blocked_authority_refs: string[];
+  surface_bindings: FounderLoopRunsIntegrationSurfaceBinding[];
+  action_origin_posture: string;
+  decision_receipt_posture: string;
+  evidence_path_posture: string;
+  proof_detail_posture: string;
+  memory_candidate_posture: string;
+  weekly_review_posture: string;
+  authority_boundary: string;
+  next_safe_action: string;
+  provider_model_call_enabled: boolean;
+  runtime_model_call_enabled: boolean;
+  connector_write_enabled: boolean;
+  connector_send_enabled: boolean;
+  browser_execution_enabled: boolean;
+  live_web_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  scheduler_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  action_execution_enabled: boolean;
+  approval_authority_enabled: boolean;
+  memory_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  ui_mutation_authority_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export type FounderLoopUnifiedWorkThreadStepId =
   | "chat_handoff"
   | "plan"
@@ -4475,6 +4572,9 @@ export interface FounderLoopTodaySummary {
   weekly_ceo_review_v1_read_model?: FounderLoopWeeklyCeoReviewV1ReadModel;
   founder_loop_v1_product_proof_contract_ref?: string;
   founder_loop_v1_product_proof_read_model?: FounderLoopProductProofReadModel;
+  founder_loop_runs_integration_contract_ref?: string;
+  founder_loop_runs_integration_read_model?: FounderLoopRunsIntegrationReadModel;
+  loop_trace_refs?: FounderLoopTraceRefs;
   unified_work_thread_contract_ref?: string;
   unified_work_thread_read_model?: FounderLoopUnifiedWorkThreadReadModel;
   plans_to_actions_bridge_contract_ref?: string;
@@ -4643,6 +4743,9 @@ export interface FounderLoopMorningBriefing {
   weekly_ceo_review_v1_read_model?: FounderLoopWeeklyCeoReviewV1ReadModel;
   founder_loop_v1_product_proof_contract_ref?: string;
   founder_loop_v1_product_proof_read_model?: FounderLoopProductProofReadModel;
+  founder_loop_runs_integration_contract_ref?: string;
+  founder_loop_runs_integration_read_model?: FounderLoopRunsIntegrationReadModel;
+  loop_trace_refs?: FounderLoopTraceRefs;
   chat_to_loop_handoff_contract_ref?: string;
   chat_to_loop_handoff_read_model?: FounderLoopChatToLoopHandoffReadModel;
   dogfood_capture?: FounderLoopDogfoodCaptureSummary;

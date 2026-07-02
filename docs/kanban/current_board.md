@@ -766,6 +766,20 @@ no provider/model calls, no provider SDK calls, no live web, no shell/browser
 execution, no action execution, no memory writes, no backend route, no runtime
 authority, no production readiness claims, and no production authority.
 No-authority phrases: no public beta; no public distribution; no telemetry export; no connector runtime; no connector reads/writes; no provider/model calls; no provider SDK calls; no live web; no shell/browser execution; no action execution; no memory writes; no backend route; no runtime authority; no production readiness claims; no production authority.
+
+Product Loop 013 Founder Loop runs integration
+Goal met: Today, Morning Briefing, Action Inbox, Evidence Timeline, Memory
+Review, and Weekly Review now expose a backend-owned
+`founder_loop_runs_integration_read_model` and `loop_trace_refs` so operators
+can see which durable run refs, proof refs, receipt refs, evidence event refs,
+approval refs, and blocked-authority refs support the visible Founder Loop
+state. The Control Center renders these refs only after backend-shaped
+validation and mock-only fallback fails closed. This lane adds no new route,
+no provider/model calls, no connector writes or sends, no browser/live web, no
+shell execution, no scheduler/background autonomy, no raw payload
+persistence, no UI-only operator truth, no new approval authority, no public
+release, and no production authority.
+No-authority phrases: no new route; no provider/model calls; no connector writes or sends; no browser/live web; no shell execution; no scheduler/background autonomy; no raw payload persistence; no UI-only operator truth; no new approval authority; no public release; no production authority.
 ```
 
 ## QA / Verification

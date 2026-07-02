@@ -52,6 +52,8 @@ import type {
   FounderLoopPlanSummary,
   FounderLoopPlansToActionsBridgeReadModel,
   FounderLoopProductProofReadModel,
+  FounderLoopRunsIntegrationReadModel,
+  FounderLoopRunsIntegrationSurfaceId,
   FounderLoopSourceReadiness,
   FounderLoopSourceReadinessProposalCandidate,
   FounderLoopStorageStatus,
@@ -1885,6 +1887,10 @@ export function TodaySurfacePanel({
         today={today}
       />
       <TodayLoopReadModelPanel today={today} />
+      <FounderLoopRunsIntegrationPanel
+        focus="today"
+        readModel={today.founder_loop_runs_integration_read_model}
+      />
       <UnifiedWorkThreadPanel
         readModel={today.unified_work_thread_read_model}
       />
@@ -3844,6 +3850,178 @@ function FounderLoopProductProofPanel({
   );
 }
 
+function FounderLoopRunsIntegrationPanel({
+  compact = false,
+  focus,
+  readModel,
+}: {
+  compact?: boolean;
+  focus?: FounderLoopRunsIntegrationSurfaceId;
+  readModel?: FounderLoopRunsIntegrationReadModel;
+}) {
+  if (!readModel) {
+    return null;
+  }
+  const focusedBinding = focus
+    ? readModel.surface_bindings.find((binding) => binding.surface_id === focus)
+    : undefined;
+  const visibleBindings = compact
+    ? readModel.surface_bindings.filter(
+        (binding) => !focus || binding.surface_id === focus,
+      )
+    : readModel.surface_bindings;
+
+  return (
+    <section
+      aria-label="Founder Loop run and proof refs"
+      className="compact-stack founder-loop-runs-integration"
+    >
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Run and proof refs</h3>
+          <span>{readModel.status}</span>
+        </div>
+        <p className="eyebrow">Backend-owned provenance</p>
+        <p className="section-copy">{readModel.authority_boundary}</p>
+        <dl className="detail-list">
+          <DetailTerm label="Contract" value={readModel.contract_ref} />
+          <DetailTerm label="Source" value={readModel.source} />
+          <DetailTerm label="Run" value={readModel.primary_run_ref} />
+          <DetailTerm label="Proof" value={readModel.primary_proof_ref} />
+          <DetailTerm label="UI truth" value={readModel.ui_truth_source} />
+          <DetailTerm label="Action origin" value={readModel.action_origin_posture} />
+          <DetailTerm
+            label="Decision receipts"
+            value={readModel.decision_receipt_posture}
+          />
+          <DetailTerm label="Evidence path" value={readModel.evidence_path_posture} />
+          <DetailTerm label="Proof detail" value={readModel.proof_detail_posture} />
+          <DetailTerm label="Memory" value={readModel.memory_candidate_posture} />
+          <DetailTerm label="Weekly review" value={readModel.weekly_review_posture} />
+          <DetailTerm
+            label="Execution"
+            value={readModel.action_execution_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm
+            label="Approval authority"
+            value={readModel.approval_authority_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm
+            label="Provider/model calls"
+            value={readModel.provider_model_call_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm
+            label="Connector sends"
+            value={readModel.connector_send_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm
+            label="Production authority"
+            value={readModel.production_authority_enabled ? "unsafe" : "blocked"}
+          />
+          <DetailTerm label="Next" value={readModel.next_safe_action} />
+        </dl>
+        <RefListWithFallback
+          emptyLabel="Run refs: none"
+          refs={readModel.run_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Proof refs: none"
+          refs={readModel.proof_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Receipt refs: none recorded"
+          refs={readModel.receipt_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Evidence event refs: none"
+          refs={readModel.evidence_event_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Operator run event refs: none"
+          refs={readModel.operator_run_event_refs}
+        />
+        <RefListWithFallback
+          emptyLabel="Blocked authority refs: missing"
+          refs={readModel.blocked_authority_refs}
+        />
+      </article>
+      {focusedBinding ? (
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>{focusedBinding.surface} trace</h3>
+            <span>{focusedBinding.status}</span>
+          </div>
+          <p className="section-copy">{focusedBinding.safe_summary}</p>
+          <dl className="detail-list">
+            <DetailTerm label="This came from run" value={focusedBinding.run_ref} />
+            <DetailTerm
+              label="Proof detail"
+              value={focusedBinding.proof_detail_ref}
+            />
+            <DetailTerm
+              label="Proof route"
+              value={focusedBinding.proof_detail_route_ref}
+            />
+            <DetailTerm label="Backend route" value={focusedBinding.backend_route_ref} />
+            <DetailTerm label="Frontend route" value={focusedBinding.frontend_route_ref} />
+            <DetailTerm label="Next" value={focusedBinding.next_safe_action} />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Action source refs: none"
+            refs={focusedBinding.action_source_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Approval refs: identifiers only or none"
+            refs={focusedBinding.approval_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Receipt refs: none recorded"
+            refs={focusedBinding.receipt_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Evidence refs: none"
+            refs={focusedBinding.evidence_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Memory candidate refs: explicit none"
+            refs={focusedBinding.memory_candidate_refs}
+          />
+        </article>
+      ) : null}
+      {!compact ? (
+        <div className="review-grid">
+          {visibleBindings.map((binding) => (
+            <article className="review-card" key={binding.surface_id}>
+              <div className="review-card-heading">
+                <h3>{binding.surface}</h3>
+                <span>{binding.status}</span>
+              </div>
+              <p>{binding.safe_summary}</p>
+              <dl className="detail-list">
+                <DetailTerm label="Run" value={binding.run_ref} />
+                <DetailTerm label="Proof" value={binding.proof_ref} />
+                <DetailTerm label="Proof detail" value={binding.proof_detail_ref} />
+              </dl>
+              <RefListWithFallback
+                emptyLabel="Receipt refs: none"
+                refs={binding.receipt_refs}
+              />
+              <RefListWithFallback
+                emptyLabel="Evidence refs: none"
+                refs={binding.evidence_refs}
+              />
+              <RefListWithFallback
+                emptyLabel="Blocked refs: none"
+                refs={binding.blocked_state_refs}
+              />
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function UnifiedWorkThreadPanel({
   readModel,
 }: {
@@ -4134,11 +4312,13 @@ export function ActionInboxSurfacePanel({
   approvalReview,
   inbox,
   providerCredentialReadiness,
+  today,
 }: {
   actionReadModelAuthoritative: boolean;
   approvalReview?: RunAttachedApprovalQueue;
   inbox: FounderLoopActionsInbox;
   providerCredentialReadiness?: ProviderCredentialReadinessSummary;
+  today?: FounderLoopTodaySummary;
 }) {
   const [selectedActionGroup, setSelectedActionGroup] = useState<
     FounderLoopActionGroupId | "all"
@@ -4196,6 +4376,11 @@ export function ActionInboxSurfacePanel({
       <ActionInboxOperatorOverview
         actionGroups={actionGroups}
         inbox={displayedInbox}
+      />
+      <FounderLoopRunsIntegrationPanel
+        compact
+        focus="action_inbox"
+        readModel={today?.founder_loop_runs_integration_read_model}
       />
       {approvalReview ? (
         <>
@@ -5122,6 +5307,11 @@ export function MorningBriefingPanel({
         contractRef={briefing.morning_briefing_v1_contract_ref}
         readModel={briefing.morning_briefing_v1_read_model}
       />
+      <FounderLoopRunsIntegrationPanel
+        compact
+        focus="morning_briefing"
+        readModel={briefing.founder_loop_runs_integration_read_model}
+      />
       <div className="panel-grid">
         <article className="status-card">
           <div className="status-card-header">
@@ -5514,6 +5704,11 @@ export function MemoryReviewSurfacePanel({
         contextPacks={contextPacks}
         today={today}
         workbench={workbench}
+      />
+      <FounderLoopRunsIntegrationPanel
+        compact
+        focus="memory_review"
+        readModel={today.founder_loop_runs_integration_read_model}
       />
       <div className="panel-grid">
         <MemoryWorkbenchSearchPanel items={workbenchItems} />
@@ -7257,6 +7452,14 @@ export function EvidenceTimelineSurfacePanel({
       </div>
       <EvidenceOperatorSummary evidence={evidence} today={today} />
       <OperatorRunTimelinePanel timeline={evidence?.operator_run_timeline} />
+      <FounderLoopRunsIntegrationPanel
+        compact
+        focus="evidence_timeline"
+        readModel={
+          evidence?.founder_loop_runs_integration_read_model ??
+          today.founder_loop_runs_integration_read_model
+        }
+      />
       <EvidenceTimelineNarrativeSection
         readModel={evidence?.narrative_read_model}
       />

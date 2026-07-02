@@ -142,6 +142,10 @@ from ultimate_ai_agent.core.control_center.founder_loop_product_proof import (
     FOUNDER_LOOP_PRODUCT_PROOF_CONTRACT_REF,
     build_founder_loop_product_proof_read_model,
 )
+from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
+    FOUNDER_LOOP_RUNS_INTEGRATION_CONTRACT_REF,
+    build_founder_loop_runs_integration_read_model,
+)
 from ultimate_ai_agent.core.control_center.chat_to_loop_handoff import (
     CHAT_TO_LOOP_HANDOFF_CONTRACT_REF,
     build_chat_to_loop_handoff_read_model,
@@ -415,9 +419,7 @@ EVIDENCE_TIMELINE_PRODUCTIZED_GROUP_KINDS = (
     "memory_candidate",
 )
 OPERATOR_RUN_TIMELINE_CONTRACT_REF = "contract-ref:operator-run-timeline:v1"
-FRONTIER_AI_COST_USAGE_CONTRACT_REF = (
-    "contract-ref:frontier-ai-cost-usage-telemetry:v1"
-)
+FRONTIER_AI_COST_USAGE_CONTRACT_REF = "contract-ref:frontier-ai-cost-usage-telemetry:v1"
 OPERATOR_RUN_TIMELINE_BORROWED_PATTERNS = (
     {
         "pattern_id": "typed_event_ledger",
@@ -1491,7 +1493,9 @@ class FounderLoopEvidenceNarrativeEntry(BaseModel):
             "remaining_blocked",
             "inspection_summary",
         ]:
-            _validate_evidence_narrative_text(str(getattr(self, field_name)), field_name)
+            _validate_evidence_narrative_text(
+                str(getattr(self, field_name)), field_name
+            )
         denied_flags = {
             "raw_content_included": self.raw_content_included,
             "approval_ref_authority": self.approval_ref_authority,
@@ -1636,11 +1640,15 @@ class FounderLoopEvidenceTimelineNarrativeReadModel(BaseModel):
         if self.narrative_refs != [entry.narrative_ref for entry in self.entries]:
             raise ValueError("evidence narrative refs must match entries")
         expected_ref_sets = {
-            "event_refs": _unique_sorted_refs(entry.event_ref for entry in self.entries),
+            "event_refs": _unique_sorted_refs(
+                entry.event_ref for entry in self.entries
+            ),
             "timeline_item_refs": _unique_sorted_refs(
                 entry.timeline_item_ref for entry in self.entries
             ),
-            "group_refs": _unique_sorted_refs(entry.group_ref for entry in self.entries),
+            "group_refs": _unique_sorted_refs(
+                entry.group_ref for entry in self.entries
+            ),
             "receipt_refs": _unique_sorted_refs(
                 ref for entry in self.entries for ref in entry.receipt_refs
             ),
@@ -1802,7 +1810,9 @@ class FounderLoopOperatorRunCostUsage(BaseModel):
         }
         enabled = [name for name, value in denied_flags.items() if value]
         if enabled:
-            raise ValueError(f"frontier AI cost usage stored denied content: {enabled[0]}")
+            raise ValueError(
+                f"frontier AI cost usage stored denied content: {enabled[0]}"
+            )
         _validate_safe_payload(
             self.model_dump(mode="json"),
             "operator_run_cost_usage",
@@ -1874,7 +1884,9 @@ class FounderLoopOperatorRunEvent(BaseModel):
         }
         enabled = [name for name, value in denied_flags.items() if value]
         if enabled:
-            raise ValueError(f"operator run event enabled denied authority: {enabled[0]}")
+            raise ValueError(
+                f"operator run event enabled denied authority: {enabled[0]}"
+            )
         _validate_safe_payload(self.model_dump(mode="json"), "operator_run_event")
         return self
 
@@ -1999,9 +2011,10 @@ class FounderLoopOperatorRunTimeline(BaseModel):
         _validate_safe_text(self.route_ref, "operator_run_timeline_route_ref")
         for route_ref in self.frontend_route_refs:
             _validate_safe_text(route_ref, "operator_run_frontend_route_ref")
-        if {
-            pattern.pattern_id for pattern in self.borrowed_patterns
-        } != {str(pattern["pattern_id"]) for pattern in OPERATOR_RUN_TIMELINE_BORROWED_PATTERNS}:
+        if {pattern.pattern_id for pattern in self.borrowed_patterns} != {
+            str(pattern["pattern_id"])
+            for pattern in OPERATOR_RUN_TIMELINE_BORROWED_PATTERNS
+        }:
             raise ValueError("operator run timeline must expose all borrowed patterns")
         if self.event_count != len(self.run_events):
             raise ValueError("operator run timeline event count mismatch")
@@ -2171,6 +2184,23 @@ def _first_ref_or(refs: list[str], fallback: str) -> str:
 
 def _unique_sorted_refs(refs: Any) -> list[str]:
     return sorted({str(ref) for ref in refs if ref})
+
+
+def _loop_trace_refs_from_runs_integration(
+    read_model: dict[str, Any],
+) -> dict[str, list[str]]:
+    return {
+        "run_refs": list(read_model.get("run_refs") or []),
+        "operator_run_event_refs": list(
+            read_model.get("operator_run_event_refs") or []
+        ),
+        "receipt_refs": list(read_model.get("receipt_refs") or []),
+        "evidence_refs": list(read_model.get("evidence_refs") or []),
+        "evidence_event_refs": list(read_model.get("evidence_event_refs") or []),
+        "proof_refs": list(read_model.get("proof_refs") or []),
+        "approval_refs": list(read_model.get("approval_refs") or []),
+        "blocked_authority_refs": list(read_model.get("blocked_authority_refs") or []),
+    }
 
 
 def _safe_blocked_refs(values: Any) -> list[str]:
@@ -2412,7 +2442,10 @@ def _classify_action_inbox_group(action: dict[str, Any]) -> tuple[str, str]:
     action_kind = str(action.get("action_kind") or "review_only")
     is_local_task = action_kind == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
 
-    if action.get("state_change_contract_ref") == MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_CONTRACT_REF:
+    if (
+        action.get("state_change_contract_ref")
+        == MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_CONTRACT_REF
+    ):
         return (
             "proposal_only_no_execution_path",
             "Memory context-pack handoff created an internal Action proposal receipt only; no execution path is available.",
@@ -2771,9 +2804,7 @@ def _source_readiness_posture(
             1 for item in source_readiness_items if item.get("status") == "ready"
         ),
         "blocked_source_count": sum(
-            1
-            for item in source_readiness_items
-            if item.get("status") == "blocked"
+            1 for item in source_readiness_items if item.get("status") == "blocked"
         ),
         "metadata_only_source_count": sum(
             1
@@ -2837,9 +2868,7 @@ def _source_readiness_read_model(
         ]
     )
     evidence_refs = _unique_sorted_refs(
-        ref
-        for item in source_readiness_items
-        for ref in item.get("evidence_refs", [])
+        ref for item in source_readiness_items for ref in item.get("evidence_refs", [])
     )
     proposal_candidates = _source_readiness_proposal_candidates(
         source_readiness_items=source_readiness_items,
@@ -2900,7 +2929,9 @@ def _source_readiness_proposal_candidates(
     items_by_kind = {
         str(item.get("source_kind")): item for item in source_readiness_items
     }
-    missing_contract_refs = set(source_readiness_posture.get("missing_contract_refs", []))
+    missing_contract_refs = set(
+        source_readiness_posture.get("missing_contract_refs", [])
+    )
     blocked_ref_set = set(blocked_authority_refs)
     candidate_specs = [
         {
@@ -2958,7 +2989,10 @@ def _source_readiness_proposal_candidates(
     proposals: list[dict[str, Any]] = []
     for spec in candidate_specs:
         trigger_ref = str(spec["trigger_ref"])
-        if trigger_ref not in missing_contract_refs and trigger_ref not in blocked_ref_set:
+        if (
+            trigger_ref not in missing_contract_refs
+            and trigger_ref not in blocked_ref_set
+        ):
             continue
         source_item = items_by_kind.get(str(spec["source_kind"])) or (
             source_readiness_items[0] if source_readiness_items else {}
@@ -3073,9 +3107,7 @@ def _source_readiness_action_items(
                     "missing_contract_ref"
                 ],
                 "source_readiness_ref": proposal["source_readiness_ref"],
-                "source_readiness_route_ref": proposal[
-                    "source_readiness_route_ref"
-                ],
+                "source_readiness_route_ref": proposal["source_readiness_route_ref"],
                 "source_readiness_blocked_authority_refs": blocked_refs,
                 "source_readiness_backend_owned": proposal["backend_owned"],
                 "source_readiness_proposal_classification": proposal[
@@ -4155,9 +4187,7 @@ def _plan_action_envelope_contract_payload(plan: dict[str, Any]) -> dict[str, An
         "plan_action_authority_boundary": payload["authority_boundary"],
         "action_envelope_cost_contract_ref": FRONTIER_AI_COST_USAGE_CONTRACT_REF,
         "action_envelope_estimated_cost_usd": cost_slot["estimated_cost_usd"],
-        "action_envelope_max_approved_cost_usd": cost_slot[
-            "max_approved_cost_usd"
-        ],
+        "action_envelope_max_approved_cost_usd": cost_slot["max_approved_cost_usd"],
         "action_envelope_provider_ref": cost_slot["provider_ref"],
         "action_envelope_model_profile_ref": cost_slot["model_profile_ref"],
         "action_envelope_input_metered_units": cost_slot["input_metered_units"],
@@ -4167,9 +4197,7 @@ def _plan_action_envelope_contract_payload(plan: dict[str, Any]) -> dict[str, An
         "action_envelope_captured_usage_ref": cost_slot["captured_usage_ref"],
         "action_envelope_budget_decision_ref": cost_slot["budget_decision_ref"],
         "action_envelope_cost_receipt_refs": cost_slot["cost_receipt_refs"],
-        "action_envelope_cost_blocked_state_refs": cost_slot[
-            "cost_blocked_state_refs"
-        ],
+        "action_envelope_cost_blocked_state_refs": cost_slot["cost_blocked_state_refs"],
         "action_envelope_cost_state_label": cost_slot["cost_state_label"],
         "action_envelope_provider_authority_state_label": cost_slot[
             "provider_authority_state_label"
@@ -4177,9 +4205,7 @@ def _plan_action_envelope_contract_payload(plan: dict[str, Any]) -> dict[str, An
         "action_envelope_unknown_paid_cost_requires_explicit_approval": cost_slot[
             "approval_required_for_unknown_paid_cost"
         ],
-        "action_envelope_frontier_usage_claimed": cost_slot[
-            "frontier_usage_claimed"
-        ],
+        "action_envelope_frontier_usage_claimed": cost_slot["frontier_usage_claimed"],
     }
 
 
@@ -4521,9 +4547,7 @@ def _action_envelope_contract_payload(action: dict[str, Any]) -> dict[str, Any]:
         "action_envelope_raw_content_included": payload["raw_content_included"],
         "action_envelope_cost_contract_ref": FRONTIER_AI_COST_USAGE_CONTRACT_REF,
         "action_envelope_estimated_cost_usd": cost_slot["estimated_cost_usd"],
-        "action_envelope_max_approved_cost_usd": cost_slot[
-            "max_approved_cost_usd"
-        ],
+        "action_envelope_max_approved_cost_usd": cost_slot["max_approved_cost_usd"],
         "action_envelope_provider_ref": cost_slot["provider_ref"],
         "action_envelope_model_profile_ref": cost_slot["model_profile_ref"],
         "action_envelope_input_metered_units": cost_slot["input_metered_units"],
@@ -4533,9 +4557,7 @@ def _action_envelope_contract_payload(action: dict[str, Any]) -> dict[str, Any]:
         "action_envelope_captured_usage_ref": cost_slot["captured_usage_ref"],
         "action_envelope_budget_decision_ref": cost_slot["budget_decision_ref"],
         "action_envelope_cost_receipt_refs": cost_slot["cost_receipt_refs"],
-        "action_envelope_cost_blocked_state_refs": cost_slot[
-            "cost_blocked_state_refs"
-        ],
+        "action_envelope_cost_blocked_state_refs": cost_slot["cost_blocked_state_refs"],
         "action_envelope_cost_state_label": cost_slot["cost_state_label"],
         "action_envelope_provider_authority_state_label": cost_slot[
             "provider_authority_state_label"
@@ -4543,9 +4565,7 @@ def _action_envelope_contract_payload(action: dict[str, Any]) -> dict[str, Any]:
         "action_envelope_unknown_paid_cost_requires_explicit_approval": cost_slot[
             "approval_required_for_unknown_paid_cost"
         ],
-        "action_envelope_frontier_usage_claimed": cost_slot[
-            "frontier_usage_claimed"
-        ],
+        "action_envelope_frontier_usage_claimed": cost_slot["frontier_usage_claimed"],
     }
 
 
@@ -4980,12 +5000,8 @@ def _governed_code_workbench_contract_payload() -> dict[str, Any]:
         ),
         "governed_code_workbench_evidence_refs": payload["evidence_refs"],
         "governed_code_workbench_idempotency_key_ref": (payload["idempotency_key_ref"]),
-        "governed_code_workbench_work_classification": (
-            payload["work_classification"]
-        ),
-        "governed_code_workbench_delegation_proposal": (
-            payload["delegation_proposal"]
-        ),
+        "governed_code_workbench_work_classification": (payload["work_classification"]),
+        "governed_code_workbench_delegation_proposal": (payload["delegation_proposal"]),
         "governed_code_workbench_cache_context_economics": (
             payload["cache_context_economics"]
         ),
@@ -5577,11 +5593,23 @@ class FounderLoopRepository:
                 evidence_event_refs=evidence_event_refs,
             )
         )
-        plans_to_actions_bridge_read_model = (
-            build_plans_to_actions_bridge_read_model(
-                plans=plans,
-                action_items=bridge_action_items,
+        founder_loop_runs_integration_read_model = (
+            build_founder_loop_runs_integration_read_model(
+                actions=actions,
+                briefing_items=briefing_items,
+                memory_items=memory_items,
+                evidence_timeline=evidence_timeline,
+                memory_review_decisions=memory_review_decisions,
+                founder_loop_product_proof_read_model=(
+                    founder_loop_v1_product_proof_read_model
+                ),
+                weekly_ceo_review_v1_read_model=weekly_ceo_review_v1_read_model,
+                evidence_event_refs=evidence_event_refs,
             )
+        )
+        plans_to_actions_bridge_read_model = build_plans_to_actions_bridge_read_model(
+            plans=plans,
+            action_items=bridge_action_items,
         )
         unified_work_thread_read_model = build_unified_work_thread_read_model(
             actions=actions,
@@ -5719,12 +5747,19 @@ class FounderLoopRepository:
             "founder_loop_v1_product_proof_read_model": (
                 founder_loop_v1_product_proof_read_model
             ),
+            "founder_loop_runs_integration_contract_ref": (
+                FOUNDER_LOOP_RUNS_INTEGRATION_CONTRACT_REF
+            ),
+            "founder_loop_runs_integration_read_model": (
+                founder_loop_runs_integration_read_model
+            ),
+            "loop_trace_refs": _loop_trace_refs_from_runs_integration(
+                founder_loop_runs_integration_read_model
+            ),
             "plans_to_actions_bridge_contract_ref": (
                 PLANS_TO_ACTIONS_BRIDGE_CONTRACT_REF
             ),
-            "plans_to_actions_bridge_read_model": (
-                plans_to_actions_bridge_read_model
-            ),
+            "plans_to_actions_bridge_read_model": (plans_to_actions_bridge_read_model),
             "unified_work_thread_contract_ref": UNIFIED_WORK_THREAD_CONTRACT_REF,
             "unified_work_thread_read_model": unified_work_thread_read_model,
             "daily_loop_summary": daily_loop_summary,
@@ -5980,6 +6015,13 @@ class FounderLoopRepository:
                 groups=groups,
                 narrative_items=timeline,
             ),
+            "founder_loop_runs_integration_contract_ref": (
+                today.get("founder_loop_runs_integration_contract_ref")
+            ),
+            "founder_loop_runs_integration_read_model": (
+                today.get("founder_loop_runs_integration_read_model")
+            ),
+            "loop_trace_refs": today.get("loop_trace_refs"),
             "narrative_items": timeline,
             "review_answer_refs": {
                 "proposed": _unique_sorted_refs(
@@ -6095,6 +6137,13 @@ class FounderLoopRepository:
             "production_authority_enabled": False,
             "weekly_ceo_review_v1_contract_ref": WEEKLY_CEO_REVIEW_V1_CONTRACT_REF,
             "weekly_ceo_review_v1_read_model": read_model,
+            "founder_loop_runs_integration_contract_ref": (
+                today.get("founder_loop_runs_integration_contract_ref")
+            ),
+            "founder_loop_runs_integration_read_model": (
+                today.get("founder_loop_runs_integration_read_model")
+            ),
+            "loop_trace_refs": today.get("loop_trace_refs"),
             "evidence_refs": read_model["evidence_refs"],
             "blocked_authority_refs": read_model["blocked_authority_refs"],
             "next_safe_action": read_model["next_safe_action"],
@@ -6138,6 +6187,13 @@ class FounderLoopRepository:
             "public_release_claim_enabled": False,
             "production_authority_enabled": False,
             "founder_loop_v1_product_proof_read_model": read_model,
+            "founder_loop_runs_integration_contract_ref": (
+                today.get("founder_loop_runs_integration_contract_ref")
+            ),
+            "founder_loop_runs_integration_read_model": (
+                today.get("founder_loop_runs_integration_read_model")
+            ),
+            "loop_trace_refs": today.get("loop_trace_refs"),
             "receipt_refs": read_model["receipt_refs"],
             "evidence_refs": read_model["evidence_refs"],
             "blocked_authority_refs": read_model["blocked_authority_refs"],
@@ -6180,10 +6236,7 @@ class FounderLoopRepository:
         narrative_items: list[dict[str, Any]],
     ) -> dict[str, Any]:
         entries = (
-            [
-                self._evidence_narrative_entry_from_event(event)
-                for event in events[:50]
-            ]
+            [self._evidence_narrative_entry_from_event(event) for event in events[:50]]
             if events
             else [
                 self._evidence_narrative_entry_from_item(item)
@@ -6660,7 +6713,9 @@ class FounderLoopRepository:
         }
         event_cost_slots = [event["cost_usage"] for event in run_events]
         estimated_total_cost = round(
-            sum(float(slot.get("estimated_cost_usd", 0.0)) for slot in event_cost_slots),
+            sum(
+                float(slot.get("estimated_cost_usd", 0.0)) for slot in event_cost_slots
+            ),
             6,
         )
         captured_total_cost = round(
@@ -8148,14 +8203,12 @@ class FounderLoopRepository:
                             or [
                                 str(latest_decision.get("defer_ref"))
                                 for latest_decision in [latest_decision]
-                                if latest_decision
-                                and latest_decision.get("defer_ref")
+                                if latest_decision and latest_decision.get("defer_ref")
                             ]
                             or [
                                 str(latest_decision.get("merge_ref"))
                                 for latest_decision in [latest_decision]
-                                if latest_decision
-                                and latest_decision.get("merge_ref")
+                                if latest_decision and latest_decision.get("merge_ref")
                             ]
                             or [
                                 str(latest_decision.get("supersede_ref"))
@@ -8492,11 +8545,9 @@ class FounderLoopRepository:
         action_inbox_decision_lane_read_model = (
             build_action_inbox_decision_lane_read_model(actions=items)
         )
-        plans_to_actions_bridge_read_model = (
-            build_plans_to_actions_bridge_read_model(
-                plans=self.list_plan_summaries(limit=3),
-                action_items=items,
-            )
+        plans_to_actions_bridge_read_model = build_plans_to_actions_bridge_read_model(
+            plans=self.list_plan_summaries(limit=3),
+            action_items=items,
         )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
@@ -8534,9 +8585,7 @@ class FounderLoopRepository:
             "plans_to_actions_bridge_contract_ref": (
                 PLANS_TO_ACTIONS_BRIDGE_CONTRACT_REF
             ),
-            "plans_to_actions_bridge_read_model": (
-                plans_to_actions_bridge_read_model
-            ),
+            "plans_to_actions_bridge_read_model": (plans_to_actions_bridge_read_model),
             "chat_to_loop_handoff_contract_ref": CHAT_TO_LOOP_HANDOFF_CONTRACT_REF,
             "chat_to_loop_handoff_read_model": chat_to_loop_handoff_read_model,
             "items": items,
@@ -8738,6 +8787,20 @@ class FounderLoopRepository:
                 evidence_event_refs=evidence_event_refs,
             )
         )
+        founder_loop_runs_integration_read_model = (
+            build_founder_loop_runs_integration_read_model(
+                actions=actions,
+                briefing_items=items,
+                memory_items=memory_items,
+                evidence_timeline=evidence_timeline,
+                memory_review_decisions=memory_review_decisions,
+                founder_loop_product_proof_read_model=(
+                    founder_loop_v1_product_proof_read_model
+                ),
+                weekly_ceo_review_v1_read_model=weekly_ceo_review_v1_read_model,
+                evidence_event_refs=evidence_event_refs,
+            )
+        )
         storage_status = self.storage_status()
         memory_workbench = self._memory_workbench_read_only_status()
         payload = {
@@ -8886,6 +8949,15 @@ class FounderLoopRepository:
             ),
             "founder_loop_v1_product_proof_read_model": (
                 founder_loop_v1_product_proof_read_model
+            ),
+            "founder_loop_runs_integration_contract_ref": (
+                FOUNDER_LOOP_RUNS_INTEGRATION_CONTRACT_REF
+            ),
+            "founder_loop_runs_integration_read_model": (
+                founder_loop_runs_integration_read_model
+            ),
+            "loop_trace_refs": _loop_trace_refs_from_runs_integration(
+                founder_loop_runs_integration_read_model
             ),
             "chat_to_loop_handoff_contract_ref": CHAT_TO_LOOP_HANDOFF_CONTRACT_REF,
             "chat_to_loop_handoff_read_model": chat_to_loop_handoff_read_model,
@@ -9493,9 +9565,7 @@ class FounderLoopRepository:
             cost_receipt_refs=cost_slot["cost_receipt_refs"],
             cost_blocked_state_refs=cost_slot["cost_blocked_state_refs"],
             cost_state_label=cost_slot["cost_state_label"],
-            provider_authority_state_label=cost_slot[
-                "provider_authority_state_label"
-            ],
+            provider_authority_state_label=cost_slot["provider_authority_state_label"],
             unknown_paid_cost_requires_explicit_approval=cost_slot[
                 "approval_required_for_unknown_paid_cost"
             ],
@@ -9549,9 +9619,7 @@ class FounderLoopRepository:
             cost_receipt_refs=cost_slot["cost_receipt_refs"],
             cost_blocked_state_refs=cost_slot["cost_blocked_state_refs"],
             cost_state_label=cost_slot["cost_state_label"],
-            provider_authority_state_label=cost_slot[
-                "provider_authority_state_label"
-            ],
+            provider_authority_state_label=cost_slot["provider_authority_state_label"],
             unknown_paid_cost_requires_explicit_approval=cost_slot[
                 "approval_required_for_unknown_paid_cost"
             ],
@@ -9813,14 +9881,12 @@ class FounderLoopRepository:
                 "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_ACTION_SCOPE_MISMATCH"
             )
         context_pack_proposal_ref = str(context_pack["proposal_ref"])
-        request = (
-            self._request_with_backend_owned_memory_context_pack_action_approval_if_needed(
-                context_pack_ref=context_pack_ref,
-                context_pack_proposal_ref=context_pack_proposal_ref,
-                request=request,
-                expected_scope_ref=expected_scope_ref,
-                idempotency_key_ref=idempotency_key_ref,
-            )
+        request = self._request_with_backend_owned_memory_context_pack_action_approval_if_needed(
+            context_pack_ref=context_pack_ref,
+            context_pack_proposal_ref=context_pack_proposal_ref,
+            request=request,
+            expected_scope_ref=expected_scope_ref,
+            idempotency_key_ref=idempotency_key_ref,
         )
 
         fingerprint_payload = memory_context_pack_action_payload_for_fingerprint(
@@ -10862,8 +10928,7 @@ class FounderLoopRepository:
                 quality_refs
                 or duplicate_refs
                 or conflict_refs
-                or stale_state
-                not in {"", "fresh", "current", "not_stale", "not-stale"}
+                or stale_state not in {"", "fresh", "current", "not_stale", "not-stale"}
             ):
                 refs.append(memory_ref)
                 refs.extend(str(ref) for ref in quality_refs)
@@ -11579,8 +11644,7 @@ class FounderLoopRepository:
             cost_blocked_state_refs=cost_blocked_state_refs,
             cost_state_label=str(action.get("cost_state_label") or "Cost blocked"),
             provider_authority_state_label=str(
-                action.get("provider_authority_state_label")
-                or "No provider authority"
+                action.get("provider_authority_state_label") or "No provider authority"
             ),
             unknown_paid_cost_requires_explicit_approval=bool(
                 action.get("unknown_paid_cost_requires_explicit_approval", True)
@@ -12057,7 +12121,9 @@ class FounderLoopRepository:
             _validate_safe_ref(query_ref, "query_ref")
         bounded_limit = self._bounded_limit(limit)
         workbench = self.memory_workbench(query_ref=query_ref, limit=bounded_limit)
-        impact_graph = self.memory_impact_graph(query_ref=query_ref, limit=bounded_limit)
+        impact_graph = self.memory_impact_graph(
+            query_ref=query_ref, limit=bounded_limit
+        )
         return build_memory_retrieval_diagnostics(
             workbench=workbench,
             impact_graph=impact_graph,
@@ -12100,7 +12166,9 @@ class FounderLoopRepository:
             _validate_safe_ref(query_ref, "query_ref")
         bounded_limit = self._bounded_limit(limit)
         workbench = self.memory_workbench(query_ref=query_ref, limit=bounded_limit)
-        impact_graph = self.memory_impact_graph(query_ref=query_ref, limit=bounded_limit)
+        impact_graph = self.memory_impact_graph(
+            query_ref=query_ref, limit=bounded_limit
+        )
         return build_memory_feedback_quality_queue(
             workbench=workbench,
             impact_graph=impact_graph,
@@ -12173,8 +12241,12 @@ class FounderLoopRepository:
             evidence_timeline=self.evidence_timeline(limit=200),
         )
         if request.target_ref not in set(target_refs):
-            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_FEEDBACK_TARGET_NOT_FOUND")
-        fingerprint_payload = diagnostic_memory_feedback_payload_for_fingerprint(request)
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_MEMORY_FEEDBACK_TARGET_NOT_FOUND"
+            )
+        fingerprint_payload = diagnostic_memory_feedback_payload_for_fingerprint(
+            request
+        )
         payload_fingerprint_ref = diagnostic_memory_feedback_payload_fingerprint_ref(
             fingerprint_payload
         )
@@ -12381,7 +12453,9 @@ class FounderLoopRepository:
     ) -> dict[str, Any]:
         _validate_safe_ref(idempotency_key_ref, "idempotency_key_ref")
         if request.candidate_kind not in BUSINESS_MEMORY_CANDIDATE_KINDS:
-            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_CANDIDATE_KIND_UNSUPPORTED")
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_MEMORY_CANDIDATE_KIND_UNSUPPORTED"
+            )
         fingerprint_payload = manual_memory_candidate_payload_for_fingerprint(request)
         payload_fingerprint_ref = manual_memory_candidate_payload_fingerprint_ref(
             fingerprint_payload
@@ -12558,7 +12632,9 @@ class FounderLoopRepository:
         if decision == "correct" and request.corrected_summary_ref is None:
             raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_CORRECTION_REF_REQUIRED")
         if decision == "correct" and request.corrected_safe_summary is None:
-            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_CORRECTION_SUMMARY_REQUIRED")
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_MEMORY_CORRECTION_SUMMARY_REQUIRED"
+            )
         if decision != "correct" and request.corrected_summary_ref is not None:
             raise FounderLoopStorageError(
                 "FOUNDER_LOOP_MEMORY_CORRECTION_REF_NOT_ALLOWED"
@@ -12570,7 +12646,9 @@ class FounderLoopRepository:
         if decision == "merge" and not request.merge_refs:
             raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_MERGE_REFS_REQUIRED")
         if decision == "supersede" and not request.supersedes_refs:
-            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_SUPERSEDES_REFS_REQUIRED")
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_MEMORY_SUPERSEDES_REFS_REQUIRED"
+            )
         if decision != "merge" and request.merge_refs:
             raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_MERGE_REFS_NOT_ALLOWED")
         if decision != "supersede" and request.supersedes_refs:
@@ -12700,8 +12778,12 @@ class FounderLoopRepository:
         rejection_ref = (
             memory_review_rejection_ref(candidate_ref) if decision == "reject" else None
         )
-        defer_ref = memory_review_defer_ref(candidate_ref) if decision == "defer" else None
-        merge_ref = memory_review_merge_ref(candidate_ref) if decision == "merge" else None
+        defer_ref = (
+            memory_review_defer_ref(candidate_ref) if decision == "defer" else None
+        )
+        merge_ref = (
+            memory_review_merge_ref(candidate_ref) if decision == "merge" else None
+        )
         supersede_ref = (
             memory_review_supersede_ref(candidate_ref)
             if decision == "supersede"
@@ -13077,7 +13159,9 @@ class FounderLoopRepository:
         memory_record_ref = request.memory_record_ref
         memory_id = memory_record_ref.removeprefix("memory-record-ref:")
         if memory_id == memory_record_ref:
-            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_FEEDBACK_RECORD_REF_DENIED")
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_MEMORY_FEEDBACK_RECORD_REF_DENIED"
+            )
         fingerprint_payload = memory_feedback_payload_for_fingerprint(request)
         payload_fingerprint_ref = memory_feedback_payload_fingerprint_ref(
             fingerprint_payload
@@ -13181,8 +13265,13 @@ class FounderLoopRepository:
                 )
             except sqlite3.IntegrityError as exc:
                 replay = self._memory_feedback_replay(idempotency_key_ref)
-                if replay and replay["payload_fingerprint_ref"] == payload_fingerprint_ref:
-                    return self._memory_feedback_receipt_by_ref(str(replay["receipt_ref"]))
+                if (
+                    replay
+                    and replay["payload_fingerprint_ref"] == payload_fingerprint_ref
+                ):
+                    return self._memory_feedback_receipt_by_ref(
+                        str(replay["receipt_ref"])
+                    )
                 raise FounderLoopStorageDuplicateError(
                     "FOUNDER_LOOP_MEMORY_FEEDBACK_IDEMPOTENCY_CONFLICT"
                 ) from exc
@@ -13260,7 +13349,9 @@ class FounderLoopRepository:
         for preview in l1_index.get("previews", [])[: self._bounded_limit(limit)]:
             role = str(preview.get("epistemic_role") or "unknown")
             memory_record_ref = str(preview["memory_record_ref"])
-            supporting_l2_refs = list(dict.fromkeys(l2_by_memory_ref.get(memory_record_ref, [])))
+            supporting_l2_refs = list(
+                dict.fromkeys(l2_by_memory_ref.get(memory_record_ref, []))
+            )
             supporting_memory_refs = [memory_record_ref]
             source_refs = list(preview.get("source_refs") or [])
             evidence_refs = list(preview.get("evidence_refs") or [])
@@ -13333,7 +13424,9 @@ class FounderLoopRepository:
                 len(l2_index.get(key, []) or [])
                 for key in ["facts", "graph_relations", "temporal_items"]
             ),
-            "retrieval_strategy_refs": list(l1_index.get("retrieval_strategy_refs") or []),
+            "retrieval_strategy_refs": list(
+                l1_index.get("retrieval_strategy_refs") or []
+            ),
             "search_index_status": dict(l1_index.get("search_index_status") or {}),
             "hrr_readiness": memory_hrr_readiness(),
             "blocked_state_refs": list(MEMORY_OBSERVATION_BLOCKED_STATE_REFS),
@@ -13356,7 +13449,9 @@ class FounderLoopRepository:
         observations = self.memory_observation_candidates(limit=bounded_limit)
         feedback = self.list_memory_feedback_receipts(limit=bounded_limit)
 
-        def _matching_items(items: Sequence[dict[str, Any]], keys: Sequence[str]) -> list[dict[str, Any]]:
+        def _matching_items(
+            items: Sequence[dict[str, Any]], keys: Sequence[str]
+        ) -> list[dict[str, Any]]:
             matches: list[dict[str, Any]] = []
             for item in items:
                 refs: list[str] = []
@@ -13475,8 +13570,12 @@ class FounderLoopRepository:
             "reviewed_recall_refs": [
                 str(item.get("memory_record_ref")) for item in l1_previews
             ],
-            "workbench_item_refs": [str(item.get("memory_ref")) for item in workbench_items],
-            "l1_preview_refs": [str(item.get("memory_record_ref")) for item in l1_previews],
+            "workbench_item_refs": [
+                str(item.get("memory_ref")) for item in workbench_items
+            ],
+            "l1_preview_refs": [
+                str(item.get("memory_record_ref")) for item in l1_previews
+            ],
             "l2_projection_refs": [
                 str(
                     item.get("fact_ref")
@@ -13575,7 +13674,9 @@ class FounderLoopRepository:
                         str(receipt.get("receipt_ref")),
                     ],
                     "supporting_source_refs": list(receipt.get("source_refs") or []),
-                    "supporting_evidence_refs": list(receipt.get("evidence_refs") or []),
+                    "supporting_evidence_refs": list(
+                        receipt.get("evidence_refs") or []
+                    ),
                     "supporting_receipt_refs": [str(receipt.get("receipt_ref"))],
                     "safe_summary": (
                         "Contradiction preview from memory feedback receipt; "
