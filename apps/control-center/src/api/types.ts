@@ -64,6 +64,112 @@ export interface ApprovalSummary {
   summary: string;
 }
 
+export type RunAttachedApprovalState =
+  | "requested"
+  | "approved"
+  | "denied"
+  | "expired"
+  | "revoked"
+  | "scope_mismatch_blocked"
+  | "blocked";
+
+export interface RunAttachedApprovalQueueItem {
+  schema_version: "run_attached_approval_queue_item.v1";
+  item_ref: string;
+  approval_request_ref: string;
+  approval_grant_ref?: string | null;
+  run_ref: string;
+  step_ref: string;
+  requested_scope_ref: string;
+  approval_state: RunAttachedApprovalState;
+  approval_event_type: string;
+  approval_decision_ref?: string | null;
+  approval_receipt_ref?: string | null;
+  approval_scope_validation_ref?: string | null;
+  expiry_ref?: string | null;
+  revocation_ref?: string | null;
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  receipt_refs: string[];
+  audit_refs: string[];
+  replay_refs: string[];
+  rollback_refs: string[];
+  idempotency_key_refs: string[];
+  durable_attachment_status:
+    | "attached"
+    | "durable_attachment_missing"
+    | "approval_state_missing";
+  safe_summary: string;
+  required_next_action: string;
+  safe_refs_only: boolean;
+  raw_payloads_persisted: boolean;
+  approval_refs_are_identifiers_only: boolean;
+  approval_authority_enabled: boolean;
+  execution_authority_enabled: boolean;
+  ui_mutation_controls_enabled: boolean;
+  tool_execution_enabled: boolean;
+  connector_writes_enabled: boolean;
+  model_call_enabled: boolean;
+}
+
+export interface RunAttachedApprovalRunBucket {
+  run_ref: string;
+  pending_approval_refs: string[];
+  approval_history_refs: string[];
+  latest_approval_state?: RunAttachedApprovalState | null;
+  durable_attachment_statuses: string[];
+  safe_refs_only: boolean;
+}
+
+export interface RunAttachedApprovalQueueSummary {
+  schema_version: "run_attached_approval_queue_summary.v1";
+  queue_ref: string;
+  queue_item_count: number;
+  run_count: number;
+  pending_count: number;
+  requested_count: number;
+  approved_count: number;
+  denied_count: number;
+  expired_count: number;
+  revoked_count: number;
+  scope_mismatch_blocked_count: number;
+  blocked_count: number;
+  durable_attachment_missing_count: number;
+  approval_grants_created: boolean;
+  arbitrary_approval_ref_authority: boolean;
+  safe_summary: string;
+  safe_refs_only: boolean;
+  raw_payloads_persisted: boolean;
+  approval_refs_are_identifiers_only: boolean;
+  execution_authority_enabled: boolean;
+  ui_mutation_controls_enabled: boolean;
+}
+
+export interface RunAttachedApprovalQueue {
+  schema_version: "run_attached_approval_queue.v1";
+  source: "python_core_run_attached_approval_queue_read_model";
+  backend_owned: boolean;
+  queue_ref: string;
+  route_ref: string;
+  route_refs: string[];
+  cli_ref: string;
+  supported_approval_states: RunAttachedApprovalState[];
+  supported_approval_event_types: string[];
+  queue_items: RunAttachedApprovalQueueItem[];
+  pending_approvals_by_run: RunAttachedApprovalRunBucket[];
+  approval_history_by_run: RunAttachedApprovalRunBucket[];
+  summary: RunAttachedApprovalQueueSummary;
+  safe_refs_only: boolean;
+  raw_payloads_persisted: boolean;
+  approval_refs_are_identifiers_only: boolean;
+  approval_authority_enabled: boolean;
+  execution_authority_enabled: boolean;
+  ui_mutation_controls_enabled: boolean;
+  tool_execution_enabled: boolean;
+  connector_writes_enabled: boolean;
+  model_call_enabled: boolean;
+}
+
 export interface ApiSummary {
   route_count: number;
   control_center_route_count: number;
@@ -5839,6 +5945,7 @@ export interface ControlCenterData {
   runtimeReadiness: RuntimeReadinessReport;
   capabilityMatrix: RuntimeCapabilityMatrix;
   m15Review: M15ReviewData;
+  runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;
   m17Knowledge: M17KnowledgeData;
   m18Runtime: M18RuntimeData;

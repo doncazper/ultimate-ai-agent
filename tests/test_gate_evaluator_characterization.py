@@ -26,6 +26,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     FOUNDER_LOOP_MEMORY_FEATURE_MINE_ROUTES,
     FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES,
     POST_MILESTONE_SAFE_ROUTE_FAMILIES,
+    RUN_ATTACHED_APPROVAL_QUEUE_ROUTES,
     _historical_openapi_path_set,
     _post_m151_route_boundary_path_set,
 )
@@ -170,6 +171,9 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     assert CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES == {
         "/control-center/providers/router/dry-run",
     }
+    assert RUN_ATTACHED_APPROVAL_QUEUE_ROUTES == {
+        "/control-center/approvals/queue",
+    }
     assert set(POST_MILESTONE_SAFE_ROUTE_FAMILIES) == {
         "control_center_operational_status",
         "control_center_provider_catalog",
@@ -181,6 +185,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "mattermost",
         "packaging_proof",
         "redacted_observability",
+        "run_attached_approval_queue",
         "task_decomposition",
         "visual_proof",
         "v1_local_model_gateway",

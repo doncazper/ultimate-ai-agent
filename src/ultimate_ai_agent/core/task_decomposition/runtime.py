@@ -26,6 +26,7 @@ from ultimate_ai_agent.core.execution import (
     DurableRunTransitionStatus,
     apply_durable_run_transition,
     build_durable_run_lifecycle_read_model,
+    build_run_attached_approval_queue_read_model,
 )
 from ultimate_ai_agent.core.execution.validation import validate_execution_ref
 from ultimate_ai_agent.core.hygiene.actor_context import ActorContext, ActorType, AuthoritySource
@@ -806,6 +807,21 @@ class TaskDecompositionService:
             "requests": [request.model_dump(mode="json") for request in self._approval_requests.values()],
             "grants": [grant.model_dump(mode="json") for grant in self.approval_authority.list_grants()],
         }
+
+    def run_attached_approval_queue(
+        self,
+        run_id: str | None = None,
+        *,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        model = build_run_attached_approval_queue_read_model(
+            approval_requests=self._approval_requests.values(),
+            approval_grants=self.approval_authority.list_grants(run_id),
+            durable_run_storage=self.durable_run_storage,
+            run_ref=run_id,
+            limit=limit,
+        )
+        return model.model_dump(mode="json")
 
     def audit_events(self, limit: int = 100) -> list[dict[str, Any]]:
         events = self.registry_store.load_audit_events()

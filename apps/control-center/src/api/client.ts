@@ -18,6 +18,7 @@ import type {
   ProviderCatalog,
   RedactedLocalChatProbeStatus,
   ResultEnvelope,
+  RunAttachedApprovalQueue,
   RuntimeCapabilityMatrix,
   RuntimeReadinessReport,
   ApiRouteInventory,
@@ -249,6 +250,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<ControlCenterDashboardSnapshot["approval_summary"]>(
       API_ENDPOINTS.approvalSummary,
     ),
+    readEnvelope<RunAttachedApprovalQueue>(API_ENDPOINTS.approvalQueue),
     readEnvelope<ControlCenterDashboardSnapshot["runtime_readiness_summary"]>(
       API_ENDPOINTS.runtimeReadinessSummary,
     ),
@@ -287,8 +289,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const founderSourceReadiness = fulfilledValue(results[22]);
   const founderStorageStatus = fulfilledValue(results[23]);
   const approvalSummary = fulfilledValue(results[24]);
-  const runtimeReadinessSummary = fulfilledValue(results[25]);
-  const foundationGateSummary = fulfilledValue(results[26]);
+  const approvalQueue = fulfilledValue(results[25]);
+  const runtimeReadinessSummary = fulfilledValue(results[26]);
+  const foundationGateSummary = fulfilledValue(results[27]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderEvidenceTimeline = normalizeFounderEvidenceTimeline(
     founderEvidenceTimeline,
@@ -351,6 +354,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedDashboard.usedFallback;
   const dashboardSummaryEndpointFallbackUsed =
     approvalSummary === undefined ||
+    approvalQueue === undefined ||
     runtimeReadinessSummary === undefined ||
     foundationGateSummary === undefined;
   const generalMockFallbackUsed =
@@ -411,6 +415,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     capabilityMatrix:
       capabilityMatrix ?? mockControlCenterData.capabilityMatrix,
     m15Review: mockControlCenterData.m15Review,
+    runAttachedApprovalQueue:
+      approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
     m16Trace: mockControlCenterData.m16Trace,
     m17Knowledge: mockControlCenterData.m17Knowledge,
     m18Runtime: mockControlCenterData.m18Runtime,

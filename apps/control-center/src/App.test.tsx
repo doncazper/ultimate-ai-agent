@@ -5454,7 +5454,7 @@ describe("Web Control Center shell", () => {
       },
       {
         path: "/approvals",
-        heading: /^Approval Queue$/,
+        heading: /^Run-attached Approval Queue$/,
         stateHeading: /Approvals states/i,
         blocked: /Blocked: live approval binding incomplete/i,
         denied: /Denied: no UI approval grant/i,
@@ -9176,6 +9176,7 @@ function envelopeForReadEndpoint(url: string) {
         mockControlCenterData.dashboard.provider_credential_readiness,
     },
     [API_ENDPOINTS.approvalSummary]: mockApiData.dashboard.approval_summary,
+    [API_ENDPOINTS.approvalQueue]: mockControlCenterData.runAttachedApprovalQueue,
     [API_ENDPOINTS.runtimeReadinessSummary]:
       mockApiData.dashboard.runtime_readiness_summary,
     [API_ENDPOINTS.foundationGateSummary]:

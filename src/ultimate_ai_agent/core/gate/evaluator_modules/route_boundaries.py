@@ -2332,6 +2332,11 @@ CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES = frozenset(
         "/control-center/providers/router/dry-run",
     }
 )
+RUN_ATTACHED_APPROVAL_QUEUE_ROUTES = frozenset(
+    {
+        "/control-center/approvals/queue",
+    }
+)
 PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 VISUAL_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 EXPECTED_M152_OPENAPI_PATH_COUNT = EXPECTED_M150_OPENAPI_PATH_COUNT
@@ -2498,6 +2503,7 @@ TASK_DECOMPOSITION_CANONICAL_ROUTES = frozenset(
         "/task-decomposition/plans/validate",
         "/task-decomposition/registry/export",
         "/task-decomposition/run",
+        "/task-decomposition/runs/{run_id}/approvals",
         "/task-decomposition/runs/{run_id}/lifecycle",
         "/task-decomposition/status",
     }
@@ -2514,6 +2520,7 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "mattermost": MATTERMOST_AGENT_ROOMS_ROUTES,
     "packaging_proof": PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES,
     "redacted_observability": M167_REDACTED_OBSERVABILITY_ROUTES,
+    "run_attached_approval_queue": RUN_ATTACHED_APPROVAL_QUEUE_ROUTES,
     "task_decomposition": TASK_DECOMPOSITION_CANONICAL_ROUTES,
     "visual_proof": VISUAL_PROOF_ROUTE_BOUNDARY_ROUTES,
     "v1_local_model_gateway": M151_LOCAL_OPENWEBUI_TEST_ROUTES,

@@ -22,6 +22,13 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       ...mockControlCenterData.dashboard.foundation_gate_summary,
       status: "dedicated_foundation_summary",
     };
+    const directApprovalQueue = {
+      ...mockControlCenterData.runAttachedApprovalQueue,
+      summary: {
+        ...mockControlCenterData.runAttachedApprovalQueue.summary,
+        queue_item_count: 4,
+      },
+    };
 
     stubControlCenterFetch({
       ...baseRouteData(),
@@ -41,6 +48,7 @@ describe("loadControlCenterData summary endpoint wiring", () => {
         },
       },
       [API_ENDPOINTS.approvalSummary]: directApprovalSummary,
+      [API_ENDPOINTS.approvalQueue]: directApprovalQueue,
       [API_ENDPOINTS.runtimeReadinessSummary]: directRuntimeSummary,
       [API_ENDPOINTS.foundationGateSummary]: directFoundationSummary,
     });
@@ -54,6 +62,7 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.dashboard.foundation_gate_summary).toEqual(
       directFoundationSummary,
     );
+    expect(data.runAttachedApprovalQueue).toEqual(directApprovalQueue);
     expect(data.connection.state).toBe("online");
     expect(data.connection.usingMockData).toBe(false);
   });
@@ -130,6 +139,7 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.founderStorageStatus,
     [API_ENDPOINTS.approvalSummary]:
       mockControlCenterData.dashboard.approval_summary,
+    [API_ENDPOINTS.approvalQueue]: mockControlCenterData.runAttachedApprovalQueue,
     [API_ENDPOINTS.runtimeReadinessSummary]:
       mockControlCenterData.dashboard.runtime_readiness_summary,
     [API_ENDPOINTS.foundationGateSummary]:

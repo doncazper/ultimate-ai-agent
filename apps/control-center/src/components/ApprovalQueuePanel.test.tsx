@@ -8,6 +8,7 @@ describe("ApprovalQueuePanel", () => {
     render(
       <ApprovalQueuePanel
         review={mockControlCenterData.m15Review}
+        queue={mockControlCenterData.runAttachedApprovalQueue}
         summary={{
           ...mockControlCenterData.dashboard.approval_summary,
           pending_count: 3,
@@ -29,6 +30,30 @@ describe("ApprovalQueuePanel", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /^grant approval$/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders run-attached queue refs as read-only backend state", () => {
+    render(
+      <ApprovalQueuePanel
+        review={mockControlCenterData.m15Review}
+        queue={mockControlCenterData.runAttachedApprovalQueue}
+        summary={mockControlCenterData.dashboard.approval_summary}
+      />,
+    );
+
+    const queueSummary = screen.getByLabelText("Run-attached approval queue summary");
+    expect(within(queueSummary).getByText("Run-attached items")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Backend-owned run-attached approval queue"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("approval request attached").length).toBeGreaterThan(0);
+    expect(screen.getByText("Preview-only approval cards")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^deny$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^revoke$/i }),
     ).not.toBeInTheDocument();
   });
 });

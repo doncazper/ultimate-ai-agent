@@ -10,7 +10,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
     compact = " ".join(text.lower().split())
 
     assert "status: active uaa-p0-007 operator-shell gap map" in compact
-    assert "api boundary: current fastapi manifest has 160 openapi paths" in compact
+    assert "api boundary: current fastapi manifest has 162 openapi paths" in compact
     assert (
         "| surface | current frontend component/page | current backend route(s) | "
         "missing backend route(s) | authority boundary | side-effect class | "

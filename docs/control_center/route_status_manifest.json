@@ -4,7 +4,7 @@
   "baseline": "v0.104.0 / 0.104.0",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
-  "openapi_path_count": 160,
+  "openapi_path_count": 162,
   "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",
   "allowed_release_statuses": [
     "status_available_not_completion",
@@ -626,9 +626,16 @@
       "side_effect_class": "mixed_validation_and_local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "Exact-scope approval capture or revoke through approved backend contracts only.",
-      "evidence_audit_output": "Approval summaries, validation decisions, grant refs, revoke refs, and audit summaries.",
+      "approval_requirement": "Exact-scope approval capture or revoke through approved backend contracts only. Read-only run-attached queue inspection requires no approval and grants no authority.",
+      "evidence_audit_output": "Approval summaries, run-attached approval queue refs, validation decisions, grant refs, revoke refs, durable run event refs, and audit summaries.",
       "current_backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/approvals/queue",
+          "operation_id": "get_control_center_approvals_queue",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        },
         {
           "method": "GET",
           "path": "/control-center/approvals/summary",
@@ -642,6 +649,13 @@
           "operation_id": "post_task_decomposition_approvals_grants_capture",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "GET",
+          "path": "/task-decomposition/runs/{run_id}/approvals",
+          "operation_id": "get_task_decomposition_runs_run_id_approvals",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",
@@ -1498,9 +1512,16 @@
       "side_effect_class": "validation_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "Exact scoped backend approval routes are required for real approval capture.",
-      "evidence_audit_output": "Approval summary refs and validation decision refs.",
+      "approval_requirement": "Exact scoped backend approval routes are required for real approval capture. The route can inspect backend-owned run-attached approval refs but cannot approve, deny, revoke, resume, or execute.",
+      "evidence_audit_output": "Approval summary refs, run-attached approval queue refs, validation decision refs, and durable run event refs.",
       "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/approvals/queue",
+          "operation_id": "get_control_center_approvals_queue",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        },
         {
           "method": "GET",
           "path": "/control-center/approvals/summary",

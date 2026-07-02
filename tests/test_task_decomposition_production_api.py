@@ -189,6 +189,21 @@ def test_task_decomposition_api_returns_safe_durable_binding(monkeypatch: pytest
     assert lifecycle["api_mutation_routes_added"] is False
     assert "Summarize this request directly" not in lifecycle_response.text
 
+    approvals_response = client.get(
+        f"/task-decomposition/runs/{binding['run_id']}/approvals",
+        headers=TASK_API_HEADERS,
+    )
+    assert approvals_response.status_code == 200
+    approvals = approvals_response.json()["data"]
+    assert approvals["schema_version"] == "run_attached_approval_queue.v1"
+    assert approvals["safe_refs_only"] is True
+    assert approvals["raw_payloads_persisted"] is False
+    assert approvals["approval_refs_are_identifiers_only"] is True
+    assert approvals["approval_authority_enabled"] is False
+    assert approvals["execution_authority_enabled"] is False
+    assert approvals["ui_mutation_controls_enabled"] is False
+    assert "Summarize this request directly" not in approvals_response.text
+
 
 def test_task_decomposition_explicit_idempotency_key_denies_duplicate_mutation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     client, _service = _client(monkeypatch, tmp_path)
