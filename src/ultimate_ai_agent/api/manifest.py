@@ -126,6 +126,9 @@ CAPABILITIES_DECLARED = [
     "governed_web_evidence_status",
     "governed_web_evidence_allowlisted_https_get",
     "governed_web_evidence_chatbot_disclosure",
+    "control_center_web_evidence_product_slice",
+    "control_center_web_evidence_gateway_preview_receipts",
+    "control_center_web_evidence_cli_inspection",
     "web_access_provider_adapter_shells_disabled",
     "web_access_provider_diagnostics_metadata_only",
     "web_access_provider_catalog_visibility_metadata_only",
@@ -141,6 +144,16 @@ CAPABILITIES_BLOCKED = [
     "provider_api_calls",
     "web_fetching",
     "browser_automation",
+    "control_center_web_evidence_unrestricted_browsing",
+    "control_center_web_evidence_browser_actions",
+    "control_center_web_evidence_auth_session_state",
+    "control_center_web_evidence_download_upload",
+    "control_center_web_evidence_post_mutation",
+    "control_center_web_evidence_raw_body_persistence",
+    "control_center_web_evidence_context_injection",
+    "control_center_web_evidence_memory_write",
+    "control_center_web_evidence_provider_model_call",
+    "control_center_web_evidence_connector_write",
     "production_persistence",
     "runtime_agent_config_loading",
     "runtime_execution_routes",
@@ -551,6 +564,9 @@ CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_PATHS = {
 CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_PATHS = {
     "/control-center/providers/router/dry-run",
 }
+CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
+    "/control-center/web-evidence/attach",
+}
 CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
 }
@@ -710,6 +726,8 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
         return ApiRouteSideEffectClass.validation_only
     if path in CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_PATHS:
         return ApiRouteSideEffectClass.governed_network_read_only
+    if path in CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS:
+        return ApiRouteSideEffectClass.governed_network_read_only
     if path in CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_PATHS:
         return ApiRouteSideEffectClass.validation_only
     if path in CONTROL_CENTER_PROVIDER_TINY_EXACT_APPROVED_LANE_PATHS:
@@ -785,6 +803,14 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Exact-approved provider credential validation lane; exact approval, policy, idempotency, redacted validation receipt, revocation, and safe-disable posture required while model invocation, provider SDKs, fallback, and billing authority stay blocked",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS
+    ):
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Tier 1 WebAccessGateway preview route; allowlisted HTTPS GET only, bounded redacted preview returned, safe receipt refs stored locally, and browser/session/download/upload/mutation/context/memory/provider/connector authority remains blocked",
         )
     if (
         normalized_method == "POST"

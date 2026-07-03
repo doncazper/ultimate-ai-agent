@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `168`.
+Current OpenAPI path count: `169`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -26,6 +26,13 @@ Contract rules:
   implemented OpenAPI/API manifest invariant.
 - Local-dev workspace routes must remain local-dev scoped, policy-bound, and
   blocked from production authority by default.
+- `POST /control-center/web-evidence/attach` is the current Tier 1 web
+  evidence product-slice route. It uses `WebAccessGateway` for one allowlisted
+  HTTPS GET preview, returns a bounded redacted preview to the requester, stores
+  only safe receipt/evidence/audit refs in Founder Loop durable surfaces, and
+  grants no browser action, session state, download/upload, mutation method,
+  context injection, memory write, provider/model call, connector write,
+  public release, or production authority.
 - Governed web evidence routes may use the `governed_network_read_only`
   side-effect class and must remain HTTPS GET only, allowlisted, bounded,
   redacted, receipt-ref oriented, and blocked from unrestricted browsing.

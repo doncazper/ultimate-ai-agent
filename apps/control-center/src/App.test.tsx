@@ -5168,7 +5168,7 @@ describe("Web Control Center shell", () => {
     ).toBe(false);
   });
 
-  it("records approval through backend refresh before committing the local-task create lane", async () => {
+  it("records approval through backend refresh before committing the local task lane", async () => {
     const approvedInbox = JSON.parse(
       JSON.stringify({
         ...mockControlCenterData.founderActionsInbox,

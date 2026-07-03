@@ -17,6 +17,9 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
 from ultimate_ai_agent.core.control_center.local_tasks import (
     FounderLoopLocalTaskCommitRequest,
 )
+from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
+    WebEvidenceProductSliceRequest,
+)
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.memory import (
@@ -1080,6 +1083,50 @@ def get_control_center_evidence_timeline() -> ResultEnvelope:
             "safe_refs_only",
             "bounded_summaries_only",
             "raw_content_omitted",
+        ],
+    )
+
+
+@router.post("/web-evidence/attach", response_model=ResultEnvelope)
+def post_control_center_web_evidence_attach(
+    request: WebEvidenceProductSliceRequest,
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().attach_web_evidence(request)
+    except FounderLoopStorageDuplicateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "CONTROL_CENTER_WEB_EVIDENCE_IDEMPOTENCY_CONFLICT",
+                "safe_message": (
+                    "The web evidence request ref already points to a different "
+                    "receipt fingerprint."
+                ),
+            },
+        ) from exc
+    except (FounderLoopStorageError, ValueError) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "CONTROL_CENTER_WEB_EVIDENCE_REQUEST_BLOCKED",
+                "safe_message": (
+                    "The web evidence request could not be attached through the "
+                    "allowlisted read-only gateway."
+                ),
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_web_evidence_attach",
+        service="FounderLoopControlCenterAPI",
+        trace_id=str(data["receipt_ref"]),
+        data=data,
+        evidence=[{"evidence_ref": str(data["evidence_ref"])}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_redacted_preview",
+            "raw_content_omitted",
+            "web_access_gateway_required",
         ],
     )
 

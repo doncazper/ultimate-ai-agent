@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 from typing import Any, Literal
 
@@ -10,6 +9,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
     FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF,
     FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF,
+)
+from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
+    WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS,
+    WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF,
 )
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
@@ -30,6 +34,7 @@ ProofKind = Literal[
     "local_task_commit",
     "memory_decision",
     "evidence_event",
+    "web_evidence",
     "source_readiness",
     "approval",
     "setup_package",
@@ -290,6 +295,7 @@ def _proof_records(today_summary: dict[str, Any]) -> list[ControlCenterProofReco
     records.append(_local_task_commit_record(today_summary))
     records.append(_memory_decision_record(today_summary))
     records.append(_evidence_event_record(today_summary))
+    records.append(_web_evidence_record(today_summary))
     records.append(_source_readiness_record(today_summary))
     records.append(_approval_record(today_summary))
     records.append(_setup_package_record(today_summary))
@@ -331,7 +337,7 @@ def _daily_loop_record(
         memory_candidate_refs=_refs(runs.get("memory_candidate_refs")),
         blocked_authority_refs=_merge_refs(
             _refs(runs.get("blocked_authority_refs")),
-            _COMMON_BLOCKED_AUTHORITY_REFS,
+            list(_COMMON_BLOCKED_AUTHORITY_REFS),
         ),
         next_safe_action="Inspect the action, evidence, and memory proof records.",
     )
@@ -391,7 +397,7 @@ def _action_records(today_summary: dict[str, Any]) -> list[ControlCenterProofRec
                 ),
                 blocked_authority_refs=_merge_refs(
                     _refs(action.get("action_blocked_state_refs")),
-                    _COMMON_BLOCKED_AUTHORITY_REFS,
+                    list(_COMMON_BLOCKED_AUTHORITY_REFS),
                 ),
                 next_safe_action=str(
                     action.get("next_safe_action")
@@ -540,6 +546,84 @@ def _evidence_event_record(today_summary: dict[str, Any]) -> ControlCenterProofR
         audit_refs=_refs(event.get("audit_refs")),
         blocked_authority_refs=list(_COMMON_BLOCKED_AUTHORITY_REFS),
         next_safe_action="Inspect linked receipts and blocked authority refs.",
+    )
+
+
+def _web_evidence_record(today_summary: dict[str, Any]) -> ControlCenterProofRecord:
+    attachment_refs = _refs(today_summary.get("web_evidence_attachment_refs"))
+    receipt_refs = _refs(today_summary.get("web_evidence_receipt_refs"))
+    evidence_refs = _refs(today_summary.get("web_evidence_evidence_refs"))
+    audit_refs = _refs(today_summary.get("web_evidence_audit_refs"))
+    preview_refs = _refs(today_summary.get("web_evidence_preview_refs"))
+    host_refs = _refs(today_summary.get("web_evidence_host_refs"))
+    web_access_request_refs = _refs(
+        today_summary.get("web_evidence_web_access_request_refs")
+    )
+    status = str(
+        today_summary.get("web_evidence_product_slice_status")
+        or "implemented_route_ready_no_web_evidence_attached"
+    )
+    if receipt_refs:
+        safe_summary = (
+            "Web evidence proof shows allowlisted WebAccessGateway preview "
+            "receipts as safe refs only; page text is omitted from proof."
+        )
+        next_safe_action = (
+            "Inspect the receipt, preview, audit, and evidence refs before "
+            "relying on the fetched source."
+        )
+    else:
+        safe_summary = (
+            "The web evidence product slice route is ready, but no local web "
+            "evidence receipt has been attached yet."
+        )
+        next_safe_action = (
+            "Attach one allowlisted HTTPS GET preview through the Evidence or "
+            "Proof surface."
+        )
+    proof_evidence_refs = _merge_refs(
+        evidence_refs,
+        attachment_refs,
+        preview_refs,
+        host_refs,
+        web_access_request_refs,
+        ["evidence-ref:web-evidence-product-slice:route-ready"],
+    )
+    return ControlCenterProofRecord(
+        proof_ref=WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF,
+        proof_kind="web_evidence",
+        status=status,
+        title="Web Evidence",
+        safe_summary=safe_summary,
+        authority_posture=(
+            "Tier 1 read-only web evidence preview through WebAccessGateway. "
+            "No browser action, session state, download, upload, mutation "
+            "method, context injection, memory write, provider call, connector "
+            "write, or production authority is granted."
+        ),
+        route_refs=[
+            "route-ref:control-center:evidence",
+            "route-ref:control-center:proof",
+        ],
+        backend_route_refs=[
+            WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF,
+            "GET /control-center/evidence/timeline",
+            CONTROL_CENTER_PROOF_INDEX_ROUTE_REF,
+            CONTROL_CENTER_PROOF_DETAIL_ROUTE_REF,
+        ],
+        run_refs=[FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF],
+        receipt_refs=receipt_refs,
+        evidence_refs=proof_evidence_refs,
+        audit_refs=audit_refs,
+        approval_refs=["approval-status:web-evidence-tier-1-no-action-approval-required"],
+        rollback_refs=["rollback:web-evidence-product-slice:suppress-local-receipt"],
+        safe_disable_refs=["safe-disable:web-evidence-product-slice:env-and-route-off"],
+        memory_candidate_refs=[],
+        blocked_authority_refs=_merge_refs(
+            list(_COMMON_BLOCKED_AUTHORITY_REFS),
+            list(WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS),
+        ),
+        next_safe_action=next_safe_action,
     )
 
 

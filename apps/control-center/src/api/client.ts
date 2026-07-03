@@ -60,6 +60,8 @@ import type {
   ChatHandoffTarget,
   ChatTurnReceipt,
   ChatTurnReceiptRequest,
+  WebEvidenceProductSliceReceipt,
+  WebEvidenceProductSliceRequest,
 } from "./types";
 import { resolveApiBaseUrl } from "./baseUrl";
 import {
@@ -713,6 +715,40 @@ export async function submitTodayActionEnvelope(
       sanitizeForDisplay(
         data.error?.message ??
           "Today action envelope receipt was not recorded safely.",
+      ),
+    );
+  }
+  return receipt;
+}
+
+export async function submitWebEvidenceAttachment(
+  request: WebEvidenceProductSliceRequest,
+): Promise<WebEvidenceProductSliceReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.controlCenterWebEvidenceAttach}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<WebEvidenceProductSliceReceipt>;
+  const receipt = data.result ?? data.data;
+  if (!response.ok || !receipt) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "Web evidence preview was not attached safely.",
+        ),
       ),
     );
   }

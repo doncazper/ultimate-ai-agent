@@ -70,6 +70,7 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     assert "trust-lane:local-task-commit" in parsed.approval_required_lane_refs
     assert "trust-lane:external-mutations" in parsed.blocked_lane_refs
     assert "trust-lane:local-draft-proposal" in parsed.available_now_lane_refs
+    assert "trust-lane:web-evidence-product-slice" in parsed.available_now_lane_refs
     assert any(
         lane.tier == 2 and lane.authority_state == "available_now"
         for lane in parsed.lanes

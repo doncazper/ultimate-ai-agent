@@ -19,6 +19,10 @@ from ultimate_ai_agent.core.control_center.start_here import (
 from ultimate_ai_agent.core.control_center.trust_authority import (
     build_trust_authority_matrix_read_model,
 )
+from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
+    WebEvidenceProductSliceRequest,
+    build_web_evidence_product_slice_receipt,
+)
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
 from ultimate_ai_agent.core.memory import (
     ManualMemoryCandidateRequest,
@@ -66,6 +70,24 @@ class FounderLoopControlCenterService:
 
     def evidence_timeline(self) -> dict:
         return self.repository.evidence_timeline()
+
+    def attach_web_evidence(
+        self,
+        request: WebEvidenceProductSliceRequest,
+        *,
+        transport: Any | None = None,
+    ) -> dict[str, Any]:
+        receipt = build_web_evidence_product_slice_receipt(
+            request,
+            transport=transport,
+        )
+        durable_record = self.repository.record_web_evidence_attachment(receipt)
+        replayed = bool(durable_record.get("replayed", False))
+        response = receipt.model_copy(update={"replayed": replayed}).model_dump(
+            mode="json"
+        )
+        response["durable_record_ref"] = durable_record["attachment_ref"]
+        return response
 
     def actions_inbox(self) -> dict:
         return self.repository.actions_inbox()

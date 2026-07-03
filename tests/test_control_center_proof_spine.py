@@ -54,6 +54,7 @@ def test_proof_index_covers_universal_product_event_kinds(tmp_path: Path) -> Non
         "local_task_commit",
         "memory_decision",
         "evidence_event",
+        "web_evidence",
         "source_readiness",
         "approval",
         "setup_package",
@@ -163,4 +164,3 @@ def test_proof_cli_inspects_index_and_detail() -> None:
     assert detail_payload["proof_detail"]["record"]["proof_ref"] == proof_ref
     _assert_no_runtime_authority(index_payload)
     _assert_no_runtime_authority(detail_payload)
-

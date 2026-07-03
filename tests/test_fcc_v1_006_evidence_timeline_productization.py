@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,6 +15,10 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
 from ultimate_ai_agent.core.control_center.local_tasks import (
     FounderLoopLocalTaskCommitRequest,
 )
+from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
+    WebEvidenceProductSliceRequest,
+    build_web_evidence_product_slice_receipt,
+)
 from ultimate_ai_agent.core.storage import (
     EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF,
     EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES,
@@ -23,6 +28,9 @@ from ultimate_ai_agent.core.storage import (
     OPERATOR_RUN_TIMELINE_BORROWED_PATTERNS,
     OPERATOR_RUN_TIMELINE_CONTRACT_REF,
     OPERATOR_RUN_TIMELINE_STATES,
+)
+from ultimate_ai_agent.core.tools.runtime.http_fetch import (
+    ReadOnlyHttpFetchTransportResponse,
 )
 
 
@@ -101,6 +109,39 @@ def _local_task_commit_body(action: dict[str, object]) -> dict[str, object]:
         metadata_refs=["metadata-ref:fcc-v1-006-local-task-commit"],
     )
     return request.model_dump(mode="json")
+
+
+def _fake_web_evidence_transport(
+    _request: Any,
+    _policy: Any,
+) -> ReadOnlyHttpFetchTransportResponse:
+    return ReadOnlyHttpFetchTransportResponse(
+        status_code=200,
+        content_type="text/plain",
+        body=b"Public status page for timeline verification.",
+    )
+
+
+_fake_web_evidence_transport.transport_ref = (
+    "http-fetch-transport:fake-fcc-v1-006-web-evidence"
+)
+_fake_web_evidence_transport.real_world_transport_performed = True
+
+
+def _record_web_evidence_seed() -> str:
+    repo = FounderLoopRepository.from_env()
+    receipt = build_web_evidence_product_slice_receipt(
+        WebEvidenceProductSliceRequest(
+            request_ref="web-evidence-request:fcc-v1-006",
+            url="https://example.org/status",
+            allowed_host="example.org",
+            evidence_refs=["evidence-ref:fcc-v1-006-web-evidence"],
+            metadata_refs=["metadata-ref:fcc-v1-006-web-evidence"],
+        ),
+        transport=_fake_web_evidence_transport,
+    )
+    repo.record_web_evidence_attachment(receipt)
+    return receipt.receipt_ref
 
 
 def test_evidence_timeline_event_model_accepts_safe_event() -> None:
@@ -200,6 +241,7 @@ def test_evidence_timeline_route_productizes_founder_loop_receipts(
         },
     )
     assert local_task_response.status_code == 200
+    web_evidence_receipt_ref = _record_web_evidence_seed()
 
     response = client.get("/control-center/evidence/timeline")
     assert response.status_code == 200
@@ -225,6 +267,7 @@ def test_evidence_timeline_route_productizes_founder_loop_receipts(
     )
     assert action_response.json()["data"]["receipt_ref"] in str(data["events"])
     assert local_task_response.json()["data"]["receipt_ref"] in str(data["events"])
+    assert web_evidence_receipt_ref in str(data["events"])
     assert chat_response.json()["data"]["receipt_ref"] in str(data["events"])
     assert handoff_response.json()["data"]["receipt_ref"] in str(data["events"])
     assert memory_response.json()["data"]["receipt_ref"] in str(data["events"])

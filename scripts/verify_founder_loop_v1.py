@@ -28,9 +28,16 @@ from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E4
 from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
     FounderLoopLocalTaskCommitRequest,
 )
+from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (  # noqa: E402
+    WebEvidenceProductSliceRequest,
+    build_web_evidence_product_slice_receipt,
+)
 from ultimate_ai_agent.core.storage import (  # noqa: E402
     EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES,
     FounderLoopRepository,
+)
+from ultimate_ai_agent.core.tools.runtime.http_fetch import (  # noqa: E402
+    ReadOnlyHttpFetchTransportResponse,
 )
 
 
@@ -413,6 +420,11 @@ def _exercise_founder_loop(
         },
     )
     _append_receipt_from_response(failures, local_task, receipts, "Local task commit")
+    web_evidence_receipt = _record_web_evidence_for_proof()
+    if web_evidence_receipt:
+        receipts.append(web_evidence_receipt)
+    else:
+        failures.append("Web Evidence proof exercise failed")
     return receipts
 
 
@@ -431,6 +443,39 @@ def _approve_local_task_for_proof() -> dict[str, Any]:
         for item in repo.list_action_inbox()
         if item["item_ref"] == "founder-action:local-task-create-scorecard"
     )
+
+
+def _record_web_evidence_for_proof() -> str:
+    repo = FounderLoopRepository.from_env()
+    receipt = build_web_evidence_product_slice_receipt(
+        WebEvidenceProductSliceRequest(
+            request_ref="web-evidence-request:fcc-v1-007",
+            url="https://example.org/status",
+            allowed_host="example.org",
+            evidence_refs=["evidence-ref:fcc-v1-007-web-evidence"],
+            metadata_refs=["metadata-ref:fcc-v1-007-web-evidence"],
+        ),
+        transport=_fake_web_evidence_transport,
+    )
+    repo.record_web_evidence_attachment(receipt)
+    return receipt.receipt_ref
+
+
+def _fake_web_evidence_transport(
+    _request: Any,
+    _policy: Any,
+) -> ReadOnlyHttpFetchTransportResponse:
+    return ReadOnlyHttpFetchTransportResponse(
+        status_code=200,
+        content_type="text/plain",
+        body=b"Public status page for proof verification.",
+    )
+
+
+_fake_web_evidence_transport.transport_ref = (
+    "http-fetch-transport:fake-fcc-v1-007-web-evidence"
+)
+_fake_web_evidence_transport.real_world_transport_performed = True
 
 
 def _append_receipt_from_response(

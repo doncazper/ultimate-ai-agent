@@ -862,10 +862,14 @@ def verify(root: Path = ROOT) -> list[str]:
     if client.exists():
         text = client.read_text(encoding="utf-8")
         post_count = text.count('method: "POST"')
-        if post_count not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}:
+        if post_count not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}:
             failures.append("frontend client must declare only scoped POST calls")
         if "API_ENDPOINTS.actionPreview" not in text:
             failures.append("frontend client must post through API_ENDPOINTS.actionPreview")
+        if "submitWebEvidenceAttachment" not in text:
+            failures.append("frontend client missing scoped web evidence attach helper")
+        if "API_ENDPOINTS.controlCenterWebEvidenceAttach" not in text:
+            failures.append("frontend client must post web evidence through API_ENDPOINTS")
         if post_count >= 2:
             required_chat_fragments = [
                 "requestRedactedLocalChatProbe",

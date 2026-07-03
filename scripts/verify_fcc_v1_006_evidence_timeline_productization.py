@@ -28,10 +28,17 @@ from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E4
 from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
     FounderLoopLocalTaskCommitRequest,
 )
+from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (  # noqa: E402
+    WebEvidenceProductSliceRequest,
+    build_web_evidence_product_slice_receipt,
+)
 from ultimate_ai_agent.core.storage import (  # noqa: E402
     EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF,
     EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES,
     FounderLoopRepository,
+)
+from ultimate_ai_agent.core.tools.runtime.http_fetch import (  # noqa: E402
+    ReadOnlyHttpFetchTransportResponse,
 )
 
 
@@ -421,6 +428,11 @@ def _exercise_loop(
         receipts.append(local_task_receipt)
     else:
         failures.append("Local task commit exercise failed")
+    web_evidence_receipt = _record_web_evidence_for_timeline()
+    if web_evidence_receipt:
+        receipts.append(web_evidence_receipt)
+    else:
+        failures.append("Web Evidence product slice exercise failed")
     return receipts
 
 
@@ -450,6 +462,39 @@ def _commit_local_task_for_timeline() -> str:
         idempotency_key_ref="idempotency-ref:fcc-v1-006-local-task-commit",
     )
     return str(receipt.get("receipt_ref", ""))
+
+
+def _record_web_evidence_for_timeline() -> str:
+    repo = FounderLoopRepository.from_env()
+    receipt = build_web_evidence_product_slice_receipt(
+        WebEvidenceProductSliceRequest(
+            request_ref="web-evidence-request:fcc-v1-006",
+            url="https://example.org/status",
+            allowed_host="example.org",
+            evidence_refs=["evidence-ref:fcc-v1-006-web-evidence"],
+            metadata_refs=["metadata-ref:fcc-v1-006-web-evidence"],
+        ),
+        transport=_fake_web_evidence_transport,
+    )
+    repo.record_web_evidence_attachment(receipt)
+    return receipt.receipt_ref
+
+
+def _fake_web_evidence_transport(
+    _request: Any,
+    _policy: Any,
+) -> ReadOnlyHttpFetchTransportResponse:
+    return ReadOnlyHttpFetchTransportResponse(
+        status_code=200,
+        content_type="text/plain",
+        body=b"Public status page for timeline verification.",
+    )
+
+
+_fake_web_evidence_transport.transport_ref = (
+    "http-fetch-transport:fake-fcc-v1-006-web-evidence"
+)
+_fake_web_evidence_transport.real_world_transport_performed = True
 
 
 def _append_ui_failures(failures: list[str], root: Path) -> None:
