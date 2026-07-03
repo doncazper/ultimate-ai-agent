@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import os
+import json
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -24,6 +26,10 @@ from scripts.verification.repo import (  # noqa: E402
 from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
 from ultimate_ai_agent.core.memory import (  # noqa: E402
     FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
+    MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+    MEMORY_REVIEW_RECEIPT_SCOPE_REF,
+    MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF,
+    MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository  # noqa: E402
 
@@ -364,6 +370,7 @@ def _append_behavior_failures(
             )
             _append_today_summary_failures(failures, context, reject or accept, auth_headers)
             _append_memory_review_failures(failures, context, reject or accept, auth_headers)
+            _append_cli_parity_failures(failures)
         finally:
             if old_state_dir is None:
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
@@ -417,8 +424,12 @@ def _exercise_decision(
         failures.append(f"Memory Review {decision} receipt decision drifted")
     if decision in {"accept", "correct"} and not receipt.get("reviewed_recall_record_ref"):
         failures.append(f"Memory Review {decision} must create reviewed recall record ref")
+    if decision in {"accept", "correct"} and receipt.get("reviewed_recall_write_performed") is not True:
+        failures.append(f"Memory Review {decision} must prove reviewed recall write")
     if decision == "reject" and receipt.get("reviewed_recall_record_ref"):
         failures.append("Memory Review reject must not create reviewed recall record ref")
+    if decision == "reject" and receipt.get("reviewed_recall_write_performed") is not False:
+        failures.append("Memory Review reject must not claim reviewed recall write")
     replay = context.client.post(
         route,
         json=body,
@@ -499,8 +510,14 @@ def _append_receipt_shape_failures(
         "payload_fingerprint_ref",
         "evidence_timeline_event_ref",
         "approval_ref",
+        "approval_scope_ref",
         "approval_status",
         "approval_reason_refs",
+        "safe_disable_ref",
+        "rollback_ref",
+        "safe_disable_posture_ref",
+        "rollback_execution_enabled",
+        "rollback_blocker_refs",
         "reviewer_ref",
         "source_refs",
         "evidence_refs",
@@ -512,8 +529,109 @@ def _append_receipt_shape_failures(
     for field in DENIED_RECEIPT_FIELDS:
         if receipt.get(field) is not False:
             failures.append(f"{label} denied field {field} must stay false")
+    expected_scope_ref = (
+        MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+        if receipt.get("decision") in {"accept", "correct"}
+        else MEMORY_REVIEW_RECEIPT_SCOPE_REF
+    )
+    if receipt.get("approval_scope_ref") != expected_scope_ref:
+        failures.append(f"{label} approval scope ref drifted")
+    if receipt.get("safe_disable_ref") != MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF:
+        failures.append(f"{label} safe-disable ref drifted")
+    if receipt.get("rollback_execution_enabled") is not False:
+        failures.append(f"{label} rollback execution must stay blocked")
+    if MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF not in set(
+        receipt.get("rollback_blocker_refs") or []
+    ):
+        failures.append(f"{label} missing rollback blocker ref")
     if "raw" in str(receipt).lower() or "provider payload" in str(receipt).lower():
         failures.append(f"{label} receipt contains unsafe raw/provider wording")
+
+
+def _append_cli_parity_failures(failures: list[str]) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        state_dir = Path(temp_dir) / "founder_loop_cli"
+        repo = FounderLoopRepository(state_dir)
+        queue = repo.list_memory_review_queue(limit=1)
+        candidate_ref = str(
+            queue[0].get("business_memory_candidate_ref")
+            or queue[0].get("review_ref")
+        )
+        decision = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts/dev/uaa_founder_loop.py"),
+                "--state-dir",
+                str(state_dir),
+                "record-memory-decision",
+                "--candidate-ref",
+                candidate_ref,
+                "--decision",
+                "accept",
+                "--idempotency-ref",
+                "idempotency-ref:fcc-v1-005-cli-accept",
+                "--reviewer-ref",
+                "actor-ref:fcc-v1-005-cli-reviewer",
+                "--source-ref",
+                "source-ref:fcc-v1-005-cli",
+                "--evidence-ref",
+                "evidence-ref:fcc-v1-005-cli",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if decision.returncode != 0:
+            failures.append("Memory Review CLI accept command failed")
+            return
+        try:
+            decision_payload = json.loads(decision.stdout)
+        except json.JSONDecodeError:
+            failures.append("Memory Review CLI accept did not return JSON")
+            return
+        receipt = dict(decision_payload.get("receipt") or {})
+        if receipt.get("reviewed_recall_write_performed") is not True:
+            failures.append("Memory Review CLI accept must prove reviewed recall write")
+        if receipt.get("approval_scope_ref") != MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF:
+            failures.append("Memory Review CLI accept approval scope drifted")
+        if str(state_dir) in decision.stdout:
+            failures.append("Memory Review CLI accept leaked state path")
+
+        inspect = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts/dev/uaa_founder_loop.py"),
+                "--state-dir",
+                str(state_dir),
+                "memory-receipts",
+                "--limit",
+                "5",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if inspect.returncode != 0:
+            failures.append("Memory Review CLI receipt inspection failed")
+            return
+        try:
+            inspect_payload = json.loads(inspect.stdout)
+        except json.JSONDecodeError:
+            failures.append("Memory Review CLI receipt inspection did not return JSON")
+            return
+        if inspect_payload.get("exact_write_scope_ref") != MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF:
+            failures.append("Memory Review CLI inspection exact scope drifted")
+        if inspect_payload.get("reviewed_recall_record_count") != 1:
+            failures.append("Memory Review CLI inspection must show one recall record")
+        posture = dict(inspect_payload.get("write_safe_disable_posture") or {})
+        if posture.get("rollback_execution_enabled") is not False:
+            failures.append("Memory Review CLI inspection must block rollback execution")
+        serialized = json.dumps(inspect_payload).lower()
+        for fragment in ["raw_prompt", "raw_response", "provider_payload"]:
+            if fragment in serialized:
+                failures.append(f"Memory Review CLI inspection leaked {fragment}")
+        if str(state_dir).lower() in serialized:
+            failures.append("Memory Review CLI inspection leaked state path")
 
 
 def _append_recall_record_failures(

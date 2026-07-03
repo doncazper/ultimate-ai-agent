@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -13,6 +16,10 @@ from ultimate_ai_agent.core.memory import (
     FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
     MemoryReviewDecisionReceipt,
     MemoryReviewDecisionRequest,
+    MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+    MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF,
+    MEMORY_REVIEW_WRITE_ROLLBACK_REF,
+    MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
 )
 from ultimate_ai_agent.core.storage import (
     FounderLoopRepository,
@@ -35,10 +42,15 @@ def _safe_receipt(**overrides: object) -> MemoryReviewDecisionReceipt:
         "payload_fingerprint_ref": "payload-fingerprint:memory-review-decision:test",
         "evidence_timeline_event_ref": "evidence-ref:memory-review:accept:test",
         "approval_ref": "approval-ref:memory-review:test",
+        "approval_scope_ref": MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
         "approval_status": "approved",
         "approval_reason_refs": ["approval-reason:approval-validated"],
+        "safe_disable_ref": MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
+        "rollback_ref": MEMORY_REVIEW_WRITE_ROLLBACK_REF,
+        "rollback_blocker_refs": [MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF],
         "reviewed_recall_ref": "reviewed-recall-ref:memory-review:test",
         "reviewed_recall_record_ref": "memory-record-ref:mem_test",
+        "reviewed_recall_write_performed": True,
         "safe_summary_ref": "safe-summary-ref:memory-review:accept",
         "blocked_state_refs": list(FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS),
     }
@@ -135,6 +147,12 @@ def test_memory_review_decisions_persist_append_first_replay_and_conflict(
     assert receipt["decision"] == "accept"
     assert receipt["reviewed_recall_ref"].startswith("reviewed-recall-ref:")
     assert receipt["reviewed_recall_record_ref"].startswith("memory-record-ref:")
+    assert receipt["reviewed_recall_write_performed"] is True
+    assert receipt["approval_scope_ref"] == MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+    assert receipt["safe_disable_ref"] == MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF
+    assert receipt["rollback_ref"] == MEMORY_REVIEW_WRITE_ROLLBACK_REF
+    assert receipt["rollback_execution_enabled"] is False
+    assert MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF in receipt["rollback_blocker_refs"]
     assert receipt["context_injection_authorized"] is False
     assert receipt["connector_write_authorized"] is False
     assert receipt["external_crm_sync_authorized"] is False
@@ -173,6 +191,41 @@ def test_memory_review_decisions_persist_append_first_replay_and_conflict(
             request=_decision_request(reviewer_ref="actor-ref:changed-reviewer"),
             idempotency_key_ref="idempotency-ref:test-memory-accept",
         )
+
+
+def test_memory_review_accept_correct_denied_when_write_lane_safe_disabled(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    candidate_ref = _first_candidate_ref(repo)
+
+    posture = repo._disable_memory_review_write_lane_for_test(
+        disabled_reason_refs=["safe-disable-reason:test-memory-review-write"]
+    )
+    assert posture["safe_disable_active"] is True
+    assert posture["memory_review_writes_enabled"] is False
+
+    with pytest.raises(
+        Exception,
+        match="FOUNDER_LOOP_MEMORY_WRITE_SAFE_DISABLED",
+    ):
+        repo.record_memory_review_decision(
+            candidate_ref=candidate_ref,
+            decision="accept",
+            request=_decision_request(),
+            idempotency_key_ref="idempotency-ref:test-memory-safe-disabled-accept",
+        )
+    assert repo.list_memory_review_recall_records() == []
+
+    reject_receipt = repo.record_memory_review_decision(
+        candidate_ref=candidate_ref,
+        decision="reject",
+        request=_decision_request(),
+        idempotency_key_ref="idempotency-ref:test-memory-safe-disabled-reject",
+    )
+    assert reject_receipt["decision"] == "reject"
+    assert reject_receipt["reviewed_recall_write_performed"] is False
+    assert reject_receipt.get("reviewed_recall_record_ref") is None
 
 
 def test_memory_review_correction_stores_bounded_safe_summary_and_ref(
@@ -222,6 +275,7 @@ def test_memory_review_correction_stores_bounded_safe_summary_and_ref(
     )
     assert "raw" not in str(receipt).lower()
     assert receipt["approval_ref"].startswith("approval-ref:memory-review:")
+    assert receipt["reviewed_recall_write_performed"] is True
     assert receipt["reviewed_recall_record_ref"].startswith("memory-record-ref:")
     recall_records = repo.list_memory_review_recall_records()
     assert len(recall_records) == 1
@@ -254,6 +308,7 @@ def test_rejected_candidate_is_preserved_and_evidence_visible(tmp_path: Path) ->
     assert queue_item["business_memory_candidate_ref"] == candidate_ref
     assert receipt["receipt_ref"] in queue_item["evidence_refs"]
     assert receipt.get("reviewed_recall_record_ref") is None
+    assert receipt["reviewed_recall_write_performed"] is False
     assert repo.list_memory_review_recall_records() == []
 
     timeline = repo.today_summary()["evidence_timeline"]
@@ -382,6 +437,77 @@ def test_memory_review_decision_api_requires_idempotency_replays_and_conflicts(
     assert receipt["receipt_ref"] in data["decision_receipt_refs"]
     assert data["context_injection_authorized"] is False
     assert data["raw_content_stored"] is False
+
+
+def test_memory_review_cli_records_and_inspects_reviewed_recall_write(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "founder_loop"
+    repo = FounderLoopRepository(state_dir)
+    candidate_ref = _first_candidate_ref(repo)
+
+    decision = subprocess.run(
+        [
+            sys.executable,
+            str(Path("scripts/dev/uaa_founder_loop.py")),
+            "--state-dir",
+            str(state_dir),
+            "record-memory-decision",
+            "--candidate-ref",
+            candidate_ref,
+            "--decision",
+            "accept",
+            "--idempotency-ref",
+            "idempotency-ref:test-memory-cli-accept",
+            "--reviewer-ref",
+            "actor-ref:test-memory-cli-reviewer",
+            "--source-ref",
+            "source-ref:test-memory-cli",
+            "--evidence-ref",
+            "evidence-ref:test-memory-cli",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    decision_payload = json.loads(decision.stdout)
+    receipt = decision_payload["receipt"]
+    assert receipt["decision"] == "accept"
+    assert receipt["reviewed_recall_write_performed"] is True
+    assert receipt["approval_scope_ref"] == MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+    assert receipt["safe_disable_ref"] == MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF
+    assert receipt["rollback_execution_enabled"] is False
+    assert decision_payload["safe_refs_only"] is True
+    assert str(state_dir) not in decision.stdout
+
+    inspect = subprocess.run(
+        [
+            sys.executable,
+            str(Path("scripts/dev/uaa_founder_loop.py")),
+            "--state-dir",
+            str(state_dir),
+            "memory-receipts",
+            "--limit",
+            "5",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    inspect_payload = json.loads(inspect.stdout)
+    assert inspect_payload["exact_write_scope_ref"] == MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+    assert (
+        inspect_payload["approval_binding"]
+        == "local_approval_authority_exact_scope_validated"
+    )
+    assert inspect_payload["reviewed_recall_record_count"] == 1
+    assert receipt["receipt_ref"] in inspect_payload["decision_receipt_refs"]
+    assert inspect_payload["write_safe_disable_posture"]["rollback_execution_enabled"] is False
+    assert inspect_payload["safe_refs_only"] is True
+    serialized = json.dumps(inspect_payload).lower()
+    assert "raw_prompt" not in serialized
+    assert "provider_payload" not in serialized
+    assert str(state_dir).lower() not in serialized
 
 
 def test_fcc_v1_005_verifier_passes_current_repo() -> None:

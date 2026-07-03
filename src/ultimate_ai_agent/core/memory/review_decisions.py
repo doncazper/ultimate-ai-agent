@@ -98,6 +98,24 @@ FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS = [
     "blocked-state:no-model-provider-authority",
     "blocked-state:no-public-beta-or-production-authority",
 ]
+MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF = (
+    "exact-scope-ref:memory-review:accept-correct-reviewed-recall-write"
+)
+MEMORY_REVIEW_RECEIPT_SCOPE_REF = (
+    "exact-scope-ref:memory-review:receipt-state-no-recall-write"
+)
+MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF = (
+    "safe-disable-ref:memory-review:accept-correct-reviewed-recall-write"
+)
+MEMORY_REVIEW_WRITE_ROLLBACK_REF = (
+    "rollback-ref:memory-review:suppress-reviewed-recall-record"
+)
+MEMORY_REVIEW_WRITE_SAFE_DISABLE_POSTURE_REF = (
+    "safe-disable-posture-ref:memory-review:accept-correct-write-enabled"
+)
+MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF = (
+    "blocked-state:memory-review-rollback-execution-blocked"
+)
 
 _DENIED_FLAGS = [
     "memory_write_authorized",
@@ -412,12 +430,24 @@ class MemoryReviewDecisionReceipt(BaseModel):
     payload_fingerprint_ref: str = Field(..., min_length=1)
     evidence_timeline_event_ref: str = Field(..., min_length=1)
     approval_ref: str = Field(..., min_length=1)
+    approval_scope_ref: str = Field(default=MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF)
     approval_status: str = Field(default="approved", min_length=1)
     approval_reason_refs: list[str] = Field(
         default_factory=lambda: ["approval-reason:local-memory-review-scope-validated"]
     )
+    safe_disable_ref: str = Field(default=MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF)
+    rollback_ref: str = Field(default=MEMORY_REVIEW_WRITE_ROLLBACK_REF)
+    safe_disable_posture_ref: str = Field(
+        default=MEMORY_REVIEW_WRITE_SAFE_DISABLE_POSTURE_REF
+    )
+    safe_disable_enabled: bool = True
+    rollback_execution_enabled: bool = False
+    rollback_blocker_refs: list[str] = Field(
+        default_factory=lambda: [MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF]
+    )
     reviewed_recall_ref: str | None = Field(default=None, min_length=1)
     reviewed_recall_record_ref: str | None = Field(default=None, min_length=1)
+    reviewed_recall_write_performed: bool = False
     correction_ref: str | None = Field(default=None, min_length=1)
     rejection_ref: str | None = Field(default=None, min_length=1)
     defer_ref: str | None = Field(default=None, min_length=1)
@@ -473,14 +503,21 @@ class MemoryReviewDecisionReceipt(BaseModel):
         ]:
             _safe_ref(getattr(self, field_name), field_name)
         _safe_ref(self.approval_ref, "approval_ref")
+        _safe_ref(self.approval_scope_ref, "approval_scope_ref")
         _safe_text(self.approval_status, "approval_status")
+        _safe_ref(self.safe_disable_ref, "safe_disable_ref")
+        _safe_ref(self.rollback_ref, "rollback_ref")
+        _safe_ref(self.safe_disable_posture_ref, "safe_disable_posture_ref")
         for field_name in [
             "source_refs",
             "evidence_refs",
             "approval_reason_refs",
+            "rollback_blocker_refs",
             "blocked_state_refs",
         ]:
             _safe_refs(getattr(self, field_name), field_name)
+        if self.rollback_execution_enabled:
+            raise ValueError("memory review rollback execution is blocked")
         for field_name in [
             "corrected_summary_ref",
             "reviewed_recall_ref",
@@ -521,6 +558,10 @@ class MemoryReviewDecisionReceipt(BaseModel):
             raise ValueError("accept/correct decisions require reviewed recall ref")
         if self.decision in {"accept", "correct"} and self.reviewed_recall_record_ref is None:
             raise ValueError("accept/correct decisions require reviewed recall record ref")
+        if self.decision in {"accept", "correct"} and self.reviewed_recall_write_performed is not True:
+            raise ValueError("accept/correct decisions require reviewed recall write proof")
+        if self.decision not in {"accept", "correct"} and self.reviewed_recall_write_performed:
+            raise ValueError("non-write memory review decisions must not claim recall writes")
         if self.decision == "reject" and self.reviewed_recall_record_ref is not None:
             raise ValueError("reject decisions must not create reviewed recall records")
         if self.decision == "reject" and self.rejection_ref is None:
@@ -719,11 +760,16 @@ def memory_review_decision_state_rows() -> list[dict[str, object]]:
             "audit_refs_required": True,
             "receipt_refs_required": True,
             "blocked_state_refs_required": True,
-            "writes_authorized": False,
+            "writes_authorized": state in {"accept", "correct"},
+            "write_scope_ref": (
+                MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+                if state in {"accept", "correct"}
+                else "blocked-state:no-memory-write"
+            ),
             "deletes_authorized": False,
             "exports_authorized": False,
             "context_injection_authorized": False,
-            "accepted_as_recall": False,
+            "accepted_as_recall": state in {"accept", "correct"},
         }
         for state in MEMORY_REVIEW_DECISION_STATES
     ]
@@ -733,6 +779,10 @@ def memory_review_decision_authority_posture() -> dict[str, object]:
     return {
         "review_only": True,
         "memory_write_authorized": False,
+        "reviewed_recall_write_authorized": True,
+        "reviewed_recall_write_scope_ref": MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+        "reviewed_recall_write_scope": "accept_correct_reviewed_recall_only",
+        "automatic_memory_write_authorized": False,
         "memory_delete_authorized": False,
         "memory_export_authorized": False,
         "context_injection_authorized": False,
@@ -751,12 +801,18 @@ def memory_review_decision_authority_posture() -> dict[str, object]:
 __all__ = [
     "FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS",
     "FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF",
+    "MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF",
+    "MEMORY_REVIEW_RECEIPT_SCOPE_REF",
     "MEMORY_REVIEW_DECISION_CONTRACT_REF",
     "MEMORY_REVIEW_DECISION_KINDS",
     "MEMORY_REVIEW_DECISION_REQUIRED_REF_FIELDS",
     "MEMORY_REVIEW_DECISION_REQUIRED_BLOCKED_STATE_REFS",
     "MEMORY_REVIEW_DECISION_ROUTE_REFS",
     "MEMORY_REVIEW_DECISION_STATES",
+    "MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF",
+    "MEMORY_REVIEW_WRITE_ROLLBACK_REF",
+    "MEMORY_REVIEW_WRITE_SAFE_DISABLE_POSTURE_REF",
+    "MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF",
     "MemoryReviewDecisionEnvelope",
     "MemoryReviewDecisionKind",
     "MemoryReviewDecisionRequest",

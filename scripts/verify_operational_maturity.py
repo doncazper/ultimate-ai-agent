@@ -99,6 +99,23 @@ LOCAL_TASK_REPEATABILITY_REQUIRED_VERIFIER_REFS = {
     "scripts/verify_operational_maturity.py::_append_cli_probe_failures",
     "scripts/verify_operational_maturity.py::_append_local_task_repeatability_gate_failures",
 }
+MEMORY_REVIEWED_RECALL_WRITE_LANE_ID = "reviewed_memory_recall_write"
+MEMORY_REVIEWED_RECALL_WRITE_ROUTES = {
+    "POST /control-center/memory/review/{candidate_ref}/accept",
+    "POST /control-center/memory/review/{candidate_ref}/correct",
+}
+MEMORY_REVIEWED_RECALL_WRITE_POSTURE_REFS = {
+    "rollback-ref:memory-review:suppress-reviewed-recall-record",
+    "safe-disable-ref:memory-review:accept-correct-reviewed-recall-write",
+}
+MEMORY_REVIEWED_RECALL_WRITE_CLI_REF = (
+    "scripts/dev/uaa_founder_loop.py record-memory-decision"
+)
+MEMORY_REVIEWED_RECALL_WRITE_TEST_REFS = {
+    "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_decisions_persist_append_first_replay_and_conflict",
+    "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_accept_correct_denied_when_write_lane_safe_disabled",
+    "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_cli_records_and_inspects_reviewed_recall_write",
+}
 MEMORY_CONTEXT_PACK_ROUTE = "GET /control-center/memory/context-packs"
 MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_ROUTE = (
     "POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal"
@@ -173,6 +190,7 @@ AUTHORITY_CANDIDATE_STATUSES = {
     "proposal_only_ready",
     "contract_ready",
     "micro_lane_candidate",
+    "implemented",
     "blocked_by_policy",
 }
 MICRO_LANE_REQUIRED_PREREQUISITE_FIELDS = [
@@ -468,7 +486,8 @@ def _append_authority_scorecard_failures(
         "read_only_real_world_web_fetch through webaccessgateway",
         "not a follow-on authority candidate",
         "at most one candidate may be selected",
-        "no new authority candidate is selected",
+        "first follow-on authority candidate is selected",
+        "reviewed_memory_recall_write",
         "local_task_create",
     ]:
         if snippet not in conveyor_text:
@@ -673,10 +692,10 @@ def _append_authority_candidate_failures(
         )
     if (
         candidate.get("selected_for_micro_lane") is True
-        and status != "micro_lane_candidate"
+        and status not in {"micro_lane_candidate", "implemented"}
     ):
         failures.append(
-            f"{candidate_id} selected micro-lane must be micro_lane_candidate"
+            f"{candidate_id} selected micro-lane must be micro_lane_candidate or implemented"
         )
     if not candidate.get("safe_summary"):
         failures.append(f"{candidate_id} authority candidate requires safe_summary")
@@ -736,7 +755,7 @@ def _append_authority_candidate_failures(
             failures.append(
                 f"{candidate_id} blocked_by_policy requires missing_prerequisites"
             )
-    if status != "micro_lane_candidate":
+    if status not in {"micro_lane_candidate", "implemented"}:
         return
     for field in MICRO_LANE_REQUIRED_PREREQUISITE_FIELDS:
         ref = prerequisite_refs.get(field)
@@ -773,9 +792,12 @@ def _append_follow_on_candidate_ranking_failures(
     if not isinstance(ranking, dict):
         failures.append("authority scorecard requires follow_on_candidate_ranking")
         return
-    if ranking.get("status") != "ranked_no_authority_granted":
+    if ranking.get("status") not in {
+        "ranked_no_authority_granted",
+        "ranked_with_selected_micro_lane",
+    }:
         failures.append(
-            "follow-on candidate ranking must be ranked_no_authority_granted"
+            "follow-on candidate ranking must be ranked_no_authority_granted or ranked_with_selected_micro_lane"
         )
     if ranking.get("fixed_first_lane_ref") != FIRST_IMPLEMENTATION_LANE_ID:
         failures.append("follow-on ranking must reference the fixed first lane")
@@ -791,7 +813,17 @@ def _append_follow_on_candidate_ranking_failures(
         failures.append("follow-on ranking must not include the fixed first lane")
     if len(ranked_ids) != len(set(ranked_ids)):
         failures.append("follow-on ranking contains duplicate candidates")
-    if ranking.get("no_authority_granted") is not True:
+    implemented_selected = any(
+        candidate.get("selected_for_micro_lane") is True
+        and candidate.get("status") == "implemented"
+        for candidate in candidates
+    )
+    if implemented_selected:
+        if ranking.get("no_authority_granted") is not False:
+            failures.append(
+                "follow-on ranking with implemented selected lane must set no_authority_granted false"
+            )
+    elif ranking.get("no_authority_granted") is not True:
         failures.append("follow-on ranking must not grant authority")
     if ranking.get("safest_candidate_id") != EXPECTED_FOLLOW_ON_CANDIDATE_RANKING[0]:
         failures.append("follow-on ranking safest candidate must match rank 1")
@@ -980,6 +1012,38 @@ def _append_memory_context_pack_manifest_failures(
         if verifier_ref not in verifier_refs:
             failures.append(
                 f"memory context-pack readiness missing verifier {verifier_ref}"
+            )
+    if MEMORY_REVIEWED_RECALL_WRITE_CLI_REF not in set(
+        module.get("cli_or_script_refs", [])
+    ):
+        failures.append("memory reviewed recall-write lane missing CLI parity ref")
+    lanes = {
+        str(lane.get("lane_id")): lane
+        for lane in module.get("graduated_lanes", [])
+    }
+    lane = lanes.get(MEMORY_REVIEWED_RECALL_WRITE_LANE_ID)
+    if lane is None:
+        failures.append("memory reviewed recall-write graduated lane missing")
+        return
+    lane_routes = set(lane.get("backend_routes", []))
+    for route_ref in MEMORY_REVIEWED_RECALL_WRITE_ROUTES:
+        if route_ref not in lane_routes:
+            failures.append(
+                f"memory reviewed recall-write lane missing route {route_ref}"
+            )
+    posture_refs = set(lane.get("rollback_or_safe_disable_refs", []))
+    for posture_ref in MEMORY_REVIEWED_RECALL_WRITE_POSTURE_REFS:
+        if posture_ref not in posture_refs:
+            failures.append(
+                f"memory reviewed recall-write lane missing posture ref {posture_ref}"
+            )
+    if lane.get("cli_parity_ref") != MEMORY_REVIEWED_RECALL_WRITE_CLI_REF:
+        failures.append("memory reviewed recall-write lane CLI parity ref drifted")
+    lane_tests = set(lane.get("focused_test_refs", []))
+    for test_ref in MEMORY_REVIEWED_RECALL_WRITE_TEST_REFS:
+        if test_ref not in lane_tests:
+            failures.append(
+                f"memory reviewed recall-write lane missing focused test {test_ref}"
             )
 
 

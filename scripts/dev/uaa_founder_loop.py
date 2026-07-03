@@ -1033,11 +1033,23 @@ def _inspect_memory_context_manifest(args: argparse.Namespace) -> int:
 def _inspect_memory_receipts(args: argparse.Namespace) -> int:
     repo = _repository(args)
     review = repo.memory_review(limit=args.limit)
+    reviewed_recall_records = repo.list_memory_review_recall_records()
     output = {
         "schema_version": "founder-loop-cli:v1",
         "command_ref": "repo-local-command:founder-loop-memory-receipts",
         "route_ref": review.get("route_ref"),
         "decision_route_refs": review.get("decision_route_refs"),
+        "exact_write_scope_ref": review.get("exact_write_scope_ref"),
+        "approval_binding": review.get("approval_binding"),
+        "write_safe_disable_posture": review.get("write_safe_disable_posture"),
+        "reviewed_recall_write_authorized_decisions": review.get(
+            "reviewed_recall_write_authorized_decisions"
+        ),
+        "reviewed_recall_record_refs": [
+            f"memory-record-ref:{record.get('memory_id')}"
+            for record in reviewed_recall_records
+        ],
+        "reviewed_recall_record_count": len(reviewed_recall_records),
         "decision_receipts": list(review.get("decision_receipts") or []),
         "decision_receipt_refs": list(review.get("decision_receipt_refs") or []),
         "workbench_health": review.get("workbench_health"),

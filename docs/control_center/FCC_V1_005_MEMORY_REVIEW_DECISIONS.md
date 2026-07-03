@@ -37,6 +37,30 @@ Every mutating decision route requires `X-UAA-Idempotency-Key` or
 same stored receipt payload. The same key with a different safe payload returns
 a conflict.
 
+## Reviewed Recall-Write Micro-Lane
+
+The reviewed recall-write lane is implemented only for accept/correct Memory
+Review decisions. Its exact scope is
+`exact-scope-ref:memory-review:accept-correct-reviewed-recall-write`.
+Receipt-only decisions use
+`exact-scope-ref:memory-review:receipt-state-no-recall-write`.
+The Python Core captures and validates a backend-owned exact
+`LocalApprovalAuthority` grant for that scope, candidate ref, decision kind,
+payload fingerprint, source/evidence refs, idempotency ref, and reviewer ref
+before a reviewed recall-only `LocalMemoryStore` record is written.
+
+Safe-disable and rollback posture are explicit:
+
+- `safe-disable-ref:memory-review:accept-correct-reviewed-recall-write`
+- `rollback-ref:memory-review:suppress-reviewed-recall-record`
+- `blocked-state:memory-review-rollback-execution-blocked`
+
+Rollback execution is not implemented. Terminal reject, merge, supersede, and
+forget-request decisions suppress reviewed recall projection without deleting
+audit history. The repo-local CLI parity path is
+`scripts/dev/uaa_founder_loop.py record-memory-decision`, with inspection
+through `scripts/dev/uaa_founder_loop.py memory-receipts`.
+
 ## Receipt
 
 `MemoryReviewDecisionReceipt` records safe refs only:
@@ -48,9 +72,15 @@ a conflict.
 - `payload_fingerprint_ref`
 - `evidence_timeline_event_ref`
 - `approval_ref`
+- `approval_scope_ref`
 - `approval_status`
 - `approval_reason_refs`
+- `safe_disable_ref`
+- `rollback_ref`
+- `safe_disable_posture_ref`
+- `rollback_blocker_refs`
 - `reviewed_recall_record_ref` for accept/correct only
+- `reviewed_recall_write_performed` for accept/correct only
 - `corrected_summary_ref` and bounded `corrected_safe_summary` for correct only
 - `defer_ref`, `merge_ref`, `supersede_ref`, or `forget_request_ref` when
   those posture receipts are recorded
