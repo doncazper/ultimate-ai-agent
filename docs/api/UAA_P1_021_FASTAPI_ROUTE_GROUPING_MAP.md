@@ -2,7 +2,7 @@
 
 Status: active gated foundation map
 Baseline: v0.104.0 / 0.104.0
-Current OpenAPI path count: 164
+Current OpenAPI path count: 165
 Scope: documentation and route ownership inventory only
 
 This map records the current FastAPI route groups for UAA-P1-058 and future
@@ -18,13 +18,13 @@ typed metadata endpoint for route inventory and capabilities.
 
 | Contract surface | Result |
 |---|---|
-| OpenAPI path count | 164 paths. |
-| `/api/manifest` route count | 164 routes. |
+| OpenAPI path count | 165 paths. |
+| `/api/manifest` route count | 165 routes. |
 | Operation ID posture | Stable generated IDs are unique for all current routes. |
 | Side-effect classes | All current routes use `none`, `validation_only`, `local_dev_workspace_only`, or `governed_network_read_only`. |
 | Route-module ownership tests | UAA-P1-059 checks every current route against this map for owner, target service module, side-effect class, risk class, auth posture, release status, route-count posture, operation ID posture, and evidence behavior. |
 | Control Center route-status manifest | Backend route refs checked against `/api/manifest`; 0 missing and 0 path/method/operation/side-effect mismatches. |
-| Route inventory doc | Current count matches 164; inventory is summarized by group and remains subordinate to `/api/manifest`. |
+| Route inventory doc | Current count matches 165; inventory is summarized by group and remains subordinate to `/api/manifest`. |
 
 ## Mismatch Findings
 
@@ -46,7 +46,7 @@ typed metadata endpoint for route inventory and capabilities.
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
-| `control-center` | 63 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:1, `local_dev_workspace_only`:47, `validation_only`:15 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
+| `control-center` | 64 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:1, `local_dev_workspace_only`:47, `validation_only`:16 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `extension-catalog` | 1 | `extension-catalog` | `extension_catalog_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | `status_available_not_completion` |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
@@ -179,6 +179,7 @@ Columns: method, path, operation ID, side-effect class, validation-only, future-
 | GET | `/control-center/settings/status` | `get_control_center_settings_status` | `validation_only` | yes | future | yes |
 | GET | `/control-center/setup-assistant/summary` | `get_control_center_setup_assistant_summary` | `validation_only` | yes | future | yes |
 | GET | `/control-center/sources/readiness` | `get_control_center_sources_readiness` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/start-here/summary` | `get_control_center_start_here_summary` | `validation_only` | yes | future | yes |
 | GET | `/control-center/status` | `get_control_center_status` | `validation_only` | yes | future | yes |
 | GET | `/control-center/storage/status` | `get_control_center_storage_status` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/today/action-envelope` | `post_control_center_today_action_envelope` | `local_dev_workspace_only` | no | future | yes |

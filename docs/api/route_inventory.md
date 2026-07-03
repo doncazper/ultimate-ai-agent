@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `164`.
+Current OpenAPI path count: `165`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -215,15 +215,16 @@ readiness, or execute rollback.
 - `POST /control-center/memory/review/{candidate_ref}/correct`
 - `POST /control-center/memory/review/{candidate_ref}/reject`
 - `GET /control-center/morning-briefing/summary`
+- `GET /control-center/start-here/summary`
 - `GET /control-center/storage/status`
 
 These routes expose storage-backed Founder Loop v1 summaries for Today, Action
 Inbox, Memory Review, Morning Briefing, local storage status, Action Inbox
 decision receipts, Memory Review decision receipts, read-only L1 hot local
 memory index previews, L2 ref projections, L3 representation proposals, and
-Phase 5 context-pack proposal envelopes, plus FCC-MEM-022 feedback receipts,
-observation-candidate previews, probe index summaries, and contradiction
-previews.
+Phase 5 context-pack proposal envelopes, plus a backend-owned Start Here local
+loop summary, FCC-MEM-022 feedback receipts, observation-candidate previews,
+probe index summaries, and contradiction previews.
 Action decision routes record backend-owned
 approve/edit/reject/defer state, validate exact approval scope for approve where
 required, handle idempotency replay/conflict locally, and return safe receipt

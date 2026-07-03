@@ -1146,6 +1146,7 @@ describe("Web Control Center shell", () => {
 
   it("prioritizes the Founder Loop while keeping supporting routes reachable", async () => {
     expect(primaryNavItems.map((item) => item.label)).toEqual([
+      "Start Here",
       "Today",
       "Source Inbox",
       "Plans",
@@ -1176,7 +1177,8 @@ describe("Web Control Center shell", () => {
     const labels = within(navigation)
       .getAllByRole("link")
       .map((link) => link.getAttribute("aria-label"));
-    expect(labels.slice(0, 7)).toEqual([
+    expect(labels.slice(0, 8)).toEqual([
+      "Start Here",
       "Today",
       "Source Inbox",
       "Plans",
@@ -1496,6 +1498,31 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /Stale-source posture/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /approve|run|send|write|sync|execute/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders Start Here as a backend-owned loop guide without runtime controls", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/start");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Start Here$/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/mock fallback/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("local_loop_unverified_mock_fallback"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("action-envelope:mock-fallback:start-here"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-state:start-here:no-runtime-execution"),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", {
@@ -10121,6 +10148,9 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.founderMemoryContextManifest),
     ).toBe(true);
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderStartHereSummary)).toBe(
+      true,
+    );
     expect(chatTurnReceiptEndpoint("chat-turn:test")).toBe(
       "/control-center/chat/turns/chat-turn%3Atest/receipt",
     );
@@ -10224,6 +10254,16 @@ function envelopeForReadEndpoint(url: string) {
     [API_ENDPOINTS.controlCenterLocalModelsStatus]:
       mockControlCenterData.localModelsStatus,
     [API_ENDPOINTS.founderTodaySummary]: mockControlCenterData.founderToday,
+    [API_ENDPOINTS.founderStartHereSummary]: {
+      ...mockControlCenterData.founderStartHere,
+      source: "python_core_control_center_start_here_read_model",
+      backend_owned: true,
+      status: "implemented_backend_owned_start_here_loop_contract",
+      readiness_state: "ready_for_one_local_governed_loop",
+      local_loop_status: "one_governed_local_loop_available",
+      complete_daily_loop_available: true,
+      missing_prerequisite_refs: [],
+    },
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:

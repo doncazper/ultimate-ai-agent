@@ -26,14 +26,15 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 19 |
-| `local_sensitive` | 108 |
+| `local_sensitive` | 109 |
 | `mutating_requires_authority` | 34 |
 
-The current OpenAPI path count is `164` after later scoped FCC-V1-003 through
+The current OpenAPI path count is `165` after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
-dedicated read-only Source Readiness route, and FCC-MEM-022 feedback/probe/
+dedicated read-only Source Readiness route, the Start Here read model route,
+and FCC-MEM-022 feedback/probe/
 observation/contradiction memory routes, plus the disabled-default tiny
 exact-approved provider lane and the exact-approved provider credential
 validation lane, plus the proposal-only provider router dry-run lane, plus the

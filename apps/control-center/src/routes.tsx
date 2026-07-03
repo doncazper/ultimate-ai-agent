@@ -39,6 +39,7 @@ import { OperatorLoopPanel } from "./components/OperatorLoopPanel";
 import { PrivateOperatorTrialPanel } from "./components/PrivateOperatorTrialPanel";
 import { ReceiptViewerPanel } from "./components/ReceiptViewerPanel";
 import { RuntimeReadinessPanel } from "./components/RuntimeReadinessPanel";
+import { StartHerePanel } from "./components/StartHerePanel";
 import {
   MobilePlanningPanel,
   PluginGovernancePanel,
@@ -75,6 +76,7 @@ export type CommandPaletteItem = {
 };
 
 export const navItems: NavItem[] = [
+  { path: "/start", label: "Start Here", group: "Founder Loop", status: "backend-owned start loop", releaseStatus: "partial", role: "primary" },
   { path: "/today", label: "Today", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "primary" },
   { path: "/inbox", label: "Source Inbox", group: "Founder Loop", status: "blocked/planned", releaseStatus: "partial", role: "primary" },
   { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial", releaseStatus: "partial", role: "primary" },
@@ -166,6 +168,13 @@ export const commandPaletteItems: CommandPaletteItem[] = [
 
 export function renderRoute(path: string, data: ControlCenterData) {
   switch (path) {
+    case "/start":
+      return (
+        <StartHerePanel
+          authoritative={isAuthoritativeConnection(data)}
+          startHere={data.founderStartHere}
+        />
+      );
     case "/today":
       return (
         <>

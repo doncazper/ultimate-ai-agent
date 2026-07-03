@@ -53,6 +53,25 @@ def get_control_center_today_summary() -> ResultEnvelope:
     )
 
 
+@router.get("/start-here/summary", response_model=ResultEnvelope)
+def get_control_center_start_here_summary() -> ResultEnvelope:
+    data = get_founder_loop_service().start_here_summary()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_start_here_summary",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:start-here-summary",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:control-center:start-here"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "read_only_control_center_projection",
+        ],
+    )
+
+
 @router.get("/actions/inbox", response_model=ResultEnvelope)
 def get_control_center_actions_inbox() -> ResultEnvelope:
     data = get_founder_loop_service().actions_inbox()

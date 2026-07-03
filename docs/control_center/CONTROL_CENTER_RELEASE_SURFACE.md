@@ -110,3 +110,9 @@ backend CRM routes, connector runtime, writes, sends, calendar writes,
 provider/model calls, live web, browser automation, public beta, public
 distribution, and production authority remain outside this release-surface
 proof.
+
+Usable Authority PR 02 adds `/start` as a partial Start Here surface backed by
+`GET /control-center/start-here/summary`. It is a local read-model entry point
+for one governed daily loop and does not grant action execution, provider/model
+calls, connector writes/sends, browser or shell execution, background autonomy,
+public release, or production authority.

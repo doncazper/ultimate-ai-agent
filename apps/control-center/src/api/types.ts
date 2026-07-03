@@ -4038,6 +4038,60 @@ export interface FounderLoopRunsIntegrationReadModel {
   production_authority_enabled: boolean;
 }
 
+export interface ControlCenterStartHereStep {
+  step_id: string;
+  label: string;
+  route_ref: string;
+  backend_route_ref: string;
+  status: string;
+  safe_summary: string;
+  next_safe_action: string;
+  run_ref: string;
+  proof_ref: string;
+  receipt_refs: string[];
+  evidence_refs: string[];
+  approval_refs: string[];
+  memory_candidate_refs: string[];
+  blocked_authority_refs: string[];
+}
+
+export interface ControlCenterStartHereSummary {
+  schema_version: "control-center-start-here-summary.v1";
+  contract_ref: string;
+  status: string;
+  readiness_state: string;
+  local_loop_status: string;
+  source:
+    | "python_core_control_center_start_here_read_model"
+    | "mock_fallback_non_authoritative";
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  redacted_summaries_only: boolean;
+  raw_content_included: boolean;
+  ui_truth_source: string;
+  primary_run_ref: string;
+  primary_proof_ref: string;
+  action_proposal_ref: string;
+  route_refs: string[];
+  backend_route_refs: string[];
+  steps: ControlCenterStartHereStep[];
+  complete_daily_loop_available: boolean;
+  operator_goal: string;
+  next_safe_action: string;
+  missing_prerequisite_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  provider_model_call_enabled: boolean;
+  runtime_model_call_enabled: boolean;
+  connector_write_enabled: boolean;
+  connector_send_enabled: boolean;
+  browser_execution_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export type FounderLoopUnifiedWorkThreadStepId =
   | "chat_handoff"
   | "plan"
@@ -6455,6 +6509,7 @@ export interface ControlCenterData {
   settingsStatus: ControlCenterSettingsStatus;
   localModelsStatus: ControlCenterLocalModelsStatus;
   founderToday: FounderLoopTodaySummary;
+  founderStartHere: ControlCenterStartHereSummary;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;
