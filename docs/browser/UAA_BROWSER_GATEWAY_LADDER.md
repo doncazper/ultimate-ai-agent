@@ -1,11 +1,12 @@
 # UAA Browser Gateway Ladder
 
-Status: contract-only Browser Gateway Ladder, no live browser authority
+Status: Browser Gateway Ladder plus injected observe-only adapter, no live browser authority
 
 This ladder defines how UAA can talk about future browser capability promotion
 without turning browser metadata, model output, provider output, or Control
-Center state into authority. It is a WebAccessGateway-governed planning and
-contract surface only.
+Center state into authority. The current implemented slice is only an injected
+observe-only adapter that converts an already-supplied local/test observation
+into redacted safe refs through `WebAccessGateway`.
 
 It adds no live web fetching, no browser execution, no browser observe runtime,
 no dry-run execution, no clicks, no forms, no authentication, no cookies, no
@@ -20,8 +21,8 @@ production authority.
 | `declared` | Browser capability is named as a future boundary. | Metadata only. |
 | `discovered` | Browser capability metadata can be inspected as untrusted data. | Metadata only. |
 | `metadata_only` | Imported browser capability candidates remain UAA-owned metadata. | Metadata only. |
-| `observe_planned` | Observe posture can be described for a later scoped milestone. | Planned, not live. |
-| `observe_blocked` | Live observe remains blocked until a later accepted promotion. | Blocked. |
+| `observe_planned` | Live observe posture can be described for a later scoped milestone. | Planned, not live. |
+| `observe_blocked` | Live observe remains blocked until a later accepted promotion. | Blocked. Injected local/test observations can be redacted into safe refs only. |
 | `action_dry_run_planned` | A browser action dry-run can be represented as a reviewable plan. | Planned, not executable. |
 | `action_dry_run_blocked` | Dry-run cannot execute clicks, forms, auth, uploads, or downloads. | Blocked. |
 | `exact_approved_low_risk_action_planned` | Low-risk browser action execution is future work after exact approval proof. | Planned, not executable. |
