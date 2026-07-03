@@ -4,9 +4,13 @@ const FIXED_ISO_NOW = "2026-01-01T00:00:00.000Z";
 
 const surfaces = [
   { name: "overview", route: "/" },
+  { name: "start", route: "/start" },
   { name: "today", route: "/today" },
+  { name: "inbox", route: "/inbox" },
   { name: "actions", route: "/actions" },
   { name: "plans", route: "/plans" },
+  { name: "proof", route: "/proof" },
+  { name: "trust", route: "/trust" },
   { name: "memory", route: "/memory" },
   { name: "evidence", route: "/evidence" },
   { name: "settings", route: "/settings" },

@@ -98,6 +98,24 @@ VISUAL_PROOF_STATUSES = {
     "blocked_no_baseline",
     "experimental_no_baseline",
 }
+PRIMARY_VISUAL_BASELINE_REQUIRED_ROUTES = {
+    "/start",
+    "/today",
+    "/inbox",
+    "/plans",
+    "/actions",
+    "/proof",
+    "/trust",
+    "/memory",
+    "/evidence",
+    "/settings",
+}
+DEV_AUTH_RELEASE_BLOCKER_CAVEAT_ROUTES = {"/chat", "/models", "/settings", "/setup"}
+LOCAL_V1_RELEASE_BLOCKER_CAVEAT_ROUTES = {"/chat", "/models"}
+DEV_AUTH_RELEASE_BLOCKER_CAPABILITY_ROUTES = {"/models", "/settings", "/setup"}
+LOCAL_V1_RELEASE_BLOCKER_CAPABILITY_ROUTES = {"/models"}
+DEV_AUTH_RELEASE_BLOCKER_CAPABILITY = "release_blocker:dev_auth_bypass"
+LOCAL_V1_RELEASE_BLOCKER_CAPABILITY = "release_blocker:unsafe_local_model_v1_posture"
 RAW_EVIDENCE_FRAGMENTS = [
     "raw prompt",
     "raw_prompt",
@@ -386,6 +404,14 @@ def _append_route_detail_failures(
         _append_backend_contract_rationale_failures(failures, path, route)
         _append_route_proof_chain_failures(failures, path, route)
         _append_visual_proof_failures(failures, path, route, visual_by_path.get(path))
+        _append_primary_visual_baseline_failures(
+            failures,
+            path,
+            nav_item,
+            route,
+            visual_by_path.get(path),
+        )
+        _append_release_blocker_posture_failures(failures, path, route)
         _append_raw_evidence_failures(failures, path, route)
         _append_ship_posture_failures(failures, path, route)
 
@@ -516,6 +542,58 @@ def _append_visual_proof_failures(
         failures.append(f"{path} missing visual baseline ref must end with :not-captured")
     if "no checked-in visual baseline" not in rationale.lower():
         failures.append(f"{path} visual proof rationale must explicitly record missing baseline")
+
+
+def _append_primary_visual_baseline_failures(
+    failures: list[str],
+    path: str,
+    nav_item: dict[str, str],
+    route: dict[str, Any],
+    visual_surface: dict[str, Any] | None,
+) -> None:
+    if path not in PRIMARY_VISUAL_BASELINE_REQUIRED_ROUTES:
+        return
+    if nav_item.get("role") != "primary":
+        failures.append(f"{path} primary visual baseline route drifted from primary nav role")
+    if visual_surface is None:
+        failures.append(f"{path} primary route must have checked-in desktop/mobile visual baseline")
+    if route.get("visual_proof_status") != "checked_in_baseline":
+        failures.append(f"{path} primary route visual proof must be checked_in_baseline")
+    baseline_ref = route.get("visual_baseline_ref")
+    if isinstance(baseline_ref, str) and baseline_ref.endswith(":not-captured"):
+        failures.append(f"{path} primary route visual baseline ref must be captured")
+
+
+def _append_release_blocker_posture_failures(
+    failures: list[str], path: str, route: dict[str, Any]
+) -> None:
+    blocked_capabilities = {
+        item
+        for item in route.get("blocked_capabilities", [])
+        if isinstance(item, str)
+    }
+    caveats = " ".join(
+        item.lower()
+        for item in route.get("product_language_caveats", [])
+        if isinstance(item, str)
+    )
+    if path in DEV_AUTH_RELEASE_BLOCKER_CAVEAT_ROUTES and "dev-only auth bypass" not in caveats:
+        failures.append(f"{path} product_language_caveats must block dev-only auth bypass release posture")
+    if (
+        path in LOCAL_V1_RELEASE_BLOCKER_CAVEAT_ROUTES
+        and "local /v1 runtime posture" not in caveats
+    ):
+        failures.append(f"{path} product_language_caveats must block unsafe local /v1 runtime posture")
+    if (
+        path in DEV_AUTH_RELEASE_BLOCKER_CAPABILITY_ROUTES
+        and DEV_AUTH_RELEASE_BLOCKER_CAPABILITY not in blocked_capabilities
+    ):
+        failures.append(f"{path} blocked_capabilities must include {DEV_AUTH_RELEASE_BLOCKER_CAPABILITY}")
+    if (
+        path in LOCAL_V1_RELEASE_BLOCKER_CAPABILITY_ROUTES
+        and LOCAL_V1_RELEASE_BLOCKER_CAPABILITY not in blocked_capabilities
+    ):
+        failures.append(f"{path} blocked_capabilities must include {LOCAL_V1_RELEASE_BLOCKER_CAPABILITY}")
 
 
 def _append_raw_evidence_failures(

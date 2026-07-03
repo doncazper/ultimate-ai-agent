@@ -152,3 +152,13 @@ and blocked capability refs from Python Core/API truth. It does not grant
 connector writes/sends, provider/model calls, browser or shell execution,
 runtime context injection, standing authority, background autonomy, public
 release, or production authority.
+
+Usable Authority PR 12 hardens the release surface by requiring checked-in
+redacted desktop/mobile visual baselines for primary Control Center routes:
+`/start`, `/today`, `/inbox`, `/plans`, `/actions`, `/proof`, `/trust`,
+`/memory`, `/evidence`, and `/settings`. It also records dev-only auth bypass
+and unsafe local `/v1` runtime posture as release blockers for the relevant
+Chat, Models, Settings, and Setup surfaces. This is evidence hardening only; it
+does not grant public distribution, production authority, broader model
+runtime authority, browser execution, connector writes, or background
+autonomy.

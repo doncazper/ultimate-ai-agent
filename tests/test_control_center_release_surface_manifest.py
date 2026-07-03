@@ -12,6 +12,7 @@ SCRIPT = ROOT / "scripts/verify_control_center_release_surface.py"
 MANIFEST_PATH = ROOT / "docs/control_center/release_surface_manifest.json"
 ROUTES_PATH = ROOT / "apps/control-center/src/routes.tsx"
 ROUTE_STATUS_MANIFEST_PATH = ROOT / "docs/control_center/route_status_manifest.json"
+VISUAL_MANIFEST_PATH = ROOT / "docs/control_center/visual_regression_manifest.json"
 
 
 def load_verifier() -> Any:
@@ -32,6 +33,10 @@ def load_manifest() -> dict[str, Any]:
 
 def load_route_status_manifest() -> dict[str, Any]:
     return json.loads(ROUTE_STATUS_MANIFEST_PATH.read_text(encoding="utf-8"))
+
+
+def load_visual_manifest() -> dict[str, Any]:
+    return json.loads(VISUAL_MANIFEST_PATH.read_text(encoding="utf-8"))
 
 
 def test_control_center_release_surface_verifier_passes_current_repo() -> None:
@@ -65,12 +70,18 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert by_path["/proof"]["backend_routes"][0]["path"] == (
         "/control-center/proof/index"
     )
-    assert by_path["/proof"]["visual_proof_status"] == "blocked_no_baseline"
+    assert by_path["/proof"]["visual_proof_status"] == "checked_in_baseline"
+    assert by_path["/proof"]["visual_baseline_ref"] == (
+        "visual-baseline:control-center:proof"
+    )
     assert by_path["/trust"]["status"] == "partial"
     assert by_path["/trust"]["backend_routes"][0]["path"] == (
         "/control-center/trust-authority/matrix"
     )
-    assert by_path["/trust"]["visual_proof_status"] == "blocked_no_baseline"
+    assert by_path["/trust"]["visual_proof_status"] == "checked_in_baseline"
+    assert by_path["/trust"]["visual_baseline_ref"] == (
+        "visual-baseline:control-center:trust"
+    )
     assert by_path["/today"]["status"] == "partial"
     assert by_path["/today"]["backend_contract_rationale"] == "backend-route-refs-present"
     assert by_path["/today"]["visual_proof_status"] == "checked_in_baseline"
@@ -81,7 +92,10 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert by_path["/inbox"]["backend_routes"][0]["path"] == (
         "/control-center/sources/readiness"
     )
-    assert by_path["/inbox"]["visual_proof_status"] == "blocked_no_baseline"
+    assert by_path["/inbox"]["visual_proof_status"] == "checked_in_baseline"
+    assert by_path["/inbox"]["visual_baseline_ref"] == (
+        "visual-baseline:control-center:inbox"
+    )
     assert by_path["/private-trial"]["status"] == "experimental"
     assert by_path["/private-trial"]["backend_contract_rationale"].startswith(
         "no-backend-route:"
@@ -104,9 +118,23 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert by_path["/models"]["backend_routes"][1]["path"] == (
         "/control-center/local-models/status"
     )
+    assert "release_blocker:unsafe_local_model_v1_posture" in (
+        by_path["/models"]["blocked_capabilities"]
+    )
+    assert any(
+        "local /v1 runtime posture" in caveat.lower()
+        for caveat in by_path["/models"]["product_language_caveats"]
+    )
+    assert any(
+        "dev-only auth bypass" in caveat.lower()
+        for caveat in by_path["/chat"]["product_language_caveats"]
+    )
     assert by_path["/settings"]["status"] == "partial"
     assert by_path["/settings"]["backend_routes"][0]["path"] == (
         "/control-center/settings/status"
+    )
+    assert "release_blocker:dev_auth_bypass" in (
+        by_path["/settings"]["blocked_capabilities"]
     )
     assert by_path["/crm"]["status"] == "blocked"
     assert by_path["/crm"]["backend_routes"] == []
@@ -240,6 +268,37 @@ def test_control_center_release_surface_verifier_flags_visual_baseline_drift() -
     assert any("/today visual proof rationale must cite checked-in redacted baseline" in failure for failure in failures)
 
 
+def test_control_center_release_surface_verifier_flags_primary_route_without_baseline() -> None:
+    verifier = load_verifier()
+    manifest = load_manifest()
+    route_status_manifest = load_route_status_manifest()
+    visual_manifest = load_visual_manifest()
+    route = next(route for route in manifest["routes"] if route["path"] == "/proof")
+    route["visual_proof_status"] = "blocked_no_baseline"
+    route["visual_baseline_ref"] = "visual-baseline:control-center:proof:not-captured"
+    route["visual_proof_rationale"] = "No checked-in visual baseline is recorded."
+    visual_manifest["surfaces"] = [
+        surface for surface in visual_manifest["surfaces"] if surface["route"] != "/proof"
+    ]
+
+    failures = verifier.verify(
+        ROOT,
+        manifest=manifest,
+        route_status_manifest=route_status_manifest,
+        visual_regression_manifest=visual_manifest,
+        check_files=False,
+    )
+
+    assert any(
+        "/proof primary route must have checked-in desktop/mobile visual baseline" in failure
+        for failure in failures
+    )
+    assert any(
+        "/proof primary route visual proof must be checked_in_baseline" in failure
+        for failure in failures
+    )
+
+
 def test_control_center_release_surface_verifier_flags_missing_visual_baseline_truth() -> None:
     verifier = load_verifier()
     manifest = load_manifest()
@@ -258,7 +317,45 @@ def test_control_center_release_surface_verifier_flags_missing_visual_baseline_t
 
     assert any("/chat visual proof status must be blocked_no_baseline" in failure for failure in failures)
     assert any("/chat missing visual baseline ref must end with :not-captured" in failure for failure in failures)
-    assert any("/chat visual proof rationale must explicitly record missing baseline" in failure for failure in failures)
+
+
+def test_control_center_release_surface_verifier_flags_missing_release_blockers() -> None:
+    verifier = load_verifier()
+    manifest = load_manifest()
+    route_status_manifest = load_route_status_manifest()
+    route = next(route for route in manifest["routes"] if route["path"] == "/models")
+    route["blocked_capabilities"] = [
+        capability
+        for capability in route["blocked_capabilities"]
+        if capability != "release_blocker:unsafe_local_model_v1_posture"
+    ]
+    route["product_language_caveats"] = [
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant public release, production readiness, or production authority.",
+    ]
+
+    failures = verifier.verify(
+        ROOT,
+        manifest=manifest,
+        route_status_manifest=route_status_manifest,
+        check_files=False,
+    )
+
+    assert any(
+        "/models product_language_caveats must block dev-only auth bypass release posture"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        "/models product_language_caveats must block unsafe local /v1 runtime posture"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        "/models blocked_capabilities must include release_blocker:unsafe_local_model_v1_posture"
+        in failure
+        for failure in failures
+    )
 
 
 def test_control_center_release_surface_verifier_flags_raw_evidence_fragment() -> None:
