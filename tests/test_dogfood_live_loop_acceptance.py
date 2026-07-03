@@ -13,7 +13,13 @@ from ultimate_ai_agent.core.control_center.dogfood_live_loop import (
     build_dogfood_live_loop_acceptance_read_model,
     validate_dogfood_live_loop_acceptance,
 )
-from ultimate_ai_agent.core.storage import FounderLoopRepository
+from ultimate_ai_agent.core.control_center.action_decisions import (
+    FounderLoopActionDecisionRequest,
+)
+from ultimate_ai_agent.core.control_center.local_tasks import (
+    FounderLoopLocalTaskCommitRequest,
+)
+from ultimate_ai_agent.core.storage import FounderLoopRepository, FounderLoopStorageError
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -112,6 +118,65 @@ def test_dogfood_live_loop_fixture_is_replay_safe(tmp_path: Path) -> None:
     assert first["local_task_ref"] == second["local_task_ref"]
     assert second["status"] == "complete_local_dogfood_loop_proven"
     assert validate_dogfood_live_loop_acceptance(second) == []
+
+
+def test_dogfood_live_loop_fixture_blocks_preexisting_non_dogfood_receipt(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    decision = repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            decision_reason_ref="decision-reason-ref:test:preexisting-approval",
+            metadata_refs=["metadata-ref:test:preexisting-local-task"],
+        ),
+        idempotency_key_ref="idempotency-ref:test-preexisting-local-task-approval",
+    )
+    repo.commit_local_task(
+        action_id="local-task-create-scorecard",
+        request=FounderLoopLocalTaskCommitRequest(
+            approval_ref=str(decision["approval_ref"]),
+            decision_reason_ref="decision-reason-ref:test:preexisting-commit",
+            metadata_refs=["metadata-ref:test:preexisting-local-task"],
+        ),
+        idempotency_key_ref="idempotency-ref:test-preexisting-local-task-commit",
+    )
+
+    try:
+        build_dogfood_live_loop_acceptance_read_model(repo=repo, seed_fixture=True)
+    except FounderLoopStorageError as exc:
+        assert str(exc) == (
+            "DOGFOOD_LIVE_LOOP_PREEXISTING_NON_DOGFOOD_LOCAL_TASK_RECEIPT"
+        )
+    else:  # pragma: no cover - failure message is clearer than pytest.raises match.
+        raise AssertionError("preexisting non-dogfood local task receipt was accepted")
+
+
+def test_dogfood_live_loop_validator_rejects_incomplete_or_nondeterministic_refs(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    read_model = build_dogfood_live_loop_acceptance_read_model(
+        repo=repo,
+        seed_fixture=True,
+    )
+    mutated = json.loads(json.dumps(read_model))
+    mutated["status"] = "partial_local_dogfood_loop_unseeded_or_incomplete"
+    mutated["local_task_commit_receipt_ref"] = (
+        "receipt:founder-loop-local-task:founder-action-local-task-create-scorecard:"
+        "idempotency-ref-other-local-task-commit"
+    )
+    mutated["sections"][1]["receipt_refs"] = []
+
+    issues = validate_dogfood_live_loop_acceptance(mutated)
+
+    assert "dogfood-live-loop-status-not-complete" in issues
+    assert "dogfood-live-loop-nondeterministic-commit-receipt" in issues
+    assert (
+        "dogfood-live-loop-section-receipt-ref-missing:"
+        "dogfood-live-loop-section:today"
+    ) in issues
 
 
 def test_dogfood_live_loop_cli_inspects_full_loop_with_safe_refs(

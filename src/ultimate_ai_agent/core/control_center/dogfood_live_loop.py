@@ -15,6 +15,7 @@ from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import 
 )
 from ultimate_ai_agent.core.control_center.local_tasks import (
     FounderLoopLocalTaskCommitRequest,
+    local_task_commit_receipt_ref,
 )
 from ultimate_ai_agent.core.control_center.proof import (
     build_control_center_proof_detail,
@@ -47,6 +48,13 @@ DOGFOOD_LIVE_LOOP_CLI_REF = (
 )
 DOGFOOD_LIVE_LOOP_ACTION_ID = "local-task-create-scorecard"
 DOGFOOD_LIVE_LOOP_ACTION_REF = action_id_to_item_ref(DOGFOOD_LIVE_LOOP_ACTION_ID)
+DOGFOOD_LIVE_LOOP_LOCAL_TASK_PROOF_REF = (
+    "proof-ref:local-task-commit:founder-action-local-task-create-scorecard"
+)
+DOGFOOD_LIVE_LOOP_EXPECTED_COMMIT_RECEIPT_REF = local_task_commit_receipt_ref(
+    DOGFOOD_LIVE_LOOP_ACTION_REF,
+    "idempotency-ref:dogfood-live-loop:local-task-commit",
+)
 DOGFOOD_LIVE_LOOP_APPROVAL_IDEMPOTENCY_REF = (
     "idempotency-ref:dogfood-live-loop:local-task-approval"
 )
@@ -265,6 +273,35 @@ class DogfoodLiveLoopAcceptanceReadModel(BaseModel):
 def seed_dogfood_live_loop_fixture(repo: FounderLoopRepository) -> dict[str, Any]:
     """Seed the deterministic local daily loop through existing exact lanes."""
 
+    action_at_start = _find_action(repo.list_action_inbox(limit=50))
+    existing_commit_receipt = _existing_commit_receipt_projection(action_at_start)
+    if existing_commit_receipt is not None:
+        if not _is_dogfood_commit_receipt(existing_commit_receipt):
+            raise FounderLoopStorageError(
+                "DOGFOOD_LIVE_LOOP_PREEXISTING_NON_DOGFOOD_LOCAL_TASK_RECEIPT"
+            )
+        return {
+            "fixture_ref": DOGFOOD_LIVE_LOOP_FIXTURE_REF,
+            "status": "dogfood_fixture_replayed",
+            "decision_receipt_ref": None,
+            "decision_approval_ref": action_at_start.get(
+                "local_task_commit_approval_ref"
+            ),
+            "local_task_commit_receipt_ref": existing_commit_receipt.get("receipt_ref"),
+            "local_task_ref": existing_commit_receipt.get("local_task_ref"),
+            "commit_attempted": False,
+            "local_task_was_actionable_before_commit": True,
+            "action_before_commit": _action_fixture_projection(action_at_start),
+            "action_after_commit": _action_fixture_projection(action_at_start),
+            "safe_refs_only": True,
+            "raw_content_omitted": True,
+            "raw_paths_omitted": True,
+            "provider_model_call_enabled": False,
+            "connector_write_enabled": False,
+            "external_side_effect_performed": False,
+            "production_authority_enabled": False,
+        }
+
     decision_receipt = repo.record_action_decision(
         action_id=DOGFOOD_LIVE_LOOP_ACTION_ID,
         decision="approve",
@@ -277,6 +314,11 @@ def seed_dogfood_live_loop_fixture(repo: FounderLoopRepository) -> dict[str, Any
     action_before_commit = _find_action(repo.list_action_inbox(limit=50))
     commit_receipt = _existing_commit_receipt_projection(action_before_commit)
     commit_attempted = False
+
+    if commit_receipt is not None and not _is_dogfood_commit_receipt(commit_receipt):
+        raise FounderLoopStorageError(
+            "DOGFOOD_LIVE_LOOP_PREEXISTING_NON_DOGFOOD_LOCAL_TASK_RECEIPT"
+        )
 
     if commit_receipt is None:
         approval_ref = str(
@@ -302,6 +344,10 @@ def seed_dogfood_live_loop_fixture(repo: FounderLoopRepository) -> dict[str, Any
             commit_receipt = _existing_commit_receipt_projection(action_with_receipt)
             if commit_receipt is None:
                 raise
+            if not _is_dogfood_commit_receipt(commit_receipt):
+                raise FounderLoopStorageError(
+                    "DOGFOOD_LIVE_LOOP_PREEXISTING_NON_DOGFOOD_LOCAL_TASK_RECEIPT"
+                ) from None
 
     action_after_commit = _find_action(repo.list_action_inbox(limit=50))
     return {
@@ -534,10 +580,18 @@ def validate_dogfood_live_loop_acceptance(
 
     if require_seeded and not parsed.fixture_seeded:
         issues.append("dogfood-live-loop-fixture-not-seeded")
+    if parsed.status != "complete_local_dogfood_loop_proven":
+        issues.append("dogfood-live-loop-status-not-complete")
     if require_seeded and not parsed.local_task_was_actionable_before_commit:
         issues.append("dogfood-live-loop-local-task-not-actionable-before-commit")
     if not parsed.local_task_receipt_recorded or not parsed.local_task_commit_receipt_ref:
         issues.append("dogfood-live-loop-local-task-receipt-missing")
+    if (
+        parsed.local_task_commit_receipt_ref
+        and parsed.local_task_commit_receipt_ref
+        != DOGFOOD_LIVE_LOOP_EXPECTED_COMMIT_RECEIPT_REF
+    ):
+        issues.append("dogfood-live-loop-nondeterministic-commit-receipt")
     if DOGFOOD_LIVE_LOOP_ACTION_REF not in parsed.action_refs:
         issues.append("dogfood-live-loop-action-ref-missing")
     if parsed.run_ref not in parsed.run_refs:
@@ -557,17 +611,80 @@ def validate_dogfood_live_loop_acceptance(
     if "trust-lane:external-mutations" not in parsed.trust_blocked_lane_refs:
         issues.append("dogfood-live-loop-trust-blocked-external-mutation-missing")
 
-    section_refs = {section.section_ref for section in parsed.sections}
-    for required in (
+    required_section_refs = {
         "dogfood-live-loop-section:start-here",
         "dogfood-live-loop-section:today",
         "dogfood-live-loop-section:action-inbox",
         "dogfood-live-loop-section:proof-detail",
         "dogfood-live-loop-section:evidence-memory",
         "dogfood-live-loop-section:trust",
+    }
+    section_refs = {section.section_ref for section in parsed.sections}
+    for required in (
+        *required_section_refs,
     ):
         if required not in section_refs:
             issues.append(f"dogfood-live-loop-section-missing:{required}")
+    for section in parsed.sections:
+        if section.section_ref in required_section_refs:
+            if (
+                section.section_ref
+                in {
+                    "dogfood-live-loop-section:today",
+                    "dogfood-live-loop-section:action-inbox",
+                    "dogfood-live-loop-section:proof-detail",
+                    "dogfood-live-loop-section:evidence-memory",
+                }
+                and DOGFOOD_LIVE_LOOP_ACTION_REF not in section.action_refs
+            ):
+                issues.append(
+                    f"dogfood-live-loop-section-action-ref-missing:{section.section_ref}"
+                )
+            if (
+                section.section_ref
+                in {
+                    "dogfood-live-loop-section:today",
+                    "dogfood-live-loop-section:proof-detail",
+                    "dogfood-live-loop-section:evidence-memory",
+                    "dogfood-live-loop-section:trust",
+                }
+                and not section.proof_refs
+            ):
+                issues.append(
+                    f"dogfood-live-loop-section-proof-ref-missing:{section.section_ref}"
+                )
+            if section.section_ref in {
+                "dogfood-live-loop-section:today",
+                "dogfood-live-loop-section:action-inbox",
+                "dogfood-live-loop-section:proof-detail",
+                "dogfood-live-loop-section:evidence-memory",
+            } and (
+                DOGFOOD_LIVE_LOOP_EXPECTED_COMMIT_RECEIPT_REF
+                not in section.receipt_refs
+            ):
+                issues.append(
+                    f"dogfood-live-loop-section-receipt-ref-missing:{section.section_ref}"
+                )
+            if section.section_ref in {
+                "dogfood-live-loop-section:today",
+                "dogfood-live-loop-section:proof-detail",
+                "dogfood-live-loop-section:evidence-memory",
+            } and not section.evidence_refs:
+                issues.append(
+                    f"dogfood-live-loop-section-evidence-ref-missing:{section.section_ref}"
+                )
+            if section.section_ref in {
+                "dogfood-live-loop-section:today",
+                "dogfood-live-loop-section:evidence-memory",
+            } and not section.memory_candidate_refs:
+                issues.append(
+                    f"dogfood-live-loop-section-memory-ref-missing:{section.section_ref}"
+                )
+            if (
+                section.section_ref == "dogfood-live-loop-section:trust"
+                and "trust-lane:external-mutations" not in parsed.trust_blocked_lane_refs
+            ):
+                issues.append("dogfood-live-loop-section-trust-blocked-ref-missing")
 
     text = json.dumps(read_model, sort_keys=True).lower()
     for fragment in _DENIED_TRUE_FRAGMENTS:
@@ -588,7 +705,12 @@ def _find_action(actions: Any) -> dict[str, Any]:
 
 def _local_task_proof_record(proof_index: dict[str, Any]) -> dict[str, Any]:
     for record in _list_of_dicts(proof_index.get("records")):
-        if record.get("proof_kind") == "local_task_commit":
+        if (
+            record.get("proof_kind") == "local_task_commit"
+            and record.get("proof_ref") == DOGFOOD_LIVE_LOOP_LOCAL_TASK_PROOF_REF
+            and DOGFOOD_LIVE_LOOP_EXPECTED_COMMIT_RECEIPT_REF
+            in _refs(record.get("receipt_refs"))
+        ):
             return record
     raise FounderLoopStorageError("DOGFOOD_LIVE_LOOP_LOCAL_TASK_PROOF_NOT_FOUND")
 
@@ -610,6 +732,10 @@ def _existing_commit_receipt_projection(action: dict[str, Any]) -> dict[str, Any
         "provider_model_call_enabled": False,
         "production_authority_enabled": False,
     }
+
+
+def _is_dogfood_commit_receipt(receipt: dict[str, Any]) -> bool:
+    return receipt.get("receipt_ref") == DOGFOOD_LIVE_LOOP_EXPECTED_COMMIT_RECEIPT_REF
 
 
 def _action_fixture_projection(action: dict[str, Any]) -> dict[str, Any]:

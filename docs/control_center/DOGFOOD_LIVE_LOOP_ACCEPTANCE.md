@@ -2,7 +2,7 @@
 
 Status: implemented local dogfood acceptance proof.
 
-Dogfood Live Loop Acceptance proves one complete local founder/operator day
+Dogfood Live Loop Acceptance proves one deterministic repo-local dogfood loop
 through backend-owned state:
 
 Start Here -> Today -> Action Inbox -> exact local task commit -> receipt ->
@@ -27,15 +27,16 @@ safe-disable posture.
 
 ## Acceptance Evidence
 
-The verifier builds a temporary `FounderLoopRepository`, seeds one deterministic
-local approval and local task commit through the exact Python Core contracts,
-then proves these shared refs across the backend read models:
+The verifier builds a temporary `FounderLoopRepository`, seeds or replays one
+deterministic local approval and local task commit through the exact Python Core
+contracts, then proves these shared refs across the backend read models:
 
 - Start Here reports one governed local loop and the next safe action.
 - Today exposes the same run, action, proof, evidence, and memory refs.
 - Action Inbox shows the local task lane as receipt-recorded after commit.
 - Proof Detail includes the local task commit proof and receipt refs.
-- Evidence and Memory link back to the same run/action/proof/evidence refs.
+- Evidence and Memory link back to the same run/action/proof/evidence refs
+  through the combined Evidence/Memory binding.
 - Trust labels local task commit as exact approval required and keeps external
   mutation plus standing authority blocked.
 

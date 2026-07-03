@@ -88,6 +88,8 @@ def _validate_live_read_model(failures: list[str]) -> None:
         "local_task_commit_receipt_ref"
     ):
         failures.append("Dogfood live loop seed is not replay-stable")
+    if read_model.get("status") != "complete_local_dogfood_loop_proven":
+        failures.append("Dogfood live loop read model is not complete")
 
     try:
         DogfoodLiveLoopAcceptanceReadModel(**read_model)
@@ -117,6 +119,29 @@ def _validate_live_read_model(failures: list[str]) -> None:
     )
     if str(state_dir).lower() in result.stdout.lower():
         failures.append("Dogfood live loop CLI leaked temp state path")
+
+    frontend_text = _read(FRONTEND_TEST)
+    for ref_name, ref_value in {
+        "action_ref": read_model.get("action_ref"),
+        "run_ref": read_model.get("run_ref"),
+        "primary_proof_ref": read_model.get("primary_proof_ref"),
+        "local_task_commit_proof_ref": read_model.get("local_task_commit_proof_ref"),
+        "local_task_commit_receipt_ref": read_model.get(
+            "local_task_commit_receipt_ref"
+        ),
+        "local_task_ref": read_model.get("local_task_ref"),
+        "evidence_ref": next(iter(read_model.get("evidence_refs") or []), None),
+        "memory_candidate_ref": next(
+            iter(read_model.get("memory_candidate_refs") or []),
+            None,
+        ),
+    }.items():
+        if not isinstance(ref_value, str) or not ref_value:
+            failures.append(f"Dogfood live loop missing generated {ref_name}")
+        elif ref_value not in frontend_text:
+            failures.append(
+                f"Frontend dogfood fixture missing backend generated {ref_name}"
+            )
 
 
 def verify() -> list[str]:
@@ -161,6 +186,8 @@ def verify() -> list[str]:
         FOCUSED_TEST,
         [
             "test_dogfood_live_loop_acceptance_seeds_one_complete_local_loop",
+            "test_dogfood_live_loop_fixture_blocks_preexisting_non_dogfood_receipt",
+            "test_dogfood_live_loop_validator_rejects_incomplete_or_nondeterministic_refs",
             "test_dogfood_live_loop_cli_inspects_full_loop_with_safe_refs",
         ],
         failures,
