@@ -18,7 +18,6 @@ import {
   EvidenceTimelineSurfacePanel,
   FounderLoopSpinePanel,
   FounderLoopStoragePanel,
-  InboxSurfacePanel,
   MemoryReviewSurfacePanel,
   MorningBriefingPanel,
   TodaySurfacePanel,
@@ -40,6 +39,7 @@ import { ProofDetailPanel } from "./components/ProofDetailPanel";
 import { PrivateOperatorTrialPanel } from "./components/PrivateOperatorTrialPanel";
 import { ReceiptViewerPanel } from "./components/ReceiptViewerPanel";
 import { RuntimeReadinessPanel } from "./components/RuntimeReadinessPanel";
+import { InboxSurfacePanel } from "./components/SourceInboxSurfacePanel";
 import { StartHerePanel } from "./components/StartHerePanel";
 import {
   MobilePlanningPanel,
@@ -121,6 +121,10 @@ export const primaryNavItems = navItems.filter((item) => item.role === "primary"
 export const supportingNavItems = navItems.filter(
   (item) => item.role === "supporting",
 );
+
+export function getRouteSurfaceLabel(path: string): string {
+  return navItems.find((item) => item.path === path)?.label ?? "Control Center";
+}
 
 export function visibleReleaseStatus(status: ReleaseSurfaceStatus): string {
   return status === "ship" ? "proofed" : status;

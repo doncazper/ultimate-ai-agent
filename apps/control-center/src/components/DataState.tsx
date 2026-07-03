@@ -1,21 +1,36 @@
-export function LoadingState() {
+export function LoadingState({
+  surfaceLabel = "Control Center",
+}: {
+  surfaceLabel?: string;
+}) {
   return (
     <div className="data-state" role="status">
-      <strong>Loading local Control Center</strong>
+      <strong>Loading local {surfaceLabel}</strong>
       <span>
-        Checking local backend connection state for read-only contract data and preview-only
-        summaries.
+        Checking local backend connection state for this route's read-only
+        contract data and preview-only summaries.
       </span>
     </div>
   );
 }
 
-export function ErrorState({ message }: { message: string }) {
+export function ErrorState({
+  message,
+  surfaceLabel = "Control Center",
+}: {
+  message: string;
+  surfaceLabel?: string;
+}) {
   return (
     <div className="data-state error" role="alert" aria-labelledby="control-center-error-heading">
-      <strong id="control-center-error-heading">Control Center data unavailable</strong>
+      <strong id="control-center-error-heading">
+        {surfaceLabel} data unavailable
+      </strong>
       <span>{message}</span>
-      <small>Next safe action: verify the local backend and rerun the frontend checks.</small>
+      <small>
+        Next safe action: verify the local backend before trusting this route's
+        controls, receipts, or proof claims.
+      </small>
     </div>
   );
 }

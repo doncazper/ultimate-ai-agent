@@ -3,17 +3,21 @@ import { AppShell } from "./components/AppShell";
 import { ErrorState, LoadingState } from "./components/DataState";
 import { SafeAlert } from "./components/SafeAlert";
 import { useControlCenterData } from "./hooks/useControlCenterData";
-import { renderRoute } from "./routes";
+import { getRouteSurfaceLabel, renderRoute } from "./routes";
 import type { BackendConnectionSummary } from "./api/types";
 
 export function App() {
   const state = useControlCenterData();
   const activePath = useMemo(() => normalizePath(window.location.pathname), []);
+  const activeSurfaceLabel = useMemo(
+    () => getRouteSurfaceLabel(activePath),
+    [activePath],
+  );
 
   if (state.status === "loading") {
     return (
       <AppShell activePath={activePath}>
-        <LoadingState />
+        <LoadingState surfaceLabel={activeSurfaceLabel} />
       </AppShell>
     );
   }
@@ -21,7 +25,10 @@ export function App() {
   if (state.status === "error" || !state.data) {
     return (
       <AppShell activePath={activePath}>
-        <ErrorState message={state.error ?? "Unable to load Control Center data."} />
+        <ErrorState
+          message={state.error ?? "Unable to load Control Center data."}
+          surfaceLabel={activeSurfaceLabel}
+        />
       </AppShell>
     );
   }
