@@ -27,6 +27,38 @@ state or is where every UAA workflow will be wired.
 Today, Inbox, Plans, Actions, Memory, Evidence, and Settings remain the core
 operator loop surfaces for product-language enforcement.
 
+## Usable Authority Tiers
+
+Use `docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md` and
+`docs/control_center/operational_maturity_manifest.json` for the current
+low-friction authority tier vocabulary:
+
+- Tier 0 UI/ephemeral state: presentation-only local UI state can stay in
+  React/local browser state and must not imply durable operator truth.
+- Tier 1 local read/preview: backend-owned local read models, safe refs,
+  redacted previews, summaries, and proof details do not need approval when
+  they have no side effect.
+- Tier 2 local draft/proposal: local drafts and proposals do not need approval
+  to create; approval starts only when the operator commits, sends, applies, or
+  executes the draft.
+- Tier 3 reversible local mutation: exact local mutation lanes may use
+  lightweight/session-scoped approval or visible undo/safe-disable only when
+  the Python core owns receipts and state.
+- Tier 4 external mutation: sends, connector writes, paid provider calls,
+  external account changes, and filesystem writes outside safe local scopes
+  require exact approval, idempotency, receipt, redaction, safe-disable, and
+  rollback or compensating posture.
+- Tier 5 background/standing authority: scheduled, repeated, autonomous, or
+  standing authority requires a separate scoped graduation and visible
+  revocation, queue, budget, retry, timeout, and kill posture.
+
+Draft available is not send available. Preview available is not runtime
+execution. Product copy should let Tier 1 and Tier 2 work feel usable when the
+backend read/proposal contract exists, while still blocking provider/model
+calls, connector writes, browser automation, shell/subprocess execution,
+runtime context injection, background autonomy, public release, and production
+authority unless a later exact lane proves them.
+
 CRM and Communications copy is allowed as a contract-first product-line
 language lane only when it preserves Control Center as the current first-party
 shell and Founder Loop as the bounded operator workflow. CRM copy must

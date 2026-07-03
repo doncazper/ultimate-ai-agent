@@ -10,6 +10,8 @@
     "baseline",
     "ladder_doc_ref",
     "verifier_ref",
+    "authority_tier_doc_ref",
+    "authority_tier_model",
     "modules"
   ],
   "properties": {
@@ -28,6 +30,12 @@
     "verifier_ref": {
       "const": "scripts/verify_operational_maturity.py"
     },
+    "authority_tier_doc_ref": {
+      "const": "docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"
+    },
+    "authority_tier_model": {
+      "$ref": "#/$defs/authority_tier_model"
+    },
     "modules": {
       "type": "array",
       "minItems": 1,
@@ -41,6 +49,90 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 7
+    },
+    "usable_authority_tier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tier",
+        "tier_id",
+        "label",
+        "durable_truth_owner",
+        "approval_posture",
+        "examples",
+        "blocked_claims"
+      ],
+      "properties": {
+        "tier": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "tier_id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "durable_truth_owner": { "type": "string", "minLength": 1 },
+        "approval_posture": { "type": "string", "minLength": 1 },
+        "examples": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "blocked_claims": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "authority_tier_guardrails": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tier_0_may_remain_ui_owned_for_presentation_only",
+        "tier_1_local_read_preview_no_approval_required",
+        "tier_2_local_draft_no_approval_required_to_create",
+        "tier_2_commit_send_apply_requires_later_authority",
+        "tier_3_reversible_local_mutation_must_show_undo_or_safe_disable",
+        "tier_4_external_mutation_requires_exact_approval_receipt_idempotency",
+        "tier_5_background_standing_authority_requires_separate_graduation",
+        "control_center_no_durable_truth",
+        "draft_available_does_not_mean_send_available",
+        "preview_available_does_not_mean_runtime_execution"
+      ],
+      "properties": {
+        "tier_0_may_remain_ui_owned_for_presentation_only": { "const": true },
+        "tier_1_local_read_preview_no_approval_required": { "const": true },
+        "tier_2_local_draft_no_approval_required_to_create": { "const": true },
+        "tier_2_commit_send_apply_requires_later_authority": { "const": true },
+        "tier_3_reversible_local_mutation_must_show_undo_or_safe_disable": {
+          "const": true
+        },
+        "tier_4_external_mutation_requires_exact_approval_receipt_idempotency": {
+          "const": true
+        },
+        "tier_5_background_standing_authority_requires_separate_graduation": {
+          "const": true
+        },
+        "control_center_no_durable_truth": { "const": true },
+        "draft_available_does_not_mean_send_available": { "const": true },
+        "preview_available_does_not_mean_runtime_execution": { "const": true }
+      }
+    },
+    "authority_tier_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["doctrine", "tiers", "guardrails"],
+      "properties": {
+        "doctrine": {
+          "const": "Earned authority, low friction by default, strict only where consequences justify it."
+        },
+        "tiers": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": { "$ref": "#/$defs/usable_authority_tier" }
+        },
+        "guardrails": { "$ref": "#/$defs/authority_tier_guardrails" }
+      }
     },
     "lane": {
       "type": "object",

@@ -45,6 +45,10 @@ AUTHORITY_SCORECARD_SCHEMA_PATH = (
 AUTHORITY_CONVEYOR_DOC_PATH = ROOT / "docs/control_center/AUTHORITY_RAMP_CONVEYOR.md"
 LADDER_DOC_PATH = ROOT / "docs/control_center/OPERATIONALIZATION_LADDER.md"
 GAP_MAP_PATH = ROOT / "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
+USABLE_AUTHORITY_PLAN_PATH = (
+    ROOT / "docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"
+)
+PRODUCT_LANGUAGE_RULES_PATH = ROOT / "docs/control_center/PRODUCT_LANGUAGE_RULES.md"
 FOUNDER_BOARD_PATH = ROOT / "docs/kanban/founder_command_center_board.md"
 CONTROL_CENTER_MOCK_DATA_PATH = (
     ROOT / "apps/control-center/src/mocks/controlCenterData.ts"
@@ -69,6 +73,64 @@ LADDER_LABELS = {
     5: "local_execution_receipt_evidence",
     6: "rollback_safe_disable_verified",
     7: "routine_operational_loop",
+}
+AUTHORITY_TIER_DOC_REF = "docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"
+AUTHORITY_TIER_DOCTRINE = (
+    "Earned authority, low friction by default, strict only where consequences justify it."
+)
+EXPECTED_USABLE_AUTHORITY_TIERS = {
+    0: "tier_0_ui_ephemeral_state",
+    1: "tier_1_local_read_preview",
+    2: "tier_2_local_draft_proposal",
+    3: "tier_3_reversible_local_mutation",
+    4: "tier_4_external_mutation",
+    5: "tier_5_background_standing_authority",
+}
+LOW_FRICTION_TIER_IDS = {
+    "tier_1_local_read_preview",
+    "tier_2_local_draft_proposal",
+}
+TIER_LOW_FRICTION_FORBIDDEN_CLAIMS = {
+    "provider_model_call",
+    "connector_write",
+    "browser_automation",
+    "shell_subprocess_execution",
+    "external_mutation",
+    "background_standing_authority",
+    "runtime_context_injection",
+    "broad_autonomy",
+    "production_authority",
+}
+TIER_MODEL_REQUIRED_GUARDRAILS = {
+    "tier_0_may_remain_ui_owned_for_presentation_only",
+    "tier_1_local_read_preview_no_approval_required",
+    "tier_2_local_draft_no_approval_required_to_create",
+    "tier_2_commit_send_apply_requires_later_authority",
+    "tier_3_reversible_local_mutation_must_show_undo_or_safe_disable",
+    "tier_4_external_mutation_requires_exact_approval_receipt_idempotency",
+    "tier_5_background_standing_authority_requires_separate_graduation",
+    "control_center_no_durable_truth",
+    "draft_available_does_not_mean_send_available",
+    "preview_available_does_not_mean_runtime_execution",
+}
+USABLE_AUTHORITY_PLAN_SNIPPETS = {
+    "earned authority, low friction by default, strict only where consequences justify it",
+    "tier 0",
+    "tier 1",
+    "tier 2",
+    "tier 3",
+    "tier 4",
+    "tier 5",
+    "no approval required",
+    "approval is required only to commit",
+    "draft available is not send available",
+}
+PRODUCT_LANGUAGE_TIER_SNIPPETS = {
+    "usable authority tiers",
+    "tier 1 local read/preview",
+    "tier 2 local draft/proposal",
+    "draft available is not send available",
+    "preview available is not runtime execution",
 }
 LOCAL_TASK_ROUTE = "POST /control-center/actions/{action_id}/local-task/commit"
 LOCAL_TASK_PATH = "/control-center/actions/{action_id}/local-task/commit"
@@ -339,6 +401,7 @@ def verify(
     _append_schema_shape_failures(failures, schema)
     _append_authority_scorecard_schema_failures(failures, scorecard_schema)
     _append_manifest_shape_failures(failures, manifest)
+    _append_authority_tier_model_failures(failures, manifest, root)
     _append_authority_scorecard_failures(
         failures,
         scorecard,
@@ -364,6 +427,21 @@ def _append_schema_shape_failures(
 ) -> None:
     if schema.get("title") != "Control Center Operational Maturity Manifest":
         failures.append("operational maturity schema title drifted")
+    top_level_required = set(schema.get("required", []))
+    for field in [
+        "authority_tier_doc_ref",
+        "authority_tier_model",
+    ]:
+        if field not in top_level_required:
+            failures.append(f"operational maturity schema missing field {field}")
+    defs = schema.get("$defs", {})
+    for def_name in [
+        "usable_authority_tier",
+        "authority_tier_guardrails",
+        "authority_tier_model",
+    ]:
+        if def_name not in defs:
+            failures.append(f"operational maturity schema missing def {def_name}")
     module_required = set(schema.get("$defs", {}).get("module", {}).get("required", []))
     for field in [
         "module_id",
@@ -486,6 +564,8 @@ def _append_manifest_shape_failures(
         failures.append("operational maturity manifest ladder_doc_ref drifted")
     if manifest.get("verifier_ref") != "scripts/verify_operational_maturity.py":
         failures.append("operational maturity manifest verifier_ref drifted")
+    if manifest.get("authority_tier_doc_ref") != AUTHORITY_TIER_DOC_REF:
+        failures.append("operational maturity manifest authority_tier_doc_ref drifted")
     modules = manifest.get("modules")
     if not isinstance(modules, list):
         failures.append("operational maturity manifest modules must be a list")
@@ -497,6 +577,96 @@ def _append_manifest_shape_failures(
         )
     if len(module_ids) != len(set(module_ids)):
         failures.append("operational maturity manifest contains duplicate modules")
+
+
+def _append_authority_tier_model_failures(
+    failures: list[str],
+    manifest: dict[str, Any],
+    root: Path,
+) -> None:
+    model = manifest.get("authority_tier_model")
+    if not isinstance(model, dict):
+        failures.append("operational maturity manifest requires authority_tier_model")
+        return
+    if model.get("doctrine") != AUTHORITY_TIER_DOCTRINE:
+        failures.append("authority tier model doctrine drifted")
+
+    tiers = model.get("tiers")
+    if not isinstance(tiers, list):
+        failures.append("authority tier model tiers must be a list")
+        tiers = []
+    tiers_by_number: dict[int, dict[str, Any]] = {}
+    for tier in tiers:
+        if not isinstance(tier, dict):
+            failures.append("authority tier model contains non-object tier")
+            continue
+        tier_number = tier.get("tier")
+        if not isinstance(tier_number, int):
+            failures.append("authority tier model tier number must be int")
+            continue
+        if tier_number in tiers_by_number:
+            failures.append(f"authority tier model duplicate tier {tier_number}")
+        tiers_by_number[tier_number] = tier
+
+    if set(tiers_by_number) != set(EXPECTED_USABLE_AUTHORITY_TIERS):
+        failures.append(
+            f"authority tier model tier set drifted: {sorted(tiers_by_number)}"
+        )
+    for tier_number, expected_tier_id in EXPECTED_USABLE_AUTHORITY_TIERS.items():
+        tier = tiers_by_number.get(tier_number)
+        if not tier:
+            failures.append(f"authority tier model missing tier {tier_number}")
+            continue
+        if tier.get("tier_id") != expected_tier_id:
+            failures.append(
+                f"authority tier {tier_number} expected {expected_tier_id}"
+            )
+        for field in [
+            "label",
+            "durable_truth_owner",
+            "approval_posture",
+            "examples",
+            "blocked_claims",
+        ]:
+            if field not in tier:
+                failures.append(
+                    f"authority tier {expected_tier_id} missing field {field}"
+                )
+        if tier.get("tier_id") in LOW_FRICTION_TIER_IDS:
+            if "no approval" not in _compact_string(str(tier.get("approval_posture", ""))):
+                failures.append(
+                    f"authority tier {expected_tier_id} must stay low-friction/no-approval for initiation"
+                )
+            blocked_claims = set(tier.get("blocked_claims", []))
+            missing = TIER_LOW_FRICTION_FORBIDDEN_CLAIMS - blocked_claims
+            for claim in sorted(missing):
+                failures.append(
+                    f"authority tier {expected_tier_id} must block {claim}"
+                )
+
+    guardrails = model.get("guardrails")
+    if not isinstance(guardrails, dict):
+        failures.append("authority tier model guardrails must be an object")
+        guardrails = {}
+    for guardrail in sorted(TIER_MODEL_REQUIRED_GUARDRAILS):
+        if guardrails.get(guardrail) is not True:
+            failures.append(f"authority tier model guardrail missing {guardrail}")
+
+    plan_path = root / AUTHORITY_TIER_DOC_REF
+    if not plan_path.exists():
+        failures.append(f"authority tier plan missing {AUTHORITY_TIER_DOC_REF}")
+    else:
+        plan_text = _compact_text(plan_path)
+        for snippet in sorted(USABLE_AUTHORITY_PLAN_SNIPPETS):
+            if snippet not in plan_text:
+                failures.append(f"authority tier plan missing '{snippet}'")
+
+    product_language_text = _compact_text(
+        root / PRODUCT_LANGUAGE_RULES_PATH.relative_to(ROOT)
+    )
+    for snippet in sorted(PRODUCT_LANGUAGE_TIER_SNIPPETS):
+        if snippet not in product_language_text:
+            failures.append(f"product language missing authority tier rule '{snippet}'")
 
 
 def _append_authority_scorecard_failures(

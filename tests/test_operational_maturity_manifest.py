@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 
 from scripts.verify_operational_maturity import (
     AUTHORITY_SCORECARD_PATH,
+    AUTHORITY_TIER_DOC_REF,
     CONTEXT_INJECTION_CANDIDATE_ID,
     CONTEXT_INJECTION_CLI_REF,
     CONTEXT_INJECTION_CONTRACT_DOC_REF,
@@ -21,7 +22,9 @@ from scripts.verify_operational_maturity import (
     FIRST_IMPLEMENTATION_REQUIRED_ALLOWED_SCOPE,
     FIRST_IMPLEMENTATION_REQUIRED_BLOCKED_AUTHORITIES,
     FIRST_IMPLEMENTATION_REQUIRED_VERIFICATION_REFS,
+    EXPECTED_USABLE_AUTHORITY_TIERS,
     LADDER_LABELS,
+    LOW_FRICTION_TIER_IDS,
     LOCAL_MODEL_CLI_REF,
     LOCAL_TASK_REPEATABILITY_GATE_REF,
     LOCAL_TASK_REPEATABILITY_REQUIRED_FOCUSED_TEST_REFS,
@@ -39,6 +42,9 @@ from scripts.verify_operational_maturity import (
     PATCH_WORKBENCH_MODULE_ID,
     PATCH_WORKBENCH_REQUIRED_MISSING_CONTRACTS,
     SCHEMA_PATH,
+    TIER_LOW_FRICTION_FORBIDDEN_CLAIMS,
+    TIER_MODEL_REQUIRED_GUARDRAILS,
+    _append_authority_tier_model_failures,
     _append_local_model_manifest_failures,
     _append_memory_context_pack_manifest_failures,
     _append_patch_workbench_manifest_failures,
@@ -61,8 +67,10 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
     modules = {module["module_id"]: module for module in manifest["modules"]}
 
     assert manifest["schema_version"] == "uaa-control-center-operational-maturity.v1"
+    assert manifest["authority_tier_doc_ref"] == AUTHORITY_TIER_DOC_REF
     assert schema["$defs"]["rank"]["minimum"] == 0
     assert schema["$defs"]["rank"]["maximum"] == 7
+    assert "authority_tier_model" in schema["$defs"]
     assert set(LADDER_LABELS.values()) == {
         "docs_only",
         "read_only_status",
@@ -112,8 +120,57 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
     assert LOCAL_MODEL_CLI_REF in modules["local_models"]["cli_or_script_refs"]
 
 
+def test_operational_maturity_manifest_declares_usable_authority_tiers() -> None:
+    manifest = load_json(MANIFEST_PATH)
+    model = manifest["authority_tier_model"]
+    tiers = {tier["tier"]: tier for tier in model["tiers"]}
+
+    assert set(tiers) == set(EXPECTED_USABLE_AUTHORITY_TIERS)
+    assert {
+        tier["tier_id"] for tier in model["tiers"]
+    } == set(EXPECTED_USABLE_AUTHORITY_TIERS.values())
+    assert model["guardrails"].keys() >= TIER_MODEL_REQUIRED_GUARDRAILS
+    assert all(model["guardrails"][key] is True for key in TIER_MODEL_REQUIRED_GUARDRAILS)
+    for tier in model["tiers"]:
+        if tier["tier_id"] in LOW_FRICTION_TIER_IDS:
+            assert "No approval" in tier["approval_posture"]
+            assert TIER_LOW_FRICTION_FORBIDDEN_CLAIMS.issubset(
+                set(tier["blocked_claims"])
+            )
+
+
+def test_operational_maturity_rejects_low_friction_tier_runtime_claims() -> None:
+    manifest = _manifest_copy()
+    model = manifest["authority_tier_model"]
+    for tier in model["tiers"]:
+        if tier["tier_id"] in LOW_FRICTION_TIER_IDS:
+            tier["approval_posture"] = "Exact approval required for every view."
+            tier["blocked_claims"] = [
+                claim
+                for claim in tier["blocked_claims"]
+                if claim != "provider_model_call"
+            ]
+    model["guardrails"]["draft_available_does_not_mean_send_available"] = False
+    failures: list[str] = []
+
+    _append_authority_tier_model_failures(failures, manifest, MANIFEST_PATH.parents[2])
+
+    assert any("must stay low-friction/no-approval" in failure for failure in failures)
+    assert any("must block provider_model_call" in failure for failure in failures)
+    assert any(
+        "authority tier model guardrail missing draft_available_does_not_mean_send_available"
+        in failure
+        for failure in failures
+    )
+
+
 def test_operational_maturity_gate_docs_exist() -> None:
-    for path in [MANIFEST_PATH, SCHEMA_PATH, AUTHORITY_SCORECARD_PATH]:
+    for path in [
+        MANIFEST_PATH,
+        SCHEMA_PATH,
+        AUTHORITY_SCORECARD_PATH,
+        Path(AUTHORITY_TIER_DOC_REF),
+    ]:
         assert Path(path).exists()
 
 

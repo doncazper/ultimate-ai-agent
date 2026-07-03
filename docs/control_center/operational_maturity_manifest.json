@@ -4,6 +4,162 @@
   "baseline": "v0.104.0 / 0.104.0",
   "ladder_doc_ref": "docs/control_center/OPERATIONALIZATION_LADDER.md",
   "verifier_ref": "scripts/verify_operational_maturity.py",
+  "authority_tier_doc_ref": "docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md",
+  "authority_tier_model": {
+    "doctrine": "Earned authority, low friction by default, strict only where consequences justify it.",
+    "tiers": [
+      {
+        "tier": 0,
+        "tier_id": "tier_0_ui_ephemeral_state",
+        "label": "UI/ephemeral state",
+        "durable_truth_owner": "Control Center may own presentation-only local state; no durable operator truth is inferred.",
+        "approval_posture": "No approval; no backend contract unless state becomes durable product truth.",
+        "examples": [
+          "tabs",
+          "filters",
+          "expanded panels",
+          "layout preferences"
+        ],
+        "blocked_claims": [
+          "durable_operator_truth",
+          "backend_workflow_state",
+          "authority_graduation",
+          "product_completion_claim"
+        ]
+      },
+      {
+        "tier": 1,
+        "tier_id": "tier_1_local_read_preview",
+        "label": "Local read/preview",
+        "durable_truth_owner": "Python Agent Core/API owns durable read-model truth; Control Center presents safe refs and redacted summaries.",
+        "approval_posture": "No approval required for local read/preview when the backend contract is read-only and redacted.",
+        "examples": [
+          "Start Here summary",
+          "Action Inbox read model",
+          "Evidence Timeline",
+          "Memory Review",
+          "Trust matrix",
+          "Proof detail",
+          "context pack preview",
+          "web evidence preview"
+        ],
+        "blocked_claims": [
+          "provider_model_call",
+          "connector_write",
+          "browser_automation",
+          "shell_subprocess_execution",
+          "external_mutation",
+          "background_standing_authority",
+          "runtime_context_injection",
+          "broad_autonomy",
+          "production_authority"
+        ]
+      },
+      {
+        "tier": 2,
+        "tier_id": "tier_2_local_draft_proposal",
+        "label": "Local draft/proposal",
+        "durable_truth_owner": "Python Agent Core/API owns durable draft or proposal status when operator-relevant.",
+        "approval_posture": "No approval required to create a local draft/proposal; approval is required only to commit, send, apply, or execute it.",
+        "examples": [
+          "local task proposal",
+          "email draft proposal",
+          "calendar draft proposal",
+          "file patch proposal",
+          "provider-assisted draft proposal"
+        ],
+        "blocked_claims": [
+          "provider_model_call",
+          "connector_write",
+          "browser_automation",
+          "shell_subprocess_execution",
+          "external_mutation",
+          "background_standing_authority",
+          "runtime_context_injection",
+          "broad_autonomy",
+          "production_authority"
+        ]
+      },
+      {
+        "tier": 3,
+        "tier_id": "tier_3_reversible_local_mutation",
+        "label": "Reversible local mutation",
+        "durable_truth_owner": "Python Agent Core/API owns receipts and local state changes; Control Center may initiate only exact backend contracts.",
+        "approval_posture": "Lightweight/session-scoped approval or undo is acceptable where local risk is low and the lane is exact-scoped.",
+        "examples": [
+          "create local UAA task",
+          "edit local action proposal",
+          "accept reviewed memory item",
+          "correct reviewed memory item",
+          "archive local review item"
+        ],
+        "blocked_claims": [
+          "connector_write",
+          "provider_model_call",
+          "browser_automation",
+          "shell_subprocess_execution",
+          "external_mutation",
+          "irreversible_delete",
+          "background_standing_authority",
+          "production_authority"
+        ]
+      },
+      {
+        "tier": 4,
+        "tier_id": "tier_4_external_mutation",
+        "label": "External mutation",
+        "durable_truth_owner": "Python Agent Core owns exact approval validation, idempotency, receipts, evidence, safe-disable, and rollback posture.",
+        "approval_posture": "Exact approval, idempotency, receipt, safe-disable, rollback posture, redaction, and tests are required.",
+        "examples": [
+          "send email",
+          "write calendar event",
+          "CRM/message write",
+          "paid provider call",
+          "filesystem mutation outside safe local scopes"
+        ],
+        "blocked_claims": [
+          "broad_approval",
+          "standing_authority",
+          "background_execution",
+          "unbounded_external_mutation",
+          "production_authority"
+        ]
+      },
+      {
+        "tier": 5,
+        "tier_id": "tier_5_background_standing_authority",
+        "label": "Background/standing authority",
+        "durable_truth_owner": "Python Agent Core owns revocation, pause/cancel/kill, queue inspection, budgets, replay/audit, observability, and safe-disable.",
+        "approval_posture": "Separate explicit graduation is required for every scoped background or standing authority lane.",
+        "examples": [
+          "scheduled sync",
+          "background provider calls",
+          "auto-send",
+          "recurring browser or shell automation",
+          "autonomous work selection"
+        ],
+        "blocked_claims": [
+          "hidden_execution",
+          "unbounded_autonomy",
+          "unreviewed_retries",
+          "unbounded_spend",
+          "production_authority"
+        ]
+      }
+    ],
+    "guardrails": {
+      "tier_0_may_remain_ui_owned_for_presentation_only": true,
+      "tier_1_local_read_preview_no_approval_required": true,
+      "tier_2_local_draft_no_approval_required_to_create": true,
+      "tier_2_commit_send_apply_requires_later_authority": true,
+      "tier_3_reversible_local_mutation_must_show_undo_or_safe_disable": true,
+      "tier_4_external_mutation_requires_exact_approval_receipt_idempotency": true,
+      "tier_5_background_standing_authority_requires_separate_graduation": true,
+      "control_center_no_durable_truth": true,
+      "draft_available_does_not_mean_send_available": true,
+      "preview_available_does_not_mean_runtime_execution": true
+    }
+  },
   "modules": [
     {
       "module_id": "action_inbox",
