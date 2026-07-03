@@ -53,7 +53,7 @@ The near-term foundation stays read-only or proposal-only:
 | Read-only real-world web fetch through `WebAccessGateway` | Implemented only as an explicit M72 tool-runtime transport and CLI inspector; no backend route or Control Center control. | HTTPS GET only, explicit public allowlist, bounded redacted preview, safe refs, gateway audit/request refs. No raw body/header persistence, browser automation, provider SDK call, connector read/write, credentials/cookies, downloads/uploads, POST/PUT/PATCH/DELETE, memory write, context injection, action execution, generic browsing, or production authority. |
 | Read-only connector metadata | Partial source-readiness posture appears in Today, Morning Briefing, and Action Inbox. | No account auth, polling, raw source reads, send/archive/delete/label/move, calendar write, connector runtime, or connector write. |
 | Memory-to-loop proposals | Implemented as reviewed recall refs, memory-derived Action proposal refs, and Weekly Review carry-forward refs. | Memory is recall, not truth or authority. No automatic memory write, context injection, action execution, CRM sync, connector write, or provider/model authority. |
-| Context-pack proposal display | Implemented as read-only `/control-center/memory/context-packs` inspection plus Control Center Memory display. | Context packs are proposal refs only. No hidden prompt writing, context injection, provider/model call, connector sync, memory write, or production authority. |
+| Context-pack proposal display | Implemented as read-only `/control-center/memory/context-packs` inspection plus Control Center Memory display. The prerequisite contract for future context-pack preview/materialization is documented, with CLI inspection through `memory-context-manifest`. | Context packs are proposal refs only. No hidden prompt writing, runtime context injection, provider/model call, connector sync, memory write, or production authority. |
 
 ## Authority Candidates
 
@@ -81,6 +81,14 @@ valuable, and bound to exact scope, `LocalApprovalAuthority` validation,
 idempotency, receipts, safe-disable posture, CLI parity, and verifier refs.
 Broader automatic memory writes, delete/export execution, context injection,
 connector writes, and source-truth authority remain blocked.
+
+`context_injection` is now `contract_ready` only for a future governed
+context-pack preview/materialization lane. It has exact scope, source/destination
+ref, approval, idempotency, receipt/evidence, rollback/safe-disable, redaction,
+CLI, test, and verifier refs, but it is not selected as a micro-lane. Runtime
+prompt/model context injection, automatic memory inclusion, connector-derived
+context, browser/web-derived context, shell/file-derived context, raw payload
+persistence, and production authority remain blocked.
 
 The scorecard may mark a class as `not_ready`, `proposal_only_ready`,
 `contract_ready`, `micro_lane_candidate`, `implemented`, or
@@ -114,9 +122,9 @@ reviewed recall-write accept/correct decisions. The existing Action Inbox
 `local_task_create` lane remains rank 5, and Memory now has a separate rank 5
 `reviewed_memory_recall_write` lane inside an otherwise limited module. Future
 connector writes, automatic/broad memory writes, shell/subprocess work, browser
-automation, provider/model authority, and context injection remain blocked
-until the scorecard and operational maturity verifier agree that one exact lane
-is ready.
+automation, provider/model authority, and runtime context injection remain
+blocked until the scorecard and operational maturity verifier agree that one
+exact lane is ready.
 The fixed first implementation lane, `read_only_real_world_web_fetch` through
 `WebAccessGateway`, is implemented only for the exact allowlisted HTTPS GET
 tool-runtime/CLI path. It is not a follow-on authority candidate and cannot be
@@ -128,10 +136,15 @@ write hardening pass implemented the missing exact reviewed recall-write scope,
 LocalApprovalAuthority binding, rollback/safe-disable posture, CLI parity, and
 focused verifier refs for the narrow accept/correct lane only.
 
+The next safe context step is not prompt injection. It is a narrow
+context-pack materialization or preview micro-lane that would produce
+operator-reviewable refs and receipts only, if and when a later PR proves that
+lane.
+
 ## Non-Goals
 
 This program does not add generic execution, connector writes,
 shell/subprocess execution, provider/model authority, automatic or broad memory
-writes, context injection, browser automation, remote execution, plugin runtime
-import, public beta, public release, production-readiness claims, or production
-authority.
+writes, runtime context injection, browser automation, remote execution, plugin
+runtime import, public beta, public release, production-readiness claims, or
+production authority.

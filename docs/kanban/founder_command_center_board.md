@@ -34,6 +34,11 @@ call, provider/model authority, or production authority. It now names the
 Optional Local Model Stack: Docker, llama.cpp, OpenWebUI, Ollama, MLX-LM, with
 Ollama and MLX-LM as read-only readiness and inventory evidence surfaces only.
 
+The `context_injection` prerequisite contract is contract-ready for future gate
+review only. It is not selected as a micro-lane, adds no runtime
+prompt/context injection route or Control Center control, and keeps runtime
+prompt/context injection blocked.
+
 FCC-V1-000 Control Center Release Surface Manifest is complete. FCC-V1-001 API
 Perimeter For Real Mutations is complete as contract/verifier coverage with
 duplicate replay runtime still blocked until route-owner receipt storage exists outside routes that implement their own receipt-backed replay.

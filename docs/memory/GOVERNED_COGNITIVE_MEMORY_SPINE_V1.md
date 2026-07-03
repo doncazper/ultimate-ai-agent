@@ -152,6 +152,68 @@ providers/models, perform semantic search, add embeddings/vector indexing,
 sync CRM/accounts, write connectors, execute actions, or grant public
 beta/production authority.
 
+## Context Injection Prerequisite Contract
+
+The next authority candidate after the reviewed recall-write lane is
+`context_injection`, but only as a prerequisite contract. The exact future
+scope under consideration is
+`exact-scope-ref:context-injection:context-pack-preview-materialization`, which
+means a backend-owned, safe-ref-only context-pack preview or materialization
+artifact for operator review. It does not mean a prompt, provider request,
+connector payload, browser session, shell command, or runtime consumer receives
+context.
+
+Allowed source refs for that future preview/materialization lane are limited to
+reviewed and inspection-only Memory refs:
+
+- `memory-record-ref:*`
+- `reviewed-recall-ref:*`
+- `l1-preview-ref:*`
+- `l2-projection-ref:*`
+- `l3-representation-ref:*`
+- `context-pack-ref:*`
+- `context-manifest-ref:*`
+- `evidence-ref:*`
+- `receipt:*`
+
+Allowed destination or consumer refs are limited to review artifacts:
+
+- `context-pack-preview-ref:*`
+- `context-materialization-preview-ref:*`
+- `proof-ref:*`
+- `evidence-ref:*`
+- `receipt:context-pack-preview:*`
+- `repo-local-command:founder-loop-memory-context-manifest`
+
+The approval binding for any later micro-lane must validate exact
+`LocalApprovalAuthority` scope before materialization. Idempotency must bind the
+context-pack ref, context-manifest ref, source refs, allowed destination ref,
+redaction posture, reviewer ref, payload fingerprint ref, and approval ref.
+Receipts must include source refs, destination/consumer refs, evidence refs,
+audit refs, proof refs where available, redaction state, blocked runtime refs,
+and next safe action. Rollback and safe-disable posture must include
+`rollback-ref:context-injection:suppress-context-preview-materialization` and
+`safe-disable-ref:context-injection:context-pack-preview-materialization`.
+
+CLI/repo-local inspection for the prerequisite contract is
+`scripts/dev/uaa_founder_loop.py memory-context-manifest`. That command returns
+safe refs and manifest posture only. It must not print raw prompt text, raw
+memory text, raw provider payloads, raw source bodies, raw local paths,
+credentials, account identifiers, contacts, or file contents.
+
+Still blocked until a separate exact micro-lane is proposed, reviewed,
+implemented, and verified:
+
+- runtime prompt context injection
+- live model or provider context injection
+- automatic memory inclusion
+- connector-derived context injection
+- browser or web-derived context injection
+- shell, subprocess, or file-derived context injection
+- hidden prompt context
+- raw payload persistence
+- public beta, public release, production readiness, or production authority
+
 ## Current Phase 6
 
 Phase 6 narrow low-risk execution hooks remain future blocked. The current work

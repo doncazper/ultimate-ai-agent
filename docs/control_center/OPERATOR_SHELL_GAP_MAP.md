@@ -20,6 +20,13 @@ Control Center and OpenWebUI remain shells. Python Agent Core, PolicyEngine,
 LocalApprovalAuthority, route side-effect classification, OpenAPI checks, and
 Foundation Gate checks remain the authority boundaries.
 
+The `context_injection` prerequisite contract is planned-only and
+contract-ready for future gate review. It adds no runtime prompt/context
+injection route, prompt context writing, OpenWebUI handoff execution, backend
+mutation route, Control Center injection control, provider/model call,
+connector write, action execution, public beta, public release, production
+readiness, or production authority.
+
 UI surface direction: Control Center / Founder Command Center is the
 first-party product cockpit for Today, Inbox, Plans, Actions, Memory, Evidence,
 Settings, Models, and future first-party Chat. OpenWebUI remains a supported

@@ -229,8 +229,9 @@ def _append_doc_failures(failures: list[str]) -> None:
             ],
             DOC_INDEX: [SPINE_DOC, ROADMAP_DOC, HANDOFF_DOC],
             MEMORY_WRITE_POLICY_DOC: [
-                "FCC-V1-005 adds one narrow later exception",
+                "FCC-V1-005 implements one narrow reviewed recall-write lane",
                 "reviewed recall-only `LocalMemoryStore`",
+                "independent from `context_injection`",
                 "context injection",
             ],
             MEMORY_REVIEW_PROVENANCE_DOC: [

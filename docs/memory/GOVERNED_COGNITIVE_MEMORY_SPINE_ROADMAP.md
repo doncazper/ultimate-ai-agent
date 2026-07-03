@@ -17,6 +17,7 @@ evidence-visible.
 | Phase 3 | L2 factual, graph, and temporal indexing | Implemented read-only derived preview | Deterministic ref projection only; no truth authority |
 | Phase 4 | L3 identity, session, preference, and commitment modeling | Implemented read-only representation proposals | Representation proposals only; no account sync, CRM writes, or context injection |
 | Phase 5 | Context-pack proposals | Implemented read-only proposal envelopes | Proposal-only envelopes; exact user review required before any future use |
+| Context Injection Prerequisite | Context-pack preview/materialization contract | Contract-ready only | Defines exact source/destination refs, approval, receipts, safe-disable, rollback, CLI, and verifier posture; runtime injection remains blocked |
 | Phase 6 | Narrow low-risk execution hooks | Future blocked; contract/proof lane only | Requires separate accepted milestone, exact approval, receipt, rollback, and Evidence Timeline proof |
 | Phase 6.1 | Context-pack to internal Action proposal hook | Implemented internal proposal only | Internal Action proposal creation only; no action execution or external side effects |
 | FCC-MEM-001 | Memory Workbench V1 over Phases 1-6.1 | Implemented local functional workbench/read-model hardening | Safe-ref review workbench, lifecycle receipts, quality grouping, search filters, manual intake, Control Center workbench cards, and CLI parity; corrected text contract cleanup and broader relationship schema remain planned; no delete/export execution, semantic/vector search, context injection, connector writes, or production authority |
@@ -244,6 +245,20 @@ Phase 5 does not add:
 - connector writes or CRM/account sync
 - action execution
 - public beta or production authority
+
+## Context Injection Prerequisite Done Criteria
+
+The context-injection prerequisite contract is complete when the authority
+scorecard marks `context_injection` as `contract_ready`, not selected or
+implemented, and points to exact scope, approval, idempotency, receipt/evidence,
+rollback/safe-disable, redaction, CLI, test, and verifier refs.
+
+The only allowed next implementation target is a context-pack
+preview/materialization artifact for operator review. Runtime prompt/model
+context injection, automatic memory inclusion, provider prompt injection,
+connector-derived context, browser/web-derived context, shell/file-derived
+context, raw payload persistence, and production authority remain blocked until
+a later exact micro-lane is accepted and verified.
 
 ## Future Phases
 

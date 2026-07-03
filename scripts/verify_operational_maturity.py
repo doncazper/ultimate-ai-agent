@@ -117,6 +117,7 @@ MEMORY_REVIEWED_RECALL_WRITE_TEST_REFS = {
     "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_cli_records_and_inspects_reviewed_recall_write",
 }
 MEMORY_CONTEXT_PACK_ROUTE = "GET /control-center/memory/context-packs"
+MEMORY_CONTEXT_MANIFEST_ROUTE = "GET /control-center/memory/context-manifest"
 MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_ROUTE = (
     "POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal"
 )
@@ -128,6 +129,44 @@ MEMORY_CONTEXT_PACK_TEST_REFS = {
 MEMORY_CONTEXT_PACK_VERIFIER_REFS = {
     "scripts/verify_governed_cognitive_memory_spine_v1.py",
     "scripts/verify_operational_maturity.py",
+}
+CONTEXT_INJECTION_CANDIDATE_ID = "context_injection"
+CONTEXT_INJECTION_CONTRACT_DOC_REF = (
+    "docs/context/CONTEXT_INJECTION_PREREQUISITE_CONTRACT.md"
+)
+CONTEXT_INJECTION_CLI_REF = "scripts/dev/uaa_founder_loop.py memory-context-manifest"
+CONTEXT_INJECTION_REQUIRED_TEST_REFS = {
+    "tests/test_fcc_mem_016_020_memory_diagnostics.py::test_founder_loop_cli_memory_context_manifest_omits_raw_paths",
+    "tests/test_governed_memory_context_pack_proposals.py::test_context_pack_api_route_is_backend_backed_and_read_only",
+}
+CONTEXT_INJECTION_REQUIRED_VERIFIER_REFS = {
+    "scripts/verify_fcc_mem_016_020_memory_diagnostics.py",
+    "scripts/verify_operational_maturity.py",
+}
+CONTEXT_INJECTION_REQUIRED_BLOCKED_AUTHORITIES = {
+    "runtime_prompt_context_injection",
+    "live_model_context_injection",
+    "automatic_memory_inclusion",
+    "provider_model_call",
+    "provider_prompt_context_injection",
+    "connector_derived_context_injection",
+    "browser_web_derived_context_injection",
+    "shell_file_derived_context_injection",
+    "raw_payload_persistence",
+    "broad_autonomy",
+    "public_beta_claim",
+    "public_distribution_claim",
+    "production_readiness_claim",
+    "production_authority",
+}
+CONTEXT_INJECTION_CONTRACT_DOC_SNIPPETS = {
+    "planned-only prerequisite contract",
+    "runtime injection blocked",
+    "exact-scope-ref:context-injection:context-pack-preview-materialization",
+    "LocalApprovalAuthority",
+    "scripts/dev/uaa_founder_loop.py memory-context-manifest",
+    "runtime prompt/context injection",
+    "raw payload persistence",
 }
 PATCH_WORKBENCH_MODULE_ID = "files_patch_workbench"
 PATCH_WORKBENCH_APPLY_ROUTE = "POST /files/patch/apply"
@@ -549,6 +588,13 @@ def _append_authority_scorecard_failures(
             routes_by_ref,
             root,
         )
+        if str(candidate.get("candidate_id")) == CONTEXT_INJECTION_CANDIDATE_ID:
+            _append_context_injection_contract_ready_failures(
+                failures,
+                candidate,
+                routes_by_ref,
+                root,
+            )
     _append_follow_on_candidate_ranking_failures(
         failures,
         scorecard.get("follow_on_candidate_ranking"),
@@ -784,6 +830,95 @@ def _append_authority_candidate_failures(
             )
 
 
+def _append_context_injection_contract_ready_failures(
+    failures: list[str],
+    candidate: dict[str, Any],
+    routes_by_ref: dict[str, dict[str, Any]],
+    root: Path,
+) -> None:
+    if candidate.get("status") != "contract_ready":
+        failures.append("context_injection must stay contract_ready")
+    if candidate.get("selected_for_micro_lane") is not False:
+        failures.append("context_injection must remain unselected")
+    prerequisite_refs = candidate.get("prerequisite_refs")
+    if not isinstance(prerequisite_refs, dict):
+        failures.append("context_injection requires prerequisite refs")
+        return
+    if prerequisite_refs.get("route_side_effect_ref") != MEMORY_CONTEXT_MANIFEST_ROUTE:
+        failures.append(
+            "context_injection route_side_effect_ref must be memory context-manifest"
+        )
+    route = routes_by_ref.get(MEMORY_CONTEXT_MANIFEST_ROUTE)
+    if route is None:
+        failures.append("context_injection references missing context-manifest route")
+    else:
+        if route.get("method") != "GET":
+            failures.append("context_injection prerequisite route must stay GET")
+        if route.get("side_effect_class") not in {
+            "validation_only",
+            "local_dev_workspace_only",
+        }:
+            failures.append(
+                "context_injection prerequisite route must stay read-only local posture"
+            )
+        if route.get("idempotency_required") is not False:
+            failures.append(
+                "context_injection prerequisite route must not require idempotency"
+            )
+    for route_ref in routes_by_ref:
+        lowered = route_ref.lower()
+        if "context-injection" in lowered or "context_injection" in lowered:
+            failures.append(
+                f"context_injection runtime route must not exist: {route_ref}"
+            )
+    for field in MICRO_LANE_REQUIRED_PREREQUISITE_FIELDS:
+        ref = prerequisite_refs.get(field)
+        if not ref:
+            failures.append(
+                f"context_injection contract_ready requires {field}"
+            )
+            continue
+        _append_authority_ref_failure(
+            failures,
+            root,
+            routes_by_ref,
+            str(ref),
+            f"context_injection.prerequisite_refs.{field}",
+        )
+    cli_refs = set(prerequisite_refs.get("cli_api_core_parity_refs") or [])
+    if CONTEXT_INJECTION_CLI_REF not in cli_refs:
+        failures.append("context_injection missing memory-context-manifest CLI ref")
+    for ref in cli_refs:
+        _append_cli_or_script_ref_failure(
+            failures,
+            root,
+            str(ref),
+            "context_injection.prerequisite_refs.cli_api_core_parity_refs",
+        )
+    test_refs = set(prerequisite_refs.get("focused_test_refs") or [])
+    for ref in CONTEXT_INJECTION_REQUIRED_TEST_REFS:
+        if ref not in test_refs:
+            failures.append(f"context_injection missing focused test {ref}")
+    verifier_refs = set(prerequisite_refs.get("verifier_refs") or [])
+    for ref in CONTEXT_INJECTION_REQUIRED_VERIFIER_REFS:
+        if ref not in verifier_refs:
+            failures.append(f"context_injection missing verifier {ref}")
+    blocked_authorities = set(candidate.get("blocked_authorities") or [])
+    for blocked in CONTEXT_INJECTION_REQUIRED_BLOCKED_AUTHORITIES:
+        if blocked not in blocked_authorities:
+            failures.append(f"context_injection must block {blocked}")
+    doc_path = root / CONTEXT_INJECTION_CONTRACT_DOC_REF
+    if not doc_path.exists():
+        failures.append("context_injection prerequisite contract doc missing")
+        return
+    doc_text = _compact_string(doc_path.read_text(encoding="utf-8"))
+    for snippet in CONTEXT_INJECTION_CONTRACT_DOC_SNIPPETS:
+        if _compact_string(snippet) not in doc_text:
+            failures.append(
+                f"context_injection prerequisite contract doc missing '{snippet}'"
+            )
+
+
 def _append_follow_on_candidate_ranking_failures(
     failures: list[str],
     ranking: Any,
@@ -1001,6 +1136,7 @@ def _append_memory_context_pack_manifest_failures(
     verifier_refs = set(module.get("verifier_refs", []))
     for route_ref in [
         MEMORY_CONTEXT_PACK_ROUTE,
+        MEMORY_CONTEXT_MANIFEST_ROUTE,
         MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_ROUTE,
     ]:
         if route_ref not in route_refs:
@@ -1017,10 +1153,18 @@ def _append_memory_context_pack_manifest_failures(
         module.get("cli_or_script_refs", [])
     ):
         failures.append("memory reviewed recall-write lane missing CLI parity ref")
+    if CONTEXT_INJECTION_CLI_REF not in set(module.get("cli_or_script_refs", [])):
+        failures.append("memory context-injection contract missing CLI parity ref")
+    blocked_authorities = set(module.get("blocked_authorities", []))
+    for blocked in CONTEXT_INJECTION_REQUIRED_BLOCKED_AUTHORITIES:
+        if blocked not in blocked_authorities:
+            failures.append(f"memory context-injection contract must block {blocked}")
     lanes = {
         str(lane.get("lane_id")): lane
         for lane in module.get("graduated_lanes", [])
     }
+    if "context_injection" in lanes or "context_pack_preview_materialization" in lanes:
+        failures.append("memory must not graduate context_injection in prerequisite PR")
     lane = lanes.get(MEMORY_REVIEWED_RECALL_WRITE_LANE_ID)
     if lane is None:
         failures.append("memory reviewed recall-write graduated lane missing")
