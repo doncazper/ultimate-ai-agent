@@ -7,6 +7,7 @@ from urllib import request as urllib_request
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 
+from ultimate_ai_agent.core.execution.validation import validate_safe_execution_text
 from ultimate_ai_agent.core.providers.invocation import (
     SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
     SECOND_TINY_LIVE_PROVIDER_ALLOWED_ENDPOINT,
@@ -117,6 +118,7 @@ class TinyLiveProviderTransportResult(BaseModel):
     input_tokens_used: int = Field(default=0, ge=0)
     output_tokens_used: int = Field(default=0, ge=0)
     billed_cost_usd: float = Field(default=0.0, ge=0)
+    redacted_output_preview: str | None = Field(default=None, max_length=2048)
     network_call_performed: bool = True
     block_reason_code: str | None = None
 
@@ -143,6 +145,15 @@ class TinyLiveProviderTransportResult(BaseModel):
             self.block_reason_code
         ):
             raise ValueError("TINY_LIVE_PROVIDER_TRANSPORT_BLOCK_REASON_UNSAFE")
+        if self.redacted_output_preview is not None:
+            validate_safe_execution_text(
+                self.redacted_output_preview,
+                "redacted_output_preview",
+            )
+            _reject_unsafe_payload(
+                {"redacted_output_preview": self.redacted_output_preview},
+                "TINY_LIVE_PROVIDER_TRANSPORT_PREVIEW_SECRET_LIKE_VALUE_REJECTED",
+            )
         return self
 
 
@@ -264,6 +275,7 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
             network_call_performed=_SCOPED_NETWORK_CALL_PERFORMED,
             raw_output_persisted=False,
             model_output_authoritative=False,
+            redacted_output_preview=transport_result.redacted_output_preview,
         )
 
     def preflight_block_reason(
@@ -403,6 +415,7 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
 
         usage = payload.get("usage") if isinstance(payload, dict) else None
         usage = usage if isinstance(usage, dict) else {}
+        redacted_preview = _redacted_preview_from_openai_payload(payload)
         try:
             input_tokens = int(
                 usage.get("input_tokens")
@@ -425,6 +438,7 @@ class OpenAICompatibleTinyLiveProviderAdapter(TinyProviderInvocationAdapter):
             status="blocked",
             input_tokens_used=input_tokens,
             output_tokens_used=output_tokens,
+            redacted_output_preview=redacted_preview,
             network_call_performed=_SCOPED_NETWORK_CALL_PERFORMED,
             block_reason_code="TINY_LIVE_PROVIDER_BILLED_COST_UNAVAILABLE",
         )
@@ -488,6 +502,7 @@ class AnthropicCompatibleTinyLiveProviderAdapter(OpenAICompatibleTinyLiveProvide
 
         usage = payload.get("usage") if isinstance(payload, dict) else None
         usage = usage if isinstance(usage, dict) else {}
+        redacted_preview = _redacted_preview_from_anthropic_payload(payload)
         try:
             input_tokens = int(usage.get("input_tokens") or request.estimated_input_tokens)
             output_tokens = int(
@@ -505,6 +520,50 @@ class AnthropicCompatibleTinyLiveProviderAdapter(OpenAICompatibleTinyLiveProvide
             status="blocked",
             input_tokens_used=input_tokens,
             output_tokens_used=output_tokens,
+            redacted_output_preview=redacted_preview,
             network_call_performed=_SCOPED_NETWORK_CALL_PERFORMED,
             block_reason_code="TINY_LIVE_PROVIDER_BILLED_COST_UNAVAILABLE",
         )
+
+
+def _redacted_preview_from_openai_payload(payload: object) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+    direct = payload.get("output_text")
+    if isinstance(direct, str) and direct.strip():
+        return direct.strip()[:2048]
+    output = payload.get("output")
+    if not isinstance(output, list):
+        return None
+    parts: list[str] = []
+    for item in output:
+        if not isinstance(item, dict):
+            continue
+        content = item.get("content")
+        if not isinstance(content, list):
+            continue
+        for content_item in content:
+            if not isinstance(content_item, dict):
+                continue
+            text = content_item.get("text")
+            if isinstance(text, str) and text.strip():
+                parts.append(text.strip())
+    preview = " ".join(parts).strip()
+    return preview[:2048] if preview else None
+
+
+def _redacted_preview_from_anthropic_payload(payload: object) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+    content = payload.get("content")
+    if not isinstance(content, list):
+        return None
+    parts: list[str] = []
+    for item in content:
+        if not isinstance(item, dict):
+            continue
+        text = item.get("text")
+        if isinstance(text, str) and text.strip():
+            parts.append(text.strip())
+    preview = " ".join(parts).strip()
+    return preview[:2048] if preview else None
