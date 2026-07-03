@@ -60,9 +60,9 @@
       ],
       "owner": "founder-loop",
       "backend_contract_rationale": "backend-route-refs-present",
-      "visual_proof_status": "blocked_no_baseline",
-      "visual_baseline_ref": "visual-baseline:control-center:start:not-captured",
-      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked until the scoped visual regression hardening PR captures redacted desktop/mobile baselines.",
+      "visual_proof_status": "checked_in_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:start",
+      "visual_proof_rationale": "Checked-in redacted desktop/mobile baseline is recorded in docs/control_center/visual_regression_manifest.json.",
       "promotion_criteria": [
         "Add or accept backend/core contracts for listed blocked capabilities.",
         "Add passing focused tests and verifier refs for the claimed behavior.",
@@ -133,9 +133,9 @@
       ],
       "owner": "founder-loop",
       "backend_contract_rationale": "backend-route-refs-present",
-      "visual_proof_status": "blocked_no_baseline",
-      "visual_baseline_ref": "visual-baseline:control-center:proof:not-captured",
-      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked until the scoped visual regression hardening PR captures redacted desktop/mobile baselines.",
+      "visual_proof_status": "checked_in_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:proof",
+      "visual_proof_rationale": "Checked-in redacted desktop/mobile baseline is recorded in docs/control_center/visual_regression_manifest.json.",
       "promotion_criteria": [
         "Add or accept backend/core contracts for listed blocked capabilities.",
         "Add passing focused tests and verifier refs for the claimed behavior.",
@@ -198,9 +198,9 @@
       ],
       "owner": "founder-loop",
       "backend_contract_rationale": "backend-route-refs-present",
-      "visual_proof_status": "blocked_no_baseline",
-      "visual_baseline_ref": "visual-baseline:control-center:trust:not-captured",
-      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked until the scoped visual regression hardening PR captures redacted desktop/mobile baselines.",
+      "visual_proof_status": "checked_in_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:trust",
+      "visual_proof_rationale": "Checked-in redacted desktop/mobile baseline is recorded in docs/control_center/visual_regression_manifest.json.",
       "promotion_criteria": [
         "Keep Trust backed by the Python Core/API matrix route and CLI inspection.",
         "Keep tier labels clear: available now, approval required, planned, and blocked.",
@@ -323,9 +323,9 @@
       ],
       "owner": "founder-loop",
       "backend_contract_rationale": "backend-route-refs-present",
-      "visual_proof_status": "blocked_no_baseline",
-      "visual_baseline_ref": "visual-baseline:control-center:inbox:not-captured",
-      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "visual_proof_status": "checked_in_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:inbox",
+      "visual_proof_rationale": "Checked-in redacted desktop/mobile baseline is recorded in docs/control_center/visual_regression_manifest.json.",
       "promotion_criteria": [
         "Add or accept backend/core contracts for listed blocked capabilities.",
         "Add passing focused tests and verifier refs for the claimed behavior.",
@@ -916,6 +916,7 @@
         "missing_backend:kill-switch-execution",
         "missing_backend:revocation-execution",
         "missing_backend:runtime-lifecycle-mutation",
+        "release_blocker:dev_auth_bypass",
         "mutating_settings_controls",
         "feature_flag_writes",
         "provider_configuration",
@@ -955,6 +956,7 @@
       "product_language_caveats": [
         "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Dev-only auth bypass is a release blocker until Settings can show fail-closed local auth posture from backend-owned truth.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
       ]
     },
@@ -1227,6 +1229,7 @@
       ],
       "blocked_capabilities": [
         "missing_backend:setup-approval-grant-capture-route",
+        "release_blocker:dev_auth_bypass",
         "public_distribution_claim",
         "production_readiness_claim",
         "production_authority",
@@ -1252,6 +1255,7 @@
       "product_language_caveats": [
         "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Dev-only auth bypass is a release blocker until setup proof shows fail-closed local auth posture from backend-owned truth.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
       ]
     },
@@ -1335,6 +1339,7 @@
       "product_language_caveats": [
         "Release status is ship for proofed route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Dev-only auth bypass and local /v1 runtime posture are release blockers; proofed route-surface behavior is not a production auth or model-runtime safety claim.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
       ]
     },
@@ -1386,6 +1391,8 @@
         "missing_backend:gguf-selection-status",
         "missing_backend:llama-cpp-reviewed-settings-status",
         "missing_backend:local-model-rollback-status",
+        "release_blocker:dev_auth_bypass",
+        "release_blocker:unsafe_local_model_v1_posture",
         "public_distribution_claim",
         "production_readiness_claim",
         "production_authority",
@@ -1411,6 +1418,7 @@
       "product_language_caveats": [
         "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Dev-only auth bypass and local /v1 runtime posture are release blockers until release proof shows fail-closed auth and reviewed local runtime posture.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
       ]
     },

@@ -32,6 +32,21 @@
       "raw_private_screenshot_included": false
     },
     {
+      "surface": "Start Here",
+      "route": "/start",
+      "baseline_ref": "visual-baseline:control-center:start",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:start",
+        "mobile": "visual-baseline-file:mobile:start"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:7c81ca74563d2ef6b2e1f4f9fc5fc94ae9c8818378d042fa80e51a6b7706372c",
+        "mobile": "sha256:22189d569d605991bb4a8b0664f60900087c753cfd24b2abab76857e8b8dcab6"
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
       "surface": "Today",
       "route": "/today",
       "baseline_ref": "visual-baseline:control-center:today",
@@ -43,6 +58,21 @@
       "baseline_hashes": {
         "desktop": "sha256:8cb460501b4ad3d3bb979c3c25c362213f8d3ebc94f6d123b5c49f7d275beb9f",
         "mobile": "sha256:1840e805a80f716b196420f8710eda3f89fd00797e2415ce64469fa8bd14f247"
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
+      "surface": "Source Inbox",
+      "route": "/inbox",
+      "baseline_ref": "visual-baseline:control-center:inbox",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:inbox",
+        "mobile": "visual-baseline-file:mobile:inbox"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:7a9d690e33c05517498a30e4a0c456b85a4c650340f5dadde76a555a577c0054",
+        "mobile": "sha256:d9859f9c9cd5614fa254decd227858899748d9e5a16dd8506ac85c9b9c598138"
       },
       "raw_private_screenshot_included": false
     },
@@ -73,6 +103,36 @@
       "baseline_hashes": {
         "desktop": "sha256:742235d2ac7c062b84edc6836a753b9ac0118a1ff6f46cb551280167704b5848",
         "mobile": "sha256:bd541a28872950a1f0dd05ef8aa1231688e57aa4f15347d32fc29e0fde83be5b"
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
+      "surface": "Proof",
+      "route": "/proof",
+      "baseline_ref": "visual-baseline:control-center:proof",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:proof",
+        "mobile": "visual-baseline-file:mobile:proof"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:eed80211a7b9f66c9337720f156d0b637fc650b5f4ce0d8a52fdf13e1604c002",
+        "mobile": "sha256:d189dad390de743d2bb17aafc540c33d49ecc6577c3884e73ddb6ef81d98b641"
+      },
+      "raw_private_screenshot_included": false
+    },
+    {
+      "surface": "Trust",
+      "route": "/trust",
+      "baseline_ref": "visual-baseline:control-center:trust",
+      "baseline_status": "checked-in redacted PNG baseline",
+      "baseline_file_refs": {
+        "desktop": "visual-baseline-file:desktop:trust",
+        "mobile": "visual-baseline-file:mobile:trust"
+      },
+      "baseline_hashes": {
+        "desktop": "sha256:3a6c93aa5bd9c578b62e72f0b22672445f1e11c4b625c9b7d2622e71db986dd3",
+        "mobile": "sha256:ed9b33ef91e266408a46c3695d5214008b393e12b825788d0ca731a265b093b7"
       },
       "raw_private_screenshot_included": false
     },
