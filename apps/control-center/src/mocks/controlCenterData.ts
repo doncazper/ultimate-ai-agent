@@ -25,8 +25,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 163;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 62;
+export const MOCK_OPENAPI_ROUTE_COUNT = 164;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 63;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -9879,6 +9879,10 @@ export const mockControlCenterData: ControlCenterData = {
           "context-manifest-ref:fcc-mem-020:mock-preferences",
         context_pack_ref: "context-pack:mock-founder-loop-preferences",
         proposal_ref: "context-pack-proposal:mock-founder-loop-preferences",
+        context_pack_preview_route_ref:
+          "GET /control-center/memory/context-packs/{context_pack_ref}/preview",
+        context_pack_preview_status:
+          "mock_fallback_read_only_preview_runtime_injection_blocked",
         included_memory_refs: [
           "memory-record:reviewed:founder-loop-preferences",
           "l1-preview:founder-loop-preferences",
@@ -9911,14 +9915,31 @@ export const mockControlCenterData: ControlCenterData = {
         approval_required_before_use: true,
         context_injection_authorized: false,
         hidden_prompt_context_authorized: false,
+        runtime_prompt_context_injection_authorized: false,
+        live_model_context_injection_authorized: false,
         automatic_context_injection_authorized: false,
+        automatic_memory_inclusion_authorized: false,
         memory_write_authorized: false,
         action_execution_authorized: false,
         connector_write_authorized: false,
+        connector_derived_context_injection_authorized: false,
+        browser_web_derived_context_injection_authorized: false,
+        shell_file_derived_context_injection_authorized: false,
+        raw_payload_persistence_enabled: false,
         model_provider_authority_allowed: false,
+        provider_prompt_context_injection_authorized: false,
+        broad_autonomy_authorized: false,
+        public_beta_claim_authorized: false,
+        public_distribution_claim_authorized: false,
+        production_readiness_claim_authorized: false,
         production_authority_enabled: false,
       },
     ],
+    context_pack_preview_route_ref:
+      "GET /control-center/memory/context-packs/{context_pack_ref}/preview",
+    context_pack_preview_count: 1,
+    context_pack_preview_status:
+      "mock_fallback_read_only_context_pack_preview_runtime_injection_blocked",
     retrieval_cache_key_ref: "cache-key-ref:fcc-mem-016:mock-preferences",
     blocked_state_refs: [
       "blocked-state:memory-context-manifest-no-hidden-prompt-injection",
@@ -9930,11 +9951,23 @@ export const mockControlCenterData: ControlCenterData = {
     proposal_only: true,
     context_injection_authorized: false,
     hidden_prompt_context_authorized: false,
+    runtime_prompt_context_injection_authorized: false,
+    live_model_context_injection_authorized: false,
     automatic_context_injection_authorized: false,
+    automatic_memory_inclusion_authorized: false,
     memory_write_authorized: false,
     action_execution_authorized: false,
     connector_write_authorized: false,
+    connector_derived_context_injection_authorized: false,
+    browser_web_derived_context_injection_authorized: false,
+    shell_file_derived_context_injection_authorized: false,
+    raw_payload_persistence_enabled: false,
     model_provider_authority_allowed: false,
+    provider_prompt_context_injection_authorized: false,
+    broad_autonomy_authorized: false,
+    public_beta_claim_authorized: false,
+    public_distribution_claim_authorized: false,
+    production_readiness_claim_authorized: false,
     production_authority_enabled: false,
   },
   founderActionsInbox: {

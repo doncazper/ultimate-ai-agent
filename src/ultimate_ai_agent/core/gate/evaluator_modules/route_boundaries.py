@@ -2235,6 +2235,7 @@ FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES = frozenset(
 FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES = frozenset(
     {
         "/control-center/memory/context-packs",
+        "/control-center/memory/context-packs/{context_pack_ref}/preview",
         "/control-center/memory/l1-index",
         "/control-center/memory/l2-index",
         "/control-center/memory/l3-index",

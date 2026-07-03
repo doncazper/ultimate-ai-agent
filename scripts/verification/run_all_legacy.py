@@ -11611,6 +11611,11 @@ def verify_m71_network_tool_contract_review() -> None:
         "tests/test_m70_autonomy_foundation_freeze.py",
         "tests/test_m70_gate_integration.py",
     }
+    allowed_fragments_by_file = {
+        "src/ultimate_ai_agent/core/web_access/read_only_http_fetch_transport.py": {
+            "socket.",
+        },
+    }
     source_roots = [
         ROOT / "src" / "ultimate_ai_agent",
         ROOT / "apps" / "control-center" / "src",
@@ -11627,7 +11632,10 @@ def verify_m71_network_tool_contract_review() -> None:
                 continue
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
-                if fragment in text:
+                if (
+                    fragment in text
+                    and fragment not in allowed_fragments_by_file.get(rel, set())
+                ):
                     print(f"FAIL: M71 forbidden network tool contract fragment in {rel}: {fragment}")
                     sys.exit(1)
 

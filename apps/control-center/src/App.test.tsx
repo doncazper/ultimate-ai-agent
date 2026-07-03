@@ -5992,6 +5992,75 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("does not backfill Memory context-pack previews from mocks", async () => {
+    const partialContextPacks = {
+      ...mockControlCenterData.founderMemoryContextPacks,
+      status: "backend_partial_context_pack_proposals",
+      context_pack_count: 0,
+    };
+    delete (partialContextPacks as { proposals?: unknown }).proposals;
+    delete (partialContextPacks as { blocked_state_refs?: unknown })
+      .blocked_state_refs;
+    const partialContextManifest = {
+      ...mockControlCenterData.founderMemoryContextManifest,
+      status: "backend_partial_context_manifest",
+      manifest_count: 0,
+      context_pack_preview_count: 0,
+    };
+    delete (partialContextManifest as { manifests?: unknown }).manifests;
+    delete (partialContextManifest as { blocked_state_refs?: unknown })
+      .blocked_state_refs;
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderMemoryContextPacks)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: partialContextPacks }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (urlText.endsWith(API_ENDPOINTS.founderMemoryContextManifest)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: partialContextManifest }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/memory");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Memory Review$/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("backend_partial_context_manifest")).toBeInTheDocument();
+    expect(screen.getAllByText("blocked/planned").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByText("context-pack:mock-founder-loop-preferences"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("context-manifest-ref:fcc-mem-020:mock-preferences"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^inject context$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^call model$/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("creates Memory context-pack Action Inbox proposals through backend-owned handoff", async () => {
     const contextPackRef = "context-pack:mock-founder-loop-preferences";
     const receipt = {

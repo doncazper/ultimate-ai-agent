@@ -36,7 +36,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 71,
     "none": 4,
-    "local_dev_workspace_only": 86,
+    "local_dev_workspace_only": 87,
     "governed_network_read_only": 2,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {

@@ -14,6 +14,8 @@ from ultimate_ai_agent.core.memory import (
     ContextPackProposal,
     ContextPackProposalIndex,
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
+    MEMORY_CONTEXT_PACK_PREVIEW_CONTRACT_REF,
+    MEMORY_CONTEXT_PACK_PREVIEW_ROUTE_REF,
     MemoryReviewDecisionRequest,
     build_context_pack_proposal_index,
     build_l1_hot_memory_index,
@@ -304,22 +306,110 @@ def test_context_pack_api_route_is_backend_backed_and_read_only(
     assert unsafe.status_code == 400
 
 
+def test_context_pack_preview_api_route_is_backend_backed_and_read_only(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "preview_api"))
+    client = TestClient(app)
+    candidate_ref = (
+        "business-memory-candidate:preference:memory-review-founder-loop-preferences"
+    )
+    decision = client.post(
+        f"/control-center/memory/review/{candidate_ref}/accept",
+        json={
+            "reviewer_ref": "actor-ref:context-pack-preview-api-reviewer",
+            "source_refs": ["source-ref:manual-note:context-pack-preview-api"],
+            "evidence_refs": ["evidence-ref:context-pack-preview-api"],
+            "metadata_refs": ["metadata-ref:context-pack-preview-api"],
+        },
+        headers={"x-uaa-idempotency-key": "idempotency-ref:context-pack-preview-api"},
+    )
+    assert decision.status_code == 200
+
+    context_packs = client.get("/control-center/memory/context-packs")
+    assert context_packs.status_code == 200
+    context_pack_ref = context_packs.json()["data"]["proposals"][0]["context_pack_ref"]
+
+    response = client.get(
+        f"/control-center/memory/context-packs/{context_pack_ref}/preview"
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["operation"] == "control_center_memory_context_pack_preview"
+    data = body["data"]
+    assert data["schema_version"] == "fcc_mem_020_context_pack_preview.v1"
+    assert data["contract_ref"] == MEMORY_CONTEXT_PACK_PREVIEW_CONTRACT_REF
+    assert data["route_ref"] == MEMORY_CONTEXT_PACK_PREVIEW_ROUTE_REF
+    assert data["context_pack_ref"] == context_pack_ref
+    assert data["context_pack_preview_ref"].startswith(
+        "context-pack-preview-ref:fcc-mem-020:"
+    )
+    assert data["safe_refs_only"] is True
+    assert data["read_only_preview"] is True
+    assert data["preview_only"] is True
+    assert data["review_required"] is True
+    assert data["approval_required_before_use"] is True
+    assert data["memory_candidate_refs"] == [candidate_ref]
+    assert data["source_memory_record_refs"]
+    assert data["l1_preview_refs"]
+    assert data["l2_projection_refs"]
+    assert data["l3_representation_refs"]
+    assert data["included_summary_refs"]
+    assert data["evidence_refs"]
+    assert data["receipt_refs"]
+    assert data["blocked_injection_refs"]
+    assert data["proof_refs"]
+    assert data["audit_refs"]
+    assert data["context_injection_authorized"] is False
+    assert data["runtime_prompt_context_injection_authorized"] is False
+    assert data["live_model_context_injection_authorized"] is False
+    assert data["automatic_memory_inclusion_authorized"] is False
+    assert data["memory_write_authorized"] is False
+    assert data["connector_write_authorized"] is False
+    assert data["model_provider_authority_allowed"] is False
+    assert data["raw_payload_persistence_enabled"] is False
+    assert data["production_authority_enabled"] is False
+
+    missing = client.get(
+        "/control-center/memory/context-packs/context-pack-ref:proposal:missing/preview"
+    )
+    assert missing.status_code == 404
+
+    unsafe = client.get(
+        "/control-center/memory/context-packs/raw_prompt/preview"
+    )
+    assert unsafe.status_code == 400
+
+
 def test_context_pack_route_manifest_truth() -> None:
     manifest = build_api_manifest(app)
     routes = {route.path: route for route in manifest.routes}
     route = routes["/control-center/memory/context-packs"]
+    preview_route = routes[
+        "/control-center/memory/context-packs/{context_pack_ref}/preview"
+    ]
 
     assert route.method == "GET"
     assert route.route_classification == "local_sensitive"
     assert route.side_effect_class == "local_dev_workspace_only"
     assert route.idempotency_required is False
     assert route.rate_limit_group is None
+    assert preview_route.method == "GET"
+    assert preview_route.route_classification == "local_sensitive"
+    assert preview_route.side_effect_class == "local_dev_workspace_only"
+    assert preview_route.idempotency_required is False
+    assert preview_route.rate_limit_group is None
     assert "control_center_memory_context_pack_proposals" in (
+        manifest.capabilities_declared
+    )
+    assert "control_center_memory_context_pack_previews" in (
         manifest.capabilities_declared
     )
     for blocked in [
         "control_center_memory_context_pack_hidden_injection",
         "control_center_memory_context_pack_prompt_stuffing",
+        "control_center_memory_context_pack_preview_runtime_injection",
         "control_center_memory_context_pack_provider_model_calls",
         "control_center_memory_context_pack_phase6_execution_hooks",
     ]:

@@ -42,7 +42,7 @@ def test_m22_openapi_route_guard_rejects_activation_or_probe_routes() -> None:
         expected_path_count=EXPECTED_M22_OPENAPI_PATH_COUNT,
     )
 
-    assert EXPECTED_M22_OPENAPI_PATH_COUNT == 78
+    assert EXPECTED_M22_OPENAPI_PATH_COUNT == 79
     assert "/runtime/activate" in M22_FORBIDDEN_BACKEND_ROUTES
     assert "/model-runtime/probe" in M22_FORBIDDEN_BACKEND_ROUTES
     assert "/model-runtime/local/call" in M22_FORBIDDEN_BACKEND_ROUTES

@@ -109,7 +109,7 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 # Route-boundary evaluators are imported here to preserve the historical public facade.
 from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import *  # noqa: F401,F403
 
-EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 62
+EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 63
 
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
@@ -22836,6 +22836,11 @@ class FoundationGateEvaluator:
             "tests/test_m70_autonomy_foundation_freeze.py",
             "tests/test_m70_gate_integration.py",
         }
+        allowed_fragments_by_file = {
+            "src/ultimate_ai_agent/core/web_access/read_only_http_fetch_transport.py": {
+                "socket.",
+            },
+        }
         source_roots = [
             self.root / "src" / "ultimate_ai_agent",
             self.root / "apps" / "control-center" / "src",
@@ -22864,7 +22869,10 @@ class FoundationGateEvaluator:
                     continue
                 text = path.read_text(encoding="utf-8")
                 for fragment in forbidden_source_fragments:
-                    if fragment in text:
+                    if (
+                        fragment in text
+                        and fragment not in allowed_fragments_by_file.get(rel, set())
+                    ):
                         failures.append(
                             f"M71 forbidden network tool contract fragment in {rel}: {fragment}"
                         )

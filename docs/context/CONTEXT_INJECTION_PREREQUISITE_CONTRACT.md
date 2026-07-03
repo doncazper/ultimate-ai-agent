@@ -1,10 +1,11 @@
 # Context Injection Prerequisite Contract
 
-Status: planned-only prerequisite contract; contract-ready for review; runtime
-injection blocked.
-Status ref: `prerequisite_contract_ready_runtime_blocked`.
+Status: prerequisite contract plus read-only context-pack preview lane;
+runtime injection blocked.
+Status ref: `preview_lane_implemented_runtime_blocked`.
 Contract ref: `contract-ref:fcc-mem-020-context-manifest:v1`.
 Scope ref: `exact-scope-ref:context-injection:context-pack-preview-materialization`.
+Runtime context injection remains a planned-only prerequisite contract.
 
 This document defines prerequisite refs for a future `context_injection`
 authority lane. It grants no runtime prompt/context injection, hidden context,
@@ -19,10 +20,12 @@ The only future scope this contract prepares is:
 
 `exact-scope-ref:context-injection:context-pack-preview-materialization`
 
-That scope means backend-owned, safe-ref-only context-pack preview or
-materialization artifacts for operator review. It does not mean context is sent
-to a prompt, provider request, connector payload, browser session, shell
-command, OpenWebUI request, or any runtime consumer.
+That scope now includes backend-owned, safe-ref-only context-pack preview
+artifacts for operator review through
+`GET /control-center/memory/context-packs/{context_pack_ref}/preview` and
+`scripts/dev/uaa_founder_loop.py memory-context-pack-preview`. It does not mean
+context is sent to a prompt, provider request, connector payload, browser
+session, shell command, OpenWebUI request, or any runtime consumer.
 
 ## Allowed Source Refs
 
@@ -121,12 +124,18 @@ The repo-local inspection path is:
 
 `scripts/dev/uaa_founder_loop.py memory-context-manifest`
 
+The read-only preview inspection path is:
+
+`scripts/dev/uaa_founder_loop.py memory-context-pack-preview --context-pack-ref <safe-ref>`
+
 Verifier coverage must include:
 
 - `scripts/verify_fcc_mem_016_020_memory_diagnostics.py`
 - `scripts/verify_operational_maturity.py`
 - `tests/test_fcc_mem_016_020_memory_diagnostics.py::test_founder_loop_cli_memory_context_manifest_omits_raw_paths`
+- `tests/test_fcc_mem_016_020_memory_diagnostics.py::test_founder_loop_cli_memory_context_pack_preview_omits_raw_paths`
 - `tests/test_governed_memory_context_pack_proposals.py::test_context_pack_api_route_is_backend_backed_and_read_only`
+- `tests/test_governed_memory_context_pack_proposals.py::test_context_pack_preview_api_route_is_backend_backed_and_read_only`
 
 ## Still Blocked
 

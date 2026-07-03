@@ -41,7 +41,7 @@ def test_m20_openapi_route_guard_rejects_device_runtime_expansion() -> None:
         expected_path_count=EXPECTED_M20_OPENAPI_PATH_COUNT,
     )
 
-    assert EXPECTED_M20_OPENAPI_PATH_COUNT == 78
+    assert EXPECTED_M20_OPENAPI_PATH_COUNT == 79
     assert "/device-capabilities" in M20_FORBIDDEN_BACKEND_ROUTES
     assert "/device-capabilities/execute" in M20_FORBIDDEN_BACKEND_ROUTES
     assert "/device-capabilities/bluetooth" in M20_FORBIDDEN_BACKEND_ROUTES

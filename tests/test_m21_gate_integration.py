@@ -51,7 +51,7 @@ def test_m21_openapi_route_guard_rejects_openwebui_runtime_expansion() -> None:
         expected_path_count=EXPECTED_M21_OPENAPI_PATH_COUNT,
     )
 
-    assert EXPECTED_M21_OPENAPI_PATH_COUNT == 78
+    assert EXPECTED_M21_OPENAPI_PATH_COUNT == 79
     assert "/openwebui" in M21_FORBIDDEN_BACKEND_ROUTES
     assert "/openwebui/bridge" in M21_FORBIDDEN_BACKEND_ROUTES
     assert "/openwebui/execute" in M21_FORBIDDEN_BACKEND_ROUTES

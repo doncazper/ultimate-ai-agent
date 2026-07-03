@@ -47,7 +47,7 @@ def test_m17_openapi_route_guard_rejects_backend_knowledge_viewer_expansion() ->
         expected_path_count=EXPECTED_M17_OPENAPI_PATH_COUNT,
     )
 
-    assert EXPECTED_M17_OPENAPI_PATH_COUNT == 78
+    assert EXPECTED_M17_OPENAPI_PATH_COUNT == 79
     assert "/files/write" in M17_FORBIDDEN_BACKEND_ROUTES
     assert "/memory/raw" in M17_FORBIDDEN_BACKEND_ROUTES
     assert any("OpenAPI path count" in failure for failure in failures)

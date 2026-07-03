@@ -151,15 +151,19 @@
     {
       "foundation_id": "context_pack_proposal_display",
       "status": "implemented",
-      "safe_summary": "Memory context-pack proposals are backend-owned, read-only, and displayed in the Memory surface before any context injection lane exists.",
+      "safe_summary": "Memory context-pack proposals and governed preview read models are backend-owned, read-only, and displayed in the Memory surface without granting runtime context injection.",
       "route_refs": [
-        "GET /control-center/memory/context-packs"
+        "GET /control-center/memory/context-packs",
+        "GET /control-center/memory/context-packs/{context_pack_ref}/preview"
       ],
       "surface_refs": [
-        "apps/control-center/src/components/FounderLoopPanels.tsx::MemoryContextPackProposalCard"
+        "apps/control-center/src/components/FounderLoopPanels.tsx::MemoryContextPackProposalCard",
+        "apps/control-center/src/components/FounderLoopPanels.tsx::MemoryContextManifestPanel"
       ],
       "test_refs": [
         "tests/test_governed_memory_context_pack_proposals.py::test_context_pack_api_route_is_backend_backed_and_read_only",
+        "tests/test_governed_memory_context_pack_proposals.py::test_context_pack_preview_api_route_is_backend_backed_and_read_only",
+        "tests/test_fcc_mem_016_020_memory_diagnostics.py::test_founder_loop_cli_memory_context_pack_preview_omits_raw_paths",
         "apps/control-center/src/App.test.tsx"
       ],
       "blocked_authorities": [
@@ -171,11 +175,10 @@
         "production_authority"
       ],
       "missing_contracts": [
-        "context_pack_materialization_preview_lane",
         "context_injection_runtime_micro_lane",
         "context_injection_receipt_evidence_runtime_proof"
       ],
-      "next_safe_action": "Use the contract-ready context manifest only for operator preview/materialization planning; runtime context injection remains blocked until a separate exact lane."
+      "next_safe_action": "Dogfood the read-only context-pack preview route and CLI; runtime context injection remains blocked until a separate exact lane."
     }
   ],
   "authority_candidates": [
@@ -449,7 +452,7 @@
       "candidate_class": "context_injection",
       "status": "contract_ready",
       "selected_for_micro_lane": false,
-      "safe_summary": "Context injection has a prerequisite contract for governed context-pack preview/materialization only; runtime prompt/model injection remains blocked until a separate exact micro-lane is proven.",
+      "safe_summary": "Context injection has a prerequisite contract and a governed read-only context-pack preview lane; runtime prompt/model injection remains blocked until a separate exact micro-lane is proven.",
       "score": {
         "user_value": 4,
         "authority_risk": 5,
@@ -477,11 +480,14 @@
         "rollback_safe_disable_plan_ref": "docs/context/CONTEXT_INJECTION_PREREQUISITE_CONTRACT.md::Rollback And Safe Disable",
         "redaction_plan_ref": "docs/control_center/TRACE_REDACTION_POLICY.md",
         "cli_api_core_parity_refs": [
-          "scripts/dev/uaa_founder_loop.py memory-context-manifest"
+          "scripts/dev/uaa_founder_loop.py memory-context-manifest",
+          "scripts/dev/uaa_founder_loop.py memory-context-pack-preview"
         ],
         "focused_test_refs": [
           "tests/test_fcc_mem_016_020_memory_diagnostics.py::test_founder_loop_cli_memory_context_manifest_omits_raw_paths",
+          "tests/test_fcc_mem_016_020_memory_diagnostics.py::test_founder_loop_cli_memory_context_pack_preview_omits_raw_paths",
           "tests/test_governed_memory_context_pack_proposals.py::test_context_pack_api_route_is_backend_backed_and_read_only",
+          "tests/test_governed_memory_context_pack_proposals.py::test_context_pack_preview_api_route_is_backend_backed_and_read_only",
           "apps/control-center/src/App.test.tsx"
         ],
         "verifier_refs": [
@@ -512,11 +518,10 @@
         "production_authority"
       ],
       "missing_prerequisites": [
-        "context_pack_materialization_preview_lane_missing",
         "runtime_injection_micro_lane_missing",
         "live_model_destination_authority_missing"
       ],
-      "smallest_next_safe_action": "Attempt a narrow context-pack materialization or preview lane only; do not inject context into a prompt, provider, connector, browser, shell, or runtime consumer."
+      "smallest_next_safe_action": "Review the governed context-pack preview lane in dogfood; do not inject context into a prompt, provider, connector, browser, shell, or runtime consumer."
     }
   ],
   "follow_on_candidate_ranking": {

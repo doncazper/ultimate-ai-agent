@@ -117,6 +117,9 @@ MEMORY_REVIEWED_RECALL_WRITE_TEST_REFS = {
     "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_cli_records_and_inspects_reviewed_recall_write",
 }
 MEMORY_CONTEXT_PACK_ROUTE = "GET /control-center/memory/context-packs"
+MEMORY_CONTEXT_PACK_PREVIEW_ROUTE = (
+    "GET /control-center/memory/context-packs/{context_pack_ref}/preview"
+)
 MEMORY_CONTEXT_MANIFEST_ROUTE = "GET /control-center/memory/context-manifest"
 MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_ROUTE = (
     "POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal"
@@ -135,9 +138,14 @@ CONTEXT_INJECTION_CONTRACT_DOC_REF = (
     "docs/context/CONTEXT_INJECTION_PREREQUISITE_CONTRACT.md"
 )
 CONTEXT_INJECTION_CLI_REF = "scripts/dev/uaa_founder_loop.py memory-context-manifest"
+CONTEXT_PACK_PREVIEW_CLI_REF = (
+    "scripts/dev/uaa_founder_loop.py memory-context-pack-preview"
+)
 CONTEXT_INJECTION_REQUIRED_TEST_REFS = {
     "tests/test_fcc_mem_016_020_memory_diagnostics.py::test_founder_loop_cli_memory_context_manifest_omits_raw_paths",
+    "tests/test_fcc_mem_016_020_memory_diagnostics.py::test_founder_loop_cli_memory_context_pack_preview_omits_raw_paths",
     "tests/test_governed_memory_context_pack_proposals.py::test_context_pack_api_route_is_backend_backed_and_read_only",
+    "tests/test_governed_memory_context_pack_proposals.py::test_context_pack_preview_api_route_is_backend_backed_and_read_only",
 }
 CONTEXT_INJECTION_REQUIRED_VERIFIER_REFS = {
     "scripts/verify_fcc_mem_016_020_memory_diagnostics.py",
@@ -1136,6 +1144,7 @@ def _append_memory_context_pack_manifest_failures(
     verifier_refs = set(module.get("verifier_refs", []))
     for route_ref in [
         MEMORY_CONTEXT_PACK_ROUTE,
+        MEMORY_CONTEXT_PACK_PREVIEW_ROUTE,
         MEMORY_CONTEXT_MANIFEST_ROUTE,
         MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_ROUTE,
     ]:
@@ -1155,6 +1164,8 @@ def _append_memory_context_pack_manifest_failures(
         failures.append("memory reviewed recall-write lane missing CLI parity ref")
     if CONTEXT_INJECTION_CLI_REF not in set(module.get("cli_or_script_refs", [])):
         failures.append("memory context-injection contract missing CLI parity ref")
+    if CONTEXT_PACK_PREVIEW_CLI_REF not in set(module.get("cli_or_script_refs", [])):
+        failures.append("memory context-pack preview missing CLI parity ref")
     blocked_authorities = set(module.get("blocked_authorities", []))
     for blocked in CONTEXT_INJECTION_REQUIRED_BLOCKED_AUTHORITIES:
         if blocked not in blocked_authorities:

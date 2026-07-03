@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `163`.
+Current OpenAPI path count: `164`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -72,6 +72,7 @@ Contract rules:
   `GET /control-center/memory/maintenance-runs`,
   `GET /control-center/memory/context-manifest`,
   `GET /control-center/memory/context-packs`,
+  `GET /control-center/memory/context-packs/{context_pack_ref}/preview`,
   `POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal`,
   `POST /control-center/memory/feedback`,
   `GET /control-center/memory/review`,

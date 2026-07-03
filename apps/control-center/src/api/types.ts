@@ -3172,6 +3172,8 @@ export interface FounderLoopMemoryContextManifestItem {
   context_manifest_ref: string;
   context_pack_ref: string;
   proposal_ref: string;
+  context_pack_preview_route_ref?: string;
+  context_pack_preview_status?: string;
   included_memory_refs: string[];
   excluded_memory_refs: string[];
   why_included_refs: string[];
@@ -3190,11 +3192,23 @@ export interface FounderLoopMemoryContextManifestItem {
   approval_required_before_use: boolean;
   context_injection_authorized: boolean;
   hidden_prompt_context_authorized: boolean;
+  runtime_prompt_context_injection_authorized?: boolean;
+  live_model_context_injection_authorized?: boolean;
   automatic_context_injection_authorized: boolean;
+  automatic_memory_inclusion_authorized?: boolean;
   memory_write_authorized: boolean;
   action_execution_authorized: boolean;
   connector_write_authorized: boolean;
+  connector_derived_context_injection_authorized?: boolean;
+  browser_web_derived_context_injection_authorized?: boolean;
+  shell_file_derived_context_injection_authorized?: boolean;
+  raw_payload_persistence_enabled?: boolean;
   model_provider_authority_allowed: boolean;
+  provider_prompt_context_injection_authorized?: boolean;
+  broad_autonomy_authorized?: boolean;
+  public_beta_claim_authorized?: boolean;
+  public_distribution_claim_authorized?: boolean;
+  production_readiness_claim_authorized?: boolean;
   production_authority_enabled: boolean;
 }
 
@@ -3206,17 +3220,32 @@ export interface FounderLoopMemoryContextManifest {
   generated_at: string;
   manifest_count: number;
   manifests: FounderLoopMemoryContextManifestItem[];
+  context_pack_preview_route_ref?: string;
+  context_pack_preview_count?: number;
+  context_pack_preview_status?: string;
   retrieval_cache_key_ref?: string;
   blocked_state_refs: string[];
   safe_refs_only: boolean;
   proposal_only: boolean;
   context_injection_authorized: boolean;
   hidden_prompt_context_authorized: boolean;
+  runtime_prompt_context_injection_authorized?: boolean;
+  live_model_context_injection_authorized?: boolean;
   automatic_context_injection_authorized: boolean;
+  automatic_memory_inclusion_authorized?: boolean;
   memory_write_authorized: boolean;
   action_execution_authorized: boolean;
   connector_write_authorized: boolean;
+  connector_derived_context_injection_authorized?: boolean;
+  browser_web_derived_context_injection_authorized?: boolean;
+  shell_file_derived_context_injection_authorized?: boolean;
+  raw_payload_persistence_enabled?: boolean;
   model_provider_authority_allowed: boolean;
+  provider_prompt_context_injection_authorized?: boolean;
+  broad_autonomy_authorized?: boolean;
+  public_beta_claim_authorized?: boolean;
+  public_distribution_claim_authorized?: boolean;
+  production_readiness_claim_authorized?: boolean;
   production_authority_enabled: boolean;
 }
 

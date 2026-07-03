@@ -332,10 +332,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const normalizedFounderMemoryWorkbench = normalizeFounderMemoryWorkbench(
     founderMemoryWorkbench,
   );
-  const normalizedFounderMemoryContextPacks = mergeMissingFields(
-    mockControlCenterData.founderMemoryContextPacks,
-    founderMemoryContextPacks,
-  );
+  const normalizedFounderMemoryContextPacks =
+    normalizeFounderMemoryContextPacks(founderMemoryContextPacks);
   const normalizedFounderMemoryRetrievalDiagnostics = mergeMissingFields(
     mockControlCenterData.founderMemoryRetrievalDiagnostics,
     founderMemoryRetrievalDiagnostics,
@@ -352,10 +350,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     mockControlCenterData.founderMemoryMaintenanceRuns,
     founderMemoryMaintenanceRuns,
   );
-  const normalizedFounderMemoryContextManifest = mergeMissingFields(
-    mockControlCenterData.founderMemoryContextManifest,
-    founderMemoryContextManifest,
-  );
+  const normalizedFounderMemoryContextManifest =
+    normalizeFounderMemoryContextManifest(founderMemoryContextManifest);
   const normalizedFounderMorningBriefing = normalizeFounderMorningBriefing(
     founderMorningBriefing,
   );
@@ -1419,6 +1415,78 @@ function mergeMissingFields<T>(
   }
 
   return { value: merged as T, usedFallback };
+}
+
+function normalizeFounderMemoryContextPacks(
+  value: FounderLoopMemoryContextPacks | undefined,
+): { value: FounderLoopMemoryContextPacks; usedFallback: boolean } {
+  if (value === undefined) {
+    return {
+      value: mockControlCenterData.founderMemoryContextPacks,
+      usedFallback: true,
+    };
+  }
+  const merged = mergeMissingFields(
+    mockControlCenterData.founderMemoryContextPacks,
+    value,
+  );
+  const proposals = Array.isArray(value.proposals) ? value.proposals : [];
+  const internalActionProposalReceipts = Array.isArray(
+    value.internal_action_proposal_receipts,
+  )
+    ? value.internal_action_proposal_receipts
+    : [];
+  const blockedStateRefs = Array.isArray(value.blocked_state_refs)
+    ? value.blocked_state_refs
+    : [];
+  return {
+    value: {
+      ...merged.value,
+      context_pack_count:
+        typeof value.context_pack_count === "number"
+          ? value.context_pack_count
+          : proposals.length,
+      proposals,
+      internal_action_proposal_receipts: internalActionProposalReceipts,
+      blocked_state_refs: blockedStateRefs,
+    },
+    usedFallback: merged.usedFallback,
+  };
+}
+
+function normalizeFounderMemoryContextManifest(
+  value: FounderLoopMemoryContextManifest | undefined,
+): { value: FounderLoopMemoryContextManifest; usedFallback: boolean } {
+  if (value === undefined) {
+    return {
+      value: mockControlCenterData.founderMemoryContextManifest,
+      usedFallback: true,
+    };
+  }
+  const merged = mergeMissingFields(
+    mockControlCenterData.founderMemoryContextManifest,
+    value,
+  );
+  const manifests = Array.isArray(value.manifests) ? value.manifests : [];
+  const blockedStateRefs = Array.isArray(value.blocked_state_refs)
+    ? value.blocked_state_refs
+    : [];
+  return {
+    value: {
+      ...merged.value,
+      manifest_count:
+        typeof value.manifest_count === "number"
+          ? value.manifest_count
+          : manifests.length,
+      manifests,
+      context_pack_preview_count:
+        typeof value.context_pack_preview_count === "number"
+          ? value.context_pack_preview_count
+          : manifests.length,
+      blocked_state_refs: blockedStateRefs,
+    },
+    usedFallback: merged.usedFallback,
+  };
 }
 
 function normalizeControlCenterDashboard(

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `163`.
+Current OpenAPI path count: `164`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -209,6 +209,7 @@ readiness, or execute rollback.
 - `GET /control-center/memory/maintenance-runs`
 - `GET /control-center/memory/context-manifest`
 - `GET /control-center/memory/context-packs`
+- `GET /control-center/memory/context-packs/{context_pack_ref}/preview`
 - `GET /control-center/memory/review/{candidate_ref}/receipt`
 - `POST /control-center/memory/review/{candidate_ref}/accept`
 - `POST /control-center/memory/review/{candidate_ref}/correct`

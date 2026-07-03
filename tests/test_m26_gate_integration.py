@@ -39,7 +39,7 @@ def test_m26_openapi_route_guard_rejects_recall_execution_routes() -> None:
     assert any("/recall/run" in failure for failure in failures)
     assert any("/context-pack/inject" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M26_OPENAPI_PATH_COUNT == 78
+    assert EXPECTED_M26_OPENAPI_PATH_COUNT == 79
     assert m26_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 

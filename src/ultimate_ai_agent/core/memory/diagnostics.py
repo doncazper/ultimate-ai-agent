@@ -36,6 +36,12 @@ MEMORY_MAINTENANCE_RUN_CONTRACT_REF = (
 MEMORY_MAINTENANCE_RUN_ROUTE_REF = "GET /control-center/memory/maintenance-runs"
 MEMORY_CONTEXT_MANIFEST_CONTRACT_REF = "contract-ref:fcc-mem-020-context-manifest:v1"
 MEMORY_CONTEXT_MANIFEST_ROUTE_REF = "GET /control-center/memory/context-manifest"
+MEMORY_CONTEXT_PACK_PREVIEW_CONTRACT_REF = (
+    "contract-ref:fcc-mem-020-context-pack-preview:v1"
+)
+MEMORY_CONTEXT_PACK_PREVIEW_ROUTE_REF = (
+    "GET /control-center/memory/context-packs/{context_pack_ref}/preview"
+)
 
 MEMORY_DIAGNOSTICS_BLOCKED_STATE_REFS = [
     "blocked-state:memory-diagnostics-no-context-injection",
@@ -93,6 +99,21 @@ MEMORY_CONTEXT_MANIFEST_BLOCKED_STATE_REFS = [
     "blocked-state:memory-context-manifest-no-public-distribution-claim",
     "blocked-state:memory-context-manifest-no-production-readiness-claim",
     "blocked-state:memory-context-manifest-no-production-authority",
+]
+MEMORY_CONTEXT_PACK_PREVIEW_BLOCKED_STATE_REFS = [
+    "blocked-state:context-pack-preview-read-only-review-artifact",
+    "blocked-state:context-pack-preview-no-runtime-prompt-context-injection",
+    "blocked-state:context-pack-preview-no-live-model-context-injection",
+    "blocked-state:context-pack-preview-no-automatic-memory-inclusion",
+    "blocked-state:context-pack-preview-no-provider-prompt-context-injection",
+    "blocked-state:context-pack-preview-no-connector-derived-context-injection",
+    "blocked-state:context-pack-preview-no-browser-web-derived-context-injection",
+    "blocked-state:context-pack-preview-no-shell-file-derived-context-injection",
+    "blocked-state:context-pack-preview-no-raw-payload-persistence",
+    "blocked-state:context-pack-preview-no-memory-write",
+    "blocked-state:context-pack-preview-no-action-execution",
+    "blocked-state:context-pack-preview-no-connector-write",
+    "blocked-state:context-pack-preview-no-public-or-production-authority",
 ]
 
 MemoryFeedbackKind = Literal[
@@ -511,6 +532,10 @@ def build_memory_context_manifest(
                 ),
                 "context_pack_ref": context_pack_ref,
                 "proposal_ref": proposal_ref,
+                "context_pack_preview_route_ref": MEMORY_CONTEXT_PACK_PREVIEW_ROUTE_REF,
+                "context_pack_preview_status": (
+                    "read_only_operator_preview_runtime_injection_blocked"
+                ),
                 "included_memory_refs": included_memory_refs,
                 "excluded_memory_refs": _safe_refs(
                     retrieval_diagnostics.get("excluded_refs"),
@@ -576,6 +601,11 @@ def build_memory_context_manifest(
         "generated_at": _utc_iso(),
         "manifest_count": len(manifests),
         "manifests": manifests,
+        "context_pack_preview_route_ref": MEMORY_CONTEXT_PACK_PREVIEW_ROUTE_REF,
+        "context_pack_preview_count": len(manifests),
+        "context_pack_preview_status": (
+            "implemented_read_only_context_pack_preview_runtime_injection_blocked"
+        ),
         "retrieval_cache_key_ref": retrieval_diagnostics.get("cache_key_ref"),
         "blocked_state_refs": list(MEMORY_CONTEXT_MANIFEST_BLOCKED_STATE_REFS),
         "safe_refs_only": True,
@@ -586,6 +616,219 @@ def build_memory_context_manifest(
         "live_model_context_injection_authorized": False,
         "automatic_context_injection_authorized": False,
         "automatic_memory_inclusion_authorized": False,
+        "memory_write_authorized": False,
+        "action_execution_authorized": False,
+        "connector_write_authorized": False,
+        "connector_derived_context_injection_authorized": False,
+        "browser_web_derived_context_injection_authorized": False,
+        "shell_file_derived_context_injection_authorized": False,
+        "raw_payload_persistence_enabled": False,
+        "model_provider_authority_allowed": False,
+        "provider_prompt_context_injection_authorized": False,
+        "broad_autonomy_authorized": False,
+        "public_beta_claim_authorized": False,
+        "public_distribution_claim_authorized": False,
+        "production_readiness_claim_authorized": False,
+        "production_authority_enabled": False,
+    }
+
+
+def build_memory_context_pack_preview(
+    *,
+    context_pack: dict[str, Any],
+    context_manifest: dict[str, Any],
+    memory_candidate_refs: list[str] | None = None,
+) -> dict[str, Any]:
+    context_pack_ref = _safe_ref(context_pack.get("context_pack_ref"), "context_pack_ref")
+    proposal_ref = _safe_ref(context_pack.get("proposal_ref"), "proposal_ref")
+    matching_manifest = _context_manifest_item_for_pack(
+        context_manifest=context_manifest,
+        context_pack_ref=context_pack_ref,
+    )
+    manifest_ref = _safe_ref(
+        matching_manifest.get("context_manifest_ref")
+        or f"context-manifest-ref:fcc-mem-020:{_short_digest(context_pack_ref, length=16)}",
+        "context_manifest_ref",
+    )
+    source_memory_record_refs = _safe_refs(
+        context_pack.get("source_memory_record_refs"),
+        "source_memory_record_refs",
+    )
+    l1_preview_refs = _safe_refs(context_pack.get("l1_preview_refs"), "l1_preview_refs")
+    l2_projection_refs = _safe_refs(
+        context_pack.get("l2_projection_refs"),
+        "l2_projection_refs",
+    )
+    l3_representation_refs = _safe_refs(
+        context_pack.get("l3_representation_refs"),
+        "l3_representation_refs",
+    )
+    included_summary_refs = _safe_refs(
+        context_pack.get("included_summary_refs"),
+        "included_summary_refs",
+    )
+    source_refs = _safe_refs(context_pack.get("source_refs"), "source_refs")
+    evidence_refs = _safe_refs(context_pack.get("evidence_refs"), "evidence_refs")
+    receipt_refs = _safe_refs(context_pack.get("receipt_refs"), "receipt_refs")
+    candidate_refs = _safe_refs(memory_candidate_refs or [], "memory_candidate_refs")
+    why_included_refs = _safe_refs(
+        matching_manifest.get("why_included_refs")
+        or context_pack.get("inclusion_reason_refs")
+        or ["inclusion-reason-ref:context-pack-preview-reviewed-proposal"],
+        "why_included_refs",
+    )
+    why_excluded_refs = _safe_refs(
+        matching_manifest.get("why_excluded_refs")
+        or (
+            context_pack.get("excluded_ref_reasons", {}).values()
+            if isinstance(context_pack.get("excluded_ref_reasons"), dict)
+            else []
+        )
+        or ["excluded-reason-ref:context-pack-preview:no-extra-exclusions-recorded"],
+        "why_excluded_refs",
+    )
+    quality_issue_refs = _safe_refs(
+        matching_manifest.get("quality_issue_refs"),
+        "quality_issue_refs",
+    )
+    internal_action_proposal_refs = _safe_refs(
+        context_pack.get("internal_action_proposal_refs"),
+        "internal_action_proposal_refs",
+    )
+    internal_action_receipt_refs = _safe_refs(
+        context_pack.get("internal_action_receipt_refs"),
+        "internal_action_receipt_refs",
+    )
+    blocked_state_refs = _safe_refs(
+        [
+            *MEMORY_CONTEXT_PACK_PREVIEW_BLOCKED_STATE_REFS,
+            *list(context_pack.get("blocked_state_refs") or []),
+            *list(matching_manifest.get("blocked_state_refs") or []),
+        ],
+        "blocked_state_refs",
+    )
+    blocked_injection_refs = [
+        ref
+        for ref in blocked_state_refs
+        if any(
+            marker in ref
+            for marker in [
+                "context-injection",
+                "automatic-memory-inclusion",
+                "provider-prompt",
+                "connector-derived",
+                "browser-web-derived",
+                "shell-file-derived",
+                "raw-payload",
+            ]
+        )
+    ]
+    preview_basis = {
+        "context_pack_ref": context_pack_ref,
+        "proposal_ref": proposal_ref,
+        "context_manifest_ref": manifest_ref,
+        "source_memory_record_refs": source_memory_record_refs,
+        "candidate_refs": candidate_refs,
+        "receipt_refs": receipt_refs,
+        "blocked_state_refs": blocked_state_refs,
+    }
+    suffix = _short_digest(_json_text(preview_basis), length=16)
+    preview_ref = f"context-pack-preview-ref:fcc-mem-020:{suffix}"
+    audit_ref = f"audit:context-pack-preview:{suffix}"
+    proof_ref = f"proof-ref:context-pack-preview:{suffix}"
+    route_refs = [
+        MEMORY_CONTEXT_PACK_PREVIEW_ROUTE_REF,
+        "GET /control-center/memory/context-packs",
+        MEMORY_CONTEXT_MANIFEST_ROUTE_REF,
+    ]
+    for route_ref in route_refs:
+        _safe_text(route_ref, "route_ref")
+    return {
+        "schema_version": "fcc_mem_020_context_pack_preview.v1",
+        "contract_ref": MEMORY_CONTEXT_PACK_PREVIEW_CONTRACT_REF,
+        "route_ref": MEMORY_CONTEXT_PACK_PREVIEW_ROUTE_REF,
+        "supporting_route_refs": route_refs,
+        "status": "implemented_read_only_context_pack_preview_runtime_injection_blocked",
+        "context_pack_preview_ref": preview_ref,
+        "context_pack_ref": context_pack_ref,
+        "proposal_ref": proposal_ref,
+        "context_manifest_ref": manifest_ref,
+        "exact_scope_ref": "exact-scope-ref:context-injection:context-pack-preview-materialization",
+        "source_refs": source_refs,
+        "source_memory_record_refs": source_memory_record_refs,
+        "memory_candidate_refs": candidate_refs,
+        "l1_preview_refs": l1_preview_refs,
+        "l2_projection_refs": l2_projection_refs,
+        "l3_representation_refs": l3_representation_refs,
+        "included_summary_refs": included_summary_refs,
+        "included_memory_refs": _safe_refs(
+            matching_manifest.get("included_memory_refs")
+            or [*source_memory_record_refs, *l1_preview_refs],
+            "included_memory_refs",
+        ),
+        "excluded_memory_refs": _safe_refs(
+            matching_manifest.get("excluded_memory_refs"),
+            "excluded_memory_refs",
+        ),
+        "why_included_refs": why_included_refs,
+        "why_excluded_refs": why_excluded_refs,
+        "evidence_refs": evidence_refs,
+        "receipt_refs": receipt_refs,
+        "audit_refs": [audit_ref],
+        "proof_refs": [proof_ref],
+        "approval_requirement_refs": _safe_refs(
+            context_pack.get("approval_requirement_refs")
+            or ["approval-requirement-ref:context-pack-preview-operator-review-only"],
+            "approval_requirement_refs",
+        ),
+        "approval_posture_ref": "approval-posture-ref:context-pack-preview:operator-review-required-before-use",
+        "redaction_posture_ref": "redaction-posture-ref:context-pack-preview:safe-refs-only",
+        "redaction_state": "redacted_safe_refs_only",
+        "safe_disable_ref": "safe-disable-ref:context-injection:context-pack-preview-materialization",
+        "rollback_ref": "rollback-ref:context-injection:suppress-context-preview-materialization",
+        "rollback_suppression_ref": "rollback-ref:context-injection:suppress-context-preview-materialization",
+        "blocked_state_refs": blocked_state_refs,
+        "blocked_injection_refs": blocked_injection_refs,
+        "quality_issue_refs": quality_issue_refs,
+        "citation_integrity_status": _safe_text(
+            str(matching_manifest.get("citation_integrity_status") or "not_validated"),
+            "citation_integrity_status",
+        ),
+        "citation_integrity_result_ref": _safe_ref(
+            matching_manifest.get("citation_integrity_result_ref")
+            or "citation-integrity-result-ref:fcc-mem-020:not-validated",
+            "citation_integrity_result_ref",
+        ),
+        "risk_posture_ref": _safe_ref(
+            matching_manifest.get("risk_posture_ref")
+            or "risk-posture-ref:context-pack-preview:operator-review-required",
+            "risk_posture_ref",
+        ),
+        "token_estimate": int(matching_manifest.get("token_estimate") or 0),
+        "cache_key_ref": _safe_ref(
+            matching_manifest.get("cache_key_ref")
+            or context_manifest.get("retrieval_cache_key_ref")
+            or "cache-key-ref:fcc-mem-020:not-cached",
+            "cache_key_ref",
+        ),
+        "expires_at": str(matching_manifest.get("expires_at") or ""),
+        "internal_action_proposal_refs": internal_action_proposal_refs,
+        "internal_action_receipt_refs": internal_action_receipt_refs,
+        "next_safe_action_ref": "next-safe-action-ref:context-pack-preview:operator-review-no-runtime-injection",
+        "safe_refs_only": True,
+        "read_only_preview": True,
+        "preview_only": True,
+        "review_required": True,
+        "approval_required_before_use": True,
+        "live_injection_status": "blocked_planned",
+        "runtime_context_injection_status": "blocked",
+        "context_injection_authorized": False,
+        "hidden_prompt_context_authorized": False,
+        "runtime_prompt_context_injection_authorized": False,
+        "live_model_context_injection_authorized": False,
+        "automatic_context_injection_authorized": False,
+        "automatic_memory_inclusion_authorized": False,
+        "prompt_context_written": False,
         "memory_write_authorized": False,
         "action_execution_authorized": False,
         "connector_write_authorized": False,
@@ -621,6 +864,17 @@ def known_memory_feedback_target_refs(
     for event in evidence_timeline.get("events", []) or []:
         refs.append(str(event.get("event_ref") or ""))
     return _safe_refs(refs, "known_memory_feedback_target_refs")
+
+
+def _context_manifest_item_for_pack(
+    *,
+    context_manifest: dict[str, Any],
+    context_pack_ref: str,
+) -> dict[str, Any]:
+    for item in context_manifest.get("manifests", []) or []:
+        if item.get("context_pack_ref") == context_pack_ref:
+            return dict(item)
+    return {}
 
 
 def _safe_text(value: Any, field_name: str, *, allow_empty: bool = False) -> str:

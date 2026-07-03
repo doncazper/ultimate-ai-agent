@@ -171,12 +171,13 @@
       "primary_surface": "Memory",
       "current_rank": 3,
       "current_rank_label": "decision_receipts",
-      "honest_status": "reviewed_recall_write_lane_implemented_context_injection_contract_ready_runtime_blocked",
+      "honest_status": "reviewed_recall_write_lane_and_context_pack_preview_implemented_runtime_injection_blocked",
       "next_target_rank": 4,
-      "smallest_next_operational_action": "dogfood reviewed recall writes and prepare context-pack preview/materialization without runtime injection",
+      "smallest_next_operational_action": "dogfood reviewed recall writes and governed context-pack preview without runtime injection",
       "backend_routes": [
         "GET /control-center/memory/review",
         "GET /control-center/memory/context-packs",
+        "GET /control-center/memory/context-packs/{context_pack_ref}/preview",
         "GET /control-center/memory/context-manifest",
         "POST /control-center/memory/review/{candidate_ref}/accept",
         "POST /control-center/memory/review/{candidate_ref}/correct",
@@ -186,7 +187,8 @@
       "cli_or_script_refs": [
         "scripts/dev/uaa_founder_loop.py record-memory-decision",
         "scripts/dev/uaa_founder_loop.py memory-receipts",
-        "scripts/dev/uaa_founder_loop.py memory-context-manifest"
+        "scripts/dev/uaa_founder_loop.py memory-context-manifest",
+        "scripts/dev/uaa_founder_loop.py memory-context-pack-preview"
       ],
       "receipt_refs": ["receipt:memory-review:*"],
       "evidence_refs": [
@@ -199,6 +201,7 @@
         "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_accept_correct_denied_when_write_lane_safe_disabled",
         "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_cli_records_and_inspects_reviewed_recall_write",
         "tests/test_fcc_mem_016_020_memory_diagnostics.py::test_founder_loop_cli_memory_context_manifest_omits_raw_paths",
+        "tests/test_fcc_mem_016_020_memory_diagnostics.py::test_founder_loop_cli_memory_context_pack_preview_omits_raw_paths",
         "tests/test_governed_memory_context_pack_proposals.py",
         "tests/test_governed_memory_phase6_execution_hooks.py",
         "tests/test_founder_loop_storage_actions.py::test_memory_context_packs_derive_from_reviewed_l3_refs_only"
@@ -236,7 +239,6 @@
       ],
       "missing_contracts": [
         "automatic_memory_write_policy",
-        "context_pack_materialization_preview_lane",
         "runtime_context_injection_micro_lane",
         "retention_delete_export_execution",
         "phase6_execution_hooks"

@@ -34,10 +34,72 @@
           "receipt_refs_required",
           "blocked_state_refs_required",
           "writes_authorized",
+          "write_scope_ref",
           "deletes_authorized",
           "exports_authorized",
           "context_injection_authorized",
           "accepted_as_recall"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "decision_state": {
+                  "enum": [
+                    "accept",
+                    "correct"
+                  ]
+                }
+              },
+              "required": [
+                "decision_state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "writes_authorized": {
+                  "const": true
+                },
+                "write_scope_ref": {
+                  "const": "exact-scope-ref:memory-review:accept-correct-reviewed-recall-write"
+                },
+                "accepted_as_recall": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "decision_state": {
+                  "enum": [
+                    "reject",
+                    "defer",
+                    "merge",
+                    "supersede",
+                    "forget_request"
+                  ]
+                }
+              },
+              "required": [
+                "decision_state"
+              ]
+            },
+            "then": {
+              "properties": {
+                "writes_authorized": {
+                  "const": false
+                },
+                "write_scope_ref": {
+                  "const": "blocked-state:no-memory-write"
+                },
+                "accepted_as_recall": {
+                  "const": false
+                }
+              }
+            }
+          }
         ],
         "properties": {
           "decision_state": { "$ref": "#/$defs/decision_state" },
@@ -50,11 +112,17 @@
           "audit_refs_required": { "const": true },
           "receipt_refs_required": { "const": true },
           "blocked_state_refs_required": { "const": true },
-          "writes_authorized": { "const": false },
+          "writes_authorized": { "type": "boolean" },
+          "write_scope_ref": {
+            "enum": [
+              "exact-scope-ref:memory-review:accept-correct-reviewed-recall-write",
+              "blocked-state:no-memory-write"
+            ]
+          },
           "deletes_authorized": { "const": false },
           "exports_authorized": { "const": false },
           "context_injection_authorized": { "const": false },
-          "accepted_as_recall": { "const": false }
+          "accepted_as_recall": { "type": "boolean" }
         }
       }
     },
@@ -81,6 +149,10 @@
       "required": [
         "review_only",
         "memory_write_authorized",
+        "reviewed_recall_write_authorized",
+        "reviewed_recall_write_scope_ref",
+        "reviewed_recall_write_scope",
+        "automatic_memory_write_authorized",
         "memory_delete_authorized",
         "memory_export_authorized",
         "context_injection_authorized",
@@ -97,6 +169,14 @@
       "properties": {
         "review_only": { "const": true },
         "memory_write_authorized": { "const": false },
+        "reviewed_recall_write_authorized": { "const": true },
+        "reviewed_recall_write_scope_ref": {
+          "const": "exact-scope-ref:memory-review:accept-correct-reviewed-recall-write"
+        },
+        "reviewed_recall_write_scope": {
+          "const": "accept_correct_reviewed_recall_only"
+        },
+        "automatic_memory_write_authorized": { "const": false },
         "memory_delete_authorized": { "const": false },
         "memory_export_authorized": { "const": false },
         "context_injection_authorized": { "const": false },
