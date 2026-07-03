@@ -35,7 +35,7 @@ def test_m18_openapi_route_guard_rejects_runtime_execution_expansion() -> None:
         expected_path_count=EXPECTED_M18_OPENAPI_PATH_COUNT,
     )
 
-    assert EXPECTED_M18_OPENAPI_PATH_COUNT == 78
+    assert EXPECTED_M18_OPENAPI_PATH_COUNT == 79
     assert "/runtime/smoke-reports/execute" in M18_FORBIDDEN_BACKEND_ROUTES
     assert "/runtime/local/execute" in M18_FORBIDDEN_BACKEND_ROUTES
     assert any("OpenAPI path count" in failure for failure in failures)

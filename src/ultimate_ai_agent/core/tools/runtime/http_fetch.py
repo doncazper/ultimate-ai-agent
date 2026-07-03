@@ -454,6 +454,7 @@ def _build_read_only_http_fetch_output(
     preview_text = text[: policy.max_preview_bytes]
     redacted_preview, redaction_summary = _redact(preview_text)
     suffix = invocation_id.split(":", 1)[-1]
+    transport_metadata = vars(transport) if hasattr(transport, "__dict__") else {}
     return ReadOnlyHttpFetchOutput(
         output_ref=f"http-fetch-output:{suffix}",
         request_ref=request.request_ref,
@@ -464,14 +465,10 @@ def _build_read_only_http_fetch_output(
         redacted_preview=redacted_preview,
         redaction_summary=redaction_summary,
         transport_ref=str(
-            getattr(
-                transport,
-                "transport_ref",
-                "http-fetch-transport:injected",
-            )
+            transport_metadata.get("transport_ref", "http-fetch-transport:injected")
         ),
         real_world_transport_performed=bool(
-            getattr(transport, "real_world_transport_performed", False)
+            transport_metadata.get("real_world_transport_performed", False)
         ),
         preview_truncated=len(text) > policy.max_preview_bytes or len(response.body) > policy.max_response_bytes,
         preview_limit_bytes=policy.max_preview_bytes,

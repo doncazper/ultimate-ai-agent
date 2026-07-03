@@ -38,7 +38,7 @@ def test_m36_openapi_route_guard_rejects_review_mutation_context_and_execution_r
     assert any("/memory/write" in failure for failure in failures)
     assert any("/tool-runtime/execute" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M36_OPENAPI_PATH_COUNT == 78
+    assert EXPECTED_M36_OPENAPI_PATH_COUNT == 79
     assert m36_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 

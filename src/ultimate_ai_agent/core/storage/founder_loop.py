@@ -261,6 +261,7 @@ from ultimate_ai_agent.core.memory.diagnostics import (
     MEMORY_FEEDBACK_ROUTE_REF as DIAGNOSTIC_MEMORY_FEEDBACK_ROUTE_REF,
     build_memory_citation_integrity,
     build_memory_context_manifest,
+    build_memory_context_pack_preview,
     build_memory_feedback_quality_queue,
     build_memory_maintenance_runs,
     build_memory_retrieval_diagnostics,
@@ -12355,6 +12356,55 @@ class FounderLoopRepository:
             quality_queue=quality_queue,
             limit=bounded_limit,
         )
+
+    def memory_context_pack_preview(
+        self,
+        *,
+        context_pack_ref: str,
+    ) -> dict[str, Any]:
+        _validate_safe_ref(context_pack_ref, "context_pack_ref")
+        context_packs = self.memory_context_pack_proposals(limit=200)
+        context_pack = next(
+            (
+                dict(proposal)
+                for proposal in context_packs.get("proposals", []) or []
+                if proposal.get("context_pack_ref") == context_pack_ref
+            ),
+            None,
+        )
+        if context_pack is None:
+            raise FounderLoopStorageError(
+                "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_PREVIEW_NOT_FOUND"
+            )
+        context_manifest = self.memory_context_manifest(limit=200)
+        memory_candidate_refs = self._memory_candidate_refs_for_record_refs(
+            context_pack.get("source_memory_record_refs") or []
+        )
+        return build_memory_context_pack_preview(
+            context_pack=context_pack,
+            context_manifest=context_manifest,
+            memory_candidate_refs=memory_candidate_refs,
+        )
+
+    def _memory_candidate_refs_for_record_refs(
+        self,
+        memory_record_refs: Sequence[str],
+    ) -> list[str]:
+        wanted = set()
+        for ref in memory_record_refs:
+            _validate_safe_ref(str(ref), "memory_record_ref")
+            wanted.add(str(ref))
+        candidate_refs: list[str] = []
+        for record in self.list_memory_review_recall_records():
+            record_ref = f"memory-record-ref:{record.get('memory_id')}"
+            if record_ref not in wanted:
+                continue
+            for ref in record.get("metadata_refs") or []:
+                ref_text = str(ref)
+                if ref_text.startswith("business-memory-candidate:"):
+                    _validate_safe_ref(ref_text, "memory_candidate_ref")
+                    candidate_refs.append(ref_text)
+        return list(dict.fromkeys(candidate_refs))
 
     def _record_memory_quality_feedback(
         self,

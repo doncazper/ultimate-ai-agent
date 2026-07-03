@@ -347,6 +347,13 @@
         },
         {
           "method": "GET",
+          "path": "/control-center/memory/context-packs/{context_pack_ref}/preview",
+          "operation_id": "get_control_center_memory_context_packs_context_pack_ref_preview",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
           "path": "/control-center/memory/retrieval-diagnostics",
           "operation_id": "get_control_center_memory_retrieval_diagnostics",
           "side_effect_class": "local_dev_workspace_only",

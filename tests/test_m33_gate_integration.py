@@ -30,7 +30,7 @@ def test_m33_openapi_route_guard_rejects_raw_file_and_execution_routes() -> None
     assert any("/files/write" in failure for failure in failures)
     assert any("/tool-runtime/execute" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M33_OPENAPI_PATH_COUNT == 78
+    assert EXPECTED_M33_OPENAPI_PATH_COUNT == 79
     assert m33_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 

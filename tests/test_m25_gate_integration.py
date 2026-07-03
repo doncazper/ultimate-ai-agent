@@ -44,7 +44,7 @@ def test_m25_openapi_route_guard_rejects_truth_execution_routes() -> None:
 
     assert any("/truth/verify" in failure for failure in failures)
     assert any("OpenAPI path count" in failure for failure in failures)
-    assert EXPECTED_M25_OPENAPI_PATH_COUNT == 78
+    assert EXPECTED_M25_OPENAPI_PATH_COUNT == 79
     assert m25_openapi_route_failures(app.openapi().get("paths", {})) == []
 
 

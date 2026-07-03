@@ -1030,6 +1030,45 @@ def _inspect_memory_context_manifest(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_memory_context_pack_preview(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        context_pack_preview = repo.memory_context_pack_preview(
+            context_pack_ref=args.context_pack_ref,
+        )
+    except ValueError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref=(
+                    "repo-local-command:founder-loop-memory-context-pack-preview"
+                ),
+                error_ref="FOUNDER_LOOP_MEMORY_CONTEXT_PACK_PREVIEW_REF_DENIED",
+            )
+        )
+        return 1
+    except FounderLoopStorageError as exc:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref=(
+                    "repo-local-command:founder-loop-memory-context-pack-preview"
+                ),
+                error_ref=str(exc)
+                or "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_PREVIEW_NOT_FOUND",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-context-pack-preview",
+        "context_pack_preview": context_pack_preview,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
 def _inspect_memory_receipts(args: argparse.Namespace) -> int:
     repo = _repository(args)
     review = repo.memory_review(limit=args.limit)
@@ -1481,6 +1520,15 @@ def build_parser() -> argparse.ArgumentParser:
     memory_context_manifest_parser.add_argument("--query-ref", default=None)
     memory_context_manifest_parser.add_argument("--limit", type=int, default=20)
     memory_context_manifest_parser.set_defaults(func=_inspect_memory_context_manifest)
+
+    memory_context_pack_preview_parser = subparsers.add_parser(
+        "memory-context-pack-preview",
+        help="Inspect one FCC-MEM-020 context-pack preview without runtime injection.",
+    )
+    memory_context_pack_preview_parser.add_argument("--context-pack-ref", required=True)
+    memory_context_pack_preview_parser.set_defaults(
+        func=_inspect_memory_context_pack_preview
+    )
 
     memory_receipts_parser = subparsers.add_parser(
         "memory-receipts",

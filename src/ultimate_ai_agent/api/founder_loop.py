@@ -624,6 +624,64 @@ def get_control_center_memory_context_packs(
     )
 
 
+@router.get(
+    "/memory/context-packs/{context_pack_ref}/preview",
+    response_model=ResultEnvelope,
+)
+def get_control_center_memory_context_pack_preview(
+    context_pack_ref: str,
+) -> ResultEnvelope:
+    try:
+        data = get_founder_loop_service().memory_context_pack_preview(
+            context_pack_ref=context_pack_ref,
+        )
+    except FounderLoopStorageError as exc:
+        status_code = (
+            404
+            if str(exc) == "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_PREVIEW_NOT_FOUND"
+            else 400
+        )
+        raise HTTPException(
+            status_code=status_code,
+            detail={
+                "code": str(exc)
+                or "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_PREVIEW_ERROR",
+                "safe_message": (
+                    "The Memory context-pack preview could not be inspected safely."
+                ),
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_PREVIEW_UNSAFE_REF",
+                "safe_message": (
+                    "The Memory context-pack preview ref could not be inspected safely."
+                ),
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_memory_context_pack_preview",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:memory-context-pack-preview",
+        data=data,
+        evidence=[
+            {"evidence_ref": "evidence-ref:founder-loop:memory-context-pack-preview"}
+        ],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "read_only_preview",
+            "no_runtime_context_injection",
+            "no_provider_or_model_calls",
+            "no_connector_or_crm_sync",
+        ],
+    )
+
+
 @router.post(
     "/memory/context-packs/{context_pack_ref}/action-proposal",
     response_model=ResultEnvelope,

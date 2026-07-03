@@ -15,6 +15,8 @@ from ultimate_ai_agent.core.memory import (
     MEMORY_CITATION_INTEGRITY_CONTRACT_REF,
     MEMORY_CONTEXT_MANIFEST_CONTRACT_REF,
     MEMORY_CONTEXT_MANIFEST_BLOCKED_STATE_REFS,
+    MEMORY_CONTEXT_PACK_PREVIEW_BLOCKED_STATE_REFS,
+    MEMORY_CONTEXT_PACK_PREVIEW_CONTRACT_REF,
     MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS,
     MEMORY_FEEDBACK_QUALITY_CONTRACT_REF,
     MEMORY_MAINTENANCE_RUN_CONTRACT_REF,
@@ -110,6 +112,48 @@ def test_fcc_mem_016_020_repository_read_models_are_safe(tmp_path: Path) -> None
         assert blocked_ref in manifest["blocked_state_refs"]
         assert blocked_ref in manifest["manifests"][0]["blocked_state_refs"]
 
+    context_pack_ref = repo.memory_context_pack_proposals(limit=10)["proposals"][0][
+        "context_pack_ref"
+    ]
+    preview = repo.memory_context_pack_preview(context_pack_ref=context_pack_ref)
+    assert preview["schema_version"] == "fcc_mem_020_context_pack_preview.v1"
+    assert preview["contract_ref"] == MEMORY_CONTEXT_PACK_PREVIEW_CONTRACT_REF
+    assert preview["context_pack_ref"] == context_pack_ref
+    assert preview["context_manifest_ref"] == manifest["manifests"][0][
+        "context_manifest_ref"
+    ]
+    assert preview["context_pack_preview_ref"].startswith(
+        "context-pack-preview-ref:fcc-mem-020:"
+    )
+    assert preview["source_memory_record_refs"]
+    assert preview["memory_candidate_refs"]
+    assert preview["l1_preview_refs"]
+    assert preview["l2_projection_refs"]
+    assert preview["l3_representation_refs"]
+    assert preview["included_summary_refs"]
+    assert preview["evidence_refs"]
+    assert preview["receipt_refs"]
+    assert preview["proof_refs"]
+    assert preview["audit_refs"]
+    assert preview["safe_refs_only"] is True
+    assert preview["read_only_preview"] is True
+    assert preview["preview_only"] is True
+    assert preview["approval_required_before_use"] is True
+    assert preview["live_injection_status"] == "blocked_planned"
+    assert preview["context_injection_authorized"] is False
+    assert preview["runtime_prompt_context_injection_authorized"] is False
+    assert preview["live_model_context_injection_authorized"] is False
+    assert preview["automatic_context_injection_authorized"] is False
+    assert preview["automatic_memory_inclusion_authorized"] is False
+    assert preview["memory_write_authorized"] is False
+    assert preview["action_execution_authorized"] is False
+    assert preview["connector_write_authorized"] is False
+    assert preview["model_provider_authority_allowed"] is False
+    assert preview["raw_payload_persistence_enabled"] is False
+    assert preview["production_authority_enabled"] is False
+    for blocked_ref in MEMORY_CONTEXT_PACK_PREVIEW_BLOCKED_STATE_REFS:
+        assert blocked_ref in preview["blocked_state_refs"]
+
     serialized = json.dumps(
         {
             "retrieval": retrieval,
@@ -117,6 +161,7 @@ def test_fcc_mem_016_020_repository_read_models_are_safe(tmp_path: Path) -> None
             "quality": quality,
             "maintenance": maintenance,
             "manifest": manifest,
+            "preview": preview,
         }
     ).lower()
     assert "raw_prompt" not in serialized
@@ -257,3 +302,71 @@ def test_founder_loop_cli_memory_context_manifest_omits_raw_paths(
     assert output["raw_paths_omitted"] is True
     assert output["context_manifest"]["schema_version"] == "fcc_mem_020_context_manifest.v1"
     assert str(state_dir) not in result.stdout
+
+
+def test_founder_loop_cli_memory_context_pack_preview_omits_raw_paths(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "cli_preview_state"
+    repo = FounderLoopRepository(state_dir)
+    _accept_first_memory_candidate(repo)
+    context_pack_ref = repo.memory_context_pack_proposals(limit=5)["proposals"][0][
+        "context_pack_ref"
+    ]
+    env = os.environ.copy()
+    env["PYTHONPATH"] = "src"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_founder_loop.py",
+            "--state-dir",
+            str(state_dir),
+            "memory-context-pack-preview",
+            "--context-pack-ref",
+            context_pack_ref,
+        ],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    output = json.loads(result.stdout)
+    assert (
+        output["command_ref"]
+        == "repo-local-command:founder-loop-memory-context-pack-preview"
+    )
+    assert output["safe_refs_only"] is True
+    assert output["raw_paths_omitted"] is True
+    assert (
+        output["context_pack_preview"]["schema_version"]
+        == "fcc_mem_020_context_pack_preview.v1"
+    )
+    assert output["context_pack_preview"]["context_pack_ref"] == context_pack_ref
+    assert output["context_pack_preview"]["context_injection_authorized"] is False
+    assert output["context_pack_preview"]["memory_write_authorized"] is False
+    assert str(state_dir) not in result.stdout
+
+    denied = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_founder_loop.py",
+            "--state-dir",
+            str(state_dir),
+            "memory-context-pack-preview",
+            "--context-pack-ref",
+            "raw_prompt",
+        ],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert denied.returncode == 1
+    denied_output = json.loads(denied.stdout)
+    assert (
+        denied_output["error_ref"]
+        == "FOUNDER_LOOP_MEMORY_CONTEXT_PACK_PREVIEW_REF_DENIED"
+    )

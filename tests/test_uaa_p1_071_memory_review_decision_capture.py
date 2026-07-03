@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from ultimate_ai_agent.core.memory import (
+    MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
     MEMORY_REVIEW_DECISION_CONTRACT_REF,
     MEMORY_REVIEW_DECISION_REQUIRED_BLOCKED_STATE_REFS,
     MEMORY_REVIEW_DECISION_REQUIRED_REF_FIELDS,
@@ -78,6 +79,7 @@ def test_memory_review_decision_contract_covers_required_states() -> None:
     rows = memory_review_decision_state_rows()
     assert [row["decision_state"] for row in rows] == MEMORY_REVIEW_DECISION_STATES
     for row in rows:
+        expected_reviewed_recall_write = row["decision_state"] in {"accept", "correct"}
         assert row["review_required"] is True
         assert row["actor_ref_required"] is True
         assert row["source_refs_required"] is True
@@ -86,11 +88,16 @@ def test_memory_review_decision_contract_covers_required_states() -> None:
         assert row["audit_refs_required"] is True
         assert row["receipt_refs_required"] is True
         assert row["blocked_state_refs_required"] is True
-        assert row["writes_authorized"] is False
+        assert row["writes_authorized"] is expected_reviewed_recall_write
+        assert row["write_scope_ref"] == (
+            MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+            if expected_reviewed_recall_write
+            else "blocked-state:no-memory-write"
+        )
         assert row["deletes_authorized"] is False
         assert row["exports_authorized"] is False
         assert row["context_injection_authorized"] is False
-        assert row["accepted_as_recall"] is False
+        assert row["accepted_as_recall"] is expected_reviewed_recall_write
 
 
 def test_memory_review_decision_envelopes_are_review_only() -> None:

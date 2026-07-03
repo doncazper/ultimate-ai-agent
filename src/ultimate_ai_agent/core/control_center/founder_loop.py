@@ -225,6 +225,15 @@ class FounderLoopControlCenterService:
             limit=limit,
         )
 
+    def memory_context_pack_preview(
+        self,
+        *,
+        context_pack_ref: str,
+    ) -> dict[str, Any]:
+        return self.repository.memory_context_pack_preview(
+            context_pack_ref=context_pack_ref,
+        )
+
     def record_memory_feedback(
         self,
         *,

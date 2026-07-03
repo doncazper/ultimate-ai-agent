@@ -12,6 +12,7 @@ from scripts.verify_operational_maturity import (
     CONTEXT_INJECTION_REQUIRED_BLOCKED_AUTHORITIES,
     CONTEXT_INJECTION_REQUIRED_TEST_REFS,
     CONTEXT_INJECTION_REQUIRED_VERIFIER_REFS,
+    CONTEXT_PACK_PREVIEW_CLI_REF,
     EXPECTED_AUTHORITY_CANDIDATES,
     EXPECTED_AUTHORITY_FOUNDATIONS,
     EXPECTED_FOLLOW_ON_CANDIDATE_RANKING,
@@ -30,6 +31,7 @@ from scripts.verify_operational_maturity import (
     LOCAL_TASK_SAFE_DISABLE_REF,
     MANIFEST_PATH,
     MEMORY_CONTEXT_PACK_ROUTE,
+    MEMORY_CONTEXT_PACK_PREVIEW_ROUTE,
     MEMORY_CONTEXT_MANIFEST_ROUTE,
     MEMORY_CONTEXT_PACK_TEST_REFS,
     MEMORY_CONTEXT_PACK_VERIFIER_REFS,
@@ -96,8 +98,10 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
         set(local_task_lane["verifier_repeatability_refs"])
     )
     assert MEMORY_CONTEXT_PACK_ROUTE in modules["memory"]["backend_routes"]
+    assert MEMORY_CONTEXT_PACK_PREVIEW_ROUTE in modules["memory"]["backend_routes"]
     assert MEMORY_CONTEXT_MANIFEST_ROUTE in modules["memory"]["backend_routes"]
     assert CONTEXT_INJECTION_CLI_REF in modules["memory"]["cli_or_script_refs"]
+    assert CONTEXT_PACK_PREVIEW_CLI_REF in modules["memory"]["cli_or_script_refs"]
     assert CONTEXT_INJECTION_REQUIRED_BLOCKED_AUTHORITIES.issubset(
         set(modules["memory"]["blocked_authorities"])
     )
@@ -217,7 +221,7 @@ def test_operational_maturity_verifier_requires_memory_context_pack_refs() -> No
     memory["backend_routes"] = [
         route
         for route in memory["backend_routes"]
-        if route != MEMORY_CONTEXT_PACK_ROUTE
+        if route not in {MEMORY_CONTEXT_PACK_ROUTE, MEMORY_CONTEXT_PACK_PREVIEW_ROUTE}
     ]
     memory["test_refs"] = [
         ref
@@ -235,6 +239,11 @@ def test_operational_maturity_verifier_requires_memory_context_pack_refs() -> No
 
     assert any(
         f"memory context-pack readiness missing route {MEMORY_CONTEXT_PACK_ROUTE}"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        f"memory context-pack readiness missing route {MEMORY_CONTEXT_PACK_PREVIEW_ROUTE}"
         in failure
         for failure in failures
     )

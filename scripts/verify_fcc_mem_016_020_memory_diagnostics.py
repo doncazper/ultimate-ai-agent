@@ -23,6 +23,8 @@ from ultimate_ai_agent.core.memory import (  # noqa: E402
     MEMORY_CITATION_INTEGRITY_CONTRACT_REF,
     MEMORY_CONTEXT_MANIFEST_BLOCKED_STATE_REFS,
     MEMORY_CONTEXT_MANIFEST_CONTRACT_REF,
+    MEMORY_CONTEXT_PACK_PREVIEW_BLOCKED_STATE_REFS,
+    MEMORY_CONTEXT_PACK_PREVIEW_CONTRACT_REF,
     MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS,
     MEMORY_FEEDBACK_QUALITY_CONTRACT_REF,
     MEMORY_MAINTENANCE_RUN_CONTRACT_REF,
@@ -66,6 +68,10 @@ ROUTE_EXPECTATIONS = {
         "get_control_center_memory_context_manifest",
         "local_sensitive",
     ),
+    ("GET", "/control-center/memory/context-packs/{context_pack_ref}/preview"): (
+        "get_control_center_memory_context_packs_context_pack_ref_preview",
+        "local_sensitive",
+    ),
     ("POST", "/control-center/memory/feedback"): (
         "post_control_center_memory_feedback",
         "mutating_requires_authority",
@@ -90,11 +96,13 @@ REQUIRED_DOC_SNIPPETS = {
     "docs/api/openapi_contract.md": [
         "GET /control-center/memory/retrieval-diagnostics",
         "GET /control-center/memory/context-manifest",
+        "GET /control-center/memory/context-packs/{context_pack_ref}/preview",
         "POST /control-center/memory/feedback",
     ],
     "docs/api/route_inventory.md": [
         "GET /control-center/memory/retrieval-diagnostics",
         "GET /control-center/memory/context-manifest",
+        "GET /control-center/memory/context-packs/{context_pack_ref}/preview",
         "POST /control-center/memory/feedback",
     ],
 }
@@ -165,6 +173,12 @@ def _append_repository_contract_failures(failures: list[str]) -> None:
             quality = repo.memory_quality_issues(limit=10)
             maintenance = repo.memory_maintenance_runs(limit=10)
             manifest = repo.memory_context_manifest(limit=10)
+            context_pack_ref = repo.memory_context_pack_proposals(limit=10)[
+                "proposals"
+            ][0]["context_pack_ref"]
+            preview = repo.memory_context_pack_preview(
+                context_pack_ref=context_pack_ref
+            )
             _assert_contracts(
                 failures,
                 retrieval=retrieval,
@@ -172,6 +186,7 @@ def _append_repository_contract_failures(failures: list[str]) -> None:
                 quality=quality,
                 maintenance=maintenance,
                 manifest=manifest,
+                preview=preview,
             )
             target_ref = str(repo.memory_impact_graph(limit=10)["nodes"][0]["memory_ref"])
             receipt = repo.record_memory_feedback(
@@ -221,6 +236,7 @@ def _assert_contracts(
     quality: dict[str, Any],
     maintenance: dict[str, Any],
     manifest: dict[str, Any],
+    preview: dict[str, Any],
 ) -> None:
     expectations = [
         (retrieval, "fcc_mem_016_retrieval_diagnostics.v1", MEMORY_RETRIEVAL_DIAGNOSTICS_CONTRACT_REF),
@@ -228,6 +244,7 @@ def _assert_contracts(
         (quality, "fcc_mem_018_feedback_quality_queue.v1", MEMORY_FEEDBACK_QUALITY_CONTRACT_REF),
         (maintenance, "fcc_mem_019_proposal_only_maintenance_run.v1", MEMORY_MAINTENANCE_RUN_CONTRACT_REF),
         (manifest, "fcc_mem_020_context_manifest.v1", MEMORY_CONTEXT_MANIFEST_CONTRACT_REF),
+        (preview, "fcc_mem_020_context_pack_preview.v1", MEMORY_CONTEXT_PACK_PREVIEW_CONTRACT_REF),
     ]
     for payload, schema_version, contract_ref in expectations:
         if payload.get("schema_version") != schema_version:
@@ -247,6 +264,7 @@ def _assert_contracts(
         ("quality", quality),
         ("maintenance", maintenance),
         ("manifest", manifest),
+        ("preview", preview),
     ]:
         for field in required_false:
             if field in payload and payload[field] is not False:
@@ -286,6 +304,24 @@ def _assert_contracts(
                 failures.append(
                     f"context manifest item missing blocked ref {blocked_ref}"
                 )
+    preview_blocked_refs = set(preview.get("blocked_state_refs") or [])
+    for blocked_ref in MEMORY_CONTEXT_PACK_PREVIEW_BLOCKED_STATE_REFS:
+        if blocked_ref not in preview_blocked_refs:
+            failures.append(f"context-pack preview missing blocked ref {blocked_ref}")
+    for field in [
+        "runtime_prompt_context_injection_authorized",
+        "live_model_context_injection_authorized",
+        "automatic_context_injection_authorized",
+        "automatic_memory_inclusion_authorized",
+        "memory_write_authorized",
+        "action_execution_authorized",
+        "connector_write_authorized",
+        "raw_payload_persistence_enabled",
+        "model_provider_authority_allowed",
+        "production_authority_enabled",
+    ]:
+        if preview.get(field) is not False:
+            failures.append(f"context-pack preview {field} must stay false")
     serialized = json.dumps(
         {
             "retrieval": retrieval,
@@ -293,6 +329,7 @@ def _assert_contracts(
             "quality": quality,
             "maintenance": maintenance,
             "manifest": manifest,
+            "preview": preview,
         },
         sort_keys=True,
     ).lower()
@@ -309,6 +346,7 @@ def _append_cli_failures(failures: list[str]) -> None:
         "memory-quality-issues",
         "memory-maintenance-runs",
         "memory-context-manifest",
+        "memory-context-pack-preview",
         "record-memory-feedback",
     ]:
         if command not in cli_text:

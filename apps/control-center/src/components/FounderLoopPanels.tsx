@@ -6668,8 +6668,24 @@ function MemoryContextManifestPanel({
         <DetailTerm label="Contract" value={contextManifest.contract_ref} />
         <DetailTerm label="Manifests" value={String(contextManifest.manifest_count)} />
         <DetailTerm
+          label="Preview route"
+          value={
+            contextManifest.context_pack_preview_route_ref ??
+            "GET /control-center/memory/context-packs/{context_pack_ref}/preview"
+          }
+        />
+        <DetailTerm
           label="Context injection"
           value={contextManifest.context_injection_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Live injection"
+          value={
+            contextManifest.runtime_prompt_context_injection_authorized ||
+            contextManifest.live_model_context_injection_authorized
+              ? "enabled"
+              : "blocked/planned"
+          }
         />
         <DetailTerm
           label="Memory write"

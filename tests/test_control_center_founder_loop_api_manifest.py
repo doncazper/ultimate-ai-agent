@@ -69,6 +69,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/memory/l3-index",
         "/control-center/memory/contradictions",
         "/control-center/memory/context-packs",
+        "/control-center/memory/context-packs/{context_pack_ref}/preview",
         "/control-center/memory/observation-candidates",
         "/control-center/memory/probe",
         "/control-center/memory/review",
@@ -157,6 +158,10 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     )
     assert (
         "control_center_memory_context_pack_proposals"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_memory_context_pack_previews"
         in manifest.capabilities_declared
     )
     assert (
