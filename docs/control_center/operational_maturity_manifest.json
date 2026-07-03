@@ -171,9 +171,9 @@
       "primary_surface": "Memory",
       "current_rank": 3,
       "current_rank_label": "decision_receipts",
-      "honest_status": "review_decisions_and_internal_action_proposals_execution_blocked",
+      "honest_status": "reviewed_recall_write_lane_implemented_broader_memory_execution_blocked",
       "next_target_rank": 4,
-      "smallest_next_operational_action": "narrow execution-hook contract only",
+      "smallest_next_operational_action": "dogfood reviewed recall writes and prepare context injection prerequisites separately",
       "backend_routes": [
         "GET /control-center/memory/review",
         "GET /control-center/memory/context-packs",
@@ -182,7 +182,10 @@
         "POST /control-center/memory/review/{candidate_ref}/reject",
         "POST /control-center/memory/context-packs/{context_pack_ref}/action-proposal"
       ],
-      "cli_or_script_refs": [],
+      "cli_or_script_refs": [
+        "scripts/dev/uaa_founder_loop.py record-memory-decision",
+        "scripts/dev/uaa_founder_loop.py memory-receipts"
+      ],
       "receipt_refs": ["receipt:memory-review:*"],
       "evidence_refs": [
         "docs/control_center/FCC_MEMORY_CRM_001_PROFESSIONAL_MEMORY_CRM_LITE_BINDING.md",
@@ -191,6 +194,8 @@
       "test_refs": [
         "tests/test_fcc_memory_crm_001_professional_memory_crm_lite_binding.py",
         "tests/test_fcc_v1_005_memory_review_decisions.py",
+        "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_accept_correct_denied_when_write_lane_safe_disabled",
+        "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_cli_records_and_inspects_reviewed_recall_write",
         "tests/test_governed_memory_context_pack_proposals.py",
         "tests/test_governed_memory_phase6_execution_hooks.py",
         "tests/test_founder_loop_storage_actions.py::test_memory_context_packs_derive_from_reviewed_l3_refs_only"
@@ -202,8 +207,19 @@
         "scripts/verify_operational_maturity.py"
       ],
       "route_metadata_refs": ["src/ultimate_ai_agent/api/manifest.py"],
-      "blocked_authorities": ["automatic_memory_truth", "context_injection", "connector_write", "action_execution"],
-      "missing_contracts": ["memory_write_policy_binding", "retention_delete_export_execution", "phase6_execution_hooks"],
+      "blocked_authorities": [
+        "automatic_memory_truth",
+        "automatic_memory_write",
+        "context_injection",
+        "connector_write",
+        "memory_delete_export_execution",
+        "action_execution"
+      ],
+      "missing_contracts": [
+        "automatic_memory_write_policy",
+        "retention_delete_export_execution",
+        "phase6_execution_hooks"
+      ],
       "backend_owned_receipts": true,
       "exact_scope_required": true,
       "idempotency_required": true,
@@ -211,7 +227,43 @@
       "real_local_mutation": false,
       "durable_receipt": true,
       "evidence_timeline_event": true,
-      "graduated_lanes": []
+      "graduated_lanes": [
+        {
+          "lane_id": "reviewed_memory_recall_write",
+          "rank": 5,
+          "honest_status": "local_execution_receipt_evidence",
+          "smallest_operational_action": "Record one Memory Review accept/correct decision that creates a reviewed recall-only LocalMemoryStore record.",
+          "backend_routes": [
+            "POST /control-center/memory/review/{candidate_ref}/accept",
+            "POST /control-center/memory/review/{candidate_ref}/correct"
+          ],
+          "receipt_refs": ["receipt:memory-review:*"],
+          "evidence_refs": ["evidence-ref:founder-loop:memory-review-decision"],
+          "blocked_authorities": [
+            "automatic_memory_write",
+            "context_injection",
+            "connector_write",
+            "memory_delete_export_execution",
+            "source_truth_authority",
+            "rollback_execution",
+            "production_authority"
+          ],
+          "real_local_mutation": true,
+          "durable_receipt": true,
+          "evidence_timeline_event": true,
+          "rollback_or_safe_disable_required": true,
+          "rollback_or_safe_disable_refs": [
+            "rollback-ref:memory-review:suppress-reviewed-recall-record",
+            "safe-disable-ref:memory-review:accept-correct-reviewed-recall-write"
+          ],
+          "cli_parity_ref": "scripts/dev/uaa_founder_loop.py record-memory-decision",
+          "focused_test_refs": [
+            "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_decisions_persist_append_first_replay_and_conflict",
+            "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_accept_correct_denied_when_write_lane_safe_disabled",
+            "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_cli_records_and_inspects_reviewed_recall_write"
+          ]
+        }
+      ]
     },
     {
       "module_id": "chat_plans",

@@ -237,40 +237,45 @@
     {
       "candidate_id": "memory_write",
       "candidate_class": "memory_writes",
-      "status": "proposal_only_ready",
-      "selected_for_micro_lane": false,
-      "safe_summary": "Reviewed memory decisions and recall refs exist, but broader memory write policy binding and why-written posture are not complete.",
+      "status": "implemented",
+      "selected_for_micro_lane": true,
+      "safe_summary": "Narrow reviewed recall-write authority is implemented only for Memory Review accept/correct decisions through backend-owned exact approval, idempotency, receipts, safe-disable posture, CLI parity, and verifier proof.",
       "score": {
         "user_value": 5,
         "authority_risk": 4,
         "data_sensitivity": 4,
         "blast_radius": 4,
         "reversibility": 2,
-        "exact_scope_clarity": 2,
-        "approval_posture": 3,
-        "idempotency_feasibility": 3,
+        "exact_scope_clarity": 5,
+        "approval_posture": 5,
+        "idempotency_feasibility": 5,
         "receipt_evidence_feasibility": 4,
-        "rollback_safe_disable_feasibility": 2,
-        "cli_api_core_parity": 2,
+        "rollback_safe_disable_feasibility": 4,
+        "cli_api_core_parity": 5,
         "redaction_complexity": 4,
-        "testability": 3,
-        "existing_operational_maturity_rank": 3,
+        "testability": 5,
+        "existing_operational_maturity_rank": 5,
         "external_dependency_risk": 1
       },
       "prerequisite_refs": {
         "backend_core_owner_ref": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
         "route_side_effect_ref": "src/ultimate_ai_agent/api/manifest.py",
-        "exact_scope_ref": null,
+        "exact_scope_ref": "docs/memory/MEMORY_WRITE_POLICY.md",
         "approval_plan_ref": "docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md",
         "idempotency_plan_ref": "docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md",
         "receipt_evidence_plan_ref": "docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md",
-        "rollback_safe_disable_plan_ref": null,
+        "rollback_safe_disable_plan_ref": "docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md",
         "redaction_plan_ref": "docs/control_center/TRACE_REDACTION_POLICY.md",
-        "cli_api_core_parity_refs": [],
+        "cli_api_core_parity_refs": [
+          "scripts/dev/uaa_founder_loop.py"
+        ],
         "focused_test_refs": [
-          "tests/test_fcc_v1_005_memory_review_decisions.py"
+          "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_decisions_persist_append_first_replay_and_conflict",
+          "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_accept_correct_denied_when_write_lane_safe_disabled",
+          "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_cli_records_and_inspects_reviewed_recall_write"
         ],
         "verifier_refs": [
+          "scripts/verify_fcc_v1_005_memory_review_decisions.py",
           "scripts/verify_operational_maturity.py"
         ]
       },
@@ -279,15 +284,11 @@
         "hidden_memory_truth",
         "context_injection",
         "connector_write",
+        "memory_delete_export_execution",
         "production_authority"
       ],
-      "missing_prerequisites": [
-        "memory_write_policy_binding_missing",
-        "why_written_policy_missing",
-        "rollback_safe_disable_contract_missing",
-        "cli_parity_missing"
-      ],
-      "smallest_next_safe_action": "Define narrow reviewed-memory write policy binding with visible why-shown and why-written refs."
+      "missing_prerequisites": [],
+      "smallest_next_safe_action": "Keep the narrow reviewed recall-write lane dogfooded and do not expand into automatic memory, context injection, delete/export, connector write, or production authority without a new exact lane."
     },
     {
       "candidate_id": "shell_subprocess_local_maintenance",
@@ -504,7 +505,7 @@
     }
   ],
   "follow_on_candidate_ranking": {
-    "status": "ranked_no_authority_granted",
+    "status": "ranked_with_selected_micro_lane",
     "fixed_first_lane_ref": "read_only_real_world_web_fetch",
     "ranking_method": "Rank the fixed follow-on candidate set by local-first value, existing maturity, exact-scope clarity, approval/receipt feasibility, reversibility, redaction complexity, blast radius, and external dependency risk. The fixed first WebAccessGateway lane is excluded and no ranked candidate receives authority.",
     "ranked_candidate_ids": [
@@ -516,17 +517,17 @@
       "provider_model_authority"
     ],
     "safest_candidate_id": "memory_write",
-    "safest_candidate_status": "proposal_only_ready",
-    "safe_summary": "The safest follow-on candidate is memory_write because it is local-first, high-value in the Founder Loop, already has reviewed-memory decision evidence, and avoids external service credentials; it is still proposal-only and grants no write authority.",
-    "no_authority_granted": true,
-    "selection_blocked_reason": "memory_write is not a micro_lane_candidate because exact write scope, LocalApprovalAuthority binding, rollback/safe-disable posture, CLI parity, and focused verifier refs are still incomplete.",
-    "next_safe_action": "Prepare a no-authority reviewed-memory write policy proposal with exact scope, approval binding, receipt/evidence refs, rollback/safe-disable posture, CLI parity, and tests before any Prompt 04 graduation attempt."
+    "safest_candidate_status": "implemented",
+    "safe_summary": "The safest follow-on candidate is memory_write, now implemented only as a narrow reviewed recall-write lane for Memory Review accept/correct decisions; every broader memory authority remains blocked.",
+    "no_authority_granted": false,
+    "selection_blocked_reason": "memory_write is selected only for exact reviewed recall-write authority; context_injection, shell_subprocess_local_maintenance, connector_write, browser_automation, and provider_model_authority remain blocked pending their own exact scopes, LocalApprovalAuthority binding, rollback/safe-disable, CLI parity, and tests.",
+    "next_safe_action": "Dogfood the reviewed recall-write lane and prepare context_injection prerequisites without reusing memory_write authority."
   },
   "first_micro_lane_decision": {
-    "status": "no_go",
-    "selected_candidate_id": null,
-    "decision_ref": "decision-ref:fcc-auth-ramp-001c:prompt-04-follow-on-no-go",
-    "no_go_reason": "Prompt 04 is no-go: the top-ranked follow-on candidate memory_write remains proposal_only_ready, not micro_lane_candidate, because exact write scope, LocalApprovalAuthority binding, rollback/safe-disable posture, CLI parity, and focused verifier refs are still incomplete.",
-    "smallest_next_safe_action": "Prepare a no-authority reviewed-memory write policy proposal with exact scope, approval binding, idempotency, receipt/evidence refs, rollback/safe-disable posture, CLI parity, and tests before any future Prompt 04 graduation attempt."
+    "status": "selected",
+    "selected_candidate_id": "memory_write",
+    "decision_ref": "decision-ref:fcc-auth-ramp-002:memory-write-reviewed-recall-lane",
+    "no_go_reason": null,
+    "smallest_next_safe_action": "Keep memory_write scoped to reviewed recall-only accept/correct decisions and rank the next candidate separately."
   }
 }

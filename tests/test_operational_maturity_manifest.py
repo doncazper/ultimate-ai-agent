@@ -301,7 +301,7 @@ def test_operational_maturity_read_only_status_probe_passes() -> None:
     assert failures == []
 
 
-def test_authority_candidate_scorecard_declares_no_go_graduation_program() -> None:
+def test_authority_candidate_scorecard_declares_memory_write_graduation() -> None:
     scorecard = load_json(AUTHORITY_SCORECARD_PATH)
 
     assert (
@@ -330,35 +330,34 @@ def test_authority_candidate_scorecard_declares_no_go_graduation_program() -> No
         candidate["candidate_id"] for candidate in scorecard["authority_candidates"]
     } == EXPECTED_AUTHORITY_CANDIDATES
     ranking = scorecard["follow_on_candidate_ranking"]
-    assert ranking["status"] == "ranked_no_authority_granted"
+    assert ranking["status"] == "ranked_with_selected_micro_lane"
     assert ranking["fixed_first_lane_ref"] == FIRST_IMPLEMENTATION_LANE_ID
     assert tuple(ranking["ranked_candidate_ids"]) == EXPECTED_FOLLOW_ON_CANDIDATE_RANKING
     assert ranking["safest_candidate_id"] == EXPECTED_FOLLOW_ON_CANDIDATE_RANKING[0]
-    assert ranking["safest_candidate_status"] == "proposal_only_ready"
-    assert ranking["no_authority_granted"] is True
+    assert ranking["safest_candidate_status"] == "implemented"
+    assert ranking["no_authority_granted"] is False
     assert "memory_write" in ranking["selection_blocked_reason"]
-    assert all(
-        candidate["selected_for_micro_lane"] is False
+    selected = [
+        candidate
         for candidate in scorecard["authority_candidates"]
+        if candidate["selected_for_micro_lane"] is True
+    ]
+    assert [candidate["candidate_id"] for candidate in selected] == ["memory_write"]
+    assert selected[0]["status"] == "implemented"
+    assert (
+        "scripts/dev/uaa_founder_loop.py"
+        in selected[0]["prerequisite_refs"]["cli_api_core_parity_refs"]
     )
-    assert scorecard["first_micro_lane_decision"]["status"] == "no_go"
-    assert scorecard["first_micro_lane_decision"]["selected_candidate_id"] is None
+    assert scorecard["first_micro_lane_decision"]["status"] == "selected"
+    assert (
+        scorecard["first_micro_lane_decision"]["selected_candidate_id"]
+        == "memory_write"
+    )
     assert (
         scorecard["first_micro_lane_decision"]["decision_ref"]
-        == "decision-ref:fcc-auth-ramp-001c:prompt-04-follow-on-no-go"
+        == "decision-ref:fcc-auth-ramp-002:memory-write-reviewed-recall-lane"
     )
-    assert (
-        "memory_write"
-        in scorecard["first_micro_lane_decision"]["no_go_reason"]
-    )
-    assert (
-        "proposal_only_ready"
-        in scorecard["first_micro_lane_decision"]["no_go_reason"]
-    )
-    assert (
-        "LocalApprovalAuthority"
-        in scorecard["first_micro_lane_decision"]["no_go_reason"]
-    )
+    assert scorecard["first_micro_lane_decision"]["no_go_reason"] is None
     assert "local_task_create" not in {
         candidate["candidate_id"] for candidate in scorecard["authority_candidates"]
     }
@@ -412,7 +411,24 @@ def test_authority_scorecard_rejects_first_lane_in_follow_on_ranking() -> None:
 
 def test_authority_scorecard_rejects_ranking_authority_claim() -> None:
     scorecard = _scorecard_copy()
+    memory = next(
+        candidate
+        for candidate in scorecard["authority_candidates"]
+        if candidate["candidate_id"] == "memory_write"
+    )
+    memory["status"] = "proposal_only_ready"
+    memory["selected_for_micro_lane"] = False
+    scorecard["follow_on_candidate_ranking"]["status"] = "ranked_no_authority_granted"
+    scorecard["follow_on_candidate_ranking"]["safest_candidate_status"] = (
+        "proposal_only_ready"
+    )
     scorecard["follow_on_candidate_ranking"]["no_authority_granted"] = False
+    scorecard["first_micro_lane_decision"]["status"] = "no_go"
+    scorecard["first_micro_lane_decision"]["selected_candidate_id"] = None
+    scorecard["first_micro_lane_decision"]["no_go_reason"] = (
+        "memory_write remains proposal_only_ready until exact scope, "
+        "LocalApprovalAuthority, rollback/safe-disable, CLI parity, and tests exist."
+    )
 
     failures = verify(scorecard_override=scorecard)
 
@@ -514,7 +530,7 @@ def test_authority_scorecard_rejects_selected_candidate_without_micro_lane_statu
     failures = verify(scorecard_override=scorecard)
 
     assert any(
-        f"{candidate['candidate_id']} selected micro-lane must be micro_lane_candidate"
+        f"{candidate['candidate_id']} selected micro-lane must be micro_lane_candidate or implemented"
         in failure
         for failure in failures
     )
@@ -524,9 +540,16 @@ def test_authority_scorecard_rejects_micro_lane_candidate_missing_required_refs(
     None
 ):
     scorecard = _scorecard_copy()
+    for item in scorecard["authority_candidates"]:
+        item["selected_for_micro_lane"] = False
+        if item["candidate_id"] == "memory_write":
+            item["status"] = "contract_ready"
     candidate = scorecard["authority_candidates"][1]
     candidate["status"] = "micro_lane_candidate"
     candidate["selected_for_micro_lane"] = True
+    candidate["prerequisite_refs"]["exact_scope_ref"] = None
+    candidate["prerequisite_refs"]["rollback_safe_disable_plan_ref"] = None
+    candidate["prerequisite_refs"]["cli_api_core_parity_refs"] = []
     scorecard["first_micro_lane_decision"]["status"] = "selected"
     scorecard["first_micro_lane_decision"]["selected_candidate_id"] = candidate[
         "candidate_id"
@@ -573,6 +596,8 @@ def test_authority_scorecard_rejects_multiple_selected_candidates() -> None:
 
 def test_authority_scorecard_requires_documented_no_go_when_none_selected() -> None:
     scorecard = _scorecard_copy()
+    for candidate in scorecard["authority_candidates"]:
+        candidate["selected_for_micro_lane"] = False
     scorecard["first_micro_lane_decision"]["status"] = "selected"
     scorecard["first_micro_lane_decision"]["selected_candidate_id"] = None
     scorecard["first_micro_lane_decision"]["no_go_reason"] = None
@@ -597,6 +622,10 @@ def test_authority_scorecard_requires_documented_no_go_when_none_selected() -> N
 
 def test_authority_scorecard_no_go_must_explain_top_ranked_candidate_blocker() -> None:
     scorecard = _scorecard_copy()
+    for candidate in scorecard["authority_candidates"]:
+        candidate["selected_for_micro_lane"] = False
+    scorecard["first_micro_lane_decision"]["status"] = "no_go"
+    scorecard["first_micro_lane_decision"]["selected_candidate_id"] = None
     scorecard["first_micro_lane_decision"]["no_go_reason"] = (
         "No candidate is ready."
     )

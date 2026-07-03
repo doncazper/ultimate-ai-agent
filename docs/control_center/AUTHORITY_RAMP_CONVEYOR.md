@@ -75,14 +75,16 @@ The deterministic follow-on ranking is:
 5. `browser_automation`
 6. `provider_model_authority`
 
-`memory_write` is the safest next candidate to prepare because it is
-local-first, Founder Loop valuable, and already adjacent to reviewed-memory
-decision evidence. It remains `proposal_only_ready`, not a selected micro-lane,
-because exact write scope, LocalApprovalAuthority binding,
-rollback/safe-disable posture, CLI parity, and verifier refs are incomplete.
+`memory_write` is implemented only as the narrow reviewed recall-write lane for
+Memory Review accept/correct decisions. The lane is local-first, Founder Loop
+valuable, and bound to exact scope, `LocalApprovalAuthority` validation,
+idempotency, receipts, safe-disable posture, CLI parity, and verifier refs.
+Broader automatic memory writes, delete/export execution, context injection,
+connector writes, and source-truth authority remain blocked.
 
 The scorecard may mark a class as `not_ready`, `proposal_only_ready`,
-`contract_ready`, `micro_lane_candidate`, or `blocked_by_policy`.
+`contract_ready`, `micro_lane_candidate`, `implemented`, or
+`blocked_by_policy`.
 
 ## Micro-Lane Gate
 
@@ -107,26 +109,29 @@ with a blocker and smallest next safe action.
 
 ## Current Decision
 
-No new authority candidate is selected. The existing Action Inbox
-`local_task_create` lane remains the only rank 5 local execution lane. Future
-connector writes, memory writes, shell/subprocess work, browser automation,
-provider/model authority, and context injection remain blocked until the
-scorecard and operational maturity verifier agree that one exact lane is ready.
+The first follow-on authority candidate is selected: `memory_write`, only for
+reviewed recall-write accept/correct decisions. The existing Action Inbox
+`local_task_create` lane remains rank 5, and Memory now has a separate rank 5
+`reviewed_memory_recall_write` lane inside an otherwise limited module. Future
+connector writes, automatic/broad memory writes, shell/subprocess work, browser
+automation, provider/model authority, and context injection remain blocked
+until the scorecard and operational maturity verifier agree that one exact lane
+is ready.
 The fixed first implementation lane, `read_only_real_world_web_fetch` through
 `WebAccessGateway`, is implemented only for the exact allowlisted HTTPS GET
 tool-runtime/CLI path. It is not a follow-on authority candidate and cannot be
 used to justify broader browser, provider, connector, memory, action, or
 production authority.
 
-Prompt 04 is a no-go hardening result, not an implementation lane:
-`memory_write` is the top-ranked follow-on candidate, but it is not a
-`micro_lane_candidate` because exact write scope, LocalApprovalAuthority
-binding, rollback/safe-disable posture, CLI parity, and focused verifier refs
-are still incomplete.
+Prompt 04 originally produced a no-go hardening result. The follow-on memory
+write hardening pass implemented the missing exact reviewed recall-write scope,
+LocalApprovalAuthority binding, rollback/safe-disable posture, CLI parity, and
+focused verifier refs for the narrow accept/correct lane only.
 
 ## Non-Goals
 
 This program does not add generic execution, connector writes,
-shell/subprocess execution, provider/model authority, memory writes, context
-injection, browser automation, remote execution, plugin runtime import, public
-beta, public release, production-readiness claims, or production authority.
+shell/subprocess execution, provider/model authority, automatic or broad memory
+writes, context injection, browser automation, remote execution, plugin runtime
+import, public beta, public release, production-readiness claims, or production
+authority.

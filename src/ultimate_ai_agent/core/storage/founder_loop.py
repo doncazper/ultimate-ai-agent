@@ -317,11 +317,17 @@ from ultimate_ai_agent.core.memory.provider import MemoryProviderWriteRequest
 from ultimate_ai_agent.core.memory.review_decisions import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
+    MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+    MEMORY_REVIEW_RECEIPT_SCOPE_REF,
     MEMORY_REVIEW_DECISION_CONTRACT_REF,
     MEMORY_REVIEW_DECISION_KINDS,
     MEMORY_REVIEW_DECISION_REQUIRED_REF_FIELDS,
     MEMORY_REVIEW_DECISION_ROUTE_REFS,
     MEMORY_REVIEW_DECISION_STATES,
+    MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF,
+    MEMORY_REVIEW_WRITE_ROLLBACK_REF,
+    MEMORY_REVIEW_WRITE_SAFE_DISABLE_POSTURE_REF,
+    MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
     MemoryReviewDecision,
     MemoryReviewDecisionKind,
     MemoryReviewDecisionRequest,
@@ -895,6 +901,15 @@ class FounderLoopStorageError(Exception):
 
 class FounderLoopStorageDuplicateError(FounderLoopStorageError):
     """Raised when a duplicate idempotency key is denied."""
+
+
+MEMORY_REVIEW_WRITE_LANE_ID = "memory_review_accept_correct_reviewed_recall_write"
+MEMORY_REVIEW_WRITE_SAFE_DISABLED_POSTURE_REF = (
+    "safe-disable-posture-ref:memory-review:accept-correct-write-disabled"
+)
+MEMORY_REVIEW_WRITE_SAFE_DISABLED_BLOCKED_REF = (
+    "blocked-state:memory-review-write-safe-disabled"
+)
 
 
 class JsonlLogKind(str, Enum):
@@ -5390,6 +5405,9 @@ class FounderLoopRepository:
             "local_tasks": self._count("local_tasks"),
             "local_task_commit_receipts": self._count("local_task_commit_receipts"),
             "local_task_lane_postures": self._count("local_task_lane_postures"),
+            "memory_review_write_lane_postures": self._count(
+                "memory_review_write_lane_postures"
+            ),
             "chat_turn_receipts": self._count("chat_turn_receipts"),
             "chat_handoff_receipts": self._count("chat_handoff_receipts"),
             "briefing_items": self._count("briefing_items"),
@@ -10410,6 +10428,108 @@ class FounderLoopRepository:
             )
         return self.local_task_safe_disable_posture()
 
+    def memory_review_write_safe_disable_posture(self) -> dict[str, Any]:
+        rows = self._fetch_all(
+            """
+            SELECT lane_id, enabled, safe_disable_ref, rollback_ref,
+                   safe_disable_posture_ref, disabled_reason_refs_json,
+                   blocked_state_refs_json, updated_at
+            FROM memory_review_write_lane_postures
+            WHERE lane_id = ?
+            LIMIT 1
+            """,
+            (MEMORY_REVIEW_WRITE_LANE_ID,),
+        )
+        if not rows:
+            with self._connect() as conn:
+                self._ensure_memory_review_write_lane_posture(conn)
+            rows = self._fetch_all(
+                """
+                SELECT lane_id, enabled, safe_disable_ref, rollback_ref,
+                       safe_disable_posture_ref, disabled_reason_refs_json,
+                       blocked_state_refs_json, updated_at
+                FROM memory_review_write_lane_postures
+                WHERE lane_id = ?
+                LIMIT 1
+                """,
+                (MEMORY_REVIEW_WRITE_LANE_ID,),
+            )
+        payload = _row_to_payload(rows[0])
+        enabled = bool(payload.get("enabled"))
+        disabled_reason_refs = list(payload.get("disabled_reason_refs") or [])
+        blocked_state_refs = list(payload.get("blocked_state_refs") or [])
+        if not enabled and MEMORY_REVIEW_WRITE_SAFE_DISABLED_BLOCKED_REF not in blocked_state_refs:
+            blocked_state_refs.append(MEMORY_REVIEW_WRITE_SAFE_DISABLED_BLOCKED_REF)
+        posture = {
+            "schema_version": "memory_review_write_safe_disable_posture.v1",
+            "source": "python_core_founder_loop_storage",
+            "backend_owned": True,
+            "lane_id": MEMORY_REVIEW_WRITE_LANE_ID,
+            "exact_scope_ref": MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+            "memory_review_writes_enabled": enabled,
+            "safe_disable_active": not enabled,
+            "safe_disable_ref": str(payload["safe_disable_ref"]),
+            "rollback_ref": str(payload["rollback_ref"]),
+            "safe_disable_posture_ref": str(payload["safe_disable_posture_ref"]),
+            "disabled_reason_refs": disabled_reason_refs,
+            "blocked_state_refs": blocked_state_refs,
+            "rollback_execution_enabled": False,
+            "rollback_blocker_refs": [MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF],
+            "rollback_posture": (
+                "Terminal reject, merge, supersede, or forget-request decisions "
+                "suppress reviewed recall records without deleting audit history."
+            ),
+            "next_safe_action": (
+                "Record exact-scoped accept/correct reviewed recall writes."
+                if enabled
+                else "Keep reviewed recall writes disabled until backend posture is re-enabled."
+            ),
+            "updated_at": str(payload["updated_at"]),
+        }
+        _validate_safe_payload(posture, "memory_review_write_safe_disable_posture")
+        return posture
+
+    def _disable_memory_review_write_lane_for_test(
+        self,
+        *,
+        disabled_reason_refs: list[str] | None = None,
+    ) -> dict[str, Any]:
+        reason_refs = list(disabled_reason_refs or [])
+        if not reason_refs:
+            reason_refs = ["safe-disable-reason:memory-review-write-disabled"]
+        for ref_value in reason_refs:
+            _validate_safe_ref(ref_value, "disabled_reason_refs")
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO memory_review_write_lane_postures (
+                    lane_id, enabled, safe_disable_ref, rollback_ref,
+                    safe_disable_posture_ref, disabled_reason_refs_json,
+                    blocked_state_refs_json, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(lane_id) DO UPDATE SET
+                    enabled = excluded.enabled,
+                    safe_disable_ref = excluded.safe_disable_ref,
+                    rollback_ref = excluded.rollback_ref,
+                    safe_disable_posture_ref = excluded.safe_disable_posture_ref,
+                    disabled_reason_refs_json = excluded.disabled_reason_refs_json,
+                    blocked_state_refs_json = excluded.blocked_state_refs_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    MEMORY_REVIEW_WRITE_LANE_ID,
+                    0,
+                    MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
+                    MEMORY_REVIEW_WRITE_ROLLBACK_REF,
+                    MEMORY_REVIEW_WRITE_SAFE_DISABLED_POSTURE_REF,
+                    _json_dumps(reason_refs),
+                    _json_dumps([MEMORY_REVIEW_WRITE_SAFE_DISABLED_BLOCKED_REF]),
+                    _utc_iso(),
+                ),
+            )
+        return self.memory_review_write_safe_disable_posture()
+
     def commit_local_task(
         self,
         *,
@@ -11916,6 +12036,7 @@ class FounderLoopRepository:
         items = self.list_memory_review_queue(limit=limit)
         decisions = self.list_memory_review_decisions(limit=limit)
         workbench = self.memory_workbench(limit=limit)
+        write_posture = self.memory_review_write_safe_disable_posture()
         return {
             "route_ref": "/control-center/memory/review",
             "surface_ref": "/memory",
@@ -11927,6 +12048,12 @@ class FounderLoopRepository:
             "workbench_groups": workbench["groups"],
             "decision_route_refs": list(MEMORY_REVIEW_DECISION_ROUTE_REFS),
             "decision_kinds": list(MEMORY_REVIEW_DECISION_KINDS),
+            "exact_write_scope_ref": MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+            "write_safe_disable_posture": write_posture,
+            "write_safe_disable_ref": write_posture["safe_disable_ref"],
+            "write_rollback_ref": write_posture["rollback_ref"],
+            "write_rollback_execution_enabled": False,
+            "reviewed_recall_write_authorized_decisions": ["accept", "correct"],
             "items": items,
             "decision_receipts": decisions,
             "decision_receipt_refs": [
@@ -11965,6 +12092,8 @@ class FounderLoopRepository:
             "decision_count": len(decisions),
             "idempotency_replay_enabled": True,
             "idempotency_conflict_rejected": True,
+            "approval_scope_ref": MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+            "approval_binding": "local_approval_authority_exact_scope_validated",
             "safe_refs_only": True,
             "raw_content_stored": False,
             "context_injection_authorized": False,
@@ -12380,16 +12509,23 @@ class FounderLoopRepository:
         requested_action: str,
         resource_refs: Sequence[str],
         idempotency_key_ref: str,
+        approval_kind: str = "approval-kind:memory-review-decision",
+        exact_scope_ref: str = MEMORY_REVIEW_RECEIPT_SCOPE_REF,
     ) -> dict[str, Any]:
         _validate_safe_ref(subject_ref, "approval_subject_ref")
         _validate_safe_ref(reviewer_ref, "approval_reviewer_ref")
         _validate_safe_ref(idempotency_key_ref, "approval_idempotency_key_ref")
+        _validate_safe_ref(approval_kind, "approval_kind")
+        _validate_safe_ref(exact_scope_ref, "approval_exact_scope_ref")
         safe_resources = []
         for ref in resource_refs:
             if not ref:
                 continue
             _validate_safe_ref(str(ref), "approval_resource_ref")
             safe_resources.append(str(ref))
+        safe_resources = list(
+            dict.fromkeys([exact_scope_ref, idempotency_key_ref, *safe_resources])
+        )
         approval_request = ApprovalRequest(
             approval_request_id=(
                 "areq_memory_review_"
@@ -12428,16 +12564,82 @@ class FounderLoopRepository:
         )
         authority = LocalApprovalAuthority()
         authority.create_request(approval_request)
-        authority.grant(
+        grant = authority.grant(
             approval_request.approval_request_id,
-            approved_by_actor_id="local_operator",
+            approved_by_actor_id=reviewer_ref,
             approval_ref=approval_ref,
         )
+        grant_payload = grant.model_dump(mode="json")
+        receipt_payload = {
+            "contract_ref": "contract-ref:founder-loop-internal-approval-capture:v1",
+            "approval_kind": approval_kind,
+            "approval_ref": approval_ref,
+            "subject_ref": subject_ref,
+            "requested_action": requested_action,
+            "exact_scope_ref": exact_scope_ref,
+            "idempotency_key_ref": idempotency_key_ref,
+            "status": "approved",
+            "safe_summary": (
+                "Backend-owned approval captured for exact-scoped Memory Review "
+                "state; approval refs remain identifiers and do not grant broader "
+                "memory, context, connector, provider, or production authority."
+            ),
+            "safe_refs_only": True,
+            "raw_content_omitted": True,
+            "created_at": _utc_iso(),
+            "expires_at": grant.expires_at.isoformat() if grant.expires_at else "",
+        }
+        _validate_safe_payload(receipt_payload, "memory_review_approval_capture")
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO founder_loop_internal_approval_grants (
+                    approval_ref, approval_kind, subject_ref, requested_action,
+                    exact_scope_ref, idempotency_key_ref, grant_json, receipt_json,
+                    created_at, expires_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(approval_ref) DO UPDATE SET
+                    approval_kind = excluded.approval_kind,
+                    subject_ref = excluded.subject_ref,
+                    requested_action = excluded.requested_action,
+                    exact_scope_ref = excluded.exact_scope_ref,
+                    idempotency_key_ref = excluded.idempotency_key_ref,
+                    grant_json = excluded.grant_json,
+                    receipt_json = excluded.receipt_json,
+                    created_at = excluded.created_at,
+                    expires_at = excluded.expires_at
+                """,
+                (
+                    approval_ref,
+                    approval_kind,
+                    subject_ref,
+                    requested_action,
+                    exact_scope_ref,
+                    idempotency_key_ref,
+                    _json_dumps(grant_payload),
+                    _json_dumps(receipt_payload),
+                    str(receipt_payload["created_at"]),
+                    str(receipt_payload["expires_at"]),
+                ),
+            )
+        persisted_grant = self._internal_approval_grant_for_ref(
+            approval_ref=approval_ref,
+            approval_kind=approval_kind,
+            subject_ref=subject_ref,
+            requested_action=requested_action,
+            exact_scope_ref=exact_scope_ref,
+            idempotency_key_ref=idempotency_key_ref,
+        )
+        if persisted_grant is not None:
+            authority.load_grant_for_validation(persisted_grant)
         decision = authority.validate_for_request(approval_request, approval_ref)
         if not decision.allowed:
             raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_APPROVAL_SCOPE_DENIED")
         return {
             "approval_ref": approval_ref,
+            "approval_scope_ref": exact_scope_ref,
+            "approval_receipt_ref": f"approval-receipt-ref:memory-review:{_safe_suffix(approval_ref)}",
             "approval_status": getattr(decision.status, "value", str(decision.status)),
             "approval_reason_refs": [
                 _status_ref("approval-reason", str(reason))
@@ -12716,21 +12918,6 @@ class FounderLoopRepository:
                 )
             ),
         )
-        approval = self._record_memory_review_local_approval(
-            subject_ref=candidate_ref,
-            reviewer_ref=enriched_request.reviewer_ref,
-            requested_action=f"record_memory_review_{decision}_receipt",
-            resource_refs=[
-                review_ref,
-                FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
-                idempotency_key_ref,
-                *enriched_request.source_refs,
-                *enriched_request.evidence_refs,
-                *enriched_request.merge_refs,
-                *enriched_request.supersedes_refs,
-            ],
-            idempotency_key_ref=idempotency_key_ref,
-        )
         fingerprint_payload = memory_review_decision_payload_for_fingerprint(
             candidate_ref=candidate_ref,
             decision=decision,
@@ -12748,6 +12935,49 @@ class FounderLoopRepository:
             return self._memory_review_decision_receipt_by_ref(
                 str(replay["receipt_ref"])
             )
+        safe_disable_posture = self.memory_review_write_safe_disable_posture()
+        if (
+            decision in {"accept", "correct"}
+            and not bool(safe_disable_posture.get("memory_review_writes_enabled"))
+        ):
+            raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_WRITE_SAFE_DISABLED")
+        approval = self._record_memory_review_local_approval(
+            subject_ref=candidate_ref,
+            reviewer_ref=enriched_request.reviewer_ref,
+            requested_action=(
+                "record-memory-review-reviewed-recall-write"
+                if decision in {"accept", "correct"}
+                else f"record-memory-review-{decision.replace('_', '-')}-receipt"
+            ),
+            resource_refs=[
+                review_ref,
+                FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
+                (
+                    MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+                    if decision in {"accept", "correct"}
+                    else MEMORY_REVIEW_RECEIPT_SCOPE_REF
+                ),
+                idempotency_key_ref,
+                payload_fingerprint_ref,
+                *enriched_request.source_refs,
+                *enriched_request.evidence_refs,
+                *enriched_request.metadata_refs,
+                *enriched_request.merge_refs,
+                *enriched_request.supersedes_refs,
+                *(
+                    [enriched_request.corrected_summary_ref]
+                    if enriched_request.corrected_summary_ref
+                    else []
+                ),
+            ],
+            idempotency_key_ref=idempotency_key_ref,
+            approval_kind="approval-kind:memory-review-reviewed-recall-write"
+            if decision in {"accept", "correct"}
+            else "approval-kind:memory-review-decision-receipt",
+            exact_scope_ref=MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+            if decision in {"accept", "correct"}
+            else MEMORY_REVIEW_RECEIPT_SCOPE_REF,
+        )
 
         receipt_ref = memory_review_decision_receipt_ref(
             candidate_ref,
@@ -12850,8 +13080,19 @@ class FounderLoopRepository:
             corrected_summary_ref=enriched_request.corrected_summary_ref,
             corrected_safe_summary=enriched_request.corrected_safe_summary,
             approval_ref=approval["approval_ref"],
+            approval_scope_ref=approval["approval_scope_ref"],
             approval_status=approval["approval_status"],
             approval_reason_refs=approval["approval_reason_refs"],
+            safe_disable_ref=str(safe_disable_posture["safe_disable_ref"]),
+            rollback_ref=str(safe_disable_posture["rollback_ref"]),
+            safe_disable_posture_ref=str(
+                safe_disable_posture["safe_disable_posture_ref"]
+            ),
+            safe_disable_enabled=bool(
+                safe_disable_posture["memory_review_writes_enabled"]
+            ),
+            rollback_execution_enabled=False,
+            rollback_blocker_refs=list(safe_disable_posture["rollback_blocker_refs"]),
             source_refs=enriched_request.source_refs,
             evidence_refs=list(
                 dict.fromkeys(
@@ -12870,6 +13111,7 @@ class FounderLoopRepository:
             evidence_timeline_event_ref=evidence_ref,
             reviewed_recall_ref=reviewed_recall_ref,
             reviewed_recall_record_ref=reviewed_recall_record_ref,
+            reviewed_recall_write_performed=reviewed_recall_record_ref is not None,
             correction_ref=correction_ref,
             rejection_ref=rejection_ref,
             safe_summary_ref=f"safe-summary-ref:memory-review:{decision}",
@@ -14720,6 +14962,16 @@ class FounderLoopRepository:
                     blocked_state_refs_json TEXT NOT NULL DEFAULT '[]',
                     updated_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS memory_review_write_lane_postures (
+                    lane_id TEXT PRIMARY KEY,
+                    enabled INTEGER NOT NULL,
+                    safe_disable_ref TEXT NOT NULL,
+                    rollback_ref TEXT NOT NULL,
+                    safe_disable_posture_ref TEXT NOT NULL,
+                    disabled_reason_refs_json TEXT NOT NULL DEFAULT '[]',
+                    blocked_state_refs_json TEXT NOT NULL DEFAULT '[]',
+                    updated_at TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS memory_context_pack_action_proposals (
                     receipt_ref TEXT PRIMARY KEY,
                     context_pack_ref TEXT NOT NULL,
@@ -14920,6 +15172,7 @@ class FounderLoopRepository:
             self._ensure_memory_review_contract_columns(conn)
             self._ensure_briefing_contract_columns(conn)
             self._ensure_local_task_lane_posture(conn)
+            self._ensure_memory_review_write_lane_posture(conn)
         if self.seed_defaults:
             self._seed_defaults_if_empty()
             self._backfill_seed_action_contract_metadata()
@@ -14943,6 +15196,32 @@ class FounderLoopRepository:
                 FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
                 FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
                 FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_POSTURE_REF,
+                "[]",
+                "[]",
+                _utc_iso(),
+            ),
+        )
+
+    def _ensure_memory_review_write_lane_posture(
+        self,
+        conn: sqlite3.Connection,
+    ) -> None:
+        conn.execute(
+            """
+            INSERT INTO memory_review_write_lane_postures (
+                lane_id, enabled, safe_disable_ref, rollback_ref,
+                safe_disable_posture_ref, disabled_reason_refs_json,
+                blocked_state_refs_json, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(lane_id) DO NOTHING
+            """,
+            (
+                MEMORY_REVIEW_WRITE_LANE_ID,
+                1,
+                MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
+                MEMORY_REVIEW_WRITE_ROLLBACK_REF,
+                MEMORY_REVIEW_WRITE_SAFE_DISABLE_POSTURE_REF,
                 "[]",
                 "[]",
                 _utc_iso(),
@@ -15641,6 +15920,7 @@ class FounderLoopRepository:
             "local_task_commit_receipts",
             "local_task_commit_replays",
             "local_task_lane_postures",
+            "memory_review_write_lane_postures",
             "briefing_items",
             "chat_handoff_receipts",
             "chat_turn_receipts",
