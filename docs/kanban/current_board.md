@@ -32,6 +32,10 @@ Product Loop 012 now adds the Private product loop trial script as a
 local/private, safe-ref-only manual operator review artifact with
 `scripts/inspect_product_loop_trial_script.py` CLI parity and no authority
 promotion.
+The `context_injection` prerequisite contract is contract-ready for future
+gate review only. It is not selected as a micro-lane, adds no runtime
+prompt/context injection route or Control Center control, and keeps runtime
+prompt/context injection blocked.
 CRM + Communications Spine M0 is now a contract-only product-line foundation in
 `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md` and
 `src/ultimate_ai_agent/core/crm/contracts.py`, with

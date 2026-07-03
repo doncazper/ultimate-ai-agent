@@ -171,12 +171,13 @@
       "primary_surface": "Memory",
       "current_rank": 3,
       "current_rank_label": "decision_receipts",
-      "honest_status": "reviewed_recall_write_lane_implemented_broader_memory_execution_blocked",
+      "honest_status": "reviewed_recall_write_lane_implemented_context_injection_contract_ready_runtime_blocked",
       "next_target_rank": 4,
-      "smallest_next_operational_action": "dogfood reviewed recall writes and prepare context injection prerequisites separately",
+      "smallest_next_operational_action": "dogfood reviewed recall writes and prepare context-pack preview/materialization without runtime injection",
       "backend_routes": [
         "GET /control-center/memory/review",
         "GET /control-center/memory/context-packs",
+        "GET /control-center/memory/context-manifest",
         "POST /control-center/memory/review/{candidate_ref}/accept",
         "POST /control-center/memory/review/{candidate_ref}/correct",
         "POST /control-center/memory/review/{candidate_ref}/reject",
@@ -184,7 +185,8 @@
       ],
       "cli_or_script_refs": [
         "scripts/dev/uaa_founder_loop.py record-memory-decision",
-        "scripts/dev/uaa_founder_loop.py memory-receipts"
+        "scripts/dev/uaa_founder_loop.py memory-receipts",
+        "scripts/dev/uaa_founder_loop.py memory-context-manifest"
       ],
       "receipt_refs": ["receipt:memory-review:*"],
       "evidence_refs": [
@@ -196,12 +198,14 @@
         "tests/test_fcc_v1_005_memory_review_decisions.py",
         "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_accept_correct_denied_when_write_lane_safe_disabled",
         "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_cli_records_and_inspects_reviewed_recall_write",
+        "tests/test_fcc_mem_016_020_memory_diagnostics.py::test_founder_loop_cli_memory_context_manifest_omits_raw_paths",
         "tests/test_governed_memory_context_pack_proposals.py",
         "tests/test_governed_memory_phase6_execution_hooks.py",
         "tests/test_founder_loop_storage_actions.py::test_memory_context_packs_derive_from_reviewed_l3_refs_only"
       ],
       "verifier_refs": [
         "scripts/verify_fcc_memory_crm_001_professional_memory_crm_lite_binding.py",
+        "scripts/verify_fcc_mem_016_020_memory_diagnostics.py",
         "scripts/verify_fcc_v1_005_memory_review_decisions.py",
         "scripts/verify_governed_cognitive_memory_spine_v1.py",
         "scripts/verify_operational_maturity.py"
@@ -211,12 +215,29 @@
         "automatic_memory_truth",
         "automatic_memory_write",
         "context_injection",
+        "runtime_prompt_context_injection",
+        "live_model_context_injection",
+        "automatic_context_injection",
+        "automatic_memory_inclusion",
+        "provider_model_call",
+        "provider_prompt_context_injection",
+        "connector_derived_context_injection",
+        "browser_web_derived_context_injection",
+        "shell_file_derived_context_injection",
+        "raw_payload_persistence",
+        "broad_autonomy",
+        "public_beta_claim",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
         "connector_write",
         "memory_delete_export_execution",
         "action_execution"
       ],
       "missing_contracts": [
         "automatic_memory_write_policy",
+        "context_pack_materialization_preview_lane",
+        "runtime_context_injection_micro_lane",
         "retention_delete_export_execution",
         "phase6_execution_hooks"
       ],

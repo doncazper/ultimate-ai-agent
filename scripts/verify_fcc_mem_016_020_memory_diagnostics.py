@@ -21,6 +21,7 @@ from scripts.verification.repo import (  # noqa: E402
 from ultimate_ai_agent.core.memory import (  # noqa: E402
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     MEMORY_CITATION_INTEGRITY_CONTRACT_REF,
+    MEMORY_CONTEXT_MANIFEST_BLOCKED_STATE_REFS,
     MEMORY_CONTEXT_MANIFEST_CONTRACT_REF,
     MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS,
     MEMORY_FEEDBACK_QUALITY_CONTRACT_REF,
@@ -258,6 +259,33 @@ def _assert_contracts(
         failures.append("maintenance runs must not authorize auto forget")
     if manifest.get("hidden_prompt_context_authorized") is not False:
         failures.append("context manifest must block hidden prompt context")
+    for field in [
+        "runtime_prompt_context_injection_authorized",
+        "live_model_context_injection_authorized",
+        "automatic_memory_inclusion_authorized",
+        "connector_derived_context_injection_authorized",
+        "browser_web_derived_context_injection_authorized",
+        "shell_file_derived_context_injection_authorized",
+        "raw_payload_persistence_enabled",
+        "provider_prompt_context_injection_authorized",
+        "broad_autonomy_authorized",
+        "public_beta_claim_authorized",
+        "public_distribution_claim_authorized",
+        "production_readiness_claim_authorized",
+    ]:
+        if manifest.get(field) is not False:
+            failures.append(f"context manifest {field} must stay false")
+    blocked_refs = set(manifest.get("blocked_state_refs") or [])
+    for blocked_ref in MEMORY_CONTEXT_MANIFEST_BLOCKED_STATE_REFS:
+        if blocked_ref not in blocked_refs:
+            failures.append(f"context manifest missing blocked ref {blocked_ref}")
+    for item in manifest.get("manifests", []) or []:
+        item_blocked_refs = set(item.get("blocked_state_refs") or [])
+        for blocked_ref in MEMORY_CONTEXT_MANIFEST_BLOCKED_STATE_REFS:
+            if blocked_ref not in item_blocked_refs:
+                failures.append(
+                    f"context manifest item missing blocked ref {blocked_ref}"
+                )
     serialized = json.dumps(
         {
             "retrieval": retrieval,

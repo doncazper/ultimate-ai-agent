@@ -6,6 +6,12 @@ from tempfile import TemporaryDirectory
 
 from scripts.verify_operational_maturity import (
     AUTHORITY_SCORECARD_PATH,
+    CONTEXT_INJECTION_CANDIDATE_ID,
+    CONTEXT_INJECTION_CLI_REF,
+    CONTEXT_INJECTION_CONTRACT_DOC_REF,
+    CONTEXT_INJECTION_REQUIRED_BLOCKED_AUTHORITIES,
+    CONTEXT_INJECTION_REQUIRED_TEST_REFS,
+    CONTEXT_INJECTION_REQUIRED_VERIFIER_REFS,
     EXPECTED_AUTHORITY_CANDIDATES,
     EXPECTED_AUTHORITY_FOUNDATIONS,
     EXPECTED_FOLLOW_ON_CANDIDATE_RANKING,
@@ -24,6 +30,7 @@ from scripts.verify_operational_maturity import (
     LOCAL_TASK_SAFE_DISABLE_REF,
     MANIFEST_PATH,
     MEMORY_CONTEXT_PACK_ROUTE,
+    MEMORY_CONTEXT_MANIFEST_ROUTE,
     MEMORY_CONTEXT_PACK_TEST_REFS,
     MEMORY_CONTEXT_PACK_VERIFIER_REFS,
     PATCH_WORKBENCH_APPLY_ROUTE,
@@ -89,6 +96,11 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
         set(local_task_lane["verifier_repeatability_refs"])
     )
     assert MEMORY_CONTEXT_PACK_ROUTE in modules["memory"]["backend_routes"]
+    assert MEMORY_CONTEXT_MANIFEST_ROUTE in modules["memory"]["backend_routes"]
+    assert CONTEXT_INJECTION_CLI_REF in modules["memory"]["cli_or_script_refs"]
+    assert CONTEXT_INJECTION_REQUIRED_BLOCKED_AUTHORITIES.issubset(
+        set(modules["memory"]["blocked_authorities"])
+    )
     assert MEMORY_CONTEXT_PACK_TEST_REFS.issubset(set(modules["memory"]["test_refs"]))
     assert MEMORY_CONTEXT_PACK_VERIFIER_REFS.issubset(
         set(modules["memory"]["verifier_refs"])
@@ -364,6 +376,101 @@ def test_authority_candidate_scorecard_declares_memory_write_graduation() -> Non
     assert FIRST_IMPLEMENTATION_LANE_ID not in {
         candidate["candidate_id"] for candidate in scorecard["authority_candidates"]
     }
+
+
+def test_authority_scorecard_declares_context_injection_contract_ready_only() -> None:
+    scorecard = load_json(AUTHORITY_SCORECARD_PATH)
+    context = next(
+        candidate
+        for candidate in scorecard["authority_candidates"]
+        if candidate["candidate_id"] == CONTEXT_INJECTION_CANDIDATE_ID
+    )
+
+    assert context["status"] == "contract_ready"
+    assert context["selected_for_micro_lane"] is False
+    refs = context["prerequisite_refs"]
+    assert refs["backend_core_owner_ref"] == CONTEXT_INJECTION_CONTRACT_DOC_REF
+    assert refs["route_side_effect_ref"] == MEMORY_CONTEXT_MANIFEST_ROUTE
+    assert refs["exact_scope_ref"].startswith(CONTEXT_INJECTION_CONTRACT_DOC_REF)
+    assert CONTEXT_INJECTION_CLI_REF in refs["cli_api_core_parity_refs"]
+    assert CONTEXT_INJECTION_REQUIRED_TEST_REFS.issubset(
+        set(refs["focused_test_refs"])
+    )
+    assert CONTEXT_INJECTION_REQUIRED_VERIFIER_REFS.issubset(
+        set(refs["verifier_refs"])
+    )
+    assert CONTEXT_INJECTION_REQUIRED_BLOCKED_AUTHORITIES.issubset(
+        set(context["blocked_authorities"])
+    )
+
+
+def test_authority_scorecard_rejects_context_injection_selection_or_missing_contract_refs() -> None:
+    scorecard = _scorecard_copy()
+    context = next(
+        candidate
+        for candidate in scorecard["authority_candidates"]
+        if candidate["candidate_id"] == CONTEXT_INJECTION_CANDIDATE_ID
+    )
+    context["selected_for_micro_lane"] = True
+    context["prerequisite_refs"]["exact_scope_ref"] = None
+    context["prerequisite_refs"]["cli_api_core_parity_refs"] = []
+    context["blocked_authorities"] = [
+        authority
+        for authority in context["blocked_authorities"]
+        if authority != "runtime_prompt_context_injection"
+    ]
+
+    failures = verify(scorecard_override=scorecard)
+
+    assert any("context_injection must remain unselected" in failure for failure in failures)
+    assert any(
+        "context_injection contract_ready requires exact_scope_ref" in failure
+        for failure in failures
+    )
+    assert any(
+        "context_injection missing memory-context-manifest CLI ref" in failure
+        for failure in failures
+    )
+    assert any(
+        "context_injection must block runtime_prompt_context_injection" in failure
+        for failure in failures
+    )
+
+
+def test_operational_maturity_rejects_context_injection_graduated_lane() -> None:
+    manifest = _manifest_copy()
+    modules = {module["module_id"]: module for module in manifest["modules"]}
+    memory = modules["memory"]
+    memory["graduated_lanes"].append(
+        {
+            "lane_id": "context_injection",
+            "rank": 5,
+            "honest_status": "runtime_context_injection",
+            "smallest_operational_action": "Inject context into a prompt.",
+            "backend_routes": [MEMORY_CONTEXT_MANIFEST_ROUTE],
+            "receipt_refs": ["receipt:context-injection:*"],
+            "evidence_refs": ["evidence-ref:context-injection"],
+            "blocked_authorities": [],
+            "real_local_mutation": True,
+            "durable_receipt": True,
+            "evidence_timeline_event": True,
+            "rollback_or_safe_disable_required": True,
+            "rollback_or_safe_disable_refs": [
+                "rollback-ref:context-injection:test",
+                "safe-disable-ref:context-injection:test",
+            ],
+            "cli_parity_ref": CONTEXT_INJECTION_CLI_REF,
+            "focused_test_refs": list(CONTEXT_INJECTION_REQUIRED_TEST_REFS),
+        }
+    )
+
+    failures: list[str] = []
+    _append_memory_context_pack_manifest_failures(failures, memory)
+
+    assert any(
+        "memory must not graduate context_injection in prerequisite PR" in failure
+        for failure in failures
+    )
 
 
 def test_authority_scorecard_rejects_missing_first_implementation_lane() -> None:

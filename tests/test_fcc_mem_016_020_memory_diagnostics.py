@@ -14,6 +14,7 @@ from ultimate_ai_agent.core.memory import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     MEMORY_CITATION_INTEGRITY_CONTRACT_REF,
     MEMORY_CONTEXT_MANIFEST_CONTRACT_REF,
+    MEMORY_CONTEXT_MANIFEST_BLOCKED_STATE_REFS,
     MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS,
     MEMORY_FEEDBACK_QUALITY_CONTRACT_REF,
     MEMORY_MAINTENANCE_RUN_CONTRACT_REF,
@@ -91,8 +92,23 @@ def test_fcc_mem_016_020_repository_read_models_are_safe(tmp_path: Path) -> None
     assert manifest["proposal_only"] is True
     assert manifest["context_injection_authorized"] is False
     assert manifest["hidden_prompt_context_authorized"] is False
+    assert manifest["runtime_prompt_context_injection_authorized"] is False
+    assert manifest["live_model_context_injection_authorized"] is False
     assert manifest["automatic_context_injection_authorized"] is False
+    assert manifest["automatic_memory_inclusion_authorized"] is False
     assert manifest["memory_write_authorized"] is False
+    assert manifest["connector_derived_context_injection_authorized"] is False
+    assert manifest["browser_web_derived_context_injection_authorized"] is False
+    assert manifest["shell_file_derived_context_injection_authorized"] is False
+    assert manifest["raw_payload_persistence_enabled"] is False
+    assert manifest["provider_prompt_context_injection_authorized"] is False
+    assert manifest["broad_autonomy_authorized"] is False
+    assert manifest["public_beta_claim_authorized"] is False
+    assert manifest["public_distribution_claim_authorized"] is False
+    assert manifest["production_readiness_claim_authorized"] is False
+    for blocked_ref in MEMORY_CONTEXT_MANIFEST_BLOCKED_STATE_REFS:
+        assert blocked_ref in manifest["blocked_state_refs"]
+        assert blocked_ref in manifest["manifests"][0]["blocked_state_refs"]
 
     serialized = json.dumps(
         {

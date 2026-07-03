@@ -171,11 +171,11 @@
         "production_authority"
       ],
       "missing_contracts": [
-        "context_injection_policy",
-        "context_pack_approval_contract",
-        "context_injection_receipt_evidence_contract"
+        "context_pack_materialization_preview_lane",
+        "context_injection_runtime_micro_lane",
+        "context_injection_receipt_evidence_runtime_proof"
       ],
-      "next_safe_action": "Keep context packs proposal-only and add exact approval, receipt, evidence, and rollback refs before any injection lane."
+      "next_safe_action": "Use the contract-ready context manifest only for operator preview/materialization planning; runtime context injection remains blocked until a separate exact lane."
     }
   ],
   "authority_candidates": [
@@ -447,61 +447,76 @@
     {
       "candidate_id": "context_injection",
       "candidate_class": "context_injection",
-      "status": "proposal_only_ready",
+      "status": "contract_ready",
       "selected_for_micro_lane": false,
-      "safe_summary": "Context-pack proposals are inspectable, but prompt/runtime context injection remains blocked until exact approval, receipt, evidence, and rollback gates exist.",
+      "safe_summary": "Context injection has a prerequisite contract for governed context-pack preview/materialization only; runtime prompt/model injection remains blocked until a separate exact micro-lane is proven.",
       "score": {
         "user_value": 4,
         "authority_risk": 5,
         "data_sensitivity": 5,
         "blast_radius": 4,
         "reversibility": 1,
-        "exact_scope_clarity": 2,
-        "approval_posture": 2,
-        "idempotency_feasibility": 2,
-        "receipt_evidence_feasibility": 2,
-        "rollback_safe_disable_feasibility": 1,
-        "cli_api_core_parity": 1,
+        "exact_scope_clarity": 4,
+        "approval_posture": 3,
+        "idempotency_feasibility": 3,
+        "receipt_evidence_feasibility": 3,
+        "rollback_safe_disable_feasibility": 3,
+        "cli_api_core_parity": 3,
         "redaction_complexity": 5,
-        "testability": 2,
-        "existing_operational_maturity_rank": 2,
+        "testability": 3,
+        "existing_operational_maturity_rank": 3,
         "external_dependency_risk": 2
       },
       "prerequisite_refs": {
-        "backend_core_owner_ref": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
-        "route_side_effect_ref": "GET /control-center/memory/context-packs",
-        "exact_scope_ref": null,
-        "approval_plan_ref": null,
-        "idempotency_plan_ref": null,
-        "receipt_evidence_plan_ref": null,
-        "rollback_safe_disable_plan_ref": null,
+        "backend_core_owner_ref": "docs/context/CONTEXT_INJECTION_PREREQUISITE_CONTRACT.md",
+        "route_side_effect_ref": "GET /control-center/memory/context-manifest",
+        "exact_scope_ref": "docs/context/CONTEXT_INJECTION_PREREQUISITE_CONTRACT.md::Exact Scope",
+        "approval_plan_ref": "docs/context/CONTEXT_INJECTION_PREREQUISITE_CONTRACT.md::Approval Binding",
+        "idempotency_plan_ref": "docs/context/CONTEXT_INJECTION_PREREQUISITE_CONTRACT.md::Idempotency And Receipts",
+        "receipt_evidence_plan_ref": "docs/context/CONTEXT_INJECTION_PREREQUISITE_CONTRACT.md::Idempotency And Receipts",
+        "rollback_safe_disable_plan_ref": "docs/context/CONTEXT_INJECTION_PREREQUISITE_CONTRACT.md::Rollback And Safe Disable",
         "redaction_plan_ref": "docs/control_center/TRACE_REDACTION_POLICY.md",
-        "cli_api_core_parity_refs": [],
+        "cli_api_core_parity_refs": [
+          "scripts/dev/uaa_founder_loop.py memory-context-manifest"
+        ],
         "focused_test_refs": [
+          "tests/test_fcc_mem_016_020_memory_diagnostics.py::test_founder_loop_cli_memory_context_manifest_omits_raw_paths",
           "tests/test_governed_memory_context_pack_proposals.py::test_context_pack_api_route_is_backend_backed_and_read_only",
           "apps/control-center/src/App.test.tsx"
         ],
         "verifier_refs": [
+          "scripts/verify_fcc_mem_016_020_memory_diagnostics.py",
           "scripts/verify_operational_maturity.py"
         ]
       },
       "blocked_authorities": [
         "context_injection",
+        "runtime_prompt_context_injection",
+        "live_model_context_injection",
+        "automatic_context_injection",
+        "automatic_memory_inclusion",
         "hidden_prompt_context",
         "provider_model_call",
+        "provider_prompt_context_injection",
+        "connector_derived_context_injection",
+        "browser_web_derived_context_injection",
+        "shell_file_derived_context_injection",
+        "raw_payload_persistence",
+        "broad_autonomy",
         "memory_write",
         "connector_write",
+        "action_execution",
+        "public_beta_claim",
+        "public_distribution_claim",
+        "production_readiness_claim",
         "production_authority"
       ],
       "missing_prerequisites": [
-        "context_injection_policy_missing",
-        "exact_context_scope_missing",
-        "approval_capture_missing",
-        "receipt_evidence_contract_missing",
-        "rollback_safe_disable_missing",
-        "cli_parity_missing"
+        "context_pack_materialization_preview_lane_missing",
+        "runtime_injection_micro_lane_missing",
+        "live_model_destination_authority_missing"
       ],
-      "smallest_next_safe_action": "Keep context packs proposal-only and define exact approval plus receipt/evidence before any injection lane."
+      "smallest_next_safe_action": "Attempt a narrow context-pack materialization or preview lane only; do not inject context into a prompt, provider, connector, browser, shell, or runtime consumer."
     }
   ],
   "follow_on_candidate_ranking": {
@@ -520,8 +535,8 @@
     "safest_candidate_status": "implemented",
     "safe_summary": "The safest follow-on candidate is memory_write, now implemented only as a narrow reviewed recall-write lane for Memory Review accept/correct decisions; every broader memory authority remains blocked.",
     "no_authority_granted": false,
-    "selection_blocked_reason": "memory_write is selected only for exact reviewed recall-write authority; context_injection, shell_subprocess_local_maintenance, connector_write, browser_automation, and provider_model_authority remain blocked pending their own exact scopes, LocalApprovalAuthority binding, rollback/safe-disable, CLI parity, and tests.",
-    "next_safe_action": "Dogfood the reviewed recall-write lane and prepare context_injection prerequisites without reusing memory_write authority."
+    "selection_blocked_reason": "memory_write is selected only for exact reviewed recall-write authority; context_injection is contract-ready but unselected and still blocks runtime injection, while shell_subprocess_local_maintenance, connector_write, browser_automation, and provider_model_authority remain blocked pending their own exact scopes, LocalApprovalAuthority binding, rollback/safe-disable, CLI parity, and tests.",
+    "next_safe_action": "Dogfood the reviewed recall-write lane and prepare the context-pack materialization/preview lane without reusing memory_write authority."
   },
   "first_micro_lane_decision": {
     "status": "selected",

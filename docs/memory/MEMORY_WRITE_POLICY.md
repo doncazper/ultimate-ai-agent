@@ -16,6 +16,9 @@ context injection, connector/CRM/account sync, action execution, delete/export
 execution, public beta, or production authority. Reject decisions preserve
 review state and create no recall record.
 
+The reviewed recall-write lane is independent from `context_injection`; it does
+not queue, authorize, prepare, or perform prompt/context injection.
+
 Denied in M24:
 
 - no automatic writes.
