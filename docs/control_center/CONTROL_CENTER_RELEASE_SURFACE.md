@@ -143,3 +143,12 @@ which action/run/proof refs connect the loop. It does not make memory truth,
 inject context, write memory automatically, delete or export memory, execute
 actions, call providers/models, write/send connectors, run browser or shell
 work, start background autonomy, or grant production authority.
+
+Usable Authority PR 06 adds `/trust` as a partial Trust authority map backed by
+`GET /control-center/trust-authority/matrix` and
+`scripts/dev/uaa_founder_loop.py inspect-trust-authority`. It explains the
+current usable authority tiers, approval posture, proof refs, verifier refs,
+and blocked capability refs from Python Core/API truth. It does not grant
+connector writes/sends, provider/model calls, browser or shell execution,
+runtime context injection, standing authority, background autonomy, public
+release, or production authority.

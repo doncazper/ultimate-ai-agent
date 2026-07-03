@@ -37,6 +37,9 @@ from ultimate_ai_agent.core.control_center.proof import (  # noqa: E402
 from ultimate_ai_agent.core.control_center.start_here import (  # noqa: E402
     build_control_center_start_here_summary,
 )
+from ultimate_ai_agent.core.control_center.trust_authority import (  # noqa: E402
+    build_trust_authority_matrix_read_model,
+)
 from ultimate_ai_agent.core.memory import (  # noqa: E402
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS,
@@ -309,6 +312,23 @@ def _inspect_evidence_memory_binding(args: argparse.Namespace) -> int:
         "evidence_memory_loop_binding_read_model": today.get(
             "evidence_memory_loop_binding_read_model"
         ),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _inspect_trust_authority(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    matrix = build_trust_authority_matrix_read_model(
+        today_summary=repo.today_summary(limit=args.limit)
+    )
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-trust-authority",
+        "trust_authority_matrix": matrix,
         "safe_refs_only": True,
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
@@ -1444,6 +1464,13 @@ def build_parser() -> argparse.ArgumentParser:
     evidence_memory_binding_parser.set_defaults(
         func=_inspect_evidence_memory_binding
     )
+
+    trust_authority_parser = subparsers.add_parser(
+        "inspect-trust-authority",
+        help="Print the backend-owned Trust authority matrix.",
+    )
+    trust_authority_parser.add_argument("--limit", type=int, default=50)
+    trust_authority_parser.set_defaults(func=_inspect_trust_authority)
 
     proof_parser = subparsers.add_parser(
         "inspect-proof",

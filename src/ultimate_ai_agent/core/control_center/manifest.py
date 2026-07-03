@@ -24,6 +24,7 @@ CONTROL_CENTER_ROUTES = [
     "/control-center/status",
     "/control-center/storage/status",
     "/control-center/today/summary",
+    "/control-center/trust-authority/matrix",
 ]
 
 
@@ -142,6 +143,12 @@ def build_control_center_manifest(baseline_version: str | None = None) -> Contro
                 "Local model inventory and gateway posture status only; no model is downloaded, started, switched, or called.",
                 ["/control-center/local-models/status"],
             ),
+            _surface(
+                ControlCenterSurface.trust_authority,
+                ControlCenterCapabilityStatus.available_read_only,
+                "Trust authority matrix explains usable tiers, approval posture, and blocked capabilities; no authority is granted.",
+                ["/control-center/trust-authority/matrix"],
+            ),
             _surface(ControlCenterSurface.events, ControlCenterCapabilityStatus.available_read_only, "Event summaries only; raw event payloads are not exposed.", []),
             _surface(ControlCenterSurface.receipts, ControlCenterCapabilityStatus.available_read_only, "Receipt summaries only; raw receipts are not exposed.", []),
             _surface(ControlCenterSurface.model_runtime, ControlCenterCapabilityStatus.validation_only, "Model runtime status and validation summary only; no model call is made.", []),
@@ -166,6 +173,7 @@ def build_control_center_manifest(baseline_version: str | None = None) -> Contro
             "setup_assistant_summary",
             "settings_status_summary",
             "local_models_status_summary",
+            "trust_authority_matrix",
         ],
         blocked_capabilities=[
             "runtime_execution",

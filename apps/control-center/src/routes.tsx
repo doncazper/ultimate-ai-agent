@@ -46,6 +46,7 @@ import {
   PluginGovernancePanel,
   RemoteWorkerSummaryPanel,
 } from "./components/SummaryPanels";
+import { TrustAuthorityPanel } from "./components/TrustAuthorityPanel";
 
 export type NavGroup =
   | "Founder Loop"
@@ -83,6 +84,7 @@ export const navItems: NavItem[] = [
   { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial", releaseStatus: "partial", role: "primary" },
   { path: "/actions", label: "Action Inbox", group: "Founder Loop", status: "storage-backed", releaseStatus: "ship", role: "primary" },
   { path: "/proof", label: "Proof", group: "Founder Loop", status: "backend-owned proof detail", releaseStatus: "partial", role: "primary" },
+  { path: "/trust", label: "Trust", group: "Founder Loop", status: "authority map", releaseStatus: "partial", role: "primary" },
   { path: "/memory", label: "Memory", group: "Founder Loop", status: "memory diagnostics and context manifest", releaseStatus: "ship", role: "primary" },
   { path: "/evidence", label: "Evidence", group: "Founder Loop", status: "timeline", releaseStatus: "ship", role: "primary" },
   { path: "/settings", label: "Settings", group: "Founder Loop", status: "status-backed", releaseStatus: "partial", role: "primary" },
@@ -235,6 +237,13 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <ProofDetailPanel
           authoritative={isAuthoritativeConnection(data)}
           proofIndex={data.proofIndex}
+        />
+      );
+    case "/trust":
+      return (
+        <TrustAuthorityPanel
+          authoritative={isAuthoritativeConnection(data)}
+          matrix={data.trustAuthorityMatrix}
         />
       );
     case "/briefing":

@@ -114,7 +114,30 @@
         }
       ],
       "missing_backend_routes": [
-        "trust-authority-map-route",
+        "web-evidence-product-slice-route",
+        "provider-draft-summarize-lane",
+        "connector-draft-only-lane"
+      ]
+    },
+    {
+      "surface": "Trust",
+      "owner": "founder-loop",
+      "auth_posture": "protected_local_trust_authority_read_only",
+      "side_effect_class": "validation_only",
+      "risk_class": "medium",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "None for read-only Trust authority matrix inspection. Trust explains available local read/preview/draft lanes, exact approval requirements, planned lanes, and blocked authority; it does not grant approval, execution, connector writes, provider/model calls, browser or shell execution, background autonomy, public release, or production authority.",
+      "evidence_audit_output": "Backend-owned Trust authority matrix safe refs, tier summaries, lane refs, route refs, proof refs, verifier refs, docs refs, approval posture, blocked authority refs, and next safe action only; no raw payloads, no UI-only authority, and no authority grant.",
+      "current_backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/trust-authority/matrix",
+          "operation_id": "get_control_center_trust_authority_matrix",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "missing_backend_routes": [
         "web-evidence-product-slice-route",
         "provider-draft-summarize-lane",
         "connector-draft-only-lane"
@@ -1017,7 +1040,33 @@
         }
       ],
       "missing_backend_routes": [
-        "trust-authority-map-route",
+        "web-evidence-product-slice-route",
+        "provider-draft-summarize-lane",
+        "connector-draft-only-lane"
+      ]
+    },
+    {
+      "action_id": "navigate-trust",
+      "label": "Navigate Trust",
+      "ui_surface": "Trust",
+      "frontend_route": "/trust",
+      "owner": "founder-loop",
+      "auth_posture": "protected_local_trust_authority_read_only",
+      "side_effect_class": "validation_only",
+      "risk_class": "medium",
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "None for read-only Trust authority matrix inspection; mutation and execution remain outside this surface.",
+      "evidence_audit_output": "Trust authority map safe refs, tier summaries, approval posture, proof/verifier refs, and blocked authority refs only; available preview/draft lanes are not external sends or runtime execution.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/trust-authority/matrix",
+          "operation_id": "get_control_center_trust_authority_matrix",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "missing_backend_routes": [
         "web-evidence-product-slice-route",
         "provider-draft-summarize-lane",
         "connector-draft-only-lane"

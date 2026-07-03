@@ -2,7 +2,7 @@
 
 Status: active gated foundation map
 Baseline: v0.104.0 / 0.104.0
-Current OpenAPI path count: 167
+Current OpenAPI path count: 168
 Scope: documentation and route ownership inventory only
 
 This map records the current FastAPI route groups for UAA-P1-058 and future
@@ -18,13 +18,13 @@ typed metadata endpoint for route inventory and capabilities.
 
 | Contract surface | Result |
 |---|---|
-| OpenAPI path count | 167 paths. |
-| `/api/manifest` route count | 167 routes. |
+| OpenAPI path count | 168 paths. |
+| `/api/manifest` route count | 168 routes. |
 | Operation ID posture | Stable generated IDs are unique for all current routes. |
 | Side-effect classes | All current routes use `none`, `validation_only`, `local_dev_workspace_only`, or `governed_network_read_only`. |
 | Route-module ownership tests | UAA-P1-059 checks every current route against this map for owner, target service module, side-effect class, risk class, auth posture, release status, route-count posture, operation ID posture, and evidence behavior. |
 | Control Center route-status manifest | Backend route refs checked against `/api/manifest`; 0 missing and 0 path/method/operation/side-effect mismatches. |
-| Route inventory doc | Current count matches 167; inventory is summarized by group and remains subordinate to `/api/manifest`. |
+| Route inventory doc | Current count matches 168; inventory is summarized by group and remains subordinate to `/api/manifest`. |
 
 ## Mismatch Findings
 

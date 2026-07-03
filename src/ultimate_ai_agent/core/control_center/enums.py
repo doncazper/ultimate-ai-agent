@@ -10,6 +10,7 @@ class ControlCenterSurface(str, Enum):
     macos_setup_assistant = "macos_setup_assistant"
     settings_status = "settings_status"
     local_models = "local_models"
+    trust_authority = "trust_authority"
     events = "events"
     receipts = "receipts"
     model_runtime = "model_runtime"

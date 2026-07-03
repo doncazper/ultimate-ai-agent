@@ -55,7 +55,7 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "blocked",
         "experimental",
     ]
-    assert len(manifest["routes"]) == len(visible_routes) == 36
+    assert len(manifest["routes"]) == len(visible_routes) == 37
     by_path = {route["path"]: route for route in manifest["routes"]}
     assert by_path["/start"]["status"] == "partial"
     assert by_path["/start"]["backend_routes"][0]["path"] == (
@@ -66,6 +66,11 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "/control-center/proof/index"
     )
     assert by_path["/proof"]["visual_proof_status"] == "blocked_no_baseline"
+    assert by_path["/trust"]["status"] == "partial"
+    assert by_path["/trust"]["backend_routes"][0]["path"] == (
+        "/control-center/trust-authority/matrix"
+    )
+    assert by_path["/trust"]["visual_proof_status"] == "blocked_no_baseline"
     assert by_path["/today"]["status"] == "partial"
     assert by_path["/today"]["backend_contract_rationale"] == "backend-route-refs-present"
     assert by_path["/today"]["visual_proof_status"] == "checked_in_baseline"
