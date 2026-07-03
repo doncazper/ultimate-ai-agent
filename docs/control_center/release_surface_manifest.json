@@ -111,7 +111,6 @@
         "apps/control-center/src/App.test.tsx"
       ],
       "blocked_capabilities": [
-        "missing_backend:trust-authority-map-route",
         "missing_backend:web-evidence-product-slice",
         "missing_backend:provider-draft-summarize-lane",
         "missing_backend:connector-draft-only-lane",
@@ -145,6 +144,72 @@
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, shell/subprocess execution, memory/context injection, broad runtime authority, or hidden autonomy.",
         "Proof is not a public beta and must not claim public release, production readiness, production authority, or completed product authority until later evidence-backed lanes graduate."
+      ]
+    },
+    {
+      "path": "/trust",
+      "label": "Trust",
+      "group": "Founder Loop",
+      "ui_status": "authority map",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/trust-authority/matrix",
+          "operation_id": "get_control_center_trust_authority_matrix",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "tests/test_trust_authority_matrix.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:web-evidence-product-slice",
+        "missing_backend:provider-draft-summarize-lane",
+        "missing_backend:connector-draft-only-lane",
+        "connector_write",
+        "provider_model_call",
+        "shell_subprocess_execution",
+        "browser_execution",
+        "background_autonomy",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority"
+      ],
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/control_center/trust_authority.py",
+        "src/ultimate_ai_agent/api/founder_loop.py",
+        "scripts/dev/uaa_founder_loop.py",
+        "apps/control-center/src/routes.tsx",
+        "apps/control-center/src/components/TrustAuthorityPanel.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
+        "tests/test_trust_authority_matrix.py"
+      ],
+      "owner": "founder-loop",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:trust:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked until the scoped visual regression hardening PR captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Keep Trust backed by the Python Core/API matrix route and CLI inspection.",
+        "Keep tier labels clear: available now, approval required, planned, and blocked.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep external mutation, background authority, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Trust is an authority map and read-only explanation surface, not an authority grant.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Draft available does not mean send available; preview available does not mean runtime execution.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, shell/subprocess execution, memory/context injection, broad runtime authority, standing authority, hidden autonomy, public release, production readiness, or production authority.",
+        "Trust is not a public beta and must not claim public release, production readiness, production authority, or completed product authority until later evidence-backed lanes graduate."
       ]
     },
     {

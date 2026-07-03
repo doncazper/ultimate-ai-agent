@@ -11,6 +11,7 @@ import type {
   ControlCenterStartHereSummary,
   ControlCenterSettingsStatus,
   ControlCenterStatus,
+  TrustAuthorityMatrix,
   FounderLoopActionsInbox,
   FounderLoopMorningBriefing,
   FounderLoopSourceReadiness,
@@ -288,6 +289,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.founderStartHereSummary,
     ),
     readEnvelope<ControlCenterProofIndex>(API_ENDPOINTS.controlCenterProofIndex),
+    readEnvelope<TrustAuthorityMatrix>(API_ENDPOINTS.trustAuthorityMatrix),
   ] as const);
 
   const manifest = fulfilledValue(results[0]);
@@ -327,9 +329,12 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const foundationGateSummary = fulfilledValue(results[28]);
   const founderStartHere = fulfilledValue(results[29]);
   const proofIndex = fulfilledValue(results[30]);
+  const trustAuthorityMatrix = fulfilledValue(results[31]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
   const normalizedProofIndex = normalizeProofIndex(proofIndex);
+  const normalizedTrustAuthorityMatrix =
+    normalizeTrustAuthorityMatrix(trustAuthorityMatrix);
   const normalizedFounderEvidenceTimeline = normalizeFounderEvidenceTimeline(
     founderEvidenceTimeline,
   );
@@ -468,6 +473,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     founderToday: normalizedFounderToday.value,
     founderStartHere: normalizedFounderStartHere.value,
     proofIndex: normalizedProofIndex.value,
+    trustAuthorityMatrix: normalizedTrustAuthorityMatrix.value,
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
     founderMemoryReview: normalizedFounderMemoryReview.value,
     founderMemoryWorkbench: normalizedFounderMemoryWorkbench.value,
@@ -493,6 +499,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !founderLoopFieldFallbackUsed &&
     !normalizedFounderStartHere.usedFallback &&
     !normalizedProofIndex.usedFallback &&
+    !normalizedTrustAuthorityMatrix.usedFallback &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
     !dashboardSummaryEndpointFallbackUsed
@@ -511,6 +518,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
     normalizedProofIndex.usedFallback ||
+    normalizedTrustAuthorityMatrix.usedFallback ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
     runObservabilityEndpointFallbackUsed;
@@ -521,7 +529,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ? "Provider credential and cost posture was unavailable or unsafe; non-authoritative mock fallback kept provider readiness blocked."
       : founderLoopFieldFallbackUsed ||
           normalizedFounderStartHere.usedFallback ||
-          normalizedProofIndex.usedFallback
+          normalizedProofIndex.usedFallback ||
+          normalizedTrustAuthorityMatrix.usedFallback
         ? "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels."
         : approvalQueueEndpointFallbackUsed
           ? "Run-attached approval queue endpoint was unavailable; non-authoritative mock fallback is shown without approval authority."
@@ -550,6 +559,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ? ["START_HERE_MOCK_FALLBACK"]
         : []),
       ...(normalizedProofIndex.usedFallback ? ["PROOF_INDEX_MOCK_FALLBACK"] : []),
+      ...(normalizedTrustAuthorityMatrix.usedFallback
+        ? ["TRUST_AUTHORITY_MATRIX_MOCK_FALLBACK"]
+        : []),
       ...(providerCredentialReadinessFallbackUsed
         ? ["PARTIAL_PROVIDER_CREDENTIAL_READINESS_FALLBACK"]
         : []),
@@ -2636,6 +2648,140 @@ function isSafeProofRecord(value: unknown): boolean {
     value.shell_subprocess_execution_enabled === false &&
     value.background_autonomy_enabled === false &&
     value.production_authority_enabled === false
+  );
+}
+
+function normalizeTrustAuthorityMatrix(
+  value: TrustAuthorityMatrix | undefined,
+): {
+  value: TrustAuthorityMatrix;
+  usedFallback: boolean;
+} {
+  if (!isSafeTrustAuthorityMatrix(value)) {
+    return {
+      value: mockControlCenterData.trustAuthorityMatrix,
+      usedFallback: true,
+    };
+  }
+  return {
+    value,
+    usedFallback: false,
+  };
+}
+
+const TRUST_AUTHORITY_DENIED_FLAGS = [
+  "broad_approval_enabled",
+  "standing_authority_enabled",
+  "runtime_context_injection_enabled",
+  "connector_write_enabled",
+  "provider_model_call_enabled",
+  "shell_subprocess_execution_enabled",
+  "browser_execution_enabled",
+  "background_autonomy_enabled",
+  "production_authority_enabled",
+] as const;
+
+const TRUST_AUTHORITY_MATRIX_ARRAYS = [
+  "lanes",
+  "tier_summaries",
+  "available_now_lane_refs",
+  "approval_required_lane_refs",
+  "planned_lane_refs",
+  "blocked_lane_refs",
+  "route_refs",
+  "proof_refs",
+  "verifier_refs",
+  "docs_refs",
+  "blocked_authority_refs",
+] as const;
+
+const TRUST_AUTHORITY_LANE_ARRAYS = [
+  "route_refs",
+  "proof_refs",
+  "verifier_refs",
+  "docs_refs",
+  "blocked_authority_refs",
+] as const;
+
+function isSafeTrustAuthorityMatrix(value: unknown): value is TrustAuthorityMatrix {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    value.schema_version === "control-center-trust-authority-matrix.v1" &&
+    value.contract_ref === "contract-ref:usable-authority-trust-authority-map:v1" &&
+    value.route_ref === "GET /control-center/trust-authority/matrix" &&
+    value.cli_ref ===
+      "python scripts/dev/uaa_founder_loop.py inspect-trust-authority" &&
+    value.backend_owned === true &&
+    value.local_read_model_only === true &&
+    value.safe_refs_only === true &&
+    value.raw_content_included === false &&
+    value.control_center_grants_authority === false &&
+    hasDeniedFlagsFalse(value, TRUST_AUTHORITY_DENIED_FLAGS) &&
+    TRUST_AUTHORITY_MATRIX_ARRAYS.every((field) => Array.isArray(value[field])) &&
+    typeof value.doctrine === "string" &&
+    typeof value.operator_summary === "string" &&
+    typeof value.next_safe_action === "string" &&
+    !containsUnsafeTrustText(value.doctrine) &&
+    !containsUnsafeTrustText(value.operator_summary) &&
+    !containsUnsafeTrustText(value.next_safe_action) &&
+    (value.lanes as unknown[]).length > 0 &&
+    (value.lanes as unknown[]).every(isSafeTrustAuthorityLane) &&
+    (value.tier_summaries as unknown[]).length > 0 &&
+    (value.tier_summaries as unknown[]).every(isSafeTrustAuthorityTierSummary)
+  );
+}
+
+function isSafeTrustAuthorityLane(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.lane_ref === "string" &&
+    value.lane_ref.startsWith("trust-lane:") &&
+    typeof value.label === "string" &&
+    typeof value.tier === "number" &&
+    typeof value.tier_id === "string" &&
+    typeof value.tier_label === "string" &&
+    typeof value.lane_kind === "string" &&
+    typeof value.authority_state === "string" &&
+    typeof value.current_posture === "string" &&
+    typeof value.approval_posture === "string" &&
+    typeof value.operator_can_do_now === "string" &&
+    typeof value.next_safe_action === "string" &&
+    TRUST_AUTHORITY_LANE_ARRAYS.every((field) => Array.isArray(value[field])) &&
+    value.safe_refs_only === true &&
+    value.control_center_grants_authority === false &&
+    !containsUnsafeTrustText(value.label) &&
+    !containsUnsafeTrustText(value.current_posture) &&
+    !containsUnsafeTrustText(value.approval_posture) &&
+    !containsUnsafeTrustText(value.operator_can_do_now) &&
+    !containsUnsafeTrustText(value.next_safe_action)
+  );
+}
+
+function isSafeTrustAuthorityTierSummary(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.tier === "number" &&
+    typeof value.tier_id === "string" &&
+    typeof value.label === "string" &&
+    typeof value.available_now_count === "number" &&
+    typeof value.approval_required_count === "number" &&
+    typeof value.planned_count === "number" &&
+    typeof value.blocked_count === "number" &&
+    typeof value.operator_summary === "string" &&
+    !containsUnsafeTrustText(value.operator_summary)
+  );
+}
+
+function containsUnsafeTrustText(value: string): boolean {
+  const lowered = value.toLowerCase();
+  return EVIDENCE_NARRATIVE_UNSAFE_TEXT_FRAGMENTS.some((fragment) =>
+    lowered.includes(fragment),
   );
 }
 

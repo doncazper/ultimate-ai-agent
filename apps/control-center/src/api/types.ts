@@ -48,6 +48,90 @@ export interface GateSummary {
   summary: string;
 }
 
+export type TrustAuthorityState =
+  | "available_now"
+  | "approval_required"
+  | "planned"
+  | "blocked";
+
+export type TrustAuthorityLaneKind =
+  | "read_preview"
+  | "draft_proposal"
+  | "reversible_local_mutation"
+  | "external_mutation"
+  | "background_standing_authority";
+
+export interface TrustAuthorityLane {
+  lane_ref: string;
+  label: string;
+  tier: number;
+  tier_id: string;
+  tier_label: string;
+  lane_kind: TrustAuthorityLaneKind;
+  authority_state: TrustAuthorityState;
+  current_posture: string;
+  approval_posture: string;
+  operator_can_do_now: string;
+  next_safe_action: string;
+  route_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  docs_refs: string[];
+  blocked_authority_refs: string[];
+  requires_exact_approval: boolean;
+  requires_safe_disable: boolean;
+  requires_rollback_posture: boolean;
+  safe_refs_only: boolean;
+  control_center_grants_authority: boolean;
+}
+
+export interface TrustAuthorityTierSummary {
+  tier: number;
+  tier_id: string;
+  label: string;
+  available_now_count: number;
+  approval_required_count: number;
+  planned_count: number;
+  blocked_count: number;
+  operator_summary: string;
+}
+
+export interface TrustAuthorityMatrix {
+  schema_version: "control-center-trust-authority-matrix.v1";
+  contract_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  status: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  control_center_grants_authority: boolean;
+  doctrine: string;
+  operator_summary: string;
+  lanes: TrustAuthorityLane[];
+  tier_summaries: TrustAuthorityTierSummary[];
+  available_now_lane_refs: string[];
+  approval_required_lane_refs: string[];
+  planned_lane_refs: string[];
+  blocked_lane_refs: string[];
+  route_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  docs_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action: string;
+  broad_approval_enabled: boolean;
+  standing_authority_enabled: boolean;
+  runtime_context_injection_enabled: boolean;
+  connector_write_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_execution_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface RuntimeReadinessSummary {
   status: string;
   production_ready: boolean;
@@ -6758,6 +6842,7 @@ export interface ControlCenterData {
   founderToday: FounderLoopTodaySummary;
   founderStartHere: ControlCenterStartHereSummary;
   proofIndex: ControlCenterProofIndex;
+  trustAuthorityMatrix: TrustAuthorityMatrix;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;

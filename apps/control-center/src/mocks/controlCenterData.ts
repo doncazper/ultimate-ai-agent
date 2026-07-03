@@ -23,12 +23,13 @@ import type {
   ConnectorDeliveryReviewQueue,
   RunAttachedApprovalQueue,
   RunObservabilityReadModel,
+  TrustAuthorityMatrix,
 } from "../api/types";
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 167;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 66;
+export const MOCK_OPENAPI_ROUTE_COUNT = 168;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 67;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -1472,6 +1473,132 @@ const proofIndex: ControlCenterProofIndex = {
   connector_send_enabled: false,
   browser_execution_enabled: false,
   shell_subprocess_execution_enabled: false,
+  background_autonomy_enabled: false,
+  production_authority_enabled: false,
+};
+
+const trustAuthorityMatrix: TrustAuthorityMatrix = {
+  schema_version: "control-center-trust-authority-matrix.v1",
+  contract_ref: "contract-ref:usable-authority-trust-authority-map:v1",
+  route_ref: "GET /control-center/trust-authority/matrix",
+  cli_ref: "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
+  status: "mock_fallback_non_authoritative",
+  backend_owned: false,
+  local_read_model_only: true,
+  safe_refs_only: true,
+  raw_content_included: false,
+  control_center_grants_authority: false,
+  doctrine:
+    "Earned authority, low friction by default, strict only where consequences justify it.",
+  operator_summary:
+    "Mock fallback only. Reconnect to the backend Trust matrix before relying on authority posture.",
+  lanes: [
+    {
+      lane_ref: "trust-lane:mock-local-read-preview",
+      label: "Local read and preview",
+      tier: 1,
+      tier_id: "tier_1_local_read_preview",
+      tier_label: "Local read/preview",
+      lane_kind: "read_preview",
+      authority_state: "available_now",
+      current_posture:
+        "Mock fallback says local read models are the intended lowest-friction lane.",
+      approval_posture: "No approval for local read/preview once backend-owned.",
+      operator_can_do_now:
+        "Use the backend route before relying on authority posture.",
+      next_safe_action: "Reconnect to the local backend Trust route.",
+      route_refs: ["GET /control-center/trust-authority/matrix"],
+      proof_refs: ["proof-ref:mock-fallback:trust-authority"],
+      verifier_refs: ["tests/test_trust_authority_matrix.py"],
+      docs_refs: ["docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"],
+      blocked_authority_refs: [
+        "blocked-state:trust:mock-fallback-no-authority",
+      ],
+      requires_exact_approval: false,
+      requires_safe_disable: false,
+      requires_rollback_posture: false,
+      safe_refs_only: true,
+      control_center_grants_authority: false,
+    },
+    {
+      lane_ref: "trust-lane:mock-external-mutation-blocked",
+      label: "External mutation",
+      tier: 4,
+      tier_id: "tier_4_external_mutation",
+      tier_label: "External mutation",
+      lane_kind: "external_mutation",
+      authority_state: "blocked",
+      current_posture:
+        "External sends, writes, provider calls, browser, and shell work remain blocked.",
+      approval_posture:
+        "Future Tier 4 lanes require exact approval, idempotency, receipts, safe-disable, and rollback posture.",
+      operator_can_do_now: "Use local read and preview lanes only.",
+      next_safe_action: "Do not infer external authority from mock fallback.",
+      route_refs: [],
+      proof_refs: ["proof-ref:mock-fallback:external-mutation-blocked"],
+      verifier_refs: ["tests/test_trust_authority_matrix.py"],
+      docs_refs: ["docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"],
+      blocked_authority_refs: [
+        "blocked-state:trust:no-connector-write-send",
+        "blocked-state:trust:no-provider-model-call",
+        "blocked-state:trust:no-shell-subprocess-execution",
+        "blocked-state:trust:no-browser-execution",
+      ],
+      requires_exact_approval: true,
+      requires_safe_disable: true,
+      requires_rollback_posture: true,
+      safe_refs_only: true,
+      control_center_grants_authority: false,
+    },
+  ],
+  tier_summaries: [
+    {
+      tier: 1,
+      tier_id: "tier_1_local_read_preview",
+      label: "Local read/preview",
+      available_now_count: 1,
+      approval_required_count: 0,
+      planned_count: 0,
+      blocked_count: 0,
+      operator_summary: "Mock local read/preview posture is display-only.",
+    },
+    {
+      tier: 4,
+      tier_id: "tier_4_external_mutation",
+      label: "External mutation",
+      available_now_count: 0,
+      approval_required_count: 0,
+      planned_count: 0,
+      blocked_count: 1,
+      operator_summary: "Mock external mutation posture remains blocked.",
+    },
+  ],
+  available_now_lane_refs: ["trust-lane:mock-local-read-preview"],
+  approval_required_lane_refs: [],
+  planned_lane_refs: [],
+  blocked_lane_refs: ["trust-lane:mock-external-mutation-blocked"],
+  route_refs: ["GET /control-center/trust-authority/matrix"],
+  proof_refs: [
+    "proof-ref:mock-fallback:trust-authority",
+    "proof-ref:mock-fallback:external-mutation-blocked",
+  ],
+  verifier_refs: ["tests/test_trust_authority_matrix.py"],
+  docs_refs: ["docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"],
+  blocked_authority_refs: [
+    "blocked-state:trust:mock-fallback-no-authority",
+    "blocked-state:trust:no-connector-write-send",
+    "blocked-state:trust:no-provider-model-call",
+    "blocked-state:trust:no-shell-subprocess-execution",
+    "blocked-state:trust:no-browser-execution",
+  ],
+  next_safe_action: "Reconnect to the backend Trust matrix.",
+  broad_approval_enabled: false,
+  standing_authority_enabled: false,
+  runtime_context_injection_enabled: false,
+  connector_write_enabled: false,
+  provider_model_call_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  browser_execution_enabled: false,
   background_autonomy_enabled: false,
   production_authority_enabled: false,
 };
@@ -7010,6 +7137,7 @@ export const mockControlCenterData: ControlCenterData = {
   },
   founderStartHere,
   proofIndex,
+  trustAuthorityMatrix,
   founderToday: {
     schema_version: "founder_loop_storage.v1",
     status: "mock_storage_backed_partial_loop",

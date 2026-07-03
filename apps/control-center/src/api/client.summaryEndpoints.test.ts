@@ -197,6 +197,32 @@ function baseRouteData(): Record<string, unknown> {
     backend_owned: true,
     status: "implemented_backend_owned_universal_proof_index",
   };
+  const backendOwnedTrustAuthorityMatrix = {
+    ...mockControlCenterData.trustAuthorityMatrix,
+    status: "implemented_backend_owned_trust_authority_matrix",
+    backend_owned: true,
+    operator_summary:
+      "Backend-owned Trust matrix fixture for local read authority posture.",
+    next_safe_action: "Inspect backend-owned Trust route and CLI refs.",
+    lanes: mockControlCenterData.trustAuthorityMatrix.lanes.map((lane) => ({
+      ...lane,
+      current_posture:
+        lane.authority_state === "available_now"
+          ? "Backend-owned local read and preview posture is available for review."
+          : "External mutation remains blocked until exact lanes graduate.",
+      operator_can_do_now:
+        lane.authority_state === "available_now"
+          ? "Inspect backend-owned local read and preview surfaces."
+          : "Keep external mutation blocked.",
+      next_safe_action: "Inspect backend-owned Trust route and CLI refs.",
+    })),
+    tier_summaries: mockControlCenterData.trustAuthorityMatrix.tier_summaries.map(
+      (tier) => ({
+        ...tier,
+        operator_summary: "Backend-owned Trust tier summary fixture.",
+      }),
+    ),
+  };
   return {
     [API_ENDPOINTS.controlCenterManifest]: mockControlCenterData.manifest,
     [API_ENDPOINTS.controlCenterDashboard]: mockControlCenterData.dashboard,
@@ -215,6 +241,7 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.founderTodaySummary]: mockControlCenterData.founderToday,
     [API_ENDPOINTS.founderStartHereSummary]: backendOwnedStartHere,
     [API_ENDPOINTS.controlCenterProofIndex]: backendOwnedProofIndex,
+    [API_ENDPOINTS.trustAuthorityMatrix]: backendOwnedTrustAuthorityMatrix,
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:

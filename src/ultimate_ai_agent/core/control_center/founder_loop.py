@@ -16,6 +16,9 @@ from ultimate_ai_agent.core.control_center.proof import (
 from ultimate_ai_agent.core.control_center.start_here import (
     build_control_center_start_here_summary,
 )
+from ultimate_ai_agent.core.control_center.trust_authority import (
+    build_trust_authority_matrix_read_model,
+)
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
 from ultimate_ai_agent.core.memory import (
     ManualMemoryCandidateRequest,
@@ -54,6 +57,11 @@ class FounderLoopControlCenterService:
         return build_control_center_proof_detail(
             today_summary=self.repository.today_summary(),
             proof_ref=proof_ref,
+        )
+
+    def trust_authority_matrix(self) -> dict:
+        return build_trust_authority_matrix_read_model(
+            today_summary=self.repository.today_summary()
         )
 
     def evidence_timeline(self) -> dict:
