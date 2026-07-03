@@ -1,8 +1,9 @@
 # Unblock Connector Write / Send Test Target
 
 Goal:
-Perform or explicitly no-go the first exact connector write/send-adjacent
-promotion without granting broad connector write authority.
+Perform or explicitly no-go the first exact send-to-self/test-target connector
+mutation after the connector draft-only proposal lane, without granting broad
+connector write authority.
 
 Branch:
 `codex/unblock-connector-write-send-test-target`
@@ -31,21 +32,25 @@ Implementation scope:
    - `AGENTS.md`
    - `docs/control_center/authority_graduation_blockers/connector_write_send_test_target_2026_07_03.md`
    - `docs/control_center/authority_graduation_blockers/connector_read_test_account_sync_2026_07_03.md`
+   - `docs/control_center/CONNECTOR_DRAFT_ONLY_PROPOSALS.md`
    - `docs/architecture/CONNECTOR_DELIVERY_SEMANTICS_CONTRACT.md`
    - `docs/connectors/CONNECTOR_WRITE_DRY_RUN_PLANNER.md`
    - `docs/connectors/CONNECTOR_WRITE_EXECUTION_LOW_RISK.md`
 2. Verify connector read and test-account credential/OAuth prerequisites first.
-   If either prerequisite is still blocked, do not implement draft/send
+   If either prerequisite is still blocked, do not implement send/write
    behavior. Update the blocker report and keep this lane blocked.
-3. If prerequisites are available, implement exactly one backend-owned
-   draft-only outbound proposal lane for one named test connector.
-4. Persist only safe refs, redacted subject/body-summary refs, target/session
+3. Verify the connector draft-only proposal lane exists and bind the test
+   send/write attempt to exactly one existing draft proposal ref.
+4. If prerequisites are available, implement exactly one backend-owned
+   send-to-self/test-target lane for one named test connector and one
+   allowlisted target.
+5. Persist only safe refs, redacted subject/body-summary refs, target/session
    refs, approval refs, idempotency refs, evidence refs, receipt refs,
    audit/replay refs, rollback/safe-disable refs, and blocked send/write refs.
-5. Do not add send controls unless a separate exact send-to-self/test-target
-   contract exists and is approved.
-6. Add CLI inspection over the same backend-owned draft/send review receipts.
-7. Add or update tests proving:
+6. Do not add broad send controls; any Control Center surface must call the same
+   exact backend contract and stay disabled if the contract is unavailable.
+7. Add CLI inspection over the same backend-owned test-send/write receipts.
+8. Add or update tests proving:
    - production accounts and production targets are rejected;
    - target allowlist is required;
    - exact approval and idempotency are required;
@@ -68,4 +73,4 @@ Completion:
 - push
 - open focused draft PR
 - do not merge unless green and the scope remains exactly one test connector
-  draft-only proposal or an explicit no-go
+  send-to-self/test-target action or an explicit no-go

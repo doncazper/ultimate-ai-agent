@@ -3,12 +3,14 @@
 Goal: Move connector output from review theatre to a safe draft/send-to-self
 ladder.
 
-Allowed next promotion: draft-only first; send-to-self/test target only after
-draft receipts prove safe.
+Allowed next promotion: send-to-self/test target only after the implemented
+draft-only proposal refs are bound to a real test connector, exact approval,
+target allowlist, idempotency, receipt storage, and safe-disable proof.
 
 Scope:
 
-- Draft-only outbound proposal or one send-to-self/test-target action.
+- One send-to-self/test-target action bound to an existing connector draft
+  proposal ref.
 - Exact approval.
 - Idempotency key.
 - Target allowlist.
@@ -25,8 +27,9 @@ Still blocked:
 
 Promotion condition:
 
-Draft-only receipts exist first. A later send-to-self/test-target action proves
-idempotency, revocation, failure posture, and no raw payload leakage.
+Draft-only proposal refs exist first. A later send-to-self/test-target action
+proves target allowlisting, exact approval, idempotency, revocation, failure
+posture, and no raw payload leakage.
 
 Tests/verifiers:
 

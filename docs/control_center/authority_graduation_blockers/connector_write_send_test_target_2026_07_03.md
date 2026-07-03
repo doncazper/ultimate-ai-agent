@@ -2,12 +2,25 @@
 
 Status: blocked, no live connector write or send promoted
 Lane: Connector Write / Send
-Attempted promotion: Level 1 draft-only outbound proposal / test-target send
+Attempted promotion: Level 2 send-to-self/test-target connector mutation
 Date: 2026-07-03
 
 ## Existing Verified Posture
 
 UAA already has several connector-write-adjacent foundations.
+
+The Connector Draft-Only Proposal lane is implemented as backend-owned,
+safe-ref-only email-response and calendar-hold proposal metadata:
+
+- core:
+  `src/ultimate_ai_agent/core/connectors/connector_draft_proposals.py`
+- doc: `docs/control_center/CONNECTOR_DRAFT_ONLY_PROPOSALS.md`
+- CLI: `scripts/inspect_connector_draft_proposals.py`
+- test: `tests/test_connector_draft_proposals.py`
+- UI: `/inbox` Source Readiness cards and Trust authority map
+
+This is useful local review truth, not live connector runtime, account sync,
+source ingestion, email/calendar send, or connector write authority.
 
 The M127 Connector Write Dry-Run Planner records review-only, dry-run-only,
 safe-ref connector write intent plans:
@@ -44,10 +57,10 @@ keeps target/session refs and outbound approval refs as identifiers only.
 
 ## Why This Was Not Unblocked
 
-The next requested promotion requires either a true draft-only outbound
-connector proposal in a test account or a send-to-self/test-target delivery with
-exact approval, target allowlist, idempotency, receipt/evidence, rollback or
-safe-disable posture, and redacted CLI/UI parity.
+The next requested promotion is now a send-to-self/test-target delivery or
+equivalent one-target connector write with exact approval, target allowlist,
+idempotency, receipt/evidence, rollback or safe-disable posture, and redacted
+CLI/UI parity.
 
 That promotion was not safe in this run because:
 
@@ -55,7 +68,6 @@ That promotion was not safe in this run because:
 - Credential/OAuth/Account test enrollment remains blocked;
 - no approved test connector account, test target, or target allowlist exists;
 - no least-scope account/write/send contract exists for one named adapter;
-- no live draft persistence contract exists that proves no real send/write;
 - no send-to-self/test-target receipt store is authorized;
 - no revocation, retry, failure, or rollback drill exists for real delivery;
 - existing Connector Delivery and M127/M128 records are review/local injected
@@ -66,10 +78,10 @@ That promotion was not safe in this run because:
 - exact connector write/send adapter scope for one named test connector;
 - test-account OAuth or credential grant with least scopes and revocation proof;
 - target allowlist for self/test target only;
-- draft-only contract proving no provider-side send/write occurs, or separate
-  exact send-to-self contract if draft-only is intentionally skipped;
+- send-to-self/test-target contract bound to the already implemented
+  connector-draft proposal refs;
 - idempotency and replay proof for duplicate draft/send attempts;
-- redacted receipt schema for draft-created or sent-to-test-target outcomes;
+- redacted receipt schema for sent-to-test-target or exact test-write outcomes;
 - no raw body, contact, account, credential, token, cookie, attachment,
   calendar description, local path, prompt, response, or provider payload
   persistence;
@@ -81,9 +93,11 @@ That promotion was not safe in this run because:
 
 Run a dedicated connector write/send unblock PR only after connector read and
 test-account credential/OAuth prerequisites are available. The first safe target
-is a backend-owned draft-only outbound proposal for one named test connector. If
-draft-only cannot be proven without real provider-side effects, keep the lane
-blocked and do not substitute a send lane.
+is one named test connector and one self/test target, bound to an existing
+connector draft proposal ref, exact approval, idempotency, target allowlist,
+redacted receipt storage, safe-disable posture, and revocation proof. If those
+prerequisites are unavailable, keep the lane blocked and do not substitute a
+local injected transport or UI-only send state.
 
 ## Authority Still Blocked
 
