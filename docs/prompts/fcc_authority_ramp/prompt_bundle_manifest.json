@@ -10,7 +10,7 @@
     "docs/prompts/fcc_authority_ramp/03_authority_candidate_ranking.prompt.md",
     "docs/prompts/fcc_authority_ramp/04_first_micro_lane_graduation.prompt.md"
   ],
-  "bundle_hash": "sha256:7f70177b9a28272c5d52fa499ce87307085dbb7e035455827b36f517ac1e5d8d",
+  "bundle_hash": "sha256:9ae60312a038cace43cdb335990c4aa9d56984c0d7b21df04705d08e8fbc82bd",
   "stable_within_run": true,
   "created_at": "2026-06-23"
 }
