@@ -29,6 +29,7 @@ from ultimate_ai_agent.core.costs.decisions import CostDecision
 from ultimate_ai_agent.core.costs.enums import BudgetScope, BudgetStatus
 from ultimate_ai_agent.core.costs.estimates import CostEstimate
 from ultimate_ai_agent.core.costs.governor import CostGovernor
+from ultimate_ai_agent.core.execution.validation import validate_safe_execution_text
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
     ActorType,
@@ -673,6 +674,11 @@ class TinyProviderInvocationTransportReceipt(_TinyProviderInvocationModel):
     network_call_performed: bool = False
     raw_output_persisted: bool = False
     model_output_authoritative: bool = False
+    redacted_output_preview: str | None = Field(
+        default=None,
+        max_length=2048,
+        exclude=True,
+    )
     block_reason_code: str | None = None
 
     @model_validator(mode="after")
@@ -722,6 +728,15 @@ class TinyProviderInvocationTransportReceipt(_TinyProviderInvocationModel):
             self.block_reason_code
         ):
             raise ValueError("TINY_PROVIDER_INVOCATION_TRANSPORT_BLOCK_REASON_UNSAFE")
+        if self.redacted_output_preview is not None:
+            validate_safe_execution_text(
+                self.redacted_output_preview,
+                "redacted_output_preview",
+            )
+            _reject_unsafe_payload(
+                {"redacted_output_preview": self.redacted_output_preview},
+                "TINY_PROVIDER_INVOCATION_TRANSPORT_PREVIEW_SECRET_LIKE_VALUE_REJECTED",
+            )
         return self
 
 
@@ -911,6 +926,7 @@ class TinyProviderInvocationDecision(_TinyProviderInvocationModel):
     required_next_action: str | None = None
     cost_decision: CostDecision | None = None
     receipt: TinyProviderInvocationReceipt | None = None
+    redacted_output_preview: str | None = Field(default=None, max_length=2048)
 
     @model_validator(mode="after")
     def decision_must_not_imply_authority_without_receipt(self) -> Any:
@@ -922,6 +938,15 @@ class TinyProviderInvocationDecision(_TinyProviderInvocationModel):
             raise ValueError("TINY_PROVIDER_INVOCATION_DECISION_ALLOWED_STATUS_DENIED")
         if self.allowed and self.receipt is None:
             raise ValueError("TINY_PROVIDER_INVOCATION_DECISION_RECEIPT_REQUIRED")
+        if self.redacted_output_preview is not None:
+            validate_safe_execution_text(
+                self.redacted_output_preview,
+                "redacted_output_preview",
+            )
+            _reject_unsafe_payload(
+                {"redacted_output_preview": self.redacted_output_preview},
+                "TINY_PROVIDER_INVOCATION_DECISION_PREVIEW_SECRET_LIKE_VALUE_REJECTED",
+            )
         return self
 
 
@@ -1870,6 +1895,7 @@ def evaluate_tiny_provider_invocation(
         safe_message="Tiny exact-approved provider lane produced a redacted receipt.",
         cost_decision=actual_cost_decision,
         receipt=receipt,
+        redacted_output_preview=transport_receipt.redacted_output_preview,
     )
 
 
