@@ -44,8 +44,6 @@
       ],
       "blocked_capabilities": [
         "missing_backend:universal-proof-detail-route",
-        "missing_backend:provider-draft-summarize-lane",
-        "missing_backend:connector-draft-only-lane",
         "public_distribution_claim",
         "production_readiness_claim",
         "production_authority",
@@ -118,8 +116,6 @@
         "tests/test_web_evidence_product_slice.py"
       ],
       "blocked_capabilities": [
-        "missing_backend:provider-draft-summarize-lane",
-        "missing_backend:connector-draft-only-lane",
         "public_distribution_claim",
         "production_readiness_claim",
         "production_authority",
@@ -180,8 +176,6 @@
         "tests/test_web_evidence_product_slice.py"
       ],
       "blocked_capabilities": [
-        "missing_backend:provider-draft-summarize-lane",
-        "missing_backend:connector-draft-only-lane",
         "connector_write",
         "provider_model_call",
         "shell_subprocess_execution",
@@ -315,7 +309,6 @@
       "blocked_capabilities": [
         "missing_backend:calendar-read-only-contract",
         "missing_backend:email-read-only-contract",
-        "missing_backend:draft-only-response-proposal-contract",
         "missing_backend:live-source-ingestion-contract",
         "public_distribution_claim",
         "production_readiness_claim",

@@ -4060,7 +4060,7 @@ describe("Web Control Center shell", () => {
       within(routePosture).getByText("Write authority").nextElementSibling,
     ).toHaveTextContent("blocked");
     expect(
-      screen.getByText(/live email, calendar, draft, account, polling/i),
+      screen.getByText(/live email, calendar, account, polling/i),
     ).toBeInTheDocument();
     expect(
       screen.getAllByText("contract-ref:email-read-only-missing").length,
@@ -4094,8 +4094,29 @@ describe("Web Control Center shell", () => {
       screen.getByText(/email\/calendar connector runtime is not scoped/i),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole("heading", { name: /Connector draft proposals/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("draft_proposals_ready_no_send_write"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("contract-ref:connector-draft-only-proposals:v1"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("python_core_connector_draft_proposal_read_model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("connector-draft-proposal-ref:email-response"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("connector-draft-proposal-ref:calendar-event"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("required later").length,
+    ).toBeGreaterThan(0);
+    expect(
       screen.getByText(
-        /draft-only response proposal contract is not implemented/i,
+        /connector draft proposals are review-only safe refs; send and write remain blocked/i,
       ),
     ).toBeInTheDocument();
     for (const forbiddenControl of [
@@ -10365,6 +10386,21 @@ function envelopeForReadEndpoint(url: string) {
       source: "python_core_source_readiness_read_model",
       backend_owned: true,
       generated_at: "2026-01-01T00:00:00Z",
+      connector_draft_proposals: {
+        ...mockControlCenterData.founderSourceReadiness.connector_draft_proposals,
+        source: "python_core_connector_draft_proposal_read_model",
+        backend_owned: true,
+        contract_ref: "contract-ref:connector-draft-only-proposals:v1",
+        proof_refs: ["proof-ref:connector-draft-only-proposals:v1"],
+        proposals:
+          mockControlCenterData.founderSourceReadiness.connector_draft_proposals?.proposals.map(
+            (proposal) => ({
+              ...proposal,
+              proposal_ref: proposal.proposal_ref.replace("mock-", ""),
+              draft_ref: proposal.draft_ref.replace("mock-", ""),
+            }),
+          ) ?? [],
+      },
       source_readiness_proposal_candidates:
         mockControlCenterData.founderSourceReadiness.source_readiness_proposal_candidates.map(
           (proposal) => ({

@@ -229,6 +229,34 @@ def test_control_center_source_readiness_route_is_backend_owned_read_only() -> N
         assert proposal["source_refresh_enabled"] is False
         assert proposal["raw_source_ingestion_enabled"] is False
         assert proposal["write_authority_enabled"] is False
+    draft_proposals = data["connector_draft_proposals"]
+    assert draft_proposals["schema_version"] == "connector_draft_proposal_read_model.v1"
+    assert draft_proposals["source"] == "python_core_connector_draft_proposal_read_model"
+    assert draft_proposals["backend_owned"] is True
+    assert draft_proposals["status"] == "draft_proposals_ready_no_send_write"
+    assert draft_proposals["proposal_count"] == 2
+    assert draft_proposals["connector_runtime_enabled"] is False
+    assert draft_proposals["account_auth_enabled"] is False
+    assert draft_proposals["connector_writes_enabled"] is False
+    assert draft_proposals["connector_sends_enabled"] is False
+    assert draft_proposals["provider_model_calls_enabled"] is False
+    assert draft_proposals["memory_write_enabled"] is False
+    assert draft_proposals["context_injection_enabled"] is False
+    assert "credential_collection_enabled" not in draft_proposals
+    assert {proposal["draft_kind"] for proposal in draft_proposals["proposals"]} == {
+        "email_response",
+        "calendar_event_hold",
+    }
+    for proposal in draft_proposals["proposals"]:
+        assert proposal["status"] == "draft_proposal_ready"
+        assert proposal["approval_required_to_draft"] is False
+        assert proposal["approval_required_to_send"] is True
+        assert proposal["connector_write_enabled"] is False
+        assert proposal["connector_send_enabled"] is False
+        assert proposal["connector_write_performed"] is False
+        assert proposal["connector_send_performed"] is False
+        assert proposal["delivery_execution_performed"] is False
+        assert "credential_collection_enabled" not in proposal
         assert "blocked-state:no-connector-write" in proposal[
             "blocked_authority_refs"
         ]

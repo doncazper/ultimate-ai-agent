@@ -144,8 +144,10 @@ def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
         APP_TEST: [
             "metadata_only",
             "/control-center/sources/readiness",
-            "live email, calendar, draft, account, polling",
-            "draft-only response proposal contract is not implemented",
+            "live email, calendar, account, polling",
+            "Connector draft proposals",
+            "draft_proposals_ready_no_send_write",
+            "contract-ref:connector-draft-only-proposals:v1",
             "raw source",
         ],
         CONTROL_CENTER_ROUTE_TEST: [
