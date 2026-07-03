@@ -72,6 +72,44 @@ def get_control_center_start_here_summary() -> ResultEnvelope:
     )
 
 
+@router.get("/proof/index", response_model=ResultEnvelope)
+def get_control_center_proof_index() -> ResultEnvelope:
+    data = get_founder_loop_service().proof_index()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_proof_index",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:proof-index",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:control-center:proof-index"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "read_only_control_center_projection",
+        ],
+    )
+
+
+@router.get("/proof/{proof_ref}", response_model=ResultEnvelope)
+def get_control_center_proof_detail(proof_ref: str) -> ResultEnvelope:
+    data = get_founder_loop_service().proof_detail(proof_ref)
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_proof_detail",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:proof-detail",
+        data=data,
+        evidence=[{"evidence_ref": "evidence-ref:control-center:proof-detail"}],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "read_only_control_center_projection",
+        ],
+    )
+
+
 @router.get("/actions/inbox", response_model=ResultEnvelope)
 def get_control_center_actions_inbox() -> ResultEnvelope:
     data = get_founder_loop_service().actions_inbox()

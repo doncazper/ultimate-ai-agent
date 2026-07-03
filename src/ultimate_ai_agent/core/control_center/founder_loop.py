@@ -9,6 +9,10 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
 from ultimate_ai_agent.core.control_center.local_tasks import (
     FounderLoopLocalTaskCommitRequest,
 )
+from ultimate_ai_agent.core.control_center.proof import (
+    build_control_center_proof_detail,
+    build_control_center_proof_index,
+)
 from ultimate_ai_agent.core.control_center.start_here import (
     build_control_center_start_here_summary,
 )
@@ -39,6 +43,17 @@ class FounderLoopControlCenterService:
     def start_here_summary(self) -> dict:
         return build_control_center_start_here_summary(
             today_summary=self.repository.today_summary()
+        )
+
+    def proof_index(self) -> dict:
+        return build_control_center_proof_index(
+            today_summary=self.repository.today_summary()
+        )
+
+    def proof_detail(self, proof_ref: str) -> dict:
+        return build_control_center_proof_detail(
+            today_summary=self.repository.today_summary(),
+            proof_ref=proof_ref,
         )
 
     def evidence_timeline(self) -> dict:

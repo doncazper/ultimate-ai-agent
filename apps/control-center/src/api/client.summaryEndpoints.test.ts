@@ -158,6 +158,21 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       "non-authoritative mock fallback",
     );
   });
+
+  it("marks missing Proof index route as non-authoritative mock fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.controlCenterProofIndex];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.proofIndex.source).toBe("mock_fallback_non_authoritative");
+    expect(data.proofIndex.backend_owned).toBe(false);
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+    expect(data.connection.warnings).toContain("PROOF_INDEX_MOCK_FALLBACK");
+  });
 });
 
 function baseRouteData(): Record<string, unknown> {
@@ -176,6 +191,12 @@ function baseRouteData(): Record<string, unknown> {
     complete_daily_loop_available: true,
     missing_prerequisite_refs: [],
   };
+  const backendOwnedProofIndex = {
+    ...mockControlCenterData.proofIndex,
+    source: "python_core_control_center_proof_index" as const,
+    backend_owned: true,
+    status: "implemented_backend_owned_universal_proof_index",
+  };
   return {
     [API_ENDPOINTS.controlCenterManifest]: mockControlCenterData.manifest,
     [API_ENDPOINTS.controlCenterDashboard]: mockControlCenterData.dashboard,
@@ -193,6 +214,7 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.localModelsStatus,
     [API_ENDPOINTS.founderTodaySummary]: mockControlCenterData.founderToday,
     [API_ENDPOINTS.founderStartHereSummary]: backendOwnedStartHere,
+    [API_ENDPOINTS.controlCenterProofIndex]: backendOwnedProofIndex,
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:

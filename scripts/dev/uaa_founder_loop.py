@@ -30,6 +30,10 @@ from ultimate_ai_agent.core.control_center import (  # noqa: E402
 from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
     FounderLoopLocalTaskCommitRequest,
 )
+from ultimate_ai_agent.core.control_center.proof import (  # noqa: E402
+    build_control_center_proof_detail,
+    build_control_center_proof_index,
+)
 from ultimate_ai_agent.core.control_center.start_here import (  # noqa: E402
     build_control_center_start_here_summary,
 )
@@ -271,6 +275,32 @@ def _inspect_start_here(args: argparse.Namespace) -> int:
         "schema_version": "founder-loop-cli:v1",
         "command_ref": "repo-local-command:founder-loop-inspect-start-here",
         "start_here": summary,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _inspect_proof(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    today_summary = repo.today_summary(limit=args.limit)
+    if args.proof_ref:
+        payload = build_control_center_proof_detail(
+            today_summary=today_summary,
+            proof_ref=args.proof_ref,
+        )
+        command_ref = "repo-local-command:founder-loop-inspect-proof-detail"
+        key = "proof_detail"
+    else:
+        payload = build_control_center_proof_index(today_summary=today_summary)
+        command_ref = "repo-local-command:founder-loop-inspect-proof-index"
+        key = "proof_index"
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": command_ref,
+        key: payload,
         "safe_refs_only": True,
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
@@ -1364,6 +1394,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     start_here_parser.add_argument("--limit", type=int, default=12)
     start_here_parser.set_defaults(func=_inspect_start_here)
+
+    proof_parser = subparsers.add_parser(
+        "inspect-proof",
+        help="Print the backend-owned universal proof index or proof detail.",
+    )
+    proof_parser.add_argument("proof_ref", nargs="?")
+    proof_parser.add_argument("--limit", type=int, default=12)
+    proof_parser.set_defaults(func=_inspect_proof)
 
     loop_spine_parser = subparsers.add_parser(
         "inspect-loop-spine",
