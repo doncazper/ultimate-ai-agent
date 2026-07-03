@@ -178,6 +178,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     }
     assert set(POST_MILESTONE_SAFE_ROUTE_FAMILIES) == {
         "control_center_operational_status",
+        "control_center_proof_start_trust",
         "control_center_provider_catalog",
         "control_center_provider_credential_validation",
         "control_center_provider_router_dry_run",
@@ -190,6 +191,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "run_attached_approval_queue",
         "task_decomposition",
         "visual_proof",
+        "web_evidence_product_slice",
         "v1_local_model_gateway",
     }
     assert (

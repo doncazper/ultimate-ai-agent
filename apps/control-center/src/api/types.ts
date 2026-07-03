@@ -4350,6 +4350,7 @@ export type ControlCenterProofKind =
   | "local_task_commit"
   | "memory_decision"
   | "evidence_event"
+  | "web_evidence"
   | "source_readiness"
   | "approval"
   | "setup_package";
@@ -4417,6 +4418,74 @@ export interface ControlCenterProofIndex {
   shell_subprocess_execution_enabled: boolean;
   background_autonomy_enabled: boolean;
   production_authority_enabled: boolean;
+}
+
+export interface WebEvidenceProductSliceRequest {
+  request_ref: string;
+  url: string;
+  allowed_host: string;
+  attach_to_ref?: string;
+  safe_summary?: string;
+  evidence_refs?: string[];
+  metadata_refs?: string[];
+}
+
+export interface WebEvidenceProductSliceReceipt {
+  schema_version: "control-center-web-evidence-product-slice-receipt.v1";
+  contract_ref: string;
+  source: "python_core_web_evidence_product_slice";
+  status: string;
+  route_ref: "POST /control-center/web-evidence/attach";
+  cli_ref: string;
+  request_ref: string;
+  attach_to_ref: string;
+  attachment_ref: string;
+  receipt_ref: string;
+  evidence_ref: string;
+  proof_ref: string;
+  preview_ref: string;
+  safe_url_ref: string;
+  host_ref: string;
+  transport_ref: string;
+  web_access_request_ref: string;
+  web_access_audit_ref: string;
+  payload_fingerprint_ref: string;
+  status_code: number;
+  content_type: string;
+  redacted_preview: string;
+  preview_truncated: boolean;
+  preview_limit_bytes: number;
+  response_bytes_read: number;
+  redaction_count: number;
+  redaction_posture_ref: string;
+  receipt_refs: string[];
+  evidence_refs: string[];
+  audit_refs: string[];
+  rollback_refs: string[];
+  safe_disable_refs: string[];
+  blocked_authority_refs: string[];
+  authority_posture: string;
+  next_safe_action: string;
+  safe_refs_only_for_durable_surfaces: boolean;
+  redacted_preview_returned_to_requester: boolean;
+  raw_response_body_stored: boolean;
+  raw_headers_stored: boolean;
+  absolute_url_returned: boolean;
+  query_string_returned: boolean;
+  auth_session_state_used: boolean;
+  request_body_sent: boolean;
+  non_get_method_used: boolean;
+  redirect_followed: boolean;
+  download_performed: boolean;
+  browser_automation_performed: boolean;
+  context_injection_performed: boolean;
+  memory_write_performed: boolean;
+  model_call_performed: boolean;
+  connector_write_performed: boolean;
+  action_execution_performed: boolean;
+  production_authority_granted: boolean;
+  replayed: boolean;
+  durable_record_ref?: string;
 }
 
 export type FounderLoopUnifiedWorkThreadStepId =

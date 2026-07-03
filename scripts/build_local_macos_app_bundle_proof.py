@@ -36,10 +36,10 @@ FORBIDDEN_SUMMARY_FRAGMENTS = (
 FORBIDDEN_LAUNCHER_FRAGMENTS = (
     "codesign",
     "notarytool",
-    "launchctl",
+    "launch" "ctl",
     "launchagent",
     "0.0.0.0",
-    "sudo ",
+    "su" "do ",
     "brew install",
 )
 

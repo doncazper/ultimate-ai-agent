@@ -109,7 +109,7 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 # Route-boundary evaluators are imported here to preserve the historical public facade.
 from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import *  # noqa: F401,F403
 
-EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 63
+EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 68
 
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
@@ -5125,6 +5125,18 @@ class FoundationGateEvaluator:
                 and route.rate_limit_group == "provider_credential_validation"
                 and route.blocked_from_production
             )
+            is_web_evidence_product_slice_state = (
+                path == "/control-center/web-evidence/attach"
+                and route.method == "POST"
+                and route.side_effect_class == "governed_network_read_only"
+                and route.route_classification == "local_sensitive"
+                and route.protected_route
+                and route.approval_posture == "not_required_for_route_classification"
+                and not route.idempotency_required
+                and route.rate_limit_targeted
+                and route.rate_limit_group == "web_evidence_product_slice"
+                and route.blocked_from_production
+            )
             if (
                 not route.validation_only
                 and not is_founder_loop_summary
@@ -5137,6 +5149,7 @@ class FoundationGateEvaluator:
                 and not is_founder_loop_memory_feedback_state
                 and not is_tiny_provider_lane_state
                 and not is_provider_credential_validation_state
+                and not is_web_evidence_product_slice_state
             ):
                 failures.append(
                     f"{path} is not read-only/preview-only/founder-loop-state"
@@ -5386,6 +5399,7 @@ class FoundationGateEvaluator:
             "memoryReviewDecisionEndpoint(candidateRef, decision)",
             "memoryContextPackActionProposalEndpoint(contextPackRef)",
             "API_ENDPOINTS.localChatCompletions",
+            "API_ENDPOINTS.controlCenterWebEvidenceAttach",
         }
         for target in sorted(allowed_post_targets):
             if target not in client:

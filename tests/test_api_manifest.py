@@ -627,6 +627,28 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         ]
         == "provider_credential_validation"
     )
+    assert (
+        routes_by_path["/control-center/web-evidence/attach"][
+            "route_classification"
+        ]
+        == "local_sensitive"
+    )
+    assert (
+        routes_by_path["/control-center/web-evidence/attach"][
+            "side_effect_class"
+        ]
+        == "governed_network_read_only"
+    )
+    assert (
+        routes_by_path["/control-center/web-evidence/attach"][
+            "idempotency_posture"
+        ]
+        == "not_required_for_route_classification"
+    )
+    assert (
+        routes_by_path["/control-center/web-evidence/attach"]["rate_limit_group"]
+        == "web_evidence_product_slice"
+    )
     assert routes_by_path["/control-center/local-models/status"][
         "route_classification"
     ] == ("local_readonly")

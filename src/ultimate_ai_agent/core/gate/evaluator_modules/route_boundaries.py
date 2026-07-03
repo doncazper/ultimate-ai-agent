@@ -2313,6 +2313,14 @@ CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES = {
     "/control-center/local-models/status",
     "/control-center/settings/status",
 }
+CONTROL_CENTER_PROOF_START_TRUST_ROUTES = frozenset(
+    {
+        "/control-center/proof/index",
+        "/control-center/proof/{proof_ref}",
+        "/control-center/start-here/summary",
+        "/control-center/trust-authority/matrix",
+    }
+)
 CONTROL_CENTER_PROVIDER_CATALOG_ROUTES = frozenset(
     {
         "/control-center/providers/setup-guide",
@@ -2336,6 +2344,11 @@ CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES = frozenset(
 RUN_ATTACHED_APPROVAL_QUEUE_ROUTES = frozenset(
     {
         "/control-center/approvals/queue",
+    }
+)
+WEB_EVIDENCE_PRODUCT_SLICE_ROUTES = frozenset(
+    {
+        "/control-center/web-evidence/attach",
     }
 )
 PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
@@ -2514,6 +2527,7 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "founder_loop": FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
     "control_center_setup_assistant": CONTROL_CENTER_SETUP_ASSISTANT_ROUTES,
     "control_center_operational_status": CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
+    "control_center_proof_start_trust": CONTROL_CENTER_PROOF_START_TRUST_ROUTES,
     "control_center_provider_catalog": CONTROL_CENTER_PROVIDER_CATALOG_ROUTES,
     "control_center_provider_credential_validation": CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES,
     "control_center_provider_router_dry_run": CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES,
@@ -2524,6 +2538,7 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "run_attached_approval_queue": RUN_ATTACHED_APPROVAL_QUEUE_ROUTES,
     "task_decomposition": TASK_DECOMPOSITION_CANONICAL_ROUTES,
     "visual_proof": VISUAL_PROOF_ROUTE_BOUNDARY_ROUTES,
+    "web_evidence_product_slice": WEB_EVIDENCE_PRODUCT_SLICE_ROUTES,
     "v1_local_model_gateway": M151_LOCAL_OPENWEBUI_TEST_ROUTES,
 }
 

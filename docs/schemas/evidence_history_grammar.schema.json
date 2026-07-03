@@ -193,6 +193,7 @@
         "idempotency_refs",
         "replay_refs",
         "rollback_refs",
+        "safe_disable_refs",
         "rollback_blockers",
         "latency_refs",
         "foundation_gate_refs",
@@ -230,6 +231,7 @@
         "idempotency_refs": { "$ref": "#/$defs/safe_ref_list" },
         "replay_refs": { "$ref": "#/$defs/safe_ref_list" },
         "rollback_refs": { "$ref": "#/$defs/safe_ref_list" },
+        "safe_disable_refs": { "$ref": "#/$defs/safe_ref_list" },
         "rollback_blockers": {
           "type": "array",
           "items": { "$ref": "#/$defs/safe_text" }

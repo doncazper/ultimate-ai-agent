@@ -44,7 +44,6 @@
       ],
       "blocked_capabilities": [
         "missing_backend:universal-proof-detail-route",
-        "missing_backend:web-evidence-product-slice",
         "missing_backend:provider-draft-summarize-lane",
         "missing_backend:connector-draft-only-lane",
         "public_distribution_claim",
@@ -99,19 +98,26 @@
           "operation_id": "get_control_center_proof_proof_ref",
           "side_effect_class": "validation_only",
           "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/web-evidence/attach",
+          "operation_id": "post_control_center_web_evidence_attach",
+          "side_effect_class": "governed_network_read_only",
+          "route_classification": "local_sensitive"
         }
       ],
-      "side_effect_class": "validation_only",
+      "side_effect_class": "mixed_validation_and_governed_network_read_only",
       "route_classification": "local_sensitive",
       "approval_required": false,
       "proof_lanes": [
         "scripts/verify_control_center_release_surface.py",
         "tests/test_control_center_release_surface_manifest.py",
         "tests/test_control_center_proof_spine.py",
-        "apps/control-center/src/App.test.tsx"
+        "apps/control-center/src/App.test.tsx",
+        "tests/test_web_evidence_product_slice.py"
       ],
       "blocked_capabilities": [
-        "missing_backend:web-evidence-product-slice",
         "missing_backend:provider-draft-summarize-lane",
         "missing_backend:connector-draft-only-lane",
         "public_distribution_claim",
@@ -126,7 +132,8 @@
         "scripts/dev/uaa_founder_loop.py",
         "apps/control-center/src/routes.tsx",
         "docs/control_center/route_status_manifest.json",
-        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
+        "src/ultimate_ai_agent/core/control_center/web_evidence_product_slice.py"
       ],
       "owner": "founder-loop",
       "backend_contract_rationale": "backend-route-refs-present",
@@ -140,6 +147,7 @@
         "Keep public beta, public release, production readiness, and production authority claims blocked."
       ],
       "product_language_caveats": [
+        "Web Evidence in Proof is a Tier 1 allowlisted WebAccessGateway preview receipt path, not unrestricted browsing or browser execution.",
         "Proof is a backend-owned local read model and detail guide, not runtime execution authority.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, shell/subprocess execution, memory/context injection, broad runtime authority, or hidden autonomy.",
@@ -168,10 +176,10 @@
         "scripts/verify_control_center_release_surface.py",
         "tests/test_control_center_release_surface_manifest.py",
         "tests/test_trust_authority_matrix.py",
-        "apps/control-center/src/App.test.tsx"
+        "apps/control-center/src/App.test.tsx",
+        "tests/test_web_evidence_product_slice.py"
       ],
       "blocked_capabilities": [
-        "missing_backend:web-evidence-product-slice",
         "missing_backend:provider-draft-summarize-lane",
         "missing_backend:connector-draft-only-lane",
         "connector_write",
@@ -191,7 +199,8 @@
         "apps/control-center/src/components/TrustAuthorityPanel.tsx",
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
-        "tests/test_trust_authority_matrix.py"
+        "tests/test_trust_authority_matrix.py",
+        "src/ultimate_ai_agent/core/control_center/web_evidence_product_slice.py"
       ],
       "owner": "founder-loop",
       "backend_contract_rationale": "backend-route-refs-present",
@@ -205,6 +214,7 @@
         "Keep external mutation, background authority, public release, production readiness, and production authority claims blocked."
       ],
       "product_language_caveats": [
+        "Trust marks Web Evidence as available only for the exact Tier 1 WebAccessGateway preview lane; broader web/browser authority stays blocked.",
         "Trust is an authority map and read-only explanation surface, not an authority grant.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
         "Draft available does not mean send available; preview available does not mean runtime execution.",
@@ -809,10 +819,17 @@
           "operation_id": "get_control_center_foundation_gate_summary",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/web-evidence/attach",
+          "operation_id": "post_control_center_web_evidence_attach",
+          "side_effect_class": "governed_network_read_only",
+          "route_classification": "local_sensitive"
         }
       ],
-      "side_effect_class": "mixed",
-      "route_classification": "mixed",
+      "side_effect_class": "mixed_validation_local_workspace_and_governed_network_read_only",
+      "route_classification": "mixed_local_sensitive_and_readonly",
       "approval_required": false,
       "proof_lanes": [
         "scripts/verify_control_center_release_surface.py",
@@ -825,7 +842,8 @@
         "tests/test_founder_loop_v1_proof_lane.py",
         "docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md",
         "tests/test_run_observability_surface.py",
-        "tests/test_evidence_memory_loop_binding.py"
+        "tests/test_evidence_memory_loop_binding.py",
+        "tests/test_web_evidence_product_slice.py"
       ],
       "blocked_capabilities": [],
       "evidence_refs": [
@@ -840,7 +858,8 @@
         "tests/test_run_observability_surface.py",
         "src/ultimate_ai_agent/core/control_center/evidence_memory_loop_binding.py",
         "scripts/dev/uaa_founder_loop.py",
-        "tests/test_evidence_memory_loop_binding.py"
+        "tests/test_evidence_memory_loop_binding.py",
+        "src/ultimate_ai_agent/core/control_center/web_evidence_product_slice.py"
       ],
       "owner": "evidence-and-audit",
       "backend_contract_rationale": "backend-route-refs-present",
@@ -854,6 +873,7 @@
         "Do not broaden authority beyond the exact proofed route-surface behavior."
       ],
       "product_language_caveats": [
+        "Evidence may show web_evidence_attached refs from one allowlisted gateway preview; page text is not durable Evidence Timeline truth.",
         "Release status is ship for proofed route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."

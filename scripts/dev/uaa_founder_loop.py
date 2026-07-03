@@ -40,6 +40,10 @@ from ultimate_ai_agent.core.control_center.start_here import (  # noqa: E402
 from ultimate_ai_agent.core.control_center.trust_authority import (  # noqa: E402
     build_trust_authority_matrix_read_model,
 )
+from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (  # noqa: E402
+    WebEvidenceProductSliceRequest,
+    build_web_evidence_product_slice_receipt,
+)
 from ultimate_ai_agent.core.memory import (  # noqa: E402
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS,
@@ -356,6 +360,78 @@ def _inspect_proof(args: argparse.Namespace) -> int:
         "command_ref": command_ref,
         key: payload,
         "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _inspect_web_evidence(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    attachments = repo.list_web_evidence_attachments(limit=args.limit)
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-web-evidence-inspect",
+        "web_evidence_attachments": attachments,
+        "attachment_count": len(attachments),
+        "proof_ref": "proof-ref:web-evidence:product-slice",
+        "safe_refs_only": True,
+        "redacted_preview_omitted": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _attach_web_evidence(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        request = WebEvidenceProductSliceRequest(
+            request_ref=args.request_ref,
+            url=args.url,
+            allowed_host=args.allowed_host,
+            attach_to_ref=args.attach_to_ref,
+            safe_summary=args.safe_summary,
+            evidence_refs=args.evidence_ref,
+            metadata_refs=args.metadata_ref,
+        )
+        receipt = build_web_evidence_product_slice_receipt(request)
+        durable_record = repo.record_web_evidence_attachment(receipt)
+        replayed = bool(durable_record.get("replayed", False))
+    except (ValidationError, ValueError):
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-web-evidence-attach",
+                error_ref="FOUNDER_LOOP_WEB_EVIDENCE_REQUEST_BLOCKED",
+                request_ref=args.request_ref,
+            )
+        )
+        return 1
+    except (FounderLoopStorageDuplicateError, FounderLoopStorageError) as exc:
+        _print_json(
+            {
+                "schema_version": "founder-loop-cli:v1",
+                "command_ref": "repo-local-command:founder-loop-web-evidence-attach",
+                "status": "blocked",
+                "error_ref": str(exc) or "FOUNDER_LOOP_WEB_EVIDENCE_STORAGE_BLOCKED",
+                "request_ref": args.request_ref,
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "raw_paths_omitted": True,
+            }
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-web-evidence-attach",
+        "web_evidence_receipt": receipt.model_copy(
+            update={"replayed": replayed}
+        ).model_dump(mode="json"),
+        "durable_record_ref": durable_record.get("attachment_ref"),
+        "safe_refs_only": True,
+        "bounded_redacted_preview_returned": True,
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
     }
@@ -1479,6 +1555,37 @@ def build_parser() -> argparse.ArgumentParser:
     proof_parser.add_argument("proof_ref", nargs="?")
     proof_parser.add_argument("--limit", type=int, default=12)
     proof_parser.set_defaults(func=_inspect_proof)
+
+    inspect_web_evidence_parser = subparsers.add_parser(
+        "inspect-web-evidence",
+        help="Print stored web evidence product-slice receipt refs; no fetch is performed.",
+    )
+    inspect_web_evidence_parser.add_argument("--limit", type=int, default=20)
+    inspect_web_evidence_parser.set_defaults(func=_inspect_web_evidence)
+
+    attach_web_evidence_parser = subparsers.add_parser(
+        "attach-web-evidence",
+        help=(
+            "Attach one allowlisted HTTPS GET web evidence preview through "
+            "WebAccessGateway."
+        ),
+    )
+    attach_web_evidence_parser.add_argument("--request-ref", required=True)
+    attach_web_evidence_parser.add_argument("--url", required=True)
+    attach_web_evidence_parser.add_argument("--allowed-host", required=True)
+    attach_web_evidence_parser.add_argument(
+        "--attach-to-ref",
+        default="founder-loop:daily-loop",
+    )
+    attach_web_evidence_parser.add_argument(
+        "--safe-summary",
+        default=(
+            "Attach one allowlisted read-only web evidence preview to the local loop."
+        ),
+    )
+    attach_web_evidence_parser.add_argument("--evidence-ref", action="append", default=[])
+    attach_web_evidence_parser.add_argument("--metadata-ref", action="append", default=[])
+    attach_web_evidence_parser.set_defaults(func=_attach_web_evidence)
 
     loop_spine_parser = subparsers.add_parser(
         "inspect-loop-spine",

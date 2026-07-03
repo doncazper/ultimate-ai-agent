@@ -74,11 +74,11 @@ curated gallery and snapshot caveats.
 
 | Area | Current status | What to inspect |
 |---|---|---|
-| API boundary | Implemented for the current **168** OpenAPI paths and `/api/manifest` metadata. | [docs/api/README.md](docs/api/README.md) |
+| API boundary | Implemented for the current **169** OpenAPI paths and `/api/manifest` metadata. | [docs/api/README.md](docs/api/README.md) |
 | Action Inbox | Backend-owned approve/edit/reject/defer decisions, receipts, evidence refs, and one exact approved local-task lane. Generic execution remains blocked. | [docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md](docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md) |
 | Chat handoff | Durable safe Chat turn receipts and reviewable Actions/Plans handoff receipts. Model output is not authority. | [docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md](docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md) |
 | Memory | Review receipts, reviewed recall-only records, read-only L1/L2/L3 indexes, proposal-only context packs, and internal Action proposal receipts. Memory remains recall, not truth or authority. | [docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) |
-| Evidence | Productized safe-ref timeline for proposals, decisions, receipts, and memory-review events. | [docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md](docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md) |
+| Evidence | Productized safe-ref timeline for proposals, decisions, receipts, memory-review events, and one allowlisted WebAccessGateway web evidence preview receipt lane. | [docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md](docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md) |
 | Today, Plans, Settings, Runtime, Models | Partial/status/readiness surfaces. Useful for inspection, not full product completion. | [docs/control_center/OPERATOR_SHELL_GAP_MAP.md](docs/control_center/OPERATOR_SHELL_GAP_MAP.md) |
 | CRM | Fixture-only `/crm` Control Center shell for vertical review. No backend CRM route, connector runtime, account sync, sends, calendar writes, or CRM write authority exists. | [docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md](docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md) |
 | Inbox/email/calendar connectors | Planned or blocked contract lanes only. No live connector runtime or writes. | [docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md](docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md) |
@@ -147,7 +147,7 @@ Morning Briefing
 | Latest repository checkpoint | **checkpoint-m169** |
 | Local model lane checkpoints | **checkpoint-m166**, **checkpoint-m167** |
 | Local model lane | **M160-M167**, including **M166** local readiness evidence and **M167** live evidence hardening; non-production by default |
-| API boundary | FastAPI route contract with **168** OpenAPI paths |
+| API boundary | FastAPI route contract with **169** OpenAPI paths |
 | Founder Loop V1 | `FCC-V1-000` through `FCC-V1-007` complete for bounded proofed route surfaces |
 | Governed Cognitive Memory Spine | Phases 1-5 implemented as reviewed/read-only/proposal lanes; Phase 6.1 is internal Action proposal receipts only |
 | Deferred lane | `UAA-P1-087.2` in-person private UI functional tuning |

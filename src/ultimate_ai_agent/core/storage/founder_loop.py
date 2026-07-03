@@ -162,6 +162,14 @@ from ultimate_ai_agent.core.control_center.unified_work_thread import (
     UNIFIED_WORK_THREAD_CONTRACT_REF,
     build_unified_work_thread_read_model,
 )
+from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
+    WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS,
+    WEB_EVIDENCE_PRODUCT_SLICE_CONTRACT_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_ROLLBACK_REF,
+    WebEvidenceProductSliceReceipt,
+)
 from ultimate_ai_agent.core.control_center.health_recommendations import (
     FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
     FCC_HEALTH_RECOMMENDATION_BINDING_CONTRACT_REF,
@@ -426,12 +434,14 @@ EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES = (
     "chat_turn_receipt_recorded",
     "chat_handoff_created",
     "memory_review_decision_recorded",
+    "web_evidence_attached",
 )
 EVIDENCE_TIMELINE_PRODUCTIZED_GROUP_KINDS = (
     "today_item",
     "action",
     "chat_turn",
     "memory_candidate",
+    "web_evidence",
 )
 OPERATOR_RUN_TIMELINE_CONTRACT_REF = "contract-ref:operator-run-timeline:v1"
 FRONTIER_AI_COST_USAGE_CONTRACT_REF = "contract-ref:frontier-ai-cost-usage-telemetry:v1"
@@ -1253,6 +1263,7 @@ class FounderLoopEvidenceTimelineItem(BaseModel):
     idempotency_refs: list[str] = Field(default_factory=list)
     replay_refs: list[str] = Field(default_factory=list)
     rollback_refs: list[str] = Field(default_factory=list)
+    safe_disable_refs: list[str] = Field(default_factory=list)
     rollback_blockers: list[str] = Field(default_factory=list)
     latency_refs: list[str] = Field(default_factory=list)
     foundation_gate_refs: list[str] = Field(default_factory=list)
@@ -1301,6 +1312,7 @@ class FounderLoopEvidenceTimelineItem(BaseModel):
             "idempotency_refs",
             "replay_refs",
             "rollback_refs",
+            "safe_disable_refs",
             "latency_refs",
             "foundation_gate_refs",
         ]:
@@ -1319,12 +1331,14 @@ EvidenceTimelineProductizedEventType = Literal[
     "chat_turn_receipt_recorded",
     "chat_handoff_created",
     "memory_review_decision_recorded",
+    "web_evidence_attached",
 ]
 EvidenceTimelineProductizedGroupKind = Literal[
     "today_item",
     "action",
     "chat_turn",
     "memory_candidate",
+    "web_evidence",
 ]
 
 
@@ -5430,6 +5444,7 @@ class FounderLoopRepository:
             "memory_context_pack_action_proposals": self._count(
                 "memory_context_pack_action_proposals"
             ),
+            "web_evidence_attachments": self._count("web_evidence_attachments"),
             "idempotency_keys": self._count("idempotency_keys"),
             "route_state_snapshots": self._count("route_state_snapshots"),
             "evidence_refs": self._count("evidence_refs"),
@@ -5490,6 +5505,7 @@ class FounderLoopRepository:
         briefing_items = self.list_briefing_items(limit=3)
         chat_turn_receipts = self.list_chat_turn_receipts(limit=5)
         chat_handoff_receipts = self.list_chat_handoff_receipts(limit=5)
+        web_evidence_attachments = self.list_web_evidence_attachments(limit=5)
         chat_to_loop_handoff_read_model = build_chat_to_loop_handoff_read_model(
             chat_turn_receipts=chat_turn_receipts,
             chat_handoff_receipts=chat_handoff_receipts,
@@ -5520,6 +5536,7 @@ class FounderLoopRepository:
             chat_turn_receipts=chat_turn_receipts,
             chat_handoff_receipts=chat_handoff_receipts,
             memory_review_decisions=memory_review_decisions,
+            web_evidence_attachments=web_evidence_attachments,
         )
         next_safe_actions = _next_safe_actions(
             actions=actions,
@@ -5838,6 +5855,45 @@ class FounderLoopRepository:
             "chat_handoff_created_refs": [
                 str(receipt["created_ref"]) for receipt in chat_handoff_receipts
             ],
+            "web_evidence_product_slice_contract_ref": (
+                WEB_EVIDENCE_PRODUCT_SLICE_CONTRACT_REF
+            ),
+            "web_evidence_product_slice_route_ref": (
+                WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF
+            ),
+            "web_evidence_product_slice_status": (
+                "implemented_allowlisted_gateway_preview_receipts"
+                if web_evidence_attachments
+                else "implemented_route_ready_no_web_evidence_attached"
+            ),
+            "web_evidence_attachment_count": len(web_evidence_attachments),
+            "web_evidence_attachment_refs": [
+                str(receipt["attachment_ref"]) for receipt in web_evidence_attachments
+            ],
+            "web_evidence_receipt_refs": [
+                str(receipt["receipt_ref"]) for receipt in web_evidence_attachments
+            ],
+            "web_evidence_evidence_refs": [
+                str(receipt["evidence_ref"]) for receipt in web_evidence_attachments
+            ],
+            "web_evidence_preview_refs": [
+                str(receipt["preview_ref"]) for receipt in web_evidence_attachments
+            ],
+            "web_evidence_host_refs": [
+                str(receipt["host_ref"]) for receipt in web_evidence_attachments
+            ],
+            "web_evidence_audit_refs": [
+                str(receipt["web_access_audit_ref"])
+                for receipt in web_evidence_attachments
+            ],
+            "web_evidence_web_access_request_refs": [
+                str(receipt["web_access_request_ref"])
+                for receipt in web_evidence_attachments
+            ],
+            "web_evidence_proof_ref": WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF,
+            "web_evidence_blocked_authority_refs": list(
+                WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS
+            ),
             "plans_action_envelope_contract_ref": PLANS_ACTION_ENVELOPE_CONTRACT_REF,
             "plans_action_envelope_review_postures": (
                 plans_action_envelope_review_posture_rows()
@@ -6158,6 +6214,94 @@ class FounderLoopRepository:
                 "connectors, or confer production authority."
             ),
         }
+
+    def list_web_evidence_attachments(self, *, limit: int = 20) -> list[dict[str, Any]]:
+        rows = self._fetch_all(
+            """
+            SELECT receipt_json
+            FROM web_evidence_attachments
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (self._bounded_limit(limit),),
+        )
+        return [dict(json.loads(str(row["receipt_json"]))) for row in rows]
+
+    def record_web_evidence_attachment(
+        self,
+        receipt: WebEvidenceProductSliceReceipt,
+    ) -> dict[str, Any]:
+        durable = receipt.durable_record()
+        _validate_safe_payload(durable, "web_evidence_attachment")
+        existing = self._web_evidence_attachment_by_request_ref(receipt.request_ref)
+        if existing is not None:
+            if existing["payload_fingerprint_ref"] != receipt.payload_fingerprint_ref:
+                raise FounderLoopStorageDuplicateError(
+                    "FOUNDER_LOOP_WEB_EVIDENCE_REQUEST_CONFLICT"
+                )
+            return {**existing, "replayed": True}
+
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO web_evidence_attachments (
+                    attachment_ref, request_ref, receipt_ref, evidence_ref,
+                    safe_url_ref, host_ref, payload_fingerprint_ref,
+                    receipt_json, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    receipt.attachment_ref,
+                    receipt.request_ref,
+                    receipt.receipt_ref,
+                    receipt.evidence_ref,
+                    receipt.safe_url_ref,
+                    receipt.host_ref,
+                    receipt.payload_fingerprint_ref,
+                    _json_dumps(durable),
+                    _utc_iso(),
+                ),
+            )
+        self.append_log(
+            JsonlLogKind.receipt,
+            {
+                "event_ref": receipt.receipt_ref,
+                "safe_summary": (
+                    "Web evidence product slice receipt recorded as safe refs only."
+                ),
+                "evidence_refs": receipt.evidence_refs,
+            },
+        )
+        self.append_log(
+            JsonlLogKind.audit,
+            {
+                "event_ref": receipt.web_access_audit_ref,
+                "safe_summary": (
+                    "WebAccessGateway read-only web evidence audit ref recorded."
+                ),
+                "evidence_refs": receipt.evidence_refs,
+            },
+        )
+        return durable
+
+    def _web_evidence_attachment_by_request_ref(
+        self,
+        request_ref: str,
+    ) -> dict[str, Any] | None:
+        _validate_safe_ref(request_ref, "web_evidence_request_ref")
+        rows = self._fetch_all(
+            """
+            SELECT receipt_json
+            FROM web_evidence_attachments
+            WHERE request_ref = ?
+            LIMIT 1
+            """,
+            (request_ref,),
+        )
+        if not rows:
+            return None
+        return dict(json.loads(str(rows[0]["receipt_json"])))
 
     def weekly_ceo_review(self, *, limit: int = 20) -> dict[str, Any]:
         today = self.today_summary(limit=min(max(int(limit), 6), 50))
@@ -6641,6 +6785,20 @@ class FounderLoopRepository:
                             group_label="Memory Review decision receipt",
                         )
                     )
+            elif item.get("item_kind") == "web_evidence_attachment_ref":
+                if item.get("receipt_refs"):
+                    events.append(
+                        self._productized_event(
+                            item=item,
+                            event_type="web_evidence_attached",
+                            group_kind="web_evidence",
+                            group_ref=_first_ref_or(
+                                list(item.get("source_refs") or []),
+                                "web-evidence-attachment:unknown",
+                            ),
+                            group_label="Web evidence attachment",
+                        )
+                    )
         return events
 
     def _productized_event(
@@ -7028,6 +7186,7 @@ class FounderLoopRepository:
         chat_turn_receipts: list[dict[str, Any]],
         chat_handoff_receipts: list[dict[str, Any]],
         memory_review_decisions: list[dict[str, Any]],
+        web_evidence_attachments: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         timeline: list[FounderLoopEvidenceTimelineItem] = []
         for action in actions:
@@ -8437,6 +8596,130 @@ class FounderLoopRepository:
                     next_safe_action=str(item.get("next_safe_action")),
                 )
             )
+        for attachment in web_evidence_attachments:
+            attachment_ref = str(attachment["attachment_ref"])
+            receipt_ref = str(attachment["receipt_ref"])
+            evidence_ref = str(attachment["evidence_ref"])
+            host_ref = str(attachment["host_ref"])
+            preview_ref = str(attachment["preview_ref"])
+            web_access_request_ref = str(attachment["web_access_request_ref"])
+            web_access_audit_ref = str(attachment["web_access_audit_ref"])
+            payload_fingerprint_ref = str(attachment["payload_fingerprint_ref"])
+            rollback_refs = list(attachment.get("rollback_refs") or [])
+            safe_disable_refs = list(attachment.get("safe_disable_refs") or [])
+            blocked_refs = list(
+                attachment.get("blocked_authority_refs")
+                or WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS
+            )
+            timeline.append(
+                FounderLoopEvidenceTimelineItem(
+                    timeline_item_ref=_timeline_ref("web-evidence", attachment_ref),
+                    item_kind="web_evidence_attachment_ref",
+                    title="Web evidence preview attached",
+                    safe_summary=(
+                        "One allowlisted HTTPS GET preview was fetched through "
+                        "WebAccessGateway and attached as safe refs. Page text is "
+                        "omitted from durable loop, proof, and timeline records."
+                    ),
+                    history_answers=_history_answers(
+                        proposed=_history_answer(
+                            "proposed",
+                            "An operator requested one allowlisted read-only web evidence preview.",
+                            refs=[
+                                str(attachment["request_ref"]),
+                                WEB_EVIDENCE_PRODUCT_SLICE_CONTRACT_REF,
+                                host_ref,
+                                preview_ref,
+                            ],
+                        ),
+                        approved=_history_answer(
+                            "approved",
+                            "Tier 1 read-only preview does not require action approval and does not approve browser, connector, provider, context, memory, or production authority.",
+                            refs=[
+                                "approval-status:web-evidence-tier-1-no-action-approval-required",
+                                WEB_EVIDENCE_PRODUCT_SLICE_CONTRACT_REF,
+                            ],
+                            status="not_required",
+                        ),
+                        happened=_history_answer(
+                            "happened",
+                            "WebAccessGateway returned a bounded redacted preview and recorded receipt and audit refs.",
+                            refs=[
+                                receipt_ref,
+                                evidence_ref,
+                                web_access_request_ref,
+                                web_access_audit_ref,
+                            ],
+                            status="receipt_recorded",
+                        ),
+                        changed=_history_answer(
+                            "changed",
+                            "Only local receipt metadata changed; external web, connector, memory, provider, shell, and production state did not change.",
+                            refs=[
+                                "change-status:web-evidence-local-receipt-only",
+                                payload_fingerprint_ref,
+                            ],
+                            status="local_receipt_only",
+                        ),
+                        undoable=_history_answer(
+                            "undoable",
+                            "Rollback is represented as local receipt suppression posture only.",
+                            refs=rollback_refs
+                            or [WEB_EVIDENCE_PRODUCT_SLICE_ROLLBACK_REF],
+                            status="posture_only",
+                        ),
+                        stale=_history_answer(
+                            "stale",
+                            "Fetched web evidence must be rechecked before future reliance.",
+                            refs=["stale-ref:recheck-web-evidence-before-use"],
+                            status="recheck_required",
+                        ),
+                        blocked=_history_answer(
+                            "blocked",
+                            "Browser actions, session state, downloads, uploads, mutation methods, context injection, memory writes, connector writes, model calls, and production authority remain blocked.",
+                            refs=blocked_refs,
+                            status="blocked",
+                        ),
+                    ),
+                    source_refs=[
+                        attachment_ref,
+                        evidence_ref,
+                        host_ref,
+                        preview_ref,
+                        web_access_request_ref,
+                        web_access_audit_ref,
+                    ],
+                    status_refs=[
+                        WEB_EVIDENCE_PRODUCT_SLICE_CONTRACT_REF,
+                        WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF,
+                        payload_fingerprint_ref,
+                        "status-ref:web-evidence-product-slice:preview-attached",
+                    ],
+                    related_route_refs=[
+                        WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF,
+                        "GET /control-center/evidence/timeline",
+                        "/evidence",
+                        "/proof",
+                    ],
+                    side_effect_class="governed_network_read_only",
+                    authority_posture=str(attachment["authority_posture"]),
+                    approval_posture="tier_1_local_read_preview_no_action_approval_required",
+                    receipt_refs=[receipt_ref],
+                    audit_refs=[web_access_audit_ref],
+                    idempotency_refs=[payload_fingerprint_ref],
+                    replay_refs=["replay-ref:web-evidence-product-slice"],
+                    rollback_refs=rollback_refs,
+                    safe_disable_refs=safe_disable_refs,
+                    rollback_blockers=[
+                        "rollback_is_local_receipt_suppression_only"
+                    ],
+                    redaction_status=str(attachment["redaction_posture_ref"]),
+                    stale_state="recheck_web_evidence_before_future_reliance",
+                    missing_evidence_posture="receipt_and_audit_refs_available",
+                    blocked_states=blocked_refs,
+                    next_safe_action=str(attachment["next_safe_action"]),
+                )
+            )
         timeline.append(
             FounderLoopEvidenceTimelineItem(
                 timeline_item_ref="evidence-timeline:foundation-gate/latency",
@@ -8735,6 +9018,7 @@ class FounderLoopRepository:
         memory_review_decisions = self.list_memory_review_decisions(limit=5)
         chat_turn_receipts = self.list_chat_turn_receipts(limit=5)
         chat_handoff_receipts = self.list_chat_handoff_receipts(limit=5)
+        web_evidence_attachments = self.list_web_evidence_attachments(limit=5)
         chat_to_loop_handoff_read_model = build_chat_to_loop_handoff_read_model(
             chat_turn_receipts=chat_turn_receipts,
             chat_handoff_receipts=chat_handoff_receipts,
@@ -8786,6 +9070,7 @@ class FounderLoopRepository:
             chat_turn_receipts=chat_turn_receipts,
             chat_handoff_receipts=chat_handoff_receipts,
             memory_review_decisions=memory_review_decisions,
+            web_evidence_attachments=web_evidence_attachments,
         )
         weekly_review_narrative = _weekly_review_narrative(
             memory_to_loop_binding_contract=memory_to_loop_binding_contract,
@@ -15095,6 +15380,17 @@ class FounderLoopRepository:
                     action_envelope_ref TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS web_evidence_attachments (
+                    attachment_ref TEXT PRIMARY KEY,
+                    request_ref TEXT UNIQUE NOT NULL,
+                    receipt_ref TEXT NOT NULL,
+                    evidence_ref TEXT NOT NULL,
+                    safe_url_ref TEXT NOT NULL,
+                    host_ref TEXT NOT NULL,
+                    payload_fingerprint_ref TEXT NOT NULL,
+                    receipt_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS memory_feedback_receipts (
                     receipt_ref TEXT PRIMARY KEY,
                     memory_record_ref TEXT,
@@ -16042,6 +16338,7 @@ class FounderLoopRepository:
             "idempotency_keys",
             "route_state_snapshots",
             "evidence_refs",
+            "web_evidence_attachments",
         }
         if table not in allowed:
             raise FounderLoopStorageError("FOUNDER_LOOP_TABLE_REF_DENIED")

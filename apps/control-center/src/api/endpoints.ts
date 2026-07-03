@@ -20,6 +20,7 @@ export const API_ENDPOINTS = {
   controlCenterProofIndex: "/control-center/proof/index",
   trustAuthorityMatrix: "/control-center/trust-authority/matrix",
   founderTodayActionEnvelope: "/control-center/today/action-envelope",
+  controlCenterWebEvidenceAttach: "/control-center/web-evidence/attach",
   founderEvidenceTimeline: "/control-center/evidence/timeline",
   controlCenterChatTurns: "/control-center/chat/turns",
   founderMemoryReview: "/control-center/memory/review",

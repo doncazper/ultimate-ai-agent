@@ -4,6 +4,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
+    WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS,
+    WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -243,8 +248,9 @@ def build_trust_authority_matrix_read_model(
         doctrine="Earned authority, low friction by default, strict only where consequences justify it.",
         operator_summary=(
             "UAA can inspect local read models, previews, drafts, proof, evidence, "
-            "memory review state, and one exact local task commit lane now. "
-            "External mutation and standing authority remain blocked."
+            "memory review state, one exact local task commit lane, and one "
+            "allowlisted web evidence preview lane now. External mutation and "
+            "standing authority remain blocked."
         ),
         lanes=lanes,
         tier_summaries=tier_summaries,
@@ -471,19 +477,19 @@ def _trust_authority_lanes() -> list[TrustAuthorityLane]:
             label="Web evidence product slice",
             tier=1,
             lane_kind="read_preview",
-            authority_state="planned",
-            current_posture="Read-only real-world web evidence must go through WebAccessGateway and remains a later product slice.",
-            approval_posture="No approval for safe read-only preview after the lane is graduated; live unrestricted browsing remains blocked.",
-            operator_can_do_now="Use existing local evidence/proof refs; do not fetch web evidence from Trust.",
-            next_safe_action="Graduate the Web Evidence Product Slice separately through WebAccessGateway tests.",
-            route_refs=[],
-            proof_refs=["proof-ref:web-evidence:planned"],
-            verifier_refs=["scripts/verify_web_runtime_authority.py"],
-            docs_refs=["docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md"],
-            blocked_authority_refs=[
-                "blocked-state:trust:web-evidence-product-slice-not-graduated",
-                "blocked-state:trust:no-unrestricted-browsing",
+            authority_state="available_now",
+            current_posture="One operator-requested allowlisted HTTPS GET preview can run through WebAccessGateway and attach safe receipt refs to the local loop.",
+            approval_posture="No action approval required for Tier 1 read-only preview; browser action, session state, downloads, uploads, mutation methods, context, memory, provider, connector, and production authority remain blocked.",
+            operator_can_do_now="Attach one allowlisted web evidence preview from Proof or the CLI and inspect its receipt refs.",
+            next_safe_action="Open Web Evidence proof and inspect receipt, audit, preview, and blocked-authority refs.",
+            route_refs=[WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF],
+            proof_refs=[WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF],
+            verifier_refs=[
+                "tests/test_web_evidence_product_slice.py",
+                "scripts/verify_web_runtime_authority.py",
             ],
+            docs_refs=["docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md"],
+            blocked_authority_refs=list(WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS),
         ),
         _lane(
             lane_ref="trust-lane:provider-draft-summarize",
