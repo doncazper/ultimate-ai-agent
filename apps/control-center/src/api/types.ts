@@ -1031,6 +1031,87 @@ export interface FounderLoopActionGroupSummary {
   count: number;
 }
 
+export interface FounderLoopActionInboxWorkQueueLane {
+  lane_id: FounderLoopActionGroupId;
+  lane_ref: string;
+  label: string;
+  status: string;
+  safe_summary: string;
+  available_action: string;
+  count: number;
+  item_refs: string[];
+  tier: string;
+  blocked_authority_refs: string[];
+}
+
+export interface FounderLoopActionInboxWorkQueueNextItem {
+  item_ref: string;
+  title: string;
+  lane_id: FounderLoopActionGroupId;
+  lane_label: string;
+  status: string;
+  priority: string;
+  risk_class: string;
+  action_kind: string;
+  available_action: string;
+  next_safe_action: string;
+  approval_required: boolean;
+  approval_envelope_ref?: string | null;
+  expected_receipt_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  proof_ref: string;
+  local_task_commit_eligible: boolean;
+  local_task_commit_route_ref?: string | null;
+  rollback_ref?: string | null;
+  safe_disable_ref?: string | null;
+  blocked_authority_refs: string[];
+}
+
+export interface FounderLoopActionInboxWorkQueueReadModel {
+  schema_version: "action-inbox-work-queue.v1";
+  contract_ref: string;
+  source:
+    | "python_core_action_inbox_work_queue_read_model"
+    | "mock_fallback_non_authoritative";
+  status: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  queue_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  proof_route_ref: string;
+  item_count: number;
+  operator_actionable_count: number;
+  ready_for_decision_count: number;
+  approved_local_task_count: number;
+  proposal_only_count: number;
+  blocked_count: number;
+  receipt_recorded_count: number;
+  lane_count: number;
+  lanes: FounderLoopActionInboxWorkQueueLane[];
+  next_item?: FounderLoopActionInboxWorkQueueNextItem | null;
+  next_item_ref?: string | null;
+  next_safe_action: string;
+  operator_summary: string;
+  tier_posture: string;
+  mutating_controls_posture: string;
+  tier_3_exact_local_task_commit_available: boolean;
+  blocked_authority_refs: string[];
+  action_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  connector_send_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_execution_enabled: boolean;
+  memory_write_enabled: boolean;
+  context_injection_authorized: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export type FounderLoopActionInboxDecisionLaneId =
   | "needs_approval"
   | "blocked"
@@ -4882,6 +4963,8 @@ export interface FounderLoopActionsInbox {
   local_prerequisite_refs: string[];
   action_group_order?: FounderLoopActionGroupId[];
   action_groups?: FounderLoopActionGroupSummary[];
+  action_inbox_work_queue_contract_ref?: string;
+  action_inbox_work_queue_read_model?: FounderLoopActionInboxWorkQueueReadModel;
   action_inbox_decision_lane_contract_ref?: string;
   action_inbox_decision_lane_read_model?: FounderLoopActionInboxDecisionLaneReadModel;
   plans_to_actions_bridge_contract_ref?: string;

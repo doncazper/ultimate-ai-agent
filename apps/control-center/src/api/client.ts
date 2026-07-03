@@ -4178,6 +4178,9 @@ function normalizeFounderActionsInbox(
   const safeChatToLoopHandoff = isSafeChatToLoopHandoffReadModel(
     valueRecord.chat_to_loop_handoff_read_model,
   );
+  const safeActionInboxWorkQueue = isSafeActionInboxWorkQueueReadModel(
+    valueRecord.action_inbox_work_queue_read_model,
+  );
   if (
     value === undefined ||
     !isSafeActionInboxDecisionLaneReadModel(
@@ -4187,6 +4190,15 @@ function normalizeFounderActionsInbox(
     const withoutMockLanes = {
       ...(merged.value as unknown as Record<string, unknown>),
     };
+    if (safeActionInboxWorkQueue) {
+      withoutMockLanes.action_inbox_work_queue_read_model =
+        valueRecord.action_inbox_work_queue_read_model;
+      withoutMockLanes.action_inbox_work_queue_contract_ref =
+        valueRecord.action_inbox_work_queue_contract_ref;
+    } else {
+      delete withoutMockLanes.action_inbox_work_queue_read_model;
+      delete withoutMockLanes.action_inbox_work_queue_contract_ref;
+    }
     delete withoutMockLanes.action_inbox_decision_lane_read_model;
     delete withoutMockLanes.action_inbox_decision_lane_contract_ref;
     if (safePlansToActionsBridge) {
@@ -4220,6 +4232,15 @@ function normalizeFounderActionsInbox(
     action_inbox_decision_lane_contract_ref:
       valueRecord.action_inbox_decision_lane_contract_ref,
   };
+  if (safeActionInboxWorkQueue) {
+    normalized.action_inbox_work_queue_read_model =
+      valueRecord.action_inbox_work_queue_read_model;
+    normalized.action_inbox_work_queue_contract_ref =
+      valueRecord.action_inbox_work_queue_contract_ref;
+  } else {
+    delete normalized.action_inbox_work_queue_read_model;
+    delete normalized.action_inbox_work_queue_contract_ref;
+  }
   if (safePlansToActionsBridge) {
     normalized.plans_to_actions_bridge_read_model =
       valueRecord.plans_to_actions_bridge_read_model;
@@ -4474,6 +4495,133 @@ const ACTION_DECISION_LANE_ITEM_DENIED_FLAGS = [
   "hidden_memory_write_authorized",
   "production_authority_enabled",
 ] as const;
+
+const ACTION_WORK_QUEUE_DENIED_FLAGS = [
+  "action_execution_enabled",
+  "connector_write_enabled",
+  "connector_send_enabled",
+  "provider_model_call_enabled",
+  "shell_subprocess_execution_enabled",
+  "browser_execution_enabled",
+  "memory_write_enabled",
+  "context_injection_authorized",
+  "background_autonomy_enabled",
+  "production_authority_enabled",
+] as const;
+
+const ACTION_WORK_QUEUE_LANE_IDS = [
+  "ready_for_decision",
+  "approved_local_task_lane",
+  "blocked_by_authority",
+  "expired_stale",
+  "receipt_recorded",
+  "proposal_only_no_execution_path",
+] as const;
+
+function isSafeActionInboxWorkQueueReadModel(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.schema_version !== "action-inbox-work-queue.v1" ||
+    value.contract_ref !==
+      "contract-ref:usable-authority-action-inbox-work-queue:v1" ||
+    value.source !== "python_core_action_inbox_work_queue_read_model" ||
+    value.backend_owned !== true ||
+    value.local_read_model_only !== true ||
+    value.safe_refs_only !== true ||
+    value.raw_content_included !== false ||
+    !hasDeniedFlagsFalse(value, ACTION_WORK_QUEUE_DENIED_FLAGS)
+  ) {
+    return false;
+  }
+  if (
+    typeof value.item_count !== "number" ||
+    typeof value.operator_actionable_count !== "number" ||
+    typeof value.ready_for_decision_count !== "number" ||
+    typeof value.approved_local_task_count !== "number" ||
+    typeof value.proposal_only_count !== "number" ||
+    typeof value.blocked_count !== "number" ||
+    typeof value.receipt_recorded_count !== "number" ||
+    typeof value.lane_count !== "number" ||
+    !Array.isArray(value.lanes) ||
+    !Array.isArray(value.blocked_authority_refs)
+  ) {
+    return false;
+  }
+  if (value.lane_count !== value.lanes.length) {
+    return false;
+  }
+  return (
+    hasStringFields(value, [
+      "queue_ref",
+      "route_ref",
+      "cli_ref",
+      "proof_route_ref",
+      "next_safe_action",
+      "operator_summary",
+      "tier_posture",
+      "mutating_controls_posture",
+    ]) &&
+    value.lanes.every(isSafeActionInboxWorkQueueLane) &&
+    (value.next_item === null ||
+      value.next_item === undefined ||
+      isSafeActionInboxWorkQueueNextItem(value.next_item))
+  );
+}
+
+function isSafeActionInboxWorkQueueLane(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.lane_id === "string" &&
+    ACTION_WORK_QUEUE_LANE_IDS.includes(
+      value.lane_id as (typeof ACTION_WORK_QUEUE_LANE_IDS)[number],
+    ) &&
+    hasStringFields(value, [
+      "lane_ref",
+      "label",
+      "status",
+      "safe_summary",
+      "available_action",
+      "tier",
+    ]) &&
+    typeof value.count === "number" &&
+    Array.isArray(value.item_refs) &&
+    Array.isArray(value.blocked_authority_refs)
+  );
+}
+
+function isSafeActionInboxWorkQueueNextItem(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.lane_id === "string" &&
+    ACTION_WORK_QUEUE_LANE_IDS.includes(
+      value.lane_id as (typeof ACTION_WORK_QUEUE_LANE_IDS)[number],
+    ) &&
+    hasStringFields(value, [
+      "item_ref",
+      "title",
+      "lane_label",
+      "status",
+      "priority",
+      "risk_class",
+      "action_kind",
+      "available_action",
+      "next_safe_action",
+      "proof_ref",
+    ]) &&
+    typeof value.approval_required === "boolean" &&
+    typeof value.local_task_commit_eligible === "boolean" &&
+    Array.isArray(value.expected_receipt_refs) &&
+    Array.isArray(value.receipt_refs) &&
+    Array.isArray(value.evidence_refs) &&
+    Array.isArray(value.blocked_authority_refs)
+  );
+}
 
 function isSafeActionInboxDecisionLaneReadModel(value: unknown): boolean {
   if (!isPlainRecord(value)) {

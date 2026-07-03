@@ -76,6 +76,17 @@ shell/subprocess behavior, provider/model authority, memory write, context
 injection, public beta, public distribution, production authority, or maturity
 rank promotion.
 
+Usable Authority PR 04 current truth: Action Inbox now exposes a backend-owned
+work queue read model from `GET /control-center/actions/inbox` and
+`scripts/dev/uaa_founder_loop.py inspect-action-work-queue`. The queue shows
+safe refs, lane counts, next-item posture, approval/proof/receipt/evidence
+refs, stale/blocked/receipt-recorded posture, and the exact approved
+`local_task_create` record lane when available. It grants no generic action
+execution, connector writes/sends, shell/subprocess execution, browser
+execution, provider/model calls, memory writes, context injection, external
+side effects, rollback execution, public beta, public release, production
+readiness, or production authority.
+
 FCC-BRIEFING-001 current truth: Morning Briefing is implemented as a read-only
 daily-loop surface over `/briefing`, `/today`, and
 `GET /control-center/morning-briefing/summary`, recorded in

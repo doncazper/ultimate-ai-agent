@@ -704,8 +704,8 @@ export function ModelsOperatorPanel({ data }: { data: ControlCenterData }) {
               className="note-list"
               aria-label={`${adapter.display_name} blocked authorities`}
             >
-              {adapter.blocked_authority_refs.map((authority) => (
-                <span key={authority}>{authority}</span>
+              {adapter.blocked_authority_refs.map((authority, index) => (
+                <span key={`${authority}-${index}`}>{authority}</span>
               ))}
             </div>
           </article>
@@ -894,8 +894,8 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
             className="note-list"
             aria-label="Settings blocked authority classes"
           >
-            {settingsStatus.blocked_authorities.map((authority) => (
-              <span key={authority}>{authority}</span>
+            {settingsStatus.blocked_authorities.map((authority, index) => (
+              <span key={`${authority}-${index}`}>{authority}</span>
             ))}
           </div>
         </article>
@@ -2170,16 +2170,16 @@ function ReadinessGateCard({
       </div>
       <p>{summary}</p>
       <dl className="metadata-list">
-        {details.map(([label, value]) => (
-          <div key={label}>
+        {details.map(([label, value], index) => (
+          <div key={`${label}-${index}`}>
             <dt>{label}</dt>
             <dd>{value}</dd>
           </div>
         ))}
       </dl>
       <div className="note-list" aria-label={`${title} blocker codes`}>
-        {blockerCodes.map((code) => (
-          <span key={code}>{code}</span>
+        {blockerCodes.map((code, index) => (
+          <span key={`${code}-${index}`}>{code}</span>
         ))}
       </div>
     </section>
@@ -2234,8 +2234,8 @@ function StatusPanel({
       </div>
       <p>{message}</p>
       <dl className="metadata-list">
-        {details.map(([label, value]) => (
-          <div key={label}>
+        {details.map(([label, value], index) => (
+          <div key={`${label}-${index}`}>
             <dt>{label}</dt>
             <dd>{value}</dd>
           </div>
@@ -2243,8 +2243,8 @@ function StatusPanel({
       </dl>
       {reasonCodes.length > 0 ? (
         <div className="note-list" aria-label={`${title} reason codes`}>
-          {reasonCodes.map((reason) => (
-            <span key={reason}>{reason}</span>
+          {reasonCodes.map((reason, index) => (
+            <span key={`${reason}-${index}`}>{reason}</span>
           ))}
         </div>
       ) : null}

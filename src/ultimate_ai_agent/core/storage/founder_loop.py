@@ -115,6 +115,10 @@ from ultimate_ai_agent.core.control_center.action_inbox_decision_lanes import (
     ACTION_INBOX_DECISION_LANE_CONTRACT_REF,
     build_action_inbox_decision_lane_read_model,
 )
+from ultimate_ai_agent.core.control_center.action_inbox_work_queue import (
+    ACTION_INBOX_WORK_QUEUE_CONTRACT_REF,
+    build_action_inbox_work_queue_read_model,
+)
 from ultimate_ai_agent.core.control_center.fusion_routing import (
     FCC_FUSION_ROUTING_DELEGATION_CONTRACT_REF,
     FCC_FUSION_ROUTING_REQUIRED_BLOCKED_REFS,
@@ -487,12 +491,12 @@ ACTION_INBOX_GROUP_DEFINITIONS = (
     },
     {
         "group_id": "approved_local_task_lane",
-        "label": "Approved local task lane",
+        "label": "Approved local-task create lane",
         "safe_summary": (
             "Exact-approved local_task_create items that can be committed only "
             "through the typed local task route."
         ),
-        "available_action": "Inspect approval posture or commit the local task lane.",
+        "available_action": "Inspect approval posture or commit the local-task create lane.",
     },
     {
         "group_id": "blocked_by_authority",
@@ -8542,6 +8546,11 @@ class FounderLoopRepository:
             private_beta_readiness_gate_contract=private_beta_readiness_gate_contract,
         )
         review_filter_facets = _action_inbox_review_filter_facets(items)
+        action_groups = _action_group_summaries(items)
+        action_inbox_work_queue_read_model = build_action_inbox_work_queue_read_model(
+            actions=items,
+            action_groups=action_groups,
+        )
         task_decomposition_proposal_items = [
             item
             for item in items
@@ -8594,7 +8603,13 @@ class FounderLoopRepository:
                 "capability-ref:local-approval-authority",
             ],
             "action_group_order": list(ACTION_INBOX_GROUP_ORDER),
-            "action_groups": _action_group_summaries(items),
+            "action_groups": action_groups,
+            "action_inbox_work_queue_contract_ref": (
+                ACTION_INBOX_WORK_QUEUE_CONTRACT_REF
+            ),
+            "action_inbox_work_queue_read_model": (
+                action_inbox_work_queue_read_model
+            ),
             "action_inbox_decision_lane_contract_ref": (
                 ACTION_INBOX_DECISION_LANE_CONTRACT_REF
             ),

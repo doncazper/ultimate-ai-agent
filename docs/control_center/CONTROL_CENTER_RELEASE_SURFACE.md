@@ -125,3 +125,11 @@ refs, redaction posture, and blocked authority refs only; it does not grant
 approval, action execution, provider/model calls, connector writes/sends,
 browser or shell execution, background autonomy, public release, or production
 authority.
+
+Usable Authority PR 04 hardens `/actions` as a backend-owned Action Inbox work
+queue with safe lane counts, next-item posture, proof/receipt/evidence refs,
+CLI inspection, and the exact `local_task_create` local task record lane. It
+does not grant generic action execution, provider/model calls, connector
+writes/sends, browser or shell execution, memory writes, context injection,
+external side effects, rollback execution, public release, or production
+authority.

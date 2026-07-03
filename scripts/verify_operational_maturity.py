@@ -150,7 +150,7 @@ LOCAL_TASK_REPEATABILITY_REQUIRED_FOCUSED_TEST_REFS = {
     "tests/test_fcc_v1_003_founder_loop_vertical_slice.py::test_founder_loop_cli_commits_local_task_with_safe_refs",
 }
 LOCAL_TASK_REPEATABILITY_REQUIRED_FRONTEND_TEST_REFS = {
-    "apps/control-center/src/App.test.tsx::commits only the eligible Action Inbox local task lane through the typed route",
+    "apps/control-center/src/App.test.tsx::commits only the eligible Action Inbox local-task create lane through the typed route",
     "apps/control-center/src/App.test.tsx::keeps local task commit receipt local and explicit when backend read-model refresh fails",
     "apps/control-center/src/App.test.tsx::shows replay posture from the refreshed Action Inbox read model",
     "apps/control-center/src/App.test.tsx::keeps conflicting local task commits out of committed UI state",

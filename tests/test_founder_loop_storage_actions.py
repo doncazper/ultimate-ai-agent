@@ -431,7 +431,7 @@ def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> 
 
     approved = _approve_local_task_seed_action(repo)
     assert approved["action_group_id"] == "approved_local_task_lane"
-    assert approved["action_group_label"] == "Approved local task lane"
+    assert approved["action_group_label"] == "Approved local-task create lane"
     assert approved["approval_envelope"]["action_kind"] == "local_task_create"
     assert (
         "blocked-state:no-connector-write"
@@ -587,7 +587,7 @@ def test_action_inbox_local_task_commit_rejects_unsupported_action_kind(
             item_ref="founder-action:unsupported-local-task",
             title="Unsupported local action",
             safe_summary=(
-                "Approved review-only action should not enter the local task lane."
+                "Approved review-only action should not enter the local-task create lane."
             ),
             surface="Actions",
             priority="medium",

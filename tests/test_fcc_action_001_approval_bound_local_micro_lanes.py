@@ -88,11 +88,25 @@ def test_local_task_commit_receipt_denies_broader_authority() -> None:
     )
     assert receipt.rollback_execution_enabled is False
     assert receipt.rollback_blocker_refs == [FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_BLOCKED_REF]
+    assert receipt.connector_write_performed is False
+    assert receipt.shell_subprocess_execution_performed is False
+    assert receipt.model_provider_authority_used is False
+    assert receipt.memory_write_performed is False
+    assert receipt.context_injection_performed is False
+    assert receipt.external_side_effect_performed is False
 
-    payload = receipt.model_dump(mode="json")
-    payload["connector_write_performed"] = True
-    with pytest.raises(ValidationError):
-        FounderLoopLocalTaskCommitReceipt(**payload)
+    for denied_flag in [
+        "connector_write_performed",
+        "shell_subprocess_execution_performed",
+        "model_provider_authority_used",
+        "memory_write_performed",
+        "context_injection_performed",
+        "external_side_effect_performed",
+    ]:
+        payload = receipt.model_dump(mode="json")
+        payload[denied_flag] = True
+        with pytest.raises(ValidationError):
+            FounderLoopLocalTaskCommitReceipt(**payload)
 
     payload = receipt.model_dump(mode="json")
     payload["rollback_execution_enabled"] = True

@@ -19,6 +19,7 @@ import type {
   FounderLoopActionGroupSummary,
   FounderLoopActionInboxDecisionLaneItem,
   FounderLoopActionInboxDecisionLaneReadModel,
+  FounderLoopActionInboxWorkQueueReadModel,
   FounderLoopActionsInbox,
   FounderLoopActionItem,
   FounderLoopBriefingItem,
@@ -100,10 +101,10 @@ const actionGroupFallbacks: FounderLoopActionGroupSummary[] = [
   },
   {
     group_id: "approved_local_task_lane",
-    label: "Approved local task lane",
+    label: "Approved local-task create lane",
     safe_summary:
       "Exact-approved local_task_create items that can be committed only through the typed local task route.",
-    available_action: "Inspect approval posture or commit the local task lane.",
+    available_action: "Inspect approval posture or commit the local-task create lane.",
     count: 0,
   },
   {
@@ -222,7 +223,7 @@ export function FounderLoopSpinePanel({
         loop.
         {` ${loopTruthCopy} `}No generic execution is available; the only
         mutating Control Center authority shown
-        here is the exact local task lane after backend approval.
+        here is the exact local-task create lane after backend approval.
       </p>
       <FounderLoopProofPathPanel
         activeSurface={activeSurface}
@@ -570,7 +571,7 @@ function buildFounderLoopSpineItems({
         localTaskEligible > 0 || localTaskReceipts > 0
           ? "authority-gated"
           : "receipt-backed",
-      summary: `${actionItems.length} action refs; ${localTaskEligible} eligible local task lane; ${localTaskReceipts} local task receipts.`,
+      summary: `${actionItems.length} action refs; ${localTaskEligible} eligible local-task create lane; ${localTaskReceipts} local task receipts.`,
       nextSafeAction:
         actionItems.find((item) => item.local_task_commit_next_safe_action)
           ?.local_task_commit_next_safe_action ??
@@ -649,7 +650,7 @@ function summarizeLocalTaskLane(items: FounderLoopActionItem[]): string {
     return `${receipts} local task receipt refs`;
   }
   if (eligible > 0) {
-    return `${eligible} approved local task lane`;
+    return `${eligible} approved local-task create lane`;
   }
   return "Local task lane blocked unless exact approval exists";
 }
@@ -958,14 +959,14 @@ function ActionInboxOperatorOverview({
         <h3>Decide what can receive a receipt, keep everything else bounded</h3>
         <p>
           The inbox is grouped by backend read-model posture. Ready items can
-          record supported receipts, approved local task lanes stay
+          record supported receipts, approved local-task create lanes stay
           exact-scoped, and proposal-only artifacts expose no apply/use/execute
           control.
         </p>
       </div>
       <div className="operator-loop-summary-grid">
         <Metric label="ready for decision" value={countFor("ready_for_decision")} />
-        <Metric label="local task lane" value={countFor("approved_local_task_lane")} />
+        <Metric label="local-task create lane" value={countFor("approved_local_task_lane")} />
         <Metric label="proposal-only" value={countFor("proposal_only_no_execution_path")} />
         <Metric label="blocked" value={countFor("blocked_by_authority")} />
       </div>
@@ -996,6 +997,124 @@ function ActionInboxOperatorOverview({
         />
       </dl>
     </section>
+  );
+}
+
+function ActionInboxWorkQueuePanel({
+  readModel,
+}: {
+  readModel?: FounderLoopActionInboxWorkQueueReadModel;
+}) {
+  if (!readModel) {
+    return (
+      <article className="status-card" aria-label="Action Inbox work queue">
+        <div className="status-card-header">
+          <h3>Work queue</h3>
+          <span>backend read model missing</span>
+        </div>
+        <p>
+          Action Inbox queue posture is unavailable. The UI will not infer
+          durable queue truth from filters, local state, or mock lane data.
+        </p>
+        <dl className="detail-list">
+          <DetailTerm label="Action execution" value="blocked" />
+          <DetailTerm label="Connector writes" value="blocked" />
+          <DetailTerm label="Provider/model calls" value="blocked" />
+        </dl>
+      </article>
+    );
+  }
+  const nextItem = readModel.next_item;
+  const sourceLabel = readModel.backend_owned
+    ? "backend-owned"
+    : "mock fallback";
+  return (
+    <article className="status-card" aria-label="Action Inbox work queue">
+      <div className="status-card-header">
+        <h3>Work queue</h3>
+        <span>{sourceLabel}</span>
+      </div>
+      <p>{readModel.operator_summary}</p>
+      <div className="operator-loop-summary-grid">
+        <Metric label="actionable" value={readModel.operator_actionable_count} />
+        <Metric label="ready" value={readModel.ready_for_decision_count} />
+        <Metric label="local task" value={readModel.approved_local_task_count} />
+        <Metric label="proposals" value={readModel.proposal_only_count} />
+        <Metric label="blocked" value={readModel.blocked_count} />
+        <Metric label="receipts" value={readModel.receipt_recorded_count} />
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Status" value={readModel.status} />
+        <DetailTerm label="Tier posture" value={readModel.tier_posture} />
+        <DetailTerm
+          label="Mutating controls"
+          value={readModel.mutating_controls_posture}
+        />
+        <DetailTerm label="Route" value={readModel.route_ref} />
+        <DetailTerm label="CLI" value={readModel.cli_ref} />
+        <DetailTerm
+          label="Action execution"
+          value={readModel.action_execution_enabled ? "enabled" : "blocked"}
+        />
+      </dl>
+      {nextItem ? (
+        <div className="hero-panel compact">
+          <div>
+            <p className="eyebrow">Next queue item</p>
+            <h3>{nextItem.title}</h3>
+            <p className="muted">{nextItem.next_safe_action}</p>
+          </div>
+          <dl className="detail-list compact">
+            <DetailTerm label="Item" value={nextItem.item_ref} />
+            <DetailTerm label="Lane" value={nextItem.lane_label} />
+            <DetailTerm label="Status" value={nextItem.status} />
+            <DetailTerm
+              label="Approval"
+              value={nextItem.approval_required ? "required" : "not required"}
+            />
+            <DetailTerm
+              label="Local task record"
+              value={nextItem.local_task_commit_eligible ? "eligible" : "blocked"}
+            />
+            <DetailTerm label="Proof" value={nextItem.proof_ref} />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Expected receipts: none"
+            refs={nextItem.expected_receipt_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Evidence refs: none"
+            refs={nextItem.evidence_refs}
+          />
+        </div>
+      ) : (
+        <p className="empty-state">No Action Inbox item needs review right now.</p>
+      )}
+      <div className="review-grid">
+        {readModel.lanes.map((lane) => (
+          <article className="review-card" key={lane.lane_ref}>
+            <div className="review-card-heading">
+              <h4>{lane.label}</h4>
+              <span>{lane.count}</span>
+            </div>
+            <p>{lane.safe_summary}</p>
+            <dl className="detail-list">
+              <DetailTerm label="Status" value={lane.status} />
+              <DetailTerm label="Tier" value={lane.tier} />
+              <DetailTerm label="Available action" value={lane.available_action} />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Lane item refs: none"
+              refs={lane.item_refs}
+            />
+          </article>
+        ))}
+      </div>
+      <RefListWithFallback
+        emptyLabel="Blocked authority refs: none"
+        refs={readModel.blocked_authority_refs}
+      />
+    </article>
   );
 }
 
@@ -4607,6 +4726,9 @@ export function ActionInboxSurfacePanel({
       <ActionInboxOperatorOverview
         actionGroups={actionGroups}
         inbox={displayedInbox}
+      />
+      <ActionInboxWorkQueuePanel
+        readModel={displayedInbox.action_inbox_work_queue_read_model}
       />
       <FounderLoopRunsIntegrationPanel
         compact
@@ -8584,13 +8706,13 @@ function ActionItemCard({
         <DetailTerm
           label="Local task contract"
           value={
-            displayedItem.local_task_commit_contract_ref ?? "not a local task lane"
+            displayedItem.local_task_commit_contract_ref ?? "not a local-task create lane"
           }
         />
         <DetailTerm
           label="Local task route"
           value={
-            displayedItem.local_task_commit_route_ref ?? "not a local task lane"
+            displayedItem.local_task_commit_route_ref ?? "not a local-task create lane"
           }
         />
         <DetailTerm
@@ -8670,7 +8792,7 @@ function ActionItemCard({
         refs={displayedItem.action_blocked_state_refs ?? []}
       />
       <RefListWithFallback
-        emptyLabel="Local task commit blockers: not a local task lane"
+        emptyLabel="Local task commit blockers: not a local-task create lane"
         refs={displayedItem.local_task_commit_blocked_reasons ?? []}
       />
       <RefListWithFallback
@@ -9583,7 +9705,7 @@ function LocalTaskCommitControls({
             title={!costGate.approved ? costGate.summary : undefined}
             type="button"
           >
-            {pending ? "Recording commit receipt" : "Record local-task commit receipt"}
+            {pending ? "Creating local task record" : "Create local task record"}
           </button>
         </div>
       ) : null}
@@ -9591,8 +9713,10 @@ function LocalTaskCommitControls({
         <p className="muted">Commit blocked by cost posture: {costGate.summary}</p>
       ) : null}
       <p className="muted">
-        Local-only task commit. Connector writes, shell, model authority,
-        memory writes, context injection, and production authority remain blocked.
+        Creates local task state only. No connector writes, shell/subprocess
+        execution, browser execution, provider/model calls, memory writes,
+        context injection, external side effects, rollback execution, or
+        production authority.
       </p>
       {state.message ? <p className="muted">{state.message}</p> : null}
       {state.refreshMessage ? (

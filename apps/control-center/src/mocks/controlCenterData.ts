@@ -10152,11 +10152,11 @@ export const mockControlCenterData: ControlCenterData = {
       },
       {
         group_id: "approved_local_task_lane",
-        label: "Approved local task lane",
+        label: "Approved local-task create lane",
         safe_summary:
           "Exact-approved local_task_create items that can be committed only through the typed local task route.",
         available_action:
-          "Inspect approval posture or commit the local task lane.",
+          "Inspect approval posture or commit the local-task create lane.",
         count: 1,
       },
       {
@@ -10194,6 +10194,180 @@ export const mockControlCenterData: ControlCenterData = {
         count: 2,
       },
     ],
+    action_inbox_work_queue_contract_ref:
+      "contract-ref:usable-authority-action-inbox-work-queue:v1",
+    action_inbox_work_queue_read_model: {
+      schema_version: "action-inbox-work-queue.v1",
+      contract_ref: "contract-ref:usable-authority-action-inbox-work-queue:v1",
+      source: "mock_fallback_non_authoritative",
+      status: "mock_fallback_work_queue_summary",
+      backend_owned: false,
+      local_read_model_only: true,
+      safe_refs_only: true,
+      raw_content_included: false,
+      queue_ref: "action-work-queue:mock-fallback:current",
+      route_ref: "GET /control-center/actions/inbox",
+      cli_ref: "python scripts/dev/uaa_founder_loop.py inspect-action-work-queue",
+      proof_route_ref: "GET /control-center/proof/{proof_ref}",
+      item_count: 5,
+      operator_actionable_count: 0,
+      ready_for_decision_count: 1,
+      approved_local_task_count: 1,
+      proposal_only_count: 2,
+      blocked_count: 1,
+      receipt_recorded_count: 0,
+      lane_count: 6,
+      lanes: [
+        {
+          lane_id: "ready_for_decision",
+          lane_ref: "action-work-queue-lane:ready-for-decision",
+          label: "Ready for decision",
+          status: "mock_fallback",
+          safe_summary:
+            "Mock-only lane shape. Reconnect the backend before recording decisions.",
+          available_action: "Inspect fallback refs only.",
+          count: 1,
+          item_refs: ["founder-action:mock-local-task-review"],
+          tier: "tier_1_local_read_preview",
+          blocked_authority_refs: [
+            "blocked-state:action-inbox-work-queue:no-broad-action-execution",
+          ],
+        },
+        {
+          lane_id: "approved_local_task_lane",
+          lane_ref: "action-work-queue-lane:approved-local-task-lane",
+          label: "Approved local-task create lane",
+          status: "mock_fallback",
+          safe_summary:
+            "Mock-only local-task create lane shape; backend approval is unavailable.",
+          available_action: "Reconnect the local backend before committing.",
+          count: 1,
+          item_refs: ["founder-action:mock-approved-local-task"],
+          tier: "tier_1_local_read_preview",
+          blocked_authority_refs: [
+            "blocked-state:action-inbox-work-queue:no-broad-action-execution",
+          ],
+        },
+        {
+          lane_id: "blocked_by_authority",
+          lane_ref: "action-work-queue-lane:blocked-by-authority",
+          label: "Blocked by authority",
+          status: "mock_fallback",
+          safe_summary:
+            "Mock-only blockers explain unavailable authority without granting it.",
+          available_action: "Inspect blockers.",
+          count: 1,
+          item_refs: ["founder-action:mock-setup-hardening"],
+          tier: "tier_1_local_read_preview",
+          blocked_authority_refs: [
+            "blocked-state:action-inbox-work-queue:no-provider-model-call",
+          ],
+        },
+        {
+          lane_id: "expired_stale",
+          lane_ref: "action-work-queue-lane:expired-stale",
+          label: "Expired/stale",
+          status: "empty",
+          safe_summary: "No mock stale items are present.",
+          available_action: "Recheck source refs before future review.",
+          count: 0,
+          item_refs: [],
+          tier: "tier_1_local_read_preview",
+          blocked_authority_refs: [],
+        },
+        {
+          lane_id: "receipt_recorded",
+          lane_ref: "action-work-queue-lane:receipt-recorded",
+          label: "Receipt recorded",
+          status: "empty",
+          safe_summary: "No mock receipt-confirmed items are present.",
+          available_action: "Inspect receipt refs when backend data exists.",
+          count: 0,
+          item_refs: [],
+          tier: "tier_1_local_read_preview",
+          blocked_authority_refs: [],
+        },
+        {
+          lane_id: "proposal_only_no_execution_path",
+          lane_ref: "action-work-queue-lane:proposal-only-no-execution-path",
+          label: "Proposal-only / no execution path",
+          status: "mock_fallback",
+          safe_summary:
+            "Mock-only proposals expose no send, apply, run, or execute control.",
+          available_action: "Review proposal refs only.",
+          count: 2,
+          item_refs: [
+            "founder-action:mock-memory-proposal",
+            "founder-action:mock-source-proposal",
+          ],
+          tier: "tier_1_local_read_preview",
+          blocked_authority_refs: [
+            "blocked-state:action-inbox-work-queue:no-connector-write-or-send",
+          ],
+        },
+      ],
+      next_item: {
+        item_ref: "founder-action:mock-local-task-review",
+        title: "Review local task creation lane",
+        lane_id: "ready_for_decision",
+        lane_label: "Ready for decision",
+        status: "review_ready",
+        priority: "high",
+        risk_class: "medium",
+        action_kind: "local_task_create",
+        available_action: "Inspect fallback refs only.",
+        next_safe_action:
+          "Reconnect the local backend before recording a decision.",
+        approval_required: true,
+        approval_envelope_ref:
+          "approval-envelope:founder-loop:mock-local-task-review",
+        expected_receipt_refs: [
+          "receipt-plan:founder-loop:mock-local-task-review",
+        ],
+        receipt_refs: [],
+        evidence_refs: ["evidence-ref:founder-loop:action-inbox"],
+        proof_ref: "proof-ref:action-decision:founder-action-mock-local-task-review",
+        local_task_commit_eligible: false,
+        local_task_commit_route_ref:
+          "POST /control-center/actions/{action_id}/local-task/commit",
+        rollback_ref: "rollback-plan:founder-loop:mock-local-task-review",
+        safe_disable_ref: "safe-disable:founder-loop:mock-local-task-review",
+        blocked_authority_refs: [
+          "blocked-state:action-inbox-work-queue:no-broad-action-execution",
+          "blocked-state:action-inbox-work-queue:no-connector-write-or-send",
+        ],
+      },
+      next_item_ref: "founder-action:mock-local-task-review",
+      next_safe_action:
+        "Reconnect the local backend before treating Action Inbox queue posture as authoritative.",
+      operator_summary:
+        "Mock fallback queue shape is visible for layout only; Python Core must provide real queue truth.",
+      tier_posture: "tier_1_read_preview_with_tier_3_exact_local_task_commit_lane",
+      mutating_controls_posture:
+        "decision_receipts_and_exact_local_task_commit_only",
+      tier_3_exact_local_task_commit_available: false,
+      blocked_authority_refs: [
+        "blocked-state:action-inbox-work-queue:no-broad-action-execution",
+        "blocked-state:action-inbox-work-queue:no-connector-write-or-send",
+        "blocked-state:action-inbox-work-queue:no-provider-model-call",
+        "blocked-state:action-inbox-work-queue:no-shell-subprocess-execution",
+        "blocked-state:action-inbox-work-queue:no-browser-execution",
+        "blocked-state:action-inbox-work-queue:no-memory-write",
+        "blocked-state:action-inbox-work-queue:no-context-injection",
+        "blocked-state:action-inbox-work-queue:no-background-autonomy",
+        "blocked-state:action-inbox-work-queue:no-production-authority",
+      ],
+      action_execution_enabled: false,
+      connector_write_enabled: false,
+      connector_send_enabled: false,
+      provider_model_call_enabled: false,
+      shell_subprocess_execution_enabled: false,
+      browser_execution_enabled: false,
+      memory_write_enabled: false,
+      context_injection_authorized: false,
+      background_autonomy_enabled: false,
+      production_authority_enabled: false,
+    },
     chat_to_loop_handoff_contract_ref: chatToLoopHandoffContractRef,
     chat_to_loop_handoff_read_model: chatToLoopHandoffReadModel,
     items: [
@@ -10297,7 +10471,7 @@ export const mockControlCenterData: ControlCenterData = {
         status: "mock_only_backend_read_model_unavailable",
         side_effect_class: "local_dev_workspace_only",
         authority_boundary:
-          "Mock-only local task lane shape; backend approval is unavailable, and connector, shell, model, memory, context, and production authority remain blocked.",
+          "Mock-only local-task create lane shape; backend approval is unavailable, and connector, shell, model, memory, context, and production authority remain blocked.",
         approval_required: true,
         approval_envelope_ref:
           "approval-envelope:founder-loop:mock-local-task-create",
@@ -10370,7 +10544,7 @@ export const mockControlCenterData: ControlCenterData = {
         action_group_available_action:
           "Inspect blockers; no commit control is exposed from mock data.",
         next_safe_action:
-          "Reconnect the local backend before evaluating the exact local task lane.",
+          "Reconnect the local backend before evaluating the exact local-task create lane.",
       },
       {
         item_ref: "founder-action:mock-setup-hardening",

@@ -2011,7 +2011,7 @@ describe("Web Control Center shell", () => {
         /Record edit receipt/i,
         /Record rejection receipt/i,
         /Record defer receipt/i,
-        /Record local-task commit receipt/i,
+        /Create local task record/i,
       ]) {
         expect(
           screen.queryByRole("button", { name: blockedControl }),
@@ -4263,7 +4263,7 @@ describe("Web Control Center shell", () => {
       screen.getByRole("heading", { name: /^Ready for decision$/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /^Approved local task lane$/i }),
+      screen.getByRole("heading", { name: /^Approved local-task create lane$/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /^Blocked by authority$/i }),
@@ -4404,7 +4404,7 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", {
-        name: /Record local-task commit receipt/i,
+        name: /Create local task record/i,
       }),
     ).not.toBeInTheDocument();
     expect(
@@ -4418,7 +4418,7 @@ describe("Web Control Center shell", () => {
     expect(blockedLane).not.toBeNull();
     expect(
       within(blockedLane as HTMLElement).queryByRole("button", {
-        name: /Record approval|Record local-task commit receipt/i,
+        name: /Record approval|Create local task record/i,
       }),
     ).not.toBeInTheDocument();
     const proposalLane = screen
@@ -4427,7 +4427,7 @@ describe("Web Control Center shell", () => {
     expect(proposalLane).not.toBeNull();
     expect(
       within(proposalLane as HTMLElement).queryByRole("button", {
-        name: /Record approval|Record local-task commit receipt/i,
+        name: /Record approval|Create local task record/i,
       }),
     ).not.toBeInTheDocument();
     expect(
@@ -4532,7 +4532,7 @@ describe("Web Control Center shell", () => {
       const laneStack = screen.getByLabelText("Action Inbox queue lanes");
       expect(
         within(laneStack).getByRole("heading", {
-          name: /^Approved local task lane$/i,
+          name: /^Approved local-task create lane$/i,
         }),
       ).toBeInTheDocument();
       expect(
@@ -4543,7 +4543,7 @@ describe("Web Control Center shell", () => {
 
       fireEvent.click(
         within(filterRegion).getByRole("button", {
-          name: /Filter lane: Approved local task lane/i,
+          name: /Filter lane: Approved local-task create lane/i,
         }),
       );
 
@@ -4552,11 +4552,11 @@ describe("Web Control Center shell", () => {
       );
       expect(drilldown).toHaveTextContent("approved_local_task_lane");
       expect(drilldown).toHaveTextContent(
-        "Inspect approval posture or commit the local task lane.",
+        "Inspect approval posture or commit the local-task create lane.",
       );
       expect(
         within(laneStack).getByRole("heading", {
-          name: /^Approved local task lane$/i,
+          name: /^Approved local-task create lane$/i,
         }),
       ).toBeInTheDocument();
       expect(
@@ -4610,7 +4610,7 @@ describe("Web Control Center shell", () => {
       action_group_id: "blocked_by_authority",
       action_group_label: "Blocked by authority",
       action_group_reason:
-        "Backend safe-disable posture blocks the exact local task lane.",
+        "Backend safe-disable posture blocks the exact local-task create lane.",
       action_group_available_action:
         "Inspect safe-disable and rollback refs; no commit control is exposed.",
       local_task_commit_approval_status: "backend_owned_safe_disable_active",
@@ -4721,7 +4721,7 @@ describe("Web Control Center shell", () => {
       );
       expect(
         screen.queryByRole("button", {
-          name: /Record local-task commit receipt/i,
+          name: /Create local task record/i,
         }),
       ).not.toBeInTheDocument();
       expect(
@@ -4807,7 +4807,7 @@ describe("Web Control Center shell", () => {
       ).toBeGreaterThan(0);
       expect(
         screen.queryByRole("button", {
-          name: /Record local-task commit receipt/i,
+          name: /Create local task record/i,
         }),
       ).not.toBeInTheDocument();
       expect(
@@ -5166,7 +5166,7 @@ describe("Web Control Center shell", () => {
     ).toBe(false);
   });
 
-  it("records approval through backend refresh before committing the local task lane", async () => {
+  it("records approval through backend refresh before committing the local-task create lane", async () => {
     const approvedInbox = JSON.parse(
       JSON.stringify({
         ...mockControlCenterData.founderActionsInbox,
@@ -5243,11 +5243,11 @@ describe("Web Control Center shell", () => {
     Object.assign(approvedItem, {
       status: "approved",
       action_group_id: "approved_local_task_lane",
-      action_group_label: "Approved local task lane",
+      action_group_label: "Approved local-task create lane",
       action_group_reason:
-        "Backend approval receipt made the exact local task lane eligible.",
+        "Backend approval receipt made the exact local-task create lane eligible.",
       action_group_available_action:
-        "Record local-task commit receipt through the backend exact route.",
+        "Create local task record through the backend exact route.",
       approval_envelope_status: "approved",
       local_task_commit_approval_ref: approvalReceipt.approval_ref,
       local_task_commit_approval_status: "backend_owned_approval_ready",
@@ -5402,7 +5402,7 @@ describe("Web Control Center shell", () => {
     ).toBeGreaterThan(0);
     expect(
       screen.queryByRole("button", {
-        name: /Record local-task commit receipt/i,
+        name: /Create local task record/i,
       }),
     ).not.toBeInTheDocument();
 
@@ -5411,7 +5411,7 @@ describe("Web Control Center shell", () => {
       (await screen.findAllByText(approvalReceipt.receipt_ref)).length,
     ).toBeGreaterThan(0);
     const commitButton = await screen.findByRole("button", {
-      name: /Record local-task commit receipt/i,
+      name: /Create local task record/i,
     });
     expect(commitButton).toBeInTheDocument();
     expect(commitButton).not.toBeDisabled();
@@ -5422,7 +5422,7 @@ describe("Web Control Center shell", () => {
     ).toBeGreaterThan(0);
     expect(
       screen.queryByRole("button", {
-        name: /Record local-task commit receipt/i,
+        name: /Create local task record/i,
       }),
     ).not.toBeInTheDocument();
 
@@ -5451,7 +5451,7 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("commits only the eligible Action Inbox local task lane through the typed route", async () => {
+  it("commits only the eligible Action Inbox local-task create lane through the typed route", async () => {
     const receipt = {
       contract_ref: "contract-ref:founder-loop-local-task-commit:v1",
       action_id: "mock-local-task-create",
@@ -5597,7 +5597,7 @@ describe("Web Control Center shell", () => {
     );
     expect(screen.getAllByText("pending").length).toBeGreaterThan(0);
     fireEvent.click(
-      screen.getByRole("button", { name: /Record local-task commit receipt/i }),
+      screen.getByRole("button", { name: /Create local task record/i }),
     );
 
     expect(
@@ -5618,7 +5618,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", {
-        name: /Record local-task commit receipt/i,
+        name: /Create local task record/i,
       }),
     ).not.toBeInTheDocument();
     expect(actionInboxReadUrls.length).toBeGreaterThanOrEqual(2);
@@ -5758,7 +5758,7 @@ describe("Web Control Center shell", () => {
 
     await screen.findByRole("heading", { name: /^Action Inbox$/i });
     fireEvent.click(
-      screen.getByRole("button", { name: /Record local-task commit receipt/i }),
+      screen.getByRole("button", { name: /Create local task record/i }),
     );
 
     await screen.findByText(receipt.receipt_ref);
@@ -5773,7 +5773,7 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", {
-        name: /Record local-task commit receipt/i,
+        name: /Create local task record/i,
       }),
     ).not.toBeInTheDocument();
     expect(screen.getAllByText("Local task target ref").length).toBeGreaterThan(
@@ -5902,7 +5902,7 @@ describe("Web Control Center shell", () => {
 
     await screen.findByRole("heading", { name: /^Action Inbox$/i });
     fireEvent.click(
-      screen.getByRole("button", { name: /Record local-task commit receipt/i }),
+      screen.getByRole("button", { name: /Create local task record/i }),
     );
 
     expect(
@@ -5922,7 +5922,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", {
-        name: /Record local-task commit receipt/i,
+        name: /Create local task record/i,
       }),
     ).not.toBeInTheDocument();
     expect(
@@ -5981,7 +5981,7 @@ describe("Web Control Center shell", () => {
 
     await screen.findByRole("heading", { name: /^Action Inbox$/i });
     fireEvent.click(
-      screen.getByRole("button", { name: /Record local-task commit receipt/i }),
+      screen.getByRole("button", { name: /Create local task record/i }),
     );
 
     expect(
@@ -6001,7 +6001,7 @@ describe("Web Control Center shell", () => {
       ),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Record local-task commit receipt/i }),
+      screen.getByRole("button", { name: /Create local task record/i }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /^execute$/i }),
@@ -11944,7 +11944,7 @@ const mockApiData = {
         status: "approved",
         side_effect_class: "local_dev_workspace_only",
         authority_boundary:
-          "Exact local task lane only; external authority remains blocked.",
+          "Exact local-task create lane only; external authority remains blocked.",
         approval_required: true,
         approval_envelope_ref:
           "approval-envelope:founder-loop:mock-local-task-create",
@@ -12106,11 +12106,11 @@ const mockApiData = {
           ],
         },
         action_group_id: "approved_local_task_lane",
-        action_group_label: "Approved local task lane",
+        action_group_label: "Approved local-task create lane",
         action_group_reason:
           "Exact backend approval is recorded and the typed local-task commit lane is eligible.",
         action_group_available_action:
-          "Inspect approval posture or commit the local task lane.",
+          "Inspect approval posture or commit the local-task create lane.",
         next_safe_action:
           "Commit this approved local task or inspect its blocked external authority refs.",
       },

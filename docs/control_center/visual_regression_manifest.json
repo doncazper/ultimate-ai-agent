@@ -42,7 +42,7 @@
       },
       "baseline_hashes": {
         "desktop": "sha256:8cb460501b4ad3d3bb979c3c25c362213f8d3ebc94f6d123b5c49f7d275beb9f",
-        "mobile": "sha256:5c8f78896addbf464337319cf72801662acc48cedadcf6018569ad4812cad79d"
+        "mobile": "sha256:1840e805a80f716b196420f8710eda3f89fd00797e2415ce64469fa8bd14f247"
       },
       "raw_private_screenshot_included": false
     },
@@ -56,8 +56,8 @@
         "mobile": "visual-baseline-file:mobile:actions"
       },
       "baseline_hashes": {
-        "desktop": "sha256:1e61bfb621f528da860c5c598ad87cc8851bad4e6167a91b7e970e6ac148e8e0",
-        "mobile": "sha256:d03af558c2e0393b43639a028161c77076ca4131fdf1408ce5475111b746e3ae"
+        "desktop": "sha256:8c66376bb105cd53f9e1c60868bff6a3f7009674fa714b0db713bb4e1a3ca714",
+        "mobile": "sha256:88466a9035c0ad3e9baffbeb7b008ee72d2190dd16c67a59c939eee041cc1de1"
       },
       "raw_private_screenshot_included": false
     },
