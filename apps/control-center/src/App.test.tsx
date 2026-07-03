@@ -1982,14 +1982,14 @@ describe("Web Control Center shell", () => {
     const view = render(<App />);
 
     try {
-      expect(screen.getByText("Loading local Control Center")).toBeInTheDocument();
+      expect(screen.getByText("Loading local Action Inbox")).toBeInTheDocument();
       await advanceControlCenterReadTimeout();
       vi.useRealTimers();
 
       expect(
         await screen.findByRole("heading", { name: /^Action Inbox$/i }),
       ).toBeInTheDocument();
-      expect(screen.queryByText("Loading local Control Center")).not.toBeInTheDocument();
+      expect(screen.queryByText("Loading local Action Inbox")).not.toBeInTheDocument();
       expect(screen.getByText("Backend degraded")).toBeInTheDocument();
       expect(
         fetchMock.mock.calls.some(([url]) =>
@@ -2036,14 +2036,14 @@ describe("Web Control Center shell", () => {
     const view = render(<App />);
 
     try {
-      expect(screen.getByText("Loading local Control Center")).toBeInTheDocument();
+      expect(screen.getByText("Loading local Plans")).toBeInTheDocument();
       await advanceControlCenterReadTimeout();
       vi.useRealTimers();
 
       expect(
         await screen.findByRole("heading", { name: /^Plans$/i }),
       ).toBeInTheDocument();
-      expect(screen.queryByText("Loading local Control Center")).not.toBeInTheDocument();
+      expect(screen.queryByText("Loading local Plans")).not.toBeInTheDocument();
       expect(screen.getByText("Backend degraded")).toBeInTheDocument();
       expect(
         screen.getByRole("heading", { name: /Task decomposition route posture/i }),
@@ -2099,7 +2099,7 @@ describe("Web Control Center shell", () => {
       expect(
         await screen.findByRole("heading", { name: /^Action Inbox$/i }),
       ).toBeInTheDocument();
-      expect(screen.queryByText("Loading local Control Center")).not.toBeInTheDocument();
+      expect(screen.queryByText("Loading local Action Inbox")).not.toBeInTheDocument();
       expect(
         screen.getByText("backend decision lanes missing"),
       ).toBeInTheDocument();
@@ -2140,7 +2140,7 @@ describe("Web Control Center shell", () => {
       expect(
         await screen.findByRole("heading", { name: /^Plans$/i }),
       ).toBeInTheDocument();
-      expect(screen.queryByText("Loading local Control Center")).not.toBeInTheDocument();
+      expect(screen.queryByText("Loading local Plans")).not.toBeInTheDocument();
       expect(screen.getByText("Backend degraded")).toBeInTheDocument();
       expect(
         screen.getByRole("heading", { name: /Founder daily loop/i }),
