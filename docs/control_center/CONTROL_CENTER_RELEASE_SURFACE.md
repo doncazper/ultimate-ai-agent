@@ -162,3 +162,13 @@ Chat, Models, Settings, and Setup surfaces. This is evidence hardening only; it
 does not grant public distribution, production authority, broader model
 runtime authority, browser execution, connector writes, or background
 autonomy.
+
+Dogfood Live Loop Acceptance adds a deterministic repo-local fixture, CLI
+inspection command, verifier, and frontend coherence test proving one local
+daily loop across `/start`, `/today`, `/actions`, `/proof`, `/memory`,
+`/evidence`, and `/trust`. Start, Today, Actions, Proof, and the combined
+Evidence/Memory binding share deterministic backend-owned run, action, receipt,
+proof, evidence, and memory refs; Trust contributes the matching approval and
+blocked-authority posture. It reuses the exact `local_task_create` local task
+commit lane and adds no broader execution, external mutation, hidden context
+injection, public distribution, or production authority.

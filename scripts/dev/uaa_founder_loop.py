@@ -30,6 +30,9 @@ from ultimate_ai_agent.core.control_center import (  # noqa: E402
 from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
     FounderLoopLocalTaskCommitRequest,
 )
+from ultimate_ai_agent.core.control_center.dogfood_live_loop import (  # noqa: E402
+    build_dogfood_live_loop_acceptance_read_model,
+)
 from ultimate_ai_agent.core.control_center.proof import (  # noqa: E402
     build_control_center_proof_detail,
     build_control_center_proof_index,
@@ -792,6 +795,35 @@ def _inspect_work_thread(args: argparse.Namespace) -> int:
         "public_beta_claim_enabled": False,
         "public_release_claim_enabled": False,
         "production_authority_enabled": False,
+    }
+    _print_json(output)
+    return 0
+
+
+def _inspect_dogfood_live_loop(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        acceptance = build_dogfood_live_loop_acceptance_read_model(
+            repo=repo,
+            seed_fixture=bool(args.seed_fixture),
+            limit=args.limit,
+        )
+    except (FounderLoopStorageDuplicateError, FounderLoopStorageError) as exc:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-inspect-dogfood-live-loop",
+                error_ref=str(exc) or "FOUNDER_LOOP_DOGFOOD_LIVE_LOOP_BLOCKED",
+            )
+        )
+        return 1
+
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-inspect-dogfood-live-loop",
+        "dogfood_live_loop_acceptance": acceptance,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
     }
     _print_json(output)
     return 0
@@ -1606,6 +1638,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
     work_thread_parser.add_argument("--limit", type=int, default=7)
     work_thread_parser.set_defaults(func=_inspect_work_thread)
+
+    dogfood_live_loop_parser = subparsers.add_parser(
+        "inspect-dogfood-live-loop",
+        help=(
+            "Print one backend-owned dogfood loop acceptance summary; optionally "
+            "seed the deterministic local fixture first."
+        ),
+    )
+    dogfood_live_loop_parser.add_argument("--limit", type=int, default=50)
+    dogfood_live_loop_parser.add_argument(
+        "--seed-fixture",
+        action="store_true",
+        help=(
+            "Seed exact local approval and local-task commit receipt refs before "
+            "inspection. This uses existing local-only backend lanes."
+        ),
+    )
+    dogfood_live_loop_parser.set_defaults(func=_inspect_dogfood_live_loop)
 
     promote_parser = subparsers.add_parser(
         "promote-action-envelope",

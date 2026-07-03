@@ -99,6 +99,17 @@ action execution, connector write/send, provider/model call, shell/browser
 runtime, background autonomy, public beta, public release, production
 readiness, or production authority.
 
+Dogfood Live Loop Acceptance current truth: `docs/control_center/DOGFOOD_LIVE_LOOP_ACCEPTANCE.md`,
+`src/ultimate_ai_agent/core/control_center/dogfood_live_loop.py`,
+`scripts/dev/uaa_founder_loop.py inspect-dogfood-live-loop --seed-fixture`,
+and `scripts/verify_dogfood_live_loop_acceptance.py` prove one deterministic
+local daily loop across Start Here, Today, Action Inbox, exact local task
+commit, receipt, Evidence, Proof Detail, Memory binding, and Trust posture.
+The fixture uses the existing exact `local_task_create` lane and safe refs
+only; it adds no provider/model call, connector write/send, browser/web
+runtime, shell/subprocess execution, background autonomy, hidden context
+injection, public distribution, or production authority.
+
 FCC-BRIEFING-001 current truth: Morning Briefing is implemented as a read-only
 daily-loop surface over `/briefing`, `/today`, and
 `GET /control-center/morning-briefing/summary`, recorded in
