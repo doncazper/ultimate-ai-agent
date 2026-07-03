@@ -658,7 +658,8 @@
         "tests/test_governed_memory_l2_factual_graph_temporal_index.py",
         "tests/test_governed_memory_l3_identity_session_preference_commitment.py",
         "tests/test_governed_memory_context_pack_proposals.py",
-        "tests/test_governed_memory_phase6_execution_hooks.py"
+        "tests/test_governed_memory_phase6_execution_hooks.py",
+        "tests/test_evidence_memory_loop_binding.py"
       ],
       "blocked_capabilities": [],
       "evidence_refs": [
@@ -680,7 +681,10 @@
         "src/ultimate_ai_agent/core/memory/l3_index.py",
         "src/ultimate_ai_agent/core/memory/context_packs.py",
         "src/ultimate_ai_agent/core/memory/execution_hooks.py",
-        "tests/test_governed_memory_phase6_execution_hooks.py"
+        "tests/test_governed_memory_phase6_execution_hooks.py",
+        "src/ultimate_ai_agent/core/control_center/evidence_memory_loop_binding.py",
+        "scripts/dev/uaa_founder_loop.py",
+        "tests/test_evidence_memory_loop_binding.py"
       ],
       "owner": "founder-loop",
       "backend_contract_rationale": "backend-route-refs-present",
@@ -755,7 +759,8 @@
         "scripts/verify_founder_loop_v1.py",
         "tests/test_founder_loop_v1_proof_lane.py",
         "docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md",
-        "tests/test_run_observability_surface.py"
+        "tests/test_run_observability_surface.py",
+        "tests/test_evidence_memory_loop_binding.py"
       ],
       "blocked_capabilities": [],
       "evidence_refs": [
@@ -767,7 +772,10 @@
         "tests/test_fcc_v1_006_evidence_timeline_productization.py",
         "docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md",
         "scripts/verify_founder_loop_v1.py",
-        "tests/test_run_observability_surface.py"
+        "tests/test_run_observability_surface.py",
+        "src/ultimate_ai_agent/core/control_center/evidence_memory_loop_binding.py",
+        "scripts/dev/uaa_founder_loop.py",
+        "tests/test_evidence_memory_loop_binding.py"
       ],
       "owner": "evidence-and-audit",
       "backend_contract_rationale": "backend-route-refs-present",

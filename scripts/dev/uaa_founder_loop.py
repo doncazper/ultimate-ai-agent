@@ -300,6 +300,23 @@ def _inspect_action_work_queue(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_evidence_memory_binding(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    today = repo.today_summary(limit=args.limit)
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-evidence-memory-binding",
+        "evidence_memory_loop_binding_read_model": today.get(
+            "evidence_memory_loop_binding_read_model"
+        ),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
 def _inspect_proof(args: argparse.Namespace) -> int:
     repo = _repository(args)
     today_summary = repo.today_summary(limit=args.limit)
@@ -1418,6 +1435,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     action_work_queue_parser.add_argument("--limit", type=int, default=50)
     action_work_queue_parser.set_defaults(func=_inspect_action_work_queue)
+
+    evidence_memory_binding_parser = subparsers.add_parser(
+        "inspect-evidence-memory-binding",
+        help="Print the backend-owned Evidence/Memory loop binding summary.",
+    )
+    evidence_memory_binding_parser.add_argument("--limit", type=int, default=50)
+    evidence_memory_binding_parser.set_defaults(
+        func=_inspect_evidence_memory_binding
+    )
 
     proof_parser = subparsers.add_parser(
         "inspect-proof",

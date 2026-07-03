@@ -119,6 +119,10 @@ from ultimate_ai_agent.core.control_center.action_inbox_work_queue import (
     ACTION_INBOX_WORK_QUEUE_CONTRACT_REF,
     build_action_inbox_work_queue_read_model,
 )
+from ultimate_ai_agent.core.control_center.evidence_memory_loop_binding import (
+    EVIDENCE_MEMORY_LOOP_BINDING_CONTRACT_REF,
+    build_evidence_memory_loop_binding_read_model,
+)
 from ultimate_ai_agent.core.control_center.fusion_routing import (
     FCC_FUSION_ROUTING_DELEGATION_CONTRACT_REF,
     FCC_FUSION_ROUTING_REQUIRED_BLOCKED_REFS,
@@ -5648,6 +5652,22 @@ class FounderLoopRepository:
             ),
             evidence_event_refs=evidence_event_refs,
         )
+        evidence_memory_loop_binding_read_model = (
+            build_evidence_memory_loop_binding_read_model(
+                memory_items=memory_items,
+                memory_why_shown_items=memory_why_shown_items,
+                memory_to_loop_items=memory_to_loop_binding_contract[
+                    "memory_to_loop_items"
+                ],
+                memory_review_decisions=memory_review_decisions,
+                evidence_timeline=evidence_timeline,
+                evidence_events=self._productized_evidence_events(evidence_timeline),
+                founder_loop_product_proof_read_model=(
+                    founder_loop_v1_product_proof_read_model
+                ),
+                unified_work_thread_read_model=unified_work_thread_read_model,
+            )
+        )
         return {
             "schema_version": FOUNDER_LOOP_SCHEMA_VERSION,
             "status": "storage_backed_partial_loop",
@@ -5785,6 +5805,12 @@ class FounderLoopRepository:
             "plans_to_actions_bridge_read_model": (plans_to_actions_bridge_read_model),
             "unified_work_thread_contract_ref": UNIFIED_WORK_THREAD_CONTRACT_REF,
             "unified_work_thread_read_model": unified_work_thread_read_model,
+            "evidence_memory_loop_binding_contract_ref": (
+                EVIDENCE_MEMORY_LOOP_BINDING_CONTRACT_REF
+            ),
+            "evidence_memory_loop_binding_read_model": (
+                evidence_memory_loop_binding_read_model
+            ),
             "daily_loop_summary": daily_loop_summary,
             "source_readiness_route_ref": source_readiness["route_ref"],
             "source_readiness_items": source_readiness_items,
@@ -6045,6 +6071,12 @@ class FounderLoopRepository:
                 today.get("founder_loop_runs_integration_read_model")
             ),
             "loop_trace_refs": today.get("loop_trace_refs"),
+            "evidence_memory_loop_binding_contract_ref": today.get(
+                "evidence_memory_loop_binding_contract_ref"
+            ),
+            "evidence_memory_loop_binding_read_model": today.get(
+                "evidence_memory_loop_binding_read_model"
+            ),
             "narrative_items": timeline,
             "review_answer_refs": {
                 "proposed": _unique_sorted_refs(
@@ -12053,6 +12085,7 @@ class FounderLoopRepository:
         decisions = self.list_memory_review_decisions(limit=limit)
         workbench = self.memory_workbench(limit=limit)
         write_posture = self.memory_review_write_safe_disable_posture()
+        today = self.today_summary(limit=min(max(int(limit), 6), 50))
         return {
             "route_ref": "/control-center/memory/review",
             "surface_ref": "/memory",
@@ -12069,6 +12102,12 @@ class FounderLoopRepository:
             "write_safe_disable_ref": write_posture["safe_disable_ref"],
             "write_rollback_ref": write_posture["rollback_ref"],
             "write_rollback_execution_enabled": False,
+            "evidence_memory_loop_binding_contract_ref": today.get(
+                "evidence_memory_loop_binding_contract_ref"
+            ),
+            "evidence_memory_loop_binding_read_model": today.get(
+                "evidence_memory_loop_binding_read_model"
+            ),
             "reviewed_recall_write_authorized_decisions": ["accept", "correct"],
             "items": items,
             "decision_receipts": decisions,
