@@ -1555,6 +1555,74 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders one coherent backend-owned dogfood loop across shared surfaces", async () => {
+    const dogfoodData = dogfoodLiveLoopEndpointData();
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      if (options?.method === "POST") {
+        throw new Error("unexpected mutation request");
+      }
+      const urlText = String(url);
+      const matched = Object.entries(dogfoodData).find(([endpoint]) =>
+        urlText.endsWith(endpoint),
+      );
+      if (matched) {
+        return new Response(
+          JSON.stringify({ ok: true, result: matched[1] }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))
+      ) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const routes = [
+      ["/start", /^Start Here$/i, dogfoodRefs.actionEnvelopeRef],
+      ["/today", /Founder daily loop/i, dogfoodRefs.receiptRef],
+      ["/actions", /^Action Inbox$/i, dogfoodRefs.receiptRef],
+      ["/proof", /^Proof Detail$/i, dogfoodRefs.localTaskProofRef],
+      ["/memory", /^Memory Review$/i, dogfoodRefs.memoryCandidateRef],
+      ["/evidence", /Evidence Timeline/i, dogfoodRefs.timelineEventRef],
+      ["/trust", /^Trust$/i, dogfoodRefs.localTaskProofRef],
+    ] as const;
+
+    for (const [path, heading, expectedRef] of routes) {
+      window.history.pushState({}, "", path);
+      const view = render(<App />);
+      try {
+        expect(await screen.findByText("Backend online")).toBeInTheDocument();
+        expect(
+          screen.getAllByRole("heading", { name: heading }).length,
+        ).toBeGreaterThan(0);
+        expect(screen.getAllByText(expectedRef).length).toBeGreaterThan(0);
+        expect(
+          screen.queryByText(/Backend unavailable; showing non-authoritative/i),
+        ).not.toBeInTheDocument();
+      } finally {
+        view.unmount();
+        cleanup();
+      }
+    }
+
+    window.history.pushState({}, "", "/");
+    expect(
+      fetchMock.mock.calls.some(
+        ([, options]) => (options as RequestInit | undefined)?.method === "POST",
+      ),
+    ).toBe(false);
+  });
+
   it("renders the daily loop spine across primary Founder Loop surfaces", async () => {
     const primarySurfaces = [
       ["/today", "Today"],
@@ -10272,6 +10340,482 @@ function backendOwnedTrustAuthorityMatrix() {
         operator_summary: "Backend-owned Trust tier summary fixture.",
       }),
     ),
+  };
+}
+
+const dogfoodRefs = {
+  actionRef: "founder-action:local-task-create-scorecard",
+  actionEnvelopeRef: "action-envelope:plans:founder-action-local-task-create-scorecard",
+  approvalRef:
+    "approval-ref:founder-loop-action:founder-action-local-task-create-scorecard:idempotency-ref-dogfood-live-loop-local-task-approval",
+  decisionReceiptRef:
+    "receipt:founder-loop-action:founder-action-local-task-create-scorecard:approve:idempotency-ref-dogfood-live-loop-local-task-approval",
+  evidenceRef: "evidence-ref:founder-loop:local-task-commit",
+  localTaskProofRef:
+    "proof-ref:local-task-commit:founder-action-local-task-create-scorecard",
+  localTaskRef:
+    "local-task:founder-loop:founder-action-local-task-create-scorecard",
+  memoryCandidateRef:
+    "business-memory-candidate:preference:memory-review-founder-loop-preferences",
+  receiptRef:
+    "receipt:founder-loop-local-task:founder-action-local-task-create-scorecard:idempotency-ref-dogfood-live-loop-local-task-commit",
+  runRef: "run-ref:founder-loop-v1:governed-local-loop",
+  timelineEventRef:
+    "evidence-timeline:local-task/founder-action-local-task-create-scorecard",
+};
+
+function cloneForTest<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function dogfoodEvidenceMemoryBinding() {
+  return {
+    schema_version: "evidence-memory-loop-binding.v1",
+    contract_ref: "contract-ref:usable-authority-evidence-memory-loop-binding:v1",
+    source: "python_core_evidence_memory_loop_binding_read_model",
+    status: "implemented_backend_owned_evidence_memory_loop_binding",
+    backend_owned: true,
+    local_read_model_only: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    route_refs: [
+      "GET /control-center/today/summary",
+      "GET /control-center/memory/review",
+      "GET /control-center/evidence/timeline",
+    ],
+    cli_ref: "python scripts/dev/uaa_founder_loop.py inspect-evidence-memory-binding",
+    evidence_binding_count: 1,
+    memory_binding_count: 1,
+    evidence_bindings: [
+      {
+        binding_ref: "evidence-memory-binding:dogfood-live-loop:evidence",
+        timeline_item_ref: dogfoodRefs.timelineEventRef,
+        event_ref:
+          "evidence-event:local_task_created-evidence-timeline-action-founder-action-local-task-create-scorecard",
+        event_type: "local_task_created",
+        group_ref: "evidence-group:dogfood-live-loop:local-task",
+        title: "Local task commit evidence",
+        why_recorded:
+          "The dogfood loop recorded one exact local task receipt through Python Core.",
+        source_refs: [dogfoodRefs.actionRef],
+        action_refs: [dogfoodRefs.actionRef],
+        run_refs: [dogfoodRefs.runRef],
+        proof_refs: [dogfoodRefs.localTaskProofRef],
+        approval_refs: [dogfoodRefs.approvalRef],
+        receipt_refs: [dogfoodRefs.receiptRef],
+        evidence_refs: [dogfoodRefs.evidenceRef, dogfoodRefs.timelineEventRef],
+        memory_candidate_refs: [dogfoodRefs.memoryCandidateRef],
+        blocked_authority_refs: [
+          "blocked-state:evidence-memory-loop:no-action-execution",
+        ],
+        next_safe_action:
+          "Inspect the receipt, proof, and memory binding before claiming the loop.",
+      },
+    ],
+    memory_bindings: [
+      {
+        binding_ref: "evidence-memory-binding:dogfood-live-loop:memory",
+        memory_candidate_ref: dogfoodRefs.memoryCandidateRef,
+        review_ref: "memory-review:founder-loop-preferences",
+        title: "Founder loop preference memory",
+        why_shown:
+          "Reviewed recall appears because the local task scorecard loop cites it.",
+        source_refs: ["memory-source-ref:memory-review-queue"],
+        why_shown_refs: ["why-shown-ref:dogfood-live-loop:memory"],
+        related_action_refs: [dogfoodRefs.actionRef],
+        related_run_refs: [dogfoodRefs.runRef],
+        related_proof_refs: [dogfoodRefs.localTaskProofRef],
+        related_evidence_refs: [
+          dogfoodRefs.evidenceRef,
+          dogfoodRefs.timelineEventRef,
+        ],
+        decision_receipt_refs: ["receipt-plan:memory-review:founder-loop-preferences"],
+        blocked_authority_refs: [
+          "blocked-state:evidence-memory-loop:no-memory-truth-authority",
+          "blocked-state:evidence-memory-loop:no-runtime-context-injection",
+        ],
+        reviewed_recall_only: true,
+        write_posture: "reviewed_recall_write_accept_correct_only",
+        context_posture: "runtime_context_injection_blocked",
+        next_safe_action:
+          "Use this memory only as reviewed recall, not truth or hidden context.",
+        memory_truth_authority: false,
+        context_injection_authorized: false,
+        automatic_memory_write_authorized: false,
+      },
+    ],
+    evidence_refs: [dogfoodRefs.evidenceRef, dogfoodRefs.timelineEventRef],
+    memory_candidate_refs: [dogfoodRefs.memoryCandidateRef],
+    action_refs: [dogfoodRefs.actionRef],
+    run_refs: [dogfoodRefs.runRef],
+    proof_refs: [dogfoodRefs.localTaskProofRef],
+    receipt_refs: [dogfoodRefs.receiptRef, dogfoodRefs.decisionReceiptRef],
+    blocked_authority_refs: [
+      "blocked-state:evidence-memory-loop:no-memory-truth-authority",
+      "blocked-state:evidence-memory-loop:no-runtime-context-injection",
+      "blocked-state:evidence-memory-loop:no-action-execution",
+      "blocked-state:evidence-memory-loop:no-connector-write-or-send",
+      "blocked-state:evidence-memory-loop:no-provider-model-call",
+      "blocked-state:evidence-memory-loop:no-production-authority",
+    ],
+    operator_summary:
+      "One local task receipt links Action Inbox, Evidence, Memory, Proof, and Trust through safe refs.",
+    next_safe_action:
+      "Inspect the shared refs before promoting broader authority.",
+    authority_boundary:
+      "Evidence and Memory explain the loop only; they do not execute actions or grant memory truth.",
+    memory_truth_authority: false,
+    context_injection_authorized: false,
+    automatic_memory_write_authorized: false,
+    memory_delete_enabled: false,
+    memory_export_enabled: false,
+    action_execution_enabled: false,
+    connector_write_enabled: false,
+    connector_send_enabled: false,
+    provider_model_call_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    browser_execution_enabled: false,
+    background_autonomy_enabled: false,
+    production_authority_enabled: false,
+  };
+}
+
+function dogfoodActionItem() {
+  const seed = cloneForTest(
+    mockApiData.founderActionsInbox.items.find(
+      (candidate) => candidate.item_ref === "founder-action:mock-local-task-create",
+    ) ?? mockApiData.founderActionsInbox.items[0],
+  );
+  return {
+    ...seed,
+    item_ref: dogfoodRefs.actionRef,
+    title: "Maintain operational maturity scorecard",
+    safe_summary:
+      "Create a local Founder Loop task for the dogfood acceptance scorecard.",
+    status: "receipt_recorded",
+    action_kind: "local_task_create",
+    action_group_id: "receipt_recorded",
+    action_group_label: "Receipt recorded",
+    action_group_reason:
+      "The exact local task lane has a backend receipt and proof refs.",
+    action_group_available_action: "Inspect receipt, evidence, and proof refs.",
+    action_envelope_ref: dogfoodRefs.actionEnvelopeRef,
+    approval_envelope_ref: "approval-envelope:founder-loop:local-task-create-scorecard",
+    approval_envelope_status: "approved_receipt_recorded",
+    local_task_ref: dogfoodRefs.localTaskRef,
+    local_task_commit_approval_ref: dogfoodRefs.approvalRef,
+    local_task_commit_approval_status: "approved",
+    local_task_commit_eligible: false,
+    local_task_commit_receipt_ref: dogfoodRefs.receiptRef,
+    local_task_commit_blocked_reasons: [],
+    local_task_commit_next_safe_action:
+      "Inspect the local task receipt and Proof Detail before promoting authority.",
+    receipt_refs: [
+      "receipt-plan:founder-loop:local-task-create-scorecard",
+      dogfoodRefs.decisionReceiptRef,
+      dogfoodRefs.receiptRef,
+    ],
+    evidence_refs: [dogfoodRefs.evidenceRef, dogfoodRefs.timelineEventRef],
+    audit_refs: [
+      "audit:founder-loop-local-task:founder-action-local-task-create-scorecard:idempotency-ref-dogfood-live-loop-local-task-commit",
+    ],
+    proof_refs: [dogfoodRefs.localTaskProofRef],
+    approval_envelope: {
+      ...seed.approval_envelope,
+      source: "python_core_action_inbox_read_model",
+      backend_owned: true,
+      exact_scope:
+        "scope-ref:plans-action-envelope:founder-action-local-task-create-scorecard",
+      approval_requirement:
+        "approval-requirement:plans-action-envelope:founder-action-local-task-create-scorecard",
+      expected_receipt_refs: [dogfoodRefs.receiptRef],
+      evidence_refs: [dogfoodRefs.evidenceRef],
+      missing_field_states: ["none"],
+    },
+    receipt_visibility: {
+      ...seed.receipt_visibility,
+      source: "python_core_action_inbox_read_model",
+      backend_owned: true,
+      decision_receipt_ref: dogfoodRefs.decisionReceiptRef,
+      local_task_ref: dogfoodRefs.localTaskRef,
+      local_task_commit_receipt_ref: dogfoodRefs.receiptRef,
+      evidence_timeline_event_ref: dogfoodRefs.timelineEventRef,
+      missing_field_states: ["none"],
+    },
+  };
+}
+
+function dogfoodProofIndex() {
+  const localTaskRecord = {
+    ...mockControlCenterData.proofIndex.records[0],
+    proof_ref: dogfoodRefs.localTaskProofRef,
+    proof_kind: "local_task_commit",
+    status: "receipt_recorded",
+    title: "Local Task Commit",
+    safe_summary:
+      "Dogfood Live Loop Acceptance proves one exact local task receipt through backend-owned safe refs.",
+    authority_posture:
+      "Local task proof is local-only and does not grant generic action execution.",
+    route_refs: ["route-ref:control-center:actions"],
+    backend_route_refs: [
+      "POST /control-center/actions/{action_id}/local-task/commit",
+    ],
+    run_refs: [dogfoodRefs.runRef],
+    receipt_refs: [dogfoodRefs.receiptRef],
+    evidence_refs: [dogfoodRefs.evidenceRef, dogfoodRefs.timelineEventRef],
+    audit_refs: [
+      "audit:founder-loop-local-task:founder-action-local-task-create-scorecard:idempotency-ref-dogfood-live-loop-local-task-commit",
+    ],
+    approval_refs: [dogfoodRefs.approvalRef],
+    rollback_refs: ["rollback-not-applicable:local-task-safe-disable"],
+    safe_disable_refs: ["safe-disable:founder-loop:local-task-create-scorecard"],
+    memory_candidate_refs: [dogfoodRefs.memoryCandidateRef],
+    next_safe_action:
+      "Inspect receipt and evidence refs before claiming the local task outcome.",
+    blocked_authority_refs: [
+      "blocked-state:proof-detail:no-runtime-execution",
+      "blocked-state:proof-detail:no-provider-model-call",
+      "blocked-state:proof-detail:no-connector-write-or-send",
+      "blocked-state:proof-detail:no-production-authority",
+    ],
+  };
+  const dailyRecord = {
+    ...mockControlCenterData.proofIndex.records[0],
+    proof_ref: "proof-ref:founder-loop-v1:governed-local-loop",
+    proof_kind: "daily_loop",
+    status: "complete_local_dogfood_loop_proven",
+    title: "Governed Daily Loop",
+    safe_summary:
+      "Start Here, Today, Action Inbox, Evidence, Memory, Proof, and Trust share the same backend-owned loop refs.",
+    run_refs: [dogfoodRefs.runRef],
+    receipt_refs: [dogfoodRefs.receiptRef],
+    evidence_refs: [dogfoodRefs.evidenceRef],
+    approval_refs: [dogfoodRefs.approvalRef],
+    memory_candidate_refs: [dogfoodRefs.memoryCandidateRef],
+  };
+  return {
+    ...mockControlCenterData.proofIndex,
+    source: "python_core_control_center_proof_index",
+    status: "implemented_backend_owned_universal_proof_index",
+    backend_owned: true,
+    proof_count: 2,
+    proof_refs: [dogfoodRefs.localTaskProofRef, dailyRecord.proof_ref],
+    records: [localTaskRecord, dailyRecord],
+  };
+}
+
+function dogfoodLiveLoopEndpointData() {
+  const binding = dogfoodEvidenceMemoryBinding();
+  const actionItem = dogfoodActionItem();
+  const today = {
+    ...cloneForTest(mockControlCenterData.founderToday),
+    status: "storage_backed_daily_loop",
+    actions: [actionItem],
+    evidence_refs: [dogfoodRefs.evidenceRef, dogfoodRefs.timelineEventRef],
+    daily_loop_summary: {
+      ...cloneForTest(mockControlCenterData.founderToday.daily_loop_summary),
+      status: "complete_local_dogfood_loop_proven",
+      loop_ref: "daily-loop:dogfood-live-loop-acceptance",
+      today_plan_summary:
+        "One complete local dogfood loop is receipt-backed and inspectable.",
+      next_safe_action:
+        "Open Proof Detail, Evidence, Memory, and Trust to inspect the same refs.",
+    },
+    evidence_memory_loop_binding_contract_ref: binding.contract_ref,
+    evidence_memory_loop_binding_read_model: binding,
+    founder_loop_v1_product_proof_read_model: founderLoopProductProofFixture({
+      status: "complete_local_dogfood_loop_proven",
+      scenario_ref: "scenario-ref:dogfood-live-loop-acceptance",
+      shared_state_ref: "founder-loop-state-ref:dogfood-live-loop-acceptance",
+      action_inbox_refs: [dogfoodRefs.actionRef],
+      action_decision_receipt_refs: [dogfoodRefs.decisionReceiptRef],
+      evidence_timeline_refs: [dogfoodRefs.timelineEventRef],
+      evidence_event_refs: [dogfoodRefs.timelineEventRef],
+      memory_review_candidate_refs: [dogfoodRefs.memoryCandidateRef],
+      receipt_refs: [dogfoodRefs.decisionReceiptRef, dogfoodRefs.receiptRef],
+      evidence_refs: [dogfoodRefs.evidenceRef],
+      decision_receipt_status: "local_task_receipt_recorded",
+      safe_summary:
+        "Dogfood Live Loop Acceptance binds one local task commit receipt to shared backend-owned refs.",
+    }),
+    founder_loop_runs_integration_read_model: founderLoopRunsIntegrationFixture({
+      status: "backend_owned_run_refs_visible",
+      run_refs: [dogfoodRefs.runRef],
+      receipt_refs: [dogfoodRefs.receiptRef],
+      evidence_refs: [dogfoodRefs.evidenceRef],
+      action_source_refs: [dogfoodRefs.actionRef],
+      proof_refs: [dogfoodRefs.localTaskProofRef],
+      memory_candidate_refs: [dogfoodRefs.memoryCandidateRef],
+    }),
+    memory_candidate_refs: [dogfoodRefs.memoryCandidateRef],
+    memory_review_decision_receipt_refs: [
+      "receipt-plan:memory-review:founder-loop-preferences",
+    ],
+  };
+  const startHere = {
+    ...cloneForTest(mockControlCenterData.founderStartHere),
+    source: "python_core_control_center_start_here_read_model",
+    backend_owned: true,
+    status: "implemented_backend_owned_start_here_loop_contract",
+    readiness_state: "ready_for_one_local_governed_loop",
+    local_loop_status: "one_governed_local_loop_available",
+    complete_daily_loop_available: true,
+    action_proposal_ref: dogfoodRefs.actionEnvelopeRef,
+    primary_run_ref: dogfoodRefs.runRef,
+    primary_proof_ref: "proof-ref:founder-loop-v1:governed-local-loop",
+    missing_prerequisite_refs: [],
+    evidence_refs: [dogfoodRefs.evidenceRef, dogfoodRefs.timelineEventRef],
+    steps: mockControlCenterData.founderStartHere.steps.map((step) => ({
+      ...step,
+      proof_ref:
+        step.step_id === "decision_receipt"
+          ? dogfoodRefs.localTaskProofRef
+          : "proof-ref:founder-loop-v1:governed-local-loop",
+      receipt_refs:
+        step.step_id === "decision_receipt" ? [dogfoodRefs.receiptRef] : [],
+      evidence_refs: [dogfoodRefs.evidenceRef],
+      approval_refs:
+        step.step_id === "action_inbox" ? [dogfoodRefs.approvalRef] : [],
+      memory_candidate_refs:
+        step.step_id === "memory_review" ? [dogfoodRefs.memoryCandidateRef] : [],
+    })),
+  };
+  const actionsInbox = {
+    ...cloneForTest(mockControlCenterData.founderActionsInbox),
+    ...cloneForTest(mockApiData.founderActionsInbox),
+    status: "storage_backed_review_queue",
+    items: [actionItem],
+    action_groups: [
+      {
+        group_id: "receipt_recorded",
+        label: "Receipt recorded",
+        safe_summary:
+          "The dogfood local task lane has backend receipt and proof refs.",
+        available_action: "Inspect receipt and evidence refs.",
+        count: 1,
+      },
+    ],
+    action_inbox_work_queue_read_model: {
+      ...cloneForTest(
+        mockControlCenterData.founderActionsInbox.action_inbox_work_queue_read_model,
+      ),
+      source: "python_core_action_inbox_read_model",
+      backend_owned: true,
+      status: "implemented_backend_owned_action_inbox_work_queue",
+      item_count: 1,
+      receipt_recorded_count: 1,
+      lanes: [
+        {
+          lane_id: "receipt_recorded",
+          lane_ref: "action-work-queue-lane:receipt-recorded",
+          label: "Receipt recorded",
+          status: "receipt_recorded",
+          safe_summary:
+            "The local task commit receipt is available for inspection.",
+          available_action: "Inspect receipt and proof refs.",
+          count: 1,
+          item_refs: [dogfoodRefs.actionRef],
+          tier: "tier_1_local_read_preview",
+          blocked_authority_refs: [],
+        },
+      ],
+      proof_refs: [dogfoodRefs.localTaskProofRef],
+    },
+  };
+  const evidence = {
+    ...cloneForTest(mockControlCenterData.founderEvidenceTimeline),
+    status: "storage_backed_redacted_history_grammar_refs",
+    event_count: 1,
+    group_count: 1,
+    receipt_refs: [dogfoodRefs.receiptRef],
+    evidence_refs: [dogfoodRefs.evidenceRef, dogfoodRefs.timelineEventRef],
+    idempotency_refs: [
+      "idempotency-ref:dogfood-live-loop:local-task-commit",
+    ],
+    events: [
+      {
+        event_ref: dogfoodRefs.timelineEventRef,
+        event_type: "local_task_created",
+        group_kind: "action",
+        group_ref: "evidence-group:dogfood-live-loop:local-task",
+        title: "Local task commit receipt recorded",
+        safe_summary:
+          "The exact local task lane produced a backend receipt and evidence refs.",
+        proposed_ref: dogfoodRefs.actionRef,
+        approved_ref: dogfoodRefs.approvalRef,
+        happened_ref: dogfoodRefs.receiptRef,
+        changed_ref: dogfoodRefs.localTaskRef,
+        undoable_ref: "rollback-not-applicable:local-task-safe-disable",
+        stale_ref: "freshness-ref:dogfood-live-loop:current",
+        blocked_ref: "blocked-state:dogfood-live-loop:no-external-side-effect",
+        history_answers: cloneForTest(
+          mockControlCenterData.founderEvidenceTimeline.events[0]?.history_answers ??
+            mockControlCenterData.founderToday.evidence_timeline[0]?.history_answers,
+        ),
+        evidence_refs: [dogfoodRefs.evidenceRef],
+        receipt_refs: [dogfoodRefs.receiptRef],
+        audit_refs: [
+          "audit:founder-loop-local-task:founder-action-local-task-create-scorecard:idempotency-ref-dogfood-live-loop-local-task-commit",
+        ],
+        idempotency_refs: [
+          "idempotency-ref:dogfood-live-loop:local-task-commit",
+        ],
+      },
+    ],
+    groups: [
+      {
+        group_ref: "evidence-group:dogfood-live-loop:local-task",
+        group_kind: "action",
+        title: "Local task commit",
+        event_count: 1,
+        event_types: ["local_task_created"],
+        evidence_refs: [dogfoodRefs.evidenceRef],
+      },
+    ],
+    evidence_memory_loop_binding_contract_ref: binding.contract_ref,
+    evidence_memory_loop_binding_read_model: binding,
+    founder_loop_runs_integration_read_model:
+      today.founder_loop_runs_integration_read_model,
+  };
+  const memoryReview = {
+    ...cloneForTest(mockControlCenterData.founderMemoryReview),
+    evidence_memory_loop_binding_contract_ref: binding.contract_ref,
+    evidence_memory_loop_binding_read_model: binding,
+    items: mockControlCenterData.founderMemoryReview.items.map((item, index) =>
+      index === 0
+        ? {
+            ...item,
+            business_memory_candidate_ref: dogfoodRefs.memoryCandidateRef,
+            evidence_refs: [dogfoodRefs.evidenceRef, dogfoodRefs.timelineEventRef],
+          }
+        : item,
+    ),
+  };
+  const trust = backendOwnedTrustAuthorityMatrix();
+  trust.operator_summary =
+    "Dogfood Live Loop Acceptance proves local reviewed authority for one local task receipt; broad autonomy remains blocked.";
+  trust.proof_refs = [
+    dogfoodRefs.localTaskProofRef,
+    ...trust.proof_refs.filter((ref) => ref !== dogfoodRefs.localTaskProofRef),
+  ];
+  trust.lanes = trust.lanes.map((lane) =>
+    lane.lane_ref === "trust-lane:local-task-commit"
+      ? {
+          ...lane,
+          proof_refs: [dogfoodRefs.localTaskProofRef],
+          operator_can_do_now:
+            "Inspect the dogfood local task receipt and proof refs.",
+        }
+      : lane,
+  );
+  return {
+    [API_ENDPOINTS.founderTodaySummary]: today,
+    [API_ENDPOINTS.founderStartHereSummary]: startHere,
+    [API_ENDPOINTS.founderActionsInbox]: actionsInbox,
+    [API_ENDPOINTS.controlCenterProofIndex]: dogfoodProofIndex(),
+    [API_ENDPOINTS.trustAuthorityMatrix]: trust,
+    [API_ENDPOINTS.founderEvidenceTimeline]: evidence,
+    [API_ENDPOINTS.founderMemoryReview]: memoryReview,
   };
 }
 
