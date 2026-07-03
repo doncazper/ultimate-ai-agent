@@ -133,3 +133,13 @@ does not grant generic action execution, provider/model calls, connector
 writes/sends, browser or shell execution, memory writes, context injection,
 external side effects, rollback execution, public release, or production
 authority.
+
+Usable Authority PR 05 binds Evidence and Memory into the daily loop through a
+backend-owned Evidence/Memory loop binding read model exposed from Today,
+Memory Review, Evidence Timeline, Proof Detail, and
+`scripts/dev/uaa_founder_loop.py inspect-evidence-memory-binding`. The binding
+uses safe refs to explain why memory appeared, which evidence supports it, and
+which action/run/proof refs connect the loop. It does not make memory truth,
+inject context, write memory automatically, delete or export memory, execute
+actions, call providers/models, write/send connectors, run browser or shell
+work, start background autonomy, or grant production authority.

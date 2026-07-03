@@ -335,10 +335,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const normalizedFounderActionsInbox =
     normalizeFounderActionsInbox(founderActionsInbox);
-  const normalizedFounderMemoryReview = mergeMissingFields(
-    mockControlCenterData.founderMemoryReview,
-    founderMemoryReview,
-  );
+  const normalizedFounderMemoryReview =
+    normalizeFounderMemoryReview(founderMemoryReview);
   const normalizedFounderMemoryWorkbench = normalizeFounderMemoryWorkbench(
     founderMemoryWorkbench,
   );
@@ -2663,6 +2661,8 @@ function normalizeFounderToday(value: FounderLoopTodaySummary | undefined): {
     delete fallbackWithoutDigest.loop_trace_refs;
     delete fallbackWithoutDigest.unified_work_thread_read_model;
     delete fallbackWithoutDigest.unified_work_thread_contract_ref;
+    delete fallbackWithoutDigest.evidence_memory_loop_binding_read_model;
+    delete fallbackWithoutDigest.evidence_memory_loop_binding_contract_ref;
     delete fallbackWithoutDigest.chat_to_loop_handoff_read_model;
     delete fallbackWithoutDigest.chat_to_loop_handoff_contract_ref;
     delete fallbackWithoutDigest.plans_to_actions_bridge_read_model;
@@ -2730,6 +2730,7 @@ function normalizeFounderToday(value: FounderLoopTodaySummary | undefined): {
     delete normalized.unified_work_thread_read_model;
     delete normalized.unified_work_thread_contract_ref;
   }
+  normalizeEvidenceMemoryLoopBinding(normalized, valueRecord);
   if (
     isSafePlansToActionsBridgeReadModel(
       valueRecord.plans_to_actions_bridge_read_model,
@@ -2869,10 +2870,45 @@ function normalizeFounderEvidenceTimeline(
     delete normalized.narrative_contract_ref;
   }
   normalizeFounderLoopRunsIntegration(normalized, valueRecord);
+  normalizeEvidenceMemoryLoopBinding(normalized, valueRecord);
   return {
     value: normalized as unknown as FounderLoopEvidenceTimelineIndex,
     usedFallback: merged.usedFallback,
   };
+}
+
+function normalizeFounderMemoryReview(
+  value: FounderLoopMemoryReview | undefined,
+): { value: FounderLoopMemoryReview; usedFallback: boolean } {
+  const merged = mergeMissingFields(
+    mockControlCenterData.founderMemoryReview,
+    value,
+  );
+  const valueRecord = (value ?? {}) as unknown as Record<string, unknown>;
+  const normalized: Record<string, unknown> = {
+    ...(merged.value as unknown as Record<string, unknown>),
+  };
+  normalizeEvidenceMemoryLoopBinding(normalized, valueRecord);
+  return {
+    value: normalized as unknown as FounderLoopMemoryReview,
+    usedFallback: merged.usedFallback,
+  };
+}
+
+function normalizeEvidenceMemoryLoopBinding(
+  normalized: Record<string, unknown>,
+  valueRecord: Record<string, unknown>,
+): void {
+  const readModel = valueRecord.evidence_memory_loop_binding_read_model;
+  if (isSafeEvidenceMemoryLoopBindingReadModel(readModel)) {
+    normalized.evidence_memory_loop_binding_read_model = readModel;
+    normalized.evidence_memory_loop_binding_contract_ref = (
+      readModel as Record<string, unknown>
+    ).contract_ref;
+  } else {
+    delete normalized.evidence_memory_loop_binding_read_model;
+    delete normalized.evidence_memory_loop_binding_contract_ref;
+  }
 }
 
 function normalizeFounderLoopRunsIntegration(
@@ -3278,6 +3314,62 @@ const EVIDENCE_NARRATIVE_REF_ARRAYS = [
   "rollback_refs",
   "evidence_refs",
   "blocked_state_refs",
+] as const;
+
+const EVIDENCE_MEMORY_BINDING_TRUE_FLAGS = [
+  "backend_owned",
+  "local_read_model_only",
+  "safe_refs_only",
+] as const;
+
+const EVIDENCE_MEMORY_BINDING_DENIED_FLAGS = [
+  "raw_content_included",
+  "memory_truth_authority",
+  "context_injection_authorized",
+  "automatic_memory_write_authorized",
+  "memory_delete_enabled",
+  "memory_export_enabled",
+  "action_execution_enabled",
+  "connector_write_enabled",
+  "connector_send_enabled",
+  "provider_model_call_enabled",
+  "shell_subprocess_execution_enabled",
+  "browser_execution_enabled",
+  "background_autonomy_enabled",
+  "production_authority_enabled",
+] as const;
+
+const EVIDENCE_MEMORY_BINDING_AGGREGATE_REF_ARRAYS = [
+  "evidence_refs",
+  "memory_candidate_refs",
+  "action_refs",
+  "run_refs",
+  "proof_refs",
+  "receipt_refs",
+  "blocked_authority_refs",
+] as const;
+
+const EVIDENCE_MEMORY_EVIDENCE_BINDING_REF_ARRAYS = [
+  "source_refs",
+  "action_refs",
+  "run_refs",
+  "proof_refs",
+  "approval_refs",
+  "receipt_refs",
+  "evidence_refs",
+  "memory_candidate_refs",
+  "blocked_authority_refs",
+] as const;
+
+const EVIDENCE_MEMORY_MEMORY_BINDING_REF_ARRAYS = [
+  "source_refs",
+  "why_shown_refs",
+  "related_action_refs",
+  "related_run_refs",
+  "related_proof_refs",
+  "related_evidence_refs",
+  "decision_receipt_refs",
+  "blocked_authority_refs",
 ] as const;
 
 const EVIDENCE_NARRATIVE_AGGREGATE_REF_ARRAYS = [
@@ -3994,6 +4086,126 @@ function isSafeEvidenceTimelineNarrativeReadModel(value: unknown): boolean {
       value.narrative_refs,
       entries.map((entry) => String(entry.narrative_ref)),
     ) && hasMatchingEvidenceNarrativeAggregates(value, entries)
+  );
+}
+
+function isSafeEvidenceMemoryLoopBindingReadModel(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.schema_version !== "evidence-memory-loop-binding.v1" ||
+    value.contract_ref !==
+      "contract-ref:usable-authority-evidence-memory-loop-binding:v1" ||
+    value.source !== "python_core_evidence_memory_loop_binding_read_model" ||
+    !hasTrueFlags(value, EVIDENCE_MEMORY_BINDING_TRUE_FLAGS) ||
+    !hasDeniedFlagsFalse(value, EVIDENCE_MEMORY_BINDING_DENIED_FLAGS) ||
+    !hasStringArrays(value, ["route_refs"]) ||
+    !hasStringArrays(value, EVIDENCE_MEMORY_BINDING_AGGREGATE_REF_ARRAYS) ||
+    !hasSafeEvidenceMemoryBindingRefArrays(
+      value,
+      EVIDENCE_MEMORY_BINDING_AGGREGATE_REF_ARRAYS,
+    ) ||
+    typeof value.evidence_binding_count !== "number" ||
+    typeof value.memory_binding_count !== "number" ||
+    !["status", "cli_ref", "operator_summary", "next_safe_action", "authority_boundary"].every(
+      (field) => isSafeEvidenceMemoryBindingText(value[field]),
+    ) ||
+    !Array.isArray(value.evidence_bindings) ||
+    !Array.isArray(value.memory_bindings) ||
+    value.evidence_binding_count !== value.evidence_bindings.length ||
+    value.memory_binding_count !== value.memory_bindings.length ||
+    !value.evidence_bindings.every(isSafeEvidenceMemoryEvidenceBinding) ||
+    !value.memory_bindings.every(isSafeEvidenceMemoryMemoryBinding)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function isSafeEvidenceMemoryEvidenceBinding(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    [
+      "binding_ref",
+      "timeline_item_ref",
+      "event_ref",
+      "group_ref",
+    ].every((field) => isSafeEvidenceMemoryBindingRef(value[field])) &&
+    [
+      "event_type",
+      "title",
+      "why_recorded",
+      "next_safe_action",
+    ].every((field) => isSafeEvidenceMemoryBindingText(value[field])) &&
+    hasStringArrays(value, EVIDENCE_MEMORY_EVIDENCE_BINDING_REF_ARRAYS) &&
+    hasSafeEvidenceMemoryBindingRefArrays(
+      value,
+      EVIDENCE_MEMORY_EVIDENCE_BINDING_REF_ARRAYS,
+    )
+  );
+}
+
+function isSafeEvidenceMemoryMemoryBinding(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    ["binding_ref", "memory_candidate_ref", "review_ref"].every((field) =>
+      isSafeEvidenceMemoryBindingRef(value[field]),
+    ) &&
+    ["title", "why_shown", "write_posture", "context_posture", "next_safe_action"].every(
+      (field) => isSafeEvidenceMemoryBindingText(value[field]),
+    ) &&
+    value.reviewed_recall_only === true &&
+    value.memory_truth_authority === false &&
+    value.context_injection_authorized === false &&
+    value.automatic_memory_write_authorized === false &&
+    hasStringArrays(value, EVIDENCE_MEMORY_MEMORY_BINDING_REF_ARRAYS) &&
+    hasSafeEvidenceMemoryBindingRefArrays(
+      value,
+      EVIDENCE_MEMORY_MEMORY_BINDING_REF_ARRAYS,
+    )
+  );
+}
+
+function hasSafeEvidenceMemoryBindingRefArrays(
+  record: Record<string, unknown>,
+  fields: readonly string[],
+): boolean {
+  return fields.every((field) => {
+    const value = record[field];
+    return Array.isArray(value) && value.every(isSafeEvidenceMemoryBindingRef);
+  });
+}
+
+function isSafeEvidenceMemoryBindingRef(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0) {
+    return false;
+  }
+  const lowered = value.toLowerCase();
+  if (
+    EVIDENCE_NARRATIVE_UNSAFE_REF_FRAGMENTS.some((fragment) =>
+      lowered.includes(fragment),
+    )
+  ) {
+    return false;
+  }
+  if (value.includes("@") || value.includes("\\") || value.includes(" ")) {
+    return false;
+  }
+  return /^[A-Za-z0-9:_./#=-]+$/.test(value);
+}
+
+function isSafeEvidenceMemoryBindingText(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0) {
+    return false;
+  }
+  const lowered = value.toLowerCase();
+  return !EVIDENCE_NARRATIVE_UNSAFE_TEXT_FRAGMENTS.some((fragment) =>
+    lowered.includes(fragment),
   );
 }
 

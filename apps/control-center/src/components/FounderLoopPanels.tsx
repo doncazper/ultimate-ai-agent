@@ -29,6 +29,7 @@ import type {
   FounderLoopEvidenceTimelineIndex,
   FounderLoopEvidenceTimelineItem,
   FounderLoopEvidenceTimelineNarrativeReadModel,
+  FounderLoopEvidenceMemoryLoopBindingReadModel,
   FounderLoopFollowUpTrackerReadModel,
   FounderLoopFusionRoutingDelegationReadModel,
   FounderLoopCacheContextEconomics,
@@ -3334,6 +3335,7 @@ function DailyLoopProductBehaviorPanel({
     today.source_readiness_items?.length ||
     today.crm_lite_followups?.length ||
     today.memory_why_shown_items?.length ||
+    today.evidence_memory_loop_binding_read_model ||
     today.review_queue_groups?.length ||
     today.weekly_review_narrative ||
     today.dogfood_capture;
@@ -3354,6 +3356,10 @@ function DailyLoopProductBehaviorPanel({
         <ReviewQueueGroupCards groups={today.review_queue_groups ?? []} />
         <CrmLiteFollowUpCards items={today.crm_lite_followups ?? []} />
         <MemoryWhyShownCards items={today.memory_why_shown_items ?? []} />
+        <EvidenceMemoryLoopBindingPanel
+          compact
+          readModel={today.evidence_memory_loop_binding_read_model}
+        />
         <DogfoodCaptureCard capture={today.dogfood_capture} />
       </div>
       <WeeklyReviewNarrativeCard narrative={today.weekly_review_narrative} />
@@ -3782,6 +3788,94 @@ function MemoryWhyShownCards({
         emptyLabel="Missing evidence refs: none"
         refs={items.flatMap((item) => item.missing_evidence_refs)}
       />
+    </article>
+  );
+}
+
+function EvidenceMemoryLoopBindingPanel({
+  compact = false,
+  readModel,
+}: {
+  compact?: boolean;
+  readModel?: FounderLoopEvidenceMemoryLoopBindingReadModel;
+}) {
+  if (!readModel) {
+    return null;
+  }
+  const firstMemory = readModel.memory_bindings[0];
+  const firstEvidence = readModel.evidence_bindings[0];
+  return (
+    <article
+      className={`status-card ${compact ? "compact-card" : ""}`}
+      aria-label="Evidence and Memory loop binding"
+    >
+      <div className="status-card-header">
+        <h3>Evidence/Memory loop binding</h3>
+        <span>backend-owned</span>
+      </div>
+      <p>{readModel.operator_summary}</p>
+      <div className="operator-loop-summary-grid">
+        <Metric label="evidence links" value={readModel.evidence_binding_count} />
+        <Metric label="memory links" value={readModel.memory_binding_count} />
+        <Metric label="actions" value={readModel.action_refs.length} />
+        <Metric label="proof refs" value={readModel.proof_refs.length} />
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Status" value={readModel.status} />
+        <DetailTerm label="CLI" value={readModel.cli_ref} />
+        <DetailTerm
+          label="Memory truth"
+          value={readModel.memory_truth_authority ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Context injection"
+          value={readModel.context_injection_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Action execution"
+          value={readModel.action_execution_enabled ? "enabled" : "blocked"}
+        />
+      </dl>
+      {firstMemory ? (
+        <div className="compact-stack">
+          <p className="muted">Why memory appeared</p>
+          <p>{firstMemory.why_shown}</p>
+          <dl className="detail-list compact">
+            <DetailTerm label="Candidate" value={firstMemory.memory_candidate_ref} />
+            <DetailTerm label="Review" value={firstMemory.review_ref} />
+            <DetailTerm label="Write posture" value={firstMemory.write_posture} />
+            <DetailTerm label="Context posture" value={firstMemory.context_posture} />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Memory evidence refs: none"
+            refs={firstMemory.related_evidence_refs}
+          />
+        </div>
+      ) : null}
+      {firstEvidence ? (
+        <div className="compact-stack">
+          <p className="muted">Why evidence appeared</p>
+          <p>{firstEvidence.why_recorded}</p>
+          <dl className="detail-list compact">
+            <DetailTerm label="Event" value={firstEvidence.event_ref} />
+            <DetailTerm label="Timeline item" value={firstEvidence.timeline_item_ref} />
+            <DetailTerm label="Group" value={firstEvidence.group_ref} />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Evidence proof refs: none"
+            refs={firstEvidence.proof_refs}
+          />
+        </div>
+      ) : null}
+      <RefListWithFallback
+        emptyLabel="Run refs: none"
+        refs={readModel.run_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Blocked authority refs: none"
+        refs={readModel.blocked_authority_refs}
+      />
+      <p className="muted">{readModel.next_safe_action}</p>
     </article>
   );
 }
@@ -6058,6 +6152,12 @@ export function MemoryReviewSurfacePanel({
         today={today}
         workbench={workbench}
       />
+      <EvidenceMemoryLoopBindingPanel
+        readModel={
+          memoryReview.evidence_memory_loop_binding_read_model ??
+          today.evidence_memory_loop_binding_read_model
+        }
+      />
       <FounderLoopRunsIntegrationPanel
         compact
         focus="memory_review"
@@ -7822,6 +7922,12 @@ export function EvidenceTimelineSurfacePanel({
         />
       </div>
       <EvidenceOperatorSummary evidence={evidence} today={today} />
+      <EvidenceMemoryLoopBindingPanel
+        readModel={
+          evidence?.evidence_memory_loop_binding_read_model ??
+          today.evidence_memory_loop_binding_read_model
+        }
+      />
       <OperatorRunTimelinePanel timeline={evidence?.operator_run_timeline} />
       <FounderLoopRunsIntegrationPanel
         compact

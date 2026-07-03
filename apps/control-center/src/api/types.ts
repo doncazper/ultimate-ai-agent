@@ -1814,6 +1814,8 @@ export interface FounderLoopMemoryReview {
   workbench_contract_ref?: string;
   workbench_health?: FounderLoopMemoryWorkbenchHealth;
   workbench_groups?: FounderLoopMemoryWorkbenchGroup[];
+  evidence_memory_loop_binding_contract_ref?: string;
+  evidence_memory_loop_binding_read_model?: FounderLoopEvidenceMemoryLoopBindingReadModel;
   decision_route_refs: string[];
   decision_kinds: MemoryReviewDecisionKind[];
   items: FounderLoopMemoryReviewItem[];
@@ -2388,6 +2390,89 @@ export interface FounderLoopEvidenceTimelineNarrativeReadModel {
   production_authority_enabled: boolean;
 }
 
+export interface FounderLoopEvidenceMemoryEvidenceBinding {
+  binding_ref: string;
+  timeline_item_ref: string;
+  event_ref: string;
+  event_type: string;
+  group_ref: string;
+  title: string;
+  why_recorded: string;
+  source_refs: string[];
+  action_refs: string[];
+  run_refs: string[];
+  proof_refs: string[];
+  approval_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  memory_candidate_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action: string;
+}
+
+export interface FounderLoopEvidenceMemoryMemoryBinding {
+  binding_ref: string;
+  memory_candidate_ref: string;
+  review_ref: string;
+  title: string;
+  why_shown: string;
+  source_refs: string[];
+  why_shown_refs: string[];
+  related_action_refs: string[];
+  related_run_refs: string[];
+  related_proof_refs: string[];
+  related_evidence_refs: string[];
+  decision_receipt_refs: string[];
+  blocked_authority_refs: string[];
+  reviewed_recall_only: boolean;
+  write_posture: string;
+  context_posture: string;
+  next_safe_action: string;
+  memory_truth_authority: boolean;
+  context_injection_authorized: boolean;
+  automatic_memory_write_authorized: boolean;
+}
+
+export interface FounderLoopEvidenceMemoryLoopBindingReadModel {
+  schema_version: "evidence-memory-loop-binding.v1";
+  contract_ref: string;
+  source: string;
+  status: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  route_refs: string[];
+  cli_ref: string;
+  evidence_binding_count: number;
+  memory_binding_count: number;
+  evidence_bindings: FounderLoopEvidenceMemoryEvidenceBinding[];
+  memory_bindings: FounderLoopEvidenceMemoryMemoryBinding[];
+  evidence_refs: string[];
+  memory_candidate_refs: string[];
+  action_refs: string[];
+  run_refs: string[];
+  proof_refs: string[];
+  receipt_refs: string[];
+  blocked_authority_refs: string[];
+  operator_summary: string;
+  next_safe_action: string;
+  authority_boundary: string;
+  memory_truth_authority: boolean;
+  context_injection_authorized: boolean;
+  automatic_memory_write_authorized: boolean;
+  memory_delete_enabled: boolean;
+  memory_export_enabled: boolean;
+  action_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  connector_send_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_execution_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopEvidenceTimelineIndex {
   schema_version: string;
   contract_ref: string;
@@ -2421,6 +2506,8 @@ export interface FounderLoopEvidenceTimelineIndex {
   founder_loop_runs_integration_contract_ref?: string;
   founder_loop_runs_integration_read_model?: FounderLoopRunsIntegrationReadModel;
   loop_trace_refs?: FounderLoopTraceRefs;
+  evidence_memory_loop_binding_contract_ref?: string;
+  evidence_memory_loop_binding_read_model?: FounderLoopEvidenceMemoryLoopBindingReadModel;
   narrative_contract_ref?: string;
   narrative_read_model?: FounderLoopEvidenceTimelineNarrativeReadModel;
   narrative_items?: FounderLoopEvidenceTimelineItem[];
@@ -4888,6 +4975,8 @@ export interface FounderLoopTodaySummary {
   loop_trace_refs?: FounderLoopTraceRefs;
   unified_work_thread_contract_ref?: string;
   unified_work_thread_read_model?: FounderLoopUnifiedWorkThreadReadModel;
+  evidence_memory_loop_binding_contract_ref?: string;
+  evidence_memory_loop_binding_read_model?: FounderLoopEvidenceMemoryLoopBindingReadModel;
   plans_to_actions_bridge_contract_ref?: string;
   plans_to_actions_bridge_read_model?: FounderLoopPlansToActionsBridgeReadModel;
   daily_loop_summary?: FounderLoopDailyLoopSummary;

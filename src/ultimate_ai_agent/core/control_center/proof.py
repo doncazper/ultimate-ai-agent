@@ -457,11 +457,17 @@ def _local_task_commit_record(today_summary: dict[str, Any]) -> ControlCenterPro
 
 def _memory_decision_record(today_summary: dict[str, Any]) -> ControlCenterProofRecord:
     memory = _dict(today_summary.get("memory_review"))
-    candidates = _list_of_dicts(memory.get("items") or memory.get("candidates"))
+    candidates = _list_of_dicts(
+        today_summary.get("memory_review_queue")
+        or memory.get("items")
+        or memory.get("candidates")
+    )
     candidate = candidates[0] if candidates else {}
     source_ref = _first_ref(
+        candidate.get("business_memory_candidate_ref"),
         candidate.get("candidate_ref"),
         candidate.get("memory_candidate_ref"),
+        candidate.get("review_ref"),
         fallback="memory-candidate:not-selected",
     )
     return ControlCenterProofRecord(
@@ -483,7 +489,11 @@ def _memory_decision_record(today_summary: dict[str, Any]) -> ControlCenterProof
             "GET /control-center/memory/review/{candidate_ref}/receipt",
         ],
         run_refs=[FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF],
-        receipt_refs=_refs(candidate.get("receipt_refs")),
+        receipt_refs=_merge_refs(
+            _refs(candidate.get("receipt_refs")),
+            _refs(candidate.get("decision_receipt_refs")),
+            _refs(today_summary.get("memory_review_decision_receipt_refs")),
+        ),
         evidence_refs=_refs(candidate.get("evidence_refs"))
         or ["evidence-ref:proof:memory-decision"],
         approval_refs=_refs(candidate.get("approval_refs")),
@@ -498,11 +508,13 @@ def _memory_decision_record(today_summary: dict[str, Any]) -> ControlCenterProof
 
 
 def _evidence_event_record(today_summary: dict[str, Any]) -> ControlCenterProofRecord:
-    evidence_timeline = _dict(today_summary.get("evidence_timeline"))
-    events = _list_of_dicts(evidence_timeline.get("events"))
-    event = events[0] if events else {}
+    binding = _dict(today_summary.get("evidence_memory_loop_binding_read_model"))
+    events = _list_of_dicts(binding.get("evidence_bindings"))
+    timeline = _list_of_dicts(today_summary.get("evidence_timeline"))
+    event = events[0] if events else (timeline[0] if timeline else {})
     source_ref = _first_ref(
         event.get("event_ref"),
+        event.get("timeline_item_ref"),
         event.get("evidence_ref"),
         fallback="evidence-event:daily-loop",
     )
@@ -520,7 +532,11 @@ def _evidence_event_record(today_summary: dict[str, Any]) -> ControlCenterProofR
         backend_route_refs=["GET /control-center/evidence/timeline"],
         run_refs=[FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF],
         receipt_refs=_refs(event.get("receipt_refs")),
-        evidence_refs=_refs([source_ref, *_refs(today_summary.get("evidence_refs"))]),
+        evidence_refs=_merge_refs(
+            _refs(event.get("evidence_refs")),
+            _refs([source_ref, *_refs(today_summary.get("evidence_refs"))]),
+        ),
+        approval_refs=_refs(event.get("approval_refs")),
         audit_refs=_refs(event.get("audit_refs")),
         blocked_authority_refs=list(_COMMON_BLOCKED_AUTHORITY_REFS),
         next_safe_action="Inspect linked receipts and blocked authority refs.",

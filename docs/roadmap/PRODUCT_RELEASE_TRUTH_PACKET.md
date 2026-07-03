@@ -87,6 +87,18 @@ execution, provider/model calls, memory writes, context injection, external
 side effects, rollback execution, public beta, public release, production
 readiness, or production authority.
 
+Usable Authority PR 05 current truth: Today, Memory Review, Evidence Timeline,
+and Proof Detail now share a backend-owned Evidence/Memory loop binding read
+model plus CLI inspection through
+`scripts/dev/uaa_founder_loop.py inspect-evidence-memory-binding`. The binding
+shows safe source refs, why-shown refs, action refs, run refs, evidence refs,
+receipt refs, and proof refs so an operator can answer why a memory or
+evidence item appeared in the daily loop. It grants no memory truth authority,
+runtime context injection, automatic memory write, memory delete/export,
+action execution, connector write/send, provider/model call, shell/browser
+runtime, background autonomy, public beta, public release, production
+readiness, or production authority.
+
 FCC-BRIEFING-001 current truth: Morning Briefing is implemented as a read-only
 daily-loop surface over `/briefing`, `/today`, and
 `GET /control-center/morning-briefing/summary`, recorded in

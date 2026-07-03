@@ -326,8 +326,8 @@ function ProviderCredentialSetupSummary({
               ].includes(state),
           ),
           ...readiness.router_dry_run_readiness.ui_states,
-        ].map((code) => (
-          <span key={code}>{code}</span>
+        ].map((code, index) => (
+          <span key={`${code}-${index}`}>{code}</span>
         ))}
       </div>
     </article>
