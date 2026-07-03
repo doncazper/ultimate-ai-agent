@@ -1,5 +1,6 @@
 import type {
   ControlCenterData,
+  ControlCenterStartHereSummary,
   CrmM1FixtureShell,
   CrmM1VerticalFixture,
   FounderLoopChatToLoopHandoffOutcome,
@@ -25,8 +26,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 164;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 63;
+export const MOCK_OPENAPI_ROUTE_COUNT = 165;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 64;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -1333,6 +1334,69 @@ const runObservability: RunObservabilityReadModel = {
   background_worker_enabled: false,
   scheduler_enabled: false,
   autonomous_execution_enabled: false,
+  production_authority_enabled: false,
+};
+
+const founderStartHere: ControlCenterStartHereSummary = {
+  schema_version: "control-center-start-here-summary.v1",
+  contract_ref: "contract-ref:control-center-start-here:v1",
+  status: "mock_fallback_non_authoritative",
+  readiness_state: "partial_missing_backend_start_here_route",
+  local_loop_status: "local_loop_unverified_mock_fallback",
+  source: "mock_fallback_non_authoritative",
+  backend_owned: false,
+  local_read_model_only: true,
+  safe_refs_only: true,
+  redacted_summaries_only: true,
+  raw_content_included: false,
+  ui_truth_source: "mock_fallback_non_authoritative",
+  primary_run_ref: "run-ref:mock-fallback:start-here",
+  primary_proof_ref: "proof-ref:mock-fallback:start-here",
+  action_proposal_ref: "action-envelope:mock-fallback:start-here",
+  route_refs: ["route-ref:control-center:start"],
+  backend_route_refs: ["GET /control-center/start-here/summary"],
+  steps: [
+    {
+      step_id: "start",
+      label: "Start Here",
+      route_ref: "route-ref:control-center:start",
+      backend_route_ref: "GET /control-center/start-here/summary",
+      status: "mock_fallback_non_authoritative",
+      safe_summary:
+        "Start Here fallback is display-only until the backend read model responds.",
+      next_safe_action: "Reconnect to the local backend before relying on loop refs.",
+      run_ref: "run-ref:mock-fallback:start-here",
+      proof_ref: "proof-ref:mock-fallback:start-here",
+      receipt_refs: [],
+      evidence_refs: ["evidence-ref:mock-fallback:start-here"],
+      approval_refs: [],
+      memory_candidate_refs: [],
+      blocked_authority_refs: [
+        "blocked-state:start-here:mock-fallback-no-authority",
+      ],
+    },
+  ],
+  complete_daily_loop_available: false,
+  operator_goal:
+    "Inspect one local governed daily loop once the backend Start Here route is available.",
+  next_safe_action:
+    "Reconnect to the local backend; do not treat fallback Start Here refs as product truth.",
+  missing_prerequisite_refs: ["missing-prerequisite-ref:start-here-backend-route"],
+  evidence_refs: ["evidence-ref:mock-fallback:start-here"],
+  blocked_authority_refs: [
+    "blocked-state:start-here:no-ui-only-truth",
+    "blocked-state:start-here:no-runtime-execution",
+    "blocked-state:start-here:no-connector-write",
+    "blocked-state:start-here:no-provider-model-call",
+    "blocked-state:start-here:no-production-authority",
+  ],
+  provider_model_call_enabled: false,
+  runtime_model_call_enabled: false,
+  connector_write_enabled: false,
+  connector_send_enabled: false,
+  browser_execution_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  background_autonomy_enabled: false,
   production_authority_enabled: false,
 };
 
@@ -6868,6 +6932,7 @@ export const mockControlCenterData: ControlCenterData = {
       },
     ],
   },
+  founderStartHere,
   founderToday: {
     schema_version: "founder_loop_storage.v1",
     status: "mock_storage_backed_partial_loop",

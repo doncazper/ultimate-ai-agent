@@ -19,6 +19,67 @@
   "production_readiness_claim_enabled": false,
   "routes": [
     {
+      "path": "/start",
+      "label": "Start Here",
+      "group": "Founder Loop",
+      "ui_status": "backend-owned start loop",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/start-here/summary",
+          "operation_id": "get_control_center_start_here_summary",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "validation_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "tests/test_control_center_start_here.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:universal-proof-detail-route",
+        "missing_backend:web-evidence-product-slice",
+        "missing_backend:provider-draft-summarize-lane",
+        "missing_backend:connector-draft-only-lane",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/control_center/start_here.py",
+        "src/ultimate_ai_agent/api/founder_loop.py",
+        "scripts/dev/uaa_founder_loop.py",
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "founder-loop",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:start:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked until the scoped visual regression hardening PR captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Start Here is a backend-owned local read model and first-loop guide, not runtime execution authority.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant connector writes, provider/model calls, browser execution, shell/subprocess execution, memory/context injection, broad runtime authority, or hidden autonomy.",
+        "Start Here is not a public beta and must not claim public release, production readiness, production authority, or completed product authority until later evidence-backed lanes graduate."
+      ]
+    },
+    {
       "path": "/today",
       "label": "Today",
       "group": "Founder Loop",

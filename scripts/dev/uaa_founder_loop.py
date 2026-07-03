@@ -30,6 +30,9 @@ from ultimate_ai_agent.core.control_center import (  # noqa: E402
 from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
     FounderLoopLocalTaskCommitRequest,
 )
+from ultimate_ai_agent.core.control_center.start_here import (  # noqa: E402
+    build_control_center_start_here_summary,
+)
 from ultimate_ai_agent.core.memory import (  # noqa: E402
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS,
@@ -242,6 +245,32 @@ def _inspect_state(args: argparse.Namespace) -> int:
             for item in today.get("evidence_timeline", [])[: args.limit]
             if isinstance(item, dict)
         ],
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _inspect_start_here(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        summary = build_control_center_start_here_summary(
+            today_summary=repo.today_summary(limit=args.limit)
+        )
+    except Exception:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-inspect-start-here",
+                error_ref="FOUNDER_LOOP_START_HERE_READ_MODEL_UNAVAILABLE",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-inspect-start-here",
+        "start_here": summary,
         "safe_refs_only": True,
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
@@ -1326,6 +1355,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     inspect_parser.add_argument("--limit", type=int, default=12)
     inspect_parser.set_defaults(func=_inspect_state)
+
+    start_here_parser = subparsers.add_parser(
+        "inspect-start-here",
+        help=(
+            "Print the backend-owned Start Here loop contract with safe refs only."
+        ),
+    )
+    start_here_parser.add_argument("--limit", type=int, default=12)
+    start_here_parser.set_defaults(func=_inspect_start_here)
 
     loop_spine_parser = subparsers.add_parser(
         "inspect-loop-spine",

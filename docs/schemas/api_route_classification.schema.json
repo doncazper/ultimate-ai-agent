@@ -22,7 +22,7 @@
       "const": "uaa-api-route-inventory.v4"
     },
     "route_count": {
-      "const": 164
+      "const": 165
     },
     "route_classification_vocabulary": {
       "type": "array",
@@ -146,8 +146,8 @@
     },
     "routes": {
       "type": "array",
-      "minItems": 164,
-      "maxItems": 164,
+      "minItems": 165,
+      "maxItems": 165,
       "items": {
         "type": "object",
         "additionalProperties": false,

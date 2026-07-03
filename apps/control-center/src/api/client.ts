@@ -7,6 +7,7 @@ import type {
   ControlCenterData,
   ControlCenterLocalModelsStatus,
   ControlCenterManifest,
+  ControlCenterStartHereSummary,
   ControlCenterSettingsStatus,
   ControlCenterStatus,
   FounderLoopActionsInbox,
@@ -282,6 +283,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<ControlCenterDashboardSnapshot["foundation_gate_summary"]>(
       API_ENDPOINTS.foundationGateSummary,
     ),
+    readEnvelope<ControlCenterStartHereSummary>(
+      API_ENDPOINTS.founderStartHereSummary,
+    ),
   ] as const);
 
   const manifest = fulfilledValue(results[0]);
@@ -319,7 +323,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const safeObservedRunObservability = safeRunObservability(runObservability);
   const runtimeReadinessSummary = fulfilledValue(results[27]);
   const foundationGateSummary = fulfilledValue(results[28]);
+  const founderStartHere = fulfilledValue(results[29]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
+  const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
   const normalizedFounderEvidenceTimeline = normalizeFounderEvidenceTimeline(
     founderEvidenceTimeline,
   );
@@ -414,6 +420,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       {
         ...mockControlCenterData,
         founderToday: normalizeFounderToday(undefined).value,
+        founderStartHere: normalizeFounderStartHere(undefined).value,
         founderEvidenceTimeline:
           normalizeFounderEvidenceTimeline(undefined).value,
         founderActionsInbox: normalizeFounderActionsInbox(undefined).value,
@@ -456,6 +463,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     localModelsStatus:
       controlCenterLocalModelsStatus ?? mockControlCenterData.localModelsStatus,
     founderToday: normalizedFounderToday.value,
+    founderStartHere: normalizedFounderStartHere.value,
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
     founderMemoryReview: normalizedFounderMemoryReview.value,
     founderMemoryWorkbench: normalizedFounderMemoryWorkbench.value,
@@ -479,6 +487,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   if (
     fulfilledCount === results.length &&
     !founderLoopFieldFallbackUsed &&
+    !normalizedFounderStartHere.usedFallback &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
     !dashboardSummaryEndpointFallbackUsed
@@ -495,6 +504,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const mockFallbackUsed =
     generalMockFallbackUsed ||
     founderLoopFieldFallbackUsed ||
+    normalizedFounderStartHere.usedFallback ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
     runObservabilityEndpointFallbackUsed;
@@ -503,7 +513,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     state: "degraded",
     safeMessage: providerCredentialReadinessFallbackUsed
       ? "Provider credential and cost posture was unavailable or unsafe; non-authoritative mock fallback kept provider readiness blocked."
-      : founderLoopFieldFallbackUsed
+      : founderLoopFieldFallbackUsed || normalizedFounderStartHere.usedFallback
         ? "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels."
         : approvalQueueEndpointFallbackUsed
           ? "Run-attached approval queue endpoint was unavailable; non-authoritative mock fallback is shown without approval authority."
@@ -527,6 +537,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         : []),
       ...(founderLoopFieldFallbackUsed
         ? ["PARTIAL_FOUNDER_LOOP_FIELD_FALLBACK"]
+        : []),
+      ...(normalizedFounderStartHere.usedFallback
+        ? ["START_HERE_MOCK_FALLBACK"]
         : []),
       ...(providerCredentialReadinessFallbackUsed
         ? ["PARTIAL_PROVIDER_CREDENTIAL_READINESS_FALLBACK"]
@@ -2506,6 +2519,51 @@ function stripPlansActionEnvelopePosture(
     });
   }
   return stripped;
+}
+
+function normalizeFounderStartHere(
+  value: ControlCenterStartHereSummary | undefined,
+): {
+  value: ControlCenterStartHereSummary;
+  usedFallback: boolean;
+} {
+  if (!isSafeStartHereSummary(value)) {
+    return {
+      value: mockControlCenterData.founderStartHere,
+      usedFallback: true,
+    };
+  }
+  const merged = mergeMissingFields(mockControlCenterData.founderStartHere, value);
+  return {
+    value: merged.value,
+    usedFallback: merged.usedFallback,
+  };
+}
+
+function isSafeStartHereSummary(
+  value: unknown,
+): value is ControlCenterStartHereSummary {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    value.schema_version === "control-center-start-here-summary.v1" &&
+    value.contract_ref === "contract-ref:control-center-start-here:v1" &&
+    value.backend_owned === true &&
+    value.local_read_model_only === true &&
+    value.safe_refs_only === true &&
+    value.raw_content_included === false &&
+    value.provider_model_call_enabled === false &&
+    value.runtime_model_call_enabled === false &&
+    value.connector_write_enabled === false &&
+    value.connector_send_enabled === false &&
+    value.browser_execution_enabled === false &&
+    value.shell_subprocess_execution_enabled === false &&
+    value.background_autonomy_enabled === false &&
+    value.production_authority_enabled === false &&
+    Array.isArray(value.steps) &&
+    typeof value.next_safe_action === "string"
+  );
 }
 
 function normalizeFounderToday(value: FounderLoopTodaySummary | undefined): {

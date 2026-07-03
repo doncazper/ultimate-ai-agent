@@ -135,6 +135,29 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       "RUN_OBSERVABILITY_MOCK_FALLBACK",
     );
   });
+
+  it("marks missing Start Here route as non-authoritative mock fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.founderStartHereSummary];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.founderStartHere.source).toBe(
+      "mock_fallback_non_authoritative",
+    );
+    expect(data.founderStartHere.backend_owned).toBe(false);
+    expect(data.founderStartHere.local_loop_status).toBe(
+      "local_loop_unverified_mock_fallback",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+    expect(data.connection.warnings).toContain("START_HERE_MOCK_FALLBACK");
+    expect(data.connection.safeMessage).toContain(
+      "non-authoritative mock fallback",
+    );
+  });
 });
 
 function baseRouteData(): Record<string, unknown> {
@@ -142,6 +165,16 @@ function baseRouteData(): Record<string, unknown> {
     ...mockControlCenterData.runAttachedApprovalQueue,
     source: "python_core_run_attached_approval_queue_read_model" as const,
     backend_owned: true,
+  };
+  const backendOwnedStartHere = {
+    ...mockControlCenterData.founderStartHere,
+    source: "python_core_control_center_start_here_read_model" as const,
+    backend_owned: true,
+    status: "implemented_backend_owned_start_here_loop_contract",
+    readiness_state: "ready_for_one_local_governed_loop",
+    local_loop_status: "one_governed_local_loop_available",
+    complete_daily_loop_available: true,
+    missing_prerequisite_refs: [],
   };
   return {
     [API_ENDPOINTS.controlCenterManifest]: mockControlCenterData.manifest,
@@ -159,6 +192,7 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.controlCenterLocalModelsStatus]:
       mockControlCenterData.localModelsStatus,
     [API_ENDPOINTS.founderTodaySummary]: mockControlCenterData.founderToday,
+    [API_ENDPOINTS.founderStartHereSummary]: backendOwnedStartHere,
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:
