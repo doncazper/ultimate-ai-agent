@@ -104,6 +104,28 @@ available local port before starting compose. The package must remain bound to
   readiness, broad production packaging, or enterprise support from this
   local package.
 
+## Local Unsigned macOS App Bundle Proof
+
+The packaging lane also has a repeatable local unsigned `.app` bundle proof:
+
+```bash
+.venv/bin/python scripts/build_local_macos_app_bundle_proof.py
+```
+
+The proof writes an ignored local bundle under UAA local state and emits a
+safe-ref summary only. The generated `Ultimate AI Agent Local.app` wraps the
+existing `./scripts/dev/uaa trial-boot` launcher entrypoint. The verifier checks
+the app bundle, `Info.plist`, launcher entrypoint, and boundary note without
+launching the app or starting services:
+
+```bash
+.venv/bin/python scripts/verify_local_macos_app_bundle_proof.py
+```
+
+This proof is local-only and unsigned. It is not signed, not notarized, not a
+DMG, not a public installer, not an auto-updater, not a LaunchAgent or daemon,
+and not production distribution authority.
+
 ## Rollback
 
 To stop the local package:
@@ -117,6 +139,9 @@ To remove local generated state after confirming no evidence is needed:
 ```bash
 rm -rf .uaa/local-runtime
 ```
+
+To remove the local unsigned `.app` proof bundle, delete the ignored local proof
+state created by `scripts/build_local_macos_app_bundle_proof.py`.
 
 To roll back UAA-P1-014, revert this document, the
 `packaging/local-runtime/` configs, `.dockerignore`, `.env.example` changes,
