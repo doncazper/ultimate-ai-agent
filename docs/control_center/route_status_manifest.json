@@ -82,9 +82,7 @@
         }
       ],
       "missing_backend_routes": [
-        "control-center-proof-detail-route",
-        "provider-draft-summarize-lane",
-        "connector-draft-only-lane"
+        "control-center-proof-detail-route"
       ]
     },
     {
@@ -119,10 +117,7 @@
           "route_classification": "local_sensitive"
         }
       ],
-      "missing_backend_routes": [
-        "provider-draft-summarize-lane",
-        "connector-draft-only-lane"
-      ]
+      "missing_backend_routes": []
     },
     {
       "surface": "Trust",
@@ -142,10 +137,7 @@
           "route_classification": "local_sensitive"
         }
       ],
-      "missing_backend_routes": [
-        "provider-draft-summarize-lane",
-        "connector-draft-only-lane"
-      ]
+      "missing_backend_routes": []
     },
     {
       "surface": "Inbox",
@@ -168,7 +160,6 @@
       "missing_backend_routes": [
         "calendar-read-only-contract",
         "email-read-only-contract",
-        "draft-only-response-proposal-contract",
         "connector-account-readiness-contract",
         "live-source-ingestion-contract"
       ]
@@ -1016,9 +1007,7 @@
         }
       ],
       "missing_backend_routes": [
-        "control-center-proof-detail-route",
-        "provider-draft-summarize-lane",
-        "connector-draft-only-lane"
+        "control-center-proof-detail-route"
       ]
     },
     {
@@ -1056,10 +1045,7 @@
           "route_classification": "local_sensitive"
         }
       ],
-      "missing_backend_routes": [
-        "provider-draft-summarize-lane",
-        "connector-draft-only-lane"
-      ]
+      "missing_backend_routes": []
     },
     {
       "action_id": "navigate-trust",
@@ -1082,10 +1068,7 @@
           "route_classification": "local_sensitive"
         }
       ],
-      "missing_backend_routes": [
-        "provider-draft-summarize-lane",
-        "connector-draft-only-lane"
-      ]
+      "missing_backend_routes": []
     },
     {
       "action_id": "navigate-today",
@@ -1141,7 +1124,6 @@
       "missing_backend_routes": [
         "calendar-read-only-contract",
         "email-read-only-contract",
-        "draft-only-response-proposal-contract",
         "live-source-ingestion-contract"
       ]
     },

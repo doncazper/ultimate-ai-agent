@@ -3838,6 +3838,102 @@ export interface FounderLoopSourceReadinessProposalCandidate {
   authority_boundary: string;
 }
 
+export interface ConnectorDraftProposalItem {
+  schema_version: "connector_draft_proposal_item.v1";
+  proposal_ref: string;
+  draft_ref: string;
+  draft_kind: "email_response" | "calendar_event_hold";
+  source_kind: "email" | "calendar";
+  status: "draft_proposal_ready";
+  connector_ref: string;
+  channel_ref: string;
+  target_session_ref: string;
+  delivery_ref: string;
+  delivery_state: "draft_created_metadata_only";
+  delivery_event_ref: string;
+  source_metadata_refs: string[];
+  redacted_subject_ref: string;
+  redacted_body_summary_ref: string;
+  draft_summary_ref: string;
+  response_outline_ref: string;
+  outbound_approval_ref: string;
+  approval_posture_ref: string;
+  approval_posture: string;
+  idempotency_ref: string;
+  rollback_posture_ref: string;
+  safe_disable_posture_ref: string;
+  audit_ref: string;
+  replay_ref: string;
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_send_write_reason_refs: string[];
+  blocked_authority_refs: string[];
+  safe_summary: string;
+  redacted_outline: string[];
+  next_safe_action: string;
+  safe_refs_only: boolean;
+  draft_only: boolean;
+  metadata_only: boolean;
+  approval_required_to_draft: boolean;
+  approval_required_to_send: boolean;
+  outbound_approval_ref_grants_authority: boolean;
+  target_session_ref_grants_authority: boolean;
+  raw_payloads_persisted: boolean;
+  raw_body_persisted: boolean;
+  raw_content_persisted: boolean;
+  raw_draft_body_persisted: boolean;
+  contact_data_persisted: boolean;
+  connector_runtime_enabled: boolean;
+  account_auth_enabled: boolean;
+  oauth_enabled: boolean;
+  connector_write_enabled: boolean;
+  connector_send_enabled: boolean;
+  connector_delete_enabled: boolean;
+  connector_delivery_worker_enabled: boolean;
+  background_sync_enabled: boolean;
+  scheduler_enabled: boolean;
+  provider_model_calls_enabled: boolean;
+  memory_write_enabled: boolean;
+  context_injection_enabled: boolean;
+  delivery_execution_performed: boolean;
+  connector_write_performed: boolean;
+  connector_send_performed: boolean;
+  account_sync_performed: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface ConnectorDraftProposalReadModel {
+  schema_version: "connector_draft_proposal_read_model.v1";
+  source: string;
+  backend_owned: boolean;
+  status: "draft_proposals_ready_no_send_write";
+  contract_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  proposal_count: number;
+  proposals: ConnectorDraftProposalItem[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  safe_summary: string;
+  next_safe_action: string;
+  safe_refs_only: boolean;
+  draft_only: boolean;
+  metadata_only: boolean;
+  raw_payloads_persisted: boolean;
+  connector_runtime_enabled: boolean;
+  account_auth_enabled: boolean;
+  oauth_enabled: boolean;
+  connector_writes_enabled: boolean;
+  connector_sends_enabled: boolean;
+  background_sync_enabled: boolean;
+  scheduler_enabled: boolean;
+  provider_model_calls_enabled: boolean;
+  memory_write_enabled: boolean;
+  context_injection_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopSourceReadiness {
   schema_version: "founder_loop_source_readiness.v1";
   source: string;
@@ -3850,6 +3946,7 @@ export interface FounderLoopSourceReadiness {
   source_readiness_items: FounderLoopSourceReadinessItem[];
   source_readiness_posture: FounderLoopSourceReadinessPosture;
   source_readiness_proposal_candidates: FounderLoopSourceReadinessProposalCandidate[];
+  connector_draft_proposals?: ConnectorDraftProposalReadModel;
   supported_statuses: FounderLoopSourceReadinessStatus[];
   missing_contract_refs: string[];
   blocked_state_refs: string[];
@@ -3861,6 +3958,7 @@ export interface FounderLoopSourceReadiness {
   account_auth_enabled: boolean;
   raw_source_ingestion_enabled: boolean;
   write_authority_enabled: boolean;
+  connector_draft_proposals_enabled?: boolean;
   authority_boundary: string;
   next_safe_action: string;
 }

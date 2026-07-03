@@ -48,11 +48,14 @@ Source Readiness exposes:
   contract refs, blocked state refs, and blocked authority refs.
 - `source_readiness_proposal_candidates` for email read-only metadata contract,
   calendar read-only metadata contract, and account-auth boundary work.
+- `connector_draft_proposals` for backend-owned email-response and
+  calendar-hold draft proposal refs, with sends/writes/runtime blocked.
 - Action Inbox projection of those candidates as
   `proposal_only_no_execution_path`.
 
 All source proposal candidates are draft-only proposal/readability records.
-They are not connector writes, live account states, external source reads, or
+Connector draft proposals are local safe-ref review artifacts. They are not
+connector writes, live account states, external source reads, sent drafts, or
 evidence that source access has been completed.
 
 ## Authority Boundary

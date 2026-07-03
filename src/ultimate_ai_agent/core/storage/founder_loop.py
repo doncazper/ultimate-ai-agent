@@ -170,6 +170,9 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
     WEB_EVIDENCE_PRODUCT_SLICE_ROLLBACK_REF,
     WebEvidenceProductSliceReceipt,
 )
+from ultimate_ai_agent.core.connectors.connector_draft_proposals import (
+    build_connector_draft_proposal_read_model,
+)
 from ultimate_ai_agent.core.control_center.health_recommendations import (
     FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
     FCC_HEALTH_RECOMMENDATION_BINDING_CONTRACT_REF,
@@ -2891,9 +2894,11 @@ def _source_readiness_read_model(
 ) -> dict[str, Any]:
     source_readiness_items = _source_readiness_items(briefing_items=briefing_items)
     source_readiness_posture = _source_readiness_posture(source_readiness_items)
+    connector_draft_proposals = build_connector_draft_proposal_read_model().storage_record()
     blocked_authority_refs = _unique_sorted_refs(
         [
             *source_readiness_posture["blocked_authority_refs"],
+            *connector_draft_proposals["blocked_authority_refs"],
             "blocked-state:no-account-auth",
             "blocked-state:no-background-polling",
             "blocked-state:no-connector-runtime",
@@ -2931,6 +2936,7 @@ def _source_readiness_read_model(
         "source_readiness_items": source_readiness_items,
         "source_readiness_posture": source_readiness_posture,
         "source_readiness_proposal_candidates": proposal_candidates,
+        "connector_draft_proposals": connector_draft_proposals,
         "supported_statuses": source_readiness_posture["supported_statuses"],
         "missing_contract_refs": source_readiness_posture["missing_contract_refs"],
         "blocked_state_refs": source_readiness_posture["blocked_state_refs"],
@@ -2942,15 +2948,18 @@ def _source_readiness_read_model(
         "account_auth_enabled": False,
         "raw_source_ingestion_enabled": False,
         "write_authority_enabled": False,
+        "connector_draft_proposals_enabled": True,
         "authority_boundary": (
             "Dedicated Source Readiness is a read-only local read model. It does "
             "not authenticate accounts, poll connectors, ingest raw source bodies, "
             "send or write external data, refresh sources, deliver notifications, "
-            "or grant production authority."
+            "or grant production authority. Connector draft proposals are "
+            "safe-ref review artifacts only and cannot send or write."
         ),
         "next_safe_action": (
             "Use the dedicated read-only source readiness route to inspect missing "
-            "source contracts before adding any connector metadata contract."
+            "source contracts and review connector draft proposal refs before any "
+            "future connector metadata or send/write lane."
         ),
     }
     _validate_safe_payload(read_model, "source_readiness_read_model")

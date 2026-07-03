@@ -3639,6 +3639,127 @@ function SourceReadinessProposalCards({
   );
 }
 
+function ConnectorDraftProposalCards({
+  draftProposals,
+}: {
+  draftProposals?: FounderLoopSourceReadiness["connector_draft_proposals"];
+}) {
+  if (!draftProposals) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Connector draft proposals</h3>
+          <span>missing</span>
+        </div>
+        <p className="muted">
+          Backend-owned connector draft proposals are unavailable; sends and
+          writes remain blocked.
+        </p>
+      </article>
+    );
+  }
+
+  return (
+    <article className="status-card">
+      <div className="status-card-header">
+        <h3>Connector draft proposals</h3>
+        <span>{draftProposals.status}</span>
+      </div>
+      <p className="muted">
+        {draftProposals.backend_owned
+          ? `${draftProposals.source} supplies review-only draft refs. No connector runtime, send, write, account auth, background sync, provider/model call, memory write, or context injection is enabled.`
+          : `${draftProposals.source} supplies mock-only draft shape. Reconnect the backend before treating drafts as Python-core truth.`}
+      </p>
+      <dl className="detail-list">
+        <DetailTerm label="Source" value={draftProposals.source} />
+        <DetailTerm label="Contract" value={draftProposals.contract_ref} />
+        <DetailTerm label="Route" value={draftProposals.route_ref} />
+        <DetailTerm label="CLI" value={draftProposals.cli_ref} />
+        <DetailTerm
+          label="Backend owned"
+          value={draftProposals.backend_owned ? "yes" : "no"}
+        />
+        <DetailTerm label="Draft proposals" value={String(draftProposals.proposal_count)} />
+        <DetailTerm
+          label="Connector runtime"
+          value={draftProposals.connector_runtime_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Account auth"
+          value={draftProposals.account_auth_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Connector sends"
+          value={draftProposals.connector_sends_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Connector writes"
+          value={draftProposals.connector_writes_enabled ? "enabled" : "blocked"}
+        />
+      </dl>
+      <div className="review-grid" aria-label="Connector draft proposal refs">
+        {draftProposals.proposals.map((proposal) => (
+          <article className="review-card" key={proposal.proposal_ref}>
+            <div className="review-card-heading">
+              <h3>{proposal.draft_kind}</h3>
+              <span>{proposal.status}</span>
+            </div>
+            <p>{proposal.safe_summary}</p>
+            <dl className="detail-list">
+              <DetailTerm label="Proposal ref" value={proposal.proposal_ref} />
+              <DetailTerm label="Draft ref" value={proposal.draft_ref} />
+              <DetailTerm label="Source" value={proposal.source_kind} />
+              <DetailTerm label="Connector" value={proposal.connector_ref} />
+              <DetailTerm label="Channel" value={proposal.channel_ref} />
+              <DetailTerm
+                label="Target session"
+                value={proposal.target_session_ref}
+              />
+              <DetailTerm label="Delivery state" value={proposal.delivery_state} />
+              <DetailTerm
+                label="Approval to draft"
+                value={proposal.approval_required_to_draft ? "required" : "not required"}
+              />
+              <DetailTerm
+                label="Approval to send/write"
+                value={proposal.approval_required_to_send ? "required later" : "not required"}
+              />
+              <DetailTerm
+                label="Send performed"
+                value={proposal.connector_send_performed ? "yes" : "no"}
+              />
+              <DetailTerm
+                label="Write performed"
+                value={proposal.connector_write_performed ? "yes" : "no"}
+              />
+            </dl>
+            <InlineListWithFallback
+              emptyLabel="Draft outline refs: none"
+              items={proposal.redacted_outline}
+            />
+            <RefListWithFallback
+              emptyLabel="Source metadata refs: none"
+              refs={proposal.source_metadata_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Blocked send/write refs: none"
+              refs={proposal.blocked_send_write_reason_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Draft proof refs: none"
+              refs={proposal.proof_refs}
+            />
+          </article>
+        ))}
+      </div>
+      <RefListWithFallback
+        emptyLabel="Connector draft blockers: none"
+        refs={draftProposals.blocked_authority_refs}
+      />
+    </article>
+  );
+}
+
 function CrmLiteFollowUpCards({
   items,
 }: {
@@ -4687,7 +4808,7 @@ export function InboxSurfacePanel({
     "account authentication and credential handling are not scoped",
     "message send, archive, delete, label, move, or account write controls are absent",
     "raw message bodies, subjects, participants, attachment names, and calendar details are not displayed",
-    "draft-only response proposal contract is not implemented in this slice",
+    "connector draft proposals are review-only safe refs; send and write remain blocked",
     "memory writes, context injection, model/provider calls, and background fetch remain blocked",
   ];
   const evidenceRefs = [
@@ -4707,7 +4828,7 @@ export function InboxSurfacePanel({
       <p className="section-copy">
         Inbox is visible as the Founder Loop triage slot. A dedicated
         backend Source Readiness route reports read-only source posture, while
-        live email, calendar, draft, account, polling, and connector runtime
+        live email, calendar, account, polling, and connector runtime
         behavior remain blocked.
       </p>
       <div className="panel-grid">
@@ -4715,6 +4836,9 @@ export function InboxSurfacePanel({
           items={sourceReadiness.source_readiness_items}
           posture={sourceReadiness.source_readiness_posture}
           sourceReadiness={sourceReadiness}
+        />
+        <ConnectorDraftProposalCards
+          draftProposals={sourceReadiness.connector_draft_proposals}
         />
         <article className="status-card">
           <div className="status-card-header">

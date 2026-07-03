@@ -9,9 +9,20 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
     WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF,
     WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF,
 )
+from ultimate_ai_agent.core.connectors.connector_draft_proposals import (
+    CONNECTOR_DRAFT_PROPOSAL_CLI_REF,
+    CONNECTOR_DRAFT_PROPOSAL_CONTRACT_REF,
+    CONNECTOR_DRAFT_PROPOSAL_PROOF_REF,
+    CONNECTOR_DRAFT_PROPOSAL_ROUTE_REF,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
+)
+from ultimate_ai_agent.core.providers.draft_summarize import (
+    PROVIDER_DRAFT_SUMMARIZE_CLI_REF,
+    PROVIDER_DRAFT_SUMMARIZE_LANE_REF,
+    PROVIDER_DRAFT_SUMMARIZE_PROOF_REF,
 )
 
 
@@ -496,18 +507,25 @@ def _trust_authority_lanes() -> list[TrustAuthorityLane]:
             label="Provider draft/summarize",
             tier=2,
             lane_kind="draft_proposal",
-            authority_state="planned",
-            current_posture="Provider-assisted drafting/summarizing is not enabled by this Trust map.",
-            approval_posture="Future provider lanes require exact scope, cost posture, receipts, and blocked output authority.",
-            operator_can_do_now="Use local draft/proposal refs only; do not call providers from Trust.",
-            next_safe_action="Graduate provider draft/summarize separately if exact cost and output boundaries are proven.",
-            route_refs=[],
-            proof_refs=["proof-ref:provider-draft:planned"],
-            verifier_refs=["tests/test_provider_router_dry_run.py"],
-            docs_refs=["docs/control_center/PROVIDER_ROUTER_DRY_RUN.md"],
+            authority_state="available_now",
+            current_posture="The exact provider draft/summarize core and CLI lane can produce review-only draft refs when the existing tiny exact-approved provider path is satisfied; default Control Center invocation remains blocked.",
+            approval_posture="Each provider attempt requires exact scope, CostGovernor posture, durable receipts, and blocked output authority; the draft is not truth, send authority, memory, action execution, or connector authority.",
+            operator_can_do_now="Inspect the provider draft/summarize CLI posture and fixture proof; do not call providers from Trust.",
+            next_safe_action="Use the provider draft/summarize lane only through its exact core/CLI wrapper; live provider setup and default UI invocation remain separately blocked.",
+            route_refs=[PROVIDER_DRAFT_SUMMARIZE_LANE_REF],
+            proof_refs=[PROVIDER_DRAFT_SUMMARIZE_PROOF_REF],
+            verifier_refs=[
+                "tests/test_provider_draft_summarize_lane.py",
+                "scripts/inspect_provider_draft_summarize_lane.py",
+            ],
+            docs_refs=[
+                "docs/control_center/PROVIDER_DRAFT_SUMMARIZE_MICRO_LANE.md",
+                PROVIDER_DRAFT_SUMMARIZE_CLI_REF,
+            ],
             blocked_authority_refs=[
                 "blocked-state:trust:no-provider-model-call",
                 "blocked-state:trust:no-provider-output-authority",
+                "blocked-state:trust:no-provider-default-ui-invocation",
             ],
         ),
         _lane(
@@ -515,15 +533,21 @@ def _trust_authority_lanes() -> list[TrustAuthorityLane]:
             label="Connector draft-only",
             tier=2,
             lane_kind="draft_proposal",
-            authority_state="planned",
-            current_posture="Connector draft-only review remains planned; sends and writes remain blocked.",
-            approval_posture="No approval should be needed to draft after graduation; exact approval is required to send/write.",
-            operator_can_do_now="Inspect connector delivery review refs only where present.",
-            next_safe_action="Graduate connector draft-only before any send/write lane.",
-            route_refs=[],
-            proof_refs=["proof-ref:connector-draft:planned"],
-            verifier_refs=["tests/test_connector_delivery_review_queue.py"],
-            docs_refs=["docs/architecture/CONNECTOR_DELIVERY_SEMANTICS_CONTRACT.md"],
+            authority_state="available_now",
+            current_posture="Backend-owned connector draft proposals are available as safe refs for operator review through Source Readiness; live connector runtime, sends, writes, account sync, and source ingestion remain blocked.",
+            approval_posture="No approval is required to inspect draft proposal refs. Exact approval, idempotency, receipt, rollback, and safe-disable posture are still required before any future send/write.",
+            operator_can_do_now="Inspect email-response and calendar-hold draft proposal refs from Inbox, Source Readiness, or the CLI.",
+            next_safe_action="Review connector draft proposals only as local safe-ref artifacts; graduate a separate test-send/write lane before any external effect.",
+            route_refs=[CONNECTOR_DRAFT_PROPOSAL_ROUTE_REF],
+            proof_refs=[CONNECTOR_DRAFT_PROPOSAL_PROOF_REF],
+            verifier_refs=[
+                "tests/test_connector_draft_proposals.py",
+                CONNECTOR_DRAFT_PROPOSAL_CLI_REF,
+            ],
+            docs_refs=[
+                "docs/control_center/CONNECTOR_DRAFT_ONLY_PROPOSALS.md",
+                CONNECTOR_DRAFT_PROPOSAL_CONTRACT_REF,
+            ],
             blocked_authority_refs=[
                 "blocked-state:trust:no-connector-send",
                 "blocked-state:trust:no-connector-write",

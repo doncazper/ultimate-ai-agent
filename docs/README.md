@@ -123,6 +123,17 @@ fixture_only metadata only while adding no backend endpoints, no backend CRM
 read model, no connector runtime, no connector writes, no external CRM writes,
 no account sync, no sends, no calendar writes, no provider/model calls, no
 live web, no browser runtime, no public beta, and no production authority.
+
+Connector draft-only proposals are backend-owned safe-ref review artifacts in
+`docs/control_center/CONNECTOR_DRAFT_ONLY_PROPOSALS.md`,
+`src/ultimate_ai_agent/core/connectors/connector_draft_proposals.py`,
+`scripts/inspect_connector_draft_proposals.py`, and
+`tests/test_connector_draft_proposals.py`. They make email-response and
+calendar-hold draft refs visible in Source Readiness, Inbox, and Trust while
+adding no connector runtime, sends, writes, account sync, source ingestion,
+provider/model calls, memory writes, context injection, background work, public
+beta, public release, or production authority.
+
 Provider Catalog + Cost Literacy is a backend-owned read-only guide in
 `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`,
 Provider Credential Readiness + Cost Governor Binding is documented in
