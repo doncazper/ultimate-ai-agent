@@ -4092,6 +4092,81 @@ export interface ControlCenterStartHereSummary {
   production_authority_enabled: boolean;
 }
 
+export type ControlCenterProofKind =
+  | "daily_loop"
+  | "action_decision"
+  | "local_task_commit"
+  | "memory_decision"
+  | "evidence_event"
+  | "source_readiness"
+  | "approval"
+  | "setup_package";
+
+export interface ControlCenterProofRecord {
+  schema_version: "control-center-proof-record.v1";
+  contract_ref: string;
+  proof_ref: string;
+  proof_kind: ControlCenterProofKind;
+  status: string;
+  title: string;
+  safe_summary: string;
+  authority_posture: string;
+  route_refs: string[];
+  backend_route_refs: string[];
+  run_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  audit_refs: string[];
+  approval_refs: string[];
+  rollback_refs: string[];
+  safe_disable_refs: string[];
+  memory_candidate_refs: string[];
+  redaction_state: string;
+  next_safe_action: string;
+  blocked_authority_refs: string[];
+  detail_route_ref: string;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  control_center_presentation_only: boolean;
+  provider_model_call_enabled: boolean;
+  runtime_model_call_enabled: boolean;
+  connector_write_enabled: boolean;
+  connector_send_enabled: boolean;
+  browser_execution_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface ControlCenterProofIndex {
+  schema_version: "control-center-proof-index.v1";
+  contract_ref: string;
+  source:
+    | "python_core_control_center_proof_index"
+    | "mock_fallback_non_authoritative";
+  status: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  index_route_ref: string;
+  detail_route_ref: string;
+  cli_ref: string;
+  proof_count: number;
+  proof_refs: string[];
+  records: ControlCenterProofRecord[];
+  blocked_authority_refs: string[];
+  next_safe_action: string;
+  provider_model_call_enabled: boolean;
+  runtime_model_call_enabled: boolean;
+  connector_write_enabled: boolean;
+  connector_send_enabled: boolean;
+  browser_execution_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export type FounderLoopUnifiedWorkThreadStepId =
   | "chat_handoff"
   | "plan"
@@ -6510,6 +6585,7 @@ export interface ControlCenterData {
   localModelsStatus: ControlCenterLocalModelsStatus;
   founderToday: FounderLoopTodaySummary;
   founderStartHere: ControlCenterStartHereSummary;
+  proofIndex: ControlCenterProofIndex;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;

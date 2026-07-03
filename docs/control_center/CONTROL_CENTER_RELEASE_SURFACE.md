@@ -116,3 +116,12 @@ Usable Authority PR 02 adds `/start` as a partial Start Here surface backed by
 for one governed daily loop and does not grant action execution, provider/model
 calls, connector writes/sends, browser or shell execution, background autonomy,
 public release, or production authority.
+
+Usable Authority PR 03 adds `/proof` as a partial universal Proof Detail
+surface backed by `GET /control-center/proof/index` and
+`GET /control-center/proof/{proof_ref}`. It is a read-only inspection surface
+for safe refs, receipts, evidence refs, approval refs, rollback/safe-disable
+refs, redaction posture, and blocked authority refs only; it does not grant
+approval, action execution, provider/model calls, connector writes/sends,
+browser or shell execution, background autonomy, public release, or production
+authority.

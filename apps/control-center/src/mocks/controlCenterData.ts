@@ -1,5 +1,6 @@
 import type {
   ControlCenterData,
+  ControlCenterProofIndex,
   ControlCenterStartHereSummary,
   CrmM1FixtureShell,
   CrmM1VerticalFixture,
@@ -26,8 +27,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 165;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 64;
+export const MOCK_OPENAPI_ROUTE_COUNT = 167;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 66;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -1390,6 +1391,81 @@ const founderStartHere: ControlCenterStartHereSummary = {
     "blocked-state:start-here:no-provider-model-call",
     "blocked-state:start-here:no-production-authority",
   ],
+  provider_model_call_enabled: false,
+  runtime_model_call_enabled: false,
+  connector_write_enabled: false,
+  connector_send_enabled: false,
+  browser_execution_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  background_autonomy_enabled: false,
+  production_authority_enabled: false,
+};
+
+const proofIndex: ControlCenterProofIndex = {
+  schema_version: "control-center-proof-index.v1",
+  contract_ref: "contract-ref:control-center-proof-spine:v1",
+  source: "mock_fallback_non_authoritative",
+  status: "mock_fallback_non_authoritative",
+  backend_owned: false,
+  local_read_model_only: true,
+  safe_refs_only: true,
+  raw_content_included: false,
+  index_route_ref: "GET /control-center/proof/index",
+  detail_route_ref: "GET /control-center/proof/{proof_ref}",
+  cli_ref: "python scripts/dev/uaa_founder_loop.py inspect-proof",
+  proof_count: 1,
+  proof_refs: ["proof-ref:mock-fallback:daily-loop"],
+  records: [
+    {
+      schema_version: "control-center-proof-record.v1",
+      contract_ref: "contract-ref:control-center-proof-spine:v1",
+      proof_ref: "proof-ref:mock-fallback:daily-loop",
+      proof_kind: "daily_loop",
+      status: "mock_fallback_non_authoritative",
+      title: "Mock Proof",
+      safe_summary:
+        "Proof fallback is display-only until the backend proof index responds.",
+      authority_posture:
+        "Mock proof grants no authority and cannot prove a completed product event.",
+      route_refs: ["route-ref:control-center:proof"],
+      backend_route_refs: ["GET /control-center/proof/index"],
+      run_refs: ["run-ref:mock-fallback:proof"],
+      receipt_refs: [],
+      evidence_refs: ["evidence-ref:mock-fallback:proof"],
+      audit_refs: [],
+      approval_refs: [],
+      rollback_refs: [],
+      safe_disable_refs: [],
+      memory_candidate_refs: [],
+      redaction_state: "safe_refs_and_bounded_summaries_only",
+      next_safe_action: "Reconnect to the local backend before relying on proof refs.",
+      blocked_authority_refs: [
+        "blocked-state:proof-detail:no-runtime-execution",
+        "blocked-state:proof-detail:no-provider-model-call",
+        "blocked-state:proof-detail:no-connector-write-or-send",
+        "blocked-state:proof-detail:no-production-authority",
+      ],
+      detail_route_ref: "GET /control-center/proof/{proof_ref}",
+      safe_refs_only: true,
+      raw_content_included: false,
+      control_center_presentation_only: true,
+      provider_model_call_enabled: false,
+      runtime_model_call_enabled: false,
+      connector_write_enabled: false,
+      connector_send_enabled: false,
+      browser_execution_enabled: false,
+      shell_subprocess_execution_enabled: false,
+      background_autonomy_enabled: false,
+      production_authority_enabled: false,
+    },
+  ],
+  blocked_authority_refs: [
+    "blocked-state:proof-detail:no-runtime-execution",
+    "blocked-state:proof-detail:no-provider-model-call",
+    "blocked-state:proof-detail:no-connector-write-or-send",
+    "blocked-state:proof-detail:no-production-authority",
+  ],
+  next_safe_action: "Reconnect to the local backend before relying on proof refs.",
   provider_model_call_enabled: false,
   runtime_model_call_enabled: false,
   connector_write_enabled: false,
@@ -6933,6 +7009,7 @@ export const mockControlCenterData: ControlCenterData = {
     ],
   },
   founderStartHere,
+  proofIndex,
   founderToday: {
     schema_version: "founder_loop_storage.v1",
     status: "mock_storage_backed_partial_loop",

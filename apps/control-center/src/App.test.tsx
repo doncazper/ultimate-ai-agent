@@ -1151,6 +1151,7 @@ describe("Web Control Center shell", () => {
       "Source Inbox",
       "Plans",
       "Action Inbox",
+      "Proof",
       "Memory",
       "Evidence",
       "Settings",
@@ -1177,12 +1178,13 @@ describe("Web Control Center shell", () => {
     const labels = within(navigation)
       .getAllByRole("link")
       .map((link) => link.getAttribute("aria-label"));
-    expect(labels.slice(0, 8)).toEqual([
+    expect(labels.slice(0, 9)).toEqual([
       "Start Here",
       "Today",
       "Source Inbox",
       "Plans",
       "Action Inbox",
+      "Proof",
       "Memory",
       "Evidence",
       "Settings",
@@ -1523,6 +1525,26 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText("blocked-state:start-here:no-runtime-execution"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /approve|run|send|write|sync|execute/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders Proof Detail as a read-only proof index without runtime controls", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/proof");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Proof Detail$/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/mock fallback/i).length).toBeGreaterThan(0);
+    expect(screen.getByText("proof-ref:mock-fallback:daily-loop")).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-state:proof-detail:no-runtime-execution"),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", {
@@ -8372,9 +8394,14 @@ describe("Web Control Center shell", () => {
     }
     expect(
       [...primaryNavItems, ...supportingNavItems].some(
-        (item) => item.path === "/runs" || item.path === "/proof",
+        (item) => item.path === "/runs",
       ),
     ).toBe(false);
+    expect(
+      [...primaryNavItems, ...supportingNavItems].some(
+        (item) => item.path === "/proof" && item.releaseStatus === "partial",
+      ),
+    ).toBe(true);
     expect(screen.queryByText(/raw prompt/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/raw response/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/provider payload/i)).not.toBeInTheDocument();
@@ -10151,6 +10178,9 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.founderStartHereSummary)).toBe(
       true,
     );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterProofIndex)).toBe(
+      true,
+    );
     expect(chatTurnReceiptEndpoint("chat-turn:test")).toBe(
       "/control-center/chat/turns/chat-turn%3Atest/receipt",
     );
@@ -10263,6 +10293,12 @@ function envelopeForReadEndpoint(url: string) {
       local_loop_status: "one_governed_local_loop_available",
       complete_daily_loop_available: true,
       missing_prerequisite_refs: [],
+    },
+    [API_ENDPOINTS.controlCenterProofIndex]: {
+      ...mockControlCenterData.proofIndex,
+      source: "python_core_control_center_proof_index",
+      backend_owned: true,
+      status: "implemented_backend_owned_universal_proof_index",
     },
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,

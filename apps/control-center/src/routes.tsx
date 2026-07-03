@@ -36,6 +36,7 @@ import {
   SettingsOperatorPanel,
 } from "./components/OperatorFlowPanels";
 import { OperatorLoopPanel } from "./components/OperatorLoopPanel";
+import { ProofDetailPanel } from "./components/ProofDetailPanel";
 import { PrivateOperatorTrialPanel } from "./components/PrivateOperatorTrialPanel";
 import { ReceiptViewerPanel } from "./components/ReceiptViewerPanel";
 import { RuntimeReadinessPanel } from "./components/RuntimeReadinessPanel";
@@ -81,6 +82,7 @@ export const navItems: NavItem[] = [
   { path: "/inbox", label: "Source Inbox", group: "Founder Loop", status: "blocked/planned", releaseStatus: "partial", role: "primary" },
   { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial", releaseStatus: "partial", role: "primary" },
   { path: "/actions", label: "Action Inbox", group: "Founder Loop", status: "storage-backed", releaseStatus: "ship", role: "primary" },
+  { path: "/proof", label: "Proof", group: "Founder Loop", status: "backend-owned proof detail", releaseStatus: "partial", role: "primary" },
   { path: "/memory", label: "Memory", group: "Founder Loop", status: "memory diagnostics and context manifest", releaseStatus: "ship", role: "primary" },
   { path: "/evidence", label: "Evidence", group: "Founder Loop", status: "timeline", releaseStatus: "ship", role: "primary" },
   { path: "/settings", label: "Settings", group: "Founder Loop", status: "status-backed", releaseStatus: "partial", role: "primary" },
@@ -227,6 +229,13 @@ export function renderRoute(path: string, data: ControlCenterData) {
             today={data.founderToday}
           />
         </>
+      );
+    case "/proof":
+      return (
+        <ProofDetailPanel
+          authoritative={isAuthoritativeConnection(data)}
+          proofIndex={data.proofIndex}
+        />
       );
     case "/briefing":
       return (
