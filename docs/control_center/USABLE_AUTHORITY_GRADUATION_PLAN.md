@@ -401,6 +401,11 @@ Acceptance criteria:
 
 Goal: graduate the first external mutation only after drafts are real.
 
+Current note: connector draft-only proposals are now real safe-ref review
+artifacts. This PR must no-go rather than implement if connector read,
+test-account credential/OAuth, target allowlist, and send/write receipt
+prerequisites are still blocked.
+
 Tasks:
 
 - Pick one low-risk target, such as send-to-self/test-recipient only.
