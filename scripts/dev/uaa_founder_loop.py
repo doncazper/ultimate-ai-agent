@@ -283,6 +283,23 @@ def _inspect_start_here(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_action_work_queue(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    inbox = repo.actions_inbox(limit=args.limit)
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-action-work-queue",
+        "action_inbox_work_queue_read_model": inbox.get(
+            "action_inbox_work_queue_read_model"
+        ),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
 def _inspect_proof(args: argparse.Namespace) -> int:
     repo = _repository(args)
     today_summary = repo.today_summary(limit=args.limit)
@@ -1394,6 +1411,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     start_here_parser.add_argument("--limit", type=int, default=12)
     start_here_parser.set_defaults(func=_inspect_start_here)
+
+    action_work_queue_parser = subparsers.add_parser(
+        "inspect-action-work-queue",
+        help="Print the backend-owned Action Inbox work queue summary.",
+    )
+    action_work_queue_parser.add_argument("--limit", type=int, default=50)
+    action_work_queue_parser.set_defaults(func=_inspect_action_work_queue)
 
     proof_parser = subparsers.add_parser(
         "inspect-proof",

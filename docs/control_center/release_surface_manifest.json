@@ -407,6 +407,7 @@
         "tests/test_fcc_v1_003_founder_loop_vertical_slice.py",
         "scripts/verify_founder_loop_v1.py",
         "tests/test_founder_loop_v1_proof_lane.py",
+        "tests/test_action_inbox_work_queue.py",
         "docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md"
       ],
       "blocked_capabilities": [],
@@ -417,6 +418,8 @@
         "scripts/dev/uaa_founder_loop.py",
         "docs/control_center/FCC_V1_003_FOUNDER_LOOP_VERTICAL_SLICE.md",
         "docs/control_center/FCC_V1_007_PROMOTION_AND_PROOF_LANE.md",
+        "src/ultimate_ai_agent/core/control_center/action_inbox_work_queue.py",
+        "tests/test_action_inbox_work_queue.py",
         "scripts/verify_founder_loop_v1.py",
         "docs/control_center/OPERATIONALIZATION_LADDER.md",
         "docs/control_center/operational_maturity_manifest.json",
@@ -436,7 +439,8 @@
       "product_language_caveats": [
         "Release status is ship for proofed route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
-        "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
+        "Action Inbox may present a backend-owned work queue and exact local_task_create local task record lane, but it must not imply generic action execution.",
+        "Route visibility does not grant connector writes/sends, provider/model calls, shell/subprocess execution, browser execution, memory/context injection, external side effects, rollback execution, broad runtime authority, or hidden autonomy."
       ]
     },
     {

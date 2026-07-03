@@ -217,10 +217,10 @@ def test_operational_maturity_verifier_requires_local_task_repeatability_gate() 
         for failure in failures
     )
     assert any(
-        "local_task_create repeatability gate missing frontend test apps/control-center/src/App.test.tsx::commits only the eligible Action Inbox local task lane through the typed route"
-        in failure
-        for failure in failures
-    )
+            "local_task_create repeatability gate missing frontend test apps/control-center/src/App.test.tsx::commits only the eligible Action Inbox local-task create lane through the typed route"
+            in failure
+            for failure in failures
+        )
     assert any(
         "local_task_create repeatability gate missing verifier ref scripts/verify_operational_maturity.py::_append_local_task_repeatability_gate_failures"
         in failure
