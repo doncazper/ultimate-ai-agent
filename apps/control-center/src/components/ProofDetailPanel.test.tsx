@@ -13,7 +13,51 @@ vi.mock("../api/client", () => ({
   submitWebEvidenceAttachment: vi.fn(),
 }));
 
-const webProofRecord: ControlCenterProofRecord = {
+function withProofRunDetail(record: ControlCenterProofRecord): ControlCenterProofRecord {
+  const kind = record.proof_kind.replaceAll("_", "-");
+  const runRef = record.run_refs[0] ?? "run-ref:proof-test";
+  return {
+    ...record,
+    run_detail: {
+      ...record.run_detail!,
+      source: "python_core_control_center_proof_run_detail",
+      run_detail_ref: `run-detail-ref:proof-test:${kind}`,
+      proof_ref: record.proof_ref,
+      proof_kind: record.proof_kind,
+      run_ref: runRef,
+      status: record.status,
+      title: record.title,
+      safe_summary:
+        "Proof test Run Detail ties proof, run, receipt, evidence, approval, rollback, and blocked authority refs.",
+      authority_posture: record.authority_posture,
+      route_refs: record.route_refs,
+      backend_route_refs: [
+        ...record.backend_route_refs,
+        "GET /control-center/proof/{proof_ref}",
+      ],
+      related_run_refs: [runRef],
+      operator_run_event_refs: [`operator-run-event-ref:proof:${kind}:test`],
+      receipt_refs: record.receipt_refs,
+      evidence_refs: record.evidence_refs,
+      audit_refs: record.audit_refs,
+      approval_refs: record.approval_refs,
+      rollback_refs: record.rollback_refs,
+      safe_disable_refs: record.safe_disable_refs,
+      memory_candidate_refs: record.memory_candidate_refs,
+      blocked_authority_refs: record.blocked_authority_refs,
+      exact_promotion_path_refs: [
+        "promotion-path-ref:proof-run-spine:detail-route-parity",
+        "promotion-path-ref:proof-run-spine:receipt-evidence-binding",
+        "promotion-path-ref:proof-run-spine:rollback-safe-disable-binding",
+        "promotion-path-ref:proof-run-spine:cli-inspection-parity",
+        `promotion-path-ref:proof-run-spine:${kind}`,
+      ],
+      next_safe_action: record.next_safe_action,
+    },
+  };
+}
+
+const webProofRecord: ControlCenterProofRecord = withProofRunDetail({
   ...mockControlCenterData.proofIndex.records[0],
   proof_ref: "proof-ref:web-evidence:product-slice",
   proof_kind: "web_evidence",
@@ -26,10 +70,13 @@ const webProofRecord: ControlCenterProofRecord = {
     "blocked-state:web-evidence:no-unrestricted-browsing",
     "blocked-state:web-evidence:no-browser-actions",
   ],
-};
+});
 
 const proofIndex: ControlCenterProofIndex = {
   ...mockControlCenterData.proofIndex,
+  source: "python_core_control_center_proof_index",
+  status: "implemented_backend_owned_universal_proof_index",
+  backend_owned: true,
   proof_count: 1,
   proof_refs: [webProofRecord.proof_ref],
   records: [webProofRecord],
@@ -127,6 +174,27 @@ describe("ProofDetailPanel web evidence", () => {
     expect(
       await screen.findByText("receipt:web-evidence-product-slice:test"),
     ).toBeInTheDocument();
+    expect(screen.getAllByText("Run Detail").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("run-detail-ref:proof-test:web-evidence").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("python_core_control_center_proof_run_detail"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /control-center/proof/{proof_ref}").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("python scripts/dev/uaa_founder_loop.py inspect-proof"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Full Strength Goal")).toBeInTheDocument();
+    expect(screen.getByText(/Every action, approval/)).toBeInTheDocument();
+    expect(screen.getByText("Repo-Safe Scope")).toBeInTheDocument();
+    expect(screen.getByText(/Backend-owned safe refs/)).toBeInTheDocument();
+    expect(screen.getByText("Next Safe Action")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /inspect proof web evidence/i }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("web-access-audit:test")).toBeInTheDocument();
     expect(screen.getByText("Public launch status.")).toBeInTheDocument();
     expect(

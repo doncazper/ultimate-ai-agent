@@ -4490,6 +4490,52 @@ export type ControlCenterProofKind =
   | "approval"
   | "setup_package";
 
+export interface ControlCenterProofRunDetail {
+  schema_version: "control-center-proof-run-detail.v1";
+  contract_ref: string;
+  source:
+    | "python_core_control_center_proof_run_detail"
+    | "mock_control_center_proof_run_detail_non_authoritative";
+  run_detail_ref: string;
+  proof_ref: string;
+  proof_kind: ControlCenterProofKind;
+  run_ref: string;
+  status: string;
+  title: string;
+  safe_summary: string;
+  authority_posture: string;
+  full_strength_goal: string;
+  repo_safe_scope: string;
+  blocked_authority_summary: string;
+  exact_promotion_path_refs: string[];
+  route_refs: string[];
+  backend_route_refs: string[];
+  cli_ref: string;
+  related_run_refs: string[];
+  operator_run_event_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  audit_refs: string[];
+  approval_refs: string[];
+  rollback_refs: string[];
+  safe_disable_refs: string[];
+  memory_candidate_refs: string[];
+  blocked_authority_refs: string[];
+  redaction_state: string;
+  next_safe_action: string;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  control_center_presentation_only: boolean;
+  provider_model_call_enabled: boolean;
+  runtime_model_call_enabled: boolean;
+  connector_write_enabled: boolean;
+  connector_send_enabled: boolean;
+  browser_execution_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface ControlCenterProofRecord {
   schema_version: "control-center-proof-record.v1";
   contract_ref: string;
@@ -4524,6 +4570,7 @@ export interface ControlCenterProofRecord {
   shell_subprocess_execution_enabled: boolean;
   background_autonomy_enabled: boolean;
   production_authority_enabled: boolean;
+  run_detail: ControlCenterProofRunDetail | null;
 }
 
 export interface ControlCenterProofIndex {

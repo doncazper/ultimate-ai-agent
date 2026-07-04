@@ -32,6 +32,10 @@ Timeline -> Memory Review -> Weekly Review.
   surface binding for Start Here, Today, Action Inbox, Proof, Evidence, Memory,
   Trust, and Settings. Those surfaces share backend-owned safe refs and one
   resolvable daily-loop proof ref.
+- Beta-04 Universal Proof and Run Detail spine adds a backend-owned
+  `control-center-proof-run-detail.v1` safe-ref snapshot to each Universal
+  Proof record so the same proof can open coherent route, receipt, evidence,
+  audit, rollback, safe-disable, blocked-authority, and promotion-path refs.
 - `scripts/inspect_founder_loop_v1_product_proof.py` provides repo-local CLI
   inspection for the same safe refs.
 - `scripts/dev/uaa_founder_loop.py inspect-loop-spine` provides a compact
@@ -60,6 +64,29 @@ Exact promotion path: promote one authority lane at a time with exact scope,
 approval binding, idempotency, receipt, evidence, rollback or safe-disable
 posture, redaction, CLI parity, frontend truth labels, and focused verifiers.
 
+## Beta-04 Universal Proof And Run Detail Spine
+
+Full-strength version: every action, approval, evidence event, memory decision,
+local task commit, setup/package event, and future operator/coding task opens a
+coherent Proof and Run Detail view.
+
+Repo-safe version: Python Core attaches backend-owned safe refs, bounded
+summaries, route refs, receipt refs, evidence refs, audit refs, rollback or
+safe-disable refs, blocked-authority refs, and exact promotion-path refs to
+each Universal Proof record. Control Center renders those refs as
+inspection-only route, receipt, evidence, audit, memory, blocked, and
+promotion-path groups, and CLI proof inspection exposes the complete records.
+
+Blocked / needs authority: provider/model calls, connector sends or writes,
+browser automation, shell/subprocess execution, background autonomy, public
+release claims, production authority, broad memory write, and runtime context
+injection remain blocked.
+
+Exact promotion path: promote one proofed lane at a time with exact scope,
+approval binding, idempotency, redacted receipts, rollback or safe-disable
+posture, CLI parity, frontend truth labels, route/API truth, and focused
+tests/verifiers.
+
 ## Authority Boundary
 
 No provider/model calls.
@@ -82,6 +109,7 @@ authority boundary.
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/inspect_founder_loop_v1_product_proof.py
 PYTHONPATH=src .venv/bin/python scripts/dev/uaa_founder_loop.py inspect-loop-spine
+PYTHONPATH=src .venv/bin/python scripts/dev/uaa_founder_loop.py inspect-proof
 PYTHONPATH=src .venv/bin/python scripts/verify_founder_loop_v1_product_proof.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_founder_loop_v1_product_proof.py
 ```
@@ -93,7 +121,9 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_founder_loop_v1_product_pro
 - `apps/control-center/src/components/FounderLoopPanels.tsx`
 - `apps/control-center/src/api/client.ts`
 - `apps/control-center/src/api/types.ts`
+- `apps/control-center/src/components/ProofDetailPanel.tsx`
 - `tests/test_founder_loop_v1_product_proof.py`
+- `tests/test_control_center_proof_spine.py`
 - `apps/control-center/src/App.test.tsx`
 - `scripts/inspect_founder_loop_v1_product_proof.py`
 - `scripts/dev/uaa_founder_loop.py`

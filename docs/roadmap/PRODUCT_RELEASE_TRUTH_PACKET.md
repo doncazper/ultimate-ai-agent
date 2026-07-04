@@ -121,6 +121,16 @@ no provider/model call, connector send/write, browser automation,
 shell/subprocess execution, broad memory write, runtime context injection,
 public distribution, or production authority.
 
+Beta 04 Universal Proof and Run Detail Spine current truth:
+`ControlCenterProofRunDetail` now travels with each backend-owned Universal
+Proof record as a safe-ref-only Run Detail snapshot. It binds proof refs to
+run refs, operator event refs, route refs, receipt refs, evidence refs, audit
+refs, rollback or safe-disable refs, blocked authority refs, exact
+promotion-path refs, CLI inspection, and Control Center inspection groups. This is
+inspection/proof hardening only; it adds no provider/model call, connector
+send/write, browser automation, shell/subprocess execution, background
+autonomy, public distribution, production readiness, or production authority.
+
 FCC-BRIEFING-001 current truth: Morning Briefing is implemented as a read-only
 daily-loop surface over `/briefing`, `/today`, and
 `GET /control-center/morning-briefing/summary`, recorded in

@@ -5,6 +5,7 @@ import { submitWebEvidenceAttachment } from "../api/client";
 import type {
   ControlCenterProofIndex,
   ControlCenterProofRecord,
+  ControlCenterProofRunDetail,
   WebEvidenceProductSliceReceipt,
 } from "../api/types";
 
@@ -18,7 +19,9 @@ export function ProofDetailPanel({
   proofIndex,
 }: ProofDetailPanelProps) {
   const records = proofIndex.records.slice(0, 12);
-  const selected = records[0];
+  const [selectedProofRef, setSelectedProofRef] = useState<string | null>(null);
+  const selected =
+    records.find((record) => record.proof_ref === selectedProofRef) ?? records[0];
   const webEvidenceRecord = records.find(
     (record) => record.proof_kind === "web_evidence",
   );
@@ -34,7 +37,7 @@ export function ProofDetailPanel({
         </span>
       </div>
 
-      <div className="metric-grid">
+      <div className="metric-grid proof-metric-grid">
         <MetricCard label="Proof records" value={String(proofIndex.proof_count)} />
         <MetricCard label="Source" value={proofIndex.source} />
         <MetricCard label="Runtime authority" value="not granted" />
@@ -50,7 +53,16 @@ export function ProofDetailPanel({
 
       <div className="stacked-list" aria-label="Proof record index">
         {records.map((record) => (
-          <article className="list-card" key={record.proof_ref}>
+          <button
+            aria-label={`Inspect proof ${record.title}`}
+            aria-pressed={selected?.proof_ref === record.proof_ref}
+            className={`list-card proof-record-button ${
+              selected?.proof_ref === record.proof_ref ? "selected" : ""
+            }`}
+            key={record.proof_ref}
+            onClick={() => setSelectedProofRef(record.proof_ref)}
+            type="button"
+          >
             <div className="list-card-header">
               <div>
                 <strong>{record.title}</strong>
@@ -62,9 +74,13 @@ export function ProofDetailPanel({
               <DetailTerm label="Proof" value={record.proof_ref} />
               <DetailTerm label="Status" value={record.status} />
               <DetailTerm label="Redaction" value={record.redaction_state} />
+              <DetailTerm
+                label="Run Detail"
+                value={record.run_detail?.run_detail_ref ?? "missing"}
+              />
               <DetailTerm label="Next" value={record.next_safe_action} />
             </div>
-          </article>
+          </button>
         ))}
       </div>
 
@@ -207,19 +223,120 @@ function WebEvidenceAttachPanel({
 }
 
 function SelectedProof({ record }: { record: ControlCenterProofRecord }) {
+  const detail = record.run_detail;
   return (
-    <div className="hero-panel">
-      <div>
-        <p className="eyebrow">Selected detail</p>
-        <h3>{record.title}</h3>
-        <p className="muted">{record.authority_posture}</p>
+    <div className="proof-detail-stack">
+      <div className="hero-panel">
+        <div>
+          <p className="eyebrow">Selected detail</p>
+          <h3>{record.title}</h3>
+          <p className="muted">{record.authority_posture}</p>
+        </div>
+        <div className="detail-grid compact">
+          <DetailTerm label="Run" value={record.run_refs[0] ?? "none"} />
+          <DetailTerm label="Receipt" value={record.receipt_refs[0] ?? "none"} />
+          <DetailTerm label="Evidence" value={record.evidence_refs[0] ?? "none"} />
+          <DetailTerm label="Approval" value={record.approval_refs[0] ?? "none"} />
+        </div>
+      </div>
+      {detail && <RunDetailPanel detail={detail} />}
+    </div>
+  );
+}
+
+function RunDetailPanel({ detail }: { detail: ControlCenterProofRunDetail }) {
+  return (
+    <div className="panel-card run-detail-panel">
+      <div className="list-card-header">
+        <div>
+          <p className="eyebrow">Run Detail</p>
+          <h3>{detail.title}</h3>
+          <p>{detail.safe_summary}</p>
+        </div>
+        <span className="status-pill compact">{detail.status}</span>
       </div>
       <div className="detail-grid compact">
-        <DetailTerm label="Run" value={record.run_refs[0] ?? "none"} />
-        <DetailTerm label="Receipt" value={record.receipt_refs[0] ?? "none"} />
-        <DetailTerm label="Evidence" value={record.evidence_refs[0] ?? "none"} />
-        <DetailTerm label="Approval" value={record.approval_refs[0] ?? "none"} />
+        <DetailTerm label="Run Detail" value={detail.run_detail_ref} />
+        <DetailTerm label="Proof" value={detail.proof_ref} />
+        <DetailTerm label="Run" value={detail.run_ref} />
+        <DetailTerm label="Source" value={detail.source} />
+        <DetailTerm label="CLI" value={detail.cli_ref} />
+        <DetailTerm label="Redaction" value={detail.redaction_state} />
+        <DetailTerm label="Event" value={detail.operator_run_event_refs[0] ?? "none"} />
+        <DetailTerm label="Receipt" value={detail.receipt_refs[0] ?? "none"} />
+        <DetailTerm label="Rollback" value={detail.rollback_refs[0] ?? "none"} />
+        <DetailTerm label="Safe Disable" value={detail.safe_disable_refs[0] ?? "none"} />
+        <DetailTerm label="Blocked" value={detail.blocked_authority_refs[0] ?? "none"} />
       </div>
+      <div className="two-column-grid">
+        <div>
+          <h4>Routes</h4>
+          <RefList refs={detail.route_refs} />
+        </div>
+        <div>
+          <h4>Backend Routes</h4>
+          <RefList refs={detail.backend_route_refs} />
+        </div>
+        <div>
+          <h4>Related Runs</h4>
+          <RefList refs={detail.related_run_refs} />
+        </div>
+        <div>
+          <h4>Events</h4>
+          <RefList refs={detail.operator_run_event_refs} />
+        </div>
+        <div>
+          <h4>Receipts</h4>
+          <RefList refs={detail.receipt_refs} />
+        </div>
+        <div>
+          <h4>Approvals</h4>
+          <RefList refs={detail.approval_refs} />
+        </div>
+        <div>
+          <h4>Evidence</h4>
+          <RefList refs={detail.evidence_refs.slice(0, 6)} />
+        </div>
+        <div>
+          <h4>Audit</h4>
+          <RefList refs={detail.audit_refs} />
+        </div>
+        <div>
+          <h4>Memory</h4>
+          <RefList refs={detail.memory_candidate_refs} />
+        </div>
+        <div>
+          <h4>Rollback</h4>
+          <RefList refs={detail.rollback_refs} />
+        </div>
+        <div>
+          <h4>Safe Disable</h4>
+          <RefList refs={detail.safe_disable_refs} />
+        </div>
+        <div>
+          <h4>Blocked</h4>
+          <RefList refs={detail.blocked_authority_refs} />
+        </div>
+        <div>
+          <h4>Promotion Path</h4>
+          <RefList refs={detail.exact_promotion_path_refs.slice(0, 6)} />
+        </div>
+      </div>
+      <div className="proof-detail-stack">
+        <div>
+          <h4>Full Strength Goal</h4>
+          <p className="muted">{detail.full_strength_goal}</p>
+        </div>
+        <div>
+          <h4>Repo-Safe Scope</h4>
+          <p className="muted">{detail.repo_safe_scope}</p>
+        </div>
+        <div>
+          <h4>Next Safe Action</h4>
+          <p className="muted">{detail.next_safe_action}</p>
+        </div>
+      </div>
+      <p className="muted">{detail.blocked_authority_summary}</p>
     </div>
   );
 }

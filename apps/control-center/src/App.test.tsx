@@ -1634,15 +1634,117 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /^Proof Detail$/i }),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/mock fallback/i).length).toBeGreaterThan(0);
-    expect(screen.getByText("proof-ref:mock-fallback:daily-loop")).toBeInTheDocument();
     expect(
-      screen.getByText("blocked-state:proof-detail:no-runtime-execution"),
-    ).toBeInTheDocument();
+      screen.getAllByText("proof-ref:mock-fallback:daily-loop").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("blocked-state:proof-detail:no-runtime-execution")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "mock_control_center_proof_run_detail_non_authoritative",
+      ).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.queryByRole("button", {
         name: /approve|run|send|write|sync|execute/i,
       }),
     ).not.toBeInTheDocument();
+  });
+
+  it("fails closed for unsafe Proof Run Detail backend payloads", async () => {
+    const unsafeCases = [
+      {
+        name: "raw content",
+        mutate: (record: ReturnType<typeof backendOwnedProofIndexFixture>["records"][number]) => ({
+          ...record,
+          raw_content_included: true,
+        }),
+      },
+      {
+        name: "enabled authority",
+        mutate: (record: ReturnType<typeof backendOwnedProofIndexFixture>["records"][number]) => ({
+          ...record,
+          run_detail: {
+            ...record.run_detail,
+            provider_model_call_enabled: true,
+          },
+        }),
+      },
+      {
+        name: "mismatched proof ref",
+        mutate: (record: ReturnType<typeof backendOwnedProofIndexFixture>["records"][number]) => ({
+          ...record,
+          run_detail: {
+            ...record.run_detail,
+            proof_ref: "proof-ref:unsafe:mismatch",
+          },
+        }),
+      },
+      {
+        name: "missing run detail",
+        mutate: (record: ReturnType<typeof backendOwnedProofIndexFixture>["records"][number]) => ({
+          ...record,
+          run_detail: null,
+        }),
+      },
+      {
+        name: "unsafe ref text",
+        mutate: (record: ReturnType<typeof backendOwnedProofIndexFixture>["records"][number]) => ({
+          ...record,
+          run_detail: {
+            ...record.run_detail,
+            evidence_refs: ["/Users/private/raw-path"],
+          },
+        }),
+      },
+    ];
+
+    const { loadControlCenterData } = await import("./api/client");
+    for (const unsafeCase of unsafeCases) {
+      const baseProofIndex = backendOwnedProofIndexFixture();
+      const unsafeRecord = unsafeCase.mutate(baseProofIndex.records[0]);
+      const unsafeProofIndex = {
+        ...baseProofIndex,
+        proof_count: 1,
+        proof_refs: [unsafeRecord.proof_ref],
+        records: [unsafeRecord],
+      };
+      const fetchMock = vi.fn(async (url: string) => {
+        const urlText = String(url);
+        if (urlText.endsWith(API_ENDPOINTS.controlCenterProofIndex)) {
+          return new Response(
+            JSON.stringify({ ok: true, result: unsafeProofIndex }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+        if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+          return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        throw new Error(`unexpected request ${urlText}`);
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const data = await loadControlCenterData();
+
+      expect(data.connection.state, unsafeCase.name).toBe("degraded");
+      expect(data.connection.warnings, unsafeCase.name).toContain(
+        "PROOF_INDEX_MOCK_FALLBACK",
+      );
+      expect(data.proofIndex.source, unsafeCase.name).toBe(
+        "mock_fallback_non_authoritative",
+      );
+      expect(data.proofIndex.records[0].run_detail?.source, unsafeCase.name).toBe(
+        "mock_control_center_proof_run_detail_non_authoritative",
+      );
+    }
   });
 
   it("renders one coherent backend-owned dogfood loop across shared surfaces", async () => {
@@ -10687,8 +10789,52 @@ function dogfoodActionItem() {
   };
 }
 
+function withDogfoodProofRunDetail(record: typeof mockControlCenterData.proofIndex.records[number]) {
+  const kind = String(record.proof_kind).replaceAll("_", "-");
+  const runRef = record.run_refs[0] ?? dogfoodRefs.runRef;
+  return {
+    ...record,
+    run_detail: {
+      ...record.run_detail,
+      source: "python_core_control_center_proof_run_detail",
+      run_detail_ref: `run-detail-ref:dogfood:${kind}`,
+      proof_ref: record.proof_ref,
+      proof_kind: record.proof_kind,
+      run_ref: runRef,
+      status: record.status,
+      title: record.title,
+      safe_summary:
+        "Dogfood Run Detail ties proof, run, receipt, evidence, approval, rollback, memory, and blocked authority refs.",
+      authority_posture: record.authority_posture,
+      route_refs: record.route_refs,
+      backend_route_refs: [
+        ...record.backend_route_refs,
+        "GET /control-center/proof/{proof_ref}",
+      ],
+      related_run_refs: [runRef],
+      operator_run_event_refs: [`operator-run-event-ref:proof:${kind}:dogfood`],
+      receipt_refs: record.receipt_refs,
+      evidence_refs: record.evidence_refs,
+      audit_refs: record.audit_refs,
+      approval_refs: record.approval_refs,
+      rollback_refs: record.rollback_refs,
+      safe_disable_refs: record.safe_disable_refs,
+      memory_candidate_refs: record.memory_candidate_refs,
+      blocked_authority_refs: record.blocked_authority_refs,
+      exact_promotion_path_refs: [
+        "promotion-path-ref:proof-run-spine:detail-route-parity",
+        "promotion-path-ref:proof-run-spine:receipt-evidence-binding",
+        "promotion-path-ref:proof-run-spine:rollback-safe-disable-binding",
+        "promotion-path-ref:proof-run-spine:cli-inspection-parity",
+        `promotion-path-ref:proof-run-spine:${kind}`,
+      ],
+      next_safe_action: record.next_safe_action,
+    },
+  };
+}
+
 function dogfoodProofIndex() {
-  const localTaskRecord = {
+  const localTaskRecord = withDogfoodProofRunDetail({
     ...mockControlCenterData.proofIndex.records[0],
     proof_ref: dogfoodRefs.localTaskProofRef,
     proof_kind: "local_task_commit",
@@ -10720,8 +10866,8 @@ function dogfoodProofIndex() {
       "blocked-state:proof-detail:no-connector-write-or-send",
       "blocked-state:proof-detail:no-production-authority",
     ],
-  };
-  const dailyRecord = {
+  });
+  const dailyRecord = withDogfoodProofRunDetail({
     ...mockControlCenterData.proofIndex.records[0],
     proof_ref: "proof-ref:founder-loop-v1:governed-local-loop",
     proof_kind: "daily_loop",
@@ -10734,7 +10880,7 @@ function dogfoodProofIndex() {
     evidence_refs: [dogfoodRefs.evidenceRef],
     approval_refs: [dogfoodRefs.approvalRef],
     memory_candidate_refs: [dogfoodRefs.memoryCandidateRef],
-  };
+  });
   return {
     ...mockControlCenterData.proofIndex,
     source: "python_core_control_center_proof_index",
@@ -10743,6 +10889,25 @@ function dogfoodProofIndex() {
     proof_count: 2,
     proof_refs: [dogfoodRefs.localTaskProofRef, dailyRecord.proof_ref],
     records: [localTaskRecord, dailyRecord],
+  };
+}
+
+function backendOwnedProofIndexFixture() {
+  const proofIndex = cloneForTest(mockControlCenterData.proofIndex);
+  return {
+    ...proofIndex,
+    source: "python_core_control_center_proof_index",
+    status: "implemented_backend_owned_universal_proof_index",
+    backend_owned: true,
+    records: proofIndex.records.map((record) => ({
+      ...record,
+      run_detail: record.run_detail
+        ? {
+            ...record.run_detail,
+            source: "python_core_control_center_proof_run_detail" as const,
+          }
+        : record.run_detail,
+    })),
   };
 }
 
@@ -11036,10 +11201,7 @@ function envelopeForReadEndpoint(url: string) {
       missing_prerequisite_refs: [],
     },
     [API_ENDPOINTS.controlCenterProofIndex]: {
-      ...mockControlCenterData.proofIndex,
-      source: "python_core_control_center_proof_index",
-      backend_owned: true,
-      status: "implemented_backend_owned_universal_proof_index",
+      ...backendOwnedProofIndexFixture(),
     },
     [API_ENDPOINTS.trustAuthorityMatrix]: backendOwnedTrustAuthorityMatrix(),
     [API_ENDPOINTS.founderEvidenceTimeline]:

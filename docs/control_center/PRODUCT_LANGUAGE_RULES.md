@@ -32,6 +32,12 @@ reachability and visual-baseline continuity, but it is a supporting
 source-readiness surface until read-only connector/source contracts graduate; it
 must not be described as the primary daily work queue.
 
+Proof Detail and Run Detail copy must describe backend-owned safe-ref
+inspection, not execution. Proof refs, run-detail refs, approval refs,
+rollback refs, and safe-disable refs are identifiers/evidence posture only and
+must not be described as granting authority, applying changes, running tools,
+sending connector data, calling providers, or completing blocked work.
+
 The inherited founder-loop wording still applies to Today, Inbox, Plans,
 Actions, Memory, Evidence, and Settings when checking older shell and
 documentation guardrails.
