@@ -71,6 +71,8 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     assert "trust-lane:external-mutations" in parsed.blocked_lane_refs
     assert "trust-lane:local-draft-proposal" in parsed.available_now_lane_refs
     assert "trust-lane:web-evidence-product-slice" in parsed.available_now_lane_refs
+    assert "trust-lane:provider-draft-summarize" in parsed.available_now_lane_refs
+    assert "trust-lane:connector-draft-only" in parsed.available_now_lane_refs
     assert any(
         lane.tier == 2 and lane.authority_state == "available_now"
         for lane in parsed.lanes
@@ -80,6 +82,43 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     )
     assert all(
         lane.authority_state == "blocked" for lane in parsed.lanes if lane.tier >= 4
+    )
+    assert all(lane.cli_inspection_refs for lane in parsed.lanes)
+    assert all(lane.safe_disable_refs for lane in parsed.lanes)
+    assert all(lane.rollback_refs for lane in parsed.lanes)
+    assert all(lane.promotion_path_refs for lane in parsed.lanes)
+    assert set(parsed.cli_inspection_refs) == {
+        ref for lane in parsed.lanes for ref in lane.cli_inspection_refs
+    }
+    assert set(parsed.safe_disable_refs) == {
+        ref for lane in parsed.lanes for ref in lane.safe_disable_refs
+    }
+    assert set(parsed.rollback_refs) == {
+        ref for lane in parsed.lanes for ref in lane.rollback_refs
+    }
+    assert set(parsed.promotion_path_refs) == {
+        ref for lane in parsed.lanes for ref in lane.promotion_path_refs
+    }
+    assert set(parsed.blocked_authority_refs) == {
+        ref for lane in parsed.lanes for ref in lane.blocked_authority_refs
+    }
+    tier_2 = [lane for lane in parsed.lanes if lane.tier == 2]
+    assert tier_2
+    assert all(lane.operator_posture == "review_only" for lane in tier_2)
+    assert all(not lane.rollback_execution_enabled for lane in parsed.lanes)
+    tier_3_plus = [lane for lane in parsed.lanes if lane.tier >= 3]
+    assert tier_3_plus
+    assert all(lane.requires_safe_disable for lane in tier_3_plus)
+    assert all(lane.requires_rollback_posture for lane in tier_3_plus)
+    assert all(lane.safe_disable_refs for lane in tier_3_plus)
+    assert all(lane.rollback_refs for lane in tier_3_plus)
+    assert all(
+        not any(ref.endswith(":read-model-only") for ref in lane.safe_disable_refs)
+        for lane in tier_3_plus
+    )
+    assert all(
+        not any(ref.endswith(":no-mutation") for ref in lane.rollback_refs)
+        for lane in tier_3_plus
     )
     _assert_no_runtime_authority(matrix)
 
@@ -146,6 +185,42 @@ def test_trust_authority_matrix_rejects_authority_creep(
     )
     matrix = service.trust_authority_matrix()
     matrix[flag] = True
+
+    with pytest.raises(ValidationError):
+        TrustAuthorityMatrixReadModel(**matrix)
+
+
+def test_trust_authority_matrix_rejects_posture_ref_drift(
+    tmp_path: Path,
+) -> None:
+    service = FounderLoopControlCenterService(
+        FounderLoopRepository(tmp_path / "founder_loop")
+    )
+    matrix = service.trust_authority_matrix()
+    matrix["safe_disable_refs"] = []
+
+    with pytest.raises(ValidationError):
+        TrustAuthorityMatrixReadModel(**matrix)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("operator_posture", "enabled_read_only"),
+    ("rollback_execution_enabled", True),
+    ("cli_inspection_refs", []),
+])
+def test_trust_authority_matrix_rejects_lane_posture_drift(
+    tmp_path: Path,
+    field: str,
+    value: Any,
+) -> None:
+    service = FounderLoopControlCenterService(
+        FounderLoopRepository(tmp_path / "founder_loop")
+    )
+    matrix = service.trust_authority_matrix()
+    tier_2_index = next(
+        index for index, lane in enumerate(matrix["lanes"]) if lane["tier"] == 2
+    )
+    matrix["lanes"][tier_2_index][field] = value
 
     with pytest.raises(ValidationError):
         TrustAuthorityMatrixReadModel(**matrix)

@@ -1566,6 +1566,8 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
       tier_label: "Local read/preview",
       lane_kind: "read_preview",
       authority_state: "available_now",
+      authority_state_label: "available now",
+      operator_posture: "enabled_read_only",
       current_posture:
         "Mock fallback says local read models are the intended lowest-friction lane.",
       approval_posture: "No approval for local read/preview once backend-owned.",
@@ -1576,12 +1578,23 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
       proof_refs: ["proof-ref:mock-fallback:trust-authority"],
       verifier_refs: ["tests/test_trust_authority_matrix.py"],
       docs_refs: ["docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"],
+      cli_inspection_refs: [
+        "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
+      ],
+      safe_disable_refs: [
+        "safe-disable-ref:trust:mock-local-read-preview:read-model-only",
+      ],
+      rollback_refs: ["rollback-ref:trust:mock-local-read-preview:no-mutation"],
+      promotion_path_refs: [
+        "promotion-path-ref:trust:mock-local-read-preview:backend-route-required",
+      ],
       blocked_authority_refs: [
         "blocked-state:trust:mock-fallback-no-authority",
       ],
       requires_exact_approval: false,
       requires_safe_disable: false,
       requires_rollback_posture: false,
+      rollback_execution_enabled: false,
       safe_refs_only: true,
       control_center_grants_authority: false,
     },
@@ -1593,6 +1606,8 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
       tier_label: "External mutation",
       lane_kind: "external_mutation",
       authority_state: "blocked",
+      authority_state_label: "blocked",
+      operator_posture: "blocked",
       current_posture:
         "External sends, writes, provider calls, browser, and shell work remain blocked.",
       approval_posture:
@@ -1603,6 +1618,18 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
       proof_refs: ["proof-ref:mock-fallback:external-mutation-blocked"],
       verifier_refs: ["tests/test_trust_authority_matrix.py"],
       docs_refs: ["docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"],
+      cli_inspection_refs: [
+        "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
+      ],
+      safe_disable_refs: [
+        "safe-disable-ref:trust:mock-external-mutation:default-deny",
+      ],
+      rollback_refs: [
+        "rollback-ref:trust:mock-external-mutation:future-lane-required",
+      ],
+      promotion_path_refs: [
+        "promotion-path-ref:trust:mock-external-mutation:exact-scope-required",
+      ],
       blocked_authority_refs: [
         "blocked-state:trust:no-connector-write-send",
         "blocked-state:trust:no-provider-model-call",
@@ -1612,6 +1639,7 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
       requires_exact_approval: true,
       requires_safe_disable: true,
       requires_rollback_posture: true,
+      rollback_execution_enabled: false,
       safe_refs_only: true,
       control_center_grants_authority: false,
     },
@@ -1649,6 +1677,21 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
   ],
   verifier_refs: ["tests/test_trust_authority_matrix.py"],
   docs_refs: ["docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"],
+  cli_inspection_refs: [
+    "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
+  ],
+  safe_disable_refs: [
+    "safe-disable-ref:trust:mock-local-read-preview:read-model-only",
+    "safe-disable-ref:trust:mock-external-mutation:default-deny",
+  ],
+  rollback_refs: [
+    "rollback-ref:trust:mock-local-read-preview:no-mutation",
+    "rollback-ref:trust:mock-external-mutation:future-lane-required",
+  ],
+  promotion_path_refs: [
+    "promotion-path-ref:trust:mock-local-read-preview:backend-route-required",
+    "promotion-path-ref:trust:mock-external-mutation:exact-scope-required",
+  ],
   blocked_authority_refs: [
     "blocked-state:trust:mock-fallback-no-authority",
     "blocked-state:trust:no-connector-write-send",

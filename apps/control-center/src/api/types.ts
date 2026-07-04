@@ -54,6 +54,13 @@ export type TrustAuthorityState =
   | "planned"
   | "blocked";
 
+export type TrustOperatorPosture =
+  | "enabled_read_only"
+  | "review_only"
+  | "approval_required"
+  | "planned"
+  | "blocked";
+
 export type TrustAuthorityLaneKind =
   | "read_preview"
   | "draft_proposal"
@@ -69,6 +76,8 @@ export interface TrustAuthorityLane {
   tier_label: string;
   lane_kind: TrustAuthorityLaneKind;
   authority_state: TrustAuthorityState;
+  authority_state_label: string;
+  operator_posture: TrustOperatorPosture;
   current_posture: string;
   approval_posture: string;
   operator_can_do_now: string;
@@ -77,10 +86,15 @@ export interface TrustAuthorityLane {
   proof_refs: string[];
   verifier_refs: string[];
   docs_refs: string[];
+  cli_inspection_refs: string[];
+  safe_disable_refs: string[];
+  rollback_refs: string[];
+  promotion_path_refs: string[];
   blocked_authority_refs: string[];
   requires_exact_approval: boolean;
   requires_safe_disable: boolean;
   requires_rollback_posture: boolean;
+  rollback_execution_enabled: boolean;
   safe_refs_only: boolean;
   control_center_grants_authority: boolean;
 }
@@ -119,6 +133,10 @@ export interface TrustAuthorityMatrix {
   proof_refs: string[];
   verifier_refs: string[];
   docs_refs: string[];
+  cli_inspection_refs: string[];
+  safe_disable_refs: string[];
+  rollback_refs: string[];
+  promotion_path_refs: string[];
   blocked_authority_refs: string[];
   next_safe_action: string;
   broad_approval_enabled: boolean;

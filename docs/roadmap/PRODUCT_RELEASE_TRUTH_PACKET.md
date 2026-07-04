@@ -318,6 +318,22 @@ Status values:
 - Future-scoped: requires a later accepted milestone before implementation or
   user-facing claims.
 
+Beta 07 Trust authority map current truth: full-strength Trust remains an
+operator-selected authority map for enabled, review-only, approval-required,
+planned, and blocked lanes with proof, disable, rollback, and promotion-path
+clarity. The repo-safe implementation is backend-owned local read-model truth
+for `/trust` and `GET /control-center/trust-authority/matrix`; it adds parser-
+backed CLI inspection refs, safe-disable refs, rollback refs, promotion-path
+refs, and frontend fail-closed validation via
+`scripts/verify_beta_07_trust_authority_map.py`. Blocked/needs-authority lanes
+stay blocked for connector writes/sends, provider/model calls,
+shell/subprocess execution, browser automation, runtime context injection,
+standing authority, background autonomy, public release, and production
+authority. Exact promotion requires a separate lane PR with exact scope,
+LocalApprovalAuthority binding, idempotency, receipt/proof evidence, redaction,
+safe-disable, rollback posture, CLI/API parity, docs, tests, and product-truth
+updates. No broad runtime authority is added.
+
 | Capability | Current UAA state | Target production-ready state | Priority | Status | Evidence source or missing evidence | Blocking gate |
 |---|---|---|---|---|---|---|
 | API perimeter hardening note | UAA-P1-083 now fails closed for protected routes unless a valid local bearer is configured and sent, or the explicit `UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY=1` local-dev bypass is set. Public metadata routes remain open. | Local developer harnesses can opt into the dev-only bypass, but product surfaces should send the local bearer and must not treat the bypass as production auth. | P0 | Shipped for fail-closed local auth posture; no production auth claim. | Evidence: `src/ultimate_ai_agent/api/local_auth.py`, `src/ultimate_ai_agent/api/manifest.py`, `docs/api/UAA_P1_083_LOCAL_BEARER_SESSION_GATE.md`, `tests/test_api_local_auth_gate.py`, `scripts/verify_uaa_p1_083_local_auth_gate.py`. | No enterprise auth, OAuth, password flow, public beta, or production authority. |

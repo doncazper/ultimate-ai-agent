@@ -59,6 +59,18 @@ external writes, action execution, automatic memory truth, hidden context
 injection, model/provider calls, public beta, distribution, or production
 authority.
 
+Beta 07 Trust authority map makes `/trust` a backend-owned authority map over
+enabled, review-only, approval-required, planned, and blocked lanes from
+`GET /control-center/trust-authority/matrix` and
+`scripts/dev/uaa_founder_loop.py inspect-trust-authority`. It exposes CLI
+inspection refs, safe-disable refs, rollback refs, promotion-path refs, proof
+refs, verifier refs, and fail-closed frontend validation through
+`scripts/verify_beta_07_trust_authority_map.py`. This is repo-safe read-model
+hardening only. No broad runtime authority is added, and connector writes/sends,
+provider/model calls, shell/subprocess execution, browser automation, runtime
+context injection, standing authority, background autonomy, public release, and
+production authority remain blocked until exact lane promotion.
+
 API boundary hardening gap: because Control Center is browser-facing,
 UAA-P1-080 now makes public/protected route posture explicit before
 authority-heavy product claims. Existing partial coverage includes OpenAPI/API

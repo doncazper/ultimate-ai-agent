@@ -40,6 +40,24 @@ promotion-path refs. This is inspection/proof hardening only and adds no
 provider/model calls, connector writes or sends, browser automation,
 shell/subprocess execution, background autonomy, public distribution,
 production readiness, or production authority.
+Beta 07 Trust authority map now productizes Trust as an operator authority map
+rather than a blocker wall. Full-strength Trust should let an operator inspect
+and choose exact authority modes, see enabled and review-only lanes, understand
+approval posture, pause or disable scoped lanes, inspect rollback posture, and
+follow exact promotion paths for later provider, connector, shell, browser, and
+background authority. The repo-safe slice keeps Python Core as the durable
+truth and renders `/trust` from `GET /control-center/trust-authority/matrix`
+with CLI inspection refs, safe-disable refs, rollback refs, promotion-path refs,
+proof refs, verifier refs, and frontend fail-closed validation. Blocked/needs-
+authority lanes remain blocked for connector writes/sends, provider/model
+calls, shell/subprocess execution, browser automation, runtime context
+injection, standing authority, background autonomy, public release, and
+production authority. Exact promotion requires a separate verifier-backed lane
+with exact scope, LocalApprovalAuthority binding, idempotency, receipt/proof
+evidence, redaction, safe-disable, rollback posture, CLI/API parity, docs, and
+tests. Verification:
+`scripts/verify_beta_07_trust_authority_map.py`. No broad runtime authority is
+added.
 The `context_injection` prerequisite contract is contract-ready for future
 gate review only. It is not selected as a micro-lane, adds no runtime
 prompt/context injection route or Control Center control, and keeps runtime
