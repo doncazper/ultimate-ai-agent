@@ -364,6 +364,68 @@ export interface CodingWorkspaceContextReadModel {
   production_authority_enabled: boolean;
 }
 
+export type CodingPatchChangeKind =
+  | "modify"
+  | "add"
+  | "delete_blocked"
+  | "generated_blocked";
+
+export interface CodingPatchProposalFileReadModel {
+  change_ref: string;
+  file_ref: string;
+  label: string;
+  change_kind: CodingPatchChangeKind;
+  status: "proposed" | "blocked";
+  hunk_refs: string[];
+  additions: number;
+  deletions: number;
+  safe_summary: string;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  raw_path_included: boolean;
+  raw_content_included: boolean;
+}
+
+export interface CodingPatchProposalReadModel {
+  schema_version: "uaa-coding-patch-proposal.v1";
+  patch_proposal_ref: string;
+  session_ref: string;
+  context_pack_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  status: "proposal_artifact_preview";
+  title: string;
+  safe_summary: string;
+  proposed_file_refs: string[];
+  file_changes: CodingPatchProposalFileReadModel[];
+  diff_preview_refs: string[];
+  diff_summary_lines: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  proposal_only: boolean;
+  safe_refs_only: boolean;
+  raw_paths_included: boolean;
+  raw_content_included: boolean;
+  repo_file_read_performed: boolean;
+  patch_apply_enabled: boolean;
+  file_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  git_mutation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface RuntimeReadinessSummary {
   status: string;
   production_ready: boolean;
@@ -7510,6 +7572,7 @@ export interface ControlCenterData {
   trustAuthorityMatrix: TrustAuthorityMatrix;
   codingSession: CodingCockpitSessionReadModel;
   codingContext: CodingWorkspaceContextReadModel;
+  codingPatchProposal: CodingPatchProposalReadModel;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;

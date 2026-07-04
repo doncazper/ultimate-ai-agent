@@ -700,6 +700,36 @@ function backendOwnedCodingContextFixture(overrides: Record<string, unknown> = {
   };
 }
 
+function backendOwnedCodingPatchProposalFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const proposal = scrubCodingFallbackText(
+    JSON.parse(JSON.stringify(mockControlCenterData.codingPatchProposal)),
+  ) as typeof mockControlCenterData.codingPatchProposal;
+  return {
+    ...proposal,
+    patch_proposal_ref: "patch-proposal:coding-app-test",
+    session_ref: "coding-session:app-test-backend",
+    context_pack_ref: "context-pack:coding-app-test",
+    backend_owned: true,
+    read_only: true,
+    proposal_only: true,
+    safe_refs_only: true,
+    raw_paths_included: false,
+    raw_content_included: false,
+    repo_file_read_performed: false,
+    patch_apply_enabled: false,
+    file_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
 function scrubCodingFallbackText(value: unknown): unknown {
   if (typeof value === "string") {
     return value
@@ -1320,6 +1350,8 @@ describe("Web Control Center shell", () => {
     stubReadEndpointOverrides({
       [API_ENDPOINTS.controlCenterCodingSession]: backendOwnedCodingSessionFixture(),
       [API_ENDPOINTS.controlCenterCodingContext]: backendOwnedCodingContextFixture(),
+      [API_ENDPOINTS.controlCenterCodingPatchProposal]:
+        backendOwnedCodingPatchProposalFixture(),
     });
 
     window.history.pushState({}, "", "/coding");
@@ -1342,6 +1374,12 @@ describe("Web Control Center shell", () => {
         within(cockpit).getByText("Context preview is backend-owned, read-only, and safe-ref only."),
       ).toBeInTheDocument();
       expect(within(cockpit).getByText("Mock context ref")).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "Patch proposal is backend-owned, proposal-only, and safe-ref only.",
+        ),
+      ).toBeInTheDocument();
+      expect(within(cockpit).getByText("Mock proposal file")).toBeInTheDocument();
       expect(within(cockpit).getByText("Workflow Timeline")).toBeInTheDocument();
       expect(within(cockpit).getByText("Diff Preview")).toBeInTheDocument();
       expect(within(cockpit).getByText("Proof Detail")).toBeInTheDocument();
@@ -11552,6 +11590,12 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterCodingContext)).toBe(
       true,
     );
+    expect(API_ENDPOINTS.controlCenterCodingPatchProposal).toBe(
+      "/control-center/coding/patch-proposal",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.controlCenterCodingPatchProposal),
+    ).toBe(true);
     expect(chatTurnReceiptEndpoint("chat-turn:test")).toBe(
       "/control-center/chat/turns/chat-turn%3Atest/receipt",
     );
@@ -12597,6 +12641,8 @@ function envelopeForReadEndpoint(url: string) {
     [API_ENDPOINTS.trustAuthorityMatrix]: backendOwnedTrustAuthorityMatrix(),
     [API_ENDPOINTS.controlCenterCodingSession]: backendOwnedCodingSessionFixture(),
     [API_ENDPOINTS.controlCenterCodingContext]: backendOwnedCodingContextFixture(),
+    [API_ENDPOINTS.controlCenterCodingPatchProposal]:
+      backendOwnedCodingPatchProposalFixture(),
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:

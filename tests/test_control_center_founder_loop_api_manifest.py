@@ -69,6 +69,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/trust-authority/matrix",
         "/control-center/coding/session",
         "/control-center/coding/context",
+        "/control-center/coding/patch-proposal",
         "/control-center/evidence/timeline",
         "/control-center/memory/l1-index",
         "/control-center/memory/l2-index",
@@ -97,6 +98,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/trust-authority/matrix": "get_control_center_trust_authority_matrix",
         "/control-center/coding/session": "get_control_center_coding_session",
         "/control-center/coding/context": "get_control_center_coding_context",
+        "/control-center/coding/patch-proposal": "get_control_center_coding_patch_proposal",
     }
     for path, operation_id in expected_operation_ids.items():
         assert path in routes

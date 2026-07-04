@@ -4455,7 +4455,8 @@ th {
   min-width: 0;
 }
 
-.coding-context-pack {
+.coding-context-pack,
+.coding-patch-proposal {
   display: grid;
   gap: 8px;
   min-width: 0;

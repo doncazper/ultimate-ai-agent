@@ -3,12 +3,14 @@ import type {
   CodingCockpitPreviewPanel,
   CodingCockpitRefItem,
   CodingCockpitSessionReadModel,
+  CodingPatchProposalReadModel,
   CodingWorkspaceContextReadModel,
 } from "../api/types";
 import { SafeAlert } from "./SafeAlert";
 
 interface CodingCockpitPanelProps {
   context: CodingWorkspaceContextReadModel;
+  patchProposal: CodingPatchProposalReadModel;
   session: CodingCockpitSessionReadModel;
   authoritative: boolean;
 }
@@ -16,6 +18,7 @@ interface CodingCockpitPanelProps {
 export function CodingCockpitPanel({
   authoritative,
   context,
+  patchProposal,
   session,
 }: CodingCockpitPanelProps) {
   const backendOwned =
@@ -27,7 +30,11 @@ export function CodingCockpitPanel({
     context.backend_owned &&
     context.read_only &&
     context.preview_only &&
-    context.safe_refs_only;
+    context.safe_refs_only &&
+    patchProposal.backend_owned &&
+    patchProposal.read_only &&
+    patchProposal.proposal_only &&
+    patchProposal.safe_refs_only;
   const currentAuthorityMode =
     session.authority_modes.find((mode) => mode.state === "current") ??
     session.authority_modes[0];
@@ -98,6 +105,10 @@ export function CodingCockpitPanel({
         <div className="coding-main-pane" aria-label="Task diff and proof preview">
           <PreviewPanel panel={session.task_timeline} eyebrow="Workflow" />
           <PreviewPanel panel={session.diff_preview} eyebrow="Patch preview">
+            <PatchProposalPreview
+              authoritative={backendOwned}
+              proposal={patchProposal}
+            />
             <div className="coding-action-row" aria-label="Patch actions">
               <DisabledAction label="Accept all" />
               <DisabledAction label="Accept file" />
@@ -192,6 +203,52 @@ function ContextPackPreview({
         {context.comparison.map((item) => (
           <p className="safe-copy" key={item.comparison_ref}>
             {item.label}: {item.safe_summary}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PatchProposalPreview({
+  authoritative,
+  proposal,
+}: {
+  authoritative: boolean;
+  proposal: CodingPatchProposalReadModel;
+}) {
+  return (
+    <div className="coding-patch-proposal" aria-label="Coding patch proposal preview">
+      <div className="coding-context-budget">
+        <DetailTile label="Proposal" value={proposal.patch_proposal_ref} />
+        <DetailTile label="Status" value={proposal.status.replaceAll("_", " ")} />
+        <DetailTile
+          label="Files"
+          value={`${proposal.file_changes.length} refs`}
+        />
+      </div>
+      <p className="safe-copy">
+        {authoritative
+          ? "Patch proposal is backend-owned, proposal-only, and safe-ref only."
+          : "Patch proposal is non-authoritative fallback data only."}
+      </p>
+      <div className="coding-item-stack">
+        {proposal.file_changes.map((item) => (
+          <article className="coding-item-row" key={item.change_ref}>
+            <div>
+              <strong>{item.label}</strong>
+              <p>{item.safe_summary}</p>
+            </div>
+            <span className="status-pill compact">
+              {item.status.replaceAll("_", " ")}
+            </span>
+          </article>
+        ))}
+      </div>
+      <div className="coding-context-comparison">
+        {proposal.diff_summary_lines.map((line) => (
+          <p className="safe-copy" key={line}>
+            {line}
           </p>
         ))}
       </div>
