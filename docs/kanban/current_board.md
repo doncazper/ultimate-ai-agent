@@ -116,6 +116,19 @@ rollback, CLI/API/UI parity, route truth, docs, and tests. Verification:
 `scripts/verify_beta_10_connector_draft_only.py`;
 `docs/control_center/CONNECTOR_DRAFT_ONLY_PROPOSALS.md`. No broad runtime
 authority is added.
+Beta 11 Operator Workspace Spine now exposes a backend-owned read-only
+workspace cockpit posture across Today, Proof, Trust, and CLI inspection. The
+full-strength version remains a future operator workspace for workspace status,
+Git posture, preview status, run logs, coworker handoff, command receipts, and
+proof. The repo-safe version keeps only safe refs and bounded summaries: no
+file writes, patch apply, Git mutation, shell/subprocess execution, browser
+automation, dev-server lifecycle control, provider/model calls, connector
+writes, coworker dispatch, background autonomy, raw path/log persistence,
+public release, or production authority is added. Exact promotion requires
+separate verifier-backed lanes for live Git status, dev-server manifests,
+allowlisted command receipts, and coworker handoff receipts. Verification:
+`scripts/verify_beta_11_operator_workspace_spine.py`;
+`docs/control_center/OPERATOR_WORKSPACE_SPINE.md`.
 The `context_injection` prerequisite contract is contract-ready for future
 gate review only. It is not selected as a micro-lane, adds no runtime
 prompt/context injection route or Control Center control, and keeps runtime

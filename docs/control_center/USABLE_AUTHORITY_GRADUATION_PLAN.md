@@ -473,6 +473,36 @@ Exact promotion path:
   CLI/API/UI parity, OpenAPI/route truth, docs, and focused tests before any
   connector send/write/sync is promoted.
 
+### Beta 11: Operator Workspace Spine
+
+Full-strength version:
+
+- UAA eventually becomes a useful operator workspace cockpit for workspace
+  status, Git posture, preview status, run logs, coworker handoff, command
+  receipts, proof, and evidence.
+
+Repo-safe beta-11 version:
+
+- Today, Proof, Trust, and `python scripts/inspect_operator_workspace_spine.py`
+  expose a backend-owned `operator_workspace_spine_read_model`.
+- The read model shows workspace, Git, preview, run-log, and coworker posture
+  as safe refs only. It does not claim live branch/dirty state, raw diffs, raw
+  logs, file contents, local paths, terminal access, or browser control.
+
+Blocked / needs authority:
+
+- File writes, patch apply, Git mutation, shell/subprocess execution, browser
+  automation, dev-server lifecycle control, provider/model calls, connector
+  writes, coworker dispatch, background autonomy, raw path/log persistence,
+  public release, and production authority remain blocked.
+
+Exact promotion path:
+
+- Promote one lane at a time: exact Git status read, dev-server manifest,
+  allowlisted command/test receipt, or coworker handoff receipt. Each promotion
+  needs Python Core ownership, route truth if a route is added, CLI parity,
+  redaction, proof/evidence receipts, safe-disable/rollback, and focused tests.
+
 ### PR 10: Approved Test Send Or Test Write Lane
 
 Goal: graduate the first external mutation only after drafts are real.

@@ -123,6 +123,9 @@ from ultimate_ai_agent.core.control_center.evidence_memory_loop_binding import (
     EVIDENCE_MEMORY_LOOP_BINDING_CONTRACT_REF,
     build_evidence_memory_loop_binding_read_model,
 )
+from ultimate_ai_agent.core.control_center.operator_workspace_spine import (
+    build_operator_workspace_spine_read_model,
+)
 from ultimate_ai_agent.core.control_center.fusion_routing import (
     FCC_FUSION_ROUTING_DELEGATION_CONTRACT_REF,
     FCC_FUSION_ROUTING_REQUIRED_BLOCKED_REFS,
@@ -5567,6 +5570,9 @@ class FounderLoopRepository:
         )
         chat_local_operator_contract = _chat_local_operator_contract_payload()
         governed_code_workbench_contract = _governed_code_workbench_contract_payload()
+        operator_workspace_spine_read_model = (
+            build_operator_workspace_spine_read_model()
+        )
         fusion_routing_delegation_read_model = (
             build_fusion_routing_delegation_read_model().model_dump(mode="json")
         )
@@ -5798,6 +5804,15 @@ class FounderLoopRepository:
             **user_intent_understanding_contract,
             **chat_local_operator_contract,
             **governed_code_workbench_contract,
+            "operator_workspace_spine_read_model": (
+                operator_workspace_spine_read_model.model_dump(mode="json")
+            ),
+            "operator_workspace_spine_contract_ref": (
+                operator_workspace_spine_read_model.contract_ref
+            ),
+            "operator_workspace_spine_status": (
+                operator_workspace_spine_read_model.status
+            ),
             "fusion_routing_delegation_contract_ref": (
                 FCC_FUSION_ROUTING_DELEGATION_CONTRACT_REF
             ),

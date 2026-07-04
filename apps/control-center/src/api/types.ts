@@ -3065,6 +3065,80 @@ export interface FounderLoopGovernedCodeWorkbenchAuthorityPosture {
   production_authority_enabled: boolean;
 }
 
+export type OperatorWorkspaceSpineLaneKind =
+  | "workspace_status"
+  | "git_posture"
+  | "preview_status"
+  | "run_logs"
+  | "coworker_handoff";
+
+export interface OperatorWorkspaceSpineLane {
+  lane_ref: string;
+  lane_kind: OperatorWorkspaceSpineLaneKind;
+  label: string;
+  status: string;
+  safe_summary: string;
+  current_posture_ref: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action: string;
+  read_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  runtime_execution_enabled: boolean;
+  mutation_enabled: boolean;
+}
+
+export interface OperatorWorkspaceSpineReadModel {
+  schema_version: "operator_workspace_spine_read_model.v1";
+  contract_ref: string;
+  source:
+    | "python_core_operator_workspace_spine_read_model"
+    | "mock_operator_workspace_spine_non_authoritative";
+  backend_owned: boolean;
+  status: string;
+  route_ref: string;
+  cli_ref: string;
+  workspace_ref: string;
+  workspace_status_ref: string;
+  repo_scope_ref: string;
+  git_posture_ref: string;
+  preview_status_ref: string;
+  run_log_posture_ref: string;
+  coworker_handoff_ref: string;
+  lane_order: OperatorWorkspaceSpineLaneKind[];
+  lanes: OperatorWorkspaceSpineLane[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  safe_disable_refs: string[];
+  rollback_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  route_refs: string[];
+  docs_refs: string[];
+  verifier_refs: string[];
+  full_strength_goal: string;
+  repo_safe_scope: string;
+  blocked_authority_summary: string;
+  next_safe_action: string;
+  safe_refs_only: boolean;
+  read_only: boolean;
+  control_center_presentation_only: boolean;
+  raw_path_persistence_enabled: boolean;
+  raw_log_persistence_enabled: boolean;
+  file_write_enabled: boolean;
+  git_mutation_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_automation_enabled: boolean;
+  dev_server_start_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  connector_write_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopCrossSurfaceMemoryIntakeProposal {
   contract_ref: string;
   proposal_ref: string;
@@ -4566,6 +4640,7 @@ export type ControlCenterProofKind =
   | "web_evidence"
   | "provider_draft_preview"
   | "connector_draft_proposal"
+  | "operator_workspace_spine"
   | "source_readiness"
   | "approval"
   | "setup_package";
@@ -5400,6 +5475,9 @@ export interface FounderLoopTodaySummary {
   governed_code_workbench_surface_bindings: FounderLoopGovernedCodeWorkbenchSurfaceBinding[];
   governed_code_workbench_authority_posture: FounderLoopGovernedCodeWorkbenchAuthorityPosture;
   governed_code_workbench_blocked_state_refs: string[];
+  operator_workspace_spine_contract_ref?: string;
+  operator_workspace_spine_status?: string;
+  operator_workspace_spine_read_model?: OperatorWorkspaceSpineReadModel;
   fusion_routing_delegation_contract_ref?: string;
   fusion_routing_delegation_status?: string;
   fusion_routing_delegation_read_model?: FounderLoopFusionRoutingDelegationReadModel;

@@ -16,6 +16,7 @@ import type {
   FounderLoopSourceReadinessProposalCandidate,
   FounderLoopTodayLoopReadModel,
   FounderLoopWeeklyCeoReviewV1ReadModel,
+  OperatorWorkspaceSpineReadModel,
   ProviderCatalog,
   ProviderCostGovernorBinding,
   ProviderSettingsDiagnosticItem,
@@ -2574,6 +2575,209 @@ const governedCodeWorkbenchSurfaceBindings = [
       "Code can feed reviewed memory intake candidates only; memory writes and context injection remain blocked.",
   },
 ];
+
+const operatorWorkspaceSpineBlockedRefs = [
+  "blocked-state:operator-workspace:no-file-write",
+  "blocked-state:operator-workspace:no-git-mutation",
+  "blocked-state:operator-workspace:no-shell-subprocess-execution",
+  "blocked-state:operator-workspace:no-browser-automation",
+  "blocked-state:operator-workspace:no-dev-server-start",
+  "blocked-state:operator-workspace:no-provider-model-call",
+  "blocked-state:operator-workspace:no-connector-write",
+  "blocked-state:operator-workspace:no-background-autonomy",
+  "blocked-state:operator-workspace:no-raw-path-persistence",
+  "blocked-state:operator-workspace:no-raw-log-persistence",
+  "blocked-state:operator-workspace:no-production-authority",
+];
+
+const operatorWorkspaceSpineReadModel: OperatorWorkspaceSpineReadModel = {
+  schema_version: "operator_workspace_spine_read_model.v1",
+  contract_ref: "contract-ref:operator-workspace-spine:v1",
+  source: "mock_operator_workspace_spine_non_authoritative",
+  backend_owned: false,
+  status: "mock_fallback_read_only_operator_workspace_spine",
+  route_ref: "GET /control-center/today/summary#operator_workspace_spine",
+  cli_ref: "python scripts/inspect_operator_workspace_spine.py",
+  workspace_ref: "workspace-ref:operator-workspace:mock-local-control-center",
+  workspace_status_ref: "workspace-status-ref:operator-workspace:mock-local-loop",
+  repo_scope_ref: "repo-scope:operator-workspace:mock-safe-refs",
+  git_posture_ref: "git-posture-ref:operator-workspace:mock-read-only",
+  preview_status_ref: "preview-status-ref:operator-workspace:mock-manifest-only",
+  run_log_posture_ref: "run-log-posture-ref:operator-workspace:mock-redacted-refs",
+  coworker_handoff_ref:
+    "handoff-ref:operator-workspace:mock-coworker-metadata-only",
+  lane_order: [
+    "workspace_status",
+    "git_posture",
+    "preview_status",
+    "run_logs",
+    "coworker_handoff",
+  ],
+  lanes: [
+    {
+      lane_ref: "operator-workspace-lane:workspace-status",
+      lane_kind: "workspace_status",
+      label: "Workspace status",
+      status: "mock_safe_ref_posture",
+      safe_summary:
+        "Repo work is shown as safe refs: scope, proposal, preview, run evidence, and handoff status.",
+      current_posture_ref: "workspace-status-ref:operator-workspace:mock-local-loop",
+      source_refs: ["repo-scope:operator-workspace:mock-safe-refs"],
+      evidence_refs: ["evidence-ref:operator-workspace-spine:mock-today"],
+      proof_refs: ["proof-ref:operator-workspace-spine:read-model"],
+      blocked_authority_refs: [
+        "blocked-state:operator-workspace:no-file-write",
+        "blocked-state:operator-workspace:no-raw-path-persistence",
+      ],
+      next_safe_action:
+        "Reconnect to backend workspace refs before relying on posture.",
+      read_only: true,
+      safe_refs_only: true,
+      raw_content_included: false,
+      runtime_execution_enabled: false,
+      mutation_enabled: false,
+    },
+    {
+      lane_ref: "operator-workspace-lane:git-posture",
+      lane_kind: "git_posture",
+      label: "Git posture",
+      status: "mock_read_only_git_posture",
+      safe_summary:
+        "Git posture is a safe-ref placeholder; live branch, file names, raw diff, and Git mutation are not claimed.",
+      current_posture_ref: "git-posture-ref:operator-workspace:mock-read-only",
+      source_refs: ["git-status-ref:operator-workspace:mock-not-polled"],
+      evidence_refs: ["evidence-ref:operator-workspace-spine:mock-today"],
+      proof_refs: ["proof-ref:operator-workspace-spine:read-model"],
+      blocked_authority_refs: [
+        "blocked-state:operator-workspace:no-git-mutation",
+        "blocked-state:operator-workspace:no-shell-subprocess-execution",
+      ],
+      next_safe_action:
+        "Promote exact Git status read proof before live Git claims.",
+      read_only: true,
+      safe_refs_only: true,
+      raw_content_included: false,
+      runtime_execution_enabled: false,
+      mutation_enabled: false,
+    },
+    {
+      lane_ref: "operator-workspace-lane:preview-status",
+      lane_kind: "preview_status",
+      label: "Preview status",
+      status: "mock_manifest_only_preview",
+      safe_summary:
+        "Preview posture is manifest-only; no server lifecycle or browser control is exposed.",
+      current_posture_ref:
+        "preview-status-ref:operator-workspace:mock-manifest-only",
+      source_refs: ["dev-server-status-ref:operator-workspace:mock-not-started"],
+      evidence_refs: ["evidence-ref:operator-workspace-spine:mock-today"],
+      proof_refs: ["proof-ref:operator-workspace-spine:read-model"],
+      blocked_authority_refs: [
+        "blocked-state:operator-workspace:no-browser-automation",
+        "blocked-state:operator-workspace:no-dev-server-start",
+      ],
+      next_safe_action:
+        "Add a dev-server manifest contract before live preview.",
+      read_only: true,
+      safe_refs_only: true,
+      raw_content_included: false,
+      runtime_execution_enabled: false,
+      mutation_enabled: false,
+    },
+    {
+      lane_ref: "operator-workspace-lane:run-logs",
+      lane_kind: "run_logs",
+      label: "Run log posture",
+      status: "mock_redacted_ref_only",
+      safe_summary:
+        "Run logs are represented by receipt and summary refs only; raw output is omitted.",
+      current_posture_ref:
+        "run-log-posture-ref:operator-workspace:mock-redacted-refs",
+      source_refs: ["run-log-ref:operator-workspace:mock-not-attached"],
+      evidence_refs: ["evidence-ref:operator-workspace-spine:mock-today"],
+      proof_refs: ["proof-ref:operator-workspace-spine:read-model"],
+      blocked_authority_refs: [
+        "blocked-state:operator-workspace:no-shell-subprocess-execution",
+        "blocked-state:operator-workspace:no-raw-log-persistence",
+      ],
+      next_safe_action: "Use Proof refs until allowlisted command receipts exist.",
+      read_only: true,
+      safe_refs_only: true,
+      raw_content_included: false,
+      runtime_execution_enabled: false,
+      mutation_enabled: false,
+    },
+    {
+      lane_ref: "operator-workspace-lane:coworker-handoff",
+      lane_kind: "coworker_handoff",
+      label: "Coworker handoff",
+      status: "mock_metadata_only_handoff",
+      safe_summary:
+        "Coworker handoff state is metadata only; no worker dispatch or provider call is authorized.",
+      current_posture_ref:
+        "handoff-ref:operator-workspace:mock-coworker-metadata-only",
+      source_refs: ["coworker-state-ref:operator-workspace:mock-not-dispatched"],
+      evidence_refs: ["evidence-ref:operator-workspace-spine:mock-today"],
+      proof_refs: ["proof-ref:operator-workspace-spine:read-model"],
+      blocked_authority_refs: [
+        "blocked-state:operator-workspace:no-provider-model-call",
+        "blocked-state:operator-workspace:no-connector-write",
+        "blocked-state:operator-workspace:no-background-autonomy",
+      ],
+      next_safe_action: "Record handoff proposals as safe refs only.",
+      read_only: true,
+      safe_refs_only: true,
+      raw_content_included: false,
+      runtime_execution_enabled: false,
+      mutation_enabled: false,
+    },
+  ],
+  proof_refs: ["proof-ref:operator-workspace-spine:read-model"],
+  evidence_refs: ["evidence-ref:operator-workspace-spine:mock-today"],
+  safe_disable_refs: [
+    "safe-disable-ref:operator-workspace-spine:disable-read-model",
+  ],
+  rollback_refs: [
+    "rollback-ref:operator-workspace-spine:remove-read-model-projection",
+  ],
+  blocked_authority_refs: operatorWorkspaceSpineBlockedRefs,
+  promotion_path_refs: [
+    "promotion-path-ref:operator-workspace:exact-git-status-contract",
+    "promotion-path-ref:operator-workspace:dev-server-manifest-contract",
+    "promotion-path-ref:operator-workspace:allowlisted-run-log-receipts",
+    "promotion-path-ref:operator-workspace:coworker-handoff-receipts",
+  ],
+  route_refs: [
+    "GET /control-center/today/summary#operator_workspace_spine",
+    "route-ref:control-center:today",
+    "route-ref:control-center:trust",
+    "route-ref:control-center:proof",
+  ],
+  docs_refs: ["docs/control_center/OPERATOR_WORKSPACE_SPINE.md"],
+  verifier_refs: ["scripts/verify_beta_11_operator_workspace_spine.py"],
+  full_strength_goal:
+    "A ZCode-inspired operator workspace cockpit showing workspace status, Git posture, preview status, run logs, and coworker handoff state.",
+  repo_safe_scope:
+    "Backend-owned read model with safe refs and bounded posture summaries only; no editor, terminal, Git operation, runtime authority, or coworker dispatch is exposed here.",
+  blocked_authority_summary:
+    "File writes, Git mutation, shell execution, browser automation, dev-server control, provider/model calls, connector writes, background autonomy, raw path/log persistence, and production authority remain blocked.",
+  next_safe_action:
+    "Inspect workspace, Git, preview, run-log, and coworker posture refs; promote one exact lane at a time.",
+  safe_refs_only: true,
+  read_only: true,
+  control_center_presentation_only: true,
+  raw_path_persistence_enabled: false,
+  raw_log_persistence_enabled: false,
+  file_write_enabled: false,
+  git_mutation_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  browser_automation_enabled: false,
+  dev_server_start_enabled: false,
+  provider_model_call_enabled: false,
+  connector_write_enabled: false,
+  background_autonomy_enabled: false,
+  production_authority_enabled: false,
+};
 
 const crossSurfaceMemoryIntakeContractRef =
   "contract-ref:cross-surface-memory-intake:v1";
@@ -8370,6 +8574,10 @@ export const mockControlCenterData: ControlCenterData = {
       governedCodeWorkbenchAuthorityPosture,
     governed_code_workbench_blocked_state_refs:
       governedCodeWorkbenchBlockedRefs,
+    operator_workspace_spine_contract_ref:
+      operatorWorkspaceSpineReadModel.contract_ref,
+    operator_workspace_spine_status: operatorWorkspaceSpineReadModel.status,
+    operator_workspace_spine_read_model: operatorWorkspaceSpineReadModel,
     plans_action_envelope_contract_ref: "contract-ref:plans-action-envelope:v1",
     plans_action_envelope_review_postures: plansActionEnvelopeReviewPostures,
     plans_action_envelope_required_ref_fields:
