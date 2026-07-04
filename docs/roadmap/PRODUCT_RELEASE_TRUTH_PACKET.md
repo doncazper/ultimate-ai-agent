@@ -87,6 +87,18 @@ execution, provider/model calls, memory writes, context injection, external
 side effects, rollback execution, public beta, public release, production
 readiness, or production authority.
 
+Beta 05 readiness hardening current truth: Action Inbox work queue items are
+now backend-owned `work_items[]` with approval posture, receipt posture,
+mutation-control posture, exact route/proof/receipt/evidence/rollback/safe-
+disable/blocked refs, unsafe-ref omission blockers, and explicit
+`fake_mutation_controls_exposed: false` validation. Control Center renders the
+exact work list only from the Python Core read model; unsafe queue payloads,
+ref drift, fake controls, denied authority flags, and decision-lane contract
+drift fail closed. This remains local/private beta readiness only and adds no
+generic execution, connector write/send, provider/model call, browser/shell
+execution, memory write/context injection, rollback execution, public release,
+or production authority.
+
 Usable Authority PR 05 current truth: Today, Memory Review, Evidence Timeline,
 and Proof Detail now share a backend-owned Evidence/Memory loop binding read
 model plus CLI inspection through

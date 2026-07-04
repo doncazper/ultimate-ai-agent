@@ -26,11 +26,18 @@ imply that OpenWebUI owns product state or is where every UAA workflow will be
 wired.
 
 Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust, and Settings
-are the current beta-03 repo-safe daily-loop surfaces for product-language
+are the current beta-05 repo-safe daily-loop surfaces for product-language
 enforcement. Source Inbox remains visible in primary navigation for route
 reachability and visual-baseline continuity, but it is a supporting
 source-readiness surface until read-only connector/source contracts graduate; it
 must not be described as the primary daily work queue.
+
+Action Inbox may be described as a real backend-owned work queue only when copy
+is tied to `action_inbox_work_queue_read_model`, exact safe refs, approval
+posture, receipt posture, proof refs, blocked authority refs, unsafe-ref
+omission posture, and no-fake-mutation-control flags. It must not describe lane
+filters, fallback data, approval refs, rollback refs, or safe-disable refs as
+execution authority.
 
 Proof Detail and Run Detail copy must describe backend-owned safe-ref
 inspection, not execution. Proof refs, run-detail refs, approval refs,

@@ -134,6 +134,17 @@ writes/sends, browser or shell execution, memory writes, context injection,
 external side effects, rollback execution, public release, or production
 authority.
 
+Beta 05 hardens the same Action Inbox lane as a real work queue surface:
+`action_inbox_work_queue_read_model.work_items[]` now carries exact safe work
+items, approval posture, receipt posture, mutation-control posture, proof refs,
+expected/recorded receipt refs, rollback/safe-disable refs, blocked-authority
+refs, explicit unsafe-ref omission posture, and no-fake-mutation-control flags.
+Control Center renders those backend-owned work items only after the frontend
+guard validates the Python Core source, lane/ref parity, no denied authority
+flags, and decision-lane visibility-before-approval posture. The route remains
+limited to read/proof inspection and separately scoped decision/local-task
+receipt lanes; no broad execution authority is added.
+
 Usable Authority PR 05 binds Evidence and Memory into the daily loop through a
 backend-owned Evidence/Memory loop binding read model exposed from Today,
 Memory Review, Evidence Timeline, Proof Detail, and

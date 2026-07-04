@@ -132,7 +132,7 @@ Control Center binding:
 | Setup Assistant | `partial` | Local prerequisite and package-readiness posture exists; install, launch, login-material capture, shell, and public distribution authority remain blocked. |
 | Today | `partial` | Product spine, blockers, follow-ups, memory refs, and readiness refs are visible; local rehearsal receipts remain missing. |
 | Morning Briefing | `mock_only` | Storage-backed skeleton exists; source reads and delivery remain blocked until read-only source contracts land. |
-| Action Inbox | `partial` | Reviewable Action envelopes and memory-derived proposals are visible; execution and approval grant capture remain blocked. |
+| Action Inbox | `partial` | Reviewable Action envelopes, backend-owned work queue items, proof/receipt refs, blocked authority refs, and the exact local task record lane are visible. FCC-INBOX-001 approval-envelope UX is implemented, while beta readiness remains partial because broad execution, connector sends/writes, provider/model calls, shell/browser work, rollback execution, and production authority remain blocked. |
 | Proof Detail | `partial` | Safe refs, receipts, evidence, approval posture, and blocked authority are inspectable; approval grants and rollback execution remain blocked. |
 | Memory Review | `partial` | Source, provenance, quality, decision, intake, and loop refs are visible; writes and context injection remain blocked. |
 | Evidence Timeline | `partial` | History grammar exists and includes readiness evidence; durable beta-test run receipts remain missing. |

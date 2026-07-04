@@ -20,6 +20,7 @@ import type {
   FounderLoopActionInboxDecisionLaneItem,
   FounderLoopActionInboxDecisionLaneReadModel,
   FounderLoopActionInboxWorkQueueReadModel,
+  FounderLoopActionInboxWorkQueueWorkItem,
   FounderLoopActionsInbox,
   FounderLoopActionItem,
   FounderLoopBriefingItem,
@@ -1142,7 +1143,19 @@ function ActionInboxWorkQueuePanel({
           label="Action execution"
           value={readModel.action_execution_enabled ? "enabled" : "blocked"}
         />
+        <DetailTerm
+          label="Fake mutation controls"
+          value={readModel.fake_mutation_controls_exposed ? "unsafe" : "none"}
+        />
+        <DetailTerm
+          label="Unsafe refs omitted"
+          value={String(readModel.unsafe_ref_omitted_count)}
+        />
       </dl>
+      <RefListWithFallback
+        emptyLabel="Unsafe-ref blockers: none"
+        refs={readModel.unsafe_ref_blocked_state_refs}
+      />
       {nextItem ? (
         <div className="hero-panel compact">
           <div>
@@ -1154,6 +1167,7 @@ function ActionInboxWorkQueuePanel({
             <DetailTerm label="Item" value={nextItem.item_ref} />
             <DetailTerm label="Lane" value={nextItem.lane_label} />
             <DetailTerm label="Status" value={nextItem.status} />
+            <DetailTerm label="Can do now" value={nextItem.available_action} />
             <DetailTerm
               label="Approval"
               value={nextItem.approval_required ? "required" : "not required"}
@@ -1161,6 +1175,18 @@ function ActionInboxWorkQueuePanel({
             <DetailTerm
               label="Local task record"
               value={nextItem.local_task_commit_eligible ? "eligible" : "blocked"}
+            />
+            <DetailTerm
+              label="Local task route"
+              value={nextItem.local_task_commit_route_ref ?? "not available"}
+            />
+            <DetailTerm
+              label="Rollback"
+              value={nextItem.rollback_ref ?? "not available"}
+            />
+            <DetailTerm
+              label="Safe disable"
+              value={nextItem.safe_disable_ref ?? "not available"}
             />
             <DetailTerm label="Proof" value={nextItem.proof_ref} />
           </dl>
@@ -1172,10 +1198,23 @@ function ActionInboxWorkQueuePanel({
             emptyLabel="Evidence refs: none"
             refs={nextItem.evidence_refs}
           />
+          <RefListWithFallback
+            emptyLabel="Receipt refs: none"
+            refs={nextItem.receipt_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Blocked authority refs: none"
+            refs={nextItem.blocked_authority_refs}
+          />
         </div>
       ) : (
         <p className="empty-state">No Action Inbox item needs review right now.</p>
       )}
+      <div aria-label="Action Inbox exact work items" className="review-grid">
+        {readModel.work_items.map((item) => (
+          <ActionInboxWorkQueueWorkItemCard item={item} key={item.item_ref} />
+        ))}
+      </div>
       <div className="review-grid">
         {readModel.lanes.map((lane) => (
           <article className="review-card" key={lane.lane_ref}>
@@ -1199,6 +1238,70 @@ function ActionInboxWorkQueuePanel({
       <RefListWithFallback
         emptyLabel="Blocked authority refs: none"
         refs={readModel.blocked_authority_refs}
+      />
+    </article>
+  );
+}
+
+function ActionInboxWorkQueueWorkItemCard({
+  item,
+}: {
+  item: FounderLoopActionInboxWorkQueueWorkItem;
+}) {
+  return (
+    <article className="review-card">
+      <div className="review-card-heading">
+        <h4>{item.title}</h4>
+        <span>{item.lane_label}</span>
+      </div>
+      <p>{item.safe_summary}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Item" value={item.item_ref} />
+        <DetailTerm label="Status" value={item.status} />
+        <DetailTerm label="Kind" value={item.action_kind} />
+        <DetailTerm label="Side effect" value={item.side_effect_class} />
+        <DetailTerm label="Approval posture" value={item.approval_posture} />
+        <DetailTerm label="Receipt posture" value={item.receipt_posture} />
+        <DetailTerm
+          label="Operator action"
+          value={item.operator_actionable ? "reviewable" : "inspect only"}
+        />
+        <DetailTerm
+          label="Local task record"
+          value={item.local_task_commit_eligible ? "eligible" : "blocked"}
+        />
+        <DetailTerm
+          label="Mutation control"
+          value={item.mutation_control_posture}
+        />
+        <DetailTerm
+          label="Fake controls"
+          value={item.fake_mutation_control_exposed ? "unsafe" : "none"}
+        />
+        <DetailTerm label="Proof" value={item.proof_ref} />
+        <DetailTerm label="Approval envelope" value={item.approval_envelope_ref ?? "missing"} />
+        <DetailTerm label="Rollback" value={item.rollback_ref ?? "not available"} />
+        <DetailTerm
+          label="Safe disable"
+          value={item.safe_disable_ref ?? "not available"}
+        />
+        <DetailTerm label="Next safe action" value={item.next_safe_action} />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Expected receipt refs: none"
+        refs={item.expected_receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Receipt refs: none"
+        refs={item.receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence refs: none"
+        refs={item.evidence_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Blocked authority refs: none"
+        refs={item.blocked_authority_refs}
       />
     </article>
   );
@@ -4838,6 +4941,12 @@ export function ActionInboxSurfacePanel({
       : actionGroups.find(
           (group) => group.summary.group_id === selectedActionGroup,
         ) ?? null;
+  const selectedWorkQueueLane =
+    selectedActionGroup === "all"
+      ? null
+      : displayedInbox.action_inbox_work_queue_read_model?.lanes.find(
+          (lane) => lane.lane_id === selectedActionGroup,
+        ) ?? null;
   const selectedActionGroupItems =
     selectedActionGroupSummary?.items ?? displayedInbox.items;
   const backendOwnedItemCount = selectedActionGroupItems.filter(
@@ -5229,7 +5338,22 @@ export function ActionInboxSurfacePanel({
               "Inspect every backend-classified lane without adding authority."
             }
           />
+          <DetailTerm
+            label="Lane reason"
+            value={
+              selectedActionGroupSummary?.summary.safe_summary ??
+              "All backend-classified lanes are visible."
+            }
+          />
+          <DetailTerm
+            label="Work queue status"
+            value={selectedWorkQueueLane?.status ?? "all_lanes"}
+          />
         </dl>
+        <RefListWithFallback
+          emptyLabel="Selected lane blockers: none"
+          refs={selectedWorkQueueLane?.blocked_authority_refs ?? []}
+        />
         <p className="muted">
           Filters and drilldowns are presentation-only. Lane membership,
           eligibility, envelope posture, and receipt visibility remain supplied

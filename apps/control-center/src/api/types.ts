@@ -1152,6 +1152,36 @@ export interface FounderLoopActionInboxWorkQueueNextItem {
   blocked_authority_refs: string[];
 }
 
+export interface FounderLoopActionInboxWorkQueueWorkItem {
+  item_ref: string;
+  title: string;
+  lane_id: FounderLoopActionGroupId;
+  lane_label: string;
+  status: string;
+  priority: string;
+  risk_class: string;
+  action_kind: string;
+  side_effect_class: string;
+  safe_summary: string;
+  approval_posture: string;
+  receipt_posture: string;
+  mutation_control_posture: string;
+  next_safe_action: string;
+  approval_required: boolean;
+  operator_actionable: boolean;
+  local_task_commit_eligible: boolean;
+  fake_mutation_control_exposed: boolean;
+  approval_envelope_ref?: string | null;
+  local_task_commit_route_ref?: string | null;
+  proof_ref: string;
+  expected_receipt_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  rollback_ref?: string | null;
+  safe_disable_ref?: string | null;
+  blocked_authority_refs: string[];
+}
+
 export interface FounderLoopActionInboxWorkQueueReadModel {
   schema_version: "action-inbox-work-queue.v1";
   contract_ref: string;
@@ -1176,6 +1206,9 @@ export interface FounderLoopActionInboxWorkQueueReadModel {
   receipt_recorded_count: number;
   lane_count: number;
   lanes: FounderLoopActionInboxWorkQueueLane[];
+  work_item_count: number;
+  work_item_refs: string[];
+  work_items: FounderLoopActionInboxWorkQueueWorkItem[];
   next_item?: FounderLoopActionInboxWorkQueueNextItem | null;
   next_item_ref?: string | null;
   next_safe_action: string;
@@ -1183,6 +1216,9 @@ export interface FounderLoopActionInboxWorkQueueReadModel {
   tier_posture: string;
   mutating_controls_posture: string;
   tier_3_exact_local_task_commit_available: boolean;
+  fake_mutation_controls_exposed: boolean;
+  unsafe_ref_omitted_count: number;
+  unsafe_ref_blocked_state_refs: string[];
   blocked_authority_refs: string[];
   action_execution_enabled: boolean;
   connector_write_enabled: boolean;

@@ -194,6 +194,7 @@ readiness, or execute rollback.
 - `POST /control-center/actions/{action_id}/edit`
 - `POST /control-center/actions/{action_id}/reject`
 - `POST /control-center/actions/{action_id}/defer`
+- `POST /control-center/actions/{action_id}/local-task/commit`
 - `GET /control-center/actions/{action_id}/receipt`
 - `GET /control-center/memory/review`
 - `GET /control-center/memory/contradictions`

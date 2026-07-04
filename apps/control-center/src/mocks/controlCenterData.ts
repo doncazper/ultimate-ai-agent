@@ -10869,6 +10869,91 @@ export const mockControlCenterData: ControlCenterData = {
           ],
         },
       ],
+      work_item_count: 2,
+      work_item_refs: [
+        "founder-action:mock-local-task-review",
+        "founder-action:mock-approved-local-task",
+      ],
+      work_items: [
+        {
+          item_ref: "founder-action:mock-local-task-review",
+          title: "Review local task creation lane",
+          lane_id: "ready_for_decision",
+          lane_label: "Ready for decision",
+          status: "review_ready",
+          priority: "high",
+          risk_class: "medium",
+          action_kind: "local_task_create",
+          side_effect_class: "local_dev_workspace_only",
+          safe_summary:
+            "Mock fallback shows the item shape only; backend-owned approval posture is unavailable.",
+          approval_posture: "mock_only_backend_read_model_unavailable",
+          receipt_posture: "expected_receipt_refs_visible",
+          mutation_control_posture: "decision_receipt_only_no_execution",
+          next_safe_action:
+            "Reconnect the local backend before recording a decision.",
+          approval_required: true,
+          operator_actionable: true,
+          local_task_commit_eligible: false,
+          fake_mutation_control_exposed: false,
+          approval_envelope_ref:
+            "approval-envelope:founder-loop:mock-local-task-review",
+          local_task_commit_route_ref:
+            "POST /control-center/actions/{action_id}/local-task/commit",
+          proof_ref:
+            "proof-ref:action-decision:founder-action-mock-local-task-review",
+          expected_receipt_refs: [
+            "receipt-plan:founder-loop:mock-local-task-review",
+          ],
+          receipt_refs: [],
+          evidence_refs: ["evidence-ref:founder-loop:action-inbox"],
+          rollback_ref: "rollback-plan:founder-loop:mock-local-task-review",
+          safe_disable_ref: "safe-disable:founder-loop:mock-local-task-review",
+          blocked_authority_refs: [
+            "blocked-state:action-inbox-work-queue:no-broad-action-execution",
+            "blocked-state:action-inbox-work-queue:no-connector-write-or-send",
+          ],
+        },
+        {
+          item_ref: "founder-action:mock-approved-local-task",
+          title: "Approved local task lane",
+          lane_id: "approved_local_task_lane",
+          lane_label: "Approved local-task create lane",
+          status: "mock_fallback",
+          priority: "high",
+          risk_class: "medium",
+          action_kind: "local_task_create",
+          side_effect_class: "local_dev_workspace_only",
+          safe_summary:
+            "Mock fallback cannot prove exact backend approval or local task commit eligibility.",
+          approval_posture: "mock_only_backend_read_model_unavailable",
+          receipt_posture: "expected_receipt_refs_visible",
+          mutation_control_posture: "no_mutation_control_exposed",
+          next_safe_action:
+            "Reconnect the local backend before any local task commit control appears.",
+          approval_required: true,
+          operator_actionable: true,
+          local_task_commit_eligible: false,
+          fake_mutation_control_exposed: false,
+          approval_envelope_ref:
+            "approval-envelope:founder-loop:mock-approved-local-task",
+          local_task_commit_route_ref:
+            "POST /control-center/actions/{action_id}/local-task/commit",
+          proof_ref:
+            "proof-ref:action-decision:founder-action-mock-approved-local-task",
+          expected_receipt_refs: [
+            "receipt-plan:founder-loop:mock-approved-local-task",
+          ],
+          receipt_refs: [],
+          evidence_refs: ["evidence-ref:founder-loop:action-inbox"],
+          rollback_ref: "rollback-plan:founder-loop:mock-approved-local-task",
+          safe_disable_ref: "safe-disable:founder-loop:mock-approved-local-task",
+          blocked_authority_refs: [
+            "blocked-state:action-inbox-work-queue:no-broad-action-execution",
+            "blocked-state:action-inbox-work-queue:no-connector-write-or-send",
+          ],
+        },
+      ],
       next_item: {
         item_ref: "founder-action:mock-local-task-review",
         title: "Review local task creation lane",
@@ -10909,6 +10994,9 @@ export const mockControlCenterData: ControlCenterData = {
       mutating_controls_posture:
         "decision_receipts_and_exact_local_task_commit_only",
       tier_3_exact_local_task_commit_available: false,
+      fake_mutation_controls_exposed: false,
+      unsafe_ref_omitted_count: 0,
+      unsafe_ref_blocked_state_refs: [],
       blocked_authority_refs: [
         "blocked-state:action-inbox-work-queue:no-broad-action-execution",
         "blocked-state:action-inbox-work-queue:no-connector-write-or-send",

@@ -5002,6 +5002,18 @@ const ACTION_DECISION_LANE_REQUIRED_STRING_ARRAYS = [
   "blocked_state_refs",
 ] as const;
 
+const ACTION_DECISION_LANE_ORDER = [
+  "needs_approval",
+  "blocked",
+  "draft_only",
+  "cost_blocked",
+  "no_authority",
+  "approved_no_execution",
+  "rejected",
+  "deferred",
+  "receipt_recorded",
+] as const;
+
 const ACTION_DECISION_LANE_ITEM_REQUIRED_STRINGS = [
   "item_ref",
   "lane_id",
@@ -5102,15 +5114,41 @@ function isSafeActionInboxWorkQueueReadModel(value: unknown): boolean {
     typeof value.blocked_count !== "number" ||
     typeof value.receipt_recorded_count !== "number" ||
     typeof value.lane_count !== "number" ||
+    typeof value.work_item_count !== "number" ||
+    typeof value.unsafe_ref_omitted_count !== "number" ||
     !Array.isArray(value.lanes) ||
+    !Array.isArray(value.work_items) ||
+    !Array.isArray(value.work_item_refs) ||
+    !Array.isArray(value.unsafe_ref_blocked_state_refs) ||
     !Array.isArray(value.blocked_authority_refs)
   ) {
     return false;
   }
-  if (value.lane_count !== value.lanes.length) {
+  const lanes = value.lanes;
+  const workItems = value.work_items;
+  const workItemRefs = value.work_item_refs;
+  if (value.lane_count !== lanes.length) {
+    return false;
+  }
+  if (value.work_item_count !== workItems.length) {
+    return false;
+  }
+  if (
+    !workItemRefs.every(
+      (ref, index) =>
+        typeof ref === "string" &&
+        isSafeActionWorkQueueRef(ref) &&
+        ref ===
+          ((workItems[index] as Record<string, unknown> | undefined)
+            ?.item_ref ?? null),
+    )
+  ) {
     return false;
   }
   return (
+    value.fake_mutation_controls_exposed === false &&
+    value.unsafe_ref_blocked_state_refs.every(isSafeActionWorkQueueRef) &&
+    value.blocked_authority_refs.every(isSafeActionWorkQueueRef) &&
     hasStringFields(value, [
       "queue_ref",
       "route_ref",
@@ -5121,7 +5159,8 @@ function isSafeActionInboxWorkQueueReadModel(value: unknown): boolean {
       "tier_posture",
       "mutating_controls_posture",
     ]) &&
-    value.lanes.every(isSafeActionInboxWorkQueueLane) &&
+    lanes.every(isSafeActionInboxWorkQueueLane) &&
+    workItems.every(isSafeActionInboxWorkQueueWorkItem) &&
     (value.next_item === null ||
       value.next_item === undefined ||
       isSafeActionInboxWorkQueueNextItem(value.next_item))
@@ -5147,7 +5186,9 @@ function isSafeActionInboxWorkQueueLane(value: unknown): boolean {
     ]) &&
     typeof value.count === "number" &&
     Array.isArray(value.item_refs) &&
-    Array.isArray(value.blocked_authority_refs)
+    value.item_refs.every(isSafeActionWorkQueueRef) &&
+    Array.isArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.every(isSafeActionWorkQueueRef)
   );
 }
 
@@ -5172,12 +5213,110 @@ function isSafeActionInboxWorkQueueNextItem(value: unknown): boolean {
       "next_safe_action",
       "proof_ref",
     ]) &&
+    isSafeActionWorkQueueRef(value.item_ref) &&
+    isSafeActionWorkQueueRef(value.proof_ref) &&
     typeof value.approval_required === "boolean" &&
     typeof value.local_task_commit_eligible === "boolean" &&
     Array.isArray(value.expected_receipt_refs) &&
+    value.expected_receipt_refs.every(isSafeActionWorkQueueRef) &&
     Array.isArray(value.receipt_refs) &&
+    value.receipt_refs.every(isSafeActionWorkQueueRef) &&
     Array.isArray(value.evidence_refs) &&
-    Array.isArray(value.blocked_authority_refs)
+    value.evidence_refs.every(isSafeActionWorkQueueRef) &&
+    Array.isArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.every(isSafeActionWorkQueueRef) &&
+    isOptionalSafeActionWorkQueueRoute(value.local_task_commit_route_ref) &&
+    isOptionalSafeActionWorkQueueRef(value.approval_envelope_ref) &&
+    isOptionalSafeActionWorkQueueRef(value.rollback_ref) &&
+    isOptionalSafeActionWorkQueueRef(value.safe_disable_ref)
+  );
+}
+
+function isSafeActionInboxWorkQueueWorkItem(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    !hasStringArrays(value, [
+      "expected_receipt_refs",
+      "receipt_refs",
+      "evidence_refs",
+      "blocked_authority_refs",
+    ])
+  ) {
+    return false;
+  }
+  const expectedReceiptRefs = value.expected_receipt_refs as string[];
+  const receiptRefs = value.receipt_refs as string[];
+  const evidenceRefs = value.evidence_refs as string[];
+  const blockedAuthorityRefs = value.blocked_authority_refs as string[];
+  return (
+    typeof value.lane_id === "string" &&
+    ACTION_WORK_QUEUE_LANE_IDS.includes(
+      value.lane_id as (typeof ACTION_WORK_QUEUE_LANE_IDS)[number],
+    ) &&
+    hasStringFields(value, [
+      "item_ref",
+      "title",
+      "lane_label",
+      "status",
+      "priority",
+      "risk_class",
+      "action_kind",
+      "side_effect_class",
+      "safe_summary",
+      "approval_posture",
+      "receipt_posture",
+      "mutation_control_posture",
+      "next_safe_action",
+      "proof_ref",
+    ]) &&
+    isSafeActionWorkQueueRef(value.item_ref) &&
+    isSafeActionWorkQueueRef(value.proof_ref) &&
+    typeof value.approval_required === "boolean" &&
+    typeof value.operator_actionable === "boolean" &&
+    typeof value.local_task_commit_eligible === "boolean" &&
+    value.fake_mutation_control_exposed === false &&
+    isOptionalSafeActionWorkQueueRef(value.approval_envelope_ref) &&
+    isOptionalSafeActionWorkQueueRoute(value.local_task_commit_route_ref) &&
+    isOptionalSafeActionWorkQueueRef(value.rollback_ref) &&
+    isOptionalSafeActionWorkQueueRef(value.safe_disable_ref) &&
+    expectedReceiptRefs.every(isSafeActionWorkQueueRef) &&
+    receiptRefs.every(isSafeActionWorkQueueRef) &&
+    evidenceRefs.every(isSafeActionWorkQueueRef) &&
+    blockedAuthorityRefs.every(isSafeActionWorkQueueRef)
+  );
+}
+
+const ACTION_WORK_QUEUE_REF_RE = /^[A-Za-z0-9][A-Za-z0-9:_./#=-]{0,239}$/;
+const ACTION_WORK_QUEUE_ROUTE_RE =
+  /^(GET|POST) \/control-center\/[A-Za-z0-9_./{}-]{1,180}$/;
+
+function isSafeActionWorkQueueRef(value: unknown): value is string {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const lowered = value.toLowerCase();
+  return (
+    ACTION_WORK_QUEUE_REF_RE.test(value) &&
+    !lowered.includes("/users/") &&
+    !lowered.includes("raw_prompt") &&
+    !lowered.includes("raw_response") &&
+    !lowered.includes("provider_payload") &&
+    !lowered.includes("credential") &&
+    !lowered.includes("secret")
+  );
+}
+
+function isOptionalSafeActionWorkQueueRef(value: unknown): boolean {
+  return value === null || value === undefined || isSafeActionWorkQueueRef(value);
+}
+
+function isOptionalSafeActionWorkQueueRoute(value: unknown): boolean {
+  return (
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && ACTION_WORK_QUEUE_ROUTE_RE.test(value))
   );
 }
 
@@ -5186,10 +5325,18 @@ function isSafeActionInboxDecisionLaneReadModel(value: unknown): boolean {
     return false;
   }
   return (
+    value.contract_ref ===
+      "contract-ref:product-loop-005-action-inbox-decision-lanes:v1" &&
     value.backend_owned === true &&
+    value.local_read_model_only === true &&
     value.safe_refs_only === true &&
     value.raw_content_included === false &&
     value.source === "python_core_action_inbox_decision_lane_read_model" &&
+    value.missing_envelope_fields_fail_safe === true &&
+    value.cost_posture_visible_before_approval === true &&
+    value.provider_authority_visible_before_approval === true &&
+    value.approval_scope_visible_before_approval === true &&
+    value.expected_receipts_visible_before_approval === true &&
     value.action_execution_enabled === false &&
     value.connector_write_enabled === false &&
     value.shell_subprocess_execution_enabled === false &&
@@ -5197,9 +5344,15 @@ function isSafeActionInboxDecisionLaneReadModel(value: unknown): boolean {
     value.provider_model_call_enabled === false &&
     value.memory_write_enabled === false &&
     value.context_injection_authorized === false &&
+    value.hidden_memory_write_authorized === false &&
     value.production_authority_enabled === false &&
     value.approval_alone_executes === false &&
     hasStringArrays(value, ACTION_DECISION_LANE_REQUIRED_STRING_ARRAYS) &&
+    ACTION_DECISION_LANE_ORDER.length ===
+      (value.lane_order as string[]).length &&
+    ACTION_DECISION_LANE_ORDER.every(
+      (laneId, index) => laneId === (value.lane_order as string[])[index],
+    ) &&
     Array.isArray(value.lanes) &&
     value.lanes.every(isSafeActionInboxDecisionLane) &&
     Array.isArray(value.items) &&
