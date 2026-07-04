@@ -1,7 +1,8 @@
 # UAA-P1-075 Governed Code Workbench V1
 
 Status: implemented as a contract, test, verifier, Today-spine, Evidence
-Timeline, and Control Center metadata shape.
+Timeline, Control Center metadata shape, and Prompt 01 `/coding` cockpit shell
+read model seed.
 
 This milestone makes Code narrower than Goat but better governed. It adds a
 repo-local Code proposal contract for safe diff summary refs, validation plan
@@ -11,6 +12,61 @@ Timeline history. It does not add apply execution, approval grant capture,
 unrestricted shell, subprocess execution, remote execution, broad coding-agent
 autonomy, provider SDK calls, web fetching, connector writes, file mutation
 runtime, public beta, public distribution, or production authority.
+
+## Coding Cockpit Prompt 01 Shell
+
+Prompt 01 adds the repo-safe Coding Cockpit shell without broad runtime
+authority.
+
+Full-strength version:
+
+- UAA Coding becomes a local-first coding command center with chat, workspace
+  context, diff and patch review, terminal posture, Git posture, live preview
+  posture, proof detail, agent workflow timeline, and multi-agent review.
+- Authority profiles eventually distinguish Read Only, Ask Before Changes,
+  Approve Safe Local Work For Me, Full Local Workspace Access, and separate
+  External / Production Authority.
+
+Repo-safe current version:
+
+- Control Center route: `/coding`.
+- Backend route: `GET /control-center/coding/session`.
+- CLI inspection: `scripts/dev/uaa_coding.py inspect-session`.
+- Python Agent Core owns `CodingCockpitSessionReadModel`; Control Center renders
+  the read model and mock fallback only.
+- The shell shows workspace/context, task timeline, diff preview, proof preview,
+  agent thread, terminal preview, Git preview, test output preview, live preview,
+  authority mode selector, and blocked authority refs.
+- Mock fallback is visibly non-authoritative and grants no workflow truth.
+
+Blocked / needs authority:
+
+- File writes, patch apply, shell/subprocess execution, Git mutation,
+  provider/model calls, browser automation, connector writes, background coding
+  agents, production authority, public beta, public release, and broad runtime
+  authority remain blocked.
+- Prompt 01 stores safe refs and bounded summaries only. It does not persist raw
+  prompts, raw responses, raw provider payloads, local paths, shell output,
+  credentials, tokens, cookies, account identifiers, or private data.
+
+Exact promotion path:
+
+- Prompt 02 graduates backend-owned task/context/proof contracts and inspection
+  parity.
+- Prompt 03 adds context-pack preview from safe refs.
+- Prompt 04 adds patch proposal artifacts without apply.
+- Later approved lanes add exact patch apply, allowlisted test commands, Git
+  review, live preview status, and multi-agent review only after scoped
+  approval binding, receipts, rollback/safe-disable posture, redaction,
+  CLI parity, and focused verifiers are present.
+
+Verification:
+
+- `tests/test_coding_cockpit_read_model.py`
+- `apps/control-center/src/App.test.tsx`
+- `tests/test_control_center_api_routes.py`
+- `tests/test_control_center_release_surface_manifest.py`
+- `scripts/verify_control_center_release_surface.py`
 
 ## Contract Ref
 

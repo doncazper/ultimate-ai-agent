@@ -980,7 +980,7 @@ allowed/blocked/parallel/missing/future-scoped posture in
 remain identifiers only, not authority.
 
 UAA-P1-021 FastAPI route grouping and side-effect classes
-Gate met: all current 169 API paths are mapped by route group, owner, target service
+Gate met: all then-current 169 API paths were mapped by route group, owner, target service
 module, auth posture, side-effect class, risk class, operation ID posture, and
 release status in `docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md`.
 

@@ -195,7 +195,7 @@ release surface contract intact while moving the app-owned shell/status API
 block into `ultimate_ai_agent.api.control_center`. Full-strength modularization
 should separate every route family into service-owned modules with no OpenAPI,
 API manifest, route-status, release-surface, proof, or authority drift. The
-repo-safe current version preserves the 169-route API boundary, stable
+repo-safe current version preserves the then-current 169-route API boundary, stable
 operation IDs, side-effect classes, route classifications, response envelopes,
 redactions, task-decomposition service compatibility, and release-surface
 metadata. It adds no provider/model calls, connector writes, web fetching,

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `169`, generated from the FastAPI application and
+Current OpenAPI path count: `170`, generated from the FastAPI application and
 exposed through `/api/manifest`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
@@ -75,7 +75,8 @@ Current boundary summary:
   dependencies, billing, or production
   authority.
 - Beta 12 extracts the app-owned Control Center shell/status route block into
-  `ultimate_ai_agent.api.control_center` while preserving the current 169-route
+  `ultimate_ai_agent.api.control_center` while preserving the then-current
+  169-route
   OpenAPI/API manifest boundary, stable operation IDs, route classifications,
   side-effect classes, release-surface truth, and task-decomposition service
   compatibility. It adds no routes and no runtime authority.

@@ -16,6 +16,7 @@ Implemented frontend pages:
 - `/actions`
 - `/proof`
 - `/trust`
+- `/coding`
 - `/memory`
 - `/evidence`
 - `/settings`
@@ -73,6 +74,14 @@ hardens `/trust` with CLI inspection refs, safe-disable refs, rollback refs,
 promotion-path refs, and fail-closed frontend validation through
 `scripts/verify_beta_07_trust_authority_map.py`. No broad runtime authority is
 added.
+`/coding` renders the repo-safe Coding Cockpit shell from
+`GET /control-center/coding/session`. Prompt 01 exposes a backend-owned
+read-only session seed with workspace/context refs, task refs, diff/proof
+placeholders, terminal/Git/test/live-preview posture, authority modes, proof
+refs, redaction refs, and blocked authority refs only. It does not write files,
+run shell/subprocess commands, mutate Git state, call providers or models,
+automate browsers, write connectors, launch background agents, persist raw
+paths or raw content, or grant production authority.
 FCC-V1-000 adds `releaseStatus` route metadata and
 `docs/control_center/release_surface_manifest.json`; the sidebar and command
 palette render conservative route-state labels. `ship` is intentionally
@@ -104,6 +113,7 @@ Backend API endpoints consumed:
 - `GET /control-center/runtime-readiness/summary`
 - `GET /control-center/foundation-gate/summary`
 - `GET /control-center/setup-assistant/summary`
+- `GET /control-center/coding/session`
 - `GET /control-center/start-here/summary`
 - `GET /control-center/today/summary`
 - `GET /control-center/actions/inbox`
@@ -194,7 +204,7 @@ provider/model calls, connector writes, coworker dispatch, background autonomy,
 raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
-OpenAPI remains a backend contract. The current backend path count is `169` with
+OpenAPI remains a backend contract. The current backend path count is `170` with
 unique operation IDs; earlier milestone counts in the historical sections below
 are audit context, not current route inventory.
 

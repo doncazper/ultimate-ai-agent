@@ -60,7 +60,7 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "blocked",
         "experimental",
     ]
-    assert len(manifest["routes"]) == len(visible_routes) == 37
+    assert len(manifest["routes"]) == len(visible_routes) == 38
     by_path = {route["path"]: route for route in manifest["routes"]}
     assert by_path["/start"]["status"] == "partial"
     assert by_path["/start"]["backend_routes"][0]["path"] == (
@@ -81,6 +81,19 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert by_path["/trust"]["visual_proof_status"] == "checked_in_baseline"
     assert by_path["/trust"]["visual_baseline_ref"] == (
         "visual-baseline:control-center:trust"
+    )
+    assert by_path["/coding"]["status"] == "partial"
+    assert by_path["/coding"]["backend_routes"][0]["path"] == (
+        "/control-center/coding/session"
+    )
+    assert by_path["/coding"]["approval_required"] is False
+    assert by_path["/coding"]["visual_proof_status"] == "blocked_no_baseline"
+    assert "missing_backend:coding-approved-patch-apply-route" in (
+        by_path["/coding"]["blocked_capabilities"]
+    )
+    assert any(
+        "read-only" in caveat.lower()
+        for caveat in by_path["/coding"]["product_language_caveats"]
     )
     assert by_path["/today"]["status"] == "partial"
     assert by_path["/today"]["backend_contract_rationale"] == "backend-route-refs-present"

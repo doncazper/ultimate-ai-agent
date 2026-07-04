@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `169`.
+Current OpenAPI path count: `170`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 19 |
-| `local_sensitive` | 113 |
+| `local_sensitive` | 114 |
 | `mutating_requires_authority` | 34 |
 
 Allowed current side-effect classes are:
@@ -185,6 +185,18 @@ installer actions, execute shell commands, download models, install/load/start
 LaunchAgents, install/load/start background services, handle credentials, claim
 signed installer readiness, claim public distribution, claim production
 readiness, or execute rollback.
+
+### Control Center Coding Cockpit
+
+- `GET /control-center/coding/session`
+
+This route returns the repo-safe Coding Cockpit shell seed as a backend-owned
+read model for `/coding`. It exposes safe workspace, context, task, diff,
+terminal preview, Git preview, test output, live preview, proof, and authority
+posture refs only. It does not write files, run shell/subprocess commands,
+mutate Git state, call providers or models, automate browsers, write
+connectors, launch background agents, persist raw paths or raw content, or
+grant production authority.
 
 ### Control Center Founder Loop summaries
 

@@ -3,6 +3,7 @@ import type {
   ActionPreviewDecision,
   ActionPreviewRequest,
   BackendConnectionSummary,
+  CodingCockpitSessionReadModel,
   ControlCenterDashboardSnapshot,
   ControlCenterData,
   ControlCenterLocalModelsStatus,
@@ -294,6 +295,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     ),
     readEnvelope<ControlCenterProofIndex>(API_ENDPOINTS.controlCenterProofIndex),
     readEnvelope<TrustAuthorityMatrix>(API_ENDPOINTS.trustAuthorityMatrix),
+    readEnvelope<CodingCockpitSessionReadModel>(
+      API_ENDPOINTS.controlCenterCodingSession,
+    ),
   ] as const);
 
   const manifest = fulfilledValue(results[0]);
@@ -334,6 +338,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const founderStartHere = fulfilledValue(results[29]);
   const proofIndex = fulfilledValue(results[30]);
   const trustAuthorityMatrix = fulfilledValue(results[31]);
+  const codingSession = fulfilledValue(results[32]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
   const normalizedProofIndex = normalizeProofIndex(proofIndex);
@@ -420,6 +425,16 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       usedFallback: normalizedTrustAuthorityMatrix.usedFallback,
     }),
     routeReadStateInput({
+      route: "/coding",
+      surfaceLabel: "Coding",
+      backendRouteRef: "GET /control-center/coding/session",
+      endpointReturned: codingSession !== undefined,
+      usedFallback:
+        codingSession === undefined ||
+        codingSession.mock_fallback === true ||
+        codingSession.backend_owned !== true,
+    }),
+    routeReadStateInput({
       route: "/memory",
       surfaceLabel: "Memory",
       backendRouteRef: "GET /control-center/memory/review",
@@ -478,6 +493,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedFounderSourceReadiness.usedFallback;
   const providerCredentialReadinessFallbackUsed =
     normalizedDashboard.usedFallback;
+  const codingSessionFallbackUsed =
+    codingSession === undefined ||
+    codingSession.mock_fallback === true ||
+    codingSession.backend_owned !== true;
   const approvalQueueEndpointFallbackUsed = approvalQueue === undefined;
   const runObservabilityEndpointFallbackUsed =
     safeObservedRunObservability === undefined;
@@ -492,6 +511,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     routes === undefined ||
     runtimeReadiness === undefined ||
     capabilityMatrix === undefined ||
+    codingSession === undefined ||
     setupAssistantSource === undefined ||
     providerCatalog === undefined ||
     controlCenterSettingsStatus === undefined ||
@@ -524,6 +544,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         founderActionsInbox: normalizeFounderActionsInbox(undefined).value,
         founderMorningBriefing:
           normalizeFounderMorningBriefing(undefined).value,
+        codingSession: mockControlCenterData.codingSession,
       },
       {
         state: "mock_fallback",
@@ -564,6 +585,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     founderStartHere: normalizedFounderStartHere.value,
     proofIndex: normalizedProofIndex.value,
     trustAuthorityMatrix: normalizedTrustAuthorityMatrix.value,
+    codingSession: codingSession ?? mockControlCenterData.codingSession,
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
     founderMemoryReview: normalizedFounderMemoryReview.value,
     founderMemoryWorkbench: normalizedFounderMemoryWorkbench.value,
@@ -591,6 +613,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !normalizedFounderStartHere.usedFallback &&
     !normalizedProofIndex.usedFallback &&
     !normalizedTrustAuthorityMatrix.usedFallback &&
+    !codingSessionFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
     !dashboardSummaryEndpointFallbackUsed
@@ -610,6 +633,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedFounderStartHere.usedFallback ||
     normalizedProofIndex.usedFallback ||
     normalizedTrustAuthorityMatrix.usedFallback ||
+    codingSessionFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
     runObservabilityEndpointFallbackUsed;
@@ -621,7 +645,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       : founderLoopFieldFallbackUsed ||
           normalizedFounderStartHere.usedFallback ||
           normalizedProofIndex.usedFallback ||
-          normalizedTrustAuthorityMatrix.usedFallback
+          normalizedTrustAuthorityMatrix.usedFallback ||
+          codingSessionFallbackUsed
         ? "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels."
         : approvalQueueEndpointFallbackUsed
           ? "Run-attached approval queue endpoint was unavailable; non-authoritative mock fallback is shown without approval authority."
@@ -653,6 +678,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ...(normalizedTrustAuthorityMatrix.usedFallback
         ? ["TRUST_AUTHORITY_MATRIX_MOCK_FALLBACK"]
         : []),
+      ...(codingSessionFallbackUsed ? ["CODING_SESSION_MOCK_FALLBACK"] : []),
       ...(providerCredentialReadinessFallbackUsed
         ? ["PARTIAL_PROVIDER_CREDENTIAL_READINESS_FALLBACK"]
         : []),

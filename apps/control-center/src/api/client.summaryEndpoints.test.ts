@@ -232,6 +232,25 @@ function baseRouteData(): Record<string, unknown> {
       }),
     ),
   };
+  const backendOwnedCodingSession = {
+    ...mockControlCenterData.codingSession,
+    session_ref: "coding-session:summary-endpoint-test",
+    status: "implemented_read_only_cockpit_seed",
+    backend_owned: true,
+    mock_fallback: false,
+    local_read_model_only: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    control_center_grants_authority: false,
+    file_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    background_autonomy_enabled: false,
+    production_authority_enabled: false,
+  };
   return {
     [API_ENDPOINTS.controlCenterManifest]: mockControlCenterData.manifest,
     [API_ENDPOINTS.controlCenterDashboard]: mockControlCenterData.dashboard,
@@ -251,6 +270,7 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.founderStartHereSummary]: backendOwnedStartHere,
     [API_ENDPOINTS.controlCenterProofIndex]: backendOwnedProofIndex,
     [API_ENDPOINTS.trustAuthorityMatrix]: backendOwnedTrustAuthorityMatrix,
+    [API_ENDPOINTS.controlCenterCodingSession]: backendOwnedCodingSession,
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:

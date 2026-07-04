@@ -40,13 +40,14 @@ EXTRACTED_CONTROL_CENTER_ROUTES = {
     ("GET", "/control-center/local-models/status"),
     ("GET", "/control-center/foundation-gate/summary"),
     ("GET", "/control-center/setup-assistant/summary"),
+    ("GET", "/control-center/coding/session"),
     ("POST", "/control-center/actions/preview"),
 }
 
 EXPECTED_SIDE_EFFECT_MIX = {
     "none": 4,
     "validation_only": 71,
-    "local_dev_workspace_only": 91,
+    "local_dev_workspace_only": 92,
     "governed_network_read_only": 3,
 }
 
@@ -124,16 +125,17 @@ def _append_static_failures(failures: list[str]) -> None:
             "adds no routes and no runtime authority",
         ],
         EXTRACTION_PLAN: [
-            "Current OpenAPI path count: 169",
+            "Current OpenAPI path count: 170",
             "configure_openapi_contract(app)",
             "Beta 12 starts this extraction",
             "`/control-center/settings/status`",
         ],
         ROUTE_GROUPING_MAP: [
-            "`local_dev_workspace_only`:51",
+            "`local_dev_workspace_only`:52",
             "| GET | `/control-center/proof/index` | `get_control_center_proof_index` | `local_dev_workspace_only`",
             "| GET | `/control-center/start-here/summary` | `get_control_center_start_here_summary` | `local_dev_workspace_only`",
             "| GET | `/control-center/trust-authority/matrix` | `get_control_center_trust_authority_matrix` | `local_dev_workspace_only`",
+            "| GET | `/control-center/coding/session` | `get_control_center_coding_session` | `local_dev_workspace_only`",
         ],
         RELEASE_SURFACE: [
             "Beta 12 Backend Modularization/API Contract",

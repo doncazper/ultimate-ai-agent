@@ -15,7 +15,7 @@ and Foundation Gate coverage.
 
 Beta 12 extracts the app-owned Control Center shell/status route block into
 `ultimate_ai_agent.api.control_center` using the existing `APIRouter` plus
-method-aware `register_router_once` pattern. It preserves the current 169-route
+method-aware `register_router_once` pattern. It preserves the then-current 169-route
 OpenAPI/API manifest boundary, stable operation IDs, public paths, response
 envelopes, redactions, route classifications, task-decomposition service
 monkeypatch compatibility, and Control Center release-surface posture.

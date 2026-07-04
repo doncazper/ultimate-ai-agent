@@ -1,4 +1,7 @@
 import type {
+  CodingCockpitPreviewPanel,
+  CodingCockpitRefItem,
+  CodingCockpitSessionReadModel,
   ControlCenterData,
   ControlCenterProofIndex,
   ControlCenterRouteReadState,
@@ -30,8 +33,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 169;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 68;
+export const MOCK_OPENAPI_ROUTE_COUNT = 170;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 69;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -56,6 +59,375 @@ const providerCatalogBlockers = [
   "PROVIDER_VAULT_STORAGE_BLOCKED",
   "UNKNOWN_PAID_COST_REQUIRES_EXPLICIT_APPROVAL",
 ];
+
+const codingCockpitBlockedRefs = [
+  "blocked-state:coding-no-file-write",
+  "blocked-state:coding-no-shell-subprocess",
+  "blocked-state:coding-no-git-mutation",
+  "blocked-state:coding-no-provider-model-call",
+  "blocked-state:coding-no-browser-automation",
+  "blocked-state:coding-no-connector-write",
+  "blocked-state:coding-no-background-autonomy",
+  "blocked-state:coding-no-production-authority",
+];
+
+function mockCodingItem(
+  itemRef: string,
+  label: string,
+  status: string,
+  safeSummary: string,
+  blockedAuthorityRefs: string[] = [],
+): CodingCockpitRefItem {
+  return {
+    item_ref: itemRef,
+    label,
+    status,
+    safe_summary: safeSummary,
+    source_refs: ["coding-session:mock-fallback"],
+    evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+    proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+    blocked_authority_refs: blockedAuthorityRefs,
+  };
+}
+
+function mockCodingPanel(
+  panelRef: string,
+  title: string,
+  state: CodingCockpitPreviewPanel["state"],
+  safeSummary: string,
+  items: CodingCockpitRefItem[],
+  blockedAuthorityRefs: string[],
+  nextSafeAction: string,
+): CodingCockpitPreviewPanel {
+  return {
+    panel_ref: panelRef,
+    title,
+    state,
+    safe_summary: safeSummary,
+    items,
+    proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+    blocked_authority_refs: blockedAuthorityRefs,
+    next_safe_action: nextSafeAction,
+    mutation_enabled: false,
+    runtime_authority_enabled: false,
+  };
+}
+
+const mockCodingSession: CodingCockpitSessionReadModel = {
+  schema_version: "uaa-coding-cockpit-session.v1",
+  contract_ref: "contract-ref:coding-cockpit-shell:v1",
+  route_ref: "route-ref:control-center-coding-session",
+  session_ref: "coding-session:mock-fallback",
+  workspace_ref: "workspace-ref:coding:mock-fallback",
+  repo_scope_ref: "repo-scope:coding:mock-fallback",
+  branch_ref: "branch-ref:coding:mock-fallback",
+  authority_profile_ref: "authority-profile:coding:read-only",
+  active_agent_ref: "agent-ref:coding:mock-slot",
+  active_task_ref: "coding-task:cockpit-shell-mock",
+  active_context_pack_ref: "context-pack:coding-cockpit-mock",
+  active_patch_proposal_ref: "patch-proposal:coding-blocked-mock",
+  active_command_proposal_ref: "command-proposal:coding-blocked-mock",
+  active_git_ref: "git-status:coding-readonly-mock",
+  active_proof_ref: "proof-ref:coding-cockpit:mock-fallback",
+  active_preview_ref: "preview-ref:coding-blocked-mock",
+  backend_route_refs: ["GET /control-center/coding/session"],
+  frontend_route_refs: ["/coding"],
+  docs_refs: [
+    "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+    "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+  ],
+  cli_inspection_refs: ["scripts/dev/uaa_coding.py inspect-session"],
+  status: "non_authoritative_mock_fallback",
+  task_status: "proposal_only_blocked_runtime",
+  branch_label: "mock fallback branch ref",
+  active_agent_label: "Mock fallback agent slot",
+  authority_mode: "Read Only",
+  backend_owned: false,
+  mock_fallback: true,
+  local_read_model_only: true,
+  safe_refs_only: true,
+  raw_content_included: false,
+  control_center_grants_authority: false,
+  full_strength_goal:
+    "Local coding cockpit for chat, context, diff, terminal, Git, preview, proof, and multi-agent review.",
+  repo_safe_scope:
+    "Mock fallback mirrors the Prompt 01 shell shape without authoritative backend truth.",
+  authority_modes: [
+    {
+      mode_ref: "authority-mode:coding-read-only",
+      label: "Read Only",
+      state: "current",
+      operator_posture: "Inspect safe refs only.",
+      safe_summary: "Fallback mode metadata does not grant authority.",
+      allowed_now: true,
+      planned: false,
+      blocked: false,
+      blocked_authority_refs: [],
+      promotion_path_refs: ["promotion-path:coding-context-pack-preview"],
+    },
+    {
+      mode_ref: "authority-mode:coding-ask-before-changes",
+      label: "Ask Before Changes",
+      state: "planned",
+      operator_posture: "Proposal lane planned.",
+      safe_summary: "Patch proposal authority is not enabled.",
+      allowed_now: false,
+      planned: true,
+      blocked: false,
+      blocked_authority_refs: [],
+      promotion_path_refs: ["promotion-path:coding-patch-proposal-lane"],
+    },
+    {
+      mode_ref: "authority-mode:coding-full-local-workspace",
+      label: "Full Local Workspace Access",
+      state: "blocked",
+      operator_posture: "Broad local workspace authority is blocked.",
+      safe_summary: "File writes, commands, and Git mutation remain unavailable.",
+      allowed_now: false,
+      planned: false,
+      blocked: true,
+      blocked_authority_refs: [
+        "blocked-state:coding-no-file-write",
+        "blocked-state:coding-no-shell-subprocess",
+        "blocked-state:coding-no-git-mutation",
+      ],
+      promotion_path_refs: ["promotion-path:coding-approved-local-work"],
+    },
+    {
+      mode_ref: "authority-mode:coding-external-production",
+      label: "External / Production Authority",
+      state: "hard_gate",
+      operator_posture: "External and production lanes are blocked.",
+      safe_summary: "External writes require a separate gate.",
+      allowed_now: false,
+      planned: false,
+      blocked: true,
+      blocked_authority_refs: [
+        "blocked-state:coding-no-connector-write",
+        "blocked-state:coding-no-production-authority",
+      ],
+      promotion_path_refs: ["promotion-path:external-production-gate"],
+    },
+  ],
+  workspace_context: mockCodingPanel(
+    "coding-panel:workspace-context",
+    "Workspace Context",
+    "backend_owned",
+    "Fallback workspace context shows safe refs only.",
+    [
+      mockCodingItem(
+        "context-item:coding-pinned-files",
+        "Pinned refs",
+        "mock fallback",
+        "Pinned context refs are non-authoritative until backend data returns.",
+        ["blocked-state:coding-no-file-write"],
+      ),
+    ],
+    ["blocked-state:coding-no-file-write"],
+    "Inspect the backend route or CLI before relying on context refs.",
+  ),
+  task_thread: mockCodingPanel(
+    "coding-panel:task-thread",
+    "Coding Task",
+    "read_only",
+    "Fallback task posture keeps the request in read-only review.",
+    [
+      mockCodingItem(
+        "coding-task:cockpit-shell-mock",
+        "Cockpit shell seed",
+        "mock fallback",
+        "Task refs are display-only until the local backend returns.",
+        codingCockpitBlockedRefs,
+      ),
+    ],
+    codingCockpitBlockedRefs,
+    "Wait for backend-owned task refs before promotion.",
+  ),
+  task_timeline: mockCodingPanel(
+    "coding-panel:timeline",
+    "Workflow Timeline",
+    "read_only",
+    "Fallback timeline is a non-authoritative workflow sketch.",
+    [
+      mockCodingItem(
+        "timeline-item:coding-patch-blocked",
+        "Patch lane",
+        "blocked",
+        "Patch apply remains unavailable.",
+        ["blocked-state:coding-no-file-write"],
+      ),
+    ],
+    ["blocked-state:coding-no-background-autonomy"],
+    "Use backend proof refs before treating timeline state as true.",
+  ),
+  diff_preview: mockCodingPanel(
+    "coding-panel:diff-preview",
+    "Diff Preview",
+    "proposal_only",
+    "Diff body and apply controls are not available in fallback.",
+    [
+      mockCodingItem(
+        "patch-proposal:coding-blocked-mock",
+        "Patch proposal placeholder",
+        "planned",
+        "Patch proposal artifacts are future work.",
+        ["blocked-state:coding-no-file-write"],
+      ),
+    ],
+    ["blocked-state:coding-no-file-write"],
+    "Promote patch proposal artifacts before apply.",
+  ),
+  proof_preview: mockCodingPanel(
+    "coding-panel:proof-preview",
+    "Proof Detail",
+    "backend_owned",
+    "Fallback proof refs are display-only until backend proof returns.",
+    [
+      mockCodingItem(
+        "proof-ref:coding-cockpit:mock-fallback",
+        "Coding proof",
+        "mock fallback",
+        "Proof posture records blocked authority only.",
+        codingCockpitBlockedRefs,
+      ),
+    ],
+    codingCockpitBlockedRefs,
+    "Open backend proof when available.",
+  ),
+  terminal_preview: mockCodingPanel(
+    "coding-panel:terminal-preview",
+    "Terminal Preview",
+    "blocked",
+    "Command running is blocked in the fallback shell.",
+    [
+      mockCodingItem(
+        "command-proposal:coding-blocked-mock",
+        "Suggested command lane",
+        "blocked",
+        "Command receipts are future work.",
+        ["blocked-state:coding-no-shell-subprocess"],
+      ),
+    ],
+    ["blocked-state:coding-no-shell-subprocess"],
+    "Keep command controls disabled.",
+  ),
+  git_preview: mockCodingPanel(
+    "coding-panel:git-preview",
+    "Git Preview",
+    "preview_only",
+    "Git mutation is blocked in the fallback shell.",
+    [
+      mockCodingItem(
+        "git-status:coding-readonly-mock",
+        "Git posture",
+        "mock fallback",
+        "Git status is not authoritative until backend data returns.",
+        ["blocked-state:coding-no-git-mutation"],
+      ),
+    ],
+    ["blocked-state:coding-no-git-mutation"],
+    "Add backend Git read model before Git actions.",
+  ),
+  test_output_preview: mockCodingPanel(
+    "coding-panel:test-output-preview",
+    "Test Output",
+    "planned",
+    "Test receipts are not available in fallback.",
+    [
+      mockCodingItem(
+        "test-receipt:coding-blocked-mock",
+        "Test receipt placeholder",
+        "planned",
+        "Allowlisted test receipt lane is future work.",
+        ["blocked-state:coding-no-shell-subprocess"],
+      ),
+    ],
+    ["blocked-state:coding-no-shell-subprocess"],
+    "Promote allowlisted command receipts before test claims.",
+  ),
+  live_preview: mockCodingPanel(
+    "coding-panel:live-preview",
+    "Live Preview",
+    "blocked",
+    "Browser automation and dev server control are blocked.",
+    [
+      mockCodingItem(
+        "preview-ref:coding-blocked-mock",
+        "App preview placeholder",
+        "blocked",
+        "Preview status can be added later as a read model.",
+        [
+          "blocked-state:coding-no-browser-automation",
+          "blocked-state:coding-no-shell-subprocess",
+        ],
+      ),
+    ],
+    [
+      "blocked-state:coding-no-browser-automation",
+      "blocked-state:coding-no-shell-subprocess",
+    ],
+    "Add preview status refs before browser interaction.",
+  ),
+  chat_thread: mockCodingPanel(
+    "coding-panel:chat-thread",
+    "Agent Thread",
+    "proposal_only",
+    "Fallback chat thread does not call models or dispatch agents.",
+    [
+      mockCodingItem(
+        "agent-handoff:coding-review-blocked",
+        "Reviewer slot",
+        "planned",
+        "Multi-agent review remains metadata only.",
+        [
+          "blocked-state:coding-no-provider-model-call",
+          "blocked-state:coding-no-background-autonomy",
+        ],
+      ),
+    ],
+    [
+      "blocked-state:coding-no-provider-model-call",
+      "blocked-state:coding-no-background-autonomy",
+    ],
+    "Keep chat as presentation until provider authority is scoped.",
+  ),
+  same_ref_spine: [
+    "coding-session:mock-fallback",
+    "coding-task:cockpit-shell-mock",
+    "context-pack:coding-cockpit-mock",
+    "patch-proposal:coding-blocked-mock",
+    "command-proposal:coding-blocked-mock",
+    "git-status:coding-readonly-mock",
+    "proof-ref:coding-cockpit:mock-fallback",
+    "preview-ref:coding-blocked-mock",
+  ],
+  blocked_authority_refs: codingCockpitBlockedRefs,
+  promotion_path_refs: [
+    "promotion-path:coding-context-pack-preview",
+    "promotion-path:coding-patch-proposal-lane",
+    "promotion-path:coding-approved-apply-lane",
+    "promotion-path:coding-allowlisted-test-command",
+    "promotion-path:coding-git-review-lane",
+    "promotion-path:coding-live-preview-status",
+    "promotion-path:coding-multi-agent-review",
+  ],
+  redactions_applied: [
+    "redaction-ref:safe-refs-only",
+    "redaction-ref:bounded-summaries-only",
+    "redaction-ref:raw-content-omitted",
+    "redaction-ref:raw-paths-omitted",
+  ],
+  next_safe_action:
+    "Restore backend-owned coding session data before trusting cockpit state.",
+  file_write_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  git_mutation_enabled: false,
+  provider_model_call_enabled: false,
+  browser_automation_enabled: false,
+  connector_write_enabled: false,
+  background_autonomy_enabled: false,
+  production_authority_enabled: false,
+};
 
 const providerCatalogLastVerifiedAt = "2026-06-25";
 
@@ -5449,6 +5821,7 @@ export const mockControlCenterData: ControlCenterData = {
     "/actions": mockRouteState("Action Inbox", "/actions", "GET /control-center/actions/inbox"),
     "/proof": mockRouteState("Proof", "/proof", "GET /control-center/proof/index"),
     "/trust": mockRouteState("Trust", "/trust", "GET /control-center/trust-authority/matrix"),
+    "/coding": mockRouteState("Coding", "/coding", "GET /control-center/coding/session"),
     "/memory": mockRouteState("Memory", "/memory", "GET /control-center/memory/review"),
     "/evidence": mockRouteState("Evidence", "/evidence", "GET /control-center/evidence/timeline"),
     "/settings": mockRouteState("Settings", "/settings", "GET /control-center/settings/status"),
@@ -7849,6 +8222,7 @@ export const mockControlCenterData: ControlCenterData = {
   founderStartHere,
   proofIndex,
   trustAuthorityMatrix,
+  codingSession: mockCodingSession,
   founderToday: {
     schema_version: "founder_loop_storage.v1",
     status: "mock_storage_backed_partial_loop",

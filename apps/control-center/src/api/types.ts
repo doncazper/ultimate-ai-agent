@@ -170,6 +170,117 @@ export interface TrustAuthorityMatrix {
   production_authority_enabled: boolean;
 }
 
+export type CodingCockpitAuthorityModeState =
+  | "current"
+  | "planned"
+  | "blocked"
+  | "hard_gate";
+
+export type CodingCockpitPanelState =
+  | "backend_owned"
+  | "read_only"
+  | "proposal_only"
+  | "preview_only"
+  | "blocked"
+  | "planned";
+
+export interface CodingCockpitAuthorityMode {
+  mode_ref: string;
+  label: string;
+  state: CodingCockpitAuthorityModeState;
+  operator_posture: string;
+  safe_summary: string;
+  allowed_now: boolean;
+  planned: boolean;
+  blocked: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+}
+
+export interface CodingCockpitRefItem {
+  item_ref: string;
+  label: string;
+  status: string;
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+}
+
+export interface CodingCockpitPreviewPanel {
+  panel_ref: string;
+  title: string;
+  state: CodingCockpitPanelState;
+  safe_summary: string;
+  items: CodingCockpitRefItem[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action: string;
+  mutation_enabled: boolean;
+  runtime_authority_enabled: boolean;
+}
+
+export interface CodingCockpitSessionReadModel {
+  schema_version: "uaa-coding-cockpit-session.v1";
+  contract_ref: string;
+  route_ref: string;
+  session_ref: string;
+  workspace_ref: string;
+  repo_scope_ref: string;
+  branch_ref: string;
+  authority_profile_ref: string;
+  active_agent_ref: string;
+  active_task_ref: string;
+  active_context_pack_ref: string;
+  active_patch_proposal_ref: string;
+  active_command_proposal_ref: string;
+  active_git_ref: string;
+  active_proof_ref: string;
+  active_preview_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  docs_refs: string[];
+  cli_inspection_refs: string[];
+  status: string;
+  task_status: string;
+  branch_label: string;
+  active_agent_label: string;
+  authority_mode: string;
+  backend_owned: boolean;
+  mock_fallback: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  control_center_grants_authority: boolean;
+  full_strength_goal: string;
+  repo_safe_scope: string;
+  authority_modes: CodingCockpitAuthorityMode[];
+  workspace_context: CodingCockpitPreviewPanel;
+  task_thread: CodingCockpitPreviewPanel;
+  task_timeline: CodingCockpitPreviewPanel;
+  diff_preview: CodingCockpitPreviewPanel;
+  proof_preview: CodingCockpitPreviewPanel;
+  terminal_preview: CodingCockpitPreviewPanel;
+  git_preview: CodingCockpitPreviewPanel;
+  test_output_preview: CodingCockpitPreviewPanel;
+  live_preview: CodingCockpitPreviewPanel;
+  chat_thread: CodingCockpitPreviewPanel;
+  same_ref_spine: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  file_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  git_mutation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface RuntimeReadinessSummary {
   status: string;
   production_ready: boolean;
@@ -7314,6 +7425,7 @@ export interface ControlCenterData {
   founderStartHere: ControlCenterStartHereSummary;
   proofIndex: ControlCenterProofIndex;
   trustAuthorityMatrix: TrustAuthorityMatrix;
+  codingSession: CodingCockpitSessionReadModel;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;
