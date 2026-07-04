@@ -301,6 +301,29 @@ read model or proof contract, CLI inspection, redacted receipt/evidence refs,
 visual baseline update, product-language guard, and focused frontend/verifier
 tests before claiming readiness.
 
+Beta 14 adds the local beta QA gate. Full-strength: Beta 14 aims for a
+high-ambition local founder/operator QA gate where setup, the daily loop,
+Action Inbox, evidence, memory, proof, Trust, and private trial review read as
+one coherent beta-quality product loop. Repo-safe: `make verify-beta-local`
+runs a backend-owned, local/private, safe-ref-only verifier bundle across docs,
+security/redaction, product truth, operational maturity, OpenAPI, the API
+perimeter, release lanes, release evidence packets, release surface, dogfood
+loop evidence, private beta/private-trial readiness, WebAccessGateway authority
+guards, frontend safety, checked-in visual proof, every beta lane verifier, and
+Foundation Gate report-only mode. `make verify-beta-local-visual` runs that
+default bundle plus the explicit live Playwright visual comparison lane and is
+required when the beta PR changes primary UI output or visual manifests.
+Blocked / needs authority: public beta, public distribution, production
+readiness, production authority, connector writes, provider/model calls,
+browser/shell execution, account sync,
+background autonomy, broad memory writes, context injection, Code apply,
+rollback execution, and generic action execution remain blocked. Exact
+promotion path: promotion requires a later scoped PR with accepted
+local/private findings, backend/core/API or CLI parity, redacted evidence,
+product-language checks, verifier updates, focused tests, route/OpenAPI/
+manifest updates where applicable, and rollback/safe-disable posture for any
+mutation.
+
 Beta 02 hardens `/setup` by binding the dry-run Setup Assistant read model to
 first-run daily-loop refs and local package proof refs. The route can truthfully
 show local loopback runtime packaging proof and local unsigned `.app` artifact

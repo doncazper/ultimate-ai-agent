@@ -48,7 +48,7 @@ export function MacOSSetupAssistantPanel({
         <SetupFlag label="macOS first" value={setup.macosFirst} />
         <SetupFlag label="Local first" value={setup.localFirst} />
         <SetupFlag label="Disabled by default" value={setup.disabledByDefault} />
-        <SetupFlag label="Native app ready" value={setup.nativeMacosAppReady} />
+        <SetupFlag label="Native app proof" value={setup.nativeMacosAppReady} />
         <SetupFlag
           label="Installer side effects"
           value={setup.installerSideEffectsEnabled}

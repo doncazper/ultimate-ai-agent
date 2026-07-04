@@ -177,7 +177,7 @@ function founderLoopProductProofFixture(
     repo_safe_scope:
       "Backend-owned safe refs, read-only route posture, visual cohesion, mock fallback labels, and CLI inspection only.",
     blocked_authority_summary:
-      "Provider/model calls, connector writes/sends, browser work, shell subprocess work, background autonomy, public release claims, and production authority remain blocked.",
+      "Provider/model calls, connector writes/sends, browser work, shell subprocess work, background autonomy, public beta and distribution claims, and production authority remain blocked.",
     exact_promotion_path_refs: [
       "promotion-path-ref:daily-loop-productization:shared-backend-refs",
       "promotion-path-ref:daily-loop-productization:route-proof-cohesion",

@@ -1479,7 +1479,7 @@ const proofIndex: ControlCenterProofIndex = {
         repo_safe_scope:
           "Backend-owned safe refs, bounded summaries, route refs, receipts, rollback/safe-disable refs, and blocked authority refs only.",
         blocked_authority_summary:
-          "Provider/model calls, connector writes or sends, browser automation, shell execution, background autonomy, public release claims, and production authority remain blocked.",
+          "Provider/model calls, connector writes or sends, browser automation, shell execution, background autonomy, public beta and distribution claims, and production authority remain blocked.",
         exact_promotion_path_refs: [
           "promotion-path-ref:proof-run-spine:detail-route-parity",
           "promotion-path-ref:proof-run-spine:receipt-evidence-binding",
