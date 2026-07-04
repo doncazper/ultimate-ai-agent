@@ -912,6 +912,27 @@ def post_control_center_memory_feedback(
                 "safe_message": "The Memory feedback request contains unsafe refs.",
             },
         ) from exc
+    feedback_redactions = [
+        "safe_refs_only",
+        "receipt_refs_only",
+        "raw_content_omitted",
+    ]
+    if request.memory_record_ref is None:
+        feedback_redactions.append("no_memory_write")
+    else:
+        feedback_redactions.extend(
+            [
+                "memory_feedback_metadata_update_only",
+                "no_new_memory_record_write",
+            ]
+        )
+    feedback_redactions.extend(
+        [
+            "no_context_injection",
+            "no_action_execution",
+            "no_connector_write",
+        ]
+    )
     return ResultEnvelope(
         success=True,
         operation="control_center_memory_feedback",
@@ -919,15 +940,7 @@ def post_control_center_memory_feedback(
         trace_id="founder-loop:memory-feedback",
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:founder-loop:memory-feedback"}],
-        redactions_applied=[
-            "safe_refs_only",
-            "receipt_refs_only",
-            "raw_content_omitted",
-            "no_memory_write",
-            "no_context_injection",
-            "no_action_execution",
-            "no_connector_write",
-        ],
+        redactions_applied=feedback_redactions,
     )
 
 

@@ -147,13 +147,26 @@ receipt lanes; no broad execution authority is added.
 
 Usable Authority PR 05 binds Evidence and Memory into the daily loop through a
 backend-owned Evidence/Memory loop binding read model exposed from Today,
-Memory Review, Evidence Timeline, Proof Detail, and
+Memory Review, Evidence Timeline, and
 `scripts/dev/uaa_founder_loop.py inspect-evidence-memory-binding`. The binding
 uses safe refs to explain why memory appeared, which evidence supports it, and
-which action/run/proof refs connect the loop. It does not make memory truth,
+which action/run/proof refs connect the loop. Proof Detail resolves the
+binding's universal Proof refs without becoming the binding read-model surface.
+It does not make memory truth,
 inject context, write memory automatically, delete or export memory, execute
 actions, call providers/models, write/send connectors, run browser or shell
 work, start background autonomy, or grant production authority.
+
+Beta 06 hardens that Evidence/Memory binding by making the shared
+loop/run/action/proof refs, reviewed-memory-write exact scope, broad-memory-
+write blocked posture, safe-disable/rollback refs, and promotion-path refs
+first-class in the Python Core read model and Control Center guard. The
+universal Proof spine now resolves the binding's advertised Proof refs.
+`scripts/verify_beta_06_evidence_memory_binding.py` verifies the repo-safe
+slice. This adds no memory truth authority, runtime context injection,
+automatic memory write, memory delete/export, connector write/send,
+provider/model calls, shell/browser execution, background autonomy, public
+release, or production authority.
 
 Usable Authority PR 06 adds `/trust` as a partial Trust authority map backed by
 `GET /control-center/trust-authority/matrix` and

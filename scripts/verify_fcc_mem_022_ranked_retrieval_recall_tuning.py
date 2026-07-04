@@ -377,6 +377,14 @@ def _append_behavior_failures(failures: list[str], root: Path) -> None:
         )
         if not str(feedback.get("receipt_ref") or "").startswith("receipt:memory-feedback:"):
             failures.append("memory feedback receipt ref missing")
+        if feedback.get("memory_feedback_metadata_update_performed") is not True:
+            failures.append("memory feedback metadata update posture missing")
+        if feedback.get("memory_feedback_metadata_update_only") is not True:
+            failures.append("memory feedback must be metadata-update-only")
+        if feedback.get("new_memory_record_write_performed") is not False:
+            failures.append("memory feedback created a new memory record")
+        if feedback.get("broad_memory_write_performed") is not False:
+            failures.append("memory feedback broadened memory write authority")
         observations = repo.memory_observation_candidates(safe_query="safe query alpha")
         if observations.get("candidate_count", 0) < 1:
             failures.append("memory observation candidates missing reviewed candidate")

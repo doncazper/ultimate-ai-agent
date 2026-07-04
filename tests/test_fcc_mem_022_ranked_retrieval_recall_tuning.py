@@ -272,6 +272,11 @@ def test_feedback_receipts_tune_trust_and_power_inspection_models(
     assert receipt["memory_record_ref"] == memory_record_ref
     assert receipt["trust_delta"] == 0.0
     assert receipt["conflict_state_after"] == "possible_conflict"
+    assert receipt["memory_feedback_metadata_update_performed"] is True
+    assert receipt["memory_feedback_metadata_update_only"] is True
+    assert receipt["new_memory_record_write_performed"] is False
+    assert receipt["broad_memory_write_performed"] is False
+    assert receipt["reviewed_recall_record_created"] is False
     assert receipt["memory_delete_performed"] is False
     assert receipt["memory_export_performed"] is False
     assert receipt["context_injection_authorized"] is False
@@ -357,8 +362,17 @@ def test_memory_feature_mine_api_routes_are_hash_only_and_authority_blocked(
     assert feedback.status_code == 200
     feedback_data = feedback.json()["data"]
     assert feedback_data["memory_record_ref"] == memory_record_ref
+    assert feedback_data["memory_feedback_metadata_update_performed"] is True
+    assert feedback_data["memory_feedback_metadata_update_only"] is True
+    assert feedback_data["new_memory_record_write_performed"] is False
+    assert feedback_data["broad_memory_write_performed"] is False
     assert feedback_data["memory_delete_performed"] is False
     assert feedback_data["context_injection_authorized"] is False
+    assert "memory_feedback_metadata_update_only" in feedback.json()[
+        "redactions_applied"
+    ]
+    assert "no_new_memory_record_write" in feedback.json()["redactions_applied"]
+    assert "no_memory_write" not in feedback.json()["redactions_applied"]
 
     for path, key in [
         ("/control-center/memory/observation-candidates", "candidate_count"),

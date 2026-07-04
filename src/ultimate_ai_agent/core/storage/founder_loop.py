@@ -6090,6 +6090,7 @@ class FounderLoopRepository:
 
     def evidence_timeline(self, *, limit: int = 50) -> dict[str, Any]:
         today = self.today_summary(limit=min(max(int(limit), 6), 50))
+        binding_today = self.today_summary(limit=6)
         timeline = list(today["evidence_timeline"])
         events = self._productized_evidence_events(timeline)
         groups = self._productized_evidence_groups(events)
@@ -6148,10 +6149,10 @@ class FounderLoopRepository:
                 today.get("founder_loop_runs_integration_read_model")
             ),
             "loop_trace_refs": today.get("loop_trace_refs"),
-            "evidence_memory_loop_binding_contract_ref": today.get(
+            "evidence_memory_loop_binding_contract_ref": binding_today.get(
                 "evidence_memory_loop_binding_contract_ref"
             ),
-            "evidence_memory_loop_binding_read_model": today.get(
+            "evidence_memory_loop_binding_read_model": binding_today.get(
                 "evidence_memory_loop_binding_read_model"
             ),
             "narrative_items": timeline,
@@ -12391,7 +12392,7 @@ class FounderLoopRepository:
         decisions = self.list_memory_review_decisions(limit=limit)
         workbench = self.memory_workbench(limit=limit)
         write_posture = self.memory_review_write_safe_disable_posture()
-        today = self.today_summary(limit=min(max(int(limit), 6), 50))
+        binding_today = self.today_summary(limit=6)
         return {
             "route_ref": "/control-center/memory/review",
             "surface_ref": "/memory",
@@ -12408,10 +12409,10 @@ class FounderLoopRepository:
             "write_safe_disable_ref": write_posture["safe_disable_ref"],
             "write_rollback_ref": write_posture["rollback_ref"],
             "write_rollback_execution_enabled": False,
-            "evidence_memory_loop_binding_contract_ref": today.get(
+            "evidence_memory_loop_binding_contract_ref": binding_today.get(
                 "evidence_memory_loop_binding_contract_ref"
             ),
-            "evidence_memory_loop_binding_read_model": today.get(
+            "evidence_memory_loop_binding_read_model": binding_today.get(
                 "evidence_memory_loop_binding_read_model"
             ),
             "reviewed_recall_write_authorized_decisions": ["accept", "correct"],
