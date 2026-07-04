@@ -380,23 +380,49 @@ Acceptance criteria:
 
 ### PR 8: Provider Draft/Summarize Micro-Lane
 
-Goal: allow one useful model-assisted draft/review action without granting broad
-provider authority.
+Goal: make provider-assisted drafting useful and inspectable without granting
+broad provider authority.
+
+Full-strength version:
+
+- Provider-assisted draft and summarize workflows can use approved live
+  credentials, selected local context, explicit cost limits, receipts, Proof
+  Detail, Trust posture, and operator review.
+
+Repo-safe beta-09 version:
+
+- Keep the existing provider draft/summarize lane as an exact core/CLI wrapper
+  over the tiny provider path.
+- Default inspection remains blocked/no-execution.
+- Demo fixture proof uses injected transient test credential, exact
+  LocalApprovalAuthority scope, CostGovernor posture, receipt store, and scoped
+  transport while reporting no real provider network.
+- `/proof` and `/trust` expose backend-owned inspection refs only; no
+  provider-draft API route, Control Center invocation button, default live
+  provider network, or durable draft preview persistence is added.
 
 Tasks:
 
-- Add one exact lane, for example
-  `summarize_or_classify_operator_selected_local_context`.
-- Require user initiation, cost cap, credential ref, safe prompt envelope,
-  redacted receipt, and proof ref.
-- Treat model output as draft/proposal only.
+- Require exact provider/model/credential refs, user initiation, cost cap,
+  safe prompt envelope refs, idempotency, redacted receipts, and proof refs.
+- Treat model output as draft/proposal only, never truth or action authority.
+- Verify durable records omit the transient draft preview.
 
 Acceptance criteria:
 
-- One useful provider/model call can happen safely.
-- No autonomous provider calls.
-- No output-as-truth.
-- No hidden memory/context injection.
+- One exact core/CLI provider draft/summarize wrapper is fixture-proven and
+  visible through Trust and Proof as inspection-only.
+- Default live credentials and default Control Center invocation remain
+  blocked.
+- No autonomous provider calls, provider SDK call, broad router fallback,
+  output-as-truth, durable raw prompt/response/provider exchange, hidden
+  memory/context injection, connector write, action execution, background
+  provider call, public release, or production authority.
+- Exact promotion requires a later verifier-backed PR with real
+  operator-approved test credential, exact approval, CostGovernor decision,
+  max-approved USD, receipt-store-before-network, complete usage/cost receipts,
+  safe-disable/rollback, CLI/API/UI parity, Trust/Proof updates, and
+  route/OpenAPI truth before any stronger provider lane is enabled.
 
 ### PR 9: Connector Draft-Only Lane
 
@@ -480,7 +506,8 @@ This plan is complete when:
 - Trust presents authority by tier without turning every surface into a blocker.
 - Evidence and Memory are visibly bound to runs/actions/proofs.
 - Web evidence is useful through a safe lane.
-- One provider draft/summarize lane is safely available.
+- One provider draft/summarize lane is safely available only as an exact
+  core/CLI, fixture-proven, default-UI-blocked inspection lane.
 - Connector draft-only proposals are real.
 - One test external mutation is graduated only if exact approval and receipts are
   proven.

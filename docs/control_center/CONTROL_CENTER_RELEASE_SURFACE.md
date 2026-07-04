@@ -146,6 +146,19 @@ tests. Verification:
 `scripts/verify_beta_08_web_evidence_product_slice.py`. No broad runtime
 authority is added.
 
+Beta 09 Provider Draft/Summarize preview keeps `/proof` and `/trust` as
+inspection surfaces for the exact core/CLI provider draft lane. Full-strength
+provider drafting remains a later approved live-credential workflow. The
+repo-safe current version exposes proof refs, CLI refs, safe-disable refs,
+blocked-authority refs, and fixture-proven posture only; it adds no provider
+draft API route, Control Center provider-call button, default live provider
+network, durable draft preview persistence, provider SDK call, raw
+prompt/response/provider exchange persistence, memory/context injection,
+connector write, action execution, background provider call, public release, or
+production authority. Verification:
+`scripts/verify_beta_09_provider_draft_preview.py`. No broad runtime authority
+is added.
+
 Usable Authority PR 04 hardens `/actions` as a backend-owned Action Inbox work
 queue with safe lane counts, next-item posture, proof/receipt/evidence refs,
 CLI inspection, and the exact `local_task_create` local task record lane. It

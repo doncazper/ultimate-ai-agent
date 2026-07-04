@@ -154,6 +154,16 @@ promotion needs a later scoped PR with approval binding where mutation appears,
 redaction, rollback/safe-disable, CLI/API parity, receipts/proof, tests, and
 docs. No broad runtime authority is added.
 
+Beta 09 Provider Draft/Summarize preview keeps `/proof` and `/trust` as
+inspection-only Control Center surfaces for the exact core/CLI provider draft
+lane. `/proof` can show `proof-ref:provider-draft-summarize:exact` as
+backend-owned safe-ref proof and `/trust` can show the lane posture, CLI refs,
+safe-disable refs, rollback refs, blocked authority refs, and promotion refs.
+The frontend must not expose a provider-draft API route, provider-call button,
+default live provider network, provider SDK call, durable draft preview
+persistence, connector write, memory/context injection, action execution,
+background provider call, public release, or production authority.
+
 OpenAPI remains a backend contract. The current backend path count is `150` with
 unique operation IDs; earlier milestone counts in the historical sections below
 are audit context, not current route inventory.

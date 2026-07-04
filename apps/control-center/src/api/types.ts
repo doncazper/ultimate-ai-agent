@@ -4564,6 +4564,7 @@ export type ControlCenterProofKind =
   | "memory_decision"
   | "evidence_event"
   | "web_evidence"
+  | "provider_draft_preview"
   | "source_readiness"
   | "approval"
   | "setup_package";

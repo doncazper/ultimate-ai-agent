@@ -76,6 +76,26 @@ mutation appears, redaction, safe-disable, rollback, CLI/API parity,
 receipts/proof, docs, and tests. Verification:
 `scripts/verify_beta_08_web_evidence_product_slice.py`. No broad runtime
 authority is added.
+Beta 09 Provider Draft/Summarize preview now hardens the provider
+draft/summarize lane as an exact core/CLI, fixture-proven, inspection-only
+wrapper over the existing tiny provider path. Full-strength provider drafting
+should eventually use approved live credentials, selected local context,
+explicit cost limits, receipts, Proof Detail, Trust posture, and operator
+review. The repo-safe version keeps default inspection blocked/no-execution,
+uses only injected fixture proof for the happy path, returns any redacted draft
+preview transiently to the requester, and stores durable safe refs only.
+`/proof` and `/trust` expose backend-owned inspection posture; no provider-draft
+API route, Control Center provider-call button, default live provider network,
+provider SDK call, durable preview persistence, raw prompt/response/provider
+exchange persistence, memory/context injection, connector write, action
+execution, background provider call, public release, or production authority is
+added. Exact promotion requires a later verifier-backed lane PR with a real
+operator-approved test credential, exact approval, CostGovernor decision,
+max-approved USD, receipt-store-before-network, complete usage/cost receipts,
+safe-disable/rollback, redaction, CLI/API/UI parity, Trust/Proof updates, route
+truth, docs, and tests. Verification:
+`scripts/verify_beta_09_provider_draft_preview.py`. No broad runtime authority
+is added.
 The `context_injection` prerequisite contract is contract-ready for future
 gate review only. It is not selected as a micro-lane, adds no runtime
 prompt/context injection route or Control Center control, and keeps runtime

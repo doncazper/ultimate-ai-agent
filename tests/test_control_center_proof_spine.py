@@ -125,6 +125,7 @@ def test_proof_index_covers_universal_product_event_kinds(tmp_path: Path) -> Non
         "memory_decision",
         "evidence_event",
         "web_evidence",
+        "provider_draft_preview",
         "source_readiness",
         "approval",
         "setup_package",
@@ -137,6 +138,39 @@ def test_proof_index_covers_universal_product_event_kinds(tmp_path: Path) -> Non
         assert record["next_safe_action"]
         _assert_run_detail_matches_record(record)
     _assert_no_runtime_authority(index)
+
+
+def test_provider_draft_preview_proof_is_backend_owned_and_non_invoking(
+    tmp_path: Path,
+) -> None:
+    service = FounderLoopControlCenterService(
+        FounderLoopRepository(tmp_path / "founder_loop")
+    )
+
+    detail = service.proof_detail("proof-ref:provider-draft-summarize:exact")
+    record = detail["record"]
+
+    assert record["proof_kind"] == "provider_draft_preview"
+    assert record["status"] == "exact_core_cli_fixture_proven_default_ui_blocked"
+    assert "transient draft preview" in record["safe_summary"]
+    assert "safe refs only" in record["safe_summary"]
+    assert "Default Control Center invocation" in record["authority_posture"]
+    assert "blocked-state:provider-draft-summarize:no-default-control-center-invocation" in (
+        record["blocked_authority_refs"]
+    )
+    assert "blocked-state:provider-draft-summarize:no-default-live-provider-network" in (
+        record["blocked_authority_refs"]
+    )
+    assert "safe-disable-ref:provider-draft-summarize:disable-exact-lane" in (
+        record["safe_disable_refs"]
+    )
+    assert "python scripts/inspect_provider_draft_summarize_lane.py" in (
+        record["next_safe_action"]
+    )
+    assert record["safe_refs_only"] is True
+    assert record["raw_content_included"] is False
+    _assert_run_detail_matches_record(record)
+    _assert_no_runtime_authority(detail)
 
 
 def test_local_task_commit_proof_blocks_until_commit_receipt(tmp_path: Path) -> None:
@@ -246,6 +280,7 @@ def test_daily_loop_surface_proof_refs_resolve_to_universal_proof_index(
         "trust-lane:memory-review-read",
         "trust-lane:reviewed-memory-write",
         "trust-lane:evidence-timeline-read",
+        "trust-lane:provider-draft-summarize",
     }
     for lane in trust["lanes"]:
         if lane["lane_ref"] in core_loop_lane_refs:
