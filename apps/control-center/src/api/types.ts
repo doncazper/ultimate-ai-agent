@@ -718,6 +718,86 @@ export interface CodingLivePreviewReadModel {
   production_authority_enabled: boolean;
 }
 
+export interface CodingAgentReviewSlotReadModel {
+  agent_slot_ref: string;
+  label: string;
+  slot_kind:
+    | "implementer"
+    | "reviewer"
+    | "local_verifier"
+    | "security_reviewer"
+    | "ux_reviewer"
+    | "test_fixer"
+    | "merge_captain";
+  status: "proposal_ref" | "blocked";
+  safe_summary: string;
+  output_artifact_refs: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  provider_model_call_enabled: boolean;
+  local_agent_execution_enabled: boolean;
+  background_dispatch_enabled: boolean;
+  autonomous_execution_enabled: boolean;
+  raw_prompt_included: boolean;
+  raw_response_included: boolean;
+}
+
+export interface CodingMultiAgentReviewReadModel {
+  schema_version: "uaa-coding-multi-agent-review.v1";
+  review_ref: string;
+  session_ref: string;
+  context_pack_ref: string;
+  patch_proposal_ref: string;
+  test_command_readiness_ref: string;
+  git_review_ref: string;
+  live_preview_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  unblock_prompt_refs: string[];
+  status: "blocked_missing_multi_agent_authority";
+  title: string;
+  full_strength_goal: string;
+  repo_safe_current_state: string;
+  safe_summary: string;
+  agent_slots: CodingAgentReviewSlotReadModel[];
+  plan_artifact_refs: string[];
+  review_artifact_refs: string[];
+  diff_comparison_refs: string[];
+  disagreement_summary_refs: string[];
+  handoff_refs: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  proposal_only: boolean;
+  safe_refs_only: boolean;
+  provider_model_call_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  local_agent_execution_enabled: boolean;
+  multi_agent_execution_enabled: boolean;
+  background_dispatch_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  autonomous_execution_enabled: boolean;
+  context_injection_enabled: boolean;
+  raw_prompt_included: boolean;
+  raw_response_included: boolean;
+  provider_payload_included: boolean;
+  file_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  git_mutation_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface RuntimeReadinessSummary {
   status: string;
   production_ready: boolean;
@@ -7869,6 +7949,7 @@ export interface ControlCenterData {
   codingTestCommandReadiness: CodingTestCommandReadinessReadModel;
   codingGitReview: CodingGitReviewReadModel;
   codingLivePreview: CodingLivePreviewReadModel;
+  codingMultiAgentReview: CodingMultiAgentReviewReadModel;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;

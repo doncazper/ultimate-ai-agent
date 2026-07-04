@@ -35,13 +35,17 @@ Repo-safe current version:
   `GET /control-center/coding/patch-proposal`,
   `GET /control-center/coding/patch-apply-readiness`,
   `GET /control-center/coding/test-command-readiness`,
-  `GET /control-center/coding/git-review`.
+  `GET /control-center/coding/git-review`,
+  `GET /control-center/coding/live-preview`,
+  `GET /control-center/coding/multi-agent-review`.
 - CLI inspection: `scripts/dev/uaa_coding.py inspect-session`,
   `scripts/dev/uaa_coding.py inspect-context`,
   `scripts/dev/uaa_coding.py inspect-patch-proposal`,
   `scripts/dev/uaa_coding.py inspect-patch-apply-readiness`,
   `scripts/dev/uaa_coding.py inspect-test-command-readiness`,
-  `scripts/dev/uaa_coding.py inspect-git-review`.
+  `scripts/dev/uaa_coding.py inspect-git-review`,
+  `scripts/dev/uaa_coding.py inspect-live-preview`,
+  `scripts/dev/uaa_coding.py inspect-multi-agent-review`.
 - Python Agent Core owns `CodingCockpitSessionReadModel` and
   `CodingWorkspaceContextReadModel` plus the proposal-only patch read model;
   Control Center renders the read models and mock fallback only.
@@ -49,7 +53,8 @@ Repo-safe current version:
   agent thread, terminal preview, Git preview, test output preview, live preview,
   authority mode selector, read-only context-pack preview, proposal-only patch
   refs, blocked apply-readiness refs, blocked test-command readiness refs, and
-  blocked Git review refs, and blocked authority refs.
+  blocked Git review, live-preview, and multi-agent review refs, and blocked
+  authority refs.
 - Mock fallback is visibly non-authoritative and grants no workflow truth.
 
 Blocked / needs authority:
@@ -74,10 +79,15 @@ Exact promotion path:
   mutation.
 - Prompt 07 adds live-preview refs and blocker refs without dev-server control
   or browser automation.
+- Prompt 08 adds multi-agent review slot, plan, review, diff-comparison,
+  disagreement, and handoff refs without provider/model calls, provider SDK
+  calls, local agent execution, background dispatch, context injection, or raw
+  prompt/response persistence.
 - Later approved lanes add exact patch apply, allowlisted test commands, Git
-  review, live preview execution, and multi-agent review only after scoped
-  approval binding, receipts, rollback/safe-disable posture, redaction,
-  CLI parity, and focused verifiers are present.
+  review, live preview execution, provider review, local-agent verification,
+  and multi-agent execution only after scoped approval binding, receipts,
+  rollback/safe-disable posture, redaction, CLI parity, and focused verifiers
+  are present.
 
 ## Coding Cockpit Prompt 04 Apply Readiness
 
@@ -255,6 +265,57 @@ Exact promotion path:
 - Promote only after dev-server status, URL redaction, browser observe,
   screenshot artifact, visual proof, receipt storage, Proof Detail binding, CLI
   parity, frontend tests, and verifiers are accepted.
+
+## Coding Cockpit Prompt 08 Multi-Agent Review Readiness
+
+Prompt 08 keeps the full multi-agent collaboration goal visible while blocking
+provider/model calls, local agent execution, background dispatch, context
+injection, and raw prompt/response persistence until the missing contracts are
+implemented.
+
+Full-strength version:
+
+- UAA coordinates Codex implementer, Claude reviewer, local verifier, security
+  reviewer, UX reviewer, test fixer, and merge captain workflows with
+  comparable plans, reviews, diffs, disagreements, handoffs, receipts, and
+  Proof Detail links.
+- Autonomous dispatch, background agents, provider calls, local verifier
+  execution, test fixing, merge orchestration, and any production authority
+  remain outside this lane until exact authority graduates.
+
+Repo-safe current version:
+
+- `GET /control-center/coding/multi-agent-review` exposes a backend-owned
+  read-only proposal/readiness model.
+- `scripts/dev/uaa_coding.py inspect-multi-agent-review` provides CLI
+  inspection parity.
+- `/coding` shows Codex implementer, Claude reviewer, local verifier, security
+  reviewer, UX reviewer, test fixer, and merge captain slot refs plus plan,
+  review, diff-comparison, disagreement, handoff, blocker, promotion-path, and
+  unblock-prompt refs.
+- The route stores safe refs and bounded summaries only. It does not store raw
+  prompts, raw responses, provider payloads, raw paths, or raw file content.
+
+Blocked / needs authority:
+
+- Provider/model calls, provider SDK calls, local agent execution, multi-agent
+  dispatch, background autonomy, context injection, artifact body storage,
+  receipt creation, Proof Detail binding, and shell/subprocess execution remain
+  blocked.
+- Prompt 08 does not call Codex, Claude, or local agents; execute reviewers;
+  fix tests; dispatch background workers; inject context; write files; mutate
+  Git; run commands; automate browsers; write connectors; or grant production
+  authority.
+
+Exact promotion path:
+
+- Run
+  `docs/prompts/authority_graduation_program/generated_unblock_prompts/unblock_coding_multi_agent_review.prompt.md`.
+- Keep the blocker report current at
+  `docs/control_center/authority_graduation_blockers/coding_multi_agent_review_2026_07_04.md`.
+- Promote only after provider/local-agent review authority, artifact storage,
+  redaction, LocalApprovalAuthority binding where required, receipt storage,
+  Proof Detail binding, CLI parity, frontend tests, and verifiers are accepted.
 
 Verification:
 

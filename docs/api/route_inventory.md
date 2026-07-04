@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `176`.
+Current OpenAPI path count: `177`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 19 |
-| `local_sensitive` | 120 |
+| `local_sensitive` | 121 |
 | `mutating_requires_authority` | 34 |
 
 Allowed current side-effect classes are:
@@ -195,18 +195,22 @@ readiness, or execute rollback.
 - `GET /control-center/coding/test-command-readiness`
 - `GET /control-center/coding/git-review`
 - `GET /control-center/coding/live-preview`
+- `GET /control-center/coding/multi-agent-review`
 
 These routes return the repo-safe Coding Cockpit shell seed and read-only
 context-pack preview as backend-owned read models for `/coding`. They expose
 safe workspace, context, task, diff, terminal preview, Git preview, test output,
 live preview, proof, context comparison, patch proposal, blocked apply
-readiness, blocked test-command readiness, budget, redaction, and authority
-posture refs, blocked Git review refs, and blocked live-preview refs only. They do not
-write files, apply patches, read or persist raw file content, run
+readiness, blocked test-command readiness, budget, redaction, authority
+posture, blocked Git review, blocked live-preview, agent slot, plan, review,
+diff-comparison, disagreement, handoff, blocker, and promotion refs only. They
+do not write files, apply patches, read or persist raw file content, run
 shell/subprocess commands, execute commands, mutate Git state, start or inspect
 dev servers, persist raw URLs, capture screenshots, read console output, call
-providers or models, automate browsers, write connectors, launch background
-agents, persist raw paths or raw content, or grant production authority.
+providers or models, call provider SDKs, dispatch local agents, inject context,
+persist raw prompts or responses, automate browsers, write connectors, launch
+background agents, persist raw paths or raw content, or grant production
+authority.
 
 ### Control Center Founder Loop summaries
 

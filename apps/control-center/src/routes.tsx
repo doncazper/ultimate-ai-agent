@@ -479,6 +479,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           context={data.codingContext}
           gitReview={data.codingGitReview}
           livePreview={data.codingLivePreview}
+          multiAgentReview={data.codingMultiAgentReview}
           patchApplyReadiness={data.codingPatchApplyReadiness}
           patchProposal={data.codingPatchProposal}
           authoritative={isAuthoritativeConnection(data)}

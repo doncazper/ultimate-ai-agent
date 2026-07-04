@@ -59,6 +59,7 @@ CAPABILITIES_DECLARED = [
     "control_center_coding_test_command_readiness_read_model",
     "control_center_coding_git_review_read_model",
     "control_center_coding_live_preview_read_model",
+    "control_center_coding_multi_agent_review_read_model",
     "control_center_today_summary",
     "control_center_action_inbox_summary",
     "control_center_today_to_action_envelope_promotion",

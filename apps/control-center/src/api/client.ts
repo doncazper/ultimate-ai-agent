@@ -66,6 +66,7 @@ import type {
   ChatTurnReceiptRequest,
   CodingGitReviewReadModel,
   CodingLivePreviewReadModel,
+  CodingMultiAgentReviewReadModel,
   CodingPatchApplyReadinessReadModel,
   CodingPatchProposalReadModel,
   CodingTestCommandReadinessReadModel,
@@ -322,6 +323,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<CodingLivePreviewReadModel>(
       API_ENDPOINTS.controlCenterCodingLivePreview,
     ),
+    readEnvelope<CodingMultiAgentReviewReadModel>(
+      API_ENDPOINTS.controlCenterCodingMultiAgentReview,
+    ),
   ] as const);
 
   const manifest = fulfilledValue(results[0]);
@@ -369,6 +373,12 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const codingTestCommandReadiness = fulfilledValue(results[36]);
   const codingGitReview = fulfilledValue(results[37]);
   const codingLivePreview = fulfilledValue(results[38]);
+  const codingMultiAgentReview = fulfilledValue(results[39]);
+  const safeCodingMultiAgentReview = isSafeCodingMultiAgentReview(
+    codingMultiAgentReview,
+  )
+    ? codingMultiAgentReview
+    : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
   const normalizedProofIndex = normalizeProofIndex(proofIndex);
@@ -411,6 +421,59 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     mockControlCenterData.founderSourceReadiness,
     founderSourceReadiness,
   );
+  const codingBackendRouteRefs = [
+    "GET /control-center/coding/session",
+    "GET /control-center/coding/context",
+    "GET /control-center/coding/patch-proposal",
+    "GET /control-center/coding/patch-apply-readiness",
+    "GET /control-center/coding/test-command-readiness",
+    "GET /control-center/coding/git-review",
+    "GET /control-center/coding/live-preview",
+    "GET /control-center/coding/multi-agent-review",
+  ];
+  const codingEndpointFallbackWarningRefs = [
+    ...(codingSession === undefined ||
+    codingSession.mock_fallback === true ||
+    codingSession.backend_owned !== true
+      ? ["CODING_SESSION_MOCK_FALLBACK"]
+      : []),
+    ...(codingContext === undefined || codingContext.backend_owned !== true
+      ? ["CODING_CONTEXT_MOCK_FALLBACK"]
+      : []),
+    ...(codingPatchProposal === undefined ||
+    codingPatchProposal.backend_owned !== true ||
+    codingPatchProposal.proposal_only !== true
+      ? ["CODING_PATCH_PROPOSAL_MOCK_FALLBACK"]
+      : []),
+    ...(codingPatchApplyReadiness === undefined ||
+    codingPatchApplyReadiness.backend_owned !== true ||
+    codingPatchApplyReadiness.readiness_only !== true
+      ? ["CODING_PATCH_APPLY_READINESS_MOCK_FALLBACK"]
+      : []),
+    ...(codingTestCommandReadiness === undefined ||
+    codingTestCommandReadiness.backend_owned !== true ||
+    codingTestCommandReadiness.readiness_only !== true
+      ? ["CODING_TEST_COMMAND_READINESS_MOCK_FALLBACK"]
+      : []),
+    ...(codingGitReview === undefined ||
+    codingGitReview.backend_owned !== true ||
+    codingGitReview.read_only !== true ||
+    codingGitReview.proposal_only !== true ||
+    codingGitReview.safe_refs_only !== true
+      ? ["CODING_GIT_REVIEW_MOCK_FALLBACK"]
+      : []),
+    ...(codingLivePreview === undefined ||
+    codingLivePreview.backend_owned !== true ||
+    codingLivePreview.read_only !== true ||
+    codingLivePreview.status_only !== true ||
+    codingLivePreview.safe_refs_only !== true
+      ? ["CODING_LIVE_PREVIEW_MOCK_FALLBACK"]
+      : []),
+    ...(safeCodingMultiAgentReview === undefined
+      ? ["CODING_MULTI_AGENT_REVIEW_MOCK_FALLBACK"]
+      : []),
+  ];
+
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
       route: "/start",
@@ -457,7 +520,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     routeReadStateInput({
       route: "/coding",
       surfaceLabel: "Coding",
-      backendRouteRef: "GET /control-center/coding/session",
+      backendRouteRefs: codingBackendRouteRefs,
       endpointReturned:
         codingSession !== undefined &&
         codingContext !== undefined &&
@@ -465,7 +528,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         codingPatchApplyReadiness !== undefined &&
         codingTestCommandReadiness !== undefined &&
         codingGitReview !== undefined &&
-        codingLivePreview !== undefined,
+        codingLivePreview !== undefined &&
+        codingMultiAgentReview !== undefined,
+      warningRefs: codingEndpointFallbackWarningRefs,
       usedFallback:
         codingSession === undefined ||
         codingSession.mock_fallback === true ||
@@ -490,7 +555,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         codingLivePreview.backend_owned !== true ||
         codingLivePreview.read_only !== true ||
         codingLivePreview.status_only !== true ||
-        codingLivePreview.safe_refs_only !== true,
+        codingLivePreview.safe_refs_only !== true ||
+        safeCodingMultiAgentReview === undefined,
     }),
     routeReadStateInput({
       route: "/memory",
@@ -575,7 +641,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingLivePreview.backend_owned !== true ||
     codingLivePreview.read_only !== true ||
     codingLivePreview.status_only !== true ||
-    codingLivePreview.safe_refs_only !== true;
+    codingLivePreview.safe_refs_only !== true ||
+    safeCodingMultiAgentReview === undefined;
   const approvalQueueEndpointFallbackUsed = approvalQueue === undefined;
   const runObservabilityEndpointFallbackUsed =
     safeObservedRunObservability === undefined;
@@ -597,6 +664,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingTestCommandReadiness === undefined ||
     codingGitReview === undefined ||
     codingLivePreview === undefined ||
+    codingMultiAgentReview === undefined ||
     setupAssistantSource === undefined ||
     providerCatalog === undefined ||
     controlCenterSettingsStatus === undefined ||
@@ -638,6 +706,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
           mockControlCenterData.codingTestCommandReadiness,
         codingGitReview: mockControlCenterData.codingGitReview,
         codingLivePreview: mockControlCenterData.codingLivePreview,
+        codingMultiAgentReview:
+          mockControlCenterData.codingMultiAgentReview,
       },
       {
         state: "mock_fallback",
@@ -691,6 +761,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingGitReview: codingGitReview ?? mockControlCenterData.codingGitReview,
     codingLivePreview:
       codingLivePreview ?? mockControlCenterData.codingLivePreview,
+    codingMultiAgentReview:
+      safeCodingMultiAgentReview ?? mockControlCenterData.codingMultiAgentReview,
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
     founderMemoryReview: normalizedFounderMemoryReview.value,
     founderMemoryWorkbench: normalizedFounderMemoryWorkbench.value,
@@ -747,11 +819,12 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     state: "degraded",
     safeMessage: providerCredentialReadinessFallbackUsed
       ? "Provider credential and cost posture was unavailable or unsafe; non-authoritative mock fallback kept provider readiness blocked."
+      : codingSessionFallbackUsed
+        ? "Some Coding backend read models were unavailable or unsafe; non-authoritative mock fallback kept coding authority blocked."
       : founderLoopFieldFallbackUsed ||
           normalizedFounderStartHere.usedFallback ||
           normalizedProofIndex.usedFallback ||
-          normalizedTrustAuthorityMatrix.usedFallback ||
-          codingSessionFallbackUsed
+          normalizedTrustAuthorityMatrix.usedFallback
         ? "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels."
         : approvalQueueEndpointFallbackUsed
           ? "Run-attached approval queue endpoint was unavailable; non-authoritative mock fallback is shown without approval authority."
@@ -783,7 +856,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ...(normalizedTrustAuthorityMatrix.usedFallback
         ? ["TRUST_AUTHORITY_MATRIX_MOCK_FALLBACK"]
         : []),
-      ...(codingSessionFallbackUsed ? ["CODING_SESSION_MOCK_FALLBACK"] : []),
+      ...(codingSessionFallbackUsed
+        ? codingEndpointFallbackWarningRefs.length > 0
+          ? codingEndpointFallbackWarningRefs
+          : ["CODING_SESSION_MOCK_FALLBACK"]
+        : []),
       ...(providerCredentialReadinessFallbackUsed
         ? ["PARTIAL_PROVIDER_CREDENTIAL_READINESS_FALLBACK"]
         : []),
@@ -1769,12 +1846,102 @@ function safetyFlagIsFalse(
   return names.some((name) => safety[name] === false);
 }
 
+function isSafeCodingMultiAgentReview(
+  value: CodingMultiAgentReviewReadModel | undefined,
+): value is CodingMultiAgentReviewReadModel {
+  if (value === undefined || !Array.isArray(value.agent_slots)) {
+    return false;
+  }
+  const requiredSlotKinds = [
+    "implementer",
+    "reviewer",
+    "local_verifier",
+    "security_reviewer",
+    "ux_reviewer",
+    "test_fixer",
+    "merge_captain",
+  ] as const;
+  const slotKinds = new Set(value.agent_slots.map((slot) => slot.slot_kind));
+  const hasRequiredSlots =
+    value.agent_slots.length === requiredSlotKinds.length &&
+    requiredSlotKinds.every((slotKind) => slotKinds.has(slotKind));
+  const hasRequiredRefGroups = [
+    value.backend_route_refs,
+    value.frontend_route_refs,
+    value.cli_inspection_refs,
+    value.docs_refs,
+    value.unblock_prompt_refs,
+    value.plan_artifact_refs,
+    value.review_artifact_refs,
+    value.diff_comparison_refs,
+    value.disagreement_summary_refs,
+    value.handoff_refs,
+    value.proof_refs,
+    value.evidence_refs,
+    value.blocked_authority_refs,
+    value.promotion_path_refs,
+    value.redactions_applied,
+  ].every(isNonEmptyStringArray);
+  const deniedTopLevelFlags: Array<keyof CodingMultiAgentReviewReadModel> = [
+    "provider_model_call_enabled",
+    "provider_sdk_call_enabled",
+    "local_agent_execution_enabled",
+    "multi_agent_execution_enabled",
+    "background_dispatch_enabled",
+    "background_autonomy_enabled",
+    "autonomous_execution_enabled",
+    "context_injection_enabled",
+    "raw_prompt_included",
+    "raw_response_included",
+    "provider_payload_included",
+    "file_write_enabled",
+    "shell_subprocess_execution_enabled",
+    "git_mutation_enabled",
+    "browser_automation_enabled",
+    "connector_write_enabled",
+    "production_authority_enabled",
+  ];
+  const safeTopLevel =
+    value.status === "blocked_missing_multi_agent_authority" &&
+    value.backend_owned === true &&
+    value.read_only === true &&
+    value.proposal_only === true &&
+    value.safe_refs_only === true &&
+    hasRequiredSlots &&
+    hasRequiredRefGroups &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false);
+  const safeSlots = value.agent_slots.every(
+    (slot) =>
+      isNonEmptyStringArray(slot.output_artifact_refs) &&
+      isNonEmptyStringArray(slot.proof_refs) &&
+      isNonEmptyStringArray(slot.evidence_refs) &&
+      isNonEmptyStringArray(slot.blocked_authority_refs) &&
+      slot.provider_model_call_enabled === false &&
+      slot.local_agent_execution_enabled === false &&
+      slot.background_dispatch_enabled === false &&
+      slot.autonomous_execution_enabled === false &&
+      slot.raw_prompt_included === false &&
+      slot.raw_response_included === false,
+  );
+  return safeTopLevel && safeSlots;
+}
+
+function isNonEmptyStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item) => typeof item === "string" && item.length > 0)
+  );
+}
+
 interface RouteReadStateInput {
   route: string;
   surfaceLabel: string;
-  backendRouteRef: string;
+  backendRouteRef?: string;
+  backendRouteRefs?: string[];
   endpointReturned: boolean;
   usedFallback: boolean;
+  warningRefs?: string[];
 }
 
 function routeReadStateInput(input: RouteReadStateInput): RouteReadStateInput {
@@ -1811,8 +1978,14 @@ function buildRouteReadState(
     blocked: `${input.surfaceLabel} runtime authority is blocked until an exact scoped lane graduates.`,
     planned: `${input.surfaceLabel} is planned and does not claim release-ready workflow state.`,
   };
-  const warningRefs =
-    state === "backend_owned" ? [] : [`route-read-state:${input.route}:fallback`];
+  const fallbackWarningRefs =
+    input.warningRefs && input.warningRefs.length > 0
+      ? input.warningRefs
+      : [`route-read-state:${input.route}:fallback`];
+  const backendRouteRefs =
+    input.backendRouteRefs ??
+    (input.backendRouteRef === undefined ? [] : [input.backendRouteRef]);
+  const warningRefs = state === "backend_owned" ? [] : fallbackWarningRefs;
   return {
     route: input.route,
     surfaceLabel: input.surfaceLabel,
@@ -1823,7 +1996,7 @@ function buildRouteReadState(
         ? "Python Core/API read model"
         : "frontend fallback provenance from local read attempt",
     safeSummary: summaries[state],
-    backendRouteRefs: [input.backendRouteRef],
+    backendRouteRefs,
     warningRefs,
     blockedAuthorityRefs: [
       "blocked-state:no-provider-model-call",

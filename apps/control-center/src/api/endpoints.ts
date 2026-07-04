@@ -26,6 +26,8 @@ export const API_ENDPOINTS = {
     "/control-center/coding/test-command-readiness",
   controlCenterCodingGitReview: "/control-center/coding/git-review",
   controlCenterCodingLivePreview: "/control-center/coding/live-preview",
+  controlCenterCodingMultiAgentReview:
+    "/control-center/coding/multi-agent-review",
   controlCenterProofIndex: "/control-center/proof/index",
   trustAuthorityMatrix: "/control-center/trust-authority/matrix",
   founderTodayActionEnvelope: "/control-center/today/action-envelope",
@@ -159,6 +161,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.controlCenterCodingTestCommandReadiness,
   API_ENDPOINTS.controlCenterCodingGitReview,
   API_ENDPOINTS.controlCenterCodingLivePreview,
+  API_ENDPOINTS.controlCenterCodingMultiAgentReview,
   API_ENDPOINTS.controlCenterProofIndex,
   API_ENDPOINTS.trustAuthorityMatrix,
   API_ENDPOINTS.founderEvidenceTimeline,

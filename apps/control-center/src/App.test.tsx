@@ -891,6 +891,46 @@ function backendOwnedCodingLivePreviewFixture(
   };
 }
 
+function backendOwnedCodingMultiAgentReviewFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const review = scrubCodingFallbackText(
+    JSON.parse(JSON.stringify(mockControlCenterData.codingMultiAgentReview)),
+  ) as typeof mockControlCenterData.codingMultiAgentReview;
+  return {
+    ...review,
+    review_ref: "multi-agent-review:coding-app-test",
+    session_ref: "coding-session:app-test-backend",
+    context_pack_ref: "context-pack:coding-app-test",
+    patch_proposal_ref: "patch-proposal:coding-app-test",
+    test_command_readiness_ref: "test-command-readiness:coding-app-test",
+    git_review_ref: "git-review:coding-app-test",
+    live_preview_ref: "live-preview:coding-app-test",
+    backend_owned: true,
+    read_only: true,
+    proposal_only: true,
+    safe_refs_only: true,
+    provider_model_call_enabled: false,
+    provider_sdk_call_enabled: false,
+    local_agent_execution_enabled: false,
+    multi_agent_execution_enabled: false,
+    background_dispatch_enabled: false,
+    background_autonomy_enabled: false,
+    autonomous_execution_enabled: false,
+    context_injection_enabled: false,
+    raw_prompt_included: false,
+    raw_response_included: false,
+    provider_payload_included: false,
+    file_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
 function scrubCodingFallbackText(value: unknown): unknown {
   if (typeof value === "string") {
     return value
@@ -1521,6 +1561,8 @@ describe("Web Control Center shell", () => {
         backendOwnedCodingGitReviewFixture(),
       [API_ENDPOINTS.controlCenterCodingLivePreview]:
         backendOwnedCodingLivePreviewFixture(),
+      [API_ENDPOINTS.controlCenterCodingMultiAgentReview]:
+        backendOwnedCodingMultiAgentReviewFixture(),
     });
 
     window.history.pushState({}, "", "/coding");
@@ -1575,6 +1617,32 @@ describe("Web Control Center shell", () => {
         ),
       ).toBeInTheDocument();
       expect(within(cockpit).getByText("Dev server status")).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "Multi-agent review is backend-owned, proposal-only, and blocked until exact agent authority exists.",
+        ),
+      ).toBeInTheDocument();
+      expect(within(cockpit).getByText("Codex implementer")).toBeInTheDocument();
+      expect(within(cockpit).getByText("UX reviewer")).toBeInTheDocument();
+      expect(within(cockpit).getByText("Test fixer")).toBeInTheDocument();
+      expect(within(cockpit).getByText("Merge captain")).toBeInTheDocument();
+      expect(
+        within(cockpit).getAllByText(
+          "blocked-state:coding-no-multi-agent-execution",
+        ).length,
+      ).toBeGreaterThan(0);
+      expect(
+        within(cockpit).getByText(
+          "agent-artifact:coding-diff-comparison-required",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(cockpit).getAllByText("proof-ref:coding-cockpit:app-test")
+          .length,
+      ).toBeGreaterThan(0);
+      expect(
+        within(cockpit).getByText("prompt-ref:unblock-coding-multi-agent-review"),
+      ).toBeInTheDocument();
       expect(within(cockpit).getByText("Workflow Timeline")).toBeInTheDocument();
       expect(within(cockpit).getByText("Diff Preview")).toBeInTheDocument();
       expect(within(cockpit).getByText("Proof Detail")).toBeInTheDocument();
@@ -11819,6 +11887,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.controlCenterCodingLivePreview),
     ).toBe(true);
+    expect(API_ENDPOINTS.controlCenterCodingMultiAgentReview).toBe(
+      "/control-center/coding/multi-agent-review",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.controlCenterCodingMultiAgentReview),
+    ).toBe(true);
     expect(chatTurnReceiptEndpoint("chat-turn:test")).toBe(
       "/control-center/chat/turns/chat-turn%3Atest/receipt",
     );
@@ -12874,6 +12948,8 @@ function envelopeForReadEndpoint(url: string) {
       backendOwnedCodingGitReviewFixture(),
     [API_ENDPOINTS.controlCenterCodingLivePreview]:
       backendOwnedCodingLivePreviewFixture(),
+    [API_ENDPOINTS.controlCenterCodingMultiAgentReview]:
+      backendOwnedCodingMultiAgentReviewFixture(),
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:

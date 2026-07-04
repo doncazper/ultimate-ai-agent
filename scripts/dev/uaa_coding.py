@@ -15,6 +15,7 @@ from ultimate_ai_agent.core.code import (  # noqa: E402
     build_coding_cockpit_session_seed,
     build_coding_git_review,
     build_coding_live_preview,
+    build_coding_multi_agent_review,
     build_coding_patch_apply_readiness,
     build_coding_patch_proposal_preview,
     build_coding_test_command_readiness,
@@ -67,6 +68,13 @@ def inspect_git_review(args: argparse.Namespace) -> int:
 def inspect_live_preview(args: argparse.Namespace) -> int:
     preview = build_coding_live_preview()
     payload = preview.model_dump(mode="json")
+    print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
+    return 0
+
+
+def inspect_multi_agent_review(args: argparse.Namespace) -> int:
+    review = build_coding_multi_agent_review()
+    payload = review.model_dump(mode="json")
     print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
     return 0
 
@@ -146,6 +154,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pretty-print the safe JSON read model.",
     )
     live_preview.set_defaults(func=inspect_live_preview)
+    multi_agent_review = subparsers.add_parser(
+        "inspect-multi-agent-review",
+        help="Print the blocked Coding Cockpit multi-agent review read model.",
+    )
+    multi_agent_review.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print the safe JSON read model.",
+    )
+    multi_agent_review.set_defaults(func=inspect_multi_agent_review)
     return parser
 
 

@@ -163,8 +163,12 @@ def main() -> int:
         ],
         failures,
     )
-    if "143-route inventory fixture" in _read(DOCUMENTATION_INDEX):
-        failures.append("docs/DOCUMENTATION_INDEX.md still references the stale 143-route inventory")
+    documentation_index = _read(DOCUMENTATION_INDEX)
+    for stale_route_count in ("143-route inventory fixture", "147-route inventory fixture"):
+        if stale_route_count in documentation_index:
+            failures.append(
+                "docs/DOCUMENTATION_INDEX.md still references a stale route inventory"
+            )
     _require(STORAGE_TEST, REQUIRED_TEST_SNIPPETS, failures)
     _require(API_TEST, REQUIRED_TEST_SNIPPETS, failures)
     _require(TODAY_LOOP_TEST, REQUIRED_TODAY_LOOP_TEST_SNIPPETS, failures)
