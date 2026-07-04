@@ -22,6 +22,19 @@ def test_default_macos_setup_assistant_plan_is_dry_run_only() -> None:
     assert plan.installer_side_effects_enabled is False
     assert plan.setup_question_assistant_enabled is False
     assert plan.model_output_authoritative is False
+    assert "daily loop" in plan.full_strength_goal
+    assert "Read-only setup plan" in plan.repo_safe_scope
+    assert "public distribution" in plan.blocked_authority_summary
+    assert "loop-ref:setup-to-daily-loop:v1" in plan.first_run_loop_refs
+    assert "contract-ref:start-here-local-loop:v1" in plan.first_run_loop_refs
+    assert "packaging-proof:local-macos-app-bundle" in plan.local_package_proof_refs
+    assert "script:verify-local-macos-app-bundle-proof" in plan.local_package_proof_refs
+    assert "promotion-path-ref:setup:exact-approved-mutation-pr" in (
+        plan.promotion_path_refs
+    )
+    assert plan.local_package_proof_status == (
+        "local_unsigned_loopback_package_proof_available_runtime_launch_blocked"
+    )
     assert {step.kind for step in plan.steps} == {
         MacOSSetupStepKind.first_launch,
         MacOSSetupStepKind.runtime_health,

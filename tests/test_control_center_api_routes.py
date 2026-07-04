@@ -428,6 +428,17 @@ def test_control_center_setup_assistant_summary_is_dry_run_only() -> None:
     assert data["native_macos_app_ready"] is False
     assert data["setup_question_assistant_enabled"] is False
     assert data["model_output_authoritative"] is False
+    assert "daily loop" in data["full_strength_goal"]
+    assert "Read-only setup plan" in data["repo_safe_scope"]
+    assert "public distribution" in data["blocked_authority_summary"]
+    assert "loop-ref:setup-to-daily-loop:v1" in data["first_run_loop_refs"]
+    assert "packaging-proof:local-macos-app-bundle" in data["local_package_proof_refs"]
+    assert "script:verify-local-macos-app-bundle-proof" in data[
+        "local_package_proof_refs"
+    ]
+    assert "promotion-path-ref:setup:exact-approved-mutation-pr" in data[
+        "promotion_path_refs"
+    ]
 
     for step in data["steps"]:
         assert step["state_change_allowed"] is False

@@ -90,6 +90,8 @@ def build_default_macos_setup_assistant_plan(
             "macos-setup-production-authority",
         ],
         next_steps=[
+            "Review the setup-to-daily-loop proof refs before calling setup complete.",
+            "Inspect local unsigned package proof refs without launching the app bundle.",
             "Review the Control Center setup preview against the first-launch flow.",
             "Choose whether the next slice should be native SwiftUI or a packaged web shell.",
             "Review dry-run approval envelopes before any setup mutation route is scoped.",
@@ -97,6 +99,7 @@ def build_default_macos_setup_assistant_plan(
         morning_review_checklist=[
             "Verify the model choices are labels only and not live downloads.",
             "Confirm every approval-required step has receipt and rollback refs.",
+            "Confirm local package proofs remain unsigned, local-only, and non-distribution.",
             "Confirm terminal details are bounded previews and not raw logs.",
             "Decide the native macOS app scaffold location before adding signing work.",
         ],
@@ -104,6 +107,8 @@ def build_default_macos_setup_assistant_plan(
             "dry_run_only": True,
             "side_effects_performed": False,
             "native_app_scaffolded": False,
+            "first_run_loop_refs_bound": True,
+            "local_package_proof_refs_bound": True,
         },
     )
 
@@ -115,13 +120,17 @@ def _default_steps() -> list[MacOSSetupStep]:
             kind=MacOSSetupStepKind.first_launch,
             label="First launch setup",
             status=MacOSSetupStepStatus.ready,
-            safe_summary="Show the local-first setup timeline before any installer authority exists.",
+            safe_summary="Show the local-first setup timeline and next daily-loop proof refs before any installer authority exists.",
             detail_preview=[
                 "Welcome state explains local-only posture.",
                 "Details pane shows bounded setup previews.",
+                "Next step points to Start Here, Today, Action Inbox, Proof, Memory, and Trust refs.",
             ],
             log_preview=["setup preview initialized; no command executed"],
-            reason_codes=["MACOS_SETUP_VISUAL_PREVIEW_READY"],
+            reason_codes=[
+                "MACOS_SETUP_VISUAL_PREVIEW_READY",
+                "MACOS_SETUP_FIRST_RUN_LOOP_REFS_VISIBLE",
+            ],
         ),
         _step(
             step_id="macos-setup-step:runtime-health",

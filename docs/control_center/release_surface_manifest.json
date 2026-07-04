@@ -1225,7 +1225,10 @@
       "proof_lanes": [
         "scripts/verify_control_center_release_surface.py",
         "tests/test_control_center_release_surface_manifest.py",
-        "apps/control-center/src/App.test.tsx"
+        "apps/control-center/src/App.test.tsx",
+        "scripts/verify_beta_02_setup_assistant_local_package.py",
+        "scripts/verify_local_runtime_packaging_proof.py",
+        "scripts/verify_local_macos_app_bundle_proof.py"
       ],
       "blocked_capabilities": [
         "missing_backend:setup-approval-grant-capture-route",
@@ -1239,7 +1242,13 @@
       "evidence_refs": [
         "apps/control-center/src/routes.tsx",
         "docs/control_center/route_status_manifest.json",
-        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
+        "docs/macos/UAA-setup-assistant-plan.md",
+        "docs/production/LOCAL_RUNTIME_PACKAGING.md",
+        "docs/control_center/authority_graduation_evidence/packaging_distribution_local_macos_app_bundle_2026_07_03.md",
+        "scripts/verify_beta_02_setup_assistant_local_package.py",
+        "scripts/verify_local_runtime_packaging_proof.py",
+        "scripts/verify_local_macos_app_bundle_proof.py"
       ],
       "owner": "macos-setup-assistant",
       "backend_contract_rationale": "backend-route-refs-present",
@@ -1256,6 +1265,7 @@
         "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
         "Dev-only auth bypass is a release blocker until setup proof shows fail-closed local auth posture from backend-owned truth.",
+        "Local package proof is local loopback and unsigned artifact evidence only; the macOS app verifier does not launch the app and does not grant signing, notarization, installer, public distribution, or production authority.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
       ]
     },

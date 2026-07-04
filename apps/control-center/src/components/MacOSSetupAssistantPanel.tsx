@@ -44,9 +44,6 @@ export function MacOSSetupAssistantPanel({
         installer actions.
       </p>
 
-      <ProviderCatalogPanel catalog={providerCatalog} mode="setup" />
-      <ProviderCredentialSetupSummary readiness={providerCredentialReadiness} />
-
       <div className="setup-summary-grid">
         <SetupFlag label="macOS first" value={setup.macosFirst} />
         <SetupFlag label="Local first" value={setup.localFirst} />
@@ -65,6 +62,53 @@ export function MacOSSetupAssistantPanel({
       <div className="panel-grid">
         <article className="panel">
           <div className="panel-heading">
+            <h3>First-run proof spine</h3>
+            <span>{setup.localPackageProofStatus}</span>
+          </div>
+          <dl className="metadata-list">
+            <div>
+              <dt>Full-strength version</dt>
+              <dd>{setup.fullStrengthGoal}</dd>
+            </div>
+            <div>
+              <dt>Repo-safe version</dt>
+              <dd>{setup.repoSafeScope}</dd>
+            </div>
+            <div>
+              <dt>Blocked / needs authority</dt>
+              <dd>{setup.blockedAuthoritySummary}</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article className="panel">
+          <div className="panel-heading">
+            <h3>Local package proof</h3>
+            <span>local-only refs</span>
+          </div>
+          <div className="note-list" aria-label="Local package proof refs">
+            {setup.localPackageProofRefs.map((ref) => (
+              <span key={ref}>{ref}</span>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-heading">
+            <h3>Exact promotion path</h3>
+            <span>{setup.promotionPathRefs.length}</span>
+          </div>
+          <div className="note-list" aria-label="Setup promotion path refs">
+            {setup.promotionPathRefs.map((ref) => (
+              <span key={ref}>{ref}</span>
+            ))}
+          </div>
+        </article>
+      </div>
+
+      <div className="panel-grid">
+        <article className="panel">
+          <div className="panel-heading">
             <h3>Local prerequisites</h3>
             <span>read-only refs</span>
           </div>
@@ -75,6 +119,11 @@ export function MacOSSetupAssistantPanel({
           <div className="note-list" aria-label="Local prerequisite route refs">
             {prerequisiteRefs.map((route) => (
               <span key={route}>{route}</span>
+            ))}
+          </div>
+          <div className="note-list" aria-label="First-run loop refs">
+            {setup.firstRunLoopRefs.map((ref) => (
+              <span key={ref}>{ref}</span>
             ))}
           </div>
         </article>
@@ -93,6 +142,22 @@ export function MacOSSetupAssistantPanel({
           </ul>
         </article>
       </div>
+
+      <article className="panel">
+        <div className="panel-heading">
+          <h3>Provider setup reference</h3>
+          <span>not required for local loop</span>
+        </div>
+        <p>
+          Provider setup is reference-only and not needed for the local loop.
+          Secret entry, provider validation, provider SDK calls, billing, and
+          model invocation remain blocked unless a separate exact lane is
+          approved.
+        </p>
+      </article>
+
+      <ProviderCatalogPanel catalog={providerCatalog} mode="setup" />
+      <ProviderCredentialSetupSummary readiness={providerCredentialReadiness} />
 
       <div className="setup-layout">
         <article className="panel">

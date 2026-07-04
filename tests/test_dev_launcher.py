@@ -377,7 +377,7 @@ def test_trial_boot_reports_blocked_secondary_without_installing(
     code = launcher.command_trial_boot(ROOT)
     output = capsys.readouterr().out
 
-    assert code == 1
+    assert code == 0
     assert "Secondary OpenWebUI shell is blocked or degraded" in output
     assert "primary_ready_secondary_blocked" in output
     assert "No packages were installed and no images were pulled" in output

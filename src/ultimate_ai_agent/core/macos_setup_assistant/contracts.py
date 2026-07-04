@@ -409,6 +409,52 @@ class MacOSSetupAssistantPlan(_MacOSSetupModel):
     local_first: bool = True
     disabled_by_default: bool = True
     visual_shell_ref: str = "control-center:setup-assistant-preview"
+    full_strength_goal: str = (
+        "First run leads from local setup posture to a daily loop with Today, "
+        "Action Inbox, receipt, evidence, proof, memory, and Trust refs."
+    )
+    repo_safe_scope: str = (
+        "Read-only setup plan, local package proof refs, dry-run approval "
+        "envelopes, and bounded Control Center presentation only."
+    )
+    blocked_authority_summary: str = (
+        "Installer execution, model downloads, LaunchAgent changes, bridge "
+        "enablement, shell subprocess, browser automation, public distribution, "
+        "signing, notarization, and production authority remain blocked."
+    )
+    first_run_loop_refs: list[str] = Field(
+        default_factory=lambda: [
+            "loop-ref:setup-to-daily-loop:v1",
+            "contract-ref:start-here-local-loop:v1",
+            "contract-ref:private-beta-readiness-gate:v1",
+            "contract-ref:dogfood-live-loop:acceptance",
+            "proof-ref:control-center-proof-index",
+            "trust-ref:authority-map",
+        ],
+        min_length=1,
+    )
+    local_package_proof_status: str = (
+        "local_unsigned_loopback_package_proof_available_runtime_launch_blocked"
+    )
+    local_package_proof_refs: list[str] = Field(
+        default_factory=lambda: [
+            "packaging-proof:local-runtime-loopback",
+            "packaging-proof:local-macos-app-bundle",
+            "packaging-proof-summary:local-macos-app-bundle",
+            "script:verify-local-runtime-packaging-proof",
+            "script:verify-local-macos-app-bundle-proof",
+        ],
+        min_length=1,
+    )
+    promotion_path_refs: list[str] = Field(
+        default_factory=lambda: [
+            "promotion-path-ref:setup:local-rehearsal-receipt",
+            "promotion-path-ref:setup:operator-review-notes",
+            "promotion-path-ref:setup:package-proof-hygiene",
+            "promotion-path-ref:setup:exact-approved-mutation-pr",
+        ],
+        min_length=1,
+    )
     native_macos_app_ready: bool = False
     control_center_preview_ready: bool = True
     setup_question_assistant_enabled: bool = False
@@ -429,6 +475,25 @@ class MacOSSetupAssistantPlan(_MacOSSetupModel):
     def validate_shape(self) -> Any:
         _validate_ref(self.plan_ref, "plan_ref")
         _validate_ref(self.visual_shell_ref, "visual_shell_ref")
+        for value, field_name in [
+            (self.full_strength_goal, "full_strength_goal"),
+            (self.repo_safe_scope, "repo_safe_scope"),
+            (self.blocked_authority_summary, "blocked_authority_summary"),
+            (self.local_package_proof_status, "local_package_proof_status"),
+        ]:
+            _validate_safe_text(value, field_name, MAX_DETAIL_PREVIEW_CHARS)
+        self.first_run_loop_refs = _validate_ref_list(
+            self.first_run_loop_refs,
+            "first_run_loop_ref",
+        )
+        self.local_package_proof_refs = _validate_ref_list(
+            self.local_package_proof_refs,
+            "local_package_proof_ref",
+        )
+        self.promotion_path_refs = _validate_ref_list(
+            self.promotion_path_refs,
+            "promotion_path_ref",
+        )
         if not self.macos_first:
             raise ValueError("MACOS_SETUP_MACOS_FIRST_REQUIRED")
         if not self.local_first:

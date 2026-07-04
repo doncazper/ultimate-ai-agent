@@ -110,7 +110,7 @@ def _validate_tooling() -> list[str]:
 def _validate_baselines(surface: dict) -> list[str]:
     failures: list[str] = []
     surface_name = str(surface.get("surface", ""))
-    surface_id = surface_name.lower()
+    surface_id = _surface_id(surface)
     file_refs = surface.get("baseline_file_refs", {})
     hashes = surface.get("baseline_hashes", {})
     if set(file_refs) != REQUIRED_VIEWPORTS:
@@ -133,6 +133,13 @@ def _validate_baselines(surface: dict) -> list[str]:
         if actual_hash != expected_hash:
             failures.append(f"{surface_name} {viewport} baseline hash does not match checked-in PNG")
     return failures
+
+
+def _surface_id(surface: dict) -> str:
+    baseline_ref = str(surface.get("baseline_ref", ""))
+    if baseline_ref.startswith("visual-baseline:control-center:"):
+        return baseline_ref.rsplit(":", 1)[-1]
+    return str(surface.get("surface", "")).lower().replace(" ", "-")
 
 
 def _string_values(value: object) -> list[str]:

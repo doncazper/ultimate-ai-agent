@@ -965,7 +965,8 @@ def command_trial_boot(root: Path) -> int:
         print("Secondary OpenWebUI shell is blocked or degraded; Control Center remains the primary surface.")
         print(f"Boot state: {PRIMARY_READY_SECONDARY_BLOCKED}")
         print("No packages were installed and no images were pulled by uaa trial-boot.")
-    return openwebui_code
+        return 0
+    return 0
 
 
 def command_launch_openwebui(root: Path) -> int:

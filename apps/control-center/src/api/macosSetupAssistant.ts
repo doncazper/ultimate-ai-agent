@@ -69,6 +69,37 @@ export function normalizeMacOSSetupAssistant(
       "visual_shell_ref",
       fallback.visualShellRef,
     ),
+    fullStrengthGoal: stringValue(
+      value,
+      "full_strength_goal",
+      fallback.fullStrengthGoal,
+    ),
+    repoSafeScope: stringValue(value, "repo_safe_scope", fallback.repoSafeScope),
+    blockedAuthoritySummary: stringValue(
+      value,
+      "blocked_authority_summary",
+      fallback.blockedAuthoritySummary,
+    ),
+    firstRunLoopRefs: stringArrayValue(
+      value,
+      "first_run_loop_refs",
+      fallback.firstRunLoopRefs,
+    ),
+    localPackageProofStatus: stringValue(
+      value,
+      "local_package_proof_status",
+      fallback.localPackageProofStatus,
+    ),
+    localPackageProofRefs: stringArrayValue(
+      value,
+      "local_package_proof_refs",
+      fallback.localPackageProofRefs,
+    ),
+    promotionPathRefs: stringArrayValue(
+      value,
+      "promotion_path_refs",
+      fallback.promotionPathRefs,
+    ),
     steps:
       steps.length > 0
         ? steps.map((step, index) =>

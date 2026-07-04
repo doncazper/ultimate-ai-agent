@@ -7399,6 +7399,18 @@ describe("Web Control Center shell", () => {
       await screen.findByRole("heading", { name: /macOS Setup Assistant/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/Visual setup preview/i)).toBeInTheDocument();
+    expect(screen.getByText("First-run proof spine")).toBeInTheDocument();
+    expect(screen.getByText("Local package proof")).toBeInTheDocument();
+    expect(screen.getByText("Exact promotion path")).toBeInTheDocument();
+    expect(
+      screen.getByText("packaging-proof:local-macos-app-bundle"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("script:verify-local-macos-app-bundle-proof"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Provider setup is reference-only/i),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /Provider Catalog/i }),
     ).toBeInTheDocument();
@@ -10102,6 +10114,15 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("idempotency-ref:macos-setup-api-summary").length,
     ).toBeGreaterThan(0);
+    expect(screen.getByText("First-run proof spine")).toBeInTheDocument();
+    expect(screen.getByText("Local package proof")).toBeInTheDocument();
+    expect(screen.getByText("Exact promotion path")).toBeInTheDocument();
+    expect(
+      screen.getByText("packaging-proof:local-macos-app-bundle"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("loop-ref:setup-to-daily-loop:v1"),
+    ).toBeInTheDocument();
   });
 
   it("shows degraded local backend state when only part of the read set succeeds", async () => {
@@ -11147,6 +11168,28 @@ const mockApiData = {
     model_output_authoritative: false,
     installer_side_effects_enabled: false,
     visual_shell_ref: "control-center:setup-assistant-api-test",
+    full_strength_goal:
+      "First run leads from local setup posture to a daily loop with Today, Action Inbox, receipt, evidence, proof, memory, and Trust refs.",
+    repo_safe_scope:
+      "Read-only setup plan, local package proof refs, dry-run approval envelopes, and bounded Control Center presentation only.",
+    blocked_authority_summary:
+      "Installer execution, model downloads, LaunchAgent changes, bridge enablement, shell subprocess, browser automation, public distribution, signing, notarization, and production authority remain blocked.",
+    first_run_loop_refs: [
+      "loop-ref:setup-to-daily-loop:v1",
+      "contract-ref:start-here-local-loop:v1",
+      "contract-ref:private-beta-readiness-gate:v1",
+    ],
+    local_package_proof_status:
+      "local_unsigned_loopback_package_proof_available_runtime_launch_blocked",
+    local_package_proof_refs: [
+      "packaging-proof:local-runtime-loopback",
+      "packaging-proof:local-macos-app-bundle",
+      "script:verify-local-macos-app-bundle-proof",
+    ],
+    promotion_path_refs: [
+      "promotion-path-ref:setup:local-rehearsal-receipt",
+      "promotion-path-ref:setup:exact-approved-mutation-pr",
+    ],
     steps: [
       {
         step_id: "macos-setup-step:api-summary",
