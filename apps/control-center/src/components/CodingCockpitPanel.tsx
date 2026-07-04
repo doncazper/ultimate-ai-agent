@@ -5,6 +5,7 @@ import type {
   CodingCockpitSessionReadModel,
   CodingGitReviewReadModel,
   CodingLivePreviewReadModel,
+  CodingMultiAgentReviewReadModel,
   CodingPatchApplyReadinessReadModel,
   CodingPatchProposalReadModel,
   CodingTestCommandReadinessReadModel,
@@ -16,6 +17,7 @@ interface CodingCockpitPanelProps {
   context: CodingWorkspaceContextReadModel;
   gitReview: CodingGitReviewReadModel;
   livePreview: CodingLivePreviewReadModel;
+  multiAgentReview: CodingMultiAgentReviewReadModel;
   patchApplyReadiness: CodingPatchApplyReadinessReadModel;
   patchProposal: CodingPatchProposalReadModel;
   session: CodingCockpitSessionReadModel;
@@ -28,6 +30,7 @@ export function CodingCockpitPanel({
   context,
   gitReview,
   livePreview,
+  multiAgentReview,
   patchApplyReadiness,
   patchProposal,
   session,
@@ -62,7 +65,8 @@ export function CodingCockpitPanel({
     livePreview.backend_owned &&
     livePreview.read_only &&
     livePreview.status_only &&
-    livePreview.safe_refs_only;
+    livePreview.safe_refs_only &&
+    isSafeMultiAgentReview(multiAgentReview);
   const currentAuthorityMode =
     session.authority_modes.find((mode) => mode.state === "current") ??
     session.authority_modes[0];
@@ -158,6 +162,10 @@ export function CodingCockpitPanel({
             state={session.chat_thread.state}
           />
           <PanelBody panel={session.chat_thread} />
+          <MultiAgentReviewPreview
+            authoritative={backendOwned}
+            review={multiAgentReview}
+          />
           <div className="coding-authority-stack" aria-label="Authority profiles">
             {session.authority_modes.map((mode) => (
               <article className="coding-authority-card" key={mode.mode_ref}>
@@ -454,6 +462,149 @@ function LivePreviewReadinessPreview({
       </div>
       <p className="safe-copy">{preview.next_safe_action}</p>
     </div>
+  );
+}
+
+function MultiAgentReviewPreview({
+  authoritative,
+  review,
+}: {
+  authoritative: boolean;
+  review: CodingMultiAgentReviewReadModel;
+}) {
+  return (
+    <div className="coding-patch-proposal" aria-label="Coding multi-agent review">
+      <div className="coding-context-budget">
+        <DetailTile label="Review" value={review.review_ref} />
+        <DetailTile label="Status" value={review.status.replaceAll("_", " ")} />
+        <DetailTile label="Agent slots" value={`${review.agent_slots.length} refs`} />
+      </div>
+      <p className="safe-copy">
+        {authoritative
+          ? "Multi-agent review is backend-owned, proposal-only, and blocked until exact agent authority exists."
+          : "Multi-agent review is non-authoritative fallback data only."}
+      </p>
+      <div className="coding-item-stack">
+        {review.agent_slots.map((slot) => (
+          <article className="coding-item-row" key={slot.agent_slot_ref}>
+            <div>
+              <strong>{slot.label}</strong>
+              <p>{slot.safe_summary}</p>
+              <RefStack
+                refs={slot.blocked_authority_refs}
+                title="Blocked authority"
+              />
+            </div>
+            <span className="status-pill compact">
+              {slot.status.replaceAll("_", " ")}
+            </span>
+          </article>
+        ))}
+      </div>
+      <RefStack refs={review.plan_artifact_refs} title="Plan refs" />
+      <RefStack refs={review.review_artifact_refs} title="Review refs" />
+      <RefStack refs={review.diff_comparison_refs} title="Diff refs" />
+      <RefStack
+        refs={review.disagreement_summary_refs}
+        title="Disagreement refs"
+      />
+      <RefStack refs={review.handoff_refs} title="Handoff refs" />
+      <RefStack refs={review.proof_refs} title="Proof refs" />
+      <RefStack refs={review.evidence_refs} title="Evidence refs" />
+      <RefStack refs={review.blocked_authority_refs} title="Blocked refs" />
+      <RefStack refs={review.promotion_path_refs} title="Promotion refs" />
+      <RefStack refs={review.unblock_prompt_refs} title="Unblock refs" />
+      <RefStack refs={review.redactions_applied} title="Redaction refs" />
+      <p className="safe-copy">{review.next_safe_action}</p>
+    </div>
+  );
+}
+
+function isSafeMultiAgentReview(
+  review: CodingMultiAgentReviewReadModel,
+): boolean {
+  if (!Array.isArray(review.agent_slots)) {
+    return false;
+  }
+  const deniedTopLevelFlags: Array<keyof CodingMultiAgentReviewReadModel> = [
+    "provider_model_call_enabled",
+    "provider_sdk_call_enabled",
+    "local_agent_execution_enabled",
+    "multi_agent_execution_enabled",
+    "background_dispatch_enabled",
+    "background_autonomy_enabled",
+    "autonomous_execution_enabled",
+    "context_injection_enabled",
+    "raw_prompt_included",
+    "raw_response_included",
+    "provider_payload_included",
+    "file_write_enabled",
+    "shell_subprocess_execution_enabled",
+    "git_mutation_enabled",
+    "browser_automation_enabled",
+    "connector_write_enabled",
+    "production_authority_enabled",
+  ];
+  const requiredSlotKinds = [
+    "implementer",
+    "reviewer",
+    "local_verifier",
+    "security_reviewer",
+    "ux_reviewer",
+    "test_fixer",
+    "merge_captain",
+  ] as const;
+  const slotKinds = new Set(review.agent_slots.map((slot) => slot.slot_kind));
+  const hasRequiredSlots =
+    review.agent_slots.length === requiredSlotKinds.length &&
+    requiredSlotKinds.every((slotKind) => slotKinds.has(slotKind));
+  const hasRequiredRefGroups = [
+    review.backend_route_refs,
+    review.frontend_route_refs,
+    review.cli_inspection_refs,
+    review.docs_refs,
+    review.unblock_prompt_refs,
+    review.plan_artifact_refs,
+    review.review_artifact_refs,
+    review.diff_comparison_refs,
+    review.disagreement_summary_refs,
+    review.handoff_refs,
+    review.proof_refs,
+    review.evidence_refs,
+    review.blocked_authority_refs,
+    review.promotion_path_refs,
+    review.redactions_applied,
+  ].every(isNonEmptyRefArray);
+  return (
+    review.status === "blocked_missing_multi_agent_authority" &&
+    review.backend_owned &&
+    review.read_only &&
+    review.proposal_only &&
+    review.safe_refs_only &&
+    hasRequiredSlots &&
+    hasRequiredRefGroups &&
+    deniedTopLevelFlags.every((flag) => review[flag] === false) &&
+    review.agent_slots.every(
+      (slot) =>
+        isNonEmptyRefArray(slot.output_artifact_refs) &&
+        isNonEmptyRefArray(slot.proof_refs) &&
+        isNonEmptyRefArray(slot.evidence_refs) &&
+        isNonEmptyRefArray(slot.blocked_authority_refs) &&
+        slot.provider_model_call_enabled === false &&
+        slot.local_agent_execution_enabled === false &&
+        slot.background_dispatch_enabled === false &&
+        slot.autonomous_execution_enabled === false &&
+        slot.raw_prompt_included === false &&
+        slot.raw_response_included === false,
+    )
+  );
+}
+
+function isNonEmptyRefArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item) => typeof item === "string" && item.length > 0)
   );
 }
 

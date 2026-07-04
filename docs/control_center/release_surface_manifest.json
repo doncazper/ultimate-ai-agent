@@ -2561,6 +2561,13 @@
         },
         {
           "method": "GET",
+          "path": "/control-center/coding/multi-agent-review",
+          "operation_id": "get_control_center_coding_multi_agent_review",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
           "path": "/control-center/coding/patch-apply-readiness",
           "operation_id": "get_control_center_coding_patch_apply_readiness",
           "side_effect_class": "local_dev_workspace_only",
@@ -2603,7 +2610,11 @@
         "missing_backend:coding-live-git-status-reader",
         "missing_backend:coding-approved-git-mutation-lane",
         "missing_backend:coding-live-preview-execution-lane",
-        "missing_backend:coding-multi-agent-review",
+        "missing_backend:coding-multi-agent-review-artifacts",
+        "missing_backend:coding-multi-agent-artifact-body-storage",
+        "missing_backend:coding-multi-agent-receipts",
+        "missing_backend:coding-multi-agent-proof-binding",
+        "missing_backend:coding-multi-agent-execution-lane",
         "public_distribution_claim",
         "production_readiness_claim",
         "production_authority",

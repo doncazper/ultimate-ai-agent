@@ -2,7 +2,7 @@
 
 Status: active gated foundation map
 Baseline: v0.104.0 / 0.104.0
-Current OpenAPI path count: 176
+Current OpenAPI path count: 177
 Scope: documentation and route ownership inventory only
 
 This map records the current FastAPI route groups for UAA-P1-058 and future
@@ -18,13 +18,13 @@ typed metadata endpoint for route inventory and capabilities.
 
 | Contract surface | Result |
 |---|---|
-| OpenAPI path count | 176 paths. |
-| `/api/manifest` route count | 176 routes. |
+| OpenAPI path count | 177 paths. |
+| `/api/manifest` route count | 177 routes. |
 | Operation ID posture | Stable generated IDs are unique for all current routes. |
 | Side-effect classes | All current routes use `none`, `validation_only`, `local_dev_workspace_only`, or `governed_network_read_only`. |
 | Route-module ownership tests | UAA-P1-059 checks every current route against this map for owner, target service module, side-effect class, risk class, auth posture, release status, route-count posture, operation ID posture, and evidence behavior. |
 | Control Center route-status manifest | Backend route refs checked against `/api/manifest`; 0 missing and 0 path/method/operation/side-effect mismatches. |
-| Route inventory doc | Current count matches 176; inventory is summarized by group and remains subordinate to `/api/manifest`. |
+| Route inventory doc | Current count matches 177; inventory is summarized by group and remains subordinate to `/api/manifest`. |
 
 ## Mismatch Findings
 
@@ -46,7 +46,7 @@ typed metadata endpoint for route inventory and capabilities.
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
-| `control-center` | 75 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:2, `local_dev_workspace_only`:58, `validation_only`:15 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
+| `control-center` | 76 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:2, `local_dev_workspace_only`:59, `validation_only`:15 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `extension-catalog` | 1 | `extension-catalog` | `extension_catalog_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | `status_available_not_completion` |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
@@ -140,6 +140,7 @@ Columns: method, path, operation ID, side-effect class, validation-only, future-
 | GET | `/control-center/coding/test-command-readiness` | `get_control_center_coding_test_command_readiness` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/git-review` | `get_control_center_coding_git_review` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/live-preview` | `get_control_center_coding_live_preview` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/coding/multi-agent-review` | `get_control_center_coding_multi_agent_review` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/dashboard` | `get_control_center_dashboard` | `validation_only` | yes | future | yes |
 | GET | `/control-center/evidence/timeline` | `get_control_center_evidence_timeline` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/foundation-gate/summary` | `get_control_center_foundation_gate_summary` | `validation_only` | yes | future | yes |

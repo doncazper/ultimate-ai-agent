@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `176`.
+Current OpenAPI path count: `177`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -127,11 +127,16 @@ Contract rules:
   preview model with dev-server status, preview URL, screenshot, console,
   visual-proof, route-checklist, viewport, proof, blocker, promotion-path, and
   unblock-prompt refs only.
+  `GET /control-center/coding/multi-agent-review` exposes the blocked Prompt
+  08 multi-agent review model with agent slot, plan, review, diff-comparison,
+  disagreement, handoff, blocker, promotion-path, proof, and unblock-prompt
+  refs only.
   These routes do not write files, apply patches, read or persist raw file
   content, run shell/subprocess commands, execute commands, mutate Git state,
   start or inspect dev servers, persist raw URLs, capture screenshots, read
-  console output, call providers or models, automate browsers, write connectors,
-  launch background agents, or grant production authority.
+  console output, call providers or models, call provider SDKs, dispatch local
+  agents, inject context, persist raw prompts or responses, automate browsers,
+  write connectors, launch background agents, or grant production authority.
 
 API boundary hardening:
 

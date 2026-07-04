@@ -173,6 +173,75 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
     expect(data.connection.warnings).toContain("PROOF_INDEX_MOCK_FALLBACK");
   });
+
+  it("marks missing Coding multi-agent review route as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.controlCenterCodingMultiAgentReview];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.codingMultiAgentReview.backend_owned).toBe(false);
+    expect(data.routeStates["/coding"].state).toBe("mock_fallback");
+    expect(data.routeStates["/coding"].backendRouteRefs).toContain(
+      "GET /control-center/coding/multi-agent-review",
+    );
+    expect(data.routeStates["/coding"].warningRefs).toContain(
+      "CODING_MULTI_AGENT_REVIEW_MOCK_FALLBACK",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+    expect(data.connection.warnings).toContain(
+      "CODING_MULTI_AGENT_REVIEW_MOCK_FALLBACK",
+    );
+  });
+
+  it("marks unsafe Coding multi-agent review flags as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    const unsafeReview = JSON.parse(
+      JSON.stringify(routeData[API_ENDPOINTS.controlCenterCodingMultiAgentReview]),
+    );
+    unsafeReview.provider_sdk_call_enabled = true;
+    unsafeReview.agent_slots[0].raw_prompt_included = true;
+    routeData[API_ENDPOINTS.controlCenterCodingMultiAgentReview] = unsafeReview;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.codingMultiAgentReview.backend_owned).toBe(false);
+    expect(data.codingMultiAgentReview.provider_sdk_call_enabled).toBe(false);
+    expect(data.routeStates["/coding"].state).toBe("degraded");
+    expect(data.routeStates["/coding"].warningRefs).toContain(
+      "CODING_MULTI_AGENT_REVIEW_MOCK_FALLBACK",
+    );
+    expect(data.connection.warnings).toContain(
+      "CODING_MULTI_AGENT_REVIEW_MOCK_FALLBACK",
+    );
+  });
+
+  it("marks incomplete Coding multi-agent review shape as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    const incompleteReview = JSON.parse(
+      JSON.stringify(routeData[API_ENDPOINTS.controlCenterCodingMultiAgentReview]),
+    );
+    incompleteReview.agent_slots = [incompleteReview.agent_slots[0]];
+    incompleteReview.unblock_prompt_refs = [];
+    routeData[API_ENDPOINTS.controlCenterCodingMultiAgentReview] =
+      incompleteReview;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.codingMultiAgentReview.backend_owned).toBe(false);
+    expect(data.routeStates["/coding"].state).toBe("degraded");
+    expect(data.routeStates["/coding"].warningRefs).toContain(
+      "CODING_MULTI_AGENT_REVIEW_MOCK_FALLBACK",
+    );
+    expect(data.connection.safeMessage).toContain(
+      "Coding backend read models were unavailable or unsafe",
+    );
+  });
 });
 
 function baseRouteData(): Record<string, unknown> {
@@ -420,6 +489,38 @@ function baseRouteData(): Record<string, unknown> {
     connector_write_enabled: false,
     production_authority_enabled: false,
   };
+  const backendOwnedCodingMultiAgentReview = {
+    ...mockControlCenterData.codingMultiAgentReview,
+    review_ref: "multi-agent-review:coding-summary-endpoint-test",
+    session_ref: "coding-session:summary-endpoint-test",
+    context_pack_ref: "context-pack:coding-summary-endpoint-test",
+    patch_proposal_ref: "patch-proposal:coding-summary-endpoint-test",
+    test_command_readiness_ref:
+      "test-command-readiness:coding-summary-endpoint-test",
+    git_review_ref: "git-review:coding-summary-endpoint-test",
+    live_preview_ref: "live-preview:coding-summary-endpoint-test",
+    backend_owned: true,
+    read_only: true,
+    proposal_only: true,
+    safe_refs_only: true,
+    provider_model_call_enabled: false,
+    provider_sdk_call_enabled: false,
+    local_agent_execution_enabled: false,
+    multi_agent_execution_enabled: false,
+    background_dispatch_enabled: false,
+    background_autonomy_enabled: false,
+    autonomous_execution_enabled: false,
+    context_injection_enabled: false,
+    raw_prompt_included: false,
+    raw_response_included: false,
+    provider_payload_included: false,
+    file_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+  };
   return {
     [API_ENDPOINTS.controlCenterManifest]: mockControlCenterData.manifest,
     [API_ENDPOINTS.controlCenterDashboard]: mockControlCenterData.dashboard,
@@ -450,6 +551,8 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.controlCenterCodingGitReview]: backendOwnedCodingGitReview,
     [API_ENDPOINTS.controlCenterCodingLivePreview]:
       backendOwnedCodingLivePreview,
+    [API_ENDPOINTS.controlCenterCodingMultiAgentReview]:
+      backendOwnedCodingMultiAgentReview,
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:

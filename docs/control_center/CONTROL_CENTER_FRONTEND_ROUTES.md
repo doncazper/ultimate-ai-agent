@@ -92,12 +92,17 @@ receipt refs only. Prompt 06 adds `GET /control-center/coding/git-review` with
 Git status, diff, changed-file, commit proposal, and PR description refs only.
 Prompt 07 adds `GET /control-center/coding/live-preview` with dev-server
 status, preview URL, screenshot, console, visual-proof, route-checklist, and
-viewport refs only. It does not write files, apply patches, read or persist raw
-file content, run shell/subprocess commands, execute commands, mutate Git
-state, start or inspect dev servers, persist raw URLs, capture screenshots,
-read console output, call providers or models, automate browsers, write
-connectors, launch background agents, persist raw paths or raw content, or
-grant production authority.
+viewport refs only. Prompt 08 adds
+`GET /control-center/coding/multi-agent-review` with Codex implementer, Claude
+reviewer, local verifier, security reviewer, UX reviewer, test fixer, merge
+captain, plan, review, diff-comparison, disagreement, and handoff refs only. It
+does not write files, apply patches, read or persist raw file content, run
+shell/subprocess commands, execute commands, mutate Git state, start or inspect
+dev servers, persist raw URLs, capture screenshots, read console output, call
+providers or models, call provider SDKs, dispatch local agents, inject context,
+persist raw prompts or responses, automate browsers, write connectors, launch
+background agents, persist raw paths or raw content, or grant production
+authority.
 FCC-V1-000 adds `releaseStatus` route metadata and
 `docs/control_center/release_surface_manifest.json`; the sidebar and command
 palette render conservative route-state labels. `ship` is intentionally
@@ -130,9 +135,13 @@ Backend API endpoints consumed:
 - `GET /control-center/foundation-gate/summary`
 - `GET /control-center/setup-assistant/summary`
 - `GET /control-center/coding/context`
+- `GET /control-center/coding/git-review`
+- `GET /control-center/coding/live-preview`
+- `GET /control-center/coding/multi-agent-review`
 - `GET /control-center/coding/patch-apply-readiness`
 - `GET /control-center/coding/patch-proposal`
 - `GET /control-center/coding/session`
+- `GET /control-center/coding/test-command-readiness`
 - `GET /control-center/start-here/summary`
 - `GET /control-center/today/summary`
 - `GET /control-center/actions/inbox`
@@ -223,7 +232,7 @@ provider/model calls, connector writes, coworker dispatch, background autonomy,
 raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
-OpenAPI remains a backend contract. The current backend path count is `176` with
+OpenAPI remains a backend contract. The current backend path count is `177` with
 unique operation IDs; earlier milestone counts in the historical sections below
 are audit context, not current route inventory.
 

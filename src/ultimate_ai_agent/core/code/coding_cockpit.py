@@ -36,6 +36,10 @@ CODING_COCKPIT_LIVE_PREVIEW_REF = "live-preview:coding-status-blocked-v1"
 CODING_COCKPIT_LIVE_PREVIEW_ROUTE_REF = (
     "route-ref:control-center-coding-live-preview"
 )
+CODING_COCKPIT_MULTI_AGENT_REVIEW_REF = "multi-agent-review:coding-blocked-v1"
+CODING_COCKPIT_MULTI_AGENT_REVIEW_ROUTE_REF = (
+    "route-ref:control-center-coding-multi-agent-review"
+)
 CODING_COCKPIT_BACKEND_ROUTE_REF = "GET /control-center/coding/session"
 CODING_COCKPIT_CONTEXT_BACKEND_ROUTE_REF = "GET /control-center/coding/context"
 CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF = (
@@ -52,6 +56,9 @@ CODING_COCKPIT_GIT_REVIEW_BACKEND_ROUTE_REF = (
 )
 CODING_COCKPIT_LIVE_PREVIEW_BACKEND_ROUTE_REF = (
     "GET /control-center/coding/live-preview"
+)
+CODING_COCKPIT_MULTI_AGENT_REVIEW_BACKEND_ROUTE_REF = (
+    "GET /control-center/coding/multi-agent-review"
 )
 CODING_COCKPIT_FRONTEND_ROUTE_REF = "/coding"
 CODING_COCKPIT_REQUIRED_BLOCKED_REFS = [
@@ -107,6 +114,16 @@ LivePreviewItemKind = Literal[
     "visual_regression",
     "route_checklist",
     "viewport",
+]
+MultiAgentReviewStatus = Literal["blocked_missing_multi_agent_authority"]
+AgentReviewSlotKind = Literal[
+    "implementer",
+    "reviewer",
+    "local_verifier",
+    "security_reviewer",
+    "ux_reviewer",
+    "test_fixer",
+    "merge_captain",
 ]
 
 
@@ -1369,6 +1386,209 @@ class CodingLivePreviewReadModel(BaseModel):
         return self
 
 
+class CodingAgentReviewSlotReadModel(BaseModel):
+    agent_slot_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1, max_length=120)
+    slot_kind: AgentReviewSlotKind
+    status: Literal["proposal_ref", "blocked"]
+    safe_summary: str = Field(..., min_length=1, max_length=420)
+    output_artifact_refs: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    provider_model_call_enabled: bool = False
+    local_agent_execution_enabled: bool = False
+    background_dispatch_enabled: bool = False
+    autonomous_execution_enabled: bool = False
+    raw_prompt_included: bool = False
+    raw_response_included: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_agent_review_slot(self) -> "CodingAgentReviewSlotReadModel":
+        for ref in [
+            self.agent_slot_ref,
+            *self.output_artifact_refs,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+        ]:
+            validate_task_ref(ref, "coding_agent_review_slot_ref")
+        for value in [self.label, self.slot_kind, self.status, self.safe_summary]:
+            validate_safe_task_text(value, "coding_agent_review_slot_text")
+        if not self.blocked_authority_refs:
+            raise ValueError("agent review slot needs blocker refs")
+        required_false_flags = {
+            "provider_model_call_enabled": self.provider_model_call_enabled,
+            "local_agent_execution_enabled": self.local_agent_execution_enabled,
+            "background_dispatch_enabled": self.background_dispatch_enabled,
+            "autonomous_execution_enabled": self.autonomous_execution_enabled,
+            "raw_prompt_included": self.raw_prompt_included,
+            "raw_response_included": self.raw_response_included,
+        }
+        enabled = [name for name, value in required_false_flags.items() if value]
+        if enabled:
+            raise ValueError(f"coding agent review slot enabled {enabled[0]}")
+        return self
+
+
+class CodingMultiAgentReviewReadModel(BaseModel):
+    schema_version: Literal["uaa-coding-multi-agent-review.v1"] = (
+        "uaa-coding-multi-agent-review.v1"
+    )
+    review_ref: str = CODING_COCKPIT_MULTI_AGENT_REVIEW_REF
+    session_ref: str = CODING_COCKPIT_SESSION_REF
+    context_pack_ref: str = CODING_COCKPIT_CONTEXT_PACK_REF
+    patch_proposal_ref: str = CODING_COCKPIT_PATCH_PROPOSAL_REF
+    test_command_readiness_ref: str = CODING_COCKPIT_TEST_COMMAND_READINESS_REF
+    git_review_ref: str = CODING_COCKPIT_GIT_REVIEW_REF
+    live_preview_ref: str = CODING_COCKPIT_LIVE_PREVIEW_REF
+    route_ref: str = CODING_COCKPIT_MULTI_AGENT_REVIEW_ROUTE_REF
+    backend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_MULTI_AGENT_REVIEW_BACKEND_ROUTE_REF]
+    )
+    frontend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    )
+    cli_inspection_refs: list[str] = Field(
+        default_factory=lambda: [
+            "scripts/dev/uaa_coding.py inspect-multi-agent-review"
+        ]
+    )
+    docs_refs: list[str] = Field(
+        default_factory=lambda: [
+            "docs-ref:governed-code-workbench",
+            "docs-ref:coding-multi-agent-review-blocker",
+            "docs-ref:operator-shell-gap-map",
+        ]
+    )
+    unblock_prompt_refs: list[str] = Field(
+        default_factory=lambda: ["prompt-ref:unblock-coding-multi-agent-review"]
+    )
+    status: MultiAgentReviewStatus = "blocked_missing_multi_agent_authority"
+    title: str = Field(..., min_length=1, max_length=120)
+    full_strength_goal: str = Field(..., min_length=1, max_length=520)
+    repo_safe_current_state: str = Field(..., min_length=1, max_length=520)
+    safe_summary: str = Field(..., min_length=1, max_length=520)
+    agent_slots: list[CodingAgentReviewSlotReadModel] = Field(default_factory=list)
+    plan_artifact_refs: list[str] = Field(default_factory=list)
+    review_artifact_refs: list[str] = Field(default_factory=list)
+    diff_comparison_refs: list[str] = Field(default_factory=list)
+    disagreement_summary_refs: list[str] = Field(default_factory=list)
+    handoff_refs: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    promotion_path_refs: list[str] = Field(default_factory=list)
+    redactions_applied: list[str] = Field(default_factory=list)
+    next_safe_action: str = Field(..., min_length=1, max_length=420)
+    backend_owned: bool = True
+    read_only: bool = True
+    proposal_only: bool = True
+    safe_refs_only: bool = True
+    provider_model_call_enabled: bool = False
+    provider_sdk_call_enabled: bool = False
+    local_agent_execution_enabled: bool = False
+    multi_agent_execution_enabled: bool = False
+    background_dispatch_enabled: bool = False
+    background_autonomy_enabled: bool = False
+    autonomous_execution_enabled: bool = False
+    context_injection_enabled: bool = False
+    raw_prompt_included: bool = False
+    raw_response_included: bool = False
+    provider_payload_included: bool = False
+    file_write_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    git_mutation_enabled: bool = False
+    browser_automation_enabled: bool = False
+    connector_write_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_multi_agent_review(self) -> "CodingMultiAgentReviewReadModel":
+        for ref in [
+            self.review_ref,
+            self.session_ref,
+            self.context_pack_ref,
+            self.patch_proposal_ref,
+            self.test_command_readiness_ref,
+            self.git_review_ref,
+            self.live_preview_ref,
+            self.route_ref,
+            *self.plan_artifact_refs,
+            *self.review_artifact_refs,
+            *self.diff_comparison_refs,
+            *self.disagreement_summary_refs,
+            *self.handoff_refs,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+            *self.promotion_path_refs,
+            *self.redactions_applied,
+            *self.docs_refs,
+            *self.unblock_prompt_refs,
+        ]:
+            validate_task_ref(ref, "coding_multi_agent_review_ref")
+        for value in (
+            self.backend_route_refs
+            + self.frontend_route_refs
+            + self.cli_inspection_refs
+            + [
+                self.status,
+                self.title,
+                self.full_strength_goal,
+                self.repo_safe_current_state,
+                self.safe_summary,
+                self.next_safe_action,
+            ]
+        ):
+            validate_safe_task_text(value, "coding_multi_agent_review_text")
+        if not self.agent_slots:
+            raise ValueError("multi-agent review needs agent slots")
+        slot_refs = {item.agent_slot_ref for item in self.agent_slots}
+        if len(slot_refs) != len(self.agent_slots):
+            raise ValueError("multi-agent slot refs must be unique")
+        required_true_flags = {
+            "backend_owned": self.backend_owned,
+            "read_only": self.read_only,
+            "proposal_only": self.proposal_only,
+            "safe_refs_only": self.safe_refs_only,
+        }
+        disabled = [name for name, value in required_true_flags.items() if not value]
+        if disabled:
+            raise ValueError(f"coding multi-agent review disabled {disabled[0]}")
+        required_false_flags = {
+            "provider_model_call_enabled": self.provider_model_call_enabled,
+            "provider_sdk_call_enabled": self.provider_sdk_call_enabled,
+            "local_agent_execution_enabled": self.local_agent_execution_enabled,
+            "multi_agent_execution_enabled": self.multi_agent_execution_enabled,
+            "background_dispatch_enabled": self.background_dispatch_enabled,
+            "background_autonomy_enabled": self.background_autonomy_enabled,
+            "autonomous_execution_enabled": self.autonomous_execution_enabled,
+            "context_injection_enabled": self.context_injection_enabled,
+            "raw_prompt_included": self.raw_prompt_included,
+            "raw_response_included": self.raw_response_included,
+            "provider_payload_included": self.provider_payload_included,
+            "file_write_enabled": self.file_write_enabled,
+            "shell_subprocess_execution_enabled": (
+                self.shell_subprocess_execution_enabled
+            ),
+            "git_mutation_enabled": self.git_mutation_enabled,
+            "browser_automation_enabled": self.browser_automation_enabled,
+            "connector_write_enabled": self.connector_write_enabled,
+            "production_authority_enabled": self.production_authority_enabled,
+        }
+        enabled = [name for name, value in required_false_flags.items() if value]
+        if enabled:
+            raise ValueError(f"coding multi-agent review enabled {enabled[0]}")
+        payload = self.model_dump(mode="json")
+        validate_safe_task_payload(payload, "coding_multi_agent_review")
+        return self
+
+
 class CodingCockpitSessionReadModel(BaseModel):
     schema_version: Literal["uaa-coding-cockpit-session.v1"] = (
         "uaa-coding-cockpit-session.v1"
@@ -1409,6 +1629,7 @@ class CodingCockpitSessionReadModel(BaseModel):
             "scripts/dev/uaa_coding.py inspect-test-command-readiness",
             "scripts/dev/uaa_coding.py inspect-git-review",
             "scripts/dev/uaa_coding.py inspect-live-preview",
+            "scripts/dev/uaa_coding.py inspect-multi-agent-review",
         ]
     )
     status: str = "implemented_read_only_cockpit_seed"
@@ -1789,6 +2010,23 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
                         "blocked-state:coding-no-dev-server-control",
                     ],
                 ),
+                CodingCockpitRefItem(
+                    item_ref=CODING_COCKPIT_MULTI_AGENT_REVIEW_REF,
+                    label="Multi-agent review lane",
+                    status="blocked by Prompt 08 readiness",
+                    safe_summary=(
+                        "Codex, Claude, local verifier, security, UX, test fixer, "
+                        "and merge captain slots are visible as proposal refs only; "
+                        "no agent dispatch or provider call is available."
+                    ),
+                    source_refs=[CODING_COCKPIT_PATCH_PROPOSAL_REF],
+                    evidence_refs=evidence_refs,
+                    proof_refs=proof_refs,
+                    blocked_authority_refs=[
+                        "blocked-state:coding-no-provider-model-call",
+                        "blocked-state:coding-no-background-autonomy",
+                    ],
+                ),
             ],
             proof_refs=proof_refs,
             blocked_authority_refs=["blocked-state:coding-no-background-autonomy"],
@@ -1987,15 +2225,19 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             title="Agent Thread",
             state="proposal_only",
             safe_summary=(
-                "Chat lane can display task refs and review prompts, but does "
-                "not call models or dispatch agents in Prompt 01."
+                "Chat lane displays Prompt 08 multi-agent review refs, but does "
+                "not call models, dispatch agents, or run local reviewers."
             ),
             items=[
                 CodingCockpitRefItem(
-                    item_ref="agent-handoff:coding-claude-review-blocked",
-                    label="Reviewer slot",
-                    status="planned",
-                    safe_summary="Multi-agent review remains proposal metadata only.",
+                    item_ref=CODING_COCKPIT_MULTI_AGENT_REVIEW_REF,
+                    label="Multi-agent review readiness",
+                    status="blocked",
+                    safe_summary=(
+                        "Agent slots and comparison refs are visible without "
+                        "provider/model calls, raw prompts, raw responses, or "
+                        "background dispatch."
+                    ),
                     source_refs=["coding-task:cockpit-shell-seed"],
                     evidence_refs=evidence_refs,
                     proof_refs=proof_refs,
@@ -2022,6 +2264,7 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             "command-proposal:coding-blocked-seed",
             CODING_COCKPIT_GIT_REVIEW_REF,
             CODING_COCKPIT_LIVE_PREVIEW_REF,
+            CODING_COCKPIT_MULTI_AGENT_REVIEW_REF,
             "proof-ref:coding-cockpit-seed",
         ],
         blocked_authority_refs=blocked,
@@ -2901,5 +3144,207 @@ def build_coding_live_preview() -> CodingLivePreviewReadModel:
             "Run the unblock prompt only after dev-server status, URL redaction, "
             "browser observe, screenshot artifact, visual proof, receipt, proof, "
             "and CLI contracts are in scope."
+        ),
+    )
+
+
+def build_coding_multi_agent_review() -> CodingMultiAgentReviewReadModel:
+    evidence_refs = ["evidence-ref:coding-multi-agent-review"]
+    proof_refs = ["proof-ref:coding-multi-agent-review"]
+    blocked_refs = list(
+        dict.fromkeys(
+            [
+                *CODING_COCKPIT_REQUIRED_BLOCKED_REFS,
+                "blocked-state:coding-no-provider-model-call",
+                "blocked-state:coding-no-provider-sdk-call",
+                "blocked-state:coding-no-local-agent-execution",
+                "blocked-state:coding-no-multi-agent-execution",
+                "blocked-state:coding-no-background-dispatch",
+                "blocked-state:coding-no-background-autonomy",
+                "blocked-state:coding-no-context-injection",
+                "blocked-state:coding-no-raw-prompt-persistence",
+                "blocked-state:coding-no-raw-response-persistence",
+                "blocked-state:coding-no-provider-payload-persistence",
+            ]
+        )
+    )
+    agent_slots = [
+        CodingAgentReviewSlotReadModel(
+            agent_slot_ref="agent-slot:coding-codex-implementer",
+            label="Codex implementer",
+            slot_kind="implementer",
+            status="proposal_ref",
+            safe_summary=(
+                "Would hold a reviewed Codex implementation plan artifact ref; "
+                "no Codex or provider call is dispatched by UAA."
+            ),
+            output_artifact_refs=["agent-artifact:coding-codex-plan-required"],
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-provider-model-call",
+                "blocked-state:coding-no-local-agent-execution",
+                "blocked-state:coding-no-background-dispatch",
+            ],
+        ),
+        CodingAgentReviewSlotReadModel(
+            agent_slot_ref="agent-slot:coding-claude-reviewer",
+            label="Claude reviewer",
+            slot_kind="reviewer",
+            status="proposal_ref",
+            safe_summary=(
+                "Would hold a reviewed Claude second-opinion artifact ref after "
+                "provider authority, redaction, and receipts exist."
+            ),
+            output_artifact_refs=["agent-artifact:coding-claude-review-required"],
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-provider-model-call",
+                "blocked-state:coding-no-provider-sdk-call",
+                "blocked-state:coding-no-background-dispatch",
+            ],
+        ),
+        CodingAgentReviewSlotReadModel(
+            agent_slot_ref="agent-slot:coding-local-verifier",
+            label="Local verifier",
+            slot_kind="local_verifier",
+            status="blocked",
+            safe_summary=(
+                "Would hold local verifier result refs after allowlisted command "
+                "and local-agent execution authority graduate."
+            ),
+            output_artifact_refs=["agent-artifact:coding-local-verifier-required"],
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-local-agent-execution",
+                "blocked-state:coding-no-shell-subprocess",
+            ],
+        ),
+        CodingAgentReviewSlotReadModel(
+            agent_slot_ref="agent-slot:coding-security-reviewer",
+            label="Security reviewer",
+            slot_kind="security_reviewer",
+            status="proposal_ref",
+            safe_summary=(
+                "Would hold a security review artifact ref after the review "
+                "contract defines redaction, receipts, and proof bindings."
+            ),
+            output_artifact_refs=["agent-artifact:coding-security-review-required"],
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-provider-model-call",
+                "blocked-state:coding-no-background-dispatch",
+            ],
+        ),
+        CodingAgentReviewSlotReadModel(
+            agent_slot_ref="agent-slot:coding-ux-reviewer",
+            label="UX reviewer",
+            slot_kind="ux_reviewer",
+            status="proposal_ref",
+            safe_summary=(
+                "Would hold a UX review artifact ref after the visual and agent "
+                "review contracts exist."
+            ),
+            output_artifact_refs=["agent-artifact:coding-ux-review-required"],
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-provider-model-call",
+                "blocked-state:coding-no-browser-automation",
+            ],
+        ),
+        CodingAgentReviewSlotReadModel(
+            agent_slot_ref="agent-slot:coding-test-fixer",
+            label="Test fixer",
+            slot_kind="test_fixer",
+            status="blocked",
+            safe_summary=(
+                "Would hold a test-fix proposal artifact ref after allowlisted "
+                "test receipt and exact patch proposal contracts exist."
+            ),
+            output_artifact_refs=["agent-artifact:coding-test-fixer-required"],
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-command-execution",
+                "blocked-state:coding-no-local-agent-execution",
+            ],
+        ),
+        CodingAgentReviewSlotReadModel(
+            agent_slot_ref="agent-slot:coding-merge-captain",
+            label="Merge captain",
+            slot_kind="merge_captain",
+            status="blocked",
+            safe_summary=(
+                "Would hold merge readiness refs after Git receipts, PR status, "
+                "and explicit merge approval contracts exist."
+            ),
+            output_artifact_refs=["agent-artifact:coding-merge-captain-required"],
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-git-mutation",
+                "blocked-state:coding-no-pr-open",
+            ],
+        ),
+    ]
+    return CodingMultiAgentReviewReadModel(
+        title="Multi-agent review readiness",
+        full_strength_goal=(
+            "Coordinate Codex implementer, Claude reviewer, local verifier, "
+            "security reviewer, UX reviewer, test fixer, and merge captain "
+            "workflows with comparable plans, reviews, diffs, disagreements, "
+            "receipts, and proof."
+        ),
+        repo_safe_current_state=(
+            "Prompt 08 records multi-agent review slots and artifact refs only. "
+            "No provider or model call, local agent execution, background "
+            "dispatch, context injection, raw prompt or response persistence, "
+            "or autonomous workflow execution occurs."
+        ),
+        safe_summary=(
+            "Multi-agent review remains blocked until provider and local-agent "
+            "authority, artifact, redaction, approval, receipt, proof, and CLI "
+            "contracts exist."
+        ),
+        agent_slots=agent_slots,
+        plan_artifact_refs=["agent-artifact:coding-plan-comparison-required"],
+        review_artifact_refs=[
+            "agent-artifact:coding-codex-plan-required",
+            "agent-artifact:coding-claude-review-required",
+            "agent-artifact:coding-local-verifier-required",
+            "agent-artifact:coding-security-review-required",
+            "agent-artifact:coding-ux-review-required",
+            "agent-artifact:coding-test-fixer-required",
+            "agent-artifact:coding-merge-captain-required",
+        ],
+        diff_comparison_refs=["agent-artifact:coding-diff-comparison-required"],
+        disagreement_summary_refs=[
+            "agent-artifact:coding-disagreement-summary-required"
+        ],
+        handoff_refs=["agent-handoff:coding-review-required"],
+        proof_refs=proof_refs,
+        evidence_refs=evidence_refs,
+        blocked_authority_refs=blocked_refs,
+        promotion_path_refs=[
+            "promotion-path:coding-agent-artifact-contract",
+            "promotion-path:coding-provider-review-authority",
+            "promotion-path:coding-local-verifier-authority",
+            "promotion-path:coding-agent-comparison-proof",
+            "promotion-path:coding-approved-multi-agent-execution",
+        ],
+        redactions_applied=[
+            "redaction-ref:safe-refs-only",
+            "redaction-ref:raw-prompts-omitted",
+            "redaction-ref:raw-responses-omitted",
+            "redaction-ref:provider-payloads-omitted",
+        ],
+        next_safe_action=(
+            "Run the unblock prompt only after provider review, local-agent "
+            "verification, artifact redaction, approval binding, receipts, "
+            "proof, and CLI parity are in scope."
         ),
     )
