@@ -520,6 +520,10 @@ def test_runtime_gateway_command_replay_after_safe_disable_keeps_idempotency_sha
     assert len(calls) == 1
     assert replay.replayed is True
     assert replay.record.status == "safe_disabled"
+    assert replay.record.policy_decision.allowed_to_execute is False
+    assert replay.record.policy_decision.adapter_execution_enabled is False
+    assert replay.record.policy_decision.command_execution_enabled is False
+    assert replay.command_execution_enabled is False
     assert replay.record.receipt is not None
     assert replay.record.receipt.safe_disable.active is True
     assert (
@@ -998,6 +1002,9 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_keeps_idempotency
     assert calls == 1
     assert replay.replayed is True
     assert replay.record.status == "safe_disabled"
+    assert replay.record.policy_decision.allowed_to_execute is False
+    assert replay.record.policy_decision.adapter_execution_enabled is False
+    assert replay.record.policy_decision.model_call_enabled is False
     assert replay.record.receipt is not None
     assert replay.record.receipt.safe_disable.active is True
     assert (
