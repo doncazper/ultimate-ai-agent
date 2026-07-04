@@ -30,6 +30,8 @@ CODING_COCKPIT_TEST_COMMAND_READINESS_REF = (
 CODING_COCKPIT_TEST_COMMAND_ROUTE_REF = (
     "route-ref:control-center-coding-test-command-readiness"
 )
+CODING_COCKPIT_GIT_REVIEW_REF = "git-review:coding-readonly-review-blocked-v1"
+CODING_COCKPIT_GIT_REVIEW_ROUTE_REF = "route-ref:control-center-coding-git-review"
 CODING_COCKPIT_BACKEND_ROUTE_REF = "GET /control-center/coding/session"
 CODING_COCKPIT_CONTEXT_BACKEND_ROUTE_REF = "GET /control-center/coding/context"
 CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF = (
@@ -40,6 +42,9 @@ CODING_COCKPIT_PATCH_APPLY_BACKEND_ROUTE_REF = (
 )
 CODING_COCKPIT_TEST_COMMAND_BACKEND_ROUTE_REF = (
     "GET /control-center/coding/test-command-readiness"
+)
+CODING_COCKPIT_GIT_REVIEW_BACKEND_ROUTE_REF = (
+    "GET /control-center/coding/git-review"
 )
 CODING_COCKPIT_FRONTEND_ROUTE_REF = "/coding"
 CODING_COCKPIT_REQUIRED_BLOCKED_REFS = [
@@ -77,6 +82,14 @@ TestCommandKind = Literal[
     "frontend_test",
     "lint_typecheck",
     "repo_verifier",
+]
+GitReviewStatus = Literal["blocked_missing_git_review_authority"]
+GitReviewItemKind = Literal[
+    "status",
+    "diff",
+    "changed_files",
+    "commit_proposal",
+    "pr_description_proposal",
 ]
 
 
@@ -920,6 +933,215 @@ class CodingTestCommandReadinessReadModel(BaseModel):
         return self
 
 
+class CodingGitReviewItemReadModel(BaseModel):
+    item_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1, max_length=120)
+    item_kind: GitReviewItemKind
+    status: Literal["blocked", "proposal_ref"]
+    safe_summary: str = Field(..., min_length=1, max_length=420)
+    expected_receipt_ref: str = Field(..., min_length=1)
+    proof_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    raw_git_output_included: bool = False
+    raw_diff_included: bool = False
+    raw_path_included: bool = False
+    git_mutation_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_git_review_item(self) -> "CodingGitReviewItemReadModel":
+        for ref in [
+            self.item_ref,
+            self.expected_receipt_ref,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+        ]:
+            validate_task_ref(ref, "coding_git_review_item_ref")
+        for value in [
+            self.label,
+            self.item_kind,
+            self.status,
+            self.safe_summary,
+        ]:
+            validate_safe_task_text(value, "coding_git_review_item_text")
+        if not self.blocked_authority_refs:
+            raise ValueError("git review item needs blocker refs")
+        required_false_flags = {
+            "raw_git_output_included": self.raw_git_output_included,
+            "raw_diff_included": self.raw_diff_included,
+            "raw_path_included": self.raw_path_included,
+            "git_mutation_enabled": self.git_mutation_enabled,
+        }
+        enabled = [name for name, value in required_false_flags.items() if value]
+        if enabled:
+            raise ValueError(f"coding git review item enabled {enabled[0]}")
+        return self
+
+
+class CodingGitReviewReadModel(BaseModel):
+    schema_version: Literal["uaa-coding-git-review.v1"] = "uaa-coding-git-review.v1"
+    git_review_ref: str = CODING_COCKPIT_GIT_REVIEW_REF
+    session_ref: str = CODING_COCKPIT_SESSION_REF
+    context_pack_ref: str = CODING_COCKPIT_CONTEXT_PACK_REF
+    patch_proposal_ref: str = CODING_COCKPIT_PATCH_PROPOSAL_REF
+    patch_apply_readiness_ref: str = CODING_COCKPIT_PATCH_APPLY_READINESS_REF
+    test_command_readiness_ref: str = CODING_COCKPIT_TEST_COMMAND_READINESS_REF
+    route_ref: str = CODING_COCKPIT_GIT_REVIEW_ROUTE_REF
+    backend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_GIT_REVIEW_BACKEND_ROUTE_REF]
+    )
+    frontend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    )
+    cli_inspection_refs: list[str] = Field(
+        default_factory=lambda: ["scripts/dev/uaa_coding.py inspect-git-review"]
+    )
+    docs_refs: list[str] = Field(
+        default_factory=lambda: [
+            "docs-ref:governed-code-workbench",
+            "docs-ref:coding-git-review-blocker",
+            "docs-ref:operator-shell-gap-map",
+        ]
+    )
+    unblock_prompt_refs: list[str] = Field(
+        default_factory=lambda: ["prompt-ref:unblock-coding-git-review"]
+    )
+    status: GitReviewStatus = "blocked_missing_git_review_authority"
+    title: str = Field(..., min_length=1, max_length=120)
+    full_strength_goal: str = Field(..., min_length=1, max_length=520)
+    repo_safe_current_state: str = Field(..., min_length=1, max_length=520)
+    safe_summary: str = Field(..., min_length=1, max_length=520)
+    status_refs: list[str] = Field(default_factory=list)
+    changed_file_refs: list[str] = Field(default_factory=list)
+    diff_refs: list[str] = Field(default_factory=list)
+    commit_proposal_refs: list[str] = Field(default_factory=list)
+    pr_description_proposal_refs: list[str] = Field(default_factory=list)
+    expected_receipt_refs: list[str] = Field(default_factory=list)
+    review_items: list[CodingGitReviewItemReadModel] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    promotion_path_refs: list[str] = Field(default_factory=list)
+    redactions_applied: list[str] = Field(default_factory=list)
+    next_safe_action: str = Field(..., min_length=1, max_length=420)
+    backend_owned: bool = True
+    read_only: bool = True
+    proposal_only: bool = True
+    safe_refs_only: bool = True
+    git_status_execution_enabled: bool = False
+    git_diff_execution_enabled: bool = False
+    stage_enabled: bool = False
+    commit_enabled: bool = False
+    push_enabled: bool = False
+    pr_open_enabled: bool = False
+    merge_enabled: bool = False
+    raw_git_output_included: bool = False
+    raw_diff_included: bool = False
+    raw_path_included: bool = False
+    commit_message_text_included: bool = False
+    pr_description_text_included: bool = False
+    git_receipt_created: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    file_write_enabled: bool = False
+    git_mutation_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    browser_automation_enabled: bool = False
+    connector_write_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_git_review(self) -> "CodingGitReviewReadModel":
+        for ref in [
+            self.git_review_ref,
+            self.session_ref,
+            self.context_pack_ref,
+            self.patch_proposal_ref,
+            self.patch_apply_readiness_ref,
+            self.test_command_readiness_ref,
+            self.route_ref,
+            *self.status_refs,
+            *self.changed_file_refs,
+            *self.diff_refs,
+            *self.commit_proposal_refs,
+            *self.pr_description_proposal_refs,
+            *self.expected_receipt_refs,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+            *self.promotion_path_refs,
+            *self.redactions_applied,
+            *self.docs_refs,
+            *self.unblock_prompt_refs,
+        ]:
+            validate_task_ref(ref, "coding_git_review_ref")
+        for value in (
+            self.backend_route_refs
+            + self.frontend_route_refs
+            + self.cli_inspection_refs
+            + [
+                self.status,
+                self.title,
+                self.full_strength_goal,
+                self.repo_safe_current_state,
+                self.safe_summary,
+                self.next_safe_action,
+            ]
+        ):
+            validate_safe_task_text(value, "coding_git_review_text")
+        if not self.review_items:
+            raise ValueError("git review needs item refs")
+        item_refs = {item.item_ref for item in self.review_items}
+        if len(item_refs) != len(self.review_items):
+            raise ValueError("git review item refs must be unique")
+        expected_refs = {item.expected_receipt_ref for item in self.review_items}
+        if set(self.expected_receipt_refs) != expected_refs:
+            raise ValueError("git expected receipt refs must match review items")
+        required_true_flags = {
+            "backend_owned": self.backend_owned,
+            "read_only": self.read_only,
+            "proposal_only": self.proposal_only,
+            "safe_refs_only": self.safe_refs_only,
+        }
+        disabled = [name for name, value in required_true_flags.items() if not value]
+        if disabled:
+            raise ValueError(f"coding git review disabled {disabled[0]}")
+        required_false_flags = {
+            "git_status_execution_enabled": self.git_status_execution_enabled,
+            "git_diff_execution_enabled": self.git_diff_execution_enabled,
+            "stage_enabled": self.stage_enabled,
+            "commit_enabled": self.commit_enabled,
+            "push_enabled": self.push_enabled,
+            "pr_open_enabled": self.pr_open_enabled,
+            "merge_enabled": self.merge_enabled,
+            "raw_git_output_included": self.raw_git_output_included,
+            "raw_diff_included": self.raw_diff_included,
+            "raw_path_included": self.raw_path_included,
+            "commit_message_text_included": self.commit_message_text_included,
+            "pr_description_text_included": self.pr_description_text_included,
+            "git_receipt_created": self.git_receipt_created,
+            "shell_subprocess_execution_enabled": (
+                self.shell_subprocess_execution_enabled
+            ),
+            "file_write_enabled": self.file_write_enabled,
+            "git_mutation_enabled": self.git_mutation_enabled,
+            "provider_model_call_enabled": self.provider_model_call_enabled,
+            "browser_automation_enabled": self.browser_automation_enabled,
+            "connector_write_enabled": self.connector_write_enabled,
+            "production_authority_enabled": self.production_authority_enabled,
+        }
+        enabled = [name for name, value in required_false_flags.items() if value]
+        if enabled:
+            raise ValueError(f"coding git review enabled {enabled[0]}")
+        payload = self.model_dump(mode="json")
+        validate_safe_task_payload(payload, "coding_git_review")
+        return self
+
+
 class CodingCockpitSessionReadModel(BaseModel):
     schema_version: Literal["uaa-coding-cockpit-session.v1"] = (
         "uaa-coding-cockpit-session.v1"
@@ -936,7 +1158,7 @@ class CodingCockpitSessionReadModel(BaseModel):
     active_context_pack_ref: str = CODING_COCKPIT_CONTEXT_PACK_REF
     active_patch_proposal_ref: str = CODING_COCKPIT_PATCH_PROPOSAL_REF
     active_command_proposal_ref: str = "command-proposal:coding-blocked-seed"
-    active_git_ref: str = "git-status:coding-readonly-seed"
+    active_git_ref: str = CODING_COCKPIT_GIT_REVIEW_REF
     active_proof_ref: str = "proof-ref:coding-cockpit-seed"
     active_preview_ref: str = "preview-ref:coding-blocked-seed"
     backend_route_refs: list[str] = Field(
@@ -958,6 +1180,7 @@ class CodingCockpitSessionReadModel(BaseModel):
             "scripts/dev/uaa_coding.py inspect-patch-proposal",
             "scripts/dev/uaa_coding.py inspect-patch-apply-readiness",
             "scripts/dev/uaa_coding.py inspect-test-command-readiness",
+            "scripts/dev/uaa_coding.py inspect-git-review",
         ]
     )
     status: str = "implemented_read_only_cockpit_seed"
@@ -1304,6 +1527,23 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
                         "blocked-state:coding-no-command-execution",
                     ],
                 ),
+                CodingCockpitRefItem(
+                    item_ref=CODING_COCKPIT_GIT_REVIEW_REF,
+                    label="Git review lane",
+                    status="blocked by Prompt 06 readiness",
+                    safe_summary=(
+                        "Git status, diff, changed-file, commit proposal, and "
+                        "pull-request proposal refs are visible, but no Git command "
+                        "or mutation authority is available."
+                    ),
+                    source_refs=[CODING_COCKPIT_PATCH_PROPOSAL_REF],
+                    evidence_refs=evidence_refs,
+                    proof_refs=proof_refs,
+                    blocked_authority_refs=[
+                        "blocked-state:coding-no-git-mutation",
+                        "blocked-state:coding-no-git-status-reader",
+                    ],
+                ),
             ],
             proof_refs=proof_refs,
             blocked_authority_refs=["blocked-state:coding-no-background-autonomy"],
@@ -1398,24 +1638,34 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             title="Git Preview",
             state="preview_only",
             safe_summary=(
-                "Git panel seeds branch and changed-file posture only; stage, "
-                "commit, push, and pull-request actions are not enabled."
+                "Git panel shows Prompt 06 review refs only; live status, diff, "
+                "stage, commit, push, and pull-request actions are not enabled."
             ),
             items=[
                 CodingCockpitRefItem(
-                    item_ref="git-status:coding-readonly-seed",
-                    label="Git posture",
-                    status="read-only planned",
-                    safe_summary="Git status read model is planned for a later lane.",
+                    item_ref=CODING_COCKPIT_GIT_REVIEW_REF,
+                    label="Git review readiness",
+                    status="blocked",
+                    safe_summary=(
+                        "Git status, diff, changed-file, commit proposal, and "
+                        "pull-request proposal refs are present without live Git "
+                        "output or mutation authority."
+                    ),
                     source_refs=["coding-session:local-readonly-cockpit"],
                     evidence_refs=evidence_refs,
                     proof_refs=proof_refs,
-                    blocked_authority_refs=["blocked-state:coding-no-git-mutation"],
+                    blocked_authority_refs=[
+                        "blocked-state:coding-no-git-mutation",
+                        "blocked-state:coding-no-git-status-reader",
+                    ],
                 )
             ],
             proof_refs=proof_refs,
-            blocked_authority_refs=["blocked-state:coding-no-git-mutation"],
-            next_safe_action="Add Git status read model before any approved Git lane.",
+            blocked_authority_refs=[
+                "blocked-state:coding-no-git-mutation",
+                "blocked-state:coding-no-git-status-reader",
+            ],
+            next_safe_action="Inspect Prompt 06 Git review refs before any approved Git lane.",
         ),
         test_output_preview=CodingCockpitPreviewPanel(
             panel_ref="coding-panel:test-output-preview",
@@ -1518,7 +1768,7 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             CODING_COCKPIT_PATCH_APPLY_READINESS_REF,
             CODING_COCKPIT_TEST_COMMAND_READINESS_REF,
             "command-proposal:coding-blocked-seed",
-            "git-status:coding-readonly-seed",
+            CODING_COCKPIT_GIT_REVIEW_REF,
             "proof-ref:coding-cockpit-seed",
             "preview-ref:coding-blocked-seed",
         ],
@@ -2071,5 +2321,156 @@ def build_coding_test_command_readiness() -> CodingTestCommandReadinessReadModel
         next_safe_action=(
             "Run the unblock prompt only after exact allowlisted command, output "
             "redaction, receipt, proof, timeout, and CLI parity contracts are in scope."
+        ),
+    )
+
+
+def build_coding_git_review() -> CodingGitReviewReadModel:
+    evidence_refs = ["evidence-ref:coding-git-review"]
+    proof_refs = ["proof-ref:coding-git-review"]
+    blocked_refs = [
+        "blocked-state:coding-no-shell-subprocess",
+        "blocked-state:coding-no-git-status-reader",
+        "blocked-state:coding-no-git-diff-reader",
+        "blocked-state:coding-no-git-mutation",
+        "blocked-state:coding-no-stage",
+        "blocked-state:coding-no-commit",
+        "blocked-state:coding-no-push",
+        "blocked-state:coding-no-pr-open",
+        "blocked-state:coding-no-git-receipt",
+    ]
+    review_items = [
+        CodingGitReviewItemReadModel(
+            item_ref="git-status-ref:coding-working-tree-posture",
+            label="Working tree status",
+            item_kind="status",
+            status="blocked",
+            safe_summary=(
+                "Would show branch and staged or unstaged posture after a "
+                "read-only Git status reader is approved."
+            ),
+            expected_receipt_ref="git-receipt-ref:coding-status-required",
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-shell-subprocess",
+                "blocked-state:coding-no-git-status-reader",
+            ],
+        ),
+        CodingGitReviewItemReadModel(
+            item_ref="git-diff-ref:coding-safe-diff-posture",
+            label="Diff posture",
+            item_kind="diff",
+            status="blocked",
+            safe_summary=(
+                "Would summarize Git diff refs after raw diff redaction and "
+                "read-only Git diff contracts exist."
+            ),
+            expected_receipt_ref="git-receipt-ref:coding-diff-required",
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-shell-subprocess",
+                "blocked-state:coding-no-git-diff-reader",
+            ],
+        ),
+        CodingGitReviewItemReadModel(
+            item_ref="git-changed-files-ref:coding-safe-file-posture",
+            label="Changed file refs",
+            item_kind="changed_files",
+            status="blocked",
+            safe_summary=(
+                "Would show changed file refs without raw local paths after a "
+                "read-only Git status contract exists."
+            ),
+            expected_receipt_ref="git-receipt-ref:coding-changed-files-required",
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-shell-subprocess",
+                "blocked-state:coding-no-git-status-reader",
+            ],
+        ),
+        CodingGitReviewItemReadModel(
+            item_ref="git-commit-proposal-ref:coding-message-required",
+            label="Commit proposal",
+            item_kind="commit_proposal",
+            status="proposal_ref",
+            safe_summary=(
+                "Commit proposal text remains absent until safe diff summaries, "
+                "operator review, and receipt contracts exist."
+            ),
+            expected_receipt_ref="git-receipt-ref:coding-commit-proposal-required",
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-git-receipt",
+                "blocked-state:coding-no-commit",
+            ],
+        ),
+        CodingGitReviewItemReadModel(
+            item_ref="git-pr-description-ref:coding-pr-text-required",
+            label="PR description proposal",
+            item_kind="pr_description_proposal",
+            status="proposal_ref",
+            safe_summary=(
+                "Pull-request description text remains absent until safe change "
+                "summaries, proof refs, and operator review contracts exist."
+            ),
+            expected_receipt_ref="git-receipt-ref:coding-pr-description-required",
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-git-receipt",
+                "blocked-state:coding-no-pr-open",
+            ],
+        ),
+    ]
+    return CodingGitReviewReadModel(
+        title="Git review readiness",
+        full_strength_goal=(
+            "Review Git status, diffs, changed files, staged and unstaged posture, "
+            "commit proposals, pull-request description proposals, and approved "
+            "Git actions with receipts."
+        ),
+        repo_safe_current_state=(
+            "Prompt 06 records Git review refs and proposal placeholders only. "
+            "No Git command is run, no raw diff is stored, and no Git mutation "
+            "route exists."
+        ),
+        safe_summary=(
+            "Git review remains blocked until UAA has read-only Git status and "
+            "diff contracts, redaction, receipts, proof binding, CLI parity, and "
+            "separate approval for any stage, commit, push, or PR action."
+        ),
+        status_refs=["git-status-ref:coding-working-tree-posture"],
+        changed_file_refs=["git-changed-files-ref:coding-safe-file-posture"],
+        diff_refs=["git-diff-ref:coding-safe-diff-posture"],
+        commit_proposal_refs=["git-commit-proposal-ref:coding-message-required"],
+        pr_description_proposal_refs=[
+            "git-pr-description-ref:coding-pr-text-required"
+        ],
+        expected_receipt_refs=[
+            item.expected_receipt_ref for item in review_items
+        ],
+        review_items=review_items,
+        proof_refs=proof_refs,
+        evidence_refs=evidence_refs,
+        blocked_authority_refs=blocked_refs,
+        promotion_path_refs=[
+            "promotion-path:coding-git-read-contract",
+            "promotion-path:coding-git-review-route",
+            "promotion-path:coding-git-review-cli",
+            "promotion-path:coding-approved-git-mutation",
+        ],
+        redactions_applied=[
+            "redaction-ref:safe-refs-only",
+            "redaction-ref:raw-git-output-omitted",
+            "redaction-ref:raw-diff-omitted",
+            "redaction-ref:raw-paths-omitted",
+        ],
+        next_safe_action=(
+            "Run the unblock prompt only after read-only Git status, diff "
+            "redaction, receipt, proof, and CLI contracts are in scope."
         ),
     )

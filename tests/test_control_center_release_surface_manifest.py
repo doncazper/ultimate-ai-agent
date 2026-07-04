@@ -89,6 +89,7 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "/control-center/coding/context",
         "/control-center/coding/patch-apply-readiness",
         "/control-center/coding/patch-proposal",
+        "/control-center/coding/git-review",
         "/control-center/coding/session",
         "/control-center/coding/test-command-readiness",
     }
