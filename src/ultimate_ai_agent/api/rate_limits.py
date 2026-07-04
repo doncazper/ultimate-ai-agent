@@ -157,7 +157,13 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "model_chat"
     if normalized_method == "GET" and path == "/v1/models":
         return "model_chat"
-    if normalized_method in {"GET", "POST"} and path in TASK_DECOMPOSITION_PATHS:
+    if normalized_method in {"GET", "POST"} and (
+        path in TASK_DECOMPOSITION_PATHS
+        or (
+            path.startswith("/task-decomposition/runs/")
+            and path.endswith("/lifecycle")
+        )
+    ):
         return "task_decomposition"
     if normalized_method == "POST" and path in ACTION_PREVIEW_PROPOSAL_PATHS:
         return "action_preview_proposal"
@@ -198,7 +204,13 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "memory_review_decision"
     if (
         normalized_method == "POST"
-        and path in MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS
+        and (
+            path in MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS
+            or (
+                path.startswith("/control-center/memory/context-packs/")
+                and path.endswith("/action-proposal")
+            )
+        )
     ):
         return "memory_context_pack_action_proposal"
     if normalized_method == "POST" and path in MEMORY_FEEDBACK_PATHS:

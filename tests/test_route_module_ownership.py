@@ -134,6 +134,40 @@ def test_uaa_p1_058_system_service_extraction_ownership_is_frozen() -> None:
     )
 
 
+def test_beta_12_control_center_shell_extraction_ownership_is_frozen() -> None:
+    manifest_routes = {
+        (route.method, route.path): route for route in build_api_manifest(app).routes
+    }
+    app_routes = {
+        (method, route.path): route
+        for route in app.routes
+        if isinstance(route, APIRoute)
+        for method in sorted(route.methods - {"HEAD", "OPTIONS"})
+    }
+    extracted_routes = {
+        ("GET", "/control-center/manifest"),
+        ("GET", "/control-center/dashboard"),
+        ("GET", "/control-center/status"),
+        ("GET", "/control-center/routes"),
+        ("GET", "/control-center/approvals/summary"),
+        ("GET", "/control-center/approvals/queue"),
+        ("GET", "/control-center/runs/observability"),
+        ("GET", "/control-center/runtime-readiness/summary"),
+        ("GET", "/control-center/settings/status"),
+        ("GET", "/control-center/local-models/status"),
+        ("GET", "/control-center/foundation-gate/summary"),
+        ("GET", "/control-center/setup-assistant/summary"),
+        ("POST", "/control-center/actions/preview"),
+    }
+
+    for route_key in sorted(extracted_routes):
+        manifest_route = manifest_routes[route_key]
+        app_route = app_routes[route_key]
+        assert manifest_route.tags == ["control-center"]
+        assert manifest_route.operation_id
+        assert app_route.endpoint.__module__ == "ultimate_ai_agent.api.control_center"
+
+
 def test_route_status_manifest_remains_visible_action_subset_with_evidence() -> None:
     api_routes = {(route.method, route.path): route for route in build_api_manifest(app).routes}
     route_status = json.loads(ROUTE_STATUS_MANIFEST.read_text(encoding="utf-8"))

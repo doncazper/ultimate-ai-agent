@@ -29,11 +29,11 @@
           "method": "GET",
           "path": "/control-center/start-here/summary",
           "operation_id": "get_control_center_start_here_summary",
-          "side_effect_class": "validation_only",
+          "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         }
       ],
-      "side_effect_class": "validation_only",
+      "side_effect_class": "local_dev_workspace_only",
       "route_classification": "local_sensitive",
       "approval_required": false,
       "proof_lanes": [
@@ -87,14 +87,14 @@
           "method": "GET",
           "path": "/control-center/proof/index",
           "operation_id": "get_control_center_proof_index",
-          "side_effect_class": "validation_only",
+          "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         },
         {
           "method": "GET",
           "path": "/control-center/proof/{proof_ref}",
           "operation_id": "get_control_center_proof_proof_ref",
-          "side_effect_class": "validation_only",
+          "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         },
         {
@@ -105,7 +105,7 @@
           "route_classification": "local_sensitive"
         }
       ],
-      "side_effect_class": "mixed_validation_and_governed_network_read_only",
+      "side_effect_class": "mixed_local_dev_workspace_and_governed_network_read_only",
       "route_classification": "local_sensitive",
       "approval_required": false,
       "proof_lanes": [
@@ -161,11 +161,11 @@
           "method": "GET",
           "path": "/control-center/trust-authority/matrix",
           "operation_id": "get_control_center_trust_authority_matrix",
-          "side_effect_class": "validation_only",
+          "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         }
       ],
-      "side_effect_class": "validation_only",
+      "side_effect_class": "local_dev_workspace_only",
       "route_classification": "local_sensitive",
       "approval_required": false,
       "proof_lanes": [

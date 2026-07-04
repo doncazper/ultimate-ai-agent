@@ -968,7 +968,7 @@ allowed/blocked/parallel/missing/future-scoped posture in
 remain identifiers only, not authority.
 
 UAA-P1-021 FastAPI route grouping and side-effect classes
-Gate met: all 117 API paths are mapped by route group, owner, target service
+Gate met: all current 169 API paths are mapped by route group, owner, target service
 module, auth posture, side-effect class, risk class, operation ID posture, and
 release status in `docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md`.
 
@@ -983,6 +983,14 @@ Gate met: `GET /health` and `GET /version` are extracted into
 `ultimate_ai_agent.api.routes.system_service` without changing path behavior,
 auth posture, side-effect class, API manifest route count, OpenAPI path count,
 route-status truth, or operation IDs.
+
+Beta 12 Backend Modularization/API Contract hardening
+Gate met: the app-owned Control Center shell/status route block is extracted
+into `ultimate_ai_agent.api.control_center` without adding routes, changing
+operation IDs, or broadening authority. Release-surface backend route refs now
+check live operation ID, side-effect class, and route classification posture;
+concrete dynamic rate-limit paths are covered. Verification:
+`scripts/verify_beta_12_backend_modularization_api.py`.
 
 UAA-P1-059 Route-module ownership tests
 Gate met: route ownership tests require every current API route to map to a

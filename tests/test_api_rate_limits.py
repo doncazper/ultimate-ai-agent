@@ -11,6 +11,7 @@ from ultimate_ai_agent.api.rate_limits import (
     API_TARGETED_RATE_LIMIT_POLICY_REF,
     API_TARGETED_RATE_LIMIT_WINDOW_SECONDS_ENV,
     reset_api_rate_limit_state,
+    route_rate_limit_group,
 )
 
 
@@ -153,3 +154,46 @@ def test_unregistered_task_decomposition_path_does_not_consume_bucket(monkeypatc
 
     assert typo.status_code != 429
     assert status.status_code != 429
+
+
+def test_concrete_memory_context_pack_action_proposal_path_is_targeted() -> None:
+    assert (
+        route_rate_limit_group(
+            "POST",
+            "/control-center/memory/context-packs/context-pack-ref:proposal:safe/action-proposal",
+        )
+        == "memory_context_pack_action_proposal"
+    )
+
+
+def test_concrete_task_decomposition_run_lifecycle_path_is_targeted() -> None:
+    assert (
+        route_rate_limit_group(
+            "GET",
+            "/task-decomposition/runs/task-decomposition-run:demo/lifecycle",
+        )
+        == "task_decomposition"
+    )
+
+
+def test_dynamic_context_pack_action_proposal_returns_redacted_429(monkeypatch) -> None:
+    client = _client(monkeypatch)
+    headers = {
+        "X-UAA-Idempotency-Key": "idempotency:memory-context-pack-action-proposal"
+    }
+    payload = {
+        "exact_approval_scope_ref": "approval-scope-ref:memory-context-pack-action-proposal",
+        "approval_ref": "approval-ref:memory-context-pack-action-proposal",
+        "metadata_refs": ["metadata-ref:memory-context-pack-action-proposal"],
+    }
+    path = "/control-center/memory/context-packs/context-pack-ref:proposal:safe/action-proposal"
+
+    first = client.post(path, headers=headers, json=payload)
+    second = client.post(path, headers=headers, json=payload)
+
+    assert first.status_code != 429
+    assert second.status_code == 429
+    body = second.json()
+    assert body["code"] == "API_TARGETED_RATE_LIMITED"
+    assert body["rate_limit_group"] == "memory_context_pack_action_proposal"
+    assert "context-pack-ref:proposal:safe" not in second.text
