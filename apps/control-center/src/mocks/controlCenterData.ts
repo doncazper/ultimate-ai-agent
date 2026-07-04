@@ -11663,6 +11663,35 @@ export const mockControlCenterData: ControlCenterData = {
     modelOutputAuthoritative: false,
     installerSideEffectsEnabled: false,
     visualShellRef: "control-center:setup-assistant-preview",
+    fullStrengthGoal:
+      "First run leads from local setup posture to a daily loop with Today, Action Inbox, receipt, evidence, proof, memory, and Trust refs.",
+    repoSafeScope:
+      "Read-only setup plan, local package proof refs, dry-run approval envelopes, and bounded Control Center presentation only.",
+    blockedAuthoritySummary:
+      "Installer execution, model downloads, LaunchAgent changes, bridge enablement, shell subprocess, browser automation, public distribution, signing, notarization, and production authority remain blocked.",
+    firstRunLoopRefs: [
+      "loop-ref:setup-to-daily-loop:v1",
+      "contract-ref:start-here-local-loop:v1",
+      "contract-ref:private-beta-readiness-gate:v1",
+      "contract-ref:dogfood-live-loop:acceptance",
+      "proof-ref:control-center-proof-index",
+      "trust-ref:authority-map",
+    ],
+    localPackageProofStatus:
+      "local_unsigned_loopback_package_proof_available_runtime_launch_blocked",
+    localPackageProofRefs: [
+      "packaging-proof:local-runtime-loopback",
+      "packaging-proof:local-macos-app-bundle",
+      "packaging-proof-summary:local-macos-app-bundle",
+      "script:verify-local-runtime-packaging-proof",
+      "script:verify-local-macos-app-bundle-proof",
+    ],
+    promotionPathRefs: [
+      "promotion-path-ref:setup:local-rehearsal-receipt",
+      "promotion-path-ref:setup:operator-review-notes",
+      "promotion-path-ref:setup:package-proof-hygiene",
+      "promotion-path-ref:setup:exact-approved-mutation-pr",
+    ],
     steps: [
       {
         stepId: "macos-setup-step:first-launch",
@@ -11675,13 +11704,17 @@ export const mockControlCenterData: ControlCenterData = {
         detailPreview: [
           "Welcome state explains local-only posture.",
           "Details pane shows bounded setup previews.",
+          "Next step points to Start Here, Today, Action Inbox, Proof, Memory, and Trust refs.",
         ],
         logPreview: ["setup preview initialized; no command executed"],
         approvalRequired: false,
         receiptRef: "receipt-plan:macos-setup-first-launch",
         rollbackRef: "rollback-plan:macos-setup-first-launch",
         latencyRef: "latency-ref:macos-setup-first-launch",
-        reasonCodes: ["MACOS_SETUP_VISUAL_PREVIEW_READY"],
+        reasonCodes: [
+          "MACOS_SETUP_VISUAL_PREVIEW_READY",
+          "MACOS_SETUP_FIRST_RUN_LOOP_REFS_VISIBLE",
+        ],
         nextSafeAction: "inspect_setup_plan",
       },
       {

@@ -21,7 +21,9 @@ The package intentionally excludes OpenWebUI, `llama-server`, model download,
 model runtime launch, connector writes, plugin runtime import, browser
 automation, mobile control, remote execution, and autonomous background
 execution. Local model and OpenWebUI readiness remain governed by their
-separate M151-M167 gates and runbooks.
+separate M151-M167 gates and runbooks. The Setup Assistant may reference this
+lane as local package proof, but that does not turn the proof into signed
+installer, public distribution, app launch, or production authority.
 
 GitHub-hosted bootstrap installer authority is defined separately in
 `docs/production/M167_GITHUB_BOOTSTRAP_LOCAL_INSTALLER.md`. That milestone is
@@ -46,7 +48,7 @@ unsafe-pattern tests.
 
 ## Local Secret Generation
 
-Before starting the package, create the local secret file:
+Before starting the package manually, create the local secret file:
 
 ```bash
 mkdir -p .uaa/local-runtime
@@ -65,6 +67,11 @@ The secret file is a local packaging secret reference only. It is not a
 credential vault, not a production auth mechanism, and not release evidence.
 Do not paste the generated value into docs, reports, logs, commits, tickets, or
 chat transcripts.
+
+The automated proof script performs the same local-only pattern: it writes
+ignored secret material with `token_urlsafe`, calls `chmod(0o600)`, and keeps
+the generated value out of the proof summary. The verifier rejects static proof
+material and non-safe summary shapes.
 
 ## Local Start
 
@@ -124,7 +131,10 @@ launching the app or starting services:
 
 This proof is local-only and unsigned. It is not signed, not notarized, not a
 DMG, not a public installer, not an auto-updater, not a LaunchAgent or daemon,
-and not production distribution authority.
+and not production distribution authority. It is also distinct from successful
+daily-loop execution proof: the `.app` proof confirms the local launcher
+artifact shape without launching the app, while runtime launch evidence remains
+the Docker/local-runtime proof or a separately scoped trial-boot smoke receipt.
 
 ## Rollback
 

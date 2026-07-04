@@ -78,10 +78,19 @@ def validate_summary(summary: dict) -> list[str]:
     failures: list[str] = []
     if summary.get("schema_version") != "uaa-local-runtime-packaging-proof-summary.v1":
         failures.append("packaging proof summary schema version is not current")
+    if summary.get("status") != "passed":
+        failures.append("packaging proof summary status must be passed")
     if summary.get("distribution_claims_allowed") is not False:
         failures.append("packaging proof summary must deny distribution claims")
     if not str(summary.get("proof_ref", "")).startswith("packaging-proof:"):
         failures.append("packaging proof summary ref is not safe")
+    route_manifest = summary.get("route_manifest", {})
+    if not isinstance(route_manifest, dict):
+        failures.append("packaging proof summary route manifest must be an object")
+    else:
+        route_count = route_manifest.get("route_count")
+        if not isinstance(route_count, int) or route_count <= 0:
+            failures.append("packaging proof summary route count must be positive")
     steps = summary.get("steps", [])
     step_ids = {str(step.get("step_id")) for step in steps if isinstance(step, dict)}
     for step_id in sorted(REQUIRED_STEPS - step_ids):
@@ -90,6 +99,8 @@ def validate_summary(summary: dict) -> list[str]:
         if not isinstance(step, dict):
             failures.append("packaging proof summary step entry must be an object")
             continue
+        if step.get("status") != "passed":
+            failures.append(f"{step.get('step_id', 'unknown')} summary status must be passed")
         if step.get("raw_log_included") is not False:
             failures.append(f"{step.get('step_id', 'unknown')} summary must not include raw logs")
         if not str(step.get("safe_evidence_ref", "")).startswith("packaging-proof:"):
@@ -126,10 +137,13 @@ def _validate_proof_script() -> list[str]:
         "control center load": ["/today"],
         "screenshot capture": ["\"npx\"", "\"playwright\"", "\"screenshot\""],
         "safe summary": ["raw_logs_omitted", "raw_paths_omitted", "safe_refs_only"],
+        "generated local secret": ["secrets.token_urlsafe", ".chmod(0o600)"],
     }
     for label, fragments in required_fragments.items():
         if not all(fragment in script for fragment in fragments):
             failures.append(f"packaging proof script missing {label} implementation")
+    if "local-runtime-proof-material" in script:
+        failures.append("packaging proof script must not use static local secret material")
     return failures
 
 

@@ -20,6 +20,10 @@ def test_local_macos_app_bundle_proof_is_safe_and_unsigned(tmp_path) -> None:
     assert summary["signed"] is False
     assert summary["notarized"] is False
     assert summary["distribution_claims_allowed"] is False
+    assert summary["proof_ref"] == "packaging-proof:local-macos-app-bundle"
+    assert summary["summary_ref"] == "packaging-proof-summary:local-macos-app-bundle"
+    assert summary["safe_disable_ref"] == "safe-disable:remove-local-macos-app-bundle"
+    assert summary["rollback_ref"] == "rollback:delete-ignored-local-macos-app-bundle"
     assert summary["public_installer_created"] is False
     assert summary["daemon_or_launchagent_created"] is False
     assert summary["auto_update_enabled"] is False

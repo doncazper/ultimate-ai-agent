@@ -25,6 +25,58 @@ installation/load/start, bridge enablement, provider/model calls, credential
 capture, shell/subprocess execution, receipt persistence, audit persistence,
 rollback execution, or production authority.
 
+## Beta 02 Setup Assistant And Local Package Hardening
+
+Full-strength version:
+UAA first run should guide a local operator from setup posture into the daily
+loop: Start Here, Today, Action Inbox, exact local task receipt, Evidence,
+Proof, Memory, Trust, and Settings. A future native macOS shell can make this
+feel like an Apple-grade local app, but the durable truth still belongs to the
+Python Agent Core and inspected local receipts.
+
+Repo-safe version:
+The current lane exposes backend-owned first-run loop refs and local package
+proof refs in the setup plan, then renders them in Control Center. The local
+package proof is available as local-only evidence: Docker/local-runtime loopback
+proof plus an unsigned `.app` bundle artifact proof that wraps
+`./scripts/dev/uaa trial-boot`. The `.app` verifier checks bundle structure,
+Info.plist posture, launcher command, and boundary text without launching the
+app. The runtime packaging proof generates ignored local secret material with
+`token_urlsafe`, applies `chmod(0o600)`, and keeps proof summaries safe-ref only.
+
+Blocked / needs authority:
+Signing, notarization, installer side effects, LaunchAgent or daemon changes,
+model downloads, bridge enablement, provider calls, browser automation,
+arbitrary shell/subprocess execution from UAA runtime, public distribution,
+production readiness, and production authority remain blocked. The Control
+Center route and UI are read-only setup preview surfaces.
+
+Exact promotion path:
+1. Keep setup proof refs backend-owned and covered by
+   `scripts/verify_beta_02_setup_assistant_local_package.py`.
+2. Add a local rehearsal receipt that proves Start Here -> Today -> Action
+   Inbox -> receipt -> Evidence -> Proof -> Memory -> Trust without public or
+   production claims.
+3. Add operator review notes for native-shell language, blocked state labels,
+   and package-proof copy.
+4. Add explicit approval binding, idempotency, rollback, safe-disable,
+   redaction, CLI parity, and proof refs before any setup mutation is promoted.
+
+First-run operator path:
+1. Run setup doctor or inspect the setup route.
+2. Launch the local Control Center or private trial boot.
+3. Confirm backend health and Founder Loop refs.
+4. Optionally generate local unsigned app proof as evidence.
+5. Open Proof and Trust refs before treating setup as complete.
+
+Local package proof labels:
+- Implemented: Control Center setup preview, backend first-run loop refs,
+  local loopback runtime packaging proof, and local unsigned `.app` artifact
+  proof.
+- Planned: native SwiftUI shell that reads the same backend plan.
+- Blocked: signed app, notarization, installer, auto-update, LaunchAgent,
+  daemon, public distribution, and production authority.
+
 ## Flow
 
 1. First launch setup

@@ -163,6 +163,14 @@ does not grant public distribution, production authority, broader model
 runtime authority, browser execution, connector writes, or background
 autonomy.
 
+Beta 02 hardens `/setup` by binding the dry-run Setup Assistant read model to
+first-run daily-loop refs and local package proof refs. The route can truthfully
+show local loopback runtime packaging proof and local unsigned `.app` artifact
+proof, but the `.app` verifier does not launch the app and this surface still
+does not grant signing, notarization, installer side effects, LaunchAgent or
+daemon changes, model downloads, provider/model calls, browser automation,
+public distribution, production readiness, or production authority.
+
 Dogfood Live Loop Acceptance adds a deterministic repo-local fixture, CLI
 inspection command, verifier, and frontend coherence test proving one local
 daily loop across `/start`, `/today`, `/actions`, `/proof`, `/memory`,

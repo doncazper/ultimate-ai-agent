@@ -6989,6 +6989,13 @@ export interface MacOSSetupAssistantData {
   modelOutputAuthoritative: boolean;
   installerSideEffectsEnabled: boolean;
   visualShellRef: string;
+  fullStrengthGoal: string;
+  repoSafeScope: string;
+  blockedAuthoritySummary: string;
+  firstRunLoopRefs: string[];
+  localPackageProofStatus: string;
+  localPackageProofRefs: string[];
+  promotionPathRefs: string[];
   steps: MacOSSetupAssistantStep[];
   modelRecommendations: MacOSSetupModelRecommendation[];
   bridgePreviews: MacOSSetupBridgePreview[];

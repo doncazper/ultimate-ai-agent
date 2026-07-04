@@ -56,8 +56,8 @@
         "mobile": "visual-baseline-file:mobile:today"
       },
       "baseline_hashes": {
-        "desktop": "sha256:8cb460501b4ad3d3bb979c3c25c362213f8d3ebc94f6d123b5c49f7d275beb9f",
-        "mobile": "sha256:1840e805a80f716b196420f8710eda3f89fd00797e2415ce64469fa8bd14f247"
+        "desktop": "sha256:d1dbb0c92233c14f51cc172805b32e70767625f9a8b1665daa31755d97c58da6",
+        "mobile": "sha256:57916cbf65c672c748db29bd1755e43250a8ade5ca143d2d8eef1f3970b77c67"
       },
       "raw_private_screenshot_included": false
     },
@@ -86,8 +86,8 @@
         "mobile": "visual-baseline-file:mobile:actions"
       },
       "baseline_hashes": {
-        "desktop": "sha256:8c66376bb105cd53f9e1c60868bff6a3f7009674fa714b0db713bb4e1a3ca714",
-        "mobile": "sha256:88466a9035c0ad3e9baffbeb7b008ee72d2190dd16c67a59c939eee041cc1de1"
+        "desktop": "sha256:8a500a8be1fc0f9d6ac7938ee80e00ab5ae1449b616d31732e0b284f6c712eec",
+        "mobile": "sha256:6470780cf762352b733134e0d0e3c0d742348fef59582525a43cb80ad15c5dba"
       },
       "raw_private_screenshot_included": false
     },
@@ -191,8 +191,8 @@
         "mobile": "visual-baseline-file:mobile:setup"
       },
       "baseline_hashes": {
-        "desktop": "sha256:17805f1339680e7ffecd74165386703d045065eb04112bcf0bb33aa5d91dfebb",
-        "mobile": "sha256:3b5fb035515d5aaa0e630e92ce13f3c2a8dd52b84c9a2988aeec388a48fa5399"
+        "desktop": "sha256:4c268b5d42d33ff7aee67ae59c7b12416e21617a81fead4638042aafa51e460f",
+        "mobile": "sha256:e113504643d77528eb04cf01668a90582d4898e37f0fd29f7640888cf153b372"
       },
       "raw_private_screenshot_included": false
     }

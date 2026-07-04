@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import secrets
 import socket
 import subprocess
 import sys
@@ -137,7 +138,8 @@ def _prepare_local_state() -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     PROOF_DIR.mkdir(parents=True, exist_ok=True)
     if not LOCAL_SECRET_FILE.exists():
-        LOCAL_SECRET_FILE.write_text("local-runtime-proof-material\n", encoding="utf-8")
+        LOCAL_SECRET_FILE.write_text(secrets.token_urlsafe(48) + "\n", encoding="utf-8")
+    LOCAL_SECRET_FILE.chmod(0o600)
 
 
 def _run_checked(
