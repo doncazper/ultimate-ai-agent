@@ -72,8 +72,10 @@ Exact promotion path:
   command execution.
 - Prompt 06 adds Git review refs and blocker refs without live Git reads or Git
   mutation.
+- Prompt 07 adds live-preview refs and blocker refs without dev-server control
+  or browser automation.
 - Later approved lanes add exact patch apply, allowlisted test commands, Git
-  review, live preview status, and multi-agent review only after scoped
+  review, live preview execution, and multi-agent review only after scoped
   approval binding, receipts, rollback/safe-disable posture, redaction,
   CLI parity, and focused verifiers are present.
 
@@ -207,6 +209,52 @@ Exact promotion path:
   receipt storage, Proof Detail binding, CLI parity, frontend tests, and
   verifiers are accepted. Any Git mutation remains a separate exact approval
   lane.
+
+## Coding Cockpit Prompt 07 Live Preview Readiness
+
+Prompt 07 keeps the full live preview goal visible while blocking dev-server
+control, browser preview, screenshot capture, console capture, and browser
+automation until the missing preview contracts are implemented.
+
+Full-strength version:
+
+- UAA shows local dev server status, browser preview, console errors,
+  screenshot capture, visual regression proof, route checklist, and mobile and
+  desktop preview evidence with Proof Detail links.
+- Starting/stopping dev servers, browser interaction, form/click automation,
+  downloads/uploads, and authenticated browser state remain outside this lane.
+
+Repo-safe current version:
+
+- `GET /control-center/coding/live-preview` exposes a backend-owned read-only
+  status/readiness model.
+- `scripts/dev/uaa_coding.py inspect-live-preview` provides CLI inspection
+  parity.
+- `/coding` shows dev-server status, preview URL, screenshot, console,
+  visual-proof, route-checklist, and viewport refs plus blocker refs.
+- The route stores safe refs and bounded summaries only. It does not detect or
+  start dev servers, persist raw URLs, open browsers, capture screenshots, read
+  console output, or create visual proof artifacts.
+
+Blocked / needs authority:
+
+- Dev-server status detection, preview URL persistence, browser observe,
+  browser preview, screenshot artifact capture, console capture, visual
+  regression comparison, receipt creation, Proof Detail binding, and
+  shell/subprocess execution remain blocked.
+- Prompt 07 does not start or stop dev servers, navigate browsers, automate
+  clicks/forms, run commands, mutate files, mutate Git, call providers/models,
+  write connectors, or grant production authority.
+
+Exact promotion path:
+
+- Run
+  `docs/prompts/authority_graduation_program/generated_unblock_prompts/unblock_coding_live_preview.prompt.md`.
+- Keep the blocker report current at
+  `docs/control_center/authority_graduation_blockers/coding_live_preview_2026_07_04.md`.
+- Promote only after dev-server status, URL redaction, browser observe,
+  screenshot artifact, visual proof, receipt storage, Proof Detail binding, CLI
+  parity, frontend tests, and verifiers are accepted.
 
 Verification:
 

@@ -2547,8 +2547,15 @@
         },
         {
           "method": "GET",
-          "path": "/control-center/coding/patch-proposal",
-          "operation_id": "get_control_center_coding_patch_proposal",
+          "path": "/control-center/coding/git-review",
+          "operation_id": "get_control_center_coding_git_review",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/live-preview",
+          "operation_id": "get_control_center_coding_live_preview",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         },
@@ -2556,6 +2563,13 @@
           "method": "GET",
           "path": "/control-center/coding/patch-apply-readiness",
           "operation_id": "get_control_center_coding_patch_apply_readiness",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/patch-proposal",
+          "operation_id": "get_control_center_coding_patch_proposal",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         },
@@ -2570,13 +2584,6 @@
           "method": "GET",
           "path": "/control-center/coding/test-command-readiness",
           "operation_id": "get_control_center_coding_test_command_readiness",
-          "side_effect_class": "local_dev_workspace_only",
-          "route_classification": "local_sensitive"
-        },
-        {
-          "method": "GET",
-          "path": "/control-center/coding/git-review",
-          "operation_id": "get_control_center_coding_git_review",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         }
@@ -2595,7 +2602,7 @@
         "missing_backend:coding-allowlisted-command-execution-receipts",
         "missing_backend:coding-live-git-status-reader",
         "missing_backend:coding-approved-git-mutation-lane",
-        "missing_backend:coding-live-preview-status",
+        "missing_backend:coding-live-preview-execution-lane",
         "missing_backend:coding-multi-agent-review",
         "public_distribution_claim",
         "production_readiness_claim",
@@ -2626,7 +2633,8 @@
       "product_language_caveats": [
         "Coding is a backend-owned read-only cockpit seed; it is not a public beta, public release, production readiness, or production authority claim.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
-        "Route visibility does not grant file writes, shell or subprocess execution, Git mutation, connector writes, provider or model calls, browser execution, memory or context injection, broad runtime authority, background autonomy, hidden autonomy, or production authority."
+        "Route visibility does not grant file writes, shell or subprocess execution, Git mutation, connector writes, provider or model calls, browser execution, memory or context injection, broad runtime authority, background autonomy, hidden autonomy, or production authority.",
+        "Live preview readiness exposes safe refs only; dev-server start/status detection, raw URL persistence, screenshot capture, console capture, browser preview, and browser automation remain blocked."
       ]
     }
   ]

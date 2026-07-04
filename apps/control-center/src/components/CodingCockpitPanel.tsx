@@ -4,6 +4,7 @@ import type {
   CodingCockpitRefItem,
   CodingCockpitSessionReadModel,
   CodingGitReviewReadModel,
+  CodingLivePreviewReadModel,
   CodingPatchApplyReadinessReadModel,
   CodingPatchProposalReadModel,
   CodingTestCommandReadinessReadModel,
@@ -14,6 +15,7 @@ import { SafeAlert } from "./SafeAlert";
 interface CodingCockpitPanelProps {
   context: CodingWorkspaceContextReadModel;
   gitReview: CodingGitReviewReadModel;
+  livePreview: CodingLivePreviewReadModel;
   patchApplyReadiness: CodingPatchApplyReadinessReadModel;
   patchProposal: CodingPatchProposalReadModel;
   session: CodingCockpitSessionReadModel;
@@ -25,6 +27,7 @@ export function CodingCockpitPanel({
   authoritative,
   context,
   gitReview,
+  livePreview,
   patchApplyReadiness,
   patchProposal,
   session,
@@ -55,7 +58,11 @@ export function CodingCockpitPanel({
     gitReview.backend_owned &&
     gitReview.read_only &&
     gitReview.proposal_only &&
-    gitReview.safe_refs_only;
+    gitReview.safe_refs_only &&
+    livePreview.backend_owned &&
+    livePreview.read_only &&
+    livePreview.status_only &&
+    livePreview.safe_refs_only;
   const currentAuthorityMode =
     session.authority_modes.find((mode) => mode.state === "current") ??
     session.authority_modes[0];
@@ -178,7 +185,12 @@ export function CodingCockpitPanel({
           <GitReviewPreview authoritative={backendOwned} review={gitReview} />
         </DrawerPanel>
         <DrawerPanel panel={session.test_output_preview} actionLabel="Run tests" />
-        <DrawerPanel panel={session.live_preview} actionLabel="Preview status" />
+        <DrawerPanel panel={session.live_preview} actionLabel="Preview status">
+          <LivePreviewReadinessPreview
+            authoritative={backendOwned}
+            preview={livePreview}
+          />
+        </DrawerPanel>
       </div>
 
       <div className="coding-boundary-strip" aria-label="Blocked coding authority">
@@ -401,6 +413,46 @@ function GitReviewPreview({
         ))}
       </div>
       <p className="safe-copy">{review.next_safe_action}</p>
+    </div>
+  );
+}
+
+function LivePreviewReadinessPreview({
+  authoritative,
+  preview,
+}: {
+  authoritative: boolean;
+  preview: CodingLivePreviewReadModel;
+}) {
+  return (
+    <div className="coding-patch-proposal" aria-label="Coding live preview">
+      <div className="coding-context-budget">
+        <DetailTile label="Live preview" value={preview.live_preview_ref} />
+        <DetailTile label="Status" value={preview.status.replaceAll("_", " ")} />
+        <DetailTile
+          label="Preview refs"
+          value={`${preview.preview_items.length} refs`}
+        />
+      </div>
+      <p className="safe-copy">
+        {authoritative
+          ? "Live preview is backend-owned, status-only, and blocked until exact browser and dev-server authority exists."
+          : "Live preview is non-authoritative fallback data only."}
+      </p>
+      <div className="coding-item-stack">
+        {preview.preview_items.slice(0, 3).map((item) => (
+          <article className="coding-item-row" key={item.item_ref}>
+            <div>
+              <strong>{item.label}</strong>
+              <p>{item.safe_summary}</p>
+            </div>
+            <span className="status-pill compact">
+              {item.status.replaceAll("_", " ")}
+            </span>
+          </article>
+        ))}
+      </div>
+      <p className="safe-copy">{preview.next_safe_action}</p>
     </div>
   );
 }

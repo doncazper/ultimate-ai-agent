@@ -65,6 +65,7 @@ import type {
   ChatTurnReceipt,
   ChatTurnReceiptRequest,
   CodingGitReviewReadModel,
+  CodingLivePreviewReadModel,
   CodingPatchApplyReadinessReadModel,
   CodingPatchProposalReadModel,
   CodingTestCommandReadinessReadModel,
@@ -318,6 +319,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<CodingGitReviewReadModel>(
       API_ENDPOINTS.controlCenterCodingGitReview,
     ),
+    readEnvelope<CodingLivePreviewReadModel>(
+      API_ENDPOINTS.controlCenterCodingLivePreview,
+    ),
   ] as const);
 
   const manifest = fulfilledValue(results[0]);
@@ -364,6 +368,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const codingPatchApplyReadiness = fulfilledValue(results[35]);
   const codingTestCommandReadiness = fulfilledValue(results[36]);
   const codingGitReview = fulfilledValue(results[37]);
+  const codingLivePreview = fulfilledValue(results[38]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
   const normalizedProofIndex = normalizeProofIndex(proofIndex);
@@ -459,7 +464,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         codingPatchProposal !== undefined &&
         codingPatchApplyReadiness !== undefined &&
         codingTestCommandReadiness !== undefined &&
-        codingGitReview !== undefined,
+        codingGitReview !== undefined &&
+        codingLivePreview !== undefined,
       usedFallback:
         codingSession === undefined ||
         codingSession.mock_fallback === true ||
@@ -479,7 +485,12 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         codingGitReview.backend_owned !== true ||
         codingGitReview.read_only !== true ||
         codingGitReview.proposal_only !== true ||
-        codingGitReview.safe_refs_only !== true,
+        codingGitReview.safe_refs_only !== true ||
+        codingLivePreview === undefined ||
+        codingLivePreview.backend_owned !== true ||
+        codingLivePreview.read_only !== true ||
+        codingLivePreview.status_only !== true ||
+        codingLivePreview.safe_refs_only !== true,
     }),
     routeReadStateInput({
       route: "/memory",
@@ -559,7 +570,12 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingGitReview.backend_owned !== true ||
     codingGitReview.read_only !== true ||
     codingGitReview.proposal_only !== true ||
-    codingGitReview.safe_refs_only !== true;
+    codingGitReview.safe_refs_only !== true ||
+    codingLivePreview === undefined ||
+    codingLivePreview.backend_owned !== true ||
+    codingLivePreview.read_only !== true ||
+    codingLivePreview.status_only !== true ||
+    codingLivePreview.safe_refs_only !== true;
   const approvalQueueEndpointFallbackUsed = approvalQueue === undefined;
   const runObservabilityEndpointFallbackUsed =
     safeObservedRunObservability === undefined;
@@ -580,6 +596,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingPatchApplyReadiness === undefined ||
     codingTestCommandReadiness === undefined ||
     codingGitReview === undefined ||
+    codingLivePreview === undefined ||
     setupAssistantSource === undefined ||
     providerCatalog === undefined ||
     controlCenterSettingsStatus === undefined ||
@@ -620,6 +637,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         codingTestCommandReadiness:
           mockControlCenterData.codingTestCommandReadiness,
         codingGitReview: mockControlCenterData.codingGitReview,
+        codingLivePreview: mockControlCenterData.codingLivePreview,
       },
       {
         state: "mock_fallback",
@@ -671,6 +689,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       codingTestCommandReadiness ??
       mockControlCenterData.codingTestCommandReadiness,
     codingGitReview: codingGitReview ?? mockControlCenterData.codingGitReview,
+    codingLivePreview:
+      codingLivePreview ?? mockControlCenterData.codingLivePreview,
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
     founderMemoryReview: normalizedFounderMemoryReview.value,
     founderMemoryWorkbench: normalizedFounderMemoryWorkbench.value,

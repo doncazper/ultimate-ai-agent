@@ -637,6 +637,87 @@ export interface CodingGitReviewReadModel {
   production_authority_enabled: boolean;
 }
 
+export interface CodingLivePreviewItemReadModel {
+  item_ref: string;
+  label: string;
+  item_kind:
+    | "dev_server_status"
+    | "preview_url"
+    | "screenshot"
+    | "console_errors"
+    | "visual_regression"
+    | "route_checklist"
+    | "viewport";
+  status: "blocked" | "planned" | "proposal_ref";
+  safe_summary: string;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  raw_url_included: boolean;
+  screenshot_included: boolean;
+  console_output_included: boolean;
+  browser_automation_enabled: boolean;
+  dev_server_control_enabled: boolean;
+}
+
+export interface CodingLivePreviewReadModel {
+  schema_version: "uaa-coding-live-preview.v1";
+  live_preview_ref: string;
+  session_ref: string;
+  context_pack_ref: string;
+  patch_proposal_ref: string;
+  test_command_readiness_ref: string;
+  git_review_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  unblock_prompt_refs: string[];
+  status: "blocked_missing_live_preview_authority";
+  title: string;
+  full_strength_goal: string;
+  repo_safe_current_state: string;
+  safe_summary: string;
+  dev_server_status_refs: string[];
+  preview_url_refs: string[];
+  screenshot_refs: string[];
+  visual_proof_refs: string[];
+  route_checklist_refs: string[];
+  viewport_refs: string[];
+  console_error_refs: string[];
+  preview_items: CodingLivePreviewItemReadModel[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  status_only: boolean;
+  safe_refs_only: boolean;
+  raw_url_included: boolean;
+  raw_console_output_included: boolean;
+  screenshot_artifact_included: boolean;
+  screenshot_capture_enabled: boolean;
+  visual_regression_enabled: boolean;
+  console_capture_enabled: boolean;
+  dev_server_status_detection_enabled: boolean;
+  dev_server_start_enabled: boolean;
+  dev_server_stop_enabled: boolean;
+  browser_preview_enabled: boolean;
+  browser_automation_enabled: boolean;
+  browser_interaction_enabled: boolean;
+  network_fetch_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  file_write_enabled: boolean;
+  git_mutation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  connector_write_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface RuntimeReadinessSummary {
   status: string;
   production_ready: boolean;
@@ -7787,6 +7868,7 @@ export interface ControlCenterData {
   codingPatchApplyReadiness: CodingPatchApplyReadinessReadModel;
   codingTestCommandReadiness: CodingTestCommandReadinessReadModel;
   codingGitReview: CodingGitReviewReadModel;
+  codingLivePreview: CodingLivePreviewReadModel;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;

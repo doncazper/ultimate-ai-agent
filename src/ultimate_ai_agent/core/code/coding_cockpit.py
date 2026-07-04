@@ -32,6 +32,10 @@ CODING_COCKPIT_TEST_COMMAND_ROUTE_REF = (
 )
 CODING_COCKPIT_GIT_REVIEW_REF = "git-review:coding-readonly-review-blocked-v1"
 CODING_COCKPIT_GIT_REVIEW_ROUTE_REF = "route-ref:control-center-coding-git-review"
+CODING_COCKPIT_LIVE_PREVIEW_REF = "live-preview:coding-status-blocked-v1"
+CODING_COCKPIT_LIVE_PREVIEW_ROUTE_REF = (
+    "route-ref:control-center-coding-live-preview"
+)
 CODING_COCKPIT_BACKEND_ROUTE_REF = "GET /control-center/coding/session"
 CODING_COCKPIT_CONTEXT_BACKEND_ROUTE_REF = "GET /control-center/coding/context"
 CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF = (
@@ -45,6 +49,9 @@ CODING_COCKPIT_TEST_COMMAND_BACKEND_ROUTE_REF = (
 )
 CODING_COCKPIT_GIT_REVIEW_BACKEND_ROUTE_REF = (
     "GET /control-center/coding/git-review"
+)
+CODING_COCKPIT_LIVE_PREVIEW_BACKEND_ROUTE_REF = (
+    "GET /control-center/coding/live-preview"
 )
 CODING_COCKPIT_FRONTEND_ROUTE_REF = "/coding"
 CODING_COCKPIT_REQUIRED_BLOCKED_REFS = [
@@ -90,6 +97,16 @@ GitReviewItemKind = Literal[
     "changed_files",
     "commit_proposal",
     "pr_description_proposal",
+]
+LivePreviewStatus = Literal["blocked_missing_live_preview_authority"]
+LivePreviewItemKind = Literal[
+    "dev_server_status",
+    "preview_url",
+    "screenshot",
+    "console_errors",
+    "visual_regression",
+    "route_checklist",
+    "viewport",
 ]
 
 
@@ -1142,6 +1159,216 @@ class CodingGitReviewReadModel(BaseModel):
         return self
 
 
+class CodingLivePreviewItemReadModel(BaseModel):
+    item_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1, max_length=120)
+    item_kind: LivePreviewItemKind
+    status: Literal["blocked", "planned", "proposal_ref"]
+    safe_summary: str = Field(..., min_length=1, max_length=420)
+    proof_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    raw_url_included: bool = False
+    screenshot_included: bool = False
+    console_output_included: bool = False
+    browser_automation_enabled: bool = False
+    dev_server_control_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_live_preview_item(self) -> "CodingLivePreviewItemReadModel":
+        for ref in [
+            self.item_ref,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+        ]:
+            validate_task_ref(ref, "coding_live_preview_item_ref")
+        for value in [
+            self.label,
+            self.item_kind,
+            self.status,
+            self.safe_summary,
+        ]:
+            validate_safe_task_text(value, "coding_live_preview_item_text")
+        if not self.blocked_authority_refs:
+            raise ValueError("live preview item needs blocker refs")
+        required_false_flags = {
+            "raw_url_included": self.raw_url_included,
+            "screenshot_included": self.screenshot_included,
+            "console_output_included": self.console_output_included,
+            "browser_automation_enabled": self.browser_automation_enabled,
+            "dev_server_control_enabled": self.dev_server_control_enabled,
+        }
+        enabled = [name for name, value in required_false_flags.items() if value]
+        if enabled:
+            raise ValueError(f"coding live preview item enabled {enabled[0]}")
+        return self
+
+
+class CodingLivePreviewReadModel(BaseModel):
+    schema_version: Literal["uaa-coding-live-preview.v1"] = (
+        "uaa-coding-live-preview.v1"
+    )
+    live_preview_ref: str = CODING_COCKPIT_LIVE_PREVIEW_REF
+    session_ref: str = CODING_COCKPIT_SESSION_REF
+    context_pack_ref: str = CODING_COCKPIT_CONTEXT_PACK_REF
+    patch_proposal_ref: str = CODING_COCKPIT_PATCH_PROPOSAL_REF
+    test_command_readiness_ref: str = CODING_COCKPIT_TEST_COMMAND_READINESS_REF
+    git_review_ref: str = CODING_COCKPIT_GIT_REVIEW_REF
+    route_ref: str = CODING_COCKPIT_LIVE_PREVIEW_ROUTE_REF
+    backend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_LIVE_PREVIEW_BACKEND_ROUTE_REF]
+    )
+    frontend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    )
+    cli_inspection_refs: list[str] = Field(
+        default_factory=lambda: ["scripts/dev/uaa_coding.py inspect-live-preview"]
+    )
+    docs_refs: list[str] = Field(
+        default_factory=lambda: [
+            "docs-ref:governed-code-workbench",
+            "docs-ref:coding-live-preview-blocker",
+            "docs-ref:operator-shell-gap-map",
+        ]
+    )
+    unblock_prompt_refs: list[str] = Field(
+        default_factory=lambda: ["prompt-ref:unblock-coding-live-preview"]
+    )
+    status: LivePreviewStatus = "blocked_missing_live_preview_authority"
+    title: str = Field(..., min_length=1, max_length=120)
+    full_strength_goal: str = Field(..., min_length=1, max_length=520)
+    repo_safe_current_state: str = Field(..., min_length=1, max_length=520)
+    safe_summary: str = Field(..., min_length=1, max_length=520)
+    dev_server_status_refs: list[str] = Field(default_factory=list)
+    preview_url_refs: list[str] = Field(default_factory=list)
+    screenshot_refs: list[str] = Field(default_factory=list)
+    visual_proof_refs: list[str] = Field(default_factory=list)
+    route_checklist_refs: list[str] = Field(default_factory=list)
+    viewport_refs: list[str] = Field(default_factory=list)
+    console_error_refs: list[str] = Field(default_factory=list)
+    preview_items: list[CodingLivePreviewItemReadModel] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    promotion_path_refs: list[str] = Field(default_factory=list)
+    redactions_applied: list[str] = Field(default_factory=list)
+    next_safe_action: str = Field(..., min_length=1, max_length=420)
+    backend_owned: bool = True
+    read_only: bool = True
+    status_only: bool = True
+    safe_refs_only: bool = True
+    raw_url_included: bool = False
+    raw_console_output_included: bool = False
+    screenshot_artifact_included: bool = False
+    screenshot_capture_enabled: bool = False
+    visual_regression_enabled: bool = False
+    console_capture_enabled: bool = False
+    dev_server_status_detection_enabled: bool = False
+    dev_server_start_enabled: bool = False
+    dev_server_stop_enabled: bool = False
+    browser_preview_enabled: bool = False
+    browser_automation_enabled: bool = False
+    browser_interaction_enabled: bool = False
+    network_fetch_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    file_write_enabled: bool = False
+    git_mutation_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    connector_write_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_live_preview(self) -> "CodingLivePreviewReadModel":
+        for ref in [
+            self.live_preview_ref,
+            self.session_ref,
+            self.context_pack_ref,
+            self.patch_proposal_ref,
+            self.test_command_readiness_ref,
+            self.git_review_ref,
+            self.route_ref,
+            *self.dev_server_status_refs,
+            *self.preview_url_refs,
+            *self.screenshot_refs,
+            *self.visual_proof_refs,
+            *self.route_checklist_refs,
+            *self.viewport_refs,
+            *self.console_error_refs,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+            *self.promotion_path_refs,
+            *self.redactions_applied,
+            *self.docs_refs,
+            *self.unblock_prompt_refs,
+        ]:
+            validate_task_ref(ref, "coding_live_preview_ref")
+        for value in (
+            self.backend_route_refs
+            + self.frontend_route_refs
+            + self.cli_inspection_refs
+            + [
+                self.status,
+                self.title,
+                self.full_strength_goal,
+                self.repo_safe_current_state,
+                self.safe_summary,
+                self.next_safe_action,
+            ]
+        ):
+            validate_safe_task_text(value, "coding_live_preview_text")
+        if not self.preview_items:
+            raise ValueError("live preview needs item refs")
+        item_refs = {item.item_ref for item in self.preview_items}
+        if len(item_refs) != len(self.preview_items):
+            raise ValueError("live preview item refs must be unique")
+        required_true_flags = {
+            "backend_owned": self.backend_owned,
+            "read_only": self.read_only,
+            "status_only": self.status_only,
+            "safe_refs_only": self.safe_refs_only,
+        }
+        disabled = [name for name, value in required_true_flags.items() if not value]
+        if disabled:
+            raise ValueError(f"coding live preview disabled {disabled[0]}")
+        required_false_flags = {
+            "raw_url_included": self.raw_url_included,
+            "raw_console_output_included": self.raw_console_output_included,
+            "screenshot_artifact_included": self.screenshot_artifact_included,
+            "screenshot_capture_enabled": self.screenshot_capture_enabled,
+            "visual_regression_enabled": self.visual_regression_enabled,
+            "console_capture_enabled": self.console_capture_enabled,
+            "dev_server_status_detection_enabled": (
+                self.dev_server_status_detection_enabled
+            ),
+            "dev_server_start_enabled": self.dev_server_start_enabled,
+            "dev_server_stop_enabled": self.dev_server_stop_enabled,
+            "browser_preview_enabled": self.browser_preview_enabled,
+            "browser_automation_enabled": self.browser_automation_enabled,
+            "browser_interaction_enabled": self.browser_interaction_enabled,
+            "network_fetch_enabled": self.network_fetch_enabled,
+            "shell_subprocess_execution_enabled": (
+                self.shell_subprocess_execution_enabled
+            ),
+            "file_write_enabled": self.file_write_enabled,
+            "git_mutation_enabled": self.git_mutation_enabled,
+            "provider_model_call_enabled": self.provider_model_call_enabled,
+            "connector_write_enabled": self.connector_write_enabled,
+            "production_authority_enabled": self.production_authority_enabled,
+        }
+        enabled = [name for name, value in required_false_flags.items() if value]
+        if enabled:
+            raise ValueError(f"coding live preview enabled {enabled[0]}")
+        payload = self.model_dump(mode="json")
+        validate_safe_task_payload(payload, "coding_live_preview")
+        return self
+
+
 class CodingCockpitSessionReadModel(BaseModel):
     schema_version: Literal["uaa-coding-cockpit-session.v1"] = (
         "uaa-coding-cockpit-session.v1"
@@ -1160,7 +1387,7 @@ class CodingCockpitSessionReadModel(BaseModel):
     active_command_proposal_ref: str = "command-proposal:coding-blocked-seed"
     active_git_ref: str = CODING_COCKPIT_GIT_REVIEW_REF
     active_proof_ref: str = "proof-ref:coding-cockpit-seed"
-    active_preview_ref: str = "preview-ref:coding-blocked-seed"
+    active_preview_ref: str = CODING_COCKPIT_LIVE_PREVIEW_REF
     backend_route_refs: list[str] = Field(
         default_factory=lambda: [CODING_COCKPIT_BACKEND_ROUTE_REF]
     )
@@ -1181,6 +1408,7 @@ class CodingCockpitSessionReadModel(BaseModel):
             "scripts/dev/uaa_coding.py inspect-patch-apply-readiness",
             "scripts/dev/uaa_coding.py inspect-test-command-readiness",
             "scripts/dev/uaa_coding.py inspect-git-review",
+            "scripts/dev/uaa_coding.py inspect-live-preview",
         ]
     )
     status: str = "implemented_read_only_cockpit_seed"
@@ -1544,6 +1772,23 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
                         "blocked-state:coding-no-git-status-reader",
                     ],
                 ),
+                CodingCockpitRefItem(
+                    item_ref=CODING_COCKPIT_LIVE_PREVIEW_REF,
+                    label="Live preview lane",
+                    status="blocked by Prompt 07 readiness",
+                    safe_summary=(
+                        "Preview status, URL, screenshot, visual proof, route "
+                        "checklist, and viewport refs are visible, but no dev "
+                        "server or browser authority is available."
+                    ),
+                    source_refs=[CODING_COCKPIT_PATCH_PROPOSAL_REF],
+                    evidence_refs=evidence_refs,
+                    proof_refs=proof_refs,
+                    blocked_authority_refs=[
+                        "blocked-state:coding-no-browser-automation",
+                        "blocked-state:coding-no-dev-server-control",
+                    ],
+                ),
             ],
             proof_refs=proof_refs,
             blocked_authority_refs=["blocked-state:coding-no-background-autonomy"],
@@ -1705,21 +1950,27 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             title="Live Preview",
             state="blocked",
             safe_summary=(
-                "Live preview panel is visible as a blocked lane; browser "
-                "automation and dev server control are not available."
+                "Live preview panel shows Prompt 07 status refs only; browser "
+                "automation, dev server control, screenshots, and console capture "
+                "are not available."
             ),
             items=[
                 CodingCockpitRefItem(
-                    item_ref="preview-ref:coding-blocked-seed",
-                    label="App preview placeholder",
+                    item_ref=CODING_COCKPIT_LIVE_PREVIEW_REF,
+                    label="Live preview readiness",
                     status="blocked",
-                    safe_summary="Preview status can be added later as a read model.",
+                    safe_summary=(
+                        "Dev server status, preview URL, screenshot, visual proof, "
+                        "route checklist, and viewport refs are present without "
+                        "runtime preview authority."
+                    ),
                     source_refs=["coding-session:local-readonly-cockpit"],
                     evidence_refs=evidence_refs,
                     proof_refs=proof_refs,
                     blocked_authority_refs=[
                         "blocked-state:coding-no-browser-automation",
                         "blocked-state:coding-no-shell-subprocess",
+                        "blocked-state:coding-no-dev-server-control",
                     ],
                 )
             ],
@@ -1727,8 +1978,9 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             blocked_authority_refs=[
                 "blocked-state:coding-no-browser-automation",
                 "blocked-state:coding-no-shell-subprocess",
+                "blocked-state:coding-no-dev-server-control",
             ],
-            next_safe_action="Add preview status refs before any browser interaction lane.",
+            next_safe_action="Inspect Prompt 07 live preview refs before any browser interaction lane.",
         ),
         chat_thread=CodingCockpitPreviewPanel(
             panel_ref="coding-panel:chat-thread",
@@ -1769,8 +2021,8 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             CODING_COCKPIT_TEST_COMMAND_READINESS_REF,
             "command-proposal:coding-blocked-seed",
             CODING_COCKPIT_GIT_REVIEW_REF,
+            CODING_COCKPIT_LIVE_PREVIEW_REF,
             "proof-ref:coding-cockpit-seed",
-            "preview-ref:coding-blocked-seed",
         ],
         blocked_authority_refs=blocked,
         promotion_path_refs=[
@@ -2472,5 +2724,182 @@ def build_coding_git_review() -> CodingGitReviewReadModel:
         next_safe_action=(
             "Run the unblock prompt only after read-only Git status, diff "
             "redaction, receipt, proof, and CLI contracts are in scope."
+        ),
+    )
+
+
+def build_coding_live_preview() -> CodingLivePreviewReadModel:
+    evidence_refs = ["evidence-ref:coding-live-preview"]
+    proof_refs = ["proof-ref:coding-live-preview"]
+    blocked_refs = [
+        "blocked-state:coding-no-shell-subprocess",
+        "blocked-state:coding-no-dev-server-status-detection",
+        "blocked-state:coding-no-dev-server-control",
+        "blocked-state:coding-no-preview-url-persistence",
+        "blocked-state:coding-no-screenshot-capture",
+        "blocked-state:coding-no-console-capture",
+        "blocked-state:coding-no-visual-regression",
+        "blocked-state:coding-no-browser-preview",
+        "blocked-state:coding-no-browser-automation",
+    ]
+    preview_items = [
+        CodingLivePreviewItemReadModel(
+            item_ref="preview-status-ref:coding-dev-server-posture",
+            label="Dev server status",
+            item_kind="dev_server_status",
+            status="blocked",
+            safe_summary=(
+                "Would show local dev server posture after a read-only status "
+                "manifest contract exists; no process is started or inspected now."
+            ),
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-shell-subprocess",
+                "blocked-state:coding-no-dev-server-status-detection",
+            ],
+        ),
+        CodingLivePreviewItemReadModel(
+            item_ref="preview-url-ref:coding-local-preview-required",
+            label="Preview URL",
+            item_kind="preview_url",
+            status="proposal_ref",
+            safe_summary=(
+                "Would link an operator-supplied or manifest-owned preview URL ref "
+                "after redaction and persistence contracts exist."
+            ),
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-preview-url-persistence",
+                "blocked-state:coding-no-browser-preview",
+            ],
+        ),
+        CodingLivePreviewItemReadModel(
+            item_ref="screenshot-ref:coding-preview-required",
+            label="Screenshot proof",
+            item_kind="screenshot",
+            status="blocked",
+            safe_summary=(
+                "Would attach an existing screenshot artifact ref after artifact "
+                "ownership, redaction, and proof contracts exist."
+            ),
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-screenshot-capture",
+                "blocked-state:coding-no-browser-automation",
+            ],
+        ),
+        CodingLivePreviewItemReadModel(
+            item_ref="console-error-ref:coding-preview-required",
+            label="Console errors",
+            item_kind="console_errors",
+            status="blocked",
+            safe_summary=(
+                "Would show bounded console-error summary refs after browser "
+                "observe and redaction contracts are approved."
+            ),
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-console-capture",
+                "blocked-state:coding-no-browser-preview",
+            ],
+        ),
+        CodingLivePreviewItemReadModel(
+            item_ref="visual-proof-ref:coding-regression-required",
+            label="Visual regression proof",
+            item_kind="visual_regression",
+            status="blocked",
+            safe_summary=(
+                "Would compare screenshot refs against visual baselines after "
+                "artifact capture and verifier contracts exist."
+            ),
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-visual-regression",
+                "blocked-state:coding-no-screenshot-capture",
+            ],
+        ),
+        CodingLivePreviewItemReadModel(
+            item_ref="route-checklist-ref:coding-preview-required",
+            label="Route checklist",
+            item_kind="route_checklist",
+            status="planned",
+            safe_summary=(
+                "Would track operator-selected route refs for visual QA without "
+                "navigating a browser until exact authority exists."
+            ),
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-browser-automation",
+                "blocked-state:coding-no-browser-preview",
+            ],
+        ),
+        CodingLivePreviewItemReadModel(
+            item_ref="viewport-ref:coding-preview-required",
+            label="Viewport matrix",
+            item_kind="viewport",
+            status="planned",
+            safe_summary=(
+                "Would track desktop and mobile viewport refs after visual proof "
+                "contracts exist."
+            ),
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-browser-automation",
+                "blocked-state:coding-no-visual-regression",
+            ],
+        ),
+    ]
+    return CodingLivePreviewReadModel(
+        title="Live preview readiness",
+        full_strength_goal=(
+            "Show local dev server status, browser preview, console errors, "
+            "screenshots, visual regression proof, route checklists, and mobile "
+            "and desktop preview evidence."
+        ),
+        repo_safe_current_state=(
+            "Prompt 07 records live preview refs only. No dev server process is "
+            "started or inspected, no URL is persisted, no browser is opened, no "
+            "screenshot is captured, and no console output is read."
+        ),
+        safe_summary=(
+            "Live preview remains blocked until UAA has dev-server status, URL "
+            "redaction, browser observe, screenshot artifact, visual proof, "
+            "receipt, proof, and CLI contracts."
+        ),
+        dev_server_status_refs=["preview-status-ref:coding-dev-server-posture"],
+        preview_url_refs=["preview-url-ref:coding-local-preview-required"],
+        screenshot_refs=["screenshot-ref:coding-preview-required"],
+        visual_proof_refs=["visual-proof-ref:coding-regression-required"],
+        route_checklist_refs=["route-checklist-ref:coding-preview-required"],
+        viewport_refs=["viewport-ref:coding-preview-required"],
+        console_error_refs=["console-error-ref:coding-preview-required"],
+        preview_items=preview_items,
+        proof_refs=proof_refs,
+        evidence_refs=evidence_refs,
+        blocked_authority_refs=blocked_refs,
+        promotion_path_refs=[
+            "promotion-path:coding-dev-server-status-contract",
+            "promotion-path:coding-preview-url-redaction",
+            "promotion-path:coding-browser-observe-contract",
+            "promotion-path:coding-screenshot-artifact-contract",
+            "promotion-path:coding-visual-proof-contract",
+        ],
+        redactions_applied=[
+            "redaction-ref:safe-refs-only",
+            "redaction-ref:raw-url-omitted",
+            "redaction-ref:raw-console-output-omitted",
+            "redaction-ref:screenshot-artifact-omitted",
+        ],
+        next_safe_action=(
+            "Run the unblock prompt only after dev-server status, URL redaction, "
+            "browser observe, screenshot artifact, visual proof, receipt, proof, "
+            "and CLI contracts are in scope."
         ),
     )

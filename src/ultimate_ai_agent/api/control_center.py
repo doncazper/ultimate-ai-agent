@@ -19,6 +19,7 @@ from ultimate_ai_agent.core.control_center.operational_status import (
 from ultimate_ai_agent.core.code import (
     build_coding_cockpit_session_seed,
     build_coding_git_review,
+    build_coding_live_preview,
     build_coding_patch_apply_readiness,
     build_coding_patch_proposal_preview,
     build_coding_test_command_readiness,
@@ -173,6 +174,20 @@ def get_control_center_coding_git_review() -> ResultEnvelope:
         data=review.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:coding-git-review"}],
         redactions_applied=review.redactions_applied,
+    )
+
+
+@router.get("/coding/live-preview", response_model=ResultEnvelope)
+def get_control_center_coding_live_preview() -> ResultEnvelope:
+    preview = build_coding_live_preview()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_coding_live_preview",
+        service="ControlCenterCodingAPI",
+        trace_id=preview.live_preview_ref,
+        data=preview.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:coding-live-preview"}],
+        redactions_applied=preview.redactions_applied,
     )
 
 

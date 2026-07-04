@@ -162,6 +162,7 @@ def test_beta_12_control_center_shell_extraction_ownership_is_frozen() -> None:
         ("GET", "/control-center/coding/patch-apply-readiness"),
         ("GET", "/control-center/coding/patch-proposal"),
         ("GET", "/control-center/coding/git-review"),
+        ("GET", "/control-center/coding/live-preview"),
         ("GET", "/control-center/coding/test-command-readiness"),
         ("POST", "/control-center/actions/preview"),
     }

@@ -387,6 +387,39 @@ function baseRouteData(): Record<string, unknown> {
     connector_write_enabled: false,
     production_authority_enabled: false,
   };
+  const backendOwnedCodingLivePreview = {
+    ...mockControlCenterData.codingLivePreview,
+    live_preview_ref: "live-preview:coding-summary-endpoint-test",
+    session_ref: "coding-session:summary-endpoint-test",
+    context_pack_ref: "context-pack:coding-summary-endpoint-test",
+    patch_proposal_ref: "patch-proposal:coding-summary-endpoint-test",
+    test_command_readiness_ref:
+      "test-command-readiness:coding-summary-endpoint-test",
+    git_review_ref: "git-review:coding-summary-endpoint-test",
+    backend_owned: true,
+    read_only: true,
+    status_only: true,
+    safe_refs_only: true,
+    raw_url_included: false,
+    raw_console_output_included: false,
+    screenshot_artifact_included: false,
+    screenshot_capture_enabled: false,
+    visual_regression_enabled: false,
+    console_capture_enabled: false,
+    dev_server_status_detection_enabled: false,
+    dev_server_start_enabled: false,
+    dev_server_stop_enabled: false,
+    browser_preview_enabled: false,
+    browser_automation_enabled: false,
+    browser_interaction_enabled: false,
+    network_fetch_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    file_write_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+  };
   return {
     [API_ENDPOINTS.controlCenterManifest]: mockControlCenterData.manifest,
     [API_ENDPOINTS.controlCenterDashboard]: mockControlCenterData.dashboard,
@@ -415,6 +448,8 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.controlCenterCodingTestCommandReadiness]:
       backendOwnedCodingTestCommandReadiness,
     [API_ENDPOINTS.controlCenterCodingGitReview]: backendOwnedCodingGitReview,
+    [API_ENDPOINTS.controlCenterCodingLivePreview]:
+      backendOwnedCodingLivePreview,
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:
