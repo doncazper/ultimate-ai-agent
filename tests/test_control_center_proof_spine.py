@@ -15,6 +15,12 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
     FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
 )
+from ultimate_ai_agent.core.control_center.proof import (
+    ControlCenterProofRecord,
+    _operator_run_event_ref,
+    _run_detail_ref,
+    _with_run_detail,
+)
 from ultimate_ai_agent.core.storage import FounderLoopRepository
 from ultimate_ai_agent.core.storage.founder_loop import FounderLoopActionRecord
 
@@ -37,6 +43,25 @@ def _assert_no_runtime_authority(payload: dict) -> None:
         "raw_content_included\": true",
     ]:
         assert forbidden not in text
+
+
+def _assert_run_detail_matches_record(record: dict) -> None:
+    run_detail = record["run_detail"]
+    assert run_detail["schema_version"] == "control-center-proof-run-detail.v1"
+    assert run_detail["source"] == "python_core_control_center_proof_run_detail"
+    assert run_detail["proof_ref"] == record["proof_ref"]
+    assert run_detail["proof_kind"] == record["proof_kind"]
+    assert run_detail["run_ref"] in run_detail["related_run_refs"]
+    assert run_detail["safe_refs_only"] is True
+    assert run_detail["raw_content_included"] is False
+    assert run_detail["control_center_presentation_only"] is True
+    assert run_detail["full_strength_goal"].startswith("Every action")
+    assert "Backend-owned safe refs" in run_detail["repo_safe_scope"]
+    assert "remain blocked" in run_detail["blocked_authority_summary"]
+    assert run_detail["exact_promotion_path_refs"]
+    assert run_detail["operator_run_event_refs"]
+    assert run_detail["blocked_authority_refs"]
+    assert run_detail["next_safe_action"]
 
 
 def _seed_blocked_actions_with_late_approved_local_task(
@@ -110,7 +135,56 @@ def test_proof_index_covers_universal_product_event_kinds(tmp_path: Path) -> Non
         assert record["raw_content_included"] is False
         assert record["blocked_authority_refs"]
         assert record["next_safe_action"]
+        _assert_run_detail_matches_record(record)
     _assert_no_runtime_authority(index)
+
+
+def test_run_detail_derived_refs_include_digest_for_long_safe_ref_collisions() -> None:
+    first = (
+        "proof-ref:action-decision:"
+        "same-long-prefix-that-would-otherwise-collide-"
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:first"
+    )
+    second = (
+        "proof-ref:action-decision:"
+        "same-long-prefix-that-would-otherwise-collide-"
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:second"
+    )
+
+    first_detail_ref = _run_detail_ref(first)
+    second_detail_ref = _run_detail_ref(second)
+    first_event_ref = _operator_run_event_ref(first, "action_decision")
+    second_event_ref = _operator_run_event_ref(second, "action_decision")
+
+    assert first_detail_ref != second_detail_ref
+    assert first_event_ref != second_event_ref
+    assert "sha256" in first_detail_ref
+    assert "sha256" in second_detail_ref
+    assert "sha256" in first_event_ref
+    assert "sha256" in second_event_ref
+
+
+def test_run_detail_attachment_backfills_parent_run_ref_for_parity() -> None:
+    record = ControlCenterProofRecord(
+        proof_ref="proof-ref:test:run-detail-backfill",
+        proof_kind="daily_loop",
+        status="read_only",
+        title="Run Detail Backfill",
+        safe_summary="Safe test proof record.",
+        authority_posture="Read-only proof inspection only.",
+        route_refs=["route-ref:control-center:proof"],
+        backend_route_refs=["GET /control-center/proof/index"],
+        run_refs=[],
+        evidence_refs=["evidence-ref:test:proof"],
+        blocked_authority_refs=["blocked-state:proof-detail:no-runtime-execution"],
+        next_safe_action="Inspect safe refs only.",
+    )
+
+    attached = _with_run_detail(record)
+
+    assert attached.run_refs
+    assert attached.run_detail is not None
+    assert attached.run_detail.run_ref in attached.run_refs
 
 
 def test_daily_loop_surface_proof_refs_resolve_to_universal_proof_index(
@@ -228,6 +302,7 @@ def test_proof_detail_returns_same_backend_owned_record(tmp_path: Path) -> None:
     assert detail["requested_proof_ref"] == proof_ref
     assert detail["record"]["proof_ref"] == proof_ref
     assert detail["record"] == index["records"][0]
+    _assert_run_detail_matches_record(detail["record"])
     _assert_no_runtime_authority(detail)
 
 
@@ -243,6 +318,7 @@ def test_proof_api_routes_are_read_only_safe_refs() -> None:
 
     assert index_payload["backend_owned"] is True
     assert detail_payload["record"]["proof_ref"] == proof_ref
+    _assert_run_detail_matches_record(detail_payload["record"])
     assert index_response.json()["redactions_applied"] == [
         "safe_refs_only",
         "bounded_summaries_only",
@@ -261,6 +337,7 @@ def test_proof_detail_missing_ref_fails_closed() -> None:
     payload = response.json()["data"]
     assert payload["requested_proof_ref"] == proof_ref
     assert payload["record"]["status"] == "missing_proof_ref"
+    _assert_run_detail_matches_record(payload["record"])
     assert "blocked-state:proof-detail:proof-ref-not-found" in (
         payload["record"]["blocked_authority_refs"]
     )

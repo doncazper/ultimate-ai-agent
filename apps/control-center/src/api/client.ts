@@ -2683,8 +2683,96 @@ function isSafeProofRecord(value: unknown): boolean {
     value.browser_execution_enabled === false &&
     value.shell_subprocess_execution_enabled === false &&
     value.background_autonomy_enabled === false &&
-    value.production_authority_enabled === false
+    value.production_authority_enabled === false &&
+    isSafeProofRunDetail(value.run_detail, value)
   );
+}
+
+function isSafeProofRunDetail(
+  value: unknown,
+  record: Record<string, unknown>,
+): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const deniedFlags = [
+    "provider_model_call_enabled",
+    "runtime_model_call_enabled",
+    "connector_write_enabled",
+    "connector_send_enabled",
+    "browser_execution_enabled",
+    "shell_subprocess_execution_enabled",
+    "background_autonomy_enabled",
+    "production_authority_enabled",
+  ] as const;
+  const stringFields = [
+    "run_detail_ref",
+    "proof_ref",
+    "proof_kind",
+    "run_ref",
+    "status",
+    "title",
+    "safe_summary",
+    "authority_posture",
+    "full_strength_goal",
+    "repo_safe_scope",
+    "blocked_authority_summary",
+    "cli_ref",
+    "redaction_state",
+    "next_safe_action",
+  ] as const;
+  const refArrays = [
+    "exact_promotion_path_refs",
+    "related_run_refs",
+    "operator_run_event_refs",
+    "receipt_refs",
+    "evidence_refs",
+    "audit_refs",
+    "approval_refs",
+    "rollback_refs",
+    "safe_disable_refs",
+    "memory_candidate_refs",
+    "blocked_authority_refs",
+  ] as const;
+  return (
+    value.schema_version === "control-center-proof-run-detail.v1" &&
+    value.contract_ref === "contract-ref:control-center-proof-spine:v1" &&
+    value.source === "python_core_control_center_proof_run_detail" &&
+    value.safe_refs_only === true &&
+    value.raw_content_included === false &&
+    value.control_center_presentation_only === true &&
+    value.proof_ref === record.proof_ref &&
+    value.proof_kind === record.proof_kind &&
+    hasDeniedFlagsFalse(value, deniedFlags) &&
+    hasStringFields(value, stringFields) &&
+    hasStringArrays(value, ["route_refs", "backend_route_refs"]) &&
+    hasSafeProofRunDetailRefArrays(value, refArrays) &&
+    (value.related_run_refs as string[]).includes(String(value.run_ref)) &&
+    stringFields.every((field) => isSafeEvidenceNarrativeText(value[field]))
+  );
+}
+
+function hasSafeProofRunDetailRefArrays(
+  record: Record<string, unknown>,
+  fields: readonly string[],
+): boolean {
+  return fields.every((field) => {
+    const value = record[field];
+    return Array.isArray(value) && value.every(isSafeProofRunDetailRef);
+  });
+}
+
+function isSafeProofRunDetailRef(value: unknown): value is string {
+  if (!isSafeEvidenceNarrativeText(value)) {
+    return false;
+  }
+  if (value.includes("@") || value.includes("\\")) {
+    return false;
+  }
+  if (value.includes("/") && !value.startsWith("evidence-timeline:")) {
+    return false;
+  }
+  return /^[A-Za-z0-9:_./-]+$/.test(value);
 }
 
 function normalizeTrustAuthorityMatrix(

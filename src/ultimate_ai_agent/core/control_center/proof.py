@@ -70,6 +70,111 @@ _ACTION_PROOF_NEXT_ITEM_GROUP_ORDER = (
 )
 
 
+class ControlCenterProofRunDetail(BaseModel):
+    schema_version: str = "control-center-proof-run-detail.v1"
+    contract_ref: str = CONTROL_CENTER_PROOF_CONTRACT_REF
+    source: str = "python_core_control_center_proof_run_detail"
+    run_detail_ref: str = Field(..., min_length=1)
+    proof_ref: str = Field(..., min_length=1)
+    proof_kind: ProofKind
+    run_ref: str = FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF
+    status: str = Field(..., min_length=1, max_length=160)
+    title: str = Field(..., min_length=1, max_length=160)
+    safe_summary: str = Field(..., min_length=1, max_length=700)
+    authority_posture: str = Field(..., min_length=1, max_length=700)
+    full_strength_goal: str = (
+        "Every action, approval, evidence event, memory decision, local task "
+        "commit, and setup/package event opens coherent Proof and Run Detail."
+    )
+    repo_safe_scope: str = (
+        "Backend-owned safe refs, bounded summaries, route refs, receipts, "
+        "rollback/safe-disable refs, and blocked authority refs only."
+    )
+    blocked_authority_summary: str = (
+        "Provider/model calls, connector writes or sends, browser automation, "
+        "shell execution, background autonomy, public release claims, and "
+        "production authority remain blocked."
+    )
+    exact_promotion_path_refs: list[str] = Field(default_factory=list)
+    route_refs: list[str] = Field(default_factory=list)
+    backend_route_refs: list[str] = Field(default_factory=list)
+    cli_ref: str = CONTROL_CENTER_PROOF_CLI_REF
+    related_run_refs: list[str] = Field(default_factory=list)
+    operator_run_event_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    audit_refs: list[str] = Field(default_factory=list)
+    approval_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    safe_disable_refs: list[str] = Field(default_factory=list)
+    memory_candidate_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list, min_length=1)
+    redaction_state: str = "safe_refs_and_bounded_summaries_only"
+    next_safe_action: str = Field(..., min_length=1, max_length=500)
+    safe_refs_only: bool = True
+    raw_content_included: bool = False
+    control_center_presentation_only: bool = True
+    provider_model_call_enabled: bool = False
+    runtime_model_call_enabled: bool = False
+    connector_write_enabled: bool = False
+    connector_send_enabled: bool = False
+    browser_execution_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    background_autonomy_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_run_detail(self) -> "ControlCenterProofRunDetail":
+        if self.schema_version != "control-center-proof-run-detail.v1":
+            raise ValueError("Proof run detail schema drift")
+        if self.contract_ref != CONTROL_CENTER_PROOF_CONTRACT_REF:
+            raise ValueError("Proof run detail contract drift")
+        if self.source != "python_core_control_center_proof_run_detail":
+            raise ValueError("Proof run detail source drift")
+        for field_name in ("run_detail_ref", "proof_ref", "run_ref"):
+            validate_execution_ref(str(getattr(self, field_name)), field_name)
+        if self.run_ref not in self.related_run_refs:
+            raise ValueError("Proof run detail must include its run ref")
+        for field_name in (
+            "proof_kind",
+            "status",
+            "title",
+            "safe_summary",
+            "authority_posture",
+            "full_strength_goal",
+            "repo_safe_scope",
+            "blocked_authority_summary",
+            "cli_ref",
+            "redaction_state",
+            "next_safe_action",
+        ):
+            validate_safe_execution_text(str(getattr(self, field_name)), field_name)
+        for field_name in (
+            "exact_promotion_path_refs",
+            "related_run_refs",
+            "operator_run_event_refs",
+            "receipt_refs",
+            "evidence_refs",
+            "audit_refs",
+            "approval_refs",
+            "rollback_refs",
+            "safe_disable_refs",
+            "memory_candidate_refs",
+            "blocked_authority_refs",
+        ):
+            _validate_ref_list(getattr(self, field_name), field_name)
+        _validate_text_list(self.route_refs, "route_refs")
+        _validate_text_list(self.backend_route_refs, "backend_route_refs")
+        if not self.safe_refs_only or self.raw_content_included:
+            raise ValueError("Proof run detail must stay safe-ref only")
+        for flag in _DENIED_FLAGS:
+            if getattr(self, flag):
+                raise ValueError(f"Proof run detail must not enable {flag}")
+        return self
+
+
 class ControlCenterProofRecord(BaseModel):
     schema_version: str = "control-center-proof-record.v1"
     contract_ref: str = CONTROL_CENTER_PROOF_CONTRACT_REF
@@ -104,6 +209,7 @@ class ControlCenterProofRecord(BaseModel):
     shell_subprocess_execution_enabled: bool = False
     background_autonomy_enabled: bool = False
     production_authority_enabled: bool = False
+    run_detail: ControlCenterProofRunDetail | None = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -139,6 +245,15 @@ class ControlCenterProofRecord(BaseModel):
             _validate_ref_list(getattr(self, field_name), field_name)
         _validate_text_list(self.route_refs, "route_refs")
         _validate_text_list(self.backend_route_refs, "backend_route_refs")
+        if self.run_detail is not None:
+            if self.run_detail.proof_ref != self.proof_ref:
+                raise ValueError("Proof record run detail proof ref drift")
+            if self.run_detail.proof_kind != self.proof_kind:
+                raise ValueError("Proof record run detail proof kind drift")
+            if not self.run_refs:
+                raise ValueError("Proof record run refs required with run detail")
+            if self.run_detail.run_ref not in self.run_refs:
+                raise ValueError("Proof record run detail run ref drift")
         if not self.safe_refs_only or self.raw_content_included:
             raise ValueError("Proof record must stay safe-ref only")
         for flag in _DENIED_FLAGS:
@@ -185,6 +300,8 @@ class ControlCenterProofIndex(BaseModel):
             raise ValueError("Proof index count drift")
         if self.proof_refs != [record.proof_ref for record in self.records]:
             raise ValueError("Proof index refs must match records")
+        if any(record.run_detail is None for record in self.records):
+            raise ValueError("Proof index records must include run detail")
         for field_name in (
             "status",
             "index_route_ref",
@@ -237,6 +354,8 @@ class ControlCenterProofDetail(BaseModel):
         validate_execution_ref(self.requested_proof_ref, "requested_proof_ref")
         if self.requested_proof_ref != self.record.proof_ref:
             raise ValueError("Proof detail requested ref must match record")
+        if self.record.run_detail is None:
+            raise ValueError("Proof detail record must include run detail")
         _validate_ref_list(self.blocked_authority_refs, "blocked_authority_refs")
         if not self.backend_owned or not self.local_read_model_only:
             raise ValueError("Proof detail must remain backend-owned local read model")
@@ -286,6 +405,7 @@ def build_control_center_proof_detail(
                 "blocked-state:proof-detail:proof-ref-not-found",
             ],
         )
+        record = _with_run_detail(record)
     model = ControlCenterProofDetail(
         requested_proof_ref=proof_ref,
         record=record,
@@ -307,7 +427,7 @@ def _proof_records(today_summary: dict[str, Any]) -> list[ControlCenterProofReco
     records.append(_source_readiness_record(today_summary))
     records.append(_approval_record(today_summary))
     records.append(_setup_package_record(today_summary))
-    return _dedupe_records(records)
+    return _attach_run_details(_dedupe_records(records))
 
 
 def _daily_loop_record(
@@ -722,6 +842,90 @@ def _dedupe_records(
     return result
 
 
+def _attach_run_details(
+    records: list[ControlCenterProofRecord],
+) -> list[ControlCenterProofRecord]:
+    return [_with_run_detail(record) for record in records]
+
+
+def _with_run_detail(record: ControlCenterProofRecord) -> ControlCenterProofRecord:
+    run_ref = (
+        record.run_refs[0]
+        if record.run_refs
+        else FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF
+    )
+    run_refs = _merge_refs(record.run_refs, [run_ref])
+    run_detail = ControlCenterProofRunDetail(
+        run_detail_ref=_run_detail_ref(record.proof_ref),
+        proof_ref=record.proof_ref,
+        proof_kind=record.proof_kind,
+        run_ref=run_ref,
+        status=record.status,
+        title=record.title,
+        safe_summary=(
+            f"Run Detail for {record.title} ties proof, run, receipt, "
+            "evidence, approval, rollback, safe-disable, memory, and blocked "
+            "authority refs without raw payloads."
+        ),
+        authority_posture=record.authority_posture,
+        exact_promotion_path_refs=_promotion_path_refs_for_kind(record.proof_kind),
+        route_refs=record.route_refs,
+        backend_route_refs=_merge_text_refs(
+            record.backend_route_refs,
+            [record.detail_route_ref],
+        ),
+        related_run_refs=_merge_refs(record.run_refs, [run_ref]),
+        operator_run_event_refs=[
+            _operator_run_event_ref(record.proof_ref, record.proof_kind)
+        ],
+        receipt_refs=record.receipt_refs,
+        evidence_refs=record.evidence_refs,
+        audit_refs=record.audit_refs,
+        approval_refs=record.approval_refs,
+        rollback_refs=record.rollback_refs,
+        safe_disable_refs=record.safe_disable_refs,
+        memory_candidate_refs=record.memory_candidate_refs,
+        blocked_authority_refs=record.blocked_authority_refs,
+        next_safe_action=record.next_safe_action,
+    )
+    data = record.model_dump()
+    data["run_refs"] = run_refs
+    data["run_detail"] = run_detail
+    return ControlCenterProofRecord.model_validate(data)
+
+
+def _run_detail_ref(proof_ref: str) -> str:
+    suffix = _safe_hashed_suffix(proof_ref, limit=72)
+    ref = f"run-detail-ref:control-center-proof:{suffix}"
+    validate_execution_ref(ref, "run_detail_ref")
+    return ref
+
+
+def _operator_run_event_ref(proof_ref: str, proof_kind: ProofKind) -> str:
+    suffix = _safe_hashed_suffix(proof_ref, limit=56)
+    kind = str(proof_kind).replace("_", "-")
+    ref = f"operator-run-event-ref:proof:{kind}:{suffix}"
+    validate_execution_ref(ref, "operator_run_event_ref")
+    return ref
+
+
+def _safe_hashed_suffix(value: str, *, limit: int) -> str:
+    safe = _SAFE_SUFFIX_RE.sub("-", value.lower()).strip("-")[:limit].strip("-")
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+    return f"{safe or 'missing'}-sha256-{digest}"
+
+
+def _promotion_path_refs_for_kind(proof_kind: ProofKind) -> list[str]:
+    kind = str(proof_kind).replace("_", "-")
+    return [
+        "promotion-path-ref:proof-run-spine:detail-route-parity",
+        "promotion-path-ref:proof-run-spine:receipt-evidence-binding",
+        "promotion-path-ref:proof-run-spine:rollback-safe-disable-binding",
+        "promotion-path-ref:proof-run-spine:cli-inspection-parity",
+        f"promotion-path-ref:proof-run-spine:{kind}",
+    ]
+
+
 def _actions_for_proof_index(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     selected = list(actions[:6])
     next_action = _next_action_for_proof(actions)
@@ -794,6 +998,19 @@ def _merge_refs(*groups: Any) -> list[str]:
     for group in groups:
         refs.extend(_refs(group))
     return _unique_refs(refs)
+
+
+def _merge_text_refs(*groups: list[str]) -> list[str]:
+    values: list[str] = []
+    seen: set[str] = set()
+    for group in groups:
+        for value in group:
+            if value in seen:
+                continue
+            validate_safe_execution_text(value, "text_ref")
+            seen.add(value)
+            values.append(value)
+    return values
 
 
 def _unique_refs(values: list[str]) -> list[str]:

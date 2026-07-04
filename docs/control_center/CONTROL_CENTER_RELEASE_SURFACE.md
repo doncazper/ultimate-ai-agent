@@ -192,3 +192,20 @@ This is read-model, CLI, UI, and verifier hardening only; it adds no
 provider/model call, connector send/write, browser automation,
 shell/subprocess execution, broad memory write, runtime context injection,
 public distribution, or production authority.
+
+Beta 04 hardens the Universal Proof and Run Detail spine across the same
+repo-safe daily loop. Full-strength target: every action, approval, evidence
+event, memory decision, local task commit, setup/package event, and future
+coding/operator run opens one coherent Proof and Run Detail view. Repo-safe
+version: each backend-owned proof record carries a
+`control-center-proof-run-detail.v1` safe-ref snapshot with route refs, receipt
+refs, evidence refs, audit refs, rollback or safe-disable refs, blocked
+authority refs, and exact promotion-path refs; Control Center renders those
+refs as inspection-only route, receipt, evidence, audit, memory, blocked, and
+promotion-path groups while CLI output exposes the complete proof records.
+Blocked / needs authority: provider/model calls, connector writes or sends,
+browser automation, shell/subprocess execution, background autonomy, public
+release claims, and production authority remain blocked. Exact promotion path:
+graduate one lane at a time with exact scope, approval binding, idempotency,
+redacted receipts, rollback or safe-disable posture, CLI parity, frontend truth
+labels, and focused tests/verifiers.

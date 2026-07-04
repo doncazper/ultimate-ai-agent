@@ -830,6 +830,40 @@ def verify(root: Path = ROOT) -> list[str]:
                 failures.append(f"M39 context proposal boundary copy missing in {context_proposal_panel.relative_to(root)}: {marker}")
         failures.extend(_m39_context_proposal_component_failures(context_proposal_panel.relative_to(root), text))
 
+    proof_panel = app_root / "src/components/ProofDetailPanel.tsx"
+    if proof_panel.exists():
+        text = proof_panel.read_text(encoding="utf-8")
+        for marker in [
+            "RunDetailPanel",
+            "run_detail_ref",
+            "aria-label={`Inspect proof ${record.title}`}",
+            "aria-pressed={selected?.proof_ref === record.proof_ref}",
+            "source",
+            "cli_ref",
+            "redaction_state",
+            "full_strength_goal",
+            "repo_safe_scope",
+            "route_refs",
+            "backend_route_refs",
+            "related_run_refs",
+            "operator_run_event_refs",
+            "receipt_refs",
+            "evidence_refs",
+            "audit_refs",
+            "memory_candidate_refs",
+            "rollback_refs",
+            "safe_disable_refs",
+            "blocked_authority_refs",
+            "exact_promotion_path_refs",
+            "blocked_authority_summary",
+            "proof-record-button",
+        ]:
+            if marker not in text:
+                failures.append(
+                    "Proof Detail run-detail spine marker missing in "
+                    f"{proof_panel.relative_to(root)}: {marker}"
+                )
+
     routes = app_root / "src/routes.tsx"
     if routes.exists():
         text = routes.read_text(encoding="utf-8")
@@ -1001,6 +1035,29 @@ def verify(root: Path = ROOT) -> list[str]:
                     )
         if "resolveApiBaseUrl" not in text:
             failures.append("frontend client must resolve API base through local backend policy")
+        for fragment in [
+            "isSafeProofRunDetail",
+            "control-center-proof-run-detail.v1",
+            "python_core_control_center_proof_run_detail",
+            "provider_model_call_enabled",
+            "connector_write_enabled",
+            "browser_execution_enabled",
+            "shell_subprocess_execution_enabled",
+        ]:
+            if fragment not in text:
+                failures.append(f"frontend Proof Run Detail guard is missing: {fragment}")
+    types_file = app_root / "src/api/types.ts"
+    if types_file.exists():
+        text = types_file.read_text(encoding="utf-8")
+        for fragment in [
+            "ControlCenterProofRunDetail",
+            'schema_version: "control-center-proof-run-detail.v1"',
+            '"python_core_control_center_proof_run_detail"',
+            '"mock_control_center_proof_run_detail_non_authoritative"',
+            "run_detail: ControlCenterProofRunDetail | null",
+        ]:
+            if fragment not in text:
+                failures.append(f"frontend Proof Run Detail type is missing: {fragment}")
     if base_url.exists():
         text = base_url.read_text(encoding="utf-8")
         required_policy_fragments = [

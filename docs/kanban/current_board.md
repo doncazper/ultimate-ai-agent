@@ -32,6 +32,14 @@ Product Loop 012 now adds the Private product loop trial script as a
 local/private, safe-ref-only manual operator review artifact with
 `scripts/inspect_product_loop_trial_script.py` CLI parity and no authority
 promotion.
+Beta 04 Universal Proof and Run Detail spine now hardens the repo-safe proof
+surface by requiring each backend-owned Universal Proof record to carry a
+`control-center-proof-run-detail.v1` safe-ref snapshot with route, receipt,
+evidence, audit, rollback or safe-disable, blocked-authority, and
+promotion-path refs. This is inspection/proof hardening only and adds no
+provider/model calls, connector writes or sends, browser automation,
+shell/subprocess execution, background autonomy, public distribution,
+production readiness, or production authority.
 The `context_injection` prerequisite contract is contract-ready for future
 gate review only. It is not selected as a micro-lane, adds no runtime
 prompt/context injection route or Control Center control, and keeps runtime

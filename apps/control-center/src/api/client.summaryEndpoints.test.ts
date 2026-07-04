@@ -196,6 +196,15 @@ function baseRouteData(): Record<string, unknown> {
     source: "python_core_control_center_proof_index" as const,
     backend_owned: true,
     status: "implemented_backend_owned_universal_proof_index",
+    records: mockControlCenterData.proofIndex.records.map((record) => ({
+      ...record,
+      run_detail: record.run_detail
+        ? {
+            ...record.run_detail,
+            source: "python_core_control_center_proof_run_detail" as const,
+          }
+        : record.run_detail,
+    })),
   };
   const backendOwnedTrustAuthorityMatrix = {
     ...mockControlCenterData.trustAuthorityMatrix,

@@ -116,8 +116,8 @@
         "mobile": "visual-baseline-file:mobile:proof"
       },
       "baseline_hashes": {
-        "desktop": "sha256:cac82ca84f45df4b22988e52db2343374de2397b28555baa4bebfccb67c55c90",
-        "mobile": "sha256:170f44b5a19e1b37726523a32dbc7f71e1913857b0d23628a164a060f9b95c95"
+        "desktop": "sha256:b0f21a529fa686bee8d19120f2359ca3c606e8c0b992be5d92f24119001add8c",
+        "mobile": "sha256:8af721c063c226884cec63d2e1324bbe9b587f71a81da2051acd0815ad5f0fa1"
       },
       "raw_private_screenshot_included": false
     },

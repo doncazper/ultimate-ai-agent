@@ -396,6 +396,15 @@ main {
   font-size: 1.45rem;
 }
 
+.proof-metric-grid .metric-card {
+  min-width: 0;
+}
+
+.proof-metric-grid .metric-card strong {
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
 .start-here-metric-grid .metric-card strong {
   line-height: 1.18;
   overflow-wrap: anywhere;
@@ -1423,6 +1432,31 @@ main {
 .detail-grid dd {
   margin: 4px 0 0;
   overflow-wrap: anywhere;
+}
+
+.proof-detail-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.proof-record-button {
+  width: 100%;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.proof-record-button.selected {
+  outline: 2px solid rgba(59, 130, 246, 0.55);
+}
+
+.proof-record-button[aria-pressed="true"] {
+  border-color: rgba(59, 130, 246, 0.72);
+}
+
+.run-detail-panel h4 {
+  margin: 0 0 0.5rem;
 }
 
 .visually-hidden {
