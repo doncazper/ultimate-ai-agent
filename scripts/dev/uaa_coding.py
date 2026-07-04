@@ -11,12 +11,22 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from ultimate_ai_agent.core.code import build_coding_cockpit_session_seed  # noqa: E402
+from ultimate_ai_agent.core.code import (  # noqa: E402
+    build_coding_cockpit_session_seed,
+    build_coding_workspace_context_preview,
+)
 
 
 def inspect_session(args: argparse.Namespace) -> int:
     session = build_coding_cockpit_session_seed()
     payload = session.model_dump(mode="json")
+    print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
+    return 0
+
+
+def inspect_context(args: argparse.Namespace) -> int:
+    context = build_coding_workspace_context_preview()
+    payload = context.model_dump(mode="json")
     print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
     return 0
 
@@ -36,6 +46,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pretty-print the safe JSON read model.",
     )
     inspect.set_defaults(func=inspect_session)
+    context = subparsers.add_parser(
+        "inspect-context",
+        help="Print the backend-owned read-only Coding Cockpit context preview.",
+    )
+    context.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print the safe JSON read model.",
+    )
+    context.set_defaults(func=inspect_context)
     return parser
 
 

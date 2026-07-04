@@ -4,6 +4,7 @@ import type {
   ActionPreviewRequest,
   BackendConnectionSummary,
   CodingCockpitSessionReadModel,
+  CodingWorkspaceContextReadModel,
   ControlCenterDashboardSnapshot,
   ControlCenterData,
   ControlCenterLocalModelsStatus,
@@ -298,6 +299,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<CodingCockpitSessionReadModel>(
       API_ENDPOINTS.controlCenterCodingSession,
     ),
+    readEnvelope<CodingWorkspaceContextReadModel>(
+      API_ENDPOINTS.controlCenterCodingContext,
+    ),
   ] as const);
 
   const manifest = fulfilledValue(results[0]);
@@ -339,6 +343,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const proofIndex = fulfilledValue(results[30]);
   const trustAuthorityMatrix = fulfilledValue(results[31]);
   const codingSession = fulfilledValue(results[32]);
+  const codingContext = fulfilledValue(results[33]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
   const normalizedProofIndex = normalizeProofIndex(proofIndex);
@@ -428,11 +433,13 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       route: "/coding",
       surfaceLabel: "Coding",
       backendRouteRef: "GET /control-center/coding/session",
-      endpointReturned: codingSession !== undefined,
+      endpointReturned: codingSession !== undefined && codingContext !== undefined,
       usedFallback:
         codingSession === undefined ||
         codingSession.mock_fallback === true ||
-        codingSession.backend_owned !== true,
+        codingSession.backend_owned !== true ||
+        codingContext === undefined ||
+        codingContext.backend_owned !== true,
     }),
     routeReadStateInput({
       route: "/memory",
@@ -496,7 +503,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const codingSessionFallbackUsed =
     codingSession === undefined ||
     codingSession.mock_fallback === true ||
-    codingSession.backend_owned !== true;
+    codingSession.backend_owned !== true ||
+    codingContext === undefined ||
+    codingContext.backend_owned !== true;
   const approvalQueueEndpointFallbackUsed = approvalQueue === undefined;
   const runObservabilityEndpointFallbackUsed =
     safeObservedRunObservability === undefined;
@@ -512,6 +521,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeReadiness === undefined ||
     capabilityMatrix === undefined ||
     codingSession === undefined ||
+    codingContext === undefined ||
     setupAssistantSource === undefined ||
     providerCatalog === undefined ||
     controlCenterSettingsStatus === undefined ||
@@ -545,6 +555,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         founderMorningBriefing:
           normalizeFounderMorningBriefing(undefined).value,
         codingSession: mockControlCenterData.codingSession,
+        codingContext: mockControlCenterData.codingContext,
       },
       {
         state: "mock_fallback",
@@ -586,6 +597,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     proofIndex: normalizedProofIndex.value,
     trustAuthorityMatrix: normalizedTrustAuthorityMatrix.value,
     codingSession: codingSession ?? mockControlCenterData.codingSession,
+    codingContext: codingContext ?? mockControlCenterData.codingContext,
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
     founderMemoryReview: normalizedFounderMemoryReview.value,
     founderMemoryWorkbench: normalizedFounderMemoryWorkbench.value,

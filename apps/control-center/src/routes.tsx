@@ -476,6 +476,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
     case "/coding":
       return (
         <CodingCockpitPanel
+          context={data.codingContext}
           authoritative={isAuthoritativeConnection(data)}
           session={data.codingSession}
         />

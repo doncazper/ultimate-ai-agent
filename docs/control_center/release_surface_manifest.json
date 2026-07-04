@@ -2540,6 +2540,13 @@
       "backend_routes": [
         {
           "method": "GET",
+          "path": "/control-center/coding/context",
+          "operation_id": "get_control_center_coding_context",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
           "path": "/control-center/coding/session",
           "operation_id": "get_control_center_coding_session",
           "side_effect_class": "local_dev_workspace_only",
@@ -2556,7 +2563,6 @@
         "apps/control-center/src/App.test.tsx"
       ],
       "blocked_capabilities": [
-        "missing_backend:coding-context-pack-preview-route",
         "missing_backend:coding-patch-proposal-artifacts",
         "missing_backend:coding-approved-patch-apply-route",
         "missing_backend:coding-allowlisted-command-receipts",

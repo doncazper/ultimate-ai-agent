@@ -53,6 +53,7 @@ CAPABILITIES_DECLARED = [
     "control_center_founder_loop_storage_summaries",
     "control_center_run_observability_read_model",
     "control_center_coding_cockpit_session_read_model",
+    "control_center_coding_context_pack_preview_read_model",
     "control_center_today_summary",
     "control_center_action_inbox_summary",
     "control_center_today_to_action_envelope_promotion",

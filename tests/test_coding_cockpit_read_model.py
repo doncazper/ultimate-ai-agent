@@ -13,11 +13,15 @@ from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.code import (
     CODING_COCKPIT_BACKEND_ROUTE_REF,
+    CODING_COCKPIT_CONTEXT_BACKEND_ROUTE_REF,
+    CODING_COCKPIT_CONTEXT_PACK_REF,
     CODING_COCKPIT_FRONTEND_ROUTE_REF,
     CODING_COCKPIT_REQUIRED_BLOCKED_REFS,
     CODING_COCKPIT_SESSION_REF,
     CodingCockpitSessionReadModel,
+    CodingWorkspaceContextReadModel,
     build_coding_cockpit_session_seed,
+    build_coding_workspace_context_preview,
 )
 
 
@@ -44,7 +48,7 @@ def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
     assert session.same_ref_spine == [
         "coding-session:local-readonly-cockpit",
         "coding-task:cockpit-shell-seed",
-        "context-pack:coding-cockpit-seed",
+        CODING_COCKPIT_CONTEXT_PACK_REF,
         "patch-proposal:coding-blocked-seed",
         "command-proposal:coding-blocked-seed",
         "git-status:coding-readonly-seed",
@@ -54,6 +58,7 @@ def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
     assert "Local coding cockpit" in session.full_strength_goal
     assert "Prompt 01 seed" in session.repo_safe_scope
     assert "scripts/dev/uaa_coding.py inspect-session" in session.cli_inspection_refs
+    assert "scripts/dev/uaa_coding.py inspect-context" in session.cli_inspection_refs
     assert all(not panel.mutation_enabled for panel in _coding_panels(session))
     assert all(not panel.runtime_authority_enabled for panel in _coding_panels(session))
     assert all(item.proof_refs for panel in _coding_panels(session) for item in panel.items)
@@ -91,6 +96,58 @@ def test_coding_cockpit_session_rejects_panel_mutation_authority() -> None:
         CodingCockpitSessionReadModel(**payload)
 
 
+def test_coding_context_pack_preview_is_backend_owned_safe_refs_only() -> None:
+    context = build_coding_workspace_context_preview()
+    payload = context.model_dump(mode="json")
+
+    assert context.schema_version == "uaa-coding-workspace-context.v1"
+    assert context.context_pack_ref == CODING_COCKPIT_CONTEXT_PACK_REF
+    assert context.backend_route_refs == [CODING_COCKPIT_CONTEXT_BACKEND_ROUTE_REF]
+    assert context.frontend_route_refs == [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    assert context.backend_owned is True
+    assert context.read_only is True
+    assert context.preview_only is True
+    assert context.safe_refs_only is True
+    assert context.raw_paths_included is False
+    assert context.raw_content_included is False
+    assert context.repo_file_read_performed is False
+    assert context.file_write_enabled is False
+    assert context.shell_subprocess_execution_enabled is False
+    assert context.git_mutation_enabled is False
+    assert context.provider_model_call_enabled is False
+    assert context.browser_automation_enabled is False
+    assert context.connector_write_enabled is False
+    assert context.production_authority_enabled is False
+    assert context.token_estimate_total == sum(
+        item.token_estimate for item in context.context_refs if item.included_in_preview
+    )
+    assert context.token_budget_remaining == (
+        context.token_budget_limit - context.token_estimate_total
+    )
+    assert context.operator_selected_refs
+    assert context.agent_selected_refs
+    assert context.excluded_refs
+    assert context.comparison
+    assert "/Users/" not in json.dumps(payload)
+
+
+def test_coding_context_rejects_raw_paths_and_runtime_authority() -> None:
+    payload = build_coding_workspace_context_preview().model_dump(mode="json")
+    payload["raw_paths_included"] = True
+    with pytest.raises(ValidationError, match="raw_paths_included"):
+        CodingWorkspaceContextReadModel(**payload)
+
+    payload = build_coding_workspace_context_preview().model_dump(mode="json")
+    payload["context_refs"][0]["raw_content_included"] = True
+    with pytest.raises(ValidationError, match="raw content"):
+        CodingWorkspaceContextReadModel(**payload)
+
+    payload = build_coding_workspace_context_preview().model_dump(mode="json")
+    payload["file_write_enabled"] = True
+    with pytest.raises(ValidationError, match="file_write_enabled"):
+        CodingWorkspaceContextReadModel(**payload)
+
+
 def test_control_center_coding_session_route_returns_safe_read_model() -> None:
     client = TestClient(app)
     response = client.get("/control-center/coding/session")
@@ -124,10 +181,38 @@ def test_control_center_coding_session_route_returns_safe_read_model() -> None:
     )
 
 
+def test_control_center_coding_context_route_returns_safe_read_model() -> None:
+    client = TestClient(app)
+    response = client.get("/control-center/coding/context")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "control_center_coding_context"
+    assert body["service"] == "ControlCenterCodingAPI"
+    assert body["trace_id"] == CODING_COCKPIT_CONTEXT_PACK_REF
+    assert body["redactions_applied"] == [
+        "redaction-ref:safe-refs-only",
+        "redaction-ref:raw-paths-omitted",
+        "redaction-ref:raw-content-omitted",
+        "redaction-ref:protected-context-blocked",
+    ]
+
+    data = body["data"]
+    assert data["backend_owned"] is True
+    assert data["read_only"] is True
+    assert data["safe_refs_only"] is True
+    assert data["raw_paths_included"] is False
+    assert data["raw_content_included"] is False
+    assert data["repo_file_read_performed"] is False
+    assert data["file_write_enabled"] is False
+
+
 def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_model() -> None:
     manifest = build_api_manifest(app)
     routes = {(route.method, route.path): route for route in manifest.routes}
     route = routes[("GET", "/control-center/coding/session")]
+    context_route = routes[("GET", "/control-center/coding/context")]
 
     assert route.operation_id == "get_control_center_coding_session"
     assert route.tags == ["control-center"]
@@ -135,7 +220,16 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
     assert route.route_classification == "local_sensitive"
     assert route.approval_posture == "not_required_for_route_classification"
     assert route.idempotency_required is False
+    assert context_route.operation_id == "get_control_center_coding_context"
+    assert context_route.tags == ["control-center"]
+    assert context_route.side_effect_class == "local_dev_workspace_only"
+    assert context_route.route_classification == "local_sensitive"
+    assert context_route.approval_posture == "not_required_for_route_classification"
+    assert context_route.idempotency_required is False
     assert "control_center_coding_cockpit_session_read_model" in (
+        manifest.capabilities_declared
+    )
+    assert "control_center_coding_context_pack_preview_read_model" in (
         manifest.capabilities_declared
     )
     for capability in [
@@ -165,6 +259,25 @@ def test_coding_cockpit_cli_inspection_prints_same_safe_session() -> None:
     assert data["backend_owned"] is True
     assert data["mock_fallback"] is False
     assert data["frontend_route_refs"] == [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    assert "/Users/" not in result.stdout
+    assert "credential" not in result.stdout.lower()
+
+
+def test_coding_context_cli_inspection_prints_same_safe_context() -> None:
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/dev/uaa_coding.py"), "inspect-context"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    data = json.loads(result.stdout)
+
+    assert data["context_pack_ref"] == CODING_COCKPIT_CONTEXT_PACK_REF
+    assert data["backend_owned"] is True
+    assert data["read_only"] is True
+    assert data["safe_refs_only"] is True
+    assert data["repo_file_read_performed"] is False
     assert "/Users/" not in result.stdout
     assert "credential" not in result.stdout.lower()
 

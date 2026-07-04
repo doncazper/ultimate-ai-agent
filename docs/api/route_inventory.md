@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `170`.
+Current OpenAPI path count: `171`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -189,14 +189,16 @@ readiness, or execute rollback.
 ### Control Center Coding Cockpit
 
 - `GET /control-center/coding/session`
+- `GET /control-center/coding/context`
 
-This route returns the repo-safe Coding Cockpit shell seed as a backend-owned
-read model for `/coding`. It exposes safe workspace, context, task, diff,
-terminal preview, Git preview, test output, live preview, proof, and authority
-posture refs only. It does not write files, run shell/subprocess commands,
-mutate Git state, call providers or models, automate browsers, write
-connectors, launch background agents, persist raw paths or raw content, or
-grant production authority.
+These routes return the repo-safe Coding Cockpit shell seed and read-only
+context-pack preview as backend-owned read models for `/coding`. They expose
+safe workspace, context, task, diff, terminal preview, Git preview, test output,
+live preview, proof, context comparison, budget, redaction, and authority
+posture refs only. They do not write files, read or persist raw file content,
+run shell/subprocess commands, mutate Git state, call providers or models,
+automate browsers, write connectors, launch background agents, persist raw
+paths or raw content, or grant production authority.
 
 ### Control Center Founder Loop summaries
 

@@ -4,7 +4,7 @@
   "baseline": "v0.104.0 / 0.104.0",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
-  "openapi_path_count": 170,
+  "openapi_path_count": 171,
   "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",
   "allowed_release_statuses": [
     "status_available_not_completion",
@@ -995,6 +995,13 @@
       "current_backend_routes": [
         {
           "method": "GET",
+          "path": "/control-center/coding/context",
+          "operation_id": "get_control_center_coding_context",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
           "path": "/control-center/coding/session",
           "operation_id": "get_control_center_coding_session",
           "side_effect_class": "local_dev_workspace_only",
@@ -1002,7 +1009,6 @@
         }
       ],
       "missing_backend_routes": [
-        "coding-context-pack-preview-route",
         "coding-patch-proposal-artifacts",
         "coding-approved-patch-apply-route",
         "coding-allowlisted-command-receipts",
@@ -2382,6 +2388,13 @@
       "backend_routes": [
         {
           "method": "GET",
+          "path": "/control-center/coding/context",
+          "operation_id": "get_control_center_coding_context",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
           "path": "/control-center/coding/session",
           "operation_id": "get_control_center_coding_session",
           "side_effect_class": "local_dev_workspace_only",
@@ -2389,7 +2402,6 @@
         }
       ],
       "missing_backend_routes": [
-        "coding-context-pack-preview-route",
         "coding-patch-proposal-artifacts",
         "coding-approved-patch-apply-route",
         "coding-allowlisted-command-receipts",

@@ -281,6 +281,89 @@ export interface CodingCockpitSessionReadModel {
   production_authority_enabled: boolean;
 }
 
+export type CodingContextRefKind =
+  | "file"
+  | "folder"
+  | "exclude_rule"
+  | "search_ref";
+
+export type CodingContextRefStatus =
+  | "included"
+  | "excluded"
+  | "candidate"
+  | "blocked";
+
+export interface CodingContextRefReadModel {
+  context_ref: string;
+  label: string;
+  ref_kind: CodingContextRefKind;
+  status: CodingContextRefStatus;
+  include_reason: string;
+  token_estimate: number;
+  operator_selected: boolean;
+  agent_selected: boolean;
+  included_in_preview: boolean;
+  excluded_from_preview: boolean;
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  raw_path_included: boolean;
+  raw_content_included: boolean;
+}
+
+export interface CodingContextComparisonReadModel {
+  comparison_ref: string;
+  label: string;
+  operator_context_ref: string;
+  agent_context_ref: string;
+  status: "aligned" | "operator_only" | "agent_only" | "blocked";
+  safe_summary: string;
+  proof_refs: string[];
+}
+
+export interface CodingWorkspaceContextReadModel {
+  schema_version: "uaa-coding-workspace-context.v1";
+  context_pack_ref: string;
+  session_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  status: "read_only_context_pack_preview";
+  budget_state: "within_budget" | "near_limit" | "over_limit_blocked";
+  token_budget_limit: number;
+  token_estimate_total: number;
+  token_budget_remaining: number;
+  context_refs: CodingContextRefReadModel[];
+  operator_selected_refs: string[];
+  agent_selected_refs: string[];
+  excluded_refs: string[];
+  search_refs: string[];
+  comparison: CodingContextComparisonReadModel[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  preview_only: boolean;
+  safe_refs_only: boolean;
+  raw_paths_included: boolean;
+  raw_content_included: boolean;
+  repo_file_read_performed: boolean;
+  file_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  git_mutation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface RuntimeReadinessSummary {
   status: string;
   production_ready: boolean;
@@ -7426,6 +7509,7 @@ export interface ControlCenterData {
   proofIndex: ControlCenterProofIndex;
   trustAuthorityMatrix: TrustAuthorityMatrix;
   codingSession: CodingCockpitSessionReadModel;
+  codingContext: CodingWorkspaceContextReadModel;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;

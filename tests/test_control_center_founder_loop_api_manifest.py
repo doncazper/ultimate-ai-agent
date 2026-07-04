@@ -68,6 +68,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/proof/{proof_ref}",
         "/control-center/trust-authority/matrix",
         "/control-center/coding/session",
+        "/control-center/coding/context",
         "/control-center/evidence/timeline",
         "/control-center/memory/l1-index",
         "/control-center/memory/l2-index",
@@ -95,6 +96,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/proof/{proof_ref}": "get_control_center_proof_proof_ref",
         "/control-center/trust-authority/matrix": "get_control_center_trust_authority_matrix",
         "/control-center/coding/session": "get_control_center_coding_session",
+        "/control-center/coding/context": "get_control_center_coding_context",
     }
     for path, operation_id in expected_operation_ids.items():
         assert path in routes
@@ -226,6 +228,10 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
     )
     assert (
         "control_center_coding_cockpit_session_read_model"
+        in manifest.capabilities_declared
+    )
+    assert (
+        "control_center_coding_context_pack_preview_read_model"
         in manifest.capabilities_declared
     )
     for blocked_capability in [

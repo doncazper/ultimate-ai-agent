@@ -2,6 +2,7 @@ import type {
   CodingCockpitPreviewPanel,
   CodingCockpitRefItem,
   CodingCockpitSessionReadModel,
+  CodingWorkspaceContextReadModel,
   ControlCenterData,
   ControlCenterProofIndex,
   ControlCenterRouteReadState,
@@ -33,8 +34,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 170;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 69;
+export const MOCK_OPENAPI_ROUTE_COUNT = 171;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 70;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -426,6 +427,106 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
   browser_automation_enabled: false,
   connector_write_enabled: false,
   background_autonomy_enabled: false,
+  production_authority_enabled: false,
+};
+
+const mockCodingContext: CodingWorkspaceContextReadModel = {
+  schema_version: "uaa-coding-workspace-context.v1",
+  context_pack_ref: "context-pack:coding-cockpit-mock",
+  session_ref: "coding-session:mock-fallback",
+  route_ref: "route-ref:control-center-coding-context",
+  backend_route_refs: ["GET /control-center/coding/context"],
+  frontend_route_refs: ["/coding"],
+  cli_inspection_refs: ["scripts/dev/uaa_coding.py inspect-context"],
+  docs_refs: [
+    "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+    "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+  ],
+  status: "read_only_context_pack_preview",
+  budget_state: "within_budget",
+  token_budget_limit: 24000,
+  token_estimate_total: 1000,
+  token_budget_remaining: 23000,
+  context_refs: [
+    {
+      context_ref: "context-ref:coding-mock-core",
+      label: "Mock context ref",
+      ref_kind: "file",
+      status: "included",
+      include_reason:
+        "Fallback context exists only to preserve the cockpit layout.",
+      token_estimate: 1000,
+      operator_selected: true,
+      agent_selected: true,
+      included_in_preview: true,
+      excluded_from_preview: false,
+      safe_summary: "Non-authoritative context ref.",
+      source_refs: ["context-pack:coding-cockpit-mock"],
+      evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+      proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+      blocked_authority_refs: codingCockpitBlockedRefs,
+      raw_path_included: false,
+      raw_content_included: false,
+    },
+    {
+      context_ref: "context-ref:coding-mock-protected-config",
+      label: "Mock excluded ref",
+      ref_kind: "exclude_rule",
+      status: "excluded",
+      include_reason:
+        "Fallback keeps protected and generated context visibly excluded.",
+      token_estimate: 0,
+      operator_selected: false,
+      agent_selected: false,
+      included_in_preview: false,
+      excluded_from_preview: true,
+      safe_summary: "Excluded fallback context ref.",
+      source_refs: ["context-pack:coding-cockpit-mock"],
+      evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+      proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+      blocked_authority_refs: ["blocked-state:coding-no-protected-context"],
+      raw_path_included: false,
+      raw_content_included: false,
+    },
+  ],
+  operator_selected_refs: ["context-ref:coding-mock-core"],
+  agent_selected_refs: ["context-ref:coding-mock-core"],
+  excluded_refs: ["context-ref:coding-mock-protected-config"],
+  search_refs: [],
+  comparison: [
+    {
+      comparison_ref: "context-comparison:coding-mock-aligned",
+      label: "Mock alignment",
+      operator_context_ref: "context-ref:coding-mock-core",
+      agent_context_ref: "context-ref:coding-mock-core",
+      status: "aligned",
+      safe_summary: "Fallback comparison is not workflow truth.",
+      proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+    },
+  ],
+  proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+  evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+  blocked_authority_refs: codingCockpitBlockedRefs,
+  redactions_applied: [
+    "redaction-ref:safe-refs-only",
+    "redaction-ref:raw-paths-omitted",
+    "redaction-ref:raw-content-omitted",
+  ],
+  next_safe_action:
+    "Restore backend-owned context preview before trusting context refs.",
+  backend_owned: false,
+  read_only: true,
+  preview_only: true,
+  safe_refs_only: true,
+  raw_paths_included: false,
+  raw_content_included: false,
+  repo_file_read_performed: false,
+  file_write_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  git_mutation_enabled: false,
+  provider_model_call_enabled: false,
+  browser_automation_enabled: false,
+  connector_write_enabled: false,
   production_authority_enabled: false,
 };
 
@@ -8223,6 +8324,7 @@ export const mockControlCenterData: ControlCenterData = {
   proofIndex,
   trustAuthorityMatrix,
   codingSession: mockCodingSession,
+  codingContext: mockCodingContext,
   founderToday: {
     schema_version: "founder_loop_storage.v1",
     status: "mock_storage_backed_partial_loop",

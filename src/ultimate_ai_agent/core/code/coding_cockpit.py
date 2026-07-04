@@ -13,8 +13,11 @@ from ultimate_ai_agent.core.planning.validation import (
 
 CODING_COCKPIT_CONTRACT_REF = "contract-ref:coding-cockpit-shell:v1"
 CODING_COCKPIT_SESSION_REF = "coding-session:local-readonly-cockpit"
+CODING_COCKPIT_CONTEXT_PACK_REF = "context-pack:coding-cockpit-preview-v1"
 CODING_COCKPIT_ROUTE_REF = "route-ref:control-center-coding-session"
+CODING_COCKPIT_CONTEXT_ROUTE_REF = "route-ref:control-center-coding-context"
 CODING_COCKPIT_BACKEND_ROUTE_REF = "GET /control-center/coding/session"
+CODING_COCKPIT_CONTEXT_BACKEND_ROUTE_REF = "GET /control-center/coding/context"
 CODING_COCKPIT_FRONTEND_ROUTE_REF = "/coding"
 CODING_COCKPIT_REQUIRED_BLOCKED_REFS = [
     "blocked-state:coding-no-file-write",
@@ -38,6 +41,9 @@ CockpitPanelState = Literal[
     "planned",
 ]
 CockpitTaskStatus = Literal["read_only_seed", "proposal_only_blocked_runtime"]
+ContextRefKind = Literal["file", "folder", "exclude_rule", "search_ref"]
+ContextRefStatus = Literal["included", "excluded", "candidate", "blocked"]
+ContextBudgetState = Literal["within_budget", "near_limit", "over_limit_blocked"]
 
 
 class CodingCockpitAuthorityMode(BaseModel):
@@ -128,6 +134,216 @@ class CodingCockpitPreviewPanel(BaseModel):
         return self
 
 
+class CodingContextRefReadModel(BaseModel):
+    context_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1, max_length=120)
+    ref_kind: ContextRefKind
+    status: ContextRefStatus
+    include_reason: str = Field(..., min_length=1, max_length=360)
+    token_estimate: int = Field(..., ge=0, le=25000)
+    operator_selected: bool = False
+    agent_selected: bool = False
+    included_in_preview: bool = False
+    excluded_from_preview: bool = False
+    safe_summary: str = Field(..., min_length=1, max_length=420)
+    source_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    raw_path_included: bool = False
+    raw_content_included: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_context_ref(self) -> "CodingContextRefReadModel":
+        validate_task_ref(self.context_ref, "context_ref")
+        for ref in (
+            self.source_refs
+            + self.evidence_refs
+            + self.proof_refs
+            + self.blocked_authority_refs
+        ):
+            validate_task_ref(ref, "context_ref_link")
+        for value in [
+            self.label,
+            self.ref_kind,
+            self.status,
+            self.include_reason,
+            self.safe_summary,
+        ]:
+            validate_safe_task_text(value, "coding_context_ref_text")
+        if self.raw_path_included:
+            raise ValueError("coding context ref cannot include raw paths")
+        if self.raw_content_included:
+            raise ValueError("coding context ref cannot include raw content")
+        if self.status == "included" and not self.included_in_preview:
+            raise ValueError("included context ref must be in preview")
+        if self.status == "excluded" and not self.excluded_from_preview:
+            raise ValueError("excluded context ref must be excluded from preview")
+        return self
+
+
+class CodingContextComparisonReadModel(BaseModel):
+    comparison_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1, max_length=120)
+    operator_context_ref: str = Field(..., min_length=1)
+    agent_context_ref: str = Field(..., min_length=1)
+    status: Literal["aligned", "operator_only", "agent_only", "blocked"]
+    safe_summary: str = Field(..., min_length=1, max_length=420)
+    proof_refs: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_comparison(self) -> "CodingContextComparisonReadModel":
+        for ref in [
+            self.comparison_ref,
+            self.operator_context_ref,
+            self.agent_context_ref,
+            *self.proof_refs,
+        ]:
+            validate_task_ref(ref, "context_comparison_ref")
+        for value in [self.label, self.status, self.safe_summary]:
+            validate_safe_task_text(value, "context_comparison_text")
+        return self
+
+
+class CodingWorkspaceContextReadModel(BaseModel):
+    schema_version: Literal["uaa-coding-workspace-context.v1"] = (
+        "uaa-coding-workspace-context.v1"
+    )
+    context_pack_ref: str = CODING_COCKPIT_CONTEXT_PACK_REF
+    session_ref: str = CODING_COCKPIT_SESSION_REF
+    route_ref: str = CODING_COCKPIT_CONTEXT_ROUTE_REF
+    backend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_CONTEXT_BACKEND_ROUTE_REF]
+    )
+    frontend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    )
+    cli_inspection_refs: list[str] = Field(
+        default_factory=lambda: ["scripts/dev/uaa_coding.py inspect-context"]
+    )
+    docs_refs: list[str] = Field(
+        default_factory=lambda: [
+            "docs-ref:governed-code-workbench",
+            "docs-ref:operator-shell-gap-map",
+        ]
+    )
+    status: Literal["read_only_context_pack_preview"] = (
+        "read_only_context_pack_preview"
+    )
+    budget_state: ContextBudgetState = "within_budget"
+    token_budget_limit: int = Field(default=24000, ge=1, le=250000)
+    token_estimate_total: int = Field(default=0, ge=0, le=250000)
+    token_budget_remaining: int = Field(default=0, ge=0, le=250000)
+    context_refs: list[CodingContextRefReadModel] = Field(default_factory=list)
+    operator_selected_refs: list[str] = Field(default_factory=list)
+    agent_selected_refs: list[str] = Field(default_factory=list)
+    excluded_refs: list[str] = Field(default_factory=list)
+    search_refs: list[str] = Field(default_factory=list)
+    comparison: list[CodingContextComparisonReadModel] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    redactions_applied: list[str] = Field(default_factory=list)
+    next_safe_action: str = Field(..., min_length=1, max_length=420)
+    backend_owned: bool = True
+    read_only: bool = True
+    preview_only: bool = True
+    safe_refs_only: bool = True
+    raw_paths_included: bool = False
+    raw_content_included: bool = False
+    repo_file_read_performed: bool = False
+    file_write_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    git_mutation_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    browser_automation_enabled: bool = False
+    connector_write_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_context(self) -> "CodingWorkspaceContextReadModel":
+        for ref in [
+            self.context_pack_ref,
+            self.session_ref,
+            self.route_ref,
+            *self.operator_selected_refs,
+            *self.agent_selected_refs,
+            *self.excluded_refs,
+            *self.search_refs,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+            *self.redactions_applied,
+            *self.docs_refs,
+        ]:
+            validate_task_ref(ref, "coding_context_pack_ref")
+        for value in (
+            self.backend_route_refs
+            + self.frontend_route_refs
+            + self.cli_inspection_refs
+            + [self.status, self.budget_state, self.next_safe_action]
+        ):
+            validate_safe_task_text(value, "coding_context_pack_text")
+        if self.token_estimate_total != sum(
+            item.token_estimate for item in self.context_refs if item.included_in_preview
+        ):
+            raise ValueError("context token estimate must match included refs")
+        if self.token_budget_remaining != max(
+            self.token_budget_limit - self.token_estimate_total, 0
+        ):
+            raise ValueError("context token budget remaining is inconsistent")
+        included_refs = {
+            item.context_ref for item in self.context_refs if item.included_in_preview
+        }
+        if not set(self.operator_selected_refs).issubset(included_refs):
+            raise ValueError("operator selected refs must be included")
+        if not set(self.agent_selected_refs).issubset(included_refs):
+            raise ValueError("agent selected refs must be included")
+        context_ref_set = {item.context_ref for item in self.context_refs}
+        if not set(self.search_refs).issubset(context_ref_set):
+            raise ValueError("search refs must exist in context refs")
+        excluded_context_ref_set = {
+            item.context_ref for item in self.context_refs if item.excluded_from_preview
+        }
+        if not set(self.excluded_refs).issubset(
+            excluded_context_ref_set
+        ):
+            raise ValueError("excluded refs must be excluded")
+        required_false_flags = {
+            "raw_paths_included": self.raw_paths_included,
+            "raw_content_included": self.raw_content_included,
+            "repo_file_read_performed": self.repo_file_read_performed,
+            "file_write_enabled": self.file_write_enabled,
+            "shell_subprocess_execution_enabled": (
+                self.shell_subprocess_execution_enabled
+            ),
+            "git_mutation_enabled": self.git_mutation_enabled,
+            "provider_model_call_enabled": self.provider_model_call_enabled,
+            "browser_automation_enabled": self.browser_automation_enabled,
+            "connector_write_enabled": self.connector_write_enabled,
+            "production_authority_enabled": self.production_authority_enabled,
+        }
+        enabled = [name for name, value in required_false_flags.items() if value]
+        if enabled:
+            raise ValueError(f"coding context enabled {enabled[0]}")
+        required_true_flags = {
+            "backend_owned": self.backend_owned,
+            "read_only": self.read_only,
+            "preview_only": self.preview_only,
+            "safe_refs_only": self.safe_refs_only,
+        }
+        disabled = [name for name, value in required_true_flags.items() if not value]
+        if disabled:
+            raise ValueError(f"coding context disabled {disabled[0]}")
+        return self
+
+
 class CodingCockpitSessionReadModel(BaseModel):
     schema_version: Literal["uaa-coding-cockpit-session.v1"] = (
         "uaa-coding-cockpit-session.v1"
@@ -141,7 +357,7 @@ class CodingCockpitSessionReadModel(BaseModel):
     authority_profile_ref: str = "authority-profile:coding:read-only"
     active_agent_ref: str = "agent-ref:coding:codex-slot"
     active_task_ref: str = "coding-task:cockpit-shell-seed"
-    active_context_pack_ref: str = "context-pack:coding-cockpit-seed"
+    active_context_pack_ref: str = CODING_COCKPIT_CONTEXT_PACK_REF
     active_patch_proposal_ref: str = "patch-proposal:coding-blocked-seed"
     active_command_proposal_ref: str = "command-proposal:coding-blocked-seed"
     active_git_ref: str = "git-status:coding-readonly-seed"
@@ -160,7 +376,10 @@ class CodingCockpitSessionReadModel(BaseModel):
         ]
     )
     cli_inspection_refs: list[str] = Field(
-        default_factory=lambda: ["scripts/dev/uaa_coding.py inspect-session"]
+        default_factory=lambda: [
+            "scripts/dev/uaa_coding.py inspect-session",
+            "scripts/dev/uaa_coding.py inspect-context",
+        ]
     )
     status: str = "implemented_read_only_cockpit_seed"
     task_status: CockpitTaskStatus = "read_only_seed"
@@ -389,16 +608,16 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             title="Workspace Context",
             state="backend_owned",
             safe_summary=(
-                "Workspace panel seeds pinned context, excluded noisy refs, and "
-                "context budget posture without storing raw file paths."
+                "Workspace panel renders the Prompt 02 context-pack preview with "
+                "pinned refs, excluded noisy refs, and budget posture."
             ),
             items=[
                 CodingCockpitRefItem(
                     item_ref="context-item:coding-pinned-files",
                     label="Pinned refs",
-                    status="read-only seed",
-                    safe_summary="Operator-selected file refs are planned for Prompt 03.",
-                    source_refs=["context-pack:coding-cockpit-seed"],
+                    status="read-only preview",
+                    safe_summary="Operator-selected safe refs are visible without raw paths.",
+                    source_refs=[CODING_COCKPIT_CONTEXT_PACK_REF],
                     evidence_refs=evidence_refs,
                     proof_refs=proof_refs,
                     blocked_authority_refs=["blocked-state:coding-no-file-write"],
@@ -406,9 +625,9 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
                 CodingCockpitRefItem(
                     item_ref="context-item:coding-excluded-noise",
                     label="Excluded refs",
-                    status="planned",
+                    status="read-only preview",
                     safe_summary="Generated and noisy path filters are visible as refs only.",
-                    source_refs=["context-pack:coding-cockpit-seed"],
+                    source_refs=[CODING_COCKPIT_CONTEXT_PACK_REF],
                     evidence_refs=evidence_refs,
                     proof_refs=proof_refs,
                     blocked_authority_refs=[],
@@ -416,7 +635,7 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             ],
             proof_refs=proof_refs,
             blocked_authority_refs=["blocked-state:coding-no-file-write"],
-            next_safe_action="Inspect safe context refs and promote context pack preview later.",
+            next_safe_action="Inspect safe context refs before any patch proposal lane.",
         ),
         task_thread=CodingCockpitPreviewPanel(
             panel_ref="coding-panel:task-thread",
@@ -455,8 +674,8 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
                     item_ref="timeline-item:coding-context-selected",
                     label="Context refs selected",
                     status="seeded",
-                    safe_summary="Context pack preview is planned and not yet generated.",
-                    source_refs=["context-pack:coding-cockpit-seed"],
+                    safe_summary="Context pack preview is available as safe refs only.",
+                    source_refs=[CODING_COCKPIT_CONTEXT_PACK_REF],
                     evidence_refs=evidence_refs,
                     proof_refs=proof_refs,
                     blocked_authority_refs=[],
@@ -659,7 +878,7 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
         same_ref_spine=[
             "coding-session:local-readonly-cockpit",
             "coding-task:cockpit-shell-seed",
-            "context-pack:coding-cockpit-seed",
+            CODING_COCKPIT_CONTEXT_PACK_REF,
             "patch-proposal:coding-blocked-seed",
             "command-proposal:coding-blocked-seed",
             "git-status:coding-readonly-seed",
@@ -685,5 +904,185 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
         next_safe_action=(
             "Review the read-only cockpit shell and promote Prompt 02 contracts "
             "before adding proposal artifacts."
+        ),
+    )
+
+
+def build_coding_workspace_context_preview() -> CodingWorkspaceContextReadModel:
+    proof_refs = ["proof-ref:coding-context-pack-preview"]
+    evidence_refs = ["evidence-ref:coding-context-pack-read-model"]
+    blocked = [
+        "blocked-state:coding-no-file-write",
+        "blocked-state:coding-no-shell-subprocess",
+        "blocked-state:coding-no-provider-model-call",
+        "blocked-state:coding-no-production-authority",
+    ]
+    context_refs = [
+        CodingContextRefReadModel(
+            context_ref="context-ref:coding-core-contract",
+            label="Core coding contract",
+            ref_kind="file",
+            status="included",
+            include_reason=(
+                "Defines the backend-owned session and context-pack read model "
+                "contracts."
+            ),
+            token_estimate=4200,
+            operator_selected=True,
+            agent_selected=True,
+            included_in_preview=True,
+            safe_summary="Safe ref for the Python Core coding cockpit contract.",
+            source_refs=[CODING_COCKPIT_CONTEXT_PACK_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            blocked_authority_refs=[],
+        ),
+        CodingContextRefReadModel(
+            context_ref="context-ref:coding-control-center-panel",
+            label="Control Center coding panel",
+            ref_kind="file",
+            status="included",
+            include_reason=(
+                "Shows how the cockpit renders workspace, diff, proof, chat, "
+                "terminal, Git, test, preview, and authority posture."
+            ),
+            token_estimate=2800,
+            operator_selected=True,
+            agent_selected=False,
+            included_in_preview=True,
+            safe_summary="Safe ref for the Control Center cockpit presentation.",
+            source_refs=[CODING_COCKPIT_CONTEXT_PACK_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            blocked_authority_refs=[],
+        ),
+        CodingContextRefReadModel(
+            context_ref="context-ref:coding-api-route-contract",
+            label="Coding API route contract",
+            ref_kind="file",
+            status="included",
+            include_reason=(
+                "Keeps route, OpenAPI, manifest, and redaction behavior tied to "
+                "backend-owned truth."
+            ),
+            token_estimate=1200,
+            operator_selected=False,
+            agent_selected=True,
+            included_in_preview=True,
+            safe_summary="Safe ref for the local coding API read-model route.",
+            source_refs=[CODING_COCKPIT_CONTEXT_PACK_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            blocked_authority_refs=[],
+        ),
+        CodingContextRefReadModel(
+            context_ref="context-ref:coding-generated-build-output",
+            label="Generated build output",
+            ref_kind="exclude_rule",
+            status="excluded",
+            include_reason=(
+                "Generated and noisy material is excluded from coding context "
+                "previews by default."
+            ),
+            token_estimate=0,
+            included_in_preview=False,
+            excluded_from_preview=True,
+            safe_summary="Safe exclude ref; no generated files are persisted.",
+            source_refs=[CODING_COCKPIT_CONTEXT_PACK_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            blocked_authority_refs=[],
+        ),
+        CodingContextRefReadModel(
+            context_ref="context-ref:coding-protected-config",
+            label="Protected local config",
+            ref_kind="exclude_rule",
+            status="blocked",
+            include_reason=(
+                "Protected local configuration material is blocked from context "
+                "previews."
+            ),
+            token_estimate=0,
+            included_in_preview=False,
+            excluded_from_preview=True,
+            safe_summary="Safe exclude ref for protected local config posture.",
+            source_refs=[CODING_COCKPIT_CONTEXT_PACK_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            blocked_authority_refs=["blocked-state:coding-no-protected-context"],
+        ),
+        CodingContextRefReadModel(
+            context_ref="context-ref:coding-search-route-truth",
+            label="Route truth search ref",
+            ref_kind="search_ref",
+            status="candidate",
+            include_reason=(
+                "Search metadata can suggest route-truth docs without storing "
+                "raw query results."
+            ),
+            token_estimate=0,
+            included_in_preview=False,
+            safe_summary="Safe search ref for route and proof documentation.",
+            source_refs=[CODING_COCKPIT_CONTEXT_PACK_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            blocked_authority_refs=[],
+        ),
+    ]
+    token_estimate_total = sum(
+        item.token_estimate for item in context_refs if item.included_in_preview
+    )
+    return CodingWorkspaceContextReadModel(
+        token_estimate_total=token_estimate_total,
+        token_budget_remaining=24000 - token_estimate_total,
+        context_refs=context_refs,
+        operator_selected_refs=[
+            "context-ref:coding-core-contract",
+            "context-ref:coding-control-center-panel",
+        ],
+        agent_selected_refs=[
+            "context-ref:coding-core-contract",
+            "context-ref:coding-api-route-contract",
+        ],
+        excluded_refs=[
+            "context-ref:coding-generated-build-output",
+            "context-ref:coding-protected-config",
+        ],
+        search_refs=["context-ref:coding-search-route-truth"],
+        comparison=[
+            CodingContextComparisonReadModel(
+                comparison_ref="context-comparison:coding-core-aligned",
+                label="Core contract alignment",
+                operator_context_ref="context-ref:coding-core-contract",
+                agent_context_ref="context-ref:coding-core-contract",
+                status="aligned",
+                safe_summary="Operator and agent context both include the core contract.",
+                proof_refs=proof_refs,
+            ),
+            CodingContextComparisonReadModel(
+                comparison_ref="context-comparison:coding-ui-operator-only",
+                label="Operator UI emphasis",
+                operator_context_ref="context-ref:coding-control-center-panel",
+                agent_context_ref="context-ref:coding-api-route-contract",
+                status="operator_only",
+                safe_summary=(
+                    "Operator-selected context emphasizes the cockpit panel; "
+                    "agent-selected context emphasizes route binding."
+                ),
+                proof_refs=proof_refs,
+            ),
+        ],
+        proof_refs=proof_refs,
+        evidence_refs=evidence_refs,
+        blocked_authority_refs=blocked,
+        redactions_applied=[
+            "redaction-ref:safe-refs-only",
+            "redaction-ref:raw-paths-omitted",
+            "redaction-ref:raw-content-omitted",
+            "redaction-ref:protected-context-blocked",
+        ],
+        next_safe_action=(
+            "Review safe context refs and promote patch proposal artifacts "
+            "without reading or persisting raw file content."
         ),
     )

@@ -4455,6 +4455,29 @@ th {
   min-width: 0;
 }
 
+.coding-context-pack {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #dbe7f5;
+  border-radius: 7px;
+  background: #f7fbff;
+}
+
+.coding-context-budget {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.coding-context-comparison {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
 .coding-item-row,
 .coding-authority-card {
   padding: 8px;
