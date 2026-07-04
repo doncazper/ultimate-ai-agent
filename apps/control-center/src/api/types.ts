@@ -558,6 +558,85 @@ export interface CodingTestCommandReadinessReadModel {
   production_authority_enabled: boolean;
 }
 
+export interface CodingGitReviewItemReadModel {
+  item_ref: string;
+  label: string;
+  item_kind:
+    | "status"
+    | "diff"
+    | "changed_files"
+    | "commit_proposal"
+    | "pr_description_proposal";
+  status: "blocked" | "proposal_ref";
+  safe_summary: string;
+  expected_receipt_ref: string;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  raw_git_output_included: boolean;
+  raw_diff_included: boolean;
+  raw_path_included: boolean;
+  git_mutation_enabled: boolean;
+}
+
+export interface CodingGitReviewReadModel {
+  schema_version: "uaa-coding-git-review.v1";
+  git_review_ref: string;
+  session_ref: string;
+  context_pack_ref: string;
+  patch_proposal_ref: string;
+  patch_apply_readiness_ref: string;
+  test_command_readiness_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  unblock_prompt_refs: string[];
+  status: "blocked_missing_git_review_authority";
+  title: string;
+  full_strength_goal: string;
+  repo_safe_current_state: string;
+  safe_summary: string;
+  status_refs: string[];
+  changed_file_refs: string[];
+  diff_refs: string[];
+  commit_proposal_refs: string[];
+  pr_description_proposal_refs: string[];
+  expected_receipt_refs: string[];
+  review_items: CodingGitReviewItemReadModel[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  proposal_only: boolean;
+  safe_refs_only: boolean;
+  git_status_execution_enabled: boolean;
+  git_diff_execution_enabled: boolean;
+  stage_enabled: boolean;
+  commit_enabled: boolean;
+  push_enabled: boolean;
+  pr_open_enabled: boolean;
+  merge_enabled: boolean;
+  raw_git_output_included: boolean;
+  raw_diff_included: boolean;
+  raw_path_included: boolean;
+  commit_message_text_included: boolean;
+  pr_description_text_included: boolean;
+  git_receipt_created: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  file_write_enabled: boolean;
+  git_mutation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface RuntimeReadinessSummary {
   status: string;
   production_ready: boolean;
@@ -7707,6 +7786,7 @@ export interface ControlCenterData {
   codingPatchProposal: CodingPatchProposalReadModel;
   codingPatchApplyReadiness: CodingPatchApplyReadinessReadModel;
   codingTestCommandReadiness: CodingTestCommandReadinessReadModel;
+  codingGitReview: CodingGitReviewReadModel;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;

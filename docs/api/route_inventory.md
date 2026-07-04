@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `174`.
+Current OpenAPI path count: `175`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -193,13 +193,14 @@ readiness, or execute rollback.
 - `GET /control-center/coding/patch-proposal`
 - `GET /control-center/coding/patch-apply-readiness`
 - `GET /control-center/coding/test-command-readiness`
+- `GET /control-center/coding/git-review`
 
 These routes return the repo-safe Coding Cockpit shell seed and read-only
 context-pack preview as backend-owned read models for `/coding`. They expose
 safe workspace, context, task, diff, terminal preview, Git preview, test output,
 live preview, proof, context comparison, patch proposal, blocked apply
 readiness, blocked test-command readiness, budget, redaction, and authority
-posture refs only. They do not
+posture refs, and blocked Git review refs only. They do not
 write files, apply patches, read or persist raw file content, run
 shell/subprocess commands, execute commands, mutate Git state, call providers
 or models, automate browsers, write connectors, launch background agents,

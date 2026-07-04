@@ -16,6 +16,8 @@ from ultimate_ai_agent.core.code import (
     CODING_COCKPIT_CONTEXT_BACKEND_ROUTE_REF,
     CODING_COCKPIT_CONTEXT_PACK_REF,
     CODING_COCKPIT_FRONTEND_ROUTE_REF,
+    CODING_COCKPIT_GIT_REVIEW_BACKEND_ROUTE_REF,
+    CODING_COCKPIT_GIT_REVIEW_REF,
     CODING_COCKPIT_PATCH_APPLY_BACKEND_ROUTE_REF,
     CODING_COCKPIT_PATCH_APPLY_READINESS_REF,
     CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF,
@@ -25,11 +27,13 @@ from ultimate_ai_agent.core.code import (
     CODING_COCKPIT_TEST_COMMAND_BACKEND_ROUTE_REF,
     CODING_COCKPIT_TEST_COMMAND_READINESS_REF,
     CodingCockpitSessionReadModel,
+    CodingGitReviewReadModel,
     CodingPatchApplyReadinessReadModel,
     CodingPatchProposalReadModel,
     CodingTestCommandReadinessReadModel,
     CodingWorkspaceContextReadModel,
     build_coding_cockpit_session_seed,
+    build_coding_git_review,
     build_coding_patch_apply_readiness,
     build_coding_patch_proposal_preview,
     build_coding_test_command_readiness,
@@ -65,7 +69,7 @@ def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
         CODING_COCKPIT_PATCH_APPLY_READINESS_REF,
         CODING_COCKPIT_TEST_COMMAND_READINESS_REF,
         "command-proposal:coding-blocked-seed",
-        "git-status:coding-readonly-seed",
+        CODING_COCKPIT_GIT_REVIEW_REF,
         "proof-ref:coding-cockpit-seed",
         "preview-ref:coding-blocked-seed",
     ]
@@ -85,6 +89,7 @@ def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
         "scripts/dev/uaa_coding.py inspect-test-command-readiness"
         in session.cli_inspection_refs
     )
+    assert "scripts/dev/uaa_coding.py inspect-git-review" in session.cli_inspection_refs
     assert all(not panel.mutation_enabled for panel in _coding_panels(session))
     assert all(not panel.runtime_authority_enabled for panel in _coding_panels(session))
     assert all(item.proof_refs for panel in _coding_panels(session) for item in panel.items)
@@ -350,6 +355,86 @@ def test_coding_test_command_readiness_rejects_execution_authority() -> None:
         CodingTestCommandReadinessReadModel(**payload)
 
 
+def test_coding_git_review_is_backend_owned_and_blocked() -> None:
+    review = build_coding_git_review()
+    payload = review.model_dump(mode="json")
+
+    assert review.schema_version == "uaa-coding-git-review.v1"
+    assert review.git_review_ref == CODING_COCKPIT_GIT_REVIEW_REF
+    assert review.patch_proposal_ref == CODING_COCKPIT_PATCH_PROPOSAL_REF
+    assert review.patch_apply_readiness_ref == CODING_COCKPIT_PATCH_APPLY_READINESS_REF
+    assert review.test_command_readiness_ref == CODING_COCKPIT_TEST_COMMAND_READINESS_REF
+    assert review.backend_route_refs == [CODING_COCKPIT_GIT_REVIEW_BACKEND_ROUTE_REF]
+    assert review.frontend_route_refs == [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    assert review.backend_owned is True
+    assert review.read_only is True
+    assert review.proposal_only is True
+    assert review.safe_refs_only is True
+    assert review.git_status_execution_enabled is False
+    assert review.git_diff_execution_enabled is False
+    assert review.stage_enabled is False
+    assert review.commit_enabled is False
+    assert review.push_enabled is False
+    assert review.pr_open_enabled is False
+    assert review.merge_enabled is False
+    assert review.raw_git_output_included is False
+    assert review.raw_diff_included is False
+    assert review.raw_path_included is False
+    assert review.commit_message_text_included is False
+    assert review.pr_description_text_included is False
+    assert review.git_receipt_created is False
+    assert review.shell_subprocess_execution_enabled is False
+    assert review.file_write_enabled is False
+    assert review.git_mutation_enabled is False
+    assert review.provider_model_call_enabled is False
+    assert review.browser_automation_enabled is False
+    assert review.connector_write_enabled is False
+    assert review.production_authority_enabled is False
+    assert {item.item_kind for item in review.review_items} == {
+        "status",
+        "diff",
+        "changed_files",
+        "commit_proposal",
+        "pr_description_proposal",
+    }
+    assert set(review.expected_receipt_refs) == {
+        item.expected_receipt_ref for item in review.review_items
+    }
+    assert review.unblock_prompt_refs == ["prompt-ref:unblock-coding-git-review"]
+    assert "/Users/" not in json.dumps(payload)
+    assert "credential" not in json.dumps(payload).lower()
+    assert "secret" not in json.dumps(payload).lower()
+
+
+def test_coding_git_review_rejects_git_authority() -> None:
+    for flag_name in [
+        "git_status_execution_enabled",
+        "git_diff_execution_enabled",
+        "stage_enabled",
+        "commit_enabled",
+        "push_enabled",
+        "pr_open_enabled",
+        "merge_enabled",
+        "raw_git_output_included",
+        "raw_diff_included",
+        "raw_path_included",
+        "commit_message_text_included",
+        "pr_description_text_included",
+        "git_receipt_created",
+        "shell_subprocess_execution_enabled",
+        "git_mutation_enabled",
+    ]:
+        payload = build_coding_git_review().model_dump(mode="json")
+        payload[flag_name] = True
+        with pytest.raises(ValidationError, match=flag_name):
+            CodingGitReviewReadModel(**payload)
+
+    payload = build_coding_git_review().model_dump(mode="json")
+    payload["review_items"][0]["git_mutation_enabled"] = True
+    with pytest.raises(ValidationError, match="git_mutation_enabled"):
+        CodingGitReviewReadModel(**payload)
+
+
 def test_control_center_coding_session_route_returns_safe_read_model() -> None:
     client = TestClient(app)
     response = client.get("/control-center/coding/session")
@@ -496,6 +581,36 @@ def test_control_center_coding_test_command_readiness_route_returns_safe_read_mo
     )
 
 
+def test_control_center_coding_git_review_route_returns_safe_read_model() -> None:
+    client = TestClient(app)
+    response = client.get("/control-center/coding/git-review")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "control_center_coding_git_review"
+    assert body["service"] == "ControlCenterCodingAPI"
+    assert body["trace_id"] == CODING_COCKPIT_GIT_REVIEW_REF
+    assert body["redactions_applied"] == [
+        "redaction-ref:safe-refs-only",
+        "redaction-ref:raw-git-output-omitted",
+        "redaction-ref:raw-diff-omitted",
+        "redaction-ref:raw-paths-omitted",
+    ]
+
+    data = body["data"]
+    assert data["backend_owned"] is True
+    assert data["read_only"] is True
+    assert data["proposal_only"] is True
+    assert data["safe_refs_only"] is True
+    assert data["git_status_execution_enabled"] is False
+    assert data["git_diff_execution_enabled"] is False
+    assert data["git_mutation_enabled"] is False
+    assert data["git_receipt_created"] is False
+    assert data["review_items"]
+    assert all(item["git_mutation_enabled"] is False for item in data["review_items"])
+
+
 def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_model() -> None:
     manifest = build_api_manifest(app)
     routes = {(route.method, route.path): route for route in manifest.routes}
@@ -504,6 +619,7 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
     patch_route = routes[("GET", "/control-center/coding/patch-proposal")]
     apply_route = routes[("GET", "/control-center/coding/patch-apply-readiness")]
     test_command_route = routes[("GET", "/control-center/coding/test-command-readiness")]
+    git_review_route = routes[("GET", "/control-center/coding/git-review")]
 
     assert route.operation_id == "get_control_center_coding_session"
     assert route.tags == ["control-center"]
@@ -541,6 +657,15 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
         == "not_required_for_route_classification"
     )
     assert test_command_route.idempotency_required is False
+    assert git_review_route.operation_id == "get_control_center_coding_git_review"
+    assert git_review_route.tags == ["control-center"]
+    assert git_review_route.side_effect_class == "local_dev_workspace_only"
+    assert git_review_route.route_classification == "local_sensitive"
+    assert (
+        git_review_route.approval_posture
+        == "not_required_for_route_classification"
+    )
+    assert git_review_route.idempotency_required is False
     assert "control_center_coding_cockpit_session_read_model" in (
         manifest.capabilities_declared
     )
@@ -554,6 +679,9 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
         manifest.capabilities_declared
     )
     assert "control_center_coding_test_command_readiness_read_model" in (
+        manifest.capabilities_declared
+    )
+    assert "control_center_coding_git_review_read_model" in (
         manifest.capabilities_declared
     )
     for capability in [
@@ -674,6 +802,33 @@ def test_coding_test_command_readiness_cli_inspection_prints_same_safe_model() -
     assert data["command_execution_enabled"] is False
     assert data["shell_subprocess_execution_enabled"] is False
     assert data["test_receipt_created"] is False
+    assert "/Users/" not in result.stdout
+    assert "credential" not in result.stdout.lower()
+    assert "secret" not in result.stdout.lower()
+
+
+def test_coding_git_review_cli_inspection_prints_same_safe_model() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_coding.py"),
+            "inspect-git-review",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    data = json.loads(result.stdout)
+
+    assert data["git_review_ref"] == CODING_COCKPIT_GIT_REVIEW_REF
+    assert data["backend_owned"] is True
+    assert data["read_only"] is True
+    assert data["proposal_only"] is True
+    assert data["safe_refs_only"] is True
+    assert data["git_status_execution_enabled"] is False
+    assert data["git_mutation_enabled"] is False
+    assert data["git_receipt_created"] is False
     assert "/Users/" not in result.stdout
     assert "credential" not in result.stdout.lower()
     assert "secret" not in result.stdout.lower()

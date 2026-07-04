@@ -352,6 +352,41 @@ function baseRouteData(): Record<string, unknown> {
     connector_write_enabled: false,
     production_authority_enabled: false,
   };
+  const backendOwnedCodingGitReview = {
+    ...mockControlCenterData.codingGitReview,
+    git_review_ref: "git-review:coding-summary-endpoint-test",
+    session_ref: "coding-session:summary-endpoint-test",
+    context_pack_ref: "context-pack:coding-summary-endpoint-test",
+    patch_proposal_ref: "patch-proposal:coding-summary-endpoint-test",
+    patch_apply_readiness_ref:
+      "patch-apply-readiness:coding-summary-endpoint-test",
+    test_command_readiness_ref:
+      "test-command-readiness:coding-summary-endpoint-test",
+    backend_owned: true,
+    read_only: true,
+    proposal_only: true,
+    safe_refs_only: true,
+    git_status_execution_enabled: false,
+    git_diff_execution_enabled: false,
+    stage_enabled: false,
+    commit_enabled: false,
+    push_enabled: false,
+    pr_open_enabled: false,
+    merge_enabled: false,
+    raw_git_output_included: false,
+    raw_diff_included: false,
+    raw_path_included: false,
+    commit_message_text_included: false,
+    pr_description_text_included: false,
+    git_receipt_created: false,
+    shell_subprocess_execution_enabled: false,
+    file_write_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+  };
   return {
     [API_ENDPOINTS.controlCenterManifest]: mockControlCenterData.manifest,
     [API_ENDPOINTS.controlCenterDashboard]: mockControlCenterData.dashboard,
@@ -379,6 +414,7 @@ function baseRouteData(): Record<string, unknown> {
       backendOwnedCodingPatchApplyReadiness,
     [API_ENDPOINTS.controlCenterCodingTestCommandReadiness]:
       backendOwnedCodingTestCommandReadiness,
+    [API_ENDPOINTS.controlCenterCodingGitReview]: backendOwnedCodingGitReview,
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:

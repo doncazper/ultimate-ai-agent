@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.code import (  # noqa: E402
     build_coding_cockpit_session_seed,
+    build_coding_git_review,
     build_coding_patch_apply_readiness,
     build_coding_patch_proposal_preview,
     build_coding_test_command_readiness,
@@ -51,6 +52,13 @@ def inspect_patch_apply_readiness(args: argparse.Namespace) -> int:
 def inspect_test_command_readiness(args: argparse.Namespace) -> int:
     readiness = build_coding_test_command_readiness()
     payload = readiness.model_dump(mode="json")
+    print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
+    return 0
+
+
+def inspect_git_review(args: argparse.Namespace) -> int:
+    review = build_coding_git_review()
+    payload = review.model_dump(mode="json")
     print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
     return 0
 
@@ -110,6 +118,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pretty-print the safe JSON read model.",
     )
     test_command.set_defaults(func=inspect_test_command_readiness)
+    git_review = subparsers.add_parser(
+        "inspect-git-review",
+        help="Print the blocked Coding Cockpit Git review read model.",
+    )
+    git_review.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print the safe JSON read model.",
+    )
+    git_review.set_defaults(func=inspect_git_review)
     return parser
 
 

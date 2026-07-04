@@ -3,6 +3,7 @@ import type {
   CodingCockpitPreviewPanel,
   CodingCockpitRefItem,
   CodingCockpitSessionReadModel,
+  CodingGitReviewReadModel,
   CodingPatchApplyReadinessReadModel,
   CodingPatchProposalReadModel,
   CodingTestCommandReadinessReadModel,
@@ -12,6 +13,7 @@ import { SafeAlert } from "./SafeAlert";
 
 interface CodingCockpitPanelProps {
   context: CodingWorkspaceContextReadModel;
+  gitReview: CodingGitReviewReadModel;
   patchApplyReadiness: CodingPatchApplyReadinessReadModel;
   patchProposal: CodingPatchProposalReadModel;
   session: CodingCockpitSessionReadModel;
@@ -22,6 +24,7 @@ interface CodingCockpitPanelProps {
 export function CodingCockpitPanel({
   authoritative,
   context,
+  gitReview,
   patchApplyReadiness,
   patchProposal,
   session,
@@ -48,7 +51,11 @@ export function CodingCockpitPanel({
     testCommandReadiness.backend_owned &&
     testCommandReadiness.read_only &&
     testCommandReadiness.readiness_only &&
-    testCommandReadiness.safe_refs_only;
+    testCommandReadiness.safe_refs_only &&
+    gitReview.backend_owned &&
+    gitReview.read_only &&
+    gitReview.proposal_only &&
+    gitReview.safe_refs_only;
   const currentAuthorityMode =
     session.authority_modes.find((mode) => mode.state === "current") ??
     session.authority_modes[0];
@@ -167,7 +174,9 @@ export function CodingCockpitPanel({
             readiness={testCommandReadiness}
           />
         </DrawerPanel>
-        <DrawerPanel panel={session.git_preview} actionLabel="Commit" />
+        <DrawerPanel panel={session.git_preview} actionLabel="Commit">
+          <GitReviewPreview authoritative={backendOwned} review={gitReview} />
+        </DrawerPanel>
         <DrawerPanel panel={session.test_output_preview} actionLabel="Run tests" />
         <DrawerPanel panel={session.live_preview} actionLabel="Preview status" />
       </div>
@@ -355,6 +364,43 @@ function TestCommandReadinessPreview({
         ))}
       </div>
       <p className="safe-copy">{readiness.next_safe_action}</p>
+    </div>
+  );
+}
+
+function GitReviewPreview({
+  authoritative,
+  review,
+}: {
+  authoritative: boolean;
+  review: CodingGitReviewReadModel;
+}) {
+  return (
+    <div className="coding-patch-proposal" aria-label="Coding Git review">
+      <div className="coding-context-budget">
+        <DetailTile label="Git review" value={review.git_review_ref} />
+        <DetailTile label="Status" value={review.status.replaceAll("_", " ")} />
+        <DetailTile label="Review refs" value={`${review.review_items.length} refs`} />
+      </div>
+      <p className="safe-copy">
+        {authoritative
+          ? "Git review is backend-owned, read-only, and blocked until exact Git authority exists."
+          : "Git review is non-authoritative fallback data only."}
+      </p>
+      <div className="coding-item-stack">
+        {review.review_items.slice(0, 3).map((item) => (
+          <article className="coding-item-row" key={item.item_ref}>
+            <div>
+              <strong>{item.label}</strong>
+              <p>{item.safe_summary}</p>
+            </div>
+            <span className="status-pill compact">
+              {item.status.replaceAll("_", " ")}
+            </span>
+          </article>
+        ))}
+      </div>
+      <p className="safe-copy">{review.next_safe_action}</p>
     </div>
   );
 }

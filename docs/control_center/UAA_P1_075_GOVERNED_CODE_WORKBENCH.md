@@ -34,12 +34,14 @@ Repo-safe current version:
   `GET /control-center/coding/context`,
   `GET /control-center/coding/patch-proposal`,
   `GET /control-center/coding/patch-apply-readiness`,
-  `GET /control-center/coding/test-command-readiness`.
+  `GET /control-center/coding/test-command-readiness`,
+  `GET /control-center/coding/git-review`.
 - CLI inspection: `scripts/dev/uaa_coding.py inspect-session`,
   `scripts/dev/uaa_coding.py inspect-context`,
   `scripts/dev/uaa_coding.py inspect-patch-proposal`,
   `scripts/dev/uaa_coding.py inspect-patch-apply-readiness`,
-  `scripts/dev/uaa_coding.py inspect-test-command-readiness`.
+  `scripts/dev/uaa_coding.py inspect-test-command-readiness`,
+  `scripts/dev/uaa_coding.py inspect-git-review`.
 - Python Agent Core owns `CodingCockpitSessionReadModel` and
   `CodingWorkspaceContextReadModel` plus the proposal-only patch read model;
   Control Center renders the read models and mock fallback only.
@@ -47,7 +49,7 @@ Repo-safe current version:
   agent thread, terminal preview, Git preview, test output preview, live preview,
   authority mode selector, read-only context-pack preview, proposal-only patch
   refs, blocked apply-readiness refs, blocked test-command readiness refs, and
-  blocked authority refs.
+  blocked Git review refs, and blocked authority refs.
 - Mock fallback is visibly non-authoritative and grants no workflow truth.
 
 Blocked / needs authority:
@@ -68,6 +70,8 @@ Exact promotion path:
 - Prompt 04 adds patch apply readiness and blocker refs without apply.
 - Prompt 05 adds allowlisted test-command readiness and blocker refs without
   command execution.
+- Prompt 06 adds Git review refs and blocker refs without live Git reads or Git
+  mutation.
 - Later approved lanes add exact patch apply, allowlisted test commands, Git
   review, live preview status, and multi-agent review only after scoped
   approval binding, receipts, rollback/safe-disable posture, redaction,
@@ -159,6 +163,50 @@ Exact promotion path:
 - Promote only after exact command allowlist, LocalApprovalAuthority binding
   where required, timeout, output redaction, exit-code capture, receipt storage,
   Proof Detail binding, CLI parity, frontend tests, and verifiers are accepted.
+
+## Coding Cockpit Prompt 06 Git Review Readiness
+
+Prompt 06 keeps the full Git review goal visible while blocking live Git command
+execution and all Git mutation until the missing Git contracts are implemented.
+
+Full-strength version:
+
+- UAA shows Git status, diffs, changed files, staged/unstaged posture, commit
+  proposals, pull-request description proposals, and later approved stage,
+  commit, push, and draft PR actions with receipts and Proof Detail links.
+- Force push, merge, tag, release, production deploy, arbitrary shell, and broad
+  terminal access remain outside this lane.
+
+Repo-safe current version:
+
+- `GET /control-center/coding/git-review` exposes a backend-owned read-only
+  proposal/readiness model.
+- `scripts/dev/uaa_coding.py inspect-git-review` provides CLI inspection parity.
+- `/coding` shows Git status, diff, changed-file, commit proposal, and
+  pull-request proposal refs plus expected receipt refs and blocker refs.
+- The route stores safe refs and bounded summaries only. It does not run Git,
+  store raw Git output, store raw diffs, store raw paths, create Git receipts,
+  or expose commit/PR text.
+
+Blocked / needs authority:
+
+- Live Git status reads, live Git diff reads, changed-file extraction, raw diff
+  redaction, commit message text, pull-request description text, Git receipt
+  creation, Proof Detail binding, and shell/subprocess execution remain blocked.
+- Prompt 06 does not stage files, commit, push, open PRs, merge, tag, release,
+  run commands, mutate files, call providers/models, automate browsers, write
+  connectors, or grant production authority.
+
+Exact promotion path:
+
+- Run
+  `docs/prompts/authority_graduation_program/generated_unblock_prompts/unblock_coding_git_review.prompt.md`.
+- Keep the blocker report current at
+  `docs/control_center/authority_graduation_blockers/coding_git_review_2026_07_04.md`.
+- Promote only after read-only Git status and diff contracts, redaction,
+  receipt storage, Proof Detail binding, CLI parity, frontend tests, and
+  verifiers are accepted. Any Git mutation remains a separate exact approval
+  lane.
 
 Verification:
 
