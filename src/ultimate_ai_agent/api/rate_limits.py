@@ -113,6 +113,7 @@ WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
 }
 GOVERNED_RUNTIME_MUTATING_PATHS = {
     "/api/runtime/invocations",
+    "/api/runtime/local-model/call",
     "/api/runtime/invocations/{id}/approve",
     "/api/runtime/invocations/{id}/execute",
     "/api/runtime/safe-disable",

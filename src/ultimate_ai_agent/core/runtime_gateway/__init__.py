@@ -1,6 +1,7 @@
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
     GOVERNED_RUNTIME_CONTRACT_REF,
     GOVERNED_RUNTIME_DEFAULT_PROFILE,
+    GOVERNED_RUNTIME_IMPLEMENTED_AUTHORITY_REFS,
     GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS,
     RuntimeApprovalRequirement,
     RuntimeApprovalBindingRequest,
@@ -12,12 +13,20 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeInvocationRecord,
     RuntimeInvocationRequest,
     RuntimeInvocationStatus,
+    RuntimeLocalModelReceiptMetadata,
     RuntimePolicyDecision,
     RuntimeProfile,
     RuntimeRollbackRef,
     RuntimeSafeDisableRequest,
     RuntimeSafeDisableState,
     build_default_runtime_capabilities,
+)
+from ultimate_ai_agent.core.runtime_gateway.local_model import (
+    LocalModelRuntimeAdapter,
+    RuntimeGateway,
+    RuntimeLocalModelCallRequest,
+    RuntimeLocalModelGatewayResult,
+    RuntimeLocalModelMessage,
 )
 from ultimate_ai_agent.core.runtime_gateway.storage import (
     RuntimeInvocationConflictError,
@@ -28,6 +37,7 @@ from ultimate_ai_agent.core.runtime_gateway.storage import (
 __all__ = [
     "GOVERNED_RUNTIME_CONTRACT_REF",
     "GOVERNED_RUNTIME_DEFAULT_PROFILE",
+    "GOVERNED_RUNTIME_IMPLEMENTED_AUTHORITY_REFS",
     "GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS",
     "RuntimeApprovalRequirement",
     "RuntimeApprovalBindingRequest",
@@ -41,6 +51,12 @@ __all__ = [
     "RuntimeInvocationRecord",
     "RuntimeInvocationRequest",
     "RuntimeInvocationStatus",
+    "RuntimeLocalModelReceiptMetadata",
+    "LocalModelRuntimeAdapter",
+    "RuntimeGateway",
+    "RuntimeLocalModelCallRequest",
+    "RuntimeLocalModelGatewayResult",
+    "RuntimeLocalModelMessage",
     "RuntimeInvocationStore",
     "RuntimePolicyDecision",
     "RuntimeProfile",

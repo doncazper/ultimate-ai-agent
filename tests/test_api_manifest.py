@@ -40,7 +40,15 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert manifest["package_version"] == __version__
     assert manifest["active_baseline"] == active_baseline_label()
     assert manifest["no_runtime_integrations"] is True
-    assert "runtime_model_calls" in manifest["capabilities_blocked"]
+    assert "governed_runtime_loopback_local_model_call_pilot" in manifest[
+        "capabilities_declared"
+    ]
+    assert "runtime_remote_or_unrestricted_model_calls" in manifest[
+        "capabilities_blocked"
+    ]
+    assert "governed_runtime_remote_or_provider_model_calls" in manifest[
+        "capabilities_blocked"
+    ]
     assert "web_fetching" in manifest["capabilities_blocked"]
     assert "api_contract_metadata" in manifest["capabilities_declared"]
     assert "centralized_fastapi_security_headers" in manifest["capabilities_declared"]

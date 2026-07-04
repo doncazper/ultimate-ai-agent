@@ -2,7 +2,7 @@
 
 Status: active gated foundation map
 Baseline: v0.104.0 / 0.104.0
-Current OpenAPI path count: 184
+Current OpenAPI path count: 185
 Scope: documentation and route ownership inventory only
 
 This map records the current FastAPI route groups for UAA-P1-058 and future
@@ -18,13 +18,13 @@ typed metadata endpoint for route inventory and capabilities.
 
 | Contract surface | Result |
 |---|---|
-| OpenAPI path count | 184 paths. |
-| `/api/manifest` route count | 185 routes. |
+| OpenAPI path count | 185 paths. |
+| `/api/manifest` route count | 186 routes. |
 | Operation ID posture | Stable generated IDs are unique for all current routes. |
 | Side-effect classes | All current routes use `none`, `validation_only`, `local_dev_workspace_only`, or `governed_network_read_only`. |
 | Route-module ownership tests | UAA-P1-059 checks every current route against this map for owner, target service module, side-effect class, risk class, auth posture, release status, route-count posture, operation ID posture, and evidence behavior. |
 | Control Center route-status manifest | Backend route refs checked against `/api/manifest`; 0 missing and 0 path/method/operation/side-effect mismatches. |
-| Route inventory doc | Current OpenAPI path count matches 184; `/api/manifest` route count matches 185; inventory is summarized by group and remains subordinate to `/api/manifest`. |
+| Route inventory doc | Current OpenAPI path count matches 185; `/api/manifest` route count matches 186; inventory is summarized by group and remains subordinate to `/api/manifest`. |
 
 ## Mismatch Findings
 
@@ -51,7 +51,7 @@ typed metadata endpoint for route inventory and capabilities.
 | `extension-catalog` | 1 | `extension-catalog` | `extension_catalog_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | `status_available_not_completion` |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `foundation-gate` | 2 | `foundation-gate` | `verification_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | `status_available_not_completion` |
-| `governed-runtime` | 8 | `governed-runtime` | `runtime_pilot_service` | future auth required and exact approval before future execution | `local_dev_workspace_only`:7, `validation_only`:1 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
+| `governed-runtime` | 9 | `governed-runtime` | `runtime_pilot_service` | future auth required and exact approval before broader execution | `local_dev_workspace_only`:8, `validation_only`:1 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `kernel` | 1 | `kernel` | `kernel_service` | future auth required | `local_dev_workspace_only`:1 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `ledger` | 3 | `ledger` | `evidence_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `mattermost` | 8 | `mattermost` | `integrations_service` | disabled by default and future auth required | `local_dev_workspace_only`:8 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
@@ -237,6 +237,7 @@ Columns: method, path, operation ID, side-effect class, validation-only, future-
 | GET | `/api/runtime/capabilities` | `get_api_runtime_capabilities` | `validation_only` | yes | future | yes |
 | GET | `/api/runtime/invocations` | `get_api_runtime_invocations` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/invocations` | `post_api_runtime_invocations` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/local-model/call` | `post_api_runtime_local_model_call` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/invocations/{id}` | `get_api_runtime_invocations_id` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/invocations/{id}/approve` | `post_api_runtime_invocations_id_approve` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/invocations/{id}/execute` | `post_api_runtime_invocations_id_execute` | `local_dev_workspace_only` | no | future | yes |

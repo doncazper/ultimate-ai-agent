@@ -36,7 +36,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 72,
     "none": 4,
-    "local_dev_workspace_only": 106,
+    "local_dev_workspace_only": 107,
     "governed_network_read_only": 3,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
@@ -62,6 +62,7 @@ HIGH_RISK_EXPECTATIONS = {
     ("POST", "/api/runtime/invocations"): "mutating_requires_authority",
     ("POST", "/api/runtime/invocations/{id}/approve"): "mutating_requires_authority",
     ("POST", "/api/runtime/invocations/{id}/execute"): "mutating_requires_authority",
+    ("POST", "/api/runtime/local-model/call"): "mutating_requires_authority",
     ("POST", "/api/runtime/safe-disable"): "mutating_requires_authority",
     ("POST", "/web-evidence/request"): "local_sensitive",
 }

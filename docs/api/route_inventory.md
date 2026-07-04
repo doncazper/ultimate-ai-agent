@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `184`.
+Current OpenAPI path count: `185`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -45,7 +45,7 @@ Current route classification summary:
 | `public_metadata` | 3 |
 | `local_readonly` | 20 |
 | `local_sensitive` | 124 |
-| `mutating_requires_authority` | 38 |
+| `mutating_requires_authority` | 39 |
 
 Allowed current side-effect classes are:
 
@@ -91,21 +91,22 @@ model/chat, task decomposition, action preview/proposal, Action Inbox decisions,
 Today-to-Action envelope promotion, Chat durable receipts/handoffs, Memory
 Review decision receipts, Memory context-pack internal Action proposal receipts,
 Memory feedback receipts, the exact-approved provider credential validation
-lane, the tiny exact-approved provider lane, and local model validation route
-groups.
+lane, the tiny exact-approved provider lane, governed runtime pilot mutation
+routes, and local model validation route groups.
 `/api/manifest` and the frozen route inventory expose
 `rate_limit_targeted`, `rate_limit_posture`, `rate_limit_policy_ref`, and
 `rate_limit_group`. This is not auth, distributed quota, billing, production
 authority, or a public beta claim.
 
-Governed Runtime Pilot Phase 02 adds `/api/runtime/*` contract and storage
-metadata routes for runtime capabilities, safe-ref invocation records, policy
-decisions, approval-ref binding, blocked execution receipts, and safe-disable
-posture. These routes are not execution authority: local model calls,
-allowlisted command execution, adapter execution, browser automation, connector
-writes, plugin runtime import, remote execution, raw prompt/response/command
-output/local path/env persistence, production authority, and public release
-claims remain blocked.
+Governed Runtime Pilot Phase 03 keeps `/api/runtime/*` governed by contract and
+storage metadata while promoting only the exact local loopback model-call lane
+through `RuntimeGateway`. Capability, invocation, policy, approval-ref,
+receipt, and safe-disable records store safe refs and redacted metadata only;
+model output is untrusted proposal text. Remote provider/model calls,
+allowlisted command execution, arbitrary adapter execution, browser automation,
+connector writes, plugin runtime import, remote execution, raw prompt/response/
+command output/local path/env persistence, production authority, and public
+release claims remain blocked.
 
 UAA-P1-086 implements route inventory enforcement checks across OpenAPI,
 `/api/manifest`, the frozen fixture, and the Control Center route-status

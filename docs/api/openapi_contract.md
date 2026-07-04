@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `184`.
+Current OpenAPI path count: `185`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -50,11 +50,13 @@ Contract rules:
   provider invocation, fallback execution, network calls, provider SDK calls,
   credential validation, model calls, billing authority, background execution,
   and raw prompt/response/provider payload persistence remain blocked.
-- `/api/runtime/*` is the governed runtime pilot Phase 02 contract surface. It
-  records capability metadata, safe-ref invocation metadata, policy decisions,
-  approval-ref bindings, blocked execution receipts, and safe-disable posture
-  only. It does not execute local model adapters, run shell/subprocess
-  commands, invoke providers, read raw prompts/responses/command output/local
+- `/api/runtime/*` is the governed runtime pilot contract surface. Phase 03
+  promotes only configured local loopback model calls through `RuntimeGateway`.
+  It records capability metadata, safe-ref invocation metadata, policy
+  decisions, approval-ref bindings, metadata-only local model receipts,
+  blocked execution receipts, and safe-disable posture. Model output is
+  untrusted proposal text. It does not run shell/subprocess commands, invoke
+  remote providers, read or persist raw prompts/responses/command output/local
   paths/env, automate browsers, write connectors, import plugins, dispatch
   remote work, grant production authority, or claim public release readiness.
 - The local `/v1` gateway must remain disabled by default, loopback/local-only,
@@ -183,7 +185,7 @@ API boundary hardening:
   Action Inbox local task commit lane,
   Today-to-Action envelope promotion, Chat durable receipts/handoffs, Memory
   Review decision receipts, the tiny exact-approved provider lane, and
-  expensive validation or local-model paths. It
+  expensive validation, governed runtime pilot, or local-model paths. It
   does not add auth, distributed
   quota, dependencies, billing, or production authority.
 - UAA-P1-086 adds enforcement tests for OpenAPI, `/api/manifest`, and route

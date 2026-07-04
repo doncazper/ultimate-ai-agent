@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.execution.validation import (
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeApprovalBindingRequest,
     RuntimeInvocationRecord,
+    RuntimeInvocationReceipt,
     RuntimeInvocationRequest,
     RuntimeInvocationStatus,
     RuntimeSafeDisableRequest,
@@ -202,11 +203,21 @@ class RuntimeInvocationStore:
         except KeyError as exc:
             raise RuntimeInvocationNotFoundError(invocation_ref) from exc
 
+    def operator_safe_disable_active(self) -> bool:
+        self._load()
+        return any(
+            record.status == RuntimeInvocationStatus.safe_disabled.value
+            and record.safe_disable.active
+            and record.safe_disable.reason_ref != "reason-ref:governed-runtime-phase-02-disabled"
+            for record in self._records.values()
+        )
+
     def create_invocation(
         self,
         request: RuntimeInvocationRequest,
         *,
         idempotency_ref: str,
+        local_model_gateway_validated: bool = False,
     ) -> RuntimeInvocationStoreResult:
         self._load()
         validate_execution_ref(idempotency_ref, "idempotency_ref")
@@ -233,6 +244,7 @@ class RuntimeInvocationStore:
             storage_request,
             invocation_ref=invocation_ref,
             status=RuntimeInvocationStatus.pending_approval,
+            local_model_gateway_validated=local_model_gateway_validated,
         )
         record = RuntimeInvocationRecord(
             invocation_ref=invocation_ref,
@@ -241,6 +253,16 @@ class RuntimeInvocationStore:
             approval_requirement=policy_decision.approval_requirement,
             payload_fingerprint_ref=payload_fingerprint_ref,
             idempotency_ref=idempotency_ref,
+            safe_disable=(
+                RuntimeSafeDisableState(
+                    active=False,
+                    profile=policy_decision.profile,
+                    reason_ref="reason-ref:governed-runtime-local-model-active",
+                    safe_summary="Local model runtime profile is active for this invocation only.",
+                )
+                if policy_decision.allowed_to_execute
+                else RuntimeSafeDisableState()
+            ),
             status=RuntimeInvocationStatus.pending_approval,
         )
         self._append(
@@ -326,7 +348,7 @@ class RuntimeInvocationStore:
             return replayed
         receipt = build_blocked_receipt(
             record,
-            safe_summary="Runtime execution remains blocked in Phase 02; operator summary omitted.",
+            safe_summary="Runtime execution remains blocked for unpromoted authority; operator summary omitted.",
         )
         updated = record.model_copy(
             update={
@@ -337,6 +359,46 @@ class RuntimeInvocationStore:
         )
         self._append(
             "execution_blocked_receipt_recorded",
+            updated,
+            entry_idempotency_ref=idempotency_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+        )
+        return updated
+
+    def record_receipt(
+        self,
+        invocation_ref: str,
+        receipt: RuntimeInvocationReceipt,
+        *,
+        idempotency_ref: str,
+        payload_fingerprint_ref: str | None = None,
+    ) -> RuntimeInvocationRecord:
+        record = self.get_invocation(invocation_ref)
+        validate_execution_ref(idempotency_ref, "idempotency_ref")
+        payload_fingerprint_ref = payload_fingerprint_ref or _hash_ref(
+            "runtime-operation-fingerprint-ref",
+            {
+                "operation": "receipt_recorded",
+                "invocation_ref": invocation_ref,
+                "receipt_ref": receipt.receipt_ref,
+                "receipt_status": receipt.invocation_status,
+            },
+        )
+        replayed = self._idempotent_operation_replay(
+            idempotency_ref,
+            payload_fingerprint_ref,
+        )
+        if replayed is not None:
+            return replayed
+        updated = record.model_copy(
+            update={
+                "receipt": receipt,
+                "status": receipt.invocation_status,
+                "updated_at": utc_now(),
+            }
+        )
+        self._append(
+            "receipt_recorded",
             updated,
             entry_idempotency_ref=idempotency_ref,
             payload_fingerprint_ref=payload_fingerprint_ref,

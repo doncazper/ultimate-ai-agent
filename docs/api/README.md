@@ -2,10 +2,10 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `184`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `185` route
-operations because Phase 02 intentionally has both `GET` and `POST` contracts
-on `/api/runtime/invocations`.
+Current OpenAPI path count: `185`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `186` route
+operations because governed runtime pilot routes intentionally have both `GET`
+and `POST` contracts on `/api/runtime/invocations`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
 local/dev policy checks, simulated/fallback-first for model runtime behavior,
@@ -72,16 +72,16 @@ Current boundary summary:
   Action envelope promotion, Chat durable receipt/handoff routes, Memory Review
   decision receipt routes, Memory context-pack internal Action proposal routes,
   the exact-approved provider credential validation lane, the tiny
-  exact-approved provider lane, and local model validation route groups. It does not
-  add auth, distributed quota,
-  dependencies, billing, or production
-  authority.
-- Governed Runtime Pilot Phase 02 adds `/api/runtime/*` contract, policy,
-  approval-binding, blocked receipt, and safe-disable metadata routes. They are
-  backend-owned safe-ref shells only; local model calls, command execution,
-  adapter execution, browser automation, connector writes, plugin runtime
-  import, remote execution, production authority, and public release claims
-  remain blocked.
+  exact-approved provider lane, governed runtime pilot mutation routes, and
+  local model validation route groups. It does not add auth, distributed quota,
+  dependencies, billing, or production authority.
+- Governed Runtime Pilot Phase 03 keeps `/api/runtime/*` contract, policy,
+  approval-binding, receipt, and safe-disable metadata routes while promoting
+  only the exact local loopback model-call lane through `RuntimeGateway`. They
+  are backend-owned safe-ref/metadata receipts; command execution, arbitrary
+  adapter execution, remote provider/model calls, browser automation, connector
+  writes, plugin runtime import, remote execution, production authority, and
+  public release claims remain blocked.
 - Beta 12 extracts the app-owned Control Center shell/status route block into
   `ultimate_ai_agent.api.control_center` while preserving the then-current
   169-route
