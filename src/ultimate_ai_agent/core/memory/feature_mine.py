@@ -336,6 +336,10 @@ class MemoryFeedbackReceipt(BaseModel):
     conflict_state_after: str
     blocked_state_refs: list[str] = Field(default_factory=list)
     receipt_recorded: bool = True
+    memory_feedback_metadata_update_performed: bool = True
+    memory_feedback_metadata_update_only: bool = True
+    new_memory_record_write_performed: bool = False
+    broad_memory_write_performed: bool = False
     reviewed_recall_record_created: bool = False
     memory_delete_performed: bool = False
     memory_export_performed: bool = False

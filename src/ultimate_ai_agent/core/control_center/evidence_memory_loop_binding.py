@@ -5,12 +5,18 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.control_center.proof import derive_control_center_proof_ref
 from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
     FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF,
 )
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
+)
+from ultimate_ai_agent.core.memory import (
+    MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+    MEMORY_REVIEW_WRITE_ROLLBACK_REF,
+    MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
 )
 
 
@@ -27,6 +33,15 @@ EVIDENCE_MEMORY_LOOP_BINDING_ROUTE_REFS: tuple[str, ...] = (
     "GET /control-center/today/summary",
     "GET /control-center/memory/review",
     "GET /control-center/evidence/timeline",
+)
+EVIDENCE_MEMORY_LOOP_BINDING_SHARED_REF = (
+    "loop-binding-ref:evidence-memory:daily-loop-v1"
+)
+EVIDENCE_MEMORY_LOOP_BINDING_PROMOTION_PATH_REFS: tuple[str, ...] = (
+    "promotion-path:evidence-memory:reviewed-recall-write-exact-scope",
+    "promotion-path:evidence-memory:context-injection-separate-contract",
+    "promotion-path:evidence-memory:delete-export-separate-contract",
+    "promotion-path:evidence-memory:connector-sync-separate-contract",
 )
 EVIDENCE_MEMORY_LOOP_BINDING_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-state:evidence-memory-loop:no-memory-truth-authority",
@@ -72,6 +87,10 @@ class EvidenceMemoryEvidenceBinding(BaseModel):
     action_refs: list[str] = Field(default_factory=list)
     run_refs: list[str] = Field(default_factory=list)
     proof_refs: list[str] = Field(default_factory=list)
+    shared_loop_refs: list[str] = Field(default_factory=list)
+    shared_run_refs: list[str] = Field(default_factory=list)
+    shared_action_refs: list[str] = Field(default_factory=list)
+    shared_proof_refs: list[str] = Field(default_factory=list)
     approval_refs: list[str] = Field(default_factory=list)
     receipt_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
@@ -97,6 +116,10 @@ class EvidenceMemoryEvidenceBinding(BaseModel):
             "action_refs",
             "run_refs",
             "proof_refs",
+            "shared_loop_refs",
+            "shared_run_refs",
+            "shared_action_refs",
+            "shared_proof_refs",
             "approval_refs",
             "receipt_refs",
             "evidence_refs",
@@ -118,11 +141,20 @@ class EvidenceMemoryMemoryBinding(BaseModel):
     related_action_refs: list[str] = Field(default_factory=list)
     related_run_refs: list[str] = Field(default_factory=list)
     related_proof_refs: list[str] = Field(default_factory=list)
+    shared_loop_refs: list[str] = Field(default_factory=list)
+    shared_run_refs: list[str] = Field(default_factory=list)
+    shared_action_refs: list[str] = Field(default_factory=list)
+    shared_proof_refs: list[str] = Field(default_factory=list)
     related_evidence_refs: list[str] = Field(default_factory=list)
     decision_receipt_refs: list[str] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list)
     reviewed_recall_only: bool = True
     write_posture: str = "reviewed_recall_write_accept_correct_only"
+    reviewed_memory_write_scope_ref: str = MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+    reviewed_memory_write_authorized: bool = False
+    broad_memory_write_blocked: bool = True
+    memory_write_safe_disable_ref: str = MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF
+    memory_write_rollback_ref: str = MEMORY_REVIEW_WRITE_ROLLBACK_REF
     context_posture: str = "runtime_context_injection_blocked"
     next_safe_action: str = Field(..., min_length=1, max_length=500)
     memory_truth_authority: bool = False
@@ -149,13 +181,30 @@ class EvidenceMemoryMemoryBinding(BaseModel):
             "related_action_refs",
             "related_run_refs",
             "related_proof_refs",
+            "shared_loop_refs",
+            "shared_run_refs",
+            "shared_action_refs",
+            "shared_proof_refs",
             "related_evidence_refs",
             "decision_receipt_refs",
             "blocked_authority_refs",
         ):
             _validate_ref_list(getattr(self, field_name), field_name)
+        for field_name in (
+            "reviewed_memory_write_scope_ref",
+            "memory_write_safe_disable_ref",
+            "memory_write_rollback_ref",
+        ):
+            validate_execution_ref(str(getattr(self, field_name)), field_name)
         if not self.reviewed_recall_only:
             raise ValueError("Memory binding must remain reviewed recall only")
+        if not self.broad_memory_write_blocked:
+            raise ValueError("Memory binding must keep broad memory writes blocked")
+        if (
+            self.reviewed_memory_write_authorized
+            and self.write_posture != "accept_correct_reviewed_recall_write_only"
+        ):
+            raise ValueError("Reviewed memory write authority must stay exact scoped")
         if (
             self.memory_truth_authority
             or self.context_injection_authorized
@@ -188,6 +237,21 @@ class EvidenceMemoryLoopBindingReadModel(BaseModel):
     run_refs: list[str] = Field(default_factory=list)
     proof_refs: list[str] = Field(default_factory=list)
     receipt_refs: list[str] = Field(default_factory=list)
+    shared_loop_ref: str = EVIDENCE_MEMORY_LOOP_BINDING_SHARED_REF
+    shared_run_refs: list[str] = Field(default_factory=list)
+    shared_action_refs: list[str] = Field(default_factory=list)
+    shared_proof_refs: list[str] = Field(default_factory=list)
+    reviewed_memory_write_scope_ref: str = MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+    reviewed_memory_write_authorized_decisions: list[str] = Field(
+        default_factory=lambda: ["accept", "correct"]
+    )
+    reviewed_memory_write_authorized: bool = False
+    broad_memory_write_blocked: bool = True
+    memory_write_safe_disable_ref: str = MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF
+    memory_write_rollback_ref: str = MEMORY_REVIEW_WRITE_ROLLBACK_REF
+    promotion_path_refs: list[str] = Field(
+        default_factory=lambda: list(EVIDENCE_MEMORY_LOOP_BINDING_PROMOTION_PATH_REFS)
+    )
     blocked_authority_refs: list[str] = Field(default_factory=list, min_length=1)
     operator_summary: str = Field(..., min_length=1, max_length=700)
     next_safe_action: str = Field(..., min_length=1, max_length=500)
@@ -239,9 +303,55 @@ class EvidenceMemoryLoopBindingReadModel(BaseModel):
             "run_refs",
             "proof_refs",
             "receipt_refs",
+            "shared_run_refs",
+            "shared_action_refs",
+            "shared_proof_refs",
+            "promotion_path_refs",
             "blocked_authority_refs",
         ):
             _validate_ref_list(getattr(self, field_name), field_name)
+        for field_name in (
+            "shared_loop_ref",
+            "reviewed_memory_write_scope_ref",
+            "memory_write_safe_disable_ref",
+            "memory_write_rollback_ref",
+        ):
+            validate_execution_ref(str(getattr(self, field_name)), field_name)
+        _validate_text_list(
+            self.reviewed_memory_write_authorized_decisions,
+            "reviewed_memory_write_authorized_decisions",
+        )
+        if self.reviewed_memory_write_authorized_decisions != ["accept", "correct"]:
+            raise ValueError("Reviewed memory write decisions must stay narrow")
+        if not self.broad_memory_write_blocked:
+            raise ValueError("Broad memory writes must remain blocked")
+        expected_action_refs = _shared_action_refs(
+            self.evidence_bindings,
+            self.memory_bindings,
+        )
+        expected_proof_refs = _shared_proof_refs(
+            self.evidence_bindings,
+            self.memory_bindings,
+        )
+        if self.action_refs != expected_action_refs:
+            raise ValueError("Evidence/Memory action refs drift from shared refs")
+        if self.proof_refs != expected_proof_refs:
+            raise ValueError("Evidence/Memory proof refs drift from shared refs")
+        if self.shared_run_refs != self.run_refs:
+            raise ValueError("Evidence/Memory shared run refs drift")
+        if self.shared_action_refs != expected_action_refs:
+            raise ValueError("Evidence/Memory shared action refs drift")
+        if self.shared_proof_refs != expected_proof_refs:
+            raise ValueError("Evidence/Memory shared proof refs drift")
+        for binding in [*self.evidence_bindings, *self.memory_bindings]:
+            if binding.shared_loop_refs != [self.shared_loop_ref]:
+                raise ValueError("Evidence/Memory binding shared loop ref drift")
+            if binding.shared_run_refs != self.shared_run_refs:
+                raise ValueError("Evidence/Memory binding shared run refs drift")
+            if binding.shared_action_refs != self.shared_action_refs:
+                raise ValueError("Evidence/Memory binding shared action refs drift")
+            if binding.shared_proof_refs != self.shared_proof_refs:
+                raise ValueError("Evidence/Memory binding shared proof refs drift")
         for flag in _DENIED_FLAGS:
             if getattr(self, flag):
                 raise ValueError(f"Evidence/Memory binding must not enable {flag}")
@@ -263,6 +373,7 @@ def build_evidence_memory_loop_binding_read_model(
         founder_loop_product_proof_read_model,
         unified_work_thread_read_model,
     )
+    shared_loop_refs = [EVIDENCE_MEMORY_LOOP_BINDING_SHARED_REF]
     memory_bindings = [
         _memory_binding(
             item=item,
@@ -272,11 +383,17 @@ def build_evidence_memory_loop_binding_read_model(
             evidence_timeline=evidence_timeline,
             evidence_events=evidence_events,
             run_refs=run_refs,
+            shared_loop_refs=shared_loop_refs,
         )
         for item in memory_items[:8]
     ]
     evidence_bindings = [
-        _evidence_binding(event=event, memory_bindings=memory_bindings, run_refs=run_refs)
+        _evidence_binding(
+            event=event,
+            memory_bindings=memory_bindings,
+            run_refs=run_refs,
+            shared_loop_refs=shared_loop_refs,
+        )
         for event in evidence_events[:12]
     ]
     if not evidence_bindings:
@@ -285,9 +402,21 @@ def build_evidence_memory_loop_binding_read_model(
                 item=item,
                 memory_bindings=memory_bindings,
                 run_refs=run_refs,
+                shared_loop_refs=shared_loop_refs,
             )
             for item in evidence_timeline[:12]
         ]
+    shared_action_refs = _shared_action_refs(evidence_bindings, memory_bindings)
+    shared_proof_refs = _shared_proof_refs(evidence_bindings, memory_bindings)
+    reviewed_memory_write_authorized = any(
+        binding.reviewed_memory_write_authorized for binding in memory_bindings
+    )
+    for binding in memory_bindings:
+        binding.shared_action_refs = list(shared_action_refs)
+        binding.shared_proof_refs = list(shared_proof_refs)
+    for binding in evidence_bindings:
+        binding.shared_action_refs = list(shared_action_refs)
+        binding.shared_proof_refs = list(shared_proof_refs)
     model = EvidenceMemoryLoopBindingReadModel(
         evidence_binding_count=len(evidence_bindings),
         memory_binding_count=len(memory_bindings),
@@ -299,16 +428,24 @@ def build_evidence_memory_loop_binding_read_model(
         memory_candidate_refs=_merge_refs(
             binding.memory_candidate_ref for binding in memory_bindings
         ),
-        action_refs=_merge_refs(binding.action_refs for binding in evidence_bindings),
+        action_refs=shared_action_refs,
         run_refs=run_refs,
-        proof_refs=_merge_refs(
-            [binding.proof_refs for binding in evidence_bindings],
-            [binding.related_proof_refs for binding in memory_bindings],
-        ),
+        proof_refs=shared_proof_refs,
         receipt_refs=_merge_refs(
             [binding.receipt_refs for binding in evidence_bindings],
             [binding.decision_receipt_refs for binding in memory_bindings],
         ),
+        shared_loop_ref=EVIDENCE_MEMORY_LOOP_BINDING_SHARED_REF,
+        shared_run_refs=run_refs,
+        shared_action_refs=shared_action_refs,
+        shared_proof_refs=shared_proof_refs,
+        reviewed_memory_write_scope_ref=MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+        reviewed_memory_write_authorized_decisions=["accept", "correct"],
+        reviewed_memory_write_authorized=reviewed_memory_write_authorized,
+        broad_memory_write_blocked=True,
+        memory_write_safe_disable_ref=MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
+        memory_write_rollback_ref=MEMORY_REVIEW_WRITE_ROLLBACK_REF,
+        promotion_path_refs=list(EVIDENCE_MEMORY_LOOP_BINDING_PROMOTION_PATH_REFS),
         blocked_authority_refs=list(EVIDENCE_MEMORY_LOOP_BINDING_BLOCKED_AUTHORITY_REFS),
         operator_summary=(
             f"{len(evidence_bindings)} evidence bindings and {len(memory_bindings)} "
@@ -339,6 +476,7 @@ def _memory_binding(
     evidence_timeline: list[dict[str, Any]],
     evidence_events: list[dict[str, Any]],
     run_refs: list[str],
+    shared_loop_refs: list[str],
 ) -> EvidenceMemoryMemoryBinding:
     candidate_ref = _first_ref(
         item.get("business_memory_candidate_ref"),
@@ -404,6 +542,11 @@ def _memory_binding(
         item.get("decision_receipt_refs"),
         [receipt.get("receipt_ref") for receipt in decisions],
     )
+    related_action_refs = _merge_refs(
+        loop.get("follow_up_commitment_refs") for loop in loop_items
+    )
+    related_proof_refs = [derive_control_center_proof_ref("memory-decision", candidate_ref)]
+    reviewed_write_authorized = bool(item.get("memory_write_authorized"))
     why_text = (
         str(why_items[0].get("why_shown"))
         if why_items
@@ -420,20 +563,27 @@ def _memory_binding(
             [why.get("loop_item_ref") for why in why_items],
             [loop.get("loop_item_ref") for loop in loop_items],
         ),
-        related_action_refs=_merge_refs(
-            loop.get("follow_up_commitment_refs") for loop in loop_items
-        ),
+        related_action_refs=related_action_refs,
         related_run_refs=run_refs,
-        related_proof_refs=[_derived_proof_ref("memory-decision", candidate_ref)],
+        related_proof_refs=related_proof_refs,
+        shared_loop_refs=shared_loop_refs,
+        shared_run_refs=run_refs,
+        shared_action_refs=related_action_refs,
+        shared_proof_refs=related_proof_refs,
         related_evidence_refs=related_evidence_refs,
         decision_receipt_refs=receipt_refs,
         blocked_authority_refs=blocked_refs,
         reviewed_recall_only=True,
         write_posture=(
             "accept_correct_reviewed_recall_write_only"
-            if item.get("memory_write_authorized")
+            if reviewed_write_authorized
             else "general_memory_write_blocked"
         ),
+        reviewed_memory_write_scope_ref=MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+        reviewed_memory_write_authorized=reviewed_write_authorized,
+        broad_memory_write_blocked=True,
+        memory_write_safe_disable_ref=MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
+        memory_write_rollback_ref=MEMORY_REVIEW_WRITE_ROLLBACK_REF,
         context_posture="runtime_context_injection_blocked",
         next_safe_action=str(
             item.get("next_safe_action")
@@ -447,6 +597,7 @@ def _evidence_binding(
     event: dict[str, Any],
     memory_bindings: list[EvidenceMemoryMemoryBinding],
     run_refs: list[str],
+    shared_loop_refs: list[str],
 ) -> EvidenceMemoryEvidenceBinding:
     event_ref = str(event.get("event_ref") or "evidence-event:unknown")
     timeline_item_ref = str(
@@ -455,6 +606,7 @@ def _evidence_binding(
     source_refs = _merge_refs(event.get("source_refs"), event.get("status_refs"))
     memory_refs = _related_memory_refs(source_refs, memory_bindings)
     action_refs = _filter_prefixes(source_refs, ("founder-action:", "action:"))
+    proof_refs = [derive_control_center_proof_ref("evidence-event", event_ref)]
     evidence_refs = _merge_refs(
         event_ref,
         timeline_item_ref,
@@ -476,7 +628,11 @@ def _evidence_binding(
         source_refs=source_refs,
         action_refs=action_refs,
         run_refs=run_refs,
-        proof_refs=[_derived_proof_ref("evidence-event", event_ref)],
+        proof_refs=proof_refs,
+        shared_loop_refs=shared_loop_refs,
+        shared_run_refs=run_refs,
+        shared_action_refs=action_refs,
+        shared_proof_refs=proof_refs,
         approval_refs=_refs(event.get("approval_refs")),
         receipt_refs=_refs(event.get("receipt_refs")),
         evidence_refs=evidence_refs,
@@ -497,11 +653,14 @@ def _evidence_binding_from_timeline_item(
     item: dict[str, Any],
     memory_bindings: list[EvidenceMemoryMemoryBinding],
     run_refs: list[str],
+    shared_loop_refs: list[str],
 ) -> EvidenceMemoryEvidenceBinding:
     timeline_item_ref = str(item.get("timeline_item_ref") or "evidence-timeline:unknown")
     event_ref = f"evidence-event:timeline:{_safe_suffix(timeline_item_ref)}"
     source_refs = _merge_refs(item.get("source_refs"), item.get("status_refs"))
     memory_refs = _related_memory_refs(source_refs, memory_bindings)
+    action_refs = _filter_prefixes(source_refs, ("founder-action:", "action:"))
+    proof_refs = [derive_control_center_proof_ref("evidence-event", event_ref)]
     why_recorded = _history_answer(item, "proposed") or str(
         item.get("safe_summary") or "Evidence timeline item explains loop state."
     )
@@ -514,9 +673,13 @@ def _evidence_binding_from_timeline_item(
         title=str(item.get("title") or "Evidence Timeline item"),
         why_recorded=why_recorded,
         source_refs=source_refs,
-        action_refs=_filter_prefixes(source_refs, ("founder-action:", "action:")),
+        action_refs=action_refs,
         run_refs=run_refs,
-        proof_refs=[_derived_proof_ref("evidence-event", event_ref)],
+        proof_refs=proof_refs,
+        shared_loop_refs=shared_loop_refs,
+        shared_run_refs=run_refs,
+        shared_action_refs=action_refs,
+        shared_proof_refs=proof_refs,
         approval_refs=_merge_refs(
             item.get("history_answers", {}).get("approved", {}).get("refs", [])
             if isinstance(item.get("history_answers"), dict)
@@ -563,6 +726,26 @@ def _run_refs(
     )
 
 
+def _shared_action_refs(
+    evidence_bindings: list[EvidenceMemoryEvidenceBinding],
+    memory_bindings: list[EvidenceMemoryMemoryBinding],
+) -> list[str]:
+    return _merge_refs(
+        [binding.action_refs for binding in evidence_bindings],
+        [binding.related_action_refs for binding in memory_bindings],
+    )
+
+
+def _shared_proof_refs(
+    evidence_bindings: list[EvidenceMemoryEvidenceBinding],
+    memory_bindings: list[EvidenceMemoryMemoryBinding],
+) -> list[str]:
+    return _merge_refs(
+        [binding.proof_refs for binding in evidence_bindings],
+        [binding.related_proof_refs for binding in memory_bindings],
+    )
+
+
 def _history_answer(item: dict[str, Any], key: str) -> str | None:
     answers = item.get("history_answers")
     if not isinstance(answers, dict):
@@ -587,12 +770,6 @@ def _first_ref(*values: Any, fallback: str) -> str:
             return refs[0]
     validate_execution_ref(fallback, "fallback_ref")
     return fallback
-
-
-def _derived_proof_ref(kind: str, source_ref: str) -> str:
-    proof_ref = f"proof-ref:{kind}:{_safe_suffix(source_ref)}"
-    validate_execution_ref(proof_ref, "proof_ref")
-    return proof_ref
 
 
 def _safe_suffix(value: str) -> str:

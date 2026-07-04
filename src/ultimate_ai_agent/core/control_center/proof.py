@@ -421,8 +421,8 @@ def _proof_records(today_summary: dict[str, Any]) -> list[ControlCenterProofReco
     records.append(_daily_loop_record(runs=runs, evidence_refs=evidence_refs))
     records.extend(_action_records(today_summary))
     records.append(_local_task_commit_record(today_summary))
-    records.append(_memory_decision_record(today_summary))
-    records.append(_evidence_event_record(today_summary))
+    records.extend(_memory_decision_records(today_summary))
+    records.extend(_evidence_event_records(today_summary))
     records.append(_web_evidence_record(today_summary))
     records.append(_source_readiness_record(today_summary))
     records.append(_approval_record(today_summary))
@@ -634,7 +634,69 @@ def _local_task_commit_record(today_summary: dict[str, Any]) -> ControlCenterPro
     )
 
 
-def _memory_decision_record(today_summary: dict[str, Any]) -> ControlCenterProofRecord:
+def _memory_decision_records(today_summary: dict[str, Any]) -> list[ControlCenterProofRecord]:
+    binding = _dict(today_summary.get("evidence_memory_loop_binding_read_model"))
+    memory_bindings = _list_of_dicts(binding.get("memory_bindings"))
+    if memory_bindings:
+        return [
+            _memory_decision_record_from_binding(memory_binding)
+            for memory_binding in memory_bindings
+        ]
+    return [_memory_decision_record_from_memory_review(today_summary)]
+
+
+def _memory_decision_record_from_binding(
+    binding: dict[str, Any],
+) -> ControlCenterProofRecord:
+    source_ref = _first_ref(
+        binding.get("memory_candidate_ref"),
+        binding.get("review_ref"),
+        fallback="memory-candidate:not-selected",
+    )
+    return ControlCenterProofRecord(
+        proof_ref=derive_control_center_proof_ref("memory-decision", source_ref),
+        proof_kind="memory_decision",
+        status=str(binding.get("write_posture") or "review_available_or_explicit_none"),
+        title=str(binding.get("title") or "Memory Decision"),
+        safe_summary=str(
+            binding.get("why_shown")
+            or "Memory proof links reviewed candidates by safe refs only."
+        ),
+        authority_posture=(
+            "Memory decision proof does not make memory recall truth and does "
+            "not inject context into a model."
+        ),
+        route_refs=["route-ref:control-center:memory"],
+        backend_route_refs=[
+            "GET /control-center/memory/review",
+            "GET /control-center/memory/review/{candidate_ref}/receipt",
+        ],
+        run_refs=_refs(binding.get("shared_run_refs"))
+        or _refs(binding.get("related_run_refs"))
+        or [FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF],
+        receipt_refs=_refs(binding.get("decision_receipt_refs")),
+        evidence_refs=_refs(binding.get("related_evidence_refs"))
+        or ["evidence-ref:proof:memory-decision"],
+        approval_refs=_refs(binding.get("approval_refs")),
+        memory_candidate_refs=_refs([source_ref]),
+        blocked_authority_refs=_merge_refs(
+            binding.get("blocked_authority_refs"),
+            _COMMON_BLOCKED_AUTHORITY_REFS,
+            [
+                "blocked-state:proof-detail:no-automatic-memory-write",
+                "blocked-state:proof-detail:no-context-injection",
+            ],
+        ),
+        next_safe_action=str(
+            binding.get("next_safe_action")
+            or "Review memory receipts and citations before relying on recall."
+        ),
+    )
+
+
+def _memory_decision_record_from_memory_review(
+    today_summary: dict[str, Any],
+) -> ControlCenterProofRecord:
     memory = _dict(today_summary.get("memory_review"))
     candidates = _list_of_dicts(
         today_summary.get("memory_review_queue")
@@ -650,7 +712,7 @@ def _memory_decision_record(today_summary: dict[str, Any]) -> ControlCenterProof
         fallback="memory-candidate:not-selected",
     )
     return ControlCenterProofRecord(
-        proof_ref=_derived_proof_ref("memory-decision", source_ref),
+        proof_ref=derive_control_center_proof_ref("memory-decision", source_ref),
         proof_kind="memory_decision",
         status=str(candidate.get("status") or "review_available_or_explicit_none"),
         title="Memory Decision",
@@ -686,11 +748,32 @@ def _memory_decision_record(today_summary: dict[str, Any]) -> ControlCenterProof
     )
 
 
-def _evidence_event_record(today_summary: dict[str, Any]) -> ControlCenterProofRecord:
+def _evidence_event_records(today_summary: dict[str, Any]) -> list[ControlCenterProofRecord]:
     binding = _dict(today_summary.get("evidence_memory_loop_binding_read_model"))
     events = _list_of_dicts(binding.get("evidence_bindings"))
     timeline = _list_of_dicts(today_summary.get("evidence_timeline"))
-    event = events[0] if events else (timeline[0] if timeline else {})
+    today_evidence_refs = _refs(today_summary.get("evidence_refs"))
+    if events:
+        return [
+            _evidence_event_record_from_event(
+                event,
+                today_evidence_refs=today_evidence_refs,
+            )
+            for event in events
+        ]
+    return [
+        _evidence_event_record_from_event(
+            timeline[0] if timeline else {},
+            today_evidence_refs=today_evidence_refs,
+        )
+    ]
+
+
+def _evidence_event_record_from_event(
+    event: dict[str, Any],
+    *,
+    today_evidence_refs: list[str],
+) -> ControlCenterProofRecord:
     source_ref = _first_ref(
         event.get("event_ref"),
         event.get("timeline_item_ref"),
@@ -698,7 +781,7 @@ def _evidence_event_record(today_summary: dict[str, Any]) -> ControlCenterProofR
         fallback="evidence-event:daily-loop",
     )
     return ControlCenterProofRecord(
-        proof_ref=_derived_proof_ref("evidence-event", source_ref),
+        proof_ref=derive_control_center_proof_ref("evidence-event", source_ref),
         proof_kind="evidence_event",
         status=str(event.get("status") or "evidence_refs_available"),
         title="Evidence Event",
@@ -709,11 +792,13 @@ def _evidence_event_record(today_summary: dict[str, Any]) -> ControlCenterProofR
         authority_posture="Evidence proof is read-only and does not execute or mutate sources.",
         route_refs=["route-ref:control-center:evidence"],
         backend_route_refs=["GET /control-center/evidence/timeline"],
-        run_refs=[FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF],
+        run_refs=_refs(event.get("shared_run_refs"))
+        or _refs(event.get("run_refs"))
+        or [FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF],
         receipt_refs=_refs(event.get("receipt_refs")),
         evidence_refs=_merge_refs(
             _refs(event.get("evidence_refs")),
-            _refs([source_ref, *_refs(today_summary.get("evidence_refs"))]),
+            _refs([source_ref, *today_evidence_refs]),
         ),
         approval_refs=_refs(event.get("approval_refs")),
         audit_refs=_refs(event.get("audit_refs")),
@@ -999,7 +1084,7 @@ def _action_identity(action: dict[str, Any]) -> str:
     )
 
 
-def _derived_proof_ref(kind: str, source_ref: str) -> str:
+def derive_control_center_proof_ref(kind: str, source_ref: str) -> str:
     slug = _SAFE_SUFFIX_RE.sub("-", source_ref.lower()).strip("-")[:80]
     candidate = f"proof-ref:{kind}:{slug or 'missing'}"
     try:
@@ -1010,6 +1095,10 @@ def _derived_proof_ref(kind: str, source_ref: str) -> str:
         ref = f"proof-ref:{kind}:sha256:{digest}"
         validate_execution_ref(ref, "proof_ref")
         return ref
+
+
+def _derived_proof_ref(kind: str, source_ref: str) -> str:
+    return derive_control_center_proof_ref(kind, source_ref)
 
 
 def _first_ref(*values: Any, fallback: str) -> str:

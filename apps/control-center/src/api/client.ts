@@ -3631,6 +3631,10 @@ const EVIDENCE_MEMORY_BINDING_AGGREGATE_REF_ARRAYS = [
   "run_refs",
   "proof_refs",
   "receipt_refs",
+  "shared_run_refs",
+  "shared_action_refs",
+  "shared_proof_refs",
+  "promotion_path_refs",
   "blocked_authority_refs",
 ] as const;
 
@@ -3639,6 +3643,10 @@ const EVIDENCE_MEMORY_EVIDENCE_BINDING_REF_ARRAYS = [
   "action_refs",
   "run_refs",
   "proof_refs",
+  "shared_loop_refs",
+  "shared_run_refs",
+  "shared_action_refs",
+  "shared_proof_refs",
   "approval_refs",
   "receipt_refs",
   "evidence_refs",
@@ -3652,6 +3660,10 @@ const EVIDENCE_MEMORY_MEMORY_BINDING_REF_ARRAYS = [
   "related_action_refs",
   "related_run_refs",
   "related_proof_refs",
+  "shared_loop_refs",
+  "shared_run_refs",
+  "shared_action_refs",
+  "shared_proof_refs",
   "related_evidence_refs",
   "decision_receipt_refs",
   "blocked_authority_refs",
@@ -4454,6 +4466,17 @@ function isSafeEvidenceMemoryLoopBindingReadModel(value: unknown): boolean {
     ) ||
     typeof value.evidence_binding_count !== "number" ||
     typeof value.memory_binding_count !== "number" ||
+    !isSafeEvidenceMemoryBindingRef(value.shared_loop_ref) ||
+    !isSafeEvidenceMemoryBindingRef(value.reviewed_memory_write_scope_ref) ||
+    !isSafeEvidenceMemoryBindingRef(value.memory_write_safe_disable_ref) ||
+    !isSafeEvidenceMemoryBindingRef(value.memory_write_rollback_ref) ||
+    !Array.isArray(value.reviewed_memory_write_authorized_decisions) ||
+    !hasExactStringList(value.reviewed_memory_write_authorized_decisions, [
+      "accept",
+      "correct",
+    ]) ||
+    typeof value.reviewed_memory_write_authorized !== "boolean" ||
+    value.broad_memory_write_blocked !== true ||
     !["status", "cli_ref", "operator_summary", "next_safe_action", "authority_boundary"].every(
       (field) => isSafeEvidenceMemoryBindingText(value[field]),
     ) ||
@@ -4466,7 +4489,11 @@ function isSafeEvidenceMemoryLoopBindingReadModel(value: unknown): boolean {
   ) {
     return false;
   }
-  return true;
+  return (
+    hasExactStringList(value.shared_run_refs, stringArray(value.run_refs)) &&
+    hasEvidenceMemoryAggregateSharedRefs(value) &&
+    hasEvidenceMemoryBindingSharedRefs(value)
+  );
 }
 
 function isSafeEvidenceMemoryEvidenceBinding(value: unknown): boolean {
@@ -4505,7 +4532,12 @@ function isSafeEvidenceMemoryMemoryBinding(value: unknown): boolean {
     ["title", "why_shown", "write_posture", "context_posture", "next_safe_action"].every(
       (field) => isSafeEvidenceMemoryBindingText(value[field]),
     ) &&
+    isSafeEvidenceMemoryBindingRef(value.reviewed_memory_write_scope_ref) &&
+    isSafeEvidenceMemoryBindingRef(value.memory_write_safe_disable_ref) &&
+    isSafeEvidenceMemoryBindingRef(value.memory_write_rollback_ref) &&
     value.reviewed_recall_only === true &&
+    typeof value.reviewed_memory_write_authorized === "boolean" &&
+    value.broad_memory_write_blocked === true &&
     value.memory_truth_authority === false &&
     value.context_injection_authorized === false &&
     value.automatic_memory_write_authorized === false &&
@@ -4515,6 +4547,73 @@ function isSafeEvidenceMemoryMemoryBinding(value: unknown): boolean {
       EVIDENCE_MEMORY_MEMORY_BINDING_REF_ARRAYS,
     )
   );
+}
+
+function hasEvidenceMemoryAggregateSharedRefs(
+  value: Record<string, unknown>,
+): boolean {
+  if (!Array.isArray(value.evidence_bindings) || !Array.isArray(value.memory_bindings)) {
+    return false;
+  }
+  const evidenceBindings = value.evidence_bindings as Record<string, unknown>[];
+  const memoryBindings = value.memory_bindings as Record<string, unknown>[];
+  const actionRefs = uniqueStrings([
+    ...evidenceBindings.flatMap((binding) => stringArray(binding.action_refs)),
+    ...memoryBindings.flatMap((binding) => stringArray(binding.related_action_refs)),
+  ]);
+  const proofRefs = uniqueStrings([
+    ...evidenceBindings.flatMap((binding) => stringArray(binding.proof_refs)),
+    ...memoryBindings.flatMap((binding) => stringArray(binding.related_proof_refs)),
+  ]);
+  return (
+    hasExactStringList(value.shared_action_refs, actionRefs) &&
+    hasExactStringList(value.shared_proof_refs, proofRefs)
+  );
+}
+
+function hasEvidenceMemoryBindingSharedRefs(
+  value: Record<string, unknown>,
+): boolean {
+  if (!Array.isArray(value.evidence_bindings) || !Array.isArray(value.memory_bindings)) {
+    return false;
+  }
+  const bindings = [
+    ...(value.evidence_bindings as Record<string, unknown>[]),
+    ...(value.memory_bindings as Record<string, unknown>[]),
+  ];
+  return bindings.every(
+    (binding) =>
+      hasExactStringList(binding.shared_loop_refs, [String(value.shared_loop_ref)]) &&
+      hasExactStringList(binding.shared_run_refs, stringArray(value.shared_run_refs)) &&
+      hasExactStringList(
+        binding.shared_action_refs,
+        stringArray(value.shared_action_refs),
+      ) &&
+      hasExactStringList(
+        binding.shared_proof_refs,
+        stringArray(value.shared_proof_refs),
+      ),
+  );
+}
+
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    if (!value || seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    result.push(value);
+  }
+  return result;
 }
 
 function hasSafeEvidenceMemoryBindingRefArrays(

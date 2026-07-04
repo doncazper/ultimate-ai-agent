@@ -4022,7 +4022,28 @@ function EvidenceMemoryLoopBindingPanel({
   readModel?: FounderLoopEvidenceMemoryLoopBindingReadModel;
 }) {
   if (!readModel) {
-    return null;
+    return (
+      <article
+        className={`status-card ${compact ? "compact-card" : ""}`}
+        aria-label="Evidence and Memory loop binding unavailable"
+      >
+        <div className="status-card-header">
+          <h3>Evidence/Memory loop binding</h3>
+          <span>backend proof required</span>
+        </div>
+        <p>
+          Evidence and Memory binding is unavailable until Python Core returns
+          a safe backend-owned read model.
+        </p>
+        <RefListWithFallback
+          emptyLabel="Blocked authority refs"
+          refs={[
+            "blocked-state:evidence-memory-loop:backend-read-model-required",
+            "blocked-state:evidence-memory-loop:no-ui-only-truth",
+          ]}
+        />
+      </article>
+    );
   }
   const firstMemory = readModel.memory_bindings[0];
   const firstEvidence = readModel.evidence_bindings[0];
@@ -4039,12 +4060,30 @@ function EvidenceMemoryLoopBindingPanel({
       <div className="operator-loop-summary-grid">
         <Metric label="evidence links" value={readModel.evidence_binding_count} />
         <Metric label="memory links" value={readModel.memory_binding_count} />
-        <Metric label="actions" value={readModel.action_refs.length} />
-        <Metric label="proof refs" value={readModel.proof_refs.length} />
+        <Metric label="shared actions" value={readModel.shared_action_refs.length} />
+        <Metric label="proof refs" value={readModel.shared_proof_refs.length} />
+        <Metric label="receipts" value={readModel.receipt_refs.length} />
       </div>
       <dl className="detail-list">
         <DetailTerm label="Status" value={readModel.status} />
         <DetailTerm label="CLI" value={readModel.cli_ref} />
+        <DetailTerm label="Shared loop" value={readModel.shared_loop_ref} />
+        <DetailTerm
+          label="Reviewed write"
+          value={
+            readModel.reviewed_memory_write_authorized
+              ? "active for accept/correct"
+              : "not active"
+          }
+        />
+        <DetailTerm
+          label="Write scope"
+          value={readModel.reviewed_memory_write_scope_ref}
+        />
+        <DetailTerm
+          label="Broad memory write"
+          value={readModel.broad_memory_write_blocked ? "blocked" : "enabled"}
+        />
         <DetailTerm
           label="Memory truth"
           value={readModel.memory_truth_authority ? "enabled" : "blocked"}
@@ -4057,7 +4096,28 @@ function EvidenceMemoryLoopBindingPanel({
           label="Action execution"
           value={readModel.action_execution_enabled ? "enabled" : "blocked"}
         />
+        <DetailTerm
+          label="Safe disable"
+          value={readModel.memory_write_safe_disable_ref}
+        />
+        <DetailTerm label="Rollback" value={readModel.memory_write_rollback_ref} />
       </dl>
+      <RefListWithFallback
+        emptyLabel="Shared action refs: none"
+        refs={readModel.shared_action_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Shared proof refs: none"
+        refs={readModel.shared_proof_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Receipt refs: none"
+        refs={readModel.receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence refs: none"
+        refs={readModel.evidence_refs}
+      />
       {firstMemory ? (
         <div className="compact-stack">
           <p className="muted">Why memory appeared</p>
@@ -4071,6 +4131,14 @@ function EvidenceMemoryLoopBindingPanel({
           <RefListWithFallback
             emptyLabel="Memory evidence refs: none"
             refs={firstMemory.related_evidence_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Memory shared action refs: none"
+            refs={firstMemory.shared_action_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Memory shared proof refs: none"
+            refs={firstMemory.shared_proof_refs}
           />
         </div>
       ) : null}
@@ -4087,6 +4155,14 @@ function EvidenceMemoryLoopBindingPanel({
             emptyLabel="Evidence proof refs: none"
             refs={firstEvidence.proof_refs}
           />
+          <RefListWithFallback
+            emptyLabel="Evidence action refs: none"
+            refs={firstEvidence.action_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Evidence receipt refs: none"
+            refs={firstEvidence.receipt_refs}
+          />
         </div>
       ) : null}
       <RefListWithFallback
@@ -4096,6 +4172,10 @@ function EvidenceMemoryLoopBindingPanel({
       <RefListWithFallback
         emptyLabel="Blocked authority refs: none"
         refs={readModel.blocked_authority_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Promotion path refs: none"
+        refs={readModel.promotion_path_refs}
       />
       <p className="muted">{readModel.next_safe_action}</p>
     </article>

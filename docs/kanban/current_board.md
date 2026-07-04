@@ -712,6 +712,25 @@ memory writes, no context injection, no rollback execution, no background
 autonomy, no public release, and no production authority.
 No-authority phrases: no generic action execution; no connector writes/sends; no provider/model calls; no shell/browser execution; no memory writes; no context injection; no rollback execution; no background autonomy; no public release; no production authority.
 
+Beta 06 Evidence/Memory binding
+Goal met: Evidence and Memory now share a backend-owned, safe-ref-only loop
+binding read model with explicit shared loop/run/action/proof refs, receipt
+refs, evidence refs, narrow reviewed-memory-write scope labels, broad-memory-
+write blocked posture, safe-disable/rollback refs, and universal Proof refs
+that resolve through Proof Detail. Full-strength target remains an evidence-
+backed memory loop where reviewed memory, evidence, actions, proof, rollback,
+and trust posture explain each operator decision. Repo-safe version is
+inspection/read-model hardening only: `scripts/verify_beta_06_evidence_memory_binding.py`
+proves Today, Memory Review, Evidence Timeline, CLI inspection, frontend guard
+markers, and Proof Detail resolution without adding runtime context injection,
+automatic memory write, memory delete/export, connector write/send,
+provider/model calls, shell/browser execution, background autonomy, public
+release, or production authority.
+No-authority phrases: no memory truth authority; no runtime context injection;
+no automatic memory write; no memory delete/export; no connector write/send; no
+provider/model calls; no shell/browser execution; no background autonomy; no
+public release; no production authority.
+
 Product Loop 009 Chat to loop handoff
 Goal met: Today, Action Inbox, and Morning Briefing now expose a backend-owned
 `chat_to_loop_handoff_read_model` over durable Chat turn receipts and handoff

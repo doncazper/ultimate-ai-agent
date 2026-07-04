@@ -1838,6 +1838,31 @@ describe("Web Control Center shell", () => {
             screen.queryByRole("button", { name: /Execute|Send|Apply/i }),
           ).not.toBeInTheDocument();
         }
+        if (path === "/memory" || path === "/evidence") {
+          expect(
+            screen.getAllByText("Shared loop").some((node) =>
+              node.nextElementSibling?.textContent?.includes(
+                "loop-binding-ref:evidence-memory:daily-loop-v1",
+              ),
+            ),
+          ).toBe(true);
+          expect(
+            screen.getAllByText("Reviewed write").some((node) =>
+              node.nextElementSibling?.textContent?.includes("not active"),
+            ),
+          ).toBe(true);
+          expect(
+            screen.getAllByText("Broad memory write").some((node) =>
+              node.nextElementSibling?.textContent?.includes("blocked"),
+            ),
+          ).toBe(true);
+          expect(screen.getAllByText(dogfoodRefs.actionRef).length).toBeGreaterThan(
+            0,
+          );
+          expect(
+            screen.getAllByText(dogfoodRefs.localTaskProofRef).length,
+          ).toBeGreaterThan(0);
+        }
       } finally {
         view.unmount();
         cleanup();
@@ -1850,6 +1875,78 @@ describe("Web Control Center shell", () => {
         ([, options]) => (options as RequestInit | undefined)?.method === "POST",
       ),
     ).toBe(false);
+  });
+
+  it("fails closed when Evidence/Memory shared refs drift", async () => {
+    const dogfoodData = dogfoodLiveLoopEndpointData();
+    const unsafeBinding = {
+      ...dogfoodEvidenceMemoryBinding(),
+      shared_proof_refs: [],
+    };
+    dogfoodData[API_ENDPOINTS.founderTodaySummary] = {
+      ...dogfoodData[API_ENDPOINTS.founderTodaySummary],
+      evidence_memory_loop_binding_read_model: unsafeBinding,
+    };
+    dogfoodData[API_ENDPOINTS.founderMemoryReview] = {
+      ...dogfoodData[API_ENDPOINTS.founderMemoryReview],
+      evidence_memory_loop_binding_read_model: unsafeBinding,
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      if (options?.method === "POST") {
+        throw new Error("unexpected mutation request");
+      }
+      const urlText = String(url);
+      const matched = Object.entries(dogfoodData).find(([endpoint]) =>
+        urlText.endsWith(endpoint),
+      );
+      if (matched) {
+        return new Response(JSON.stringify({ ok: true, result: matched[1] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))
+      ) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { loadControlCenterData } = await import("./api/client");
+    const data = await loadControlCenterData();
+
+    expect(
+      data.founderToday.evidence_memory_loop_binding_read_model,
+    ).toBeUndefined();
+    expect(
+      data.founderMemoryReview.evidence_memory_loop_binding_read_model,
+    ).toBeUndefined();
+
+    window.history.pushState({}, "", "/memory");
+    const view = render(<App />);
+    try {
+      expect(await screen.findByText("Backend online")).toBeInTheDocument();
+      expect(
+        screen.getByLabelText("Evidence and Memory loop binding unavailable"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("backend proof required")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "blocked-state:evidence-memory-loop:backend-read-model-required",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Shared loop")).not.toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
   });
 
   it("renders the daily loop spine across primary Founder Loop surfaces", async () => {
@@ -10721,6 +10818,10 @@ function dogfoodEvidenceMemoryBinding() {
         action_refs: [dogfoodRefs.actionRef],
         run_refs: [dogfoodRefs.runRef],
         proof_refs: [dogfoodRefs.localTaskProofRef],
+        shared_loop_refs: ["loop-binding-ref:evidence-memory:daily-loop-v1"],
+        shared_run_refs: [dogfoodRefs.runRef],
+        shared_action_refs: [dogfoodRefs.actionRef],
+        shared_proof_refs: [dogfoodRefs.localTaskProofRef],
         approval_refs: [dogfoodRefs.approvalRef],
         receipt_refs: [dogfoodRefs.receiptRef],
         evidence_refs: [dogfoodRefs.evidenceRef, dogfoodRefs.timelineEventRef],
@@ -10745,6 +10846,10 @@ function dogfoodEvidenceMemoryBinding() {
         related_action_refs: [dogfoodRefs.actionRef],
         related_run_refs: [dogfoodRefs.runRef],
         related_proof_refs: [dogfoodRefs.localTaskProofRef],
+        shared_loop_refs: ["loop-binding-ref:evidence-memory:daily-loop-v1"],
+        shared_run_refs: [dogfoodRefs.runRef],
+        shared_action_refs: [dogfoodRefs.actionRef],
+        shared_proof_refs: [dogfoodRefs.localTaskProofRef],
         related_evidence_refs: [
           dogfoodRefs.evidenceRef,
           dogfoodRefs.timelineEventRef,
@@ -10755,7 +10860,15 @@ function dogfoodEvidenceMemoryBinding() {
           "blocked-state:evidence-memory-loop:no-runtime-context-injection",
         ],
         reviewed_recall_only: true,
-        write_posture: "reviewed_recall_write_accept_correct_only",
+        write_posture: "general_memory_write_blocked",
+        reviewed_memory_write_scope_ref:
+          "exact-scope-ref:memory-review:accept-correct-reviewed-recall-write",
+        reviewed_memory_write_authorized: false,
+        broad_memory_write_blocked: true,
+        memory_write_safe_disable_ref:
+          "safe-disable-ref:memory-review:accept-correct-reviewed-recall-write",
+        memory_write_rollback_ref:
+          "rollback-ref:memory-review:accept-correct-reviewed-recall-write",
         context_posture: "runtime_context_injection_blocked",
         next_safe_action:
           "Use this memory only as reviewed recall, not truth or hidden context.",
@@ -10770,6 +10883,25 @@ function dogfoodEvidenceMemoryBinding() {
     run_refs: [dogfoodRefs.runRef],
     proof_refs: [dogfoodRefs.localTaskProofRef],
     receipt_refs: [dogfoodRefs.receiptRef, dogfoodRefs.decisionReceiptRef],
+    shared_loop_ref: "loop-binding-ref:evidence-memory:daily-loop-v1",
+    shared_run_refs: [dogfoodRefs.runRef],
+    shared_action_refs: [dogfoodRefs.actionRef],
+    shared_proof_refs: [dogfoodRefs.localTaskProofRef],
+    reviewed_memory_write_scope_ref:
+      "exact-scope-ref:memory-review:accept-correct-reviewed-recall-write",
+    reviewed_memory_write_authorized_decisions: ["accept", "correct"],
+    reviewed_memory_write_authorized: false,
+    broad_memory_write_blocked: true,
+    memory_write_safe_disable_ref:
+      "safe-disable-ref:memory-review:accept-correct-reviewed-recall-write",
+    memory_write_rollback_ref:
+      "rollback-ref:memory-review:accept-correct-reviewed-recall-write",
+    promotion_path_refs: [
+      "promotion-path:evidence-memory:reviewed-recall-write-exact-scope",
+      "promotion-path:evidence-memory:context-injection-separate-contract",
+      "promotion-path:evidence-memory:delete-export-separate-contract",
+      "promotion-path:evidence-memory:connector-sync-separate-contract",
+    ],
     blocked_authority_refs: [
       "blocked-state:evidence-memory-loop:no-memory-truth-authority",
       "blocked-state:evidence-memory-loop:no-runtime-context-injection",

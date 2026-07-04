@@ -99,17 +99,29 @@ generic execution, connector write/send, provider/model call, browser/shell
 execution, memory write/context injection, rollback execution, public release,
 or production authority.
 
-Usable Authority PR 05 current truth: Today, Memory Review, Evidence Timeline,
-and Proof Detail now share a backend-owned Evidence/Memory loop binding read
-model plus CLI inspection through
+Usable Authority PR 05 current truth: Today, Memory Review, and Evidence
+Timeline now share a backend-owned Evidence/Memory loop binding read model plus
+CLI inspection through
 `scripts/dev/uaa_founder_loop.py inspect-evidence-memory-binding`. The binding
 shows safe source refs, why-shown refs, action refs, run refs, evidence refs,
-receipt refs, and proof refs so an operator can answer why a memory or
-evidence item appeared in the daily loop. It grants no memory truth authority,
+receipt refs, and universal Proof refs so an operator can answer why a memory or
+evidence item appeared in the daily loop. Proof Detail resolves those proof refs
+through the proof spine but does not expose the full binding read model. It
+grants no memory truth authority,
 runtime context injection, automatic memory write, memory delete/export,
 action execution, connector write/send, provider/model call, shell/browser
 runtime, background autonomy, public beta, public release, production
 readiness, or production authority.
+
+Beta 06 Evidence/Memory binding current truth: the binding now exposes
+explicit shared loop/run/action/proof refs, reviewed-memory-write scope refs,
+safe-disable/rollback refs, and promotion-path refs while keeping broad memory
+write, runtime context injection, memory truth authority, connector
+write/send, provider/model calls, shell/browser runtime, background autonomy,
+public release, and production authority blocked. The verifier
+`scripts/verify_beta_06_evidence_memory_binding.py` proves Today, Memory
+Review, Evidence Timeline, CLI inspection, frontend guard markers, and Proof
+Detail resolution over the same universal Proof refs.
 
 Dogfood Live Loop Acceptance current truth: `docs/control_center/DOGFOOD_LIVE_LOOP_ACCEPTANCE.md`,
 `src/ultimate_ai_agent/core/control_center/dogfood_live_loop.py`,
