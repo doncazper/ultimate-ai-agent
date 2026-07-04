@@ -75,11 +75,13 @@ Current boundary summary:
   exact-approved provider lane, governed runtime pilot mutation routes, and
   local model validation route groups. It does not add auth, distributed quota,
   dependencies, billing, or production authority.
-- Governed Runtime Pilot Phase 05 keeps `/api/runtime/*` contract, policy,
+- Governed Runtime Pilot Phase 06 keeps `/api/runtime/*` contract, policy,
   approval-binding, receipt, and safe-disable metadata routes while promoting
   configured local loopback model calls, one exact allowlisted read-only command
   status lane, and exact Action Inbox approved focused pytest command execution
-  through `RuntimeGateway`. They are backend-owned
+  through `RuntimeGateway`, then makes those records visible through
+  `uaa runtime ...`, `uaa actions approve|deny ...`, and Control Center runtime
+  readiness/evidence timeline cards. They are backend-owned
   safe-ref/metadata receipts; arbitrary shell/subprocess execution, focused
   tests outside the exact lane, repo verifiers, frontend-check, arbitrary
   adapter execution, remote provider/model calls, browser automation, connector

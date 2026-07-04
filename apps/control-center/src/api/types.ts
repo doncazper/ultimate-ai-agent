@@ -1909,11 +1909,20 @@ export interface FounderLoopRuntimeActionInboxBridgeItem {
   execution_performed: boolean;
   exact_scope_ref: string;
   approval_ref: string;
+  approval_decision_ref?: string | null;
+  approval_validation_ref?: string | null;
   idempotency_ref: string;
   policy_decision_ref: string;
   payload_fingerprint_ref: string;
   rollback_ref: string;
   safe_disable_ref: string;
+  safe_disable_posture_ref: string;
+  receipt_ref?: string | null;
+  execution_result_ref?: string | null;
+  receipt_status: string;
+  exit_code?: number | null;
+  timed_out: boolean;
+  command_output_persisted: boolean;
   receipt_refs: string[];
   evidence_refs: string[];
   blocked_reason_refs: string[];
@@ -1930,16 +1939,34 @@ export interface FounderLoopRuntimeActionInboxBridgeReadModel {
   raw_content_included: boolean;
   route_ref: string;
   cli_ref: string;
+  status_cli_ref: string;
+  capabilities_cli_ref: string;
+  invocations_cli_ref: string;
+  receipts_cli_ref: string;
+  safe_disable_cli_ref: string;
   status: string;
+  runtime_status_ref: string;
+  default_profile: string;
+  runtime_profile_status: string;
+  local_model_readiness: string;
+  command_runtime_readiness: string;
+  safe_disable_ref: string;
+  safe_disable_posture_ref: string;
+  safe_disable_active: boolean;
+  safe_disable_summary: string;
   item_count: number;
   pending_approval_count: number;
   approved_pending_execution_count: number;
   receipt_recorded_count: number;
   blocked_count: number;
   item_refs: string[];
+  approval_envelope_refs: string[];
+  pending_runtime_approval_refs: string[];
+  execution_result_refs: string[];
   receipt_refs: string[];
   evidence_refs: string[];
   items: FounderLoopRuntimeActionInboxBridgeItem[];
+  evidence_timeline: FounderLoopRuntimeEvidenceTimelineItem[];
   blocked_authority_refs: string[];
   next_safe_action: string;
   operator_summary: string;
@@ -1949,6 +1976,17 @@ export interface FounderLoopRuntimeActionInboxBridgeReadModel {
   browser_execution_enabled: boolean;
   connector_write_enabled: boolean;
   production_authority_enabled: boolean;
+}
+
+export interface FounderLoopRuntimeEvidenceTimelineItem {
+  event_ref: string;
+  event_kind: string;
+  invocation_ref: string;
+  receipt_ref?: string | null;
+  policy_decision_ref?: string | null;
+  action_envelope_ref?: string | null;
+  evidence_refs: string[];
+  safe_summary: string;
 }
 
 export type FounderLoopActionInboxDecisionLaneId =

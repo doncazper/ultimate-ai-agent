@@ -1144,6 +1144,14 @@ function RuntimeActionInboxBridgePanel({
         <DetailTerm label="Status" value={readModel.status} />
         <DetailTerm label="Route" value={readModel.route_ref} />
         <DetailTerm label="CLI" value={readModel.cli_ref} />
+        <DetailTerm label="Runtime profile" value={readModel.runtime_profile_status} />
+        <DetailTerm label="Local model" value={readModel.local_model_readiness} />
+        <DetailTerm label="Command runtime" value={readModel.command_runtime_readiness} />
+        <DetailTerm
+          label="Safe-disable"
+          value={readModel.safe_disable_active ? "active" : "inactive"}
+        />
+        <DetailTerm label="Safe-disable ref" value={readModel.safe_disable_ref} />
         <DetailTerm
           label="Control Center execution controls"
           value={readModel.action_execution_enabled ? "enabled" : "blocked"}
@@ -1170,6 +1178,25 @@ function RuntimeActionInboxBridgePanel({
         />
       </dl>
       <p className="muted">{readModel.next_safe_action}</p>
+      <div className="operator-loop-summary-grid">
+        <Metric label="timeline" value={readModel.evidence_timeline.length} />
+        <Metric
+          label="pending refs"
+          value={readModel.pending_runtime_approval_refs.length}
+        />
+        <Metric
+          label="results"
+          value={readModel.execution_result_refs.length}
+        />
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Status CLI" value={readModel.status_cli_ref} />
+        <DetailTerm label="Capabilities CLI" value={readModel.capabilities_cli_ref} />
+        <DetailTerm label="Invocations CLI" value={readModel.invocations_cli_ref} />
+        <DetailTerm label="Receipts CLI" value={readModel.receipts_cli_ref} />
+        <DetailTerm label="Safe-disable CLI" value={readModel.safe_disable_cli_ref} />
+      </dl>
+      <p className="muted">{readModel.safe_disable_summary}</p>
       <div className="review-grid">
         {readModel.items.map((item) => (
           <article className="review-card" key={item.invocation_ref}>
@@ -1192,8 +1219,25 @@ function RuntimeActionInboxBridgePanel({
                 label="Execution performed"
                 value={item.execution_performed ? "yes" : "no"}
               />
+              <DetailTerm label="Receipt status" value={item.receipt_status} />
+              <DetailTerm
+                label="Exit"
+                value={item.exit_code === null || item.exit_code === undefined ? "none" : String(item.exit_code)}
+              />
+              <DetailTerm
+                label="Timed out"
+                value={item.timed_out ? "yes" : "no"}
+              />
+              <DetailTerm
+                label="Output persisted"
+                value={item.command_output_persisted ? "yes" : "no"}
+              />
               <DetailTerm label="Rollback" value={item.rollback_ref} />
               <DetailTerm label="Safe disable" value={item.safe_disable_ref} />
+              <DetailTerm
+                label="Safe-disable posture"
+                value={item.safe_disable_posture_ref}
+              />
             </dl>
             <RefListWithFallback
               emptyLabel="Receipts: none"
@@ -1204,8 +1248,51 @@ function RuntimeActionInboxBridgePanel({
               refs={item.evidence_refs}
             />
             <RefListWithFallback
+              emptyLabel="Execution result refs: none"
+              refs={
+                item.execution_result_ref ? [item.execution_result_ref] : []
+              }
+            />
+            <RefListWithFallback
+              emptyLabel="Approval proof refs: none"
+              refs={[
+                item.approval_decision_ref,
+                item.approval_validation_ref,
+              ].filter((ref): ref is string => typeof ref === "string")}
+            />
+            <RefListWithFallback
               emptyLabel="Blocked reason refs: none"
               refs={item.blocked_reason_refs}
+            />
+          </article>
+        ))}
+      </div>
+      <div className="review-grid">
+        {readModel.evidence_timeline.map((event) => (
+          <article className="review-card" key={event.event_ref}>
+            <div className="review-card-heading">
+              <h4>{event.event_kind}</h4>
+              <span>{event.invocation_ref}</span>
+            </div>
+            <p>{event.safe_summary}</p>
+            <dl className="detail-list">
+              <DetailTerm label="Event" value={event.event_ref} />
+              <DetailTerm
+                label="Receipt"
+                value={event.receipt_ref ?? "not recorded"}
+              />
+              <DetailTerm
+                label="Policy"
+                value={event.policy_decision_ref ?? "not recorded"}
+              />
+              <DetailTerm
+                label="Envelope"
+                value={event.action_envelope_ref ?? "not recorded"}
+              />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Timeline evidence refs: none"
+              refs={event.evidence_refs}
             />
           </article>
         ))}
@@ -1213,6 +1300,18 @@ function RuntimeActionInboxBridgePanel({
       <RefListWithFallback
         emptyLabel="Runtime bridge receipts: none"
         refs={readModel.receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Runtime bridge approval envelopes: none"
+        refs={readModel.approval_envelope_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Runtime bridge pending approvals: none"
+        refs={readModel.pending_runtime_approval_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Runtime bridge execution results: none"
+        refs={readModel.execution_result_refs}
       />
       <RefListWithFallback
         emptyLabel="Runtime bridge evidence refs: none"

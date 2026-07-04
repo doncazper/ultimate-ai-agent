@@ -8910,9 +8910,11 @@ class FounderLoopRepository:
             action_groups=action_groups,
         )
         try:
+            runtime_store = RuntimeInvocationStore()
             runtime_action_inbox_bridge_read_model = (
                 build_runtime_action_inbox_bridge_read_model(
-                    RuntimeInvocationStore().list_invocations()
+                    runtime_store.list_invocations(),
+                    entries=runtime_store.list_entries(),
                 )
             )
         except Exception:

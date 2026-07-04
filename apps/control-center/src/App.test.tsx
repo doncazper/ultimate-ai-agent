@@ -1144,11 +1144,20 @@ function runtimeActionInboxBridgeFixture(
     execution_performed: true,
     exact_scope_ref: "scope-ref:runtime-app-test",
     approval_ref: "approval-ref:runtime-app-test",
+    approval_decision_ref: "approval-decision-ref:runtime-app-test",
+    approval_validation_ref: "approval-validation-ref:runtime-app-test",
     idempotency_ref: "idempotency-ref:runtime-app-test",
     policy_decision_ref: "policy-decision:runtime-app-test",
     payload_fingerprint_ref: "payload-fingerprint:runtime-app-test",
     rollback_ref: "rollback-ref:runtime-app-test",
     safe_disable_ref: "safe-disable-ref:runtime-app-test",
+    safe_disable_posture_ref: "safe-disable-posture-ref:runtime-app-test",
+    receipt_ref: "receipt:runtime-command:app-test",
+    execution_result_ref: "redacted-output-ref:runtime-app-test",
+    receipt_status: "receipt_recorded",
+    exit_code: 0,
+    timed_out: false,
+    command_output_persisted: false,
     receipt_refs: ["receipt:runtime-command:app-test"],
     evidence_refs: ["evidence-ref:runtime-command:app-test"],
     blocked_reason_refs: [],
@@ -1167,17 +1176,48 @@ function runtimeActionInboxBridgeFixture(
     safe_refs_only: true,
     raw_content_included: false,
     route_ref: "GET /control-center/actions/inbox",
-    cli_ref: "python scripts/dev/uaa_runtime.py inspect-action-inbox-bridge",
+    cli_ref: "uaa runtime inspect-action-inbox-bridge",
+    status_cli_ref: "uaa runtime status",
+    capabilities_cli_ref: "uaa runtime capabilities",
+    invocations_cli_ref: "uaa runtime invocations list",
+    receipts_cli_ref: "uaa runtime receipts show",
+    safe_disable_cli_ref: "uaa runtime safe-disable",
     status: "backend_owned_runtime_action_inbox_bridge",
+    runtime_status_ref: "runtime-status-ref:governed-runtime-pilot",
+    default_profile: "sealed",
+    runtime_profile_status: "receipt_recorded_runtime_activity",
+    local_model_readiness: "configured_loopback_available_when_enabled",
+    command_runtime_readiness: "focused_pytest_receipt_recorded",
+    safe_disable_ref: "safe-disable-ref:runtime-app-test",
+    safe_disable_posture_ref: "safe-disable-posture-ref:runtime-app-test",
+    safe_disable_active: false,
+    safe_disable_summary:
+      "Runtime profile is active for this exact approved invocation only.",
     item_count: 1,
     pending_approval_count: 0,
     approved_pending_execution_count: 0,
     receipt_recorded_count: 1,
     blocked_count: 0,
     item_refs: ["runtime-invocation:app-test"],
+    approval_envelope_refs: ["action-envelope:runtime-app-test"],
+    pending_runtime_approval_refs: [],
+    execution_result_refs: ["redacted-output-ref:runtime-app-test"],
     receipt_refs: ["receipt:runtime-command:app-test"],
     evidence_refs: ["evidence-ref:runtime-command:app-test"],
     items: [item],
+    evidence_timeline: [
+      {
+        event_ref: "runtime-event-ref:app-test",
+        event_kind: "execution_completed",
+        invocation_ref: "runtime-invocation:app-test",
+        receipt_ref: "receipt:runtime-command:app-test",
+        policy_decision_ref: "policy-decision:runtime-app-test",
+        action_envelope_ref: "action-envelope:runtime-app-test",
+        evidence_refs: ["evidence-ref:runtime-command:app-test"],
+        safe_summary:
+          "Governed runtime command execution completed with redacted output refs.",
+      },
+    ],
     blocked_authority_refs: [
       "blocked-authority:runtime-unrestricted-command-execution",
       "blocked-authority:runtime-command-execution-without-gateway-allowlist",
@@ -4975,9 +5015,15 @@ describe("Web Control Center shell", () => {
       "Runtime Action Inbox execution bridge",
     );
     expect(bridge).toHaveTextContent("backend-owned");
+    expect(bridge).toHaveTextContent("receipt_recorded_runtime_activity");
+    expect(bridge).toHaveTextContent("focused_pytest_receipt_recorded");
+    expect(bridge).toHaveTextContent("uaa runtime status");
+    expect(bridge).toHaveTextContent("uaa runtime receipts show");
     expect(bridge).toHaveTextContent("focused_pytest");
     expect(bridge).toHaveTextContent("runtime-invocation:app-test");
     expect(bridge).toHaveTextContent("receipt:runtime-command:app-test");
+    expect(bridge).toHaveTextContent("redacted-output-ref:runtime-app-test");
+    expect(bridge).toHaveTextContent("execution_completed");
     expect(bridge).toHaveTextContent(
       "blocked-authority:runtime-unrestricted-command-execution",
     );
@@ -5027,6 +5073,94 @@ describe("Web Control Center shell", () => {
     expect(bridge).toHaveTextContent("backend read model missing");
     expect(screen.queryByText("runtime-invocation:app-test")).not.toBeInTheDocument();
     expect(screen.queryByText("focused_pytest")).not.toBeInTheDocument();
+  });
+
+  it("fails closed when the governed runtime bridge claims persisted output", async () => {
+    const unsafeBridge = runtimeActionInboxBridgeFixture();
+    unsafeBridge.items = [
+      {
+        ...unsafeBridge.items[0],
+        command_output_persisted: true,
+      },
+    ];
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      runtime_action_inbox_bridge_contract_ref:
+        "contract-ref:governed-runtime-action-inbox-execution-bridge:v1",
+      runtime_action_inbox_bridge_read_model: unsafeBridge,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Action Inbox$/i }),
+    ).toBeInTheDocument();
+    const bridge = screen.getByLabelText(
+      "Runtime Action Inbox execution bridge",
+    );
+    expect(bridge).toHaveTextContent("backend read model missing");
+    expect(screen.queryByText("runtime-invocation:app-test")).not.toBeInTheDocument();
+  });
+
+  it("fails closed when the governed runtime bridge invents timeline events", async () => {
+    const unsafeBridge = runtimeActionInboxBridgeFixture();
+    unsafeBridge.evidence_timeline = [
+      {
+        ...unsafeBridge.evidence_timeline[0],
+        event_kind: "runtime_started",
+      },
+    ];
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      runtime_action_inbox_bridge_contract_ref:
+        "contract-ref:governed-runtime-action-inbox-execution-bridge:v1",
+      runtime_action_inbox_bridge_read_model: unsafeBridge,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Action Inbox$/i }),
+    ).toBeInTheDocument();
+    const bridge = screen.getByLabelText(
+      "Runtime Action Inbox execution bridge",
+    );
+    expect(bridge).toHaveTextContent("backend read model missing");
+    expect(screen.queryByText("runtime_started")).not.toBeInTheDocument();
   });
 
   it("fails closed when a Plans-to-Actions bridge item carries unsafe fields", async () => {

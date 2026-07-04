@@ -572,6 +572,13 @@ def test_runtime_gateway_command_disabled_intent_records_blocked_receipt(
         result.record.receipt.command_receipt_metadata.command_execution_attempted
         is False
     )
+    read_model = build_runtime_action_inbox_bridge_read_model([result.record])
+    event_kinds = {event["event_kind"] for event in read_model["evidence_timeline"]}
+    assert "receipt_recorded" in event_kinds
+    assert "execution_started" not in event_kinds
+    assert "execution_completed" not in event_kinds
+    assert "execution_failed" not in event_kinds
+    assert "execution_timed_out" not in event_kinds
 
 
 def _approved_runtime_command_request() -> RuntimeCommandExecutionRequest:
@@ -718,6 +725,17 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
         store,
         command_request=command_request,
     )
+    assert approved.action_inbox_envelope is not None
+    approved_read_model = build_runtime_action_inbox_bridge_read_model(
+        store.list_invocations(),
+        entries=store.list_entries(),
+    )
+    assert approved.action_inbox_envelope.approval_ref in (
+        approved_read_model["pending_runtime_approval_refs"]
+    )
+    assert approved.action_inbox_envelope.action_envelope_ref not in (
+        approved_read_model["pending_runtime_approval_refs"]
+    )
     gateway = RuntimeGateway(
         store=store,
         command_adapter=GovernedCommandRuntimeAdapter(
@@ -764,7 +782,10 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
         "tests/test_governed_runtime_contracts.py",
         "-q",
     )
-    read_model = build_runtime_action_inbox_bridge_read_model(store.list_invocations())
+    read_model = build_runtime_action_inbox_bridge_read_model(
+        store.list_invocations(),
+        entries=store.list_entries(),
+    )
     assert read_model["item_count"] == 1
     assert read_model["receipt_refs"] == [result.record.receipt.receipt_ref]
     assert result.record.receipt.evidence_refs[0] in read_model["evidence_refs"]
@@ -788,12 +809,226 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
     assert "safe pytest output" not in cli.stdout
     assert str(tmp_path) not in cli.stdout
 
+    for command, expected_strings in [
+        (
+            ["status"],
+            ["Governed runtime status", "focused_pytest_receipt_recorded"],
+        ),
+        (
+            ["capabilities"],
+            ["Governed runtime capabilities", "authority-ref:runtime-allowlisted"],
+        ),
+        (
+            ["invocations", "list"],
+            ["Governed runtime invocations", result.record.invocation_ref],
+        ),
+        (
+            ["invocations", "show", result.record.invocation_ref],
+            ["Governed runtime invocation", result.record.policy_decision.policy_decision_ref],
+        ),
+        (
+            ["receipts", "show", result.record.receipt.receipt_ref],
+            ["Governed runtime receipt", "Output summary: Command output redacted"],
+        ),
+    ]:
+        cli_result = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts/dev/uaa_runtime.py"),
+                "--state-dir",
+                str(tmp_path),
+                *command,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        for expected in expected_strings:
+            assert expected in cli_result.stdout
+        assert "safe pytest output" not in cli_result.stdout
+        assert str(tmp_path) not in cli_result.stdout
+
+    launcher_status = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_launcher.py"),
+            "runtime",
+            "--state-dir",
+            str(tmp_path),
+            "status",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "Governed runtime status" in launcher_status.stdout
+    assert "focused_pytest_receipt_recorded" in launcher_status.stdout
+    assert "safe pytest output" not in launcher_status.stdout
+    assert str(tmp_path) not in launcher_status.stdout
+
+    event_kinds = {event["event_kind"] for event in read_model["evidence_timeline"]}
+    stable_event_refs = {
+        event["event_kind"]: event["event_ref"]
+        for event in read_model["evidence_timeline"]
+    }
+    assert {
+        "invocation_requested",
+        "policy_decision",
+        "approval_requested",
+        "approval_accepted",
+        "execution_started",
+        "execution_completed",
+        "receipt_recorded",
+    }.issubset(event_kinds)
+
+    safe_disable = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_runtime.py"),
+            "--state-dir",
+            str(tmp_path),
+            "safe-disable",
+            "--idempotency-ref",
+            "idempotency-ref:runtime-cli-safe-disable-test",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "Governed runtime safe-disable" in safe_disable.stdout
+    assert "Safe-disable ref:" in safe_disable.stdout
+    assert "safe pytest output" not in safe_disable.stdout
+    assert str(tmp_path) not in safe_disable.stdout
+    disabled_read_model = build_runtime_action_inbox_bridge_read_model(
+        RuntimeInvocationStore(tmp_path).list_invocations(),
+        entries=RuntimeInvocationStore(tmp_path).list_entries(),
+    )
+    disabled_event_kinds = {
+        event["event_kind"] for event in disabled_read_model["evidence_timeline"]
+    }
+    assert "safe_disable_invoked" in disabled_event_kinds
+    disabled_event_refs = {
+        event["event_kind"]: event["event_ref"]
+        for event in disabled_read_model["evidence_timeline"]
+    }
+    assert disabled_event_refs["invocation_requested"] == stable_event_refs[
+        "invocation_requested"
+    ]
+    assert disabled_event_refs["approval_accepted"] == stable_event_refs[
+        "approval_accepted"
+    ]
+
     persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
         encoding="utf-8"
     )
     assert "safe pytest output" not in persisted
     assert "stdout" not in persisted
     assert "stderr" not in persisted
+
+
+def test_runtime_launcher_actions_approve_and_deny_by_safe_selector_ref(
+    tmp_path: Path,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    command_request = _approved_runtime_command_request()
+    created = store.create_invocation(
+        runtime_command_invocation_request(command_request),
+        idempotency_ref="idempotency-ref:runtime-cli-selector-create",
+    )
+    refs = _runtime_action_inbox_refs(created.record)
+    blocked = store.bind_approval(
+        created.record.invocation_ref,
+        RuntimeApprovalBindingRequest(
+            approval_ref=refs["approval_ref"],
+            decision="approve",
+            action_envelope_ref=refs["action_envelope_ref"],
+            exact_scope_ref=refs["exact_scope_ref"],
+            expected_payload_fingerprint_ref=created.record.payload_fingerprint_ref,
+            expected_policy_decision_ref=created.record.policy_decision.policy_decision_ref,
+            adapter_id="governed-command-runtime-adapter",
+            command_intent="focused_pytest",
+            risk_class="medium",
+            expires_at=utc_now() + timedelta(minutes=30),
+            safe_summary="Caller supplied approval refs remain identifiers.",
+        ),
+        idempotency_ref="idempotency-ref:runtime-cli-selector-blocked",
+    )
+    assert blocked.status == "execution_blocked"
+
+    approved = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_launcher.py"),
+            "actions",
+            "--state-dir",
+            str(tmp_path),
+            "approve",
+            refs["approval_ref"],
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "Governed runtime invocation" in approved.stdout
+    assert str(tmp_path) not in approved.stdout
+    reloaded = RuntimeInvocationStore(tmp_path).get_invocation(
+        created.record.invocation_ref
+    )
+    assert reloaded.status == "approved_pending_execution"
+    assert reloaded.action_inbox_envelope is not None
+    assert reloaded.action_inbox_envelope.approval_validated is True
+    assert "blocked-state:runtime-approval-ref-identifier-only" not in (
+        reloaded.action_inbox_envelope.blocked_reason_refs
+    )
+
+    deny_store = RuntimeInvocationStore(tmp_path / "deny")
+    deny_created = deny_store.create_invocation(
+        runtime_command_invocation_request(command_request),
+        idempotency_ref="idempotency-ref:runtime-cli-deny-selector-create",
+    )
+    deny_refs = _runtime_action_inbox_refs(deny_created.record, decision="deny")
+    deny_store.bind_approval(
+        deny_created.record.invocation_ref,
+        RuntimeApprovalBindingRequest(
+            approval_ref=deny_refs["approval_ref"],
+            decision="deny",
+            action_envelope_ref=deny_refs["action_envelope_ref"],
+            exact_scope_ref=deny_refs["exact_scope_ref"],
+            expected_payload_fingerprint_ref=deny_created.record.payload_fingerprint_ref,
+            expected_policy_decision_ref=deny_created.record.policy_decision.policy_decision_ref,
+            adapter_id="governed-command-runtime-adapter",
+            command_intent="focused_pytest",
+            risk_class="medium",
+            expires_at=utc_now() + timedelta(minutes=30),
+            safe_summary="Caller supplied deny refs remain identifiers.",
+        ),
+        idempotency_ref="idempotency-ref:runtime-cli-deny-selector-envelope",
+    )
+
+    denied = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_launcher.py"),
+            "actions",
+            "--state-dir",
+            str(tmp_path / "deny"),
+            "deny",
+            deny_refs["approval_ref"],
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "Governed runtime invocation" in denied.stdout
+    assert str(tmp_path / "deny") not in denied.stdout
+    denied_record = RuntimeInvocationStore(tmp_path / "deny").get_invocation(
+        deny_created.record.invocation_ref
+    )
+    assert denied_record.status == "approval_denied"
+    assert denied_record.action_inbox_envelope is not None
+    assert "blocked-state:runtime-approval-denied" in (
+        denied_record.action_inbox_envelope.blocked_reason_refs
+    )
 
 
 def test_runtime_gateway_action_inbox_denied_expired_or_changed_scope_blocks(

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -15,7 +16,17 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.core.control_center.runtime_action_bridge import (  # noqa: E402
     build_runtime_action_inbox_bridge_read_model,
 )
-from ultimate_ai_agent.core.runtime_gateway import RuntimeInvocationStore  # noqa: E402
+from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RuntimeInvocationConflictError,
+    RuntimeInvocationNotFoundError,
+    RuntimeInvocationStore,
+    build_default_runtime_capabilities,
+)
+from ultimate_ai_agent.core.runtime_gateway.contracts import (  # noqa: E402
+    RuntimeActionInboxApprovalDecision,
+    RuntimeApprovalBindingRequest,
+    RuntimeSafeDisableRequest,
+)
 
 
 def _print_json(payload: dict[str, Any]) -> None:
@@ -32,6 +43,25 @@ def _bridge_payload(read_model: dict[str, Any]) -> dict[str, Any]:
         "raw_paths_omitted": True,
         "raw_command_output_omitted": True,
     }
+
+
+def _runtime_payload(read_model: dict[str, Any], command_ref: str) -> dict[str, Any]:
+    return {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": command_ref,
+        "runtime_read_model": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_command_output_omitted": True,
+    }
+
+
+def _read_model(store: RuntimeInvocationStore) -> dict[str, Any]:
+    return build_runtime_action_inbox_bridge_read_model(
+        store.list_invocations(),
+        entries=store.list_entries(),
+    )
 
 
 def _print_bridge_summary(read_model: dict[str, Any]) -> None:
@@ -76,6 +106,98 @@ def _print_bridge_summary(read_model: dict[str, Any]) -> None:
         )
 
 
+def _print_status(read_model: dict[str, Any]) -> None:
+    print("Governed runtime status")
+    print(f"Status: {read_model['status']}")
+    print(f"Profile: {read_model['runtime_profile_status']}")
+    print(f"Local model: {read_model['local_model_readiness']}")
+    print(f"Command runtime: {read_model['command_runtime_readiness']}")
+    print(
+        "Safe-disable: "
+        + ("active" if read_model["safe_disable_active"] else "inactive")
+    )
+    print(f"Safe-disable ref: {read_model['safe_disable_ref']}")
+    print(f"Summary: {read_model['operator_summary']}")
+    print(
+        "Counts: "
+        f"items={read_model['item_count']} "
+        f"pending={read_model['pending_approval_count']} "
+        f"approved={read_model['approved_pending_execution_count']} "
+        f"receipts={read_model['receipt_recorded_count']} "
+        f"timeline={len(read_model['evidence_timeline'])}"
+    )
+    print("Blocked: " + ", ".join(read_model["blocked_authority_refs"] or ["none"]))
+
+
+def _print_capabilities() -> None:
+    capabilities = build_default_runtime_capabilities().model_dump(mode="json")
+    print("Governed runtime capabilities")
+    print(f"Capabilities ref: {capabilities['capabilities_ref']}")
+    print(f"Default profile: {capabilities['default_profile']}")
+    print(f"Adapter execution: {capabilities['adapter_execution_enabled']}")
+    print(f"Model calls: {capabilities['model_call_enabled']}")
+    print(f"Command execution: {capabilities['command_execution_enabled']}")
+    print("Implemented authority refs:")
+    for ref in capabilities["implemented_authority_refs"]:
+        print(f"- {ref}")
+    print("Blocked authority refs:")
+    for ref in capabilities["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_invocation(record: Any) -> None:
+    print("Governed runtime invocation")
+    print(f"Invocation: {record.invocation_ref}")
+    print(f"Status: {record.status}")
+    print(f"Authority: {record.request.requested_authority}")
+    print(f"Profile: {record.request.requested_profile}")
+    print(f"Policy: {record.policy_decision.policy_decision_ref}")
+    print(f"Payload: {record.payload_fingerprint_ref}")
+    print(f"Safe-disable: {record.safe_disable.safe_disable_ref}")
+    if record.action_inbox_envelope is not None:
+        envelope = record.action_inbox_envelope
+        print(f"Envelope: {envelope.action_envelope_ref}")
+        print(f"Approval ref: {envelope.approval_ref}")
+        print(f"Approval validated: {envelope.approval_validated}")
+    if record.receipt is not None:
+        print(f"Receipt: {record.receipt.receipt_ref}")
+        print(f"Execution performed: {record.receipt.execution_performed}")
+
+
+def _print_invocations(records: list[Any]) -> None:
+    print("Governed runtime invocations")
+    if not records:
+        print("- none")
+        return
+    for record in records:
+        receipt_ref = record.receipt.receipt_ref if record.receipt else "none"
+        print(f"- {record.invocation_ref} status={record.status} receipt={receipt_ref}")
+
+
+def _print_receipt(record: Any) -> None:
+    receipt = record.receipt
+    if receipt is None:
+        print("Governed runtime receipt")
+        print("Receipt: not recorded")
+        print(f"Invocation: {record.invocation_ref}")
+        return
+    print("Governed runtime receipt")
+    print(f"Receipt: {receipt.receipt_ref}")
+    print(f"Invocation: {record.invocation_ref}")
+    print(f"Status: {receipt.invocation_status}")
+    print(f"Execution performed: {receipt.execution_performed}")
+    print(f"Command performed: {receipt.command_execution_performed}")
+    print(f"Model call performed: {receipt.model_call_performed}")
+    print("Evidence refs: " + ", ".join(receipt.evidence_refs or ["none"]))
+    print("Blocked authority refs: " + ", ".join(receipt.blocked_authority_refs or ["none"]))
+    if receipt.command_receipt_metadata is not None:
+        metadata = receipt.command_receipt_metadata
+        print(f"Command status: {metadata.status_category}")
+        print(f"Exit code: {metadata.exit_code if metadata.exit_code is not None else 'none'}")
+        print(f"Timed out: {metadata.timed_out}")
+        print(f"Output summary: {metadata.output_summary}")
+
+
 def _runtime_store(args: argparse.Namespace) -> RuntimeInvocationStore:
     if args.state_dir is None:
         return RuntimeInvocationStore()
@@ -84,11 +206,239 @@ def _runtime_store(args: argparse.Namespace) -> RuntimeInvocationStore:
 
 def _inspect_action_inbox_bridge(args: argparse.Namespace) -> int:
     store = _runtime_store(args)
-    read_model = build_runtime_action_inbox_bridge_read_model(store.list_invocations())
+    read_model = _read_model(store)
     if args.json:
         _print_json(_bridge_payload(read_model))
     else:
         _print_bridge_summary(read_model)
+    return 0
+
+
+def _status(args: argparse.Namespace) -> int:
+    read_model = _read_model(_runtime_store(args))
+    if args.json:
+        _print_json(_runtime_payload(read_model, "repo-local-command:governed-runtime-status"))
+    else:
+        _print_status(read_model)
+    return 0
+
+
+def _capabilities(args: argparse.Namespace) -> int:
+    capabilities = build_default_runtime_capabilities().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:governed-runtime-capabilities",
+        "capabilities": capabilities,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_capabilities()
+    return 0
+
+
+def _invocations_list(args: argparse.Namespace) -> int:
+    records = _runtime_store(args).list_invocations()
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:governed-runtime-invocations-list",
+        "invocations": [record.model_dump(mode="json") for record in records],
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_command_output_omitted": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_invocations(records)
+    return 0
+
+
+def _invocations_show(args: argparse.Namespace) -> int:
+    try:
+        record = _runtime_store(args).get_invocation(args.invocation_ref)
+    except RuntimeInvocationNotFoundError:
+        print("Invocation not found")
+        return 1
+    if args.json:
+        _print_json(
+            {
+                "schema_version": "governed-runtime-cli:v1",
+                "command_ref": "repo-local-command:governed-runtime-invocation-show",
+                "record": record.model_dump(mode="json"),
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+            }
+        )
+    else:
+        _print_invocation(record)
+    return 0
+
+
+def _receipt_record_for_ref(store: RuntimeInvocationStore, receipt_ref: str) -> Any | None:
+    for record in store.list_invocations():
+        if record.receipt is not None and record.receipt.receipt_ref == receipt_ref:
+            return record
+    return None
+
+
+def _record_for_action_selector(
+    store: RuntimeInvocationStore,
+    selector_ref: str,
+) -> Any | None:
+    try:
+        return store.get_invocation(selector_ref)
+    except RuntimeInvocationNotFoundError:
+        pass
+    for record in store.list_invocations():
+        envelope = record.action_inbox_envelope
+        if envelope is not None and envelope.approval_ref == selector_ref:
+            return record
+    return None
+
+
+def _approval_request_from_record(
+    record: Any,
+    decision: RuntimeActionInboxApprovalDecision,
+) -> RuntimeApprovalBindingRequest | None:
+    envelope = record.action_inbox_envelope
+    if envelope is None:
+        return None
+    return RuntimeApprovalBindingRequest(
+        decision=decision,
+        action_envelope_ref=envelope.action_envelope_ref,
+        exact_scope_ref=envelope.exact_scope_ref,
+        expected_payload_fingerprint_ref=record.payload_fingerprint_ref,
+        expected_policy_decision_ref=record.policy_decision.policy_decision_ref,
+        adapter_id=envelope.adapter_id,
+        command_intent=envelope.command_intent,
+        risk_class=envelope.risk_class,
+        expires_at=envelope.expires_at,
+        safe_summary="CLI recorded an exact runtime Action Inbox decision.",
+    )
+
+
+def _action_decision_idempotency_ref(
+    action_decision: str,
+    selector_ref: str,
+    record: Any,
+) -> str:
+    envelope = record.action_inbox_envelope
+    canonical = json.dumps(
+        {
+            "action_decision": action_decision,
+            "selector_ref": selector_ref,
+            "invocation_ref": record.invocation_ref,
+            "action_envelope_ref": (
+                envelope.action_envelope_ref if envelope is not None else None
+            ),
+            "payload_fingerprint_ref": record.payload_fingerprint_ref,
+            "policy_decision_ref": record.policy_decision.policy_decision_ref,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
+    return f"idempotency-ref:governed-runtime-cli-action:{digest}"
+
+
+def _receipts_show(args: argparse.Namespace) -> int:
+    record = _receipt_record_for_ref(_runtime_store(args), args.receipt_ref)
+    if record is None:
+        print("Receipt not found")
+        return 1
+    if args.json:
+        _print_json(
+            {
+                "schema_version": "governed-runtime-cli:v1",
+                "command_ref": "repo-local-command:governed-runtime-receipt-show",
+                "receipt": record.receipt.model_dump(mode="json") if record.receipt else None,
+                "invocation_ref": record.invocation_ref,
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "raw_command_output_omitted": True,
+            }
+        )
+    else:
+        _print_receipt(record)
+    return 0
+
+
+def _action_decision(args: argparse.Namespace) -> int:
+    decision = (
+        RuntimeActionInboxApprovalDecision.approve
+        if args.action_decision == "approve"
+        else RuntimeActionInboxApprovalDecision.deny
+    )
+    store = _runtime_store(args)
+    selected = _record_for_action_selector(store, args.approval_selector_ref)
+    if selected is None:
+        print("Runtime approval selector not found")
+        return 1
+    request = _approval_request_from_record(selected, decision)
+    if request is None:
+        print("Runtime approval envelope not found")
+        return 1
+    idempotency_ref = args.idempotency_ref or _action_decision_idempotency_ref(
+        args.action_decision,
+        args.approval_selector_ref,
+        selected,
+    )
+    try:
+        record = store.bind_approval(
+            selected.invocation_ref,
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+    except RuntimeInvocationNotFoundError:
+        print("Runtime invocation not found")
+        return 1
+    except RuntimeInvocationConflictError:
+        print("Runtime approval decision idempotency conflict")
+        return 1
+    except ValueError:
+        print("Runtime approval decision validation failed")
+        return 1
+    if args.json:
+        _print_json(
+            {
+                "schema_version": "governed-runtime-cli:v1",
+                "command_ref": f"repo-local-command:governed-runtime-action-{args.action_decision}",
+                "record": record.model_dump(mode="json"),
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+            }
+        )
+    else:
+        _print_invocation(record)
+    return 0
+
+
+def _safe_disable(args: argparse.Namespace) -> int:
+    state = _runtime_store(args).safe_disable(
+        RuntimeSafeDisableRequest(reason_ref=args.reason_ref),
+        idempotency_ref=args.idempotency_ref,
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:governed-runtime-safe-disable",
+        "safe_disable": state.model_dump(mode="json"),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        print("Governed runtime safe-disable")
+        print(f"Safe-disable ref: {state.safe_disable_ref}")
+        print(f"Posture ref: {state.safe_disable_posture_ref}")
+        print(f"Active: {state.active}")
+        print(f"Profile: {state.profile}")
+        print(f"Reason: {state.reason_ref}")
     return 0
 
 
@@ -102,6 +452,85 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use an explicit local runtime state directory; the value is not echoed.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    status = subparsers.add_parser("status", help="Inspect governed runtime status.")
+    status.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    status.set_defaults(func=_status)
+
+    capabilities = subparsers.add_parser(
+        "capabilities",
+        help="Inspect governed runtime capabilities.",
+    )
+    capabilities.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    capabilities.set_defaults(func=_capabilities)
+
+    invocations = subparsers.add_parser(
+        "invocations",
+        help="Inspect governed runtime invocations.",
+    )
+    invocation_subparsers = invocations.add_subparsers(
+        dest="invocations_command",
+        required=True,
+    )
+    invocations_list = invocation_subparsers.add_parser("list", help="List invocations.")
+    invocations_list.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    invocations_list.set_defaults(func=_invocations_list)
+    invocations_show = invocation_subparsers.add_parser("show", help="Show invocation.")
+    invocations_show.add_argument("invocation_ref")
+    invocations_show.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    invocations_show.set_defaults(func=_invocations_show)
+
+    receipts = subparsers.add_parser(
+        "receipts",
+        help="Inspect governed runtime receipts.",
+    )
+    receipt_subparsers = receipts.add_subparsers(dest="receipts_command", required=True)
+    receipt_show = receipt_subparsers.add_parser("show", help="Show receipt.")
+    receipt_show.add_argument("receipt_ref")
+    receipt_show.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    receipt_show.set_defaults(func=_receipts_show)
+
+    actions = subparsers.add_parser(
+        "actions",
+        help="Record exact runtime Action Inbox decisions.",
+    )
+    action_subparsers = actions.add_subparsers(dest="action_decision", required=True)
+    for decision in ("approve", "deny"):
+        decision_parser = action_subparsers.add_parser(
+            decision,
+            help=f"Record a runtime Action Inbox {decision} decision.",
+        )
+        decision_parser.add_argument(
+            "approval_selector_ref",
+            help=(
+                "Approval or invocation safe ref used only to select the exact "
+                "backend-owned Action Inbox envelope."
+            ),
+        )
+        decision_parser.add_argument(
+            "--idempotency-ref",
+            default=None,
+            help="Safe idempotency ref for the decision.",
+        )
+        decision_parser.add_argument("--json", action="store_true", help="Emit safe JSON.")
+        decision_parser.set_defaults(func=_action_decision)
+
+    safe_disable = subparsers.add_parser(
+        "safe-disable",
+        help="Record governed runtime safe-disable posture.",
+    )
+    safe_disable.add_argument(
+        "--idempotency-ref",
+        default="idempotency-ref:governed-runtime-cli-safe-disable",
+        help="Safe idempotency ref for safe-disable.",
+    )
+    safe_disable.add_argument(
+        "--reason-ref",
+        default="reason-ref:governed-runtime-cli-safe-disable",
+        help="Safe reason ref for safe-disable.",
+    )
+    safe_disable.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    safe_disable.set_defaults(func=_safe_disable)
 
     bridge = subparsers.add_parser(
         "inspect-action-inbox-bridge",
