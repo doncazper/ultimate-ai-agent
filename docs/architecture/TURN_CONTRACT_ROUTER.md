@@ -249,6 +249,7 @@ Exact approved execution scope:
 | `recipient_ref` | The exact recipient or not-applicable ref. |
 | `account_ref` | The exact account or broker ref. |
 | `cost_ref` | The exact cost or not-applicable ref. |
+| `credential_broker_ref` | The exact credential broker or not-applicable ref. |
 | `risk_ref` | The exact reviewed risk-class ref. |
 
 Compiler no-broadening rule:
@@ -360,3 +361,43 @@ Product-language posture:
   receipt, rollback/safe-disable, redaction, and proof.
 - The Phase 00 naming lock remains binding: this router uses `base_answer` and
   `answer_profile_hint` language for UAA turn contracts.
+
+## Phase 07 Cheap Parallel Preflight Plan
+
+Status: planning only. No parallel runtime behavior is implemented in this
+phase.
+
+Preflight lanes:
+
+| Lane | Runs when | May read memory content? | May execute tools? | User-visible? | Output |
+|---|---|---|---|---|---|
+| `intent_lane` | Every turn | No | No | No | Candidate turn contract and confidence. |
+| `risk_action_lane` | Every turn | No | No | No | Risk flags and veto/escalation signal. |
+| `memory_trigger_lane` | Every turn | No | No | No | Whether memory relevance is allowed. |
+| `memory_relevance_lane` | Only after memory trigger | Reviewed/scoped refs only | No | No | Candidate memory refs, not injected content. |
+| `tool_manifest_lane` | Every turn | No | No | No | Read-only or side-effect tool category candidates. |
+| `answer_profile_lane` | Optional | No | No | No | `answer_profile_hint` within the selected contract. |
+| `direct_answer_draft` | Future low-risk turns only | No | No | No, until gates clear | Cancelable direct-answer draft. |
+
+Preflight rules:
+
+- Parallelize sensing.
+- Centralize authority.
+- Serialize execution.
+- Do not execute side effects during preflight.
+- Do not retrieve memory content unless `memory_trigger_lane` permits the
+  later scoped memory lane.
+- Do not expose any `direct_answer_draft` to the user until risk and
+  side-effect gates clear.
+- Treat every lane output as proposal/read-only evidence for the central turn
+  contract, not as execution authority.
+
+Explicit non-goals:
+
+- No live provider/model call
+- No tool execution
+- No memory content retrieval
+- No context injection
+- No browser/network action
+- No shell/subprocess execution
+- No connector write
