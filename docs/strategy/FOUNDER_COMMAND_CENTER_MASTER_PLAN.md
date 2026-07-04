@@ -126,6 +126,11 @@ The product should help the user answer:
 - What should be remembered, corrected, or forgotten?
 - What should carry into tomorrow or the weekly CEO review?
 
+The longer-term delegated-operator ambition is captured in
+`docs/strategy/DELEGATED_LIFE_OS_NORTH_STAR.md`. That note preserves the future
+shape for purchases, bookings, subscriptions, account tasks, and credential or
+payment-handle use without granting any current runtime authority.
+
 ## If Hermes Is Linux, UAA Becomes macOS
 
 Hermes Agent can be treated as the Linux comparison point: powerful, broad,

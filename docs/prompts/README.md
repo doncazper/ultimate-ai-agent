@@ -127,3 +127,16 @@ Command Center positioning, local-first governed Agent Core, public
 portfolio/developer-preview readiness, product-language honesty, sanitized
 visuals, release-surface proof, and no public beta/release/distribution or
 broad runtime authority claims.
+
+## Skill Workbench discovery and adoption prompts
+
+Stored execution prompts for the Skill Workbench discovery and adoption
+sequence live in `docs/prompts/skill_workbench_adoption_prompt_pack.md`. They
+cover external skill marketplace metadata discovery, read-only Skills tab
+UX, adoption candidates, quarantine contracts, static review, UAA-owned
+rewrite/adaptation, local registry gates, and product-language verifiers.
+They are operator-run prompts, not runtime system prompts, and they do not
+grant marketplace install, external code execution, plugin runtime import,
+browser automation, connector writes, credential access, or production
+authority. Use Prompt 00 in that file to run the sequence as small
+merge-gated PR lanes.

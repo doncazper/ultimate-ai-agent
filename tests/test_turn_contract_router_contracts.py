@@ -236,6 +236,29 @@ def test_execute_approved_action_policy_rejects_exact_scope_broadening(
         InvocationPolicy(**payload)
 
 
+def test_execute_approved_action_policy_rejects_memory_write_authority() -> None:
+    scope = _approved_scope()
+    decision = TurnDecision(
+        decision_ref="turn-decision:execute-memory-write",
+        turn_contract=TurnContractKind.execute_approved_action,
+        confidence=0.9,
+        safe_summary="Reviewed exact execution posture.",
+        reason_refs=["reason-ref:turn-contract:test"],
+        source_refs=["source:turn-contract:test"],
+        evidence_refs=["evidence:turn-contract:test"],
+        approval_scope_ref=scope.approval_scope_ref,
+        action_scope_ref=scope.action_scope_ref,
+        approved_tool_ref=scope.tool_ref,
+        approved_arguments_ref=scope.arguments_ref,
+        approved_execution_scope=scope,
+    )
+    payload = compile_invocation_policy(decision).model_dump(mode="json")
+    payload["memory_write_allowed"] = True
+
+    with pytest.raises(ValueError, match="memory_write_allowed"):
+        InvocationPolicy(**payload)
+
+
 def test_approval_required_policy_exposes_only_envelope_posture() -> None:
     policy = compile_invocation_policy(_decision(TurnContractKind.approval_required))
 

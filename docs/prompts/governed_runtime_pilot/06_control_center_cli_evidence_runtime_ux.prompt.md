@@ -71,4 +71,3 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.p
 make frontend-check
 .venv/bin/python scripts/verify_documentation_integrity.py
 ```
-

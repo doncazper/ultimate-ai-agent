@@ -55,4 +55,3 @@ git diff --check
 ```
 
 Run additional docs/product-language verifiers if they exist.
-

@@ -561,6 +561,7 @@ def _validate_exact_execution_policy(policy: InvocationPolicy) -> None:
         for field_name in (
             "runtime_model_call_allowed",
             "provider_call_allowed",
+            "memory_write_allowed",
             "workflow_execution_allowed",
             "context_injection_allowed",
             "shell_subprocess_allowed",

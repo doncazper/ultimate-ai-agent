@@ -110,6 +110,11 @@ That rank 5 lane depends on explicit safe-disable/rollback posture refs and
 backend denial when the lane is disabled; it is not a rank 6 rollback execution
 or broader action-execution promotion.
 
+Long-term "life OS" delegation, including purchases, bookings, subscriptions,
+account work, and credential/payment-handle use, is parked in
+`docs/strategy/DELEGATED_LIFE_OS_NORTH_STAR.md`. It is not a current lane and
+does not change the WIP limit or authority-changing-card rule.
+
 Implementation note: a bounded daily-loop product behavior slice now deepens
 the existing read routes without adding authority. Morning Briefing and Today
 surface backend-owned daily command-loop summaries, source-readiness states,

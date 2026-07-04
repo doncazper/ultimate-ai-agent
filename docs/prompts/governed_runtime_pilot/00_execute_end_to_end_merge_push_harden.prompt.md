@@ -183,4 +183,3 @@ Report:
 - current `main` commit;
 - milestone tag, if created;
 - recommended next steps.
-

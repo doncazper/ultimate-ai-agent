@@ -80,4 +80,3 @@ The first useful loop is:
 6. UAA executes the allowlisted command through governed runtime.
 7. Output is redacted, bounded, and stored as safe evidence.
 8. Control Center and CLI show the same receipt and policy decision.
-
