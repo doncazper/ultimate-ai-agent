@@ -330,3 +330,33 @@ Required current behavior:
 | Direct/base answer | `memory_touched=false`, `tools_exposed_count=0`, `planner=false`, `durable_state=false`, `approval_required=false`. |
 | Reviewed-memory answer | Reviewed memory refs may be allowed, but memory content is not retrieved and no silent memory write occurs. |
 | Approval boundary | Approval envelope posture is visible and execution tools remain absent. |
+
+## Phase 06 Quality, Latency, And Product Language
+
+Answer-preservation checks:
+
+- Normal informational prompts must stay in `answer_directly` unless a higher
+  priority safety, memory, current-info, or approval boundary applies.
+- Direct/base answer bindings must report no memory touch, no tools, no
+  planner, no durable state, and no approval requirement.
+- Direct answers must use `plain_answer`, not approval-envelope language.
+- `base_answer` remains a low-ceremony answer path and does not bypass
+  payment, credential, account, send, delete, booking, or purchase boundaries.
+
+Latency posture:
+
+- The classifier is deterministic and precompiled.
+- The focused guard expects low-millisecond classification.
+- The guard uses no provider calls, LLM calls, memory retrieval, network
+  access, browser action, connector write, or shell/subprocess execution.
+
+Product-language posture:
+
+- This contract does not claim public release, production readiness, broad
+  autonomy, purchase execution, booking execution, send execution, credential
+  handling, account mutation, or connector writes.
+- Purchase, booking, send, credential, and account actions remain blocked until
+  an exact future authority lane implements approval, fence, execution,
+  receipt, rollback/safe-disable, redaction, and proof.
+- The Phase 00 naming lock remains binding: this router uses `base_answer` and
+  `answer_profile_hint` language for UAA turn contracts.
