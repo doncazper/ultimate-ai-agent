@@ -293,3 +293,40 @@ Still blocked:
 - Shell/subprocess execution
 - Browser action
 - Provider/model call
+
+## Phase 05 Harness Binding Read Model
+
+Implemented binding surface:
+
+- `build_turn_harness_binding` classifies a turn, compiles the invocation
+  policy, and returns a `TurnHarnessBindingReadModel`.
+- The read model exposes safe summaries, reason refs, evidence refs, risk
+  flags, memory/tool/state posture, approval posture, and no-effect proof
+  flags.
+- The read model does not persist raw request text, raw response text, raw
+  memory bodies, local paths, credentials, or secret-like values.
+- The read model does not retrieve memory content or execute tools.
+
+Binding shape:
+
+| Field | Meaning |
+|---|---|
+| `turn_contract` | Selected contract from the deterministic classifier. |
+| `memory_touched` | Whether memory content was actually accessed; false in this repo-safe binding. |
+| `reviewed_memory_refs_allowed` | Whether reviewed/scoped memory refs may be considered by a later approved lane. |
+| `tools_exposed_count` | Count of non-executing refs exposed by policy. |
+| `execution_tools_exposed_count` | Count of execution-capable tools exposed; zero except exact approved execution. |
+| `planner` | Whether a planner posture is allowed by the policy. |
+| `durable_state` | Whether the policy allows durable state posture. |
+| `approval_required` | Whether an approval envelope is required before a future action. |
+| `approval_envelope_required` | Whether the output contract is an approval envelope. |
+| `side_effects_allowed` | Whether the policy has exact approved side-effect posture. |
+| `execution_ready` | Whether the policy is ready for an ExecutorFence check. |
+
+Required current behavior:
+
+| Prompt class | Binding result |
+|---|---|
+| Direct/base answer | `memory_touched=false`, `tools_exposed_count=0`, `planner=false`, `durable_state=false`, `approval_required=false`. |
+| Reviewed-memory answer | Reviewed memory refs may be allowed, but memory content is not retrieved and no silent memory write occurs. |
+| Approval boundary | Approval envelope posture is visible and execution tools remain absent. |

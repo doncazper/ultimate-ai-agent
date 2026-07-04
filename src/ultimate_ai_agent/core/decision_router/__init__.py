@@ -17,6 +17,12 @@ from ultimate_ai_agent.core.decision_router.executor_fence import (
     ExecutorFenceRequest,
     evaluate_executor_fence,
 )
+from ultimate_ai_agent.core.decision_router.harness_binding import (
+    TURN_HARNESS_BINDING_CONTRACT_REF,
+    TurnHarnessBindingReadModel,
+    binding_from_policy,
+    build_turn_harness_binding,
+)
 from ultimate_ai_agent.core.decision_router.turn_contracts import (
     INVOCATION_POLICY_COMPILER_REF,
     TURN_CONTRACT_ROUTER_CONTRACT_REF,
@@ -51,6 +57,7 @@ __all__ = [
     "TURN_CONTRACT_ROUTER_REQUIRED_BLOCKED_AUTHORITY_REFS",
     "TURN_CONTRACT_ROUTER_REQUIRED_CONTRACT_KINDS",
     "TURN_CLASSIFIER_POLICY_REF",
+    "TURN_HARNESS_BINDING_CONTRACT_REF",
     "ApprovedExecutionScope",
     "ApprovalPolicy",
     "DecisionRouterAmbiguityPosture",
@@ -72,6 +79,9 @@ __all__ = [
     "ToolPolicy",
     "TurnContractKind",
     "TurnDecision",
+    "TurnHarnessBindingReadModel",
+    "binding_from_policy",
+    "build_turn_harness_binding",
     "classify_turn_contract",
     "compile_invocation_policy",
     "evaluate_executor_fence",
