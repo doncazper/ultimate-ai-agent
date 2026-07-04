@@ -258,7 +258,10 @@ class RuntimeGateway:
         )
         invocation_request = _runtime_invocation_request(
             request,
-            force_sealed=blocked_error is not None,
+            force_sealed=blocked_error not in {
+                None,
+                "RUNTIME_LOCAL_MODEL_SAFE_DISABLED",
+            },
         )
         created = self.store.create_invocation(
             invocation_request,

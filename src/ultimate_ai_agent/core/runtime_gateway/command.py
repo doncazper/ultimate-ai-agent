@@ -250,7 +250,10 @@ def invoke_governed_command(
     invocation_request = _runtime_invocation_request(
         request,
         entry=entry,
-        force_sealed=blocked_error is not None,
+        force_sealed=blocked_error not in {
+            None,
+            "RUNTIME_COMMAND_SAFE_DISABLED",
+        },
     )
     created = store.create_invocation(
         invocation_request,
