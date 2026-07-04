@@ -2538,6 +2538,7 @@ TASK_DECOMPOSITION_CANONICAL_ROUTES = frozenset(
 GOVERNED_RUNTIME_PILOT_CONTRACT_ROUTES = frozenset(
     {
         "/api/runtime/capabilities",
+        "/api/runtime/command/run",
         "/api/runtime/invocations",
         "/api/runtime/local-model/call",
         "/api/runtime/invocations/{id}",

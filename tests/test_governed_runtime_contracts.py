@@ -1,10 +1,14 @@
+import threading
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from ultimate_ai_agent.core.runtime_gateway import (
+    GovernedCommandRuntimeAdapter,
     LocalModelRuntimeAdapter,
+    RuntimeCommandExecutionRequest,
+    RuntimeCommandRunResult,
     RuntimeGateway,
     RuntimeInvocationConflictError,
     RuntimeInvocationReceipt,
@@ -48,9 +52,15 @@ def test_runtime_profiles_default_to_sealed_and_do_not_execute() -> None:
     assert "authority-ref:runtime-local-model-loopback-phase-03" in payload[
         "implemented_authority_refs"
     ]
-    assert "blocked-authority:runtime-command-execution-phase-03" in payload[
+    assert "authority-ref:runtime-allowlisted-readonly-command-phase-04" in payload[
+        "implemented_authority_refs"
+    ]
+    assert "blocked-authority:runtime-unrestricted-command-execution" in payload[
         "blocked_authority_refs"
     ]
+    assert "blocked-authority:runtime-command-execution-without-gateway-allowlist" in (
+        payload["blocked_authority_refs"]
+    )
 
 
 def test_generic_runtime_policy_does_not_enable_local_model_without_gateway_validation() -> None:
@@ -82,6 +92,36 @@ def test_generic_runtime_policy_does_not_enable_local_model_without_gateway_vali
     assert allowed.allowed_to_execute is True
 
 
+def test_generic_runtime_policy_does_not_enable_command_without_gateway_validation() -> None:
+    request = RuntimeInvocationRequest(
+        requested_authority="allowlisted_command",
+        requested_profile="local-runtime",
+        input_ref="runtime-command-input-ref:test",
+        safe_summary="safe governed runtime command summary",
+    )
+    payload_ref = runtime_payload_fingerprint_ref(request)
+    invocation_ref = runtime_invocation_ref(
+        "idempotency-ref:runtime-generic-command",
+        payload_ref,
+    )
+
+    decision = build_policy_decision(request, invocation_ref=invocation_ref)
+    allowed = build_policy_decision(
+        request,
+        invocation_ref=invocation_ref,
+        command_gateway_validated=True,
+    )
+
+    assert decision.allowed_to_execute is False
+    assert decision.adapter_execution_enabled is False
+    assert decision.command_execution_enabled is False
+    assert "GOVERNED_RUNTIME_PHASE_04_COMMAND_GATEWAY_VALIDATION_REQUIRED" in (
+        decision.reason_codes
+    )
+    assert allowed.allowed_to_execute is True
+    assert allowed.command_execution_enabled is True
+
+
 def test_runtime_contracts_reject_unsafe_persistence_and_extra_router_fields() -> None:
     with pytest.raises(ValidationError):
         RuntimeInvocationRequest(
@@ -101,6 +141,20 @@ def test_runtime_contracts_reject_unsafe_persistence_and_extra_router_fields() -
 
     with pytest.raises(ValidationError):
         _runtime_request("unsafe /Users/example/path must not persist")
+
+    with pytest.raises(ValidationError):
+        RuntimeCommandExecutionRequest(
+            intent="git_status",
+            safe_summary="safe governed runtime command summary",
+            command_string_provided=True,
+        )
+
+    with pytest.raises(ValidationError):
+        RuntimeCommandExecutionRequest(
+            intent="git_status",
+            safe_summary="safe governed runtime command summary",
+            network_access_requested=True,
+        )
 
 
 def test_runtime_receipts_cannot_claim_execution() -> None:
@@ -341,3 +395,567 @@ def test_runtime_gateway_blocks_non_loopback_model_url_without_persisting_url(
     )
     assert "example.com" not in persisted
     assert "safe transient prompt" not in persisted
+
+
+def test_runtime_gateway_allowlisted_command_records_redacted_receipt(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=7,
+            output_bytes=b"unsafe /Users/example/path\napi_key=secret\n",
+        )
+
+    gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(tmp_path),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=tmp_path,
+            runner=runner,
+        ),
+    )
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect current repo status with redacted output.",
+    )
+
+    result = gateway.invoke_command(
+        request,
+        idempotency_ref="idempotency-ref:runtime-command-success",
+    )
+    replay = gateway.invoke_command(
+        request,
+        idempotency_ref="idempotency-ref:runtime-command-success",
+    )
+
+    assert result.record.status == "receipt_recorded"
+    assert result.record.policy_decision.command_execution_enabled is True
+    assert result.record.receipt is not None
+    assert result.record.receipt.command_execution_performed is True
+    assert result.record.receipt.command_receipt_metadata is not None
+    assert (
+        result.record.receipt.command_receipt_metadata.command_output_persisted
+        is False
+    )
+    assert result.output_summary is not None
+    assert "2 bounded lines" in result.output_summary
+    assert replay.replayed is True
+    assert len(calls) == 1
+    assert calls[0]["argv"] == (
+        "git",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "-c",
+        "core.untrackedCache=false",
+        "status",
+        "--short",
+        "--branch",
+        "--no-renames",
+        "--untracked-files=no",
+    )
+    assert calls[0]["env"] == {
+        "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+        "LANG": "C",
+        "LC_ALL": "C",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_OPTIONAL_LOCKS": "0",
+        "GIT_TERMINAL_PROMPT": "0",
+    }
+
+    persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "/Users/example/path" not in persisted
+    assert "api_key=secret" not in persisted
+    assert "git status --short" not in persisted
+    assert "stdout" not in persisted
+    assert "stderr" not in persisted
+
+
+def test_runtime_gateway_command_disabled_intent_records_blocked_receipt(
+    tmp_path: Path,
+) -> None:
+    gateway = RuntimeGateway(store=RuntimeInvocationStore(tmp_path))
+    request = RuntimeCommandExecutionRequest(
+        intent="focused_pytest",
+        target_refs=["test-ref:focused-runtime"],
+        approval_ref="approval-ref:identifier-only",
+        safe_summary="Attempt focused pytest command with approval identifier only.",
+    )
+
+    result = gateway.invoke_command(
+        request,
+        idempotency_ref="idempotency-ref:runtime-command-approval-required",
+    )
+
+    assert result.record.status == "execution_blocked"
+    assert result.command_execution_enabled is False
+    assert result.error_category == "RUNTIME_COMMAND_APPROVAL_BRIDGE_REQUIRED"
+    assert result.record.receipt is not None
+    assert result.record.receipt.command_execution_performed is False
+    assert result.record.receipt.command_receipt_metadata is not None
+    assert (
+        result.record.receipt.command_receipt_metadata.command_execution_attempted
+        is False
+    )
+
+
+def test_runtime_gateway_command_replay_without_receipt_does_not_spawn_again(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"FIRST_ATTEMPT",
+        )
+
+    store = RuntimeInvocationStore(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=tmp_path,
+            runner=runner,
+        ),
+    )
+    original_record_receipt = store.record_receipt
+
+    def fail_after_create(*args: object, **kwargs: object) -> object:
+        raise RuntimeError("simulated receipt write failure")
+
+    store.record_receipt = fail_after_create  # type: ignore[method-assign]
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect current repo status with redacted output.",
+    )
+    with pytest.raises(RuntimeError):
+        gateway.invoke_command(
+            request,
+            idempotency_ref="idempotency-ref:runtime-command-replay-no-receipt",
+        )
+    assert len(calls) == 1
+
+    store.record_receipt = original_record_receipt  # type: ignore[method-assign]
+    replay = gateway.invoke_command(
+        request,
+        idempotency_ref="idempotency-ref:runtime-command-replay-no-receipt",
+    )
+
+    assert len(calls) == 1
+    assert replay.replayed is True
+    assert replay.record.status == "execution_blocked"
+    assert replay.error_category == "RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
+    assert replay.record.receipt is not None
+    assert replay.record.receipt.command_execution_performed is False
+
+
+def test_runtime_gateway_safe_disable_blocks_command_before_runner(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SHOULD_NOT_RUN",
+        )
+
+    store = RuntimeInvocationStore(tmp_path)
+    store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-command-disable"),
+        idempotency_ref="idempotency-ref:runtime-command-disable",
+    )
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=tmp_path,
+            runner=runner,
+        ),
+    )
+    result = gateway.invoke_command(
+        RuntimeCommandExecutionRequest(
+            intent="git_status",
+            safe_summary="Inspect current repo status after safe-disable.",
+        ),
+        idempotency_ref="idempotency-ref:runtime-command-safe-disabled",
+    )
+
+    assert result.record.status == "safe_disabled"
+    assert result.error_category == "RUNTIME_COMMAND_SAFE_DISABLED"
+    assert calls == []
+
+
+def test_runtime_gateway_late_safe_disable_remains_active_after_receipt(
+    tmp_path: Path,
+) -> None:
+    runner_started = threading.Event()
+    release_runner = threading.Event()
+    results: list[object] = []
+    errors: list[BaseException] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        runner_started.set()
+        release_runner.wait(timeout=5)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    store = RuntimeInvocationStore(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=tmp_path,
+            runner=runner,
+        ),
+    )
+
+    def invoke_command() -> None:
+        try:
+            results.append(
+                gateway.invoke_command(
+                    RuntimeCommandExecutionRequest(
+                        intent="git_status",
+                        safe_summary="Inspect current repo status with redacted output.",
+                    ),
+                    idempotency_ref="idempotency-ref:runtime-command-late-disable",
+                )
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+
+    worker = threading.Thread(target=invoke_command)
+    worker.start()
+    assert runner_started.wait(timeout=5)
+    store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-command-late-disable"),
+        idempotency_ref="idempotency-ref:runtime-command-late-disable-safe-disable",
+    )
+    release_runner.set()
+    worker.join(timeout=5)
+
+    assert errors == []
+    assert len(results) == 1
+    result = results[0]
+    assert result.record.status == "safe_disabled"
+    assert result.record.receipt is not None
+    assert result.record.receipt.safe_disable.active is True
+    assert (
+        result.record.receipt.safe_disable.reason_ref
+        == "reason-ref:runtime-command-late-disable"
+    )
+    assert result.record.receipt.command_execution_performed is True
+    assert store.operator_safe_disable_active() is True
+
+
+def test_runtime_gateway_command_safe_disable_between_precheck_and_create_blocks_runner(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SHOULD_NOT_RUN",
+        )
+
+    store = RuntimeInvocationStore(tmp_path)
+    original_safe_disable_active = store.operator_safe_disable_active
+    safe_disable_recorded = False
+
+    def racing_safe_disable_check() -> bool:
+        nonlocal safe_disable_recorded
+        if not safe_disable_recorded:
+            safe_disable_recorded = True
+            store.safe_disable(
+                RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-command-race-disable"),
+                idempotency_ref="idempotency-ref:runtime-command-race-disable",
+            )
+            return False
+        return original_safe_disable_active()
+
+    store.operator_safe_disable_active = racing_safe_disable_check  # type: ignore[method-assign]
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=tmp_path,
+            runner=runner,
+        ),
+    )
+
+    result = gateway.invoke_command(
+        RuntimeCommandExecutionRequest(
+            intent="git_status",
+            safe_summary="Inspect current repo status with redacted output.",
+        ),
+        idempotency_ref="idempotency-ref:runtime-command-race",
+    )
+
+    assert calls == []
+    assert result.record.status == "safe_disabled"
+    assert result.error_category == "RUNTIME_COMMAND_SAFE_DISABLED"
+    assert result.record.receipt is not None
+    assert result.record.receipt.command_execution_performed is False
+    assert (
+        result.record.receipt.safe_disable.reason_ref
+        == "reason-ref:runtime-command-race-disable"
+    )
+
+
+def test_runtime_gateway_command_duplicate_requests_reserve_idempotency_before_runner(
+    tmp_path: Path,
+) -> None:
+    runner_started = threading.Event()
+    release_runner = threading.Event()
+    calls = 0
+    calls_lock = threading.Lock()
+    results: list[object] = []
+    errors: list[BaseException] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        nonlocal calls
+        with calls_lock:
+            calls += 1
+        runner_started.set()
+        release_runner.wait(timeout=5)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect current repo status with redacted output.",
+    )
+    gateways = [
+        RuntimeGateway(
+            store=RuntimeInvocationStore(tmp_path),
+            command_adapter=GovernedCommandRuntimeAdapter(
+                workspace_root=tmp_path,
+                runner=runner,
+            ),
+        ),
+        RuntimeGateway(
+            store=RuntimeInvocationStore(tmp_path),
+            command_adapter=GovernedCommandRuntimeAdapter(
+                workspace_root=tmp_path,
+                runner=runner,
+            ),
+        ),
+    ]
+
+    def invoke_command(gateway: RuntimeGateway) -> None:
+        try:
+            results.append(
+                gateway.invoke_command(
+                    request,
+                    idempotency_ref="idempotency-ref:runtime-command-concurrent",
+                )
+            )
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+
+    first = threading.Thread(target=invoke_command, args=(gateways[0],))
+    first.start()
+    assert runner_started.wait(timeout=5)
+    second = threading.Thread(target=invoke_command, args=(gateways[1],))
+    second.start()
+    release_runner.set()
+    first.join(timeout=5)
+    second.join(timeout=5)
+
+    assert errors == []
+    assert len(results) == 2
+    assert calls == 1
+    assert sum(1 for result in results if result.replayed) == 1
+    assert any(
+        result.record.receipt is not None
+        and result.record.receipt.command_execution_performed
+        for result in results
+    )
+
+
+def test_runtime_gateway_command_nonzero_and_timeout_receipts(
+    tmp_path: Path,
+) -> None:
+    def nonzero_runner(**kwargs: object) -> RuntimeCommandRunResult:
+        return RuntimeCommandRunResult(
+            exit_code=128,
+            timed_out=False,
+            duration_ms=2,
+            output_bytes=b"fatal: output redacted",
+            error_category="RUNTIME_COMMAND_NONZERO_EXIT",
+        )
+
+    nonzero_gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(tmp_path / "nonzero"),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=tmp_path,
+            runner=nonzero_runner,
+        ),
+    )
+    nonzero = nonzero_gateway.invoke_command(
+        RuntimeCommandExecutionRequest(
+            intent="git_status",
+            safe_summary="Inspect repo status with nonzero receipt.",
+        ),
+        idempotency_ref="idempotency-ref:runtime-command-nonzero",
+    )
+
+    assert nonzero.record.status == "receipt_recorded"
+    assert nonzero.exit_code == 128
+    assert nonzero.error_category == "RUNTIME_COMMAND_NONZERO_EXIT"
+    assert (
+        nonzero.record.receipt.command_receipt_metadata.status_category
+        == "nonzero_exit"
+    )
+
+    def timeout_runner(**kwargs: object) -> RuntimeCommandRunResult:
+        return RuntimeCommandRunResult(
+            exit_code=None,
+            timed_out=True,
+            duration_ms=30_000,
+            output_bytes=b"",
+            error_category="RUNTIME_COMMAND_TIMEOUT",
+        )
+
+    timeout_gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(tmp_path / "timeout"),
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=tmp_path,
+            runner=timeout_runner,
+        ),
+    )
+    timeout = timeout_gateway.invoke_command(
+        RuntimeCommandExecutionRequest(
+            intent="git_status",
+            safe_summary="Inspect repo status with timeout receipt.",
+        ),
+        idempotency_ref="idempotency-ref:runtime-command-timeout",
+    )
+
+    assert timeout.record.status == "receipt_recorded"
+    assert timeout.timed_out is True
+    assert timeout.error_category == "RUNTIME_COMMAND_TIMEOUT"
+    assert timeout.record.receipt.command_receipt_metadata.status_category == "timeout"
+
+
+def test_runtime_gateway_local_model_replay_without_receipt_does_not_call_transport(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("FIRST_MODEL_ATTEMPT")
+
+    store = RuntimeInvocationStore(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(transport_factory=transport_factory),
+        local_model_runtime_enabled=True,
+    )
+    original_record_receipt = store.record_receipt
+
+    def fail_after_create(*args: object, **kwargs: object) -> object:
+        raise RuntimeError("simulated local model receipt write failure")
+
+    store.record_receipt = fail_after_create  # type: ignore[method-assign]
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[RuntimeLocalModelMessage(role="user", content="safe transient prompt")],
+        safe_summary="Run local model runtime as an untrusted proposal.",
+    )
+    with pytest.raises(RuntimeError):
+        gateway.invoke_local_model(
+            request,
+            idempotency_ref="idempotency-ref:runtime-local-model-replay-no-receipt",
+        )
+    assert calls == 1
+
+    store.record_receipt = original_record_receipt  # type: ignore[method-assign]
+    replay = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-replay-no-receipt",
+    )
+
+    assert calls == 1
+    assert replay.replayed is True
+    assert replay.record.status == "execution_blocked"
+    assert replay.error_category == "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
+    assert replay.record.receipt is not None
+    assert replay.record.receipt.model_call_performed is False
+
+
+def test_runtime_gateway_local_model_safe_disable_between_precheck_and_create_blocks_transport(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("SHOULD_NOT_RUN")
+
+    store = RuntimeInvocationStore(tmp_path)
+    original_safe_disable_active = store.operator_safe_disable_active
+    safe_disable_recorded = False
+
+    def racing_safe_disable_check() -> bool:
+        nonlocal safe_disable_recorded
+        if not safe_disable_recorded:
+            safe_disable_recorded = True
+            store.safe_disable(
+                RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-local-model-race-disable"),
+                idempotency_ref="idempotency-ref:runtime-local-model-race-disable",
+            )
+            return False
+        return original_safe_disable_active()
+
+    store.operator_safe_disable_active = racing_safe_disable_check  # type: ignore[method-assign]
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(transport_factory=transport_factory),
+        local_model_runtime_enabled=True,
+    )
+
+    result = gateway.invoke_local_model(
+        RuntimeLocalModelCallRequest(
+            base_url="http://127.0.0.1:8080",
+            model_ref="uaa-local-runtime",
+            messages=[RuntimeLocalModelMessage(role="user", content="safe transient prompt")],
+            safe_summary="Run local model runtime as an untrusted proposal.",
+        ),
+        idempotency_ref="idempotency-ref:runtime-local-model-race",
+    )
+
+    assert calls == 0
+    assert result.record.status == "safe_disabled"
+    assert result.error_category == "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
+    assert result.record.receipt is not None
+    assert result.record.receipt.model_call_performed is False
+    assert (
+        result.record.receipt.safe_disable.reason_ref
+        == "reason-ref:runtime-local-model-race-disable"
+    )

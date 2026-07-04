@@ -29,6 +29,12 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeProfile,
     build_local_model_receipt,
 )
+from ultimate_ai_agent.core.runtime_gateway.command import (
+    GovernedCommandRuntimeAdapter,
+    RuntimeCommandExecutionRequest,
+    RuntimeCommandGatewayResult,
+    invoke_governed_command,
+)
 from ultimate_ai_agent.core.runtime_gateway.storage import RuntimeInvocationStore
 
 
@@ -214,11 +220,26 @@ class RuntimeGateway:
         *,
         store: RuntimeInvocationStore | None = None,
         local_model_adapter: LocalModelRuntimeAdapter | None = None,
+        command_adapter: GovernedCommandRuntimeAdapter | None = None,
         local_model_runtime_enabled: bool | None = None,
     ) -> None:
         self.store = store or RuntimeInvocationStore()
         self.local_model_adapter = local_model_adapter or LocalModelRuntimeAdapter()
+        self.command_adapter = command_adapter or GovernedCommandRuntimeAdapter()
         self._local_model_runtime_enabled = local_model_runtime_enabled
+
+    def invoke_command(
+        self,
+        request: RuntimeCommandExecutionRequest,
+        *,
+        idempotency_ref: str,
+    ) -> RuntimeCommandGatewayResult:
+        return invoke_governed_command(
+            store=self.store,
+            adapter=self.command_adapter,
+            request=request,
+            idempotency_ref=idempotency_ref,
+        )
 
     def invoke_local_model(
         self,
@@ -245,19 +266,65 @@ class RuntimeGateway:
             local_model_gateway_validated=blocked_error is None,
         )
         record = created.record
-        if created.replayed and record.receipt is not None:
+        if blocked_error is None and record.status == RuntimeInvocationStatus.safe_disabled.value:
+            blocked_error = "RUNTIME_LOCAL_MODEL_SAFE_DISABLED"
+        if created.replayed:
+            if record.receipt is not None:
+                return RuntimeLocalModelGatewayResult(
+                    record=record,
+                    request_byte_count=(
+                        record.receipt.model_receipt_metadata.request_byte_count
+                        if record.receipt.model_receipt_metadata
+                        else 0
+                    ),
+                    response_byte_count=(
+                        record.receipt.model_receipt_metadata.response_byte_count
+                        if record.receipt.model_receipt_metadata
+                        else 0
+                    ),
+                    replayed=True,
+                    local_model_runtime_enabled=runtime_enabled,
+                )
+            metadata = RuntimeLocalModelReceiptMetadata(
+                model_ref=request.model_ref,
+                endpoint_ref=_endpoint_ref(request.base_url),
+                profile=RuntimeProfile(request.requested_profile),
+                request_byte_count=_request_byte_count(request),
+                response_byte_count=0,
+                status_code=None,
+                response_received=False,
+                response_truncated=False,
+                bounded_preview_returned=False,
+                bounded_preview_persisted=False,
+                error_category="RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
+                safe_summary="Local model runtime replay was blocked before transport.",
+            )
+            receipt = build_local_model_receipt(
+                record,
+                metadata=metadata,
+                execution_performed=False,
+                model_call_performed=False,
+                status=RuntimeInvocationStatus.execution_blocked,
+            )
+            updated = self.store.record_receipt(
+                record.invocation_ref,
+                receipt,
+                idempotency_ref=_operation_idempotency_ref(
+                    idempotency_ref,
+                    "local-model-replay-without-receipt",
+                ),
+                payload_fingerprint_ref=_operation_fingerprint_ref(
+                    record.invocation_ref,
+                    {
+                        "operation": "local_model_replay_without_receipt",
+                        "metadata": metadata.model_dump(mode="json"),
+                    },
+                ),
+            )
             return RuntimeLocalModelGatewayResult(
-                record=record,
-                request_byte_count=(
-                    record.receipt.model_receipt_metadata.request_byte_count
-                    if record.receipt.model_receipt_metadata
-                    else 0
-                ),
-                response_byte_count=(
-                    record.receipt.model_receipt_metadata.response_byte_count
-                    if record.receipt.model_receipt_metadata
-                    else 0
-                ),
+                record=updated,
+                request_byte_count=metadata.request_byte_count,
+                error_category=metadata.error_category,
                 replayed=True,
                 local_model_runtime_enabled=runtime_enabled,
             )

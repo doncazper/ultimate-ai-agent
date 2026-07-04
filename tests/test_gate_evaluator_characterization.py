@@ -26,6 +26,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     FOUNDER_LOOP_MEMORY_CONTEXT_ROUTES,
     FOUNDER_LOOP_MEMORY_FEATURE_MINE_ROUTES,
     FOUNDER_LOOP_MEMORY_REVIEW_DECISION_ROUTES,
+    GOVERNED_RUNTIME_PILOT_CONTRACT_ROUTES,
     POST_MILESTONE_SAFE_ROUTE_FAMILIES,
     RUN_ATTACHED_APPROVAL_QUEUE_ROUTES,
     _historical_openapi_path_set,
@@ -39,6 +40,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_side_effects import (
 from ultimate_ai_agent.core.gate.evaluator_registry import evaluator_registry
 from ultimate_ai_agent.core.gate.evaluators import (
     FoundationGateEvaluator,
+    GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES,
     STATIC_SAFETY_EVALUATOR_DATA_FILES,
     _is_static_safety_scan_allowed_file,
     m21_forbidden_openwebui_runtime_fragment_failures,
@@ -184,6 +186,17 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/coding/session",
         "/control-center/coding/test-command-readiness",
     }
+    assert GOVERNED_RUNTIME_PILOT_CONTRACT_ROUTES == {
+        "/api/runtime/capabilities",
+        "/api/runtime/command/run",
+        "/api/runtime/invocations",
+        "/api/runtime/invocations/{id}",
+        "/api/runtime/invocations/{id}/approve",
+        "/api/runtime/invocations/{id}/execute",
+        "/api/runtime/invocations/{id}/receipt",
+        "/api/runtime/local-model/call",
+        "/api/runtime/safe-disable",
+    }
     assert RUN_ATTACHED_APPROVAL_QUEUE_ROUTES == {
         "/control-center/approvals/queue",
     }
@@ -197,6 +210,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "control_center_setup_assistant",
         "control_center_tiny_provider_lane",
         "founder_loop",
+        "governed_runtime_pilot_contracts",
         "mattermost",
         "packaging_proof",
         "redacted_observability",
@@ -257,9 +271,14 @@ def test_static_safety_evaluator_data_file_exemption_is_exact() -> None:
     route_boundary_data_file = (
         "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py"
     )
+    command_adapter_file = "src/ultimate_ai_agent/core/runtime_gateway/command.py"
 
     assert STATIC_SAFETY_EVALUATOR_DATA_FILES == frozenset({route_boundary_data_file})
+    assert GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES == frozenset(
+        {command_adapter_file}
+    )
     assert _is_static_safety_scan_allowed_file(route_boundary_data_file, frozenset())
+    assert _is_static_safety_scan_allowed_file(command_adapter_file, frozenset())
     assert _is_static_safety_scan_allowed_file("src/allowed.py", {"src/allowed.py"})
     assert not _is_static_safety_scan_allowed_file(
         "src/ultimate_ai_agent/core/gate/evaluator_modules/route_contracts.py",

@@ -3,9 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
+
+import fcntl
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -34,6 +38,7 @@ from ultimate_ai_agent.core.time import utc_now
 RUNTIME_GATEWAY_STORAGE_SCHEMA_VERSION = "runtime_gateway_storage.v1"
 RUNTIME_GATEWAY_STATE_DIR_ENV = "UAA_RUNTIME_GATEWAY_STATE_DIR"
 RUNTIME_GATEWAY_JSONL = "runtime_gateway_invocations.jsonl"
+RUNTIME_GATEWAY_LOCK = "runtime_gateway_invocations.lock"
 UNSAFE_RUNTIME_STORAGE_KEY_FRAGMENTS = (
     "raw",
     "prompt_text",
@@ -178,15 +183,42 @@ def _entry_hash(entry_payload: dict[str, Any]) -> str:
     return _hash_ref("runtime-storage-entry-hash-ref", entry_payload)
 
 
+def _operator_safe_disable_active(record: RuntimeInvocationRecord) -> bool:
+    return (
+        record.safe_disable.active
+        and record.safe_disable.reason_ref != "reason-ref:governed-runtime-phase-02-disabled"
+    )
+
+
+def _operator_safe_disable_state(
+    records: Iterable[RuntimeInvocationRecord],
+) -> RuntimeSafeDisableState | None:
+    for record in records:
+        if _operator_safe_disable_active(record):
+            return record.safe_disable
+    return None
+
+
+def _status_after_safe_disable(
+    record: RuntimeInvocationRecord,
+    desired_status: RuntimeInvocationStatus,
+) -> RuntimeInvocationStatus:
+    if _operator_safe_disable_active(record):
+        return RuntimeInvocationStatus.safe_disabled
+    return desired_status
+
+
 class RuntimeInvocationStore:
     def __init__(self, state_dir: Path | None = None) -> None:
         self.state_dir = state_dir or runtime_gateway_state_dir()
         self.path = self.state_dir / RUNTIME_GATEWAY_JSONL
+        self.lock_path = self.state_dir / RUNTIME_GATEWAY_LOCK
         self._records: dict[str, RuntimeInvocationRecord] = {}
         self._idempotency_index: dict[str, str] = {}
         self._idempotency_fingerprint_index: dict[str, str] = {}
         self._last_entry_hash_ref: str | None = None
         self._loaded = False
+        self._process_lock = threading.RLock()
 
     def capabilities_storage_ref(self) -> str:
         return _hash_ref("runtime-storage-ref", {"path": RUNTIME_GATEWAY_JSONL})
@@ -205,12 +237,7 @@ class RuntimeInvocationStore:
 
     def operator_safe_disable_active(self) -> bool:
         self._load()
-        return any(
-            record.status == RuntimeInvocationStatus.safe_disabled.value
-            and record.safe_disable.active
-            and record.safe_disable.reason_ref != "reason-ref:governed-runtime-phase-02-disabled"
-            for record in self._records.values()
-        )
+        return any(_operator_safe_disable_active(record) for record in self._records.values())
 
     def create_invocation(
         self,
@@ -218,8 +245,24 @@ class RuntimeInvocationStore:
         *,
         idempotency_ref: str,
         local_model_gateway_validated: bool = False,
+        command_gateway_validated: bool = False,
     ) -> RuntimeInvocationStoreResult:
-        self._load()
+        with self._exclusive_mutation():
+            return self._create_invocation_loaded(
+                request,
+                idempotency_ref=idempotency_ref,
+                local_model_gateway_validated=local_model_gateway_validated,
+                command_gateway_validated=command_gateway_validated,
+            )
+
+    def _create_invocation_loaded(
+        self,
+        request: RuntimeInvocationRequest,
+        *,
+        idempotency_ref: str,
+        local_model_gateway_validated: bool = False,
+        command_gateway_validated: bool = False,
+    ) -> RuntimeInvocationStoreResult:
         validate_execution_ref(idempotency_ref, "idempotency_ref")
         payload_fingerprint_ref = runtime_payload_fingerprint_ref(request)
         existing_ref = self._idempotency_index.get(idempotency_ref)
@@ -235,6 +278,10 @@ class RuntimeInvocationStore:
             self._records[existing_ref] = replayed
             return RuntimeInvocationStoreResult(record=replayed, replayed=True)
 
+        operator_safe_disable = _operator_safe_disable_state(self._records.values())
+        if operator_safe_disable is not None:
+            local_model_gateway_validated = False
+            command_gateway_validated = False
         invocation_ref = runtime_invocation_ref(idempotency_ref, payload_fingerprint_ref)
         request_with_idempotency = request.model_copy(update={"idempotency_ref": idempotency_ref})
         storage_request = request_with_idempotency.model_copy(
@@ -245,6 +292,7 @@ class RuntimeInvocationStore:
             invocation_ref=invocation_ref,
             status=RuntimeInvocationStatus.pending_approval,
             local_model_gateway_validated=local_model_gateway_validated,
+            command_gateway_validated=command_gateway_validated,
         )
         record = RuntimeInvocationRecord(
             invocation_ref=invocation_ref,
@@ -254,16 +302,24 @@ class RuntimeInvocationStore:
             payload_fingerprint_ref=payload_fingerprint_ref,
             idempotency_ref=idempotency_ref,
             safe_disable=(
+                operator_safe_disable
+                if operator_safe_disable is not None
+                else (
                 RuntimeSafeDisableState(
                     active=False,
                     profile=policy_decision.profile,
                     reason_ref="reason-ref:governed-runtime-local-model-active",
-                    safe_summary="Local model runtime profile is active for this invocation only.",
+                    safe_summary="Runtime profile is active for this exact invocation only.",
                 )
                 if policy_decision.allowed_to_execute
                 else RuntimeSafeDisableState()
+                )
             ),
-            status=RuntimeInvocationStatus.pending_approval,
+            status=(
+                RuntimeInvocationStatus.safe_disabled
+                if operator_safe_disable is not None
+                else RuntimeInvocationStatus.pending_approval
+            ),
         )
         self._append(
             "invocation_created",
@@ -280,45 +336,49 @@ class RuntimeInvocationStore:
         *,
         idempotency_ref: str,
     ) -> RuntimeInvocationRecord:
-        record = self.get_invocation(invocation_ref)
-        validate_execution_ref(idempotency_ref, "idempotency_ref")
-        payload_fingerprint_ref = _hash_ref(
-            "runtime-operation-fingerprint-ref",
-            {
-                "operation": "approval_binding_recorded",
-                "invocation_ref": invocation_ref,
-                "approval_ref": request.approval_ref,
-                "approval_scope_ref": request.approval_scope_ref,
-                "metadata_refs": request.metadata_refs,
-            },
-        )
-        replayed = self._idempotent_operation_replay(
-            idempotency_ref,
-            payload_fingerprint_ref,
-        )
-        if replayed is not None:
-            return replayed
-        policy_decision = build_policy_decision(
-            record.request,
-            invocation_ref=record.invocation_ref,
-            approval_ref=request.approval_ref,
-            status=RuntimeInvocationStatus.pending_approval,
-        )
-        updated = record.model_copy(
-            update={
-                "policy_decision": policy_decision,
-                "approval_requirement": policy_decision.approval_requirement,
-                "status": RuntimeInvocationStatus.pending_approval,
-                "updated_at": utc_now(),
-            }
-        )
-        self._append(
-            "approval_binding_recorded",
-            updated,
-            entry_idempotency_ref=idempotency_ref,
-            payload_fingerprint_ref=payload_fingerprint_ref,
-        )
-        return updated
+        with self._exclusive_mutation():
+            record = self.get_invocation(invocation_ref)
+            validate_execution_ref(idempotency_ref, "idempotency_ref")
+            payload_fingerprint_ref = _hash_ref(
+                "runtime-operation-fingerprint-ref",
+                {
+                    "operation": "approval_binding_recorded",
+                    "invocation_ref": invocation_ref,
+                    "approval_ref": request.approval_ref,
+                    "approval_scope_ref": request.approval_scope_ref,
+                    "metadata_refs": request.metadata_refs,
+                },
+            )
+            replayed = self._idempotent_operation_replay(
+                idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is not None:
+                return replayed
+            policy_decision = build_policy_decision(
+                record.request,
+                invocation_ref=record.invocation_ref,
+                approval_ref=request.approval_ref,
+                status=RuntimeInvocationStatus.pending_approval,
+            )
+            updated = record.model_copy(
+                update={
+                    "policy_decision": policy_decision,
+                    "approval_requirement": policy_decision.approval_requirement,
+                    "status": _status_after_safe_disable(
+                        record,
+                        RuntimeInvocationStatus.pending_approval,
+                    ),
+                    "updated_at": utc_now(),
+                }
+            )
+            self._append(
+                "approval_binding_recorded",
+                updated,
+                entry_idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
+            return updated
 
     def record_blocked_execute(
         self,
@@ -327,43 +387,47 @@ class RuntimeInvocationStore:
         safe_summary: str,
         idempotency_ref: str,
     ) -> RuntimeInvocationRecord:
-        record = self.get_invocation(invocation_ref)
-        validate_execution_ref(idempotency_ref, "idempotency_ref")
-        payload_fingerprint_ref = _hash_ref(
-            "runtime-operation-fingerprint-ref",
-            {
-                "operation": "execution_blocked_receipt_recorded",
-                "invocation_ref": invocation_ref,
-                "safe_summary_ref": _summary_storage_ref(
-                    safe_summary,
-                    prefix="runtime-execute-summary-ref",
-                ),
-            },
-        )
-        replayed = self._idempotent_operation_replay(
-            idempotency_ref,
-            payload_fingerprint_ref,
-        )
-        if replayed is not None:
-            return replayed
-        receipt = build_blocked_receipt(
-            record,
-            safe_summary="Runtime execution remains blocked for unpromoted authority; operator summary omitted.",
-        )
-        updated = record.model_copy(
-            update={
-                "receipt": receipt,
-                "status": RuntimeInvocationStatus.execution_blocked,
-                "updated_at": utc_now(),
-            }
-        )
-        self._append(
-            "execution_blocked_receipt_recorded",
-            updated,
-            entry_idempotency_ref=idempotency_ref,
-            payload_fingerprint_ref=payload_fingerprint_ref,
-        )
-        return updated
+        with self._exclusive_mutation():
+            record = self.get_invocation(invocation_ref)
+            validate_execution_ref(idempotency_ref, "idempotency_ref")
+            payload_fingerprint_ref = _hash_ref(
+                "runtime-operation-fingerprint-ref",
+                {
+                    "operation": "execution_blocked_receipt_recorded",
+                    "invocation_ref": invocation_ref,
+                    "safe_summary_ref": _summary_storage_ref(
+                        safe_summary,
+                        prefix="runtime-execute-summary-ref",
+                    ),
+                },
+            )
+            replayed = self._idempotent_operation_replay(
+                idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is not None:
+                return replayed
+            receipt = build_blocked_receipt(
+                record,
+                safe_summary="Runtime execution remains blocked for unpromoted authority; operator summary omitted.",
+            )
+            updated = record.model_copy(
+                update={
+                    "receipt": receipt,
+                    "status": _status_after_safe_disable(
+                        record,
+                        RuntimeInvocationStatus.execution_blocked,
+                    ),
+                    "updated_at": utc_now(),
+                }
+            )
+            self._append(
+                "execution_blocked_receipt_recorded",
+                updated,
+                entry_idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
+            return updated
 
     def record_receipt(
         self,
@@ -373,37 +437,42 @@ class RuntimeInvocationStore:
         idempotency_ref: str,
         payload_fingerprint_ref: str | None = None,
     ) -> RuntimeInvocationRecord:
-        record = self.get_invocation(invocation_ref)
-        validate_execution_ref(idempotency_ref, "idempotency_ref")
-        payload_fingerprint_ref = payload_fingerprint_ref or _hash_ref(
-            "runtime-operation-fingerprint-ref",
-            {
-                "operation": "receipt_recorded",
-                "invocation_ref": invocation_ref,
-                "receipt_ref": receipt.receipt_ref,
-                "receipt_status": receipt.invocation_status,
-            },
-        )
-        replayed = self._idempotent_operation_replay(
-            idempotency_ref,
-            payload_fingerprint_ref,
-        )
-        if replayed is not None:
-            return replayed
-        updated = record.model_copy(
-            update={
-                "receipt": receipt,
-                "status": receipt.invocation_status,
-                "updated_at": utc_now(),
-            }
-        )
-        self._append(
-            "receipt_recorded",
-            updated,
-            entry_idempotency_ref=idempotency_ref,
-            payload_fingerprint_ref=payload_fingerprint_ref,
-        )
-        return updated
+        with self._exclusive_mutation():
+            record = self.get_invocation(invocation_ref)
+            validate_execution_ref(idempotency_ref, "idempotency_ref")
+            payload_fingerprint_ref = payload_fingerprint_ref or _hash_ref(
+                "runtime-operation-fingerprint-ref",
+                {
+                    "operation": "receipt_recorded",
+                    "invocation_ref": invocation_ref,
+                    "receipt_ref": receipt.receipt_ref,
+                    "receipt_status": receipt.invocation_status,
+                },
+            )
+            replayed = self._idempotent_operation_replay(
+                idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is not None:
+                return replayed
+            receipt_to_store = receipt.model_copy(update={"safe_disable": record.safe_disable})
+            updated = record.model_copy(
+                update={
+                    "receipt": receipt_to_store,
+                    "status": _status_after_safe_disable(
+                        record,
+                        receipt.invocation_status,
+                    ),
+                    "updated_at": utc_now(),
+                }
+            )
+            self._append(
+                "receipt_recorded",
+                updated,
+                entry_idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
+            return updated
 
     def safe_disable(
         self,
@@ -411,29 +480,66 @@ class RuntimeInvocationStore:
         *,
         idempotency_ref: str,
     ) -> RuntimeSafeDisableState:
-        self._load()
-        validate_execution_ref(idempotency_ref, "idempotency_ref")
-        payload_fingerprint_ref = _hash_ref(
-            "runtime-operation-fingerprint-ref",
-            {
-                "operation": "safe_disable_recorded",
-                "reason_ref": request.reason_ref,
-                "metadata_refs": request.metadata_refs,
-            },
-        )
-        replayed = self._idempotent_operation_replay(
-            idempotency_ref,
-            payload_fingerprint_ref,
-        )
-        if replayed is not None and replayed.safe_disable:
-            return replayed.safe_disable
-        state = RuntimeSafeDisableState(
-            reason_ref=request.reason_ref,
-            safe_summary="Runtime pilot safe-disable posture recorded; operator summary omitted.",
-        )
-        if self._records:
-            for index, record in enumerate(list(self._records.values())):
-                updated = record.model_copy(
+        with self._exclusive_mutation():
+            validate_execution_ref(idempotency_ref, "idempotency_ref")
+            payload_fingerprint_ref = _hash_ref(
+                "runtime-operation-fingerprint-ref",
+                {
+                    "operation": "safe_disable_recorded",
+                    "reason_ref": request.reason_ref,
+                    "metadata_refs": request.metadata_refs,
+                },
+            )
+            replayed = self._idempotent_operation_replay(
+                idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is not None and replayed.safe_disable:
+                return replayed.safe_disable
+            state = RuntimeSafeDisableState(
+                reason_ref=request.reason_ref,
+                safe_summary="Runtime pilot safe-disable posture recorded; operator summary omitted.",
+            )
+            if self._records:
+                for index, record in enumerate(list(self._records.values())):
+                    updated = record.model_copy(
+                        update={
+                            "safe_disable": state,
+                            "status": RuntimeInvocationStatus.safe_disabled,
+                            "updated_at": utc_now(),
+                        }
+                    )
+                    self._append(
+                        "safe_disable_recorded",
+                        updated,
+                        entry_idempotency_ref=(
+                            idempotency_ref
+                            if index == 0
+                            else _hash_ref(
+                                "idempotency-ref",
+                                {
+                                    "base_idempotency_ref": idempotency_ref,
+                                    "invocation_ref": record.invocation_ref,
+                                },
+                            )
+                        ),
+                        payload_fingerprint_ref=payload_fingerprint_ref,
+                    )
+            else:
+                placeholder_request = RuntimeInvocationRequest(
+                    requested_authority="local_model",
+                    requested_profile="sealed",
+                    input_ref="runtime-input-ref:safe-disable-placeholder",
+                    safe_summary="Safe-disable state recorded before any runtime invocation.",
+                )
+                result = self._create_invocation_loaded(
+                    placeholder_request,
+                    idempotency_ref=_hash_ref(
+                        "idempotency-ref",
+                        {"reason_ref": request.reason_ref, "kind": "safe-disable"},
+                    ),
+                )
+                updated = result.record.model_copy(
                     update={
                         "safe_disable": state,
                         "status": RuntimeInvocationStatus.safe_disabled,
@@ -443,51 +549,21 @@ class RuntimeInvocationStore:
                 self._append(
                     "safe_disable_recorded",
                     updated,
-                    entry_idempotency_ref=(
-                        idempotency_ref
-                        if index == 0
-                        else _hash_ref(
-                            "idempotency-ref",
-                            {
-                                "base_idempotency_ref": idempotency_ref,
-                                "invocation_ref": record.invocation_ref,
-                            },
-                        )
-                    ),
+                    entry_idempotency_ref=idempotency_ref,
                     payload_fingerprint_ref=payload_fingerprint_ref,
                 )
-        else:
-            placeholder_request = RuntimeInvocationRequest(
-                requested_authority="local_model",
-                requested_profile="sealed",
-                input_ref="runtime-input-ref:safe-disable-placeholder",
-                safe_summary="Safe-disable state recorded before any runtime invocation.",
-            )
-            result = self.create_invocation(
-                placeholder_request,
-                idempotency_ref=_hash_ref(
-                    "idempotency-ref",
-                    {"reason_ref": request.reason_ref, "kind": "safe-disable"},
-                ),
-            )
-            updated = result.record.model_copy(
-                update={
-                    "safe_disable": state,
-                    "status": RuntimeInvocationStatus.safe_disabled,
-                    "updated_at": utc_now(),
-                }
-            )
-            self._append(
-                "safe_disable_recorded",
-                updated,
-                entry_idempotency_ref=idempotency_ref,
-                payload_fingerprint_ref=payload_fingerprint_ref,
-            )
-        return state
+            return state
 
     def _load(self) -> None:
         if self._loaded:
             return
+        self._reload()
+
+    def _reload(self) -> None:
+        self._records = {}
+        self._idempotency_index = {}
+        self._idempotency_fingerprint_index = {}
+        self._last_entry_hash_ref = None
         self._loaded = True
         if not self.path.exists():
             return
@@ -514,6 +590,18 @@ class RuntimeInvocationStore:
             )
             previous_hash = entry.entry_hash_ref
         self._last_entry_hash_ref = previous_hash
+
+    @contextmanager
+    def _exclusive_mutation(self):
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        with self._process_lock:
+            with self.lock_path.open("a", encoding="utf-8") as lock_handle:
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+                try:
+                    self._reload()
+                    yield
+                finally:
+                    fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
 
     def _idempotent_operation_replay(
         self,

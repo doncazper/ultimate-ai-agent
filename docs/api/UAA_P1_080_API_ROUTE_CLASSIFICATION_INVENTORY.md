@@ -27,10 +27,10 @@ Current route classification summary:
 | `public_metadata` | 3 |
 | `local_readonly` | 20 |
 | `local_sensitive` | 124 |
-| `mutating_requires_authority` | 39 |
+| `mutating_requires_authority` | 40 |
 
-The current OpenAPI path count is `185` and `/api/manifest` currently reports
-`186` route operations after later scoped FCC-V1-003 through
+The current OpenAPI path count is `186` and `/api/manifest` currently reports
+`187` route operations after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
@@ -47,12 +47,15 @@ plus the repo-safe Coding Cockpit session read-model seed route, read-only
 context-pack preview route, proposal-only patch proposal route, and blocked
 patch apply readiness route, blocked test-command readiness route, blocked Git
 review route, blocked live-preview readiness route, and blocked multi-agent
-review readiness route, plus the governed runtime pilot Phase 03 contract,
+review readiness route, plus the governed runtime pilot Phase 04 contract,
 invocation metadata, approval-ref binding, metadata-only local loopback model
-receipt, blocked receipt, and safe-disable routes.
-Governed runtime pilot Phase 03 adds one exact local loopback model-call route
-through `RuntimeGateway`; it stores safe refs and metadata-only receipts and
-keeps remote provider/model authority blocked.
+receipt, exact read-only command status receipt, blocked receipt, and
+safe-disable routes.
+Governed runtime pilot Phase 04 adds one exact local loopback model-call route
+and one exact allowlisted read-only command status route through
+`RuntimeGateway`; it stores safe refs and metadata-only/redacted receipts and
+keeps remote provider/model authority and arbitrary shell/subprocess execution
+blocked.
 UAA-P1-080 itself added no routes; stable
 methods, operation IDs, tags, summaries, side-effect classes,
 `requires_auth_future=True`, and `blocked_from_production=True` remain preserved

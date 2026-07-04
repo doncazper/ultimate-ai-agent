@@ -23,7 +23,9 @@ GOVERNED_RUNTIME_SAFE_DISABLE_REF = "safe-disable-ref:governed-runtime-pilot"
 GOVERNED_RUNTIME_SAFE_DISABLE_POSTURE_REF = "safe-disable-posture-ref:governed-runtime-pilot"
 GOVERNED_RUNTIME_ROLLBACK_REF = "rollback-ref:governed-runtime-pilot:disable-profile"
 GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS = (
-    "blocked-authority:runtime-command-execution-phase-03",
+    "blocked-authority:runtime-unrestricted-command-execution",
+    "blocked-authority:runtime-command-execution-without-gateway-allowlist",
+    "blocked-authority:runtime-command-network-access",
     "blocked-authority:runtime-browser-automation",
     "blocked-authority:runtime-connector-write",
     "blocked-authority:runtime-plugin-import",
@@ -33,6 +35,7 @@ GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS = (
 )
 GOVERNED_RUNTIME_IMPLEMENTED_AUTHORITY_REFS = (
     "authority-ref:runtime-local-model-loopback-phase-03",
+    "authority-ref:runtime-allowlisted-readonly-command-phase-04",
 )
 GOVERNED_RUNTIME_REDACTIONS = (
     "safe_refs_only",
@@ -55,6 +58,13 @@ class RuntimeProfile(str, Enum):
 class RuntimeAuthority(str, Enum):
     local_model = "local_model"
     allowlisted_command = "allowlisted_command"
+
+
+class RuntimeCommandIntent(str, Enum):
+    git_status = "git_status"
+    focused_pytest = "focused_pytest"
+    repo_verifier = "repo_verifier"
+    frontend_check = "frontend_check"
 
 
 class RuntimeInvocationStatus(str, Enum):
@@ -197,19 +207,41 @@ class RuntimePolicyDecision(BaseModel):
         for redaction in self.redactions_applied:
             validate_safe_execution_text(redaction, "redaction")
         if self.allowed_to_execute:
-            if self.requested_authority != RuntimeAuthority.local_model.value:
-                raise ValueError("RUNTIME_EXECUTION_AUTHORITY_NOT_PROMOTED")
             if self.profile not in {
                 RuntimeProfile.local_runtime.value,
                 RuntimeProfile.operator_approved.value,
             }:
                 raise ValueError("RUNTIME_EXECUTION_PROFILE_NOT_PROMOTED")
-            if not self.adapter_execution_enabled or not self.model_call_enabled:
-                raise ValueError("RUNTIME_LOCAL_MODEL_EXECUTION_FLAGS_REQUIRED")
-        elif self.adapter_execution_enabled or self.model_call_enabled:
+            if self.requested_authority == RuntimeAuthority.local_model.value:
+                if (
+                    not self.adapter_execution_enabled
+                    or not self.model_call_enabled
+                    or self.command_execution_enabled
+                ):
+                    raise ValueError("RUNTIME_LOCAL_MODEL_EXECUTION_FLAGS_REQUIRED")
+            elif self.requested_authority == RuntimeAuthority.allowlisted_command.value:
+                if (
+                    not self.adapter_execution_enabled
+                    or not self.command_execution_enabled
+                    or self.model_call_enabled
+                ):
+                    raise ValueError("RUNTIME_COMMAND_EXECUTION_FLAGS_REQUIRED")
+            else:
+                raise ValueError("RUNTIME_EXECUTION_AUTHORITY_NOT_PROMOTED")
+        elif (
+            self.adapter_execution_enabled
+            or self.model_call_enabled
+            or self.command_execution_enabled
+        ):
             raise ValueError("RUNTIME_EXECUTION_FLAGS_REQUIRE_ALLOW")
+        if self.model_call_enabled and self.command_execution_enabled:
+            raise ValueError("RUNTIME_SINGLE_EXECUTION_AUTHORITY_REQUIRED")
+        if self.model_call_enabled:
+            if self.requested_authority != RuntimeAuthority.local_model.value:
+                raise ValueError("RUNTIME_LOCAL_MODEL_EXECUTION_FLAGS_REQUIRED")
         if self.command_execution_enabled:
-            raise ValueError("RUNTIME_COMMAND_EXECUTION_NOT_ALLOWED_IN_PHASE_03")
+            if self.requested_authority != RuntimeAuthority.allowlisted_command.value:
+                raise ValueError("RUNTIME_COMMAND_EXECUTION_FLAGS_REQUIRED")
         if not set(GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS).issubset(
             set(self.blocked_authority_refs)
         ):
@@ -283,6 +315,7 @@ class RuntimeInvocationReceipt(BaseModel):
         default_factory=lambda: list(GOVERNED_RUNTIME_REDACTIONS)
     )
     model_receipt_metadata: "RuntimeLocalModelReceiptMetadata | None" = None
+    command_receipt_metadata: "RuntimeCommandReceiptMetadata | None" = None
     execution_performed: bool = False
     adapter_execution_performed: bool = False
     model_call_performed: bool = False
@@ -314,9 +347,24 @@ class RuntimeInvocationReceipt(BaseModel):
             if self.connector_write_performed or self.browser_automation_performed:
                 raise ValueError("RUNTIME_NON_MODEL_AUTHORITY_NOT_ALLOWED")
             if self.command_execution_performed:
-                raise ValueError("RUNTIME_COMMAND_EXECUTION_NOT_ALLOWED_IN_PHASE_03")
+                raise ValueError("RUNTIME_COMMAND_AND_MODEL_EXECUTION_MUTUALLY_EXCLUSIVE")
             if not self.model_output_non_authoritative:
                 raise ValueError("RUNTIME_MODEL_OUTPUT_NON_AUTHORITATIVE_REQUIRED")
+            if self.command_receipt_metadata is not None:
+                raise ValueError("RUNTIME_COMMAND_AND_MODEL_METADATA_MUTUALLY_EXCLUSIVE")
+        if self.command_receipt_metadata is not None:
+            if (
+                self.connector_write_performed
+                or self.browser_automation_performed
+                or self.model_call_performed
+            ):
+                raise ValueError("RUNTIME_NON_COMMAND_AUTHORITY_NOT_ALLOWED")
+            if self.command_execution_performed:
+                if not self.execution_performed or not self.adapter_execution_performed:
+                    raise ValueError("RUNTIME_COMMAND_RECEIPT_EXECUTION_FLAGS_REQUIRED")
+                if not self.command_receipt_metadata.command_execution_attempted:
+                    raise ValueError("RUNTIME_COMMAND_METADATA_ATTEMPT_REQUIRED")
+            return self
         if self.model_call_performed:
             if not self.execution_performed or not self.adapter_execution_performed:
                 raise ValueError("RUNTIME_MODEL_RECEIPT_EXECUTION_FLAGS_REQUIRED")
@@ -333,6 +381,99 @@ class RuntimeInvocationReceipt(BaseModel):
             ]
         ):
             raise ValueError("RUNTIME_RECEIPT_EXECUTION_DENIED_FOR_UNPROMOTED_AUTHORITY")
+        return self
+
+
+class RuntimeCommandAllowlistEntry(BaseModel):
+    intent: RuntimeCommandIntent
+    command_shape_ref: str = Field(..., min_length=1)
+    enabled_for_phase: bool = False
+    no_op_readonly: bool = False
+    approval_required: bool = True
+    exact_action_inbox_approval_required: bool = True
+    network_access_allowed: bool = False
+    command_output_persisted: bool = False
+    safe_summary: str = Field(..., min_length=1, max_length=300)
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_allowlist_entry(self) -> "RuntimeCommandAllowlistEntry":
+        validate_execution_ref(self.command_shape_ref, "command_shape_ref")
+        validate_safe_execution_text(self.safe_summary, "safe_summary")
+        if self.enabled_for_phase and self.approval_required and self.no_op_readonly:
+            raise ValueError("RUNTIME_COMMAND_NO_OP_APPROVAL_POSTURE_CONFLICT")
+        if self.network_access_allowed:
+            raise ValueError("RUNTIME_COMMAND_NETWORK_ACCESS_DENIED")
+        if self.command_output_persisted:
+            raise ValueError("RUNTIME_COMMAND_RAW_OUTPUT_PERSISTENCE_DENIED")
+        if self.enabled_for_phase and not self.no_op_readonly:
+            raise ValueError("RUNTIME_COMMAND_PHASE_04_ONLY_NO_OP_STATUS_ENABLED")
+        return self
+
+
+class RuntimeCommandReceiptMetadata(BaseModel):
+    adapter_id: str = "governed-command-runtime-adapter"
+    intent: RuntimeCommandIntent
+    command_shape_ref: str = Field(..., min_length=1)
+    argv_ref: str = Field(..., min_length=1)
+    cwd_ref: str = Field(..., min_length=1)
+    environment_ref: str = Field(..., min_length=1)
+    profile: RuntimeProfile = RuntimeProfile.local_runtime
+    exit_code: int | None = None
+    timed_out: bool = False
+    duration_ms: int = Field(default=0, ge=0, le=300_000)
+    output_byte_count: int = Field(default=0, ge=0, le=1_000_000)
+    output_truncated: bool = False
+    redacted_output_ref: str = Field(..., min_length=1)
+    output_summary: str = Field(..., min_length=1, max_length=300)
+    status_category: str = Field(..., min_length=1, max_length=120)
+    error_category: str | None = None
+    command_execution_attempted: bool = False
+    shell_used: bool = False
+    command_string_accepted: bool = False
+    network_access_allowed: bool = False
+    command_output_persisted: bool = False
+    cwd_persisted: bool = False
+    environment_persisted: bool = False
+    safe_summary: str = "Command runtime metadata stores safe refs, counts, and redacted summaries only."
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_command_metadata(self) -> "RuntimeCommandReceiptMetadata":
+        for value, field_name in [
+            (self.adapter_id, "adapter_id"),
+            (self.status_category, "status_category"),
+            (self.output_summary, "output_summary"),
+            (self.safe_summary, "safe_summary"),
+        ]:
+            validate_safe_execution_text(value, field_name)
+        for value, field_name in [
+            (self.command_shape_ref, "command_shape_ref"),
+            (self.argv_ref, "argv_ref"),
+            (self.cwd_ref, "cwd_ref"),
+            (self.environment_ref, "environment_ref"),
+            (self.redacted_output_ref, "redacted_output_ref"),
+        ]:
+            validate_execution_ref(value, field_name)
+        if self.profile not in {
+            RuntimeProfile.local_runtime.value,
+            RuntimeProfile.operator_approved.value,
+        }:
+            raise ValueError("RUNTIME_COMMAND_PROFILE_REQUIRED")
+        if self.shell_used or self.command_string_accepted:
+            raise ValueError("RUNTIME_COMMAND_SHELL_OR_STRING_DENIED")
+        if self.network_access_allowed:
+            raise ValueError("RUNTIME_COMMAND_NETWORK_ACCESS_DENIED")
+        if self.command_output_persisted:
+            raise ValueError("RUNTIME_COMMAND_RAW_OUTPUT_PERSISTENCE_DENIED")
+        if self.cwd_persisted:
+            raise ValueError("RUNTIME_COMMAND_CWD_PERSISTENCE_DENIED")
+        if self.environment_persisted:
+            raise ValueError("RUNTIME_COMMAND_ENV_PERSISTENCE_DENIED")
+        if self.error_category:
+            validate_safe_execution_text(self.error_category, "error_category")
         return self
 
 
@@ -510,10 +651,12 @@ class RuntimeCapabilities(BaseModel):
         validate_execution_ref(self.capabilities_ref, "capabilities_ref")
         if self.default_profile != RuntimeProfile.sealed.value:
             raise ValueError("RUNTIME_DEFAULT_PROFILE_MUST_BE_SEALED")
-        if self.command_execution_enabled:
-            raise ValueError("RUNTIME_COMMAND_CAPABILITY_DENIED_IN_PHASE_03")
-        if self.adapter_execution_enabled != self.model_call_enabled:
-            raise ValueError("RUNTIME_MODEL_ADAPTER_FLAGS_MUST_MATCH")
+        if self.model_call_enabled and self.command_execution_enabled:
+            raise ValueError("RUNTIME_SINGLE_EXECUTION_CAPABILITY_REQUIRED")
+        if self.adapter_execution_enabled and not (
+            self.model_call_enabled or self.command_execution_enabled
+        ):
+            raise ValueError("RUNTIME_ADAPTER_FLAG_REQUIRES_EXECUTION_CAPABILITY")
         if self.adapter_execution_enabled and self.safe_disable.active:
             raise ValueError("RUNTIME_CAPABILITY_SAFE_DISABLE_MUST_BE_INACTIVE")
         for ref in self.implemented_authority_refs:
@@ -563,11 +706,21 @@ def build_policy_decision(
     approval_ref: str | None = None,
     status: RuntimeInvocationStatus = RuntimeInvocationStatus.blocked,
     local_model_gateway_validated: bool = False,
+    command_gateway_validated: bool = False,
 ) -> RuntimePolicyDecision:
     profile = RuntimeProfile(request.requested_profile)
     local_model_enabled = (
         request.requested_authority == RuntimeAuthority.local_model.value
         and local_model_gateway_validated
+        and profile
+        in {
+            RuntimeProfile.local_runtime,
+            RuntimeProfile.operator_approved,
+        }
+    )
+    command_enabled = (
+        request.requested_authority == RuntimeAuthority.allowlisted_command.value
+        and command_gateway_validated
         and profile
         in {
             RuntimeProfile.local_runtime,
@@ -584,6 +737,11 @@ def build_policy_decision(
             "GOVERNED_RUNTIME_PHASE_03_LOCAL_MODEL_LOOPBACK",
             "MODEL_OUTPUT_PROPOSAL_ONLY",
         ]
+    elif command_enabled:
+        reason_codes = [
+            "GOVERNED_RUNTIME_PHASE_04_ALLOWLISTED_READONLY_COMMAND",
+            "COMMAND_OUTPUT_REDACTED_AND_BOUNDED",
+        ]
     elif (
         request.requested_authority == RuntimeAuthority.local_model.value
         and profile
@@ -596,27 +754,44 @@ def build_policy_decision(
             "GOVERNED_RUNTIME_PHASE_03_LOCAL_MODEL_GATEWAY_VALIDATION_REQUIRED",
             "RUNTIME_ADAPTER_EXECUTION_BLOCKED",
         ]
+    elif (
+        request.requested_authority == RuntimeAuthority.allowlisted_command.value
+        and profile
+        in {
+            RuntimeProfile.local_runtime,
+            RuntimeProfile.operator_approved,
+        }
+    ):
+        reason_codes = [
+            "GOVERNED_RUNTIME_PHASE_04_COMMAND_GATEWAY_VALIDATION_REQUIRED",
+            "RUNTIME_ADAPTER_EXECUTION_BLOCKED",
+        ]
     else:
         reason_codes = [
-            "GOVERNED_RUNTIME_PHASE_03_LOCAL_MODEL_DISABLED_OR_UNPROMOTED",
+            "GOVERNED_RUNTIME_EXECUTION_DISABLED_OR_UNPROMOTED",
             "RUNTIME_ADAPTER_EXECUTION_BLOCKED",
         ]
     if approval_ref or request.approval_ref:
         reason_codes.append("APPROVAL_REF_IDENTIFIER_ONLY")
     return RuntimePolicyDecision(
         policy_decision_ref=runtime_policy_decision_ref(invocation_ref),
-        profile=profile if local_model_enabled else RuntimeProfile.sealed,
+        profile=profile if local_model_enabled or command_enabled else RuntimeProfile.sealed,
         requested_authority=request.requested_authority,
         invocation_status=status,
-        allowed_to_execute=local_model_enabled,
-        adapter_execution_enabled=local_model_enabled,
+        allowed_to_execute=local_model_enabled or command_enabled,
+        adapter_execution_enabled=local_model_enabled or command_enabled,
         model_call_enabled=local_model_enabled,
+        command_execution_enabled=command_enabled,
         approval_requirement=approval_requirement,
         reason_codes=reason_codes,
         safe_summary=(
             "RuntimeGateway policy allows loopback local model calls as untrusted proposals."
             if local_model_enabled
-            else "RuntimeGateway policy recorded a blocked or disabled runtime decision."
+            else (
+                "RuntimeGateway policy allows an exact allowlisted read-only command with redacted output."
+                if command_enabled
+                else "RuntimeGateway policy recorded a blocked or disabled runtime decision."
+            )
         ),
     )
 
@@ -649,6 +824,7 @@ def build_blocked_receipt(
                 {"invocation_ref": record.invocation_ref, "status": "blocked"},
             )
         ],
+        safe_disable=record.safe_disable,
         safe_summary=safe_summary,
     )
 
@@ -683,6 +859,7 @@ def build_local_model_receipt(
             )
         ],
         blocked_authority_refs=list(GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS),
+        safe_disable=record.safe_disable,
         model_receipt_metadata=metadata,
         execution_performed=execution_performed,
         adapter_execution_performed=execution_performed,
@@ -695,6 +872,53 @@ def build_local_model_receipt(
             "Local model runtime attempt was blocked before transport; metadata only."
             if status == RuntimeInvocationStatus.execution_blocked
             else "Local model runtime attempt completed; output is an untrusted proposal."
+        ),
+    )
+
+
+def build_command_receipt(
+    record: RuntimeInvocationRecord,
+    *,
+    metadata: RuntimeCommandReceiptMetadata,
+    execution_performed: bool = True,
+    command_execution_performed: bool = True,
+    status: RuntimeInvocationStatus = RuntimeInvocationStatus.receipt_recorded,
+) -> RuntimeInvocationReceipt:
+    return RuntimeInvocationReceipt(
+        receipt_ref=runtime_receipt_ref(record.invocation_ref, status),
+        invocation_ref=record.invocation_ref,
+        policy_decision_ref=record.policy_decision.policy_decision_ref,
+        invocation_status=status,
+        artifact_refs=[
+            RuntimeArtifactRef(
+                artifact_ref=_stable_ref(
+                    "runtime-artifact-ref",
+                    {"invocation_ref": record.invocation_ref, "kind": "command-receipt"},
+                ),
+                artifact_kind="allowlisted_command_runtime_receipt",
+                safe_summary="Command runtime receipt stores safe refs and redacted counts only.",
+            )
+        ],
+        evidence_refs=[
+            _stable_ref(
+                "runtime-evidence-ref",
+                {"invocation_ref": record.invocation_ref, "status": "command-receipt"},
+            )
+        ],
+        blocked_authority_refs=list(GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS),
+        safe_disable=record.safe_disable,
+        command_receipt_metadata=metadata,
+        execution_performed=execution_performed,
+        adapter_execution_performed=execution_performed,
+        model_call_performed=False,
+        command_execution_performed=command_execution_performed,
+        connector_write_performed=False,
+        browser_automation_performed=False,
+        model_output_non_authoritative=True,
+        safe_summary=(
+            "Allowlisted command runtime attempt was blocked before process start; metadata only."
+            if status == RuntimeInvocationStatus.execution_blocked
+            else "Allowlisted command runtime completed; output was redacted and bounded."
         ),
     )
 

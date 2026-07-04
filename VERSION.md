@@ -35,7 +35,7 @@ with reviewable intent proposals, confidence, source refs, evidence refs,
 ambiguity posture, ask/act/defer routing, and ask-user handling for
 low-confidence or conflicting intent. UAA-P1-080 completes API Route
 Classification And Public/Protected Inventory with typed route classifications
-in `/api/manifest`, the frozen 186-route inventory fixture, route-status
+in `/api/manifest`, the frozen 187-route inventory fixture, route-status
 manifest alignment, Control Center API Routes visibility, and focused
 verifier/tests. UAA-P1-081 completes centralized FastAPI response security
 headers with HTTPS-only HSTS and no CORS/auth/rate-limit authority. UAA-P1-082
@@ -138,18 +138,20 @@ RuntimeGateway. Runtime profiles are:
 
 - `sealed`: default posture; no runtime model call or command execution.
 - `local-runtime`: configured loopback/local runtime candidates may exist
-  behind RuntimeGateway policy, redaction, and receipts; execution-capable
-  calls or commands still require an `operator-approved` Action Inbox approval
-  envelope.
+  behind RuntimeGateway policy, redaction, and receipts; Phase 04 permits only
+  an exact read-only status command without an approval envelope, while
+  execution-capable non-status commands still require a later
+  `operator-approved` Action Inbox approval envelope.
 - `operator-approved`: exact Action Inbox approval envelopes are required
   before execution-capable runtime actions.
 
 Pilot-scoped authority is limited to configured loopback/local model calls,
-allowlisted argv-only local command execution, exact Action Inbox approval
-envelopes, redacted runtime receipts/evidence refs, and CLI/API/Control Center
-parity. Browser automation, connector writes, plugin runtime import, remote
-execution, unrestricted web access, production authority, public beta, public
-release, and broad autonomy remain blocked. Rollback and safe-disable posture
+one exact allowlisted argv-only read-only local status command, future exact
+Action Inbox approval envelopes for broader command execution, redacted runtime
+receipts/evidence refs, and CLI/API/Control Center parity. Browser automation,
+connector writes, plugin runtime import, arbitrary shell/subprocess execution,
+remote execution, unrestricted web access, production authority, public beta,
+public release, and broad autonomy remain blocked. Rollback and safe-disable posture
 for the pilot must include disable-by-profile configuration, per-lane safe
 disable refs, receipt-backed audit records, and no raw prompt, response,
 provider payload, local path, command output, environment dump, credential, or

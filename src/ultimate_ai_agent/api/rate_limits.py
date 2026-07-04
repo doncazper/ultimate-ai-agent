@@ -112,6 +112,7 @@ WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
     "/control-center/web-evidence/attach",
 }
 GOVERNED_RUNTIME_MUTATING_PATHS = {
+    "/api/runtime/command/run",
     "/api/runtime/invocations",
     "/api/runtime/local-model/call",
     "/api/runtime/invocations/{id}/approve",
