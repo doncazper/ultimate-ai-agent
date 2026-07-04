@@ -170,6 +170,634 @@ export interface TrustAuthorityMatrix {
   production_authority_enabled: boolean;
 }
 
+export type CodingCockpitAuthorityModeState =
+  | "current"
+  | "planned"
+  | "blocked"
+  | "hard_gate";
+
+export type CodingCockpitPanelState =
+  | "backend_owned"
+  | "read_only"
+  | "proposal_only"
+  | "preview_only"
+  | "blocked"
+  | "planned";
+
+export interface CodingCockpitAuthorityMode {
+  mode_ref: string;
+  label: string;
+  state: CodingCockpitAuthorityModeState;
+  operator_posture: string;
+  safe_summary: string;
+  allowed_now: boolean;
+  planned: boolean;
+  blocked: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+}
+
+export interface CodingCockpitRefItem {
+  item_ref: string;
+  label: string;
+  status: string;
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+}
+
+export interface CodingCockpitPreviewPanel {
+  panel_ref: string;
+  title: string;
+  state: CodingCockpitPanelState;
+  safe_summary: string;
+  items: CodingCockpitRefItem[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action: string;
+  mutation_enabled: boolean;
+  runtime_authority_enabled: boolean;
+}
+
+export interface CodingCockpitSessionReadModel {
+  schema_version: "uaa-coding-cockpit-session.v1";
+  contract_ref: string;
+  route_ref: string;
+  session_ref: string;
+  workspace_ref: string;
+  repo_scope_ref: string;
+  branch_ref: string;
+  authority_profile_ref: string;
+  active_agent_ref: string;
+  active_task_ref: string;
+  active_context_pack_ref: string;
+  active_patch_proposal_ref: string;
+  active_command_proposal_ref: string;
+  active_git_ref: string;
+  active_proof_ref: string;
+  active_preview_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  docs_refs: string[];
+  cli_inspection_refs: string[];
+  status: string;
+  task_status: string;
+  branch_label: string;
+  active_agent_label: string;
+  authority_mode: string;
+  backend_owned: boolean;
+  mock_fallback: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  control_center_grants_authority: boolean;
+  full_strength_goal: string;
+  repo_safe_scope: string;
+  authority_modes: CodingCockpitAuthorityMode[];
+  workspace_context: CodingCockpitPreviewPanel;
+  task_thread: CodingCockpitPreviewPanel;
+  task_timeline: CodingCockpitPreviewPanel;
+  diff_preview: CodingCockpitPreviewPanel;
+  proof_preview: CodingCockpitPreviewPanel;
+  terminal_preview: CodingCockpitPreviewPanel;
+  git_preview: CodingCockpitPreviewPanel;
+  test_output_preview: CodingCockpitPreviewPanel;
+  live_preview: CodingCockpitPreviewPanel;
+  chat_thread: CodingCockpitPreviewPanel;
+  same_ref_spine: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  file_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  git_mutation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export type CodingContextRefKind =
+  | "file"
+  | "folder"
+  | "exclude_rule"
+  | "search_ref";
+
+export type CodingContextRefStatus =
+  | "included"
+  | "excluded"
+  | "candidate"
+  | "blocked";
+
+export interface CodingContextRefReadModel {
+  context_ref: string;
+  label: string;
+  ref_kind: CodingContextRefKind;
+  status: CodingContextRefStatus;
+  include_reason: string;
+  token_estimate: number;
+  operator_selected: boolean;
+  agent_selected: boolean;
+  included_in_preview: boolean;
+  excluded_from_preview: boolean;
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  raw_path_included: boolean;
+  raw_content_included: boolean;
+}
+
+export interface CodingContextComparisonReadModel {
+  comparison_ref: string;
+  label: string;
+  operator_context_ref: string;
+  agent_context_ref: string;
+  status: "aligned" | "operator_only" | "agent_only" | "blocked";
+  safe_summary: string;
+  proof_refs: string[];
+}
+
+export interface CodingWorkspaceContextReadModel {
+  schema_version: "uaa-coding-workspace-context.v1";
+  context_pack_ref: string;
+  session_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  status: "read_only_context_pack_preview";
+  budget_state: "within_budget" | "near_limit" | "over_limit_blocked";
+  token_budget_limit: number;
+  token_estimate_total: number;
+  token_budget_remaining: number;
+  context_refs: CodingContextRefReadModel[];
+  operator_selected_refs: string[];
+  agent_selected_refs: string[];
+  excluded_refs: string[];
+  search_refs: string[];
+  comparison: CodingContextComparisonReadModel[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  preview_only: boolean;
+  safe_refs_only: boolean;
+  raw_paths_included: boolean;
+  raw_content_included: boolean;
+  repo_file_read_performed: boolean;
+  file_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  git_mutation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export type CodingPatchChangeKind =
+  | "modify"
+  | "add"
+  | "delete_blocked"
+  | "generated_blocked";
+
+export interface CodingPatchProposalFileReadModel {
+  change_ref: string;
+  file_ref: string;
+  label: string;
+  change_kind: CodingPatchChangeKind;
+  status: "proposed" | "blocked";
+  hunk_refs: string[];
+  additions: number;
+  deletions: number;
+  safe_summary: string;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  raw_path_included: boolean;
+  raw_content_included: boolean;
+}
+
+export interface CodingPatchProposalReadModel {
+  schema_version: "uaa-coding-patch-proposal.v1";
+  patch_proposal_ref: string;
+  session_ref: string;
+  context_pack_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  status: "proposal_artifact_preview";
+  title: string;
+  safe_summary: string;
+  proposed_file_refs: string[];
+  file_changes: CodingPatchProposalFileReadModel[];
+  diff_preview_refs: string[];
+  diff_summary_lines: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  proposal_only: boolean;
+  safe_refs_only: boolean;
+  raw_paths_included: boolean;
+  raw_content_included: boolean;
+  repo_file_read_performed: boolean;
+  patch_apply_enabled: boolean;
+  file_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  git_mutation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface CodingPatchApplyPrerequisiteReadModel {
+  prerequisite_ref: string;
+  label: string;
+  status: "present" | "missing" | "blocked";
+  safe_summary: string;
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+}
+
+export interface CodingPatchApplyReadinessReadModel {
+  schema_version: "uaa-coding-patch-apply-readiness.v1";
+  readiness_ref: string;
+  session_ref: string;
+  context_pack_ref: string;
+  patch_proposal_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  unblock_prompt_refs: string[];
+  status: "blocked_missing_exact_apply_contract";
+  title: string;
+  full_strength_goal: string;
+  repo_safe_current_state: string;
+  safe_summary: string;
+  required_authority_profile_refs: string[];
+  prerequisites: CodingPatchApplyPrerequisiteReadModel[];
+  expected_receipt_refs: string[];
+  rollback_refs: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  readiness_only: boolean;
+  safe_refs_only: boolean;
+  raw_paths_included: boolean;
+  raw_content_included: boolean;
+  repo_file_read_performed: boolean;
+  exact_patch_body_available: boolean;
+  hunk_selection_contract_available: boolean;
+  checkpoint_contract_available: boolean;
+  approval_binding_available: boolean;
+  rollback_contract_available: boolean;
+  patch_apply_enabled: boolean;
+  file_write_enabled: boolean;
+  approval_grant_capture_enabled: boolean;
+  rollback_execution_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  git_mutation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface CodingSuggestedTestCommandReadModel {
+  command_ref: string;
+  label: string;
+  command_kind:
+    | "focused_pytest"
+    | "frontend_test"
+    | "lint_typecheck"
+    | "repo_verifier";
+  status: "suggested_blocked";
+  safe_command_summary: string;
+  allowlist_ref: string;
+  expected_receipt_ref: string;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  raw_command_included: boolean;
+  raw_output_included: boolean;
+  command_execution_enabled: boolean;
+}
+
+export interface CodingTestCommandReadinessReadModel {
+  schema_version: "uaa-coding-test-command-readiness.v1";
+  readiness_ref: string;
+  session_ref: string;
+  context_pack_ref: string;
+  patch_proposal_ref: string;
+  patch_apply_readiness_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  unblock_prompt_refs: string[];
+  status: "blocked_missing_allowlisted_command_authority";
+  title: string;
+  full_strength_goal: string;
+  repo_safe_current_state: string;
+  safe_summary: string;
+  allowlist_refs: string[];
+  suggested_commands: CodingSuggestedTestCommandReadModel[];
+  expected_receipt_refs: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  readiness_only: boolean;
+  safe_refs_only: boolean;
+  raw_command_included: boolean;
+  raw_output_included: boolean;
+  command_output_summary_included: boolean;
+  exit_code_available: boolean;
+  test_receipt_created: boolean;
+  command_execution_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  arbitrary_shell_enabled: boolean;
+  install_command_enabled: boolean;
+  network_command_enabled: boolean;
+  destructive_command_enabled: boolean;
+  background_process_enabled: boolean;
+  file_write_enabled: boolean;
+  git_mutation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface CodingGitReviewItemReadModel {
+  item_ref: string;
+  label: string;
+  item_kind:
+    | "status"
+    | "diff"
+    | "changed_files"
+    | "commit_proposal"
+    | "pr_description_proposal";
+  status: "blocked" | "proposal_ref";
+  safe_summary: string;
+  expected_receipt_ref: string;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  raw_git_output_included: boolean;
+  raw_diff_included: boolean;
+  raw_path_included: boolean;
+  git_mutation_enabled: boolean;
+}
+
+export interface CodingGitReviewReadModel {
+  schema_version: "uaa-coding-git-review.v1";
+  git_review_ref: string;
+  session_ref: string;
+  context_pack_ref: string;
+  patch_proposal_ref: string;
+  patch_apply_readiness_ref: string;
+  test_command_readiness_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  unblock_prompt_refs: string[];
+  status: "blocked_missing_git_review_authority";
+  title: string;
+  full_strength_goal: string;
+  repo_safe_current_state: string;
+  safe_summary: string;
+  status_refs: string[];
+  changed_file_refs: string[];
+  diff_refs: string[];
+  commit_proposal_refs: string[];
+  pr_description_proposal_refs: string[];
+  expected_receipt_refs: string[];
+  review_items: CodingGitReviewItemReadModel[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  proposal_only: boolean;
+  safe_refs_only: boolean;
+  git_status_execution_enabled: boolean;
+  git_diff_execution_enabled: boolean;
+  stage_enabled: boolean;
+  commit_enabled: boolean;
+  push_enabled: boolean;
+  pr_open_enabled: boolean;
+  merge_enabled: boolean;
+  raw_git_output_included: boolean;
+  raw_diff_included: boolean;
+  raw_path_included: boolean;
+  commit_message_text_included: boolean;
+  pr_description_text_included: boolean;
+  git_receipt_created: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  file_write_enabled: boolean;
+  git_mutation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface CodingLivePreviewItemReadModel {
+  item_ref: string;
+  label: string;
+  item_kind:
+    | "dev_server_status"
+    | "preview_url"
+    | "screenshot"
+    | "console_errors"
+    | "visual_regression"
+    | "route_checklist"
+    | "viewport";
+  status: "blocked" | "planned" | "proposal_ref";
+  safe_summary: string;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  raw_url_included: boolean;
+  screenshot_included: boolean;
+  console_output_included: boolean;
+  browser_automation_enabled: boolean;
+  dev_server_control_enabled: boolean;
+}
+
+export interface CodingLivePreviewReadModel {
+  schema_version: "uaa-coding-live-preview.v1";
+  live_preview_ref: string;
+  session_ref: string;
+  context_pack_ref: string;
+  patch_proposal_ref: string;
+  test_command_readiness_ref: string;
+  git_review_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  unblock_prompt_refs: string[];
+  status: "blocked_missing_live_preview_authority";
+  title: string;
+  full_strength_goal: string;
+  repo_safe_current_state: string;
+  safe_summary: string;
+  dev_server_status_refs: string[];
+  preview_url_refs: string[];
+  screenshot_refs: string[];
+  visual_proof_refs: string[];
+  route_checklist_refs: string[];
+  viewport_refs: string[];
+  console_error_refs: string[];
+  preview_items: CodingLivePreviewItemReadModel[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  status_only: boolean;
+  safe_refs_only: boolean;
+  raw_url_included: boolean;
+  raw_console_output_included: boolean;
+  screenshot_artifact_included: boolean;
+  screenshot_capture_enabled: boolean;
+  visual_regression_enabled: boolean;
+  console_capture_enabled: boolean;
+  dev_server_status_detection_enabled: boolean;
+  dev_server_start_enabled: boolean;
+  dev_server_stop_enabled: boolean;
+  browser_preview_enabled: boolean;
+  browser_automation_enabled: boolean;
+  browser_interaction_enabled: boolean;
+  network_fetch_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  file_write_enabled: boolean;
+  git_mutation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  connector_write_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface CodingAgentReviewSlotReadModel {
+  agent_slot_ref: string;
+  label: string;
+  slot_kind:
+    | "implementer"
+    | "reviewer"
+    | "local_verifier"
+    | "security_reviewer"
+    | "ux_reviewer"
+    | "test_fixer"
+    | "merge_captain";
+  status: "proposal_ref" | "blocked";
+  safe_summary: string;
+  output_artifact_refs: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  provider_model_call_enabled: boolean;
+  local_agent_execution_enabled: boolean;
+  background_dispatch_enabled: boolean;
+  autonomous_execution_enabled: boolean;
+  raw_prompt_included: boolean;
+  raw_response_included: boolean;
+}
+
+export interface CodingMultiAgentReviewReadModel {
+  schema_version: "uaa-coding-multi-agent-review.v1";
+  review_ref: string;
+  session_ref: string;
+  context_pack_ref: string;
+  patch_proposal_ref: string;
+  test_command_readiness_ref: string;
+  git_review_ref: string;
+  live_preview_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  unblock_prompt_refs: string[];
+  status: "blocked_missing_multi_agent_authority";
+  title: string;
+  full_strength_goal: string;
+  repo_safe_current_state: string;
+  safe_summary: string;
+  agent_slots: CodingAgentReviewSlotReadModel[];
+  plan_artifact_refs: string[];
+  review_artifact_refs: string[];
+  diff_comparison_refs: string[];
+  disagreement_summary_refs: string[];
+  handoff_refs: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  proposal_only: boolean;
+  safe_refs_only: boolean;
+  provider_model_call_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  local_agent_execution_enabled: boolean;
+  multi_agent_execution_enabled: boolean;
+  background_dispatch_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  autonomous_execution_enabled: boolean;
+  context_injection_enabled: boolean;
+  raw_prompt_included: boolean;
+  raw_response_included: boolean;
+  provider_payload_included: boolean;
+  file_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  git_mutation_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface RuntimeReadinessSummary {
   status: string;
   production_ready: boolean;
@@ -7314,6 +7942,14 @@ export interface ControlCenterData {
   founderStartHere: ControlCenterStartHereSummary;
   proofIndex: ControlCenterProofIndex;
   trustAuthorityMatrix: TrustAuthorityMatrix;
+  codingSession: CodingCockpitSessionReadModel;
+  codingContext: CodingWorkspaceContextReadModel;
+  codingPatchProposal: CodingPatchProposalReadModel;
+  codingPatchApplyReadiness: CodingPatchApplyReadinessReadModel;
+  codingTestCommandReadiness: CodingTestCommandReadinessReadModel;
+  codingGitReview: CodingGitReviewReadModel;
+  codingLivePreview: CodingLivePreviewReadModel;
+  codingMultiAgentReview: CodingMultiAgentReviewReadModel;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;

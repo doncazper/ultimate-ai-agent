@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `169`.
+Current OpenAPI path count: `177`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -105,6 +105,38 @@ Contract rules:
   writes, context injection, shell/subprocess work, embeddings/vector search,
   semantic search, LLM extraction, background indexing, context-pack injection, or notification
   delivery.
+- `GET /control-center/coding/session` exposes the repo-safe Coding Cockpit
+  shell seed as a backend-owned read model with safe refs, blocked authority
+  refs, and proof refs only. `GET /control-center/coding/context` exposes the
+  read-only context-pack preview as safe refs, excluded refs, comparison refs,
+  budget posture, proof refs, and redaction refs only.
+  `GET /control-center/coding/patch-proposal` exposes proposal-only patch file
+  refs, hunk refs, bounded diff summaries, proof refs, and redaction refs only.
+  `GET /control-center/coding/patch-apply-readiness` exposes the blocked
+  Prompt 04 apply-readiness model with safe prerequisite, receipt, rollback,
+  blocker, promotion-path, proof, and unblock-prompt refs only.
+  `GET /control-center/coding/test-command-readiness` exposes the blocked
+  Prompt 05 allowlisted test-command readiness model with suggested command,
+  allowlist, expected receipt, proof, blocker, promotion-path, and
+  unblock-prompt refs only.
+  `GET /control-center/coding/git-review` exposes the blocked Prompt 06 Git
+  review model with status, diff, changed-file, commit proposal,
+  pull-request proposal, expected receipt, proof, blocker, promotion-path, and
+  unblock-prompt refs only.
+  `GET /control-center/coding/live-preview` exposes the blocked Prompt 07 live
+  preview model with dev-server status, preview URL, screenshot, console,
+  visual-proof, route-checklist, viewport, proof, blocker, promotion-path, and
+  unblock-prompt refs only.
+  `GET /control-center/coding/multi-agent-review` exposes the blocked Prompt
+  08 multi-agent review model with agent slot, plan, review, diff-comparison,
+  disagreement, handoff, blocker, promotion-path, proof, and unblock-prompt
+  refs only.
+  These routes do not write files, apply patches, read or persist raw file
+  content, run shell/subprocess commands, execute commands, mutate Git state,
+  start or inspect dev servers, persist raw URLs, capture screenshots, read
+  console output, call providers or models, call provider SDKs, dispatch local
+  agents, inject context, persist raw prompts or responses, automate browsers,
+  write connectors, launch background agents, or grant production authority.
 
 API boundary hardening:
 

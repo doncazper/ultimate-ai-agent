@@ -198,6 +198,18 @@ authority, direct browser automation imports or calls, provider/model calls,
 connector writes, runtime activation, public beta, public release, or production
 authority.
 
+Skill Workbench state words must distinguish external metadata and adoption
+review from local enablement. `external_metadata_only`, `candidate`,
+`quarantined_untrusted`, `review_required`, `rejected`,
+`adapted_uaa_owned`, `enabled_local`, and `blocked_by_policy` are allowed only
+when they match backend-owned contracts. External popularity, stars, downloads,
+reviews, publisher claims, and marketplace screenshots are discovery signals,
+not trust. Skill Workbench copy must not call the surface a Skill Store and must
+not imply external skill install, wholesale external-code copy, runtime import,
+execution, package-manager scripts, browser marketplace UX, provider/model
+calls, connector writes, local enablement, public beta, public release, or
+production authority until later exact lanes prove them.
+
 Provider and tool runtime safety state words must distinguish contract-only
 run binding from callable runtime. Unknown provider/tool refs are blocked and
 review-required, not read-only or noop. Invocation envelopes, result contracts,

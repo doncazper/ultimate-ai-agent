@@ -26,10 +26,10 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 19 |
-| `local_sensitive` | 113 |
+| `local_sensitive` | 121 |
 | `mutating_requires_authority` | 34 |
 
-The current OpenAPI path count is `169` after later scoped FCC-V1-003 through
+The current OpenAPI path count is `177` after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
@@ -41,7 +41,12 @@ validation lane, plus the proposal-only provider router dry-run lane, plus the
 run-attached approval queue inspection routes, plus the read-only run
 observability inspection route, plus the read-only governed Memory context-pack
 preview inspection route, plus the read-only Trust authority matrix route, plus
-the exact Tier 1 allowlisted WebAccessGateway web evidence attachment route.
+the exact Tier 1 allowlisted WebAccessGateway web evidence attachment route,
+plus the repo-safe Coding Cockpit session read-model seed route, read-only
+context-pack preview route, proposal-only patch proposal route, and blocked
+patch apply readiness route, blocked test-command readiness route, blocked Git
+review route, blocked live-preview readiness route, and blocked multi-agent
+review readiness route.
 UAA-P1-080 itself added no routes; stable
 methods, operation IDs, tags, summaries, side-effect classes,
 `requires_auth_future=True`, and `blocked_from_production=True` remain preserved
@@ -55,9 +60,11 @@ does not change UAA-P1-080 route behavior.
 
 No middleware is added by UAA-P1-080. No auth, session gate, CORS, security
 headers, idempotency enforcement, rate limits, dependencies, route behavior
-changes, connector writes, provider/model calls, shell/subprocess execution,
-action execution, memory writes, Code apply, public beta, public distribution,
-production readiness, or production authority is added by this milestone.
+changes, connector writes, provider/model calls, provider SDK calls,
+shell/subprocess execution, local agent dispatch, context injection, raw prompt
+or response persistence, action execution, memory writes, Code apply, public
+beta, public distribution, production readiness, or production authority is
+added by this milestone.
 
 ## Evidence
 

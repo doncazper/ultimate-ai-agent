@@ -41,7 +41,7 @@ def validate(root: Path = ROOT) -> list[str]:
         ],
         "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md": [
             "exact route proof",
-            "current backend path count is `169`",
+            "current backend path count is `177`",
         ],
     }
     for rel_path, fragments in required_docs.items():

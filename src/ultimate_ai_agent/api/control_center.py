@@ -16,6 +16,16 @@ from ultimate_ai_agent.core.control_center.operational_status import (
     build_control_center_local_models_status,
     build_control_center_settings_status,
 )
+from ultimate_ai_agent.core.code import (
+    build_coding_cockpit_session_seed,
+    build_coding_git_review,
+    build_coding_live_preview,
+    build_coding_multi_agent_review,
+    build_coding_patch_apply_readiness,
+    build_coding_patch_proposal_preview,
+    build_coding_test_command_readiness,
+    build_coding_workspace_context_preview,
+)
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.macos_setup_assistant import (
     build_default_macos_setup_assistant_plan,
@@ -81,6 +91,118 @@ def get_control_center_status() -> ResultEnvelope:
         service="ControlCenterAPI",
         trace_id="system",
         data=dashboard.system_status.model_dump(mode="json"),
+    )
+
+
+@router.get("/coding/session", response_model=ResultEnvelope)
+def get_control_center_coding_session() -> ResultEnvelope:
+    session = build_coding_cockpit_session_seed()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_coding_session",
+        service="ControlCenterCodingAPI",
+        trace_id=session.session_ref,
+        data=session.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:coding-cockpit-read-model"}],
+        redactions_applied=session.redactions_applied,
+    )
+
+
+@router.get("/coding/context", response_model=ResultEnvelope)
+def get_control_center_coding_context() -> ResultEnvelope:
+    context = build_coding_workspace_context_preview()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_coding_context",
+        service="ControlCenterCodingAPI",
+        trace_id=context.context_pack_ref,
+        data=context.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:coding-context-pack-read-model"}],
+        redactions_applied=context.redactions_applied,
+    )
+
+
+@router.get("/coding/patch-proposal", response_model=ResultEnvelope)
+def get_control_center_coding_patch_proposal() -> ResultEnvelope:
+    proposal = build_coding_patch_proposal_preview()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_coding_patch_proposal",
+        service="ControlCenterCodingAPI",
+        trace_id=proposal.patch_proposal_ref,
+        data=proposal.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:coding-patch-proposal-read-model"}],
+        redactions_applied=proposal.redactions_applied,
+    )
+
+
+@router.get("/coding/patch-apply-readiness", response_model=ResultEnvelope)
+def get_control_center_coding_patch_apply_readiness() -> ResultEnvelope:
+    readiness = build_coding_patch_apply_readiness()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_coding_patch_apply_readiness",
+        service="ControlCenterCodingAPI",
+        trace_id=readiness.readiness_ref,
+        data=readiness.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:coding-patch-apply-readiness"}],
+        redactions_applied=readiness.redactions_applied,
+    )
+
+
+@router.get("/coding/test-command-readiness", response_model=ResultEnvelope)
+def get_control_center_coding_test_command_readiness() -> ResultEnvelope:
+    readiness = build_coding_test_command_readiness()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_coding_test_command_readiness",
+        service="ControlCenterCodingAPI",
+        trace_id=readiness.readiness_ref,
+        data=readiness.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:coding-test-command-readiness"}],
+        redactions_applied=readiness.redactions_applied,
+    )
+
+
+@router.get("/coding/git-review", response_model=ResultEnvelope)
+def get_control_center_coding_git_review() -> ResultEnvelope:
+    review = build_coding_git_review()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_coding_git_review",
+        service="ControlCenterCodingAPI",
+        trace_id=review.git_review_ref,
+        data=review.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:coding-git-review"}],
+        redactions_applied=review.redactions_applied,
+    )
+
+
+@router.get("/coding/live-preview", response_model=ResultEnvelope)
+def get_control_center_coding_live_preview() -> ResultEnvelope:
+    preview = build_coding_live_preview()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_coding_live_preview",
+        service="ControlCenterCodingAPI",
+        trace_id=preview.live_preview_ref,
+        data=preview.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:coding-live-preview"}],
+        redactions_applied=preview.redactions_applied,
+    )
+
+
+@router.get("/coding/multi-agent-review", response_model=ResultEnvelope)
+def get_control_center_coding_multi_agent_review() -> ResultEnvelope:
+    review = build_coding_multi_agent_review()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_coding_multi_agent_review",
+        service="ControlCenterCodingAPI",
+        trace_id=review.review_ref,
+        data=review.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:coding-multi-agent-review"}],
+        redactions_applied=review.redactions_applied,
     )
 
 

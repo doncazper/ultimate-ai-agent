@@ -641,6 +641,318 @@ function stubReadEndpointOverrides(overrides: Record<string, unknown>) {
   return fetchMock;
 }
 
+function backendOwnedCodingSessionFixture(overrides: Record<string, unknown> = {}) {
+  const session = scrubCodingFallbackText(
+    JSON.parse(JSON.stringify(mockControlCenterData.codingSession)),
+  ) as typeof mockControlCenterData.codingSession;
+  return {
+    ...session,
+    session_ref: "coding-session:app-test-backend",
+    workspace_ref: "workspace-ref:coding:app-test",
+    repo_scope_ref: "repo-scope:coding:app-test",
+    branch_ref: "branch-ref:coding:app-test",
+    branch_label: "app test branch ref",
+    active_agent_label: "Codex slot, read-only app test",
+    status: "implemented_read_only_cockpit_seed",
+    task_status: "read_only_seed",
+    backend_owned: true,
+    mock_fallback: false,
+    local_read_model_only: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    control_center_grants_authority: false,
+    file_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    background_autonomy_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+function backendOwnedCodingContextFixture(overrides: Record<string, unknown> = {}) {
+  const context = scrubCodingFallbackText(
+    JSON.parse(JSON.stringify(mockControlCenterData.codingContext)),
+  ) as typeof mockControlCenterData.codingContext;
+  return {
+    ...context,
+    context_pack_ref: "context-pack:coding-app-test",
+    session_ref: "coding-session:app-test-backend",
+    status: "read_only_context_pack_preview",
+    backend_owned: true,
+    read_only: true,
+    preview_only: true,
+    safe_refs_only: true,
+    raw_paths_included: false,
+    raw_content_included: false,
+    repo_file_read_performed: false,
+    file_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+function backendOwnedCodingPatchProposalFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const proposal = scrubCodingFallbackText(
+    JSON.parse(JSON.stringify(mockControlCenterData.codingPatchProposal)),
+  ) as typeof mockControlCenterData.codingPatchProposal;
+  return {
+    ...proposal,
+    patch_proposal_ref: "patch-proposal:coding-app-test",
+    session_ref: "coding-session:app-test-backend",
+    context_pack_ref: "context-pack:coding-app-test",
+    backend_owned: true,
+    read_only: true,
+    proposal_only: true,
+    safe_refs_only: true,
+    raw_paths_included: false,
+    raw_content_included: false,
+    repo_file_read_performed: false,
+    patch_apply_enabled: false,
+    file_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+function backendOwnedCodingPatchApplyReadinessFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const readiness = scrubCodingFallbackText(
+    JSON.parse(JSON.stringify(mockControlCenterData.codingPatchApplyReadiness)),
+  ) as typeof mockControlCenterData.codingPatchApplyReadiness;
+  return {
+    ...readiness,
+    readiness_ref: "patch-apply-readiness:coding-app-test",
+    session_ref: "coding-session:app-test-backend",
+    context_pack_ref: "context-pack:coding-app-test",
+    patch_proposal_ref: "patch-proposal:coding-app-test",
+    backend_owned: true,
+    read_only: true,
+    readiness_only: true,
+    safe_refs_only: true,
+    raw_paths_included: false,
+    raw_content_included: false,
+    repo_file_read_performed: false,
+    exact_patch_body_available: false,
+    hunk_selection_contract_available: false,
+    checkpoint_contract_available: false,
+    approval_binding_available: false,
+    rollback_contract_available: false,
+    patch_apply_enabled: false,
+    file_write_enabled: false,
+    approval_grant_capture_enabled: false,
+    rollback_execution_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    background_autonomy_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+function backendOwnedCodingTestCommandReadinessFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const readiness = scrubCodingFallbackText(
+    JSON.parse(JSON.stringify(mockControlCenterData.codingTestCommandReadiness)),
+  ) as typeof mockControlCenterData.codingTestCommandReadiness;
+  return {
+    ...readiness,
+    readiness_ref: "test-command-readiness:coding-app-test",
+    session_ref: "coding-session:app-test-backend",
+    context_pack_ref: "context-pack:coding-app-test",
+    patch_proposal_ref: "patch-proposal:coding-app-test",
+    patch_apply_readiness_ref: "patch-apply-readiness:coding-app-test",
+    backend_owned: true,
+    read_only: true,
+    readiness_only: true,
+    safe_refs_only: true,
+    raw_command_included: false,
+    raw_output_included: false,
+    command_output_summary_included: false,
+    exit_code_available: false,
+    test_receipt_created: false,
+    command_execution_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    arbitrary_shell_enabled: false,
+    install_command_enabled: false,
+    network_command_enabled: false,
+    destructive_command_enabled: false,
+    background_process_enabled: false,
+    file_write_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+function backendOwnedCodingGitReviewFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const review = scrubCodingFallbackText(
+    JSON.parse(JSON.stringify(mockControlCenterData.codingGitReview)),
+  ) as typeof mockControlCenterData.codingGitReview;
+  return {
+    ...review,
+    git_review_ref: "git-review:coding-app-test",
+    session_ref: "coding-session:app-test-backend",
+    context_pack_ref: "context-pack:coding-app-test",
+    patch_proposal_ref: "patch-proposal:coding-app-test",
+    patch_apply_readiness_ref: "patch-apply-readiness:coding-app-test",
+    test_command_readiness_ref: "test-command-readiness:coding-app-test",
+    backend_owned: true,
+    read_only: true,
+    proposal_only: true,
+    safe_refs_only: true,
+    git_status_execution_enabled: false,
+    git_diff_execution_enabled: false,
+    stage_enabled: false,
+    commit_enabled: false,
+    push_enabled: false,
+    pr_open_enabled: false,
+    merge_enabled: false,
+    raw_git_output_included: false,
+    raw_diff_included: false,
+    raw_path_included: false,
+    commit_message_text_included: false,
+    pr_description_text_included: false,
+    git_receipt_created: false,
+    shell_subprocess_execution_enabled: false,
+    file_write_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+function backendOwnedCodingLivePreviewFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const preview = scrubCodingFallbackText(
+    JSON.parse(JSON.stringify(mockControlCenterData.codingLivePreview)),
+  ) as typeof mockControlCenterData.codingLivePreview;
+  return {
+    ...preview,
+    live_preview_ref: "live-preview:coding-app-test",
+    session_ref: "coding-session:app-test-backend",
+    context_pack_ref: "context-pack:coding-app-test",
+    patch_proposal_ref: "patch-proposal:coding-app-test",
+    test_command_readiness_ref: "test-command-readiness:coding-app-test",
+    git_review_ref: "git-review:coding-app-test",
+    backend_owned: true,
+    read_only: true,
+    status_only: true,
+    safe_refs_only: true,
+    raw_url_included: false,
+    raw_console_output_included: false,
+    screenshot_artifact_included: false,
+    screenshot_capture_enabled: false,
+    visual_regression_enabled: false,
+    console_capture_enabled: false,
+    dev_server_status_detection_enabled: false,
+    dev_server_start_enabled: false,
+    dev_server_stop_enabled: false,
+    browser_preview_enabled: false,
+    browser_automation_enabled: false,
+    browser_interaction_enabled: false,
+    network_fetch_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    file_write_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+function backendOwnedCodingMultiAgentReviewFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const review = scrubCodingFallbackText(
+    JSON.parse(JSON.stringify(mockControlCenterData.codingMultiAgentReview)),
+  ) as typeof mockControlCenterData.codingMultiAgentReview;
+  return {
+    ...review,
+    review_ref: "multi-agent-review:coding-app-test",
+    session_ref: "coding-session:app-test-backend",
+    context_pack_ref: "context-pack:coding-app-test",
+    patch_proposal_ref: "patch-proposal:coding-app-test",
+    test_command_readiness_ref: "test-command-readiness:coding-app-test",
+    git_review_ref: "git-review:coding-app-test",
+    live_preview_ref: "live-preview:coding-app-test",
+    backend_owned: true,
+    read_only: true,
+    proposal_only: true,
+    safe_refs_only: true,
+    provider_model_call_enabled: false,
+    provider_sdk_call_enabled: false,
+    local_agent_execution_enabled: false,
+    multi_agent_execution_enabled: false,
+    background_dispatch_enabled: false,
+    background_autonomy_enabled: false,
+    autonomous_execution_enabled: false,
+    context_injection_enabled: false,
+    raw_prompt_included: false,
+    raw_response_included: false,
+    provider_payload_included: false,
+    file_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+function scrubCodingFallbackText(value: unknown): unknown {
+  if (typeof value === "string") {
+    return value
+      .replaceAll("mock-fallback", "app-test")
+      .replaceAll("Mock fallback", "Backend-owned seed")
+      .replaceAll("mock fallback", "backend-owned seed")
+      .replaceAll("mock", "app-test");
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => scrubCodingFallbackText(item));
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        scrubCodingFallbackText(item),
+      ]),
+    );
+  }
+  return value;
+}
+
 async function advanceControlCenterReadTimeout() {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(CONTROL_CENTER_READ_TIMEOUT_MS + 1);
@@ -1235,6 +1547,164 @@ describe("Web Control Center shell", () => {
     }
   });
 
+  it("renders the Coding cockpit from backend-owned read model data", async () => {
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.controlCenterCodingSession]: backendOwnedCodingSessionFixture(),
+      [API_ENDPOINTS.controlCenterCodingContext]: backendOwnedCodingContextFixture(),
+      [API_ENDPOINTS.controlCenterCodingPatchProposal]:
+        backendOwnedCodingPatchProposalFixture(),
+      [API_ENDPOINTS.controlCenterCodingPatchApplyReadiness]:
+        backendOwnedCodingPatchApplyReadinessFixture(),
+      [API_ENDPOINTS.controlCenterCodingTestCommandReadiness]:
+        backendOwnedCodingTestCommandReadinessFixture(),
+      [API_ENDPOINTS.controlCenterCodingGitReview]:
+        backendOwnedCodingGitReviewFixture(),
+      [API_ENDPOINTS.controlCenterCodingLivePreview]:
+        backendOwnedCodingLivePreviewFixture(),
+      [API_ENDPOINTS.controlCenterCodingMultiAgentReview]:
+        backendOwnedCodingMultiAgentReviewFixture(),
+    });
+
+    window.history.pushState({}, "", "/coding");
+    const view = render(<App />);
+
+    try {
+      expect(await screen.findByText("Backend online")).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: /^Coding Cockpit$/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Backend-owned coding session"),
+      ).toBeInTheDocument();
+      const cockpit = screen.getByTestId("coding-cockpit");
+      expect(within(cockpit).getAllByText("Workspace").length).toBeGreaterThan(
+        0,
+      );
+      expect(within(cockpit).getByText("Context")).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText("Context preview is backend-owned, read-only, and safe-ref only."),
+      ).toBeInTheDocument();
+      expect(within(cockpit).getByText("Mock context ref")).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "Patch proposal is backend-owned, proposal-only, and safe-ref only.",
+        ),
+      ).toBeInTheDocument();
+      expect(within(cockpit).getByText("Mock proposal file")).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "Patch apply readiness is backend-owned, read-only, and blocked until exact authority exists.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText("Exact patch body artifact"),
+      ).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "Test command readiness is backend-owned, read-only, and blocked until exact shell authority exists.",
+        ),
+      ).toBeInTheDocument();
+      expect(within(cockpit).getByText("Focused backend pytest")).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "Git review is backend-owned, read-only, and blocked until exact Git authority exists.",
+        ),
+      ).toBeInTheDocument();
+      expect(within(cockpit).getByText("Working tree status")).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "Live preview is backend-owned, status-only, and blocked until exact browser and dev-server authority exists.",
+        ),
+      ).toBeInTheDocument();
+      expect(within(cockpit).getByText("Dev server status")).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "Multi-agent review is backend-owned, proposal-only, and blocked until exact agent authority exists.",
+        ),
+      ).toBeInTheDocument();
+      expect(within(cockpit).getByText("Codex implementer")).toBeInTheDocument();
+      expect(within(cockpit).getByText("UX reviewer")).toBeInTheDocument();
+      expect(within(cockpit).getByText("Test fixer")).toBeInTheDocument();
+      expect(within(cockpit).getByText("Merge captain")).toBeInTheDocument();
+      expect(
+        within(cockpit).getAllByText(
+          "blocked-state:coding-no-multi-agent-execution",
+        ).length,
+      ).toBeGreaterThan(0);
+      expect(
+        within(cockpit).getByText(
+          "agent-artifact:coding-diff-comparison-required",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(cockpit).getAllByText("proof-ref:coding-cockpit:app-test")
+          .length,
+      ).toBeGreaterThan(0);
+      expect(
+        within(cockpit).getByText("prompt-ref:unblock-coding-multi-agent-review"),
+      ).toBeInTheDocument();
+      expect(within(cockpit).getByText("Workflow Timeline")).toBeInTheDocument();
+      expect(within(cockpit).getByText("Diff Preview")).toBeInTheDocument();
+      expect(within(cockpit).getByText("Proof Detail")).toBeInTheDocument();
+      expect(within(cockpit).getByText("Terminal Preview")).toBeInTheDocument();
+      expect(within(cockpit).getByText("Git Preview")).toBeInTheDocument();
+      expect(within(cockpit).getByText("Live Preview")).toBeInTheDocument();
+      expect(
+        screen.getByRole("combobox", { name: "Coding authority mode" }),
+      ).toBeDisabled();
+      for (const action of [
+        "Accept all",
+        "Accept file",
+        "Accept hunk",
+        "Apply patch",
+        "Run command",
+        "Commit",
+        "Run tests",
+        "Preview status",
+      ]) {
+        expect(screen.getByRole("button", { name: action })).toBeDisabled();
+      }
+      expect(screen.queryByText(/Apply succeeded/i)).not.toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
+  });
+
+  it("labels the Coding cockpit mock fallback as non-authoritative", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/coding");
+    const view = render(<App />);
+
+    try {
+      expect(await screen.findByText("Mock fallback active")).toBeInTheDocument();
+      expect(
+        screen.getByText("Non-authoritative Coding fallback"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getAllByText(/non-authoritative mock fallback/i).length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getByText(/no coding authority is enabled/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Apply patch" }),
+      ).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: "Run command" }),
+      ).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Commit" })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: "Preview status" }),
+      ).toBeDisabled();
+    } finally {
+      view.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
+  });
+
   it("prioritizes the Founder Loop while keeping supporting routes reachable", async () => {
     expect(primaryNavItems.map((item) => item.label)).toEqual([
       "Start Here",
@@ -1251,6 +1721,7 @@ describe("Web Control Center shell", () => {
     expect(supportingNavItems.map((item) => item.label)).toEqual(
       expect.arrayContaining([
         "Setup",
+        "Coding",
         "Dashboard",
         "Operator Loop",
         "Trial Packet",
@@ -11370,6 +11841,58 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.trustAuthorityMatrix)).toBe(
       true,
     );
+    expect(API_ENDPOINTS.controlCenterCodingSession).toBe(
+      "/control-center/coding/session",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterCodingSession)).toBe(
+      true,
+    );
+    expect(API_ENDPOINTS.controlCenterCodingContext).toBe(
+      "/control-center/coding/context",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterCodingContext)).toBe(
+      true,
+    );
+    expect(API_ENDPOINTS.controlCenterCodingPatchProposal).toBe(
+      "/control-center/coding/patch-proposal",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.controlCenterCodingPatchProposal),
+    ).toBe(true);
+    expect(API_ENDPOINTS.controlCenterCodingPatchApplyReadiness).toBe(
+      "/control-center/coding/patch-apply-readiness",
+    );
+    expect(
+      isAllowedReadEndpoint(
+        API_ENDPOINTS.controlCenterCodingPatchApplyReadiness,
+      ),
+    ).toBe(true);
+    expect(API_ENDPOINTS.controlCenterCodingTestCommandReadiness).toBe(
+      "/control-center/coding/test-command-readiness",
+    );
+    expect(
+      isAllowedReadEndpoint(
+        API_ENDPOINTS.controlCenterCodingTestCommandReadiness,
+      ),
+    ).toBe(true);
+    expect(API_ENDPOINTS.controlCenterCodingGitReview).toBe(
+      "/control-center/coding/git-review",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.controlCenterCodingGitReview),
+    ).toBe(true);
+    expect(API_ENDPOINTS.controlCenterCodingLivePreview).toBe(
+      "/control-center/coding/live-preview",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.controlCenterCodingLivePreview),
+    ).toBe(true);
+    expect(API_ENDPOINTS.controlCenterCodingMultiAgentReview).toBe(
+      "/control-center/coding/multi-agent-review",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.controlCenterCodingMultiAgentReview),
+    ).toBe(true);
     expect(chatTurnReceiptEndpoint("chat-turn:test")).toBe(
       "/control-center/chat/turns/chat-turn%3Atest/receipt",
     );
@@ -12413,6 +12936,20 @@ function envelopeForReadEndpoint(url: string) {
       ...backendOwnedProofIndexFixture(),
     },
     [API_ENDPOINTS.trustAuthorityMatrix]: backendOwnedTrustAuthorityMatrix(),
+    [API_ENDPOINTS.controlCenterCodingSession]: backendOwnedCodingSessionFixture(),
+    [API_ENDPOINTS.controlCenterCodingContext]: backendOwnedCodingContextFixture(),
+    [API_ENDPOINTS.controlCenterCodingPatchProposal]:
+      backendOwnedCodingPatchProposalFixture(),
+    [API_ENDPOINTS.controlCenterCodingPatchApplyReadiness]:
+      backendOwnedCodingPatchApplyReadinessFixture(),
+    [API_ENDPOINTS.controlCenterCodingTestCommandReadiness]:
+      backendOwnedCodingTestCommandReadinessFixture(),
+    [API_ENDPOINTS.controlCenterCodingGitReview]:
+      backendOwnedCodingGitReviewFixture(),
+    [API_ENDPOINTS.controlCenterCodingLivePreview]:
+      backendOwnedCodingLivePreviewFixture(),
+    [API_ENDPOINTS.controlCenterCodingMultiAgentReview]:
+      backendOwnedCodingMultiAgentReviewFixture(),
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:

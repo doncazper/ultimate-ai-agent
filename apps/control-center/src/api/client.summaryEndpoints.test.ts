@@ -173,6 +173,75 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
     expect(data.connection.warnings).toContain("PROOF_INDEX_MOCK_FALLBACK");
   });
+
+  it("marks missing Coding multi-agent review route as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.controlCenterCodingMultiAgentReview];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.codingMultiAgentReview.backend_owned).toBe(false);
+    expect(data.routeStates["/coding"].state).toBe("mock_fallback");
+    expect(data.routeStates["/coding"].backendRouteRefs).toContain(
+      "GET /control-center/coding/multi-agent-review",
+    );
+    expect(data.routeStates["/coding"].warningRefs).toContain(
+      "CODING_MULTI_AGENT_REVIEW_MOCK_FALLBACK",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain("PARTIAL_MOCK_FALLBACK");
+    expect(data.connection.warnings).toContain(
+      "CODING_MULTI_AGENT_REVIEW_MOCK_FALLBACK",
+    );
+  });
+
+  it("marks unsafe Coding multi-agent review flags as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    const unsafeReview = JSON.parse(
+      JSON.stringify(routeData[API_ENDPOINTS.controlCenterCodingMultiAgentReview]),
+    );
+    unsafeReview.provider_sdk_call_enabled = true;
+    unsafeReview.agent_slots[0].raw_prompt_included = true;
+    routeData[API_ENDPOINTS.controlCenterCodingMultiAgentReview] = unsafeReview;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.codingMultiAgentReview.backend_owned).toBe(false);
+    expect(data.codingMultiAgentReview.provider_sdk_call_enabled).toBe(false);
+    expect(data.routeStates["/coding"].state).toBe("degraded");
+    expect(data.routeStates["/coding"].warningRefs).toContain(
+      "CODING_MULTI_AGENT_REVIEW_MOCK_FALLBACK",
+    );
+    expect(data.connection.warnings).toContain(
+      "CODING_MULTI_AGENT_REVIEW_MOCK_FALLBACK",
+    );
+  });
+
+  it("marks incomplete Coding multi-agent review shape as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    const incompleteReview = JSON.parse(
+      JSON.stringify(routeData[API_ENDPOINTS.controlCenterCodingMultiAgentReview]),
+    );
+    incompleteReview.agent_slots = [incompleteReview.agent_slots[0]];
+    incompleteReview.unblock_prompt_refs = [];
+    routeData[API_ENDPOINTS.controlCenterCodingMultiAgentReview] =
+      incompleteReview;
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.codingMultiAgentReview.backend_owned).toBe(false);
+    expect(data.routeStates["/coding"].state).toBe("degraded");
+    expect(data.routeStates["/coding"].warningRefs).toContain(
+      "CODING_MULTI_AGENT_REVIEW_MOCK_FALLBACK",
+    );
+    expect(data.connection.safeMessage).toContain(
+      "Coding backend read models were unavailable or unsafe",
+    );
+  });
 });
 
 function baseRouteData(): Record<string, unknown> {
@@ -232,6 +301,226 @@ function baseRouteData(): Record<string, unknown> {
       }),
     ),
   };
+  const backendOwnedCodingSession = {
+    ...mockControlCenterData.codingSession,
+    session_ref: "coding-session:summary-endpoint-test",
+    status: "implemented_read_only_cockpit_seed",
+    backend_owned: true,
+    mock_fallback: false,
+    local_read_model_only: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    control_center_grants_authority: false,
+    file_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    background_autonomy_enabled: false,
+    production_authority_enabled: false,
+  };
+  const backendOwnedCodingContext = {
+    ...mockControlCenterData.codingContext,
+    context_pack_ref: "context-pack:coding-summary-endpoint-test",
+    session_ref: "coding-session:summary-endpoint-test",
+    backend_owned: true,
+    read_only: true,
+    preview_only: true,
+    safe_refs_only: true,
+    raw_paths_included: false,
+    raw_content_included: false,
+    repo_file_read_performed: false,
+    file_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+  };
+  const backendOwnedCodingPatchProposal = {
+    ...mockControlCenterData.codingPatchProposal,
+    patch_proposal_ref: "patch-proposal:coding-summary-endpoint-test",
+    session_ref: "coding-session:summary-endpoint-test",
+    context_pack_ref: "context-pack:coding-summary-endpoint-test",
+    backend_owned: true,
+    read_only: true,
+    proposal_only: true,
+    safe_refs_only: true,
+    raw_paths_included: false,
+    raw_content_included: false,
+    repo_file_read_performed: false,
+    patch_apply_enabled: false,
+    file_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+  };
+  const backendOwnedCodingPatchApplyReadiness = {
+    ...mockControlCenterData.codingPatchApplyReadiness,
+    readiness_ref: "patch-apply-readiness:coding-summary-endpoint-test",
+    session_ref: "coding-session:summary-endpoint-test",
+    context_pack_ref: "context-pack:coding-summary-endpoint-test",
+    patch_proposal_ref: "patch-proposal:coding-summary-endpoint-test",
+    backend_owned: true,
+    read_only: true,
+    readiness_only: true,
+    safe_refs_only: true,
+    raw_paths_included: false,
+    raw_content_included: false,
+    repo_file_read_performed: false,
+    exact_patch_body_available: false,
+    hunk_selection_contract_available: false,
+    checkpoint_contract_available: false,
+    approval_binding_available: false,
+    rollback_contract_available: false,
+    patch_apply_enabled: false,
+    file_write_enabled: false,
+    approval_grant_capture_enabled: false,
+    rollback_execution_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    background_autonomy_enabled: false,
+    production_authority_enabled: false,
+  };
+  const backendOwnedCodingTestCommandReadiness = {
+    ...mockControlCenterData.codingTestCommandReadiness,
+    readiness_ref: "test-command-readiness:coding-summary-endpoint-test",
+    session_ref: "coding-session:summary-endpoint-test",
+    context_pack_ref: "context-pack:coding-summary-endpoint-test",
+    patch_proposal_ref: "patch-proposal:coding-summary-endpoint-test",
+    patch_apply_readiness_ref:
+      "patch-apply-readiness:coding-summary-endpoint-test",
+    backend_owned: true,
+    read_only: true,
+    readiness_only: true,
+    safe_refs_only: true,
+    raw_command_included: false,
+    raw_output_included: false,
+    command_output_summary_included: false,
+    exit_code_available: false,
+    test_receipt_created: false,
+    command_execution_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    arbitrary_shell_enabled: false,
+    install_command_enabled: false,
+    network_command_enabled: false,
+    destructive_command_enabled: false,
+    background_process_enabled: false,
+    file_write_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+  };
+  const backendOwnedCodingGitReview = {
+    ...mockControlCenterData.codingGitReview,
+    git_review_ref: "git-review:coding-summary-endpoint-test",
+    session_ref: "coding-session:summary-endpoint-test",
+    context_pack_ref: "context-pack:coding-summary-endpoint-test",
+    patch_proposal_ref: "patch-proposal:coding-summary-endpoint-test",
+    patch_apply_readiness_ref:
+      "patch-apply-readiness:coding-summary-endpoint-test",
+    test_command_readiness_ref:
+      "test-command-readiness:coding-summary-endpoint-test",
+    backend_owned: true,
+    read_only: true,
+    proposal_only: true,
+    safe_refs_only: true,
+    git_status_execution_enabled: false,
+    git_diff_execution_enabled: false,
+    stage_enabled: false,
+    commit_enabled: false,
+    push_enabled: false,
+    pr_open_enabled: false,
+    merge_enabled: false,
+    raw_git_output_included: false,
+    raw_diff_included: false,
+    raw_path_included: false,
+    commit_message_text_included: false,
+    pr_description_text_included: false,
+    git_receipt_created: false,
+    shell_subprocess_execution_enabled: false,
+    file_write_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+  };
+  const backendOwnedCodingLivePreview = {
+    ...mockControlCenterData.codingLivePreview,
+    live_preview_ref: "live-preview:coding-summary-endpoint-test",
+    session_ref: "coding-session:summary-endpoint-test",
+    context_pack_ref: "context-pack:coding-summary-endpoint-test",
+    patch_proposal_ref: "patch-proposal:coding-summary-endpoint-test",
+    test_command_readiness_ref:
+      "test-command-readiness:coding-summary-endpoint-test",
+    git_review_ref: "git-review:coding-summary-endpoint-test",
+    backend_owned: true,
+    read_only: true,
+    status_only: true,
+    safe_refs_only: true,
+    raw_url_included: false,
+    raw_console_output_included: false,
+    screenshot_artifact_included: false,
+    screenshot_capture_enabled: false,
+    visual_regression_enabled: false,
+    console_capture_enabled: false,
+    dev_server_status_detection_enabled: false,
+    dev_server_start_enabled: false,
+    dev_server_stop_enabled: false,
+    browser_preview_enabled: false,
+    browser_automation_enabled: false,
+    browser_interaction_enabled: false,
+    network_fetch_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    file_write_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+  };
+  const backendOwnedCodingMultiAgentReview = {
+    ...mockControlCenterData.codingMultiAgentReview,
+    review_ref: "multi-agent-review:coding-summary-endpoint-test",
+    session_ref: "coding-session:summary-endpoint-test",
+    context_pack_ref: "context-pack:coding-summary-endpoint-test",
+    patch_proposal_ref: "patch-proposal:coding-summary-endpoint-test",
+    test_command_readiness_ref:
+      "test-command-readiness:coding-summary-endpoint-test",
+    git_review_ref: "git-review:coding-summary-endpoint-test",
+    live_preview_ref: "live-preview:coding-summary-endpoint-test",
+    backend_owned: true,
+    read_only: true,
+    proposal_only: true,
+    safe_refs_only: true,
+    provider_model_call_enabled: false,
+    provider_sdk_call_enabled: false,
+    local_agent_execution_enabled: false,
+    multi_agent_execution_enabled: false,
+    background_dispatch_enabled: false,
+    background_autonomy_enabled: false,
+    autonomous_execution_enabled: false,
+    context_injection_enabled: false,
+    raw_prompt_included: false,
+    raw_response_included: false,
+    provider_payload_included: false,
+    file_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+  };
   return {
     [API_ENDPOINTS.controlCenterManifest]: mockControlCenterData.manifest,
     [API_ENDPOINTS.controlCenterDashboard]: mockControlCenterData.dashboard,
@@ -251,6 +540,19 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.founderStartHereSummary]: backendOwnedStartHere,
     [API_ENDPOINTS.controlCenterProofIndex]: backendOwnedProofIndex,
     [API_ENDPOINTS.trustAuthorityMatrix]: backendOwnedTrustAuthorityMatrix,
+    [API_ENDPOINTS.controlCenterCodingSession]: backendOwnedCodingSession,
+    [API_ENDPOINTS.controlCenterCodingContext]: backendOwnedCodingContext,
+    [API_ENDPOINTS.controlCenterCodingPatchProposal]:
+      backendOwnedCodingPatchProposal,
+    [API_ENDPOINTS.controlCenterCodingPatchApplyReadiness]:
+      backendOwnedCodingPatchApplyReadiness,
+    [API_ENDPOINTS.controlCenterCodingTestCommandReadiness]:
+      backendOwnedCodingTestCommandReadiness,
+    [API_ENDPOINTS.controlCenterCodingGitReview]: backendOwnedCodingGitReview,
+    [API_ENDPOINTS.controlCenterCodingLivePreview]:
+      backendOwnedCodingLivePreview,
+    [API_ENDPOINTS.controlCenterCodingMultiAgentReview]:
+      backendOwnedCodingMultiAgentReview,
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:

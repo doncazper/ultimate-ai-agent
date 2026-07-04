@@ -2530,6 +2530,123 @@
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
       ]
+    },
+    {
+      "path": "/coding",
+      "label": "Coding",
+      "group": "Review",
+      "ui_status": "read-only cockpit",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/coding/context",
+          "operation_id": "get_control_center_coding_context",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/git-review",
+          "operation_id": "get_control_center_coding_git_review",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/live-preview",
+          "operation_id": "get_control_center_coding_live_preview",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/multi-agent-review",
+          "operation_id": "get_control_center_coding_multi_agent_review",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/patch-apply-readiness",
+          "operation_id": "get_control_center_coding_patch_apply_readiness",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/patch-proposal",
+          "operation_id": "get_control_center_coding_patch_proposal",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/session",
+          "operation_id": "get_control_center_coding_session",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/test-command-readiness",
+          "operation_id": "get_control_center_coding_test_command_readiness",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "tests/test_coding_cockpit_read_model.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:coding-approved-patch-apply-execution-route",
+        "missing_backend:coding-allowlisted-command-execution-receipts",
+        "missing_backend:coding-live-git-status-reader",
+        "missing_backend:coding-approved-git-mutation-lane",
+        "missing_backend:coding-live-preview-execution-lane",
+        "missing_backend:coding-multi-agent-review-artifacts",
+        "missing_backend:coding-multi-agent-artifact-body-storage",
+        "missing_backend:coding-multi-agent-receipts",
+        "missing_backend:coding-multi-agent-proof-binding",
+        "missing_backend:coding-multi-agent-execution-lane",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write"
+      ],
+      "evidence_refs": [
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+        "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+        "src/ultimate_ai_agent/core/code/coding_cockpit.py",
+        "src/ultimate_ai_agent/api/control_center.py",
+        "scripts/dev/uaa_coding.py"
+      ],
+      "owner": "control-center",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:coding:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Add or accept backend/core contracts for listed blocked capabilities.",
+        "Add passing focused tests and verifier refs for the claimed behavior.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Coding is a backend-owned read-only cockpit seed; it is not a public beta, public release, production readiness, or production authority claim.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility does not grant file writes, shell or subprocess execution, Git mutation, connector writes, provider or model calls, browser execution, memory or context injection, broad runtime authority, background autonomy, hidden autonomy, or production authority.",
+        "Live preview readiness exposes safe refs only; dev-server start/status detection, raw URL persistence, screenshot capture, console capture, browser preview, and browser automation remain blocked."
+      ]
     }
   ]
 }
