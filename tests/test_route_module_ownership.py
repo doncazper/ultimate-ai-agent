@@ -159,6 +159,7 @@ def test_beta_12_control_center_shell_extraction_ownership_is_frozen() -> None:
         ("GET", "/control-center/setup-assistant/summary"),
         ("GET", "/control-center/coding/session"),
         ("GET", "/control-center/coding/context"),
+        ("GET", "/control-center/coding/patch-proposal"),
         ("POST", "/control-center/actions/preview"),
     }
 

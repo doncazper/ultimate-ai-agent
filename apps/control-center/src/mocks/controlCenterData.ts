@@ -2,6 +2,7 @@ import type {
   CodingCockpitPreviewPanel,
   CodingCockpitRefItem,
   CodingCockpitSessionReadModel,
+  CodingPatchProposalReadModel,
   CodingWorkspaceContextReadModel,
   ControlCenterData,
   ControlCenterProofIndex,
@@ -34,8 +35,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 171;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 70;
+export const MOCK_OPENAPI_ROUTE_COUNT = 172;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 71;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -126,7 +127,7 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
   active_agent_ref: "agent-ref:coding:mock-slot",
   active_task_ref: "coding-task:cockpit-shell-mock",
   active_context_pack_ref: "context-pack:coding-cockpit-mock",
-  active_patch_proposal_ref: "patch-proposal:coding-blocked-mock",
+  active_patch_proposal_ref: "patch-proposal:coding-mock-preview",
   active_command_proposal_ref: "command-proposal:coding-blocked-mock",
   active_git_ref: "git-status:coding-readonly-mock",
   active_proof_ref: "proof-ref:coding-cockpit:mock-fallback",
@@ -137,7 +138,11 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
     "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
     "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   ],
-  cli_inspection_refs: ["scripts/dev/uaa_coding.py inspect-session"],
+  cli_inspection_refs: [
+    "scripts/dev/uaa_coding.py inspect-session",
+    "scripts/dev/uaa_coding.py inspect-context",
+    "scripts/dev/uaa_coding.py inspect-patch-proposal",
+  ],
   status: "non_authoritative_mock_fallback",
   task_status: "proposal_only_blocked_runtime",
   branch_label: "mock fallback branch ref",
@@ -269,9 +274,9 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
     [
       mockCodingItem(
         "patch-proposal:coding-blocked-mock",
-        "Patch proposal placeholder",
+        "Patch proposal fallback",
         "planned",
-        "Patch proposal artifacts are future work.",
+        "Authoritative patch proposal artifacts require the backend read model.",
         ["blocked-state:coding-no-file-write"],
       ),
     ],
@@ -521,6 +526,75 @@ const mockCodingContext: CodingWorkspaceContextReadModel = {
   raw_paths_included: false,
   raw_content_included: false,
   repo_file_read_performed: false,
+  file_write_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  git_mutation_enabled: false,
+  provider_model_call_enabled: false,
+  browser_automation_enabled: false,
+  connector_write_enabled: false,
+  production_authority_enabled: false,
+};
+
+const mockCodingPatchProposal: CodingPatchProposalReadModel = {
+  schema_version: "uaa-coding-patch-proposal.v1",
+  patch_proposal_ref: "patch-proposal:coding-mock-preview",
+  session_ref: "coding-session:mock-fallback",
+  context_pack_ref: "context-pack:coding-cockpit-mock",
+  route_ref: "route-ref:control-center-coding-patch-proposal",
+  backend_route_refs: ["GET /control-center/coding/patch-proposal"],
+  frontend_route_refs: ["/coding"],
+  cli_inspection_refs: ["scripts/dev/uaa_coding.py inspect-patch-proposal"],
+  docs_refs: [
+    "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+    "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+  ],
+  status: "proposal_artifact_preview",
+  title: "Mock patch proposal preview",
+  safe_summary:
+    "Non-authoritative proposal fallback with safe refs only; apply is blocked.",
+  proposed_file_refs: ["file-ref:coding-mock-core"],
+  file_changes: [
+    {
+      change_ref: "patch-change:coding-mock-core",
+      file_ref: "file-ref:coding-mock-core",
+      label: "Mock proposal file",
+      change_kind: "modify",
+      status: "proposed",
+      hunk_refs: ["patch-hunk:coding-mock-core"],
+      additions: 1,
+      deletions: 0,
+      safe_summary: "Fallback hunk ref only; no raw diff is available.",
+      proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+      evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+      blocked_authority_refs: codingCockpitBlockedRefs,
+      raw_path_included: false,
+      raw_content_included: false,
+    },
+  ],
+  diff_preview_refs: ["patch-hunk:coding-mock-core"],
+  diff_summary_lines: [
+    "Fallback patch proposal is not authoritative workflow truth.",
+    "Apply remains blocked.",
+  ],
+  proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+  evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+  blocked_authority_refs: codingCockpitBlockedRefs,
+  redactions_applied: [
+    "redaction-ref:safe-refs-only",
+    "redaction-ref:raw-paths-omitted",
+    "redaction-ref:raw-content-omitted",
+    "redaction-ref:diff-body-omitted",
+  ],
+  next_safe_action:
+    "Restore backend-owned patch proposal preview before trusting patch refs.",
+  backend_owned: false,
+  read_only: true,
+  proposal_only: true,
+  safe_refs_only: true,
+  raw_paths_included: false,
+  raw_content_included: false,
+  repo_file_read_performed: false,
+  patch_apply_enabled: false,
   file_write_enabled: false,
   shell_subprocess_execution_enabled: false,
   git_mutation_enabled: false,
@@ -8325,6 +8399,7 @@ export const mockControlCenterData: ControlCenterData = {
   trustAuthorityMatrix,
   codingSession: mockCodingSession,
   codingContext: mockCodingContext,
+  codingPatchProposal: mockCodingPatchProposal,
   founderToday: {
     schema_version: "founder_loop_storage.v1",
     status: "mock_storage_backed_partial_loop",

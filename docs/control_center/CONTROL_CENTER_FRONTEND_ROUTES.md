@@ -81,10 +81,13 @@ read-only session seed with workspace/context refs, task refs, diff/proof
 placeholders, terminal/Git/test/live-preview posture, authority modes, proof
 refs, redaction refs, and blocked authority refs only. Prompt 02 adds
 backend-owned safe context refs, excluded refs, comparison refs, context budget
-posture, and CLI inspection parity. It does not write files, read or persist
-raw file content, run shell/subprocess commands, mutate Git state, call
-providers or models, automate browsers, write connectors, launch background
-agents, persist raw paths or raw content, or grant production authority.
+posture, and CLI inspection parity. Prompt 03 adds
+`GET /control-center/coding/patch-proposal` with proposal-only patch file refs,
+hunk refs, bounded diff summaries, and CLI inspection parity. It does not write
+files, apply patches, read or persist raw file content, run shell/subprocess
+commands, mutate Git state, call providers or models, automate browsers, write
+connectors, launch background agents, persist raw paths or raw content, or
+grant production authority.
 FCC-V1-000 adds `releaseStatus` route metadata and
 `docs/control_center/release_surface_manifest.json`; the sidebar and command
 palette render conservative route-state labels. `ship` is intentionally
@@ -117,6 +120,7 @@ Backend API endpoints consumed:
 - `GET /control-center/foundation-gate/summary`
 - `GET /control-center/setup-assistant/summary`
 - `GET /control-center/coding/context`
+- `GET /control-center/coding/patch-proposal`
 - `GET /control-center/coding/session`
 - `GET /control-center/start-here/summary`
 - `GET /control-center/today/summary`
@@ -208,7 +212,7 @@ provider/model calls, connector writes, coworker dispatch, background autonomy,
 raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
-OpenAPI remains a backend contract. The current backend path count is `171` with
+OpenAPI remains a backend contract. The current backend path count is `172` with
 unique operation IDs; earlier milestone counts in the historical sections below
 are audit context, not current route inventory.
 

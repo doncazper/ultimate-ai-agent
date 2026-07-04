@@ -16,11 +16,15 @@ from ultimate_ai_agent.core.code import (
     CODING_COCKPIT_CONTEXT_BACKEND_ROUTE_REF,
     CODING_COCKPIT_CONTEXT_PACK_REF,
     CODING_COCKPIT_FRONTEND_ROUTE_REF,
+    CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF,
+    CODING_COCKPIT_PATCH_PROPOSAL_REF,
     CODING_COCKPIT_REQUIRED_BLOCKED_REFS,
     CODING_COCKPIT_SESSION_REF,
     CodingCockpitSessionReadModel,
+    CodingPatchProposalReadModel,
     CodingWorkspaceContextReadModel,
     build_coding_cockpit_session_seed,
+    build_coding_patch_proposal_preview,
     build_coding_workspace_context_preview,
 )
 
@@ -49,7 +53,7 @@ def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
         "coding-session:local-readonly-cockpit",
         "coding-task:cockpit-shell-seed",
         CODING_COCKPIT_CONTEXT_PACK_REF,
-        "patch-proposal:coding-blocked-seed",
+        CODING_COCKPIT_PATCH_PROPOSAL_REF,
         "command-proposal:coding-blocked-seed",
         "git-status:coding-readonly-seed",
         "proof-ref:coding-cockpit-seed",
@@ -59,6 +63,10 @@ def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
     assert "Prompt 01 seed" in session.repo_safe_scope
     assert "scripts/dev/uaa_coding.py inspect-session" in session.cli_inspection_refs
     assert "scripts/dev/uaa_coding.py inspect-context" in session.cli_inspection_refs
+    assert (
+        "scripts/dev/uaa_coding.py inspect-patch-proposal"
+        in session.cli_inspection_refs
+    )
     assert all(not panel.mutation_enabled for panel in _coding_panels(session))
     assert all(not panel.runtime_authority_enabled for panel in _coding_panels(session))
     assert all(item.proof_refs for panel in _coding_panels(session) for item in panel.items)
@@ -148,6 +156,53 @@ def test_coding_context_rejects_raw_paths_and_runtime_authority() -> None:
         CodingWorkspaceContextReadModel(**payload)
 
 
+def test_coding_patch_proposal_preview_is_backend_owned_safe_refs_only() -> None:
+    proposal = build_coding_patch_proposal_preview()
+    payload = proposal.model_dump(mode="json")
+
+    assert proposal.schema_version == "uaa-coding-patch-proposal.v1"
+    assert proposal.patch_proposal_ref == CODING_COCKPIT_PATCH_PROPOSAL_REF
+    assert proposal.context_pack_ref == CODING_COCKPIT_CONTEXT_PACK_REF
+    assert proposal.backend_route_refs == [CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF]
+    assert proposal.frontend_route_refs == [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    assert proposal.backend_owned is True
+    assert proposal.read_only is True
+    assert proposal.proposal_only is True
+    assert proposal.safe_refs_only is True
+    assert proposal.raw_paths_included is False
+    assert proposal.raw_content_included is False
+    assert proposal.repo_file_read_performed is False
+    assert proposal.patch_apply_enabled is False
+    assert proposal.file_write_enabled is False
+    assert proposal.shell_subprocess_execution_enabled is False
+    assert proposal.git_mutation_enabled is False
+    assert proposal.provider_model_call_enabled is False
+    assert proposal.browser_automation_enabled is False
+    assert proposal.connector_write_enabled is False
+    assert proposal.production_authority_enabled is False
+    assert proposal.file_changes
+    assert proposal.diff_preview_refs
+    assert proposal.diff_summary_lines
+    assert "/Users/" not in json.dumps(payload)
+
+
+def test_coding_patch_proposal_rejects_apply_and_raw_content() -> None:
+    payload = build_coding_patch_proposal_preview().model_dump(mode="json")
+    payload["patch_apply_enabled"] = True
+    with pytest.raises(ValidationError, match="patch_apply_enabled"):
+        CodingPatchProposalReadModel(**payload)
+
+    payload = build_coding_patch_proposal_preview().model_dump(mode="json")
+    payload["file_changes"][0]["raw_content_included"] = True
+    with pytest.raises(ValidationError, match="raw content"):
+        CodingPatchProposalReadModel(**payload)
+
+    payload = build_coding_patch_proposal_preview().model_dump(mode="json")
+    payload["file_write_enabled"] = True
+    with pytest.raises(ValidationError, match="file_write_enabled"):
+        CodingPatchProposalReadModel(**payload)
+
+
 def test_control_center_coding_session_route_returns_safe_read_model() -> None:
     client = TestClient(app)
     response = client.get("/control-center/coding/session")
@@ -208,11 +263,40 @@ def test_control_center_coding_context_route_returns_safe_read_model() -> None:
     assert data["file_write_enabled"] is False
 
 
+def test_control_center_coding_patch_proposal_route_returns_safe_read_model() -> None:
+    client = TestClient(app)
+    response = client.get("/control-center/coding/patch-proposal")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "control_center_coding_patch_proposal"
+    assert body["service"] == "ControlCenterCodingAPI"
+    assert body["trace_id"] == CODING_COCKPIT_PATCH_PROPOSAL_REF
+    assert body["redactions_applied"] == [
+        "redaction-ref:safe-refs-only",
+        "redaction-ref:raw-paths-omitted",
+        "redaction-ref:raw-content-omitted",
+        "redaction-ref:diff-body-omitted",
+    ]
+
+    data = body["data"]
+    assert data["backend_owned"] is True
+    assert data["proposal_only"] is True
+    assert data["safe_refs_only"] is True
+    assert data["raw_paths_included"] is False
+    assert data["raw_content_included"] is False
+    assert data["repo_file_read_performed"] is False
+    assert data["patch_apply_enabled"] is False
+    assert data["file_write_enabled"] is False
+
+
 def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_model() -> None:
     manifest = build_api_manifest(app)
     routes = {(route.method, route.path): route for route in manifest.routes}
     route = routes[("GET", "/control-center/coding/session")]
     context_route = routes[("GET", "/control-center/coding/context")]
+    patch_route = routes[("GET", "/control-center/coding/patch-proposal")]
 
     assert route.operation_id == "get_control_center_coding_session"
     assert route.tags == ["control-center"]
@@ -226,10 +310,19 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
     assert context_route.route_classification == "local_sensitive"
     assert context_route.approval_posture == "not_required_for_route_classification"
     assert context_route.idempotency_required is False
+    assert patch_route.operation_id == "get_control_center_coding_patch_proposal"
+    assert patch_route.tags == ["control-center"]
+    assert patch_route.side_effect_class == "local_dev_workspace_only"
+    assert patch_route.route_classification == "local_sensitive"
+    assert patch_route.approval_posture == "not_required_for_route_classification"
+    assert patch_route.idempotency_required is False
     assert "control_center_coding_cockpit_session_read_model" in (
         manifest.capabilities_declared
     )
     assert "control_center_coding_context_pack_preview_read_model" in (
+        manifest.capabilities_declared
+    )
+    assert "control_center_coding_patch_proposal_read_model" in (
         manifest.capabilities_declared
     )
     for capability in [
@@ -278,6 +371,29 @@ def test_coding_context_cli_inspection_prints_same_safe_context() -> None:
     assert data["read_only"] is True
     assert data["safe_refs_only"] is True
     assert data["repo_file_read_performed"] is False
+    assert "/Users/" not in result.stdout
+    assert "credential" not in result.stdout.lower()
+
+
+def test_coding_patch_proposal_cli_inspection_prints_same_safe_proposal() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_coding.py"),
+            "inspect-patch-proposal",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    data = json.loads(result.stdout)
+
+    assert data["patch_proposal_ref"] == CODING_COCKPIT_PATCH_PROPOSAL_REF
+    assert data["backend_owned"] is True
+    assert data["proposal_only"] is True
+    assert data["safe_refs_only"] is True
+    assert data["patch_apply_enabled"] is False
     assert "/Users/" not in result.stdout
     assert "credential" not in result.stdout.lower()
 

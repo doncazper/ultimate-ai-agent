@@ -87,6 +87,7 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         route["path"] for route in by_path["/coding"]["backend_routes"]
     } == {
         "/control-center/coding/context",
+        "/control-center/coding/patch-proposal",
         "/control-center/coding/session",
     }
     assert by_path["/coding"]["approval_required"] is False

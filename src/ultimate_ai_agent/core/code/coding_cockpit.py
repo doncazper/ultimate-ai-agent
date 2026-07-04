@@ -16,8 +16,13 @@ CODING_COCKPIT_SESSION_REF = "coding-session:local-readonly-cockpit"
 CODING_COCKPIT_CONTEXT_PACK_REF = "context-pack:coding-cockpit-preview-v1"
 CODING_COCKPIT_ROUTE_REF = "route-ref:control-center-coding-session"
 CODING_COCKPIT_CONTEXT_ROUTE_REF = "route-ref:control-center-coding-context"
+CODING_COCKPIT_PATCH_PROPOSAL_REF = "patch-proposal:coding-safe-preview-v1"
+CODING_COCKPIT_PATCH_ROUTE_REF = "route-ref:control-center-coding-patch-proposal"
 CODING_COCKPIT_BACKEND_ROUTE_REF = "GET /control-center/coding/session"
 CODING_COCKPIT_CONTEXT_BACKEND_ROUTE_REF = "GET /control-center/coding/context"
+CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF = (
+    "GET /control-center/coding/patch-proposal"
+)
 CODING_COCKPIT_FRONTEND_ROUTE_REF = "/coding"
 CODING_COCKPIT_REQUIRED_BLOCKED_REFS = [
     "blocked-state:coding-no-file-write",
@@ -44,6 +49,8 @@ CockpitTaskStatus = Literal["read_only_seed", "proposal_only_blocked_runtime"]
 ContextRefKind = Literal["file", "folder", "exclude_rule", "search_ref"]
 ContextRefStatus = Literal["included", "excluded", "candidate", "blocked"]
 ContextBudgetState = Literal["within_budget", "near_limit", "over_limit_blocked"]
+PatchChangeKind = Literal["modify", "add", "delete_blocked", "generated_blocked"]
+PatchProposalStatus = Literal["proposal_artifact_preview"]
 
 
 class CodingCockpitAuthorityMode(BaseModel):
@@ -344,6 +351,168 @@ class CodingWorkspaceContextReadModel(BaseModel):
         return self
 
 
+class CodingPatchProposalFileReadModel(BaseModel):
+    change_ref: str = Field(..., min_length=1)
+    file_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1, max_length=120)
+    change_kind: PatchChangeKind
+    status: Literal["proposed", "blocked"]
+    hunk_refs: list[str] = Field(default_factory=list)
+    additions: int = Field(default=0, ge=0, le=5000)
+    deletions: int = Field(default=0, ge=0, le=5000)
+    safe_summary: str = Field(..., min_length=1, max_length=420)
+    proof_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    raw_path_included: bool = False
+    raw_content_included: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_patch_file(self) -> "CodingPatchProposalFileReadModel":
+        for ref in [
+            self.change_ref,
+            self.file_ref,
+            *self.hunk_refs,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+        ]:
+            validate_task_ref(ref, "coding_patch_file_ref")
+        for value in [
+            self.label,
+            self.change_kind,
+            self.status,
+            self.safe_summary,
+        ]:
+            validate_safe_task_text(value, "coding_patch_file_text")
+        if self.raw_path_included:
+            raise ValueError("coding patch file cannot include raw paths")
+        if self.raw_content_included:
+            raise ValueError("coding patch file cannot include raw content")
+        if self.status == "blocked" and not self.blocked_authority_refs:
+            raise ValueError("blocked patch file requires blocked authority refs")
+        return self
+
+
+class CodingPatchProposalReadModel(BaseModel):
+    schema_version: Literal["uaa-coding-patch-proposal.v1"] = (
+        "uaa-coding-patch-proposal.v1"
+    )
+    patch_proposal_ref: str = CODING_COCKPIT_PATCH_PROPOSAL_REF
+    session_ref: str = CODING_COCKPIT_SESSION_REF
+    context_pack_ref: str = CODING_COCKPIT_CONTEXT_PACK_REF
+    route_ref: str = CODING_COCKPIT_PATCH_ROUTE_REF
+    backend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF]
+    )
+    frontend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    )
+    cli_inspection_refs: list[str] = Field(
+        default_factory=lambda: ["scripts/dev/uaa_coding.py inspect-patch-proposal"]
+    )
+    docs_refs: list[str] = Field(
+        default_factory=lambda: [
+            "docs-ref:governed-code-workbench",
+            "docs-ref:operator-shell-gap-map",
+        ]
+    )
+    status: PatchProposalStatus = "proposal_artifact_preview"
+    title: str = Field(..., min_length=1, max_length=120)
+    safe_summary: str = Field(..., min_length=1, max_length=520)
+    proposed_file_refs: list[str] = Field(default_factory=list)
+    file_changes: list[CodingPatchProposalFileReadModel] = Field(default_factory=list)
+    diff_preview_refs: list[str] = Field(default_factory=list)
+    diff_summary_lines: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    redactions_applied: list[str] = Field(default_factory=list)
+    next_safe_action: str = Field(..., min_length=1, max_length=420)
+    backend_owned: bool = True
+    read_only: bool = True
+    proposal_only: bool = True
+    safe_refs_only: bool = True
+    raw_paths_included: bool = False
+    raw_content_included: bool = False
+    repo_file_read_performed: bool = False
+    patch_apply_enabled: bool = False
+    file_write_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    git_mutation_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    browser_automation_enabled: bool = False
+    connector_write_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_patch_proposal(self) -> "CodingPatchProposalReadModel":
+        for ref in [
+            self.patch_proposal_ref,
+            self.session_ref,
+            self.context_pack_ref,
+            self.route_ref,
+            *self.proposed_file_refs,
+            *self.diff_preview_refs,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+            *self.redactions_applied,
+            *self.docs_refs,
+        ]:
+            validate_task_ref(ref, "coding_patch_proposal_ref")
+        for value in (
+            self.backend_route_refs
+            + self.frontend_route_refs
+            + self.cli_inspection_refs
+            + [self.status, self.title, self.safe_summary, self.next_safe_action]
+            + self.diff_summary_lines
+        ):
+            validate_safe_task_text(value, "coding_patch_proposal_text")
+        file_ref_set = {change.file_ref for change in self.file_changes}
+        if set(self.proposed_file_refs) != file_ref_set:
+            raise ValueError("proposed file refs must match patch file changes")
+        hunk_ref_set = {
+            hunk_ref for change in self.file_changes for hunk_ref in change.hunk_refs
+        }
+        if not set(self.diff_preview_refs).issubset(hunk_ref_set):
+            raise ValueError("diff preview refs must be patch hunk refs")
+        required_false_flags = {
+            "raw_paths_included": self.raw_paths_included,
+            "raw_content_included": self.raw_content_included,
+            "repo_file_read_performed": self.repo_file_read_performed,
+            "patch_apply_enabled": self.patch_apply_enabled,
+            "file_write_enabled": self.file_write_enabled,
+            "shell_subprocess_execution_enabled": (
+                self.shell_subprocess_execution_enabled
+            ),
+            "git_mutation_enabled": self.git_mutation_enabled,
+            "provider_model_call_enabled": self.provider_model_call_enabled,
+            "browser_automation_enabled": self.browser_automation_enabled,
+            "connector_write_enabled": self.connector_write_enabled,
+            "production_authority_enabled": self.production_authority_enabled,
+        }
+        enabled = [name for name, value in required_false_flags.items() if value]
+        if enabled:
+            raise ValueError(f"coding patch proposal enabled {enabled[0]}")
+        required_true_flags = {
+            "backend_owned": self.backend_owned,
+            "read_only": self.read_only,
+            "proposal_only": self.proposal_only,
+            "safe_refs_only": self.safe_refs_only,
+        }
+        disabled = [name for name, value in required_true_flags.items() if not value]
+        if disabled:
+            raise ValueError(f"coding patch proposal disabled {disabled[0]}")
+        payload = self.model_dump(mode="json")
+        validate_safe_task_payload(payload, "coding_patch_proposal")
+        return self
+
+
 class CodingCockpitSessionReadModel(BaseModel):
     schema_version: Literal["uaa-coding-cockpit-session.v1"] = (
         "uaa-coding-cockpit-session.v1"
@@ -358,7 +527,7 @@ class CodingCockpitSessionReadModel(BaseModel):
     active_agent_ref: str = "agent-ref:coding:codex-slot"
     active_task_ref: str = "coding-task:cockpit-shell-seed"
     active_context_pack_ref: str = CODING_COCKPIT_CONTEXT_PACK_REF
-    active_patch_proposal_ref: str = "patch-proposal:coding-blocked-seed"
+    active_patch_proposal_ref: str = CODING_COCKPIT_PATCH_PROPOSAL_REF
     active_command_proposal_ref: str = "command-proposal:coding-blocked-seed"
     active_git_ref: str = "git-status:coding-readonly-seed"
     active_proof_ref: str = "proof-ref:coding-cockpit-seed"
@@ -379,6 +548,7 @@ class CodingCockpitSessionReadModel(BaseModel):
         default_factory=lambda: [
             "scripts/dev/uaa_coding.py inspect-session",
             "scripts/dev/uaa_coding.py inspect-context",
+            "scripts/dev/uaa_coding.py inspect-patch-proposal",
         ]
     )
     status: str = "implemented_read_only_cockpit_seed"
@@ -683,9 +853,12 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
                 CodingCockpitRefItem(
                     item_ref="timeline-item:coding-patch-blocked",
                     label="Patch lane",
-                    status="blocked until Prompt 04",
-                    safe_summary="Patch apply remains unavailable in this seed.",
-                    source_refs=["patch-proposal:coding-blocked-seed"],
+                    status="proposal artifact ready",
+                    safe_summary=(
+                        "Patch proposal artifact is inspectable as safe refs; "
+                        "apply remains unavailable."
+                    ),
+                    source_refs=[CODING_COCKPIT_PATCH_PROPOSAL_REF],
                     evidence_refs=evidence_refs,
                     proof_refs=proof_refs,
                     blocked_authority_refs=["blocked-state:coding-no-file-write"],
@@ -700,15 +873,18 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             title="Diff Preview",
             state="proposal_only",
             safe_summary=(
-                "Diff lane is a placeholder for future patch proposals; no diff "
-                "body or apply control is enabled."
+                "Patch proposal lane exposes safe diff refs and bounded summaries; "
+                "no diff body or apply control is enabled."
             ),
             items=[
                 CodingCockpitRefItem(
-                    item_ref="patch-proposal:coding-blocked-seed",
-                    label="Patch proposal placeholder",
-                    status="planned",
-                    safe_summary="File-by-file and hunk review arrive after proposal artifacts.",
+                    item_ref=CODING_COCKPIT_PATCH_PROPOSAL_REF,
+                    label="Patch proposal artifact",
+                    status="proposal-only",
+                    safe_summary=(
+                        "File and hunk refs are reviewable without raw paths, raw "
+                        "content, or apply authority."
+                    ),
                     source_refs=["coding-task:cockpit-shell-seed"],
                     evidence_refs=evidence_refs,
                     proof_refs=proof_refs,
@@ -717,7 +893,7 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             ],
             proof_refs=proof_refs,
             blocked_authority_refs=["blocked-state:coding-no-file-write"],
-            next_safe_action="Promote patch proposal artifacts before any apply lane.",
+            next_safe_action="Review safe patch refs before any future apply lane.",
         ),
         proof_preview=CodingCockpitPreviewPanel(
             panel_ref="coding-panel:proof-preview",
@@ -879,7 +1055,7 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             "coding-session:local-readonly-cockpit",
             "coding-task:cockpit-shell-seed",
             CODING_COCKPIT_CONTEXT_PACK_REF,
-            "patch-proposal:coding-blocked-seed",
+            CODING_COCKPIT_PATCH_PROPOSAL_REF,
             "command-proposal:coding-blocked-seed",
             "git-status:coding-readonly-seed",
             "proof-ref:coding-cockpit-seed",
@@ -1084,5 +1260,115 @@ def build_coding_workspace_context_preview() -> CodingWorkspaceContextReadModel:
         next_safe_action=(
             "Review safe context refs and promote patch proposal artifacts "
             "without reading or persisting raw file content."
+        ),
+    )
+
+
+def build_coding_patch_proposal_preview() -> CodingPatchProposalReadModel:
+    proof_refs = ["proof-ref:coding-patch-proposal-preview"]
+    evidence_refs = ["evidence-ref:coding-patch-proposal-read-model"]
+    blocked = [
+        "blocked-state:coding-no-file-write",
+        "blocked-state:coding-no-patch-apply",
+        "blocked-state:coding-no-shell-subprocess",
+        "blocked-state:coding-no-git-mutation",
+        "blocked-state:coding-no-provider-model-call",
+        "blocked-state:coding-no-browser-automation",
+        "blocked-state:coding-no-production-authority",
+    ]
+    file_changes = [
+        CodingPatchProposalFileReadModel(
+            change_ref="patch-change:coding-core-contract-preview",
+            file_ref="file-ref:coding-core-contract",
+            label="Core read-model contract",
+            change_kind="modify",
+            status="proposed",
+            hunk_refs=[
+                "patch-hunk:coding-core-contract-models",
+                "patch-hunk:coding-core-contract-builder",
+            ],
+            additions=64,
+            deletions=4,
+            safe_summary=(
+                "Proposal would add backend-owned patch artifact contracts and "
+                "a deterministic safe preview builder."
+            ),
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=[],
+        ),
+        CodingPatchProposalFileReadModel(
+            change_ref="patch-change:coding-control-center-preview",
+            file_ref="file-ref:coding-control-center-panel",
+            label="Control Center patch preview",
+            change_kind="modify",
+            status="proposed",
+            hunk_refs=[
+                "patch-hunk:coding-ui-patch-summary",
+                "patch-hunk:coding-ui-disabled-apply",
+            ],
+            additions=38,
+            deletions=2,
+            safe_summary=(
+                "Proposal would render patch file refs, hunk refs, and apply "
+                "blocked posture in the cockpit."
+            ),
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=["blocked-state:coding-no-patch-apply"],
+        ),
+        CodingPatchProposalFileReadModel(
+            change_ref="patch-change:coding-generated-output-blocked",
+            file_ref="file-ref:coding-generated-output",
+            label="Generated output exclusion",
+            change_kind="generated_blocked",
+            status="blocked",
+            hunk_refs=[],
+            additions=0,
+            deletions=0,
+            safe_summary=(
+                "Generated output remains excluded from patch proposal preview "
+                "and cannot be selected in this lane."
+            ),
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=["blocked-state:coding-no-generated-output"],
+        ),
+    ]
+    return CodingPatchProposalReadModel(
+        title="Coding patch proposal preview",
+        safe_summary=(
+            "Backend-owned proposal artifact over safe file refs and hunk refs; "
+            "it is not an apply request and does not contain raw diff content."
+        ),
+        proposed_file_refs=[
+            "file-ref:coding-core-contract",
+            "file-ref:coding-control-center-panel",
+            "file-ref:coding-generated-output",
+        ],
+        file_changes=file_changes,
+        diff_preview_refs=[
+            "patch-hunk:coding-core-contract-models",
+            "patch-hunk:coding-core-contract-builder",
+            "patch-hunk:coding-ui-patch-summary",
+            "patch-hunk:coding-ui-disabled-apply",
+        ],
+        diff_summary_lines=[
+            "Safe hunk refs describe contract and UI preview changes only.",
+            "Generated output is blocked from the proposal lane.",
+            "Apply remains blocked until an exact approved apply contract exists.",
+        ],
+        proof_refs=proof_refs,
+        evidence_refs=evidence_refs,
+        blocked_authority_refs=blocked,
+        redactions_applied=[
+            "redaction-ref:safe-refs-only",
+            "redaction-ref:raw-paths-omitted",
+            "redaction-ref:raw-content-omitted",
+            "redaction-ref:diff-body-omitted",
+        ],
+        next_safe_action=(
+            "Review safe patch refs and keep apply blocked until the approved "
+            "patch apply lane is scoped."
         ),
     )

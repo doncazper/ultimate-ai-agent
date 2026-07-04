@@ -64,6 +64,7 @@ import type {
   ChatHandoffTarget,
   ChatTurnReceipt,
   ChatTurnReceiptRequest,
+  CodingPatchProposalReadModel,
   WebEvidenceProductSliceReceipt,
   WebEvidenceProductSliceRequest,
 } from "./types";
@@ -302,6 +303,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<CodingWorkspaceContextReadModel>(
       API_ENDPOINTS.controlCenterCodingContext,
     ),
+    readEnvelope<CodingPatchProposalReadModel>(
+      API_ENDPOINTS.controlCenterCodingPatchProposal,
+    ),
   ] as const);
 
   const manifest = fulfilledValue(results[0]);
@@ -344,6 +348,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const trustAuthorityMatrix = fulfilledValue(results[31]);
   const codingSession = fulfilledValue(results[32]);
   const codingContext = fulfilledValue(results[33]);
+  const codingPatchProposal = fulfilledValue(results[34]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
   const normalizedProofIndex = normalizeProofIndex(proofIndex);
@@ -433,13 +438,19 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       route: "/coding",
       surfaceLabel: "Coding",
       backendRouteRef: "GET /control-center/coding/session",
-      endpointReturned: codingSession !== undefined && codingContext !== undefined,
+      endpointReturned:
+        codingSession !== undefined &&
+        codingContext !== undefined &&
+        codingPatchProposal !== undefined,
       usedFallback:
         codingSession === undefined ||
         codingSession.mock_fallback === true ||
         codingSession.backend_owned !== true ||
         codingContext === undefined ||
-        codingContext.backend_owned !== true,
+        codingContext.backend_owned !== true ||
+        codingPatchProposal === undefined ||
+        codingPatchProposal.backend_owned !== true ||
+        codingPatchProposal.proposal_only !== true,
     }),
     routeReadStateInput({
       route: "/memory",
@@ -505,7 +516,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingSession.mock_fallback === true ||
     codingSession.backend_owned !== true ||
     codingContext === undefined ||
-    codingContext.backend_owned !== true;
+    codingContext.backend_owned !== true ||
+    codingPatchProposal === undefined ||
+    codingPatchProposal.backend_owned !== true ||
+    codingPatchProposal.proposal_only !== true;
   const approvalQueueEndpointFallbackUsed = approvalQueue === undefined;
   const runObservabilityEndpointFallbackUsed =
     safeObservedRunObservability === undefined;
@@ -522,6 +536,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     capabilityMatrix === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
+    codingPatchProposal === undefined ||
     setupAssistantSource === undefined ||
     providerCatalog === undefined ||
     controlCenterSettingsStatus === undefined ||
@@ -556,6 +571,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
           normalizeFounderMorningBriefing(undefined).value,
         codingSession: mockControlCenterData.codingSession,
         codingContext: mockControlCenterData.codingContext,
+        codingPatchProposal: mockControlCenterData.codingPatchProposal,
       },
       {
         state: "mock_fallback",
@@ -598,6 +614,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     trustAuthorityMatrix: normalizedTrustAuthorityMatrix.value,
     codingSession: codingSession ?? mockControlCenterData.codingSession,
     codingContext: codingContext ?? mockControlCenterData.codingContext,
+    codingPatchProposal:
+      codingPatchProposal ?? mockControlCenterData.codingPatchProposal,
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
     founderMemoryReview: normalizedFounderMemoryReview.value,
     founderMemoryWorkbench: normalizedFounderMemoryWorkbench.value,

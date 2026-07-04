@@ -31,16 +31,18 @@ Repo-safe current version:
 
 - Control Center route: `/coding`.
 - Backend routes: `GET /control-center/coding/session`,
-  `GET /control-center/coding/context`.
+  `GET /control-center/coding/context`,
+  `GET /control-center/coding/patch-proposal`.
 - CLI inspection: `scripts/dev/uaa_coding.py inspect-session`,
-  `scripts/dev/uaa_coding.py inspect-context`.
+  `scripts/dev/uaa_coding.py inspect-context`,
+  `scripts/dev/uaa_coding.py inspect-patch-proposal`.
 - Python Agent Core owns `CodingCockpitSessionReadModel` and
-  `CodingWorkspaceContextReadModel`; Control Center renders the read models and
-  mock fallback only.
+  `CodingWorkspaceContextReadModel` plus the proposal-only patch read model;
+  Control Center renders the read models and mock fallback only.
 - The shell shows workspace/context, task timeline, diff preview, proof preview,
   agent thread, terminal preview, Git preview, test output preview, live preview,
-  authority mode selector, read-only context-pack preview, and blocked
-  authority refs.
+  authority mode selector, read-only context-pack preview, proposal-only patch
+  refs, and blocked authority refs.
 - Mock fallback is visibly non-authoritative and grants no workflow truth.
 
 Blocked / needs authority:
