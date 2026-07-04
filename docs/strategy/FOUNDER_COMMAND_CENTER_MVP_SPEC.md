@@ -230,6 +230,12 @@ primary product UI for the loop. OpenWebUI remains a supported local/dev
 conversational shell and compatibility surface; it should not own product state
 or become the destination for wiring every workflow.
 
+Long-term delegated life-OS behavior is tracked separately in
+`docs/strategy/DELEGATED_LIFE_OS_NORTH_STAR.md`. It is product direction only:
+purchases, bookings, subscriptions, account work, stored credential/payment
+handles, and standing rules remain future scoped until exact lanes graduate
+through authority and operational-maturity gates.
+
 ## Planning-Only Permission Language
 
 Future Founder Command Center surfaces should use one shared permission
