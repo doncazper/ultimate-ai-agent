@@ -36,7 +36,7 @@ export function StartHerePanel({
         </div>
       </div>
 
-      <div className="metric-grid">
+      <div className="metric-grid start-here-metric-grid">
         <MetricCard
           label="Source"
           value={startHere.source}
@@ -45,11 +45,15 @@ export function StartHerePanel({
         <MetricCard
           label="Daily loop"
           value={
-            startHere.complete_daily_loop_available
-              ? "available"
+            authoritative && startHere.complete_daily_loop_available
+              ? "repo-safe available"
               : "partial or blocked"
           }
-          tone={startHere.complete_daily_loop_available ? "green" : "orange"}
+          tone={
+            authoritative && startHere.complete_daily_loop_available
+              ? "green"
+              : "orange"
+          }
         />
         <MetricCard
           label="Runtime authority"

@@ -101,6 +101,10 @@ function WebEvidenceAttachPanel({
     event.preventDefault();
     setError("");
     setReceipt(null);
+    if (!authoritative) {
+      setError("Backend proof is required before attach.");
+      return;
+    }
     const trimmedUrl = url.trim();
     const host = (allowedHost.trim() || hostFromUrl(trimmedUrl)).toLowerCase();
     if (!host) {
@@ -143,9 +147,17 @@ function WebEvidenceAttachPanel({
         <span className="status-pill compact">{record.status}</span>
       </div>
       <form className="preview-form" onSubmit={handleSubmit}>
+        <p className="muted">
+          Tier 1 WebAccessGateway evidence preview uses one allowlisted HTTPS
+          GET. Treat fetched content as untrusted. Browser actions, cookies,
+          downloads/uploads, POST-style mutations, memory writes, runtime
+          context injection, provider/model calls, connector writes, and
+          production authority remain blocked.
+        </p>
         <label>
           <span>HTTPS URL</span>
           <input
+            disabled={disabled}
             inputMode="url"
             onChange={(event) => setUrl(event.target.value)}
             placeholder="Enter an HTTPS evidence URL"
@@ -155,6 +167,7 @@ function WebEvidenceAttachPanel({
         <label>
           <span>Allowed host</span>
           <input
+            disabled={disabled}
             onChange={(event) => setAllowedHost(event.target.value)}
             placeholder="example.org"
             value={allowedHost}

@@ -523,8 +523,11 @@ LOCAL_DEV_WORKSPACE_PREFIXES = (
 )
 CONTROL_CENTER_LOCAL_STATE_PREFIXES = (
     "/control-center/chat",
+    "/control-center/start-here",
     "/control-center/today",
     "/control-center/actions",
+    "/control-center/proof",
+    "/control-center/trust-authority",
     "/control-center/memory",
     "/control-center/evidence",
     "/control-center/morning-briefing",

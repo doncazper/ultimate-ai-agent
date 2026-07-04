@@ -125,6 +125,40 @@ function founderLoopProductProofFixture(
     ],
     next_safe_action: "Inspect backend-owned safe refs before promotion.",
   }));
+  const productizedSurfaceBindings = [
+    ["start_here", "Start Here", "/start", "GET /control-center/start-here/summary"],
+    ["today", "Today", "/today", "GET /control-center/today/summary"],
+    ["action_inbox", "Action Inbox", "/actions", "GET /control-center/actions/inbox"],
+    ["proof", "Proof", "/proof", "GET /control-center/proof/index"],
+    ["evidence", "Evidence", "/evidence", "GET /control-center/evidence/timeline"],
+    ["memory", "Memory", "/memory", "GET /control-center/memory/review"],
+    ["trust", "Trust", "/trust", "GET /control-center/trust-authority/matrix"],
+    ["settings", "Settings", "/settings", "GET /control-center/settings/status"],
+  ].map(([surfaceId, surface, route, backendRoute]) => ({
+    surface_id: surfaceId,
+    surface,
+    frontend_route_ref: route,
+    backend_route_ref: backendRoute,
+    status: "backend_owned_productized_surface",
+    product_posture: "daily_loop_productized",
+    safe_summary: `${surface} shares backend-owned daily loop refs.`,
+    shared_ref: "founder-loop-state-ref:demo-safe-seeded-loop",
+    primary_proof_ref: "proof-ref:founder-loop-v1:governed-local-loop",
+    source_refs: [`source-ref:founder-loop-productized:${surfaceId}`],
+    receipt_refs:
+      surfaceId === "action_inbox"
+        ? ["receipt:founder-loop-product-proof:action-defer"]
+        : [],
+    evidence_refs: [`evidence-ref:founder-loop-productized:${surfaceId}`],
+    memory_candidate_refs:
+      surfaceId === "memory"
+        ? ["business-memory-candidate:founder-loop-preferences"]
+        : [],
+    blocked_state_refs: [
+      "blocked-state:founder-loop-proof-no-production-authority",
+    ],
+    next_safe_action: "Use the shared backend refs before promotion.",
+  }));
   return {
     schema_version: "founder-loop-v1-product-proof.v1",
     contract_ref: "contract-ref:founder-loop-v1-product-proof:v1",
@@ -138,6 +172,36 @@ function founderLoopProductProofFixture(
     raw_content_included: false,
     scenario_ref: "scenario-ref:founder-loop-v1-demo-safe-seeded-loop",
     shared_state_ref: "founder-loop-state-ref:demo-safe-seeded-loop",
+    full_strength_goal:
+      "Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust, and Settings operate as one local-first governed daily loop.",
+    repo_safe_scope:
+      "Backend-owned safe refs, read-only route posture, visual cohesion, mock fallback labels, and CLI inspection only.",
+    blocked_authority_summary:
+      "Provider/model calls, connector writes/sends, browser work, shell subprocess work, background autonomy, public release claims, and production authority remain blocked.",
+    exact_promotion_path_refs: [
+      "promotion-path-ref:daily-loop-productization:shared-backend-refs",
+      "promotion-path-ref:daily-loop-productization:route-proof-cohesion",
+      "promotion-path-ref:daily-loop-productization:receipt-evidence-memory-binding",
+      "promotion-path-ref:daily-loop-productization:approved-mutation-lanes-only",
+    ],
+    productized_surface_order: [
+      "start_here",
+      "today",
+      "action_inbox",
+      "proof",
+      "evidence",
+      "memory",
+      "trust",
+      "settings",
+    ],
+    productized_surface_count: productizedSurfaceBindings.length,
+    productized_surface_bindings: productizedSurfaceBindings,
+    productized_route_refs: productizedSurfaceBindings.map(
+      (binding) => binding.frontend_route_ref,
+    ),
+    productized_backend_route_refs: productizedSurfaceBindings.map(
+      (binding) => binding.backend_route_ref,
+    ),
     loop_order: [
       "morning_briefing",
       "today",
@@ -1125,7 +1189,7 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("Sources blocked/status-only")).toBeInTheDocument();
     expect(screen.getByText("Kill-switch posture")).toBeInTheDocument();
     expect(screen.getByText("Unverified in fallback")).toBeInTheDocument();
-    expect(screen.getAllByText("proofed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("exact route proof").length).toBeGreaterThan(0);
     expect(screen.queryByText("Local loop active")).not.toBeInTheDocument();
     expect(screen.queryByText("API boundary stable")).not.toBeInTheDocument();
     expect(screen.queryByText("Evidence healthy")).not.toBeInTheDocument();
@@ -1137,7 +1201,9 @@ describe("Web Control Center shell", () => {
       screen.getByRole("button", { name: /find route or action/i }),
     );
     const palette = screen.getByRole("dialog", { name: /command palette/i });
-    expect(within(palette).getAllByText(/proofed/i).length).toBeGreaterThan(0);
+    expect(
+      within(palette).getAllByText(/exact route proof/i).length,
+    ).toBeGreaterThan(0);
     expect(within(palette).queryByText("ship")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /execute/i }),
@@ -1619,6 +1685,7 @@ describe("Web Control Center shell", () => {
       ["/memory", /^Memory Review$/i, dogfoodRefs.memoryCandidateRef],
       ["/evidence", /Evidence Timeline/i, dogfoodRefs.timelineEventRef],
       ["/trust", /^Trust$/i, dogfoodRefs.localTaskProofRef],
+      ["/settings", /^Settings$/i, "proof-ref:founder-loop-v1:governed-local-loop"],
     ] as const;
 
     for (const [path, heading, expectedRef] of routes) {
@@ -1630,6 +1697,26 @@ describe("Web Control Center shell", () => {
           screen.getAllByRole("heading", { name: heading }).length,
         ).toBeGreaterThan(0);
         expect(screen.getAllByText(expectedRef).length).toBeGreaterThan(0);
+        const spine = screen.getByLabelText("Founder daily loop modules");
+        for (const surface of [
+          "Start Here",
+          "Today",
+          "Action Inbox",
+          "Proof",
+          "Evidence",
+          "Memory",
+          "Trust",
+          "Settings",
+        ]) {
+          expect(
+            within(spine)
+              .getAllByRole("link")
+              .some((link) => link.textContent?.includes(surface)),
+          ).toBe(true);
+        }
+        expect(
+          within(spine).queryByText(/Source Inbox/),
+        ).not.toBeInTheDocument();
         expect(
           screen.queryByText(/Backend unavailable; showing non-authoritative/i),
         ).not.toBeInTheDocument();
@@ -3748,6 +3835,16 @@ describe("Web Control Center shell", () => {
         String(url) === API_ENDPOINTS.founderTodayActionEnvelope
       ) {
         return new Response(JSON.stringify({ ok: true, result: receipt }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      const urlText = String(url);
+      if (
+        !options?.method &&
+        READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))
+      ) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });

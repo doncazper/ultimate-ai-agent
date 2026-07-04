@@ -15,9 +15,13 @@ VISUAL_SPEC_PATH = CONTROL_CENTER_ROOT / "tests" / "visual" / "control-center.vi
 SNAPSHOT_ROOT = CONTROL_CENTER_ROOT / "tests" / "visual" / "__snapshots__"
 REQUIRED_SURFACES = {
     "Overview",
+    "Start Here",
     "Today",
     "Actions",
+    "Source Inbox",
     "Plans",
+    "Proof",
+    "Trust",
     "Memory",
     "Evidence",
     "Settings",

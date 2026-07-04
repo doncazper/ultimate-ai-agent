@@ -4,6 +4,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
+    FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF,
+)
 from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
     WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS,
     WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF,
@@ -252,8 +255,13 @@ def build_trust_authority_matrix_read_model(
     *,
     today_summary: dict[str, Any],
 ) -> dict[str, Any]:
-    del today_summary
-    lanes = _trust_authority_lanes()
+    runs = today_summary.get("founder_loop_runs_integration_read_model")
+    primary_loop_proof_ref = (
+        runs.get("primary_proof_ref")
+        if isinstance(runs, dict) and isinstance(runs.get("primary_proof_ref"), str)
+        else FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF
+    )
+    lanes = _trust_authority_lanes(primary_loop_proof_ref=primary_loop_proof_ref)
     tier_summaries = _tier_summaries(lanes)
     model = TrustAuthorityMatrixReadModel(
         doctrine="Earned authority, low friction by default, strict only where consequences justify it.",
@@ -303,7 +311,10 @@ def build_trust_authority_matrix_read_model(
     return model.model_dump(mode="json")
 
 
-def _trust_authority_lanes() -> list[TrustAuthorityLane]:
+def _trust_authority_lanes(
+    *,
+    primary_loop_proof_ref: str,
+) -> list[TrustAuthorityLane]:
     return [
         _lane(
             lane_ref="trust-lane:start-here-read",
@@ -316,7 +327,7 @@ def _trust_authority_lanes() -> list[TrustAuthorityLane]:
             operator_can_do_now="Open Start Here and inspect the next safe governed loop step.",
             next_safe_action="Follow the linked local loop, then inspect Proof.",
             route_refs=["GET /control-center/start-here/summary"],
-            proof_refs=["proof-ref:start-here:current-loop"],
+            proof_refs=[primary_loop_proof_ref],
             verifier_refs=["tests/test_control_center_start_here.py"],
             docs_refs=[TRUST_AUTHORITY_MATRIX_DOC_REF],
         ),
@@ -331,7 +342,7 @@ def _trust_authority_lanes() -> list[TrustAuthorityLane]:
             operator_can_do_now="Review Today, linked Action Inbox items, evidence, and memory cues.",
             next_safe_action="Review the next local action proposal or proof detail.",
             route_refs=["GET /control-center/today/summary"],
-            proof_refs=["proof-ref:daily-loop:today"],
+            proof_refs=[primary_loop_proof_ref],
             verifier_refs=["tests/test_control_center_api_routes.py"],
             docs_refs=["docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"],
         ),
@@ -349,7 +360,7 @@ def _trust_authority_lanes() -> list[TrustAuthorityLane]:
                 "GET /control-center/proof/index",
                 "GET /control-center/proof/{proof_ref}",
             ],
-            proof_refs=["proof-ref:proof-spine:index"],
+            proof_refs=[primary_loop_proof_ref],
             verifier_refs=["tests/test_control_center_proof_spine.py"],
             docs_refs=["docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"],
         ),
@@ -364,7 +375,7 @@ def _trust_authority_lanes() -> list[TrustAuthorityLane]:
             operator_can_do_now="Review requested, blocked, receipt-recorded, and no-authority items without executing them.",
             next_safe_action="Pick a local task commit candidate only when exact approval is available.",
             route_refs=["GET /control-center/actions/inbox"],
-            proof_refs=["proof-ref:action-inbox:work-queue"],
+            proof_refs=[primary_loop_proof_ref],
             verifier_refs=["tests/test_action_inbox_work_queue.py"],
             docs_refs=["docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"],
         ),
@@ -381,7 +392,7 @@ def _trust_authority_lanes() -> list[TrustAuthorityLane]:
             route_refs=[
                 "POST /control-center/actions/{action_id}/local-task/commit",
             ],
-            proof_refs=["proof-ref:local-task-commit:current"],
+            proof_refs=[primary_loop_proof_ref],
             verifier_refs=[
                 "tests/test_fcc_action_001_approval_bound_local_micro_lanes.py",
                 "tests/test_action_inbox_work_queue.py",
@@ -405,7 +416,7 @@ def _trust_authority_lanes() -> list[TrustAuthorityLane]:
             operator_can_do_now="Inspect why memory appeared and which evidence supports it.",
             next_safe_action="Treat memory as recall, not truth, before recording a decision.",
             route_refs=["GET /control-center/memory/review"],
-            proof_refs=["proof-ref:memory-decision:current"],
+            proof_refs=[primary_loop_proof_ref],
             verifier_refs=[
                 "tests/test_evidence_memory_loop_binding.py",
                 "tests/test_fcc_v1_005_memory_review_decisions.py",
@@ -430,7 +441,7 @@ def _trust_authority_lanes() -> list[TrustAuthorityLane]:
                 "POST /control-center/memory/review/{candidate_ref}/accept",
                 "POST /control-center/memory/review/{candidate_ref}/correct",
             ],
-            proof_refs=["proof-ref:memory-decision:reviewed-recall-write"],
+            proof_refs=[primary_loop_proof_ref],
             verifier_refs=[
                 "tests/test_fcc_v1_005_memory_review_decisions.py",
             ],
@@ -454,7 +465,7 @@ def _trust_authority_lanes() -> list[TrustAuthorityLane]:
             operator_can_do_now="Inspect what changed, why it was recorded, and which proof refs support it.",
             next_safe_action="Use Evidence to verify decisions; do not execute from evidence.",
             route_refs=["GET /control-center/evidence/timeline"],
-            proof_refs=["proof-ref:evidence-event:current"],
+            proof_refs=[primary_loop_proof_ref],
             verifier_refs=[
                 "tests/test_fcc_v1_006_evidence_timeline_productization.py",
                 "tests/test_evidence_memory_loop_binding.py",

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { submitWebEvidenceAttachment } from "../api/client";
 import type {
   ControlCenterProofIndex,
@@ -99,6 +99,10 @@ const webEvidenceReceipt: WebEvidenceProductSliceReceipt = {
 };
 
 describe("ProofDetailPanel web evidence", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("submits web evidence through the backend helper and renders receipt refs", async () => {
     const mockedSubmit = vi.mocked(submitWebEvidenceAttachment);
     mockedSubmit.mockResolvedValueOnce(webEvidenceReceipt);
@@ -130,12 +134,25 @@ describe("ProofDetailPanel web evidence", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("disables attach when the proof index is not authoritative", () => {
+  it("blocks attach when the proof index is not authoritative", () => {
+    const mockedSubmit = vi.mocked(submitWebEvidenceAttachment);
     render(<ProofDetailPanel authoritative={false} proofIndex={proofIndex} />);
 
+    const form = screen
+      .getByRole("button", { name: /attach preview/i })
+      .closest("form");
+    expect(form).not.toBeNull();
+    fireEvent.submit(form as HTMLFormElement);
+
+    expect(mockedSubmit).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("HTTPS URL")).toBeDisabled();
+    expect(screen.getByLabelText("Allowed host")).toBeDisabled();
     expect(screen.getByRole("button", { name: /attach preview/i })).toBeDisabled();
     expect(
-      screen.getByText("Backend proof is required before attach."),
-    ).toBeInTheDocument();
+      screen.getByRole("alert"),
+    ).toHaveTextContent("Backend proof is required before attach.");
+    expect(
+      screen.getAllByText("Backend proof is required before attach.").length,
+    ).toBeGreaterThanOrEqual(1);
   });
 });

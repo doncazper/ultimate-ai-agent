@@ -60,9 +60,13 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
 
     assert manifest.route_count == EXPECTED_ROUTE_COUNT
     for path in [
+        "/control-center/start-here/summary",
         "/control-center/today/summary",
         "/control-center/actions/inbox",
         "/control-center/actions/{action_id}/receipt",
+        "/control-center/proof/index",
+        "/control-center/proof/{proof_ref}",
+        "/control-center/trust-authority/matrix",
         "/control-center/evidence/timeline",
         "/control-center/memory/l1-index",
         "/control-center/memory/l2-index",
@@ -83,6 +87,32 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         assert routes[path].side_effect_class == "local_dev_workspace_only"
         assert routes[path].operation_id.startswith("get_control_center_")
         assert routes[path].route_classification == "local_sensitive"
+
+    expected_operation_ids = {
+        "/control-center/start-here/summary": "get_control_center_start_here_summary",
+        "/control-center/proof/index": "get_control_center_proof_index",
+        "/control-center/proof/{proof_ref}": "get_control_center_proof_proof_ref",
+        "/control-center/trust-authority/matrix": "get_control_center_trust_authority_matrix",
+    }
+    for path, operation_id in expected_operation_ids.items():
+        assert path in routes
+        assert routes[path].method == "GET"
+        assert routes[path].side_effect_class == "local_dev_workspace_only"
+        assert routes[path].operation_id == operation_id
+        assert routes[path].approval_posture == "not_required_for_route_classification"
+        assert routes[path].idempotency_required is False
+        assert routes[path].protected_route is True
+    settings_path = "/control-center/settings/status"
+    assert settings_path in routes
+    assert routes[settings_path].method == "GET"
+    assert routes[settings_path].side_effect_class == "validation_only"
+    assert routes[settings_path].operation_id == "get_control_center_settings_status"
+    assert routes[settings_path].approval_posture == "not_required_for_route_classification"
+    assert routes[settings_path].idempotency_required is False
+    assert routes[settings_path].protected_route is True
+    assert routes["/control-center/settings/status"].route_classification == (
+        "local_readonly"
+    )
 
     path = "/control-center/sources/readiness"
     assert path in routes

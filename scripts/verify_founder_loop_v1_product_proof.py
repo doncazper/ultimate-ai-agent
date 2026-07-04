@@ -53,7 +53,11 @@ def _validate_live_read_model(failures: list[str]) -> None:
     from ultimate_ai_agent.core.control_center.founder_loop_product_proof import (
         FOUNDER_LOOP_PRODUCT_PROOF_REQUIRED_BLOCKED_REFS,
         FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER,
+        FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER,
         FounderLoopProductProofReadModel,
+    )
+    from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
+        FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF,
     )
     from ultimate_ai_agent.core.memory import (
         FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
@@ -102,6 +106,22 @@ def _validate_live_read_model(failures: list[str]) -> None:
         return
     if parsed.loop_order != list(FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER):
         failures.append("Founder Loop product proof loop order drifted")
+    if parsed.productized_surface_order != list(
+        FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER
+    ):
+        failures.append("Founder Loop productized surface order drifted")
+    if parsed.productized_surface_count != len(
+        FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER
+    ):
+        failures.append("Founder Loop productized surface count drifted")
+    if [binding.surface_id for binding in parsed.productized_surface_bindings] != list(
+        FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER
+    ):
+        failures.append("Founder Loop productized surface bindings drifted")
+    if {
+        binding.primary_proof_ref for binding in parsed.productized_surface_bindings
+    } != {FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF}:
+        failures.append("Founder Loop productized surfaces use unresolved proof refs")
     if set(FOUNDER_LOOP_PRODUCT_PROOF_REQUIRED_BLOCKED_REFS) - set(
         parsed.blocked_authority_refs
     ):
@@ -187,7 +207,9 @@ def verify() -> list[str]:
         CONTRACT,
         [
             "FOUNDER_LOOP_PRODUCT_PROOF_CONTRACT_REF",
+            "FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER",
             "FounderLoopProductProofReadModel",
+            "FounderLoopProductizedSurfaceBinding",
             "build_founder_loop_product_proof_read_model",
             "FOUNDER_LOOP_PRODUCT_PROOF_REQUIRED_BLOCKED_REFS",
         ],
@@ -207,6 +229,7 @@ def verify() -> list[str]:
         [
             "FounderLoopProductProofPanel",
             "FounderLoopProofPathPanel",
+            "Daily loop productization",
             "Founder Loop proof path",
             "Founder Loop V1 product proof",
             "founder_loop_v1_product_proof_read_model",
@@ -223,6 +246,8 @@ def verify() -> list[str]:
             "ensure_storage=False",
             "read_only=True",
             "state_not_found_no_write",
+            "productized_surface_order",
+            "productized_surface_bindings",
         ],
         failures,
     )
@@ -230,6 +255,8 @@ def verify() -> list[str]:
         FRONTEND_CLIENT,
         [
             "isSafeFounderLoopProductProofReadModel",
+            "isSafeFounderLoopProductizedSurfaceBinding",
+            "FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER",
             "FOUNDER_LOOP_PRODUCT_PROOF_DENIED_FLAGS",
             "founder_loop_v1_product_proof_read_model",
         ],
@@ -240,6 +267,7 @@ def verify() -> list[str]:
         [
             "Founder Loop V1 Product Proof Pass",
             "Morning Briefing -> Today -> Action Inbox",
+            "Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust, and Settings",
             "No provider/model calls",
             "No public beta, public release, or production readiness claim",
         ],

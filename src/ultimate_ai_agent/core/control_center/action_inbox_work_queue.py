@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import re
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -39,6 +41,7 @@ _NEXT_ITEM_GROUP_ORDER = (
     "expired_stale",
     "receipt_recorded",
 )
+_PROOF_SAFE_SUFFIX_RE = re.compile(r"[^a-z0-9_-]+")
 _DENIED_FLAGS = (
     "action_execution_enabled",
     "connector_write_enabled",
@@ -298,7 +301,9 @@ def _next_item_model(
         ]
     )
     receipt_refs = _refs(action.get("receipt_refs"))
-    proof_ref = _proof_ref_for_item(item_ref)
+    proof_ref = _proof_ref_for_item(
+        str(action.get("action_envelope_ref") or item_ref)
+    )
     return ActionInboxWorkQueueNextItem(
         item_ref=item_ref,
         title=str(action.get("title") or "Action Inbox item"),
@@ -390,10 +395,16 @@ def _lane_status(*, group_id: str, count: int) -> str:
 
 
 def _proof_ref_for_item(item_ref: str) -> str:
-    slug = item_ref.lower().replace(":", "-").replace("_", "-")[:80].strip("-")
-    proof_ref = f"proof-ref:action-decision:{slug or 'missing'}"
-    validate_execution_ref(proof_ref, "proof_ref")
-    return proof_ref
+    slug = _PROOF_SAFE_SUFFIX_RE.sub("-", item_ref.lower()).strip("-")[:80]
+    candidate = f"proof-ref:action-decision:{slug or 'missing'}"
+    try:
+        validate_execution_ref(candidate, "proof_ref")
+        return candidate
+    except ValueError:
+        digest = hashlib.sha256(item_ref.encode("utf-8")).hexdigest()[:24]
+        proof_ref = f"proof-ref:action-decision:sha256:{digest}"
+        validate_execution_ref(proof_ref, "proof_ref")
+        return proof_ref
 
 
 def _list(value: Any) -> list[Any]:

@@ -396,6 +396,11 @@ main {
   font-size: 1.45rem;
 }
 
+.start-here-metric-grid .metric-card strong {
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
 .compact-stack {
   display: grid;
   gap: 10px;
@@ -1388,6 +1393,27 @@ main {
   background: #f0f4f8;
 }
 
+.detail-term {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.detail-term span {
+  color: #52606d;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.detail-term strong {
+  max-width: 100%;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
 .detail-grid dt {
   color: #52606d;
   font-size: 0.78rem;
@@ -2150,6 +2176,12 @@ body {
   border: 0;
   background: transparent;
   font-size: 0.68rem;
+}
+
+.top-status-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .topbar-status-strip .top-status-chip:not(.orange):not(.red):not(.blue):not(.green) {
@@ -4294,5 +4326,48 @@ th {
   .fcc-event-row small:nth-last-child(-n + 4),
   .fcc-event-row span {
     display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .loop-spine > *,
+  .loop-spine-header,
+  .loop-spine-grid,
+  .proof-path-panel {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .loop-spine-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .loop-spine-card {
+    min-height: 72px;
+  }
+
+  .loop-spine-card-topline strong,
+  .loop-spine-status,
+  .loop-spine-ref {
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .operator-loop-summary,
+  .operator-loop-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .operator-loop-summary > * {
+    min-width: 0;
+  }
+
+  .start-here-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .start-here-metric-grid .metric-card strong {
+    font-size: 1.08rem;
   }
 }

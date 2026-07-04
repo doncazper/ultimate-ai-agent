@@ -17,7 +17,11 @@ from ultimate_ai_agent.core.control_center.founder_loop_product_proof import (
     FOUNDER_LOOP_PRODUCT_PROOF_READ_MODEL_SOURCE,
     FOUNDER_LOOP_PRODUCT_PROOF_REQUIRED_BLOCKED_REFS,
     FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER,
+    FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER,
     FounderLoopProductProofReadModel,
+)
+from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
+    FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF,
 )
 from ultimate_ai_agent.core.memory import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
@@ -45,6 +49,25 @@ def _assert_product_proof(read_model: dict[str, Any]) -> None:
     assert parsed.safe_refs_only is True
     assert parsed.safe_summary_only is True
     assert parsed.raw_content_included is False
+    assert "Start Here, Today, Action Inbox, Proof" in parsed.full_strength_goal
+    assert "Backend owned safe refs" in parsed.repo_safe_scope
+    assert "remain blocked" in parsed.blocked_authority_summary
+    assert parsed.exact_promotion_path_refs
+    assert parsed.productized_surface_order == list(
+        FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER
+    )
+    assert parsed.productized_surface_count == len(
+        FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER
+    )
+    assert [binding.surface_id for binding in parsed.productized_surface_bindings] == (
+        list(FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER)
+    )
+    assert {
+        binding.frontend_route_ref for binding in parsed.productized_surface_bindings
+    } == {"/start", "/today", "/actions", "/proof", "/evidence", "/memory", "/trust", "/settings"}
+    assert {
+        binding.primary_proof_ref for binding in parsed.productized_surface_bindings
+    } == {FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF}
     assert parsed.loop_order == list(FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER)
     assert [step.step_id for step in parsed.steps] == list(
         FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER
@@ -182,6 +205,16 @@ def test_founder_loop_product_proof_rejects_authority_and_raw_content(
     with pytest.raises(ValidationError, match="loop order"):
         FounderLoopProductProofReadModel(**payload)
 
+    payload = dict(read_model)
+    payload["productized_route_refs"] = ["/wrong"]
+    with pytest.raises(ValidationError, match="productized route refs"):
+        FounderLoopProductProofReadModel(**payload)
+
+    payload = dict(read_model)
+    payload["productized_backend_route_refs"] = ["GET /wrong"]
+    with pytest.raises(ValidationError, match="productized backend route refs"):
+        FounderLoopProductProofReadModel(**payload)
+
 
 def test_founder_loop_product_proof_cli_is_read_only_and_redacted(
     tmp_path: Path,
@@ -254,6 +287,15 @@ def test_founder_loop_dev_cli_inspects_loop_spine_without_raw_paths(
         "repo-local-command:founder-loop-inspect-loop-spine"
     )
     assert payload["loop_order"] == list(FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER)
+    assert payload["productized_surface_order"] == list(
+        FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER
+    )
+    assert payload["productized_surface_count"] == len(
+        FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER
+    )
+    assert [
+        binding["surface_id"] for binding in payload["productized_surface_bindings"]
+    ] == list(FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER)
     assert [step["step_id"] for step in payload["steps"]] == list(
         FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER
     )
@@ -289,6 +331,10 @@ def test_founder_loop_dev_cli_inspects_loop_spine_without_raw_paths(
     assert missing_payload["storage_state"] == "state_not_found_no_write"
     assert missing_payload["steps"] == []
     assert missing_payload["loop_order"] == list(FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER)
+    assert missing_payload["productized_surface_bindings"] == []
+    assert missing_payload["productized_surface_order"] == list(
+        FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER
+    )
     assert missing_payload["raw_paths_omitted"] is True
     assert str(missing_state_dir) not in missing_result.stdout
     assert not missing_state_dir.exists()

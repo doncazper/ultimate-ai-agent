@@ -4241,6 +4241,34 @@ export interface FounderLoopProductProofStep {
   next_safe_action: string;
 }
 
+export type FounderLoopProductizedSurfaceId =
+  | "start_here"
+  | "today"
+  | "action_inbox"
+  | "proof"
+  | "evidence"
+  | "memory"
+  | "trust"
+  | "settings";
+
+export interface FounderLoopProductizedSurfaceBinding {
+  surface_id: FounderLoopProductizedSurfaceId;
+  surface: string;
+  frontend_route_ref: string;
+  backend_route_ref: string;
+  status: string;
+  product_posture: string;
+  safe_summary: string;
+  shared_ref: string;
+  primary_proof_ref: string;
+  source_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  memory_candidate_refs: string[];
+  blocked_state_refs: string[];
+  next_safe_action: string;
+}
+
 export interface FounderLoopProductProofReadModel {
   schema_version: "founder-loop-v1-product-proof.v1";
   contract_ref: string;
@@ -4254,6 +4282,15 @@ export interface FounderLoopProductProofReadModel {
   raw_content_included: boolean;
   scenario_ref: string;
   shared_state_ref: string;
+  full_strength_goal: string;
+  repo_safe_scope: string;
+  blocked_authority_summary: string;
+  exact_promotion_path_refs: string[];
+  productized_surface_order: FounderLoopProductizedSurfaceId[];
+  productized_surface_count: number;
+  productized_surface_bindings: FounderLoopProductizedSurfaceBinding[];
+  productized_route_refs: string[];
+  productized_backend_route_refs: string[];
   loop_order: FounderLoopProductProofStepId[];
   steps: FounderLoopProductProofStep[];
   supported_decision_actions: string[];

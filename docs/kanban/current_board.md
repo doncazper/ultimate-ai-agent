@@ -1118,8 +1118,9 @@ verified Control Center polish baseline over existing backend-owned state.
 `docs/control_center/visual_regression_manifest.json` and
 `apps/control-center/tests/visual/control-center.visual.spec.ts` cover
 redacted desktop/mobile baselines for Overview, Today, Actions, Plans, Memory,
-Evidence, Settings, and Setup. `/setup` remains a dry-run macOS-first setup
-preview with blocked setup authority, recommendation-only model choices,
+Evidence, Settings, Setup, Start Here, Source Inbox, Proof, and Trust. `/setup`
+remains a dry-run macOS-first setup preview with blocked setup authority,
+recommendation-only model choices,
 dry-run approval envelopes, receipt plans, and rollback refs. No signed
 distribution, installer mutation, LaunchAgent install/load/start,
 notification delivery, background polling, native OS authority,

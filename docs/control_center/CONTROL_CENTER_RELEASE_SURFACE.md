@@ -180,3 +180,15 @@ proof, evidence, and memory refs; Trust contributes the matching approval and
 blocked-authority posture. It reuses the exact `local_task_create` local task
 commit lane and adds no broader execution, external mutation, hidden context
 injection, public distribution, or production authority.
+
+Beta 03 productizes the repo-safe daily loop across `/start`, `/today`,
+`/actions`, `/proof`, `/evidence`, `/memory`, `/trust`, and `/settings` by
+using one backend-owned loop spine from
+`founder_loop_v1_product_proof_read_model`, Action Inbox work queue refs,
+Universal Proof refs, Evidence/Memory binding refs, and Settings status refs.
+Source Inbox remains visible in primary navigation for route reachability and
+visual-baseline continuity, but it is a supporting source-readiness surface.
+This is read-model, CLI, UI, and verifier hardening only; it adds no
+provider/model call, connector send/write, browser automation,
+shell/subprocess execution, broad memory write, runtime context injection,
+public distribution, or production authority.

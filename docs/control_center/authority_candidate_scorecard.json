@@ -10,13 +10,14 @@
     "prompt_ref": "docs/prompts/fcc_authority_ramp/02_read_only_proposal_foundation.prompt.md",
     "foundation_ref": "read_only_real_world_web_fetch",
     "status": "implemented",
-    "safe_summary": "The exact read_only_real_world_web_fetch lane is implemented as explicit allowlisted HTTPS GET through WebAccessGateway with bounded redacted preview, safe refs, CLI inspection, and no backend route or Control Center control.",
+    "safe_summary": "The exact read_only_real_world_web_fetch lane is implemented as explicit allowlisted HTTPS GET through WebAccessGateway with bounded redacted preview, safe refs, CLI inspection, and the scoped Control Center Web Evidence product-slice route.",
     "allowed_scope": [
       "https_get_only",
       "explicit_public_allowlist",
       "bounded_redacted_preview",
       "safe_refs_only",
-      "gateway_audit_request_ref_posture"
+      "gateway_audit_request_ref_posture",
+      "control_center_web_evidence_attach_route"
     ],
     "blocked_authorities": [
       "browser_observe",
@@ -42,8 +43,12 @@
       "tests/test_m72_read_only_http_fetch_tool.py",
       "tests/test_web_access_gateway.py",
       "tests/test_web_access_static_guards.py",
+      "tests/test_web_evidence_product_slice.py",
       "scripts/verify_web_runtime_authority.py",
       "scripts/verify_operational_maturity.py"
+    ],
+    "route_refs": [
+      "POST /control-center/web-evidence/attach"
     ],
     "next_safe_action": "Keep the implemented lane exact-scoped; any browser, provider, connector, memory, action, or production authority must go through follow-on candidate ranking."
   },
@@ -51,8 +56,10 @@
     {
       "foundation_id": "read_only_real_world_web_fetch",
       "status": "implemented",
-      "safe_summary": "Read-only real-world HTTPS GET is available only through the WebAccessGateway-routed M72 tool runtime path and CLI inspector, with explicit public allowlist and bounded redacted preview.",
-      "route_refs": [],
+      "safe_summary": "Read-only real-world HTTPS GET is available only through the WebAccessGateway-routed M72 tool runtime path, CLI inspector, and scoped Control Center Web Evidence attachment route, with explicit public allowlist and bounded redacted preview.",
+      "route_refs": [
+        "POST /control-center/web-evidence/attach"
+      ],
       "surface_refs": [
         "docs/network/WEB_ACCESS_GATEWAY.md",
         "docs/network/WEB_RUNTIME_AUTHORITY_HARDENING.md",
@@ -63,7 +70,8 @@
         "tests/test_m72_gate_integration.py",
         "tests/test_m72_read_only_http_fetch_tool.py",
         "tests/test_web_access_gateway.py",
-        "tests/test_web_access_static_guards.py"
+        "tests/test_web_access_static_guards.py",
+        "tests/test_web_evidence_product_slice.py"
       ],
       "blocked_authorities": [
         "browser_observe",

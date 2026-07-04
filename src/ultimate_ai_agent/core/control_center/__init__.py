@@ -97,8 +97,10 @@ from ultimate_ai_agent.core.control_center.founder_loop_product_proof import (
     FOUNDER_LOOP_PRODUCT_PROOF_REQUIRED_BLOCKED_REFS,
     FOUNDER_LOOP_PRODUCT_PROOF_SCENARIO_REF,
     FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER,
+    FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER,
     FounderLoopProductProofReadModel,
     FounderLoopProductProofStep,
+    FounderLoopProductizedSurfaceBinding,
     build_founder_loop_product_proof_read_model,
 )
 from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
@@ -250,6 +252,8 @@ __all__ = [
     "FOUNDER_LOOP_PRODUCT_PROOF_REQUIRED_BLOCKED_REFS",
     "FOUNDER_LOOP_PRODUCT_PROOF_SCENARIO_REF",
     "FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER",
+    "FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER",
+    "FounderLoopProductizedSurfaceBinding",
     "FOUNDER_LOOP_RUNS_INTEGRATION_CONTRACT_REF",
     "FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF",
     "FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF",
