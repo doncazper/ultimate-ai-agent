@@ -158,3 +158,63 @@ Execution fence:
 ```text
 Before any side effect, revalidate approved action id, tool name, arguments, merchant, recipient, account, cost, credential broker refs, and risk class. Reject any unapproved expansion.
 ```
+
+## Phase 02 Deterministic Serial Classifier
+
+Implemented classifier surface:
+
+- `classify_turn_contract` accepts ephemeral turn text and returns a
+  safe-ref-only `TurnDecision`.
+- The classifier stores reason refs, risk flags, confidence, and safe
+  summaries, not raw request text.
+- The classifier is precompiled regex/rule based.
+- It performs no LLM call, provider call, tool call, memory retrieval, durable
+  write, shell/subprocess execution, browser/network access, connector write,
+  or side effect.
+
+Serial priority order:
+
+1. `blocked_unsafe`
+2. High-risk external side effect
+3. Credential, payment, account, or privacy boundary
+4. External side-effecting action
+5. Explicit memory or personal-context request
+6. Current, read-only tool, or research need
+7. Draft or plan request
+8. Explicit `base_answer` request unless it conflicts with safety/action
+   boundaries
+9. Clarifying question only when necessary
+10. `answer_directly`
+
+Signal policy:
+
+| Signal group | Examples | Selected contract |
+|---|---|---|
+| Unsafe | phishing, malware, unauthorized access | `blocked_unsafe` |
+| High-risk external side effect | buy, order, pay, checkout, book, reserve, submit | `approval_required` |
+| Credential/payment/account/privacy | card, credentials, account, money, identity | `approval_required` |
+| External or destructive action | send, email, message, upload, delete, overwrite | `approval_required` |
+| Memory write request | remember this, save this | `approval_required` as the repo-safe review boundary |
+| Memory read request | using what you know, my preferences, my office, last time | `answer_with_reviewed_memory` |
+| Current/research need | latest, current, today, near me, search, cite sources | `prepare_tool_or_action` |
+| Draft/plan | shopping list, proposal, outline, checklist | `draft_or_plan` |
+| Explicit base answer | base answer path | `base_answer` unless a higher priority safety/action boundary applies |
+| Ambiguous delegation | handle that thing, do the thing | `ask_clarifying_question` |
+| Informational/software/DIY | DIY table, React component, Python function | `answer_directly` |
+
+Golden regression table:
+
+| Prompt | Expected contract | Required policy |
+|---|---|---|
+| How do I build a DIY table? | `answer_directly` | No memory, no tools, no planner, no state, no approval, normal useful answer. |
+| Ask the base answer path: how do I build a DIY table? | `base_answer` | Minimal UAA wrapper; no memory/tools/planner/state; safety still applies. |
+| Build me a React table component. | `answer_directly` | Code-style answer is fine. Do not route to operator/action mode. |
+| Design one for my office using what you know. | `answer_with_reviewed_memory` | Reviewed relevant memory only; say "I do not know" when absent. |
+| Remember that I prefer walnut. | `approval_required` | Repo-safe memory review boundary; no silent durable memory write. |
+| Make me a shopping list for this table. | `draft_or_plan` | No purchase tools, no checkout, no external side effect. |
+| Find current lumber prices near me. | `prepare_tool_or_action` | Read-only tools only; ask for location if unavailable. |
+| Order the materials. | `approval_required` | Action envelope required; no execution tools until approval. |
+| Use my card and book pickup at Home Depot. | `approval_required` | High purchase plus credential and booking risk; strong approval and brokered credential refs. |
+| Send this to Alex. | `approval_required` | External communication boundary; no send before exact approval. |
+| Delete these files. | `approval_required` | Destructive action boundary; no delete before exact approval. |
+| Ask the base answer path: use my card and order this. | `approval_required` | `base_answer` must not bypass payment, credential, or action safety. |

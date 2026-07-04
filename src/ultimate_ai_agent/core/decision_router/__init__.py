@@ -29,6 +29,10 @@ from ultimate_ai_agent.core.decision_router.turn_contracts import (
     TurnDecision,
     compile_invocation_policy,
 )
+from ultimate_ai_agent.core.decision_router.turn_classifier import (
+    TURN_CLASSIFIER_POLICY_REF,
+    classify_turn_contract,
+)
 
 __all__ = [
     "DECISION_ROUTER_CONTRACT_REF",
@@ -38,6 +42,7 @@ __all__ = [
     "TURN_CONTRACT_ROUTER_CONTRACT_REF",
     "TURN_CONTRACT_ROUTER_REQUIRED_BLOCKED_AUTHORITY_REFS",
     "TURN_CONTRACT_ROUTER_REQUIRED_CONTRACT_KINDS",
+    "TURN_CLASSIFIER_POLICY_REF",
     "ApprovalPolicy",
     "DecisionRouterAmbiguityPosture",
     "DecisionRouterBlockedState",
@@ -56,6 +61,7 @@ __all__ = [
     "ToolPolicy",
     "TurnContractKind",
     "TurnDecision",
+    "classify_turn_contract",
     "compile_invocation_policy",
     "route_decision",
 ]
