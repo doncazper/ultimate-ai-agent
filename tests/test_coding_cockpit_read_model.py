@@ -18,6 +18,8 @@ from ultimate_ai_agent.core.code import (
     CODING_COCKPIT_FRONTEND_ROUTE_REF,
     CODING_COCKPIT_GIT_REVIEW_BACKEND_ROUTE_REF,
     CODING_COCKPIT_GIT_REVIEW_REF,
+    CODING_COCKPIT_LIVE_PREVIEW_BACKEND_ROUTE_REF,
+    CODING_COCKPIT_LIVE_PREVIEW_REF,
     CODING_COCKPIT_PATCH_APPLY_BACKEND_ROUTE_REF,
     CODING_COCKPIT_PATCH_APPLY_READINESS_REF,
     CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF,
@@ -28,12 +30,14 @@ from ultimate_ai_agent.core.code import (
     CODING_COCKPIT_TEST_COMMAND_READINESS_REF,
     CodingCockpitSessionReadModel,
     CodingGitReviewReadModel,
+    CodingLivePreviewReadModel,
     CodingPatchApplyReadinessReadModel,
     CodingPatchProposalReadModel,
     CodingTestCommandReadinessReadModel,
     CodingWorkspaceContextReadModel,
     build_coding_cockpit_session_seed,
     build_coding_git_review,
+    build_coding_live_preview,
     build_coding_patch_apply_readiness,
     build_coding_patch_proposal_preview,
     build_coding_test_command_readiness,
@@ -70,8 +74,8 @@ def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
         CODING_COCKPIT_TEST_COMMAND_READINESS_REF,
         "command-proposal:coding-blocked-seed",
         CODING_COCKPIT_GIT_REVIEW_REF,
+        CODING_COCKPIT_LIVE_PREVIEW_REF,
         "proof-ref:coding-cockpit-seed",
-        "preview-ref:coding-blocked-seed",
     ]
     assert "Local coding cockpit" in session.full_strength_goal
     assert "Prompt 01 seed" in session.repo_safe_scope
@@ -90,6 +94,10 @@ def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
         in session.cli_inspection_refs
     )
     assert "scripts/dev/uaa_coding.py inspect-git-review" in session.cli_inspection_refs
+    assert (
+        "scripts/dev/uaa_coding.py inspect-live-preview"
+        in session.cli_inspection_refs
+    )
     assert all(not panel.mutation_enabled for panel in _coding_panels(session))
     assert all(not panel.runtime_authority_enabled for panel in _coding_panels(session))
     assert all(item.proof_refs for panel in _coding_panels(session) for item in panel.items)
@@ -435,6 +443,83 @@ def test_coding_git_review_rejects_git_authority() -> None:
         CodingGitReviewReadModel(**payload)
 
 
+def test_coding_live_preview_is_backend_owned_and_blocked() -> None:
+    preview = build_coding_live_preview()
+    payload = preview.model_dump(mode="json")
+
+    assert preview.schema_version == "uaa-coding-live-preview.v1"
+    assert preview.live_preview_ref == CODING_COCKPIT_LIVE_PREVIEW_REF
+    assert preview.patch_proposal_ref == CODING_COCKPIT_PATCH_PROPOSAL_REF
+    assert preview.test_command_readiness_ref == CODING_COCKPIT_TEST_COMMAND_READINESS_REF
+    assert preview.git_review_ref == CODING_COCKPIT_GIT_REVIEW_REF
+    assert preview.backend_route_refs == [CODING_COCKPIT_LIVE_PREVIEW_BACKEND_ROUTE_REF]
+    assert preview.frontend_route_refs == [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    assert preview.backend_owned is True
+    assert preview.read_only is True
+    assert preview.status_only is True
+    assert preview.safe_refs_only is True
+    assert preview.raw_url_included is False
+    assert preview.raw_console_output_included is False
+    assert preview.screenshot_artifact_included is False
+    assert preview.screenshot_capture_enabled is False
+    assert preview.visual_regression_enabled is False
+    assert preview.console_capture_enabled is False
+    assert preview.dev_server_status_detection_enabled is False
+    assert preview.dev_server_start_enabled is False
+    assert preview.dev_server_stop_enabled is False
+    assert preview.browser_preview_enabled is False
+    assert preview.browser_automation_enabled is False
+    assert preview.browser_interaction_enabled is False
+    assert preview.network_fetch_enabled is False
+    assert preview.shell_subprocess_execution_enabled is False
+    assert preview.file_write_enabled is False
+    assert preview.git_mutation_enabled is False
+    assert preview.provider_model_call_enabled is False
+    assert preview.connector_write_enabled is False
+    assert preview.production_authority_enabled is False
+    assert {item.item_kind for item in preview.preview_items} == {
+        "dev_server_status",
+        "preview_url",
+        "screenshot",
+        "console_errors",
+        "visual_regression",
+        "route_checklist",
+        "viewport",
+    }
+    assert preview.unblock_prompt_refs == ["prompt-ref:unblock-coding-live-preview"]
+    assert "/Users/" not in json.dumps(payload)
+    assert "credential" not in json.dumps(payload).lower()
+    assert "secret" not in json.dumps(payload).lower()
+
+
+def test_coding_live_preview_rejects_runtime_authority() -> None:
+    for flag_name in [
+        "raw_url_included",
+        "raw_console_output_included",
+        "screenshot_artifact_included",
+        "screenshot_capture_enabled",
+        "visual_regression_enabled",
+        "console_capture_enabled",
+        "dev_server_status_detection_enabled",
+        "dev_server_start_enabled",
+        "dev_server_stop_enabled",
+        "browser_preview_enabled",
+        "browser_automation_enabled",
+        "browser_interaction_enabled",
+        "network_fetch_enabled",
+        "shell_subprocess_execution_enabled",
+    ]:
+        payload = build_coding_live_preview().model_dump(mode="json")
+        payload[flag_name] = True
+        with pytest.raises(ValidationError, match=flag_name):
+            CodingLivePreviewReadModel(**payload)
+
+    payload = build_coding_live_preview().model_dump(mode="json")
+    payload["preview_items"][0]["dev_server_control_enabled"] = True
+    with pytest.raises(ValidationError, match="dev_server_control_enabled"):
+        CodingLivePreviewReadModel(**payload)
+
+
 def test_control_center_coding_session_route_returns_safe_read_model() -> None:
     client = TestClient(app)
     response = client.get("/control-center/coding/session")
@@ -611,6 +696,39 @@ def test_control_center_coding_git_review_route_returns_safe_read_model() -> Non
     assert all(item["git_mutation_enabled"] is False for item in data["review_items"])
 
 
+def test_control_center_coding_live_preview_route_returns_safe_read_model() -> None:
+    client = TestClient(app)
+    response = client.get("/control-center/coding/live-preview")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "control_center_coding_live_preview"
+    assert body["service"] == "ControlCenterCodingAPI"
+    assert body["trace_id"] == CODING_COCKPIT_LIVE_PREVIEW_REF
+    assert body["redactions_applied"] == [
+        "redaction-ref:safe-refs-only",
+        "redaction-ref:raw-url-omitted",
+        "redaction-ref:raw-console-output-omitted",
+        "redaction-ref:screenshot-artifact-omitted",
+    ]
+
+    data = body["data"]
+    assert data["backend_owned"] is True
+    assert data["read_only"] is True
+    assert data["status_only"] is True
+    assert data["safe_refs_only"] is True
+    assert data["dev_server_start_enabled"] is False
+    assert data["browser_preview_enabled"] is False
+    assert data["browser_automation_enabled"] is False
+    assert data["screenshot_capture_enabled"] is False
+    assert data["preview_items"]
+    assert all(
+        item["browser_automation_enabled"] is False
+        for item in data["preview_items"]
+    )
+
+
 def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_model() -> None:
     manifest = build_api_manifest(app)
     routes = {(route.method, route.path): route for route in manifest.routes}
@@ -620,6 +738,7 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
     apply_route = routes[("GET", "/control-center/coding/patch-apply-readiness")]
     test_command_route = routes[("GET", "/control-center/coding/test-command-readiness")]
     git_review_route = routes[("GET", "/control-center/coding/git-review")]
+    live_preview_route = routes[("GET", "/control-center/coding/live-preview")]
 
     assert route.operation_id == "get_control_center_coding_session"
     assert route.tags == ["control-center"]
@@ -666,6 +785,15 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
         == "not_required_for_route_classification"
     )
     assert git_review_route.idempotency_required is False
+    assert live_preview_route.operation_id == "get_control_center_coding_live_preview"
+    assert live_preview_route.tags == ["control-center"]
+    assert live_preview_route.side_effect_class == "local_dev_workspace_only"
+    assert live_preview_route.route_classification == "local_sensitive"
+    assert (
+        live_preview_route.approval_posture
+        == "not_required_for_route_classification"
+    )
+    assert live_preview_route.idempotency_required is False
     assert "control_center_coding_cockpit_session_read_model" in (
         manifest.capabilities_declared
     )
@@ -682,6 +810,9 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
         manifest.capabilities_declared
     )
     assert "control_center_coding_git_review_read_model" in (
+        manifest.capabilities_declared
+    )
+    assert "control_center_coding_live_preview_read_model" in (
         manifest.capabilities_declared
     )
     for capability in [
@@ -829,6 +960,34 @@ def test_coding_git_review_cli_inspection_prints_same_safe_model() -> None:
     assert data["git_status_execution_enabled"] is False
     assert data["git_mutation_enabled"] is False
     assert data["git_receipt_created"] is False
+    assert "/Users/" not in result.stdout
+    assert "credential" not in result.stdout.lower()
+    assert "secret" not in result.stdout.lower()
+
+
+def test_coding_live_preview_cli_inspection_prints_same_safe_model() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_coding.py"),
+            "inspect-live-preview",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    data = json.loads(result.stdout)
+
+    assert data["live_preview_ref"] == CODING_COCKPIT_LIVE_PREVIEW_REF
+    assert data["backend_owned"] is True
+    assert data["read_only"] is True
+    assert data["status_only"] is True
+    assert data["safe_refs_only"] is True
+    assert data["dev_server_start_enabled"] is False
+    assert data["browser_preview_enabled"] is False
+    assert data["browser_automation_enabled"] is False
+    assert data["screenshot_capture_enabled"] is False
     assert "/Users/" not in result.stdout
     assert "credential" not in result.stdout.lower()
     assert "secret" not in result.stdout.lower()

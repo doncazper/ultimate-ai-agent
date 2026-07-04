@@ -86,10 +86,18 @@ posture, and CLI inspection parity. Prompt 03 adds
 hunk refs, bounded diff summaries, and CLI inspection parity. Prompt 04 adds
 `GET /control-center/coding/patch-apply-readiness` with blocked apply
 prerequisite, expected receipt, rollback, proof, blocker, promotion-path, and
-unblock-prompt refs. It does not write files, apply patches, read or persist
-raw file content, run shell/subprocess commands, mutate Git state, call
-providers or models, automate browsers, write connectors, launch background
-agents, persist raw paths or raw content, or grant production authority.
+unblock-prompt refs. Prompt 05 adds
+`GET /control-center/coding/test-command-readiness` with allowlist and expected
+receipt refs only. Prompt 06 adds `GET /control-center/coding/git-review` with
+Git status, diff, changed-file, commit proposal, and PR description refs only.
+Prompt 07 adds `GET /control-center/coding/live-preview` with dev-server
+status, preview URL, screenshot, console, visual-proof, route-checklist, and
+viewport refs only. It does not write files, apply patches, read or persist raw
+file content, run shell/subprocess commands, execute commands, mutate Git
+state, start or inspect dev servers, persist raw URLs, capture screenshots,
+read console output, call providers or models, automate browsers, write
+connectors, launch background agents, persist raw paths or raw content, or
+grant production authority.
 FCC-V1-000 adds `releaseStatus` route metadata and
 `docs/control_center/release_surface_manifest.json`; the sidebar and command
 palette render conservative route-state labels. `ship` is intentionally
@@ -215,7 +223,7 @@ provider/model calls, connector writes, coworker dispatch, background autonomy,
 raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
-OpenAPI remains a backend contract. The current backend path count is `175` with
+OpenAPI remains a backend contract. The current backend path count is `176` with
 unique operation IDs; earlier milestone counts in the historical sections below
 are audit context, not current route inventory.
 

@@ -72,6 +72,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/coding/patch-apply-readiness",
         "/control-center/coding/patch-proposal",
         "/control-center/coding/git-review",
+        "/control-center/coding/live-preview",
         "/control-center/coding/test-command-readiness",
         "/control-center/evidence/timeline",
         "/control-center/memory/l1-index",
@@ -104,6 +105,7 @@ def test_control_center_founder_loop_routes_are_in_manifest_with_local_state_cla
         "/control-center/coding/patch-apply-readiness": "get_control_center_coding_patch_apply_readiness",
         "/control-center/coding/patch-proposal": "get_control_center_coding_patch_proposal",
         "/control-center/coding/git-review": "get_control_center_coding_git_review",
+        "/control-center/coding/live-preview": "get_control_center_coding_live_preview",
         "/control-center/coding/test-command-readiness": "get_control_center_coding_test_command_readiness",
     }
     for path, operation_id in expected_operation_ids.items():

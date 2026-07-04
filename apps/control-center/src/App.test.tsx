@@ -850,6 +850,47 @@ function backendOwnedCodingGitReviewFixture(
   };
 }
 
+function backendOwnedCodingLivePreviewFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const preview = scrubCodingFallbackText(
+    JSON.parse(JSON.stringify(mockControlCenterData.codingLivePreview)),
+  ) as typeof mockControlCenterData.codingLivePreview;
+  return {
+    ...preview,
+    live_preview_ref: "live-preview:coding-app-test",
+    session_ref: "coding-session:app-test-backend",
+    context_pack_ref: "context-pack:coding-app-test",
+    patch_proposal_ref: "patch-proposal:coding-app-test",
+    test_command_readiness_ref: "test-command-readiness:coding-app-test",
+    git_review_ref: "git-review:coding-app-test",
+    backend_owned: true,
+    read_only: true,
+    status_only: true,
+    safe_refs_only: true,
+    raw_url_included: false,
+    raw_console_output_included: false,
+    screenshot_artifact_included: false,
+    screenshot_capture_enabled: false,
+    visual_regression_enabled: false,
+    console_capture_enabled: false,
+    dev_server_status_detection_enabled: false,
+    dev_server_start_enabled: false,
+    dev_server_stop_enabled: false,
+    browser_preview_enabled: false,
+    browser_automation_enabled: false,
+    browser_interaction_enabled: false,
+    network_fetch_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    file_write_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
 function scrubCodingFallbackText(value: unknown): unknown {
   if (typeof value === "string") {
     return value
@@ -1478,6 +1519,8 @@ describe("Web Control Center shell", () => {
         backendOwnedCodingTestCommandReadinessFixture(),
       [API_ENDPOINTS.controlCenterCodingGitReview]:
         backendOwnedCodingGitReviewFixture(),
+      [API_ENDPOINTS.controlCenterCodingLivePreview]:
+        backendOwnedCodingLivePreviewFixture(),
     });
 
     window.history.pushState({}, "", "/coding");
@@ -1526,6 +1569,12 @@ describe("Web Control Center shell", () => {
         ),
       ).toBeInTheDocument();
       expect(within(cockpit).getByText("Working tree status")).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "Live preview is backend-owned, status-only, and blocked until exact browser and dev-server authority exists.",
+        ),
+      ).toBeInTheDocument();
+      expect(within(cockpit).getByText("Dev server status")).toBeInTheDocument();
       expect(within(cockpit).getByText("Workflow Timeline")).toBeInTheDocument();
       expect(within(cockpit).getByText("Diff Preview")).toBeInTheDocument();
       expect(within(cockpit).getByText("Proof Detail")).toBeInTheDocument();
@@ -11764,6 +11813,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.controlCenterCodingGitReview),
     ).toBe(true);
+    expect(API_ENDPOINTS.controlCenterCodingLivePreview).toBe(
+      "/control-center/coding/live-preview",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.controlCenterCodingLivePreview),
+    ).toBe(true);
     expect(chatTurnReceiptEndpoint("chat-turn:test")).toBe(
       "/control-center/chat/turns/chat-turn%3Atest/receipt",
     );
@@ -12817,6 +12872,8 @@ function envelopeForReadEndpoint(url: string) {
       backendOwnedCodingTestCommandReadinessFixture(),
     [API_ENDPOINTS.controlCenterCodingGitReview]:
       backendOwnedCodingGitReviewFixture(),
+    [API_ENDPOINTS.controlCenterCodingLivePreview]:
+      backendOwnedCodingLivePreviewFixture(),
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:
