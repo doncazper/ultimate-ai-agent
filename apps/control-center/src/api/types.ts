@@ -5120,6 +5120,12 @@ export interface FounderLoopTodaySummary {
   private_beta_readiness_overall_state: string;
   private_beta_readiness_evidence_packet_ref: string;
   private_beta_readiness_window_ref: string;
+  private_beta_readiness_full_strength_goal: string;
+  private_beta_readiness_repo_safe_scope: string;
+  private_beta_readiness_blocked_authority_summary: string;
+  private_beta_readiness_promotion_path_refs: string[];
+  private_beta_readiness_product_loop_trial_script_ref: string;
+  private_beta_readiness_private_operator_trial_ledger_ref: string;
   private_beta_readiness_required_surfaces: string[];
   private_beta_readiness_acceptance_states: string[];
   private_beta_readiness_acceptance_state_definitions: FounderLoopPrivateBetaReadinessStateDefinition[];
@@ -5338,6 +5344,12 @@ export interface FounderLoopActionsInbox {
   private_beta_readiness_contract_ref?: string;
   private_beta_readiness_status?: string;
   private_beta_readiness_overall_state?: string;
+  private_beta_readiness_full_strength_goal?: string;
+  private_beta_readiness_repo_safe_scope?: string;
+  private_beta_readiness_blocked_authority_summary?: string;
+  private_beta_readiness_promotion_path_refs?: string[];
+  private_beta_readiness_product_loop_trial_script_ref?: string;
+  private_beta_readiness_private_operator_trial_ledger_ref?: string;
   private_beta_readiness_criteria?: FounderLoopPrivateBetaReadinessCriterion[];
   private_beta_readiness_authority_posture?: FounderLoopPrivateBetaReadinessAuthorityPosture;
   private_beta_readiness_blocked_state_refs?: string[];

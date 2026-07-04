@@ -10,6 +10,12 @@
     "private_beta_readiness_overall_state",
     "private_beta_readiness_evidence_packet_ref",
     "private_beta_readiness_window_ref",
+    "private_beta_readiness_full_strength_goal",
+    "private_beta_readiness_repo_safe_scope",
+    "private_beta_readiness_blocked_authority_summary",
+    "private_beta_readiness_promotion_path_refs",
+    "private_beta_readiness_product_loop_trial_script_ref",
+    "private_beta_readiness_private_operator_trial_ledger_ref",
     "private_beta_readiness_required_surfaces",
     "private_beta_readiness_acceptance_states",
     "private_beta_readiness_acceptance_state_definitions",
@@ -56,10 +62,49 @@
       "type": "string",
       "minLength": 1
     },
-    "private_beta_readiness_required_surfaces": {
+    "private_beta_readiness_full_strength_goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "private_beta_readiness_repo_safe_scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "private_beta_readiness_blocked_authority_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "private_beta_readiness_promotion_path_refs": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
-      "minItems": 8,
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "private_beta_readiness_product_loop_trial_script_ref": {
+      "const": "contract-ref:product-loop-012-private-product-loop-trial-script:v1"
+    },
+    "private_beta_readiness_private_operator_trial_ledger_ref": {
+      "const": "ledger-ref:private-operator-trial-acceptance:v1"
+    },
+    "private_beta_readiness_required_surfaces": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "Start Here" },
+        { "const": "Setup Assistant" },
+        { "const": "Today" },
+        { "const": "Morning Briefing" },
+        { "const": "Action Inbox" },
+        { "const": "Proof Detail" },
+        { "const": "Memory Review" },
+        { "const": "Evidence Timeline" },
+        { "const": "Trust Authority Map" },
+        { "const": "Chat/Plans Handoff" },
+        { "const": "Governed Code" },
+        { "const": "CRM-Lite Follow-Ups" },
+        { "const": "Dogfood Live Loop" }
+      ],
+      "minItems": 13,
+      "maxItems": 13,
       "uniqueItems": true
     },
     "private_beta_readiness_acceptance_states": {
@@ -106,12 +151,13 @@
     },
     "private_beta_readiness_criterion_count": {
       "type": "integer",
-      "minimum": 8
+      "const": 13
     },
     "private_beta_readiness_criteria": {
       "type": "array",
       "items": { "$ref": "#/$defs/criterion" },
-      "minItems": 8
+      "minItems": 13,
+      "maxItems": 13
     },
     "private_beta_readiness_surface_bindings": {
       "type": "array",
@@ -131,7 +177,8 @@
           "authority_boundary": { "type": "string", "minLength": 1 }
         }
       },
-      "minItems": 8
+      "minItems": 13,
+      "maxItems": 13
     },
     "private_beta_readiness_authority_posture": {
       "$ref": "#/$defs/authorityPosture"
@@ -202,7 +249,23 @@
           "const": "contract-ref:private-beta-readiness-gate:v1"
         },
         "criterion_ref": { "type": "string", "minLength": 1 },
-        "surface": { "type": "string", "minLength": 1 },
+        "surface": {
+          "enum": [
+            "Start Here",
+            "Setup Assistant",
+            "Today",
+            "Morning Briefing",
+            "Action Inbox",
+            "Proof Detail",
+            "Memory Review",
+            "Evidence Timeline",
+            "Trust Authority Map",
+            "Chat/Plans Handoff",
+            "Governed Code",
+            "CRM-Lite Follow-Ups",
+            "Dogfood Live Loop"
+          ]
+        },
         "gate_state": {
           "enum": [
             "pass",

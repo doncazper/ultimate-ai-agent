@@ -2698,16 +2698,38 @@ const memoryToLoopAuthorityPosture = {
 
 const privateBetaReadinessContractRef =
   "contract-ref:private-beta-readiness-gate:v1";
+const privateBetaReadinessProductLoopTrialScriptRef =
+  "contract-ref:product-loop-012-private-product-loop-trial-script:v1";
+const privateBetaReadinessPrivateOperatorTrialLedgerRef =
+  "ledger-ref:private-operator-trial-acceptance:v1";
+
+const privateBetaReadinessFullStrengthGoal =
+  "Local-first command center where setup, daily loop, Action Inbox, exact local task commit, receipt, evidence, proof, reviewed memory, and Trust posture form one operator workflow.";
+const privateBetaReadinessRepoSafeScope =
+  "Backend-owned safe-ref readiness metadata, verifier coverage, and read-only presentation only; no runtime authority is granted.";
+const privateBetaReadinessBlockedAuthoritySummary =
+  "Public beta, distribution, production authority, connector writes, provider calls, browser automation, shell subprocess, background autonomy, account sync, CRM writes, broad memory writes, context injection, Code apply, rollback execution, and action execution remain blocked.";
+const privateBetaReadinessPromotionPathRefs = [
+  "promotion-path-ref:private-beta:rehearsal-receipts",
+  "promotion-path-ref:private-beta:operator-review-notes",
+  "promotion-path-ref:private-beta:api-perimeter-hardening",
+  "promotion-path-ref:private-beta:scoped-authority-prs",
+];
 
 const privateBetaReadinessRequiredSurfaces = [
+  "Start Here",
+  "Setup Assistant",
   "Today",
   "Morning Briefing",
   "Action Inbox",
+  "Proof Detail",
   "Memory Review",
   "Evidence Timeline",
+  "Trust Authority Map",
   "Chat/Plans Handoff",
   "Governed Code",
   "CRM-Lite Follow-Ups",
+  "Dogfood Live Loop",
 ];
 
 const privateBetaReadinessAcceptanceStates = [
@@ -2720,12 +2742,43 @@ const privateBetaReadinessAcceptanceStates = [
   "accepted_failure",
 ];
 
-const privateBetaReadinessStateDefinitions =
-  privateBetaReadinessAcceptanceStates.map((state) => ({
-    state,
-    terminal: ["pass", "fail", "accepted_failure"].includes(state),
-    definition: `${state} is a distinct private beta-test evidence state.`,
-  }));
+const privateBetaReadinessStateDefinitions = [
+  {
+    state: "pass",
+    terminal: true,
+    definition: "Acceptance evidence is present and no blocker remains.",
+  },
+  {
+    state: "fail",
+    terminal: true,
+    definition: "Evidence contradicts the acceptance criterion.",
+  },
+  {
+    state: "skipped",
+    terminal: false,
+    definition: "Criterion was intentionally skipped with a safe reason.",
+  },
+  {
+    state: "blocked",
+    terminal: false,
+    definition: "Required evidence or authority boundary is missing.",
+  },
+  {
+    state: "partial",
+    terminal: false,
+    definition: "Some evidence exists, but beta-test proof is incomplete.",
+  },
+  {
+    state: "mock_only",
+    terminal: false,
+    definition: "Only mock or skeleton evidence exists.",
+  },
+  {
+    state: "accepted_failure",
+    terminal: true,
+    definition: "Known failure is accepted only with documented risk refs.",
+  },
+];
 
 const privateBetaReadinessRequiredRefFields = [
   "criterion_ref",
@@ -2740,7 +2793,7 @@ const privateBetaReadinessRequiredRefFields = [
   "next_safe_action",
 ];
 
-const privateBetaReadinessBlockedRefs = [
+const privateBetaReadinessCommonBlockedRefs = [
   "blocked-state:no-public-beta",
   "blocked-state:no-public-distribution",
   "blocked-state:no-production-readiness-claim",
@@ -2760,6 +2813,61 @@ const privateBetaReadinessBlockedRefs = [
   "blocked-state:no-action-execution",
   "blocked-state:no-code-apply-execution",
 ];
+
+const privateBetaReadinessSurfaceBlockedRefs: Record<string, string[]> = {
+  "Start Here": ["blocked-state:private-beta:start-here-runtime-control"],
+  "Setup Assistant": [
+    "blocked-state:private-beta:setup-install",
+    "blocked-state:private-beta:setup-launch-agent",
+    "blocked-state:private-beta:setup-notarization",
+    "blocked-state:private-beta:setup-login-material-capture",
+  ],
+  Today: ["blocked-state:private-beta:today-rehearsal-receipts"],
+  "Morning Briefing": [
+    "blocked-state:private-beta:briefing-source-reads",
+    "blocked-state:private-beta:briefing-delivery",
+  ],
+  "Action Inbox": [
+    "blocked-state:private-beta:action-inbox-execution",
+    "blocked-state:private-beta:approval-capture",
+  ],
+  "Proof Detail": [
+    "blocked-state:private-beta:proof-approval-grant",
+    "blocked-state:private-beta:proof-rollback-execution",
+  ],
+  "Memory Review": [
+    "blocked-state:private-beta:memory-write",
+    "blocked-state:private-beta:memory-context-injection",
+  ],
+  "Evidence Timeline": ["blocked-state:private-beta:evidence-run-receipts"],
+  "Trust Authority Map": [
+    "blocked-state:private-beta:trust-authority-grant",
+    "blocked-state:private-beta:trust-standing-authority",
+  ],
+  "Chat/Plans Handoff": [
+    "blocked-state:private-beta:handoff-execution",
+    "blocked-state:private-beta:model-output-authority",
+  ],
+  "Governed Code": [
+    "blocked-state:private-beta:code-apply",
+    "blocked-state:private-beta:code-rollback-execution",
+  ],
+  "CRM-Lite Follow-Ups": [
+    "blocked-state:private-beta:crm-write",
+    "blocked-state:private-beta:account-sync",
+  ],
+  "Dogfood Live Loop": [
+    "blocked-state:private-beta:dogfood-seed-from-gate",
+    "blocked-state:private-beta:dogfood-gate-execution",
+  ],
+};
+
+const privateBetaReadinessBlockedRefs = Array.from(
+  new Set([
+    ...privateBetaReadinessCommonBlockedRefs,
+    ...Object.values(privateBetaReadinessSurfaceBlockedRefs).flat(),
+  ]),
+);
 
 const privateBetaReadinessAuthorityPosture = {
   local_private_only: true,
@@ -2789,17 +2897,31 @@ const privateBetaReadinessAuthorityPosture = {
 };
 
 const privateBetaReadinessStateBySurface: Record<string, string> = {
+  "Start Here": "partial",
+  "Setup Assistant": "partial",
   Today: "partial",
   "Morning Briefing": "mock_only",
   "Action Inbox": "partial",
+  "Proof Detail": "partial",
   "Memory Review": "partial",
   "Evidence Timeline": "partial",
+  "Trust Authority Map": "partial",
   "Chat/Plans Handoff": "partial",
   "Governed Code": "partial",
   "CRM-Lite Follow-Ups": "blocked",
+  "Dogfood Live Loop": "partial",
 };
 
 const privateBetaReadinessContractBySurface: Record<string, string[]> = {
+  "Start Here": [
+    "contract-ref:start-here-local-loop:v1",
+    privateBetaReadinessContractRef,
+    privateBetaReadinessProductLoopTrialScriptRef,
+  ],
+  "Setup Assistant": [
+    "contract-ref:macos-setup-assistant:local-readiness",
+    "contract-ref:local-package-proof:macos-private",
+  ],
   Today: [
     "contract-ref:today-product-spine:v1",
     "contract-ref:evidence-history-grammar:v1",
@@ -2811,12 +2933,20 @@ const privateBetaReadinessContractBySurface: Record<string, string[]> = {
     "contract-ref:plans-action-envelope:v1",
     memoryToLoopBindingContractRef,
   ],
+  "Proof Detail": [
+    "contract-ref:control-center-proof-spine:v1",
+    "contract-ref:dogfood-live-loop:acceptance",
+  ],
   "Memory Review": [
     "contract-ref:memory-review-decision:v1",
     "contract-ref:business-memory-quality-controls:v1",
     crossSurfaceMemoryIntakeContractRef,
   ],
   "Evidence Timeline": ["contract-ref:evidence-history-grammar:v1"],
+  "Trust Authority Map": [
+    "contract-ref:trust-authority-map:v1",
+    "contract-ref:usable-authority-tiers:v1",
+  ],
   "Chat/Plans Handoff": [
     chatLocalOperatorContractRef,
     "contract-ref:plans-action-envelope:v1",
@@ -2826,6 +2956,39 @@ const privateBetaReadinessContractBySurface: Record<string, string[]> = {
     "contract-ref:business-memory-quality-controls:v1",
     memoryToLoopBindingContractRef,
   ],
+  "Dogfood Live Loop": [
+    "contract-ref:dogfood-live-loop:acceptance",
+    "contract-ref:local-task-create:exact-lane",
+  ],
+};
+
+const privateBetaReadinessSummaryBySurface: Record<string, string> = {
+  "Start Here":
+    "Start Here can guide one local governed loop with backend refs, while setup mutation and runtime control remain blocked.",
+  "Setup Assistant":
+    "Setup Assistant can show local prerequisite and package-readiness posture, but install, launch, login-material capture, shell, and public distribution authority remain blocked.",
+  Today:
+    "Today can show the product spine, blockers, follow-ups, and readiness refs, but the gate still needs rehearsal receipts.",
+  "Morning Briefing":
+    "Morning Briefing has a storage-backed skeleton and source-readiness blockers, not live source reads.",
+  "Action Inbox":
+    "Action Inbox can review envelopes and memory-derived proposals, while execution and approval capture remain blocked.",
+  "Proof Detail":
+    "Proof Detail can inspect safe refs, receipts, evidence, approval posture, and blocked authority, but cannot grant approval or execute rollback.",
+  "Memory Review":
+    "Memory Review shows source, provenance, quality, decision, and loop refs without writing memory or injecting context.",
+  "Evidence Timeline":
+    "Evidence Timeline reads as history for proposed, approved, happened, changed, undoable, stale, and blocked states.",
+  "Trust Authority Map":
+    "Trust can explain enabled local read/proposal lanes, exact approval requirements, safe-disable posture, rollback posture, and blocked authority without granting authority.",
+  "Chat/Plans Handoff":
+    "Local Chat can produce runtime, auth, tool-denial, and handoff refs, but output is not authority.",
+  "Governed Code":
+    "Governed Code can propose repo-local safe diff refs with validation and rollback posture while apply stays blocked.",
+  "CRM-Lite Follow-Ups":
+    "CRM-lite follow-ups can be represented as reviewed memory/action refs only; account sync and CRM writes remain blocked.",
+  "Dogfood Live Loop":
+    "Dogfood Live Loop can inspect one deterministic repo-local loop through safe refs; this gate cannot seed approvals, commit local tasks, or claim runtime authority.",
 };
 
 const privateBetaReadinessCriteria = privateBetaReadinessRequiredSurfaces.map(
@@ -2840,7 +3003,7 @@ const privateBetaReadinessCriteria = privateBetaReadinessRequiredSurfaces.map(
       criterion_ref: `private-beta-readiness-criterion:${surfaceSlug}`,
       surface,
       gate_state: gateState,
-      safe_summary: `${surface} has private local beta-test evidence posture as safe refs; broader authority remains blocked.`,
+      safe_summary: privateBetaReadinessSummaryBySurface[surface],
       evidence_refs: [`evidence-ref:private-beta:${surfaceSlug}`],
       required_contract_refs: privateBetaReadinessContractBySurface[surface],
       acceptance_refs: [
@@ -7961,6 +8124,18 @@ export const mockControlCenterData: ControlCenterData = {
     private_beta_readiness_evidence_packet_ref:
       "evidence-packet:private-beta-readiness:local-founder-loop",
     private_beta_readiness_window_ref: "readiness-window:local-private-beta",
+    private_beta_readiness_full_strength_goal:
+      privateBetaReadinessFullStrengthGoal,
+    private_beta_readiness_repo_safe_scope:
+      privateBetaReadinessRepoSafeScope,
+    private_beta_readiness_blocked_authority_summary:
+      privateBetaReadinessBlockedAuthoritySummary,
+    private_beta_readiness_promotion_path_refs:
+      privateBetaReadinessPromotionPathRefs,
+    private_beta_readiness_product_loop_trial_script_ref:
+      privateBetaReadinessProductLoopTrialScriptRef,
+    private_beta_readiness_private_operator_trial_ledger_ref:
+      privateBetaReadinessPrivateOperatorTrialLedgerRef,
     private_beta_readiness_required_surfaces:
       privateBetaReadinessRequiredSurfaces,
     private_beta_readiness_acceptance_states:
@@ -11108,6 +11283,18 @@ export const mockControlCenterData: ControlCenterData = {
     private_beta_readiness_status:
       "implemented_private_beta_readiness_gate_authority_blocked",
     private_beta_readiness_overall_state: "partial",
+    private_beta_readiness_full_strength_goal:
+      privateBetaReadinessFullStrengthGoal,
+    private_beta_readiness_repo_safe_scope:
+      privateBetaReadinessRepoSafeScope,
+    private_beta_readiness_blocked_authority_summary:
+      privateBetaReadinessBlockedAuthoritySummary,
+    private_beta_readiness_promotion_path_refs:
+      privateBetaReadinessPromotionPathRefs,
+    private_beta_readiness_product_loop_trial_script_ref:
+      privateBetaReadinessProductLoopTrialScriptRef,
+    private_beta_readiness_private_operator_trial_ledger_ref:
+      privateBetaReadinessPrivateOperatorTrialLedgerRef,
     private_beta_readiness_criteria: privateBetaReadinessCriteria,
     private_beta_readiness_authority_posture:
       privateBetaReadinessAuthorityPosture,
