@@ -426,6 +426,67 @@ export interface CodingPatchProposalReadModel {
   production_authority_enabled: boolean;
 }
 
+export interface CodingPatchApplyPrerequisiteReadModel {
+  prerequisite_ref: string;
+  label: string;
+  status: "present" | "missing" | "blocked";
+  safe_summary: string;
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+}
+
+export interface CodingPatchApplyReadinessReadModel {
+  schema_version: "uaa-coding-patch-apply-readiness.v1";
+  readiness_ref: string;
+  session_ref: string;
+  context_pack_ref: string;
+  patch_proposal_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  unblock_prompt_refs: string[];
+  status: "blocked_missing_exact_apply_contract";
+  title: string;
+  full_strength_goal: string;
+  repo_safe_current_state: string;
+  safe_summary: string;
+  required_authority_profile_refs: string[];
+  prerequisites: CodingPatchApplyPrerequisiteReadModel[];
+  expected_receipt_refs: string[];
+  rollback_refs: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  readiness_only: boolean;
+  safe_refs_only: boolean;
+  raw_paths_included: boolean;
+  raw_content_included: boolean;
+  repo_file_read_performed: boolean;
+  exact_patch_body_available: boolean;
+  hunk_selection_contract_available: boolean;
+  checkpoint_contract_available: boolean;
+  approval_binding_available: boolean;
+  rollback_contract_available: boolean;
+  patch_apply_enabled: boolean;
+  file_write_enabled: boolean;
+  approval_grant_capture_enabled: boolean;
+  rollback_execution_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  git_mutation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface RuntimeReadinessSummary {
   status: string;
   production_ready: boolean;
@@ -7573,6 +7634,7 @@ export interface ControlCenterData {
   codingSession: CodingCockpitSessionReadModel;
   codingContext: CodingWorkspaceContextReadModel;
   codingPatchProposal: CodingPatchProposalReadModel;
+  codingPatchApplyReadiness: CodingPatchApplyReadinessReadModel;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `172`.
+Current OpenAPI path count: `173`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -112,6 +112,9 @@ Contract rules:
   budget posture, proof refs, and redaction refs only.
   `GET /control-center/coding/patch-proposal` exposes proposal-only patch file
   refs, hunk refs, bounded diff summaries, proof refs, and redaction refs only.
+  `GET /control-center/coding/patch-apply-readiness` exposes the blocked
+  Prompt 04 apply-readiness model with safe prerequisite, receipt, rollback,
+  blocker, promotion-path, proof, and unblock-prompt refs only.
   These routes do not write files, apply patches, read or persist raw file
   content, run shell/subprocess commands, mutate Git state, call providers or
   models, automate browsers, write connectors, launch background agents, or

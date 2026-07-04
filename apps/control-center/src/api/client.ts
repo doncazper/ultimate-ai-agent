@@ -64,6 +64,7 @@ import type {
   ChatHandoffTarget,
   ChatTurnReceipt,
   ChatTurnReceiptRequest,
+  CodingPatchApplyReadinessReadModel,
   CodingPatchProposalReadModel,
   WebEvidenceProductSliceReceipt,
   WebEvidenceProductSliceRequest,
@@ -306,6 +307,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<CodingPatchProposalReadModel>(
       API_ENDPOINTS.controlCenterCodingPatchProposal,
     ),
+    readEnvelope<CodingPatchApplyReadinessReadModel>(
+      API_ENDPOINTS.controlCenterCodingPatchApplyReadiness,
+    ),
   ] as const);
 
   const manifest = fulfilledValue(results[0]);
@@ -349,6 +353,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const codingSession = fulfilledValue(results[32]);
   const codingContext = fulfilledValue(results[33]);
   const codingPatchProposal = fulfilledValue(results[34]);
+  const codingPatchApplyReadiness = fulfilledValue(results[35]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
   const normalizedProofIndex = normalizeProofIndex(proofIndex);
@@ -441,7 +446,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       endpointReturned:
         codingSession !== undefined &&
         codingContext !== undefined &&
-        codingPatchProposal !== undefined,
+        codingPatchProposal !== undefined &&
+        codingPatchApplyReadiness !== undefined,
       usedFallback:
         codingSession === undefined ||
         codingSession.mock_fallback === true ||
@@ -450,7 +456,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         codingContext.backend_owned !== true ||
         codingPatchProposal === undefined ||
         codingPatchProposal.backend_owned !== true ||
-        codingPatchProposal.proposal_only !== true,
+        codingPatchProposal.proposal_only !== true ||
+        codingPatchApplyReadiness === undefined ||
+        codingPatchApplyReadiness.backend_owned !== true ||
+        codingPatchApplyReadiness.readiness_only !== true,
     }),
     routeReadStateInput({
       route: "/memory",
@@ -519,7 +528,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingContext.backend_owned !== true ||
     codingPatchProposal === undefined ||
     codingPatchProposal.backend_owned !== true ||
-    codingPatchProposal.proposal_only !== true;
+    codingPatchProposal.proposal_only !== true ||
+    codingPatchApplyReadiness === undefined ||
+    codingPatchApplyReadiness.backend_owned !== true ||
+    codingPatchApplyReadiness.readiness_only !== true;
   const approvalQueueEndpointFallbackUsed = approvalQueue === undefined;
   const runObservabilityEndpointFallbackUsed =
     safeObservedRunObservability === undefined;
@@ -537,6 +549,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
+    codingPatchApplyReadiness === undefined ||
     setupAssistantSource === undefined ||
     providerCatalog === undefined ||
     controlCenterSettingsStatus === undefined ||
@@ -572,6 +585,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         codingSession: mockControlCenterData.codingSession,
         codingContext: mockControlCenterData.codingContext,
         codingPatchProposal: mockControlCenterData.codingPatchProposal,
+        codingPatchApplyReadiness:
+          mockControlCenterData.codingPatchApplyReadiness,
       },
       {
         state: "mock_fallback",
@@ -616,6 +631,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingContext: codingContext ?? mockControlCenterData.codingContext,
     codingPatchProposal:
       codingPatchProposal ?? mockControlCenterData.codingPatchProposal,
+    codingPatchApplyReadiness:
+      codingPatchApplyReadiness ??
+      mockControlCenterData.codingPatchApplyReadiness,
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
     founderMemoryReview: normalizedFounderMemoryReview.value,
     founderMemoryWorkbench: normalizedFounderMemoryWorkbench.value,

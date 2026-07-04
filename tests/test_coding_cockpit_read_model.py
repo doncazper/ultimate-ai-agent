@@ -16,14 +16,18 @@ from ultimate_ai_agent.core.code import (
     CODING_COCKPIT_CONTEXT_BACKEND_ROUTE_REF,
     CODING_COCKPIT_CONTEXT_PACK_REF,
     CODING_COCKPIT_FRONTEND_ROUTE_REF,
+    CODING_COCKPIT_PATCH_APPLY_BACKEND_ROUTE_REF,
+    CODING_COCKPIT_PATCH_APPLY_READINESS_REF,
     CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF,
     CODING_COCKPIT_PATCH_PROPOSAL_REF,
     CODING_COCKPIT_REQUIRED_BLOCKED_REFS,
     CODING_COCKPIT_SESSION_REF,
     CodingCockpitSessionReadModel,
+    CodingPatchApplyReadinessReadModel,
     CodingPatchProposalReadModel,
     CodingWorkspaceContextReadModel,
     build_coding_cockpit_session_seed,
+    build_coding_patch_apply_readiness,
     build_coding_patch_proposal_preview,
     build_coding_workspace_context_preview,
 )
@@ -54,6 +58,7 @@ def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
         "coding-task:cockpit-shell-seed",
         CODING_COCKPIT_CONTEXT_PACK_REF,
         CODING_COCKPIT_PATCH_PROPOSAL_REF,
+        CODING_COCKPIT_PATCH_APPLY_READINESS_REF,
         "command-proposal:coding-blocked-seed",
         "git-status:coding-readonly-seed",
         "proof-ref:coding-cockpit-seed",
@@ -65,6 +70,10 @@ def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
     assert "scripts/dev/uaa_coding.py inspect-context" in session.cli_inspection_refs
     assert (
         "scripts/dev/uaa_coding.py inspect-patch-proposal"
+        in session.cli_inspection_refs
+    )
+    assert (
+        "scripts/dev/uaa_coding.py inspect-patch-apply-readiness"
         in session.cli_inspection_refs
     )
     assert all(not panel.mutation_enabled for panel in _coding_panels(session))
@@ -203,6 +212,64 @@ def test_coding_patch_proposal_rejects_apply_and_raw_content() -> None:
         CodingPatchProposalReadModel(**payload)
 
 
+def test_coding_patch_apply_readiness_is_backend_owned_and_blocked() -> None:
+    readiness = build_coding_patch_apply_readiness()
+    payload = readiness.model_dump(mode="json")
+
+    assert readiness.schema_version == "uaa-coding-patch-apply-readiness.v1"
+    assert readiness.readiness_ref == CODING_COCKPIT_PATCH_APPLY_READINESS_REF
+    assert readiness.patch_proposal_ref == CODING_COCKPIT_PATCH_PROPOSAL_REF
+    assert readiness.backend_route_refs == [CODING_COCKPIT_PATCH_APPLY_BACKEND_ROUTE_REF]
+    assert readiness.frontend_route_refs == [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    assert readiness.backend_owned is True
+    assert readiness.read_only is True
+    assert readiness.readiness_only is True
+    assert readiness.safe_refs_only is True
+    assert readiness.raw_paths_included is False
+    assert readiness.raw_content_included is False
+    assert readiness.repo_file_read_performed is False
+    assert readiness.exact_patch_body_available is False
+    assert readiness.hunk_selection_contract_available is False
+    assert readiness.checkpoint_contract_available is False
+    assert readiness.approval_binding_available is False
+    assert readiness.rollback_contract_available is False
+    assert readiness.patch_apply_enabled is False
+    assert readiness.file_write_enabled is False
+    assert readiness.approval_grant_capture_enabled is False
+    assert readiness.rollback_execution_enabled is False
+    assert readiness.shell_subprocess_execution_enabled is False
+    assert readiness.git_mutation_enabled is False
+    assert readiness.provider_model_call_enabled is False
+    assert readiness.browser_automation_enabled is False
+    assert readiness.connector_write_enabled is False
+    assert readiness.background_autonomy_enabled is False
+    assert readiness.production_authority_enabled is False
+    assert readiness.prerequisites
+    assert any(item.status in {"missing", "blocked"} for item in readiness.prerequisites)
+    assert readiness.unblock_prompt_refs == [
+        "prompt-ref:unblock-coding-approved-patch-apply"
+    ]
+    assert "/Users/" not in json.dumps(payload)
+    assert "credential" not in json.dumps(payload).lower()
+
+
+def test_coding_patch_apply_readiness_rejects_apply_authority() -> None:
+    payload = build_coding_patch_apply_readiness().model_dump(mode="json")
+    payload["patch_apply_enabled"] = True
+    with pytest.raises(ValidationError, match="patch_apply_enabled"):
+        CodingPatchApplyReadinessReadModel(**payload)
+
+    payload = build_coding_patch_apply_readiness().model_dump(mode="json")
+    payload["file_write_enabled"] = True
+    with pytest.raises(ValidationError, match="file_write_enabled"):
+        CodingPatchApplyReadinessReadModel(**payload)
+
+    payload = build_coding_patch_apply_readiness().model_dump(mode="json")
+    payload["rollback_execution_enabled"] = True
+    with pytest.raises(ValidationError, match="rollback_execution_enabled"):
+        CodingPatchApplyReadinessReadModel(**payload)
+
+
 def test_control_center_coding_session_route_returns_safe_read_model() -> None:
     client = TestClient(app)
     response = client.get("/control-center/coding/session")
@@ -291,12 +358,40 @@ def test_control_center_coding_patch_proposal_route_returns_safe_read_model() ->
     assert data["file_write_enabled"] is False
 
 
+def test_control_center_coding_patch_apply_readiness_route_returns_safe_read_model() -> None:
+    client = TestClient(app)
+    response = client.get("/control-center/coding/patch-apply-readiness")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "control_center_coding_patch_apply_readiness"
+    assert body["service"] == "ControlCenterCodingAPI"
+    assert body["trace_id"] == CODING_COCKPIT_PATCH_APPLY_READINESS_REF
+    assert body["redactions_applied"] == [
+        "redaction-ref:safe-refs-only",
+        "redaction-ref:raw-paths-omitted",
+        "redaction-ref:raw-content-omitted",
+        "redaction-ref:diff-body-omitted",
+    ]
+
+    data = body["data"]
+    assert data["backend_owned"] is True
+    assert data["readiness_only"] is True
+    assert data["safe_refs_only"] is True
+    assert data["patch_apply_enabled"] is False
+    assert data["file_write_enabled"] is False
+    assert data["approval_grant_capture_enabled"] is False
+    assert data["rollback_execution_enabled"] is False
+
+
 def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_model() -> None:
     manifest = build_api_manifest(app)
     routes = {(route.method, route.path): route for route in manifest.routes}
     route = routes[("GET", "/control-center/coding/session")]
     context_route = routes[("GET", "/control-center/coding/context")]
     patch_route = routes[("GET", "/control-center/coding/patch-proposal")]
+    apply_route = routes[("GET", "/control-center/coding/patch-apply-readiness")]
 
     assert route.operation_id == "get_control_center_coding_session"
     assert route.tags == ["control-center"]
@@ -316,6 +411,12 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
     assert patch_route.route_classification == "local_sensitive"
     assert patch_route.approval_posture == "not_required_for_route_classification"
     assert patch_route.idempotency_required is False
+    assert apply_route.operation_id == "get_control_center_coding_patch_apply_readiness"
+    assert apply_route.tags == ["control-center"]
+    assert apply_route.side_effect_class == "local_dev_workspace_only"
+    assert apply_route.route_classification == "local_sensitive"
+    assert apply_route.approval_posture == "not_required_for_route_classification"
+    assert apply_route.idempotency_required is False
     assert "control_center_coding_cockpit_session_read_model" in (
         manifest.capabilities_declared
     )
@@ -323,6 +424,9 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
         manifest.capabilities_declared
     )
     assert "control_center_coding_patch_proposal_read_model" in (
+        manifest.capabilities_declared
+    )
+    assert "control_center_coding_patch_apply_readiness_read_model" in (
         manifest.capabilities_declared
     )
     for capability in [
@@ -394,6 +498,30 @@ def test_coding_patch_proposal_cli_inspection_prints_same_safe_proposal() -> Non
     assert data["proposal_only"] is True
     assert data["safe_refs_only"] is True
     assert data["patch_apply_enabled"] is False
+    assert "/Users/" not in result.stdout
+    assert "credential" not in result.stdout.lower()
+
+
+def test_coding_patch_apply_readiness_cli_inspection_prints_same_safe_model() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_coding.py"),
+            "inspect-patch-apply-readiness",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    data = json.loads(result.stdout)
+
+    assert data["readiness_ref"] == CODING_COCKPIT_PATCH_APPLY_READINESS_REF
+    assert data["backend_owned"] is True
+    assert data["readiness_only"] is True
+    assert data["safe_refs_only"] is True
+    assert data["patch_apply_enabled"] is False
+    assert data["file_write_enabled"] is False
     assert "/Users/" not in result.stdout
     assert "credential" not in result.stdout.lower()
 
