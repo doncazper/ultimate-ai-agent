@@ -17,6 +17,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     FOUNDER_LOOP_ACTION_ENVELOPE_ROUTES,
     FOUNDER_LOOP_CHAT_DURABLE_RECEIPT_ROUTES,
     CONTROL_CENTER_OPERATIONAL_STATUS_ROUTES,
+    CONTROL_CENTER_CODING_COCKPIT_ROUTES,
     CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES,
     CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES,
     FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
@@ -173,6 +174,16 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     assert CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES == {
         "/control-center/providers/router/dry-run",
     }
+    assert CONTROL_CENTER_CODING_COCKPIT_ROUTES == {
+        "/control-center/coding/context",
+        "/control-center/coding/git-review",
+        "/control-center/coding/live-preview",
+        "/control-center/coding/multi-agent-review",
+        "/control-center/coding/patch-apply-readiness",
+        "/control-center/coding/patch-proposal",
+        "/control-center/coding/session",
+        "/control-center/coding/test-command-readiness",
+    }
     assert RUN_ATTACHED_APPROVAL_QUEUE_ROUTES == {
         "/control-center/approvals/queue",
     }
@@ -182,6 +193,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "control_center_provider_catalog",
         "control_center_provider_credential_validation",
         "control_center_provider_router_dry_run",
+        "control_center_coding_cockpit",
         "control_center_setup_assistant",
         "control_center_tiny_provider_lane",
         "founder_loop",

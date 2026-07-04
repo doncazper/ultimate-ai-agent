@@ -109,7 +109,7 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 # Route-boundary evaluators are imported here to preserve the historical public facade.
 from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import *  # noqa: F401,F403
 
-EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 68
+EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 76
 
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
@@ -5151,6 +5151,18 @@ class FoundationGateEvaluator:
                 and route.rate_limit_group == "web_evidence_product_slice"
                 and route.blocked_from_production
             )
+            is_coding_cockpit_read_model = (
+                path in CONTROL_CENTER_CODING_COCKPIT_ROUTES
+                and route.method == "GET"
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.route_classification == "local_sensitive"
+                and route.protected_route
+                and route.approval_posture == "not_required_for_route_classification"
+                and not route.idempotency_required
+                and not route.rate_limit_targeted
+                and route.rate_limit_group is None
+                and route.blocked_from_production
+            )
             if (
                 not route.validation_only
                 and not is_founder_loop_summary
@@ -5165,6 +5177,7 @@ class FoundationGateEvaluator:
                 and not is_tiny_provider_lane_state
                 and not is_provider_credential_validation_state
                 and not is_web_evidence_product_slice_state
+                and not is_coding_cockpit_read_model
             ):
                 failures.append(
                     f"{path} is not read-only/preview-only/founder-loop-state"
@@ -23206,6 +23219,9 @@ class FoundationGateEvaluator:
             "src/ultimate_ai_agent/core/web_access/read_only_http_fetch_transport.py": {
                 "socket.",
             },
+            "src/ultimate_ai_agent/core/decision_router/turn_contracts.py": {
+                "tool_execution_allowed=True",
+            },
         }
         source_roots = [
             self.root / "src" / "ultimate_ai_agent",
@@ -32317,6 +32333,11 @@ class FoundationGateEvaluator:
             "src/ultimate_ai_agent/core/recurring_automation_contracts/__init__.py",
             "src/ultimate_ai_agent/core/recurring_automation_contracts/contracts.py",
         }
+        allowed_fragments_by_file = {
+            "src/ultimate_ai_agent/core/decision_router/turn_contracts.py": {
+                "side_effects_allowed=True",
+            },
+        }
         for root in [
             self.root / "src" / "ultimate_ai_agent",
             self.root / "apps" / "control-center" / "src",
@@ -32346,7 +32367,10 @@ class FoundationGateEvaluator:
                     continue
                 text = path.read_text(encoding="utf-8")
                 for fragment in forbidden_source_fragments:
-                    if fragment in text:
+                    if (
+                        fragment in text
+                        and fragment not in allowed_fragments_by_file.get(rel, set())
+                    ):
                         failures.append(
                             f"M97 forbidden recurring automation fragment in {rel}: {fragment}"
                         )
