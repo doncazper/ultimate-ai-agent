@@ -6303,6 +6303,7 @@ class FounderLoopRepository:
                     "WebAccessGateway read-only web evidence audit ref recorded."
                 ),
                 "evidence_refs": receipt.evidence_refs,
+                "web_access_audit_summary": receipt.web_access_audit_summary,
             },
         )
         return durable

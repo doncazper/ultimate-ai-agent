@@ -193,7 +193,8 @@ def test_read_only_http_fetch_gateway_redacts_before_return_and_stores_no_raw_bo
     assert output.status == "preview_generated"
     assert output.status_code == 200
     assert output.fetch_performed is True
-    assert output.safe_url_ref == "http-fetch-url:docs-example-test/status"
+    assert output.safe_url_ref.startswith("http-fetch-url:docs-example-test/path-")
+    assert "/status" not in output.safe_url_ref
     assert "super-secret-value" not in output.redacted_preview
     assert "[REDACTED:SECRET_ASSIGNMENT]" in output.redacted_preview
     assert output.redaction_summary.redaction_count == 1
@@ -228,7 +229,8 @@ def test_read_only_real_world_transport_uses_gateway_and_safe_output(monkeypatch
     )
     assert output.web_access_audit_ref.startswith("web-access-audit:")
     assert output.web_access_request_ref.startswith("web-access-request:")
-    assert output.safe_url_ref == "http-fetch-url:docs-example-test/status"
+    assert output.safe_url_ref.startswith("http-fetch-url:docs-example-test/path-")
+    assert "/status" not in output.safe_url_ref
     assert "https://docs.example.test/status" not in output.model_dump_json()
     assert "super-secret-value" not in output.redacted_preview
     assert "[REDACTED:SECRET_ASSIGNMENT]" in output.redacted_preview
@@ -393,7 +395,8 @@ def test_tool_runtime_http_fetch_routes_through_web_access_gateway(monkeypatch: 
     assert results[0].evidence_bundle is not None
     evidence_payload = repr(results[0].evidence_bundle.payload)
     assert "https://docs.example.test/status" not in evidence_payload
-    assert "http-fetch-url:docs-example-test/status" in evidence_payload
+    assert "http-fetch-url:docs-example-test/path-" in evidence_payload
+    assert "http-fetch-url:docs-example-test/status" not in evidence_payload
 
 
 def test_tool_runtime_denies_http_fetch_without_transport() -> None:
@@ -464,7 +467,8 @@ def test_http_fetch_normalized_target_never_returns_absolute_url() -> None:
 
     assert target.host == "docs.example.test"
     assert target.path == "/status"
-    assert target.safe_url_ref == "http-fetch-url:docs-example-test/status"
+    assert target.safe_url_ref.startswith("http-fetch-url:docs-example-test/path-")
+    assert "/status" not in target.safe_url_ref
     assert "https://" not in target.safe_url_ref
 
 

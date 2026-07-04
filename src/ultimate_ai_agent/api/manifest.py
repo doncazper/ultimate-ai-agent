@@ -25,6 +25,9 @@ from ultimate_ai_agent.api.rate_limits import (
     API_TARGETED_RATE_LIMIT_POLICY_REF,
     route_rate_limit_posture,
 )
+from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
+    WEB_EVIDENCE_PRODUCT_SLICE_IDEMPOTENCY_POSTURE_REF,
+)
 
 
 CAPABILITIES_DECLARED = [
@@ -921,6 +924,20 @@ def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
                 idempotency_policy_ref,
                 idempotency_reason,
             ) = route_idempotency_posture(route_classification)
+            if (
+                method == "POST"
+                and route.path in CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS
+            ):
+                idempotency_policy_ref = (
+                    WEB_EVIDENCE_PRODUCT_SLICE_IDEMPOTENCY_POSTURE_REF
+                )
+                idempotency_reason = (
+                    "Tier 1 Web Evidence stores a local receipt and is "
+                    "request_ref payload-idempotent: the same request_ref "
+                    "replays the stored receipt, while a changed fingerprint "
+                    "returns a safe conflict. The route does not grant "
+                    "mutation authority."
+                )
             (
                 rate_limit_targeted,
                 rate_limit_posture,

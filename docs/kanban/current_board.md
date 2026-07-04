@@ -58,6 +58,24 @@ evidence, redaction, safe-disable, rollback posture, CLI/API parity, docs, and
 tests. Verification:
 `scripts/verify_beta_07_trust_authority_map.py`. No broad runtime authority is
 added.
+Beta 08 Web Evidence beta slice now hardens the Proof Web Evidence lane without
+graduating broad web authority. Full-strength Web Evidence should become useful
+real-world evidence plus later browser/web workflows under separate gates. The
+repo-safe slice is Tier 1 configured host allowlist HTTPS GET through
+WebAccessGateway: `POST /control-center/web-evidence/attach` and
+`scripts/dev/uaa_founder_loop.py attach-web-evidence` return a transient
+bounded redacted preview, while durable Today/Evidence/Proof/CLI records store
+safe refs, request-ref idempotency posture, rollback/safe-disable refs, and a
+redacted WebAccessGateway audit summary only. Blocked/needs-authority remains
+unrestricted browsing, browser actions, auth/cookies, downloads/uploads,
+POST-style mutation, raw URL/body/header persistence, runtime context
+injection, memory write, provider/model calls, connector writes, public
+release, and production authority. Exact promotion requires a later verifier-
+backed lane PR with exact scope, configured policy, approval binding where
+mutation appears, redaction, safe-disable, rollback, CLI/API parity,
+receipts/proof, docs, and tests. Verification:
+`scripts/verify_beta_08_web_evidence_product_slice.py`. No broad runtime
+authority is added.
 The `context_injection` prerequisite contract is contract-ready for future
 gate review only. It is not selected as a micro-lane, adds no runtime
 prompt/context injection route or Control Center control, and keeps runtime

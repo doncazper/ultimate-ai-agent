@@ -343,9 +343,14 @@ Goal: productize a real safe web evidence lane.
 Tasks:
 
 - Use `WebAccessGateway`.
-- Allow only HTTPS GET allowlisted evidence fetch.
-- Store bounded redacted previews and safe refs.
+- Allow only HTTPS GET evidence fetches scoped to a configured host allowlist
+  and the operator-supplied per-request host.
+- Return bounded redacted previews transiently to the requester; durable Today,
+  Evidence, Proof, and CLI inspection surfaces store safe refs and redacted
+  WebAccessGateway audit summaries only.
 - Attach evidence to Today/Action/Proof where useful.
+- Keep the safe-disable env/route-off posture real, so the lane can be shut off
+  before transport construction.
 
 Blocked:
 
@@ -359,6 +364,19 @@ Acceptance criteria:
 
 - Operator can attach real web evidence to a loop.
 - Prompt injection from fetched content is treated as untrusted data.
+- Beta 08 Web Evidence beta slice hardening is verified by
+  `scripts/verify_beta_08_web_evidence_product_slice.py`: full-strength Web
+  Evidence remains useful real-world evidence and future browser/web
+  workflows; the repo-safe version is Tier 1 configured host allowlist HTTPS GET
+  through WebAccessGateway with transient preview, durable safe refs, request-ref
+  idempotency, safe-disable, rollback posture, and redacted audit summary;
+  blocked/needs-authority remains browser actions, auth/cookies, downloads or
+  uploads, POST-style mutation, raw body/header/URL persistence, context
+  injection, memory write, provider/model call, connector write, public release,
+  and production authority; exact promotion requires a later verifier-backed PR
+  with scope, approval binding where mutation appears, redaction, CLI/API
+  parity, safe-disable, rollback, receipts, and proof. No broad runtime
+  authority is added. This lane adds no broad runtime authority.
 
 ### PR 8: Provider Draft/Summarize Micro-Lane
 

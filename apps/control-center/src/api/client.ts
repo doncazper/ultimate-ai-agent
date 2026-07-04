@@ -734,6 +734,7 @@ export async function submitWebEvidenceAttachment(
       headers: withLocalApiAuthHeaders({
         Accept: "application/json",
         "Content-Type": "application/json",
+        "X-UAA-Idempotency-Ref": request.request_ref,
       }),
       body: JSON.stringify(request),
     },
@@ -742,7 +743,8 @@ export async function submitWebEvidenceAttachment(
     response,
   )) as ResultEnvelope<WebEvidenceProductSliceReceipt>;
   const receipt = data.result ?? data.data;
-  if (!response.ok || !receipt) {
+  const ok = data.ok ?? data.success;
+  if (!response.ok || ok === false || !receipt) {
     throw new Error(
       sanitizeForDisplay(
         extractErrorMessage(
@@ -752,7 +754,177 @@ export async function submitWebEvidenceAttachment(
       ),
     );
   }
+  if (!isSafeWebEvidenceProductSliceReceipt(receipt)) {
+    throw new Error(
+      sanitizeForDisplay("Web evidence receipt was rejected safely."),
+    );
+  }
   return receipt;
+}
+
+const WEB_EVIDENCE_RECEIPT_DENIED_FLAGS = [
+  "raw_response_body_stored",
+  "raw_headers_stored",
+  "absolute_url_returned",
+  "query_string_returned",
+  "auth_session_state_used",
+  "request_body_sent",
+  "non_get_method_used",
+  "redirect_followed",
+  "download_performed",
+  "browser_automation_performed",
+  "context_injection_performed",
+  "memory_write_performed",
+  "model_call_performed",
+  "connector_write_performed",
+  "action_execution_performed",
+  "production_authority_granted",
+] as const;
+
+const WEB_EVIDENCE_RECEIPT_REQUIRED_ARRAYS = [
+  "receipt_refs",
+  "evidence_refs",
+  "audit_refs",
+  "rollback_refs",
+  "safe_disable_refs",
+  "blocked_authority_refs",
+] as const;
+
+const WEB_EVIDENCE_REQUIRED_BLOCKED_REFS = [
+  "blocked-state:web-evidence:no-browser-actions",
+  "blocked-state:web-evidence:no-auth-session-state",
+  "blocked-state:web-evidence:no-downloads-or-uploads",
+  "blocked-state:web-evidence:no-post-put-patch-delete",
+  "blocked-state:web-evidence:no-raw-body-persistence",
+  "blocked-state:web-evidence:no-context-injection",
+  "blocked-state:web-evidence:no-memory-write",
+  "blocked-state:web-evidence:no-provider-model-call",
+  "blocked-state:web-evidence:no-connector-write",
+  "blocked-state:web-evidence:no-production-authority",
+] as const;
+
+function isSafeWebEvidenceProductSliceReceipt(
+  value: unknown,
+): value is WebEvidenceProductSliceReceipt {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    value.schema_version ===
+      "control-center-web-evidence-product-slice-receipt.v1" &&
+    value.contract_ref === "contract-ref:web-evidence-product-slice:v1" &&
+    value.source === "python_core_web_evidence_product_slice" &&
+    value.route_ref === "POST /control-center/web-evidence/attach" &&
+    value.cli_ref === "python scripts/dev/uaa_founder_loop.py attach-web-evidence" &&
+    value.safe_refs_only_for_durable_surfaces === true &&
+    value.redacted_preview_returned_to_requester === true &&
+    value.web_access_gateway_required === true &&
+    value.configured_host_allowlist_required === true &&
+    value.operator_supplied_host_scope_required === true &&
+    value.request_ref_payload_idempotency === true &&
+    hasDeniedFlagsFalse(value, WEB_EVIDENCE_RECEIPT_DENIED_FLAGS) &&
+    WEB_EVIDENCE_RECEIPT_REQUIRED_ARRAYS.every((field) =>
+      Array.isArray(value[field]),
+    ) &&
+    isSafeWebEvidenceRef(value.request_ref) &&
+    isSafeWebEvidenceRef(value.attach_to_ref) &&
+    isSafeWebEvidenceRef(value.receipt_ref) &&
+    isSafeWebEvidenceRef(value.evidence_ref) &&
+    isSafeWebEvidenceRef(value.preview_ref) &&
+    isSafeWebEvidenceSafeUrlRef(value.safe_url_ref) &&
+    isSafeWebEvidenceRef(value.host_ref) &&
+    isSafeWebEvidenceRef(value.transport_ref) &&
+    isSafeWebEvidenceRef(value.web_access_request_ref) &&
+    isSafeWebEvidenceRef(value.web_access_audit_ref) &&
+    isSafeWebEvidenceRef(value.payload_fingerprint_ref) &&
+    isSafeWebEvidenceRef(value.redaction_posture_ref) &&
+    isSafeWebEvidenceRef(value.request_ref_idempotency_ref) &&
+    stringArray(value.receipt_refs).includes(String(value.receipt_ref)) &&
+    stringArray(value.evidence_refs).includes(String(value.evidence_ref)) &&
+    stringArray(value.audit_refs).includes(String(value.web_access_audit_ref)) &&
+    WEB_EVIDENCE_REQUIRED_BLOCKED_REFS.every((ref) =>
+      stringArray(value.blocked_authority_refs).includes(ref),
+    ) &&
+    isSafeWebEvidenceAuditSummary(
+      value.web_access_audit_summary,
+      String(value.web_access_request_ref),
+      String(value.safe_url_ref),
+      String(value.host_ref),
+    ) &&
+    typeof value.redacted_preview === "string" &&
+    !containsUnsafeWebEvidencePreview(value.redacted_preview)
+  );
+}
+
+function isSafeWebEvidenceAuditSummary(
+  value: unknown,
+  webAccessRequestRef: string,
+  safeUrlRef: string,
+  hostRef: string,
+): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    value.schema_version === "web-access-audit-summary.v1" &&
+    value.request_ref === webAccessRequestRef &&
+    value.safe_url_ref === safeUrlRef &&
+    value.host_ref === hostRef &&
+    value.adapter_kind === "local_fetch" &&
+    value.network_lane === "tool_runtime_read_only_fetch" &&
+    value.authority_mode === "read_only" &&
+    value.risk_class === "low" &&
+    value.policy_status === "allowed" &&
+    value.content_untrusted === true &&
+    value.raw_url_omitted === true &&
+    value.raw_headers_omitted === true &&
+    value.raw_body_omitted === true &&
+    typeof value.timestamp === "string" &&
+    value.timestamp.length > 0 &&
+    Array.isArray(value.policy_reason_refs) &&
+    value.policy_reason_refs.every(isSafeWebEvidenceRef) &&
+    Array.isArray(value.source_metadata_refs) &&
+    value.source_metadata_refs.every(isSafeWebEvidenceRef) &&
+    !("url" in value) &&
+    !("final_url" in value) &&
+    !("absolute_url" in value) &&
+    !("raw_url" in value)
+  );
+}
+
+function isSafeWebEvidenceSafeUrlRef(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^http-fetch-url:[a-z0-9-]+\/(root|path-[a-f0-9]{16})$/.test(value)
+  );
+}
+
+function isSafeWebEvidenceRef(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9][A-Za-z0-9_.:/@-]*$/.test(value) &&
+    !value.toLowerCase().includes("/users/") &&
+    !value.toLowerCase().includes("raw_prompt") &&
+    !value.toLowerCase().includes("raw_response") &&
+    !value.toLowerCase().includes("provider_payload")
+  );
+}
+
+function containsUnsafeWebEvidencePreview(value: string): boolean {
+  const lowered = value.toLowerCase();
+  return [
+    "https://",
+    "http://",
+    "/users/",
+    "raw prompt",
+    "raw response",
+    "provider payload",
+    "authorization",
+    "bearer ",
+    "api_key",
+    "password",
+    "private key",
+  ].some((fragment) => lowered.includes(fragment));
 }
 
 export async function recordChatTurnReceipt(

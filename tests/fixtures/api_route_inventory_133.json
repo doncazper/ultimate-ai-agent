@@ -1245,7 +1245,7 @@
       "rate_limit_posture": "not_targeted_for_route",
       "rate_limit_targeted": false,
       "route_classification": "local_sensitive",
-      "side_effect_class": "validation_only",
+      "side_effect_class": "local_dev_workspace_only",
       "summary": "Get control center proof index",
       "tags": [
         "control-center"
@@ -1265,7 +1265,7 @@
       "rate_limit_posture": "not_targeted_for_route",
       "rate_limit_targeted": false,
       "route_classification": "local_sensitive",
-      "side_effect_class": "validation_only",
+      "side_effect_class": "local_dev_workspace_only",
       "summary": "Get control center proof proof ref",
       "tags": [
         "control-center"
@@ -1485,7 +1485,7 @@
       "rate_limit_posture": "not_targeted_for_route",
       "rate_limit_targeted": false,
       "route_classification": "local_sensitive",
-      "side_effect_class": "validation_only",
+      "side_effect_class": "local_dev_workspace_only",
       "summary": "Get control center start here summary",
       "tags": [
         "control-center"
@@ -1585,7 +1585,7 @@
       "rate_limit_posture": "not_targeted_for_route",
       "rate_limit_targeted": false,
       "route_classification": "local_sensitive",
-      "side_effect_class": "validation_only",
+      "side_effect_class": "local_dev_workspace_only",
       "summary": "Get control center trust authority matrix",
       "tags": [
         "control-center"
@@ -1594,7 +1594,7 @@
     {
       "approval_posture": "not_required_for_route_classification",
       "auth_posture": "protected_local_bearer_required",
-      "idempotency_policy_ref": null,
+      "idempotency_policy_ref": "idempotency:web-evidence-product-slice:request-ref-payload",
       "idempotency_posture": "not_required_for_route_classification",
       "idempotency_required": false,
       "method": "POST",

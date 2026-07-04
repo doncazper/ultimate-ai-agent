@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
+import hashlib
 import ipaddress
 import re
 from typing import Any
@@ -225,6 +226,7 @@ class ReadOnlyHttpFetchOutput(BaseModel):
     real_world_transport_performed: bool = False
     web_access_audit_ref: str = "web-access-audit:unpersisted"
     web_access_request_ref: str = "web-access-request:unpersisted"
+    web_access_audit_summary: dict[str, Any] = Field(default_factory=dict)
     raw_response_body_returned: bool = False
     raw_response_body_stored: bool = False
     raw_headers_returned: bool = False
@@ -580,6 +582,11 @@ def build_read_only_http_fetch_output_via_web_access_gateway(
         update={
             "web_access_request_ref": result.request_id,
             "web_access_audit_ref": f"web-access-audit:{safe_request_suffix}",
+            "web_access_audit_summary": _redacted_web_access_audit_summary(
+                result=result,
+                safe_url_ref=output.safe_url_ref,
+                host_ref=output.host_ref,
+            ),
         }
     )
 
@@ -650,9 +657,53 @@ def _host_is_ip_literal(host: str) -> bool:
 
 
 def _safe_url_ref(host: str, path: str) -> str:
-    safe_path = path.strip("/").replace("/", "-") or "root"
-    safe_path = re.sub(r"[^a-zA-Z0-9_.-]", "-", safe_path)
-    return f"http-fetch-url:{host.replace('.', '-')}/{safe_path[:80]}"
+    normalized_path = path or "/"
+    if normalized_path == "/":
+        path_ref = "root"
+    else:
+        path_ref = f"path-{hashlib.sha256(normalized_path.encode('utf-8')).hexdigest()[:16]}"
+    return f"http-fetch-url:{host.replace('.', '-')}/{path_ref}"
+
+
+def _redacted_web_access_audit_summary(
+    *,
+    result: Any,
+    safe_url_ref: str,
+    host_ref: str,
+) -> dict[str, Any]:
+    audit = result.audit
+    policy_reasons = tuple(getattr(audit, "policy_reasons", ()) or ())
+    return {
+        "schema_version": "web-access-audit-summary.v1",
+        "request_ref": result.request_id,
+        "safe_url_ref": safe_url_ref,
+        "host_ref": host_ref,
+        "timestamp": audit.timestamp.isoformat(),
+        "adapter_kind": audit.adapter_kind.value,
+        "network_lane": audit.network_lane.value,
+        "authority_mode": audit.authority_mode.value,
+        "risk_class": audit.risk_class.value,
+        "policy_status": audit.policy_status.value,
+        "policy_reason_refs": [
+            f"policy-reason:web-access:{_safe_ref_token(reason)}"
+            for reason in policy_reasons
+        ],
+        "source_metadata_refs": [
+            safe_url_ref,
+            host_ref,
+            "source-metadata:web-access:content-untrusted",
+        ],
+        "content_untrusted": True,
+        "raw_url_omitted": True,
+        "raw_headers_omitted": True,
+        "raw_body_omitted": True,
+    }
+
+
+def _safe_ref_token(value: str) -> str:
+    token = re.sub(r"[^a-zA-Z0-9_.-]", "-", value.strip().lower())
+    token = token.strip("-")
+    return token[:80] or "unknown"
 
 
 def _coerce_allowed_hosts(value: Any) -> tuple[str, ...]:

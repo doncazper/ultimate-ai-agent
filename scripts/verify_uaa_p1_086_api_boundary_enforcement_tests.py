@@ -230,6 +230,13 @@ def _append_manifest_route_posture_failures(
                 failures.append(f"{key[0]} {key[1]} mutating idempotency policy ref drifted")
             if "authority" not in route["classification_reason"]:
                 failures.append(f"{key[0]} {key[1]} mutating route lacks authority posture reason")
+        elif key == ("POST", "/control-center/web-evidence/attach"):
+            if route["idempotency_required"] is not False:
+                failures.append(f"{key[0]} {key[1]} web evidence idempotency requirement drifted")
+            if route["idempotency_policy_ref"] != "idempotency:web-evidence-product-slice:request-ref-payload":
+                failures.append(f"{key[0]} {key[1]} web evidence idempotency policy ref drifted")
+            if "request_ref payload-idempotent" not in route["idempotency_reason"]:
+                failures.append(f"{key[0]} {key[1]} web evidence idempotency reason drifted")
         elif route["idempotency_required"] is not False or route["idempotency_policy_ref"] is not None:
             failures.append(f"{key[0]} {key[1]} non-mutating idempotency posture drifted")
 
