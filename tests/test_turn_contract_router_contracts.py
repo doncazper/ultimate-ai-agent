@@ -1,6 +1,7 @@
 import pytest
 
 from ultimate_ai_agent.core.decision_router import (
+    ApprovedExecutionScope,
     ApprovalPolicy,
     InvocationPolicy,
     MemoryPolicy,
@@ -24,6 +25,21 @@ def _decision(turn_contract: TurnContractKind, decision_ref: str = "turn-decisio
         reason_refs=["reason-ref:turn-contract:test"],
         source_refs=["source:turn-contract:test"],
         evidence_refs=["evidence:turn-contract:test"],
+    )
+
+
+def _approved_scope() -> ApprovedExecutionScope:
+    return ApprovedExecutionScope(
+        scope_ref="approved-scope:turn-contract:test",
+        approval_scope_ref="approval-scope:turn-contract:test",
+        action_scope_ref="action-scope:turn-contract:test",
+        tool_ref="tool-ref:turn-contract:test",
+        arguments_ref="arguments-ref:turn-contract:test",
+        merchant_ref="merchant-ref:turn-contract:test",
+        recipient_ref="recipient-ref:turn-contract:test",
+        account_ref="account-ref:turn-contract:test",
+        cost_ref="cost-ref:turn-contract:test",
+        risk_ref="risk-ref:turn-contract:test",
     )
 
 
@@ -139,6 +155,7 @@ def test_execute_approved_action_requires_exact_scope_refs() -> None:
 
 
 def test_execute_approved_action_compiles_only_exact_approved_policy() -> None:
+    scope = _approved_scope()
     decision = TurnDecision(
         decision_ref="turn-decision:execute",
         turn_contract=TurnContractKind.execute_approved_action,
@@ -147,10 +164,11 @@ def test_execute_approved_action_compiles_only_exact_approved_policy() -> None:
         reason_refs=["reason-ref:turn-contract:test"],
         source_refs=["source:turn-contract:test"],
         evidence_refs=["evidence:turn-contract:test"],
-        approval_scope_ref="approval-scope:turn-contract:test",
-        action_scope_ref="action-scope:turn-contract:test",
-        approved_tool_ref="tool-ref:turn-contract:test",
-        approved_arguments_ref="arguments-ref:turn-contract:test",
+        approval_scope_ref=scope.approval_scope_ref,
+        action_scope_ref=scope.action_scope_ref,
+        approved_tool_ref=scope.tool_ref,
+        approved_arguments_ref=scope.arguments_ref,
+        approved_execution_scope=scope,
     )
 
     policy = compile_invocation_policy(decision)
@@ -163,6 +181,11 @@ def test_execute_approved_action_compiles_only_exact_approved_policy() -> None:
     assert policy.tool_choice == ToolChoicePolicy.exact_approved.value
     assert policy.allowed_tool_ref == "tool-ref:turn-contract:test"
     assert policy.allowed_arguments_ref == "arguments-ref:turn-contract:test"
+    assert policy.allowed_merchant_ref == "merchant-ref:turn-contract:test"
+    assert policy.allowed_recipient_ref == "recipient-ref:turn-contract:test"
+    assert policy.allowed_account_ref == "account-ref:turn-contract:test"
+    assert policy.allowed_cost_ref == "cost-ref:turn-contract:test"
+    assert policy.allowed_risk_ref == "risk-ref:turn-contract:test"
     assert policy.side_effects_allowed is True
     assert policy.receipt_required is True
     assert policy.execution_ready is True
@@ -171,6 +194,56 @@ def test_execute_approved_action_compiles_only_exact_approved_policy() -> None:
     assert policy.shell_subprocess_allowed is False
     assert policy.browser_network_allowed is False
     assert policy.connector_write_allowed is False
+
+
+@pytest.mark.parametrize(
+    ("field_name", "broadened_ref"),
+    [
+        ("allowed_tool_ref", "tool-ref:turn-contract:other"),
+        ("allowed_arguments_ref", "arguments-ref:turn-contract:other"),
+        ("allowed_merchant_ref", "merchant-ref:turn-contract:other"),
+        ("allowed_recipient_ref", "recipient-ref:turn-contract:other"),
+        ("allowed_account_ref", "account-ref:turn-contract:other"),
+        ("allowed_cost_ref", "cost-ref:turn-contract:other"),
+    ],
+)
+def test_execute_approved_action_policy_rejects_exact_scope_broadening(
+    field_name: str,
+    broadened_ref: str,
+) -> None:
+    scope = _approved_scope()
+    decision = TurnDecision(
+        decision_ref="turn-decision:execute-scope",
+        turn_contract=TurnContractKind.execute_approved_action,
+        confidence=0.9,
+        safe_summary="Reviewed exact execution posture.",
+        reason_refs=["reason-ref:turn-contract:test"],
+        source_refs=["source:turn-contract:test"],
+        evidence_refs=["evidence:turn-contract:test"],
+        approval_scope_ref=scope.approval_scope_ref,
+        action_scope_ref=scope.action_scope_ref,
+        approved_tool_ref=scope.tool_ref,
+        approved_arguments_ref=scope.arguments_ref,
+        approved_execution_scope=scope,
+    )
+    payload = compile_invocation_policy(decision).model_dump(mode="json")
+    payload[field_name] = broadened_ref
+
+    with pytest.raises(ValueError, match=field_name):
+        InvocationPolicy(**payload)
+
+
+def test_approval_required_policy_exposes_only_envelope_posture() -> None:
+    policy = compile_invocation_policy(_decision(TurnContractKind.approval_required))
+
+    assert policy.tool_policy == ToolPolicy.envelope_only_no_execution.value
+    assert policy.tools == ["tool-category:approval-envelope-builder"]
+    assert policy.approval_required is True
+    assert policy.side_effects_allowed is False
+    assert policy.execution_ready is False
+    assert policy.tool_execution_allowed is False
+    assert policy.action_execution_allowed is False
+    assert policy.receipt_required is False
 
 
 def test_non_execution_contracts_reject_side_effects_allowed() -> None:

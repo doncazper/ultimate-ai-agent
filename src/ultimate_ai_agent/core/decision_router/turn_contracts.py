@@ -107,6 +107,38 @@ class RiskFlag(str, Enum):
     unsafe = "unsafe"
 
 
+class ApprovedExecutionScope(BaseModel):
+    scope_ref: str = Field(..., min_length=1)
+    approval_scope_ref: str = Field(..., min_length=1)
+    action_scope_ref: str = Field(..., min_length=1)
+    tool_ref: str = Field(..., min_length=1)
+    arguments_ref: str = Field(..., min_length=1)
+    merchant_ref: str = Field(..., min_length=1)
+    recipient_ref: str = Field(..., min_length=1)
+    account_ref: str = Field(..., min_length=1)
+    cost_ref: str = Field(..., min_length=1)
+    risk_ref: str = Field(..., min_length=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_scope(self) -> "ApprovedExecutionScope":
+        for field_name in (
+            "scope_ref",
+            "approval_scope_ref",
+            "action_scope_ref",
+            "tool_ref",
+            "arguments_ref",
+            "merchant_ref",
+            "recipient_ref",
+            "account_ref",
+            "cost_ref",
+            "risk_ref",
+        ):
+            validate_task_ref(getattr(self, field_name), field_name)
+        return self
+
+
 _ANSWER_PRESERVATION_CONTRACTS = {
     TurnContractKind.answer_directly.value,
     TurnContractKind.base_answer.value,
@@ -142,6 +174,7 @@ class TurnDecision(BaseModel):
     action_scope_ref: str | None = None
     approved_tool_ref: str | None = None
     approved_arguments_ref: str | None = None
+    approved_execution_scope: ApprovedExecutionScope | None = None
     blocked_authority_refs: list[str] = Field(
         default_factory=lambda: list(TURN_CONTRACT_ROUTER_REQUIRED_BLOCKED_AUTHORITY_REFS)
     )
@@ -195,11 +228,13 @@ class TurnDecision(BaseModel):
                     "action_scope_ref",
                     "approved_tool_ref",
                     "approved_arguments_ref",
+                    "approved_execution_scope",
                 )
                 if getattr(self, field_name) is None
             ]
             if missing:
                 raise ValueError(f"execute_approved_action requires exact scope ref: {missing[0]}")
+            _validate_turn_decision_matches_approved_scope(self)
         return self
 
 
@@ -223,6 +258,12 @@ class InvocationPolicy(BaseModel):
     action_scope_ref: str | None = None
     allowed_tool_ref: str | None = None
     allowed_arguments_ref: str | None = None
+    allowed_merchant_ref: str | None = None
+    allowed_recipient_ref: str | None = None
+    allowed_account_ref: str | None = None
+    allowed_cost_ref: str | None = None
+    allowed_risk_ref: str | None = None
+    approved_execution_scope: ApprovedExecutionScope | None = None
     side_effects_allowed: bool = False
     receipt_required: bool = False
     execution_ready: bool = False
@@ -254,6 +295,11 @@ class InvocationPolicy(BaseModel):
         _validate_optional_ref(self.action_scope_ref, "action_scope_ref")
         _validate_optional_ref(self.allowed_tool_ref, "allowed_tool_ref")
         _validate_optional_ref(self.allowed_arguments_ref, "allowed_arguments_ref")
+        _validate_optional_ref(self.allowed_merchant_ref, "allowed_merchant_ref")
+        _validate_optional_ref(self.allowed_recipient_ref, "allowed_recipient_ref")
+        _validate_optional_ref(self.allowed_account_ref, "allowed_account_ref")
+        _validate_optional_ref(self.allowed_cost_ref, "allowed_cost_ref")
+        _validate_optional_ref(self.allowed_risk_ref, "allowed_risk_ref")
         _validate_ref_list(self.blocked_authority_refs, "blocked_authority_refs")
         _validate_required_blocked_authorities(self.blocked_authority_refs, "invocation policy")
         if not self.safe_refs_only:
@@ -387,6 +433,12 @@ def compile_invocation_policy(decision: TurnDecision) -> InvocationPolicy:
             action_scope_ref=parsed.action_scope_ref,
             allowed_tool_ref=parsed.approved_tool_ref,
             allowed_arguments_ref=parsed.approved_arguments_ref,
+            allowed_merchant_ref=parsed.approved_execution_scope.merchant_ref,
+            allowed_recipient_ref=parsed.approved_execution_scope.recipient_ref,
+            allowed_account_ref=parsed.approved_execution_scope.account_ref,
+            allowed_cost_ref=parsed.approved_execution_scope.cost_ref,
+            allowed_risk_ref=parsed.approved_execution_scope.risk_ref,
+            approved_execution_scope=parsed.approved_execution_scope,
             side_effects_allowed=True,
             receipt_required=True,
             execution_ready=True,
@@ -470,11 +522,18 @@ def _validate_exact_execution_policy(policy: InvocationPolicy) -> None:
             "action_scope_ref",
             "allowed_tool_ref",
             "allowed_arguments_ref",
+            "allowed_merchant_ref",
+            "allowed_recipient_ref",
+            "allowed_account_ref",
+            "allowed_cost_ref",
+            "allowed_risk_ref",
+            "approved_execution_scope",
         )
         if getattr(policy, field_name) is None
     ]
     if missing:
         raise ValueError(f"execute_approved_action requires exact scope ref: {missing[0]}")
+    _validate_policy_matches_approved_scope(policy)
     if policy.memory_scope != MemoryPolicy.scoped_to_approval.value:
         raise ValueError("execute_approved_action requires scoped approval memory policy")
     if policy.tool_policy != ToolPolicy.exact_approved_tool_only.value:
@@ -506,6 +565,41 @@ def _validate_exact_execution_policy(policy: InvocationPolicy) -> None:
     ]
     if blocked:
         raise ValueError(f"execute_approved_action enabled blocked authority: {blocked[0]}")
+
+
+def _validate_turn_decision_matches_approved_scope(decision: TurnDecision) -> None:
+    scope = decision.approved_execution_scope
+    if scope is None:
+        raise ValueError("execute_approved_action requires approved_execution_scope")
+    expected = {
+        "approval_scope_ref": scope.approval_scope_ref,
+        "action_scope_ref": scope.action_scope_ref,
+        "approved_tool_ref": scope.tool_ref,
+        "approved_arguments_ref": scope.arguments_ref,
+    }
+    for field_name, expected_value in expected.items():
+        if getattr(decision, field_name) != expected_value:
+            raise ValueError(f"execute_approved_action scope mismatch: {field_name}")
+
+
+def _validate_policy_matches_approved_scope(policy: InvocationPolicy) -> None:
+    scope = policy.approved_execution_scope
+    if scope is None:
+        raise ValueError("execute_approved_action requires approved_execution_scope")
+    expected = {
+        "approval_scope_ref": scope.approval_scope_ref,
+        "action_scope_ref": scope.action_scope_ref,
+        "allowed_tool_ref": scope.tool_ref,
+        "allowed_arguments_ref": scope.arguments_ref,
+        "allowed_merchant_ref": scope.merchant_ref,
+        "allowed_recipient_ref": scope.recipient_ref,
+        "allowed_account_ref": scope.account_ref,
+        "allowed_cost_ref": scope.cost_ref,
+        "allowed_risk_ref": scope.risk_ref,
+    }
+    for field_name, expected_value in expected.items():
+        if getattr(policy, field_name) != expected_value:
+            raise ValueError(f"execute_approved_action scope mismatch: {field_name}")
 
 
 def _validate_runtime_denials(policy: InvocationPolicy, owner: str) -> None:

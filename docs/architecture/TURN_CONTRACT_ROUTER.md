@@ -218,3 +218,41 @@ Golden regression table:
 | Send this to Alex. | `approval_required` | External communication boundary; no send before exact approval. |
 | Delete these files. | `approval_required` | Destructive action boundary; no delete before exact approval. |
 | Ask the base answer path: use my card and order this. | `approval_required` | `base_answer` must not bypass payment, credential, or action safety. |
+
+## Phase 03 Invocation Policy Compiler
+
+Implemented compiler surface:
+
+- `compile_invocation_policy` converts every `TurnDecision` into an
+  `InvocationPolicy` with hard constraints.
+- `answer_directly` and `base_answer` compile to no memory, no tools,
+  `tool_choice=none`, no planner, no durable state, no side effects, and no
+  approval requirement.
+- `answer_with_reviewed_memory` carries `memory_scope=reviewed_relevant_only`
+  and keeps tools, side effects, and durable state disabled.
+- `draft_or_plan` is draft/proposal only and side-effect free.
+- `prepare_tool_or_action` exposes read-only/proposal posture only.
+- `approval_required` exposes an envelope-building posture only and requires
+  exact approval before any later execution.
+- `execute_approved_action` carries exact approved scope refs and requires a
+  receipt/action log posture.
+
+Exact approved execution scope:
+
+| Scope field | Purpose |
+|---|---|
+| `approval_scope_ref` | The exact approval boundary. |
+| `action_scope_ref` | The exact action boundary. |
+| `tool_ref` | The exact approved tool ref. |
+| `arguments_ref` | The exact approved arguments ref. |
+| `merchant_ref` | The exact merchant or not-applicable ref. |
+| `recipient_ref` | The exact recipient or not-applicable ref. |
+| `account_ref` | The exact account or broker ref. |
+| `cost_ref` | The exact cost or not-applicable ref. |
+| `risk_ref` | The exact reviewed risk-class ref. |
+
+Compiler no-broadening rule:
+
+```text
+For execute_approved_action, every allowed_* ref in InvocationPolicy must match the embedded ApprovedExecutionScope. Any widened merchant, recipient, account, cost, tool, argument, or risk ref is invalid before execution.
+```
