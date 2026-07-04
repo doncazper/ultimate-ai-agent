@@ -7,10 +7,11 @@ API boundary: current FastAPI manifest has 169 OpenAPI paths
 Lineage: carries forward the UAA-P1-065 `FCC-P0-002` Control Center
 organization cleanup as historical product-surface context.
 
-This map is production-readiness scaffolding for the Control Center operator
-shell. It does not add runtime authority, backend routes, frontend controls,
-shell/subprocess execution, browser automation, connector writes, plugin runtime
-import, mobile control, autonomous background execution, or public distribution.
+This map is operator-readiness and release-claim discipline scaffolding for the
+Control Center operator shell. It does not add runtime authority, backend
+routes, frontend controls, shell/subprocess execution, browser automation,
+connector writes, plugin runtime import, mobile control, autonomous background
+execution, or public distribution.
 `docs/control_center/BACKGROUND_AUTONOMOUS_PROVIDER_CALLS_PROMOTION_PLAN.md`
 is planning-only: Control Center has no background provider queue dispatch,
 scheduler control, autonomous provider-call control, billing authority toggle,

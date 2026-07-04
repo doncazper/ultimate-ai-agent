@@ -6,7 +6,7 @@ PYTEST_SHARDS ?= 4
 PYTEST_SHARD_TIMINGS_JSON ?= /tmp/uaa_pytest_file_timings.json
 PYTEST_SHARD_BASETEMP ?= /tmp/uaa_pytest_shards
 
-.PHONY: doctor test test-sharded verify verify-static verify-gate-architecture verify-fast verify-dev-fast verify-dev-sharded verify-local frontend-check frontend-visual-check openapi ruff
+.PHONY: doctor test test-sharded verify verify-static verify-gate-architecture verify-fast verify-dev-fast verify-dev-sharded verify-local verify-beta-local verify-beta-local-visual frontend-check frontend-visual-check openapi ruff
 
 doctor:
 	$(PYTHON) scripts/verify_dev_environment.py
@@ -44,6 +44,12 @@ verify-dev-sharded:
 		--static-timings-json $(VERIFY_TIMINGS_JSON)
 
 verify-local: verify-dev-fast
+
+verify-beta-local:
+	$(PYTHON) scripts/verify_beta_local.py
+
+verify-beta-local-visual:
+	$(PYTHON) scripts/verify_beta_local.py --include-live-visual
 
 frontend-check:
 	cd $(FRONTEND_DIR) && npm run typecheck --if-present

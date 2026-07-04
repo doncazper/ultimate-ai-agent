@@ -118,8 +118,8 @@ class ControlCenterProofRunDetail(BaseModel):
     )
     blocked_authority_summary: str = (
         "Provider/model calls, connector writes or sends, browser automation, "
-        "shell execution, background autonomy, public release claims, and "
-        "production authority remain blocked."
+        "shell execution, background autonomy, public beta and distribution "
+        "claims, and production authority remain blocked."
     )
     exact_promotion_path_refs: list[str] = Field(default_factory=list)
     route_refs: list[str] = Field(default_factory=list)
@@ -1169,7 +1169,7 @@ def _setup_package_record(today_summary: dict[str, Any]) -> ControlCenterProofRe
         status="local_setup_package_proof_review_only",
         title="Setup And Package Proof",
         safe_summary="Setup/package proof is local-only review posture and does not claim distribution readiness.",
-        authority_posture="No signed installer, notarization, LaunchAgent, daemon, auto-update, public release, or production authority is granted.",
+        authority_posture="No signed installer, notarization, LaunchAgent, daemon, auto-update, public distribution claim, or production authority is granted.",
         route_refs=["route-ref:control-center:setup"],
         backend_route_refs=["GET /control-center/setup-assistant/summary"],
         run_refs=[FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF],

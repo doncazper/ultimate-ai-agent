@@ -2,7 +2,7 @@
 
 Status: active UAA-P1-030 route status manifest
 
-The route status manifest is the production-readiness index for visible Control
+The route status manifest is the route-status truth index for visible Control
 Center actions. It records the owner, auth posture, side-effect class,
 UAA-P1-080 route classification, risk class, OpenAPI operation id, release
 status, UI surface, approval requirement, and evidence/audit output for each

@@ -250,8 +250,8 @@ class FounderLoopProductProofReadModel(BaseModel):
     )
     blocked_authority_summary: str = (
         "Provider and model calls, connector writes or sends, browser work, "
-        "shell subprocess work, background autonomy, public release claims, "
-        "and production authority remain blocked."
+        "shell subprocess work, background autonomy, public beta and "
+        "distribution claims, and production authority remain blocked."
     )
     exact_promotion_path_refs: list[str] = Field(
         default_factory=lambda: [

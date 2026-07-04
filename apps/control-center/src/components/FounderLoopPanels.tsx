@@ -5431,6 +5431,33 @@ export function ActionInboxSurfacePanel({
                 : "blocked"
             }
           />
+          <DetailTerm
+            label="Distribution claim"
+            value={
+              inbox.private_beta_readiness_authority_posture
+                ?.public_distribution_claim_enabled
+                ? "enabled"
+                : "blocked"
+            }
+          />
+          <DetailTerm
+            label="Production readiness"
+            value={
+              inbox.private_beta_readiness_authority_posture
+                ?.production_readiness_claim_enabled
+                ? "enabled"
+                : "blocked"
+            }
+          />
+          <DetailTerm
+            label="Production authority"
+            value={
+              inbox.private_beta_readiness_authority_posture
+                ?.production_authority_enabled
+                ? "enabled"
+                : "blocked"
+            }
+          />
         </dl>
         <div className="status-card-header">
           <h3>Exact promotion path</h3>
