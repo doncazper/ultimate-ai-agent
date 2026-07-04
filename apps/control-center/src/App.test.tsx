@@ -1130,6 +1130,74 @@ function plansToActionsBridgeFixture(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function runtimeActionInboxBridgeFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const item = {
+    invocation_ref: "runtime-invocation:app-test",
+    action_envelope_ref: "action-envelope:runtime-app-test",
+    adapter_id: "governed_command",
+    requested_authority: "operator-approved",
+    command_intent: "focused_pytest",
+    status: "receipt_recorded",
+    approval_validated: true,
+    execution_performed: true,
+    exact_scope_ref: "scope-ref:runtime-app-test",
+    approval_ref: "approval-ref:runtime-app-test",
+    idempotency_ref: "idempotency-ref:runtime-app-test",
+    policy_decision_ref: "policy-decision:runtime-app-test",
+    payload_fingerprint_ref: "payload-fingerprint:runtime-app-test",
+    rollback_ref: "rollback-ref:runtime-app-test",
+    safe_disable_ref: "safe-disable-ref:runtime-app-test",
+    receipt_refs: ["receipt:runtime-command:app-test"],
+    evidence_refs: ["evidence-ref:runtime-command:app-test"],
+    blocked_reason_refs: [],
+    blocked_authority_refs: [
+      "blocked-authority:runtime-unrestricted-command-execution",
+    ],
+    safe_summary:
+      "Exact governed runtime envelope is inspectable through Action Inbox.",
+  };
+  return {
+    schema_version: "governed-runtime-action-inbox-bridge.v1",
+    contract_ref:
+      "contract-ref:governed-runtime-action-inbox-execution-bridge:v1",
+    source: "python_core_runtime_gateway_action_inbox_bridge_read_model",
+    backend_owned: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    route_ref: "GET /control-center/actions/inbox",
+    cli_ref: "python scripts/dev/uaa_runtime.py inspect-action-inbox-bridge",
+    status: "backend_owned_runtime_action_inbox_bridge",
+    item_count: 1,
+    pending_approval_count: 0,
+    approved_pending_execution_count: 0,
+    receipt_recorded_count: 1,
+    blocked_count: 0,
+    item_refs: ["runtime-invocation:app-test"],
+    receipt_refs: ["receipt:runtime-command:app-test"],
+    evidence_refs: ["evidence-ref:runtime-command:app-test"],
+    items: [item],
+    blocked_authority_refs: [
+      "blocked-authority:runtime-unrestricted-command-execution",
+      "blocked-authority:runtime-command-execution-without-gateway-allowlist",
+      "blocked-authority:runtime-browser-automation",
+      "blocked-authority:runtime-production-authority",
+    ],
+    next_safe_action:
+      "Inspect exact runtime approval envelopes; broad runtime authority remains blocked.",
+    operator_summary:
+      "One governed runtime approval envelope is visible with receipt refs.",
+    action_execution_enabled: false,
+    arbitrary_command_execution_enabled: false,
+    provider_model_call_enabled: false,
+    browser_execution_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
 function actionDecisionLaneReadModelFixture(
   overrides: Record<string, unknown> = {},
 ) {
@@ -4871,6 +4939,94 @@ describe("Web Control Center shell", () => {
       screen.queryByText("proof-ref:action-decision:unsafe-work-queue-test"),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Fake controls")).not.toBeInTheDocument();
+  });
+
+  it("renders the governed runtime Action Inbox bridge from backend data", async () => {
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      runtime_action_inbox_bridge_contract_ref:
+        "contract-ref:governed-runtime-action-inbox-execution-bridge:v1",
+      runtime_action_inbox_bridge_read_model: runtimeActionInboxBridgeFixture(),
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Action Inbox$/i }),
+    ).toBeInTheDocument();
+    const bridge = screen.getByLabelText(
+      "Runtime Action Inbox execution bridge",
+    );
+    expect(bridge).toHaveTextContent("backend-owned");
+    expect(bridge).toHaveTextContent("focused_pytest");
+    expect(bridge).toHaveTextContent("runtime-invocation:app-test");
+    expect(bridge).toHaveTextContent("receipt:runtime-command:app-test");
+    expect(bridge).toHaveTextContent(
+      "blocked-authority:runtime-unrestricted-command-execution",
+    );
+    expect(
+      within(bridge).queryByRole("button", {
+        name: /execute|run|apply|commit/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed when the governed runtime bridge exposes unsafe controls", async () => {
+    const unsafeBridge = runtimeActionInboxBridgeFixture({
+      action_execution_enabled: true,
+    });
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      runtime_action_inbox_bridge_contract_ref:
+        "contract-ref:governed-runtime-action-inbox-execution-bridge:v1",
+      runtime_action_inbox_bridge_read_model: unsafeBridge,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Action Inbox$/i }),
+    ).toBeInTheDocument();
+    const bridge = screen.getByLabelText(
+      "Runtime Action Inbox execution bridge",
+    );
+    expect(bridge).toHaveTextContent("backend read model missing");
+    expect(screen.queryByText("runtime-invocation:app-test")).not.toBeInTheDocument();
+    expect(screen.queryByText("focused_pytest")).not.toBeInTheDocument();
   });
 
   it("fails closed when a Plans-to-Actions bridge item carries unsafe fields", async () => {

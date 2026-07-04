@@ -1898,6 +1898,59 @@ export interface FounderLoopActionInboxWorkQueueReadModel {
   production_authority_enabled: boolean;
 }
 
+export interface FounderLoopRuntimeActionInboxBridgeItem {
+  invocation_ref: string;
+  action_envelope_ref: string;
+  adapter_id: string;
+  requested_authority: string;
+  command_intent?: string | null;
+  status: string;
+  approval_validated: boolean;
+  execution_performed: boolean;
+  exact_scope_ref: string;
+  approval_ref: string;
+  idempotency_ref: string;
+  policy_decision_ref: string;
+  payload_fingerprint_ref: string;
+  rollback_ref: string;
+  safe_disable_ref: string;
+  receipt_refs: string[];
+  evidence_refs: string[];
+  blocked_reason_refs: string[];
+  blocked_authority_refs: string[];
+  safe_summary: string;
+}
+
+export interface FounderLoopRuntimeActionInboxBridgeReadModel {
+  schema_version: "governed-runtime-action-inbox-bridge.v1";
+  contract_ref: string;
+  source: "python_core_runtime_gateway_action_inbox_bridge_read_model";
+  backend_owned: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  route_ref: string;
+  cli_ref: string;
+  status: string;
+  item_count: number;
+  pending_approval_count: number;
+  approved_pending_execution_count: number;
+  receipt_recorded_count: number;
+  blocked_count: number;
+  item_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  items: FounderLoopRuntimeActionInboxBridgeItem[];
+  blocked_authority_refs: string[];
+  next_safe_action: string;
+  operator_summary: string;
+  action_execution_enabled: boolean;
+  arbitrary_command_execution_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  browser_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export type FounderLoopActionInboxDecisionLaneId =
   | "needs_approval"
   | "blocked"
@@ -6224,6 +6277,8 @@ export interface FounderLoopActionsInbox {
   action_groups?: FounderLoopActionGroupSummary[];
   action_inbox_work_queue_contract_ref?: string;
   action_inbox_work_queue_read_model?: FounderLoopActionInboxWorkQueueReadModel;
+  runtime_action_inbox_bridge_contract_ref?: string;
+  runtime_action_inbox_bridge_read_model?: FounderLoopRuntimeActionInboxBridgeReadModel;
   action_inbox_decision_lane_contract_ref?: string;
   action_inbox_decision_lane_read_model?: FounderLoopActionInboxDecisionLaneReadModel;
   plans_to_actions_bridge_contract_ref?: string;

@@ -75,15 +75,16 @@ Current boundary summary:
   exact-approved provider lane, governed runtime pilot mutation routes, and
   local model validation route groups. It does not add auth, distributed quota,
   dependencies, billing, or production authority.
-- Governed Runtime Pilot Phase 04 keeps `/api/runtime/*` contract, policy,
+- Governed Runtime Pilot Phase 05 keeps `/api/runtime/*` contract, policy,
   approval-binding, receipt, and safe-disable metadata routes while promoting
-  only the exact local loopback model-call lane and one exact allowlisted
-  read-only command status lane through `RuntimeGateway`. They are backend-owned
+  configured local loopback model calls, one exact allowlisted read-only command
+  status lane, and exact Action Inbox approved focused pytest command execution
+  through `RuntimeGateway`. They are backend-owned
   safe-ref/metadata receipts; arbitrary shell/subprocess execution, focused
-  tests/verifiers without the later exact approval bridge, arbitrary adapter
-  execution, remote provider/model calls, browser automation, connector writes,
-  plugin runtime import, remote execution, production authority, and public
-  release claims remain blocked.
+  tests outside the exact lane, repo verifiers, frontend-check, arbitrary
+  adapter execution, remote provider/model calls, browser automation, connector
+  writes, plugin runtime import, remote execution, production authority, and
+  public release claims remain blocked.
 - Beta 12 extracts the app-owned Control Center shell/status route block into
   `ultimate_ai_agent.api.control_center` while preserving the then-current
   169-route

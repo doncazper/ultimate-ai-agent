@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -71,9 +71,93 @@ class RuntimeInvocationStatus(str, Enum):
     blocked = "blocked"
     pending_approval = "pending_approval"
     approved_pending_execution = "approved_pending_execution"
+    approval_denied = "approval_denied"
+    approval_expired = "approval_expired"
     execution_blocked = "execution_blocked"
     receipt_recorded = "receipt_recorded"
     safe_disabled = "safe_disabled"
+
+
+class RuntimeActionInboxApprovalDecision(str, Enum):
+    approve = "approve"
+    deny = "deny"
+    expire = "expire"
+
+
+class RuntimeActionInboxApprovalEnvelope(BaseModel):
+    schema_version: str = "governed_runtime_action_inbox_approval_envelope.v1"
+    action_envelope_ref: str = Field(..., min_length=1)
+    invocation_ref: str = Field(..., min_length=1)
+    adapter_id: str = Field(..., min_length=1, max_length=120)
+    requested_authority: RuntimeAuthority
+    command_intent: RuntimeCommandIntent | None = None
+    exact_scope_ref: str = Field(..., min_length=1)
+    payload_fingerprint_ref: str = Field(..., min_length=1)
+    policy_decision_ref: str = Field(..., min_length=1)
+    approval_ref: str = Field(..., min_length=1)
+    approval_scope_ref: str = "approval-scope-ref:governed-runtime-exact-envelope"
+    approval_decision_ref: str | None = None
+    approval_validation_ref: str | None = None
+    approval_ref_is_identifier_only: bool = True
+    risk_class: Literal["safe", "low", "medium", "high", "critical"] = "medium"
+    expires_at: datetime = Field(default_factory=lambda: utc_now() + timedelta(minutes=30))
+    decision: RuntimeActionInboxApprovalDecision = RuntimeActionInboxApprovalDecision.approve
+    status: RuntimeInvocationStatus = RuntimeInvocationStatus.pending_approval
+    idempotency_ref: str = Field(..., min_length=1)
+    rollback_ref: str = GOVERNED_RUNTIME_ROLLBACK_REF
+    safe_disable_ref: str = GOVERNED_RUNTIME_SAFE_DISABLE_REF
+    safe_disable_posture_ref: str = GOVERNED_RUNTIME_SAFE_DISABLE_POSTURE_REF
+    approval_validated: bool = False
+    execution_performed: bool = False
+    stale_policy: bool = False
+    scope_mismatch: bool = False
+    runtime_profile_weaker_or_disabled: bool = False
+    safe_disable_active: bool = False
+    blocked_reason_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    safe_summary: str = "Action Inbox runtime approval envelope stores exact safe refs only."
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_action_inbox_envelope(self) -> "RuntimeActionInboxApprovalEnvelope":
+        for value, field_name in [
+            (self.action_envelope_ref, "action_envelope_ref"),
+            (self.invocation_ref, "invocation_ref"),
+            (self.exact_scope_ref, "exact_scope_ref"),
+            (self.payload_fingerprint_ref, "payload_fingerprint_ref"),
+            (self.policy_decision_ref, "policy_decision_ref"),
+            (self.approval_ref, "approval_ref"),
+            (self.approval_scope_ref, "approval_scope_ref"),
+            (self.approval_decision_ref, "approval_decision_ref"),
+            (self.approval_validation_ref, "approval_validation_ref"),
+            (self.idempotency_ref, "idempotency_ref"),
+            (self.rollback_ref, "rollback_ref"),
+            (self.safe_disable_ref, "safe_disable_ref"),
+            (self.safe_disable_posture_ref, "safe_disable_posture_ref"),
+        ]:
+            if value is not None:
+                validate_execution_ref(value, field_name)
+        for value, field_name in [
+            (self.schema_version, "schema_version"),
+            (self.adapter_id, "adapter_id"),
+            (self.risk_class, "risk_class"),
+            (self.safe_summary, "safe_summary"),
+        ]:
+            validate_safe_execution_text(str(value), field_name)
+        for field_name in ("blocked_reason_refs", "evidence_refs", "receipt_refs"):
+            for ref in getattr(self, field_name):
+                validate_execution_ref(ref, field_name)
+        if self.command_intent is None and self.requested_authority == RuntimeAuthority.allowlisted_command.value:
+            raise ValueError("RUNTIME_ACTION_INBOX_COMMAND_INTENT_REQUIRED")
+        if self.approval_validated and self.decision != RuntimeActionInboxApprovalDecision.approve.value:
+            raise ValueError("RUNTIME_ACTION_INBOX_APPROVED_DECISION_REQUIRED")
+        if self.execution_performed and self.status != RuntimeInvocationStatus.receipt_recorded.value:
+            raise ValueError("RUNTIME_ACTION_INBOX_EXECUTION_STATUS_REQUIRED")
+        return self
 
 
 class RuntimeArtifactRef(BaseModel):
@@ -531,8 +615,20 @@ class RuntimeLocalModelReceiptMetadata(BaseModel):
 
 
 class RuntimeApprovalBindingRequest(BaseModel):
-    approval_ref: str = Field(..., min_length=1)
+    approval_ref: str | None = Field(default=None, min_length=1)
     approval_scope_ref: str = "approval-scope-ref:governed-runtime-exact-envelope"
+    decision: RuntimeActionInboxApprovalDecision = RuntimeActionInboxApprovalDecision.approve
+    action_envelope_ref: str | None = None
+    exact_scope_ref: str | None = None
+    expected_payload_fingerprint_ref: str | None = None
+    expected_policy_decision_ref: str | None = None
+    adapter_id: str | None = None
+    command_intent: RuntimeCommandIntent | None = None
+    risk_class: Literal["safe", "low", "medium", "high", "critical"] = "medium"
+    expires_at: datetime | None = None
+    rollback_ref: str = GOVERNED_RUNTIME_ROLLBACK_REF
+    safe_disable_ref: str = GOVERNED_RUNTIME_SAFE_DISABLE_REF
+    safe_disable_posture_ref: str = GOVERNED_RUNTIME_SAFE_DISABLE_POSTURE_REF
     safe_summary: str = "Approval binding recorded as an identifier only."
     metadata_refs: list[str] = Field(default_factory=list)
 
@@ -540,8 +636,23 @@ class RuntimeApprovalBindingRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_binding_request(self) -> "RuntimeApprovalBindingRequest":
-        validate_execution_ref(self.approval_ref, "approval_ref")
+        if self.approval_ref is not None:
+            validate_execution_ref(self.approval_ref, "approval_ref")
         validate_execution_ref(self.approval_scope_ref, "approval_scope_ref")
+        for value, field_name in [
+            (self.action_envelope_ref, "action_envelope_ref"),
+            (self.exact_scope_ref, "exact_scope_ref"),
+            (self.expected_payload_fingerprint_ref, "expected_payload_fingerprint_ref"),
+            (self.expected_policy_decision_ref, "expected_policy_decision_ref"),
+            (self.rollback_ref, "rollback_ref"),
+            (self.safe_disable_ref, "safe_disable_ref"),
+            (self.safe_disable_posture_ref, "safe_disable_posture_ref"),
+        ]:
+            if value:
+                validate_execution_ref(value, field_name)
+        if self.adapter_id:
+            validate_safe_execution_text(self.adapter_id, "adapter_id")
+        validate_safe_execution_text(self.risk_class, "risk_class")
         validate_safe_execution_text(self.safe_summary, "safe_summary")
         for ref in self.metadata_refs:
             validate_execution_ref(ref, "metadata_ref")
@@ -550,6 +661,10 @@ class RuntimeApprovalBindingRequest(BaseModel):
 
 class RuntimeExecuteRequest(BaseModel):
     approval_ref: str | None = None
+    action_envelope_ref: str | None = None
+    expected_payload_fingerprint_ref: str | None = None
+    expected_policy_decision_ref: str | None = None
+    command_request: dict[str, Any] | None = None
     safe_summary: str = "Execute request records a blocked receipt for unpromoted authority only."
     metadata_refs: list[str] = Field(default_factory=list)
 
@@ -557,11 +672,19 @@ class RuntimeExecuteRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_execute_request(self) -> "RuntimeExecuteRequest":
-        if self.approval_ref:
-            validate_execution_ref(self.approval_ref, "approval_ref")
+        for value, field_name in [
+            (self.approval_ref, "approval_ref"),
+            (self.action_envelope_ref, "action_envelope_ref"),
+            (self.expected_payload_fingerprint_ref, "expected_payload_fingerprint_ref"),
+            (self.expected_policy_decision_ref, "expected_policy_decision_ref"),
+        ]:
+            if value:
+                validate_execution_ref(value, field_name)
         validate_safe_execution_text(self.safe_summary, "safe_summary")
         for ref in self.metadata_refs:
             validate_execution_ref(ref, "metadata_ref")
+        if self.command_request is not None:
+            validate_safe_execution_payload(self.command_request, "command_request")
         return self
 
 
@@ -586,6 +709,7 @@ class RuntimeInvocationRecord(BaseModel):
     request: RuntimeInvocationRequest
     policy_decision: RuntimePolicyDecision
     approval_requirement: RuntimeApprovalRequirement
+    action_inbox_envelope: RuntimeActionInboxApprovalEnvelope | None = None
     receipt: RuntimeInvocationReceipt | None = None
     payload_fingerprint_ref: str = Field(..., min_length=1)
     idempotency_ref: str = Field(..., min_length=1)

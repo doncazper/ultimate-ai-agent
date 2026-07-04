@@ -5575,6 +5575,10 @@ function normalizeFounderActionsInbox(
   const safeActionInboxWorkQueue = isSafeActionInboxWorkQueueReadModel(
     valueRecord.action_inbox_work_queue_read_model,
   );
+  const safeRuntimeActionInboxBridge =
+    isSafeRuntimeActionInboxBridgeReadModel(
+      valueRecord.runtime_action_inbox_bridge_read_model,
+    );
   if (
     value === undefined ||
     !isSafeActionInboxDecisionLaneReadModel(
@@ -5592,6 +5596,15 @@ function normalizeFounderActionsInbox(
     } else {
       delete withoutMockLanes.action_inbox_work_queue_read_model;
       delete withoutMockLanes.action_inbox_work_queue_contract_ref;
+    }
+    if (safeRuntimeActionInboxBridge) {
+      withoutMockLanes.runtime_action_inbox_bridge_read_model =
+        valueRecord.runtime_action_inbox_bridge_read_model;
+      withoutMockLanes.runtime_action_inbox_bridge_contract_ref =
+        valueRecord.runtime_action_inbox_bridge_contract_ref;
+    } else {
+      delete withoutMockLanes.runtime_action_inbox_bridge_read_model;
+      delete withoutMockLanes.runtime_action_inbox_bridge_contract_ref;
     }
     delete withoutMockLanes.action_inbox_decision_lane_read_model;
     delete withoutMockLanes.action_inbox_decision_lane_contract_ref;
@@ -5634,6 +5647,15 @@ function normalizeFounderActionsInbox(
   } else {
     delete normalized.action_inbox_work_queue_read_model;
     delete normalized.action_inbox_work_queue_contract_ref;
+  }
+  if (safeRuntimeActionInboxBridge) {
+    normalized.runtime_action_inbox_bridge_read_model =
+      valueRecord.runtime_action_inbox_bridge_read_model;
+    normalized.runtime_action_inbox_bridge_contract_ref =
+      valueRecord.runtime_action_inbox_bridge_contract_ref;
+  } else {
+    delete normalized.runtime_action_inbox_bridge_read_model;
+    delete normalized.runtime_action_inbox_bridge_contract_ref;
   }
   if (safePlansToActionsBridge) {
     normalized.plans_to_actions_bridge_read_model =
@@ -5915,6 +5937,54 @@ const ACTION_WORK_QUEUE_DENIED_FLAGS = [
   "production_authority_enabled",
 ] as const;
 
+const RUNTIME_ACTION_INBOX_BRIDGE_DENIED_FLAGS = [
+  "action_execution_enabled",
+  "arbitrary_command_execution_enabled",
+  "provider_model_call_enabled",
+  "browser_execution_enabled",
+  "connector_write_enabled",
+  "production_authority_enabled",
+] as const;
+
+const RUNTIME_ACTION_INBOX_BRIDGE_REQUIRED_NUMBERS = [
+  "item_count",
+  "pending_approval_count",
+  "approved_pending_execution_count",
+  "receipt_recorded_count",
+  "blocked_count",
+] as const;
+
+const RUNTIME_ACTION_INBOX_BRIDGE_REQUIRED_ARRAYS = [
+  "item_refs",
+  "receipt_refs",
+  "evidence_refs",
+  "items",
+  "blocked_authority_refs",
+] as const;
+
+const RUNTIME_ACTION_INBOX_BRIDGE_ITEM_REQUIRED_STRINGS = [
+  "invocation_ref",
+  "action_envelope_ref",
+  "adapter_id",
+  "requested_authority",
+  "status",
+  "exact_scope_ref",
+  "approval_ref",
+  "idempotency_ref",
+  "policy_decision_ref",
+  "payload_fingerprint_ref",
+  "rollback_ref",
+  "safe_disable_ref",
+  "safe_summary",
+] as const;
+
+const RUNTIME_ACTION_INBOX_BRIDGE_ITEM_REQUIRED_ARRAYS = [
+  "receipt_refs",
+  "evidence_refs",
+  "blocked_reason_refs",
+  "blocked_authority_refs",
+] as const;
+
 const ACTION_WORK_QUEUE_LANE_IDS = [
   "ready_for_decision",
   "approved_local_task_lane",
@@ -5923,6 +5993,99 @@ const ACTION_WORK_QUEUE_LANE_IDS = [
   "receipt_recorded",
   "proposal_only_no_execution_path",
 ] as const;
+
+function isSafeRuntimeActionInboxBridgeReadModel(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.schema_version !== "governed-runtime-action-inbox-bridge.v1" ||
+    value.contract_ref !==
+      "contract-ref:governed-runtime-action-inbox-execution-bridge:v1" ||
+    value.source !==
+      "python_core_runtime_gateway_action_inbox_bridge_read_model" ||
+    value.backend_owned !== true ||
+    value.safe_refs_only !== true ||
+    value.raw_content_included !== false ||
+    !hasDeniedFlagsFalse(value, RUNTIME_ACTION_INBOX_BRIDGE_DENIED_FLAGS) ||
+    !hasNumberFields(value, RUNTIME_ACTION_INBOX_BRIDGE_REQUIRED_NUMBERS) ||
+    !hasStringFields(value, [
+      "route_ref",
+      "cli_ref",
+      "status",
+      "next_safe_action",
+      "operator_summary",
+    ])
+  ) {
+    return false;
+  }
+  if (
+    !RUNTIME_ACTION_INBOX_BRIDGE_REQUIRED_ARRAYS.every((field) =>
+      Array.isArray(value[field]),
+    )
+  ) {
+    return false;
+  }
+  const itemRefs = value.item_refs as unknown[];
+  const receiptRefs = value.receipt_refs as unknown[];
+  const evidenceRefs = value.evidence_refs as unknown[];
+  const items = value.items as unknown[];
+  const blockedAuthorityRefs = value.blocked_authority_refs as unknown[];
+  return (
+    value.item_count === items.length &&
+    itemRefs.length === items.length &&
+    itemRefs.every(
+      (ref, index) =>
+        isSafeActionWorkQueueRef(ref) &&
+        ref ===
+          ((items[index] as Record<string, unknown> | undefined)
+            ?.invocation_ref ?? null),
+    ) &&
+    receiptRefs.every(isSafeActionWorkQueueRef) &&
+    evidenceRefs.every(isSafeActionWorkQueueRef) &&
+    blockedAuthorityRefs.every(isSafeActionWorkQueueRef) &&
+    items.every(isSafeRuntimeActionInboxBridgeItem)
+  );
+}
+
+function isSafeRuntimeActionInboxBridgeItem(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    !hasStringFields(
+      value,
+      RUNTIME_ACTION_INBOX_BRIDGE_ITEM_REQUIRED_STRINGS,
+    ) ||
+    !hasStringArrays(
+      value,
+      RUNTIME_ACTION_INBOX_BRIDGE_ITEM_REQUIRED_ARRAYS,
+    )
+  ) {
+    return false;
+  }
+  const commandIntent = value.command_intent;
+  return (
+    (commandIntent === null ||
+      commandIntent === undefined ||
+      typeof commandIntent === "string") &&
+    typeof value.approval_validated === "boolean" &&
+    typeof value.execution_performed === "boolean" &&
+    isSafeActionWorkQueueRef(value.invocation_ref) &&
+    isSafeActionWorkQueueRef(value.action_envelope_ref) &&
+    isSafeActionWorkQueueRef(value.exact_scope_ref) &&
+    isSafeActionWorkQueueRef(value.approval_ref) &&
+    isSafeActionWorkQueueRef(value.idempotency_ref) &&
+    isSafeActionWorkQueueRef(value.policy_decision_ref) &&
+    isSafeActionWorkQueueRef(value.payload_fingerprint_ref) &&
+    isSafeActionWorkQueueRef(value.rollback_ref) &&
+    isSafeActionWorkQueueRef(value.safe_disable_ref) &&
+    (value.receipt_refs as string[]).every(isSafeActionWorkQueueRef) &&
+    (value.evidence_refs as string[]).every(isSafeActionWorkQueueRef) &&
+    (value.blocked_reason_refs as string[]).every(isSafeActionWorkQueueRef) &&
+    (value.blocked_authority_refs as string[]).every(isSafeActionWorkQueueRef)
+  );
+}
 
 function isSafeActionInboxWorkQueueReadModel(value: unknown): boolean {
   if (!isPlainRecord(value)) {

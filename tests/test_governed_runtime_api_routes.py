@@ -1,8 +1,15 @@
+import hashlib
+import json
+
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.rate_limits import reset_api_rate_limit_state, route_rate_limit_group
+from ultimate_ai_agent.core.runtime_gateway import (
+    RuntimeCommandExecutionRequest,
+    runtime_command_invocation_request,
+)
 from ultimate_ai_agent.core.runtime_gateway.storage import RUNTIME_GATEWAY_STATE_DIR_ENV
 from ultimate_ai_agent.core.runtime_gateway.local_model import RUNTIME_LOCAL_MODEL_ENABLED_ENV
 
@@ -33,6 +40,60 @@ def _local_model_payload(**overrides: object) -> dict[str, object]:
     }
     payload.update(overrides)
     return payload
+
+
+def _test_hash_ref(prefix: str, value: object) -> str:
+    canonical = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+    return f"{prefix}:sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
+
+
+def _runtime_action_inbox_refs(record: dict[str, object]) -> dict[str, str]:
+    request = record["request"]
+    assert isinstance(request, dict)
+    policy = record["policy_decision"]
+    assert isinstance(policy, dict)
+    exact_scope_ref = _test_hash_ref(
+        "runtime-approval-scope-ref",
+        {
+            "invocation_ref": record["invocation_ref"],
+            "payload_fingerprint_ref": record["payload_fingerprint_ref"],
+            "policy_decision_ref": policy["policy_decision_ref"],
+            "requested_authority": request["requested_authority"],
+        },
+    )
+    approval_ref = _test_hash_ref(
+        "runtime-action-inbox-approval-ref",
+        {
+            "invocation_ref": record["invocation_ref"],
+            "requested_authority": request["requested_authority"],
+            "requested_profile": request["requested_profile"],
+            "adapter_id": "governed-command-runtime-adapter",
+            "command_intent": "focused_pytest",
+            "decision": "approve",
+            "exact_scope_ref": exact_scope_ref,
+            "payload_fingerprint_ref": record["payload_fingerprint_ref"],
+            "policy_decision_ref": policy["policy_decision_ref"],
+        },
+    )
+    action_envelope_ref = _test_hash_ref(
+        "runtime-action-envelope-ref",
+        {
+            "invocation_ref": record["invocation_ref"],
+            "approval_ref": approval_ref,
+            "decision": "approve",
+            "exact_scope_ref": exact_scope_ref,
+        },
+    )
+    return {
+        "approval_ref": approval_ref,
+        "action_envelope_ref": action_envelope_ref,
+        "exact_scope_ref": exact_scope_ref,
+    }
 
 
 def test_governed_runtime_capabilities_are_sealed_by_default() -> None:
@@ -418,6 +479,146 @@ def test_governed_runtime_command_run_blocks_unapproved_command_intent(
     assert body["data"]["command_execution_enabled"] is False
     assert body["data"]["command_execution_performed"] is False
     assert body["data"]["error_category"] == "RUNTIME_COMMAND_APPROVAL_BRIDGE_REQUIRED"
+
+
+def test_governed_runtime_action_inbox_execute_rejects_changed_scope(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    reset_api_rate_limit_state()
+    command_request = RuntimeCommandExecutionRequest(
+        intent="focused_pytest",
+        requested_profile="operator-approved",
+        target_refs=["test-ref:governed-runtime-contracts"],
+        approval_ref=None,
+        safe_summary="Run the exact focused governed runtime contract test lane.",
+    )
+    invocation_request = runtime_command_invocation_request(command_request)
+
+    create = client.post(
+        "/api/runtime/invocations",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-api-create"},
+        json=invocation_request.model_dump(mode="json"),
+    )
+    assert create.status_code == 200
+    record = create.json()["data"]["record"]
+    invocation_ref = record["invocation_ref"]
+    refs = _runtime_action_inbox_refs(record)
+
+    approve = client.post(
+        f"/api/runtime/invocations/{invocation_ref}/approve",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-api-approve"},
+        json={
+            "decision": "approve",
+            "action_envelope_ref": refs["action_envelope_ref"],
+            "exact_scope_ref": refs["exact_scope_ref"],
+            "expected_payload_fingerprint_ref": record["payload_fingerprint_ref"],
+            "expected_policy_decision_ref": record["policy_decision"]["policy_decision_ref"],
+            "adapter_id": "governed-command-runtime-adapter",
+            "command_intent": "focused_pytest",
+            "risk_class": "medium",
+            "safe_summary": "Action Inbox approved exact focused pytest runtime lane.",
+        },
+    )
+    assert approve.status_code == 200
+    approve_body = approve.json()
+    assert approve_body["success"] is True
+    assert approve_body["data"]["approval_validated"] is True
+    assert approve_body["data"]["approval_status"] == "approved_pending_execution"
+    envelope = approve_body["data"]["record"]["action_inbox_envelope"]
+
+    changed_command = command_request.model_copy(
+        update={
+            "approval_ref": envelope["approval_ref"],
+            "target_refs": ["test-ref:changed-scope"],
+        }
+    )
+    execute = client.post(
+        f"/api/runtime/invocations/{invocation_ref}/execute",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-api-execute"},
+        json={
+            "approval_ref": envelope["approval_ref"],
+            "action_envelope_ref": envelope["action_envelope_ref"],
+            "expected_payload_fingerprint_ref": record["payload_fingerprint_ref"],
+            "expected_policy_decision_ref": record["policy_decision"]["policy_decision_ref"],
+            "command_request": changed_command.model_dump(mode="json"),
+            "safe_summary": "Execute approved runtime command through exact bridge.",
+        },
+    )
+
+    assert execute.status_code == 200
+    body = execute.json()
+    assert body["success"] is False
+    assert body["data"]["execution_performed"] is False
+    assert body["data"]["command_execution_performed"] is False
+    assert body["data"]["error_category"] == "RUNTIME_COMMAND_ACTION_INBOX_SCOPE_CHANGED"
+    assert body["data"]["output_summary"] == (
+        "Command output redacted; command was blocked before process start."
+    )
+    inbox = client.get("/control-center/actions/inbox")
+    assert inbox.status_code == 200
+    bridge = inbox.json()["data"]["runtime_action_inbox_bridge_read_model"]
+    assert bridge["item_count"] == 1
+    assert bridge["items"][0]["invocation_ref"] == invocation_ref
+    assert bridge["items"][0]["action_envelope_ref"] == (
+        envelope["action_envelope_ref"]
+    )
+    assert bridge["items"][0]["receipt_refs"]
+
+
+def test_governed_runtime_action_inbox_computed_approval_ref_is_identifier_only(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    reset_api_rate_limit_state()
+    command_request = RuntimeCommandExecutionRequest(
+        intent="focused_pytest",
+        requested_profile="operator-approved",
+        target_refs=["test-ref:governed-runtime-contracts"],
+        approval_ref=None,
+        safe_summary="Run the exact focused governed runtime contract test lane.",
+    )
+    invocation_request = runtime_command_invocation_request(command_request)
+
+    create = client.post(
+        "/api/runtime/invocations",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-computed-approval-api-create"},
+        json=invocation_request.model_dump(mode="json"),
+    )
+    assert create.status_code == 200
+    record = create.json()["data"]["record"]
+    refs = _runtime_action_inbox_refs(record)
+
+    approve = client.post(
+        f"/api/runtime/invocations/{record['invocation_ref']}/approve",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-computed-approval-api-approve"},
+        json={
+            "approval_ref": refs["approval_ref"],
+            "decision": "approve",
+            "action_envelope_ref": refs["action_envelope_ref"],
+            "exact_scope_ref": refs["exact_scope_ref"],
+            "expected_payload_fingerprint_ref": record["payload_fingerprint_ref"],
+            "expected_policy_decision_ref": record["policy_decision"]["policy_decision_ref"],
+            "adapter_id": "governed-command-runtime-adapter",
+            "command_intent": "focused_pytest",
+            "risk_class": "medium",
+            "safe_summary": "Computed approval refs are identifiers only.",
+        },
+    )
+
+    assert approve.status_code == 200
+    body = approve.json()
+    assert body["success"] is True
+    assert body["data"]["approval_validated"] is False
+    assert body["data"]["command_execution_enabled"] is False
+    assert "blocked-state:runtime-approval-ref-identifier-only" in (
+        body["data"]["blocked_reason_refs"]
+    )
+    assert "blocked-state:runtime-backend-approval-missing" in (
+        body["data"]["blocked_reason_refs"]
+    )
 
 
 def test_governed_runtime_local_model_call_is_disabled_by_default(

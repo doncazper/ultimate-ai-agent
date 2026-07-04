@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from fastapi import APIRouter, FastAPI, Header
+from pydantic import ValidationError
 
 from ultimate_ai_agent.api.route_registration import register_router_once
 from ultimate_ai_agent.core.hygiene.envelopes import (
@@ -432,8 +433,30 @@ def post_api_runtime_invocations_id_approve(
         data={
             "record": record.model_dump(mode="json"),
             "approval_ref_is_identifier_only": True,
+            "action_inbox_execution_bridge": record.action_inbox_envelope is not None,
+            "action_envelope_ref": (
+                record.action_inbox_envelope.action_envelope_ref
+                if record.action_inbox_envelope
+                else None
+            ),
+            "approval_validated": (
+                bool(record.action_inbox_envelope.approval_validated)
+                if record.action_inbox_envelope
+                else False
+            ),
+            "approval_status": (
+                record.action_inbox_envelope.status
+                if record.action_inbox_envelope
+                else record.status
+            ),
+            "blocked_reason_refs": (
+                record.action_inbox_envelope.blocked_reason_refs
+                if record.action_inbox_envelope
+                else []
+            ),
             "execution_performed": False,
-            "adapter_execution_enabled": False,
+            "adapter_execution_enabled": record.policy_decision.adapter_execution_enabled,
+            "command_execution_enabled": record.policy_decision.command_execution_enabled,
         },
         evidence=[{"evidence_ref": "evidence-ref:governed-runtime-approval-binding"}],
         redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
@@ -447,11 +470,111 @@ def post_api_runtime_invocations_id_execute(
     x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
     x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
 ) -> ResultEnvelope:
+    idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+    if request.command_request is not None:
+        try:
+            command_request = RuntimeCommandExecutionRequest(**request.command_request)
+            result = RuntimeGateway(store=_runtime_store()).execute_approved_command(
+                id,
+                command_request,
+                request,
+                idempotency_ref=idempotency_ref,
+            )
+        except RuntimeInvocationNotFoundError:
+            return _not_found("api_runtime_invocation_execute", id)
+        except RuntimeInvocationConflictError:
+            return ResultEnvelope(
+                success=False,
+                operation="api_runtime_invocation_execute",
+                service="GovernedRuntimeAPI",
+                trace_id=idempotency_ref,
+                error=ErrorEnvelope(
+                    code="RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT",
+                    category=ErrorCategory.conflict,
+                    safe_message="The governed runtime idempotency ref already has a different payload fingerprint.",
+                    severity=Severity.medium,
+                    retryable=False,
+                    details_redacted=True,
+                    source="GovernedRuntimeAPI",
+                ),
+                redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+            )
+        except ValidationError:
+            return ResultEnvelope(
+                success=False,
+                operation="api_runtime_invocation_execute",
+                service="GovernedRuntimeAPI",
+                trace_id=idempotency_ref,
+                error=ErrorEnvelope(
+                    code="RUNTIME_COMMAND_REQUEST_INVALID",
+                    category=ErrorCategory.validation_error,
+                    safe_message="The governed runtime command request failed safe validation.",
+                    severity=Severity.medium,
+                    retryable=False,
+                    details_redacted=True,
+                    source="GovernedRuntimeAPI",
+                ),
+                redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+            )
+        receipt = result.record.receipt
+        metadata = receipt.command_receipt_metadata if receipt else None
+        execution_performed = bool(receipt and receipt.execution_performed)
+        return ResultEnvelope(
+            success=result.error_category is None and execution_performed,
+            operation="api_runtime_invocation_execute",
+            service="GovernedRuntimeAPI",
+            trace_id=result.record.invocation_ref,
+            data={
+                "record": result.record.model_dump(mode="json"),
+                "replayed": result.replayed,
+                "execution_performed": execution_performed,
+                "adapter_execution_enabled": (
+                    result.record.policy_decision.adapter_execution_enabled
+                ),
+                "command_execution_enabled": result.command_execution_enabled,
+                "command_execution_performed": bool(
+                    receipt and receipt.command_execution_performed
+                ),
+                "approval_envelope_ref": (
+                    result.record.action_inbox_envelope.action_envelope_ref
+                    if result.record.action_inbox_envelope
+                    else None
+                ),
+                "receipt_ref": receipt.receipt_ref if receipt else None,
+                "evidence_refs": receipt.evidence_refs if receipt else [],
+                "metadata_ref": metadata.redacted_output_ref if metadata else None,
+                "output_summary": result.output_summary,
+                "output_summary_returned": result.output_summary_returned,
+                "output_persisted": False,
+                "exit_code": result.exit_code,
+                "timed_out": result.timed_out,
+                "error_category": result.error_category,
+                "blocked_reason": result.error_category,
+                "blocked_runtime_authority": [
+                    "arbitrary_command_text",
+                    "shell_execution",
+                    "networked_commands",
+                    "raw_command_output_persistence",
+                    "browser_automation",
+                    "connector_write",
+                    "plugin_runtime_import",
+                    "remote_provider_model_call",
+                    "production_authority",
+                ],
+            },
+            evidence=[{"evidence_ref": "evidence-ref:governed-runtime-action-inbox-execute"}],
+            redactions_applied=[
+                *GOVERNED_RUNTIME_REDACTIONS,
+                "raw_command_output_not_persisted",
+                "local_cwd_not_persisted",
+                "environment_not_persisted",
+            ],
+        )
     try:
         record = _runtime_store().record_blocked_execute(
             id,
             safe_summary=request.safe_summary,
-            idempotency_ref=_idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref),
+            idempotency_ref=idempotency_ref,
         )
     except RuntimeInvocationNotFoundError:
         return _not_found("api_runtime_invocation_execute", id)
@@ -460,7 +583,7 @@ def post_api_runtime_invocations_id_execute(
             success=False,
             operation="api_runtime_invocation_execute",
             service="GovernedRuntimeAPI",
-            trace_id=_idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref),
+            trace_id=idempotency_ref,
             error=ErrorEnvelope(
                 code="RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT",
                 category=ErrorCategory.conflict,

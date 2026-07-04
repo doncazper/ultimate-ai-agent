@@ -18,13 +18,16 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeCommandAllowlistEntry,
     RuntimeCommandIntent,
     RuntimeCommandReceiptMetadata,
+    RuntimeExecuteRequest,
     RuntimeInvocationRecord,
     RuntimeInvocationRequest,
     RuntimeInvocationStatus,
     RuntimeProfile,
     build_command_receipt,
+    runtime_payload_fingerprint_ref,
 )
 from ultimate_ai_agent.core.runtime_gateway.storage import RuntimeInvocationStore
+from ultimate_ai_agent.core.time import utc_now
 
 
 COMMAND_RUNTIME_ADAPTER_ID = "governed-command-runtime-adapter"
@@ -232,6 +235,21 @@ def command_allowlist_entry(intent: RuntimeCommandIntent | str) -> RuntimeComman
     raise ValueError("RUNTIME_COMMAND_INTENT_NOT_ALLOWLISTED")
 
 
+def runtime_command_invocation_request(
+    request: RuntimeCommandExecutionRequest,
+) -> RuntimeInvocationRequest:
+    return _runtime_invocation_request(
+        request,
+        entry=command_allowlist_entry(request.intent),
+    )
+
+
+def promoted_approval_bridge_command_intents() -> set[RuntimeCommandIntent]:
+    return {
+        RuntimeCommandIntent.focused_pytest,
+    }
+
+
 def invoke_governed_command(
     *,
     store: RuntimeInvocationStore,
@@ -425,6 +443,206 @@ def _command_block_reason(
     return None
 
 
+def invoke_approved_governed_command(
+    *,
+    store: RuntimeInvocationStore,
+    adapter: GovernedCommandRuntimeAdapter,
+    record: RuntimeInvocationRecord,
+    request: RuntimeCommandExecutionRequest,
+    execute_request: RuntimeExecuteRequest,
+    idempotency_ref: str,
+) -> RuntimeCommandGatewayResult:
+    validate_execution_ref(idempotency_ref, "idempotency_ref")
+    envelope = record.action_inbox_envelope
+    entry = command_allowlist_entry(request.intent)
+    execution_fingerprint_ref = _operation_fingerprint_ref(
+        record.invocation_ref,
+        {
+            "operation": "approved_command_execute",
+            "intent": request.intent,
+            "workspace_ref": request.workspace_ref,
+            "target_refs": request.target_refs,
+            "approval_ref": request.approval_ref,
+            "execute_approval_ref": execute_request.approval_ref,
+            "execute_action_envelope_ref": execute_request.action_envelope_ref,
+            "execute_expected_payload_fingerprint_ref": (
+                execute_request.expected_payload_fingerprint_ref
+            ),
+            "execute_expected_policy_decision_ref": (
+                execute_request.expected_policy_decision_ref
+            ),
+            "envelope_ref": (
+                envelope.action_envelope_ref
+                if envelope
+                else "runtime-action-envelope-ref:missing"
+            ),
+        },
+    )
+    reserved = store.begin_action_inbox_execution(
+        record.invocation_ref,
+        idempotency_ref=idempotency_ref,
+        payload_fingerprint_ref=execution_fingerprint_ref,
+    )
+    record = reserved.record
+    if reserved.replayed:
+        if record.receipt is not None:
+            metadata = record.receipt.command_receipt_metadata
+            return RuntimeCommandGatewayResult(
+                record=record,
+                output_summary=metadata.output_summary if metadata else None,
+                output_summary_returned=metadata is not None,
+                exit_code=metadata.exit_code if metadata else None,
+                timed_out=metadata.timed_out if metadata else False,
+                error_category=metadata.error_category if metadata else None,
+                replayed=True,
+                command_execution_enabled=record.policy_decision.command_execution_enabled,
+            )
+        return _record_blocked_command_result(
+            store=store,
+            request=request,
+            entry=entry,
+            record=record,
+            idempotency_ref=idempotency_ref,
+            operation="approved-command-replay-without-receipt",
+            error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
+            replayed=True,
+        )
+    if envelope is None:
+        return _record_blocked_command_result(
+            store=store,
+            request=request,
+            entry=entry,
+            record=record,
+            idempotency_ref=idempotency_ref,
+            operation="approved-command-envelope-missing",
+            error_category="RUNTIME_COMMAND_ACTION_INBOX_ENVELOPE_MISSING",
+            replayed=False,
+        )
+    blocked_error = _approved_command_block_reason(
+        record=record,
+        request=request,
+        execute_request=execute_request,
+        entry=entry,
+    )
+    if blocked_error is not None:
+        return _record_blocked_command_result(
+            store=store,
+            request=request,
+            entry=entry,
+            record=record,
+            idempotency_ref=idempotency_ref,
+            operation="approved-command-blocked",
+            error_category=blocked_error,
+            replayed=False,
+        )
+    attempt = adapter.invoke(request, entry)
+    status_category = _status_category(
+        RuntimeCommandRunResult(
+            exit_code=attempt.exit_code,
+            timed_out=attempt.timed_out,
+            duration_ms=attempt.duration_ms,
+            output_bytes=b"",
+            error_category=attempt.error_category,
+        )
+    )
+    metadata = _command_metadata(
+        request,
+        entry=entry,
+        record=record,
+        exit_code=attempt.exit_code,
+        timed_out=attempt.timed_out,
+        duration_ms=attempt.duration_ms,
+        output_byte_count=attempt.output_byte_count,
+        output_truncated=attempt.output_truncated,
+        output_summary=attempt.output_summary,
+        redacted_output_ref=attempt.redacted_output_ref,
+        status_category=status_category,
+        error_category=attempt.error_category,
+        command_execution_attempted=True,
+    )
+    receipt = build_command_receipt(
+        record,
+        metadata=metadata,
+        execution_performed=COMMAND_RUNTIME_EXECUTION_PERFORMED,
+        command_execution_performed=COMMAND_RUNTIME_EXECUTION_PERFORMED,
+        status=RuntimeInvocationStatus.receipt_recorded,
+    )
+    updated = store.record_receipt(
+        record.invocation_ref,
+        receipt,
+        idempotency_ref=_operation_idempotency_ref(idempotency_ref, "approved-command-receipt"),
+        payload_fingerprint_ref=_operation_fingerprint_ref(
+            record.invocation_ref,
+            {
+                "operation": "approved_command_receipt",
+                "metadata": metadata.model_dump(mode="json"),
+            },
+        ),
+    )
+    return RuntimeCommandGatewayResult(
+        record=updated,
+        output_summary=metadata.output_summary,
+        output_summary_returned=True,
+        exit_code=attempt.exit_code,
+        timed_out=attempt.timed_out,
+        error_category=attempt.error_category,
+        command_execution_enabled=COMMAND_RUNTIME_EXECUTION_ENABLED,
+    )
+
+
+def _approved_command_block_reason(
+    *,
+    record: RuntimeInvocationRecord,
+    request: RuntimeCommandExecutionRequest,
+    execute_request: RuntimeExecuteRequest,
+    entry: RuntimeCommandAllowlistEntry,
+) -> str | None:
+    envelope = record.action_inbox_envelope
+    if envelope is None:
+        return "RUNTIME_COMMAND_ACTION_INBOX_ENVELOPE_MISSING"
+    if record.status != RuntimeInvocationStatus.approved_pending_execution.value:
+        return "RUNTIME_COMMAND_ACTION_INBOX_ENVELOPE_NOT_APPROVED"
+    if not envelope.approval_validated:
+        return "RUNTIME_COMMAND_ACTION_INBOX_APPROVAL_NOT_VALIDATED"
+    if envelope.expires_at <= utc_now():
+        return "RUNTIME_COMMAND_ACTION_INBOX_APPROVAL_EXPIRED"
+    if envelope.safe_disable_active or record.safe_disable.active:
+        return "RUNTIME_COMMAND_SAFE_DISABLED"
+    if request.requested_profile != RuntimeProfile.operator_approved.value:
+        return "RUNTIME_COMMAND_OPERATOR_APPROVED_PROFILE_REQUIRED"
+    if record.request.requested_profile != RuntimeProfile.operator_approved.value:
+        return "RUNTIME_COMMAND_INVOCATION_PROFILE_WEAKENED"
+    if request.approval_ref != envelope.approval_ref:
+        return "RUNTIME_COMMAND_ACTION_INBOX_APPROVAL_REF_CHANGED"
+    if execute_request.approval_ref != envelope.approval_ref:
+        return "RUNTIME_COMMAND_EXECUTE_APPROVAL_REF_MISSING_OR_CHANGED"
+    if execute_request.action_envelope_ref != envelope.action_envelope_ref:
+        return "RUNTIME_COMMAND_EXECUTE_ACTION_ENVELOPE_REF_MISSING_OR_CHANGED"
+    if execute_request.expected_payload_fingerprint_ref != record.payload_fingerprint_ref:
+        return "RUNTIME_COMMAND_EXECUTE_PAYLOAD_REF_MISSING_OR_CHANGED"
+    if (
+        execute_request.expected_policy_decision_ref
+        != record.policy_decision.policy_decision_ref
+    ):
+        return "RUNTIME_COMMAND_EXECUTE_POLICY_REF_MISSING_OR_CHANGED"
+    if envelope.adapter_id != COMMAND_RUNTIME_ADAPTER_ID:
+        return "RUNTIME_COMMAND_ACTION_INBOX_ADAPTER_CHANGED"
+    if request.workspace_ref != COMMAND_RUNTIME_WORKSPACE_REF:
+        return "RUNTIME_COMMAND_WORKSPACE_REF_NOT_ALLOWLISTED"
+    if entry.intent not in {intent.value for intent in promoted_approval_bridge_command_intents()}:
+        return "RUNTIME_COMMAND_APPROVAL_BRIDGE_INTENT_NOT_PROMOTED"
+    expected_request = _runtime_invocation_request(request, entry=entry)
+    if runtime_payload_fingerprint_ref(expected_request) != record.payload_fingerprint_ref:
+        return "RUNTIME_COMMAND_ACTION_INBOX_SCOPE_CHANGED"
+    if envelope.command_intent != RuntimeCommandIntent(request.intent).value:
+        return "RUNTIME_COMMAND_ACTION_INBOX_INTENT_CHANGED"
+    if envelope.payload_fingerprint_ref != record.payload_fingerprint_ref:
+        return "RUNTIME_COMMAND_ACTION_INBOX_PAYLOAD_CHANGED"
+    if envelope.policy_decision_ref != record.policy_decision.policy_decision_ref:
+        return "RUNTIME_COMMAND_ACTION_INBOX_POLICY_STALE"
+    return None
+
+
 def _record_safe_disabled(record: RuntimeInvocationRecord) -> bool:
     return record.status == RuntimeInvocationStatus.safe_disabled.value
 
@@ -505,7 +723,7 @@ def _runtime_invocation_request(
         requested_profile=RuntimeProfile.sealed if force_sealed else request.requested_profile,
         input_ref=input_ref,
         action_ref=f"action-ref:runtime-command-{request.intent}",
-        approval_ref=request.approval_ref,
+        approval_ref=None,
         safe_summary=request.safe_summary,
         metadata_refs=[
             request.workspace_ref,
@@ -578,6 +796,21 @@ def _argv_for_entry(entry: RuntimeCommandAllowlistEntry) -> tuple[str, ...]:
             "--no-renames",
             "--untracked-files=no",
         )
+    if entry.intent == RuntimeCommandIntent.focused_pytest.value:
+        return (
+            ".venv/bin/python",
+            "-m",
+            "pytest",
+            "tests/test_governed_runtime_contracts.py",
+            "-q",
+        )
+    if entry.intent == RuntimeCommandIntent.repo_verifier.value:
+        return (
+            ".venv/bin/python",
+            "scripts/verify_documentation_integrity.py",
+        )
+    if entry.intent == RuntimeCommandIntent.frontend_check.value:
+        return ("make", "frontend-check")
     raise ValueError("RUNTIME_COMMAND_ARGV_NOT_PROMOTED")
 
 

@@ -1,4 +1,9 @@
+import hashlib
+import json
 import threading
+import subprocess
+import sys
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -18,9 +23,11 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeLocalModelCallRequest,
     RuntimeLocalModelMessage,
     build_default_runtime_capabilities,
+    runtime_command_invocation_request,
 )
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeApprovalBindingRequest,
+    RuntimeExecuteRequest,
     RuntimeSafeDisableRequest,
     build_policy_decision,
     runtime_invocation_ref,
@@ -28,6 +35,13 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
 )
 from ultimate_ai_agent.core.runtime_gateway.storage import RuntimeInvocationStorageError
 from ultimate_ai_agent.core.local_model_management import FakeM164GatewayTransport
+from ultimate_ai_agent.core.control_center.runtime_action_bridge import (
+    build_runtime_action_inbox_bridge_read_model,
+)
+from ultimate_ai_agent.core.time import utc_now
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _runtime_request(summary: str = "safe governed runtime summary") -> RuntimeInvocationRequest:
@@ -558,6 +572,397 @@ def test_runtime_gateway_command_disabled_intent_records_blocked_receipt(
         result.record.receipt.command_receipt_metadata.command_execution_attempted
         is False
     )
+
+
+def _approved_runtime_command_request() -> RuntimeCommandExecutionRequest:
+    return RuntimeCommandExecutionRequest(
+        intent="focused_pytest",
+        requested_profile="operator-approved",
+        target_refs=["test-ref:governed-runtime-contracts"],
+        approval_ref=None,
+        safe_summary="Run the exact focused governed runtime contract test lane.",
+    )
+
+
+def _test_hash_ref(prefix: str, value: object) -> str:
+    canonical = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+    return f"{prefix}:sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
+
+
+def _runtime_action_inbox_refs(
+    record,
+    *,
+    decision: str = "approve",
+) -> dict[str, str]:
+    exact_scope_ref = _test_hash_ref(
+        "runtime-approval-scope-ref",
+        {
+            "invocation_ref": record.invocation_ref,
+            "payload_fingerprint_ref": record.payload_fingerprint_ref,
+            "policy_decision_ref": record.policy_decision.policy_decision_ref,
+            "requested_authority": record.request.requested_authority,
+        },
+    )
+    approval_ref = _test_hash_ref(
+        "runtime-action-inbox-approval-ref",
+        {
+            "invocation_ref": record.invocation_ref,
+            "requested_authority": record.request.requested_authority,
+            "requested_profile": record.request.requested_profile,
+            "adapter_id": "governed-command-runtime-adapter",
+            "command_intent": "focused_pytest",
+            "decision": decision,
+            "exact_scope_ref": exact_scope_ref,
+            "payload_fingerprint_ref": record.payload_fingerprint_ref,
+            "policy_decision_ref": record.policy_decision.policy_decision_ref,
+        },
+    )
+    action_envelope_ref = _test_hash_ref(
+        "runtime-action-envelope-ref",
+        {
+            "invocation_ref": record.invocation_ref,
+            "approval_ref": approval_ref,
+            "decision": decision,
+            "exact_scope_ref": exact_scope_ref,
+        },
+    )
+    return {
+        "approval_ref": approval_ref,
+        "action_envelope_ref": action_envelope_ref,
+        "exact_scope_ref": exact_scope_ref,
+    }
+
+
+def _runtime_execute_request(record) -> RuntimeExecuteRequest:
+    assert record.action_inbox_envelope is not None
+    envelope = record.action_inbox_envelope
+    return RuntimeExecuteRequest(
+        approval_ref=envelope.approval_ref,
+        action_envelope_ref=envelope.action_envelope_ref,
+        expected_payload_fingerprint_ref=record.payload_fingerprint_ref,
+        expected_policy_decision_ref=record.policy_decision.policy_decision_ref,
+    )
+
+
+def _command_request_for_approved_record(
+    command_request: RuntimeCommandExecutionRequest,
+    record,
+) -> RuntimeCommandExecutionRequest:
+    assert record.action_inbox_envelope is not None
+    return command_request.model_copy(
+        update={"approval_ref": record.action_inbox_envelope.approval_ref}
+    )
+
+
+def _bind_runtime_action_inbox_approval(
+    store: RuntimeInvocationStore,
+    *,
+    command_request: RuntimeCommandExecutionRequest | None = None,
+    expected_payload_fingerprint_ref: str | None = None,
+    expected_policy_decision_ref: str | None = None,
+    decision: str = "approve",
+    expires_delta: timedelta = timedelta(minutes=30),
+):
+    command_request = command_request or _approved_runtime_command_request()
+    created = store.create_invocation(
+        runtime_command_invocation_request(command_request),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-create",
+    )
+    refs = _runtime_action_inbox_refs(created.record, decision=decision)
+    return store.bind_approval(
+        created.record.invocation_ref,
+        RuntimeApprovalBindingRequest(
+            decision=decision,
+            action_envelope_ref=refs["action_envelope_ref"],
+            exact_scope_ref=refs["exact_scope_ref"],
+            expected_payload_fingerprint_ref=(
+                expected_payload_fingerprint_ref
+                or created.record.payload_fingerprint_ref
+            ),
+            expected_policy_decision_ref=(
+                expected_policy_decision_ref
+                or created.record.policy_decision.policy_decision_ref
+            ),
+            adapter_id="governed-command-runtime-adapter",
+            command_intent="focused_pytest",
+            risk_class="medium",
+            expires_at=utc_now() + expires_delta,
+            safe_summary="Action Inbox approved exact focused pytest runtime lane.",
+        ),
+        idempotency_ref=f"idempotency-ref:runtime-action-inbox-{decision}",
+    )
+
+
+def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=3,
+            output_bytes=b"safe pytest output",
+        )
+
+    store = RuntimeInvocationStore(tmp_path)
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=tmp_path,
+            runner=runner,
+        ),
+    )
+    execute_command_request = _command_request_for_approved_record(
+        command_request,
+        approved,
+    )
+    execute_request = _runtime_execute_request(approved)
+
+    result = gateway.execute_approved_command(
+        approved.invocation_ref,
+        execute_command_request,
+        execute_request,
+        idempotency_ref="idempotency-ref:runtime-action-inbox-execute",
+    )
+    replay = gateway.execute_approved_command(
+        approved.invocation_ref,
+        execute_command_request,
+        execute_request,
+        idempotency_ref="idempotency-ref:runtime-action-inbox-execute",
+    )
+
+    assert approved.status == "approved_pending_execution"
+    assert approved.action_inbox_envelope is not None
+    assert approved.action_inbox_envelope.approval_validated is True
+    assert approved.policy_decision.command_execution_enabled is True
+    assert result.record.status == "receipt_recorded"
+    assert result.record.receipt is not None
+    assert result.record.receipt.command_execution_performed is True
+    assert result.record.action_inbox_envelope is not None
+    assert result.record.action_inbox_envelope.receipt_refs == [
+        result.record.receipt.receipt_ref
+    ]
+    assert replay.replayed is True
+    assert len(calls) == 1
+    assert calls[0]["argv"] == (
+        ".venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/test_governed_runtime_contracts.py",
+        "-q",
+    )
+    read_model = build_runtime_action_inbox_bridge_read_model(store.list_invocations())
+    assert read_model["item_count"] == 1
+    assert read_model["receipt_refs"] == [result.record.receipt.receipt_ref]
+    assert result.record.receipt.evidence_refs[0] in read_model["evidence_refs"]
+    assert read_model["items"][0]["action_envelope_ref"] == (
+        approved.action_inbox_envelope.action_envelope_ref
+    )
+
+    cli = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_runtime.py"),
+            "--state-dir",
+            str(tmp_path),
+            "inspect-action-inbox-bridge",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert result.record.receipt.receipt_ref in cli.stdout
+    assert "safe pytest output" not in cli.stdout
+    assert str(tmp_path) not in cli.stdout
+
+    persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "safe pytest output" not in persisted
+    assert "stdout" not in persisted
+    assert "stderr" not in persisted
+
+
+def test_runtime_gateway_action_inbox_denied_expired_or_changed_scope_blocks(
+    tmp_path: Path,
+) -> None:
+    denied = _bind_runtime_action_inbox_approval(
+        RuntimeInvocationStore(tmp_path / "denied"),
+        decision="deny",
+    )
+    expired = _bind_runtime_action_inbox_approval(
+        RuntimeInvocationStore(tmp_path / "expired"),
+        decision="approve",
+        expires_delta=timedelta(minutes=-1),
+    )
+    changed = _bind_runtime_action_inbox_approval(
+        RuntimeInvocationStore(tmp_path / "changed"),
+        expected_payload_fingerprint_ref="runtime-payload-fingerprint-ref:changed",
+    )
+
+    assert denied.status == "approval_denied"
+    assert denied.action_inbox_envelope is not None
+    assert denied.action_inbox_envelope.approval_validated is False
+    assert "blocked-state:runtime-approval-denied" in (
+        denied.action_inbox_envelope.blocked_reason_refs
+    )
+    assert expired.status == "approval_expired"
+    assert expired.action_inbox_envelope is not None
+    assert "blocked-state:runtime-approval-expired" in (
+        expired.action_inbox_envelope.blocked_reason_refs
+    )
+    assert changed.status == "execution_blocked"
+    assert changed.action_inbox_envelope is not None
+    assert "blocked-state:runtime-approval-scope-changed" in (
+        changed.action_inbox_envelope.blocked_reason_refs
+    )
+
+
+def test_runtime_gateway_action_inbox_arbitrary_approval_ref_does_not_authorize(
+    tmp_path: Path,
+) -> None:
+    store = RuntimeInvocationStore(tmp_path)
+    command_request = _approved_runtime_command_request()
+    created = store.create_invocation(
+        runtime_command_invocation_request(command_request),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-arbitrary-create",
+    )
+    refs = _runtime_action_inbox_refs(created.record)
+
+    blocked = store.bind_approval(
+        created.record.invocation_ref,
+        RuntimeApprovalBindingRequest(
+            approval_ref=refs["approval_ref"],
+            decision="approve",
+            action_envelope_ref=refs["action_envelope_ref"],
+            exact_scope_ref=refs["exact_scope_ref"],
+            expected_payload_fingerprint_ref=created.record.payload_fingerprint_ref,
+            expected_policy_decision_ref=created.record.policy_decision.policy_decision_ref,
+            adapter_id="governed-command-runtime-adapter",
+            command_intent="focused_pytest",
+            risk_class="medium",
+            expires_at=utc_now() + timedelta(minutes=30),
+            safe_summary="Caller supplied approval refs are not authority.",
+        ),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-arbitrary-approval",
+    )
+
+    assert blocked.status == "execution_blocked"
+    assert blocked.action_inbox_envelope is not None
+    assert blocked.action_inbox_envelope.approval_validated is False
+    assert blocked.policy_decision.command_execution_enabled is False
+    assert "blocked-state:runtime-approval-ref-identifier-only" in (
+        blocked.action_inbox_envelope.blocked_reason_refs
+    )
+    assert "blocked-state:runtime-backend-approval-missing" in (
+        blocked.action_inbox_envelope.blocked_reason_refs
+    )
+
+
+def test_runtime_gateway_action_inbox_execute_requires_top_level_refs(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SHOULD_NOT_RUN",
+        )
+
+    store = RuntimeInvocationStore(tmp_path)
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=tmp_path,
+            runner=runner,
+        ),
+    )
+
+    result = gateway.execute_approved_command(
+        approved.invocation_ref,
+        _command_request_for_approved_record(command_request, approved),
+        RuntimeExecuteRequest(),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-missing-execute-refs",
+    )
+
+    assert calls == []
+    assert result.record.status == "execution_blocked"
+    assert result.record.receipt is not None
+    assert result.record.receipt.command_execution_performed is False
+    assert result.error_category == (
+        "RUNTIME_COMMAND_EXECUTE_APPROVAL_REF_MISSING_OR_CHANGED"
+    )
+
+
+def test_runtime_gateway_action_inbox_safe_disable_after_approval_blocks_runner(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SHOULD_NOT_RUN",
+        )
+
+    store = RuntimeInvocationStore(tmp_path)
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-action-inbox-disable"),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-disable",
+    )
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=tmp_path,
+            runner=runner,
+        ),
+    )
+
+    result = gateway.execute_approved_command(
+        approved.invocation_ref,
+        _command_request_for_approved_record(command_request, approved),
+        _runtime_execute_request(approved),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-safe-disabled",
+    )
+
+    assert calls == []
+    assert result.record.status == "safe_disabled"
+    assert result.record.receipt is not None
+    assert result.record.receipt.command_execution_performed is False
+    assert result.error_category in {
+        "RUNTIME_COMMAND_ACTION_INBOX_ENVELOPE_NOT_APPROVED",
+        "RUNTIME_COMMAND_SAFE_DISABLED",
+    }
 
 
 def test_runtime_gateway_command_replay_without_receipt_does_not_spawn_again(

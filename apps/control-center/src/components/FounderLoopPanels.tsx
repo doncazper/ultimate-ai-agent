@@ -57,6 +57,7 @@ import type {
   FounderLoopProductProofReadModel,
   FounderLoopRunsIntegrationReadModel,
   FounderLoopRunsIntegrationSurfaceId,
+  FounderLoopRuntimeActionInboxBridgeReadModel,
   FounderLoopSourceReadiness,
   FounderLoopSourceReadinessProposalCandidate,
   FounderLoopStorageStatus,
@@ -1084,6 +1085,144 @@ function ActionInboxOperatorOverview({
         />
       </dl>
     </section>
+  );
+}
+
+function RuntimeActionInboxBridgePanel({
+  contractRef,
+  readModel,
+}: {
+  contractRef?: string;
+  readModel?: FounderLoopRuntimeActionInboxBridgeReadModel;
+}) {
+  if (!readModel) {
+    return (
+      <article
+        className="status-card"
+        aria-label="Runtime Action Inbox execution bridge"
+      >
+        <div className="status-card-header">
+          <h3>Runtime execution bridge</h3>
+          <span>backend read model missing</span>
+        </div>
+        <p>
+          Governed runtime execution posture is unavailable. The UI will not
+          infer approvals, command scope, receipts, or execution state from
+          local presentation data.
+        </p>
+        <dl className="detail-list">
+          <DetailTerm label="Action execution" value="blocked" />
+          <DetailTerm label="Arbitrary commands" value="blocked" />
+          <DetailTerm label="Provider/model calls" value="blocked" />
+        </dl>
+      </article>
+    );
+  }
+
+  return (
+    <article
+      className="status-card"
+      aria-label="Runtime Action Inbox execution bridge"
+    >
+      <div className="status-card-header">
+        <h3>Runtime execution bridge</h3>
+        <span>backend-owned</span>
+      </div>
+      <p>{readModel.operator_summary}</p>
+      <div className="operator-loop-summary-grid">
+        <Metric label="envelopes" value={readModel.item_count} />
+        <Metric label="pending" value={readModel.pending_approval_count} />
+        <Metric
+          label="approved"
+          value={readModel.approved_pending_execution_count}
+        />
+        <Metric label="receipts" value={readModel.receipt_recorded_count} />
+        <Metric label="blocked" value={readModel.blocked_count} />
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={contractRef ?? readModel.contract_ref} />
+        <DetailTerm label="Status" value={readModel.status} />
+        <DetailTerm label="Route" value={readModel.route_ref} />
+        <DetailTerm label="CLI" value={readModel.cli_ref} />
+        <DetailTerm
+          label="Control Center execution controls"
+          value={readModel.action_execution_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Arbitrary commands"
+          value={
+            readModel.arbitrary_command_execution_enabled ? "enabled" : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Browser/provider/connector"
+          value={
+            readModel.browser_execution_enabled ||
+            readModel.provider_model_call_enabled ||
+            readModel.connector_write_enabled
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Production authority"
+          value={readModel.production_authority_enabled ? "enabled" : "blocked"}
+        />
+      </dl>
+      <p className="muted">{readModel.next_safe_action}</p>
+      <div className="review-grid">
+        {readModel.items.map((item) => (
+          <article className="review-card" key={item.invocation_ref}>
+            <div className="review-card-heading">
+              <h4>{item.command_intent ?? item.adapter_id}</h4>
+              <span>{item.status}</span>
+            </div>
+            <p>{item.safe_summary}</p>
+            <dl className="detail-list">
+              <DetailTerm label="Invocation" value={item.invocation_ref} />
+              <DetailTerm label="Envelope" value={item.action_envelope_ref} />
+              <DetailTerm label="Adapter" value={item.adapter_id} />
+              <DetailTerm label="Authority" value={item.requested_authority} />
+              <DetailTerm label="Exact scope" value={item.exact_scope_ref} />
+              <DetailTerm
+                label="Approval validated"
+                value={item.approval_validated ? "yes" : "no"}
+              />
+              <DetailTerm
+                label="Execution performed"
+                value={item.execution_performed ? "yes" : "no"}
+              />
+              <DetailTerm label="Rollback" value={item.rollback_ref} />
+              <DetailTerm label="Safe disable" value={item.safe_disable_ref} />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Receipts: none"
+              refs={item.receipt_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Evidence refs: none"
+              refs={item.evidence_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Blocked reason refs: none"
+              refs={item.blocked_reason_refs}
+            />
+          </article>
+        ))}
+      </div>
+      <RefListWithFallback
+        emptyLabel="Runtime bridge receipts: none"
+        refs={readModel.receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Runtime bridge evidence refs: none"
+        refs={readModel.evidence_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Blocked authority refs: none"
+        refs={readModel.blocked_authority_refs}
+      />
+    </article>
   );
 }
 
@@ -5230,6 +5369,10 @@ export function ActionInboxSurfacePanel({
       />
       <ActionInboxWorkQueuePanel
         readModel={displayedInbox.action_inbox_work_queue_read_model}
+      />
+      <RuntimeActionInboxBridgePanel
+        contractRef={displayedInbox.runtime_action_inbox_bridge_contract_ref}
+        readModel={displayedInbox.runtime_action_inbox_bridge_read_model}
       />
       <FounderLoopRunsIntegrationPanel
         compact

@@ -138,21 +138,22 @@ RuntimeGateway. Runtime profiles are:
 
 - `sealed`: default posture; no runtime model call or command execution.
 - `local-runtime`: configured loopback/local runtime candidates may exist
-  behind RuntimeGateway policy, redaction, and receipts; Phase 04 permits only
-  an exact read-only status command without an approval envelope, while
-  execution-capable non-status commands still require a later
+  behind RuntimeGateway policy, redaction, and receipts; Phase 04 permits one
+  exact read-only status command without an approval envelope. Phase 05 permits
+  exact focused pytest command execution only after a validated
   `operator-approved` Action Inbox approval envelope.
 - `operator-approved`: exact Action Inbox approval envelopes are required
   before execution-capable runtime actions.
 
 Pilot-scoped authority is limited to configured loopback/local model calls,
-one exact allowlisted argv-only read-only local status command, future exact
-Action Inbox approval envelopes for broader command execution, redacted runtime
-receipts/evidence refs, and CLI/API/Control Center parity. Browser automation,
-connector writes, plugin runtime import, arbitrary shell/subprocess execution,
-remote execution, unrestricted web access, production authority, public beta,
-public release, and broad autonomy remain blocked. Rollback and safe-disable posture
-for the pilot must include disable-by-profile configuration, per-lane safe
+one exact allowlisted argv-only read-only local status command, exact Action
+Inbox approval envelopes for focused pytest command execution, redacted runtime
+receipts/evidence refs, and CLI/API/Control Center parity. Repo verifier,
+frontend-check, browser automation, connector writes, plugin runtime import,
+arbitrary shell/subprocess execution, remote execution, unrestricted web access,
+production authority, public beta, public release, and broad autonomy remain
+blocked. Rollback and safe-disable posture for the pilot must include
+disable-by-profile configuration, per-lane safe
 disable refs, receipt-backed audit records, and no raw prompt, response,
 provider payload, local path, command output, environment dump, credential, or
 secret-like durable persistence. This Phase 01 baseline freeze adds no runtime
