@@ -232,7 +232,7 @@ provider/model calls, connector writes, coworker dispatch, background autonomy,
 raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
-OpenAPI remains a backend contract. The current backend path count is `184` with
+OpenAPI remains a backend contract. The current backend path count is `185` with
 unique operation IDs; earlier milestone counts in the historical sections below
 are audit context, not current route inventory.
 

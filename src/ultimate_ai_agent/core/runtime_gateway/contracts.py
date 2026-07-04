@@ -23,14 +23,16 @@ GOVERNED_RUNTIME_SAFE_DISABLE_REF = "safe-disable-ref:governed-runtime-pilot"
 GOVERNED_RUNTIME_SAFE_DISABLE_POSTURE_REF = "safe-disable-posture-ref:governed-runtime-pilot"
 GOVERNED_RUNTIME_ROLLBACK_REF = "rollback-ref:governed-runtime-pilot:disable-profile"
 GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS = (
-    "blocked-authority:runtime-adapter-execution-phase-02",
-    "blocked-authority:runtime-model-call-phase-02",
-    "blocked-authority:runtime-command-execution-phase-02",
+    "blocked-authority:runtime-command-execution-phase-03",
     "blocked-authority:runtime-browser-automation",
     "blocked-authority:runtime-connector-write",
     "blocked-authority:runtime-plugin-import",
     "blocked-authority:runtime-remote-execution",
+    "blocked-authority:runtime-remote-provider-model-call",
     "blocked-authority:runtime-production-authority",
+)
+GOVERNED_RUNTIME_IMPLEMENTED_AUTHORITY_REFS = (
+    "authority-ref:runtime-local-model-loopback-phase-03",
 )
 GOVERNED_RUNTIME_REDACTIONS = (
     "safe_refs_only",
@@ -110,7 +112,7 @@ class RuntimeSafeDisableState(BaseModel):
     active: bool = True
     profile: RuntimeProfile = RuntimeProfile.sealed
     reason_ref: str = "reason-ref:governed-runtime-phase-02-disabled"
-    safe_summary: str = "Governed runtime adapters are disabled in Phase 02."
+    safe_summary: str = "Governed runtime is sealed by default; Phase 03 local loopback model calls require explicit local enablement."
     updated_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
@@ -124,7 +126,7 @@ class RuntimeSafeDisableState(BaseModel):
         ]:
             validate_execution_ref(value, field_name)
         validate_safe_execution_text(self.safe_summary, "safe_summary")
-        if self.profile != RuntimeProfile.sealed.value:
+        if self.active and self.profile != RuntimeProfile.sealed.value:
             raise ValueError("RUNTIME_SAFE_DISABLE_PROFILE_MUST_BE_SEALED")
         return self
 
@@ -176,7 +178,7 @@ class RuntimePolicyDecision(BaseModel):
             "RUNTIME_ADAPTER_EXECUTION_BLOCKED",
         ]
     )
-    safe_summary: str = "RuntimeGateway policy recorded a non-executing Phase 02 decision."
+    safe_summary: str = "RuntimeGateway policy recorded a governed runtime decision."
     redactions_applied: list[str] = Field(
         default_factory=lambda: list(GOVERNED_RUNTIME_REDACTIONS)
     )
@@ -195,13 +197,19 @@ class RuntimePolicyDecision(BaseModel):
         for redaction in self.redactions_applied:
             validate_safe_execution_text(redaction, "redaction")
         if self.allowed_to_execute:
-            raise ValueError("RUNTIME_EXECUTION_NOT_ALLOWED_IN_PHASE_02")
-        if self.adapter_execution_enabled:
-            raise ValueError("RUNTIME_ADAPTER_EXECUTION_NOT_ALLOWED_IN_PHASE_02")
-        if self.model_call_enabled:
-            raise ValueError("RUNTIME_MODEL_CALL_NOT_ALLOWED_IN_PHASE_02")
+            if self.requested_authority != RuntimeAuthority.local_model.value:
+                raise ValueError("RUNTIME_EXECUTION_AUTHORITY_NOT_PROMOTED")
+            if self.profile not in {
+                RuntimeProfile.local_runtime.value,
+                RuntimeProfile.operator_approved.value,
+            }:
+                raise ValueError("RUNTIME_EXECUTION_PROFILE_NOT_PROMOTED")
+            if not self.adapter_execution_enabled or not self.model_call_enabled:
+                raise ValueError("RUNTIME_LOCAL_MODEL_EXECUTION_FLAGS_REQUIRED")
+        elif self.adapter_execution_enabled or self.model_call_enabled:
+            raise ValueError("RUNTIME_EXECUTION_FLAGS_REQUIRE_ALLOW")
         if self.command_execution_enabled:
-            raise ValueError("RUNTIME_COMMAND_EXECUTION_NOT_ALLOWED_IN_PHASE_02")
+            raise ValueError("RUNTIME_COMMAND_EXECUTION_NOT_ALLOWED_IN_PHASE_03")
         if not set(GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS).issubset(
             set(self.blocked_authority_refs)
         ):
@@ -274,13 +282,15 @@ class RuntimeInvocationReceipt(BaseModel):
     redactions_applied: list[str] = Field(
         default_factory=lambda: list(GOVERNED_RUNTIME_REDACTIONS)
     )
+    model_receipt_metadata: "RuntimeLocalModelReceiptMetadata | None" = None
     execution_performed: bool = False
     adapter_execution_performed: bool = False
     model_call_performed: bool = False
     command_execution_performed: bool = False
     connector_write_performed: bool = False
     browser_automation_performed: bool = False
-    safe_summary: str = "Runtime invocation receipt recorded a blocked Phase 02 execution attempt."
+    model_output_non_authoritative: bool = True
+    safe_summary: str = "Runtime invocation receipt recorded a governed runtime attempt."
     created_at: datetime = Field(default_factory=utc_now)
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
@@ -300,17 +310,82 @@ class RuntimeInvocationReceipt(BaseModel):
         for redaction in self.redactions_applied:
             validate_safe_execution_text(redaction, "redaction")
         validate_safe_execution_text(self.safe_summary, "safe_summary")
+        if self.model_receipt_metadata is not None:
+            if self.connector_write_performed or self.browser_automation_performed:
+                raise ValueError("RUNTIME_NON_MODEL_AUTHORITY_NOT_ALLOWED")
+            if self.command_execution_performed:
+                raise ValueError("RUNTIME_COMMAND_EXECUTION_NOT_ALLOWED_IN_PHASE_03")
+            if not self.model_output_non_authoritative:
+                raise ValueError("RUNTIME_MODEL_OUTPUT_NON_AUTHORITATIVE_REQUIRED")
+        if self.model_call_performed:
+            if not self.execution_performed or not self.adapter_execution_performed:
+                raise ValueError("RUNTIME_MODEL_RECEIPT_EXECUTION_FLAGS_REQUIRED")
+            if self.model_receipt_metadata is None:
+                raise ValueError("RUNTIME_MODEL_RECEIPT_METADATA_REQUIRED")
+            return self
         if any(
             [
                 self.execution_performed,
                 self.adapter_execution_performed,
-                self.model_call_performed,
                 self.command_execution_performed,
                 self.connector_write_performed,
                 self.browser_automation_performed,
             ]
         ):
-            raise ValueError("RUNTIME_RECEIPT_EXECUTION_DENIED_IN_PHASE_02")
+            raise ValueError("RUNTIME_RECEIPT_EXECUTION_DENIED_FOR_UNPROMOTED_AUTHORITY")
+        return self
+
+
+class RuntimeLocalModelReceiptMetadata(BaseModel):
+    adapter_id: str = "local-model-runtime-adapter"
+    model_ref: str = Field(..., min_length=1)
+    endpoint_ref: str = Field(..., min_length=1)
+    profile: RuntimeProfile = RuntimeProfile.local_runtime
+    request_byte_count: int = Field(default=0, ge=0, le=1_000_000)
+    response_byte_count: int = Field(default=0, ge=0, le=1_000_000)
+    status_code: int | None = Field(default=None, ge=100, le=599)
+    response_received: bool = False
+    response_truncated: bool = False
+    bounded_preview_returned: bool = False
+    bounded_preview_persisted: bool = False
+    error_category: str | None = None
+    model_output_non_authoritative: bool = True
+    tools_executed: bool = False
+    memory_written: bool = False
+    files_written: bool = False
+    provider_called: bool = False
+    remote_called: bool = False
+    safe_summary: str = "Local model runtime metadata stores safe refs and counts only."
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_local_model_metadata(self) -> "RuntimeLocalModelReceiptMetadata":
+        validate_safe_execution_text(self.adapter_id, "adapter_id")
+        validate_safe_execution_text(self.model_ref, "model_ref")
+        validate_execution_ref(self.endpoint_ref, "endpoint_ref")
+        validate_safe_execution_text(self.safe_summary, "safe_summary")
+        if self.profile not in {
+            RuntimeProfile.local_runtime.value,
+            RuntimeProfile.operator_approved.value,
+        }:
+            raise ValueError("RUNTIME_LOCAL_MODEL_PROFILE_REQUIRED")
+        if self.bounded_preview_persisted:
+            raise ValueError("RUNTIME_MODEL_PREVIEW_PERSISTENCE_NOT_ENABLED")
+        if not self.model_output_non_authoritative:
+            raise ValueError("RUNTIME_MODEL_OUTPUT_NON_AUTHORITATIVE_REQUIRED")
+        if any(
+            [
+                self.tools_executed,
+                self.memory_written,
+                self.files_written,
+                self.provider_called,
+                self.remote_called,
+            ]
+        ):
+            raise ValueError("RUNTIME_MODEL_SIDE_EFFECT_DENIED")
+        if self.error_category:
+            validate_safe_execution_text(self.error_category, "error_category")
         return self
 
 
@@ -334,7 +409,7 @@ class RuntimeApprovalBindingRequest(BaseModel):
 
 class RuntimeExecuteRequest(BaseModel):
     approval_ref: str | None = None
-    safe_summary: str = "Execute request records a blocked Phase 02 receipt only."
+    safe_summary: str = "Execute request records a blocked receipt for unpromoted authority only."
     metadata_refs: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid")
@@ -417,6 +492,9 @@ class RuntimeCapabilities(BaseModel):
     command_execution_enabled: bool = False
     approval_required_for_execution: bool = True
     safe_disable: RuntimeSafeDisableState = Field(default_factory=RuntimeSafeDisableState)
+    implemented_authority_refs: list[str] = Field(
+        default_factory=lambda: list(GOVERNED_RUNTIME_IMPLEMENTED_AUTHORITY_REFS)
+    )
     blocked_authority_refs: list[str] = Field(
         default_factory=lambda: list(GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS)
     )
@@ -432,8 +510,14 @@ class RuntimeCapabilities(BaseModel):
         validate_execution_ref(self.capabilities_ref, "capabilities_ref")
         if self.default_profile != RuntimeProfile.sealed.value:
             raise ValueError("RUNTIME_DEFAULT_PROFILE_MUST_BE_SEALED")
-        if self.adapter_execution_enabled or self.model_call_enabled or self.command_execution_enabled:
-            raise ValueError("RUNTIME_CAPABILITY_EXECUTION_DENIED_IN_PHASE_02")
+        if self.command_execution_enabled:
+            raise ValueError("RUNTIME_COMMAND_CAPABILITY_DENIED_IN_PHASE_03")
+        if self.adapter_execution_enabled != self.model_call_enabled:
+            raise ValueError("RUNTIME_MODEL_ADAPTER_FLAGS_MUST_MATCH")
+        if self.adapter_execution_enabled and self.safe_disable.active:
+            raise ValueError("RUNTIME_CAPABILITY_SAFE_DISABLE_MUST_BE_INACTIVE")
+        for ref in self.implemented_authority_refs:
+            validate_execution_ref(ref, "implemented_authority_ref")
         for ref in self.blocked_authority_refs:
             validate_execution_ref(ref, "blocked_authority_ref")
         return self
@@ -478,32 +562,69 @@ def build_policy_decision(
     invocation_ref: str,
     approval_ref: str | None = None,
     status: RuntimeInvocationStatus = RuntimeInvocationStatus.blocked,
+    local_model_gateway_validated: bool = False,
 ) -> RuntimePolicyDecision:
+    profile = RuntimeProfile(request.requested_profile)
+    local_model_enabled = (
+        request.requested_authority == RuntimeAuthority.local_model.value
+        and local_model_gateway_validated
+        and profile
+        in {
+            RuntimeProfile.local_runtime,
+            RuntimeProfile.operator_approved,
+        }
+    )
     approval_requirement = RuntimeApprovalRequirement(
         approval_ref=approval_ref or request.approval_ref,
         approval_validated=False,
         approval_binding_recorded=bool(approval_ref or request.approval_ref),
     )
-    reason_codes = [
-        "GOVERNED_RUNTIME_PHASE_02_CONTRACT_ONLY",
-        "RUNTIME_ADAPTER_EXECUTION_BLOCKED",
-    ]
+    if local_model_enabled:
+        reason_codes = [
+            "GOVERNED_RUNTIME_PHASE_03_LOCAL_MODEL_LOOPBACK",
+            "MODEL_OUTPUT_PROPOSAL_ONLY",
+        ]
+    elif (
+        request.requested_authority == RuntimeAuthority.local_model.value
+        and profile
+        in {
+            RuntimeProfile.local_runtime,
+            RuntimeProfile.operator_approved,
+        }
+    ):
+        reason_codes = [
+            "GOVERNED_RUNTIME_PHASE_03_LOCAL_MODEL_GATEWAY_VALIDATION_REQUIRED",
+            "RUNTIME_ADAPTER_EXECUTION_BLOCKED",
+        ]
+    else:
+        reason_codes = [
+            "GOVERNED_RUNTIME_PHASE_03_LOCAL_MODEL_DISABLED_OR_UNPROMOTED",
+            "RUNTIME_ADAPTER_EXECUTION_BLOCKED",
+        ]
     if approval_ref or request.approval_ref:
         reason_codes.append("APPROVAL_REF_IDENTIFIER_ONLY")
     return RuntimePolicyDecision(
         policy_decision_ref=runtime_policy_decision_ref(invocation_ref),
-        profile=RuntimeProfile.sealed,
+        profile=profile if local_model_enabled else RuntimeProfile.sealed,
         requested_authority=request.requested_authority,
         invocation_status=status,
+        allowed_to_execute=local_model_enabled,
+        adapter_execution_enabled=local_model_enabled,
+        model_call_enabled=local_model_enabled,
         approval_requirement=approval_requirement,
         reason_codes=reason_codes,
+        safe_summary=(
+            "RuntimeGateway policy allows loopback local model calls as untrusted proposals."
+            if local_model_enabled
+            else "RuntimeGateway policy recorded a blocked or disabled runtime decision."
+        ),
     )
 
 
 def build_blocked_receipt(
     record: RuntimeInvocationRecord,
     *,
-    safe_summary: str = "Runtime execution remains blocked in Phase 02.",
+    safe_summary: str = "Runtime execution remains blocked for the requested authority.",
 ) -> RuntimeInvocationReceipt:
     return RuntimeInvocationReceipt(
         receipt_ref=runtime_receipt_ref(
@@ -529,6 +650,52 @@ def build_blocked_receipt(
             )
         ],
         safe_summary=safe_summary,
+    )
+
+
+def build_local_model_receipt(
+    record: RuntimeInvocationRecord,
+    *,
+    metadata: RuntimeLocalModelReceiptMetadata,
+    execution_performed: bool = True,
+    model_call_performed: bool = True,
+    status: RuntimeInvocationStatus = RuntimeInvocationStatus.receipt_recorded,
+) -> RuntimeInvocationReceipt:
+    return RuntimeInvocationReceipt(
+        receipt_ref=runtime_receipt_ref(record.invocation_ref, status),
+        invocation_ref=record.invocation_ref,
+        policy_decision_ref=record.policy_decision.policy_decision_ref,
+        invocation_status=status,
+        artifact_refs=[
+            RuntimeArtifactRef(
+                artifact_ref=_stable_ref(
+                    "runtime-artifact-ref",
+                    {"invocation_ref": record.invocation_ref, "kind": "local-model-receipt"},
+                ),
+                artifact_kind="local_model_runtime_receipt",
+                safe_summary="Local model runtime receipt stores metadata and safe refs only.",
+            )
+        ],
+        evidence_refs=[
+            _stable_ref(
+                "runtime-evidence-ref",
+                {"invocation_ref": record.invocation_ref, "status": "local-model-receipt"},
+            )
+        ],
+        blocked_authority_refs=list(GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS),
+        model_receipt_metadata=metadata,
+        execution_performed=execution_performed,
+        adapter_execution_performed=execution_performed,
+        model_call_performed=model_call_performed,
+        command_execution_performed=False,
+        connector_write_performed=False,
+        browser_automation_performed=False,
+        model_output_non_authoritative=True,
+        safe_summary=(
+            "Local model runtime attempt was blocked before transport; metadata only."
+            if status == RuntimeInvocationStatus.execution_blocked
+            else "Local model runtime attempt completed; output is an untrusted proposal."
+        ),
     )
 
 

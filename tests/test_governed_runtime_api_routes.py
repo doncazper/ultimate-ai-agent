@@ -4,6 +4,7 @@ from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.rate_limits import reset_api_rate_limit_state, route_rate_limit_group
 from ultimate_ai_agent.core.runtime_gateway.storage import RUNTIME_GATEWAY_STATE_DIR_ENV
+from ultimate_ai_agent.core.runtime_gateway.local_model import RUNTIME_LOCAL_MODEL_ENABLED_ENV
 
 
 client = TestClient(app)
@@ -20,6 +21,20 @@ def _runtime_payload(summary: str = "safe governed runtime api summary") -> dict
     }
 
 
+def _local_model_payload(**overrides: object) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "base_url": "http://127.0.0.1:9",
+        "model_ref": "uaa-local-runtime",
+        "messages": [{"role": "user", "content": "api prompt should not persist"}],
+        "requested_profile": "local-runtime",
+        "safe_summary": "Use local model runtime as an untrusted proposal.",
+        "timeout_seconds": 0.1,
+        "max_response_bytes": 1024,
+    }
+    payload.update(overrides)
+    return payload
+
+
 def test_governed_runtime_capabilities_are_sealed_by_default() -> None:
     response = client.get("/api/runtime/capabilities")
 
@@ -32,6 +47,11 @@ def test_governed_runtime_capabilities_are_sealed_by_default() -> None:
     assert data["model_call_enabled"] is False
     assert data["command_execution_enabled"] is False
     assert data["safe_disable"]["active"] is True
+    assert data["chat_runtime_integration"]["route_ref"] == "/api/runtime/local-model/call"
+    assert data["chat_runtime_integration"]["default_status"] == "disabled_by_default"
+    assert data["chat_runtime_integration"]["model_output_authority"] == (
+        "untrusted_proposal_only"
+    )
 
 
 def test_governed_runtime_post_routes_require_idempotency(tmp_path, monkeypatch) -> None:
@@ -39,9 +59,39 @@ def test_governed_runtime_post_routes_require_idempotency(tmp_path, monkeypatch)
     reset_api_rate_limit_state()
 
     response = client.post("/api/runtime/invocations", json=_runtime_payload())
+    local_model = client.post("/api/runtime/local-model/call", json=_local_model_payload())
 
     assert response.status_code == 428
     assert response.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
+    assert local_model.status_code == 428
+    assert local_model.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
+
+
+def test_governed_runtime_generic_invocation_cannot_enable_local_model_runtime(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    monkeypatch.setenv(RUNTIME_LOCAL_MODEL_ENABLED_ENV, "1")
+    reset_api_rate_limit_state()
+
+    create = client.post(
+        "/api/runtime/invocations",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-generic-local-model"},
+        json=_runtime_payload() | {"requested_profile": "local-runtime"},
+    )
+
+    assert create.status_code == 200
+    body = create.json()
+    assert body["success"] is True
+    policy = body["data"]["record"]["policy_decision"]
+    assert policy["allowed_to_execute"] is False
+    assert policy["adapter_execution_enabled"] is False
+    assert policy["model_call_enabled"] is False
+    assert (
+        "GOVERNED_RUNTIME_PHASE_03_LOCAL_MODEL_GATEWAY_VALIDATION_REQUIRED"
+        in policy["reason_codes"]
+    )
 
 
 def test_governed_runtime_invocation_flow_records_blocked_receipt(tmp_path, monkeypatch) -> None:
@@ -103,7 +153,7 @@ def test_governed_runtime_invocation_flow_records_blocked_receipt(tmp_path, monk
     assert execute.json()["success"] is False
     assert execute.json()["data"]["execution_performed"] is False
     assert execute.json()["data"]["blocked_reason"] == (
-        "RUNTIME_ADAPTER_EXECUTION_BLOCKED_IN_PHASE_02"
+        "RUNTIME_ADAPTER_EXECUTION_BLOCKED_FOR_UNPROMOTED_AUTHORITY"
     )
     execute_replay = client.post(
         f"/api/runtime/invocations/{invocation_ref}/execute",
@@ -188,6 +238,7 @@ def test_governed_runtime_routes_are_manifest_visible_with_safe_posture() -> Non
 
     for path in [
         "/api/runtime/invocations",
+        "/api/runtime/local-model/call",
         "/api/runtime/invocations/{id}/approve",
         "/api/runtime/invocations/{id}/execute",
         "/api/runtime/safe-disable",
@@ -204,6 +255,9 @@ def test_governed_runtime_rate_limit_group_handles_dynamic_routes() -> None:
     assert route_rate_limit_group("POST", "/api/runtime/invocations") == (
         "governed_runtime_pilot"
     )
+    assert route_rate_limit_group("POST", "/api/runtime/local-model/call") == (
+        "governed_runtime_pilot"
+    )
     assert route_rate_limit_group(
         "POST",
         "/api/runtime/invocations/runtime-invocation-ref:abc/execute",
@@ -217,6 +271,7 @@ def test_governed_runtime_openapi_contains_exact_contract_routes() -> None:
     for path in [
         "/api/runtime/capabilities",
         "/api/runtime/invocations",
+        "/api/runtime/local-model/call",
         "/api/runtime/invocations/{id}",
         "/api/runtime/invocations/{id}/receipt",
         "/api/runtime/invocations/{id}/approve",
@@ -226,3 +281,92 @@ def test_governed_runtime_openapi_contains_exact_contract_routes() -> None:
         assert path in paths
     assert "post" in paths["/api/runtime/invocations"]
     assert "get" in paths["/api/runtime/invocations"]
+
+
+def test_governed_runtime_local_model_call_records_safe_failure_receipt(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    monkeypatch.setenv(RUNTIME_LOCAL_MODEL_ENABLED_ENV, "1")
+    reset_api_rate_limit_state()
+
+    response = client.post(
+        "/api/runtime/local-model/call",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-local-model-api"},
+        json=_local_model_payload(),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is False
+    assert body["data"]["local_model_runtime_enabled"] is True
+    assert body["data"]["execution_performed"] is True
+    assert body["data"]["adapter_execution_enabled"] is True
+    assert body["data"]["model_call_performed"] is True
+    assert body["data"]["error_category"] == "M164_LLAMA_CPP_GATEWAY_UNAVAILABLE"
+    assert body["data"]["response_preview"] is None
+    assert body["data"]["response_preview_persisted"] is False
+    assert body["data"]["record"]["receipt"]["model_output_non_authoritative"] is True
+
+    persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "api prompt should not persist" not in persisted
+    assert "M164_LLAMA_CPP_GATEWAY_UNAVAILABLE" in persisted
+
+
+def test_governed_runtime_local_model_call_is_disabled_by_default(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    monkeypatch.delenv(RUNTIME_LOCAL_MODEL_ENABLED_ENV, raising=False)
+    reset_api_rate_limit_state()
+
+    response = client.post(
+        "/api/runtime/local-model/call",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-local-model-disabled"},
+        json=_local_model_payload(),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is False
+    assert body["data"]["local_model_runtime_enabled"] is False
+    assert body["data"]["execution_performed"] is False
+    assert body["data"]["adapter_execution_enabled"] is False
+    assert body["data"]["model_call_performed"] is False
+    assert body["data"]["error_category"] == "RUNTIME_LOCAL_MODEL_DISABLED_BY_DEFAULT"
+    assert "api prompt should not persist" not in response.text
+
+
+def test_governed_runtime_local_model_call_blocks_non_loopback_url_redacted(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    monkeypatch.setenv(RUNTIME_LOCAL_MODEL_ENABLED_ENV, "1")
+    reset_api_rate_limit_state()
+
+    response = client.post(
+        "/api/runtime/local-model/call",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-local-model-remote"},
+        json=_local_model_payload(base_url="http://example.com:8080"),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is False
+    assert body["data"]["execution_performed"] is False
+    assert body["data"]["adapter_execution_enabled"] is False
+    assert body["data"]["model_call_performed"] is False
+    assert body["data"]["error_category"] == "M164_LOOPBACK_ONLY_REQUIRED"
+    assert "example.com" not in response.text
+    assert "api prompt should not persist" not in response.text
+
+    persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "example.com" not in persisted
+    assert "api prompt should not persist" not in persisted

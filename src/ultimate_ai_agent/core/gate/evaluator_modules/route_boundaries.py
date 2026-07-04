@@ -2539,6 +2539,7 @@ GOVERNED_RUNTIME_PILOT_CONTRACT_ROUTES = frozenset(
     {
         "/api/runtime/capabilities",
         "/api/runtime/invocations",
+        "/api/runtime/local-model/call",
         "/api/runtime/invocations/{id}",
         "/api/runtime/invocations/{id}/approve",
         "/api/runtime/invocations/{id}/execute",

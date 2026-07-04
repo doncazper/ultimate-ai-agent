@@ -57,6 +57,7 @@ CAPABILITIES_DECLARED = [
     "governed_runtime_invocation_metadata_storage",
     "governed_runtime_safe_disable_state",
     "governed_runtime_api_contract_shells",
+    "governed_runtime_loopback_local_model_call_pilot",
     "control_center_coding_cockpit_session_read_model",
     "control_center_coding_context_pack_preview_read_model",
     "control_center_coding_patch_apply_readiness_read_model",
@@ -156,7 +157,7 @@ CAPABILITIES_DECLARED = [
 ]
 
 CAPABILITIES_BLOCKED = [
-    "runtime_model_calls",
+    "runtime_remote_or_unrestricted_model_calls",
     "provider_api_calls",
     "web_fetching",
     "browser_automation",
@@ -172,10 +173,10 @@ CAPABILITIES_BLOCKED = [
     "control_center_web_evidence_connector_write",
     "production_persistence",
     "runtime_agent_config_loading",
-    "runtime_execution_routes",
-    "governed_runtime_adapter_execution_phase_02",
-    "governed_runtime_local_model_calls_phase_02",
-    "governed_runtime_command_execution_phase_02",
+    "runtime_unrestricted_execution_routes",
+    "governed_runtime_unrestricted_adapter_execution",
+    "governed_runtime_remote_or_provider_model_calls",
+    "governed_runtime_command_execution_phase_03",
     "governed_runtime_approval_as_execution_authority",
     "governed_runtime_raw_prompt_response_persistence",
     "governed_runtime_raw_command_output_persistence",
@@ -611,6 +612,7 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
 }
 GOVERNED_RUNTIME_MUTATING_PATHS = {
     "/api/runtime/invocations",
+    "/api/runtime/local-model/call",
     "/api/runtime/invocations/{id}/approve",
     "/api/runtime/invocations/{id}/execute",
     "/api/runtime/safe-disable",
@@ -840,7 +842,7 @@ def route_classification_for_path(
     ):
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Governed runtime execute route is mutation-like authority posture only; it records a blocked Phase 02 receipt, and idempotency, exact approval posture, redaction, and no-adapter-execution posture are required.",
+            "Governed runtime execute route is mutation-like authority posture only; it records a blocked receipt for unpromoted authorities, and idempotency, exact approval posture, redaction, and no-arbitrary-adapter-execution posture are required.",
         )
     if normalized_method == "POST" and path == "/api/runtime/safe-disable":
         return (

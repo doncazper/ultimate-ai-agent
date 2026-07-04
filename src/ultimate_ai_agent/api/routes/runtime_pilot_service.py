@@ -12,10 +12,12 @@ from ultimate_ai_agent.core.hygiene.envelopes import (
     Severity,
 )
 from ultimate_ai_agent.core.runtime_gateway import (
+    RuntimeGateway,
     RuntimeInvocationConflictError,
     RuntimeInvocationNotFoundError,
     RuntimeInvocationRequest,
     RuntimeInvocationStore,
+    RuntimeLocalModelCallRequest,
     build_default_runtime_capabilities,
 )
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
@@ -74,12 +76,23 @@ def _not_found(operation: str, invocation_ref: str) -> ResultEnvelope:
 @router.get("/capabilities", response_model=ResultEnvelope)
 def get_api_runtime_capabilities() -> ResultEnvelope:
     capabilities = build_default_runtime_capabilities()
+    data = capabilities.model_dump(mode="json")
+    data["chat_runtime_integration"] = {
+        "backend_owned": True,
+        "route_ref": "/api/runtime/local-model/call",
+        "default_status": "disabled_by_default",
+        "enabled_profile_required": "local-runtime",
+        "model_output_authority": "untrusted_proposal_only",
+        "raw_prompt_persisted": False,
+        "raw_response_persisted": False,
+        "remote_provider_authority": "blocked",
+    }
     return ResultEnvelope(
         success=True,
         operation="api_runtime_capabilities",
         service="GovernedRuntimeAPI",
         trace_id=capabilities.capabilities_ref,
-        data=capabilities.model_dump(mode="json"),
+        data=data,
         evidence=[{"evidence_ref": "evidence-ref:governed-runtime-capabilities"}],
         redactions_applied=capabilities.redactions_applied,
     )
@@ -100,10 +113,92 @@ def get_api_runtime_invocations() -> ResultEnvelope:
             "backend_owned": True,
             "safe_refs_only": True,
             "adapter_execution_enabled": False,
+            "model_call_enabled": False,
+            "local_model_gateway_route_available": True,
+            "local_model_runtime_enabled_by_default": False,
+            "model_output_is_proposal_only": True,
             "invocation_count": len(records),
             "invocations": records,
         },
         redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+    )
+
+
+@router.post("/local-model/call", response_model=ResultEnvelope)
+def post_api_runtime_local_model_call(
+    request: RuntimeLocalModelCallRequest,
+    x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
+    x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
+) -> ResultEnvelope:
+    idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+    try:
+        result = RuntimeGateway(store=_runtime_store()).invoke_local_model(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+    except RuntimeInvocationConflictError:
+        return ResultEnvelope(
+            success=False,
+            operation="api_runtime_local_model_call",
+            service="GovernedRuntimeAPI",
+            trace_id=idempotency_ref,
+            error=ErrorEnvelope(
+                code="RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT",
+                category=ErrorCategory.conflict,
+                safe_message="The governed runtime idempotency ref already has a different payload fingerprint.",
+                severity=Severity.medium,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+            ),
+            redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+        )
+    receipt = result.record.receipt
+    metadata = receipt.model_receipt_metadata if receipt else None
+    return ResultEnvelope(
+        success=result.error_category is None and result.record.status == "receipt_recorded",
+        operation="api_runtime_local_model_call",
+        service="GovernedRuntimeAPI",
+        trace_id=result.record.invocation_ref,
+        data={
+            "record": result.record.model_dump(mode="json"),
+            "replayed": result.replayed,
+            "local_model_runtime_enabled": result.local_model_runtime_enabled,
+            "execution_performed": bool(receipt and receipt.execution_performed),
+            "adapter_execution_enabled": result.record.policy_decision.adapter_execution_enabled,
+            "model_call_performed": bool(receipt and receipt.model_call_performed),
+            "model_output_non_authoritative": True,
+            "response_preview": result.response_preview
+            if result.response_preview_returned
+            else None,
+            "response_preview_returned": result.response_preview_returned,
+            "response_preview_persisted": False,
+            "request_byte_count": result.request_byte_count,
+            "response_byte_count": result.response_byte_count,
+            "error_category": result.error_category,
+            "receipt_ref": receipt.receipt_ref if receipt else None,
+            "metadata_ref": metadata.endpoint_ref if metadata else None,
+            "blocked_authority_refs": (
+                receipt.blocked_authority_refs
+                if receipt
+                else result.record.policy_decision.blocked_authority_refs
+            ),
+            "blocked_runtime_authority": [
+                "command_execution",
+                "browser_automation",
+                "connector_write",
+                "plugin_runtime_import",
+                "remote_provider_model_call",
+                "production_authority",
+            ],
+        },
+        evidence=[{"evidence_ref": "evidence-ref:governed-runtime-local-model-call"}],
+        redactions_applied=[
+            *GOVERNED_RUNTIME_REDACTIONS,
+            "raw_prompt_omitted_from_response",
+            "raw_response_not_persisted",
+            "provider_payload_not_persisted",
+        ],
     )
 
 
@@ -278,7 +373,7 @@ def post_api_runtime_invocations_id_execute(
             "record": record.model_dump(mode="json"),
             "execution_performed": False,
             "adapter_execution_enabled": False,
-            "blocked_reason": "RUNTIME_ADAPTER_EXECUTION_BLOCKED_IN_PHASE_02",
+            "blocked_reason": "RUNTIME_ADAPTER_EXECUTION_BLOCKED_FOR_UNPROMOTED_AUTHORITY",
         },
         evidence=[{"evidence_ref": "evidence-ref:governed-runtime-execution-blocked"}],
         redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),

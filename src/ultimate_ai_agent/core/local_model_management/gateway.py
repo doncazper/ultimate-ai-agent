@@ -131,10 +131,22 @@ class FakeM164GatewayTransport:
         return _openai_chat_response(gateway_model.model_id, self.content, len(chat_request.messages))
 
 
+class _M164NoRedirectHandler(request.HTTPRedirectHandler):
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> None:
+        raise urllib_error.HTTPError(req.full_url, code, "M164_REDIRECT_DENIED", headers, fp)
+
+
 class StdlibM164LlamaCppGatewayTransport:
-    def __init__(self, *, timeout_seconds: float = 120.0, max_response_bytes: int = M164_MAX_RESPONSE_BYTES) -> None:
+    def __init__(
+        self,
+        *,
+        timeout_seconds: float = 120.0,
+        max_response_bytes: int = M164_MAX_RESPONSE_BYTES,
+        opener: Any | None = None,
+    ) -> None:
         self.timeout_seconds = timeout_seconds
         self.max_response_bytes = max_response_bytes
+        self._opener = opener or request.build_opener(_M164NoRedirectHandler)
 
     def chat_completions(
         self,
@@ -164,8 +176,12 @@ class StdlibM164LlamaCppGatewayTransport:
             method="POST",
         )
         try:
-            with request.urlopen(http_request, timeout=self.timeout_seconds) as response:
+            with self._opener.open(http_request, timeout=self.timeout_seconds) as response:
                 body = response.read(self.max_response_bytes + 1)
+        except urllib_error.HTTPError as exc:
+            if 300 <= exc.code < 400:
+                raise ValueError("M164_GATEWAY_REDIRECT_DENIED") from exc
+            raise ValueError("M164_LLAMA_CPP_GATEWAY_UNAVAILABLE") from exc
         except urllib_error.URLError as exc:
             raise ValueError("M164_LLAMA_CPP_GATEWAY_UNAVAILABLE") from exc
         if len(body) > self.max_response_bytes:

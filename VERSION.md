@@ -35,7 +35,7 @@ with reviewable intent proposals, confidence, source refs, evidence refs,
 ambiguity posture, ask/act/defer routing, and ask-user handling for
 low-confidence or conflicting intent. UAA-P1-080 completes API Route
 Classification And Public/Protected Inventory with typed route classifications
-in `/api/manifest`, the frozen 185-route inventory fixture, route-status
+in `/api/manifest`, the frozen 186-route inventory fixture, route-status
 manifest alignment, Control Center API Routes visibility, and focused
 verifier/tests. UAA-P1-081 completes centralized FastAPI response security
 headers with HTTPS-only HSTS and no CORS/auth/rate-limit authority. UAA-P1-082
@@ -46,9 +46,9 @@ metadata routes left open and no enterprise/OAuth/password-flow claim.
 UAA-P1-084 completes a runtime idempotency header gate for
 `mutating_requires_authority` routes with no durable dedupe or exactly-once
 execution claim. UAA-P1-085 completes targeted local fixed-window rate limits
-for model/chat, task-decomposition, action preview/proposal, and expensive
-validation/local-model paths with no auth, distributed quota, dependency, or
-production authority claim. UAA-P1-086 completes API boundary enforcement
+for model/chat, task-decomposition, action preview/proposal, governed runtime
+pilot routes, and expensive validation/local-model paths with no auth,
+distributed quota, dependency, or production authority claim. UAA-P1-086 completes API boundary enforcement
 tests without route, middleware, runtime authority, public beta, or production
 authority changes. UAA-P1-087.1 completes local launcher dual-surface boot
 readiness, UAA-P1-087.2a completes the private trial packet/read-only tuning
