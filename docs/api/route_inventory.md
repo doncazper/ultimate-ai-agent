@@ -98,17 +98,18 @@ routes, and local model validation route groups.
 `rate_limit_group`. This is not auth, distributed quota, billing, production
 authority, or a public beta claim.
 
-Governed Runtime Pilot Phase 04 keeps `/api/runtime/*` governed by contract and
-storage metadata while promoting only the exact local loopback model-call lane
-and one exact allowlisted read-only command status lane through `RuntimeGateway`.
+Governed Runtime Pilot Phase 05 keeps `/api/runtime/*` governed by contract and
+storage metadata while promoting configured local loopback model calls, one exact
+allowlisted read-only command status lane, and exact Action Inbox approved
+focused pytest command execution through `RuntimeGateway`.
 Capability, invocation, policy, approval-ref, receipt, and safe-disable records
 store safe refs and redacted metadata only; model output is untrusted proposal
 text, and command output is redacted and bounded. Remote provider/model calls,
-arbitrary shell/subprocess execution, focused tests/verifiers without the later
-approval bridge, arbitrary adapter execution, browser automation, connector
-writes, plugin runtime import, remote execution, raw prompt/response/command
-output/local path/env persistence, production authority, and public release
-claims remain blocked.
+arbitrary shell/subprocess execution, focused tests outside the exact pytest
+lane, repo verifiers, frontend-check, arbitrary adapter execution, browser
+automation, connector writes, plugin runtime import, remote execution, raw
+prompt/response/command output/local path/env persistence, production authority,
+and public release claims remain blocked.
 
 UAA-P1-086 implements route inventory enforcement checks across OpenAPI,
 `/api/manifest`, the frozen fixture, and the Control Center route-status

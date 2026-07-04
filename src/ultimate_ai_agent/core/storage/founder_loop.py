@@ -126,6 +126,10 @@ from ultimate_ai_agent.core.control_center.evidence_memory_loop_binding import (
 from ultimate_ai_agent.core.control_center.operator_workspace_spine import (
     build_operator_workspace_spine_read_model,
 )
+from ultimate_ai_agent.core.control_center.runtime_action_bridge import (
+    RUNTIME_ACTION_INBOX_BRIDGE_CONTRACT_REF,
+    build_runtime_action_inbox_bridge_read_model,
+)
 from ultimate_ai_agent.core.control_center.fusion_routing import (
     FCC_FUSION_ROUTING_DELEGATION_CONTRACT_REF,
     FCC_FUSION_ROUTING_REQUIRED_BLOCKED_REFS,
@@ -185,6 +189,7 @@ from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
 )
+from ultimate_ai_agent.core.runtime_gateway import RuntimeInvocationStore
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
     ActorType,
@@ -8904,6 +8909,16 @@ class FounderLoopRepository:
             actions=items,
             action_groups=action_groups,
         )
+        try:
+            runtime_action_inbox_bridge_read_model = (
+                build_runtime_action_inbox_bridge_read_model(
+                    RuntimeInvocationStore().list_invocations()
+                )
+            )
+        except Exception:
+            runtime_action_inbox_bridge_read_model = (
+                build_runtime_action_inbox_bridge_read_model([])
+            )
         task_decomposition_proposal_items = [
             item
             for item in items
@@ -8962,6 +8977,12 @@ class FounderLoopRepository:
             ),
             "action_inbox_work_queue_read_model": (
                 action_inbox_work_queue_read_model
+            ),
+            "runtime_action_inbox_bridge_contract_ref": (
+                RUNTIME_ACTION_INBOX_BRIDGE_CONTRACT_REF
+            ),
+            "runtime_action_inbox_bridge_read_model": (
+                runtime_action_inbox_bridge_read_model
             ),
             "action_inbox_decision_lane_contract_ref": (
                 ACTION_INBOX_DECISION_LANE_CONTRACT_REF

@@ -47,15 +47,17 @@ plus the repo-safe Coding Cockpit session read-model seed route, read-only
 context-pack preview route, proposal-only patch proposal route, and blocked
 patch apply readiness route, blocked test-command readiness route, blocked Git
 review route, blocked live-preview readiness route, and blocked multi-agent
-review readiness route, plus the governed runtime pilot Phase 04 contract,
+review readiness route, plus the governed runtime pilot Phase 05 contract,
 invocation metadata, approval-ref binding, metadata-only local loopback model
-receipt, exact read-only command status receipt, blocked receipt, and
-safe-disable routes.
-Governed runtime pilot Phase 04 adds one exact local loopback model-call route
-and one exact allowlisted read-only command status route through
-`RuntimeGateway`; it stores safe refs and metadata-only/redacted receipts and
-keeps remote provider/model authority and arbitrary shell/subprocess execution
-blocked.
+receipt, exact read-only command status receipt, exact Action Inbox approved
+focused pytest command receipt, blocked receipt, and safe-disable routes.
+Governed runtime pilot Phase 05 includes one exact local loopback model-call
+route, one exact allowlisted read-only command status route, and one exact
+Action Inbox approved focused pytest command bridge through `RuntimeGateway`;
+it stores safe refs and metadata-only/redacted receipts and keeps repo
+verifier/frontend-check execution, remote provider/model authority, arbitrary
+shell/subprocess execution, browser automation, connector writes, plugin
+runtime import, public release, and production authority blocked.
 UAA-P1-080 itself added no routes; stable
 methods, operation IDs, tags, summaries, side-effect classes,
 `requires_auth_future=True`, and `blocked_from_production=True` remain preserved

@@ -22,6 +22,7 @@ from ultimate_ai_agent.core.local_model_management.gateway import (
 )
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeAuthority,
+    RuntimeExecuteRequest,
     RuntimeInvocationRecord,
     RuntimeInvocationRequest,
     RuntimeInvocationStatus,
@@ -34,6 +35,7 @@ from ultimate_ai_agent.core.runtime_gateway.command import (
     RuntimeCommandExecutionRequest,
     RuntimeCommandGatewayResult,
     invoke_governed_command,
+    invoke_approved_governed_command,
 )
 from ultimate_ai_agent.core.runtime_gateway.storage import RuntimeInvocationStore
 
@@ -240,6 +242,46 @@ class RuntimeGateway:
             request=request,
             idempotency_ref=idempotency_ref,
         )
+
+    def execute_approved_command(
+        self,
+        invocation_ref: str,
+        request: RuntimeCommandExecutionRequest,
+        execute_request: RuntimeExecuteRequest,
+        *,
+        idempotency_ref: str,
+    ) -> RuntimeCommandGatewayResult:
+        record = self.store.get_invocation(invocation_ref)
+        result = invoke_approved_governed_command(
+            store=self.store,
+            adapter=self.command_adapter,
+            record=record,
+            request=request,
+            execute_request=execute_request,
+            idempotency_ref=idempotency_ref,
+        )
+        if result.record.action_inbox_envelope is None:
+            return result
+        updated = self.store.mark_action_inbox_execution_receipt(
+            result.record.invocation_ref,
+            idempotency_ref=_operation_idempotency_ref(
+                idempotency_ref,
+                "action-inbox-execution-receipt",
+            ),
+            payload_fingerprint_ref=_operation_fingerprint_ref(
+                result.record.invocation_ref,
+                {
+                    "operation": "action_inbox_execution_receipt",
+                    "receipt_ref": (
+                        result.record.receipt.receipt_ref
+                        if result.record.receipt
+                        else "runtime-receipt-ref:missing"
+                    ),
+                    "status": result.record.status,
+                },
+            ),
+        )
+        return result.model_copy(update={"record": updated})
 
     def invoke_local_model(
         self,

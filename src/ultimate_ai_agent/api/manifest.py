@@ -59,6 +59,7 @@ CAPABILITIES_DECLARED = [
     "governed_runtime_api_contract_shells",
     "governed_runtime_loopback_local_model_call_pilot",
     "governed_runtime_allowlisted_readonly_command_pilot",
+    "governed_runtime_action_inbox_focused_pytest_command_bridge",
     "control_center_coding_cockpit_session_read_model",
     "control_center_coding_context_pack_preview_read_model",
     "control_center_coding_patch_apply_readiness_read_model",
@@ -843,7 +844,7 @@ def route_classification_for_path(
     ):
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Governed runtime approval-binding route is mutation-like authority posture only; it records approval refs as identifiers only, and idempotency, exact scope posture, and execution-blocked state remain required.",
+            "Governed runtime approval-binding route records exact Action Inbox runtime envelopes only when backend-derived approval, envelope, scope, payload, policy, adapter, rollback, and safe-disable refs match; arbitrary approval refs and broad runtime authority remain blocked.",
         )
     if (
         normalized_method == "POST"
@@ -851,7 +852,7 @@ def route_classification_for_path(
     ):
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Governed runtime execute route is mutation-like authority posture only; it records a blocked receipt for unpromoted authorities, and idempotency, exact approval posture, redaction, and no-arbitrary-adapter-execution posture are required.",
+            "Governed runtime execute route can run only the Phase 05 exact Action Inbox approved focused pytest RuntimeGateway command lane with top-level approval/envelope/payload/policy refs, idempotency, redacted receipts, and safe-disable posture; arbitrary shell, Makefile/frontend commands, browser, connector, provider, plugin, remote, and production authority remain blocked.",
         )
     if normalized_method == "POST" and path == "/api/runtime/safe-disable":
         return (
