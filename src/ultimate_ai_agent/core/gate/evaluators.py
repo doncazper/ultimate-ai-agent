@@ -116,10 +116,19 @@ STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
         "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py",
     }
 )
+GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES = frozenset(
+    {
+        "src/ultimate_ai_agent/core/runtime_gateway/command.py",
+    }
+)
 
 
 def _is_static_safety_scan_allowed_file(rel: str, allowed_files: Iterable[str]) -> bool:
-    return rel in allowed_files or rel in STATIC_SAFETY_EVALUATOR_DATA_FILES
+    return (
+        rel in allowed_files
+        or rel in STATIC_SAFETY_EVALUATOR_DATA_FILES
+        or rel in GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES
+    )
 
 
 M36_SAFE_REF_PREFIXES = {
@@ -2014,13 +2023,17 @@ class FoundationGateEvaluator:
         allowed_m163_supervisor_file = (
             "src/ultimate_ai_agent/core/local_model_management/llama_cpp_supervisor.py"
         )
+        allowed_phase04_command_adapter_file = (
+            "src/ultimate_ai_agent/core/runtime_gateway/command.py"
+        )
         failures = []
         for path, line_no, stripped in self._runtime_lines():
             if self._is_static_scanner_text(stripped):
                 continue
-            if path == allowed_m163_supervisor_file and any(
-                fragment in stripped for fragment in forbidden
-            ):
+            if path in {
+                allowed_m163_supervisor_file,
+                allowed_phase04_command_adapter_file,
+            } and any(fragment in stripped for fragment in forbidden):
                 continue
             if any(fragment in stripped for fragment in forbidden):
                 failures.append(f"{path}:{line_no} shell execution")

@@ -7,6 +7,9 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeApprovalBindingRequest,
     RuntimeArtifactRef,
     RuntimeAuthority,
+    RuntimeCommandAllowlistEntry,
+    RuntimeCommandIntent,
+    RuntimeCommandReceiptMetadata,
     RuntimeCapabilities,
     RuntimeExecuteRequest,
     RuntimeInvocationReceipt,
@@ -20,6 +23,13 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeSafeDisableRequest,
     RuntimeSafeDisableState,
     build_default_runtime_capabilities,
+)
+from ultimate_ai_agent.core.runtime_gateway.command import (
+    GovernedCommandRuntimeAdapter,
+    RuntimeCommandExecutionRequest,
+    RuntimeCommandGatewayResult,
+    RuntimeCommandRunResult,
+    command_allowlist_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.local_model import (
     LocalModelRuntimeAdapter,
@@ -43,6 +53,12 @@ __all__ = [
     "RuntimeApprovalBindingRequest",
     "RuntimeArtifactRef",
     "RuntimeAuthority",
+    "RuntimeCommandAllowlistEntry",
+    "RuntimeCommandExecutionRequest",
+    "RuntimeCommandGatewayResult",
+    "RuntimeCommandIntent",
+    "RuntimeCommandReceiptMetadata",
+    "RuntimeCommandRunResult",
     "RuntimeCapabilities",
     "RuntimeExecuteRequest",
     "RuntimeInvocationConflictError",
@@ -52,6 +68,7 @@ __all__ = [
     "RuntimeInvocationRequest",
     "RuntimeInvocationStatus",
     "RuntimeLocalModelReceiptMetadata",
+    "GovernedCommandRuntimeAdapter",
     "LocalModelRuntimeAdapter",
     "RuntimeGateway",
     "RuntimeLocalModelCallRequest",
@@ -64,4 +81,5 @@ __all__ = [
     "RuntimeSafeDisableRequest",
     "RuntimeSafeDisableState",
     "build_default_runtime_capabilities",
+    "command_allowlist_catalog",
 ]

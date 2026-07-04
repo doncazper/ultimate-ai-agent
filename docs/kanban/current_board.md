@@ -361,21 +361,22 @@ exact approval scope, blocked/degraded/partial operator labels, CostGovernor
 posture for paid/frontier use, CLI/UI inspection, and verifier evidence.
 
 UAA-P1-091 v0.105.0 Governed Runtime Pilot is the active scoped runtime
-authority WIP lane. Phase 01 freezes the verified baseline at
-`uaa-governed-runtime-baseline-2026-07-04` and records the project contract
-for runtime profiles `sealed`, `local-runtime`, and `operator-approved`.
+authority WIP lane. Phase 04 now preserves the Phase 01 verified baseline at
+`uaa-governed-runtime-baseline-2026-07-04`, keeps runtime profiles `sealed`,
+`local-runtime`, and `operator-approved`, and adds receipt-backed governed
+runtime evidence for configured loopback local-model calls plus one exact
+allowlisted argv-only read-only command status lane.
 The full-strength target is useful local runtime authority through a governed
 RuntimeGateway: configured loopback/local model calls, allowlisted argv-only
 local command execution, exact Action Inbox approval before execution,
 redacted receipts/evidence, and CLI/API/Control Center parity. The repo-safe
-Phase 01 slice is docs/contract/release planning only and adds no runtime
-model call, command execution, browser/web authority, connector write, plugin
-runtime import, remote execution, public beta, public release, production
-authority, or broad autonomy. Promotion
-requires later focused PRs for RuntimeGateway contracts, local model runtime,
-governed command runtime, Action Inbox execution bridge, Control Center/CLI/
-Evidence parity, hardening, and release truth. Rollback/safe-disable posture
-must be present before any execution-capable phase: disable-by-profile config,
+Phase 04 slice adds no remote provider/model call, arbitrary command text,
+arbitrary shell/subprocess execution, browser/web authority, connector write,
+plugin runtime import, remote execution, public beta, public release,
+production authority, or broad autonomy. Promotion requires later focused PRs
+for the Action Inbox execution bridge, broader Control Center/CLI/Evidence
+parity, hardening, and release truth. Rollback/safe-disable posture must stay
+present before any execution-capable phase: disable-by-profile config,
 per-lane safe-disable refs, redacted receipts, bounded output summaries,
 approval-scope validation, and no raw prompt/response/provider payload/local
 path/command output/env/credential persistence.

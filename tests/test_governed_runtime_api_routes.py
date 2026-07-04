@@ -52,6 +52,16 @@ def test_governed_runtime_capabilities_are_sealed_by_default() -> None:
     assert data["chat_runtime_integration"]["model_output_authority"] == (
         "untrusted_proposal_only"
     )
+    assert data["command_runtime_integration"]["route_ref"] == "/api/runtime/command/run"
+    assert data["command_runtime_integration"]["argv_only"] is True
+    assert data["command_runtime_integration"]["shell_strings_accepted"] is False
+    assert data["command_runtime_integration"]["raw_output_persisted"] is False
+    catalog = {
+        entry["intent"]: entry for entry in data["command_runtime_integration"]["allowlist_catalog"]
+    }
+    assert catalog["git_status"]["enabled_for_phase"] is True
+    assert catalog["git_status"]["no_op_readonly"] is True
+    assert catalog["focused_pytest"]["enabled_for_phase"] is False
 
 
 def test_governed_runtime_post_routes_require_idempotency(tmp_path, monkeypatch) -> None:
@@ -60,11 +70,20 @@ def test_governed_runtime_post_routes_require_idempotency(tmp_path, monkeypatch)
 
     response = client.post("/api/runtime/invocations", json=_runtime_payload())
     local_model = client.post("/api/runtime/local-model/call", json=_local_model_payload())
+    command = client.post(
+        "/api/runtime/command/run",
+        json={
+            "intent": "git_status",
+            "safe_summary": "Inspect repo status with redacted output.",
+        },
+    )
 
     assert response.status_code == 428
     assert response.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
     assert local_model.status_code == 428
     assert local_model.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
+    assert command.status_code == 428
+    assert command.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
 
 
 def test_governed_runtime_generic_invocation_cannot_enable_local_model_runtime(
@@ -238,6 +257,7 @@ def test_governed_runtime_routes_are_manifest_visible_with_safe_posture() -> Non
 
     for path in [
         "/api/runtime/invocations",
+        "/api/runtime/command/run",
         "/api/runtime/local-model/call",
         "/api/runtime/invocations/{id}/approve",
         "/api/runtime/invocations/{id}/execute",
@@ -258,6 +278,9 @@ def test_governed_runtime_rate_limit_group_handles_dynamic_routes() -> None:
     assert route_rate_limit_group("POST", "/api/runtime/local-model/call") == (
         "governed_runtime_pilot"
     )
+    assert route_rate_limit_group("POST", "/api/runtime/command/run") == (
+        "governed_runtime_pilot"
+    )
     assert route_rate_limit_group(
         "POST",
         "/api/runtime/invocations/runtime-invocation-ref:abc/execute",
@@ -271,6 +294,7 @@ def test_governed_runtime_openapi_contains_exact_contract_routes() -> None:
     for path in [
         "/api/runtime/capabilities",
         "/api/runtime/invocations",
+        "/api/runtime/command/run",
         "/api/runtime/local-model/call",
         "/api/runtime/invocations/{id}",
         "/api/runtime/invocations/{id}/receipt",
@@ -314,6 +338,86 @@ def test_governed_runtime_local_model_call_records_safe_failure_receipt(
     )
     assert "api prompt should not persist" not in persisted
     assert "M164_LLAMA_CPP_GATEWAY_UNAVAILABLE" in persisted
+
+
+def test_governed_runtime_command_run_records_redacted_receipt(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    reset_api_rate_limit_state()
+
+    response = client.post(
+        "/api/runtime/command/run",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-command-api"},
+        json={
+            "intent": "git_status",
+            "safe_summary": "Inspect repo status with redacted output.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["data"]["execution_performed"] is True
+    assert body["data"]["adapter_execution_enabled"] is True
+    assert body["data"]["command_execution_enabled"] is True
+    assert body["data"]["command_execution_performed"] is True
+    assert body["data"]["shell_strings_accepted"] is False
+    assert body["data"]["raw_output_persisted"] is False
+    assert body["data"]["output_summary_returned"] is True
+    assert body["data"]["output_persisted"] is False
+    assert body["data"]["exit_code"] == 0
+    assert body["data"]["error_category"] is None
+    assert "git status --short" not in response.text
+    assert "stdout" not in response.text
+    assert "stderr" not in response.text
+
+    replay = client.post(
+        "/api/runtime/command/run",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-command-api"},
+        json={
+            "intent": "git_status",
+            "safe_summary": "Inspect repo status with redacted output.",
+        },
+    )
+    assert replay.status_code == 200
+    assert replay.json()["data"]["replayed"] is True
+
+    persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "git status --short" not in persisted
+    assert "/Users/" not in persisted
+    assert "stdout" not in persisted
+    assert "stderr" not in persisted
+
+
+def test_governed_runtime_command_run_blocks_unapproved_command_intent(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    reset_api_rate_limit_state()
+
+    response = client.post(
+        "/api/runtime/command/run",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-command-blocked-api"},
+        json={
+            "intent": "focused_pytest",
+            "target_refs": ["test-ref:runtime-api"],
+            "approval_ref": "approval-ref:identifier-only",
+            "safe_summary": "Attempt focused pytest command with approval identifier only.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is False
+    assert body["data"]["execution_performed"] is False
+    assert body["data"]["command_execution_enabled"] is False
+    assert body["data"]["command_execution_performed"] is False
+    assert body["data"]["error_category"] == "RUNTIME_COMMAND_APPROVAL_BRIDGE_REQUIRED"
 
 
 def test_governed_runtime_local_model_call_is_disabled_by_default(

@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `185`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `186` route
+Current OpenAPI path count: `186`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `187` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`.
 
@@ -75,13 +75,15 @@ Current boundary summary:
   exact-approved provider lane, governed runtime pilot mutation routes, and
   local model validation route groups. It does not add auth, distributed quota,
   dependencies, billing, or production authority.
-- Governed Runtime Pilot Phase 03 keeps `/api/runtime/*` contract, policy,
+- Governed Runtime Pilot Phase 04 keeps `/api/runtime/*` contract, policy,
   approval-binding, receipt, and safe-disable metadata routes while promoting
-  only the exact local loopback model-call lane through `RuntimeGateway`. They
-  are backend-owned safe-ref/metadata receipts; command execution, arbitrary
-  adapter execution, remote provider/model calls, browser automation, connector
-  writes, plugin runtime import, remote execution, production authority, and
-  public release claims remain blocked.
+  only the exact local loopback model-call lane and one exact allowlisted
+  read-only command status lane through `RuntimeGateway`. They are backend-owned
+  safe-ref/metadata receipts; arbitrary shell/subprocess execution, focused
+  tests/verifiers without the later exact approval bridge, arbitrary adapter
+  execution, remote provider/model calls, browser automation, connector writes,
+  plugin runtime import, remote execution, production authority, and public
+  release claims remain blocked.
 - Beta 12 extracts the app-owned Control Center shell/status route block into
   `ultimate_ai_agent.api.control_center` while preserving the then-current
   169-route
@@ -184,7 +186,9 @@ Denied by the current API boundary:
 - unrestricted runtime model/provider calls
 - unrestricted web fetching
 - unrestricted browser automation
-- shell/subprocess execution routes
+- arbitrary or unrestricted shell/subprocess execution routes; the Phase 04
+  governed runtime pilot allows only one exact allowlisted argv-only read-only
+  status command with redacted receipts
 - connector writes outside exact-approved scoped milestones
 - plugin runtime import or arbitrary plugin execution
 - mobile control or mobile sensor runtime

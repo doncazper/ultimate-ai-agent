@@ -90,9 +90,10 @@ only when copy preserves the current truth:
   command execution.
 - `local-runtime` may describe configured loopback/local runtime candidates
   behind RuntimeGateway policy, redaction, receipts, and verifiers only after
-  the matching Python Core contracts are implemented; execution-capable calls
-  or commands still require an `operator-approved` Action Inbox approval
-  envelope.
+  the matching Python Core contracts are implemented. Phase 04 permits one
+  exact allowlisted argv-only read-only local status command with redacted
+  receipts; all other execution-capable commands still require an
+  `operator-approved` Action Inbox approval envelope.
 - `operator-approved` may describe execution-capable runtime actions only when
   exact Action Inbox approval envelopes validate before execution and the same
   action is inspectable through CLI/API/Control Center truth.

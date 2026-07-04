@@ -58,6 +58,7 @@ CAPABILITIES_DECLARED = [
     "governed_runtime_safe_disable_state",
     "governed_runtime_api_contract_shells",
     "governed_runtime_loopback_local_model_call_pilot",
+    "governed_runtime_allowlisted_readonly_command_pilot",
     "control_center_coding_cockpit_session_read_model",
     "control_center_coding_context_pack_preview_read_model",
     "control_center_coding_patch_apply_readiness_read_model",
@@ -176,7 +177,9 @@ CAPABILITIES_BLOCKED = [
     "runtime_unrestricted_execution_routes",
     "governed_runtime_unrestricted_adapter_execution",
     "governed_runtime_remote_or_provider_model_calls",
-    "governed_runtime_command_execution_phase_03",
+    "governed_runtime_unrestricted_command_execution",
+    "governed_runtime_command_execution_without_gateway_allowlist",
+    "governed_runtime_networked_command_execution",
     "governed_runtime_approval_as_execution_authority",
     "governed_runtime_raw_prompt_response_persistence",
     "governed_runtime_raw_command_output_persistence",
@@ -611,6 +614,7 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/invocations/{id}/receipt",
 }
 GOVERNED_RUNTIME_MUTATING_PATHS = {
+    "/api/runtime/command/run",
     "/api/runtime/invocations",
     "/api/runtime/local-model/call",
     "/api/runtime/invocations/{id}/approve",
@@ -827,6 +831,11 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Governed runtime invocation metadata route is mutation-like authority posture only; it stores safe refs and policy decisions, and idempotency, approval posture, redaction, and execution-blocked receipts are required before later runtime promotion.",
+        )
+    if normalized_method == "POST" and path == "/api/runtime/command/run":
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Governed runtime command authority route permits only exact RuntimeGateway-derived argv for a Phase 04 read-only status intent; arbitrary command text, shell execution, networked commands, raw output persistence, and unvalidated approval refs remain blocked.",
         )
     if (
         normalized_method == "POST"

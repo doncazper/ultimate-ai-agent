@@ -9,23 +9,23 @@ from .repo import load_json
 
 ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_133.json"
 ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v4"
-EXPECTED_ROUTE_COUNT = 186
-EXPECTED_OPENAPI_PATH_COUNT = 185
+EXPECTED_ROUTE_COUNT = 187
+EXPECTED_OPENAPI_PATH_COUNT = 186
 EXPECTED_AUTH_POSTURE_SUMMARY = {
     "public_metadata_no_auth": 3,
-    "protected_local_bearer_required": 183,
+    "protected_local_bearer_required": 184,
 }
 EXPECTED_APPROVAL_POSTURE_SUMMARY = {
     "not_required_for_route_classification": 147,
-    "required_before_mutation_authority": 39,
+    "required_before_mutation_authority": 40,
 }
 EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
     "not_required_for_route_classification": 147,
-    "required_before_mutation_authority": 39,
+    "required_before_mutation_authority": 40,
 }
 EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = {
     "not_targeted_for_route": 124,
-    "targeted_local_fixed_window": 62,
+    "targeted_local_fixed_window": 63,
 }
 EXPECTED_MUTATING_ROUTE_COUNT = EXPECTED_APPROVAL_POSTURE_SUMMARY[
     "required_before_mutation_authority"
@@ -60,6 +60,7 @@ EXPECTED_MUTATING_ROUTES = {
     ("POST", "/integrations/mattermost/events/message"),
     ("POST", "/integrations/mattermost/roles/bind"),
     ("POST", "/integrations/mattermost/roles/unbind"),
+    ("POST", "/api/runtime/command/run"),
     ("POST", "/api/runtime/invocations"),
     ("POST", "/api/runtime/local-model/call"),
     ("POST", "/api/runtime/invocations/{id}/approve"),

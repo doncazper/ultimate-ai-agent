@@ -36,7 +36,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 72,
     "none": 4,
-    "local_dev_workspace_only": 107,
+    "local_dev_workspace_only": 108,
     "governed_network_read_only": 3,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
@@ -60,6 +60,7 @@ HIGH_RISK_EXPECTATIONS = {
     ("POST", "/control-center/providers/exact-approved-lanes/tiny"): "mutating_requires_authority",
     ("POST", "/control-center/providers/router/dry-run"): "mutating_requires_authority",
     ("POST", "/api/runtime/invocations"): "mutating_requires_authority",
+    ("POST", "/api/runtime/command/run"): "mutating_requires_authority",
     ("POST", "/api/runtime/invocations/{id}/approve"): "mutating_requires_authority",
     ("POST", "/api/runtime/invocations/{id}/execute"): "mutating_requires_authority",
     ("POST", "/api/runtime/local-model/call"): "mutating_requires_authority",
@@ -88,6 +89,9 @@ REQUIRED_DOC_SNIPPETS = {
     "docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md": [
         "Status: Implemented",
         str(EXPECTED_ROUTE_COUNT),
+        "| `mutating_requires_authority` | 40 |",
+        "The current OpenAPI path count is `186`",
+        "`187` route operations",
         "public_metadata",
         "local_readonly",
         "local_sensitive",

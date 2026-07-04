@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `185`.
+Current OpenAPI path count: `186`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -50,15 +50,18 @@ Contract rules:
   provider invocation, fallback execution, network calls, provider SDK calls,
   credential validation, model calls, billing authority, background execution,
   and raw prompt/response/provider payload persistence remain blocked.
-- `/api/runtime/*` is the governed runtime pilot contract surface. Phase 03
-  promotes only configured local loopback model calls through `RuntimeGateway`.
-  It records capability metadata, safe-ref invocation metadata, policy
-  decisions, approval-ref bindings, metadata-only local model receipts,
-  blocked execution receipts, and safe-disable posture. Model output is
-  untrusted proposal text. It does not run shell/subprocess commands, invoke
-  remote providers, read or persist raw prompts/responses/command output/local
-  paths/env, automate browsers, write connectors, import plugins, dispatch
-  remote work, grant production authority, or claim public release readiness.
+- `/api/runtime/*` is the governed runtime pilot contract surface. Phase 04
+  promotes configured local loopback model calls and one exact allowlisted
+  argv-only read-only status command through `RuntimeGateway`. It records
+  capability metadata, safe-ref invocation metadata, policy decisions,
+  approval-ref bindings, metadata-only local model receipts, redacted command
+  receipts, blocked execution receipts, and safe-disable posture. Model output
+  is untrusted proposal text, and command output is redacted and bounded.
+  It does not run arbitrary shell/subprocess commands, execute focused tests or
+  verifiers without a later exact approval bridge, invoke remote providers, read
+  or persist raw prompts/responses/command output/local paths/env, automate
+  browsers, write connectors, import plugins, dispatch remote work, grant
+  production authority, or claim public release readiness.
 - The local `/v1` gateway must remain disabled by default, loopback/local-only,
   bearer-gated, and constrained to the accepted local model lane.
 - `GET /extensions/catalog` must remain a read-only inspectable metadata route
@@ -203,7 +206,9 @@ Forbidden by the current API boundary:
 - cloud/provider model invocation as production authority
 - unrestricted web fetches or source fetching
 - unrestricted browser automation
-- shell/subprocess execution routes
+- arbitrary or unrestricted shell/subprocess execution routes; the Phase 04
+  governed runtime pilot allows only one exact allowlisted argv-only read-only
+  status command with redacted receipts
 - arbitrary tool execution routes
 - connector writes outside exact-approved scoped milestones
 - plugin runtime import or arbitrary plugin execution

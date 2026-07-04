@@ -17,8 +17,10 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeInvocationNotFoundError,
     RuntimeInvocationRequest,
     RuntimeInvocationStore,
+    RuntimeCommandExecutionRequest,
     RuntimeLocalModelCallRequest,
     build_default_runtime_capabilities,
+    command_allowlist_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
     GOVERNED_RUNTIME_REDACTIONS,
@@ -87,6 +89,24 @@ def get_api_runtime_capabilities() -> ResultEnvelope:
         "raw_response_persisted": False,
         "remote_provider_authority": "blocked",
     }
+    data["command_runtime_integration"] = {
+        "backend_owned": True,
+        "route_ref": "/api/runtime/command/run",
+        "argv_only": True,
+        "shell_strings_accepted": False,
+        "default_status": "exact_allowlisted_readonly_status_only",
+        "raw_output_persisted": False,
+        "allowlist_catalog": [
+            entry.model_dump(mode="json") for entry in command_allowlist_catalog()
+        ],
+        "blocked_command_authority": [
+            "arbitrary_command_text",
+            "shell_execution",
+            "networked_commands",
+            "unvalidated_approval_refs_as_authority",
+            "raw_command_output_persistence",
+        ],
+    }
     return ResultEnvelope(
         success=True,
         operation="api_runtime_capabilities",
@@ -114,7 +134,9 @@ def get_api_runtime_invocations() -> ResultEnvelope:
             "safe_refs_only": True,
             "adapter_execution_enabled": False,
             "model_call_enabled": False,
+            "command_execution_enabled": False,
             "local_model_gateway_route_available": True,
+            "command_gateway_route_available": True,
             "local_model_runtime_enabled_by_default": False,
             "model_output_is_proposal_only": True,
             "invocation_count": len(records),
@@ -198,6 +220,92 @@ def post_api_runtime_local_model_call(
             "raw_prompt_omitted_from_response",
             "raw_response_not_persisted",
             "provider_payload_not_persisted",
+        ],
+    )
+
+
+@router.post("/command/run", response_model=ResultEnvelope)
+def post_api_runtime_command_run(
+    request: RuntimeCommandExecutionRequest,
+    x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
+    x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
+) -> ResultEnvelope:
+    idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+    try:
+        result = RuntimeGateway(store=_runtime_store()).invoke_command(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+    except RuntimeInvocationConflictError:
+        return ResultEnvelope(
+            success=False,
+            operation="api_runtime_command_run",
+            service="GovernedRuntimeAPI",
+            trace_id=idempotency_ref,
+            error=ErrorEnvelope(
+                code="RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT",
+                category=ErrorCategory.conflict,
+                safe_message="The governed runtime idempotency ref already has a different payload fingerprint.",
+                severity=Severity.medium,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+            ),
+            redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+        )
+    receipt = result.record.receipt
+    metadata = receipt.command_receipt_metadata if receipt else None
+    return ResultEnvelope(
+        success=(
+            result.error_category is None
+            and result.record.status == "receipt_recorded"
+            and result.exit_code == 0
+        ),
+        operation="api_runtime_command_run",
+        service="GovernedRuntimeAPI",
+        trace_id=result.record.invocation_ref,
+        data={
+            "record": result.record.model_dump(mode="json"),
+            "replayed": result.replayed,
+            "execution_performed": bool(receipt and receipt.execution_performed),
+            "adapter_execution_enabled": result.record.policy_decision.adapter_execution_enabled,
+            "command_execution_enabled": result.command_execution_enabled,
+            "command_execution_performed": bool(
+                receipt and receipt.command_execution_performed
+            ),
+            "shell_strings_accepted": False,
+            "raw_output_persisted": False,
+            "output_summary": result.output_summary,
+            "output_summary_returned": result.output_summary_returned,
+            "output_persisted": False,
+            "exit_code": result.exit_code,
+            "timed_out": result.timed_out,
+            "error_category": result.error_category,
+            "receipt_ref": receipt.receipt_ref if receipt else None,
+            "metadata_ref": metadata.redacted_output_ref if metadata else None,
+            "blocked_authority_refs": (
+                receipt.blocked_authority_refs
+                if receipt
+                else result.record.policy_decision.blocked_authority_refs
+            ),
+            "blocked_runtime_authority": [
+                "arbitrary_command_text",
+                "shell_execution",
+                "networked_commands",
+                "raw_command_output_persistence",
+                "browser_automation",
+                "connector_write",
+                "plugin_runtime_import",
+                "remote_provider_model_call",
+                "production_authority",
+            ],
+        },
+        evidence=[{"evidence_ref": "evidence-ref:governed-runtime-command-run"}],
+        redactions_applied=[
+            *GOVERNED_RUNTIME_REDACTIONS,
+            "raw_command_output_not_persisted",
+            "local_cwd_not_persisted",
+            "environment_not_persisted",
         ],
     )
 

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `185`.
+Current OpenAPI path count: `186`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -45,7 +45,7 @@ Current route classification summary:
 | `public_metadata` | 3 |
 | `local_readonly` | 20 |
 | `local_sensitive` | 124 |
-| `mutating_requires_authority` | 39 |
+| `mutating_requires_authority` | 40 |
 
 Allowed current side-effect classes are:
 
@@ -98,15 +98,17 @@ routes, and local model validation route groups.
 `rate_limit_group`. This is not auth, distributed quota, billing, production
 authority, or a public beta claim.
 
-Governed Runtime Pilot Phase 03 keeps `/api/runtime/*` governed by contract and
+Governed Runtime Pilot Phase 04 keeps `/api/runtime/*` governed by contract and
 storage metadata while promoting only the exact local loopback model-call lane
-through `RuntimeGateway`. Capability, invocation, policy, approval-ref,
-receipt, and safe-disable records store safe refs and redacted metadata only;
-model output is untrusted proposal text. Remote provider/model calls,
-allowlisted command execution, arbitrary adapter execution, browser automation,
-connector writes, plugin runtime import, remote execution, raw prompt/response/
-command output/local path/env persistence, production authority, and public
-release claims remain blocked.
+and one exact allowlisted read-only command status lane through `RuntimeGateway`.
+Capability, invocation, policy, approval-ref, receipt, and safe-disable records
+store safe refs and redacted metadata only; model output is untrusted proposal
+text, and command output is redacted and bounded. Remote provider/model calls,
+arbitrary shell/subprocess execution, focused tests/verifiers without the later
+approval bridge, arbitrary adapter execution, browser automation, connector
+writes, plugin runtime import, remote execution, raw prompt/response/command
+output/local path/env persistence, production authority, and public release
+claims remain blocked.
 
 UAA-P1-086 implements route inventory enforcement checks across OpenAPI,
 `/api/manifest`, the frozen fixture, and the Control Center route-status
