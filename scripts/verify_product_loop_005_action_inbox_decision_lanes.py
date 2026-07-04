@@ -143,7 +143,7 @@ def main() -> int:
             "backend decision lanes missing",
             "contract-ref:product-loop-005-action-inbox-decision-lanes:v1",
             "python_core_action_inbox_decision_lane_read_model",
-            "action_inbox_decision_lane_read_model).toBeUndefined",
+            "fails closed when the Action Inbox work queue exposes unsafe controls",
             "Cost blocked",
             "Approved / no execution",
             "approval_scope_ref:missing",

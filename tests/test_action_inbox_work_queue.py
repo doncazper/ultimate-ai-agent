@@ -10,6 +10,8 @@ from ultimate_ai_agent.core.control_center.action_inbox_work_queue import (
     ACTION_INBOX_WORK_QUEUE_BLOCKED_AUTHORITY_REFS,
     ACTION_INBOX_WORK_QUEUE_CONTRACT_REF,
     ACTION_INBOX_WORK_QUEUE_SOURCE,
+    ACTION_INBOX_WORK_QUEUE_UNSAFE_REF_OMITTED_REF,
+    build_action_inbox_work_queue_read_model,
 )
 from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
@@ -34,8 +36,29 @@ def _assert_work_queue(read_model: dict[str, Any]) -> None:
         read_model["blocked_authority_refs"]
     )
     assert read_model["lane_count"] == len(read_model["lanes"])
+    assert read_model["work_item_count"] == len(read_model["work_items"])
+    assert read_model["work_item_refs"] == [
+        item["item_ref"] for item in read_model["work_items"]
+    ]
     assert read_model["item_count"] >= read_model["operator_actionable_count"]
     assert read_model["next_safe_action"]
+    assert read_model["fake_mutation_controls_exposed"] is False
+    assert isinstance(read_model["unsafe_ref_omitted_count"], int)
+    assert isinstance(read_model["unsafe_ref_blocked_state_refs"], list)
+    assert read_model["work_items"]
+    for item in read_model["work_items"]:
+        assert item["item_ref"]
+        assert item["proof_ref"].startswith("proof-ref:action-decision:")
+        assert item["approval_posture"]
+        assert item["receipt_posture"]
+        assert item["mutation_control_posture"] in {
+            "decision_receipt_only_no_execution",
+            "exact_local_task_commit_route_only",
+            "no_mutation_control_exposed",
+        }
+        assert item["fake_mutation_control_exposed"] is False
+        assert item["expected_receipt_refs"] or item["receipt_refs"]
+        assert item["blocked_authority_refs"]
     for field_name in [
         "action_execution_enabled",
         "connector_write_enabled",
@@ -77,6 +100,18 @@ def test_action_inbox_work_queue_summarizes_backend_queue(tmp_path: Path) -> Non
     assert read_model["tier_3_exact_local_task_commit_available"] is False
     assert read_model["next_item"]["proof_ref"].startswith("proof-ref:action-decision:")
     assert read_model["next_item"]["local_task_commit_eligible"] is False
+    assert read_model["unsafe_ref_omitted_count"] == 0
+    ready_item = next(
+        item
+        for item in read_model["work_items"]
+        if item["item_ref"] == read_model["next_item_ref"]
+    )
+    assert ready_item["operator_actionable"] is True
+    assert ready_item["mutation_control_posture"] == "decision_receipt_only_no_execution"
+    assert ready_item["receipt_posture"] in {
+        "expected_receipt_refs_visible",
+        "receipt_refs_recorded",
+    }
 
 
 def test_action_inbox_work_queue_promotes_exact_local_task_lane_after_approval(
@@ -99,8 +134,78 @@ def test_action_inbox_work_queue_promotes_exact_local_task_lane_after_approval(
     assert read_model["tier_3_exact_local_task_commit_available"] is True
     assert read_model["next_item"]["lane_id"] == "approved_local_task_lane"
     assert read_model["next_item"]["local_task_commit_eligible"] is True
-    assert read_model["next_item"]["local_task_commit_route_ref"] is None
+    assert read_model["next_item"]["local_task_commit_route_ref"] == (
+        "POST /control-center/actions/{action_id}/local-task/commit"
+    )
     assert read_model["next_safe_action"].startswith("Commit the exact approved")
+    local_task_item = next(
+        item
+        for item in read_model["work_items"]
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    assert local_task_item["operator_actionable"] is True
+    assert local_task_item["local_task_commit_eligible"] is True
+    assert local_task_item["local_task_commit_route_ref"] == (
+        "POST /control-center/actions/{action_id}/local-task/commit"
+    )
+    assert (
+        local_task_item["mutation_control_posture"]
+        == "exact_local_task_commit_route_only"
+    )
+    assert local_task_item["approval_posture"] == "backend_owned_approval_ready"
+    assert local_task_item["proof_ref"].startswith("proof-ref:action-decision:")
+
+
+def test_action_inbox_work_queue_marks_unsafe_ref_omissions() -> None:
+    read_model = build_action_inbox_work_queue_read_model(
+        actions=[
+            {
+                "item_ref": "founder-action:test-unsafe-ref",
+                "title": "Unsafe ref test",
+                "safe_summary": "Backend-owned test item with an omitted unsafe ref.",
+                "action_group_id": "ready_for_decision",
+                "action_group_label": "Ready for decision",
+                "status": "review_ready",
+                "priority": "high",
+                "risk_class": "medium",
+                "action_kind": "review_only",
+                "side_effect_class": "validation_only",
+                "approval_required": True,
+                "approval_envelope_ref": "approval-envelope:test-unsafe-ref",
+                "action_envelope_ref": "action-envelope:test-unsafe-ref",
+                "action_scope_ref": "scope-ref:test-unsafe-ref",
+                "approval_envelope_status": "review_ready_exact_scope_required",
+                "action_expected_receipt_refs": [
+                    "receipt-plan:test-unsafe-ref",
+                    "/Users/private/raw-path",
+                ],
+                "receipt_refs": [],
+                "evidence_refs": ["evidence-ref:test-unsafe-ref"],
+                "action_blocked_state_refs": [],
+                "next_safe_action": "Inspect safe refs only.",
+            }
+        ],
+        action_groups=[
+            {
+                "group_id": "ready_for_decision",
+                "label": "Ready for decision",
+                "safe_summary": "Ready items.",
+                "available_action": "Record a decision receipt only.",
+                "count": 1,
+            }
+        ],
+    )
+
+    _assert_work_queue(read_model)
+    assert read_model["unsafe_ref_omitted_count"] == 1
+    assert read_model["unsafe_ref_blocked_state_refs"] == [
+        ACTION_INBOX_WORK_QUEUE_UNSAFE_REF_OMITTED_REF
+    ]
+    assert ACTION_INBOX_WORK_QUEUE_UNSAFE_REF_OMITTED_REF in read_model[
+        "blocked_authority_refs"
+    ]
+    serialized = json.dumps(read_model, sort_keys=True)
+    assert "/Users/private/raw-path" not in serialized
 
 
 def test_action_inbox_work_queue_cli_is_read_only_and_redacted(tmp_path: Path) -> None:

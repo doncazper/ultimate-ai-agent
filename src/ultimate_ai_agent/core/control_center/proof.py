@@ -566,6 +566,51 @@ def _local_task_commit_record(today_summary: dict[str, Any]) -> ControlCenterPro
             next_safe_action="Approve and commit only through the Action Inbox exact local task route when eligible.",
         )
     source_ref = _first_ref(local_task.get("item_ref"), fallback="local-task:missing")
+    receipt_refs = _refs(local_task.get("receipt_refs"))
+    local_task_commit_receipt_refs = [
+        ref for ref in receipt_refs if ref.startswith("receipt:founder-loop-local-task:")
+    ]
+    local_task_commit_receipt_ref = local_task.get("local_task_commit_receipt_ref")
+    if (
+        isinstance(local_task_commit_receipt_ref, str)
+        and local_task_commit_receipt_ref.startswith(
+            "receipt:founder-loop-local-task:"
+        )
+    ):
+        local_task_commit_receipt_refs.append(local_task_commit_receipt_ref)
+    if not local_task_commit_receipt_refs:
+        return ControlCenterProofRecord(
+            proof_ref=_derived_proof_ref("local-task-commit", source_ref),
+            proof_kind="local_task_commit",
+            status="blocked_no_local_task_commit_receipt",
+            title="Local Task Commit",
+            safe_summary=(
+                "A local-task action is visible, but no local-task commit "
+                "receipt ref exists yet."
+            ),
+            authority_posture=(
+                "Action visibility and approval posture do not prove local "
+                "task mutation until the exact local-task commit receipt exists."
+            ),
+            route_refs=["route-ref:control-center:actions"],
+            backend_route_refs=[
+                "POST /control-center/actions/{action_id}/local-task/commit"
+            ],
+            run_refs=[FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF],
+            receipt_refs=receipt_refs,
+            evidence_refs=_refs(local_task.get("evidence_refs")),
+            approval_refs=_refs([local_task.get("approval_envelope_ref")]),
+            rollback_refs=_refs([local_task.get("rollback_ref")]),
+            safe_disable_refs=_refs([local_task.get("safe_disable_ref")]),
+            blocked_authority_refs=[
+                *_COMMON_BLOCKED_AUTHORITY_REFS,
+                "blocked-state:proof-detail:local-task-commit-receipt-missing",
+            ],
+            next_safe_action=(
+                "Commit only through the Action Inbox exact local task route "
+                "when eligible, then inspect the receipt ref."
+            ),
+        )
     return ControlCenterProofRecord(
         proof_ref=_derived_proof_ref("local-task-commit", source_ref),
         proof_kind="local_task_commit",
@@ -579,7 +624,7 @@ def _local_task_commit_record(today_summary: dict[str, Any]) -> ControlCenterPro
         route_refs=["route-ref:control-center:actions"],
         backend_route_refs=["POST /control-center/actions/{action_id}/local-task/commit"],
         run_refs=[FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF],
-        receipt_refs=_refs(local_task.get("receipt_refs")),
+        receipt_refs=receipt_refs,
         evidence_refs=_refs(local_task.get("evidence_refs")),
         approval_refs=_refs([local_task.get("approval_envelope_ref")]),
         rollback_refs=_refs([local_task.get("rollback_ref")]),

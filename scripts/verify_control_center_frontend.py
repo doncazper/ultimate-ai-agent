@@ -910,6 +910,24 @@ def verify(root: Path = ROOT) -> list[str]:
             failures.append("frontend client missing scoped web evidence attach helper")
         if "API_ENDPOINTS.controlCenterWebEvidenceAttach" not in text:
             failures.append("frontend client must post web evidence through API_ENDPOINTS")
+        for fragment in [
+            "isSafeActionInboxWorkQueueReadModel",
+            "isSafeActionInboxWorkQueueWorkItem",
+            "fake_mutation_controls_exposed",
+            "unsafe_ref_omitted_count",
+            "unsafe_ref_blocked_state_refs",
+            "ACTION_WORK_QUEUE_ROUTE_RE",
+            "ACTION_DECISION_LANE_ORDER",
+            "hidden_memory_write_authorized",
+            "cost_posture_visible_before_approval",
+            "provider_authority_visible_before_approval",
+            "approval_scope_visible_before_approval",
+            "expected_receipts_visible_before_approval",
+        ]:
+            if fragment not in text:
+                failures.append(
+                    f"Action Inbox work queue/decision guard missing fragment: {fragment}"
+                )
         if post_count >= 2:
             required_chat_fragments = [
                 "requestRedactedLocalChatProbe",
@@ -1699,6 +1717,28 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
             if unsafe in candidate_text:
                 failures.append(
                     f"provider cost posture UI contains unsafe fail-open wording in {rel_path}: {unsafe}"
+                )
+
+    founder_loop_panel = app_root / "src/components/FounderLoopPanels.tsx"
+    if founder_loop_panel.exists():
+        founder_text = founder_loop_panel.read_text(encoding="utf-8")
+        for fragment in [
+            "ActionInboxWorkQueueWorkItemCard",
+            'aria-label="Action Inbox exact work items"',
+            "approval_posture",
+            "receipt_posture",
+            "mutation_control_posture",
+            "fake_mutation_control_exposed",
+            "unsafe_ref_omitted_count",
+            "unsafe_ref_blocked_state_refs",
+            "local_task_commit_route_ref",
+            "blocked_authority_refs",
+            "expected_receipt_refs",
+            "proof_ref",
+        ]:
+            if fragment not in founder_text:
+                failures.append(
+                    f"Action Inbox work queue UI marker missing: {fragment}"
                 )
 
     if client_path.exists():

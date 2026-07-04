@@ -1822,6 +1822,22 @@ describe("Web Control Center shell", () => {
         expect(
           screen.queryByText(/Backend unavailable; showing non-authoritative/i),
         ).not.toBeInTheDocument();
+        if (path === "/actions") {
+          expect(
+            screen.getByText(
+              "The exact local task lane produced a backend receipt and proof refs.",
+            ),
+          ).toBeInTheDocument();
+          expect(screen.getByText("receipt_refs_recorded")).toBeInTheDocument();
+          expect(
+            screen.getByText("no_mutation_control_exposed"),
+          ).toBeInTheDocument();
+          expect(screen.getAllByText(dogfoodRefs.localTaskProofRef).length).toBeGreaterThan(0);
+          expect(screen.getAllByText(dogfoodRefs.receiptRef).length).toBeGreaterThan(0);
+          expect(
+            screen.queryByRole("button", { name: /Execute|Send|Apply/i }),
+          ).not.toBeInTheDocument();
+        }
       } finally {
         view.unmount();
         cleanup();
@@ -3568,6 +3584,66 @@ describe("Web Control Center shell", () => {
     expect(
       screen.queryByText("python_core_plans_to_actions_bridge_read_model"),
     ).not.toBeInTheDocument();
+  });
+
+  it("fails closed when the Action Inbox work queue exposes unsafe controls", async () => {
+    const unsafeWorkQueue = {
+      ...cloneForTest(
+        mockControlCenterData.founderActionsInbox.action_inbox_work_queue_read_model,
+      ),
+      source: "python_core_action_inbox_work_queue_read_model",
+      backend_owned: true,
+      status: "implemented_backend_owned_action_inbox_work_queue",
+      fake_mutation_controls_exposed: true,
+      work_items: [
+        {
+          ...cloneForTest(
+            mockControlCenterData.founderActionsInbox
+              .action_inbox_work_queue_read_model!.work_items[0],
+          ),
+          proof_ref: "proof-ref:action-decision:unsafe-work-queue-test",
+          fake_mutation_control_exposed: true,
+        },
+      ],
+      work_item_count: 1,
+      work_item_refs: ["founder-action:mock-local-task-review"],
+    };
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      action_inbox_work_queue_contract_ref:
+        "contract-ref:usable-authority-action-inbox-work-queue:v1",
+      action_inbox_work_queue_read_model: unsafeWorkQueue,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Action Inbox$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Action Inbox queue posture is unavailable. The UI will not infer durable queue truth from filters, local state, or mock lane data."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("proof-ref:action-decision:unsafe-work-queue-test"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Fake controls")).not.toBeInTheDocument();
   });
 
   it("fails closed when a Plans-to-Actions bridge item carries unsafe fields", async () => {
@@ -11006,11 +11082,17 @@ function dogfoodLiveLoopEndpointData() {
       ...cloneForTest(
         mockControlCenterData.founderActionsInbox.action_inbox_work_queue_read_model,
       ),
-      source: "python_core_action_inbox_read_model",
+      source: "python_core_action_inbox_work_queue_read_model",
       backend_owned: true,
       status: "implemented_backend_owned_action_inbox_work_queue",
       item_count: 1,
+      operator_actionable_count: 0,
+      ready_for_decision_count: 0,
+      approved_local_task_count: 0,
+      proposal_only_count: 0,
+      blocked_count: 0,
       receipt_recorded_count: 1,
+      lane_count: 1,
       lanes: [
         {
           lane_id: "receipt_recorded",
@@ -11026,7 +11108,54 @@ function dogfoodLiveLoopEndpointData() {
           blocked_authority_refs: [],
         },
       ],
-      proof_refs: [dogfoodRefs.localTaskProofRef],
+      work_item_count: 1,
+      work_item_refs: [dogfoodRefs.actionRef],
+      work_items: [
+        {
+          item_ref: dogfoodRefs.actionRef,
+          title: "Maintain operational maturity scorecard",
+          lane_id: "receipt_recorded",
+          lane_label: "Receipt recorded",
+          status: "receipt_recorded",
+          priority: "high",
+          risk_class: "medium",
+          action_kind: "local_task_create",
+          side_effect_class: "local_dev_workspace_only",
+          safe_summary:
+            "The exact local task lane produced a backend receipt and proof refs.",
+          approval_posture: "approved_receipt_recorded",
+          receipt_posture: "receipt_refs_recorded",
+          mutation_control_posture: "no_mutation_control_exposed",
+          next_safe_action:
+            "Inspect the local task receipt and Proof Detail before promoting authority.",
+          approval_required: true,
+          operator_actionable: false,
+          local_task_commit_eligible: false,
+          fake_mutation_control_exposed: false,
+          approval_envelope_ref:
+            "approval-envelope:founder-loop:local-task-create-scorecard",
+          local_task_commit_route_ref:
+            "POST /control-center/actions/{action_id}/local-task/commit",
+          proof_ref: dogfoodRefs.localTaskProofRef,
+          expected_receipt_refs: [dogfoodRefs.receiptRef],
+          receipt_refs: [dogfoodRefs.decisionReceiptRef, dogfoodRefs.receiptRef],
+          evidence_refs: [dogfoodRefs.evidenceRef, dogfoodRefs.timelineEventRef],
+          rollback_ref: "rollback-not-applicable:local-task-safe-disable",
+          safe_disable_ref: "safe-disable:founder-loop:local-task-create-scorecard",
+          blocked_authority_refs: [
+            "blocked-state:action-inbox-work-queue:no-broad-action-execution",
+            "blocked-state:action-inbox-work-queue:no-connector-write-or-send",
+          ],
+        },
+      ],
+      next_item: null,
+      next_item_ref: null,
+      next_safe_action:
+        "Inspect the recorded local task receipt and Proof Detail before promoting authority.",
+      tier_3_exact_local_task_commit_available: false,
+      fake_mutation_controls_exposed: false,
+      unsafe_ref_omitted_count: 0,
+      unsafe_ref_blocked_state_refs: [],
     },
   };
   const evidence = {

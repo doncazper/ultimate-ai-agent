@@ -139,6 +139,29 @@ def test_proof_index_covers_universal_product_event_kinds(tmp_path: Path) -> Non
     _assert_no_runtime_authority(index)
 
 
+def test_local_task_commit_proof_blocks_until_commit_receipt(tmp_path: Path) -> None:
+    service = FounderLoopControlCenterService(
+        FounderLoopRepository(tmp_path / "founder_loop")
+    )
+
+    local_task_record = next(
+        record
+        for record in service.proof_index()["records"]
+        if record["proof_kind"] == "local_task_commit"
+    )
+
+    assert local_task_record["status"] == "blocked_no_local_task_commit_receipt"
+    assert (
+        "blocked-state:proof-detail:local-task-commit-receipt-missing"
+        in local_task_record["blocked_authority_refs"]
+    )
+    assert not any(
+        ref.startswith("receipt:founder-loop-local-task:")
+        for ref in local_task_record["receipt_refs"]
+    )
+    _assert_run_detail_matches_record(local_task_record)
+
+
 def test_run_detail_derived_refs_include_digest_for_long_safe_ref_collisions() -> None:
     first = (
         "proof-ref:action-decision:"
@@ -207,7 +230,13 @@ def test_daily_loop_surface_proof_refs_resolve_to_universal_proof_index(
         step["proof_ref"] for step in start_here["steps"]
     } <= proof_refs
     next_item = actions_inbox["action_inbox_work_queue_read_model"]["next_item"]
+    work_items = actions_inbox["action_inbox_work_queue_read_model"]["work_items"]
     assert next_item["proof_ref"] in proof_refs
+    assert {item["proof_ref"] for item in work_items} <= proof_refs
+    for item in work_items:
+        detail = service.proof_detail(item["proof_ref"])
+        assert detail["record"]["proof_ref"] == item["proof_ref"]
+        assert detail["record"]["run_detail"]["proof_ref"] == item["proof_ref"]
     core_loop_lane_refs = {
         "trust-lane:start-here-read",
         "trust-lane:today-loop-read",
@@ -237,10 +266,14 @@ def test_proof_index_covers_action_inbox_next_item_after_initial_bound(
     next_item = service.actions_inbox()["action_inbox_work_queue_read_model"][
         "next_item"
     ]
+    work_items = service.actions_inbox()["action_inbox_work_queue_read_model"][
+        "work_items"
+    ]
     proof_refs = set(service.proof_index()["proof_refs"])
 
     assert next_item["item_ref"] == "founder-action:late-approved-local-task"
     assert next_item["proof_ref"] in proof_refs
+    assert {item["proof_ref"] for item in work_items} <= proof_refs
 
 
 def test_proof_cli_default_covers_action_inbox_next_item_after_default_bound(
@@ -279,10 +312,12 @@ def test_proof_cli_default_covers_action_inbox_next_item_after_default_bound(
     action_payload = json.loads(action_result.stdout)
     proof_payload = json.loads(proof_result.stdout)
     next_item = action_payload["action_inbox_work_queue_read_model"]["next_item"]
+    work_items = action_payload["action_inbox_work_queue_read_model"]["work_items"]
     proof_refs = set(proof_payload["proof_index"]["proof_refs"])
 
     assert next_item["item_ref"] == "founder-action:late-approved-local-task"
     assert next_item["proof_ref"] in proof_refs
+    assert {item["proof_ref"] for item in work_items} <= proof_refs
     _assert_no_runtime_authority(action_payload)
     _assert_no_runtime_authority(proof_payload)
 

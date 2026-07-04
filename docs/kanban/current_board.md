@@ -698,6 +698,20 @@ shell/browser execution, no public beta claims, no production claims, and no
 production authority.
 No-authority phrases: no connector reads; no connector runtime; no connector writes; no email/calendar/account fetch; no live web; no model summaries; no runtime model/provider calls; no automatic memory writes; no context injection; no action execution; no shell/browser execution; no public beta claims; no production claims; no production authority.
 
+Beta 05 Action Inbox work queue hardening
+Goal met: `/actions` now renders backend-owned Action Inbox `work_items[]`
+with exact safe work refs, approval posture, receipt posture, mutation-control
+posture, proof refs, expected/recorded receipt refs, rollback/safe-disable
+refs, blocked authority refs, unsafe-ref omission blockers, and explicit
+no-fake-mutation-control posture. The Python Core read model, CLI inspection,
+frontend guard, UI, and focused tests keep lane filters presentation-only and
+fail closed on fake controls, denied authority flags, unsafe refs, or
+decision-lane contract drift. This lane adds no generic action execution, no
+connector writes/sends, no provider/model calls, no shell/browser execution, no
+memory writes, no context injection, no rollback execution, no background
+autonomy, no public release, and no production authority.
+No-authority phrases: no generic action execution; no connector writes/sends; no provider/model calls; no shell/browser execution; no memory writes; no context injection; no rollback execution; no background autonomy; no public release; no production authority.
+
 Product Loop 009 Chat to loop handoff
 Goal met: Today, Action Inbox, and Morning Briefing now expose a backend-owned
 `chat_to_loop_handoff_read_model` over durable Chat turn receipts and handoff
