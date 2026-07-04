@@ -194,6 +194,18 @@ execution, no revocation execution, no connector runtime, no connector writes,
 no model calls, no provider SDK calls, no live web, no shell/browser execution,
 no public beta, no production readiness claims, and no production authority.
 
+Skill Workbench discovery and adoption note: Skill Workbench is currently a
+planned Control Center product boundary in
+`docs/control_center/SKILL_WORKBENCH_DISCOVERY_AND_ADOPTION.md`, not an active
+route or runtime surface. Planned Discover, Popular, Search, Skill detail,
+Adoption queue, Review report, Local UAA-owned skills, and blocked/rejected
+candidate surfaces must render backend-owned safe refs only after Python Agent
+Core contracts exist. External marketplace metadata is not trust, install
+authority, runtime import authority, execution authority, or local enablement.
+Future marketplace metadata fetch must route through WebAccessGateway; external
+code remains untrusted reference material until rewritten or adapted into
+reviewed UAA-owned material under later exact authority.
+
 Product Loop 012 Private product loop trial script note: the repo now has a
 local/private, safe-ref-only manual operator review checklist and acceptance
 ledger for Boot, Today, Morning Briefing, Follow-Ups, Memory, Actions, Plans,
