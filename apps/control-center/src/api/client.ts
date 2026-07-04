@@ -8,6 +8,8 @@ import type {
   ControlCenterLocalModelsStatus,
   ControlCenterManifest,
   ControlCenterProofIndex,
+  ControlCenterRouteReadState,
+  ControlCenterRouteReadStateKind,
   ControlCenterStartHereSummary,
   ControlCenterSettingsStatus,
   ControlCenterStatus,
@@ -374,6 +376,92 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     mockControlCenterData.founderSourceReadiness,
     founderSourceReadiness,
   );
+  const routeStates = buildRouteReadStates([
+    routeReadStateInput({
+      route: "/start",
+      surfaceLabel: "Start Here",
+      backendRouteRef: "GET /control-center/start-here/summary",
+      endpointReturned: founderStartHere !== undefined,
+      usedFallback: normalizedFounderStartHere.usedFallback,
+    }),
+    routeReadStateInput({
+      route: "/today",
+      surfaceLabel: "Today",
+      backendRouteRef: "GET /control-center/today/summary",
+      endpointReturned: founderToday !== undefined,
+      usedFallback: normalizedFounderToday.usedFallback,
+    }),
+    routeReadStateInput({
+      route: "/inbox",
+      surfaceLabel: "Source Inbox",
+      backendRouteRef: "GET /control-center/sources/readiness",
+      endpointReturned: founderSourceReadiness !== undefined,
+      usedFallback: founderSourceReadiness === undefined,
+    }),
+    routeReadStateInput({
+      route: "/actions",
+      surfaceLabel: "Action Inbox",
+      backendRouteRef: "GET /control-center/actions/inbox",
+      endpointReturned: founderActionsInbox !== undefined,
+      usedFallback: normalizedFounderActionsInbox.usedFallback,
+    }),
+    routeReadStateInput({
+      route: "/proof",
+      surfaceLabel: "Proof",
+      backendRouteRef: "GET /control-center/proof/index",
+      endpointReturned: proofIndex !== undefined,
+      usedFallback: normalizedProofIndex.usedFallback,
+    }),
+    routeReadStateInput({
+      route: "/trust",
+      surfaceLabel: "Trust",
+      backendRouteRef: "GET /control-center/trust-authority/matrix",
+      endpointReturned: trustAuthorityMatrix !== undefined,
+      usedFallback: normalizedTrustAuthorityMatrix.usedFallback,
+    }),
+    routeReadStateInput({
+      route: "/memory",
+      surfaceLabel: "Memory",
+      backendRouteRef: "GET /control-center/memory/review",
+      endpointReturned: founderMemoryReview !== undefined,
+      usedFallback: normalizedFounderMemoryReview.usedFallback,
+    }),
+    routeReadStateInput({
+      route: "/evidence",
+      surfaceLabel: "Evidence",
+      backendRouteRef: "GET /control-center/evidence/timeline",
+      endpointReturned: founderEvidenceTimeline !== undefined,
+      usedFallback: normalizedFounderEvidenceTimeline.usedFallback,
+    }),
+    routeReadStateInput({
+      route: "/settings",
+      surfaceLabel: "Settings",
+      backendRouteRef: "GET /control-center/settings/status",
+      endpointReturned: controlCenterSettingsStatus !== undefined,
+      usedFallback: controlCenterSettingsStatus === undefined,
+    }),
+    routeReadStateInput({
+      route: "/briefing",
+      surfaceLabel: "Briefing",
+      backendRouteRef: "GET /control-center/morning-briefing/summary",
+      endpointReturned: founderMorningBriefing !== undefined,
+      usedFallback: normalizedFounderMorningBriefing.usedFallback,
+    }),
+    routeReadStateInput({
+      route: "/setup",
+      surfaceLabel: "Setup",
+      backendRouteRef: "GET /control-center/setup-assistant/summary",
+      endpointReturned: setupAssistantSource !== undefined,
+      usedFallback: setupAssistantSource === undefined,
+    }),
+    routeReadStateInput({
+      route: "/storage",
+      surfaceLabel: "Storage",
+      backendRouteRef: "GET /control-center/storage/status",
+      endpointReturned: founderStorageStatus !== undefined,
+      usedFallback: founderStorageStatus === undefined,
+    }),
+  ]);
   const founderLoopFieldFallbackUsed =
     normalizedFounderToday.usedFallback ||
     normalizedFounderEvidenceTimeline.usedFallback ||
@@ -494,6 +582,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     crmM1FixtureShell: mockControlCenterData.crmM1FixtureShell,
     source: "api",
     connection: mockControlCenterData.connection,
+    routeStates,
   };
 
   if (
@@ -1547,6 +1636,76 @@ function safetyFlagIsFalse(
   names: string[],
 ): boolean {
   return names.some((name) => safety[name] === false);
+}
+
+interface RouteReadStateInput {
+  route: string;
+  surfaceLabel: string;
+  backendRouteRef: string;
+  endpointReturned: boolean;
+  usedFallback: boolean;
+}
+
+function routeReadStateInput(input: RouteReadStateInput): RouteReadStateInput {
+  return input;
+}
+
+function buildRouteReadStates(
+  inputs: RouteReadStateInput[],
+): Record<string, ControlCenterRouteReadState> {
+  return Object.fromEntries(
+    inputs.map((input) => [input.route, buildRouteReadState(input)]),
+  );
+}
+
+function buildRouteReadState(
+  input: RouteReadStateInput,
+): ControlCenterRouteReadState {
+  const state: ControlCenterRouteReadStateKind = !input.endpointReturned
+    ? "mock_fallback"
+    : input.usedFallback
+      ? "degraded"
+      : "backend_owned";
+  const labels: Record<ControlCenterRouteReadStateKind, string> = {
+    backend_owned: "backend-owned",
+    degraded: "partial backend",
+    mock_fallback: "mock fallback",
+    blocked: "blocked",
+    planned: "planned",
+  };
+  const summaries: Record<ControlCenterRouteReadStateKind, string> = {
+    backend_owned: `${input.surfaceLabel} read model returned from the local backend contract.`,
+    degraded: `${input.surfaceLabel} returned with missing fields or fallback sections; treat it as partial route evidence.`,
+    mock_fallback: `${input.surfaceLabel} backend read model did not return; non-authoritative fallback data is visible.`,
+    blocked: `${input.surfaceLabel} runtime authority is blocked until an exact scoped lane graduates.`,
+    planned: `${input.surfaceLabel} is planned and does not claim release-ready workflow state.`,
+  };
+  const warningRefs =
+    state === "backend_owned" ? [] : [`route-read-state:${input.route}:fallback`];
+  return {
+    route: input.route,
+    surfaceLabel: input.surfaceLabel,
+    state,
+    statusLabel: labels[state],
+    sourceLabel:
+      state === "backend_owned"
+        ? "Python Core/API read model"
+        : "frontend fallback provenance from local read attempt",
+    safeSummary: summaries[state],
+    backendRouteRefs: [input.backendRouteRef],
+    warningRefs,
+    blockedAuthorityRefs: [
+      "blocked-state:no-provider-model-call",
+      "blocked-state:no-connector-write",
+      "blocked-state:no-browser-automation",
+      "blocked-state:no-shell-subprocess-execution",
+      "blocked-state:no-production-authority",
+    ],
+    nextSafeAction:
+      state === "backend_owned"
+        ? "Inspect proof, receipts, and blocked authority refs before relying on the route."
+        : "Keep the route partial and use CLI/verifier evidence before promotion.",
+  };
 }
 
 function withConnection(

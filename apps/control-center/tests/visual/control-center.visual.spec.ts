@@ -17,6 +17,15 @@ const surfaces = [
   { name: "setup", route: "/setup" },
 ] as const;
 
+const routeStateScenarios = [
+  { name: "state-loading", kind: "loading", label: "Loading" },
+  { name: "state-empty", kind: "empty", label: "Empty planned" },
+  { name: "state-error", kind: "error", label: "Error" },
+  { name: "state-blocked", kind: "blocked", label: "Blocked" },
+  { name: "state-partial", kind: "partial", label: "Partial" },
+  { name: "state-success", kind: "success", label: "Success" },
+] as const;
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((fixedIsoNow) => {
     const fixedTime = new Date(fixedIsoNow).getTime();
@@ -64,6 +73,33 @@ for (const surface of surfaces) {
     await expect(page).toHaveScreenshot(`${surface.name}.png`, {
       animations: "disabled",
       fullPage: true,
+    });
+  });
+}
+
+for (const scenario of routeStateScenarios) {
+  test(`${scenario.name} route state visual baseline`, async ({ page }) => {
+    await page.goto("/");
+    const main = page.locator("main");
+    await expect(main).toBeVisible();
+    await main.evaluate((node, routeStateScenario) => {
+      node.innerHTML = `
+        <section aria-label="Visual proof route state" class="route-state-panel ${routeStateScenario.kind}" role="${routeStateScenario.kind === "error" ? "alert" : "status"}">
+          <div class="route-state-copy">
+            <span class="route-state-eyebrow">${routeStateScenario.label}</span>
+            <strong>Visual proof ${routeStateScenario.label}</strong>
+            <span>Backend-owned route refs are visible when available; blocked and fallback states stay visible.</span>
+          </div>
+          <div class="route-state-proof">
+            <small>Route truth: visual regression fixture.</small>
+            <span>Inspect proof, receipts, and blocked authority refs before promotion.</span>
+          </div>
+        </section>
+      `;
+    }, scenario);
+
+    await expect(main).toHaveScreenshot(`${scenario.name}.png`, {
+      animations: "disabled",
     });
   });
 }

@@ -1210,6 +1210,31 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders route state strips for partial, blocked, and planned surfaces", async () => {
+    mockFetchWithFallback();
+    for (const [path, expectedCopy] of [
+      ["/dashboard", /Dashboard is partially usable/i],
+      ["/crm", /CRM remains blocked/i],
+      ["/private-trial", /Trial Packet is not release-ready/i],
+    ] as const) {
+      window.history.pushState({}, "", path);
+      const view = render(<App />);
+      try {
+        expect(await screen.findByText("Mock fallback active")).toBeInTheDocument();
+        expect(screen.getByText(expectedCopy)).toBeInTheDocument();
+        expect(
+          screen.getAllByText(/Route truth:/i).length,
+        ).toBeGreaterThan(0);
+        expect(
+          screen.queryByRole("button", { name: /Execute|Send|Apply/i }),
+        ).not.toBeInTheDocument();
+      } finally {
+        view.unmount();
+        cleanup();
+      }
+    }
+  });
+
   it("prioritizes the Founder Loop while keeping supporting routes reachable", async () => {
     expect(primaryNavItems.map((item) => item.label)).toEqual([
       "Start Here",
@@ -2255,6 +2280,9 @@ describe("Web Control Center shell", () => {
           screen.queryByText(/Backend unavailable; showing non-authoritative/i),
         ).not.toBeInTheDocument();
         if (path === "/actions") {
+          expect(
+            screen.getByText("Action Inbox has exact route proof"),
+          ).toBeInTheDocument();
           expect(
             screen.getByText(
               "The exact local task lane produced a backend receipt and proof refs.",
@@ -5126,7 +5154,10 @@ describe("Web Control Center shell", () => {
     expect(
       await screen.findByRole("heading", { name: /^Source Inbox$/i }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("blocked/planned").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(mockControlCenterData.founderSourceReadiness.status)
+        .length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByRole("heading", { name: /Route posture/i }),
     ).toBeInTheDocument();
@@ -8991,9 +9022,15 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/dashboard");
     render(<App />);
 
-    expect(screen.getByRole("status")).toHaveTextContent(
-      /checking local backend connection state/i,
-    );
+    expect(
+      screen
+        .getAllByRole("status")
+        .some((status) =>
+          /checking local backend connection state/i.test(
+            status.textContent ?? "",
+          ),
+        ),
+    ).toBe(true);
     expect(
       screen.queryByRole("button", { name: /execute/i }),
     ).not.toBeInTheDocument();

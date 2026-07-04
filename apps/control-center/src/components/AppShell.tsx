@@ -143,8 +143,8 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
               <span>Safety First</span>
             </div>
             <p>
-              Operate with facts. Act with confidence. Every item shows why,
-              what it affects, and backend evidence.
+              Operate with local facts. Review backend refs where available;
+              blocked, partial, and mock states stay visible.
             </p>
             <div className="topbar-route" aria-label="Current surface">
               <NorthStarIcon className="chrome-arrow" name="chevron-left" />

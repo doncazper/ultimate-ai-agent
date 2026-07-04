@@ -92,6 +92,28 @@ def test_control_center_frontend_verifier_compares_reset_semver_numerically() ->
     assert verifier._version_tuple("v0.100.0") > verifier._version_tuple("v0.41.0")
 
 
+def test_control_center_frontend_verifier_blocks_raw_ship_doc_claim(tmp_path: Path) -> None:
+    verifier = load_verifier()
+    doc_path = tmp_path / "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md"
+    doc_path.parent.mkdir(parents=True)
+    doc_path.write_text(
+        "The sidebar and command palette render the conservative `ship` status.\n"
+        "OpenAPI remains a backend contract. The current backend path count is `150`.\n",
+        encoding="utf-8",
+    )
+
+    failures = verifier._frontend_route_doc_failures(tmp_path)
+
+    assert any("raw `ship`" in failure for failure in failures)
+    assert any("169" in failure for failure in failures)
+
+
+def test_control_center_frontend_verifier_requires_route_state_grammar() -> None:
+    verifier = load_verifier()
+
+    assert verifier._route_state_grammar_failures(ROOT) == []
+
+
 def test_control_center_frontend_verifier_blocks_unsafe_m36_file_review_refs_and_mutations() -> None:
     verifier = load_verifier()
     rel = Path("apps/control-center/src/mocks/controlCenterData.ts")

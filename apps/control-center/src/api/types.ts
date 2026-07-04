@@ -23,6 +23,26 @@ export interface BackendConnectionSummary {
   warnings: string[];
 }
 
+export type ControlCenterRouteReadStateKind =
+  | "backend_owned"
+  | "degraded"
+  | "mock_fallback"
+  | "blocked"
+  | "planned";
+
+export interface ControlCenterRouteReadState {
+  route: string;
+  surfaceLabel: string;
+  state: ControlCenterRouteReadStateKind;
+  statusLabel: string;
+  sourceLabel: string;
+  safeSummary: string;
+  backendRouteRefs: string[];
+  warningRefs: string[];
+  blockedAuthorityRefs: string[];
+  nextSafeAction: string;
+}
+
 export interface ResultEnvelope<T> {
   success?: boolean;
   ok: boolean;
@@ -7311,4 +7331,5 @@ export interface ControlCenterData {
   crmM1FixtureShell: CrmM1FixtureShell;
   source: "api" | "mock";
   connection: BackendConnectionSummary;
+  routeStates: Record<string, ControlCenterRouteReadState>;
 }

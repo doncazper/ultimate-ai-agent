@@ -23,14 +23,29 @@ def test_polish_visual_manifest_covers_required_surfaces() -> None:
 
     assert {
         "Overview",
+        "Start Here",
         "Today",
+        "Source Inbox",
         "Actions",
         "Plans",
+        "Proof",
+        "Trust",
         "Memory",
         "Evidence",
         "Settings",
         "Setup",
     }.issubset(surfaces)
+    scenarios = {
+        scenario["scenario"] for scenario in manifest.get("state_scenarios", [])
+    }
+    assert {
+        "state-loading",
+        "state-empty",
+        "state-error",
+        "state-blocked",
+        "state-partial",
+        "state-success",
+    }.issubset(scenarios)
     assert manifest["baseline_policy"]["checked_in_redacted_baselines_required"] is True
     assert manifest["baseline_policy"]["raw_private_screenshots_allowed"] is False
     assert manifest["baseline_policy"]["absolute_paths_allowed"] is False

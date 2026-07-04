@@ -1,4 +1,9 @@
-import type { ControlCenterData } from "./api/types";
+import type {
+  BackendConnectionSummary,
+  ControlCenterData,
+  ControlCenterRouteReadState,
+} from "./api/types";
+import type { RouteStateDescriptor } from "./components/DataState";
 import { ActionPreviewForm } from "./components/ActionPreviewForm";
 import { ApprovalQueuePanel } from "./components/ApprovalQueuePanel";
 import { ApiRouteInventoryPanel } from "./components/ApiRouteInventoryPanel";
@@ -124,6 +129,162 @@ export const supportingNavItems = navItems.filter(
 
 export function getRouteSurfaceLabel(path: string): string {
   return navItems.find((item) => item.path === path)?.label ?? "Control Center";
+}
+
+export function getRouteStateDescriptor(
+  path: string,
+  connection?: BackendConnectionSummary,
+  readState?: ControlCenterRouteReadState,
+): RouteStateDescriptor {
+  const item = navItems.find((candidate) => candidate.path === path);
+  const surfaceLabel = readState?.surfaceLabel ?? item?.label ?? "Control Center";
+  const connectionState = connection?.state ?? "checking";
+  const sourceLabel = readState
+    ? `Route truth: ${readState.sourceLabel}; connection: ${connectionState}.`
+    : `Route truth: release surface metadata; connection: ${connectionState}.`;
+  const fallbackCopy = connection?.usingMockData
+    ? " Current route data includes non-authoritative mock or degraded fallback."
+    : " Current route data is bounded to local backend read models and safe refs.";
+  const routeProofCopy = readState
+    ? ` ${readState.safeSummary} Backend route refs: ${readState.backendRouteRefs.join(", ")}.`
+    : "";
+
+  if (readState?.state === "mock_fallback") {
+    return {
+      kind: "partial",
+      statusLabel: readState.statusLabel,
+      surfaceLabel,
+      title: `${surfaceLabel} is using fallback route state`,
+      message:
+        "The local backend contract for this route did not return authoritative route data." +
+        routeProofCopy +
+        fallbackCopy,
+      nextSafeAction: readState.nextSafeAction,
+      sourceLabel,
+    };
+  }
+
+  if (readState?.state === "degraded") {
+    return {
+      kind: "partial",
+      statusLabel: readState.statusLabel,
+      surfaceLabel,
+      title: `${surfaceLabel} is partially degraded`,
+      message:
+        "The route has backend-owned data plus missing fields or fallback sections." +
+        routeProofCopy +
+        fallbackCopy,
+      nextSafeAction: readState.nextSafeAction,
+      sourceLabel,
+    };
+  }
+
+  if (readState?.state === "blocked") {
+    return {
+      kind: "blocked",
+      statusLabel: readState.statusLabel,
+      surfaceLabel,
+      title: `${surfaceLabel} remains blocked`,
+      message:
+        "The route read state marks runtime or mutation authority as blocked." +
+        routeProofCopy +
+        fallbackCopy,
+      nextSafeAction: readState.nextSafeAction,
+      sourceLabel,
+    };
+  }
+
+  if (readState?.state === "planned") {
+    return {
+      kind: "empty",
+      statusLabel: readState.statusLabel,
+      surfaceLabel,
+      title: `${surfaceLabel} is planned`,
+      message:
+        "The route read state is visible for planning only and does not claim release-ready workflow state." +
+        routeProofCopy +
+        fallbackCopy,
+      nextSafeAction: readState.nextSafeAction,
+      sourceLabel,
+    };
+  }
+
+  if (!item) {
+    return {
+      kind: "empty",
+      statusLabel: "empty",
+      surfaceLabel,
+      title: "No route state record",
+      message:
+        "This route is not listed in the Control Center release surface metadata.",
+      nextSafeAction:
+        "Return to a listed Control Center route or add a backend-owned route record before claiming readiness.",
+      sourceLabel,
+    };
+  }
+
+  if (item.releaseStatus === "ship") {
+    return {
+      kind: "success",
+      statusLabel: "success",
+      surfaceLabel,
+      title: `${item.label} has exact route proof`,
+      message:
+        "This route has release-surface proof metadata for its current read-only or exact-scoped contract. " +
+        "It does not grant broader runtime authority." +
+        routeProofCopy +
+        fallbackCopy,
+      nextSafeAction:
+        "Inspect proof, receipts, and blocked authority refs before relying on any operator-relevant claim.",
+      sourceLabel,
+    };
+  }
+
+  if (item.releaseStatus === "partial") {
+    return {
+      kind: "partial",
+      statusLabel: "partial",
+      surfaceLabel,
+      title: `${item.label} is partially usable`,
+      message:
+        "This route renders backend-owned read models where they exist and keeps missing or ungraduated authority visibly blocked." +
+        routeProofCopy +
+        fallbackCopy,
+      nextSafeAction:
+        "Use safe refs and proof links as review aids; promote missing authority through a scoped verifier-backed lane.",
+      sourceLabel,
+    };
+  }
+
+  if (item.releaseStatus === "blocked") {
+    return {
+      kind: "blocked",
+      statusLabel: "blocked",
+      surfaceLabel,
+      title: `${item.label} remains blocked`,
+      message:
+        "This route can show planned, fixture, or blocker posture only; it cannot claim workflow execution or runtime authority." +
+        routeProofCopy +
+        fallbackCopy,
+      nextSafeAction:
+        "Keep the blocker visible and use the authority board before adding any mutation or external side effect.",
+      sourceLabel,
+    };
+  }
+
+  return {
+    kind: "empty",
+    statusLabel: "empty/planned",
+    surfaceLabel,
+    title: `${item.label} is not release-ready`,
+    message:
+      "This supporting route is visible for planning or review, but no release-ready workflow state is claimed." +
+      routeProofCopy +
+      fallbackCopy,
+    nextSafeAction:
+      "Add backend contracts, proof refs, visual rationale, and product-language checks before promotion.",
+    sourceLabel,
+  };
 }
 
 export function visibleReleaseStatus(status: ReleaseSurfaceStatus): string {

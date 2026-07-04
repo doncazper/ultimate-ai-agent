@@ -862,6 +862,94 @@ main {
   background: #f7fbf9;
 }
 
+.route-state-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.42fr);
+  gap: 14px;
+  align-items: center;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid #d9e2ec;
+  border-left: 4px solid #627d98;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334e68;
+}
+
+.route-state-panel.success {
+  border-left-color: #2f855a;
+  background: #f7fbf9;
+}
+
+.route-state-panel.partial,
+.route-state-panel.loading,
+.route-state-panel.empty {
+  border-left-color: #0b69a3;
+  background: #f5fbff;
+}
+
+.route-state-panel.blocked {
+  border-left-color: #f0b429;
+  background: #fffbea;
+}
+
+.route-state-panel.error {
+  border-color: #d64545;
+  border-left-color: #d64545;
+  background: #fff5f5;
+}
+
+.route-state-copy,
+.route-state-proof {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.route-state-copy span,
+.route-state-proof span,
+.route-state-proof small {
+  overflow-wrap: anywhere;
+}
+
+.route-state-eyebrow {
+  justify-self: start;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: #e6f6ff;
+  color: #0b69a3;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.route-state-panel.blocked .route-state-eyebrow {
+  background: #fff3c4;
+  color: #8d2b0b;
+}
+
+.route-state-panel.success .route-state-eyebrow {
+  background: #dff8ea;
+  color: #276749;
+}
+
+.route-state-panel.error .route-state-eyebrow {
+  background: #ffeeee;
+  color: #9b2c2c;
+}
+
+.route-state-proof {
+  align-self: stretch;
+  padding-left: 14px;
+  border-left: 1px solid #d9e2ec;
+  color: #52606d;
+  line-height: 1.45;
+}
+
+.route-state-proof small {
+  color: #243b53;
+  font-weight: 700;
+}
+
 .operator-surface-states {
   display: grid;
   gap: 14px;
@@ -1667,6 +1755,17 @@ th {
 
   .safe-alert {
     flex-direction: column;
+  }
+
+  .route-state-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .route-state-proof {
+    padding-top: 10px;
+    padding-left: 0;
+    border-top: 1px solid #d9e2ec;
+    border-left: 0;
   }
 
   .panel-grid,

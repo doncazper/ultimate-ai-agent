@@ -75,9 +75,10 @@ promotion-path refs, and fail-closed frontend validation through
 added.
 FCC-V1-000 adds `releaseStatus` route metadata and
 `docs/control_center/release_surface_manifest.json`; the sidebar and command
-palette render the conservative `ship`/`partial`/`blocked`/`experimental`
-release status, while older descriptive route badges remain metadata for
-keywords and audit context.
+palette render conservative route-state labels. `ship` is intentionally
+translated to `exact route proof` in the UI to avoid release overclaiming;
+`partial`, `blocked`, and `experimental` remain visible as readiness posture.
+Older descriptive route badges remain metadata for keywords and audit context.
 `/private-trial` is the UAA-P1-087.2a/087.2b/087.2c read-only packet,
 acceptance ledger, and unanswered manual-review scaffold surface only. It
 renders safe refs from
@@ -193,7 +194,7 @@ provider/model calls, connector writes, coworker dispatch, background autonomy,
 raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
-OpenAPI remains a backend contract. The current backend path count is `150` with
+OpenAPI remains a backend contract. The current backend path count is `169` with
 unique operation IDs; earlier milestone counts in the historical sections below
 are audit context, not current route inventory.
 

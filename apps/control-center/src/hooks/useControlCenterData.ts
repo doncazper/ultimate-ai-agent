@@ -5,7 +5,7 @@ import type { ControlCenterData } from "../api/types";
 type LoadState =
   | { status: "loading"; data: null; error: null }
   | { status: "ready"; data: ControlCenterData; error: null }
-  | { status: "error"; data: ControlCenterData; error: string };
+  | { status: "error"; data: null; error: string };
 
 export function useControlCenterData(): LoadState {
   const [state, setState] = useState<LoadState>({ status: "loading", data: null, error: null });
@@ -22,10 +22,7 @@ export function useControlCenterData(): LoadState {
         if (active) {
           setState({
             status: "error",
-            data: {
-              ...({} as unknown as ControlCenterData),
-              source: "mock",
-            },
+            data: null,
             error:
               "Control Center data could not be loaded safely. Check local backend status and use redacted summaries only.",
           });

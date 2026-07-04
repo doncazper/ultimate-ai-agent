@@ -28,6 +28,14 @@ REQUIRED_SURFACES = {
     "Setup",
 }
 REQUIRED_VIEWPORTS = {"desktop", "mobile"}
+REQUIRED_STATE_SCENARIOS = {
+    "state-loading",
+    "state-empty",
+    "state-error",
+    "state-blocked",
+    "state-partial",
+    "state-success",
+}
 FORBIDDEN_FRAGMENTS = (
     "/Users/",
     "\\Users\\",
@@ -90,6 +98,29 @@ def validate_manifest(manifest: dict) -> list[str]:
         if surface.get("baseline_status") != "checked-in redacted PNG baseline":
             failures.append(f"{surface_name} baseline status must be checked-in")
         failures.extend(_validate_baselines(surface))
+    state_scenarios = manifest.get("state_scenarios", [])
+    if not isinstance(state_scenarios, list):
+        failures.append("visual regression manifest state_scenarios must be a list")
+        state_scenarios = []
+    scenario_names = {
+        str(scenario.get("scenario"))
+        for scenario in state_scenarios
+        if isinstance(scenario, dict)
+    }
+    for scenario in sorted(REQUIRED_STATE_SCENARIOS - scenario_names):
+        failures.append(f"visual regression manifest missing state scenario: {scenario}")
+    for scenario in state_scenarios:
+        if not isinstance(scenario, dict):
+            failures.append("visual regression state scenario entry must be an object")
+            continue
+        scenario_name = str(scenario.get("scenario", "unknown"))
+        if scenario_name not in REQUIRED_STATE_SCENARIOS:
+            failures.append(f"visual regression manifest has unknown state scenario: {scenario_name}")
+        if scenario.get("raw_private_screenshot_included") is not False:
+            failures.append(f"{scenario_name} must not include raw private screenshot")
+        if scenario.get("baseline_status") != "checked-in redacted PNG baseline":
+            failures.append(f"{scenario_name} baseline status must be checked-in")
+        failures.extend(_validate_baselines(scenario))
     return failures
 
 
@@ -113,7 +144,7 @@ def _validate_tooling() -> list[str]:
 
 def _validate_baselines(surface: dict) -> list[str]:
     failures: list[str] = []
-    surface_name = str(surface.get("surface", ""))
+    surface_name = str(surface.get("surface") or surface.get("scenario") or "")
     surface_id = _surface_id(surface)
     file_refs = surface.get("baseline_file_refs", {})
     hashes = surface.get("baseline_hashes", {})
