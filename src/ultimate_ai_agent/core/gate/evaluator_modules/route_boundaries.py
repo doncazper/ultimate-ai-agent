@@ -2341,6 +2341,18 @@ CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES = frozenset(
         "/control-center/providers/router/dry-run",
     }
 )
+CONTROL_CENTER_CODING_COCKPIT_ROUTES = frozenset(
+    {
+        "/control-center/coding/context",
+        "/control-center/coding/git-review",
+        "/control-center/coding/live-preview",
+        "/control-center/coding/multi-agent-review",
+        "/control-center/coding/patch-apply-readiness",
+        "/control-center/coding/patch-proposal",
+        "/control-center/coding/session",
+        "/control-center/coding/test-command-readiness",
+    }
+)
 RUN_ATTACHED_APPROVAL_QUEUE_ROUTES = frozenset(
     {
         "/control-center/approvals/queue",
@@ -2531,6 +2543,7 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "control_center_provider_catalog": CONTROL_CENTER_PROVIDER_CATALOG_ROUTES,
     "control_center_provider_credential_validation": CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES,
     "control_center_provider_router_dry_run": CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES,
+    "control_center_coding_cockpit": CONTROL_CENTER_CODING_COCKPIT_ROUTES,
     "control_center_tiny_provider_lane": CONTROL_CENTER_TINY_PROVIDER_LANE_ROUTES,
     "mattermost": MATTERMOST_AGENT_ROOMS_ROUTES,
     "packaging_proof": PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES,
