@@ -126,6 +126,7 @@ def test_proof_index_covers_universal_product_event_kinds(tmp_path: Path) -> Non
         "evidence_event",
         "web_evidence",
         "provider_draft_preview",
+        "connector_draft_proposal",
         "source_readiness",
         "approval",
         "setup_package",
@@ -167,6 +168,50 @@ def test_provider_draft_preview_proof_is_backend_owned_and_non_invoking(
     assert "python scripts/inspect_provider_draft_summarize_lane.py" in (
         record["next_safe_action"]
     )
+    assert record["safe_refs_only"] is True
+    assert record["raw_content_included"] is False
+    _assert_run_detail_matches_record(record)
+    _assert_no_runtime_authority(detail)
+
+
+def test_connector_draft_proposal_proof_is_backend_owned_and_non_sending(
+    tmp_path: Path,
+) -> None:
+    service = FounderLoopControlCenterService(
+        FounderLoopRepository(tmp_path / "founder_loop")
+    )
+
+    detail = service.proof_detail("proof-ref:connector-draft-only-proposals:v1")
+    record = detail["record"]
+
+    assert record["proof_kind"] == "connector_draft_proposal"
+    assert record["status"] == "draft_proposals_ready_no_send_write"
+    assert "safe refs" in record["safe_summary"]
+    assert "no connector payload" in record["safe_summary"]
+    assert "Connector runtime, sends, writes" in record["authority_posture"]
+    assert (
+        "GET /control-center/sources/readiness"
+        in record["backend_route_refs"]
+    )
+    assert (
+        "blocked-state:connector-draft-only:no-connector-send"
+        in record["blocked_authority_refs"]
+    )
+    assert (
+        "blocked-state:connector-draft-only:no-connector-write"
+        in record["blocked_authority_refs"]
+    )
+    assert (
+        "blocked-state:connector-draft-only:no-oauth"
+        in record["blocked_authority_refs"]
+    )
+    assert (
+        "safe-disable-ref:connector-draft-only:disable-local-draft-surface"
+        in record["safe_disable_refs"]
+    )
+    assert "python scripts/inspect_connector_draft_proposals.py" in record[
+        "next_safe_action"
+    ]
     assert record["safe_refs_only"] is True
     assert record["raw_content_included"] is False
     _assert_run_detail_matches_record(record)

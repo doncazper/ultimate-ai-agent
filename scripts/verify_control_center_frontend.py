@@ -171,6 +171,7 @@ DANGEROUS_BUTTON_LABELS = [
     "Execute",
     "Run",
     "Send",
+    "Sync",
     "Deploy",
     "Enable",
     "Install",
@@ -213,6 +214,10 @@ DANGEROUS_BUTTON_LABELS = [
     "Connect provider",
     "Test provider",
     "Call provider",
+    "OAuth",
+    "Authorize",
+    "Connect account",
+    "Sign in",
 ]
 
 BROWSER_API_FRAGMENTS = [

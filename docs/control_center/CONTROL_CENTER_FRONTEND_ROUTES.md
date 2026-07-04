@@ -53,9 +53,11 @@ using existing backend-backed Today, Action Inbox, Evidence Timeline, source
 readiness, review queue, memory why-shown, weekly review, and dogfood capture
 summaries. The spine is composition only: it adds no route, OpenAPI operation,
 storage mutation, maturity promotion, or React-owned product truth. `/inbox` is
-a blocked/planned frontend posture surface only; it has no backend
-email/calendar connector route, account auth, draft proposal route,
-send/write/archive/delete authority, or connector runtime.
+a blocked/planned frontend posture surface only; it has embedded read-only
+connector draft proposal refs from `GET /control-center/sources/readiness`,
+but no standalone or mutating draft proposal route, backend email/calendar
+connector route, account auth, send/write/archive/delete authority, or
+connector runtime.
 `/actions` renders backend-classified Action Inbox queue lanes from
 `GET /control-center/actions/inbox` so ready, approved local-task,
 authority-blocked, expired/stale, receipt-recorded, and proposal-only items are
@@ -163,6 +165,20 @@ The frontend must not expose a provider-draft API route, provider-call button,
 default live provider network, provider SDK call, durable draft preview
 persistence, connector write, memory/context injection, action execution,
 background provider call, public release, or production authority.
+
+Beta 10 Connector Draft-Only keeps `/inbox`, `/proof`, and `/trust` as
+inspection-only Control Center surfaces for embedded connector draft proposal
+refs. Full-strength connector drafting remains a later approved connector
+runtime, send, write, and sync workflow. The repo-safe current version renders
+backend-owned safe refs from
+`GET /control-center/sources/readiness#connector_draft_proposals`,
+`proof-ref:connector-draft-only-proposals:v1`, and
+`trust-lane:connector-draft-only`; it adds no standalone connector draft route,
+send/write/sync/OAuth control, account connection, auth-material collection,
+delivery worker, provider/model call, memory/context injection, background
+runtime, public release, or production authority. Verification:
+`scripts/verify_beta_10_connector_draft_only.py`. No broad runtime authority is
+added.
 
 OpenAPI remains a backend contract. The current backend path count is `150` with
 unique operation IDs; earlier milestone counts in the historical sections below

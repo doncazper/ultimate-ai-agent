@@ -428,6 +428,22 @@ Acceptance criteria:
 
 Goal: make email/calendar usefulness visible before sends/writes.
 
+Full-strength version:
+
+- Connector drafting eventually supports operator-reviewed send/write/sync
+  workflows across email, calendar, messages, CRM, and future accounts, with
+  exact account and target scope, idempotency, receipts, revocation,
+  safe-disable, rollback, redaction, Proof Detail, and Trust posture.
+
+Repo-safe beta-10 version:
+
+- Connector Draft-Only proposals are embedded backend-owned safe refs under
+  `GET /control-center/sources/readiness#connector_draft_proposals`, `/inbox`,
+  `/proof`, `/trust`, and CLI inspection.
+- No standalone or mutating connector draft route is added.
+- The older M128 low-risk connector write contract remains outside beta-10 and
+  is not wired to Source Readiness, Proof, Trust, or frontend controls.
+
 Tasks:
 
 - Add connector draft proposal read model.
@@ -440,6 +456,22 @@ Acceptance criteria:
 - Operator can see useful draft proposals.
 - No connector write/send/account sync/OAuth broadening unless separately
   scoped.
+- Verification is covered by `scripts/verify_beta_10_connector_draft_only.py`.
+
+Blocked / needs authority:
+
+- Connector runtime, send, write, sync, OAuth/account auth, auth-material
+  collection, source ingestion, delivery workers, memory/context injection,
+  provider/model calls, background runtime, public release, and production
+  authority remain blocked for this lane.
+
+Exact promotion path:
+
+- A later PR must supply exact scope, test account or target allowlist,
+  OAuth/account proof where needed, LocalApprovalAuthority binding,
+  idempotency, delivery receipt, redaction, revocation, safe-disable, rollback,
+  CLI/API/UI parity, OpenAPI/route truth, docs, and focused tests before any
+  connector send/write/sync is promoted.
 
 ### PR 10: Approved Test Send Or Test Write Lane
 

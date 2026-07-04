@@ -6,6 +6,14 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.connectors.connector_draft_proposals import (
+    CONNECTOR_DRAFT_PROPOSAL_BLOCKED_AUTHORITY_REFS,
+    CONNECTOR_DRAFT_PROPOSAL_CLI_REF,
+    CONNECTOR_DRAFT_PROPOSAL_CONTRACT_REF,
+    CONNECTOR_DRAFT_PROPOSAL_PROOF_REF,
+    CONNECTOR_DRAFT_PROPOSAL_ROUTE_REF,
+    build_connector_draft_proposal_read_model,
+)
 from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
     FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF,
     FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF,
@@ -43,6 +51,7 @@ ProofKind = Literal[
     "evidence_event",
     "web_evidence",
     "provider_draft_preview",
+    "connector_draft_proposal",
     "source_readiness",
     "approval",
     "setup_package",
@@ -433,6 +442,7 @@ def _proof_records(today_summary: dict[str, Any]) -> list[ControlCenterProofReco
     records.extend(_evidence_event_records(today_summary))
     records.append(_web_evidence_record(today_summary))
     records.append(_provider_draft_preview_record(today_summary))
+    records.append(_connector_draft_proposal_record(today_summary))
     records.append(_source_readiness_record(today_summary))
     records.append(_approval_record(today_summary))
     records.append(_setup_package_record(today_summary))
@@ -953,6 +963,78 @@ def _provider_draft_preview_record(
         next_safe_action=(
             f"Inspect {PROVIDER_DRAFT_SUMMARIZE_CLI_REF}; do not call providers "
             "from Proof or Trust."
+        ),
+    )
+
+
+def _connector_draft_proposal_record(
+    today_summary: dict[str, Any],
+) -> ControlCenterProofRecord:
+    read_model = build_connector_draft_proposal_read_model()
+    proposals = list(read_model.proposals)
+    return ControlCenterProofRecord(
+        proof_ref=CONNECTOR_DRAFT_PROPOSAL_PROOF_REF,
+        proof_kind="connector_draft_proposal",
+        status="draft_proposals_ready_no_send_write",
+        title="Connector Draft-Only Proposals",
+        safe_summary=(
+            "Connector draft-only proposals are backend-owned email-response "
+            "and calendar-hold review artifacts. They store safe refs and "
+            "bounded redacted outlines only; no connector payload, account "
+            "content, credential material, send, write, or sync is persisted."
+        ),
+        authority_posture=(
+            "Connector runtime, sends, writes, account sync, OAuth, auth-material "
+            "collection, background sync, provider/model calls, memory writes, "
+            "context injection, and production authority remain blocked."
+        ),
+        route_refs=[
+            "route-ref:control-center:inbox",
+            "route-ref:control-center:trust",
+            "route-ref:control-center:proof",
+            CONNECTOR_DRAFT_PROPOSAL_ROUTE_REF,
+        ],
+        backend_route_refs=[
+            "GET /control-center/sources/readiness",
+            CONTROL_CENTER_PROOF_INDEX_ROUTE_REF,
+            CONTROL_CENTER_PROOF_DETAIL_ROUTE_REF,
+            "GET /control-center/trust-authority/matrix",
+        ],
+        run_refs=[FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF],
+        receipt_refs=[
+            "receipt-ref:connector-draft-only:no-send-write-performed",
+            *[
+                f"expected-receipt-ref:{proposal.delivery_ref}"
+                for proposal in proposals
+            ],
+        ],
+        evidence_refs=_merge_refs(
+            list(read_model.evidence_refs),
+            *[list(proposal.evidence_refs) for proposal in proposals],
+            ["evidence-ref:connector-draft-only:source-readiness-safe-refs"],
+        ),
+        audit_refs=_merge_refs([proposal.audit_ref for proposal in proposals]),
+        approval_refs=_merge_refs(
+            [proposal.outbound_approval_ref for proposal in proposals],
+            [proposal.approval_posture_ref for proposal in proposals],
+        ),
+        rollback_refs=_merge_refs([proposal.rollback_posture_ref for proposal in proposals]),
+        safe_disable_refs=_merge_refs(
+            [proposal.safe_disable_posture_ref for proposal in proposals],
+            ["safe-disable-ref:connector-draft-only:disable-local-draft-surface"],
+        ),
+        blocked_authority_refs=_merge_refs(
+            list(_COMMON_BLOCKED_AUTHORITY_REFS),
+            list(CONNECTOR_DRAFT_PROPOSAL_BLOCKED_AUTHORITY_REFS),
+            [
+                "blocked-state:connector-draft-only:no-default-ui-send-control",
+                "blocked-state:connector-draft-only:no-durable-raw-draft-body",
+            ],
+        ),
+        next_safe_action=(
+            f"Inspect {CONNECTOR_DRAFT_PROPOSAL_CLI_REF} and "
+            f"{CONNECTOR_DRAFT_PROPOSAL_CONTRACT_REF}; graduate a separate "
+            "exact test-send/write lane before any external effect."
         ),
     )
 
