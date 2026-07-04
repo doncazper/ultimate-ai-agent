@@ -502,8 +502,22 @@ class RuntimeInvocationStore:
             )
             if self._records:
                 for index, record in enumerate(list(self._records.values())):
+                    policy_decision = build_policy_decision(
+                        record.request,
+                        invocation_ref=record.invocation_ref,
+                        approval_ref=record.approval_requirement.approval_ref,
+                        status=RuntimeInvocationStatus.safe_disabled,
+                    )
+                    receipt = (
+                        record.receipt.model_copy(update={"safe_disable": state})
+                        if record.receipt is not None
+                        else None
+                    )
                     updated = record.model_copy(
                         update={
+                            "approval_requirement": policy_decision.approval_requirement,
+                            "policy_decision": policy_decision,
+                            "receipt": receipt,
                             "safe_disable": state,
                             "status": RuntimeInvocationStatus.safe_disabled,
                             "updated_at": utc_now(),

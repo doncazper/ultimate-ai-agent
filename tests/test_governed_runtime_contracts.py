@@ -477,6 +477,61 @@ def test_runtime_gateway_allowlisted_command_records_redacted_receipt(
     assert "stderr" not in persisted
 
 
+def test_runtime_gateway_command_replay_after_safe_disable_keeps_idempotency_shape(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SAFE_STATUS",
+        )
+
+    store = RuntimeInvocationStore(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=tmp_path,
+            runner=runner,
+        ),
+    )
+    request = RuntimeCommandExecutionRequest(
+        intent="git_status",
+        safe_summary="Inspect current repo status with redacted output.",
+    )
+    first = gateway.invoke_command(
+        request,
+        idempotency_ref="idempotency-ref:runtime-command-safe-disable-replay",
+    )
+    store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-command-replay-disable"),
+        idempotency_ref="idempotency-ref:runtime-command-replay-disable",
+    )
+    replay = gateway.invoke_command(
+        request,
+        idempotency_ref="idempotency-ref:runtime-command-safe-disable-replay",
+    )
+
+    assert first.record.receipt is not None
+    assert len(calls) == 1
+    assert replay.replayed is True
+    assert replay.record.status == "safe_disabled"
+    assert replay.record.policy_decision.allowed_to_execute is False
+    assert replay.record.policy_decision.adapter_execution_enabled is False
+    assert replay.record.policy_decision.command_execution_enabled is False
+    assert replay.command_execution_enabled is False
+    assert replay.record.receipt is not None
+    assert replay.record.receipt.safe_disable.active is True
+    assert (
+        replay.record.receipt.safe_disable.reason_ref
+        == "reason-ref:runtime-command-replay-disable"
+    )
+
+
 def test_runtime_gateway_command_disabled_intent_records_blocked_receipt(
     tmp_path: Path,
 ) -> None:
@@ -906,6 +961,56 @@ def test_runtime_gateway_local_model_replay_without_receipt_does_not_call_transp
     assert replay.error_category == "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
     assert replay.record.receipt is not None
     assert replay.record.receipt.model_call_performed is False
+
+
+def test_runtime_gateway_local_model_replay_after_safe_disable_keeps_idempotency_shape(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("SAFE_MODEL_RESPONSE")
+
+    store = RuntimeInvocationStore(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        local_model_adapter=LocalModelRuntimeAdapter(transport_factory=transport_factory),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[RuntimeLocalModelMessage(role="user", content="safe transient prompt")],
+        safe_summary="Run local model runtime as an untrusted proposal.",
+    )
+    first = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-safe-disable-replay",
+    )
+    store.safe_disable(
+        RuntimeSafeDisableRequest(reason_ref="reason-ref:runtime-local-model-replay-disable"),
+        idempotency_ref="idempotency-ref:runtime-local-model-replay-disable",
+    )
+    replay = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-safe-disable-replay",
+    )
+
+    assert first.record.receipt is not None
+    assert calls == 1
+    assert replay.replayed is True
+    assert replay.record.status == "safe_disabled"
+    assert replay.record.policy_decision.allowed_to_execute is False
+    assert replay.record.policy_decision.adapter_execution_enabled is False
+    assert replay.record.policy_decision.model_call_enabled is False
+    assert replay.record.receipt is not None
+    assert replay.record.receipt.safe_disable.active is True
+    assert (
+        replay.record.receipt.safe_disable.reason_ref
+        == "reason-ref:runtime-local-model-replay-disable"
+    )
 
 
 def test_runtime_gateway_local_model_safe_disable_between_precheck_and_create_blocks_transport(
