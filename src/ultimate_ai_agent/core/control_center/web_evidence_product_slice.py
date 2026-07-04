@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from typing import Any, Mapping
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -48,6 +50,13 @@ WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS = (
     "blocked-state:web-evidence:no-provider-model-call",
     "blocked-state:web-evidence:no-connector-write",
     "blocked-state:web-evidence:no-production-authority",
+)
+WEB_EVIDENCE_PRODUCT_SLICE_DISABLED_ENV = "UAA_WEB_EVIDENCE_PRODUCT_SLICE_DISABLED"
+WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV = (
+    "UAA_WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS"
+)
+WEB_EVIDENCE_PRODUCT_SLICE_IDEMPOTENCY_POSTURE_REF = (
+    "idempotency:web-evidence-product-slice:request-ref-payload"
 )
 
 
@@ -96,6 +105,7 @@ class WebEvidenceProductSliceReceipt(BaseModel):
     transport_ref: str
     web_access_request_ref: str
     web_access_audit_ref: str
+    web_access_audit_summary: dict[str, Any] = Field(default_factory=dict)
     payload_fingerprint_ref: str
     status_code: int = Field(..., ge=100, le=599)
     content_type: str
@@ -120,6 +130,11 @@ class WebEvidenceProductSliceReceipt(BaseModel):
     )
     safe_refs_only_for_durable_surfaces: bool = True
     redacted_preview_returned_to_requester: bool = True
+    web_access_gateway_required: bool = True
+    configured_host_allowlist_required: bool = True
+    operator_supplied_host_scope_required: bool = True
+    request_ref_payload_idempotency: bool = True
+    request_ref_idempotency_ref: str
     raw_response_body_stored: bool = False
     raw_headers_stored: bool = False
     absolute_url_returned: bool = False
@@ -161,6 +176,7 @@ class WebEvidenceProductSliceReceipt(BaseModel):
             self.web_access_audit_ref,
             self.payload_fingerprint_ref,
             self.redaction_posture_ref,
+            self.request_ref_idempotency_ref,
         ]:
             validate_execution_ref(ref, "web_evidence_ref")
         for field_name in (
@@ -199,12 +215,28 @@ class WebEvidenceProductSliceReceipt(BaseModel):
         ]
         if any(denied_flags):
             raise ValueError("web evidence product slice must remain read-only")
+        if not (
+            self.safe_refs_only_for_durable_surfaces
+            and self.redacted_preview_returned_to_requester
+            and self.web_access_gateway_required
+            and self.configured_host_allowlist_required
+            and self.operator_supplied_host_scope_required
+            and self.request_ref_payload_idempotency
+        ):
+            raise ValueError("web evidence product slice required posture drifted")
         if self.receipt_ref not in self.receipt_refs:
             raise ValueError("web evidence receipt refs must include receipt_ref")
         if self.evidence_ref not in self.evidence_refs:
             raise ValueError("web evidence evidence refs must include evidence_ref")
         if self.web_access_audit_ref not in self.audit_refs:
             raise ValueError("web evidence audit refs must include WebAccess audit ref")
+        if not _is_safe_web_access_audit_summary(
+            self.web_access_audit_summary,
+            web_access_request_ref=self.web_access_request_ref,
+            safe_url_ref=self.safe_url_ref,
+            host_ref=self.host_ref,
+        ):
+            raise ValueError("web evidence audit summary drifted")
         return self
 
     def durable_record(self) -> dict[str, Any]:
@@ -229,6 +261,7 @@ class WebEvidenceProductSliceReceipt(BaseModel):
             "transport_ref": self.transport_ref,
             "web_access_request_ref": self.web_access_request_ref,
             "web_access_audit_ref": self.web_access_audit_ref,
+            "web_access_audit_summary": self.web_access_audit_summary,
             "payload_fingerprint_ref": self.payload_fingerprint_ref,
             "status_code": self.status_code,
             "content_type": self.content_type,
@@ -250,6 +283,11 @@ class WebEvidenceProductSliceReceipt(BaseModel):
             "header_storage": "omitted",
             "absolute_url_storage": "omitted",
             "safe_refs_only_for_durable_surfaces": True,
+            "web_access_gateway_required": True,
+            "configured_host_allowlist_required": True,
+            "operator_supplied_host_scope_required": True,
+            "request_ref_payload_idempotency": True,
+            "request_ref_idempotency_ref": self.request_ref_idempotency_ref,
             "replayed": self.replayed,
         }
 
@@ -286,6 +324,7 @@ def build_web_evidence_product_slice_receipt(
         transport_ref=output.transport_ref,
         web_access_request_ref=output.web_access_request_ref,
         web_access_audit_ref=output.web_access_audit_ref,
+        web_access_audit_summary=output.web_access_audit_summary,
         payload_fingerprint_ref=web_evidence_payload_fingerprint_ref(
             {
                 "request_ref": request.request_ref,
@@ -307,6 +346,9 @@ def build_web_evidence_product_slice_receipt(
             "redaction-posture:web-evidence:sensitive-values-withheld"
             if redaction_count
             else "redaction-posture:web-evidence:no-sensitive-patterns-detected"
+        ),
+        request_ref_idempotency_ref=(
+            f"idempotency-ref:web-evidence-product-slice:{suffix}"
         ),
         receipt_refs=[receipt_ref],
         evidence_refs=[
@@ -330,6 +372,7 @@ def _fetch_output(
     *,
     transport: Any | None,
 ) -> ReadOnlyHttpFetchOutput:
+    scoped_host = _enforce_product_slice_runtime_policy(request)
     fetch_request = ReadOnlyHttpFetchRequest(
         request_ref=request.request_ref.replace(
             "web-evidence-request:",
@@ -349,7 +392,7 @@ def _fetch_output(
     )
     policy = ReadOnlyHttpFetchPolicy(
         policy_ref="http-fetch-policy:web-evidence-product-slice",
-        allowed_hosts=(request.allowed_host,),
+        allowed_hosts=(scoped_host,),
         max_preview_bytes=2048,
         max_response_bytes=65536,
         timeout_seconds=5,
@@ -360,6 +403,93 @@ def _fetch_output(
         policy=policy,
         transport=transport or build_read_only_real_world_http_fetch_transport(),
     )
+
+
+def configured_web_evidence_product_slice_allowed_hosts() -> tuple[str, ...]:
+    raw_value = os.environ.get(WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV, "")
+    hosts = tuple(host.strip() for host in raw_value.split(",") if host.strip())
+    if not hosts:
+        return tuple()
+    return ReadOnlyHttpFetchPolicy(
+        policy_ref="http-fetch-policy:web-evidence-product-slice-env-allowlist",
+        allowed_hosts=hosts,
+    ).allowed_hosts
+
+
+def web_evidence_product_slice_disabled() -> bool:
+    value = os.environ.get(WEB_EVIDENCE_PRODUCT_SLICE_DISABLED_ENV, "")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _enforce_product_slice_runtime_policy(
+    request: WebEvidenceProductSliceRequest,
+) -> str:
+    if web_evidence_product_slice_disabled():
+        raise ValueError("WEB_EVIDENCE_PRODUCT_SLICE_DISABLED")
+    configured_hosts = configured_web_evidence_product_slice_allowed_hosts()
+    if not configured_hosts:
+        raise ValueError("WEB_EVIDENCE_PRODUCT_SLICE_CONFIGURED_ALLOWLIST_REQUIRED")
+    request_host = _request_host(request.url)
+    scoped_host = ReadOnlyHttpFetchPolicy(
+        policy_ref="http-fetch-policy:web-evidence-product-slice-request-scope",
+        allowed_hosts=(request.allowed_host,),
+    ).allowed_hosts[0]
+    if scoped_host != request_host:
+        raise ValueError("WEB_EVIDENCE_PRODUCT_SLICE_HOST_SCOPE_MISMATCH")
+    if scoped_host not in configured_hosts:
+        raise ValueError("WEB_EVIDENCE_PRODUCT_SLICE_HOST_NOT_CONFIGURED")
+    return scoped_host
+
+
+def _request_host(url: str) -> str:
+    parts = urlsplit(url)
+    host = (parts.hostname or "").strip().lower().rstrip(".")
+    if not host:
+        raise ValueError("WEB_EVIDENCE_PRODUCT_SLICE_HOST_REQUIRED")
+    return host
+
+
+def _is_safe_web_access_audit_summary(
+    value: Mapping[str, Any],
+    *,
+    web_access_request_ref: str,
+    safe_url_ref: str,
+    host_ref: str,
+) -> bool:
+    if not value:
+        return False
+    forbidden_keys = {"url", "final_url", "absolute_url", "raw_url"}
+    if any(key in value for key in forbidden_keys):
+        return False
+    required = {
+        "schema_version": "web-access-audit-summary.v1",
+        "request_ref": web_access_request_ref,
+        "safe_url_ref": safe_url_ref,
+        "host_ref": host_ref,
+        "adapter_kind": "local_fetch",
+        "network_lane": "tool_runtime_read_only_fetch",
+        "authority_mode": "read_only",
+        "risk_class": "low",
+        "policy_status": "allowed",
+        "content_untrusted": True,
+        "raw_url_omitted": True,
+        "raw_headers_omitted": True,
+        "raw_body_omitted": True,
+    }
+    for key, expected in required.items():
+        if value.get(key) != expected:
+            return False
+    if not isinstance(value.get("timestamp"), str) or not value["timestamp"]:
+        return False
+    for field_name in ("policy_reason_refs", "source_metadata_refs"):
+        refs = value.get(field_name)
+        if not isinstance(refs, list) or not refs:
+            return False
+        for ref in refs:
+            if not isinstance(ref, str):
+                return False
+            validate_execution_ref(ref, field_name)
+    return True
 
 
 def _short_digest(value: Any) -> str:

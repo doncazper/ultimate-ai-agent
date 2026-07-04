@@ -334,6 +334,27 @@ LocalApprovalAuthority binding, idempotency, receipt/proof evidence, redaction,
 safe-disable, rollback posture, CLI/API parity, docs, tests, and product-truth
 updates. No broad runtime authority is added.
 
+Beta 08 Web Evidence beta slice current truth: full-strength Web Evidence
+remains a useful real-world evidence system with richer source review and later
+browser/web workflows promoted only under separate gates. The repo-safe
+implementation is the Tier 1 configured host allowlist path:
+`POST /control-center/web-evidence/attach` and
+`scripts/dev/uaa_founder_loop.py attach-web-evidence` perform one HTTPS GET
+through WebAccessGateway only when the configured host allowlist admits the
+host and the safe-disable env is off. The redacted preview is transient to the
+requester; durable Today/Evidence/Proof/CLI records store safe refs, request-ref
+idempotency posture, rollback/safe-disable refs, and redacted WebAccessGateway
+audit summaries only. Blocked/needs-authority remains unrestricted browsing,
+browser actions, auth/cookies, downloads/uploads, POST-style mutation, raw
+URL/body/header persistence, runtime context injection, memory writes,
+provider/model calls, connector writes, public release, and production
+authority. Exact promotion requires a later verifier-backed PR with exact
+scope, configured policy, approval binding where mutation appears, idempotency,
+redaction, safe-disable, rollback, receipts/proof, CLI/API parity, route/product
+language updates, and tests. Verification:
+`scripts/verify_beta_08_web_evidence_product_slice.py`. No broad runtime
+authority is added.
+
 | Capability | Current UAA state | Target production-ready state | Priority | Status | Evidence source or missing evidence | Blocking gate |
 |---|---|---|---|---|---|---|
 | API perimeter hardening note | UAA-P1-083 now fails closed for protected routes unless a valid local bearer is configured and sent, or the explicit `UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY=1` local-dev bypass is set. Public metadata routes remain open. | Local developer harnesses can opt into the dev-only bypass, but product surfaces should send the local bearer and must not treat the bypass as production auth. | P0 | Shipped for fail-closed local auth posture; no production auth claim. | Evidence: `src/ultimate_ai_agent/api/local_auth.py`, `src/ultimate_ai_agent/api/manifest.py`, `docs/api/UAA_P1_083_LOCAL_BEARER_SESSION_GATE.md`, `tests/test_api_local_auth_gate.py`, `scripts/verify_uaa_p1_083_local_auth_gate.py`. | No enterprise auth, OAuth, password flow, public beta, or production authority. |

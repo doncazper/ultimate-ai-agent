@@ -84,7 +84,13 @@ def test_mutating_routes_declare_idempotency_requirement_before_authority() -> N
             continue
         assert route["idempotency_required"] is False
         assert route["idempotency_posture"] == "not_required_for_route_classification"
-        assert route["idempotency_policy_ref"] is None
+        if key == ("POST", "/control-center/web-evidence/attach"):
+            assert route["idempotency_policy_ref"] == (
+                "idempotency:web-evidence-product-slice:request-ref-payload"
+            )
+            assert "request_ref payload-idempotent" in route["idempotency_reason"]
+        else:
+            assert route["idempotency_policy_ref"] is None
 
 
 def test_idempotency_audit_declares_capability_without_runtime_authority_claims() -> None:

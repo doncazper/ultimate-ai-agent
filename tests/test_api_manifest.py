@@ -646,6 +646,17 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         == "not_required_for_route_classification"
     )
     assert (
+        routes_by_path["/control-center/web-evidence/attach"][
+            "idempotency_policy_ref"
+        ]
+        == "idempotency:web-evidence-product-slice:request-ref-payload"
+    )
+    assert "request_ref payload-idempotent" in (
+        routes_by_path["/control-center/web-evidence/attach"][
+            "idempotency_reason"
+        ]
+    )
+    assert (
         routes_by_path["/control-center/web-evidence/attach"]["rate_limit_group"]
         == "web_evidence_product_slice"
     )

@@ -112,6 +112,10 @@ Backend API endpoints consumed:
 - `POST /control-center/actions/{action_id}/local-task/commit`
 - `GET /control-center/proof/index`
 - `GET /control-center/proof/{proof_ref}`
+- `POST /control-center/web-evidence/attach` for the Beta 08 Web Evidence beta
+  slice only: configured host allowlist HTTPS GET through WebAccessGateway,
+  transient bounded redacted preview to the requester, durable safe refs and
+  redacted audit summary only.
 - `GET /control-center/trust-authority/matrix`
 - `GET /control-center/morning-briefing/summary`
 - `GET /control-center/storage/status`
@@ -136,6 +140,19 @@ Forbidden frontend route/API targets:
 - Chrome profile, Computer Use, iOS, macOS, keychain, signing, or App Store workflows.
 
 v0.17.4 keeps the frontend route set unchanged and adds local browser smoke UX polish plus safe reporting documentation. `scripts/verify_control_center_frontend.py` rejects forbidden execute, plugin enablement, runtime execution, remote dispatch, mobile sensor endpoint strings, analytics/SaaS SDK markers, sensitive browser APIs, and unsafe fixtures in frontend implementation files. `scripts/verify_control_center_browser_smoke_readiness.py` verifies that browser smoke readiness and reporting remain manual local-only documentation.
+
+Beta 08 Web Evidence beta slice keeps `/proof` as the Control Center surface for
+one configured host allowlist WebAccessGateway preview receipt. Full-strength
+Web Evidence remains future real-world evidence plus separately gated
+browser/web workflows; the repo-safe version is request-ref idempotent,
+safe-disable aware, durable safe-ref-only, and verified by
+`scripts/verify_beta_08_web_evidence_product_slice.py`. Blocked/needs-authority
+remains browser action, auth/cookies, download/upload, POST-style mutation, raw
+URL/body/header persistence, context injection, memory write, provider/model
+call, connector write, public release, and production authority. Exact
+promotion needs a later scoped PR with approval binding where mutation appears,
+redaction, rollback/safe-disable, CLI/API parity, receipts/proof, tests, and
+docs. No broad runtime authority is added.
 
 OpenAPI remains a backend contract. The current backend path count is `150` with
 unique operation IDs; earlier milestone counts in the historical sections below

@@ -127,7 +127,7 @@ function WebEvidenceAttachPanel({
       setError("Enter an HTTPS URL and allowlisted host.");
       return;
     }
-    const requestRef = `web-evidence-request:control-center-${safeRefSuffix(host)}-${safeRefSuffix(Date.now().toString(36))}`;
+    const requestRef = `web-evidence-request:control-center-${safeRefSuffix(host)}-${stableRefDigest(trimmedUrl)}`;
     setSubmitting(true);
     try {
       setReceipt(
@@ -164,11 +164,11 @@ function WebEvidenceAttachPanel({
       </div>
       <form className="preview-form" onSubmit={handleSubmit}>
         <p className="muted">
-          Tier 1 WebAccessGateway evidence preview uses one allowlisted HTTPS
-          GET. Treat fetched content as untrusted. Browser actions, cookies,
-          downloads/uploads, POST-style mutations, memory writes, runtime
-          context injection, provider/model calls, connector writes, and
-          production authority remain blocked.
+          Tier 1 WebAccessGateway evidence preview uses one configured host
+          allowlist HTTPS GET. Treat fetched content as untrusted. Browser
+          actions, cookies, downloads/uploads, POST-style mutations, memory
+          writes, runtime context injection, provider/model calls, connector
+          writes, and production authority remain blocked.
         </p>
         <label>
           <span>HTTPS URL</span>
@@ -202,16 +202,28 @@ function WebEvidenceAttachPanel({
         </p>
       )}
       {receipt && (
-        <div className="detail-grid compact">
-          <DetailTerm label="Receipt" value={receipt.receipt_ref} />
-          <DetailTerm label="Evidence" value={receipt.evidence_ref} />
-          <DetailTerm label="Preview" value={receipt.preview_ref} />
-          <DetailTerm label="Audit" value={receipt.web_access_audit_ref} />
-          <DetailTerm label="Redaction" value={receipt.redaction_posture_ref} />
-          <DetailTerm
-            label="Authority"
-            value={receipt.model_call_performed ? "unsafe" : "not granted"}
-          />
+        <div className="proof-detail-stack">
+          <div className="detail-grid compact">
+            <DetailTerm label="Receipt" value={receipt.receipt_ref} />
+            <DetailTerm label="Evidence" value={receipt.evidence_ref} />
+            <DetailTerm label="Preview" value={receipt.preview_ref} />
+            <DetailTerm label="Audit" value={receipt.web_access_audit_ref} />
+            <DetailTerm label="Gateway" value={receipt.web_access_gateway_required ? "required" : "unsafe"} />
+            <DetailTerm label="Method" value={receipt.non_get_method_used ? "unsafe" : "GET only"} />
+            <DetailTerm label="Durable Storage" value={receipt.safe_refs_only_for_durable_surfaces ? "safe refs only" : "unsafe"} />
+            <DetailTerm label="Host Scope" value={receipt.configured_host_allowlist_required ? "configured allowlist" : "unsafe"} />
+            <DetailTerm label="Idempotency" value={receipt.request_ref_payload_idempotency ? "request ref" : "unsafe"} />
+            <DetailTerm label="Redaction" value={receipt.redaction_posture_ref} />
+          </div>
+          <div>
+            <h4>Blocked In This Receipt</h4>
+            <RefList
+              refs={[
+                ...webEvidenceReceiptBlockedRefs(receipt),
+                ...receipt.blocked_authority_refs,
+              ]}
+            />
+          </div>
         </div>
       )}
       {receipt?.redacted_preview && (
@@ -357,6 +369,44 @@ function safeRefSuffix(value: string) {
       .replace(/[^a-z0-9_.-]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .slice(0, 40) || "web-evidence"
+  );
+}
+
+function stableRefDigest(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+const WEB_EVIDENCE_RECEIPT_BLOCKED_FLAG_LABELS = [
+  ["raw_response_body_stored", "raw-body-storage"],
+  ["raw_headers_stored", "raw-header-storage"],
+  ["absolute_url_returned", "absolute-url-return"],
+  ["query_string_returned", "query-string-return"],
+  ["auth_session_state_used", "auth-session-state"],
+  ["request_body_sent", "request-body"],
+  ["non_get_method_used", "non-get-method"],
+  ["redirect_followed", "redirect-follow"],
+  ["download_performed", "download"],
+  ["browser_automation_performed", "browser-automation"],
+  ["context_injection_performed", "context-injection"],
+  ["memory_write_performed", "memory-write"],
+  ["model_call_performed", "provider-model-call"],
+  ["connector_write_performed", "connector-write"],
+  ["action_execution_performed", "action-execution"],
+  ["production_authority_granted", "production-authority"],
+] as const;
+
+function webEvidenceReceiptBlockedRefs(
+  receipt: WebEvidenceProductSliceReceipt,
+) {
+  return WEB_EVIDENCE_RECEIPT_BLOCKED_FLAG_LABELS.map(([field, label]) =>
+    receipt[field]
+      ? `unsafe-state:web-evidence-receipt:${label}`
+      : `blocked-state:web-evidence-receipt:${label}`,
   );
 }
 

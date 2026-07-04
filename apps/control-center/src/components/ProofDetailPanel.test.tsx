@@ -96,11 +96,33 @@ const webEvidenceReceipt: WebEvidenceProductSliceReceipt = {
   evidence_ref: "evidence-ref:web-evidence-product-slice:test",
   proof_ref: "proof-ref:web-evidence:product-slice",
   preview_ref: "web-evidence-preview:test",
-  safe_url_ref: "http-fetch-url:example-org/status",
+  safe_url_ref: "http-fetch-url:example-org/path-0000000000000000",
   host_ref: "http-fetch-host:example-org",
   transport_ref: "http-fetch-transport:fake-web-evidence",
   web_access_request_ref: "web-access-request:test",
   web_access_audit_ref: "web-access-audit:test",
+  web_access_audit_summary: {
+    schema_version: "web-access-audit-summary.v1",
+    request_ref: "web-access-request:test",
+    safe_url_ref: "http-fetch-url:example-org/path-0000000000000000",
+    host_ref: "http-fetch-host:example-org",
+    timestamp: "2026-07-03T00:00:00+00:00",
+    adapter_kind: "local_fetch",
+    network_lane: "tool_runtime_read_only_fetch",
+    authority_mode: "read_only",
+    risk_class: "low",
+    policy_status: "allowed",
+    policy_reason_refs: ["policy-reason:web-access:phase-1-read-only-get-allowed"],
+    source_metadata_refs: [
+      "http-fetch-url:example-org/path-0000000000000000",
+      "http-fetch-host:example-org",
+      "source-metadata:web-access:content-untrusted",
+    ],
+    content_untrusted: true,
+    raw_url_omitted: true,
+    raw_headers_omitted: true,
+    raw_body_omitted: true,
+  },
   payload_fingerprint_ref: "payload-fingerprint:web-evidence-product-slice:test",
   status_code: 200,
   content_type: "text/plain",
@@ -125,6 +147,11 @@ const webEvidenceReceipt: WebEvidenceProductSliceReceipt = {
   next_safe_action: "Inspect the receipt in Evidence or Proof.",
   safe_refs_only_for_durable_surfaces: true,
   redacted_preview_returned_to_requester: true,
+  web_access_gateway_required: true,
+  configured_host_allowlist_required: true,
+  operator_supplied_host_scope_required: true,
+  request_ref_payload_idempotency: true,
+  request_ref_idempotency_ref: "idempotency-ref:web-evidence-product-slice:test",
   raw_response_body_stored: false,
   raw_headers_stored: false,
   absolute_url_returned: false,
@@ -200,6 +227,11 @@ describe("ProofDetailPanel web evidence", () => {
     expect(
       screen.queryByRole("button", { name: /^send$/i }),
     ).not.toBeInTheDocument();
+    expect(screen.getByText("configured allowlist")).toBeInTheDocument();
+    expect(screen.getByText("GET only")).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-state:web-evidence-receipt:browser-automation"),
+    ).toBeInTheDocument();
   });
 
   it("blocks attach when the proof index is not authoritative", () => {

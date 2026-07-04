@@ -4709,6 +4709,24 @@ export interface WebEvidenceProductSliceReceipt {
   transport_ref: string;
   web_access_request_ref: string;
   web_access_audit_ref: string;
+  web_access_audit_summary: {
+    schema_version: "web-access-audit-summary.v1";
+    request_ref: string;
+    safe_url_ref: string;
+    host_ref: string;
+    timestamp: string;
+    adapter_kind: string;
+    network_lane: string;
+    authority_mode: string;
+    risk_class: string;
+    policy_status: string;
+    policy_reason_refs: string[];
+    source_metadata_refs: string[];
+    content_untrusted: boolean;
+    raw_url_omitted: boolean;
+    raw_headers_omitted: boolean;
+    raw_body_omitted: boolean;
+  };
   payload_fingerprint_ref: string;
   status_code: number;
   content_type: string;
@@ -4728,6 +4746,11 @@ export interface WebEvidenceProductSliceReceipt {
   next_safe_action: string;
   safe_refs_only_for_durable_surfaces: boolean;
   redacted_preview_returned_to_requester: boolean;
+  web_access_gateway_required: boolean;
+  configured_host_allowlist_required: boolean;
+  operator_supplied_host_scope_required: boolean;
+  request_ref_payload_idempotency: boolean;
+  request_ref_idempotency_ref: string;
   raw_response_body_stored: boolean;
   raw_headers_stored: boolean;
   absolute_url_returned: boolean;

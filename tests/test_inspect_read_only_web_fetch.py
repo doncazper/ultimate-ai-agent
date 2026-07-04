@@ -42,7 +42,10 @@ def test_inspect_read_only_web_fetch_outputs_safe_refs_without_raw_url() -> None
         payload["output"]["transport_ref"]
         == "http-fetch-transport:web-access-gateway-real-world-v1"
     )
-    assert payload["output"]["safe_url_ref"] == "http-fetch-url:docs-example-test/status"
+    assert payload["output"]["safe_url_ref"].startswith(
+        "http-fetch-url:docs-example-test/path-"
+    )
+    assert "/status" not in payload["output"]["safe_url_ref"]
     assert "https://docs.example.test/status" not in rendered
     assert "super-secret-value" not in rendered
     assert "[REDACTED:SECRET_ASSIGNMENT]" in rendered

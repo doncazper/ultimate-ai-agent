@@ -7,9 +7,16 @@ from pathlib import Path
 from typing import Any
 
 from fastapi.testclient import TestClient
+import pytest
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api import founder_loop as founder_loop_api
+from ultimate_ai_agent.core.control_center.founder_loop import (
+    FounderLoopControlCenterService,
+)
+from ultimate_ai_agent.core.control_center import (
+    web_evidence_product_slice as web_evidence_slice,
+)
 from ultimate_ai_agent.core.control_center.proof import (
     build_control_center_proof_index,
 )
@@ -17,6 +24,8 @@ from ultimate_ai_agent.core.control_center.trust_authority import (
     build_trust_authority_matrix_read_model,
 )
 from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
+    WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV,
+    WEB_EVIDENCE_PRODUCT_SLICE_DISABLED_ENV,
     WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF,
     WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF,
     WebEvidenceProductSliceRequest,
@@ -53,7 +62,16 @@ def _request() -> WebEvidenceProductSliceRequest:
     )
 
 
-def test_web_evidence_product_slice_records_safe_refs_only(tmp_path: Path) -> None:
+def _allow_example_org(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(WEB_EVIDENCE_PRODUCT_SLICE_DISABLED_ENV, raising=False)
+    monkeypatch.setenv(WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV, "example.org")
+
+
+def test_web_evidence_product_slice_records_safe_refs_only(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _allow_example_org(monkeypatch)
     repo = FounderLoopRepository(tmp_path / "founder_loop")
     receipt = build_web_evidence_product_slice_receipt(
         _request(),
@@ -73,6 +91,24 @@ def test_web_evidence_product_slice_records_safe_refs_only(tmp_path: Path) -> No
     assert durable["response_body_storage"] == "omitted"
     assert durable["header_storage"] == "omitted"
     assert durable["safe_refs_only_for_durable_surfaces"] is True
+    assert durable["web_access_gateway_required"] is True
+    assert durable["configured_host_allowlist_required"] is True
+    assert durable["request_ref_payload_idempotency"] is True
+    assert durable["web_access_audit_summary"]["request_ref"] == (
+        receipt.web_access_request_ref
+    )
+    assert durable["web_access_audit_summary"]["safe_url_ref"] == (
+        receipt.safe_url_ref
+    )
+    assert durable["web_access_audit_summary"]["adapter_kind"] == "local_fetch"
+    assert durable["web_access_audit_summary"]["network_lane"] == (
+        "tool_runtime_read_only_fetch"
+    )
+    assert durable["web_access_audit_summary"]["authority_mode"] == "read_only"
+    assert durable["web_access_audit_summary"]["policy_status"] == "allowed"
+    assert durable["web_access_audit_summary"]["raw_url_omitted"] is True
+    assert receipt.safe_url_ref.startswith("http-fetch-url:example-org/path-")
+    assert "/status" not in receipt.safe_url_ref
 
     today = repo.today_summary()
     assert today["web_evidence_product_slice_status"] == (
@@ -99,7 +135,11 @@ def test_web_evidence_product_slice_records_safe_refs_only(tmp_path: Path) -> No
     assert "web_evidence_attached" in event_types
 
 
-def test_web_evidence_proof_and_trust_are_available(tmp_path: Path) -> None:
+def test_web_evidence_proof_and_trust_are_available(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _allow_example_org(monkeypatch)
     repo = FounderLoopRepository(tmp_path / "founder_loop")
     receipt = build_web_evidence_product_slice_receipt(
         _request(),
@@ -131,7 +171,66 @@ def test_web_evidence_proof_and_trust_are_available(tmp_path: Path) -> None:
     assert web_lane["control_center_grants_authority"] is False
 
 
+def test_web_evidence_product_slice_requires_configured_allowlist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(WEB_EVIDENCE_PRODUCT_SLICE_DISABLED_ENV, raising=False)
+    monkeypatch.delenv(WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV, raising=False)
+
+    with pytest.raises(
+        ValueError,
+        match="WEB_EVIDENCE_PRODUCT_SLICE_CONFIGURED_ALLOWLIST_REQUIRED",
+    ):
+        build_web_evidence_product_slice_receipt(
+            _request(),
+            transport=_fake_transport,
+        )
+
+
+def test_web_evidence_product_slice_rejects_caller_self_authorized_host(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(WEB_EVIDENCE_PRODUCT_SLICE_DISABLED_ENV, raising=False)
+    monkeypatch.setenv(WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV, "example.org")
+    request = WebEvidenceProductSliceRequest(
+        request_ref="web-evidence-request:control-center-other-host",
+        url="https://not-example.org/status",
+        allowed_host="not-example.org",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="WEB_EVIDENCE_PRODUCT_SLICE_HOST_NOT_CONFIGURED",
+    ):
+        build_web_evidence_product_slice_receipt(
+            request,
+            transport=_fake_transport,
+        )
+
+
+def test_web_evidence_product_slice_safe_disable_blocks_transport(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(WEB_EVIDENCE_PRODUCT_SLICE_DISABLED_ENV, "1")
+    monkeypatch.setenv(WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV, "example.org")
+    transport_called = False
+
+    def tracking_transport(_request: Any, _policy: Any) -> ReadOnlyHttpFetchTransportResponse:
+        nonlocal transport_called
+        transport_called = True
+        return _fake_transport(_request, _policy)
+
+    with pytest.raises(ValueError, match="WEB_EVIDENCE_PRODUCT_SLICE_DISABLED"):
+        build_web_evidence_product_slice_receipt(
+            _request(),
+            transport=tracking_transport,
+        )
+
+    assert transport_called is False
+
+
 def test_web_evidence_attach_route_returns_backend_receipt(monkeypatch: Any) -> None:
+    _allow_example_org(monkeypatch)
     receipt = build_web_evidence_product_slice_receipt(
         _request(),
         transport=_fake_transport,
@@ -178,7 +277,110 @@ def test_web_evidence_attach_route_returns_backend_receipt(monkeypatch: Any) -> 
     assert "raw_content_omitted" in payload["redactions_applied"]
 
 
-def test_web_evidence_cli_inspection_uses_same_storage(tmp_path: Path) -> None:
+def test_web_evidence_attach_route_uses_gateway_storage_replay_and_conflict(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _allow_example_org(monkeypatch)
+    monkeypatch.setattr(
+        web_evidence_slice,
+        "build_read_only_real_world_http_fetch_transport",
+        lambda: _fake_transport,
+    )
+    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    service = FounderLoopControlCenterService(repo)
+    monkeypatch.setattr(
+        founder_loop_api,
+        "get_founder_loop_service",
+        lambda: service,
+    )
+    client = TestClient(app)
+    payload = {
+        "request_ref": "web-evidence-request:api-storage-test",
+        "url": "https://example.org/status",
+        "allowed_host": "example.org",
+        "evidence_refs": ["evidence-ref:control-center:web-evidence-storage-test"],
+        "metadata_refs": ["metadata-ref:control-center:web-evidence-storage-test"],
+    }
+
+    first = client.post("/control-center/web-evidence/attach", json=payload)
+    second = client.post("/control-center/web-evidence/attach", json=payload)
+    conflict = client.post(
+        "/control-center/web-evidence/attach",
+        json={**payload, "url": "https://example.org/changed"},
+    )
+
+    assert first.status_code == 200
+    assert first.json()["data"]["replayed"] is False
+    assert first.json()["data"]["web_access_audit_summary"]["raw_url_omitted"] is True
+    assert second.status_code == 200
+    assert second.json()["data"]["replayed"] is True
+    assert conflict.status_code == 409
+    assert "https://example.org/changed" not in conflict.text
+    assert "raw_content_omitted" not in json.dumps(
+        repo.list_web_evidence_attachments()
+    ).lower()
+
+
+def test_web_evidence_attach_route_blocks_unsafe_url_without_echoing_input(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _allow_example_org(monkeypatch)
+    client = TestClient(app)
+    raw_secret = "super-sensitive-value"
+    response = client.post(
+        "/control-center/web-evidence/attach",
+        json={
+            "request_ref": "web-evidence-request:unsafe-url-test",
+            "url": f"https://example.org/status?token={raw_secret}",
+            "allowed_host": "example.org",
+        },
+    )
+
+    assert response.status_code == 400
+    assert raw_secret not in response.text
+    assert "https://example.org/status" not in response.text
+
+
+def test_web_evidence_cli_attach_failure_omits_raw_url_secret_and_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV, raising=False)
+    raw_secret = "super-sensitive-value"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_founder_loop.py",
+            "--state-dir",
+            str(tmp_path / "state"),
+            "attach-web-evidence",
+            "--request-ref",
+            "web-evidence-request:cli-failure-test",
+            "--url",
+            f"https://example.org/status?token={raw_secret}",
+            "--allowed-host",
+            "example.org",
+            "--attach-to-ref",
+            "founder-loop:daily-loop",
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert raw_secret not in result.stdout
+    assert "https://example.org/status" not in result.stdout
+    assert str(tmp_path).lower() not in result.stdout.lower()
+
+
+def test_web_evidence_cli_inspection_uses_same_storage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _allow_example_org(monkeypatch)
     state_dir = tmp_path / "state"
     repo = FounderLoopRepository(state_dir)
     receipt = build_web_evidence_product_slice_receipt(

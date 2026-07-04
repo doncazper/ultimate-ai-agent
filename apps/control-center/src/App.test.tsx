@@ -1653,6 +1653,63 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders backend-owned Web Evidence proof slice on the Proof route", async () => {
+    const baseProofIndex = backendOwnedProofIndexFixture();
+    const webRecord = {
+      ...baseProofIndex.records[0],
+      proof_ref: "proof-ref:web-evidence:product-slice",
+      proof_kind: "web_evidence",
+      status: "implemented_route_ready_no_web_evidence_attached",
+      title: "Web Evidence",
+      safe_summary:
+        "The web evidence product slice route is ready, but no local web evidence receipt has been attached yet.",
+      backend_route_refs: ["POST /control-center/web-evidence/attach"],
+      blocked_authority_refs: [
+        "blocked-state:web-evidence:no-unrestricted-browsing",
+        "blocked-state:web-evidence:no-browser-actions",
+        "blocked-state:web-evidence:no-auth-session-state",
+      ],
+      run_detail: baseProofIndex.records[0].run_detail
+        ? {
+            ...baseProofIndex.records[0].run_detail,
+            proof_ref: "proof-ref:web-evidence:product-slice",
+            proof_kind: "web_evidence",
+            title: "Web Evidence",
+            backend_route_refs: ["POST /control-center/web-evidence/attach"],
+            blocked_authority_refs: [
+              "blocked-state:web-evidence:no-unrestricted-browsing",
+              "blocked-state:web-evidence:no-browser-actions",
+              "blocked-state:web-evidence:no-auth-session-state",
+            ],
+          }
+        : baseProofIndex.records[0].run_detail,
+    };
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.controlCenterProofIndex]: {
+        ...baseProofIndex,
+        proof_count: 1,
+        proof_refs: [webRecord.proof_ref],
+        records: [webRecord],
+      },
+    });
+    window.history.pushState({}, "", "/proof");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Proof Detail$/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Web Evidence").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/configured host allowlist HTTPS GET/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /attach preview/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^send$/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("fails closed for unsafe Proof Run Detail backend payloads", async () => {
     const unsafeCases = [
       {
