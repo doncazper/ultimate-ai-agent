@@ -15,6 +15,8 @@ from scripts.verification.repo import (  # noqa: E402
     append_forbidden_claims,
     print_failures_or_success,
 )
+from ultimate_ai_agent.api.app import app  # noqa: E402
+from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 
 
 MANIFEST_PATH = "docs/control_center/release_surface_manifest.json"
@@ -235,6 +237,9 @@ def verify(
     nav_items = _nav_items(routes_text)
     actions_by_path = _route_status_actions(route_status_manifest)
     visual_by_path = _visual_surfaces_by_path(visual_regression_manifest)
+    live_backend_routes = {
+        (route.method, route.path): route for route in build_api_manifest(app).routes
+    }
     routes = manifest.get("routes", [])
     manifest_routes = {
         route.get("path"): route for route in routes if isinstance(route, dict)
@@ -250,6 +255,7 @@ def verify(
         manifest_routes,
         actions_by_path,
         visual_by_path,
+        live_backend_routes,
     )
     if check_files:
         append_forbidden_claims(failures, [MANIFEST_PATH, DOC_PATH], FORBIDDEN_CLAIMS)
@@ -342,6 +348,7 @@ def _append_route_detail_failures(
     manifest_routes: dict[str, dict[str, Any]],
     actions_by_path: dict[str, list[dict[str, Any]]],
     visual_by_path: dict[str, dict[str, Any]],
+    live_backend_routes: dict[tuple[str, str], Any],
 ) -> None:
     for nav_item in nav_items:
         path = nav_item["path"]
@@ -400,7 +407,7 @@ def _append_route_detail_failures(
         )
         if mutating_expected and route.get("approval_required") is not True:
             failures.append(f"{path} mutating backend refs require approval_required=true")
-        _append_backend_route_failures(failures, path, route)
+        _append_backend_route_failures(failures, path, route, live_backend_routes)
         _append_backend_contract_rationale_failures(failures, path, route)
         _append_route_proof_chain_failures(failures, path, route)
         _append_visual_proof_failures(failures, path, route, visual_by_path.get(path))
@@ -445,7 +452,10 @@ def _backend_route_keys(routes: Any) -> set[str]:
 
 
 def _append_backend_route_failures(
-    failures: list[str], path: str, route: dict[str, Any]
+    failures: list[str],
+    path: str,
+    route: dict[str, Any],
+    live_backend_routes: dict[tuple[str, str], Any],
 ) -> None:
     backend_routes = route.get("backend_routes")
     if not isinstance(backend_routes, list):
@@ -455,9 +465,37 @@ def _append_backend_route_failures(
         if not isinstance(backend_route, dict):
             failures.append(f"{path} backend route entry must be an object")
             continue
-        for field in ["method", "path", "operation_id", "side_effect_class", "route_classification"]:
+        for field in [
+            "method",
+            "path",
+            "operation_id",
+            "side_effect_class",
+            "route_classification",
+        ]:
             if not backend_route.get(field):
                 failures.append(f"{path} backend route missing {field}")
+        key = (
+            str(backend_route.get("method", "")),
+            str(backend_route.get("path", "")),
+        )
+        live_route = live_backend_routes.get(key)
+        if live_route is None:
+            failures.append(
+                f"{path} backend route missing from live API: {key[0]} {key[1]}"
+            )
+            continue
+        if backend_route.get("operation_id") != live_route.operation_id:
+            failures.append(
+                f"{path} backend route operation_id drifted for {key[0]} {key[1]}"
+            )
+        if backend_route.get("side_effect_class") != live_route.side_effect_class:
+            failures.append(
+                f"{path} backend route side_effect_class drifted for {key[0]} {key[1]}"
+            )
+        if backend_route.get("route_classification") != live_route.route_classification:
+            failures.append(
+                f"{path} backend route route_classification drifted for {key[0]} {key[1]}"
+            )
 
 
 def _append_backend_contract_rationale_failures(

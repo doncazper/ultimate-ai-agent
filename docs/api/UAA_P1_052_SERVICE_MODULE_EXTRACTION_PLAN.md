@@ -2,7 +2,7 @@
 
 Status: active gated foundation plan
 Baseline: v0.104.0 / 0.104.0
-Current OpenAPI path count: 162
+Current OpenAPI path count: 169
 Scope: planning, extraction guardrails, and first low-risk extraction status
 
 This plan accepts the service-module boundary used by UAA-P1-058 for the first
@@ -21,7 +21,8 @@ the typed metadata endpoint for the route inventory.
 | `docs/approvals/UAA_P1_020_POLICY_ENGINE_CONSOLIDATION_MAP.md` | Freezes current policy and approval decision owners before extraction. |
 | `docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md` | Freezes route group, owner, service module, auth posture, risk, release status, operation ID, and side-effect posture. |
 | `src/ultimate_ai_agent/api/app.py` | Current application factory/registration source. UAA-P1-058 now imports and registers the first system router from here. |
-| `src/ultimate_ai_agent/api/route_registration.py` | Current canonical operation ID generation helper. |
+| `src/ultimate_ai_agent/api/route_registration.py` | Current method-aware router registration helper. |
+| `src/ultimate_ai_agent/api/openapi.py` | Current OpenAPI finalization and stable operation ID application helper. |
 | `src/ultimate_ai_agent/api/manifest.py` | Current API manifest and side-effect class source of truth. |
 | `docs/api/openapi_contract.md` | Current public OpenAPI contract summary. |
 | `docs/api/route_inventory.md` | Current route inventory summary. |
@@ -47,7 +48,7 @@ the typed metadata endpoint for the route inventory.
 | `ultimate_ai_agent.api.routes.remote_worker_service` | `/remote-workers/*` | Planning/preview/status contracts only; no remote execution or public distribution authority. | High. | Remote worker contract tests, API manifest. |
 | `ultimate_ai_agent.api.routes.observability_service` | `/observability/*` | Bounded redacted summaries only; no raw JSONL, prompts, provider payloads, local paths, logs, usernames, hostnames, environment dumps, credentials, or external telemetry. | Medium. | Session logging/client error tests, redaction/static checks. |
 | `ultimate_ai_agent.api.routes.security_services` | `/secrets/*`, `/tools/*`, provider/cost/runtime-risk contract routes | Validation/dry-run/evaluate contracts only; no secret exposure, tool execution, provider SDK calls, or mutable authority. | Medium-high. | Secret broker, tool broker, provider/cost tests, API manifest. |
-| Future `ultimate_ai_agent.api.routes.settings_service` | Future settings/status routes only | May expose safe setup, feature-flag posture, kill-switch posture, disabled boundaries, and redacted local configuration status only after a separate scoped route contract. | Future-scoped; no current route. | Future Settings route/API/frontend tests plus OpenAPI/API manifest. |
+| Future `ultimate_ai_agent.api.routes.settings_service` | Future dedicated settings/status routes only | May expose safe setup, feature-flag posture, kill-switch posture, disabled boundaries, and redacted local configuration status only after a separate scoped route contract. | Future-scoped; current `/control-center/settings/status` remains owned by `control_center_service`. | Future Settings route/API/frontend tests plus OpenAPI/API manifest. |
 | Future `ultimate_ai_agent.api.routes.workflow_service` | Future Founder Command Center aggregate/status routes only | May compose existing safe summaries for Today, Morning Briefing, Action Inbox, Memory Review, Evidence Timeline, and Weekly CEO Review only after a separate scoped route contract. | Future-scoped; no current route. | Future workflow route/API/frontend tests plus OpenAPI/API manifest. |
 
 ## Founder Command Center Surface Alignment
@@ -56,7 +57,7 @@ FCC-P1-012 accepts this document as the route-extraction plan for Founder
 Command Center surfaces. It does not create a separate extraction plan, route
 inventory, route module, or product roadmap. The surface mapping below is an
 alignment layer over UAA-P1-021 and UAA-P1-052 so later FCC work can point to
-the accepted service-module boundary without changing the current 162-path API.
+the accepted service-module boundary without changing the current 169-path API.
 
 | FCC surface | Current route families or status refs | Accepted target service module | Extraction posture |
 |---|---|---|---|
@@ -69,7 +70,7 @@ the accepted service-module boundary without changing the current 162-path API.
 | Files | `/files/*` | `ultimate_ai_agent.api.routes.workspace_files_service` | Use the accepted extraction name rather than a new `file_service` module; preserve approval, redaction, idempotency, and rollback gates. |
 | Integrations | `/integrations/mattermost/*`, `/web-evidence/*`, and contract-only future connector surfaces | `ultimate_ai_agent.api.routes.integrations_service` and `ultimate_ai_agent.api.routes.governed_web_evidence_service` | No connector runtime/writes, unrestricted browsing, or credential handling. |
 | Runtime / models | `/runtime/*`, `/model-runtime/*`, `/models/route/preview`, local `/v1/*`, OpenWebUI local test routes | `ultimate_ai_agent.api.routes.runtime_service` and `ultimate_ai_agent.api.routes.model_runtime_service` | Preserve disabled/fallback-first local runtime posture and no provider/model authority. |
-| Settings | No dedicated route; related refs from `/control-center/status`, `/runtime/readiness`, `/runtime/capability-matrix`, and `/api/manifest` | Future `settings_service` only after a separate scoped route contract | FCC-P1-012 adds no settings route, feature-flag writes, or kill-switch execution. |
+| Settings | Current safe status route `GET /control-center/settings/status`, plus related refs from `/control-center/status`, `/runtime/readiness`, `/runtime/capability-matrix`, and `/api/manifest` | `ultimate_ai_agent.api.routes.control_center_service` for the current status route; future `settings_service` only after a separate scoped route contract | Current status route is read-model posture only. FCC-P1-012 adds no feature-flag writes, kill-switch execution, provider configuration, or runtime activation. |
 | System health/version/API manifest | `GET /health`, `GET /version`, `GET /api/manifest` | `ultimate_ai_agent.api.routes.system_service` | UAA-P1-058 extracted `GET /health` and `GET /version`; `GET /api/manifest` stays second because of manifest coupling. |
 
 The product-facing architecture may use broader names such as
@@ -87,8 +88,8 @@ the same change.
 2. Move one low-risk group into an `APIRouter` at a time.
 3. Register the router from `app.py` through a small explicit helper, keeping
    route order stable where tests or docs depend on generated OpenAPI shape.
-4. Continue using `use_route_names_as_operation_ids(app)` after all routers are
-   registered so operation IDs remain generated from current route names.
+4. Continue using `configure_openapi_contract(app)` after all routers are
+   registered so operation IDs remain stable/generated from method and path.
 5. Do not duplicate side-effect metadata in router modules. Update
    `src/ultimate_ai_agent/api/manifest.py` only when an accepted route-contract
    change requires it.
@@ -102,7 +103,7 @@ the same change.
 |---:|---|---|---|
 | 1 | `system_service` for `GET /health` and `GET /version` | Smallest read-only pair, side-effect class `none`, no storage dependency, no local state mutation, no auth change, and lowest chance of product-language drift. | Implemented by UAA-P1-058 with then-current OpenAPI count 112, operation IDs unchanged, API manifest side-effect classes unchanged, and Foundation Gate green. |
 | 2 | Add `GET /api/manifest` to `system_service` only after circular-import review | Read-only metadata route, but it depends on the manifest builder and static capability declarations. | Same gates plus explicit manifest-cache behavior check. |
-| 3 | `control_center_service` read-only summary routes | Product-facing but already inspection/preview oriented. This should wait until the first system extraction proves the registration pattern. | Control Center route-status manifest agreement and focused frontend/API route tests. |
+| 3 | `control_center_service` shell/status routes | Product-facing but already inspection/preview oriented. Beta 12 starts this extraction for the app-owned Control Center shell/status block while preserving public route behavior. | Control Center route-status manifest agreement, module ownership assertions, release-surface side-effect checks, and focused frontend/API route tests. |
 | 4 | `contracts_service` validation-only routes | Mostly low mutation risk but broader contract surface. | Contract tests and API manifest checks. |
 | 5 | Higher-risk local-dev, integration, memory, model, file, task, and web-evidence groups | These carry local-dev side effects, redaction, approval, disabled runtime, or governed network-read boundaries. | Dedicated scoped milestones per group. |
 

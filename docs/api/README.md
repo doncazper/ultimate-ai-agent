@@ -38,6 +38,7 @@ docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md
 docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md
 docs/api/UAA_P1_021_FASTAPI_ROUTE_GROUPING_MAP.md
 docs/api/UAA_P1_052_SERVICE_MODULE_EXTRACTION_PLAN.md
+docs/api/BETA_12_BACKEND_MODULARIZATION_API.md
 ```
 
 Current boundary summary:
@@ -73,6 +74,11 @@ Current boundary summary:
   add auth, distributed quota,
   dependencies, billing, or production
   authority.
+- Beta 12 extracts the app-owned Control Center shell/status route block into
+  `ultimate_ai_agent.api.control_center` while preserving the current 169-route
+  OpenAPI/API manifest boundary, stable operation IDs, route classifications,
+  side-effect classes, release-surface truth, and task-decomposition service
+  compatibility. It adds no routes and no runtime authority.
 - FCC-V1-001 consumes UAA-P1-080 through UAA-P1-086 for the Founder Loop
   mutation perimeter. Duplicate replay behavior is defined as a future
   route-owner requirement and remains blocked until append-first receipt

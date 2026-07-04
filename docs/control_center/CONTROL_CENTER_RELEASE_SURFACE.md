@@ -190,6 +190,21 @@ persistence, public release, or production authority. Verification:
 `scripts/verify_beta_11_operator_workspace_spine.py`. No broad runtime
 authority is added.
 
+Beta 12 Backend Modularization/API Contract hardening keeps the Control Center
+release surface contract intact while moving the app-owned shell/status API
+block into `ultimate_ai_agent.api.control_center`. Full-strength modularization
+should separate every route family into service-owned modules with no OpenAPI,
+API manifest, route-status, release-surface, proof, or authority drift. The
+repo-safe current version preserves the 169-route API boundary, stable
+operation IDs, side-effect classes, route classifications, response envelopes,
+redactions, task-decomposition service compatibility, and release-surface
+metadata. It adds no provider/model calls, connector writes, web fetching,
+browser automation, shell/subprocess execution, Git/file mutation, background
+autonomy, public release, or production authority. Promotion remains one route
+group at a time through UAA-P1-052 with OpenAPI/API manifest/route-status
+checks, module ownership assertions, docs, focused tests, and Foundation Gate.
+Verification: `scripts/verify_beta_12_backend_modularization_api.py`.
+
 Usable Authority PR 04 hardens `/actions` as a backend-owned Action Inbox work
 queue with safe lane counts, next-item posture, proof/receipt/evidence refs,
 CLI inspection, and the exact `local_task_create` local task record lane. It

@@ -16,6 +16,7 @@ from ultimate_ai_agent.api.cors import (
     apply_loopback_cors_response_headers,
     configure_loopback_cors,
 )
+from ultimate_ai_agent.api.control_center import register_control_center_routes
 from ultimate_ai_agent.api.founder_loop import register_founder_loop_routes
 from ultimate_ai_agent.api.idempotency import (
     API_IDEMPOTENCY_AUDIT_POLICY_REF,
@@ -169,19 +170,6 @@ from ultimate_ai_agent.core.runtime_readiness import (
     build_readiness_report,
     validate_manual_smoke_report,
 )
-from ultimate_ai_agent.core.macos_setup_assistant import (
-    build_default_macos_setup_assistant_plan,
-)
-from ultimate_ai_agent.core.control_center import (
-    ControlCenterActionPreviewRequest,
-    build_control_center_dashboard,
-    build_control_center_manifest,
-    preview_control_center_action,
-)
-from ultimate_ai_agent.core.control_center.operational_status import (
-    build_control_center_local_models_status,
-    build_control_center_settings_status,
-)
 from ultimate_ai_agent.core.observability import (
     ClientErrorReport,
     SessionLogValidationError,
@@ -239,6 +227,10 @@ register_provider_setup_routes(app)
 
 _file_review_approval_store = FileReviewApprovalStore()
 _task_decomposition_service = TaskDecompositionService.from_env()
+register_control_center_routes(
+    app,
+    task_decomposition_service_getter=lambda: _task_decomposition_service,
+)
 
 FILE_API_DEFAULT_SAFE_ROOT_REF = "local_dev_workspace"
 FILE_API_SAFE_ROOT_ENV = "UAA_FILE_API_SAFE_ROOT"
@@ -1885,212 +1877,6 @@ def post_validate_runtime_smoke_report(payload: RuntimeSmokeReportValidatePayloa
         data=validation.model_dump(mode="json"),
     )
 
-
-@app.get("/control-center/manifest", response_model=ResultEnvelope)
-def get_control_center_manifest() -> Any:
-    manifest = build_control_center_manifest()
-    return ResultEnvelope(
-        success=True,
-        operation="control_center_manifest",
-        service="ControlCenterAPI",
-        trace_id="system",
-        data=manifest.model_dump(mode="json"),
-    )
-
-
-@app.get("/control-center/dashboard", response_model=ResultEnvelope)
-def get_control_center_dashboard() -> Any:
-    api_manifest = build_api_manifest(app)
-    control_center_route_count = sum(
-        1 for route in api_manifest.routes if route.path.startswith("/control-center")
-    )
-    dashboard = build_control_center_dashboard(
-        api_route_count=api_manifest.route_count,
-        control_center_route_count=control_center_route_count,
-        foundation_gate_status="not_run_by_endpoint",
-    )
-    return ResultEnvelope(
-        success=True,
-        operation="control_center_dashboard",
-        service="ControlCenterAPI",
-        trace_id="system",
-        data=dashboard.model_dump(mode="json"),
-    )
-
-
-@app.get("/control-center/status", response_model=ResultEnvelope)
-def get_control_center_status() -> Any:
-    dashboard = build_control_center_dashboard()
-    return ResultEnvelope(
-        success=True,
-        operation="control_center_status",
-        service="ControlCenterAPI",
-        trace_id="system",
-        data=dashboard.system_status.model_dump(mode="json"),
-    )
-
-
-@app.get("/control-center/routes", response_model=ResultEnvelope)
-def get_control_center_routes() -> Any:
-    api_manifest = build_api_manifest(app)
-    control_center_routes = [
-        route.model_dump(mode="json")
-        for route in api_manifest.routes
-        if route.path.startswith("/control-center")
-    ]
-    return ResultEnvelope(
-        success=True,
-        operation="control_center_routes",
-        service="ControlCenterAPI",
-        trace_id="system",
-        data={
-            "route_count": len(control_center_routes),
-            "routes": control_center_routes,
-            "read_only_preview_only": True,
-        },
-    )
-
-
-@app.get("/control-center/approvals/summary", response_model=ResultEnvelope)
-def get_control_center_approvals_summary() -> Any:
-    dashboard = build_control_center_dashboard()
-    return ResultEnvelope(
-        success=True,
-        operation="control_center_approvals_summary",
-        service="ControlCenterAPI",
-        trace_id="system",
-        data=dashboard.approval_summary.model_dump(mode="json"),
-    )
-
-
-@app.get("/control-center/approvals/queue", response_model=ResultEnvelope)
-def get_control_center_approvals_queue(
-    run_ref: str | None = None,
-    limit: int = Query(default=50, ge=1, le=200),
-) -> Any:
-    queue = _task_decomposition_service.run_attached_approval_queue(run_ref, limit=limit)
-    return ResultEnvelope(
-        success=True,
-        operation="control_center_approvals_queue",
-        service="ControlCenterAPI",
-        trace_id=run_ref or "control-center:approvals-queue",
-        data=_safe_task_decomposition_payload(queue),
-        redactions_applied=[
-            "safe_refs_only",
-            "approval_refs_identifier_only",
-            "raw_payloads_omitted",
-            "read_only_control_center_projection",
-        ],
-    )
-
-
-@app.get("/control-center/runs/observability", response_model=ResultEnvelope)
-def get_control_center_runs_observability(
-    run_ref: str | None = None,
-    lifecycle_limit: int = Query(default=50, ge=1, le=200),
-    related_limit: int = Query(default=50, ge=1, le=200),
-) -> Any:
-    observability = _task_decomposition_service.run_observability(
-        run_ref,
-        lifecycle_limit=lifecycle_limit,
-        related_limit=related_limit,
-    )
-    return ResultEnvelope(
-        success=True,
-        operation="control_center_runs_observability",
-        service="ControlCenterAPI",
-        trace_id=run_ref or "control-center:runs-observability",
-        data=_safe_task_decomposition_payload(observability),
-        redactions_applied=[
-            "safe_refs_only",
-            "redacted_summaries_only",
-            "raw_payloads_omitted",
-            "read_only_control_center_projection",
-            "runtime_authority_blocked",
-        ],
-    )
-
-
-@app.get("/control-center/runtime-readiness/summary", response_model=ResultEnvelope)
-def get_control_center_runtime_readiness_summary() -> Any:
-    dashboard = build_control_center_dashboard()
-    return ResultEnvelope(
-        success=True,
-        operation="control_center_runtime_readiness_summary",
-        service="ControlCenterAPI",
-        trace_id="system",
-        data=dashboard.runtime_readiness_summary.model_dump(mode="json"),
-    )
-
-
-@app.get("/control-center/settings/status", response_model=ResultEnvelope)
-def get_control_center_settings_status() -> Any:
-    status = build_control_center_settings_status()
-    return ResultEnvelope(
-        success=True,
-        operation="control_center_settings_status",
-        service="ControlCenterAPI",
-        trace_id="control-center:settings-status",
-        data=status.model_dump(mode="json"),
-        evidence=[
-            {"evidence_ref": "evidence-ref:control-center:settings-status"}
-        ],
-        redactions_applied=status.redactions_applied,
-    )
-
-
-@app.get("/control-center/local-models/status", response_model=ResultEnvelope)
-def get_control_center_local_models_status() -> Any:
-    status = build_control_center_local_models_status()
-    return ResultEnvelope(
-        success=True,
-        operation="control_center_local_models_status",
-        service="ControlCenterAPI",
-        trace_id="control-center:local-models-status",
-        data=status.model_dump(mode="json"),
-        evidence=[
-            {"evidence_ref": "evidence-ref:control-center:local-models-status"}
-        ],
-        redactions_applied=status.redactions_applied,
-    )
-
-
-@app.get("/control-center/foundation-gate/summary", response_model=ResultEnvelope)
-def get_control_center_foundation_gate_summary() -> Any:
-    dashboard = build_control_center_dashboard(foundation_gate_status="not_run_by_endpoint")
-    return ResultEnvelope(
-        success=True,
-        operation="control_center_foundation_gate_summary",
-        service="ControlCenterAPI",
-        trace_id="system",
-        data=dashboard.foundation_gate_summary.model_dump(mode="json"),
-    )
-
-
-@app.get("/control-center/setup-assistant/summary", response_model=ResultEnvelope)
-def get_control_center_setup_assistant_summary() -> Any:
-    plan = build_default_macos_setup_assistant_plan()
-    return ResultEnvelope(
-        success=True,
-        operation="control_center_setup_assistant_summary",
-        service="ControlCenterAPI",
-        trace_id=plan.plan_ref,
-        data=plan.model_dump(mode="json"),
-        redactions_applied=["setup_summary_only", "raw_logs_omitted"],
-    )
-
-
-@app.post("/control-center/actions/preview", response_model=ResultEnvelope)
-def post_control_center_action_preview(request: ControlCenterActionPreviewRequest) -> Any:
-    decision = preview_control_center_action(request)
-    return ResultEnvelope(
-        success=decision.allowed,
-        operation="control_center_action_preview",
-        service="ControlCenterAPI",
-        trace_id=request.request_id,
-        data=decision.model_dump(mode="json"),
-        redactions_applied=decision.metadata.get("redactions_applied", []),
-    )
 
 @app.post("/costs/budgets/validate", response_model=ResultEnvelope)
 def post_validate_cost_budget(budget: CostBudget) -> Any:
