@@ -125,6 +125,38 @@ shell/subprocess execution, unrestricted network access, browser automation,
 tool execution authority, connector runtime, connector write, memory write,
 context injection, beta release, public distribution, or production authority.
 
+v0.105.0 Governed Runtime Pilot is the next scoped runtime-authority
+milestone. It is not the active baseline until the implementation phases,
+hardening passes, PR reviews, and release-truth checks are merged and tagged.
+The clean baseline audit point for the pilot is
+`uaa-governed-runtime-baseline-2026-07-04` at commit
+`bd35e04426958dfb9b5993e99b0a5a62342f1fd1`; historical tags remain
+immutable.
+
+The pilot may promote scoped local runtime authority only through a governed
+RuntimeGateway. Runtime profiles are:
+
+- `sealed`: default posture; no runtime model call or command execution.
+- `local-runtime`: configured loopback/local runtime candidates may exist
+  behind RuntimeGateway policy, redaction, and receipts; execution-capable
+  calls or commands still require an `operator-approved` Action Inbox approval
+  envelope.
+- `operator-approved`: exact Action Inbox approval envelopes are required
+  before execution-capable runtime actions.
+
+Pilot-scoped authority is limited to configured loopback/local model calls,
+allowlisted argv-only local command execution, exact Action Inbox approval
+envelopes, redacted runtime receipts/evidence refs, and CLI/API/Control Center
+parity. Browser automation, connector writes, plugin runtime import, remote
+execution, unrestricted web access, production authority, public beta, public
+release, and broad autonomy remain blocked. Rollback and safe-disable posture
+for the pilot must include disable-by-profile configuration, per-lane safe
+disable refs, receipt-backed audit records, and no raw prompt, response,
+provider payload, local path, command output, environment dump, credential, or
+secret-like durable persistence. This Phase 01 baseline freeze adds no runtime
+model call, command execution, browser/web/connector/plugin authority, or
+remote execution by itself.
+
 M150 is contract-only, review-only, alpha-target-only, deterministic,
 local-only, safe-ref-only, disabled by default, route-free, and no-effect. It
 records accepted M101-M149 checkpoint refs, alpha target refs, release candidate
