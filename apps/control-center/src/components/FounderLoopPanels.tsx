@@ -155,13 +155,16 @@ const unavailableReceiptStates = [
 ];
 
 type FounderLoopPrimarySurface =
+  | "Start Here"
   | "Today"
   | "Briefing"
   | "Inbox"
   | "Plans"
   | "Actions"
+  | "Proof"
   | "Memory"
   | "Evidence"
+  | "Trust"
   | "Settings";
 
 type FounderLoopSpineItem = {
@@ -190,12 +193,16 @@ export function FounderLoopSpinePanel({
   settingsStatus?: ControlCenterSettingsStatus;
   today: FounderLoopTodaySummary;
 }) {
-  const items = buildFounderLoopSpineItems({
-    evidence,
-    inbox,
-    settingsStatus,
-    today,
-  });
+  const productProof = today.founder_loop_v1_product_proof_read_model;
+  const items =
+    productProof?.productized_surface_bindings.length
+      ? buildProductizedFounderLoopSpineItems(productProof)
+      : buildFounderLoopSpineItems({
+          evidence,
+          inbox,
+          settingsStatus,
+          today,
+        });
   const localTaskSummary = summarizeLocalTaskLane(inbox?.items ?? today.actions);
   const loopTruthCopy = actionReadModelAuthoritative
     ? "The spine is backed by the local backend read model."
@@ -219,16 +226,16 @@ export function FounderLoopSpinePanel({
         </span>
       </div>
       <p className="section-copy">
-        Morning Briefing and Today are the local home, then Source Inbox,
-        Plans, Action Inbox, Memory, Evidence, and Settings stay visible as one
-        loop.
-        {` ${loopTruthCopy} `}No generic execution is available; the only
-        mutating Control Center authority shown
-        here is the exact local-task create lane after backend approval.
+        Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust, and
+        Settings stay visible as one repo-safe governed loop.
+        {` ${loopTruthCopy} `}No generic execution is available; inside this
+        spine, the exact local-task create lane is the only mutating lane shown
+        and it still requires backend approval. Web Evidence remains a separate
+        Tier 1 Proof attachment lane when rendered on Proof.
       </p>
       <FounderLoopProofPathPanel
         activeSurface={activeSurface}
-        readModel={today.founder_loop_v1_product_proof_read_model}
+        readModel={productProof}
       />
       <div aria-label="Founder daily loop modules" className="loop-spine-grid">
         {items.map((item) => (
@@ -343,6 +350,24 @@ function FounderLoopProofPathPanel({
           value={proofStatusLabel(readModel.weekly_review_status)}
         />
       </dl>
+      <article className="status-card embedded">
+        <div className="status-card-header">
+          <h3>Daily loop productization</h3>
+          <span>repo-safe</span>
+        </div>
+        <dl className="detail-list">
+          <DetailTerm label="Full-strength version" value={readModel.full_strength_goal} />
+          <DetailTerm label="Repo-safe version" value={readModel.repo_safe_scope} />
+          <DetailTerm
+            label="Blocked / needs authority"
+            value={readModel.blocked_authority_summary}
+          />
+        </dl>
+        <RefListWithFallback
+          emptyLabel="Exact promotion path refs missing"
+          refs={readModel.exact_promotion_path_refs}
+        />
+      </article>
       {activeStepId === null ? (
         <p className="proof-path-copy">
           This surface is adjacent to the seeded proof path; no proof step is
@@ -450,6 +475,66 @@ function proofStepRoute(
     weekly_review: "/today",
   };
   return routeByStep[stepId];
+}
+
+function buildProductizedFounderLoopSpineItems(
+  readModel: FounderLoopProductProofReadModel,
+): FounderLoopSpineItem[] {
+  return readModel.productized_surface_bindings.map((binding) => ({
+    surface: productizedSurfaceLabel(binding.surface_id),
+    label: binding.surface,
+    path: binding.frontend_route_ref,
+    status: binding.status,
+    posture: productizedSurfacePosture(binding),
+    summary: binding.safe_summary,
+    nextSafeAction: binding.next_safe_action,
+    refs: [
+      binding.primary_proof_ref,
+      binding.shared_ref,
+      ...binding.source_refs,
+      ...binding.receipt_refs,
+      ...binding.evidence_refs,
+      ...binding.memory_candidate_refs,
+    ],
+  }));
+}
+
+function productizedSurfaceLabel(
+  surfaceId: FounderLoopProductProofReadModel["productized_surface_bindings"][number]["surface_id"],
+): FounderLoopPrimarySurface {
+  const labels: Record<
+    FounderLoopProductProofReadModel["productized_surface_bindings"][number]["surface_id"],
+    FounderLoopPrimarySurface
+  > = {
+    action_inbox: "Actions",
+    evidence: "Evidence",
+    memory: "Memory",
+    proof: "Proof",
+    settings: "Settings",
+    start_here: "Start Here",
+    today: "Today",
+    trust: "Trust",
+  };
+  return labels[surfaceId];
+}
+
+function productizedSurfacePosture(
+  binding: FounderLoopProductProofReadModel["productized_surface_bindings"][number],
+): FounderLoopSpineItem["posture"] {
+  const text = `${binding.status} ${binding.product_posture}`.toLowerCase();
+  if (text.includes("blocked") || text.includes("planned")) {
+    return "blocked";
+  }
+  if (text.includes("receipt") || text.includes("proof")) {
+    return "receipt-backed";
+  }
+  if (text.includes("queue") || text.includes("authority")) {
+    return "authority-gated";
+  }
+  if (text.includes("entrypoint") || text.includes("home")) {
+    return "partial";
+  }
+  return "implemented";
 }
 
 function buildFounderLoopSpineItems({
@@ -1163,10 +1248,12 @@ function BriefingOperatorSummary({
 }
 
 function MemoryOperatorSummary({
+  authoritative,
   contextPacks,
   today,
   workbench,
 }: {
+  authoritative: boolean;
   contextPacks: FounderLoopMemoryContextPacks;
   today: FounderLoopTodaySummary;
   workbench: FounderLoopMemoryWorkbench;
@@ -2692,6 +2779,7 @@ export function TodaySurfacePanel({
           {today.briefing_items.map((item) => (
             <BriefingCard
               allowActionEnvelopePromotion
+              authoritative={actionReadModelAuthoritative}
               item={item}
               key={item.briefing_ref}
             />
@@ -2703,7 +2791,11 @@ export function TodaySurfacePanel({
             readModel={today.chat_to_loop_handoff_read_model}
           />
           {today.memory_review_queue.map((item) => (
-            <MemoryReviewCard item={item} key={item.review_ref} />
+            <MemoryReviewCard
+              authoritative={actionReadModelAuthoritative}
+              item={item}
+              key={item.review_ref}
+            />
           ))}
         </LoopPanel>
       </div>
@@ -6077,6 +6169,7 @@ function BriefingSectionCards({
 }
 
 export function MemoryReviewSurfacePanel({
+  authoritative,
   citationIntegrity,
   contextPacks,
   contextManifest,
@@ -6087,6 +6180,7 @@ export function MemoryReviewSurfacePanel({
   today,
   workbench,
 }: {
+  authoritative: boolean;
   citationIntegrity: FounderLoopMemoryCitationIntegrity;
   contextPacks: FounderLoopMemoryContextPacks;
   contextManifest: FounderLoopMemoryContextManifest;
@@ -6114,6 +6208,19 @@ export function MemoryReviewSurfacePanel({
             "storage_backed_review_queue"}
         </span>
       </div>
+      {!authoritative ? (
+        <article className="status-card warning">
+          <div className="status-card-header">
+            <h3>Non-authoritative fallback</h3>
+            <span>mutation controls disabled</span>
+          </div>
+          <p className="muted">
+            Memory Review is showing fallback shape only. Receipt recording,
+            manual intake, feedback, and context-pack Action proposal controls
+            require the backend-owned local read model.
+          </p>
+        </article>
+      ) : null}
       <MemoryWorkbenchHealthPanel
         memoryReview={memoryReview}
         workbench={workbench}
@@ -6125,11 +6232,15 @@ export function MemoryReviewSurfacePanel({
         <MemoryCitationIntegrityPanel citationIntegrity={citationIntegrity} />
       </div>
       <div className="panel-grid">
-        <MemoryQualityIssuePanel qualityIssues={qualityIssues} />
+        <MemoryQualityIssuePanel
+          authoritative={authoritative}
+          qualityIssues={qualityIssues}
+        />
         <MemoryMaintenanceRunPanel maintenanceRuns={maintenanceRuns} />
       </div>
       <MemoryContextManifestPanel contextManifest={contextManifest} />
       <MemoryOperatorSummary
+        authoritative={authoritative}
         contextPacks={contextPacks}
         today={today}
         workbench={workbench}
@@ -6147,11 +6258,15 @@ export function MemoryReviewSurfacePanel({
       />
       <div className="panel-grid">
         <MemoryWorkbenchSearchPanel items={workbenchItems} />
-        <ManualMemoryCandidatePanel />
+        <ManualMemoryCandidatePanel authoritative={authoritative} />
       </div>
       <div className="review-grid">
         {workbenchItems.map((item) => (
-          <MemoryWorkbenchItemCard item={item} key={item.review_ref} />
+          <MemoryWorkbenchItemCard
+            authoritative={authoritative}
+            item={item}
+            key={item.review_ref}
+          />
         ))}
       </div>
       <div className="panel-grid">
@@ -6537,6 +6652,7 @@ export function MemoryReviewSurfacePanel({
       <div className="review-grid">
         {contextPacks.proposals.map((proposal) => (
           <MemoryContextPackProposalCard
+            authoritative={authoritative}
             key={proposal.context_pack_ref}
             proposal={proposal}
           />
@@ -6552,7 +6668,11 @@ export function MemoryReviewSurfacePanel({
       </div>
       <div className="review-grid">
         {legacyReviewItems.map((item) => (
-          <MemoryReviewCard item={item} key={item.review_ref} />
+          <MemoryReviewCard
+            authoritative={authoritative}
+            item={item}
+            key={item.review_ref}
+          />
         ))}
       </div>
       <BlockedStateList states={today.memory_review_blocked_states ?? []} />
@@ -6655,8 +6775,10 @@ function MemoryCitationIntegrityPanel({
 }
 
 function MemoryQualityIssuePanel({
+  authoritative,
   qualityIssues,
 }: {
+  authoritative: boolean;
   qualityIssues: FounderLoopMemoryQualityIssues;
 }) {
   return (
@@ -6685,7 +6807,11 @@ function MemoryQualityIssuePanel({
       />
       <div className="memory-impact-list">
         {qualityIssues.issues.slice(0, 4).map((issue) => (
-          <MemoryQualityIssueRow issue={issue} key={issue.issue_ref} />
+          <MemoryQualityIssueRow
+            authoritative={authoritative}
+            issue={issue}
+            key={issue.issue_ref}
+          />
         ))}
       </div>
       <RefListWithFallback
@@ -6696,7 +6822,13 @@ function MemoryQualityIssuePanel({
   );
 }
 
-function MemoryQualityIssueRow({ issue }: { issue: FounderLoopMemoryQualityIssue }) {
+function MemoryQualityIssueRow({
+  authoritative,
+  issue,
+}: {
+  authoritative: boolean;
+  issue: FounderLoopMemoryQualityIssue;
+}) {
   return (
     <div className="memory-impact-row">
       <div className="review-card-heading compact">
@@ -6717,14 +6849,16 @@ function MemoryQualityIssueRow({ issue }: { issue: FounderLoopMemoryQualityIssue
         emptyLabel="Source signals: none"
         refs={issue.source_signal_refs}
       />
-      <MemoryFeedbackControls issue={issue} />
+      <MemoryFeedbackControls authoritative={authoritative} issue={issue} />
     </div>
   );
 }
 
 function MemoryFeedbackControls({
+  authoritative,
   issue,
 }: {
+  authoritative: boolean;
   issue: FounderLoopMemoryQualityIssue;
 }) {
   const [state, setState] = useState<{
@@ -6745,6 +6879,15 @@ function MemoryFeedbackControls({
   ];
 
   async function recordFeedback(feedbackKind: MemoryFeedbackKind) {
+    if (!authoritative) {
+      setState({
+        status: "failed",
+        feedbackKind,
+        message:
+          "Backend-owned Memory Review read model required before recording feedback receipts.",
+      });
+      return;
+    }
     setState({ status: "pending", feedbackKind });
     try {
       const receipt = await recordMemoryFeedback({
@@ -6783,9 +6926,14 @@ function MemoryFeedbackControls({
         {feedbackKinds.map((feedbackKind) => (
           <button
             className="secondary-button"
-            disabled={pending}
+            disabled={pending || !authoritative}
             key={feedbackKind}
             onClick={() => void recordFeedback(feedbackKind)}
+            title={
+              authoritative
+                ? undefined
+                : "Backend-owned Memory Review read model required"
+            }
             type="button"
           >
             {pending && state.feedbackKind === feedbackKind
@@ -7291,7 +7439,11 @@ function MemoryWorkbenchSearchPanel({
   );
 }
 
-function ManualMemoryCandidatePanel() {
+function ManualMemoryCandidatePanel({
+  authoritative,
+}: {
+  authoritative: boolean;
+}) {
   const [title, setTitle] = useState("Manual memory candidate");
   const [safeSummary, setSafeSummary] = useState(
     "Bounded safe summary for operator review only.",
@@ -7305,6 +7457,14 @@ function ManualMemoryCandidatePanel() {
   const pending = state.status === "pending";
 
   async function submitManualCandidate() {
+    if (!authoritative) {
+      setState({
+        status: "failed",
+        message:
+          "Backend-owned Memory Review read model required before recording manual candidates.",
+      });
+      return;
+    }
     setState({ status: "pending" });
     try {
       const safeSuffix = safeRefSuffix(`${candidateKind}:${title}`);
@@ -7352,6 +7512,7 @@ function ManualMemoryCandidatePanel() {
         Kind
         <input
           className="text-input"
+          disabled={!authoritative}
           onChange={(event) => setCandidateKind(event.target.value)}
           value={candidateKind}
         />
@@ -7360,6 +7521,7 @@ function ManualMemoryCandidatePanel() {
         Title
         <input
           className="text-input"
+          disabled={!authoritative}
           onChange={(event) => setTitle(event.target.value)}
           value={title}
         />
@@ -7368,6 +7530,7 @@ function ManualMemoryCandidatePanel() {
         Bounded safe summary
         <textarea
           className="text-input"
+          disabled={!authoritative}
           onChange={(event) => setSafeSummary(event.target.value)}
           rows={3}
           value={safeSummary}
@@ -7375,8 +7538,13 @@ function ManualMemoryCandidatePanel() {
       </label>
       <button
         className="secondary-button"
-        disabled={pending}
+        disabled={pending || !authoritative}
         onClick={() => void submitManualCandidate()}
+        title={
+          authoritative
+            ? undefined
+            : "Backend-owned Memory Review read model required"
+        }
         type="button"
       >
         {pending ? "Recording..." : "Record review candidate"}
@@ -7409,8 +7577,10 @@ function ManualMemoryCandidatePanel() {
 }
 
 function MemoryWorkbenchItemCard({
+  authoritative,
   item,
 }: {
+  authoritative: boolean;
   item: FounderLoopMemoryWorkbenchItem;
 }) {
   const subject = memoryDecisionSubjectFromWorkbenchItem(item);
@@ -7551,7 +7721,10 @@ function MemoryWorkbenchItemCard({
         refs={item.ranking_blocked_authority_refs}
       />
       {reviewLifecycleAvailable ? (
-        <MemoryReviewDecisionControls subject={subject} />
+        <MemoryReviewDecisionControls
+          authoritative={authoritative}
+          subject={subject}
+        />
       ) : (
         <p className="muted">
           Read-only projection. Lifecycle controls are available only for
@@ -7563,8 +7736,10 @@ function MemoryWorkbenchItemCard({
 }
 
 function MemoryContextPackProposalCard({
+  authoritative,
   proposal,
 }: {
+  authoritative: boolean;
   proposal: FounderLoopMemoryContextPackProposal;
 }) {
   const [displayedProposal, setDisplayedProposal] = useState(proposal);
@@ -7591,9 +7766,19 @@ function MemoryContextPackProposalCard({
   const hasReviewedL3Refs =
     (displayedProposal.l3_representation_refs?.length ?? 0) > 0;
   const pending = state.status === "pending";
-  const canCreateActionProposal = !hasActionProposalReceipt && hasReviewedL3Refs;
+  const canCreateActionProposal =
+    authoritative && !hasActionProposalReceipt && hasReviewedL3Refs;
 
   async function createActionProposal() {
+    if (!authoritative) {
+      setState({
+        status: "failed",
+        refreshStatus: "idle",
+        message:
+          "Backend-owned Memory Review read model required before recording context-pack Action proposal receipts.",
+      });
+      return;
+    }
     setState({
       status: "pending",
       refreshStatus: "idle",
@@ -7737,6 +7922,11 @@ function MemoryContextPackProposalCard({
             className="secondary-button"
             disabled={pending || !canCreateActionProposal}
             onClick={() => void createActionProposal()}
+            title={
+              authoritative
+                ? undefined
+                : "Backend-owned Memory Review read model required"
+            }
             type="button"
           >
             {pending ? "Recording" : "Record Action Inbox proposal receipt"}
@@ -7746,6 +7936,12 @@ function MemoryContextPackProposalCard({
           <p className="muted">
             Handoff blocked: reviewed L3 safe refs are required before an Action
             Inbox proposal receipt can be recorded.
+          </p>
+        ) : null}
+        {!authoritative ? (
+          <p className="muted">
+            Handoff blocked: backend-owned Memory Review read model is required
+            before recording proposal receipts.
           </p>
         ) : null}
         {hasActionProposalReceipt ? (
@@ -10121,9 +10317,11 @@ function TaskDecompositionStepList({
 
 function BriefingCard({
   allowActionEnvelopePromotion = false,
+  authoritative = true,
   item,
 }: {
   allowActionEnvelopePromotion?: boolean;
+  authoritative?: boolean;
   item: FounderLoopBriefingItem;
 }) {
   const priority = item.priority ?? "medium";
@@ -10174,7 +10372,10 @@ function BriefingCard({
       />
       <RefList refs={item.evidence_refs ?? []} />
       {allowActionEnvelopePromotion ? (
-        <TodayActionEnvelopeControls item={item} />
+        <TodayActionEnvelopeControls
+          authoritative={authoritative}
+          item={item}
+        />
       ) : null}
     </article>
   );
@@ -10302,7 +10503,13 @@ function stableMemoryDecisionEvidenceRefs(refs: string[]): string[] {
   );
 }
 
-function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
+function MemoryReviewCard({
+  authoritative,
+  item,
+}: {
+  authoritative: boolean;
+  item: FounderLoopMemoryReviewItem;
+}) {
   const candidateKind = item.candidate_kind ?? "memory_candidate";
   const priority = item.priority ?? "medium";
   const reviewState = item.review_state ?? item.status;
@@ -10488,6 +10695,7 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
         refs={item.decision_blocked_state_refs ?? []}
       />
       <MemoryReviewDecisionControls
+        authoritative={authoritative}
         subject={memoryDecisionSubjectFromReviewItem(item)}
       />
       <InlineListWithFallback
@@ -10504,8 +10712,10 @@ function MemoryReviewCard({ item }: { item: FounderLoopMemoryReviewItem }) {
 }
 
 function MemoryReviewDecisionControls({
+  authoritative,
   subject,
 }: {
+  authoritative: boolean;
   subject: MemoryReviewDecisionSubject;
 }) {
   const [state, setState] = useState<MemoryDecisionControlState>({
@@ -10543,6 +10753,15 @@ function MemoryReviewDecisionControls({
   }
 
   async function recordDecision(decision: MemoryReviewDecisionKind) {
+    if (!authoritative) {
+      setState({
+        status: "failed",
+        decision,
+        message:
+          "Backend-owned Memory Review read model required before recording decision receipts.",
+      });
+      return;
+    }
     const unavailable = blockedReason(decision);
     if (unavailable) {
       setState({ status: "failed", decision, message: unavailable });
@@ -10599,6 +10818,7 @@ function MemoryReviewDecisionControls({
         Corrected safe-summary ref
         <textarea
           className="text-input"
+          disabled={!authoritative}
           onChange={(event) => setCorrectedSummaryRef(event.target.value)}
           rows={2}
           spellCheck={false}
@@ -10609,6 +10829,7 @@ function MemoryReviewDecisionControls({
         Corrected bounded safe summary
         <textarea
           className="text-input"
+          disabled={!authoritative}
           onChange={(event) => setCorrectedSafeSummary(event.target.value)}
           rows={3}
           value={correctedSafeSummary}
@@ -10619,10 +10840,16 @@ function MemoryReviewDecisionControls({
           (decision) => (
             <button
               className="secondary-button"
-              disabled={pending || blockedReason(decision) !== null}
+              disabled={
+                pending || !authoritative || blockedReason(decision) !== null
+              }
               key={decision}
               onClick={() => void recordDecision(decision)}
-              title={blockedReason(decision) ?? undefined}
+              title={
+                authoritative
+                  ? (blockedReason(decision) ?? undefined)
+                  : "Backend-owned Memory Review read model required"
+              }
               type="button"
             >
               {pending && state.decision === decision
@@ -10708,8 +10935,10 @@ function safeRefSuffix(value: string): string {
 }
 
 function TodayActionEnvelopeControls({
+  authoritative,
   item,
 }: {
+  authoritative: boolean;
   item: FounderLoopBriefingItem;
 }) {
   const [state, setState] = useState<{
@@ -10720,6 +10949,14 @@ function TodayActionEnvelopeControls({
   const pending = state.status === "pending";
 
   async function createEnvelope() {
+    if (!authoritative) {
+      setState({
+        status: "failed",
+        message:
+          "Backend-owned Today read model required before recording Action-envelope receipts.",
+      });
+      return;
+    }
     setState({ status: "pending" });
     try {
       const receipt = await submitTodayActionEnvelope({
@@ -10753,8 +10990,13 @@ function TodayActionEnvelopeControls({
     <div className="decision-controls" aria-label={`${item.title} action envelope`}>
       <button
         className="secondary-button"
-        disabled={pending}
+        disabled={pending || !authoritative}
         onClick={() => void createEnvelope()}
+        title={
+          authoritative
+            ? undefined
+            : "Backend-owned Today read model required"
+        }
         type="button"
       >
         {pending ? "Recording receipt" : "Record Action-envelope receipt"}

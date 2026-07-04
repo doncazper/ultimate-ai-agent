@@ -19,6 +19,7 @@ const visibleSupportingLabels = new Set([
   "Briefing",
   "CRM",
   "Trial Packet",
+  "Source Inbox",
   "Operator Loop",
   "Setup",
   "Chat",
@@ -55,14 +56,14 @@ export function AppShell({ children, activePath, connection }: AppShellProps) {
     connection?.state === "mock_fallback" || connection?.usingMockData === true;
   const backendDegraded = connection?.state === "degraded";
   const loopStatusLabel = backendAuthoritative
-    ? "Local loop active"
+    ? "Repo-safe local loop active"
     : backendDegraded
       ? "Backend degraded; verify refs"
       : backendUnavailable
         ? "Mock fallback; non-authoritative"
         : "Backend state unverified";
   const apiBoundaryLabel = backendAuthoritative
-    ? "API boundary stable"
+    ? "API boundary route-verified"
     : "API boundary unverified";
   const apiBoundaryTone = backendAuthoritative
     ? "green"
@@ -275,7 +276,7 @@ function StatusChip({
   return (
     <span className={`top-status-chip ${tone}`} title={detail}>
       <NorthStarIcon className="chip-icon" name={icon} />
-      {label}
+      <span className="top-status-chip-label">{label}</span>
     </span>
   );
 }

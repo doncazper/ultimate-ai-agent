@@ -3246,6 +3246,10 @@ const FOUNDER_LOOP_PRODUCT_PROOF_DENIED_FLAGS = [
 ] as const;
 
 const FOUNDER_LOOP_PRODUCT_PROOF_REQUIRED_ARRAYS = [
+  "exact_promotion_path_refs",
+  "productized_surface_order",
+  "productized_route_refs",
+  "productized_backend_route_refs",
   "loop_order",
   "supported_decision_actions",
   "morning_briefing_refs",
@@ -3270,6 +3274,17 @@ const FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER = [
   "evidence_timeline",
   "memory_review",
   "weekly_review",
+] as const;
+
+const FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER = [
+  "start_here",
+  "today",
+  "action_inbox",
+  "proof",
+  "evidence",
+  "memory",
+  "trust",
+  "settings",
 ] as const;
 
 const FOUNDER_LOOP_RUNS_INTEGRATION_DENIED_FLAGS = [
@@ -3835,8 +3850,32 @@ function isSafeFounderLoopProductProofReadModel(value: unknown): boolean {
     typeof value.safe_summary !== "string" ||
     typeof value.next_safe_action !== "string" ||
     typeof value.authority_boundary !== "string" ||
+    typeof value.full_strength_goal !== "string" ||
+    typeof value.repo_safe_scope !== "string" ||
+    typeof value.blocked_authority_summary !== "string" ||
+    typeof value.productized_surface_count !== "number" ||
+    !isSafeEvidenceNarrativeText(value.full_strength_goal) ||
+    !isSafeEvidenceNarrativeText(value.repo_safe_scope) ||
+    !isSafeEvidenceNarrativeText(value.blocked_authority_summary) ||
     !hasDeniedFlagsFalse(value, FOUNDER_LOOP_PRODUCT_PROOF_DENIED_FLAGS) ||
     !hasStringArrays(value, FOUNDER_LOOP_PRODUCT_PROOF_REQUIRED_ARRAYS) ||
+    !hasExactStringList(
+      value.productized_surface_order,
+      FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER,
+    ) ||
+    !Array.isArray(value.productized_surface_bindings) ||
+    value.productized_surface_count !== value.productized_surface_bindings.length ||
+    value.productized_surface_bindings.length !==
+      FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER.length ||
+    !value.productized_surface_bindings.every(
+      isSafeFounderLoopProductizedSurfaceBinding,
+    ) ||
+    !hasExactStringList(
+      (value.productized_surface_bindings as Record<string, unknown>[]).map(
+        (binding) => String(binding.surface_id),
+      ),
+      FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER,
+    ) ||
     !hasExactStringList(value.loop_order, FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER) ||
     !hasExactStringList(value.supported_decision_actions, [
       "approve",
@@ -3863,6 +3902,43 @@ function isSafeFounderLoopProductProofReadModel(value: unknown): boolean {
   return (
     value.memory_review_status === "candidate_available" ||
     value.memory_review_status === "none"
+  );
+}
+
+function isSafeFounderLoopProductizedSurfaceBinding(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.surface_id === "string" &&
+    FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER.includes(
+      value.surface_id as (typeof FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER)[number],
+    ) &&
+    typeof value.surface === "string" &&
+    typeof value.frontend_route_ref === "string" &&
+    typeof value.backend_route_ref === "string" &&
+    typeof value.status === "string" &&
+    typeof value.product_posture === "string" &&
+    typeof value.safe_summary === "string" &&
+    typeof value.shared_ref === "string" &&
+    typeof value.primary_proof_ref === "string" &&
+    typeof value.next_safe_action === "string" &&
+    isSafeEvidenceNarrativeText(value.surface) &&
+    isSafeEvidenceNarrativeText(value.frontend_route_ref) &&
+    isSafeEvidenceNarrativeText(value.backend_route_ref) &&
+    isSafeEvidenceNarrativeText(value.status) &&
+    isSafeEvidenceNarrativeText(value.product_posture) &&
+    isSafeEvidenceNarrativeText(value.safe_summary) &&
+    isSafeEvidenceNarrativeText(value.next_safe_action) &&
+    isSafeFounderLoopTraceRef(value.shared_ref) &&
+    isSafeFounderLoopTraceRef(value.primary_proof_ref) &&
+    hasSafeFounderLoopTraceRefArrays(value, [
+      "source_refs",
+      "receipt_refs",
+      "evidence_refs",
+      "memory_candidate_refs",
+      "blocked_state_refs",
+    ])
   );
 }
 

@@ -5,6 +5,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
+    FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF,
+)
+
 
 FOUNDER_LOOP_PRODUCT_PROOF_CONTRACT_REF = (
     "contract-ref:founder-loop-v1-product-proof:v1"
@@ -26,6 +30,16 @@ FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER: tuple[str, ...] = (
     "evidence_timeline",
     "memory_review",
     "weekly_review",
+)
+FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER: tuple[str, ...] = (
+    "start_here",
+    "today",
+    "action_inbox",
+    "proof",
+    "evidence",
+    "memory",
+    "trust",
+    "settings",
 )
 FOUNDER_LOOP_PRODUCT_PROOF_REQUIRED_BLOCKED_REFS: tuple[str, ...] = (
     "blocked-state:founder-loop-proof-no-provider-model-call",
@@ -55,6 +69,16 @@ FounderLoopProductProofStepId = Literal[
     "evidence_timeline",
     "memory_review",
     "weekly_review",
+]
+FounderLoopProductizedSurfaceId = Literal[
+    "start_here",
+    "today",
+    "action_inbox",
+    "proof",
+    "evidence",
+    "memory",
+    "trust",
+    "settings",
 ]
 
 _SAFE_REF_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9:_./@#=-]{0,239}$")
@@ -159,6 +183,50 @@ class FounderLoopProductProofStep(BaseModel):
         return self
 
 
+class FounderLoopProductizedSurfaceBinding(BaseModel):
+    surface_id: FounderLoopProductizedSurfaceId
+    surface: str = Field(..., min_length=1, max_length=80)
+    frontend_route_ref: str = Field(..., min_length=1, max_length=80)
+    backend_route_ref: str = Field(..., min_length=1, max_length=160)
+    status: str = Field(..., min_length=1, max_length=120)
+    product_posture: str = Field(..., min_length=1, max_length=120)
+    safe_summary: str = Field(..., min_length=1, max_length=500)
+    shared_ref: str = Field(..., min_length=1)
+    primary_proof_ref: str = Field(..., min_length=1)
+    source_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    memory_candidate_refs: list[str] = Field(default_factory=list)
+    blocked_state_refs: list[str] = Field(default_factory=list)
+    next_safe_action: str = Field(..., min_length=1, max_length=500)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_binding(self) -> "FounderLoopProductizedSurfaceBinding":
+        for field_name in (
+            "surface",
+            "frontend_route_ref",
+            "backend_route_ref",
+            "status",
+            "product_posture",
+            "safe_summary",
+            "next_safe_action",
+        ):
+            _validate_safe_text(str(getattr(self, field_name)), field_name)
+        for field_name in ("shared_ref", "primary_proof_ref"):
+            _validate_safe_ref(str(getattr(self, field_name)), field_name)
+        for field_name in (
+            "source_refs",
+            "receipt_refs",
+            "evidence_refs",
+            "memory_candidate_refs",
+            "blocked_state_refs",
+        ):
+            _validate_ref_list(getattr(self, field_name), field_name)
+        return self
+
+
 class FounderLoopProductProofReadModel(BaseModel):
     schema_version: str = "founder-loop-v1-product-proof.v1"
     contract_ref: str = FOUNDER_LOOP_PRODUCT_PROOF_CONTRACT_REF
@@ -172,6 +240,36 @@ class FounderLoopProductProofReadModel(BaseModel):
     raw_content_included: bool = False
     scenario_ref: str = FOUNDER_LOOP_PRODUCT_PROOF_SCENARIO_REF
     shared_state_ref: str = FOUNDER_LOOP_PRODUCT_PROOF_SHARED_STATE_REF
+    full_strength_goal: str = (
+        "Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust, and "
+        "Settings operate as one local first governed daily loop."
+    )
+    repo_safe_scope: str = (
+        "Backend owned safe refs, read only route posture, visual cohesion, "
+        "mock fallback labels, and CLI inspection only."
+    )
+    blocked_authority_summary: str = (
+        "Provider and model calls, connector writes or sends, browser work, "
+        "shell subprocess work, background autonomy, public release claims, "
+        "and production authority remain blocked."
+    )
+    exact_promotion_path_refs: list[str] = Field(
+        default_factory=lambda: [
+            "promotion-path-ref:daily-loop-productization:shared-backend-refs",
+            "promotion-path-ref:daily-loop-productization:route-proof-cohesion",
+            "promotion-path-ref:daily-loop-productization:receipt-evidence-memory-binding",
+            "promotion-path-ref:daily-loop-productization:approved-mutation-lanes-only",
+        ]
+    )
+    productized_surface_order: list[FounderLoopProductizedSurfaceId] = Field(
+        default_factory=lambda: list(FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER)
+    )
+    productized_surface_count: int = 0
+    productized_surface_bindings: list[FounderLoopProductizedSurfaceBinding] = Field(
+        default_factory=list
+    )
+    productized_route_refs: list[str] = Field(default_factory=list)
+    productized_backend_route_refs: list[str] = Field(default_factory=list)
     loop_order: list[FounderLoopProductProofStepId] = Field(
         default_factory=lambda: list(FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER)
     )
@@ -254,6 +352,18 @@ class FounderLoopProductProofReadModel(BaseModel):
             raise ValueError("Founder Loop product proof loop order drifted")
         if [step.step_id for step in self.steps] != self.loop_order:
             raise ValueError("Founder Loop product proof steps must match loop order")
+        if self.productized_surface_order != list(
+            FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER
+        ):
+            raise ValueError("Founder Loop productized surface order drifted")
+        if self.productized_surface_count != len(self.productized_surface_bindings):
+            raise ValueError("Founder Loop productized surface count drifted")
+        if self.productized_surface_bindings:
+            if (
+                [binding.surface_id for binding in self.productized_surface_bindings]
+                != self.productized_surface_order
+            ):
+                raise ValueError("Founder Loop productized bindings must match order")
         if self.supported_decision_actions != list(
             FOUNDER_LOOP_PRODUCT_PROOF_DECISION_ACTIONS
         ):
@@ -283,9 +393,13 @@ class FounderLoopProductProofReadModel(BaseModel):
             "safe_summary",
             "next_safe_action",
             "authority_boundary",
+            "full_strength_goal",
+            "repo_safe_scope",
+            "blocked_authority_summary",
         ):
             _validate_safe_text(str(getattr(self, field_name)), field_name)
         for field_name in (
+            "exact_promotion_path_refs",
             "morning_briefing_refs",
             "today_refs",
             "action_inbox_refs",
@@ -300,6 +414,23 @@ class FounderLoopProductProofReadModel(BaseModel):
             "blocked_authority_refs",
         ):
             _validate_ref_list(getattr(self, field_name), field_name)
+        _validate_safe_text_list(self.productized_route_refs, "productized_route_refs")
+        _validate_safe_text_list(
+            self.productized_backend_route_refs,
+            "productized_backend_route_refs",
+        )
+        if self.productized_route_refs != [
+            binding.frontend_route_ref
+            for binding in self.productized_surface_bindings
+        ]:
+            raise ValueError("productized route refs must mirror surface bindings")
+        if self.productized_backend_route_refs != [
+            binding.backend_route_ref
+            for binding in self.productized_surface_bindings
+        ]:
+            raise ValueError(
+                "productized backend route refs must mirror surface bindings"
+            )
         return self
 
 
@@ -544,9 +675,27 @@ def build_founder_loop_product_proof_read_model(
             ),
         ),
     ]
+    productized_surface_bindings = _productized_surface_bindings(
+        action_refs=action_refs,
+        bounded_event_refs=bounded_event_refs,
+        evidence_refs=evidence_refs,
+        evidence_timeline_refs=evidence_timeline_refs,
+        memory_candidate_refs=memory_candidate_refs,
+        memory_receipt_refs=memory_receipt_refs,
+        receipt_refs=receipt_refs,
+        today_refs=today_refs,
+    )
 
     model = FounderLoopProductProofReadModel(
         steps=steps,
+        productized_surface_count=len(productized_surface_bindings),
+        productized_surface_bindings=productized_surface_bindings,
+        productized_route_refs=[
+            binding.frontend_route_ref for binding in productized_surface_bindings
+        ],
+        productized_backend_route_refs=[
+            binding.backend_route_ref for binding in productized_surface_bindings
+        ],
         morning_briefing_refs=briefing_refs,
         today_refs=today_refs,
         action_inbox_refs=action_refs,
@@ -566,6 +715,186 @@ def build_founder_loop_product_proof_read_model(
         decision_receipt_status=decision_status,
     )
     return model.model_dump(mode="json")
+
+
+def _productized_surface_bindings(
+    *,
+    action_refs: list[str],
+    bounded_event_refs: list[str],
+    evidence_refs: list[str],
+    evidence_timeline_refs: list[str],
+    memory_candidate_refs: list[str],
+    memory_receipt_refs: list[str],
+    receipt_refs: list[str],
+    today_refs: list[str],
+) -> list[FounderLoopProductizedSurfaceBinding]:
+    common_blocked = list(FOUNDER_LOOP_PRODUCT_PROOF_REQUIRED_BLOCKED_REFS)
+    shared_ref = FOUNDER_LOOP_PRODUCT_PROOF_SHARED_STATE_REF
+    primary_proof_ref = FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF
+    return [
+        FounderLoopProductizedSurfaceBinding(
+            surface_id="start_here",
+            surface="Start Here",
+            frontend_route_ref="/start",
+            backend_route_ref="GET /control-center/start-here/summary",
+            status="backend_owned_entrypoint",
+            product_posture="entrypoint",
+            safe_summary=(
+                "Start Here opens the local daily loop with shared run, proof, "
+                "action, evidence, memory, and Trust refs."
+            ),
+            shared_ref=shared_ref,
+            primary_proof_ref=primary_proof_ref,
+            source_refs=[
+                "contract-ref:control-center-start-here:v1",
+                *today_refs[:3],
+            ],
+            evidence_refs=evidence_refs[:6],
+            blocked_state_refs=common_blocked,
+            next_safe_action="Open Today or Action Inbox from the shared loop refs.",
+        ),
+        FounderLoopProductizedSurfaceBinding(
+            surface_id="today",
+            surface="Today",
+            frontend_route_ref="/today",
+            backend_route_ref="GET /control-center/today/summary",
+            status="backend_owned_home",
+            product_posture="home",
+            safe_summary=(
+                "Today remains the local home surface for what matters, what "
+                "needs review, evidence, memory, and blocked posture."
+            ),
+            shared_ref=shared_ref,
+            primary_proof_ref=primary_proof_ref,
+            source_refs=today_refs,
+            evidence_refs=evidence_refs[:8],
+            blocked_state_refs=common_blocked,
+            next_safe_action="Review Action Inbox and Proof before claiming outcomes.",
+        ),
+        FounderLoopProductizedSurfaceBinding(
+            surface_id="action_inbox",
+            surface="Action Inbox",
+            frontend_route_ref="/actions",
+            backend_route_ref="GET /control-center/actions/inbox",
+            status="receipt_lane_visible",
+            product_posture="work_queue",
+            safe_summary=(
+                "Action Inbox shows exact local work, decision receipts, and "
+                "approved local task posture without generic execution."
+            ),
+            shared_ref=shared_ref,
+            primary_proof_ref=primary_proof_ref,
+            source_refs=action_refs,
+            receipt_refs=receipt_refs,
+            evidence_refs=evidence_refs[:8],
+            blocked_state_refs=common_blocked,
+            next_safe_action="Record only supported receipts or exact approved local task commits.",
+        ),
+        FounderLoopProductizedSurfaceBinding(
+            surface_id="proof",
+            surface="Proof",
+            frontend_route_ref="/proof",
+            backend_route_ref="GET /control-center/proof/index",
+            status="backend_owned_proof_index",
+            product_posture="proof_spine",
+            safe_summary=(
+                "Proof ties the same run, receipt, evidence, memory, rollback, "
+                "safe disable, and blocked authority refs into inspection detail."
+            ),
+            shared_ref=shared_ref,
+            primary_proof_ref=primary_proof_ref,
+            source_refs=[
+                "contract-ref:control-center-proof-spine:v1",
+                primary_proof_ref,
+            ],
+            receipt_refs=receipt_refs,
+            evidence_refs=evidence_refs[:8],
+            memory_candidate_refs=memory_candidate_refs[:6],
+            blocked_state_refs=common_blocked,
+            next_safe_action="Open Proof before treating a loop event as complete.",
+        ),
+        FounderLoopProductizedSurfaceBinding(
+            surface_id="evidence",
+            surface="Evidence",
+            frontend_route_ref="/evidence",
+            backend_route_ref="GET /control-center/evidence/timeline",
+            status="storage_backed_timeline",
+            product_posture="evidence_spine",
+            safe_summary=(
+                "Evidence shows what was proposed, approved, changed, stale, "
+                "blocked, and receipt backed from safe refs only."
+            ),
+            shared_ref=shared_ref,
+            primary_proof_ref=primary_proof_ref,
+            source_refs=evidence_timeline_refs,
+            receipt_refs=receipt_refs,
+            evidence_refs=[*bounded_event_refs, *evidence_refs[:6]],
+            blocked_state_refs=common_blocked,
+            next_safe_action="Use Evidence refs to justify Memory and Action posture.",
+        ),
+        FounderLoopProductizedSurfaceBinding(
+            surface_id="memory",
+            surface="Memory",
+            frontend_route_ref="/memory",
+            backend_route_ref="GET /control-center/memory/review",
+            status="reviewed_recall_only",
+            product_posture="memory_binding",
+            safe_summary=(
+                "Memory remains reviewed recall only and explains which evidence "
+                "and receipts make memory visible in the loop."
+            ),
+            shared_ref=shared_ref,
+            primary_proof_ref=primary_proof_ref,
+            source_refs=memory_candidate_refs,
+            receipt_refs=memory_receipt_refs,
+            evidence_refs=evidence_refs[:8],
+            memory_candidate_refs=memory_candidate_refs,
+            blocked_state_refs=common_blocked,
+            next_safe_action="Review memory candidates; no hidden memory write or context injection.",
+        ),
+        FounderLoopProductizedSurfaceBinding(
+            surface_id="trust",
+            surface="Trust",
+            frontend_route_ref="/trust",
+            backend_route_ref="GET /control-center/trust-authority/matrix",
+            status="authority_map_visible",
+            product_posture="authority_map",
+            safe_summary=(
+                "Trust turns the loop into an operator authority map with enabled, "
+                "approval required, planned, and blocked lanes."
+            ),
+            shared_ref=shared_ref,
+            primary_proof_ref=primary_proof_ref,
+            source_refs=[
+                "contract-ref:usable-authority-trust-authority-map:v1",
+                "trust-lane:local-read-preview",
+            ],
+            evidence_refs=evidence_refs[:6],
+            blocked_state_refs=common_blocked,
+            next_safe_action="Use Trust to pick the next exact authority promotion.",
+        ),
+        FounderLoopProductizedSurfaceBinding(
+            surface_id="settings",
+            surface="Settings",
+            frontend_route_ref="/settings",
+            backend_route_ref="GET /control-center/settings/status",
+            status="read_only_status_backed",
+            product_posture="operator_posture",
+            safe_summary=(
+                "Settings closes the loop with local status, kill switch posture, "
+                "feature flag visibility, and product language boundaries."
+            ),
+            shared_ref=shared_ref,
+            primary_proof_ref=primary_proof_ref,
+            source_refs=[
+                "settings-ref:control-center:status",
+                "docs-ref:control-center-product-language-rules",
+            ],
+            evidence_refs=evidence_refs[:6],
+            blocked_state_refs=common_blocked,
+            next_safe_action="Inspect Settings posture before proposing any new authority.",
+        ),
+    ]
 
 
 def _refs(values: Any) -> list[str]:
@@ -611,6 +940,11 @@ def _safe_ref_or_none(value: object) -> str | None:
 def _validate_ref_list(refs: list[str], field_name: str) -> None:
     for ref in refs:
         _validate_safe_ref(str(ref), field_name)
+
+
+def _validate_safe_text_list(values: list[str], field_name: str) -> None:
+    for value in values:
+        _validate_safe_text(str(value), field_name)
 
 
 def _validate_safe_ref(value: str, field_name: str) -> None:

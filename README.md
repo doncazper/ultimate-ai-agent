@@ -20,14 +20,14 @@ distribution, or broad-authority runtime.
 |---|---|
 | What is it? | A Python Agent Core with a FastAPI contract boundary, a React/TypeScript Control Center shell, and local-first governance for proposals, approvals, receipts, memory review, and evidence. |
 | What does it demonstrate? | API contracts, route classification, local approval authority, idempotency posture, redacted evidence, durable receipts, frontend/backend parity, and disciplined product-language controls. |
-| What is usable now? | Proofed route surfaces for `/actions`, `/chat`, `/memory`, and `/evidence`; partial/status surfaces for Today, Plans, Settings, Runtime, and local model readiness; and a fixture-only `/crm` shell for blocked CRM vertical review. |
+| What is usable now? | Exact route-surface proof for `/actions`, `/chat`, `/memory`, and `/evidence`; backend-owned partial inspection surfaces for Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust, and Settings; status surfaces for Runtime and local model readiness; and a fixture-only `/crm` shell for blocked CRM vertical review. |
 | What is intentionally not claimed? | Production readiness, public release, broad autonomy, connector writes, unrestricted shell/browser/network authority, provider/model authority, hidden context injection, and generic action execution. |
 
 ## Product North Star
 
 The current product north star is a calm Control Center for the Founder Loop:
-Today, Action Inbox, Plans, Chat, Memory, Evidence, Settings, and Setup
-Assistant. Founder Command Center remains strategy and north-star terminology,
+Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust, Settings,
+Plans, Chat, and Setup Assistant. Founder Command Center remains strategy and north-star terminology,
 not a separate app shell. The current UI is not yet close to these images. They
 are product vision targets, not current implementation screenshots or
 implementation evidence; current truth still comes from route/API contracts,
@@ -301,9 +301,12 @@ npm --prefix apps/control-center run test -- --run
 | `/chat` | Proofed bounded route surface | Durable receipts and handoff proposals exist. |
 | `/memory` | Proofed bounded route surface | Review decisions and L1/L2/L3 read-only indexes exist. |
 | `/evidence` | Proofed bounded route surface | Productized timeline events and receipts exist. |
+| `/start` | Partial/backend-owned inspection | Start Here binds the repo-safe daily loop to run, proof, action, evidence, memory, and blocked authority refs. |
 | `/today` | Partial | Product spine exists; broader workflow is still staged. |
+| `/proof` | Partial/backend-owned inspection | Proof index/detail surfaces expose safe refs and blocked authority; they do not grant execution. |
+| `/trust` | Partial/backend-owned inspection | Trust is an authority map for enabled, approval-required, planned, and blocked lanes; it does not grant authority. |
 | `/crm` | Fixture-only/blocked | Presentation shell only; backend CRM read models, API routes, connector runtime, and writes remain blocked. |
-| `/inbox` | Blocked/future | Connector workflows are not granted. |
+| `/inbox` | Supporting source-readiness surface | Connector workflows are not granted. |
 | `/settings` | Partial/support | Runtime authority is not granted by settings UI. |
 | Local models | Partial/support | Readiness evidence only; no broad production authority. |
 

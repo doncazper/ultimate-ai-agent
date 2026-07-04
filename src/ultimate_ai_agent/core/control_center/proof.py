@@ -60,6 +60,14 @@ _COMMON_BLOCKED_AUTHORITY_REFS = (
     "blocked-state:proof-detail:no-production-authority",
 )
 _SAFE_SUFFIX_RE = re.compile(r"[^a-z0-9_-]+")
+_ACTION_PROOF_NEXT_ITEM_GROUP_ORDER = (
+    "approved_local_task_lane",
+    "ready_for_decision",
+    "proposal_only_no_execution_path",
+    "blocked_by_authority",
+    "expired_stale",
+    "receipt_recorded",
+)
 
 
 class ControlCenterProofRecord(BaseModel):
@@ -346,7 +354,7 @@ def _daily_loop_record(
 def _action_records(today_summary: dict[str, Any]) -> list[ControlCenterProofRecord]:
     actions = _list_of_dicts(today_summary.get("actions"))
     records: list[ControlCenterProofRecord] = []
-    for action in actions[:6]:
+    for action in _actions_for_proof_index(actions):
         source_ref = _first_ref(
             action.get("action_envelope_ref"),
             action.get("item_ref"),
@@ -652,7 +660,10 @@ def _source_readiness_record(today_summary: dict[str, Any]) -> ControlCenterProo
 def _approval_record(today_summary: dict[str, Any]) -> ControlCenterProofRecord:
     actions = _list_of_dicts(today_summary.get("actions"))
     approval_refs = _merge_refs(
-        *(_refs([action.get("approval_envelope_ref")]) for action in actions[:6])
+        *(
+            _refs([action.get("approval_envelope_ref")])
+            for action in _actions_for_proof_index(actions)
+        )
     )
     return ControlCenterProofRecord(
         proof_ref="proof-ref:approval-review:queue",
@@ -709,6 +720,34 @@ def _dedupe_records(
         seen.add(record.proof_ref)
         result.append(record)
     return result
+
+
+def _actions_for_proof_index(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    selected = list(actions[:6])
+    next_action = _next_action_for_proof(actions)
+    if next_action is not None and all(
+        _action_identity(action) != _action_identity(next_action)
+        for action in selected
+    ):
+        selected.append(next_action)
+    return selected
+
+
+def _next_action_for_proof(actions: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for group_id in _ACTION_PROOF_NEXT_ITEM_GROUP_ORDER:
+        for action in actions:
+            if str(action.get("action_group_id") or "") == group_id:
+                return action
+    return actions[0] if actions else None
+
+
+def _action_identity(action: dict[str, Any]) -> str:
+    return str(
+        action.get("action_envelope_ref")
+        or action.get("item_ref")
+        or action.get("title")
+        or id(action)
+    )
 
 
 def _derived_proof_ref(kind: str, source_ref: str) -> str:

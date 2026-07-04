@@ -289,9 +289,7 @@ def _start_step_from_binding(
             binding.get("next_safe_action")
             or "Inspect this step's safe refs before relying on it."
         ),
-        proof_ref=str(
-            binding.get("proof_ref") or FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF
-        ),
+        proof_ref=FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF,
         receipt_refs=_refs(binding.get("receipt_refs"))[:8],
         evidence_refs=_refs(binding.get("evidence_refs"))[:8],
         approval_refs=_refs(binding.get("approval_refs"))[:8],

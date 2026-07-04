@@ -215,3 +215,28 @@ def test_web_evidence_cli_inspection_uses_same_storage(tmp_path: Path) -> None:
     assert payload["redacted_preview_omitted"] is True
     assert "super-sensitive-value" not in output_text
     assert str(state_dir).lower() not in output_text
+
+
+def test_web_evidence_authority_docs_track_control_center_route() -> None:
+    conveyor = (
+        ROOT / "docs/control_center/AUTHORITY_RAMP_CONVEYOR.md"
+    ).read_text(encoding="utf-8")
+    scorecard = json.loads(
+        (ROOT / "docs/control_center/authority_candidate_scorecard.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF in conveyor
+    assert "no backend route or Control Center control" not in conveyor
+    first_lane = scorecard["first_implementation_lane"]
+    foundation = next(
+        item
+        for item in scorecard["proposal_foundation"]
+        if item["foundation_id"] == "read_only_real_world_web_fetch"
+    )
+    assert "no backend route or Control Center control" not in first_lane[
+        "safe_summary"
+    ]
+    assert WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF in first_lane["route_refs"]
+    assert WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF in foundation["route_refs"]

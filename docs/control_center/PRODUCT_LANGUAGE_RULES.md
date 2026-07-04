@@ -16,16 +16,25 @@ Control Center and OpenWebUI remain shells. Python Agent Core, PolicyEngine,
 LocalApprovalAuthority, route side-effect classification, OpenAPI checks, and
 Foundation Gate checks remain the authority boundaries.
 
-Control Center is the first-party product UI for Today, Inbox, Plans, Actions,
-Memory, Evidence, Settings, Models, and future first-party Chat. Founder Loop
-is the bounded operator workflow inside that shell. Founder Command Center is a
-strategy and north-star planning label, not a second app name or a separate
-runtime surface. OpenWebUI is a supported local/dev conversational shell and
-compatibility surface only; copy must not imply that OpenWebUI owns product
-state or is where every UAA workflow will be wired.
+Control Center is the first-party product UI for Start Here, Today, Action
+Inbox, Proof, Evidence, Memory, Trust, Settings, Plans, Models, and future
+first-party Chat. Founder Loop is the bounded operator workflow inside that
+shell. Founder Command Center is a strategy and north-star planning label, not
+a second app name or a separate runtime surface. OpenWebUI is a supported
+local/dev conversational shell and compatibility surface only; copy must not
+imply that OpenWebUI owns product state or is where every UAA workflow will be
+wired.
 
-Today, Inbox, Plans, Actions, Memory, Evidence, and Settings remain the core
-operator loop surfaces for product-language enforcement.
+Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust, and Settings
+are the current beta-03 repo-safe daily-loop surfaces for product-language
+enforcement. Source Inbox remains visible in primary navigation for route
+reachability and visual-baseline continuity, but it is a supporting
+source-readiness surface until read-only connector/source contracts graduate; it
+must not be described as the primary daily work queue.
+
+The inherited founder-loop wording still applies to Today, Inbox, Plans,
+Actions, Memory, Evidence, and Settings when checking older shell and
+documentation guardrails.
 
 ## Usable Authority Tiers
 

@@ -11,7 +11,12 @@ from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.control_center.founder_loop import (
     FounderLoopControlCenterService,
 )
+from ultimate_ai_agent.core.control_center.local_tasks import (
+    FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+    FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
+)
 from ultimate_ai_agent.core.storage import FounderLoopRepository
+from ultimate_ai_agent.core.storage.founder_loop import FounderLoopActionRecord
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,6 +37,46 @@ def _assert_no_runtime_authority(payload: dict) -> None:
         "raw_content_included\": true",
     ]:
         assert forbidden not in text
+
+
+def _seed_blocked_actions_with_late_approved_local_task(
+    repo: FounderLoopRepository,
+    *,
+    blocked_count: int,
+) -> None:
+    for index in range(blocked_count):
+        repo.upsert_action(
+            FounderLoopActionRecord(
+                item_ref=f"founder-action:bounded-review-{index}",
+                title=f"Bounded review action {index}",
+                safe_summary="Blocked bounded action used for proof-index coverage.",
+                surface="Actions",
+                action_kind="blocked_test_action",
+                approval_required=True,
+                state_change_contract_ref=f"contract-ref:blocked-test:{index}",
+                state_change_readiness="blocked_needs_authority",
+                blocked_state="Blocked until a scoped authority lane exists.",
+                next_safe_action="Inspect the safe refs only.",
+            )
+        )
+    repo.upsert_action(
+        FounderLoopActionRecord(
+            item_ref="founder-action:late-approved-local-task",
+            title="Late approved local task",
+            safe_summary="Approved local task after the initial bounded action rows.",
+            surface="Actions",
+            action_kind=FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
+            status="approved",
+            approval_required=True,
+            approval_envelope_ref="approval-envelope:founder-loop:late-approved-local-task",
+            approval_envelope_status="approved_exact_scope",
+            state_change_contract_ref=FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+            state_change_readiness="local_task_commit_contract_ready",
+            rollback_ref="rollback-not-applicable:late-approved-local-task",
+            safe_disable_ref="safe-disable:late-approved-local-task",
+            next_safe_action="Inspect or commit the exact approved local task lane.",
+        )
+    )
 
 
 def test_proof_index_covers_universal_product_event_kinds(tmp_path: Path) -> None:
@@ -66,6 +111,106 @@ def test_proof_index_covers_universal_product_event_kinds(tmp_path: Path) -> Non
         assert record["blocked_authority_refs"]
         assert record["next_safe_action"]
     _assert_no_runtime_authority(index)
+
+
+def test_daily_loop_surface_proof_refs_resolve_to_universal_proof_index(
+    tmp_path: Path,
+) -> None:
+    service = FounderLoopControlCenterService(
+        FounderLoopRepository(tmp_path / "founder_loop")
+    )
+
+    proof_refs = set(service.proof_index()["proof_refs"])
+    start_here = service.start_here_summary()
+    actions_inbox = service.actions_inbox()
+    trust = service.trust_authority_matrix()
+    product_proof = service.today_summary()[
+        "founder_loop_v1_product_proof_read_model"
+    ]
+
+    assert start_here["primary_proof_ref"] in proof_refs
+    assert {
+        step["proof_ref"] for step in start_here["steps"]
+    } <= proof_refs
+    next_item = actions_inbox["action_inbox_work_queue_read_model"]["next_item"]
+    assert next_item["proof_ref"] in proof_refs
+    core_loop_lane_refs = {
+        "trust-lane:start-here-read",
+        "trust-lane:today-loop-read",
+        "trust-lane:proof-detail-read",
+        "trust-lane:action-inbox-work-queue",
+        "trust-lane:local-task-commit",
+        "trust-lane:memory-review-read",
+        "trust-lane:reviewed-memory-write",
+        "trust-lane:evidence-timeline-read",
+    }
+    for lane in trust["lanes"]:
+        if lane["lane_ref"] in core_loop_lane_refs:
+            assert set(lane["proof_refs"]) <= proof_refs
+    assert {
+        binding["primary_proof_ref"]
+        for binding in product_proof["productized_surface_bindings"]
+    } <= proof_refs
+
+
+def test_proof_index_covers_action_inbox_next_item_after_initial_bound(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder_loop", seed_defaults=False)
+    _seed_blocked_actions_with_late_approved_local_task(repo, blocked_count=6)
+    service = FounderLoopControlCenterService(repo)
+
+    next_item = service.actions_inbox()["action_inbox_work_queue_read_model"][
+        "next_item"
+    ]
+    proof_refs = set(service.proof_index()["proof_refs"])
+
+    assert next_item["item_ref"] == "founder-action:late-approved-local-task"
+    assert next_item["proof_ref"] in proof_refs
+
+
+def test_proof_cli_default_covers_action_inbox_next_item_after_default_bound(
+    tmp_path: Path,
+) -> None:
+    state_dir = tmp_path / "founder_loop"
+    repo = FounderLoopRepository(state_dir, seed_defaults=False)
+    _seed_blocked_actions_with_late_approved_local_task(repo, blocked_count=12)
+
+    action_result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_founder_loop.py",
+            "--state-dir",
+            str(state_dir),
+            "inspect-action-work-queue",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    proof_result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/dev/uaa_founder_loop.py",
+            "--state-dir",
+            str(state_dir),
+            "inspect-proof",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    action_payload = json.loads(action_result.stdout)
+    proof_payload = json.loads(proof_result.stdout)
+    next_item = action_payload["action_inbox_work_queue_read_model"]["next_item"]
+    proof_refs = set(proof_payload["proof_index"]["proof_refs"])
+
+    assert next_item["item_ref"] == "founder-action:late-approved-local-task"
+    assert next_item["proof_ref"] in proof_refs
+    _assert_no_runtime_authority(action_payload)
+    _assert_no_runtime_authority(proof_payload)
 
 
 def test_proof_detail_returns_same_backend_owned_record(tmp_path: Path) -> None:

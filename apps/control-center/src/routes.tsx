@@ -80,7 +80,7 @@ export type CommandPaletteItem = {
 export const navItems: NavItem[] = [
   { path: "/start", label: "Start Here", group: "Founder Loop", status: "backend-owned start loop", releaseStatus: "partial", role: "primary" },
   { path: "/today", label: "Today", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "primary" },
-  { path: "/inbox", label: "Source Inbox", group: "Founder Loop", status: "blocked/planned", releaseStatus: "partial", role: "primary" },
+  { path: "/inbox", label: "Source Inbox", group: "Founder Loop", status: "supporting source readiness", releaseStatus: "partial", role: "primary" },
   { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial", releaseStatus: "partial", role: "primary" },
   { path: "/actions", label: "Action Inbox", group: "Founder Loop", status: "storage-backed", releaseStatus: "ship", role: "primary" },
   { path: "/proof", label: "Proof", group: "Founder Loop", status: "backend-owned proof detail", releaseStatus: "partial", role: "primary" },
@@ -127,7 +127,7 @@ export function getRouteSurfaceLabel(path: string): string {
 }
 
 export function visibleReleaseStatus(status: ReleaseSurfaceStatus): string {
-  return status === "ship" ? "proofed" : status;
+  return status === "ship" ? "exact route proof" : status;
 }
 
 const disabledCommandItems: CommandPaletteItem[] = [
@@ -178,10 +178,20 @@ export function renderRoute(path: string, data: ControlCenterData) {
   switch (path) {
     case "/start":
       return (
-        <StartHerePanel
-          authoritative={isAuthoritativeConnection(data)}
-          startHere={data.founderStartHere}
-        />
+        <>
+          <FounderLoopSpinePanel
+            activeSurface="Start Here"
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            evidence={data.founderEvidenceTimeline}
+            inbox={data.founderActionsInbox}
+            settingsStatus={data.settingsStatus}
+            today={data.founderToday}
+          />
+          <StartHerePanel
+            authoritative={isAuthoritativeConnection(data)}
+            startHere={data.founderStartHere}
+          />
+        </>
       );
     case "/today":
       return (
@@ -238,17 +248,37 @@ export function renderRoute(path: string, data: ControlCenterData) {
       );
     case "/proof":
       return (
-        <ProofDetailPanel
-          authoritative={isAuthoritativeConnection(data)}
-          proofIndex={data.proofIndex}
-        />
+        <>
+          <FounderLoopSpinePanel
+            activeSurface="Proof"
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            evidence={data.founderEvidenceTimeline}
+            inbox={data.founderActionsInbox}
+            settingsStatus={data.settingsStatus}
+            today={data.founderToday}
+          />
+          <ProofDetailPanel
+            authoritative={isAuthoritativeConnection(data)}
+            proofIndex={data.proofIndex}
+          />
+        </>
       );
     case "/trust":
       return (
-        <TrustAuthorityPanel
-          authoritative={isAuthoritativeConnection(data)}
-          matrix={data.trustAuthorityMatrix}
-        />
+        <>
+          <FounderLoopSpinePanel
+            activeSurface="Trust"
+            actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            evidence={data.founderEvidenceTimeline}
+            inbox={data.founderActionsInbox}
+            settingsStatus={data.settingsStatus}
+            today={data.founderToday}
+          />
+          <TrustAuthorityPanel
+            authoritative={isAuthoritativeConnection(data)}
+            matrix={data.trustAuthorityMatrix}
+          />
+        </>
       );
     case "/briefing":
       return (
@@ -370,6 +400,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
             today={data.founderToday}
           />
           <MemoryReviewSurfacePanel
+            authoritative={isAuthoritativeConnection(data)}
             citationIntegrity={data.founderMemoryCitationIntegrity}
             contextPacks={data.founderMemoryContextPacks}
             contextManifest={data.founderMemoryContextManifest}

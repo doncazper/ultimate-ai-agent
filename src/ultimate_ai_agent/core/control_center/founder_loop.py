@@ -54,12 +54,12 @@ class FounderLoopControlCenterService:
 
     def proof_index(self) -> dict:
         return build_control_center_proof_index(
-            today_summary=self.repository.today_summary()
+            today_summary=self.repository.today_summary(limit=50)
         )
 
     def proof_detail(self, proof_ref: str) -> dict:
         return build_control_center_proof_detail(
-            today_summary=self.repository.today_summary(),
+            today_summary=self.repository.today_summary(limit=50),
             proof_ref=proof_ref,
         )
 

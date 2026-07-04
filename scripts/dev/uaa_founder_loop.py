@@ -23,6 +23,7 @@ from ultimate_ai_agent.core.control_center import (  # noqa: E402
     FOUNDER_LOOP_PRODUCT_PROOF_CONTRACT_REF,
     FOUNDER_LOOP_PRODUCT_PROOF_READ_MODEL_SOURCE,
     FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER,
+    FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER,
     UNIFIED_WORK_THREAD_CONTRACT_REF,
     UNIFIED_WORK_THREAD_READ_MODEL_SOURCE,
     UNIFIED_WORK_THREAD_STEP_ORDER,
@@ -456,6 +457,27 @@ def _safe_loop_proof_step_projection(step: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _safe_loop_productized_surface_projection(
+    binding: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "surface_id": binding.get("surface_id"),
+        "surface": binding.get("surface"),
+        "frontend_route_ref": binding.get("frontend_route_ref"),
+        "backend_route_ref": binding.get("backend_route_ref"),
+        "status": binding.get("status"),
+        "product_posture": binding.get("product_posture"),
+        "shared_ref": binding.get("shared_ref"),
+        "primary_proof_ref": binding.get("primary_proof_ref"),
+        "source_refs": list(binding.get("source_refs") or []),
+        "receipt_refs": list(binding.get("receipt_refs") or []),
+        "evidence_refs": list(binding.get("evidence_refs") or []),
+        "memory_candidate_refs": list(binding.get("memory_candidate_refs") or []),
+        "blocked_state_refs": list(binding.get("blocked_state_refs") or []),
+        "next_safe_action": binding.get("next_safe_action"),
+    }
+
+
 def _loop_spine_state_dir(args: argparse.Namespace) -> Path:
     if args.state_dir is not None:
         return Path(args.state_dir)
@@ -481,6 +503,15 @@ def _loop_spine_base_output(
         "inspection_error_ref": inspection_error_ref,
         "scenario_ref": None,
         "shared_state_ref": None,
+        "full_strength_goal": None,
+        "repo_safe_scope": None,
+        "blocked_authority_summary": None,
+        "exact_promotion_path_refs": [],
+        "productized_surface_order": list(FOUNDER_LOOP_PRODUCTIZATION_SURFACE_ORDER),
+        "productized_surface_count": 0,
+        "productized_surface_bindings": [],
+        "productized_route_refs": [],
+        "productized_backend_route_refs": [],
         "loop_order": list(FOUNDER_LOOP_PRODUCT_PROOF_STEP_ORDER),
         "steps": [],
         "decision_receipt_status": "state_not_found_no_write",
@@ -560,6 +591,27 @@ def _inspect_loop_spine(args: argparse.Namespace) -> int:
         "inspection_error_ref": None,
         "scenario_ref": read_model.get("scenario_ref"),
         "shared_state_ref": read_model.get("shared_state_ref"),
+        "full_strength_goal": read_model.get("full_strength_goal"),
+        "repo_safe_scope": read_model.get("repo_safe_scope"),
+        "blocked_authority_summary": read_model.get("blocked_authority_summary"),
+        "exact_promotion_path_refs": list(
+            read_model.get("exact_promotion_path_refs") or []
+        ),
+        "productized_surface_order": list(
+            read_model.get("productized_surface_order") or []
+        ),
+        "productized_surface_count": read_model.get("productized_surface_count"),
+        "productized_surface_bindings": [
+            _safe_loop_productized_surface_projection(binding)
+            for binding in read_model.get("productized_surface_bindings", [])
+            if isinstance(binding, dict)
+        ],
+        "productized_route_refs": list(
+            read_model.get("productized_route_refs") or []
+        ),
+        "productized_backend_route_refs": list(
+            read_model.get("productized_backend_route_refs") or []
+        ),
         "loop_order": list(read_model.get("loop_order") or []),
         "steps": [
             _safe_loop_proof_step_projection(step)
@@ -1585,7 +1637,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the backend-owned universal proof index or proof detail.",
     )
     proof_parser.add_argument("proof_ref", nargs="?")
-    proof_parser.add_argument("--limit", type=int, default=12)
+    proof_parser.add_argument("--limit", type=int, default=50)
     proof_parser.set_defaults(func=_inspect_proof)
 
     inspect_web_evidence_parser = subparsers.add_parser(

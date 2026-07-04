@@ -110,6 +110,17 @@ only; it adds no provider/model call, connector write/send, browser/web
 runtime, shell/subprocess execution, background autonomy, hidden context
 injection, public distribution, or production authority.
 
+Beta 03 Daily Loop Productization current truth:
+`founder_loop_v1_product_proof_read_model` now binds Start Here, Today, Action
+Inbox, Proof, Evidence, Memory, Trust, and Settings as the repo-safe daily-loop
+surface set with shared backend-owned safe refs, resolvable proof refs, CLI
+inspection, and Control Center fallback labels. Source Inbox remains a
+supporting source-readiness surface, not the primary work queue. This hardens
+read models, UI composition, route classification, and verifiers only; it adds
+no provider/model call, connector send/write, browser automation,
+shell/subprocess execution, broad memory write, runtime context injection,
+public distribution, or production authority.
+
 FCC-BRIEFING-001 current truth: Morning Briefing is implemented as a read-only
 daily-loop surface over `/briefing`, `/today`, and
 `GET /control-center/morning-briefing/summary`, recorded in

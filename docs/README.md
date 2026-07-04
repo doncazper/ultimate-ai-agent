@@ -2,7 +2,8 @@
 
 This is the active documentation entrypoint. Start with UAA as the
 Founder Command Center product path: a local-first professional AI command
-center for Today, Inbox, Plans, Actions, Memory, Evidence, and Settings. The
+center for Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust,
+Settings, Plans, and supporting source readiness. The
 front-door product story lives in `README.md`; the strategic narrative lives in
 `docs/strategy/FOUNDER_COMMAND_CENTER_MASTER_PLAN.md`; the implementation
 truth and blocked states live in
@@ -74,11 +75,13 @@ and `/models` still blocked or partial; it adds no action execution, context
 injection, connector writes, public beta, public release, or production
 authority. The
 Founder Loop V1 product proof pass adds a backend-owned
-`founder_loop_v1_product_proof_read_model` across Today and Morning Briefing
-for one seeded/demo-safe loop from Morning Briefing to Today, Action Inbox
-decision receipts, Evidence Timeline, Memory Review, and Weekly Review, with
-CLI inspection parity and no provider/model calls, connector writes,
-browser/live web, background autonomy, public release, or production authority.
+`founder_loop_v1_product_proof_read_model` across Start Here, Today, Action
+Inbox, Proof, Evidence, Memory, Trust, and Settings for one repo-safe loop. It
+also preserves the seeded/demo-safe proof path from Morning Briefing to Today,
+Action Inbox decision receipts, Evidence Timeline, Memory Review, and Weekly
+Review, with CLI inspection parity and no provider/model calls, connector
+writes, browser/live web, background autonomy, public release, or production
+authority.
 FCC-THREAD-001 Unified Work Thread adds a backend-owned
 `unified_work_thread_read_model` and `inspect-work-thread` CLI view over the
 same local loop refs so Chat handoff, Plans, Action Inbox, receipts, Evidence,

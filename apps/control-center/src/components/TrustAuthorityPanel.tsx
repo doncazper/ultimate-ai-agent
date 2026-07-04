@@ -13,16 +13,18 @@ export function TrustAuthorityPanel({
   authoritative,
   matrix,
 }: TrustAuthorityPanelProps) {
-  const availableRows = matrix.lanes.filter(
+  const laneRows = authoritative ? matrix.lanes : [];
+  const availableRows = laneRows.filter(
     (lane) => lane.authority_state === "available_now",
   );
-  const approvalRows = matrix.lanes.filter(
+  const approvalRows = laneRows.filter(
     (lane) => lane.authority_state === "approval_required",
   );
-  const blockedRows = matrix.lanes.filter(
+  const blockedRows = laneRows.filter(
     (lane) =>
       lane.authority_state === "blocked" || lane.authority_state === "planned",
   );
+  const fallbackLaneRefs = matrix.lanes.map((lane) => lane.lane_ref);
   return (
     <section className="page-section" aria-labelledby="trust-heading">
       <div className="section-heading">
@@ -37,9 +39,19 @@ export function TrustAuthorityPanel({
 
       <div className="hero-panel">
         <div>
-          <p className="eyebrow">What UAA can do now</p>
-          <h3>{matrix.doctrine}</h3>
-          <p className="muted">{matrix.operator_summary}</p>
+          <p className="eyebrow">
+            {authoritative ? "Repo-safe authority map" : "Fallback posture only"}
+          </p>
+          <h3>
+            {authoritative
+              ? matrix.doctrine
+              : "Reconnect to the local backend before relying on Trust"}
+          </h3>
+          <p className="muted">
+            {authoritative
+              ? matrix.operator_summary
+              : "Mock fallback data is non-authoritative; no lane is available until Python Core returns the backend-owned Trust matrix."}
+          </p>
         </div>
         <div className="detail-grid compact">
           <DetailTerm label="Route" value={matrix.route_ref} />
@@ -59,27 +71,33 @@ export function TrustAuthorityPanel({
         <MetricCard
           label="Available now"
           tone="green"
-          value={String(matrix.available_now_lane_refs.length)}
+          value={authoritative ? String(matrix.available_now_lane_refs.length) : "0"}
         />
         <MetricCard
           label="Needs approval"
           tone="orange"
-          value={String(matrix.approval_required_lane_refs.length)}
+          value={
+            authoritative ? String(matrix.approval_required_lane_refs.length) : "0"
+          }
         />
         <MetricCard
           label="Planned"
           tone="blue"
-          value={String(matrix.planned_lane_refs.length)}
+          value={authoritative ? String(matrix.planned_lane_refs.length) : "0"}
         />
         <MetricCard
           label="Blocked"
           tone="blue"
-          value={String(matrix.blocked_lane_refs.length)}
+          value={
+            authoritative
+              ? String(matrix.blocked_lane_refs.length)
+              : String(fallbackLaneRefs.length)
+          }
         />
       </div>
 
       <div className="stacked-list" aria-label="Usable authority tiers">
-        {matrix.tier_summaries.map((tier) => (
+        {(authoritative ? matrix.tier_summaries : []).map((tier) => (
           <article className="list-card" key={tier.tier_id}>
             <div className="list-card-header">
               <div>
@@ -99,7 +117,7 @@ export function TrustAuthorityPanel({
       <div className="two-column-grid">
         <LaneColumn
           lanes={availableRows}
-          title="Available Now"
+          title={authoritative ? "Available Now" : "Fallback Lanes Hidden"}
           tone="available"
         />
         <LaneColumn
@@ -109,18 +127,35 @@ export function TrustAuthorityPanel({
         />
       </div>
       <LaneColumn lanes={blockedRows} title="Still Planned Or Blocked" tone="blocked" />
+      {!authoritative ? (
+        <div className="panel-card">
+          <h3>Mock Fallback Lane Refs</h3>
+          <p className="muted">
+            These refs show fallback shape only. Python Core must return the
+            Trust read model before any lane can be treated as enabled,
+            approval-ready, planned, or blocked product truth.
+          </p>
+          <RefList refs={fallbackLaneRefs} />
+        </div>
+      ) : null}
 
       <div className="two-column-grid">
         <div className="panel-card">
           <h3>Proof And Verifiers</h3>
-          <RefList refs={[...matrix.proof_refs, ...matrix.verifier_refs]} />
+          <RefList
+            refs={authoritative ? [...matrix.proof_refs, ...matrix.verifier_refs] : []}
+          />
         </div>
         <div className="panel-card">
           <h3>Blocked Authority</h3>
-          <RefList refs={matrix.blocked_authority_refs} />
+          <RefList refs={authoritative ? matrix.blocked_authority_refs : []} />
         </div>
       </div>
-      <p className="muted">{matrix.next_safe_action}</p>
+      <p className="muted">
+        {authoritative
+          ? matrix.next_safe_action
+          : "Reconnect to the local backend before using Trust to choose a next safe action."}
+      </p>
     </section>
   );
 }

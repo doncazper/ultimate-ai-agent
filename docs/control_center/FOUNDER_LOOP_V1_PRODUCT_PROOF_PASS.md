@@ -28,11 +28,37 @@ Timeline -> Memory Review -> Weekly Review.
 - Control Center now also renders the same proof path in the shared Founder
   Loop spine so Today, Action Inbox, Evidence, Memory, and Briefing show the
   same backend-owned loop order without adding UI-only authority.
+- Beta-03 daily loop productization adds the current canonical repo-safe
+  surface binding for Start Here, Today, Action Inbox, Proof, Evidence, Memory,
+  Trust, and Settings. Those surfaces share backend-owned safe refs and one
+  resolvable daily-loop proof ref.
 - `scripts/inspect_founder_loop_v1_product_proof.py` provides repo-local CLI
   inspection for the same safe refs.
 - `scripts/dev/uaa_founder_loop.py inspect-loop-spine` provides a compact
-  repo-local inspection view for the same Morning Briefing through Weekly
-  Review path.
+  repo-local inspection view for both the Morning Briefing through Weekly
+  Review proof path and the productized Start Here through Settings surface
+  binding.
+
+## Beta-03 Daily Loop Productization
+
+Full-strength version: UAA becomes a local-first founder/operator command
+center where Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust,
+and Settings operate as one useful daily loop.
+Surface set: Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust, and Settings.
+
+Repo-safe version: Python Core exposes backend-owned safe refs, route refs,
+proof refs, blocked authority refs, and CLI inspection. Control Center renders
+those refs as the shared loop spine and keeps fallback data visibly
+non-authoritative.
+
+Blocked / needs authority: provider/model calls, connector sends or writes,
+browser automation, shell/subprocess execution, background autonomy, public
+release claims, production authority, broad memory write, and runtime context
+injection remain blocked.
+
+Exact promotion path: promote one authority lane at a time with exact scope,
+approval binding, idempotency, receipt, evidence, rollback or safe-disable
+posture, redaction, CLI parity, frontend truth labels, and focused verifiers.
 
 ## Authority Boundary
 
