@@ -38,6 +38,7 @@ from ultimate_ai_agent.api.rate_limits import (
     API_TARGETED_RATE_LIMIT_POLICY_REF,
     rate_limit_failure,
 )
+from ultimate_ai_agent.api.routes.runtime_pilot_service import register_governed_runtime_routes
 from ultimate_ai_agent.api.routes.system_service import register_system_routes
 from ultimate_ai_agent.api.security_headers import apply_fastapi_security_headers
 from ultimate_ai_agent.api.web_evidence import register_governed_web_evidence_routes
@@ -224,6 +225,7 @@ register_governed_web_evidence_routes(app)
 register_mattermost_routes(app)
 register_founder_loop_routes(app)
 register_provider_setup_routes(app)
+register_governed_runtime_routes(app)
 
 _file_review_approval_store = FileReviewApprovalStore()
 _task_decomposition_service = TaskDecompositionService.from_env()

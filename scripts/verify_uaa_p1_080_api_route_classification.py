@@ -34,9 +34,9 @@ ALLOWED_CLASSIFICATIONS = {
     "mutating_requires_authority",
 }
 EXPECTED_SIDE_EFFECT_MIX = {
-    "validation_only": 71,
+    "validation_only": 72,
     "none": 4,
-    "local_dev_workspace_only": 99,
+    "local_dev_workspace_only": 106,
     "governed_network_read_only": 3,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
@@ -59,6 +59,10 @@ HIGH_RISK_EXPECTATIONS = {
     ("POST", "/control-center/actions/{action_id}/local-task/commit"): "mutating_requires_authority",
     ("POST", "/control-center/providers/exact-approved-lanes/tiny"): "mutating_requires_authority",
     ("POST", "/control-center/providers/router/dry-run"): "mutating_requires_authority",
+    ("POST", "/api/runtime/invocations"): "mutating_requires_authority",
+    ("POST", "/api/runtime/invocations/{id}/approve"): "mutating_requires_authority",
+    ("POST", "/api/runtime/invocations/{id}/execute"): "mutating_requires_authority",
+    ("POST", "/api/runtime/safe-disable"): "mutating_requires_authority",
     ("POST", "/web-evidence/request"): "local_sensitive",
 }
 REQUIRED_DOC_SNIPPETS = {

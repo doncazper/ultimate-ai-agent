@@ -13,7 +13,10 @@ sys.path.insert(0, str(ROOT))
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.rate_limits import route_rate_limit_group
-from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT
+from scripts.verification.api_routes import (
+    EXPECTED_OPENAPI_PATH_COUNT,
+    EXPECTED_ROUTE_COUNT,
+)
 from scripts.verify_control_center_release_surface import verify as verify_release_surface
 
 
@@ -53,8 +56,8 @@ EXTRACTED_CONTROL_CENTER_ROUTES = {
 
 EXPECTED_SIDE_EFFECT_MIX = {
     "none": 4,
-    "validation_only": 71,
-    "local_dev_workspace_only": 99,
+    "validation_only": 72,
+    "local_dev_workspace_only": 106,
     "governed_network_read_only": 3,
 }
 
@@ -132,7 +135,7 @@ def _append_static_failures(failures: list[str]) -> None:
             "adds no routes and no runtime authority",
         ],
         EXTRACTION_PLAN: [
-            "Current OpenAPI path count: 177",
+            f"Current OpenAPI path count: {EXPECTED_OPENAPI_PATH_COUNT}",
             "configure_openapi_contract(app)",
             "Beta 12 starts this extraction",
             "`/control-center/settings/status`",

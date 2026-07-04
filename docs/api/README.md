@@ -2,8 +2,10 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `177`, generated from the FastAPI application and
-exposed through `/api/manifest`.
+Current OpenAPI path count: `184`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `185` route
+operations because Phase 02 intentionally has both `GET` and `POST` contracts
+on `/api/runtime/invocations`.
 
 The API boundary is metadata-first, validation-first, approval-aware for
 local/dev policy checks, simulated/fallback-first for model runtime behavior,
@@ -74,6 +76,12 @@ Current boundary summary:
   add auth, distributed quota,
   dependencies, billing, or production
   authority.
+- Governed Runtime Pilot Phase 02 adds `/api/runtime/*` contract, policy,
+  approval-binding, blocked receipt, and safe-disable metadata routes. They are
+  backend-owned safe-ref shells only; local model calls, command execution,
+  adapter execution, browser automation, connector writes, plugin runtime
+  import, remote execution, production authority, and public release claims
+  remain blocked.
 - Beta 12 extracts the app-owned Control Center shell/status route block into
   `ultimate_ai_agent.api.control_center` while preserving the then-current
   169-route

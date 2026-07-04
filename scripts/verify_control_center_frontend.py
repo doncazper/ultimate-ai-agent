@@ -9,7 +9,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT  # noqa: E402
+from scripts.verification.api_routes import (  # noqa: E402
+    EXPECTED_OPENAPI_PATH_COUNT,
+    EXPECTED_ROUTE_COUNT,
+)
 
 
 def _current_version(root: Path = ROOT) -> str:
@@ -1204,10 +1207,10 @@ def _route_status_manifest_failures(root: Path) -> list[str]:
         failures.append("route status manifest schema version is not current")
     if manifest.get("status") != "active UAA-P1-030 route status manifest":
         failures.append("route status manifest status is not current")
-    if manifest.get("openapi_path_count") != EXPECTED_ROUTE_COUNT:
+    if manifest.get("openapi_path_count") != EXPECTED_OPENAPI_PATH_COUNT:
         failures.append(
             "route status manifest must record the "
-            f"{EXPECTED_ROUTE_COUNT}-path OpenAPI boundary"
+            f"{EXPECTED_OPENAPI_PATH_COUNT}-path OpenAPI boundary"
         )
     if manifest.get("operator_readiness_taxonomy_ref") != (
         "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md"
@@ -1475,11 +1478,13 @@ def _frontend_route_doc_failures(root: Path) -> list[str]:
         failures.append("frontend routes doc must not claim raw `ship` renders in the UI")
     if "exact route proof" not in lowered:
         failures.append("frontend routes doc must explain `ship` is rendered as exact route proof")
-    expected_count_fragment = f"current backend path count is `{EXPECTED_ROUTE_COUNT}`"
+    expected_count_fragment = (
+        f"current backend path count is `{EXPECTED_OPENAPI_PATH_COUNT}`"
+    )
     if expected_count_fragment not in lowered:
         failures.append(
             "frontend routes doc current backend path count must match "
-            f"{EXPECTED_ROUTE_COUNT}"
+            f"{EXPECTED_OPENAPI_PATH_COUNT}"
         )
     for stale_count in ["current backend path count is `150`", "current backend path count is `151`"]:
         if stale_count in compact:
@@ -1608,7 +1613,7 @@ def _operator_shell_gap_map_failures(root: Path) -> list[str]:
         ),
         "operator-shell gap map must include current API count": (
             "api boundary: current fastapi manifest has "
-            f"{EXPECTED_ROUTE_COUNT} openapi paths"
+            f"{EXPECTED_OPENAPI_PATH_COUNT} openapi paths"
         ),
         "operator-shell gap map must include exact matrix columns": (
             "| surface | current frontend component/page | current backend route(s) | "

@@ -52,6 +52,11 @@ CAPABILITIES_DECLARED = [
     "control_center_setup_approval_envelopes_dry_run",
     "control_center_founder_loop_storage_summaries",
     "control_center_run_observability_read_model",
+    "governed_runtime_gateway_contracts",
+    "governed_runtime_profiles_manifest",
+    "governed_runtime_invocation_metadata_storage",
+    "governed_runtime_safe_disable_state",
+    "governed_runtime_api_contract_shells",
     "control_center_coding_cockpit_session_read_model",
     "control_center_coding_context_pack_preview_read_model",
     "control_center_coding_patch_apply_readiness_read_model",
@@ -168,6 +173,13 @@ CAPABILITIES_BLOCKED = [
     "production_persistence",
     "runtime_agent_config_loading",
     "runtime_execution_routes",
+    "governed_runtime_adapter_execution_phase_02",
+    "governed_runtime_local_model_calls_phase_02",
+    "governed_runtime_command_execution_phase_02",
+    "governed_runtime_approval_as_execution_authority",
+    "governed_runtime_raw_prompt_response_persistence",
+    "governed_runtime_raw_command_output_persistence",
+    "governed_runtime_raw_local_path_or_env_persistence",
     "security_headers_as_authentication",
     "security_headers_as_cors_policy",
     "security_headers_as_rate_limits",
@@ -495,6 +507,7 @@ WEB_ACCESS_POSTURE = {
 }
 
 ROUTE_GROUPS_BY_PREFIX = {
+    "/api/runtime": "governed-runtime",
     "/api": "api-boundary",
     "/health": "system",
     "/version": "system",
@@ -589,6 +602,18 @@ CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_PATHS = {
 }
 CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
     "/control-center/web-evidence/attach",
+}
+GOVERNED_RUNTIME_READONLY_PATHS = {
+    "/api/runtime/capabilities",
+    "/api/runtime/invocations",
+    "/api/runtime/invocations/{id}",
+    "/api/runtime/invocations/{id}/receipt",
+}
+GOVERNED_RUNTIME_MUTATING_PATHS = {
+    "/api/runtime/invocations",
+    "/api/runtime/invocations/{id}/approve",
+    "/api/runtime/invocations/{id}/execute",
+    "/api/runtime/safe-disable",
 }
 CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
@@ -743,6 +768,10 @@ def route_summary(method: str, path: str) -> str:
 def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
     if path == "/api/manifest" or path in {"/health", "/version", "/web-evidence/status"}:
         return ApiRouteSideEffectClass.none
+    if path == "/api/runtime/capabilities":
+        return ApiRouteSideEffectClass.validation_only
+    if path.startswith("/api/runtime/"):
+        return ApiRouteSideEffectClass.local_dev_workspace_only
     if path.startswith("/web-evidence/"):
         return ApiRouteSideEffectClass.governed_network_read_only
     if path in CONTROL_CENTER_VALIDATION_ONLY_PATHS:
@@ -781,6 +810,42 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.public_metadata,
             "harmless API metadata or status route with no local user state",
+        )
+    if normalized_method == "GET" and path == "/api/runtime/capabilities":
+        return (
+            ApiRouteClassification.local_readonly,
+            "Governed runtime capability route exposes protected local RuntimeGateway profile and blocked-authority posture only.",
+        )
+    if normalized_method == "GET" and path in GOVERNED_RUNTIME_READONLY_PATHS:
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Governed runtime invocation inspection route exposes local safe refs, policy decisions, receipts, and blocked execution posture only.",
+        )
+    if normalized_method == "POST" and path == "/api/runtime/invocations":
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Governed runtime invocation metadata route is mutation-like authority posture only; it stores safe refs and policy decisions, and idempotency, approval posture, redaction, and execution-blocked receipts are required before later runtime promotion.",
+        )
+    if (
+        normalized_method == "POST"
+        and path == "/api/runtime/invocations/{id}/approve"
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Governed runtime approval-binding route is mutation-like authority posture only; it records approval refs as identifiers only, and idempotency, exact scope posture, and execution-blocked state remain required.",
+        )
+    if (
+        normalized_method == "POST"
+        and path == "/api/runtime/invocations/{id}/execute"
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Governed runtime execute route is mutation-like authority posture only; it records a blocked Phase 02 receipt, and idempotency, exact approval posture, redaction, and no-adapter-execution posture are required.",
+        )
+    if normalized_method == "POST" and path == "/api/runtime/safe-disable":
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Governed runtime safe-disable route is mutation-like authority posture only; it records local safe-disable posture, and idempotency, audit, and profile downgrade posture are required.",
         )
     if (
         normalized_method == "POST"

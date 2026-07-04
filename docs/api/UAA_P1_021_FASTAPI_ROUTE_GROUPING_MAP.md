@@ -2,7 +2,7 @@
 
 Status: active gated foundation map
 Baseline: v0.104.0 / 0.104.0
-Current OpenAPI path count: 177
+Current OpenAPI path count: 184
 Scope: documentation and route ownership inventory only
 
 This map records the current FastAPI route groups for UAA-P1-058 and future
@@ -18,19 +18,19 @@ typed metadata endpoint for route inventory and capabilities.
 
 | Contract surface | Result |
 |---|---|
-| OpenAPI path count | 177 paths. |
-| `/api/manifest` route count | 177 routes. |
+| OpenAPI path count | 184 paths. |
+| `/api/manifest` route count | 185 routes. |
 | Operation ID posture | Stable generated IDs are unique for all current routes. |
 | Side-effect classes | All current routes use `none`, `validation_only`, `local_dev_workspace_only`, or `governed_network_read_only`. |
 | Route-module ownership tests | UAA-P1-059 checks every current route against this map for owner, target service module, side-effect class, risk class, auth posture, release status, route-count posture, operation ID posture, and evidence behavior. |
 | Control Center route-status manifest | Backend route refs checked against `/api/manifest`; 0 missing and 0 path/method/operation/side-effect mismatches. |
-| Route inventory doc | Current count matches 177; inventory is summarized by group and remains subordinate to `/api/manifest`. |
+| Route inventory doc | Current OpenAPI path count matches 184; `/api/manifest` route count matches 185; inventory is summarized by group and remains subordinate to `/api/manifest`. |
 
 ## Mismatch Findings
 
 | Area | Finding | Required action |
 |---|---|---|
-| OpenAPI vs `/api/manifest` | No current route count, path, operation ID, or side-effect mismatch found by required verifiers. | Keep checks release-blocking. |
+| OpenAPI vs `/api/manifest` | OpenAPI currently has one multi-method path: `GET` and `POST /api/runtime/invocations`; operation IDs and route metadata remain unique. | Keep operation-count and path-count checks distinct. |
 | Control Center route-status manifest vs `/api/manifest` | No current mismatch for manifest entries that name backend routes. The route-status manifest is a visible-action subset, not an all-route inventory. | Do not use it as the source for non-Control Center service extraction. |
 | `docs/api/route_inventory.md` vs `/api/manifest` | Count and high-level groups agree. The doc intentionally summarizes broad groups rather than listing every current route row. | This UAA-P1-021 map is the exhaustive grouping companion. |
 | UAA-P1-058 readiness | First extraction is now limited to `GET /health` and `GET /version` under `system_service`; broader extraction remains gated by this map, UAA-P1-020, UAA-P1-052, Foundation Gate, OpenAPI, and API manifest stability. | Do not start broader extraction until all are accepted and green on the target branch. |
@@ -51,6 +51,7 @@ typed metadata endpoint for route inventory and capabilities.
 | `extension-catalog` | 1 | `extension-catalog` | `extension_catalog_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | `status_available_not_completion` |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `foundation-gate` | 2 | `foundation-gate` | `verification_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | `status_available_not_completion` |
+| `governed-runtime` | 8 | `governed-runtime` | `runtime_pilot_service` | future auth required and exact approval before future execution | `local_dev_workspace_only`:7, `validation_only`:1 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `kernel` | 1 | `kernel` | `kernel_service` | future auth required | `local_dev_workspace_only`:1 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `ledger` | 3 | `ledger` | `evidence_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | `partial_backend_not_product_ready` |
 | `mattermost` | 8 | `mattermost` | `integrations_service` | disabled by default and future auth required | `local_dev_workspace_only`:8 | high | stable/generated from path; unique | `partial_backend_not_product_ready` |
@@ -134,13 +135,13 @@ Columns: method, path, operation ID, side-effect class, validation-only, future-
 | POST | `/control-center/chat/turns/{turn_ref}/handoff` | `post_control_center_chat_turns_turn_ref_handoff` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/chat/turns/{turn_ref}/receipt` | `get_control_center_chat_turns_turn_ref_receipt` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/context` | `get_control_center_coding_context` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/coding/git-review` | `get_control_center_coding_git_review` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/coding/live-preview` | `get_control_center_coding_live_preview` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/coding/multi-agent-review` | `get_control_center_coding_multi_agent_review` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/patch-apply-readiness` | `get_control_center_coding_patch_apply_readiness` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/patch-proposal` | `get_control_center_coding_patch_proposal` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/session` | `get_control_center_coding_session` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/test-command-readiness` | `get_control_center_coding_test_command_readiness` | `local_dev_workspace_only` | no | future | yes |
-| GET | `/control-center/coding/git-review` | `get_control_center_coding_git_review` | `local_dev_workspace_only` | no | future | yes |
-| GET | `/control-center/coding/live-preview` | `get_control_center_coding_live_preview` | `local_dev_workspace_only` | no | future | yes |
-| GET | `/control-center/coding/multi-agent-review` | `get_control_center_coding_multi_agent_review` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/dashboard` | `get_control_center_dashboard` | `validation_only` | yes | future | yes |
 | GET | `/control-center/evidence/timeline` | `get_control_center_evidence_timeline` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/foundation-gate/summary` | `get_control_center_foundation_gate_summary` | `validation_only` | yes | future | yes |
@@ -177,12 +178,12 @@ Columns: method, path, operation ID, side-effect class, validation-only, future-
 | GET | `/control-center/memory/search` | `get_control_center_memory_search` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/memory/workbench` | `get_control_center_memory_workbench` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/morning-briefing/summary` | `get_control_center_morning_briefing_summary` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/proof/index` | `get_control_center_proof_index` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/proof/{proof_ref}` | `get_control_center_proof_proof_ref` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/providers/credentials/validate` | `post_control_center_providers_credentials_validate` | `governed_network_read_only` | no | future | yes |
 | POST | `/control-center/providers/exact-approved-lanes/tiny` | `post_control_center_providers_exact_approved_lanes_tiny` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/providers/router/dry-run` | `post_control_center_providers_router_dry_run` | `validation_only` | yes | future | yes |
 | GET | `/control-center/providers/setup-guide` | `get_control_center_providers_setup_guide` | `validation_only` | yes | future | yes |
-| GET | `/control-center/proof/index` | `get_control_center_proof_index` | `local_dev_workspace_only` | no | future | yes |
-| GET | `/control-center/proof/{proof_ref}` | `get_control_center_proof_proof_ref` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/routes` | `get_control_center_routes` | `validation_only` | yes | future | yes |
 | GET | `/control-center/runs/observability` | `get_control_center_runs_observability` | `validation_only` | yes | future | yes |
 | GET | `/control-center/runtime-readiness/summary` | `get_control_center_runtime_readiness_summary` | `validation_only` | yes | future | yes |
@@ -228,6 +229,19 @@ Columns: method, path, operation ID, side-effect class, validation-only, future-
 |---|---|---|---|---|---|---|
 | POST | `/gate/reports/validate` | `post_gate_reports_validate` | `validation_only` | yes | future | yes |
 | POST | `/gate/shadow-replay/validate` | `post_gate_shadow_replay_validate` | `validation_only` | yes | future | yes |
+
+### `governed-runtime`
+
+| Method | Path | Operation ID | Side-effect class | Validation only | Auth posture | Blocked from production |
+|---|---|---|---|---|---|---|
+| GET | `/api/runtime/capabilities` | `get_api_runtime_capabilities` | `validation_only` | yes | future | yes |
+| GET | `/api/runtime/invocations` | `get_api_runtime_invocations` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/invocations` | `post_api_runtime_invocations` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/invocations/{id}` | `get_api_runtime_invocations_id` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/invocations/{id}/approve` | `post_api_runtime_invocations_id_approve` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/invocations/{id}/execute` | `post_api_runtime_invocations_id_execute` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/invocations/{id}/receipt` | `get_api_runtime_invocations_id_receipt` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/safe-disable` | `post_api_runtime_safe_disable` | `local_dev_workspace_only` | no | future | yes |
 
 ### `kernel`
 

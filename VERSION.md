@@ -35,7 +35,7 @@ with reviewable intent proposals, confidence, source refs, evidence refs,
 ambiguity posture, ask/act/defer routing, and ask-user handling for
 low-confidence or conflicting intent. UAA-P1-080 completes API Route
 Classification And Public/Protected Inventory with typed route classifications
-in `/api/manifest`, the frozen 126-route inventory fixture, route-status
+in `/api/manifest`, the frozen 185-route inventory fixture, route-status
 manifest alignment, Control Center API Routes visibility, and focused
 verifier/tests. UAA-P1-081 completes centralized FastAPI response security
 headers with HTTPS-only HSTS and no CORS/auth/rate-limit authority. UAA-P1-082

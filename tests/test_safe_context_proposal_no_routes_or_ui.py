@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT
+from scripts.verification.api_routes import EXPECTED_OPENAPI_PATH_COUNT
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.app import app
 
@@ -29,7 +29,7 @@ def test_openapi_path_count_remains_at_current_boundary() -> None:
     data = client.get("/openapi.json").json()
 
     assert data["info"]["version"] == __version__
-    assert len(data.get("paths", {})) == EXPECTED_ROUTE_COUNT
+    assert len(data.get("paths", {})) == EXPECTED_OPENAPI_PATH_COUNT
     assert "/v1/models" in data.get("paths", {})
     assert "/v1/chat/completions" in data.get("paths", {})
     assert "/task-decomposition/run" in data.get("paths", {})

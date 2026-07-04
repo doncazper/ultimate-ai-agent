@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT))
 
 import scripts.verify_control_center_frontend as frontend
 import scripts.verify_control_center_visual_regression as visual
+from scripts.verification.api_routes import EXPECTED_OPENAPI_PATH_COUNT
 
 
 def validate(root: Path = ROOT) -> list[str]:
@@ -41,7 +42,7 @@ def validate(root: Path = ROOT) -> list[str]:
         ],
         "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md": [
             "exact route proof",
-            "current backend path count is `177`",
+            f"current backend path count is `{EXPECTED_OPENAPI_PATH_COUNT}`",
         ],
     }
     for rel_path, fragments in required_docs.items():

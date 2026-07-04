@@ -6,7 +6,10 @@ import re
 
 import pytest
 
-from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT
+from scripts.verification.api_routes import (
+    EXPECTED_OPENAPI_PATH_COUNT,
+    EXPECTED_ROUTE_COUNT,
+)
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.control_center.action_decisions import (
@@ -646,7 +649,7 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/integrations/mattermost/events/message" in paths
     assert "/control-center/actions/{action_id}/local-task/commit" in paths
     assert "/control-center/sources/readiness" in paths
-    assert len(paths) == EXPECTED_ROUTE_COUNT
+    assert len(paths) == EXPECTED_OPENAPI_PATH_COUNT
     assert len(operation_ids) == len(set(operation_ids)) == EXPECTED_ROUTE_COUNT
 
 
@@ -814,7 +817,7 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
 
     assert "status: active uaa-p0-007 operator-shell gap map" in compact
     assert (
-        f"api boundary: current fastapi manifest has {EXPECTED_ROUTE_COUNT} openapi paths"
+        f"api boundary: current fastapi manifest has {EXPECTED_OPENAPI_PATH_COUNT} openapi paths"
         in compact
     )
     assert (

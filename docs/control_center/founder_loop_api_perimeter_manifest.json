@@ -28,8 +28,60 @@
     "same_key_conflicting_payload": "required_future_reject_conflict",
     "evidence_requirement_ref": "receipt-backed append-first route-owner storage"
   },
-  "current_mutating_route_count": 34,
+  "current_mutating_route_count": 38,
   "current_mutating_routes": [
+    {
+      "method": "POST",
+      "path": "/api/runtime/invocations",
+      "operation_id": "post_api_runtime_invocations",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "governed_runtime_pilot"
+    },
+    {
+      "method": "POST",
+      "path": "/api/runtime/invocations/{id}/approve",
+      "operation_id": "post_api_runtime_invocations_id_approve",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "governed_runtime_pilot"
+    },
+    {
+      "method": "POST",
+      "path": "/api/runtime/invocations/{id}/execute",
+      "operation_id": "post_api_runtime_invocations_id_execute",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "governed_runtime_pilot"
+    },
+    {
+      "method": "POST",
+      "path": "/api/runtime/safe-disable",
+      "operation_id": "post_api_runtime_safe_disable",
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "mutating_requires_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "approval_posture": "required_before_mutation_authority",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_group": "governed_runtime_pilot"
+    },
     {
       "method": "POST",
       "path": "/control-center/actions/{action_id}/approve",
