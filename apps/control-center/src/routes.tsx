@@ -481,6 +481,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           patchProposal={data.codingPatchProposal}
           authoritative={isAuthoritativeConnection(data)}
           session={data.codingSession}
+          testCommandReadiness={data.codingTestCommandReadiness}
         />
       );
     case "/chat":

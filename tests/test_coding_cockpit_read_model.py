@@ -22,13 +22,17 @@ from ultimate_ai_agent.core.code import (
     CODING_COCKPIT_PATCH_PROPOSAL_REF,
     CODING_COCKPIT_REQUIRED_BLOCKED_REFS,
     CODING_COCKPIT_SESSION_REF,
+    CODING_COCKPIT_TEST_COMMAND_BACKEND_ROUTE_REF,
+    CODING_COCKPIT_TEST_COMMAND_READINESS_REF,
     CodingCockpitSessionReadModel,
     CodingPatchApplyReadinessReadModel,
     CodingPatchProposalReadModel,
+    CodingTestCommandReadinessReadModel,
     CodingWorkspaceContextReadModel,
     build_coding_cockpit_session_seed,
     build_coding_patch_apply_readiness,
     build_coding_patch_proposal_preview,
+    build_coding_test_command_readiness,
     build_coding_workspace_context_preview,
 )
 
@@ -59,6 +63,7 @@ def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
         CODING_COCKPIT_CONTEXT_PACK_REF,
         CODING_COCKPIT_PATCH_PROPOSAL_REF,
         CODING_COCKPIT_PATCH_APPLY_READINESS_REF,
+        CODING_COCKPIT_TEST_COMMAND_READINESS_REF,
         "command-proposal:coding-blocked-seed",
         "git-status:coding-readonly-seed",
         "proof-ref:coding-cockpit-seed",
@@ -74,6 +79,10 @@ def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
     )
     assert (
         "scripts/dev/uaa_coding.py inspect-patch-apply-readiness"
+        in session.cli_inspection_refs
+    )
+    assert (
+        "scripts/dev/uaa_coding.py inspect-test-command-readiness"
         in session.cli_inspection_refs
     )
     assert all(not panel.mutation_enabled for panel in _coding_panels(session))
@@ -270,6 +279,77 @@ def test_coding_patch_apply_readiness_rejects_apply_authority() -> None:
         CodingPatchApplyReadinessReadModel(**payload)
 
 
+def test_coding_test_command_readiness_is_backend_owned_and_blocked() -> None:
+    readiness = build_coding_test_command_readiness()
+    payload = readiness.model_dump(mode="json")
+
+    assert readiness.schema_version == "uaa-coding-test-command-readiness.v1"
+    assert readiness.readiness_ref == CODING_COCKPIT_TEST_COMMAND_READINESS_REF
+    assert readiness.patch_proposal_ref == CODING_COCKPIT_PATCH_PROPOSAL_REF
+    assert readiness.patch_apply_readiness_ref == CODING_COCKPIT_PATCH_APPLY_READINESS_REF
+    assert readiness.backend_route_refs == [CODING_COCKPIT_TEST_COMMAND_BACKEND_ROUTE_REF]
+    assert readiness.frontend_route_refs == [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    assert readiness.backend_owned is True
+    assert readiness.read_only is True
+    assert readiness.readiness_only is True
+    assert readiness.safe_refs_only is True
+    assert readiness.raw_command_included is False
+    assert readiness.raw_output_included is False
+    assert readiness.command_output_summary_included is False
+    assert readiness.exit_code_available is False
+    assert readiness.test_receipt_created is False
+    assert readiness.command_execution_enabled is False
+    assert readiness.shell_subprocess_execution_enabled is False
+    assert readiness.arbitrary_shell_enabled is False
+    assert readiness.install_command_enabled is False
+    assert readiness.network_command_enabled is False
+    assert readiness.destructive_command_enabled is False
+    assert readiness.background_process_enabled is False
+    assert readiness.file_write_enabled is False
+    assert readiness.git_mutation_enabled is False
+    assert readiness.provider_model_call_enabled is False
+    assert readiness.browser_automation_enabled is False
+    assert readiness.connector_write_enabled is False
+    assert readiness.production_authority_enabled is False
+    assert {item.command_kind for item in readiness.suggested_commands} == {
+        "focused_pytest",
+        "frontend_test",
+        "lint_typecheck",
+        "repo_verifier",
+    }
+    assert set(readiness.expected_receipt_refs) == {
+        item.expected_receipt_ref for item in readiness.suggested_commands
+    }
+    assert readiness.unblock_prompt_refs == [
+        "prompt-ref:unblock-coding-allowlisted-test-command"
+    ]
+    assert "/Users/" not in json.dumps(payload)
+    assert "credential" not in json.dumps(payload).lower()
+    assert "secret" not in json.dumps(payload).lower()
+
+
+def test_coding_test_command_readiness_rejects_execution_authority() -> None:
+    for flag_name in [
+        "command_execution_enabled",
+        "shell_subprocess_execution_enabled",
+        "arbitrary_shell_enabled",
+        "install_command_enabled",
+        "network_command_enabled",
+        "destructive_command_enabled",
+        "background_process_enabled",
+        "test_receipt_created",
+    ]:
+        payload = build_coding_test_command_readiness().model_dump(mode="json")
+        payload[flag_name] = True
+        with pytest.raises(ValidationError, match=flag_name):
+            CodingTestCommandReadinessReadModel(**payload)
+
+    payload = build_coding_test_command_readiness().model_dump(mode="json")
+    payload["suggested_commands"][0]["command_execution_enabled"] = True
+    with pytest.raises(ValidationError, match="command_execution_enabled"):
+        CodingTestCommandReadinessReadModel(**payload)
+
+
 def test_control_center_coding_session_route_returns_safe_read_model() -> None:
     client = TestClient(app)
     response = client.get("/control-center/coding/session")
@@ -385,6 +465,37 @@ def test_control_center_coding_patch_apply_readiness_route_returns_safe_read_mod
     assert data["rollback_execution_enabled"] is False
 
 
+def test_control_center_coding_test_command_readiness_route_returns_safe_read_model() -> None:
+    client = TestClient(app)
+    response = client.get("/control-center/coding/test-command-readiness")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "control_center_coding_test_command_readiness"
+    assert body["service"] == "ControlCenterCodingAPI"
+    assert body["trace_id"] == CODING_COCKPIT_TEST_COMMAND_READINESS_REF
+    assert body["redactions_applied"] == [
+        "redaction-ref:safe-refs-only",
+        "redaction-ref:raw-command-omitted",
+        "redaction-ref:raw-output-omitted",
+        "redaction-ref:bounded-summary-required",
+    ]
+
+    data = body["data"]
+    assert data["backend_owned"] is True
+    assert data["readiness_only"] is True
+    assert data["safe_refs_only"] is True
+    assert data["command_execution_enabled"] is False
+    assert data["shell_subprocess_execution_enabled"] is False
+    assert data["test_receipt_created"] is False
+    assert data["suggested_commands"]
+    assert all(
+        item["command_execution_enabled"] is False
+        for item in data["suggested_commands"]
+    )
+
+
 def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_model() -> None:
     manifest = build_api_manifest(app)
     routes = {(route.method, route.path): route for route in manifest.routes}
@@ -392,6 +503,7 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
     context_route = routes[("GET", "/control-center/coding/context")]
     patch_route = routes[("GET", "/control-center/coding/patch-proposal")]
     apply_route = routes[("GET", "/control-center/coding/patch-apply-readiness")]
+    test_command_route = routes[("GET", "/control-center/coding/test-command-readiness")]
 
     assert route.operation_id == "get_control_center_coding_session"
     assert route.tags == ["control-center"]
@@ -417,6 +529,18 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
     assert apply_route.route_classification == "local_sensitive"
     assert apply_route.approval_posture == "not_required_for_route_classification"
     assert apply_route.idempotency_required is False
+    assert (
+        test_command_route.operation_id
+        == "get_control_center_coding_test_command_readiness"
+    )
+    assert test_command_route.tags == ["control-center"]
+    assert test_command_route.side_effect_class == "local_dev_workspace_only"
+    assert test_command_route.route_classification == "local_sensitive"
+    assert (
+        test_command_route.approval_posture
+        == "not_required_for_route_classification"
+    )
+    assert test_command_route.idempotency_required is False
     assert "control_center_coding_cockpit_session_read_model" in (
         manifest.capabilities_declared
     )
@@ -427,6 +551,9 @@ def test_coding_cockpit_route_and_capabilities_are_manifested_as_local_read_mode
         manifest.capabilities_declared
     )
     assert "control_center_coding_patch_apply_readiness_read_model" in (
+        manifest.capabilities_declared
+    )
+    assert "control_center_coding_test_command_readiness_read_model" in (
         manifest.capabilities_declared
     )
     for capability in [
@@ -524,6 +651,32 @@ def test_coding_patch_apply_readiness_cli_inspection_prints_same_safe_model() ->
     assert data["file_write_enabled"] is False
     assert "/Users/" not in result.stdout
     assert "credential" not in result.stdout.lower()
+
+
+def test_coding_test_command_readiness_cli_inspection_prints_same_safe_model() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_coding.py"),
+            "inspect-test-command-readiness",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    data = json.loads(result.stdout)
+
+    assert data["readiness_ref"] == CODING_COCKPIT_TEST_COMMAND_READINESS_REF
+    assert data["backend_owned"] is True
+    assert data["readiness_only"] is True
+    assert data["safe_refs_only"] is True
+    assert data["command_execution_enabled"] is False
+    assert data["shell_subprocess_execution_enabled"] is False
+    assert data["test_receipt_created"] is False
+    assert "/Users/" not in result.stdout
+    assert "credential" not in result.stdout.lower()
+    assert "secret" not in result.stdout.lower()
 
 
 def _coding_panels(session: CodingCockpitSessionReadModel):

@@ -5,6 +5,7 @@ import type {
   CodingCockpitSessionReadModel,
   CodingPatchApplyReadinessReadModel,
   CodingPatchProposalReadModel,
+  CodingTestCommandReadinessReadModel,
   CodingWorkspaceContextReadModel,
 } from "../api/types";
 import { SafeAlert } from "./SafeAlert";
@@ -14,6 +15,7 @@ interface CodingCockpitPanelProps {
   patchApplyReadiness: CodingPatchApplyReadinessReadModel;
   patchProposal: CodingPatchProposalReadModel;
   session: CodingCockpitSessionReadModel;
+  testCommandReadiness: CodingTestCommandReadinessReadModel;
   authoritative: boolean;
 }
 
@@ -23,6 +25,7 @@ export function CodingCockpitPanel({
   patchApplyReadiness,
   patchProposal,
   session,
+  testCommandReadiness,
 }: CodingCockpitPanelProps) {
   const backendOwned =
     authoritative &&
@@ -41,7 +44,11 @@ export function CodingCockpitPanel({
     patchApplyReadiness.backend_owned &&
     patchApplyReadiness.read_only &&
     patchApplyReadiness.readiness_only &&
-    patchApplyReadiness.safe_refs_only;
+    patchApplyReadiness.safe_refs_only &&
+    testCommandReadiness.backend_owned &&
+    testCommandReadiness.read_only &&
+    testCommandReadiness.readiness_only &&
+    testCommandReadiness.safe_refs_only;
   const currentAuthorityMode =
     session.authority_modes.find((mode) => mode.state === "current") ??
     session.authority_modes[0];
@@ -154,7 +161,12 @@ export function CodingCockpitPanel({
       </div>
 
       <div className="coding-bottom-drawer" aria-label="Coding preview drawer">
-        <DrawerPanel panel={session.terminal_preview} actionLabel="Run command" />
+        <DrawerPanel panel={session.terminal_preview} actionLabel="Run command">
+          <TestCommandReadinessPreview
+            authoritative={backendOwned}
+            readiness={testCommandReadiness}
+          />
+        </DrawerPanel>
         <DrawerPanel panel={session.git_preview} actionLabel="Commit" />
         <DrawerPanel panel={session.test_output_preview} actionLabel="Run tests" />
         <DrawerPanel panel={session.live_preview} actionLabel="Preview status" />
@@ -307,6 +319,46 @@ function PatchApplyReadinessPreview({
   );
 }
 
+function TestCommandReadinessPreview({
+  authoritative,
+  readiness,
+}: {
+  authoritative: boolean;
+  readiness: CodingTestCommandReadinessReadModel;
+}) {
+  return (
+    <div className="coding-patch-proposal" aria-label="Coding test command readiness">
+      <div className="coding-context-budget">
+        <DetailTile label="Command readiness" value={readiness.readiness_ref} />
+        <DetailTile label="Status" value={readiness.status.replaceAll("_", " ")} />
+        <DetailTile
+          label="Suggested"
+          value={`${readiness.suggested_commands.length} refs`}
+        />
+      </div>
+      <p className="safe-copy">
+        {authoritative
+          ? "Test command readiness is backend-owned, read-only, and blocked until exact shell authority exists."
+          : "Test command readiness is non-authoritative fallback data only."}
+      </p>
+      <div className="coding-item-stack">
+        {readiness.suggested_commands.slice(0, 3).map((item) => (
+          <article className="coding-item-row" key={item.command_ref}>
+            <div>
+              <strong>{item.label}</strong>
+              <p>{item.safe_command_summary}</p>
+            </div>
+            <span className="status-pill compact">
+              {item.status.replaceAll("_", " ")}
+            </span>
+          </article>
+        ))}
+      </div>
+      <p className="safe-copy">{readiness.next_safe_action}</p>
+    </div>
+  );
+}
+
 function PreviewPanel({
   children,
   eyebrow,
@@ -327,15 +379,18 @@ function PreviewPanel({
 
 function DrawerPanel({
   actionLabel,
+  children,
   panel,
 }: {
   actionLabel: string;
+  children?: ReactNode;
   panel: CodingCockpitPreviewPanel;
 }) {
   return (
     <article className="coding-drawer-panel">
       <PanelHeader eyebrow="Preview only" title={panel.title} state={panel.state} />
       <PanelBody panel={panel} compact />
+      {children}
       <DisabledAction label={actionLabel} />
     </article>
   );

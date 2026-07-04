@@ -44,13 +44,14 @@ EXTRACTED_CONTROL_CENTER_ROUTES = {
     ("GET", "/control-center/coding/context"),
     ("GET", "/control-center/coding/patch-apply-readiness"),
     ("GET", "/control-center/coding/patch-proposal"),
+    ("GET", "/control-center/coding/test-command-readiness"),
     ("POST", "/control-center/actions/preview"),
 }
 
 EXPECTED_SIDE_EFFECT_MIX = {
     "none": 4,
     "validation_only": 71,
-    "local_dev_workspace_only": 95,
+    "local_dev_workspace_only": 96,
     "governed_network_read_only": 3,
 }
 
@@ -128,13 +129,13 @@ def _append_static_failures(failures: list[str]) -> None:
             "adds no routes and no runtime authority",
         ],
         EXTRACTION_PLAN: [
-            "Current OpenAPI path count: 173",
+            "Current OpenAPI path count: 174",
             "configure_openapi_contract(app)",
             "Beta 12 starts this extraction",
             "`/control-center/settings/status`",
         ],
         ROUTE_GROUPING_MAP: [
-            "`local_dev_workspace_only`:55",
+            "`local_dev_workspace_only`:56",
             "| GET | `/control-center/proof/index` | `get_control_center_proof_index` | `local_dev_workspace_only`",
             "| GET | `/control-center/start-here/summary` | `get_control_center_start_here_summary` | `local_dev_workspace_only`",
             "| GET | `/control-center/trust-authority/matrix` | `get_control_center_trust_authority_matrix` | `local_dev_workspace_only`",
@@ -142,6 +143,7 @@ def _append_static_failures(failures: list[str]) -> None:
             "| GET | `/control-center/coding/patch-apply-readiness` | `get_control_center_coding_patch_apply_readiness` | `local_dev_workspace_only`",
             "| GET | `/control-center/coding/patch-proposal` | `get_control_center_coding_patch_proposal` | `local_dev_workspace_only`",
             "| GET | `/control-center/coding/session` | `get_control_center_coding_session` | `local_dev_workspace_only`",
+            "| GET | `/control-center/coding/test-command-readiness` | `get_control_center_coding_test_command_readiness` | `local_dev_workspace_only`",
         ],
         RELEASE_SURFACE: [
             "Beta 12 Backend Modularization/API Contract",

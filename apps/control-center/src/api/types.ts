@@ -487,6 +487,77 @@ export interface CodingPatchApplyReadinessReadModel {
   production_authority_enabled: boolean;
 }
 
+export interface CodingSuggestedTestCommandReadModel {
+  command_ref: string;
+  label: string;
+  command_kind:
+    | "focused_pytest"
+    | "frontend_test"
+    | "lint_typecheck"
+    | "repo_verifier";
+  status: "suggested_blocked";
+  safe_command_summary: string;
+  allowlist_ref: string;
+  expected_receipt_ref: string;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  raw_command_included: boolean;
+  raw_output_included: boolean;
+  command_execution_enabled: boolean;
+}
+
+export interface CodingTestCommandReadinessReadModel {
+  schema_version: "uaa-coding-test-command-readiness.v1";
+  readiness_ref: string;
+  session_ref: string;
+  context_pack_ref: string;
+  patch_proposal_ref: string;
+  patch_apply_readiness_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  unblock_prompt_refs: string[];
+  status: "blocked_missing_allowlisted_command_authority";
+  title: string;
+  full_strength_goal: string;
+  repo_safe_current_state: string;
+  safe_summary: string;
+  allowlist_refs: string[];
+  suggested_commands: CodingSuggestedTestCommandReadModel[];
+  expected_receipt_refs: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  readiness_only: boolean;
+  safe_refs_only: boolean;
+  raw_command_included: boolean;
+  raw_output_included: boolean;
+  command_output_summary_included: boolean;
+  exit_code_available: boolean;
+  test_receipt_created: boolean;
+  command_execution_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  arbitrary_shell_enabled: boolean;
+  install_command_enabled: boolean;
+  network_command_enabled: boolean;
+  destructive_command_enabled: boolean;
+  background_process_enabled: boolean;
+  file_write_enabled: boolean;
+  git_mutation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface RuntimeReadinessSummary {
   status: string;
   production_ready: boolean;
@@ -7635,6 +7706,7 @@ export interface ControlCenterData {
   codingContext: CodingWorkspaceContextReadModel;
   codingPatchProposal: CodingPatchProposalReadModel;
   codingPatchApplyReadiness: CodingPatchApplyReadinessReadModel;
+  codingTestCommandReadiness: CodingTestCommandReadinessReadModel;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;
