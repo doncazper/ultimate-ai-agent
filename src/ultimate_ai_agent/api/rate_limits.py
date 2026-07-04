@@ -29,6 +29,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
     "provider_credential_validation": {"max_requests": 12, "window_seconds": 60},
     "provider_router_dry_run": {"max_requests": 60, "window_seconds": 60},
     "web_evidence_product_slice": {"max_requests": 12, "window_seconds": 60},
+    "governed_runtime_pilot": {"max_requests": 30, "window_seconds": 60},
 }
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
@@ -109,6 +110,12 @@ PROVIDER_ROUTER_DRY_RUN_PATHS = {
 }
 WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
     "/control-center/web-evidence/attach",
+}
+GOVERNED_RUNTIME_MUTATING_PATHS = {
+    "/api/runtime/invocations",
+    "/api/runtime/invocations/{id}/approve",
+    "/api/runtime/invocations/{id}/execute",
+    "/api/runtime/safe-disable",
 }
 
 
@@ -225,6 +232,14 @@ def route_rate_limit_group(method: str, path: str) -> str | None:
         return "provider_router_dry_run"
     if normalized_method == "POST" and path in WEB_EVIDENCE_PRODUCT_SLICE_PATHS:
         return "web_evidence_product_slice"
+    if normalized_method == "POST" and (
+        path in GOVERNED_RUNTIME_MUTATING_PATHS
+        or (
+            path.startswith("/api/runtime/invocations/")
+            and (path.endswith("/approve") or path.endswith("/execute"))
+        )
+    ):
+        return "governed_runtime_pilot"
     return None
 
 

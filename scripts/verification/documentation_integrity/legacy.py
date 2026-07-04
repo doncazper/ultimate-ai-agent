@@ -7,6 +7,7 @@ from pathlib import Path
 
 from scripts.verification.api_routes import (
     EXPECTED_CONTROL_CENTER_ROUTE_COUNT,
+    EXPECTED_OPENAPI_PATH_COUNT,
     EXPECTED_ROUTE_COUNT,
 )
 
@@ -1627,7 +1628,7 @@ ACTIVE_BASELINE_LABEL_PATTERNS = [
     ),
 ]
 
-EXPECTED_CURRENT_OPENAPI_PATH_COUNT = EXPECTED_ROUTE_COUNT
+EXPECTED_CURRENT_OPENAPI_PATH_COUNT = EXPECTED_OPENAPI_PATH_COUNT
 
 
 def _verify_active_baseline_labels(root: Path, version: str) -> list[str]:
@@ -5106,12 +5107,12 @@ def _verify_control_center_operator_shell_gap_map(root: Path) -> list[str]:
         failures.append("product truth packet must keep product-shell claims blocked")
 
     mock_data = read_lower("apps/control-center/src/mocks/controlCenterData.ts")
-    current_route_literal = f"route_count: {EXPECTED_CURRENT_OPENAPI_PATH_COUNT}"
+    current_route_literal = f"route_count: {EXPECTED_ROUTE_COUNT}"
     current_route_constant = "route_count: mock_openapi_route_count"
     if current_route_literal not in mock_data and current_route_constant not in mock_data:
         failures.append(
             "Control Center mock data must use current "
-            f"{EXPECTED_CURRENT_OPENAPI_PATH_COUNT} route count"
+            f"{EXPECTED_ROUTE_COUNT} route count"
         )
     current_control_center_constant = (
         "const mock_control_center_route_count = "

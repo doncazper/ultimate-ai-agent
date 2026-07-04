@@ -6,7 +6,10 @@ from fastapi.routing import APIRoute
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest, route_side_effect_class
-from scripts.verification.api_routes import EXPECTED_ROUTE_COUNT
+from scripts.verification.api_routes import (
+    EXPECTED_OPENAPI_PATH_COUNT,
+    EXPECTED_ROUTE_COUNT,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +39,7 @@ EVIDENCE_BEHAVIOR_BY_ROUTE_GROUP = {
     "provider-registry": "provider validation refs",
     "remote-workers": "dry-run remote worker planning refs",
     "runtime-boundary": "runtime boundary validation refs",
+    "governed-runtime": "governed runtime contract, policy, approval, receipt, and safe-disable refs",
     "runtime-readiness": "runtime readiness and capability refs",
     "secret-broker": "secret reference validation refs",
     "system": "health and version status refs",
@@ -53,7 +57,7 @@ def test_route_module_ownership_map_covers_current_api_manifest() -> None:
     documented_routes = _parse_documented_routes()
 
     assert manifest.route_count == EXPECTED_ROUTE_COUNT
-    assert len(app.openapi()["paths"]) == EXPECTED_ROUTE_COUNT
+    assert len(app.openapi()["paths"]) == EXPECTED_OPENAPI_PATH_COUNT
     assert len(documented_routes) == EXPECTED_ROUTE_COUNT
 
     route_keys = {(route.method, route.path) for route in manifest.routes}
@@ -180,7 +184,7 @@ def test_route_status_manifest_remains_visible_action_subset_with_evidence() -> 
     api_routes = {(route.method, route.path): route for route in build_api_manifest(app).routes}
     route_status = json.loads(ROUTE_STATUS_MANIFEST.read_text(encoding="utf-8"))
 
-    assert route_status["openapi_path_count"] == EXPECTED_ROUTE_COUNT
+    assert route_status["openapi_path_count"] == EXPECTED_OPENAPI_PATH_COUNT
 
     status_routes: set[tuple[str, str]] = set()
     for section_name, route_field in (

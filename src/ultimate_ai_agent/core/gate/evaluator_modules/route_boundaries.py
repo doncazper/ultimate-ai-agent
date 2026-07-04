@@ -2535,6 +2535,18 @@ TASK_DECOMPOSITION_CANONICAL_ROUTES = frozenset(
     }
 )
 
+GOVERNED_RUNTIME_PILOT_CONTRACT_ROUTES = frozenset(
+    {
+        "/api/runtime/capabilities",
+        "/api/runtime/invocations",
+        "/api/runtime/invocations/{id}",
+        "/api/runtime/invocations/{id}/approve",
+        "/api/runtime/invocations/{id}/execute",
+        "/api/runtime/invocations/{id}/receipt",
+        "/api/runtime/safe-disable",
+    }
+)
+
 POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "founder_loop": FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
     "control_center_setup_assistant": CONTROL_CENTER_SETUP_ASSISTANT_ROUTES,
@@ -2545,6 +2557,7 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "control_center_provider_router_dry_run": CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES,
     "control_center_coding_cockpit": CONTROL_CENTER_CODING_COCKPIT_ROUTES,
     "control_center_tiny_provider_lane": CONTROL_CENTER_TINY_PROVIDER_LANE_ROUTES,
+    "governed_runtime_pilot_contracts": GOVERNED_RUNTIME_PILOT_CONTRACT_ROUTES,
     "mattermost": MATTERMOST_AGENT_ROOMS_ROUTES,
     "packaging_proof": PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES,
     "redacted_observability": M167_REDACTED_OBSERVABILITY_ROUTES,

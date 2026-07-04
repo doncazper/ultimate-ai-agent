@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `177`.
+Current OpenAPI path count: `184`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -43,9 +43,9 @@ Current route classification summary:
 | Classification | Count |
 |---|---:|
 | `public_metadata` | 3 |
-| `local_readonly` | 19 |
-| `local_sensitive` | 121 |
-| `mutating_requires_authority` | 34 |
+| `local_readonly` | 20 |
+| `local_sensitive` | 124 |
+| `mutating_requires_authority` | 38 |
 
 Allowed current side-effect classes are:
 
@@ -97,6 +97,15 @@ groups.
 `rate_limit_targeted`, `rate_limit_posture`, `rate_limit_policy_ref`, and
 `rate_limit_group`. This is not auth, distributed quota, billing, production
 authority, or a public beta claim.
+
+Governed Runtime Pilot Phase 02 adds `/api/runtime/*` contract and storage
+metadata routes for runtime capabilities, safe-ref invocation records, policy
+decisions, approval-ref binding, blocked execution receipts, and safe-disable
+posture. These routes are not execution authority: local model calls,
+allowlisted command execution, adapter execution, browser automation, connector
+writes, plugin runtime import, remote execution, raw prompt/response/command
+output/local path/env persistence, production authority, and public release
+claims remain blocked.
 
 UAA-P1-086 implements route inventory enforcement checks across OpenAPI,
 `/api/manifest`, the frozen fixture, and the Control Center route-status

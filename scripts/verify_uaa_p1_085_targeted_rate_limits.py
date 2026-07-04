@@ -152,6 +152,10 @@ def verify(context: ApiVerifierContext | None = None) -> list[str]:
         ("POST", "/control-center/memory/feedback"),
         ("POST", "/control-center/actions/{action_id}/reject"),
         ("POST", "/control-center/actions/{action_id}/local-task/commit"),
+        ("POST", "/api/runtime/invocations"),
+        ("POST", "/api/runtime/invocations/{id}/approve"),
+        ("POST", "/api/runtime/invocations/{id}/execute"),
+        ("POST", "/api/runtime/safe-disable"),
         ("POST", "/task-decomposition/run"),
         ("POST", "/v1/chat/completions"),
     ]:
