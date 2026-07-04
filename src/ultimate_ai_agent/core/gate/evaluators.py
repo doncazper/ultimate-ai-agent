@@ -5017,6 +5017,20 @@ class FoundationGateEvaluator:
                 and route.method == "GET"
                 and route.side_effect_class == "local_dev_workspace_only"
             )
+            is_founder_loop_local_sensitive_read_model = (
+                path
+                in {
+                    "/control-center/proof/index",
+                    "/control-center/proof/{proof_ref}",
+                    "/control-center/start-here/summary",
+                    "/control-center/trust-authority/matrix",
+                }
+                and route.method == "GET"
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.route_classification == "local_sensitive"
+                and route.protected_route
+                and route.blocked_from_production
+            )
             is_founder_loop_decision_state = (
                 path in FOUNDER_LOOP_ACTION_DECISION_ROUTES
                 and route.method == "POST"
@@ -5140,6 +5154,7 @@ class FoundationGateEvaluator:
             if (
                 not route.validation_only
                 and not is_founder_loop_summary
+                and not is_founder_loop_local_sensitive_read_model
                 and not is_founder_loop_decision_state
                 and not is_founder_loop_action_envelope_state
                 and not is_founder_loop_chat_durable_receipt_state

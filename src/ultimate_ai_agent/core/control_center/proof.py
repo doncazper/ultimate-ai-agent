@@ -19,6 +19,13 @@ from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
 )
+from ultimate_ai_agent.core.providers.draft_summarize import (
+    PROVIDER_DRAFT_SUMMARIZE_BLOCKED_AUTHORITY_REFS,
+    PROVIDER_DRAFT_SUMMARIZE_CLI_REF,
+    PROVIDER_DRAFT_SUMMARIZE_LANE_REF,
+    PROVIDER_DRAFT_SUMMARIZE_PROOF_REF,
+    PROVIDER_DRAFT_SUMMARIZE_SAFE_DISABLE_REF,
+)
 
 
 CONTROL_CENTER_PROOF_CONTRACT_REF = "contract-ref:control-center-proof-spine:v1"
@@ -35,6 +42,7 @@ ProofKind = Literal[
     "memory_decision",
     "evidence_event",
     "web_evidence",
+    "provider_draft_preview",
     "source_readiness",
     "approval",
     "setup_package",
@@ -424,6 +432,7 @@ def _proof_records(today_summary: dict[str, Any]) -> list[ControlCenterProofReco
     records.extend(_memory_decision_records(today_summary))
     records.extend(_evidence_event_records(today_summary))
     records.append(_web_evidence_record(today_summary))
+    records.append(_provider_draft_preview_record(today_summary))
     records.append(_source_readiness_record(today_summary))
     records.append(_approval_record(today_summary))
     records.append(_setup_package_record(today_summary))
@@ -882,6 +891,69 @@ def _web_evidence_record(today_summary: dict[str, Any]) -> ControlCenterProofRec
             list(WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS),
         ),
         next_safe_action=next_safe_action,
+    )
+
+
+def _provider_draft_preview_record(
+    today_summary: dict[str, Any],
+) -> ControlCenterProofRecord:
+    return ControlCenterProofRecord(
+        proof_ref=PROVIDER_DRAFT_SUMMARIZE_PROOF_REF,
+        proof_kind="provider_draft_preview",
+        status="exact_core_cli_fixture_proven_default_ui_blocked",
+        title="Provider Draft Preview",
+        safe_summary=(
+            "Provider draft/summarize is an exact core and CLI inspection lane "
+            "over the tiny provider path. Fixture proof can return a transient "
+            "draft preview to the requester; durable records store safe refs only."
+        ),
+        authority_posture=(
+            "Default Control Center invocation and default live provider network "
+            "remain blocked. Model output is draft-only and is not truth, memory, "
+            "context, connector, action, background, or production authority."
+        ),
+        route_refs=[
+            "route-ref:control-center:trust",
+            "route-ref:control-center:proof",
+        ],
+        backend_route_refs=[
+            CONTROL_CENTER_PROOF_INDEX_ROUTE_REF,
+            CONTROL_CENTER_PROOF_DETAIL_ROUTE_REF,
+            "GET /control-center/trust-authority/matrix",
+        ],
+        run_refs=[FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF],
+        receipt_refs=[
+            "receipt-ref:provider-draft-summarize:exact-required-before-live-use"
+        ],
+        evidence_refs=[
+            "evidence-ref:provider-draft-summarize:fixture-proof",
+            PROVIDER_DRAFT_SUMMARIZE_LANE_REF,
+        ],
+        audit_refs=[
+            "audit-ref:provider-draft-summarize:exact-scope-required",
+            "idempotency-ref:provider-draft-summarize:required",
+        ],
+        approval_refs=[
+            "approval-ref:provider-draft-summarize:exact-required",
+            "approval-scope-ref:provider-draft-summarize:exact-required",
+        ],
+        rollback_refs=[
+            "rollback-ref:provider-draft-summarize:discard-local-draft",
+        ],
+        safe_disable_refs=[PROVIDER_DRAFT_SUMMARIZE_SAFE_DISABLE_REF],
+        blocked_authority_refs=_merge_refs(
+            list(_COMMON_BLOCKED_AUTHORITY_REFS),
+            list(PROVIDER_DRAFT_SUMMARIZE_BLOCKED_AUTHORITY_REFS),
+            [
+                "blocked-state:provider-draft-summarize:no-default-control-center-invocation",
+                "blocked-state:provider-draft-summarize:no-default-live-provider-network",
+                "blocked-state:provider-draft-summarize:no-durable-preview-persistence",
+            ],
+        ),
+        next_safe_action=(
+            f"Inspect {PROVIDER_DRAFT_SUMMARIZE_CLI_REF}; do not call providers "
+            "from Proof or Trust."
+        ),
     )
 
 

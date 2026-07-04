@@ -1710,6 +1710,100 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders provider draft preview proof as inspection-only", async () => {
+    const baseProofIndex = backendOwnedProofIndexFixture();
+    const providerRecord = {
+      ...baseProofIndex.records[0],
+      proof_ref: "proof-ref:provider-draft-summarize:exact",
+      proof_kind: "provider_draft_preview",
+      status: "exact_core_cli_fixture_proven_default_ui_blocked",
+      title: "Provider Draft Preview",
+      safe_summary:
+        "Provider draft/summarize is an exact core and CLI inspection lane. Fixture proof can return a transient draft preview to the requester; durable records store safe refs only.",
+      authority_posture:
+        "Default Control Center invocation and default live provider network remain blocked. Model output is draft-only and is not truth, memory, context, connector, action, background, or production authority.",
+      receipt_refs: [
+        "receipt-ref:provider-draft-summarize:exact-required-before-live-use",
+      ],
+      evidence_refs: [
+        "evidence-ref:provider-draft-summarize:fixture-proof",
+        "provider-draft-summarize-lane:exact-approved:v1",
+      ],
+      approval_refs: ["approval-ref:provider-draft-summarize:exact-required"],
+      rollback_refs: ["rollback-ref:provider-draft-summarize:discard-local-draft"],
+      safe_disable_refs: [
+        "safe-disable-ref:provider-draft-summarize:disable-exact-lane",
+      ],
+      blocked_authority_refs: [
+        "blocked-state:provider-draft-summarize:no-autonomous-provider-call",
+        "blocked-state:provider-draft-summarize:no-default-control-center-invocation",
+        "blocked-state:provider-draft-summarize:no-default-live-provider-network",
+      ],
+      run_detail: baseProofIndex.records[0].run_detail
+        ? {
+            ...baseProofIndex.records[0].run_detail,
+            proof_ref: "proof-ref:provider-draft-summarize:exact",
+            proof_kind: "provider_draft_preview",
+            title: "Provider Draft Preview",
+            safe_summary:
+              "Provider draft/summarize is an exact core and CLI inspection lane.",
+            authority_posture:
+              "Default Control Center invocation and default live provider network remain blocked.",
+            receipt_refs: [
+              "receipt-ref:provider-draft-summarize:exact-required-before-live-use",
+            ],
+            approval_refs: [
+              "approval-ref:provider-draft-summarize:exact-required",
+            ],
+            rollback_refs: [
+              "rollback-ref:provider-draft-summarize:discard-local-draft",
+            ],
+            safe_disable_refs: [
+              "safe-disable-ref:provider-draft-summarize:disable-exact-lane",
+            ],
+            blocked_authority_refs: [
+              "blocked-state:provider-draft-summarize:no-autonomous-provider-call",
+              "blocked-state:provider-draft-summarize:no-default-control-center-invocation",
+              "blocked-state:provider-draft-summarize:no-default-live-provider-network",
+            ],
+          }
+        : baseProofIndex.records[0].run_detail,
+    };
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.controlCenterProofIndex]: {
+        ...baseProofIndex,
+        proof_count: 1,
+        proof_refs: [providerRecord.proof_ref],
+        records: [providerRecord],
+      },
+    });
+    window.history.pushState({}, "", "/proof");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Proof Detail$/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Provider Draft Preview").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/Default Control Center invocation and default live provider network remain blocked/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-state:provider-draft-summarize:no-default-control-center-invocation",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        "safe-disable-ref:provider-draft-summarize:disable-exact-lane",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", {
+        name: /call provider|invoke provider|run provider|send|execute/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it("fails closed for unsafe Proof Run Detail backend payloads", async () => {
     const unsafeCases = [
       {

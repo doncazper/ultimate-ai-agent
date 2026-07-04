@@ -115,6 +115,11 @@ class ProviderDraftSummarizeResult(BaseModel):
         "send, write, memory update, context injection, or action execution."
     )
     output_is_draft_only: bool = True
+    transient_preview_returned_to_requester_only: bool = True
+    durable_draft_preview_persisted: bool = False
+    default_control_center_provider_invocation_enabled: bool = False
+    default_live_provider_network_enabled: bool = False
+    provider_exchange_persistence_allowed: bool = False
     model_output_authoritative: bool = False
     raw_prompt_persisted: bool = False
     raw_response_persisted: bool = False
@@ -175,6 +180,10 @@ class ProviderDraftSummarizeResult(BaseModel):
                 "redacted_draft_preview",
             )
         denied_flags = [
+            self.durable_draft_preview_persisted,
+            self.default_control_center_provider_invocation_enabled,
+            self.default_live_provider_network_enabled,
+            self.provider_exchange_persistence_allowed,
             self.model_output_authoritative,
             self.raw_prompt_persisted,
             self.raw_response_persisted,
@@ -192,6 +201,8 @@ class ProviderDraftSummarizeResult(BaseModel):
             raise ValueError("PROVIDER_DRAFT_SUMMARIZE_AUTHORITY_DENIED")
         if not self.output_is_draft_only:
             raise ValueError("PROVIDER_DRAFT_SUMMARIZE_OUTPUT_MUST_BE_DRAFT")
+        if not self.transient_preview_returned_to_requester_only:
+            raise ValueError("PROVIDER_DRAFT_SUMMARIZE_PREVIEW_MUST_BE_TRANSIENT")
         if self.status == "draft_ready":
             if not self.provider_invocation_allowed:
                 raise ValueError("PROVIDER_DRAFT_SUMMARIZE_READY_REQUIRES_PROVIDER")

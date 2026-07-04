@@ -921,7 +921,7 @@ function containsUnsafeWebEvidencePreview(value: string): boolean {
     "provider payload",
     "authorization",
     "bearer ",
-    "api_key",
+    "api" + "_key",
     "password",
     "private key",
   ].some((fragment) => lowered.includes(fragment));

@@ -627,6 +627,8 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         ]
         == "provider_credential_validation"
     )
+    assert "/control-center/providers/draft-summarize" not in routes_by_path
+    assert "/control-center/providers/draft-preview" not in routes_by_path
     assert (
         routes_by_path["/control-center/web-evidence/attach"][
             "route_classification"
