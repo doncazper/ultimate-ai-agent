@@ -144,6 +144,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     )
     assert "control_center_storage_status" in manifest["capabilities_declared"]
     assert (
+        "control_center_coding_cockpit_session_read_model"
+        in manifest["capabilities_declared"]
+    )
+    assert (
         "control_center_memory_safe_query_hashed_read_model"
         in manifest["capabilities_declared"]
     )
@@ -170,6 +174,17 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert (
         "control_center_memory_safe_query_raw_echo" in manifest["capabilities_blocked"]
     )
+    for blocked_capability in [
+        "control_center_coding_cockpit_file_writes",
+        "control_center_coding_cockpit_shell_subprocess_execution",
+        "control_center_coding_cockpit_git_mutation",
+        "control_center_coding_cockpit_provider_model_calls",
+        "control_center_coding_cockpit_browser_automation",
+        "control_center_coding_cockpit_connector_writes",
+        "control_center_coding_cockpit_background_autonomy",
+        "control_center_coding_cockpit_production_authority",
+    ]:
+        assert blocked_capability in manifest["capabilities_blocked"]
     assert (
         "control_center_provider_credential_readiness_cost_binding_read_only"
         in manifest["capabilities_declared"]

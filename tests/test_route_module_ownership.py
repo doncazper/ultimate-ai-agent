@@ -157,6 +157,7 @@ def test_beta_12_control_center_shell_extraction_ownership_is_frozen() -> None:
         ("GET", "/control-center/local-models/status"),
         ("GET", "/control-center/foundation-gate/summary"),
         ("GET", "/control-center/setup-assistant/summary"),
+        ("GET", "/control-center/coding/session"),
         ("POST", "/control-center/actions/preview"),
     }
 
