@@ -7,10 +7,16 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
     FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF,
 )
+from ultimate_ai_agent.core.control_center.local_tasks import (
+    FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
+    FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
+)
 from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
     WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS,
     WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_ROLLBACK_REF,
     WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_SAFE_DISABLE_REF,
 )
 from ultimate_ai_agent.core.connectors.connector_draft_proposals import (
     CONNECTOR_DRAFT_PROPOSAL_CLI_REF,
@@ -22,10 +28,15 @@ from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
 )
+from ultimate_ai_agent.core.memory import (
+    MEMORY_REVIEW_WRITE_ROLLBACK_REF,
+    MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
+)
 from ultimate_ai_agent.core.providers.draft_summarize import (
     PROVIDER_DRAFT_SUMMARIZE_CLI_REF,
     PROVIDER_DRAFT_SUMMARIZE_LANE_REF,
     PROVIDER_DRAFT_SUMMARIZE_PROOF_REF,
+    PROVIDER_DRAFT_SUMMARIZE_SAFE_DISABLE_REF,
 )
 
 
@@ -37,9 +48,30 @@ TRUST_AUTHORITY_MATRIX_CLI_REF = (
     "python scripts/dev/uaa_founder_loop.py inspect-trust-authority"
 )
 TRUST_AUTHORITY_MATRIX_DOC_REF = "docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"
+TRUST_AUTHORITY_ALLOWED_CLI_INSPECTION_REFS: tuple[str, ...] = (
+    TRUST_AUTHORITY_MATRIX_CLI_REF,
+    "python scripts/dev/uaa_founder_loop.py inspect",
+    "python scripts/dev/uaa_founder_loop.py inspect-start-here",
+    "python scripts/dev/uaa_founder_loop.py inspect-action-work-queue",
+    "python scripts/dev/uaa_founder_loop.py inspect-evidence-memory-binding",
+    "python scripts/dev/uaa_founder_loop.py inspect-proof",
+    "python scripts/dev/uaa_founder_loop.py inspect-web-evidence",
+    "python scripts/dev/uaa_founder_loop.py memory-workbench",
+    "python scripts/dev/uaa_founder_loop.py memory-context-manifest",
+    "python scripts/dev/uaa_founder_loop.py memory-receipts",
+    PROVIDER_DRAFT_SUMMARIZE_CLI_REF,
+    CONNECTOR_DRAFT_PROPOSAL_CLI_REF,
+)
 
 TrustAuthorityState = Literal[
     "available_now",
+    "approval_required",
+    "planned",
+    "blocked",
+]
+TrustOperatorPosture = Literal[
+    "enabled_read_only",
+    "review_only",
     "approval_required",
     "planned",
     "blocked",
@@ -89,6 +121,8 @@ class TrustAuthorityLane(BaseModel):
     tier_label: str = Field(..., min_length=1, max_length=120)
     lane_kind: TrustAuthorityLaneKind
     authority_state: TrustAuthorityState
+    authority_state_label: str = Field(..., min_length=1, max_length=120)
+    operator_posture: TrustOperatorPosture
     current_posture: str = Field(..., min_length=1, max_length=700)
     approval_posture: str = Field(..., min_length=1, max_length=500)
     operator_can_do_now: str = Field(..., min_length=1, max_length=500)
@@ -97,10 +131,15 @@ class TrustAuthorityLane(BaseModel):
     proof_refs: list[str] = Field(default_factory=list)
     verifier_refs: list[str] = Field(default_factory=list)
     docs_refs: list[str] = Field(default_factory=list)
+    cli_inspection_refs: list[str] = Field(default_factory=list)
+    safe_disable_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    promotion_path_refs: list[str] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list)
     requires_exact_approval: bool = False
     requires_safe_disable: bool = False
     requires_rollback_posture: bool = False
+    rollback_execution_enabled: bool = False
     safe_refs_only: bool = True
     control_center_grants_authority: bool = False
 
@@ -115,6 +154,7 @@ class TrustAuthorityLane(BaseModel):
             raise ValueError("Trust authority lane tier label drift")
         for field_name in (
             "label",
+            "authority_state_label",
             "current_posture",
             "approval_posture",
             "operator_can_do_now",
@@ -125,9 +165,31 @@ class TrustAuthorityLane(BaseModel):
         _validate_ref_list(self.proof_refs, "proof_refs")
         _validate_text_list(self.verifier_refs, "verifier_refs")
         _validate_text_list(self.docs_refs, "docs_refs")
+        _validate_text_list(self.cli_inspection_refs, "cli_inspection_refs")
+        for cli_ref in self.cli_inspection_refs:
+            if cli_ref not in TRUST_AUTHORITY_ALLOWED_CLI_INSPECTION_REFS:
+                raise ValueError("Trust authority CLI inspection ref is not registered")
+        _validate_ref_list(self.safe_disable_refs, "safe_disable_refs")
+        _validate_ref_list(self.rollback_refs, "rollback_refs")
+        _validate_ref_list(self.promotion_path_refs, "promotion_path_refs")
         _validate_ref_list(self.blocked_authority_refs, "blocked_authority_refs")
-        if not self.safe_refs_only or self.control_center_grants_authority:
+        if (
+            not self.safe_refs_only
+            or self.control_center_grants_authority
+            or self.rollback_execution_enabled
+        ):
             raise ValueError("Trust authority lanes must stay read-model only")
+        if self.operator_posture != _expected_operator_posture(
+            self.authority_state,
+            self.tier,
+        ):
+            raise ValueError("Trust authority operator posture drift")
+        if not self.cli_inspection_refs:
+            raise ValueError("Trust authority lanes require CLI inspection refs")
+        if self.tier >= 3 and (not self.safe_disable_refs or not self.rollback_refs):
+            raise ValueError("Mutation authority lanes require rollback posture refs")
+        if self.authority_state in {"planned", "blocked"} and not self.promotion_path_refs:
+            raise ValueError("Blocked/planned lanes require promotion path refs")
         if self.tier >= 4 and self.authority_state != "blocked":
             raise ValueError("Tier 4 and Tier 5 authority remains blocked here")
         return self
@@ -178,6 +240,10 @@ class TrustAuthorityMatrixReadModel(BaseModel):
     proof_refs: list[str] = Field(default_factory=list)
     verifier_refs: list[str] = Field(default_factory=list)
     docs_refs: list[str] = Field(default_factory=list)
+    cli_inspection_refs: list[str] = Field(default_factory=list)
+    safe_disable_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    promotion_path_refs: list[str] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list)
     next_safe_action: str = Field(..., min_length=1, max_length=500)
     broad_approval_enabled: bool = False
@@ -216,6 +282,10 @@ class TrustAuthorityMatrixReadModel(BaseModel):
         _validate_ref_list(self.proof_refs, "proof_refs")
         _validate_text_list(self.verifier_refs, "verifier_refs")
         _validate_text_list(self.docs_refs, "docs_refs")
+        _validate_text_list(self.cli_inspection_refs, "cli_inspection_refs")
+        _validate_ref_list(self.safe_disable_refs, "safe_disable_refs")
+        _validate_ref_list(self.rollback_refs, "rollback_refs")
+        _validate_ref_list(self.promotion_path_refs, "promotion_path_refs")
         _validate_ref_list(self.blocked_authority_refs, "blocked_authority_refs")
         _validate_ref_list(self.available_now_lane_refs, "available_now_lane_refs")
         _validate_ref_list(
@@ -245,6 +315,26 @@ class TrustAuthorityMatrixReadModel(BaseModel):
             lane.lane_ref for lane in self.lanes if lane.authority_state == "blocked"
         }:
             raise ValueError("Trust authority blocked lane refs drift")
+        if self.cli_inspection_refs != _merge_unique(
+            [ref for lane in self.lanes for ref in lane.cli_inspection_refs]
+        ):
+            raise ValueError("Trust authority CLI inspection refs drift")
+        if self.safe_disable_refs != _merge_unique(
+            [ref for lane in self.lanes for ref in lane.safe_disable_refs]
+        ):
+            raise ValueError("Trust authority safe-disable refs drift")
+        if self.rollback_refs != _merge_unique(
+            [ref for lane in self.lanes for ref in lane.rollback_refs]
+        ):
+            raise ValueError("Trust authority rollback refs drift")
+        if self.promotion_path_refs != _merge_unique(
+            [ref for lane in self.lanes for ref in lane.promotion_path_refs]
+        ):
+            raise ValueError("Trust authority promotion path refs drift")
+        if self.blocked_authority_refs != _merge_unique(
+            [ref for lane in self.lanes for ref in lane.blocked_authority_refs]
+        ):
+            raise ValueError("Trust authority blocked authority refs drift")
         for flag in _DENIED_FLAGS:
             if getattr(self, flag):
                 raise ValueError(f"Trust authority matrix must not enable {flag}")
@@ -299,6 +389,19 @@ def build_trust_authority_matrix_read_model(
             [TRUST_AUTHORITY_MATRIX_DOC_REF],
             [doc for lane in lanes for doc in lane.docs_refs],
         ),
+        cli_inspection_refs=_merge_unique(
+            [TRUST_AUTHORITY_MATRIX_CLI_REF],
+            [ref for lane in lanes for ref in lane.cli_inspection_refs],
+        ),
+        safe_disable_refs=_merge_unique(
+            [ref for lane in lanes for ref in lane.safe_disable_refs]
+        ),
+        rollback_refs=_merge_unique(
+            [ref for lane in lanes for ref in lane.rollback_refs]
+        ),
+        promotion_path_refs=_merge_unique(
+            [ref for lane in lanes for ref in lane.promotion_path_refs]
+        ),
         blocked_authority_refs=_merge_unique(
             [ref for lane in lanes for ref in lane.blocked_authority_refs]
         ),
@@ -330,6 +433,10 @@ def _trust_authority_lanes(
             proof_refs=[primary_loop_proof_ref],
             verifier_refs=["tests/test_control_center_start_here.py"],
             docs_refs=[TRUST_AUTHORITY_MATRIX_DOC_REF],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                "python scripts/dev/uaa_founder_loop.py inspect-start-here",
+            ],
         ),
         _lane(
             lane_ref="trust-lane:today-loop-read",
@@ -345,6 +452,10 @@ def _trust_authority_lanes(
             proof_refs=[primary_loop_proof_ref],
             verifier_refs=["tests/test_control_center_api_routes.py"],
             docs_refs=["docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                "python scripts/dev/uaa_founder_loop.py inspect",
+            ],
         ),
         _lane(
             lane_ref="trust-lane:proof-detail-read",
@@ -363,6 +474,10 @@ def _trust_authority_lanes(
             proof_refs=[primary_loop_proof_ref],
             verifier_refs=["tests/test_control_center_proof_spine.py"],
             docs_refs=["docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                "python scripts/dev/uaa_founder_loop.py inspect-proof",
+            ],
         ),
         _lane(
             lane_ref="trust-lane:action-inbox-work-queue",
@@ -378,6 +493,10 @@ def _trust_authority_lanes(
             proof_refs=[primary_loop_proof_ref],
             verifier_refs=["tests/test_action_inbox_work_queue.py"],
             docs_refs=["docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                "python scripts/dev/uaa_founder_loop.py inspect-action-work-queue",
+            ],
         ),
         _lane(
             lane_ref="trust-lane:local-task-commit",
@@ -401,6 +520,15 @@ def _trust_authority_lanes(
             requires_exact_approval=True,
             requires_safe_disable=True,
             requires_rollback_posture=True,
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                "python scripts/dev/uaa_founder_loop.py inspect-action-work-queue",
+            ],
+            safe_disable_refs=[FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF],
+            rollback_refs=[FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF],
+            promotion_path_refs=[
+                "promotion-path-ref:trust:local-task-commit:additional-local-lanes",
+            ],
             blocked_authority_refs=[
                 "blocked-state:local-task-commit:no-external-side-effects"
             ],
@@ -422,6 +550,10 @@ def _trust_authority_lanes(
                 "tests/test_fcc_v1_005_memory_review_decisions.py",
             ],
             docs_refs=["docs/control_center/PRODUCT_LANGUAGE_RULES.md"],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                "python scripts/dev/uaa_founder_loop.py inspect-evidence-memory-binding",
+            ],
             blocked_authority_refs=[
                 "blocked-state:trust:no-memory-truth-authority",
                 "blocked-state:trust:no-runtime-context-injection",
@@ -449,6 +581,16 @@ def _trust_authority_lanes(
             requires_exact_approval=True,
             requires_safe_disable=True,
             requires_rollback_posture=True,
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                "python scripts/dev/uaa_founder_loop.py memory-receipts",
+            ],
+            safe_disable_refs=[MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF],
+            rollback_refs=[MEMORY_REVIEW_WRITE_ROLLBACK_REF],
+            promotion_path_refs=[
+                "promotion-path-ref:trust:reviewed-memory-write:broad-memory-separate-contract",
+                "promotion-path-ref:trust:reviewed-memory-write:context-injection-separate-contract",
+            ],
             blocked_authority_refs=[
                 "blocked-state:trust:no-automatic-memory-write",
                 "blocked-state:trust:no-memory-delete-export",
@@ -471,6 +613,10 @@ def _trust_authority_lanes(
                 "tests/test_evidence_memory_loop_binding.py",
             ],
             docs_refs=["docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                "python scripts/dev/uaa_founder_loop.py inspect",
+            ],
         ),
         _lane(
             lane_ref="trust-lane:local-draft-proposal",
@@ -489,6 +635,14 @@ def _trust_authority_lanes(
             proof_refs=["proof-ref:proposal:local-review"],
             verifier_refs=["tests/test_governed_memory_context_pack_proposals.py"],
             docs_refs=[TRUST_AUTHORITY_MATRIX_DOC_REF],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                "python scripts/dev/uaa_founder_loop.py memory-context-manifest",
+            ],
+            promotion_path_refs=[
+                "promotion-path-ref:trust:local-draft-proposal:exact-apply-lane",
+                "promotion-path-ref:trust:local-draft-proposal:send-write-separate-contract",
+            ],
             blocked_authority_refs=[
                 "blocked-state:trust:draft-is-not-send",
                 "blocked-state:trust:preview-is-not-execution",
@@ -511,6 +665,16 @@ def _trust_authority_lanes(
                 "scripts/verify_web_runtime_authority.py",
             ],
             docs_refs=["docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md"],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                "python scripts/dev/uaa_founder_loop.py inspect-web-evidence",
+            ],
+            safe_disable_refs=[WEB_EVIDENCE_PRODUCT_SLICE_SAFE_DISABLE_REF],
+            rollback_refs=[WEB_EVIDENCE_PRODUCT_SLICE_ROLLBACK_REF],
+            promotion_path_refs=[
+                "promotion-path-ref:trust:web-evidence:browser-observe-separate-contract",
+                "promotion-path-ref:trust:web-evidence:browser-action-separate-contract",
+            ],
             blocked_authority_refs=list(WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS),
         ),
         _lane(
@@ -532,6 +696,18 @@ def _trust_authority_lanes(
             docs_refs=[
                 "docs/control_center/PROVIDER_DRAFT_SUMMARIZE_MICRO_LANE.md",
                 PROVIDER_DRAFT_SUMMARIZE_CLI_REF,
+            ],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                PROVIDER_DRAFT_SUMMARIZE_CLI_REF,
+            ],
+            safe_disable_refs=[PROVIDER_DRAFT_SUMMARIZE_SAFE_DISABLE_REF],
+            rollback_refs=[
+                "rollback-ref:provider-draft-summarize:discard-local-draft",
+            ],
+            promotion_path_refs=[
+                "promotion-path-ref:trust:provider-draft-summarize:live-provider-separate-contract",
+                "promotion-path-ref:trust:provider-draft-summarize:ui-invocation-separate-contract",
             ],
             blocked_authority_refs=[
                 "blocked-state:trust:no-provider-model-call",
@@ -559,6 +735,20 @@ def _trust_authority_lanes(
                 "docs/control_center/CONNECTOR_DRAFT_ONLY_PROPOSALS.md",
                 CONNECTOR_DRAFT_PROPOSAL_CONTRACT_REF,
             ],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                CONNECTOR_DRAFT_PROPOSAL_CLI_REF,
+            ],
+            safe_disable_refs=[
+                "safe-disable-ref:connector-draft-only:disable-local-draft-surface",
+            ],
+            rollback_refs=[
+                "rollback-ref:connector-draft-only:discard-local-draft",
+            ],
+            promotion_path_refs=[
+                "promotion-path-ref:trust:connector-draft-only:test-send-separate-contract",
+                "promotion-path-ref:trust:connector-draft-only:oauth-read-separate-contract",
+            ],
             blocked_authority_refs=[
                 "blocked-state:trust:no-connector-send",
                 "blocked-state:trust:no-connector-write",
@@ -578,6 +768,19 @@ def _trust_authority_lanes(
             proof_refs=["proof-ref:external-mutation:blocked"],
             verifier_refs=["scripts/verify_operational_maturity.py"],
             docs_refs=[TRUST_AUTHORITY_MATRIX_DOC_REF],
+            cli_inspection_refs=[TRUST_AUTHORITY_MATRIX_CLI_REF],
+            safe_disable_refs=[
+                "safe-disable-ref:trust:external-mutations:default-deny",
+            ],
+            rollback_refs=[
+                "rollback-ref:trust:external-mutations:future-lane-required",
+            ],
+            promotion_path_refs=[
+                "promotion-path-ref:trust:external-mutations:connector-write-send",
+                "promotion-path-ref:trust:external-mutations:shell-subprocess",
+                "promotion-path-ref:trust:external-mutations:browser-action",
+                "promotion-path-ref:trust:external-mutations:provider-model-call",
+            ],
             blocked_authority_refs=[
                 "blocked-state:trust:no-connector-write-send",
                 "blocked-state:trust:no-shell-subprocess-execution",
@@ -602,6 +805,18 @@ def _trust_authority_lanes(
             proof_refs=["proof-ref:background-authority:blocked"],
             verifier_refs=["scripts/verify_operational_maturity.py"],
             docs_refs=[TRUST_AUTHORITY_MATRIX_DOC_REF],
+            cli_inspection_refs=[TRUST_AUTHORITY_MATRIX_CLI_REF],
+            safe_disable_refs=[
+                "safe-disable-ref:trust:background-standing-authority:default-deny",
+            ],
+            rollback_refs=[
+                "rollback-ref:trust:background-standing-authority:future-lane-required",
+            ],
+            promotion_path_refs=[
+                "promotion-path-ref:trust:background-standing-authority:revocation-and-kill-switch",
+                "promotion-path-ref:trust:background-standing-authority:queue-inspection",
+                "promotion-path-ref:trust:background-standing-authority:budget-and-replay",
+            ],
             blocked_authority_refs=[
                 "blocked-state:trust:no-background-autonomy",
                 "blocked-state:trust:no-standing-authority",
@@ -629,11 +844,18 @@ def _lane(
     proof_refs: list[str],
     verifier_refs: list[str],
     docs_refs: list[str],
+    authority_state_label: str | None = None,
+    operator_posture: TrustOperatorPosture | None = None,
+    cli_inspection_refs: list[str] | None = None,
+    safe_disable_refs: list[str] | None = None,
+    rollback_refs: list[str] | None = None,
+    promotion_path_refs: list[str] | None = None,
     blocked_authority_refs: list[str] | None = None,
     requires_exact_approval: bool = False,
     requires_safe_disable: bool = False,
     requires_rollback_posture: bool = False,
 ) -> TrustAuthorityLane:
+    lane_suffix = _lane_suffix(lane_ref)
     return TrustAuthorityLane(
         lane_ref=lane_ref,
         label=label,
@@ -642,6 +864,10 @@ def _lane(
         tier_label=_TIER_LABELS[tier],
         lane_kind=lane_kind,
         authority_state=authority_state,
+        authority_state_label=authority_state_label
+        or _authority_state_label(authority_state),
+        operator_posture=operator_posture
+        or _expected_operator_posture(authority_state, tier),
         current_posture=current_posture,
         approval_posture=approval_posture,
         operator_can_do_now=operator_can_do_now,
@@ -650,6 +876,12 @@ def _lane(
         proof_refs=proof_refs,
         verifier_refs=verifier_refs,
         docs_refs=docs_refs,
+        cli_inspection_refs=cli_inspection_refs or [TRUST_AUTHORITY_MATRIX_CLI_REF],
+        safe_disable_refs=safe_disable_refs
+        or [f"safe-disable-ref:trust:{lane_suffix}:read-model-only"],
+        rollback_refs=rollback_refs or [f"rollback-ref:trust:{lane_suffix}:no-mutation"],
+        promotion_path_refs=promotion_path_refs
+        or [f"promotion-path-ref:trust:{lane_suffix}:exact-scope-required"],
         blocked_authority_refs=blocked_authority_refs or [],
         requires_exact_approval=requires_exact_approval,
         requires_safe_disable=requires_safe_disable,
@@ -693,6 +925,28 @@ def _tier_operator_summary(tier: int, lanes: list[TrustAuthorityLane]) -> str:
         f"{_TIER_LABELS[tier]}: {available} available now, {approval} require "
         f"approval, {planned} planned, {blocked} blocked."
     )
+
+
+def _expected_operator_posture(
+    authority_state: TrustAuthorityState,
+    tier: int,
+) -> TrustOperatorPosture:
+    if authority_state == "available_now":
+        return "review_only" if tier == 2 else "enabled_read_only"
+    if authority_state == "approval_required":
+        return "approval_required"
+    if authority_state == "planned":
+        return "planned"
+    return "blocked"
+
+
+def _authority_state_label(authority_state: TrustAuthorityState) -> str:
+    return authority_state.replace("_", " ")
+
+
+def _lane_suffix(lane_ref: str) -> str:
+    suffix = lane_ref.removeprefix("trust-lane:").replace("_", "-")
+    return suffix or "unknown"
 
 
 def _validate_ref_list(refs: list[str], field_name: str) -> None:

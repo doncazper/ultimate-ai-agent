@@ -2816,6 +2816,10 @@ const TRUST_AUTHORITY_MATRIX_ARRAYS = [
   "proof_refs",
   "verifier_refs",
   "docs_refs",
+  "cli_inspection_refs",
+  "safe_disable_refs",
+  "rollback_refs",
+  "promotion_path_refs",
   "blocked_authority_refs",
 ] as const;
 
@@ -2824,8 +2828,39 @@ const TRUST_AUTHORITY_LANE_ARRAYS = [
   "proof_refs",
   "verifier_refs",
   "docs_refs",
+  "cli_inspection_refs",
+  "safe_disable_refs",
+  "rollback_refs",
+  "promotion_path_refs",
   "blocked_authority_refs",
 ] as const;
+
+const TRUST_AUTHORITY_STATES = [
+  "available_now",
+  "approval_required",
+  "planned",
+  "blocked",
+] as const;
+
+const TRUST_AUTHORITY_LANE_KINDS = [
+  "read_preview",
+  "draft_proposal",
+  "reversible_local_mutation",
+  "external_mutation",
+  "background_standing_authority",
+] as const;
+
+const TRUST_AUTHORITY_TIER_LABELS: Record<number, { id: string; label: string }> = {
+  0: { id: "tier_0_ui_ephemeral_state", label: "UI/ephemeral state" },
+  1: { id: "tier_1_local_read_preview", label: "Local read/preview" },
+  2: { id: "tier_2_local_draft_proposal", label: "Local draft/proposal" },
+  3: { id: "tier_3_reversible_local_mutation", label: "Reversible local mutation" },
+  4: { id: "tier_4_external_mutation", label: "External mutation" },
+  5: {
+    id: "tier_5_background_standing_authority",
+    label: "Background/standing authority",
+  },
+};
 
 function isSafeTrustAuthorityMatrix(value: unknown): value is TrustAuthorityMatrix {
   if (!isPlainRecord(value)) {
@@ -2853,7 +2888,8 @@ function isSafeTrustAuthorityMatrix(value: unknown): value is TrustAuthorityMatr
     (value.lanes as unknown[]).length > 0 &&
     (value.lanes as unknown[]).every(isSafeTrustAuthorityLane) &&
     (value.tier_summaries as unknown[]).length > 0 &&
-    (value.tier_summaries as unknown[]).every(isSafeTrustAuthorityTierSummary)
+    (value.tier_summaries as unknown[]).every(isSafeTrustAuthorityTierSummary) &&
+    hasTrustAuthorityMatrixRefParity(value)
   );
 }
 
@@ -2868,8 +2904,12 @@ function isSafeTrustAuthorityLane(value: unknown): boolean {
     typeof value.tier === "number" &&
     typeof value.tier_id === "string" &&
     typeof value.tier_label === "string" &&
-    typeof value.lane_kind === "string" &&
-    typeof value.authority_state === "string" &&
+    hasExactStringValue(value.lane_kind, TRUST_AUTHORITY_LANE_KINDS) &&
+    hasExactStringValue(value.authority_state, TRUST_AUTHORITY_STATES) &&
+    hasExpectedTrustTier(value) &&
+    (value.tier < 4 || value.authority_state === "blocked") &&
+    typeof value.authority_state_label === "string" &&
+    typeof value.operator_posture === "string" &&
     typeof value.current_posture === "string" &&
     typeof value.approval_posture === "string" &&
     typeof value.operator_can_do_now === "string" &&
@@ -2877,11 +2917,72 @@ function isSafeTrustAuthorityLane(value: unknown): boolean {
     TRUST_AUTHORITY_LANE_ARRAYS.every((field) => Array.isArray(value[field])) &&
     value.safe_refs_only === true &&
     value.control_center_grants_authority === false &&
+    value.rollback_execution_enabled === false &&
+    isExpectedTrustOperatorPosture(value) &&
+    stringArray(value.cli_inspection_refs).length > 0 &&
+    (value.tier < 3 ||
+      (stringArray(value.safe_disable_refs).length > 0 &&
+        stringArray(value.rollback_refs).length > 0)) &&
+    (!["planned", "blocked"].includes(value.authority_state) ||
+      stringArray(value.promotion_path_refs).length > 0) &&
     !containsUnsafeTrustText(value.label) &&
+    !containsUnsafeTrustText(value.authority_state_label) &&
     !containsUnsafeTrustText(value.current_posture) &&
     !containsUnsafeTrustText(value.approval_posture) &&
     !containsUnsafeTrustText(value.operator_can_do_now) &&
     !containsUnsafeTrustText(value.next_safe_action)
+  );
+}
+
+function isExpectedTrustOperatorPosture(
+  value: Record<string, unknown>,
+): boolean {
+  if (value.authority_state === "available_now") {
+    return (
+      value.operator_posture ===
+      (value.tier === 2 ? "review_only" : "enabled_read_only")
+    );
+  }
+  return value.operator_posture === value.authority_state;
+}
+
+function hasExpectedTrustTier(value: Record<string, unknown>): boolean {
+  if (typeof value.tier !== "number") {
+    return false;
+  }
+  const expected = TRUST_AUTHORITY_TIER_LABELS[value.tier];
+  const label =
+    typeof value.tier_label === "string" ? value.tier_label : value.label;
+  return (
+    expected !== undefined &&
+    value.tier_id === expected.id &&
+    label === expected.label
+  );
+}
+
+function hasExactStringValue(
+  value: unknown,
+  allowed: readonly string[],
+): value is string {
+  return typeof value === "string" && allowed.includes(value);
+}
+
+function hasTrustAuthorityMatrixRefParity(
+  value: Record<string, unknown>,
+): boolean {
+  const lanes = value.lanes as Record<string, unknown>[];
+  const parityFields = [
+    "cli_inspection_refs",
+    "safe_disable_refs",
+    "rollback_refs",
+    "promotion_path_refs",
+    "blocked_authority_refs",
+  ] as const;
+  return parityFields.every((field) =>
+    hasExactStringList(
+      value[field],
+      uniqueStrings(lanes.flatMap((lane) => stringArray(lane[field]))),
+    ),
   );
 }
 
@@ -2893,6 +2994,7 @@ function isSafeTrustAuthorityTierSummary(value: unknown): boolean {
     typeof value.tier === "number" &&
     typeof value.tier_id === "string" &&
     typeof value.label === "string" &&
+    hasExpectedTrustTier(value) &&
     typeof value.available_now_count === "number" &&
     typeof value.approval_required_count === "number" &&
     typeof value.planned_count === "number" &&

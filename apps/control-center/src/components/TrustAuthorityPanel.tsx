@@ -20,10 +20,8 @@ export function TrustAuthorityPanel({
   const approvalRows = laneRows.filter(
     (lane) => lane.authority_state === "approval_required",
   );
-  const blockedRows = laneRows.filter(
-    (lane) =>
-      lane.authority_state === "blocked" || lane.authority_state === "planned",
-  );
+  const plannedRows = laneRows.filter((lane) => lane.authority_state === "planned");
+  const blockedRows = laneRows.filter((lane) => lane.authority_state === "blocked");
   const fallbackLaneRefs = matrix.lanes.map((lane) => lane.lane_ref);
   return (
     <section className="page-section" aria-labelledby="trust-heading">
@@ -126,7 +124,10 @@ export function TrustAuthorityPanel({
           tone="approval"
         />
       </div>
-      <LaneColumn lanes={blockedRows} title="Still Planned Or Blocked" tone="blocked" />
+      <div className="two-column-grid">
+        <LaneColumn lanes={plannedRows} title="Planned" tone="planned" />
+        <LaneColumn lanes={blockedRows} title="Blocked" tone="blocked" />
+      </div>
       {!authoritative ? (
         <div className="panel-card">
           <h3>Mock Fallback Lane Refs</h3>
@@ -167,39 +168,68 @@ function LaneColumn({
 }: {
   lanes: TrustAuthorityLane[];
   title: string;
-  tone: "available" | "approval" | "blocked";
+  tone: "available" | "approval" | "planned" | "blocked";
 }) {
   return (
     <div className="panel-card">
       <h3>{title}</h3>
       <div className="stacked-list compact">
-        {lanes.slice(0, 8).map((lane) => (
+        {lanes.map((lane) => (
           <article className="list-card compact" key={lane.lane_ref}>
             <div className="list-card-header">
               <div>
                 <strong>{lane.label}</strong>
-                <p>{lane.operator_can_do_now}</p>
+                <p>{lane.current_posture}</p>
               </div>
               <span className="status-pill compact">
-                {stateLabel(lane.authority_state)}
+                {lane.authority_state_label || stateLabel(lane.authority_state)}
               </span>
             </div>
             <div className="detail-grid compact">
               <DetailTerm label="Tier" value={`${lane.tier}: ${lane.tier_label}`} />
-              <DetailTerm label="Kind" value={lane.lane_kind} />
+              <DetailTerm label="Kind" value={formatTrustLabel(lane.lane_kind)} />
+              <DetailTerm
+                label="Posture"
+                value={formatTrustLabel(lane.operator_posture)}
+              />
               <DetailTerm
                 label="Approval"
                 value={lane.requires_exact_approval ? "exact required" : "not required"}
               />
-              <DetailTerm label="Next" value={lane.next_safe_action} />
+              <DetailTerm
+                label="Safe disable"
+                value={lane.requires_safe_disable ? "required" : "not required"}
+              />
+              <DetailTerm
+                label="Rollback"
+                value={
+                  lane.requires_rollback_posture
+                    ? "posture required"
+                    : lane.rollback_execution_enabled
+                      ? "execution enabled"
+                      : "execution blocked"
+                }
+              />
             </div>
-            {tone === "blocked" ? (
-              <RefList refs={lane.blocked_authority_refs} />
-            ) : (
-              <RefList refs={[...lane.route_refs, ...lane.proof_refs]} />
-            )}
+            <p className="muted">{lane.operator_can_do_now}</p>
+            <p className="muted">{lane.approval_posture}</p>
+            <p className="muted">{lane.next_safe_action}</p>
+            <RefGroup title="Routes and proof" refs={[...lane.route_refs, ...lane.proof_refs]} />
+            <RefGroup
+              title="CLI and verifiers"
+              refs={[...lane.cli_inspection_refs, ...lane.verifier_refs]}
+            />
+            <RefGroup
+              title="Safe-disable and rollback"
+              refs={[...lane.safe_disable_refs, ...lane.rollback_refs]}
+            />
+            <RefGroup title="Promotion path" refs={lane.promotion_path_refs} />
+            {(tone === "blocked" || lane.blocked_authority_refs.length > 0) ? (
+              <RefGroup title="Blocked authority" refs={lane.blocked_authority_refs} />
+            ) : null}
           </article>
         ))}
+        {lanes.length === 0 ? <p className="muted">none</p> : null}
       </div>
     </div>
   );
@@ -207,6 +237,10 @@ function LaneColumn({
 
 function stateLabel(state: TrustAuthorityState): string {
   return state.replaceAll("_", " ");
+}
+
+function formatTrustLabel(value: string): string {
+  return value.replaceAll("_", " ");
 }
 
 function DetailTerm({ label, value }: { label: string; value: string }) {
@@ -245,5 +279,14 @@ function RefList({ refs }: { refs: string[] }) {
         <li key={`${ref}-${index}`}>{ref}</li>
       ))}
     </ul>
+  );
+}
+
+function RefGroup({ refs, title }: { refs: string[]; title: string }) {
+  return (
+    <div className="compact-stack">
+      <p className="muted">{title}</p>
+      <RefList refs={refs} />
+    </div>
   );
 }

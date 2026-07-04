@@ -9,10 +9,13 @@ The frontend shell is served by Vite during local development. It is not mounted
 Implemented frontend pages:
 
 - `/`
+- `/start`
 - `/today`
 - `/inbox`
 - `/plans`
 - `/actions`
+- `/proof`
+- `/trust`
 - `/memory`
 - `/evidence`
 - `/settings`
@@ -60,6 +63,14 @@ visibly distinct. The grouping is read-only metadata from Python core storage;
 it adds no generic execute button, connector write, shell/subprocess execution,
 provider/model authority, memory write, context injection, or production
 authority.
+`/start`, `/proof`, and `/trust` are backend-owned Founder Loop support
+surfaces. `/start` renders `GET /control-center/start-here/summary`, `/proof`
+renders `GET /control-center/proof/index`, and `/trust` renders
+`GET /control-center/trust-authority/matrix`. Beta 07 Trust authority map
+hardens `/trust` with CLI inspection refs, safe-disable refs, rollback refs,
+promotion-path refs, and fail-closed frontend validation through
+`scripts/verify_beta_07_trust_authority_map.py`. No broad runtime authority is
+added.
 FCC-V1-000 adds `releaseStatus` route metadata and
 `docs/control_center/release_surface_manifest.json`; the sidebar and command
 palette render the conservative `ship`/`partial`/`blocked`/`experimental`
@@ -90,6 +101,7 @@ Backend API endpoints consumed:
 - `GET /control-center/runtime-readiness/summary`
 - `GET /control-center/foundation-gate/summary`
 - `GET /control-center/setup-assistant/summary`
+- `GET /control-center/start-here/summary`
 - `GET /control-center/today/summary`
 - `GET /control-center/actions/inbox`
 - `GET /control-center/actions/{action_id}/receipt`
@@ -98,6 +110,9 @@ Backend API endpoints consumed:
 - `POST /control-center/actions/{action_id}/reject`
 - `POST /control-center/actions/{action_id}/defer`
 - `POST /control-center/actions/{action_id}/local-task/commit`
+- `GET /control-center/proof/index`
+- `GET /control-center/proof/{proof_ref}`
+- `GET /control-center/trust-authority/matrix`
 - `GET /control-center/morning-briefing/summary`
 - `GET /control-center/storage/status`
 - `GET /runtime/readiness`

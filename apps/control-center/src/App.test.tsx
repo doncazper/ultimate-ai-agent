@@ -1949,6 +1949,203 @@ describe("Web Control Center shell", () => {
     }
   });
 
+  it("renders Trust safe-disable, rollback, promotion, and CLI refs from backend", async () => {
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.trustAuthorityMatrix]: betaTrustAuthorityMatrix(),
+    });
+
+    window.history.pushState({}, "", "/trust");
+    const view = render(<App />);
+
+    try {
+      expect(await screen.findByText("Backend online")).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: /^Trust$/i }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Provider draft/summarize")).toBeInTheDocument();
+      expect(screen.getByText("Connector draft-only")).toBeInTheDocument();
+      expect(screen.getAllByText("review only").length).toBeGreaterThan(0);
+      expect(screen.getByText("Exact local task commit")).toBeInTheDocument();
+      expect(screen.getAllByText("approval required").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("CLI and verifiers").length).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText(
+          "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
+        ).length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getByText("python scripts/inspect_connector_draft_proposals.py"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getAllByText("Safe-disable and rollback").length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getByText(
+          "safe-disable-ref:provider-draft-summarize:disable-exact-lane",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("rollback-ref:provider-draft-summarize:discard-local-draft"),
+      ).toBeInTheDocument();
+      expect(screen.getAllByText("Promotion path").length).toBeGreaterThan(0);
+      expect(
+        screen.getByText(
+          "promotion-path-ref:trust:provider-draft-summarize:live-provider-separate-contract",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Approve|Execute|Send|Apply/i }),
+      ).not.toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
+  });
+
+  it("keeps Trust backend-owned when an unrelated endpoint degrades", async () => {
+    const trust = betaTrustAuthorityMatrix();
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.runObservability)) {
+        throw new Error("run observability unavailable");
+      }
+      if (urlText.endsWith(API_ENDPOINTS.trustAuthorityMatrix)) {
+        return new Response(JSON.stringify({ ok: true, result: trust }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    window.history.pushState({}, "", "/trust");
+    const view = render(<App />);
+
+    try {
+      expect(await screen.findByText("Backend degraded")).toBeInTheDocument();
+      expect(screen.getByText("Provider draft/summarize")).toBeInTheDocument();
+      expect(
+        screen.getAllByText("Safe-disable and rollback").length,
+      ).toBeGreaterThan(0);
+      expect(
+        screen.queryByText("Mock Fallback Lane Refs"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/Backend unavailable; showing non-authoritative/i),
+      ).not.toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
+  });
+
+  it("fails closed for unsafe Trust authority matrix payloads", async () => {
+    const unsafeCases = [
+      {
+        name: "unknown authority state",
+        mutate: () => {
+          const matrix = betaTrustAuthorityMatrix();
+          matrix.lanes[0] = {
+            ...matrix.lanes[0],
+            authority_state: "enabled",
+          };
+          return matrix;
+        },
+      },
+      {
+        name: "tier 4 marked available",
+        mutate: () => {
+          const matrix = betaTrustAuthorityMatrix();
+          matrix.lanes[4] = {
+            ...matrix.lanes[4],
+            authority_state: "available_now",
+            authority_state_label: "available now",
+            operator_posture: "enabled_read_only",
+          };
+          return matrix;
+        },
+      },
+      {
+        name: "rollback execution enabled",
+        mutate: () => {
+          const matrix = betaTrustAuthorityMatrix();
+          matrix.lanes[0] = {
+            ...matrix.lanes[0],
+            rollback_execution_enabled: true,
+          };
+          return matrix;
+        },
+      },
+      {
+        name: "tier 3 missing safe disable refs",
+        mutate: () => {
+          const matrix = betaTrustAuthorityMatrix();
+          matrix.lanes[3] = {
+            ...matrix.lanes[3],
+            safe_disable_refs: [],
+          };
+          matrix.safe_disable_refs = trustLaneUnion(matrix.lanes, "safe_disable_refs");
+          return matrix;
+        },
+      },
+      {
+        name: "aggregate safe-disable drift",
+        mutate: () => ({
+          ...betaTrustAuthorityMatrix(),
+          safe_disable_refs: [],
+        }),
+      },
+      {
+        name: "control center grants authority",
+        mutate: () => ({
+          ...betaTrustAuthorityMatrix(),
+          control_center_grants_authority: true,
+        }),
+      },
+      {
+        name: "production authority enabled",
+        mutate: () => ({
+          ...betaTrustAuthorityMatrix(),
+          production_authority_enabled: true,
+        }),
+      },
+      {
+        name: "unsafe raw text",
+        mutate: () => ({
+          ...betaTrustAuthorityMatrix(),
+          operator_summary: "Raw prompt content must not render.",
+        }),
+      },
+    ];
+
+    const { loadControlCenterData } = await import("./api/client");
+    for (const unsafeCase of unsafeCases) {
+      stubReadEndpointOverrides({
+        [API_ENDPOINTS.trustAuthorityMatrix]: unsafeCase.mutate(),
+      });
+
+      const data = await loadControlCenterData();
+
+      expect(data.connection.state, unsafeCase.name).toBe("degraded");
+      expect(data.connection.warnings, unsafeCase.name).toContain(
+        "TRUST_AUTHORITY_MATRIX_MOCK_FALLBACK",
+      );
+      expect(data.trustAuthorityMatrix.backend_owned, unsafeCase.name).toBe(
+        false,
+      );
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("renders the daily loop spine across primary Founder Loop surfaces", async () => {
     const primarySurfaces = [
       ["/today", "Today"],
@@ -10758,6 +10955,276 @@ function backendOwnedTrustAuthorityMatrix() {
       }),
     ),
   };
+}
+
+type TrustFixtureLane = {
+  lane_ref: string;
+  label: string;
+  tier: number;
+  tier_id: string;
+  tier_label: string;
+  lane_kind: string;
+  authority_state: string;
+  authority_state_label: string;
+  operator_posture: string;
+  current_posture: string;
+  approval_posture: string;
+  operator_can_do_now: string;
+  next_safe_action: string;
+  route_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  docs_refs: string[];
+  cli_inspection_refs: string[];
+  safe_disable_refs: string[];
+  rollback_refs: string[];
+  promotion_path_refs: string[];
+  blocked_authority_refs: string[];
+  requires_exact_approval: boolean;
+  requires_safe_disable: boolean;
+  requires_rollback_posture: boolean;
+  rollback_execution_enabled: boolean;
+  safe_refs_only: boolean;
+  control_center_grants_authority: boolean;
+};
+
+function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
+  const lanes: TrustFixtureLane[] = [
+    trustFixtureLane({
+      lane_ref: "trust-lane:today-loop-read",
+      label: "Today daily loop",
+      tier: 1,
+      tier_id: "tier_1_local_read_preview",
+      tier_label: "Local read/preview",
+      lane_kind: "read_preview",
+      authority_state: "available_now",
+      authority_state_label: "available now",
+      operator_posture: "enabled_read_only",
+      route_refs: ["GET /control-center/today/summary"],
+      proof_refs: ["proof-ref:founder-loop-v1:governed-local-loop"],
+      cli_inspection_refs: [
+        "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
+        "python scripts/dev/uaa_founder_loop.py inspect",
+      ],
+    }),
+    trustFixtureLane({
+      lane_ref: "trust-lane:provider-draft-summarize",
+      label: "Provider draft/summarize",
+      tier: 2,
+      tier_id: "tier_2_local_draft_proposal",
+      tier_label: "Local draft/proposal",
+      lane_kind: "draft_proposal",
+      authority_state: "available_now",
+      authority_state_label: "available now",
+      operator_posture: "review_only",
+      route_refs: ["provider-draft-summarize-lane:exact-approved:v1"],
+      proof_refs: ["proof-ref:provider-draft-summarize:exact"],
+      cli_inspection_refs: [
+        "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
+        "python scripts/inspect_provider_draft_summarize_lane.py",
+      ],
+      safe_disable_refs: [
+        "safe-disable-ref:provider-draft-summarize:disable-exact-lane",
+      ],
+      rollback_refs: [
+        "rollback-ref:provider-draft-summarize:discard-local-draft",
+      ],
+      promotion_path_refs: [
+        "promotion-path-ref:trust:provider-draft-summarize:live-provider-separate-contract",
+      ],
+      blocked_authority_refs: [
+        "blocked-state:trust:no-provider-model-call",
+      ],
+    }),
+    trustFixtureLane({
+      lane_ref: "trust-lane:connector-draft-only",
+      label: "Connector draft-only",
+      tier: 2,
+      tier_id: "tier_2_local_draft_proposal",
+      tier_label: "Local draft/proposal",
+      lane_kind: "draft_proposal",
+      authority_state: "available_now",
+      authority_state_label: "available now",
+      operator_posture: "review_only",
+      route_refs: ["GET /control-center/sources/readiness#connector_draft_proposals"],
+      proof_refs: ["proof-ref:connector-draft-only-proposals:v1"],
+      cli_inspection_refs: [
+        "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
+        "python scripts/inspect_connector_draft_proposals.py",
+      ],
+      safe_disable_refs: [
+        "safe-disable-ref:connector-draft-only:disable-local-draft-surface",
+      ],
+      rollback_refs: ["rollback-ref:connector-draft-only:discard-local-draft"],
+      promotion_path_refs: [
+        "promotion-path-ref:trust:connector-draft-only:test-send-separate-contract",
+      ],
+      blocked_authority_refs: ["blocked-state:trust:no-connector-send"],
+    }),
+    trustFixtureLane({
+      lane_ref: "trust-lane:local-task-commit",
+      label: "Exact local task commit",
+      tier: 3,
+      tier_id: "tier_3_reversible_local_mutation",
+      tier_label: "Reversible local mutation",
+      lane_kind: "reversible_local_mutation",
+      authority_state: "approval_required",
+      authority_state_label: "approval required",
+      operator_posture: "approval_required",
+      route_refs: [
+        "POST /control-center/actions/{action_id}/local-task/commit",
+      ],
+      proof_refs: [dogfoodRefs.localTaskProofRef],
+      cli_inspection_refs: [
+        "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
+        "python scripts/dev/uaa_founder_loop.py inspect-action-work-queue",
+      ],
+      safe_disable_refs: ["safe-disable:founder-loop:local-task-create-scorecard"],
+      rollback_refs: ["rollback-not-applicable:local-task-safe-disable"],
+      promotion_path_refs: [
+        "promotion-path-ref:trust:local-task-commit:additional-local-lanes",
+      ],
+      blocked_authority_refs: [
+        "blocked-state:local-task-commit:no-external-side-effects",
+      ],
+      requires_exact_approval: true,
+      requires_safe_disable: true,
+      requires_rollback_posture: true,
+    }),
+    trustFixtureLane({
+      lane_ref: "trust-lane:external-mutations",
+      label: "External sends/writes and broad runtime actions",
+      tier: 4,
+      tier_id: "tier_4_external_mutation",
+      tier_label: "External mutation",
+      lane_kind: "external_mutation",
+      authority_state: "blocked",
+      authority_state_label: "blocked",
+      operator_posture: "blocked",
+      proof_refs: ["proof-ref:external-mutation:blocked"],
+      safe_disable_refs: [
+        "safe-disable-ref:trust:external-mutations:default-deny",
+      ],
+      rollback_refs: [
+        "rollback-ref:trust:external-mutations:future-lane-required",
+      ],
+      promotion_path_refs: [
+        "promotion-path-ref:trust:external-mutations:connector-write-send",
+      ],
+      blocked_authority_refs: [
+        "blocked-state:trust:no-connector-write-send",
+        "blocked-state:trust:no-shell-subprocess-execution",
+      ],
+      requires_exact_approval: true,
+      requires_safe_disable: true,
+      requires_rollback_posture: true,
+    }),
+  ];
+  return {
+    ...mockControlCenterData.trustAuthorityMatrix,
+    status: "implemented_backend_owned_trust_authority_matrix",
+    backend_owned: true,
+    operator_summary:
+      "Backend-owned Trust fixture shows enabled, review-only, approval-required, and blocked lanes.",
+    lanes,
+    tier_summaries: trustTierSummaries(lanes),
+    available_now_lane_refs: lanes
+      .filter((lane) => lane.authority_state === "available_now")
+      .map((lane) => lane.lane_ref),
+    approval_required_lane_refs: lanes
+      .filter((lane) => lane.authority_state === "approval_required")
+      .map((lane) => lane.lane_ref),
+    planned_lane_refs: lanes
+      .filter((lane) => lane.authority_state === "planned")
+      .map((lane) => lane.lane_ref),
+    blocked_lane_refs: lanes
+      .filter((lane) => lane.authority_state === "blocked")
+      .map((lane) => lane.lane_ref),
+    route_refs: trustLaneUnion(lanes, "route_refs"),
+    proof_refs: trustLaneUnion(lanes, "proof_refs"),
+    verifier_refs: trustLaneUnion(lanes, "verifier_refs"),
+    docs_refs: trustLaneUnion(lanes, "docs_refs"),
+    cli_inspection_refs: trustLaneUnion(lanes, "cli_inspection_refs"),
+    safe_disable_refs: trustLaneUnion(lanes, "safe_disable_refs"),
+    rollback_refs: trustLaneUnion(lanes, "rollback_refs"),
+    promotion_path_refs: trustLaneUnion(lanes, "promotion_path_refs"),
+    blocked_authority_refs: trustLaneUnion(lanes, "blocked_authority_refs"),
+    ...overrides,
+  };
+}
+
+function trustFixtureLane(
+  overrides: Partial<TrustFixtureLane>,
+): TrustFixtureLane {
+  return {
+    lane_ref: "trust-lane:test",
+    label: "Trust test lane",
+    tier: 1,
+    tier_id: "tier_1_local_read_preview",
+    tier_label: "Local read/preview",
+    lane_kind: "read_preview",
+    authority_state: "available_now",
+    authority_state_label: "available now",
+    operator_posture: "enabled_read_only",
+    current_posture: "Backend-owned Trust lane posture.",
+    approval_posture: "No approval required for read-only inspection.",
+    operator_can_do_now: "Inspect backend-owned Trust refs.",
+    next_safe_action: "Inspect proof and verifier refs.",
+    route_refs: [],
+    proof_refs: [],
+    verifier_refs: ["tests/test_trust_authority_matrix.py"],
+    docs_refs: ["docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"],
+    cli_inspection_refs: [
+      "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
+    ],
+    safe_disable_refs: ["safe-disable-ref:trust:test:read-model-only"],
+    rollback_refs: ["rollback-ref:trust:test:no-mutation"],
+    promotion_path_refs: ["promotion-path-ref:trust:test:exact-scope-required"],
+    blocked_authority_refs: [],
+    requires_exact_approval: false,
+    requires_safe_disable: false,
+    requires_rollback_posture: false,
+    rollback_execution_enabled: false,
+    safe_refs_only: true,
+    control_center_grants_authority: false,
+    ...overrides,
+  };
+}
+
+function trustLaneUnion(lanes: TrustFixtureLane[], field: keyof TrustFixtureLane) {
+  return Array.from(
+    new Set(lanes.flatMap((lane) => lane[field] as string[])),
+  );
+}
+
+function trustTierSummaries(lanes: TrustFixtureLane[]) {
+  return [0, 1, 2, 3, 4, 5].map((tier) => {
+    const tierLanes = lanes.filter((lane) => lane.tier === tier);
+    const tierMeta = {
+      0: ["tier_0_ui_ephemeral_state", "UI/ephemeral state"],
+      1: ["tier_1_local_read_preview", "Local read/preview"],
+      2: ["tier_2_local_draft_proposal", "Local draft/proposal"],
+      3: ["tier_3_reversible_local_mutation", "Reversible local mutation"],
+      4: ["tier_4_external_mutation", "External mutation"],
+      5: ["tier_5_background_standing_authority", "Background/standing authority"],
+    }[tier] as [string, string];
+    return {
+      tier,
+      tier_id: tierMeta[0],
+      label: tierMeta[1],
+      available_now_count: tierLanes.filter(
+        (lane) => lane.authority_state === "available_now",
+      ).length,
+      approval_required_count: tierLanes.filter(
+        (lane) => lane.authority_state === "approval_required",
+      ).length,
+      planned_count: tierLanes.filter((lane) => lane.authority_state === "planned")
+        .length,
+      blocked_count: tierLanes.filter((lane) => lane.authority_state === "blocked")
+        .length,
+      operator_summary: `${tierMeta[1]} Trust fixture summary.`,
+    };
+  });
 }
 
 const dogfoodRefs = {

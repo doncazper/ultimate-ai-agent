@@ -275,7 +275,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
             today={data.founderToday}
           />
           <TrustAuthorityPanel
-            authoritative={isAuthoritativeConnection(data)}
+            authoritative={isTrustAuthorityAuthoritative(data)}
             matrix={data.trustAuthorityMatrix}
           />
         </>
@@ -465,4 +465,13 @@ export function renderRoute(path: string, data: ControlCenterData) {
 
 function isAuthoritativeConnection(data: ControlCenterData): boolean {
   return data.connection.state === "online" && !data.connection.usingMockData;
+}
+
+function isTrustAuthorityAuthoritative(data: ControlCenterData): boolean {
+  return (
+    data.trustAuthorityMatrix.backend_owned === true &&
+    data.trustAuthorityMatrix.local_read_model_only === true &&
+    data.trustAuthorityMatrix.control_center_grants_authority === false &&
+    !data.connection.warnings.includes("TRUST_AUTHORITY_MATRIX_MOCK_FALLBACK")
+  );
 }
