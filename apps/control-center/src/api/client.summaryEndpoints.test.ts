@@ -251,6 +251,25 @@ function baseRouteData(): Record<string, unknown> {
     background_autonomy_enabled: false,
     production_authority_enabled: false,
   };
+  const backendOwnedCodingContext = {
+    ...mockControlCenterData.codingContext,
+    context_pack_ref: "context-pack:coding-summary-endpoint-test",
+    session_ref: "coding-session:summary-endpoint-test",
+    backend_owned: true,
+    read_only: true,
+    preview_only: true,
+    safe_refs_only: true,
+    raw_paths_included: false,
+    raw_content_included: false,
+    repo_file_read_performed: false,
+    file_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+  };
   return {
     [API_ENDPOINTS.controlCenterManifest]: mockControlCenterData.manifest,
     [API_ENDPOINTS.controlCenterDashboard]: mockControlCenterData.dashboard,
@@ -271,6 +290,7 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.controlCenterProofIndex]: backendOwnedProofIndex,
     [API_ENDPOINTS.trustAuthorityMatrix]: backendOwnedTrustAuthorityMatrix,
     [API_ENDPOINTS.controlCenterCodingSession]: backendOwnedCodingSession,
+    [API_ENDPOINTS.controlCenterCodingContext]: backendOwnedCodingContext,
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:

@@ -3,16 +3,19 @@ import type {
   CodingCockpitPreviewPanel,
   CodingCockpitRefItem,
   CodingCockpitSessionReadModel,
+  CodingWorkspaceContextReadModel,
 } from "../api/types";
 import { SafeAlert } from "./SafeAlert";
 
 interface CodingCockpitPanelProps {
+  context: CodingWorkspaceContextReadModel;
   session: CodingCockpitSessionReadModel;
   authoritative: boolean;
 }
 
 export function CodingCockpitPanel({
   authoritative,
+  context,
   session,
 }: CodingCockpitPanelProps) {
   const backendOwned =
@@ -20,7 +23,11 @@ export function CodingCockpitPanel({
     session.backend_owned &&
     !session.mock_fallback &&
     session.local_read_model_only &&
-    session.safe_refs_only;
+    session.safe_refs_only &&
+    context.backend_owned &&
+    context.read_only &&
+    context.preview_only &&
+    context.safe_refs_only;
   const currentAuthorityMode =
     session.authority_modes.find((mode) => mode.state === "current") ??
     session.authority_modes[0];
@@ -84,6 +91,7 @@ export function CodingCockpitPanel({
             state={session.workspace_context.state}
           />
           <PanelBody panel={session.workspace_context} />
+          <ContextPackPreview context={context} authoritative={backendOwned} />
           <RefStack title="Context refs" refs={session.same_ref_spine.slice(0, 5)} />
         </aside>
 
@@ -142,6 +150,52 @@ export function CodingCockpitPanel({
         <RefStack title="Blocked refs" refs={session.blocked_authority_refs} />
       </div>
     </section>
+  );
+}
+
+function ContextPackPreview({
+  authoritative,
+  context,
+}: {
+  authoritative: boolean;
+  context: CodingWorkspaceContextReadModel;
+}) {
+  return (
+    <div className="coding-context-pack" aria-label="Coding context pack preview">
+      <div className="coding-context-budget">
+        <DetailTile label="Context pack" value={context.context_pack_ref} />
+        <DetailTile label="Budget" value={context.budget_state.replaceAll("_", " ")} />
+        <DetailTile
+          label="Tokens"
+          value={`${context.token_estimate_total}/${context.token_budget_limit}`}
+        />
+      </div>
+      <p className="safe-copy">
+        {authoritative
+          ? "Context preview is backend-owned, read-only, and safe-ref only."
+          : "Context preview is non-authoritative fallback data only."}
+      </p>
+      <div className="coding-item-stack">
+        {context.context_refs.slice(0, 4).map((item) => (
+          <article className="coding-item-row" key={item.context_ref}>
+            <div>
+              <strong>{item.label}</strong>
+              <p>{item.include_reason}</p>
+            </div>
+            <span className="status-pill compact">
+              {item.status.replaceAll("_", " ")}
+            </span>
+          </article>
+        ))}
+      </div>
+      <div className="coding-context-comparison">
+        {context.comparison.map((item) => (
+          <p className="safe-copy" key={item.comparison_ref}>
+            {item.label}: {item.safe_summary}
+          </p>
+        ))}
+      </div>
+    </div>
   );
 }
 

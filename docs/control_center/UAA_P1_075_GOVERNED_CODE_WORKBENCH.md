@@ -30,13 +30,17 @@ Full-strength version:
 Repo-safe current version:
 
 - Control Center route: `/coding`.
-- Backend route: `GET /control-center/coding/session`.
-- CLI inspection: `scripts/dev/uaa_coding.py inspect-session`.
-- Python Agent Core owns `CodingCockpitSessionReadModel`; Control Center renders
-  the read model and mock fallback only.
+- Backend routes: `GET /control-center/coding/session`,
+  `GET /control-center/coding/context`.
+- CLI inspection: `scripts/dev/uaa_coding.py inspect-session`,
+  `scripts/dev/uaa_coding.py inspect-context`.
+- Python Agent Core owns `CodingCockpitSessionReadModel` and
+  `CodingWorkspaceContextReadModel`; Control Center renders the read models and
+  mock fallback only.
 - The shell shows workspace/context, task timeline, diff preview, proof preview,
   agent thread, terminal preview, Git preview, test output preview, live preview,
-  authority mode selector, and blocked authority refs.
+  authority mode selector, read-only context-pack preview, and blocked
+  authority refs.
 - Mock fallback is visibly non-authoritative and grants no workflow truth.
 
 Blocked / needs authority:
@@ -51,10 +55,9 @@ Blocked / needs authority:
 
 Exact promotion path:
 
-- Prompt 02 graduates backend-owned task/context/proof contracts and inspection
-  parity.
-- Prompt 03 adds context-pack preview from safe refs.
-- Prompt 04 adds patch proposal artifacts without apply.
+- Prompt 02 graduates backend-owned context-pack preview contracts and
+  inspection parity from safe refs only.
+- Prompt 03 adds patch proposal artifacts without apply.
 - Later approved lanes add exact patch apply, allowlisted test commands, Git
   review, live preview status, and multi-agent review only after scoped
   approval binding, receipts, rollback/safe-disable posture, redaction,

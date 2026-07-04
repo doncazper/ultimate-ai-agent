@@ -16,7 +16,10 @@ from ultimate_ai_agent.core.control_center.operational_status import (
     build_control_center_local_models_status,
     build_control_center_settings_status,
 )
-from ultimate_ai_agent.core.code import build_coding_cockpit_session_seed
+from ultimate_ai_agent.core.code import (
+    build_coding_cockpit_session_seed,
+    build_coding_workspace_context_preview,
+)
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.macos_setup_assistant import (
     build_default_macos_setup_assistant_plan,
@@ -96,6 +99,20 @@ def get_control_center_coding_session() -> ResultEnvelope:
         data=session.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:coding-cockpit-read-model"}],
         redactions_applied=session.redactions_applied,
+    )
+
+
+@router.get("/coding/context", response_model=ResultEnvelope)
+def get_control_center_coding_context() -> ResultEnvelope:
+    context = build_coding_workspace_context_preview()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_coding_context",
+        service="ControlCenterCodingAPI",
+        trace_id=context.context_pack_ref,
+        data=context.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:coding-context-pack-read-model"}],
+        redactions_applied=context.redactions_applied,
     )
 
 

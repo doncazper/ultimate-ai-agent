@@ -83,9 +83,12 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "visual-baseline:control-center:trust"
     )
     assert by_path["/coding"]["status"] == "partial"
-    assert by_path["/coding"]["backend_routes"][0]["path"] == (
-        "/control-center/coding/session"
-    )
+    assert {
+        route["path"] for route in by_path["/coding"]["backend_routes"]
+    } == {
+        "/control-center/coding/context",
+        "/control-center/coding/session",
+    }
     assert by_path["/coding"]["approval_required"] is False
     assert by_path["/coding"]["visual_proof_status"] == "blocked_no_baseline"
     assert "missing_backend:coding-approved-patch-apply-route" in (
