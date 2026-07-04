@@ -81,6 +81,33 @@ calls, connector writes, browser automation, shell/subprocess execution,
 runtime context injection, background autonomy, public release, and production
 authority unless a later exact lane proves them.
 
+## Governed Runtime Pilot Language
+
+The v0.105.0 Governed Runtime Pilot is allowed as scoped milestone language
+only when copy preserves the current truth:
+
+- `sealed` is the default runtime profile and means no runtime model call or
+  command execution.
+- `local-runtime` may describe configured loopback/local runtime candidates
+  behind RuntimeGateway policy, redaction, receipts, and verifiers only after
+  the matching Python Core contracts are implemented; execution-capable calls
+  or commands still require an `operator-approved` Action Inbox approval
+  envelope.
+- `operator-approved` may describe execution-capable runtime actions only when
+  exact Action Inbox approval envelopes validate before execution and the same
+  action is inspectable through CLI/API/Control Center truth.
+
+Allowed pilot copy may say that UAA is working toward governed local runtime
+authority through RuntimeGateway. It must also say which portion is
+implemented, planned, blocked, or pilot-scoped. The pilot must never be
+described as unrestricted shell access, unrestricted provider/model authority,
+browser automation, connector write authority, plugin runtime import, remote
+execution, public beta, public release, production readiness, production
+authority, or broad autonomy. Runtime receipts must be described as redacted,
+bounded, safe-ref-only evidence; they must not imply raw prompt, raw response,
+provider payload, command output, local path, environment dump, credential, or
+secret-like durable persistence.
+
 CRM and Communications copy is allowed as a contract-first product-line
 language lane only when it preserves Control Center as the current first-party
 shell and Founder Loop as the bounded operator workflow. CRM copy must
@@ -117,6 +144,7 @@ with tests and redacted evidence.
 | No Action Inbox execution drift | Action Inbox may say `Record approval receipt`, `Record edit receipt`, `Record rejection receipt`, `Record defer receipt`, and `Create local task record` when backed by the Python Core queue/read model and receipt routes. The `local_task_create` lane creates local UAA task state only. | Any Action Inbox copy using broad `Run`, `Execute`, `Send`, `Sync`, `Write`, `Approve action`, or generic `Apply` language is blocked unless a later exact authority lane proves connector write/send, provider/model call, shell/subprocess execution, browser execution, memory write, context injection, external side effect, rollback execution, public beta/release, production readiness, or production authority. |
 | No production/public distribution claims without evidence | Copy must say production readiness and public distribution are not claimed unless an accepted release packet proves otherwise. | Any public or production claim without source, test, verifier, release note, and rollback evidence is blocked. |
 | No model/provider output as authority | Model, provider, OpenWebUI, runtime, memory, and preview outputs may inform review but cannot authorize work. | Any copy that treats output as approval, truth authority, or execution authority is blocked. |
+| No governed runtime pilot overclaim | Runtime pilot copy must name the active profile, approval posture, RuntimeGateway boundary, receipt/evidence posture, and blocked follow-on authority. `local-runtime` and `operator-approved` are exact scoped profiles, not blanket capability labels. | Any copy implying broad model/provider calls, arbitrary shell/subprocess execution, browser automation, connector writes, plugin runtime import, remote execution, raw prompt/response/provider payload/local path/command output persistence, public beta, public release, production readiness, production authority, or broad autonomy from the pilot is blocked. |
 | No provider catalog authority drift | Provider setup and pricing guidance must say it is reviewed static metadata only. Provider guidance is not credential enrollment, pricing guidance is not billing authority, provider docs links are not runtime fetches, and catalog visibility is not callable runtime authority. | Any copy implying key capture, key storage, provider validation, provider connection, model invocation, automatic pricing refresh, billing authority, or provider output authority from the catalog is blocked. |
 | No provider credential/cost readiness authority drift | Provider credential readiness and CostGovernor binding must say they are backend-owned safe-ref posture only. Configured/not-configured/revoked labels are metadata, unknown paid cost requires explicit approval, and future provider usage requires provider/model refs, cost estimate refs, budget decision refs, max-approved USD refs, and usage/cost receipt refs. | Any copy implying secret entry, credential validation, provider connection, provider SDK calls, model invocation, billing authority, spend authority, unknown paid-cost bypass, receipt bypass, or callable provider runtime from readiness/cost posture is blocked. |
 | No credential vault contract authority drift | Credential vault shell records must say they are metadata-only safe refs. Credential Vault Backend V1 may say local safe-ref ledger only. Secret-ref availability, revoked, rotation-required, validation-required, and invocation-approval posture are review/blocker states only. | Any copy implying secret resolution, key paste, raw key display, OS keychain/Credential Manager access, provider validation, provider connection, provider SDK calls, model invocation, billing authority, provider runtime authority, or invocation authority from vault presence is blocked. |
