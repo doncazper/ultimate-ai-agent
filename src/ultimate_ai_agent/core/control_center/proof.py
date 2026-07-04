@@ -18,6 +18,14 @@ from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import 
     FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF,
     FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF,
 )
+from ultimate_ai_agent.core.control_center.operator_workspace_spine import (
+    OPERATOR_WORKSPACE_SPINE_BLOCKED_AUTHORITY_REFS,
+    OPERATOR_WORKSPACE_SPINE_CLI_REF,
+    OPERATOR_WORKSPACE_SPINE_PROOF_REF,
+    OPERATOR_WORKSPACE_SPINE_ROUTE_REF,
+    OPERATOR_WORKSPACE_SPINE_ROLLBACK_REF,
+    OPERATOR_WORKSPACE_SPINE_SAFE_DISABLE_REF,
+)
 from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
     WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS,
     WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF,
@@ -52,6 +60,7 @@ ProofKind = Literal[
     "web_evidence",
     "provider_draft_preview",
     "connector_draft_proposal",
+    "operator_workspace_spine",
     "source_readiness",
     "approval",
     "setup_package",
@@ -443,6 +452,7 @@ def _proof_records(today_summary: dict[str, Any]) -> list[ControlCenterProofReco
     records.append(_web_evidence_record(today_summary))
     records.append(_provider_draft_preview_record(today_summary))
     records.append(_connector_draft_proposal_record(today_summary))
+    records.append(_operator_workspace_spine_record(today_summary))
     records.append(_source_readiness_record(today_summary))
     records.append(_approval_record(today_summary))
     records.append(_setup_package_record(today_summary))
@@ -1035,6 +1045,69 @@ def _connector_draft_proposal_record(
             f"Inspect {CONNECTOR_DRAFT_PROPOSAL_CLI_REF} and "
             f"{CONNECTOR_DRAFT_PROPOSAL_CONTRACT_REF}; graduate a separate "
             "exact test-send/write lane before any external effect."
+        ),
+    )
+
+
+def _operator_workspace_spine_record(
+    today_summary: dict[str, Any],
+) -> ControlCenterProofRecord:
+    read_model = _dict(today_summary.get("operator_workspace_spine_read_model"))
+    lane_refs = _refs(
+        [
+            lane.get("lane_ref")
+            for lane in _list_of_dicts(read_model.get("lanes"))
+            if lane.get("lane_ref")
+        ]
+    )
+    return ControlCenterProofRecord(
+        proof_ref=OPERATOR_WORKSPACE_SPINE_PROOF_REF,
+        proof_kind="operator_workspace_spine",
+        status=str(
+            read_model.get("status")
+            or "implemented_read_only_operator_workspace_spine"
+        ),
+        title="Operator Workspace Spine",
+        safe_summary=(
+            "Workspace status, Git posture, preview status, run-log posture, "
+            "and coworker handoff are backend-owned safe refs only."
+        ),
+        authority_posture=(
+            "The operator workspace spine is read-only posture. File writes, "
+            "Git mutation, shell execution, browser automation, dev-server "
+            "control, provider/model calls, connector writes, background "
+            "autonomy, raw path/log persistence, and production authority "
+            "remain blocked."
+        ),
+        route_refs=[
+            "route-ref:control-center:today",
+            "route-ref:control-center:trust",
+            "route-ref:control-center:proof",
+        ],
+        backend_route_refs=[
+            OPERATOR_WORKSPACE_SPINE_ROUTE_REF,
+            CONTROL_CENTER_PROOF_INDEX_ROUTE_REF,
+            CONTROL_CENTER_PROOF_DETAIL_ROUTE_REF,
+            "GET /control-center/trust-authority/matrix",
+        ],
+        run_refs=[FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_RUN_REF],
+        receipt_refs=["receipt-ref:operator-workspace-spine:no-runtime-performed"],
+        evidence_refs=_merge_refs(
+            _refs(read_model.get("evidence_refs")),
+            lane_refs,
+            ["evidence-ref:operator-workspace-spine:today"],
+        ),
+        audit_refs=["audit-ref:operator-workspace-spine:read-model-only"],
+        approval_refs=["approval-ref:operator-workspace-spine:not-required-for-read"],
+        rollback_refs=[OPERATOR_WORKSPACE_SPINE_ROLLBACK_REF],
+        safe_disable_refs=[OPERATOR_WORKSPACE_SPINE_SAFE_DISABLE_REF],
+        blocked_authority_refs=_merge_refs(
+            list(_COMMON_BLOCKED_AUTHORITY_REFS),
+            list(OPERATOR_WORKSPACE_SPINE_BLOCKED_AUTHORITY_REFS),
+        ),
+        next_safe_action=(
+            f"Inspect {OPERATOR_WORKSPACE_SPINE_CLI_REF}; promote live Git, "
+            "preview, command, or coworker authority as separate exact lanes."
         ),
     )
 

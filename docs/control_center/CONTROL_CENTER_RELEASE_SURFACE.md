@@ -174,6 +174,22 @@ and is not wired to the draft-only lane. Verification:
 `scripts/verify_beta_10_connector_draft_only.py`. No broad runtime authority is
 added, and no connector send/write is exposed by beta-10.
 
+Beta 11 Operator Workspace Spine keeps Today, Proof, and Trust as
+inspection surfaces for a backend-owned workspace spine read model. The
+full-strength version should become a useful operator cockpit for workspace
+status, Git posture, preview status, run logs, and coworker handoff state. The
+repo-safe current version exposes only safe refs from
+`GET /control-center/today/summary#operator_workspace_spine`,
+`proof-ref:operator-workspace-spine:read-model`,
+`trust-lane:operator-workspace-spine`, and
+`python scripts/inspect_operator_workspace_spine.py`; it adds no editor,
+terminal, file write, patch apply, no Git mutation, shell/subprocess
+execution, browser automation, dev-server lifecycle control, provider/model
+call, connector write, coworker dispatch, background autonomy, raw path/log
+persistence, public release, or production authority. Verification:
+`scripts/verify_beta_11_operator_workspace_spine.py`. No broad runtime
+authority is added.
+
 Usable Authority PR 04 hardens `/actions` as a backend-owned Action Inbox work
 queue with safe lane counts, next-item posture, proof/receipt/evidence refs,
 CLI inspection, and the exact `local_task_create` local task record lane. It

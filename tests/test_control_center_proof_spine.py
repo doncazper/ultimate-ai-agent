@@ -127,6 +127,7 @@ def test_proof_index_covers_universal_product_event_kinds(tmp_path: Path) -> Non
         "web_evidence",
         "provider_draft_preview",
         "connector_draft_proposal",
+        "operator_workspace_spine",
         "source_readiness",
         "approval",
         "setup_package",
@@ -210,6 +211,45 @@ def test_connector_draft_proposal_proof_is_backend_owned_and_non_sending(
         in record["safe_disable_refs"]
     )
     assert "python scripts/inspect_connector_draft_proposals.py" in record[
+        "next_safe_action"
+    ]
+    assert record["safe_refs_only"] is True
+    assert record["raw_content_included"] is False
+    _assert_run_detail_matches_record(record)
+    _assert_no_runtime_authority(detail)
+
+
+def test_operator_workspace_spine_proof_is_backend_owned_and_read_only(
+    tmp_path: Path,
+) -> None:
+    service = FounderLoopControlCenterService(
+        FounderLoopRepository(tmp_path / "founder_loop")
+    )
+
+    detail = service.proof_detail("proof-ref:operator-workspace-spine:read-model")
+    record = detail["record"]
+
+    assert record["proof_kind"] == "operator_workspace_spine"
+    assert record["status"] == "implemented_read_only_operator_workspace_spine"
+    assert "Git posture" in record["safe_summary"]
+    assert "read-only posture" in record["authority_posture"]
+    assert (
+        "GET /control-center/today/summary#operator_workspace_spine"
+        in record["backend_route_refs"]
+    )
+    assert (
+        "blocked-state:operator-workspace:no-git-mutation"
+        in record["blocked_authority_refs"]
+    )
+    assert (
+        "blocked-state:operator-workspace:no-shell-subprocess-execution"
+        in record["blocked_authority_refs"]
+    )
+    assert (
+        "safe-disable-ref:operator-workspace-spine:disable-read-model"
+        in record["safe_disable_refs"]
+    )
+    assert "python scripts/inspect_operator_workspace_spine.py" in record[
         "next_safe_action"
     ]
     assert record["safe_refs_only"] is True

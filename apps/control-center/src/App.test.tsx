@@ -1600,6 +1600,57 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders backend-owned Operator Workspace Spine on Today without mutation controls", async () => {
+    const today = cloneForTest(mockControlCenterData.founderToday);
+    const workspaceSpine = {
+      ...today.operator_workspace_spine_read_model!,
+      source: "python_core_operator_workspace_spine_read_model" as const,
+      backend_owned: true,
+      status: "implemented_read_only_operator_workspace_spine",
+    };
+    today.operator_workspace_spine_contract_ref =
+      "contract-ref:operator-workspace-spine:v1";
+    today.operator_workspace_spine_status = workspaceSpine.status;
+    today.operator_workspace_spine_read_model = workspaceSpine;
+    stubFounderTodayReadEndpoint(today);
+    window.history.pushState({}, "", "/today");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Today$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Operator Workspace Spine/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Repo work as safe refs: scope, proposal, preview, run evidence/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("python_core_operator_workspace_spine_read_model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("proof-ref:operator-workspace-spine:read-model")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("git-posture-ref:operator-workspace:mock-read-only")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "blocked-state:operator-workspace:no-git-mutation",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("blocked").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", {
+        name: /git commit|commit changes|push branch|pull branch|checkout branch|merge branch|rebase branch|create pr|apply patch|rollback patch|run command|execute command|open terminal|dispatch coworker|schedule worker|stream logs|cancel run|resume run/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders Start Here as a backend-owned loop guide without runtime controls", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/start");
@@ -1922,6 +1973,114 @@ describe("Web Control Center shell", () => {
     expect(
       screen.queryByRole("button", {
         name: /send|sync|write|oauth|connect account|execute/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders operator workspace spine proof as inspection-only", async () => {
+    const baseProofIndex = backendOwnedProofIndexFixture();
+    const workspaceRecord = {
+      ...baseProofIndex.records[0],
+      proof_ref: "proof-ref:operator-workspace-spine:read-model",
+      proof_kind: "operator_workspace_spine",
+      status: "implemented_read_only_operator_workspace_spine",
+      title: "Operator Workspace Spine",
+      safe_summary:
+        "Workspace status, Git posture, preview status, run-log posture, and coworker handoff are backend-owned safe refs only.",
+      authority_posture:
+        "The operator workspace spine is read-only posture. File writes, Git mutation, shell execution, browser automation, dev-server control, provider/model calls, connector writes, background autonomy, raw path/log persistence, and production authority remain blocked.",
+      backend_route_refs: [
+        "GET /control-center/today/summary#operator_workspace_spine",
+        "GET /control-center/proof/index",
+        "GET /control-center/proof/{proof_ref}",
+      ],
+      receipt_refs: ["receipt-ref:operator-workspace-spine:no-runtime-performed"],
+      evidence_refs: ["evidence-ref:operator-workspace-spine:today"],
+      approval_refs: [
+        "approval-ref:operator-workspace-spine:not-required-for-read",
+      ],
+      rollback_refs: [
+        "rollback-ref:operator-workspace-spine:remove-read-model-projection",
+      ],
+      safe_disable_refs: [
+        "safe-disable-ref:operator-workspace-spine:disable-read-model",
+      ],
+      blocked_authority_refs: [
+        "blocked-state:operator-workspace:no-git-mutation",
+        "blocked-state:operator-workspace:no-shell-subprocess-execution",
+        "blocked-state:operator-workspace:no-browser-automation",
+        "blocked-state:operator-workspace:no-background-autonomy",
+      ],
+      run_detail: baseProofIndex.records[0].run_detail
+        ? {
+            ...baseProofIndex.records[0].run_detail,
+            proof_ref: "proof-ref:operator-workspace-spine:read-model",
+            proof_kind: "operator_workspace_spine",
+            title: "Operator Workspace Spine",
+            safe_summary:
+              "Workspace status, Git posture, preview status, run-log posture, and coworker handoff are backend-owned safe refs only.",
+            authority_posture:
+              "The operator workspace spine is read-only posture.",
+            backend_route_refs: [
+              "GET /control-center/today/summary#operator_workspace_spine",
+              "GET /control-center/proof/index",
+              "GET /control-center/proof/{proof_ref}",
+            ],
+            receipt_refs: [
+              "receipt-ref:operator-workspace-spine:no-runtime-performed",
+            ],
+            approval_refs: [
+              "approval-ref:operator-workspace-spine:not-required-for-read",
+            ],
+            rollback_refs: [
+              "rollback-ref:operator-workspace-spine:remove-read-model-projection",
+            ],
+            safe_disable_refs: [
+              "safe-disable-ref:operator-workspace-spine:disable-read-model",
+            ],
+            blocked_authority_refs: [
+              "blocked-state:operator-workspace:no-git-mutation",
+              "blocked-state:operator-workspace:no-shell-subprocess-execution",
+              "blocked-state:operator-workspace:no-browser-automation",
+              "blocked-state:operator-workspace:no-background-autonomy",
+            ],
+          }
+        : baseProofIndex.records[0].run_detail,
+    };
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.controlCenterProofIndex]: {
+        ...baseProofIndex,
+        proof_count: 1,
+        proof_refs: [workspaceRecord.proof_ref],
+        records: [workspaceRecord],
+      },
+    });
+    window.history.pushState({}, "", "/proof");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Proof Detail$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Operator Workspace Spine").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Workspace status, Git posture, preview status/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "blocked-state:operator-workspace:no-git-mutation",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "safe-disable-ref:operator-workspace-spine:disable-read-model",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", {
+        name: /git commit|commit changes|push branch|pull branch|checkout branch|merge branch|rebase branch|create pr|apply patch|rollback patch|run command|execute command|open terminal|dispatch coworker|schedule worker|stream logs|cancel run|resume run/i,
       }),
     ).not.toBeInTheDocument();
   });

@@ -180,6 +180,19 @@ runtime, public release, or production authority. Verification:
 `scripts/verify_beta_10_connector_draft_only.py`. No broad runtime authority is
 added.
 
+Beta 11 Operator Workspace Spine keeps Today, `/proof`, and `/trust` as
+inspection-only Control Center surfaces for the backend-owned workspace spine
+read model. The current repo-safe version renders safe refs from
+`GET /control-center/today/summary#operator_workspace_spine`,
+`proof-ref:operator-workspace-spine:read-model`, and
+`trust-lane:operator-workspace-spine`; it shows workspace status, Git posture,
+preview status, run-log posture, and coworker handoff metadata without adding
+file editor controls, terminal controls, patch apply, Git mutation,
+shell/subprocess execution, browser automation, dev-server lifecycle control,
+provider/model calls, connector writes, coworker dispatch, background autonomy,
+raw path/log persistence, public release, or production authority.
+Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
+
 OpenAPI remains a backend contract. The current backend path count is `150` with
 unique operation IDs; earlier milestone counts in the historical sections below
 are audit context, not current route inventory.

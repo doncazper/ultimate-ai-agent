@@ -7,6 +7,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
     FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF,
 )
+from ultimate_ai_agent.core.control_center.operator_workspace_spine import (
+    OPERATOR_WORKSPACE_SPINE_BLOCKED_AUTHORITY_REFS,
+    OPERATOR_WORKSPACE_SPINE_CLI_REF,
+    OPERATOR_WORKSPACE_SPINE_PROOF_REF,
+    OPERATOR_WORKSPACE_SPINE_ROUTE_REF,
+)
 from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
     FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
@@ -59,6 +65,7 @@ TRUST_AUTHORITY_ALLOWED_CLI_INSPECTION_REFS: tuple[str, ...] = (
     "python scripts/dev/uaa_founder_loop.py memory-workbench",
     "python scripts/dev/uaa_founder_loop.py memory-context-manifest",
     "python scripts/dev/uaa_founder_loop.py memory-receipts",
+    OPERATOR_WORKSPACE_SPINE_CLI_REF,
     PROVIDER_DRAFT_SUMMARIZE_CLI_REF,
     CONNECTOR_DRAFT_PROPOSAL_CLI_REF,
 )
@@ -478,6 +485,45 @@ def _trust_authority_lanes(
                 TRUST_AUTHORITY_MATRIX_CLI_REF,
                 "python scripts/dev/uaa_founder_loop.py inspect-proof",
             ],
+        ),
+        _lane(
+            lane_ref="trust-lane:operator-workspace-spine",
+            label="Operator Workspace Spine",
+            tier=1,
+            lane_kind="read_preview",
+            authority_state="available_now",
+            current_posture=(
+                "Backend-owned safe-ref cockpit posture for workspace scope, "
+                "Git posture, preview status, run-log posture, and coworker "
+                "handoff metadata."
+            ),
+            approval_posture=(
+                "No approval required to inspect the read model; any Git, "
+                "workspace, command, preview, or coworker mutation requires a "
+                "separate exact authority lane."
+            ),
+            operator_can_do_now=(
+                "Inspect workspace, Git, preview, run-log, and coworker "
+                "posture refs without editing, running, dispatching, or "
+                "starting anything."
+            ),
+            next_safe_action=(
+                "Use the CLI and Proof record to inspect posture; promote live "
+                "Git status, command receipts, preview control, or coworker "
+                "dispatch separately."
+            ),
+            route_refs=[OPERATOR_WORKSPACE_SPINE_ROUTE_REF],
+            proof_refs=[OPERATOR_WORKSPACE_SPINE_PROOF_REF],
+            verifier_refs=[
+                "tests/test_beta_11_operator_workspace_spine.py",
+                "scripts/verify_beta_11_operator_workspace_spine.py",
+            ],
+            docs_refs=["docs/control_center/OPERATOR_WORKSPACE_SPINE.md"],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                OPERATOR_WORKSPACE_SPINE_CLI_REF,
+            ],
+            blocked_authority_refs=list(OPERATOR_WORKSPACE_SPINE_BLOCKED_AUTHORITY_REFS),
         ),
         _lane(
             lane_ref="trust-lane:action-inbox-work-queue",

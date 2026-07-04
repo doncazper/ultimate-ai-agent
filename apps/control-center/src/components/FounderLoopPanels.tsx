@@ -2428,6 +2428,9 @@ export function TodaySurfacePanel({
         today={today}
       />
       <TodayLoopReadModelPanel today={today} />
+      <OperatorWorkspaceSpinePanel
+        readModel={today.operator_workspace_spine_read_model}
+      />
       <FounderLoopRunsIntegrationPanel
         focus="today"
         readModel={today.founder_loop_runs_integration_read_model}
@@ -3363,6 +3366,176 @@ function TodayLoopReadModelPanel({ today }: { today: FounderLoopTodaySummary }) 
                   ...item.evidence_refs,
                   ...item.receipt_refs,
                   ...item.blocked_state_refs,
+                ]}
+              />
+            </li>
+          ))}
+        </ul>
+      </article>
+    </section>
+  );
+}
+
+function OperatorWorkspaceSpinePanel({
+  readModel,
+}: {
+  readModel?: FounderLoopTodaySummary["operator_workspace_spine_read_model"];
+}) {
+  if (!readModel) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Operator Workspace Spine</h3>
+          <span>backend read model missing</span>
+        </div>
+        <p className="muted">
+          Control Center will not infer workspace, Git, preview, run-log, or
+          coworker posture from UI fallback state.
+        </p>
+      </article>
+    );
+  }
+
+  const orderedLanes = readModel.lane_order
+    .map((laneKind) =>
+      readModel.lanes.find((lane) => lane.lane_kind === laneKind),
+    )
+    .filter(isPresent);
+
+  return (
+    <section
+      aria-label="Backend-owned Operator Workspace Spine"
+      className="page-section embedded"
+    >
+      <div className="section-heading compact">
+        <div>
+          <p className="eyebrow">Beta 11</p>
+          <h3>Operator Workspace Spine</h3>
+        </div>
+        <span className="status-pill compact">
+          {readModel.backend_owned ? readModel.status : "mock fallback"}
+        </span>
+      </div>
+      <p className="section-copy">
+        Repo work as safe refs: scope, proposal, preview, run evidence, and
+        handoff status. No editor, terminal, Git operation, runtime authority,
+        or coworker dispatch is exposed here.
+      </p>
+      <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Full Strength Goal</h3>
+            <span>planned cockpit</span>
+          </div>
+          <p>{readModel.full_strength_goal}</p>
+          <dl className="detail-list">
+            <DetailTerm label="Workspace" value={readModel.workspace_ref} />
+            <DetailTerm label="Git posture" value={readModel.git_posture_ref} />
+            <DetailTerm
+              label="Preview posture"
+              value={readModel.preview_status_ref}
+            />
+          </dl>
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Repo-Safe Scope</h3>
+            <span>{readModel.safe_refs_only ? "safe refs" : "unsafe"}</span>
+          </div>
+          <p>{readModel.repo_safe_scope}</p>
+          <dl className="detail-list">
+            <DetailTerm label="Source" value={readModel.source} />
+            <DetailTerm label="Route" value={readModel.route_ref} />
+            <DetailTerm label="CLI" value={readModel.cli_ref} />
+          </dl>
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Blocked Authority</h3>
+            <span>{readModel.blocked_authority_refs.length}</span>
+          </div>
+          <p>{readModel.blocked_authority_summary}</p>
+          <dl className="detail-list">
+            <DetailTerm
+              label="File write"
+              value={readModel.file_write_enabled ? "unsafe" : "blocked"}
+            />
+            <DetailTerm
+              label="Git mutation"
+              value={readModel.git_mutation_enabled ? "unsafe" : "blocked"}
+            />
+            <DetailTerm
+              label="Shell/subprocess"
+              value={
+                readModel.shell_subprocess_execution_enabled
+                  ? "unsafe"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Browser automation"
+              value={readModel.browser_automation_enabled ? "unsafe" : "blocked"}
+            />
+            <DetailTerm
+              label="Dev-server lifecycle"
+              value={readModel.dev_server_start_enabled ? "unsafe" : "blocked"}
+            />
+            <DetailTerm
+              label="Coworker autonomy"
+              value={readModel.background_autonomy_enabled ? "unsafe" : "blocked"}
+            />
+          </dl>
+          <RefList refs={readModel.blocked_authority_refs.slice(0, 6)} />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Promotion Path</h3>
+            <span>one lane at a time</span>
+          </div>
+          <p>{readModel.next_safe_action}</p>
+          <RefListWithFallback
+            emptyLabel="Promotion refs: none"
+            refs={readModel.promotion_path_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Proof refs: none"
+            refs={readModel.proof_refs}
+          />
+        </article>
+      </div>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Workspace lanes</h3>
+          <span>{orderedLanes.length}</span>
+        </div>
+        <ul className="ref-list">
+          {orderedLanes.map((lane) => (
+            <li key={lane.lane_ref}>
+              <strong>{lane.label}</strong>: {lane.status}; {lane.safe_summary}
+              Next: {lane.next_safe_action}
+              <dl className="detail-list compact">
+                <DetailTerm label="Posture" value={lane.current_posture_ref} />
+                <DetailTerm
+                  label="Runtime"
+                  value={lane.runtime_execution_enabled ? "unsafe" : "blocked"}
+                />
+                <DetailTerm
+                  label="Mutation"
+                  value={lane.mutation_enabled ? "unsafe" : "blocked"}
+                />
+                <DetailTerm
+                  label="Raw content"
+                  value={lane.raw_content_included ? "included" : "omitted"}
+                />
+              </dl>
+              <RefListWithFallback
+                emptyLabel="Lane refs: none"
+                refs={[
+                  lane.lane_ref,
+                  ...lane.source_refs,
+                  ...lane.evidence_refs,
+                  ...lane.proof_refs,
+                  ...lane.blocked_authority_refs,
                 ]}
               />
             </li>

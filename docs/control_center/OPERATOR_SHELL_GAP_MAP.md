@@ -71,6 +71,16 @@ provider/model calls, shell/subprocess execution, browser automation, runtime
 context injection, standing authority, background autonomy, public release, and
 production authority remain blocked until exact lane promotion.
 
+Beta 11 Operator Workspace Spine adds one composed, backend-owned read-model
+posture across Today, Proof, Trust, and CLI inspection for workspace status,
+Git posture, preview status, run-log posture, and coworker handoff metadata.
+It is not a file editor, terminal, Git client, browser controller, dev-server
+manager, or coworker dispatcher. The current surface stores safe refs only and
+keeps file writes, patch apply, Git mutation, shell/subprocess execution,
+browser automation, provider/model calls, connector writes, raw path/log
+persistence, background autonomy, public release, and production authority
+blocked.
+
 API boundary hardening gap: because Control Center is browser-facing,
 UAA-P1-080 now makes public/protected route posture explicit before
 authority-heavy product claims. Existing partial coverage includes OpenAPI/API
