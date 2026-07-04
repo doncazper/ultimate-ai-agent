@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.control_center.operational_status import (
 )
 from ultimate_ai_agent.core.code import (
     build_coding_cockpit_session_seed,
+    build_coding_patch_apply_readiness,
     build_coding_patch_proposal_preview,
     build_coding_workspace_context_preview,
 )
@@ -128,6 +129,20 @@ def get_control_center_coding_patch_proposal() -> ResultEnvelope:
         data=proposal.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:coding-patch-proposal-read-model"}],
         redactions_applied=proposal.redactions_applied,
+    )
+
+
+@router.get("/coding/patch-apply-readiness", response_model=ResultEnvelope)
+def get_control_center_coding_patch_apply_readiness() -> ResultEnvelope:
+    readiness = build_coding_patch_apply_readiness()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_coding_patch_apply_readiness",
+        service="ControlCenterCodingAPI",
+        trace_id=readiness.readiness_ref,
+        data=readiness.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:coding-patch-apply-readiness"}],
+        redactions_applied=readiness.redactions_applied,
     )
 
 

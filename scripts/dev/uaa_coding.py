@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.code import (  # noqa: E402
     build_coding_cockpit_session_seed,
+    build_coding_patch_apply_readiness,
     build_coding_patch_proposal_preview,
     build_coding_workspace_context_preview,
 )
@@ -35,6 +36,13 @@ def inspect_context(args: argparse.Namespace) -> int:
 def inspect_patch_proposal(args: argparse.Namespace) -> int:
     proposal = build_coding_patch_proposal_preview()
     payload = proposal.model_dump(mode="json")
+    print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
+    return 0
+
+
+def inspect_patch_apply_readiness(args: argparse.Namespace) -> int:
+    readiness = build_coding_patch_apply_readiness()
+    payload = readiness.model_dump(mode="json")
     print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
     return 0
 
@@ -74,6 +82,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pretty-print the safe JSON read model.",
     )
     patch_proposal.set_defaults(func=inspect_patch_proposal)
+    patch_apply = subparsers.add_parser(
+        "inspect-patch-apply-readiness",
+        help="Print the blocked Coding Cockpit patch apply readiness model.",
+    )
+    patch_apply.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print the safe JSON read model.",
+    )
+    patch_apply.set_defaults(func=inspect_patch_apply_readiness)
     return parser
 
 

@@ -3,6 +3,7 @@ import type {
   CodingCockpitPreviewPanel,
   CodingCockpitRefItem,
   CodingCockpitSessionReadModel,
+  CodingPatchApplyReadinessReadModel,
   CodingPatchProposalReadModel,
   CodingWorkspaceContextReadModel,
 } from "../api/types";
@@ -10,6 +11,7 @@ import { SafeAlert } from "./SafeAlert";
 
 interface CodingCockpitPanelProps {
   context: CodingWorkspaceContextReadModel;
+  patchApplyReadiness: CodingPatchApplyReadinessReadModel;
   patchProposal: CodingPatchProposalReadModel;
   session: CodingCockpitSessionReadModel;
   authoritative: boolean;
@@ -18,6 +20,7 @@ interface CodingCockpitPanelProps {
 export function CodingCockpitPanel({
   authoritative,
   context,
+  patchApplyReadiness,
   patchProposal,
   session,
 }: CodingCockpitPanelProps) {
@@ -34,7 +37,11 @@ export function CodingCockpitPanel({
     patchProposal.backend_owned &&
     patchProposal.read_only &&
     patchProposal.proposal_only &&
-    patchProposal.safe_refs_only;
+    patchProposal.safe_refs_only &&
+    patchApplyReadiness.backend_owned &&
+    patchApplyReadiness.read_only &&
+    patchApplyReadiness.readiness_only &&
+    patchApplyReadiness.safe_refs_only;
   const currentAuthorityMode =
     session.authority_modes.find((mode) => mode.state === "current") ??
     session.authority_modes[0];
@@ -109,6 +116,10 @@ export function CodingCockpitPanel({
               authoritative={backendOwned}
               proposal={patchProposal}
             />
+            <PatchApplyReadinessPreview
+              authoritative={backendOwned}
+              readiness={patchApplyReadiness}
+            />
             <div className="coding-action-row" aria-label="Patch actions">
               <DisabledAction label="Accept all" />
               <DisabledAction label="Accept file" />
@@ -146,7 +157,7 @@ export function CodingCockpitPanel({
         <DrawerPanel panel={session.terminal_preview} actionLabel="Run command" />
         <DrawerPanel panel={session.git_preview} actionLabel="Commit" />
         <DrawerPanel panel={session.test_output_preview} actionLabel="Run tests" />
-        <DrawerPanel panel={session.live_preview} actionLabel="Open browser" />
+        <DrawerPanel panel={session.live_preview} actionLabel="Preview status" />
       </div>
 
       <div className="coding-boundary-strip" aria-label="Blocked coding authority">
@@ -252,6 +263,46 @@ function PatchProposalPreview({
           </p>
         ))}
       </div>
+    </div>
+  );
+}
+
+function PatchApplyReadinessPreview({
+  authoritative,
+  readiness,
+}: {
+  authoritative: boolean;
+  readiness: CodingPatchApplyReadinessReadModel;
+}) {
+  return (
+    <div className="coding-patch-proposal" aria-label="Coding patch apply readiness">
+      <div className="coding-context-budget">
+        <DetailTile label="Apply readiness" value={readiness.readiness_ref} />
+        <DetailTile label="Status" value={readiness.status.replaceAll("_", " ")} />
+        <DetailTile
+          label="Prereqs"
+          value={`${readiness.prerequisites.length} refs`}
+        />
+      </div>
+      <p className="safe-copy">
+        {authoritative
+          ? "Patch apply readiness is backend-owned, read-only, and blocked until exact authority exists."
+          : "Patch apply readiness is non-authoritative fallback data only."}
+      </p>
+      <div className="coding-item-stack">
+        {readiness.prerequisites.slice(0, 4).map((item) => (
+          <article className="coding-item-row" key={item.prerequisite_ref}>
+            <div>
+              <strong>{item.label}</strong>
+              <p>{item.safe_summary}</p>
+            </div>
+            <span className="status-pill compact">
+              {item.status.replaceAll("_", " ")}
+            </span>
+          </article>
+        ))}
+      </div>
+      <p className="safe-copy">{readiness.next_safe_action}</p>
     </div>
   );
 }

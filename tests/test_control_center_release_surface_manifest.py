@@ -87,12 +87,13 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         route["path"] for route in by_path["/coding"]["backend_routes"]
     } == {
         "/control-center/coding/context",
+        "/control-center/coding/patch-apply-readiness",
         "/control-center/coding/patch-proposal",
         "/control-center/coding/session",
     }
     assert by_path["/coding"]["approval_required"] is False
     assert by_path["/coding"]["visual_proof_status"] == "blocked_no_baseline"
-    assert "missing_backend:coding-approved-patch-apply-route" in (
+    assert "missing_backend:coding-approved-patch-apply-execution-route" in (
         by_path["/coding"]["blocked_capabilities"]
     )
     assert any(

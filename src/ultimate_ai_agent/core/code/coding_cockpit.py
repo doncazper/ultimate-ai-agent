@@ -18,10 +18,19 @@ CODING_COCKPIT_ROUTE_REF = "route-ref:control-center-coding-session"
 CODING_COCKPIT_CONTEXT_ROUTE_REF = "route-ref:control-center-coding-context"
 CODING_COCKPIT_PATCH_PROPOSAL_REF = "patch-proposal:coding-safe-preview-v1"
 CODING_COCKPIT_PATCH_ROUTE_REF = "route-ref:control-center-coding-patch-proposal"
+CODING_COCKPIT_PATCH_APPLY_READINESS_REF = (
+    "patch-apply-readiness:coding-approved-apply-blocked-v1"
+)
+CODING_COCKPIT_PATCH_APPLY_ROUTE_REF = (
+    "route-ref:control-center-coding-patch-apply-readiness"
+)
 CODING_COCKPIT_BACKEND_ROUTE_REF = "GET /control-center/coding/session"
 CODING_COCKPIT_CONTEXT_BACKEND_ROUTE_REF = "GET /control-center/coding/context"
 CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF = (
     "GET /control-center/coding/patch-proposal"
+)
+CODING_COCKPIT_PATCH_APPLY_BACKEND_ROUTE_REF = (
+    "GET /control-center/coding/patch-apply-readiness"
 )
 CODING_COCKPIT_FRONTEND_ROUTE_REF = "/coding"
 CODING_COCKPIT_REQUIRED_BLOCKED_REFS = [
@@ -51,6 +60,8 @@ ContextRefStatus = Literal["included", "excluded", "candidate", "blocked"]
 ContextBudgetState = Literal["within_budget", "near_limit", "over_limit_blocked"]
 PatchChangeKind = Literal["modify", "add", "delete_blocked", "generated_blocked"]
 PatchProposalStatus = Literal["proposal_artifact_preview"]
+PatchApplyReadinessStatus = Literal["blocked_missing_exact_apply_contract"]
+PatchApplyPrerequisiteStatus = Literal["present", "missing", "blocked"]
 
 
 class CodingCockpitAuthorityMode(BaseModel):
@@ -513,6 +524,180 @@ class CodingPatchProposalReadModel(BaseModel):
         return self
 
 
+class CodingPatchApplyPrerequisiteReadModel(BaseModel):
+    prerequisite_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1, max_length=120)
+    status: PatchApplyPrerequisiteStatus
+    safe_summary: str = Field(..., min_length=1, max_length=420)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_prerequisite(self) -> "CodingPatchApplyPrerequisiteReadModel":
+        for ref in [
+            self.prerequisite_ref,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+        ]:
+            validate_task_ref(ref, "coding_patch_apply_prerequisite_ref")
+        for value in [self.label, self.status, self.safe_summary]:
+            validate_safe_task_text(value, "coding_patch_apply_prerequisite_text")
+        if self.status in {"missing", "blocked"} and not self.blocked_authority_refs:
+            raise ValueError("missing or blocked apply prerequisite needs blocker refs")
+        return self
+
+
+class CodingPatchApplyReadinessReadModel(BaseModel):
+    schema_version: Literal["uaa-coding-patch-apply-readiness.v1"] = (
+        "uaa-coding-patch-apply-readiness.v1"
+    )
+    readiness_ref: str = CODING_COCKPIT_PATCH_APPLY_READINESS_REF
+    session_ref: str = CODING_COCKPIT_SESSION_REF
+    context_pack_ref: str = CODING_COCKPIT_CONTEXT_PACK_REF
+    patch_proposal_ref: str = CODING_COCKPIT_PATCH_PROPOSAL_REF
+    route_ref: str = CODING_COCKPIT_PATCH_APPLY_ROUTE_REF
+    backend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_PATCH_APPLY_BACKEND_ROUTE_REF]
+    )
+    frontend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    )
+    cli_inspection_refs: list[str] = Field(
+        default_factory=lambda: [
+            "scripts/dev/uaa_coding.py inspect-patch-apply-readiness"
+        ]
+    )
+    docs_refs: list[str] = Field(
+        default_factory=lambda: [
+            "docs-ref:governed-code-workbench",
+            "docs-ref:coding-approved-patch-apply-blocker",
+            "docs-ref:operator-shell-gap-map",
+        ]
+    )
+    unblock_prompt_refs: list[str] = Field(
+        default_factory=lambda: ["prompt-ref:unblock-coding-approved-patch-apply"]
+    )
+    status: PatchApplyReadinessStatus = "blocked_missing_exact_apply_contract"
+    title: str = Field(..., min_length=1, max_length=120)
+    full_strength_goal: str = Field(..., min_length=1, max_length=520)
+    repo_safe_current_state: str = Field(..., min_length=1, max_length=520)
+    safe_summary: str = Field(..., min_length=1, max_length=520)
+    required_authority_profile_refs: list[str] = Field(default_factory=list)
+    prerequisites: list[CodingPatchApplyPrerequisiteReadModel] = Field(
+        default_factory=list
+    )
+    expected_receipt_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    promotion_path_refs: list[str] = Field(default_factory=list)
+    redactions_applied: list[str] = Field(default_factory=list)
+    next_safe_action: str = Field(..., min_length=1, max_length=420)
+    backend_owned: bool = True
+    read_only: bool = True
+    readiness_only: bool = True
+    safe_refs_only: bool = True
+    raw_paths_included: bool = False
+    raw_content_included: bool = False
+    repo_file_read_performed: bool = False
+    exact_patch_body_available: bool = False
+    hunk_selection_contract_available: bool = False
+    checkpoint_contract_available: bool = False
+    approval_binding_available: bool = False
+    rollback_contract_available: bool = False
+    patch_apply_enabled: bool = False
+    file_write_enabled: bool = False
+    approval_grant_capture_enabled: bool = False
+    rollback_execution_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    git_mutation_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    browser_automation_enabled: bool = False
+    connector_write_enabled: bool = False
+    background_autonomy_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_patch_apply_readiness(self) -> "CodingPatchApplyReadinessReadModel":
+        for ref in [
+            self.readiness_ref,
+            self.session_ref,
+            self.context_pack_ref,
+            self.patch_proposal_ref,
+            self.route_ref,
+            *self.required_authority_profile_refs,
+            *self.expected_receipt_refs,
+            *self.rollback_refs,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+            *self.promotion_path_refs,
+            *self.redactions_applied,
+            *self.docs_refs,
+            *self.unblock_prompt_refs,
+        ]:
+            validate_task_ref(ref, "coding_patch_apply_readiness_ref")
+        for value in (
+            self.backend_route_refs
+            + self.frontend_route_refs
+            + self.cli_inspection_refs
+            + [
+                self.status,
+                self.title,
+                self.full_strength_goal,
+                self.repo_safe_current_state,
+                self.safe_summary,
+                self.next_safe_action,
+            ]
+        ):
+            validate_safe_task_text(value, "coding_patch_apply_readiness_text")
+        required_true_flags = {
+            "backend_owned": self.backend_owned,
+            "read_only": self.read_only,
+            "readiness_only": self.readiness_only,
+            "safe_refs_only": self.safe_refs_only,
+        }
+        disabled = [name for name, value in required_true_flags.items() if not value]
+        if disabled:
+            raise ValueError(f"coding patch apply readiness disabled {disabled[0]}")
+        required_false_flags = {
+            "raw_paths_included": self.raw_paths_included,
+            "raw_content_included": self.raw_content_included,
+            "repo_file_read_performed": self.repo_file_read_performed,
+            "exact_patch_body_available": self.exact_patch_body_available,
+            "hunk_selection_contract_available": self.hunk_selection_contract_available,
+            "checkpoint_contract_available": self.checkpoint_contract_available,
+            "approval_binding_available": self.approval_binding_available,
+            "rollback_contract_available": self.rollback_contract_available,
+            "patch_apply_enabled": self.patch_apply_enabled,
+            "file_write_enabled": self.file_write_enabled,
+            "approval_grant_capture_enabled": self.approval_grant_capture_enabled,
+            "rollback_execution_enabled": self.rollback_execution_enabled,
+            "shell_subprocess_execution_enabled": (
+                self.shell_subprocess_execution_enabled
+            ),
+            "git_mutation_enabled": self.git_mutation_enabled,
+            "provider_model_call_enabled": self.provider_model_call_enabled,
+            "browser_automation_enabled": self.browser_automation_enabled,
+            "connector_write_enabled": self.connector_write_enabled,
+            "background_autonomy_enabled": self.background_autonomy_enabled,
+            "production_authority_enabled": self.production_authority_enabled,
+        }
+        enabled = [name for name, value in required_false_flags.items() if value]
+        if enabled:
+            raise ValueError(f"coding patch apply readiness enabled {enabled[0]}")
+        if not any(item.status in {"missing", "blocked"} for item in self.prerequisites):
+            raise ValueError("patch apply readiness needs at least one blocker")
+        payload = self.model_dump(mode="json")
+        validate_safe_task_payload(payload, "coding_patch_apply_readiness")
+        return self
+
+
 class CodingCockpitSessionReadModel(BaseModel):
     schema_version: Literal["uaa-coding-cockpit-session.v1"] = (
         "uaa-coding-cockpit-session.v1"
@@ -549,6 +734,7 @@ class CodingCockpitSessionReadModel(BaseModel):
             "scripts/dev/uaa_coding.py inspect-session",
             "scripts/dev/uaa_coding.py inspect-context",
             "scripts/dev/uaa_coding.py inspect-patch-proposal",
+            "scripts/dev/uaa_coding.py inspect-patch-apply-readiness",
         ]
     )
     status: str = "implemented_read_only_cockpit_seed"
@@ -863,6 +1049,22 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
                     proof_refs=proof_refs,
                     blocked_authority_refs=["blocked-state:coding-no-file-write"],
                 ),
+                CodingCockpitRefItem(
+                    item_ref=CODING_COCKPIT_PATCH_APPLY_READINESS_REF,
+                    label="Approved apply lane",
+                    status="blocked by Prompt 04 readiness",
+                    safe_summary=(
+                        "Apply remains blocked until exact patch body, approval "
+                        "binding, checkpoint, receipt, and rollback contracts exist."
+                    ),
+                    source_refs=[CODING_COCKPIT_PATCH_PROPOSAL_REF],
+                    evidence_refs=evidence_refs,
+                    proof_refs=proof_refs,
+                    blocked_authority_refs=[
+                        "blocked-state:coding-no-patch-apply",
+                        "blocked-state:coding-no-file-write",
+                    ],
+                ),
             ],
             proof_refs=proof_refs,
             blocked_authority_refs=["blocked-state:coding-no-background-autonomy"],
@@ -1056,6 +1258,7 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             "coding-task:cockpit-shell-seed",
             CODING_COCKPIT_CONTEXT_PACK_REF,
             CODING_COCKPIT_PATCH_PROPOSAL_REF,
+            CODING_COCKPIT_PATCH_APPLY_READINESS_REF,
             "command-proposal:coding-blocked-seed",
             "git-status:coding-readonly-seed",
             "proof-ref:coding-cockpit-seed",
@@ -1370,5 +1573,128 @@ def build_coding_patch_proposal_preview() -> CodingPatchProposalReadModel:
         next_safe_action=(
             "Review safe patch refs and keep apply blocked until the approved "
             "patch apply lane is scoped."
+        ),
+    )
+
+
+def build_coding_patch_apply_readiness() -> CodingPatchApplyReadinessReadModel:
+    evidence_refs = ["evidence-ref:coding-patch-apply-readiness"]
+    proof_refs = ["proof-ref:coding-patch-apply-readiness"]
+    blocked_refs = [
+        "blocked-state:coding-no-patch-apply",
+        "blocked-state:coding-no-file-write",
+        "blocked-state:coding-no-exact-patch-body",
+        "blocked-state:coding-no-approval-binding",
+        "blocked-state:coding-no-checkpoint-contract",
+        "blocked-state:coding-no-rollback-contract",
+        "blocked-state:coding-no-sensitive-diff-guard",
+    ]
+    return CodingPatchApplyReadinessReadModel(
+        title="Approved patch apply readiness",
+        full_strength_goal=(
+            "Apply selected files or hunks from an exact Coding patch proposal "
+            "after operator approval, checkpoint creation, receipt emission, and "
+            "rollback proof."
+        ),
+        repo_safe_current_state=(
+            "Prompt 04 records a backend-owned readiness and blocker model only. "
+            "No patch body is stored, no file is read, and no mutation route exists."
+        ),
+        safe_summary=(
+            "Approved apply is intentionally blocked until Coding has exact patch "
+            "body storage, selected-file or hunk scope, approval binding, checkpoint, "
+            "rollback, sensitive-data diff blocking, receipt, proof, and CLI parity."
+        ),
+        required_authority_profile_refs=[
+            "authority-profile:coding:ask-before-changes",
+            "authority-profile:coding:approve-safe-local-work",
+        ],
+        prerequisites=[
+            CodingPatchApplyPrerequisiteReadModel(
+                prerequisite_ref="prereq-ref:coding-exact-patch-body",
+                label="Exact patch body artifact",
+                status="missing",
+                safe_summary=(
+                    "The current proposal lane exposes safe refs and summaries but "
+                    "does not store an exact patch body or raw diff."
+                ),
+                evidence_refs=evidence_refs,
+                blocked_authority_refs=["blocked-state:coding-no-exact-patch-body"],
+            ),
+            CodingPatchApplyPrerequisiteReadModel(
+                prerequisite_ref="prereq-ref:coding-hunk-selection-contract",
+                label="Selected file or hunk scope",
+                status="missing",
+                safe_summary=(
+                    "The cockpit has no backend contract for selected file or hunk "
+                    "application scope."
+                ),
+                evidence_refs=evidence_refs,
+                blocked_authority_refs=["blocked-state:coding-no-hunk-apply-contract"],
+            ),
+            CodingPatchApplyPrerequisiteReadModel(
+                prerequisite_ref="prereq-ref:coding-local-approval-binding",
+                label="Exact approval binding",
+                status="blocked",
+                safe_summary=(
+                    "Approval mode labels are visible, but no Coding apply route "
+                    "validates LocalApprovalAuthority for a selected proposal."
+                ),
+                evidence_refs=evidence_refs,
+                blocked_authority_refs=["blocked-state:coding-no-approval-binding"],
+            ),
+            CodingPatchApplyPrerequisiteReadModel(
+                prerequisite_ref="prereq-ref:coding-checkpoint-and-rollback",
+                label="Checkpoint and rollback receipts",
+                status="blocked",
+                safe_summary=(
+                    "Coding has no checkpoint, apply receipt, rollback receipt, or "
+                    "proof binding for patch application."
+                ),
+                evidence_refs=evidence_refs,
+                blocked_authority_refs=[
+                    "blocked-state:coding-no-checkpoint-contract",
+                    "blocked-state:coding-no-rollback-contract",
+                ],
+            ),
+            CodingPatchApplyPrerequisiteReadModel(
+                prerequisite_ref="prereq-ref:coding-sensitive-diff-guard",
+                label="Sensitive diff blocking",
+                status="missing",
+                safe_summary=(
+                    "Coding apply needs a verifier-backed guard that blocks sensitive "
+                    "values, generated output, deletes, and sensitive config unless "
+                    "separately approved."
+                ),
+                evidence_refs=evidence_refs,
+                blocked_authority_refs=[
+                    "blocked-state:coding-no-sensitive-diff-guard"
+                ],
+            ),
+        ],
+        expected_receipt_refs=[
+            "receipt-ref:coding-patch-apply-required",
+            "receipt-ref:coding-rollback-required",
+        ],
+        rollback_refs=["rollback-ref:coding-patch-apply-required"],
+        proof_refs=proof_refs,
+        evidence_refs=evidence_refs,
+        blocked_authority_refs=blocked_refs,
+        promotion_path_refs=[
+            "promotion-path:coding-approved-patch-apply-contract",
+            "promotion-path:coding-approved-patch-apply-route",
+            "promotion-path:coding-approved-patch-apply-cli",
+            "promotion-path:coding-approved-patch-apply-verifier",
+        ],
+        redactions_applied=[
+            "redaction-ref:safe-refs-only",
+            "redaction-ref:raw-paths-omitted",
+            "redaction-ref:raw-content-omitted",
+            "redaction-ref:diff-body-omitted",
+        ],
+        next_safe_action=(
+            "Run the unblock prompt for exact approved patch apply only after the "
+            "patch body, approval, checkpoint, rollback, redaction, proof, and CLI "
+            "contracts are all in scope."
         ),
     )

@@ -20,6 +20,8 @@ export const API_ENDPOINTS = {
   controlCenterCodingSession: "/control-center/coding/session",
   controlCenterCodingContext: "/control-center/coding/context",
   controlCenterCodingPatchProposal: "/control-center/coding/patch-proposal",
+  controlCenterCodingPatchApplyReadiness:
+    "/control-center/coding/patch-apply-readiness",
   controlCenterProofIndex: "/control-center/proof/index",
   trustAuthorityMatrix: "/control-center/trust-authority/matrix",
   founderTodayActionEnvelope: "/control-center/today/action-envelope",
@@ -149,6 +151,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.controlCenterCodingSession,
   API_ENDPOINTS.controlCenterCodingContext,
   API_ENDPOINTS.controlCenterCodingPatchProposal,
+  API_ENDPOINTS.controlCenterCodingPatchApplyReadiness,
   API_ENDPOINTS.controlCenterProofIndex,
   API_ENDPOINTS.trustAuthorityMatrix,
   API_ENDPOINTS.founderEvidenceTimeline,

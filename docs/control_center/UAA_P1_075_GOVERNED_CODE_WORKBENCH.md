@@ -32,17 +32,19 @@ Repo-safe current version:
 - Control Center route: `/coding`.
 - Backend routes: `GET /control-center/coding/session`,
   `GET /control-center/coding/context`,
-  `GET /control-center/coding/patch-proposal`.
+  `GET /control-center/coding/patch-proposal`,
+  `GET /control-center/coding/patch-apply-readiness`.
 - CLI inspection: `scripts/dev/uaa_coding.py inspect-session`,
   `scripts/dev/uaa_coding.py inspect-context`,
-  `scripts/dev/uaa_coding.py inspect-patch-proposal`.
+  `scripts/dev/uaa_coding.py inspect-patch-proposal`,
+  `scripts/dev/uaa_coding.py inspect-patch-apply-readiness`.
 - Python Agent Core owns `CodingCockpitSessionReadModel` and
   `CodingWorkspaceContextReadModel` plus the proposal-only patch read model;
   Control Center renders the read models and mock fallback only.
 - The shell shows workspace/context, task timeline, diff preview, proof preview,
   agent thread, terminal preview, Git preview, test output preview, live preview,
   authority mode selector, read-only context-pack preview, proposal-only patch
-  refs, and blocked authority refs.
+  refs, blocked apply-readiness refs, and blocked authority refs.
 - Mock fallback is visibly non-authoritative and grants no workflow truth.
 
 Blocked / needs authority:
@@ -60,10 +62,55 @@ Exact promotion path:
 - Prompt 02 graduates backend-owned context-pack preview contracts and
   inspection parity from safe refs only.
 - Prompt 03 adds patch proposal artifacts without apply.
+- Prompt 04 adds patch apply readiness and blocker refs without apply.
 - Later approved lanes add exact patch apply, allowlisted test commands, Git
   review, live preview status, and multi-agent review only after scoped
   approval binding, receipts, rollback/safe-disable posture, redaction,
   CLI parity, and focused verifiers are present.
+
+## Coding Cockpit Prompt 04 Apply Readiness
+
+Prompt 04 keeps the full approved apply goal visible while blocking execution
+until the missing contracts are implemented.
+
+Full-strength version:
+
+- UAA applies selected files or hunks from an exact Coding patch proposal after
+  operator approval, checkpoint creation, receipt emission, and rollback proof.
+- The operator can review receipts and proof detail for the apply and rollback
+  posture.
+
+Repo-safe current version:
+
+- `GET /control-center/coding/patch-apply-readiness` exposes a backend-owned
+  read-only readiness model.
+- `scripts/dev/uaa_coding.py inspect-patch-apply-readiness` provides CLI
+  inspection parity.
+- `/coding` shows missing exact patch body, selected hunk scope, approval
+  binding, checkpoint, rollback, and sensitive diff guard prerequisites.
+- The route stores safe refs and bounded summaries only.
+
+Blocked / needs authority:
+
+- Patch body storage, selected file or hunk apply scope, Coding apply route,
+  LocalApprovalAuthority binding, checkpoint creation, apply receipt, rollback
+  receipt, rollback execution, sensitive diff guard, file writes, and proof
+  binding remain blocked.
+- Prompt 04 does not read repo files, write files, apply patches, capture
+  approval grants, execute rollback, run shell/subprocess commands, mutate Git,
+  call providers/models, automate browsers, write connectors, launch background
+  agents, or grant production authority.
+
+Exact promotion path:
+
+- Run
+  `docs/prompts/authority_graduation_program/generated_unblock_prompts/unblock_coding_approved_patch_apply.prompt.md`.
+- Keep the blocker report current at
+  `docs/control_center/authority_graduation_blockers/coding_approved_patch_apply_2026_07_04.md`.
+- Promote only after exact patch artifact storage, selection scope,
+  LocalApprovalAuthority validation, checkpoint and rollback contracts, safe
+  receipt storage, redaction, Proof Detail binding, CLI parity, frontend tests,
+  and focused verifiers are present.
 
 Verification:
 

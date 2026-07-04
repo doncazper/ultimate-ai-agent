@@ -2,6 +2,7 @@ import type {
   CodingCockpitPreviewPanel,
   CodingCockpitRefItem,
   CodingCockpitSessionReadModel,
+  CodingPatchApplyReadinessReadModel,
   CodingPatchProposalReadModel,
   CodingWorkspaceContextReadModel,
   ControlCenterData,
@@ -35,8 +36,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 172;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 71;
+export const MOCK_OPENAPI_ROUTE_COUNT = 173;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 72;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -64,6 +65,7 @@ const providerCatalogBlockers = [
 
 const codingCockpitBlockedRefs = [
   "blocked-state:coding-no-file-write",
+  "blocked-state:coding-no-patch-apply",
   "blocked-state:coding-no-shell-subprocess",
   "blocked-state:coding-no-git-mutation",
   "blocked-state:coding-no-provider-model-call",
@@ -142,6 +144,7 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
     "scripts/dev/uaa_coding.py inspect-session",
     "scripts/dev/uaa_coding.py inspect-context",
     "scripts/dev/uaa_coding.py inspect-patch-proposal",
+    "scripts/dev/uaa_coding.py inspect-patch-apply-readiness",
   ],
   status: "non_authoritative_mock_fallback",
   task_status: "proposal_only_blocked_runtime",
@@ -401,7 +404,8 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
     "coding-session:mock-fallback",
     "coding-task:cockpit-shell-mock",
     "context-pack:coding-cockpit-mock",
-    "patch-proposal:coding-blocked-mock",
+    "patch-proposal:coding-mock-preview",
+    "patch-apply-readiness:coding-mock-blocked",
     "command-proposal:coding-blocked-mock",
     "git-status:coding-readonly-mock",
     "proof-ref:coding-cockpit:mock-fallback",
@@ -411,6 +415,7 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
   promotion_path_refs: [
     "promotion-path:coding-context-pack-preview",
     "promotion-path:coding-patch-proposal-lane",
+    "promotion-path:coding-approved-patch-apply-contract",
     "promotion-path:coding-approved-apply-lane",
     "promotion-path:coding-allowlisted-test-command",
     "promotion-path:coding-git-review-lane",
@@ -601,6 +606,91 @@ const mockCodingPatchProposal: CodingPatchProposalReadModel = {
   provider_model_call_enabled: false,
   browser_automation_enabled: false,
   connector_write_enabled: false,
+  production_authority_enabled: false,
+};
+
+const mockCodingPatchApplyReadiness: CodingPatchApplyReadinessReadModel = {
+  schema_version: "uaa-coding-patch-apply-readiness.v1",
+  readiness_ref: "patch-apply-readiness:coding-mock-blocked",
+  session_ref: "coding-session:mock-fallback",
+  context_pack_ref: "context-pack:coding-cockpit-mock",
+  patch_proposal_ref: "patch-proposal:coding-mock-preview",
+  route_ref: "route-ref:control-center-coding-patch-apply-readiness",
+  backend_route_refs: ["GET /control-center/coding/patch-apply-readiness"],
+  frontend_route_refs: ["/coding"],
+  cli_inspection_refs: [
+    "scripts/dev/uaa_coding.py inspect-patch-apply-readiness",
+  ],
+  docs_refs: [
+    "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+    "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+  ],
+  unblock_prompt_refs: ["prompt-ref:unblock-coding-approved-patch-apply"],
+  status: "blocked_missing_exact_apply_contract",
+  title: "Mock patch apply readiness",
+  full_strength_goal:
+    "Apply exact approved patches with receipts and rollback proof.",
+  repo_safe_current_state:
+    "Fallback readiness is not backend truth and cannot enable apply.",
+  safe_summary:
+    "Patch apply remains blocked until backend readiness returns exact scope, approval, receipt, and rollback refs.",
+  required_authority_profile_refs: [
+    "authority-profile:coding:ask-before-changes",
+  ],
+  prerequisites: [
+    {
+      prerequisite_ref: "prereq-ref:coding-mock-exact-patch-body",
+      label: "Exact patch body artifact",
+      status: "missing",
+      safe_summary: "Fallback data has no exact patch body artifact.",
+      evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+      blocked_authority_refs: ["blocked-state:coding-no-exact-patch-body"],
+    },
+    {
+      prerequisite_ref: "prereq-ref:coding-mock-approval-binding",
+      label: "Exact approval binding",
+      status: "blocked",
+      safe_summary: "Fallback data cannot validate approval binding.",
+      evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+      blocked_authority_refs: ["blocked-state:coding-no-approval-binding"],
+    },
+  ],
+  expected_receipt_refs: ["receipt-ref:coding-patch-apply-required"],
+  rollback_refs: ["rollback-ref:coding-patch-apply-required"],
+  proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+  evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+  blocked_authority_refs: codingCockpitBlockedRefs,
+  promotion_path_refs: ["promotion-path:coding-approved-patch-apply-contract"],
+  redactions_applied: [
+    "redaction-ref:safe-refs-only",
+    "redaction-ref:raw-paths-omitted",
+    "redaction-ref:raw-content-omitted",
+    "redaction-ref:diff-body-omitted",
+  ],
+  next_safe_action:
+    "Restore backend-owned patch apply readiness before exposing any apply lane.",
+  backend_owned: false,
+  read_only: true,
+  readiness_only: true,
+  safe_refs_only: true,
+  raw_paths_included: false,
+  raw_content_included: false,
+  repo_file_read_performed: false,
+  exact_patch_body_available: false,
+  hunk_selection_contract_available: false,
+  checkpoint_contract_available: false,
+  approval_binding_available: false,
+  rollback_contract_available: false,
+  patch_apply_enabled: false,
+  file_write_enabled: false,
+  approval_grant_capture_enabled: false,
+  rollback_execution_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  git_mutation_enabled: false,
+  provider_model_call_enabled: false,
+  browser_automation_enabled: false,
+  connector_write_enabled: false,
+  background_autonomy_enabled: false,
   production_authority_enabled: false,
 };
 
@@ -8400,6 +8490,7 @@ export const mockControlCenterData: ControlCenterData = {
   codingSession: mockCodingSession,
   codingContext: mockCodingContext,
   codingPatchProposal: mockCodingPatchProposal,
+  codingPatchApplyReadiness: mockCodingPatchApplyReadiness,
   founderToday: {
     schema_version: "founder_loop_storage.v1",
     status: "mock_storage_backed_partial_loop",
