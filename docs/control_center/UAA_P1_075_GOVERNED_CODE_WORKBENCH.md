@@ -33,18 +33,21 @@ Repo-safe current version:
 - Backend routes: `GET /control-center/coding/session`,
   `GET /control-center/coding/context`,
   `GET /control-center/coding/patch-proposal`,
-  `GET /control-center/coding/patch-apply-readiness`.
+  `GET /control-center/coding/patch-apply-readiness`,
+  `GET /control-center/coding/test-command-readiness`.
 - CLI inspection: `scripts/dev/uaa_coding.py inspect-session`,
   `scripts/dev/uaa_coding.py inspect-context`,
   `scripts/dev/uaa_coding.py inspect-patch-proposal`,
-  `scripts/dev/uaa_coding.py inspect-patch-apply-readiness`.
+  `scripts/dev/uaa_coding.py inspect-patch-apply-readiness`,
+  `scripts/dev/uaa_coding.py inspect-test-command-readiness`.
 - Python Agent Core owns `CodingCockpitSessionReadModel` and
   `CodingWorkspaceContextReadModel` plus the proposal-only patch read model;
   Control Center renders the read models and mock fallback only.
 - The shell shows workspace/context, task timeline, diff preview, proof preview,
   agent thread, terminal preview, Git preview, test output preview, live preview,
   authority mode selector, read-only context-pack preview, proposal-only patch
-  refs, blocked apply-readiness refs, and blocked authority refs.
+  refs, blocked apply-readiness refs, blocked test-command readiness refs, and
+  blocked authority refs.
 - Mock fallback is visibly non-authoritative and grants no workflow truth.
 
 Blocked / needs authority:
@@ -63,6 +66,8 @@ Exact promotion path:
   inspection parity from safe refs only.
 - Prompt 03 adds patch proposal artifacts without apply.
 - Prompt 04 adds patch apply readiness and blocker refs without apply.
+- Prompt 05 adds allowlisted test-command readiness and blocker refs without
+  command execution.
 - Later approved lanes add exact patch apply, allowlisted test commands, Git
   review, live preview status, and multi-agent review only after scoped
   approval binding, receipts, rollback/safe-disable posture, redaction,
@@ -110,7 +115,50 @@ Exact promotion path:
 - Promote only after exact patch artifact storage, selection scope,
   LocalApprovalAuthority validation, checkpoint and rollback contracts, safe
   receipt storage, redaction, Proof Detail binding, CLI parity, frontend tests,
-  and focused verifiers are present.
+  and verifiers are accepted.
+
+## Coding Cockpit Prompt 05 Test Command Readiness
+
+Prompt 05 keeps the full allowlisted test command goal visible while blocking
+shell/subprocess execution until the missing command contracts are implemented.
+
+Full-strength version:
+
+- UAA runs focused allowlisted test, lint, typecheck, and repo verifier commands
+  with command preview, bounded redacted output summaries, exit codes, receipts,
+  and Proof Detail links.
+- Arbitrary shell, installs, network commands, destructive commands, background
+  processes, and broad terminal access remain outside this lane.
+
+Repo-safe current version:
+
+- `GET /control-center/coding/test-command-readiness` exposes a backend-owned
+  read-only readiness model.
+- `scripts/dev/uaa_coding.py inspect-test-command-readiness` provides CLI
+  inspection parity.
+- `/coding` shows focused pytest, frontend test, lint/typecheck, and repo
+  verifier command refs plus allowlist refs and expected receipt refs.
+- The route stores safe refs and bounded summaries only. It does not store raw
+  commands, raw output, exit codes, or command receipts.
+
+Blocked / needs authority:
+
+- Command preview, exact allowlist enforcement, timeout policy, output
+  redaction, exit-code capture, test receipt creation, Proof Detail binding,
+  and shell/subprocess execution remain blocked.
+- Prompt 05 does not run commands, install dependencies, access the network,
+  spawn background processes, mutate files, mutate Git, call providers/models,
+  automate browsers, write connectors, or grant production authority.
+
+Exact promotion path:
+
+- Run
+  `docs/prompts/authority_graduation_program/generated_unblock_prompts/unblock_coding_allowlisted_test_command.prompt.md`.
+- Keep the blocker report current at
+  `docs/control_center/authority_graduation_blockers/coding_allowlisted_test_command_2026_07_04.md`.
+- Promote only after exact command allowlist, LocalApprovalAuthority binding
+  where required, timeout, output redaction, exit-code capture, receipt storage,
+  Proof Detail binding, CLI parity, frontend tests, and verifiers are accepted.
 
 Verification:
 

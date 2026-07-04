@@ -24,6 +24,12 @@ CODING_COCKPIT_PATCH_APPLY_READINESS_REF = (
 CODING_COCKPIT_PATCH_APPLY_ROUTE_REF = (
     "route-ref:control-center-coding-patch-apply-readiness"
 )
+CODING_COCKPIT_TEST_COMMAND_READINESS_REF = (
+    "test-command-readiness:coding-allowlisted-tests-blocked-v1"
+)
+CODING_COCKPIT_TEST_COMMAND_ROUTE_REF = (
+    "route-ref:control-center-coding-test-command-readiness"
+)
 CODING_COCKPIT_BACKEND_ROUTE_REF = "GET /control-center/coding/session"
 CODING_COCKPIT_CONTEXT_BACKEND_ROUTE_REF = "GET /control-center/coding/context"
 CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF = (
@@ -31,6 +37,9 @@ CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF = (
 )
 CODING_COCKPIT_PATCH_APPLY_BACKEND_ROUTE_REF = (
     "GET /control-center/coding/patch-apply-readiness"
+)
+CODING_COCKPIT_TEST_COMMAND_BACKEND_ROUTE_REF = (
+    "GET /control-center/coding/test-command-readiness"
 )
 CODING_COCKPIT_FRONTEND_ROUTE_REF = "/coding"
 CODING_COCKPIT_REQUIRED_BLOCKED_REFS = [
@@ -62,6 +71,13 @@ PatchChangeKind = Literal["modify", "add", "delete_blocked", "generated_blocked"
 PatchProposalStatus = Literal["proposal_artifact_preview"]
 PatchApplyReadinessStatus = Literal["blocked_missing_exact_apply_contract"]
 PatchApplyPrerequisiteStatus = Literal["present", "missing", "blocked"]
+TestCommandReadinessStatus = Literal["blocked_missing_allowlisted_command_authority"]
+TestCommandKind = Literal[
+    "focused_pytest",
+    "frontend_test",
+    "lint_typecheck",
+    "repo_verifier",
+]
 
 
 class CodingCockpitAuthorityMode(BaseModel):
@@ -698,6 +714,212 @@ class CodingPatchApplyReadinessReadModel(BaseModel):
         return self
 
 
+class CodingSuggestedTestCommandReadModel(BaseModel):
+    command_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1, max_length=120)
+    command_kind: TestCommandKind
+    status: Literal["suggested_blocked"]
+    safe_command_summary: str = Field(..., min_length=1, max_length=420)
+    allowlist_ref: str = Field(..., min_length=1)
+    expected_receipt_ref: str = Field(..., min_length=1)
+    proof_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    raw_command_included: bool = False
+    raw_output_included: bool = False
+    command_execution_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_suggested_command(self) -> "CodingSuggestedTestCommandReadModel":
+        for ref in [
+            self.command_ref,
+            self.allowlist_ref,
+            self.expected_receipt_ref,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+        ]:
+            validate_task_ref(ref, "coding_suggested_test_command_ref")
+        for value in [
+            self.label,
+            self.command_kind,
+            self.status,
+            self.safe_command_summary,
+        ]:
+            validate_safe_task_text(value, "coding_suggested_test_command_text")
+        if not self.blocked_authority_refs:
+            raise ValueError("suggested test command needs blocker refs")
+        required_false_flags = {
+            "raw_command_included": self.raw_command_included,
+            "raw_output_included": self.raw_output_included,
+            "command_execution_enabled": self.command_execution_enabled,
+        }
+        enabled = [name for name, value in required_false_flags.items() if value]
+        if enabled:
+            raise ValueError(f"coding suggested command enabled {enabled[0]}")
+        return self
+
+
+class CodingTestCommandReadinessReadModel(BaseModel):
+    schema_version: Literal["uaa-coding-test-command-readiness.v1"] = (
+        "uaa-coding-test-command-readiness.v1"
+    )
+    readiness_ref: str = CODING_COCKPIT_TEST_COMMAND_READINESS_REF
+    session_ref: str = CODING_COCKPIT_SESSION_REF
+    context_pack_ref: str = CODING_COCKPIT_CONTEXT_PACK_REF
+    patch_proposal_ref: str = CODING_COCKPIT_PATCH_PROPOSAL_REF
+    patch_apply_readiness_ref: str = CODING_COCKPIT_PATCH_APPLY_READINESS_REF
+    route_ref: str = CODING_COCKPIT_TEST_COMMAND_ROUTE_REF
+    backend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_TEST_COMMAND_BACKEND_ROUTE_REF]
+    )
+    frontend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    )
+    cli_inspection_refs: list[str] = Field(
+        default_factory=lambda: [
+            "scripts/dev/uaa_coding.py inspect-test-command-readiness"
+        ]
+    )
+    docs_refs: list[str] = Field(
+        default_factory=lambda: [
+            "docs-ref:governed-code-workbench",
+            "docs-ref:coding-allowlisted-test-command-blocker",
+            "docs-ref:operator-shell-gap-map",
+        ]
+    )
+    unblock_prompt_refs: list[str] = Field(
+        default_factory=lambda: ["prompt-ref:unblock-coding-allowlisted-test-command"]
+    )
+    status: TestCommandReadinessStatus = (
+        "blocked_missing_allowlisted_command_authority"
+    )
+    title: str = Field(..., min_length=1, max_length=120)
+    full_strength_goal: str = Field(..., min_length=1, max_length=520)
+    repo_safe_current_state: str = Field(..., min_length=1, max_length=520)
+    safe_summary: str = Field(..., min_length=1, max_length=520)
+    allowlist_refs: list[str] = Field(default_factory=list)
+    suggested_commands: list[CodingSuggestedTestCommandReadModel] = Field(
+        default_factory=list
+    )
+    expected_receipt_refs: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    promotion_path_refs: list[str] = Field(default_factory=list)
+    redactions_applied: list[str] = Field(default_factory=list)
+    next_safe_action: str = Field(..., min_length=1, max_length=420)
+    backend_owned: bool = True
+    read_only: bool = True
+    readiness_only: bool = True
+    safe_refs_only: bool = True
+    raw_command_included: bool = False
+    raw_output_included: bool = False
+    command_output_summary_included: bool = False
+    exit_code_available: bool = False
+    test_receipt_created: bool = False
+    command_execution_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    arbitrary_shell_enabled: bool = False
+    install_command_enabled: bool = False
+    network_command_enabled: bool = False
+    destructive_command_enabled: bool = False
+    background_process_enabled: bool = False
+    file_write_enabled: bool = False
+    git_mutation_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    browser_automation_enabled: bool = False
+    connector_write_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_test_command_readiness(self) -> "CodingTestCommandReadinessReadModel":
+        for ref in [
+            self.readiness_ref,
+            self.session_ref,
+            self.context_pack_ref,
+            self.patch_proposal_ref,
+            self.patch_apply_readiness_ref,
+            self.route_ref,
+            *self.allowlist_refs,
+            *self.expected_receipt_refs,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+            *self.promotion_path_refs,
+            *self.redactions_applied,
+            *self.docs_refs,
+            *self.unblock_prompt_refs,
+        ]:
+            validate_task_ref(ref, "coding_test_command_readiness_ref")
+        for value in (
+            self.backend_route_refs
+            + self.frontend_route_refs
+            + self.cli_inspection_refs
+            + [
+                self.status,
+                self.title,
+                self.full_strength_goal,
+                self.repo_safe_current_state,
+                self.safe_summary,
+                self.next_safe_action,
+            ]
+        ):
+            validate_safe_task_text(value, "coding_test_command_readiness_text")
+        if not self.suggested_commands:
+            raise ValueError("test command readiness needs suggested command refs")
+        command_refs = {item.command_ref for item in self.suggested_commands}
+        if len(command_refs) != len(self.suggested_commands):
+            raise ValueError("test command readiness command refs must be unique")
+        expected_refs = {item.expected_receipt_ref for item in self.suggested_commands}
+        if set(self.expected_receipt_refs) != expected_refs:
+            raise ValueError("expected receipt refs must match suggested commands")
+        allowlist_refs = {item.allowlist_ref for item in self.suggested_commands}
+        if set(self.allowlist_refs) != allowlist_refs:
+            raise ValueError("allowlist refs must match suggested commands")
+        required_true_flags = {
+            "backend_owned": self.backend_owned,
+            "read_only": self.read_only,
+            "readiness_only": self.readiness_only,
+            "safe_refs_only": self.safe_refs_only,
+        }
+        disabled = [name for name, value in required_true_flags.items() if not value]
+        if disabled:
+            raise ValueError(f"coding test command readiness disabled {disabled[0]}")
+        required_false_flags = {
+            "raw_command_included": self.raw_command_included,
+            "raw_output_included": self.raw_output_included,
+            "command_output_summary_included": self.command_output_summary_included,
+            "exit_code_available": self.exit_code_available,
+            "test_receipt_created": self.test_receipt_created,
+            "command_execution_enabled": self.command_execution_enabled,
+            "shell_subprocess_execution_enabled": (
+                self.shell_subprocess_execution_enabled
+            ),
+            "arbitrary_shell_enabled": self.arbitrary_shell_enabled,
+            "install_command_enabled": self.install_command_enabled,
+            "network_command_enabled": self.network_command_enabled,
+            "destructive_command_enabled": self.destructive_command_enabled,
+            "background_process_enabled": self.background_process_enabled,
+            "file_write_enabled": self.file_write_enabled,
+            "git_mutation_enabled": self.git_mutation_enabled,
+            "provider_model_call_enabled": self.provider_model_call_enabled,
+            "browser_automation_enabled": self.browser_automation_enabled,
+            "connector_write_enabled": self.connector_write_enabled,
+            "production_authority_enabled": self.production_authority_enabled,
+        }
+        enabled = [name for name, value in required_false_flags.items() if value]
+        if enabled:
+            raise ValueError(f"coding test command readiness enabled {enabled[0]}")
+        payload = self.model_dump(mode="json")
+        validate_safe_task_payload(payload, "coding_test_command_readiness")
+        return self
+
+
 class CodingCockpitSessionReadModel(BaseModel):
     schema_version: Literal["uaa-coding-cockpit-session.v1"] = (
         "uaa-coding-cockpit-session.v1"
@@ -735,6 +957,7 @@ class CodingCockpitSessionReadModel(BaseModel):
             "scripts/dev/uaa_coding.py inspect-context",
             "scripts/dev/uaa_coding.py inspect-patch-proposal",
             "scripts/dev/uaa_coding.py inspect-patch-apply-readiness",
+            "scripts/dev/uaa_coding.py inspect-test-command-readiness",
         ]
     )
     status: str = "implemented_read_only_cockpit_seed"
@@ -1065,6 +1288,22 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
                         "blocked-state:coding-no-file-write",
                     ],
                 ),
+                CodingCockpitRefItem(
+                    item_ref=CODING_COCKPIT_TEST_COMMAND_READINESS_REF,
+                    label="Allowlisted test command lane",
+                    status="blocked by Prompt 05 readiness",
+                    safe_summary=(
+                        "Suggested focused test command refs are visible, but no "
+                        "shell or subprocess execution is available."
+                    ),
+                    source_refs=[CODING_COCKPIT_PATCH_PROPOSAL_REF],
+                    evidence_refs=evidence_refs,
+                    proof_refs=proof_refs,
+                    blocked_authority_refs=[
+                        "blocked-state:coding-no-shell-subprocess",
+                        "blocked-state:coding-no-command-execution",
+                    ],
+                ),
             ],
             proof_refs=proof_refs,
             blocked_authority_refs=["blocked-state:coding-no-background-autonomy"],
@@ -1126,24 +1365,33 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             title="Terminal Preview",
             state="blocked",
             safe_summary=(
-                "Terminal panel shows suggested command posture only; local "
-                "command running is blocked in Prompt 01."
+                "Terminal panel shows Prompt 05 suggested test command refs only; "
+                "local command running remains blocked."
             ),
             items=[
                 CodingCockpitRefItem(
-                    item_ref="command-proposal:coding-blocked-seed",
-                    label="Suggested command lane",
+                    item_ref=CODING_COCKPIT_TEST_COMMAND_READINESS_REF,
+                    label="Allowlisted test command readiness",
                     status="blocked",
-                    safe_summary="Allowlisted test command receipts are future work.",
+                    safe_summary=(
+                        "Focused pytest, frontend test, lint/typecheck, and "
+                        "verifier command refs are proposed without raw commands."
+                    ),
                     source_refs=["coding-task:cockpit-shell-seed"],
                     evidence_refs=evidence_refs,
                     proof_refs=proof_refs,
-                    blocked_authority_refs=["blocked-state:coding-no-shell-subprocess"],
+                    blocked_authority_refs=[
+                        "blocked-state:coding-no-shell-subprocess",
+                        "blocked-state:coding-no-command-execution",
+                    ],
                 )
             ],
             proof_refs=proof_refs,
-            blocked_authority_refs=["blocked-state:coding-no-shell-subprocess"],
-            next_safe_action="Keep command previews disabled until allowlisted tests graduate.",
+            blocked_authority_refs=[
+                "blocked-state:coding-no-shell-subprocess",
+                "blocked-state:coding-no-command-execution",
+            ],
+            next_safe_action="Keep command controls disabled until exact shell authority graduates.",
         ),
         git_preview=CodingCockpitPreviewPanel(
             panel_ref="coding-panel:git-preview",
@@ -1174,24 +1422,33 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             title="Test Output",
             state="planned",
             safe_summary=(
-                "Test output lane is receipt-oriented future work; no test "
-                "runner is invoked by this read model."
+                "Test output lane shows expected receipt refs only; no test "
+                "runner output or exit code is available."
             ),
             items=[
                 CodingCockpitRefItem(
-                    item_ref="test-receipt:coding-blocked-seed",
-                    label="Test receipt placeholder",
-                    status="planned",
-                    safe_summary="Focused test receipts arrive after allowlisted command lane.",
-                    source_refs=["command-proposal:coding-blocked-seed"],
+                    item_ref="test-receipt:coding-allowlisted-tests-required",
+                    label="Expected test receipt",
+                    status="blocked",
+                    safe_summary=(
+                        "A redacted test receipt is required before UAA can claim "
+                        "test execution evidence."
+                    ),
+                    source_refs=[CODING_COCKPIT_TEST_COMMAND_READINESS_REF],
                     evidence_refs=evidence_refs,
                     proof_refs=proof_refs,
-                    blocked_authority_refs=["blocked-state:coding-no-shell-subprocess"],
+                    blocked_authority_refs=[
+                        "blocked-state:coding-no-shell-subprocess",
+                        "blocked-state:coding-no-test-receipt",
+                    ],
                 )
             ],
             proof_refs=proof_refs,
-            blocked_authority_refs=["blocked-state:coding-no-shell-subprocess"],
-            next_safe_action="Promote allowlisted command receipts before rendering test claims.",
+            blocked_authority_refs=[
+                "blocked-state:coding-no-shell-subprocess",
+                "blocked-state:coding-no-test-receipt",
+            ],
+            next_safe_action="Inspect Prompt 05 readiness before promoting command execution.",
         ),
         live_preview=CodingCockpitPreviewPanel(
             panel_ref="coding-panel:live-preview",
@@ -1259,6 +1516,7 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
             CODING_COCKPIT_CONTEXT_PACK_REF,
             CODING_COCKPIT_PATCH_PROPOSAL_REF,
             CODING_COCKPIT_PATCH_APPLY_READINESS_REF,
+            CODING_COCKPIT_TEST_COMMAND_READINESS_REF,
             "command-proposal:coding-blocked-seed",
             "git-status:coding-readonly-seed",
             "proof-ref:coding-cockpit-seed",
@@ -1696,5 +1954,122 @@ def build_coding_patch_apply_readiness() -> CodingPatchApplyReadinessReadModel:
             "Run the unblock prompt for exact approved patch apply only after the "
             "patch body, approval, checkpoint, rollback, redaction, proof, and CLI "
             "contracts are all in scope."
+        ),
+    )
+
+
+def build_coding_test_command_readiness() -> CodingTestCommandReadinessReadModel:
+    evidence_refs = ["evidence-ref:coding-test-command-readiness"]
+    proof_refs = ["proof-ref:coding-test-command-readiness"]
+    blocked_refs = [
+        "blocked-state:coding-no-shell-subprocess",
+        "blocked-state:coding-no-command-execution",
+        "blocked-state:coding-no-arbitrary-shell",
+        "blocked-state:coding-no-install-command",
+        "blocked-state:coding-no-network-command",
+        "blocked-state:coding-no-destructive-command",
+        "blocked-state:coding-no-background-process",
+        "blocked-state:coding-no-test-receipt",
+    ]
+    suggested_commands = [
+        CodingSuggestedTestCommandReadModel(
+            command_ref="command-ref:coding-focused-pytest",
+            label="Focused backend pytest",
+            command_kind="focused_pytest",
+            status="suggested_blocked",
+            safe_command_summary=(
+                "Would run a backend pytest target chosen by safe test refs after "
+                "exact allowlisted command authority exists."
+            ),
+            allowlist_ref="allowlist-ref:coding-focused-pytest",
+            expected_receipt_ref="test-receipt-ref:coding-focused-pytest-required",
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=blocked_refs,
+        ),
+        CodingSuggestedTestCommandReadModel(
+            command_ref="command-ref:coding-frontend-test",
+            label="Frontend test",
+            command_kind="frontend_test",
+            status="suggested_blocked",
+            safe_command_summary=(
+                "Would run the existing frontend test target after command scope, "
+                "redaction, timeout, and receipt contracts are approved."
+            ),
+            allowlist_ref="allowlist-ref:coding-frontend-test",
+            expected_receipt_ref="test-receipt-ref:coding-frontend-test-required",
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=blocked_refs,
+        ),
+        CodingSuggestedTestCommandReadModel(
+            command_ref="command-ref:coding-lint-typecheck",
+            label="Lint and typecheck",
+            command_kind="lint_typecheck",
+            status="suggested_blocked",
+            safe_command_summary=(
+                "Would run existing lint or typecheck targets with bounded output "
+                "only after allowlisted command authority exists."
+            ),
+            allowlist_ref="allowlist-ref:coding-lint-typecheck",
+            expected_receipt_ref="test-receipt-ref:coding-lint-typecheck-required",
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=blocked_refs,
+        ),
+        CodingSuggestedTestCommandReadModel(
+            command_ref="command-ref:coding-repo-verifier",
+            label="Repo verifier",
+            command_kind="repo_verifier",
+            status="suggested_blocked",
+            safe_command_summary=(
+                "Would run an existing repo-local verifier by safe verifier ref "
+                "after exact command approval and output redaction exist."
+            ),
+            allowlist_ref="allowlist-ref:coding-repo-verifier",
+            expected_receipt_ref="test-receipt-ref:coding-repo-verifier-required",
+            proof_refs=proof_refs,
+            evidence_refs=evidence_refs,
+            blocked_authority_refs=blocked_refs,
+        ),
+    ]
+    return CodingTestCommandReadinessReadModel(
+        title="Allowlisted test command readiness",
+        full_strength_goal=(
+            "Run focused allowlisted test, lint, typecheck, and verifier commands "
+            "with redacted output summaries, exit codes, receipts, and Proof links."
+        ),
+        repo_safe_current_state=(
+            "Prompt 05 records suggested command refs, allowlist refs, and expected "
+            "receipt refs only. No command string is stored and no command is run."
+        ),
+        safe_summary=(
+            "Allowlisted test command execution remains blocked until exact shell "
+            "authority, command preview, timeout, redaction, exit-code, receipt, "
+            "proof, and CLI contracts exist."
+        ),
+        allowlist_refs=[item.allowlist_ref for item in suggested_commands],
+        suggested_commands=suggested_commands,
+        expected_receipt_refs=[
+            item.expected_receipt_ref for item in suggested_commands
+        ],
+        proof_refs=proof_refs,
+        evidence_refs=evidence_refs,
+        blocked_authority_refs=blocked_refs,
+        promotion_path_refs=[
+            "promotion-path:coding-allowlisted-test-command-contract",
+            "promotion-path:coding-allowlisted-test-command-route",
+            "promotion-path:coding-allowlisted-test-command-cli",
+            "promotion-path:coding-allowlisted-test-command-verifier",
+        ],
+        redactions_applied=[
+            "redaction-ref:safe-refs-only",
+            "redaction-ref:raw-command-omitted",
+            "redaction-ref:raw-output-omitted",
+            "redaction-ref:bounded-summary-required",
+        ],
+        next_safe_action=(
+            "Run the unblock prompt only after exact allowlisted command, output "
+            "redaction, receipt, proof, timeout, and CLI parity contracts are in scope."
         ),
     )

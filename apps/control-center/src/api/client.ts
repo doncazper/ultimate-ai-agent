@@ -66,6 +66,7 @@ import type {
   ChatTurnReceiptRequest,
   CodingPatchApplyReadinessReadModel,
   CodingPatchProposalReadModel,
+  CodingTestCommandReadinessReadModel,
   WebEvidenceProductSliceReceipt,
   WebEvidenceProductSliceRequest,
 } from "./types";
@@ -310,6 +311,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     readEnvelope<CodingPatchApplyReadinessReadModel>(
       API_ENDPOINTS.controlCenterCodingPatchApplyReadiness,
     ),
+    readEnvelope<CodingTestCommandReadinessReadModel>(
+      API_ENDPOINTS.controlCenterCodingTestCommandReadiness,
+    ),
   ] as const);
 
   const manifest = fulfilledValue(results[0]);
@@ -354,6 +358,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const codingContext = fulfilledValue(results[33]);
   const codingPatchProposal = fulfilledValue(results[34]);
   const codingPatchApplyReadiness = fulfilledValue(results[35]);
+  const codingTestCommandReadiness = fulfilledValue(results[36]);
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
   const normalizedProofIndex = normalizeProofIndex(proofIndex);
@@ -447,7 +452,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         codingSession !== undefined &&
         codingContext !== undefined &&
         codingPatchProposal !== undefined &&
-        codingPatchApplyReadiness !== undefined,
+        codingPatchApplyReadiness !== undefined &&
+        codingTestCommandReadiness !== undefined,
       usedFallback:
         codingSession === undefined ||
         codingSession.mock_fallback === true ||
@@ -459,7 +465,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         codingPatchProposal.proposal_only !== true ||
         codingPatchApplyReadiness === undefined ||
         codingPatchApplyReadiness.backend_owned !== true ||
-        codingPatchApplyReadiness.readiness_only !== true,
+        codingPatchApplyReadiness.readiness_only !== true ||
+        codingTestCommandReadiness === undefined ||
+        codingTestCommandReadiness.backend_owned !== true ||
+        codingTestCommandReadiness.readiness_only !== true,
     }),
     routeReadStateInput({
       route: "/memory",
@@ -531,7 +540,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingPatchProposal.proposal_only !== true ||
     codingPatchApplyReadiness === undefined ||
     codingPatchApplyReadiness.backend_owned !== true ||
-    codingPatchApplyReadiness.readiness_only !== true;
+    codingPatchApplyReadiness.readiness_only !== true ||
+    codingTestCommandReadiness === undefined ||
+    codingTestCommandReadiness.backend_owned !== true ||
+    codingTestCommandReadiness.readiness_only !== true;
   const approvalQueueEndpointFallbackUsed = approvalQueue === undefined;
   const runObservabilityEndpointFallbackUsed =
     safeObservedRunObservability === undefined;
@@ -550,6 +562,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingContext === undefined ||
     codingPatchProposal === undefined ||
     codingPatchApplyReadiness === undefined ||
+    codingTestCommandReadiness === undefined ||
     setupAssistantSource === undefined ||
     providerCatalog === undefined ||
     controlCenterSettingsStatus === undefined ||
@@ -587,6 +600,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         codingPatchProposal: mockControlCenterData.codingPatchProposal,
         codingPatchApplyReadiness:
           mockControlCenterData.codingPatchApplyReadiness,
+        codingTestCommandReadiness:
+          mockControlCenterData.codingTestCommandReadiness,
       },
       {
         state: "mock_fallback",
@@ -634,6 +649,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingPatchApplyReadiness:
       codingPatchApplyReadiness ??
       mockControlCenterData.codingPatchApplyReadiness,
+    codingTestCommandReadiness:
+      codingTestCommandReadiness ??
+      mockControlCenterData.codingTestCommandReadiness,
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
     founderMemoryReview: normalizedFounderMemoryReview.value,
     founderMemoryWorkbench: normalizedFounderMemoryWorkbench.value,

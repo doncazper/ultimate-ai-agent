@@ -769,6 +769,45 @@ function backendOwnedCodingPatchApplyReadinessFixture(
   };
 }
 
+function backendOwnedCodingTestCommandReadinessFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const readiness = scrubCodingFallbackText(
+    JSON.parse(JSON.stringify(mockControlCenterData.codingTestCommandReadiness)),
+  ) as typeof mockControlCenterData.codingTestCommandReadiness;
+  return {
+    ...readiness,
+    readiness_ref: "test-command-readiness:coding-app-test",
+    session_ref: "coding-session:app-test-backend",
+    context_pack_ref: "context-pack:coding-app-test",
+    patch_proposal_ref: "patch-proposal:coding-app-test",
+    patch_apply_readiness_ref: "patch-apply-readiness:coding-app-test",
+    backend_owned: true,
+    read_only: true,
+    readiness_only: true,
+    safe_refs_only: true,
+    raw_command_included: false,
+    raw_output_included: false,
+    command_output_summary_included: false,
+    exit_code_available: false,
+    test_receipt_created: false,
+    command_execution_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    arbitrary_shell_enabled: false,
+    install_command_enabled: false,
+    network_command_enabled: false,
+    destructive_command_enabled: false,
+    background_process_enabled: false,
+    file_write_enabled: false,
+    git_mutation_enabled: false,
+    provider_model_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
 function scrubCodingFallbackText(value: unknown): unknown {
   if (typeof value === "string") {
     return value
@@ -1393,6 +1432,8 @@ describe("Web Control Center shell", () => {
         backendOwnedCodingPatchProposalFixture(),
       [API_ENDPOINTS.controlCenterCodingPatchApplyReadiness]:
         backendOwnedCodingPatchApplyReadinessFixture(),
+      [API_ENDPOINTS.controlCenterCodingTestCommandReadiness]:
+        backendOwnedCodingTestCommandReadinessFixture(),
     });
 
     window.history.pushState({}, "", "/coding");
@@ -1429,6 +1470,12 @@ describe("Web Control Center shell", () => {
       expect(
         within(cockpit).getByText("Exact patch body artifact"),
       ).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "Test command readiness is backend-owned, read-only, and blocked until exact shell authority exists.",
+        ),
+      ).toBeInTheDocument();
+      expect(within(cockpit).getByText("Focused backend pytest")).toBeInTheDocument();
       expect(within(cockpit).getByText("Workflow Timeline")).toBeInTheDocument();
       expect(within(cockpit).getByText("Diff Preview")).toBeInTheDocument();
       expect(within(cockpit).getByText("Proof Detail")).toBeInTheDocument();
@@ -11653,6 +11700,14 @@ describe("Web Control Center shell", () => {
         API_ENDPOINTS.controlCenterCodingPatchApplyReadiness,
       ),
     ).toBe(true);
+    expect(API_ENDPOINTS.controlCenterCodingTestCommandReadiness).toBe(
+      "/control-center/coding/test-command-readiness",
+    );
+    expect(
+      isAllowedReadEndpoint(
+        API_ENDPOINTS.controlCenterCodingTestCommandReadiness,
+      ),
+    ).toBe(true);
     expect(chatTurnReceiptEndpoint("chat-turn:test")).toBe(
       "/control-center/chat/turns/chat-turn%3Atest/receipt",
     );
@@ -12702,6 +12757,8 @@ function envelopeForReadEndpoint(url: string) {
       backendOwnedCodingPatchProposalFixture(),
     [API_ENDPOINTS.controlCenterCodingPatchApplyReadiness]:
       backendOwnedCodingPatchApplyReadinessFixture(),
+    [API_ENDPOINTS.controlCenterCodingTestCommandReadiness]:
+      backendOwnedCodingTestCommandReadinessFixture(),
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:

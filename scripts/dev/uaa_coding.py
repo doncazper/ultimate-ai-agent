@@ -15,6 +15,7 @@ from ultimate_ai_agent.core.code import (  # noqa: E402
     build_coding_cockpit_session_seed,
     build_coding_patch_apply_readiness,
     build_coding_patch_proposal_preview,
+    build_coding_test_command_readiness,
     build_coding_workspace_context_preview,
 )
 
@@ -42,6 +43,13 @@ def inspect_patch_proposal(args: argparse.Namespace) -> int:
 
 def inspect_patch_apply_readiness(args: argparse.Namespace) -> int:
     readiness = build_coding_patch_apply_readiness()
+    payload = readiness.model_dump(mode="json")
+    print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
+    return 0
+
+
+def inspect_test_command_readiness(args: argparse.Namespace) -> int:
+    readiness = build_coding_test_command_readiness()
     payload = readiness.model_dump(mode="json")
     print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
     return 0
@@ -92,6 +100,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pretty-print the safe JSON read model.",
     )
     patch_apply.set_defaults(func=inspect_patch_apply_readiness)
+    test_command = subparsers.add_parser(
+        "inspect-test-command-readiness",
+        help="Print the blocked Coding Cockpit allowlisted test command readiness model.",
+    )
+    test_command.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print the safe JSON read model.",
+    )
+    test_command.set_defaults(func=inspect_test_command_readiness)
     return parser
 
 

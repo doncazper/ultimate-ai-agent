@@ -4,6 +4,7 @@ import type {
   CodingCockpitSessionReadModel,
   CodingPatchApplyReadinessReadModel,
   CodingPatchProposalReadModel,
+  CodingTestCommandReadinessReadModel,
   CodingWorkspaceContextReadModel,
   ControlCenterData,
   ControlCenterProofIndex,
@@ -36,8 +37,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 173;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 72;
+export const MOCK_OPENAPI_ROUTE_COUNT = 174;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 73;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -67,6 +68,8 @@ const codingCockpitBlockedRefs = [
   "blocked-state:coding-no-file-write",
   "blocked-state:coding-no-patch-apply",
   "blocked-state:coding-no-shell-subprocess",
+  "blocked-state:coding-no-command-execution",
+  "blocked-state:coding-no-test-receipt",
   "blocked-state:coding-no-git-mutation",
   "blocked-state:coding-no-provider-model-call",
   "blocked-state:coding-no-browser-automation",
@@ -145,6 +148,7 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
     "scripts/dev/uaa_coding.py inspect-context",
     "scripts/dev/uaa_coding.py inspect-patch-proposal",
     "scripts/dev/uaa_coding.py inspect-patch-apply-readiness",
+    "scripts/dev/uaa_coding.py inspect-test-command-readiness",
   ],
   status: "non_authoritative_mock_fallback",
   task_status: "proposal_only_blocked_runtime",
@@ -310,14 +314,20 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
     "Command running is blocked in the fallback shell.",
     [
       mockCodingItem(
-        "command-proposal:coding-blocked-mock",
-        "Suggested command lane",
+        "test-command-readiness:coding-mock-blocked",
+        "Allowlisted test command readiness",
         "blocked",
-        "Command receipts are future work.",
-        ["blocked-state:coding-no-shell-subprocess"],
+        "Fallback test command readiness is not workflow truth.",
+        [
+          "blocked-state:coding-no-shell-subprocess",
+          "blocked-state:coding-no-command-execution",
+        ],
       ),
     ],
-    ["blocked-state:coding-no-shell-subprocess"],
+    [
+      "blocked-state:coding-no-shell-subprocess",
+      "blocked-state:coding-no-command-execution",
+    ],
     "Keep command controls disabled.",
   ),
   git_preview: mockCodingPanel(
@@ -344,14 +354,20 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
     "Test receipts are not available in fallback.",
     [
       mockCodingItem(
-        "test-receipt:coding-blocked-mock",
-        "Test receipt placeholder",
-        "planned",
-        "Allowlisted test receipt lane is future work.",
-        ["blocked-state:coding-no-shell-subprocess"],
+        "test-receipt:coding-allowlisted-tests-required",
+        "Expected test receipt",
+        "blocked",
+        "Fallback has no command receipt or exit-code evidence.",
+        [
+          "blocked-state:coding-no-shell-subprocess",
+          "blocked-state:coding-no-test-receipt",
+        ],
       ),
     ],
-    ["blocked-state:coding-no-shell-subprocess"],
+    [
+      "blocked-state:coding-no-shell-subprocess",
+      "blocked-state:coding-no-test-receipt",
+    ],
     "Promote allowlisted command receipts before test claims.",
   ),
   live_preview: mockCodingPanel(
@@ -406,6 +422,7 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
     "context-pack:coding-cockpit-mock",
     "patch-proposal:coding-mock-preview",
     "patch-apply-readiness:coding-mock-blocked",
+    "test-command-readiness:coding-mock-blocked",
     "command-proposal:coding-blocked-mock",
     "git-status:coding-readonly-mock",
     "proof-ref:coding-cockpit:mock-fallback",
@@ -437,6 +454,110 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
   browser_automation_enabled: false,
   connector_write_enabled: false,
   background_autonomy_enabled: false,
+  production_authority_enabled: false,
+};
+
+const mockCodingTestCommandReadiness: CodingTestCommandReadinessReadModel = {
+  schema_version: "uaa-coding-test-command-readiness.v1",
+  readiness_ref: "test-command-readiness:coding-mock-blocked",
+  session_ref: "coding-session:mock-fallback",
+  context_pack_ref: "context-pack:coding-cockpit-mock",
+  patch_proposal_ref: "patch-proposal:coding-mock-preview",
+  patch_apply_readiness_ref: "patch-apply-readiness:coding-mock-blocked",
+  route_ref: "route-ref:control-center-coding-test-command-readiness",
+  backend_route_refs: ["GET /control-center/coding/test-command-readiness"],
+  frontend_route_refs: ["/coding"],
+  cli_inspection_refs: [
+    "scripts/dev/uaa_coding.py inspect-test-command-readiness",
+  ],
+  docs_refs: [
+    "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md",
+    "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
+  ],
+  unblock_prompt_refs: ["prompt-ref:unblock-coding-allowlisted-test-command"],
+  status: "blocked_missing_allowlisted_command_authority",
+  title: "Mock allowlisted test command readiness",
+  full_strength_goal:
+    "Run focused allowlisted test commands with receipts and proof.",
+  repo_safe_current_state:
+    "Fallback command readiness is not backend truth and cannot run tests.",
+  safe_summary:
+    "Command execution remains blocked until backend readiness proves exact allowlist, redaction, receipt, and proof contracts.",
+  allowlist_refs: [
+    "allowlist-ref:coding-focused-pytest",
+    "allowlist-ref:coding-frontend-test",
+  ],
+  suggested_commands: [
+    {
+      command_ref: "command-ref:coding-focused-pytest",
+      label: "Focused backend pytest",
+      command_kind: "focused_pytest",
+      status: "suggested_blocked",
+      safe_command_summary:
+        "Fallback command ref only; no raw command or execution is available.",
+      allowlist_ref: "allowlist-ref:coding-focused-pytest",
+      expected_receipt_ref: "test-receipt-ref:coding-focused-pytest-required",
+      proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+      evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+      blocked_authority_refs: codingCockpitBlockedRefs,
+      raw_command_included: false,
+      raw_output_included: false,
+      command_execution_enabled: false,
+    },
+    {
+      command_ref: "command-ref:coding-frontend-test",
+      label: "Frontend test",
+      command_kind: "frontend_test",
+      status: "suggested_blocked",
+      safe_command_summary:
+        "Fallback command ref only; no raw output or receipt is available.",
+      allowlist_ref: "allowlist-ref:coding-frontend-test",
+      expected_receipt_ref: "test-receipt-ref:coding-frontend-test-required",
+      proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+      evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+      blocked_authority_refs: codingCockpitBlockedRefs,
+      raw_command_included: false,
+      raw_output_included: false,
+      command_execution_enabled: false,
+    },
+  ],
+  expected_receipt_refs: [
+    "test-receipt-ref:coding-focused-pytest-required",
+    "test-receipt-ref:coding-frontend-test-required",
+  ],
+  proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+  evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+  blocked_authority_refs: codingCockpitBlockedRefs,
+  promotion_path_refs: ["promotion-path:coding-allowlisted-test-command"],
+  redactions_applied: [
+    "redaction-ref:safe-refs-only",
+    "redaction-ref:raw-command-omitted",
+    "redaction-ref:raw-output-omitted",
+    "redaction-ref:bounded-summary-required",
+  ],
+  next_safe_action:
+    "Restore backend-owned test command readiness before exposing command execution.",
+  backend_owned: false,
+  read_only: true,
+  readiness_only: true,
+  safe_refs_only: true,
+  raw_command_included: false,
+  raw_output_included: false,
+  command_output_summary_included: false,
+  exit_code_available: false,
+  test_receipt_created: false,
+  command_execution_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  arbitrary_shell_enabled: false,
+  install_command_enabled: false,
+  network_command_enabled: false,
+  destructive_command_enabled: false,
+  background_process_enabled: false,
+  file_write_enabled: false,
+  git_mutation_enabled: false,
+  provider_model_call_enabled: false,
+  browser_automation_enabled: false,
+  connector_write_enabled: false,
   production_authority_enabled: false,
 };
 
@@ -8491,6 +8612,7 @@ export const mockControlCenterData: ControlCenterData = {
   codingContext: mockCodingContext,
   codingPatchProposal: mockCodingPatchProposal,
   codingPatchApplyReadiness: mockCodingPatchApplyReadiness,
+  codingTestCommandReadiness: mockCodingTestCommandReadiness,
   founderToday: {
     schema_version: "founder_loop_storage.v1",
     status: "mock_storage_backed_partial_loop",
