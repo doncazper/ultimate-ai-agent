@@ -313,6 +313,7 @@ OPERATOR_SHELL_GAP_MAP = "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
 ROUTE_STATUS_MANIFEST = "docs/control_center/route_status_manifest.json"
 ROUTE_STATUS_MANIFEST_DOC = "docs/control_center/ROUTE_STATUS_MANIFEST.md"
 PRODUCT_LANGUAGE_RULES_DOC = "docs/control_center/PRODUCT_LANGUAGE_RULES.md"
+CONTROL_CENTER_FRONTEND_ROUTES_DOC = "docs/control_center/CONTROL_CENTER_FRONTEND_ROUTES.md"
 BROWSER_SMOKE_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE.md"
 BROWSER_SMOKE_REPORTING_DOC = "docs/control_center/LOCAL_BROWSER_SMOKE_REPORTING.md"
 BROWSER_SMOKE_TEST = "apps/control-center/src/App.test.tsx"
@@ -720,6 +721,8 @@ def verify(root: Path = ROOT) -> list[str]:
     failures.extend(_operator_shell_gap_map_failures(root))
     failures.extend(_route_status_manifest_failures(root))
     failures.extend(_product_language_rule_failures(root))
+    failures.extend(_frontend_route_doc_failures(root))
+    failures.extend(_route_state_grammar_failures(root))
     failures.extend(_browser_smoke_readiness_failures(root))
     failures.extend(_operator_surface_state_failures(root))
     failures.extend(_provider_credential_readiness_failures(root))
@@ -1457,6 +1460,90 @@ def _product_language_rule_failures(root: Path) -> list[str]:
                         f"completed-state wording while {status}: {word}"
                     )
 
+    return failures
+
+
+def _frontend_route_doc_failures(root: Path) -> list[str]:
+    failures: list[str] = []
+    doc_path = root / CONTROL_CENTER_FRONTEND_ROUTES_DOC
+    if not doc_path.exists():
+        return [f"missing Control Center frontend routes doc: {CONTROL_CENTER_FRONTEND_ROUTES_DOC}"]
+    text = doc_path.read_text(encoding="utf-8")
+    lowered = text.lower()
+    compact = " ".join(lowered.split())
+    if "render the conservative `ship`" in lowered:
+        failures.append("frontend routes doc must not claim raw `ship` renders in the UI")
+    if "exact route proof" not in lowered:
+        failures.append("frontend routes doc must explain `ship` is rendered as exact route proof")
+    expected_count_fragment = f"current backend path count is `{EXPECTED_ROUTE_COUNT}`"
+    if expected_count_fragment not in lowered:
+        failures.append(
+            "frontend routes doc current backend path count must match "
+            f"{EXPECTED_ROUTE_COUNT}"
+        )
+    for stale_count in ["current backend path count is `150`", "current backend path count is `151`"]:
+        if stale_count in compact:
+            failures.append(f"frontend routes doc contains stale path count: {stale_count}")
+    return failures
+
+
+def _route_state_grammar_failures(root: Path) -> list[str]:
+    failures: list[str] = []
+    app_root = root / "apps/control-center"
+    required_fragments = {
+        "src/components/DataState.tsx": [
+            "RouteStatePanel",
+            "RouteStateDescriptor",
+            "loading",
+            "empty",
+            "error",
+            "blocked",
+            "partial",
+            "success",
+            "nextSafeAction",
+            "sourceLabel",
+        ],
+        "src/routes.tsx": [
+            "getRouteStateDescriptor",
+            "ControlCenterRouteReadState",
+            "mock_fallback",
+            "degraded",
+            "has exact route proof",
+            "partially usable",
+            "remains blocked",
+            "not release-ready",
+        ],
+        "src/App.tsx": [
+            "RouteStatePanel",
+            "state.data.routeStates[activePath]",
+            "route state unavailable",
+        ],
+        "src/components/DataState.test.tsx": [
+            "stateKinds",
+            "loading",
+            "empty",
+            "error",
+            "blocked",
+            "partial",
+            "success",
+            "queryByRole(\"button\")",
+        ],
+        "src/App.test.tsx": [
+            "renders route state strips for partial, blocked, and planned surfaces",
+            "Action Inbox has exact route proof",
+        ],
+    }
+    for rel_path, fragments in required_fragments.items():
+        path = app_root / rel_path
+        if not path.exists():
+            failures.append(f"missing route-state grammar file: apps/control-center/{rel_path}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        for fragment in fragments:
+            if fragment not in text:
+                failures.append(
+                    f"route-state grammar marker missing in apps/control-center/{rel_path}: {fragment}"
+                )
     return failures
 
 

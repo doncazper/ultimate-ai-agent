@@ -1,6 +1,7 @@
 import type {
   ControlCenterData,
   ControlCenterProofIndex,
+  ControlCenterRouteReadState,
   ControlCenterStartHereSummary,
   CrmM1FixtureShell,
   CrmM1VerticalFixture,
@@ -5404,6 +5405,32 @@ function actionEnvelopeFields(
   };
 }
 
+function mockRouteState(
+  surfaceLabel: string,
+  route: string,
+  backendRouteRef: string,
+): ControlCenterRouteReadState {
+  return {
+    route,
+    surfaceLabel,
+    state: "mock_fallback",
+    statusLabel: "mock fallback",
+    sourceLabel: "mock fallback fixture",
+    safeSummary: `${surfaceLabel} uses non-authoritative fallback data until the local backend route returns.`,
+    backendRouteRefs: [backendRouteRef],
+    warningRefs: [`route-read-state:${route}:mock-fallback`],
+    blockedAuthorityRefs: [
+      "blocked-state:no-provider-model-call",
+      "blocked-state:no-connector-write",
+      "blocked-state:no-browser-automation",
+      "blocked-state:no-shell-subprocess-execution",
+      "blocked-state:no-production-authority",
+    ],
+    nextSafeAction:
+      "Treat this route as review-only fallback and inspect backend/verifier evidence before promotion.",
+  };
+}
+
 export const mockControlCenterData: ControlCenterData = {
   source: "mock",
   connection: {
@@ -5414,6 +5441,20 @@ export const mockControlCenterData: ControlCenterData = {
       "Backend unavailable; showing non-authoritative mock fallback data.",
     usingMockData: true,
     warnings: ["MOCK_DATA_ONLY", "NO_PRODUCTION_AUTHORITY"],
+  },
+  routeStates: {
+    "/start": mockRouteState("Start Here", "/start", "GET /control-center/start-here/summary"),
+    "/today": mockRouteState("Today", "/today", "GET /control-center/today/summary"),
+    "/inbox": mockRouteState("Source Inbox", "/inbox", "GET /control-center/sources/readiness"),
+    "/actions": mockRouteState("Action Inbox", "/actions", "GET /control-center/actions/inbox"),
+    "/proof": mockRouteState("Proof", "/proof", "GET /control-center/proof/index"),
+    "/trust": mockRouteState("Trust", "/trust", "GET /control-center/trust-authority/matrix"),
+    "/memory": mockRouteState("Memory", "/memory", "GET /control-center/memory/review"),
+    "/evidence": mockRouteState("Evidence", "/evidence", "GET /control-center/evidence/timeline"),
+    "/settings": mockRouteState("Settings", "/settings", "GET /control-center/settings/status"),
+    "/briefing": mockRouteState("Briefing", "/briefing", "GET /control-center/morning-briefing/summary"),
+    "/setup": mockRouteState("Setup", "/setup", "GET /control-center/setup-assistant/summary"),
+    "/storage": mockRouteState("Storage", "/storage", "GET /control-center/storage/status"),
   },
   settingsStatus: {
     schema_version: "uaa-control-center-settings-status.v1",

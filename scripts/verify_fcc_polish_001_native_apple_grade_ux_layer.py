@@ -29,13 +29,25 @@ VISUAL_MANIFEST_REF = "docs/control_center/visual_regression_manifest.json"
 VISUAL_SPEC_REF = "apps/control-center/tests/visual/control-center.visual.spec.ts"
 REQUIRED_SURFACES = {
     "Overview",
+    "Start Here",
     "Today",
+    "Source Inbox",
     "Actions",
     "Plans",
+    "Proof",
+    "Trust",
     "Memory",
     "Evidence",
     "Settings",
     "Setup",
+}
+REQUIRED_STATE_SCENARIOS = {
+    "state-loading",
+    "state-empty",
+    "state-error",
+    "state-blocked",
+    "state-partial",
+    "state-success",
 }
 
 
@@ -77,7 +89,8 @@ def _validate_doc(root: Path, failures: list[str]) -> None:
             "Status: Implemented as a verified Control Center polish baseline",
             VISUAL_MANIFEST_REF,
             VISUAL_SPEC_REF,
-            "Overview, Today, Actions, Plans, Memory, Evidence, Settings, and Setup",
+            "Overview, Start Here, Today, Source Inbox, Actions, Plans, Proof, Trust, Memory, Evidence, Settings, and Setup",
+            "route-state scenarios for loading, empty, error, blocked, partial, and success",
             "redacted test fixtures",
             "`/setup` remains a dry-run macOS-first setup preview",
             "no signed/public distribution",
@@ -115,6 +128,14 @@ def _validate_visual_baseline(root: Path, failures: list[str]) -> None:
     surface_names = {str(surface.get("surface")) for surface in surfaces}
     if not REQUIRED_SURFACES.issubset(surface_names):
         failures.append("visual manifest missing required Founder Command Center surfaces")
+    state_scenarios = manifest.get("state_scenarios", [])
+    scenario_names = {
+        str(scenario.get("scenario"))
+        for scenario in state_scenarios
+        if isinstance(scenario, dict)
+    }
+    if not REQUIRED_STATE_SCENARIOS.issubset(scenario_names):
+        failures.append("visual manifest missing required route-state scenarios")
     for surface in surfaces:
         if surface.get("raw_private_screenshot_included") is not False:
             failures.append("visual baseline must not include raw private screenshots")
@@ -127,14 +148,21 @@ def _validate_visual_baseline(root: Path, failures: list[str]) -> None:
     requirements = {
         VISUAL_SPEC: [
             "const surfaces =",
+            "routeStateScenarios",
             "overview",
+            "start",
             "today",
+            "inbox",
             "actions",
             "plans",
+            "proof",
+            "trust",
             "memory",
             "evidence",
             "settings",
             "setup",
+            "state-loading",
+            "state-success",
             "Mock fallback active",
             "toHaveScreenshot",
         ],

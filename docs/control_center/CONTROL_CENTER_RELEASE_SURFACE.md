@@ -284,6 +284,23 @@ does not grant public distribution, production authority, broader model
 runtime authority, browser execution, connector writes, or background
 autonomy.
 
+Beta 13 frontend route states and visual proof hardens the Control Center shell
+state grammar. Full-strength: every route should have polished loading, empty,
+error, blocked, partial, and success states backed by route-specific read-model
+truth, operator proof, and visual regression evidence. Repo-safe: Control
+Center now renders a route-state strip from release surface metadata plus
+frontend-client route read-state provenance; route-specific state labels remain
+presentation-only and do not create durable workflow truth. Checked-in visual
+baselines cover the primary routes plus dedicated state scenarios for loading,
+empty, error, blocked, partial, and success. Blocked / needs authority:
+frontend route states do not grant action execution, provider/model calls,
+connector sends or writes, browser automation, shell/subprocess execution,
+Git mutation, background autonomy, public release, or production authority.
+Exact promotion path: promote each missing route state with a backend-owned
+read model or proof contract, CLI inspection, redacted receipt/evidence refs,
+visual baseline update, product-language guard, and focused frontend/verifier
+tests before claiming readiness.
+
 Beta 02 hardens `/setup` by binding the dry-run Setup Assistant read model to
 first-run daily-loop refs and local package proof refs. The route can truthfully
 show local loopback runtime packaging proof and local unsigned `.app` artifact

@@ -20,10 +20,12 @@ apps/control-center/tests/visual/control-center.visual.spec.ts
 apps/control-center/tests/visual/__snapshots__/
 ```
 
-The manifest covers desktop and mobile baselines for Overview, Today, Actions,
-Plans, Memory, Evidence, Settings, and Setup. The baselines are redacted test
-fixtures, not private screenshots and not implementation evidence for backend
-workflows by themselves.
+The manifest covers desktop and mobile baselines for Overview, Start Here,
+Today, Source Inbox, Actions, Plans, Proof, Trust, Memory, Evidence, Settings,
+and Setup, plus route-state scenarios for loading, empty, error, blocked,
+partial, and success. The baselines are redacted test fixtures, not private
+screenshots and not implementation evidence for backend workflows by
+themselves.
 
 ## Setup And Blocked-State Posture
 

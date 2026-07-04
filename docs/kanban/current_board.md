@@ -129,6 +129,18 @@ separate verifier-backed lanes for live Git status, dev-server manifests,
 allowlisted command receipts, and coworker handoff receipts. Verification:
 `scripts/verify_beta_11_operator_workspace_spine.py`;
 `docs/control_center/OPERATOR_WORKSPACE_SPINE.md`.
+Beta 13 Frontend Route States and Visual Proof now adds a visible route-state
+strip for loading, empty, error, blocked, partial, and success posture across
+the Control Center shell. The state strip is derived from release-surface
+metadata plus frontend-client route read-state provenance and remains
+presentation-only; Python Core/API read models remain product truth. Checked-in
+desktop/mobile visual baselines now include the primary route surfaces plus
+dedicated state-scenario baselines. This adds no action execution,
+provider/model call, connector send/write, browser automation,
+shell/subprocess execution, Git mutation, background autonomy, public release,
+or production authority. Verification:
+`scripts/verify_beta_13_frontend_loading_visual_proof.py`;
+`scripts/verify_control_center_visual_regression.py`.
 The `context_injection` prerequisite contract is contract-ready for future
 gate review only. It is not selected as a micro-lane, adds no runtime
 prompt/context injection route or Control Center control, and keeps runtime

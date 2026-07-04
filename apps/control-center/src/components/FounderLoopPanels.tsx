@@ -8703,6 +8703,15 @@ export function FounderLoopStoragePanel({
             <DetailTerm label="Storage ref" value={storage.storage_ref} />
             <DetailTerm label="SQLite ref" value={storage.sqlite_state_ref} />
             <DetailTerm
+              label="Migration version"
+              value={storage.migration_version}
+            />
+            <DetailTerm
+              label="Postgres sync required"
+              value={storage.postgres_sync_required ? "yes" : "no"}
+            />
+            <DetailTerm label="Updated" value={storage.updated_at} />
+            <DetailTerm
               label="Safe refs"
               value={storage.safe_refs_only ? "yes" : "blocked"}
             />

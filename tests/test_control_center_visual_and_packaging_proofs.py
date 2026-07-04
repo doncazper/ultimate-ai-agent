@@ -8,6 +8,16 @@ def test_control_center_visual_regression_manifest_is_safe() -> None:
     assert failures == []
 
 
+def test_control_center_visual_regression_manifest_requires_state_scenarios() -> None:
+    manifest = visual.load_manifest()
+    manifest["state_scenarios"] = []
+
+    failures = visual.validate_manifest(manifest)
+
+    assert any("missing state scenario: state-loading" in failure for failure in failures)
+    assert any("missing state scenario: state-success" in failure for failure in failures)
+
+
 def test_local_runtime_packaging_proof_manifest_is_safe() -> None:
     failures = packaging.validate_manifest(packaging.load_manifest())
 

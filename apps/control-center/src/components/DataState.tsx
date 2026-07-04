@@ -1,3 +1,46 @@
+export type RouteStateKind =
+  | "loading"
+  | "error"
+  | "empty"
+  | "blocked"
+  | "partial"
+  | "success";
+
+export interface RouteStateDescriptor {
+  kind: RouteStateKind;
+  statusLabel: string;
+  surfaceLabel: string;
+  title: string;
+  message: string;
+  nextSafeAction: string;
+  sourceLabel: string;
+}
+
+export function RouteStatePanel({
+  state,
+}: {
+  state: RouteStateDescriptor;
+}) {
+  const role = state.kind === "error" ? "alert" : "status";
+  return (
+    <section
+      aria-label={`${state.surfaceLabel} route state`}
+      className={`route-state-panel ${state.kind}`}
+      role={role}
+    >
+      <div className="route-state-copy">
+        <span className="route-state-eyebrow">{state.statusLabel}</span>
+        <strong>{state.title}</strong>
+        <span>{state.message}</span>
+      </div>
+      <div className="route-state-proof">
+        <small>{state.sourceLabel}</small>
+        <span>{state.nextSafeAction}</span>
+      </div>
+    </section>
+  );
+}
+
 export function LoadingState({
   surfaceLabel = "Control Center",
 }: {

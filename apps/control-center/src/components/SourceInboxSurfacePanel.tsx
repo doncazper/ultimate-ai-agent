@@ -28,7 +28,7 @@ export function InboxSurfacePanel({
           <p className="eyebrow">Founder Loop</p>
           <h2 id="inbox-surface-heading">Source Inbox</h2>
         </div>
-        <span className="status-pill compact">blocked/planned</span>
+        <span className="status-pill compact">{sourceReadiness.status}</span>
       </div>
       <p className="section-copy">
         Inbox is visible as the Founder Loop triage slot. A dedicated backend
