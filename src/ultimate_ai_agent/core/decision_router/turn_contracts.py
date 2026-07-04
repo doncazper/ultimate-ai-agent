@@ -117,6 +117,7 @@ class ApprovedExecutionScope(BaseModel):
     recipient_ref: str = Field(..., min_length=1)
     account_ref: str = Field(..., min_length=1)
     cost_ref: str = Field(..., min_length=1)
+    credential_broker_ref: str = Field(..., min_length=1)
     risk_ref: str = Field(..., min_length=1)
 
     model_config = ConfigDict(extra="forbid")
@@ -133,6 +134,7 @@ class ApprovedExecutionScope(BaseModel):
             "recipient_ref",
             "account_ref",
             "cost_ref",
+            "credential_broker_ref",
             "risk_ref",
         ):
             validate_task_ref(getattr(self, field_name), field_name)
@@ -262,6 +264,7 @@ class InvocationPolicy(BaseModel):
     allowed_recipient_ref: str | None = None
     allowed_account_ref: str | None = None
     allowed_cost_ref: str | None = None
+    allowed_credential_broker_ref: str | None = None
     allowed_risk_ref: str | None = None
     approved_execution_scope: ApprovedExecutionScope | None = None
     side_effects_allowed: bool = False
@@ -299,6 +302,7 @@ class InvocationPolicy(BaseModel):
         _validate_optional_ref(self.allowed_recipient_ref, "allowed_recipient_ref")
         _validate_optional_ref(self.allowed_account_ref, "allowed_account_ref")
         _validate_optional_ref(self.allowed_cost_ref, "allowed_cost_ref")
+        _validate_optional_ref(self.allowed_credential_broker_ref, "allowed_credential_broker_ref")
         _validate_optional_ref(self.allowed_risk_ref, "allowed_risk_ref")
         _validate_ref_list(self.blocked_authority_refs, "blocked_authority_refs")
         _validate_required_blocked_authorities(self.blocked_authority_refs, "invocation policy")
@@ -437,6 +441,7 @@ def compile_invocation_policy(decision: TurnDecision) -> InvocationPolicy:
             allowed_recipient_ref=parsed.approved_execution_scope.recipient_ref,
             allowed_account_ref=parsed.approved_execution_scope.account_ref,
             allowed_cost_ref=parsed.approved_execution_scope.cost_ref,
+            allowed_credential_broker_ref=parsed.approved_execution_scope.credential_broker_ref,
             allowed_risk_ref=parsed.approved_execution_scope.risk_ref,
             approved_execution_scope=parsed.approved_execution_scope,
             side_effects_allowed=True,
@@ -526,6 +531,7 @@ def _validate_exact_execution_policy(policy: InvocationPolicy) -> None:
             "allowed_recipient_ref",
             "allowed_account_ref",
             "allowed_cost_ref",
+            "allowed_credential_broker_ref",
             "allowed_risk_ref",
             "approved_execution_scope",
         )
@@ -595,6 +601,7 @@ def _validate_policy_matches_approved_scope(policy: InvocationPolicy) -> None:
         "allowed_recipient_ref": scope.recipient_ref,
         "allowed_account_ref": scope.account_ref,
         "allowed_cost_ref": scope.cost_ref,
+        "allowed_credential_broker_ref": scope.credential_broker_ref,
         "allowed_risk_ref": scope.risk_ref,
     }
     for field_name, expected_value in expected.items():

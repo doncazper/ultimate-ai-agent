@@ -11,6 +11,12 @@ from ultimate_ai_agent.core.decision_router.contracts import (
     DecisionRouterTrace,
     route_decision,
 )
+from ultimate_ai_agent.core.decision_router.executor_fence import (
+    EXECUTOR_FENCE_CONTRACT_REF,
+    ExecutorFenceDecision,
+    ExecutorFenceRequest,
+    evaluate_executor_fence,
+)
 from ultimate_ai_agent.core.decision_router.turn_contracts import (
     INVOCATION_POLICY_COMPILER_REF,
     TURN_CONTRACT_ROUTER_CONTRACT_REF,
@@ -39,6 +45,7 @@ __all__ = [
     "DECISION_ROUTER_CONTRACT_REF",
     "DECISION_ROUTER_REQUIRED_BLOCKED_AUTHORITY_REFS",
     "DECISION_ROUTER_REQUIRED_OUTCOME_KINDS",
+    "EXECUTOR_FENCE_CONTRACT_REF",
     "INVOCATION_POLICY_COMPILER_REF",
     "TURN_CONTRACT_ROUTER_CONTRACT_REF",
     "TURN_CONTRACT_ROUTER_REQUIRED_BLOCKED_AUTHORITY_REFS",
@@ -53,6 +60,8 @@ __all__ = [
     "DecisionRouterOutcome",
     "DecisionRouterOutcomeKind",
     "DecisionRouterTrace",
+    "ExecutorFenceDecision",
+    "ExecutorFenceRequest",
     "InvocationPolicy",
     "MemoryPolicy",
     "OutputContract",
@@ -65,5 +74,6 @@ __all__ = [
     "TurnDecision",
     "classify_turn_contract",
     "compile_invocation_policy",
+    "evaluate_executor_fence",
     "route_decision",
 ]

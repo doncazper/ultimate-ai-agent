@@ -39,6 +39,7 @@ def _approved_scope() -> ApprovedExecutionScope:
         recipient_ref="recipient-ref:turn-contract:test",
         account_ref="account-ref:turn-contract:test",
         cost_ref="cost-ref:turn-contract:test",
+        credential_broker_ref="credential-broker-ref:turn-contract:test",
         risk_ref="risk-ref:turn-contract:test",
     )
 
@@ -185,6 +186,7 @@ def test_execute_approved_action_compiles_only_exact_approved_policy() -> None:
     assert policy.allowed_recipient_ref == "recipient-ref:turn-contract:test"
     assert policy.allowed_account_ref == "account-ref:turn-contract:test"
     assert policy.allowed_cost_ref == "cost-ref:turn-contract:test"
+    assert policy.allowed_credential_broker_ref == "credential-broker-ref:turn-contract:test"
     assert policy.allowed_risk_ref == "risk-ref:turn-contract:test"
     assert policy.side_effects_allowed is True
     assert policy.receipt_required is True
@@ -205,6 +207,7 @@ def test_execute_approved_action_compiles_only_exact_approved_policy() -> None:
         ("allowed_recipient_ref", "recipient-ref:turn-contract:other"),
         ("allowed_account_ref", "account-ref:turn-contract:other"),
         ("allowed_cost_ref", "cost-ref:turn-contract:other"),
+        ("allowed_credential_broker_ref", "credential-broker-ref:turn-contract:other"),
     ],
 )
 def test_execute_approved_action_policy_rejects_exact_scope_broadening(

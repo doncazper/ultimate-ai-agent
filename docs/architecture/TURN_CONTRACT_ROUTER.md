@@ -256,3 +256,40 @@ Compiler no-broadening rule:
 ```text
 For execute_approved_action, every allowed_* ref in InvocationPolicy must match the embedded ApprovedExecutionScope. Any widened merchant, recipient, account, cost, tool, argument, or risk ref is invalid before execution.
 ```
+
+## Phase 04 ExecutorFence Contract
+
+Implemented fence surface:
+
+- `ExecutorFenceRequest` carries a current `InvocationPolicy` plus the exact
+  requested approval, action, tool, arguments, merchant, recipient, account,
+  cost, credential broker, and risk refs.
+- `evaluate_executor_fence` returns an `ExecutorFenceDecision`.
+- The fence performs no execution. It is a validation contract any future
+  side-effect lane must pass before execution can be considered.
+
+Fence validation:
+
+| Check | Requirement |
+|---|---|
+| Approval | Policy must be `execute_approved_action` with `already_approved_exact_scope`. |
+| Action id | Requested action scope must match the approved action scope. |
+| Tool | Requested tool must match the exact approved tool and policy tool list. |
+| Arguments | Requested arguments must match the exact approved arguments ref. |
+| Merchant/cost | Merchant and cost refs must match the approved envelope. |
+| Recipient/account | Recipient and account refs must match the approved envelope. |
+| Credential broker | Credential broker ref must match the approved envelope. |
+| Risk | Risk-class ref must match the approved envelope. |
+| Receipt posture | Receipt and action-log posture are required for a fence pass. |
+
+Still blocked:
+
+- Live execution route
+- Side-effecting tool call
+- Connector write
+- Email send
+- Payment action
+- Booking action
+- Shell/subprocess execution
+- Browser action
+- Provider/model call
