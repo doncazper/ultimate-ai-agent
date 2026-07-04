@@ -161,14 +161,33 @@ def test_control_center_frontend_verifier_blocks_forbidden_frontend_strings(tmp_
         app_test_tsx=None,
         mock_data_ts="export const mockControlCenterData = { mock: true, production_ready: false };\n",
         components={
-            "ActionPreviewForm.tsx": 'export function ActionPreviewForm() { return <button>Execute</button>; }\n'
+            "ActionPreviewForm.tsx": (
+                "export function ActionPreviewForm() { return <>"
+                "<button>Execute</button><button>Sync</button>"
+                "<button>OAuth</button><button>Connect account</button></>; }\n"
+            )
         },
     )
 
     verifier = load_verifier()
     failures = verifier.verify(tmp_path)
 
-    assert any("dangerous action control label" in failure for failure in failures)
+    assert any(
+        "dangerous action control label" in failure and "Execute" in failure
+        for failure in failures
+    )
+    assert any(
+        "dangerous action control label" in failure and "Sync" in failure
+        for failure in failures
+    )
+    assert any(
+        "dangerous action control label" in failure and "OAuth" in failure
+        for failure in failures
+    )
+    assert any(
+        "dangerous action control label" in failure and "Connect account" in failure
+        for failure in failures
+    )
 
 
 def test_control_center_frontend_verifier_blocks_m15_mutation_routes_and_labels(tmp_path: Path) -> None:

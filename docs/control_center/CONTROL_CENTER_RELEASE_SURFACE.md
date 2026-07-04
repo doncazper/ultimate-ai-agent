@@ -159,6 +159,21 @@ production authority. Verification:
 `scripts/verify_beta_09_provider_draft_preview.py`. No broad runtime authority
 is added.
 
+Beta 10 Connector Draft-Only keeps `/inbox`, `/proof`, and `/trust` as
+inspection surfaces for embedded backend-owned connector draft proposal refs.
+Full-strength connector drafting remains a later approved connector runtime,
+send/write/sync workflow with exact account and target scope. The repo-safe
+current version exposes Source Readiness refs, Proof refs, Trust refs, CLI
+refs, safe-disable refs, rollback refs, blocked-authority refs, and
+metadata-only draft posture only; it adds no standalone connector draft route,
+connector send/write/sync/OAuth control, account connection, auth-material
+collection, delivery worker, provider/model call, memory/context injection,
+background runtime, public release, or production authority. The older M128
+low-risk connector write contract remains outside this beta-10 release surface
+and is not wired to the draft-only lane. Verification:
+`scripts/verify_beta_10_connector_draft_only.py`. No broad runtime authority is
+added, and no connector send/write is exposed by beta-10.
+
 Usable Authority PR 04 hardens `/actions` as a backend-owned Action Inbox work
 queue with safe lane counts, next-item posture, proof/receipt/evidence refs,
 CLI inspection, and the exact `local_task_create` local task record lane. It

@@ -1804,6 +1804,128 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders connector draft proposal proof as inspection-only", async () => {
+    const baseProofIndex = backendOwnedProofIndexFixture();
+    const connectorRecord = {
+      ...baseProofIndex.records[0],
+      proof_ref: "proof-ref:connector-draft-only-proposals:v1",
+      proof_kind: "connector_draft_proposal",
+      status: "draft_proposals_ready_no_send_write",
+      title: "Connector Draft-Only Proposals",
+      safe_summary:
+        "Connector draft-only proposals are backend-owned email-response and calendar-hold review artifacts. They store safe refs and bounded redacted outlines only; no connector payload, account content, credential material, send, write, or sync is persisted.",
+      authority_posture:
+        "Connector runtime, sends, writes, account sync, OAuth, auth-material collection, background sync, provider/model calls, memory writes, context injection, and production authority remain blocked.",
+      backend_route_refs: [
+        "GET /control-center/sources/readiness",
+        "GET /control-center/proof/index",
+        "GET /control-center/proof/{proof_ref}",
+      ],
+      receipt_refs: [
+        "receipt-ref:connector-draft-only:no-send-write-performed",
+      ],
+      evidence_refs: [
+        "evidence-ref:connector-draft-only:source-readiness-safe-refs",
+      ],
+      approval_refs: [
+        "approval-ref:connector-draft-only:email-send-future",
+        "approval-ref:connector-draft-only:calendar-write-future",
+      ],
+      rollback_refs: [
+        "rollback-posture-ref:connector-draft-only:email-response",
+        "rollback-posture-ref:connector-draft-only:calendar-event",
+      ],
+      safe_disable_refs: [
+        "safe-disable-ref:connector-draft-only:disable-local-draft-surface",
+      ],
+      blocked_authority_refs: [
+        "blocked-state:connector-draft-only:no-connector-send",
+        "blocked-state:connector-draft-only:no-connector-write",
+        "blocked-state:connector-draft-only:no-oauth",
+        "blocked-state:connector-draft-only:no-auth-material-collection",
+      ],
+      run_detail: baseProofIndex.records[0].run_detail
+        ? {
+            ...baseProofIndex.records[0].run_detail,
+            proof_ref: "proof-ref:connector-draft-only-proposals:v1",
+            proof_kind: "connector_draft_proposal",
+            title: "Connector Draft-Only Proposals",
+            safe_summary:
+              "Connector draft-only proposals are backend-owned review artifacts.",
+            authority_posture:
+              "Connector runtime, sends, writes, account sync, OAuth, auth-material collection, background sync, provider/model calls, memory writes, context injection, and production authority remain blocked.",
+            backend_route_refs: [
+              "GET /control-center/sources/readiness",
+              "GET /control-center/proof/index",
+              "GET /control-center/proof/{proof_ref}",
+            ],
+            receipt_refs: [
+              "receipt-ref:connector-draft-only:no-send-write-performed",
+            ],
+            approval_refs: [
+              "approval-ref:connector-draft-only:email-send-future",
+              "approval-ref:connector-draft-only:calendar-write-future",
+            ],
+            rollback_refs: [
+              "rollback-posture-ref:connector-draft-only:email-response",
+              "rollback-posture-ref:connector-draft-only:calendar-event",
+            ],
+            safe_disable_refs: [
+              "safe-disable-ref:connector-draft-only:disable-local-draft-surface",
+            ],
+            blocked_authority_refs: [
+              "blocked-state:connector-draft-only:no-connector-send",
+              "blocked-state:connector-draft-only:no-connector-write",
+              "blocked-state:connector-draft-only:no-oauth",
+              "blocked-state:connector-draft-only:no-auth-material-collection",
+            ],
+          }
+        : baseProofIndex.records[0].run_detail,
+    };
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.controlCenterProofIndex]: {
+        ...baseProofIndex,
+        proof_count: 1,
+        proof_refs: [connectorRecord.proof_ref],
+        records: [connectorRecord],
+      },
+    });
+    window.history.pushState({}, "", "/proof");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Proof Detail$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Connector Draft-Only Proposals").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        /Connector runtime, sends, writes, account sync, OAuth, auth-material collection/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        "blocked-state:connector-draft-only:no-connector-send",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "blocked-state:connector-draft-only:no-connector-write",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "safe-disable-ref:connector-draft-only:disable-local-draft-surface",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", {
+        name: /send|sync|write|oauth|connect account|execute/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it("fails closed for unsafe Proof Run Detail backend payloads", async () => {
     const unsafeCases = [
       {
@@ -2145,7 +2267,9 @@ describe("Web Control Center shell", () => {
         ),
       ).toBeInTheDocument();
       expect(
-        screen.queryByRole("button", { name: /Approve|Execute|Send|Apply/i }),
+        screen.queryByRole("button", {
+          name: /Approve|Execute|Send|Apply|Write|Sync|OAuth|Authorize|Connect account|Sign in/i,
+        }),
       ).not.toBeInTheDocument();
     } finally {
       view.unmount();
@@ -4924,7 +5048,7 @@ describe("Web Control Center shell", () => {
       screen.getByText("connector-draft-proposal-ref:calendar-event"),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText("required later").length,
+      screen.getAllByText("blocked; future exact lane required").length,
     ).toBeGreaterThan(0);
     expect(
       screen.getByText(
@@ -4936,6 +5060,11 @@ describe("Web Control Center shell", () => {
       /archive/i,
       /delete/i,
       /calendar write/i,
+      /sync/i,
+      /oauth/i,
+      /authorize/i,
+      /connect account/i,
+      /sign in/i,
     ]) {
       expect(
         screen.queryByRole("button", { name: forbiddenControl }),
@@ -4951,6 +5080,11 @@ describe("Web Control Center shell", () => {
       /^approve$/i,
       /^run$/i,
       /^install$/i,
+      /^sync$/i,
+      /^oauth$/i,
+      /^authorize$/i,
+      /^connect account$/i,
+      /^sign in$/i,
     ]) {
       expect(
         screen.queryByRole("button", { name: label }),

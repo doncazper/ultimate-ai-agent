@@ -353,6 +353,18 @@ function ConnectorDraftProposalCards({
           label="Connector writes"
           value={draftProposals.connector_writes_enabled ? "enabled" : "blocked"}
         />
+        <DetailTerm
+          label="OAuth"
+          value={draftProposals.oauth_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Background sync"
+          value={draftProposals.background_sync_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Scheduler"
+          value={draftProposals.scheduler_enabled ? "enabled" : "blocked"}
+        />
       </dl>
       <div className="review-grid" aria-label="Connector draft proposal refs">
         {draftProposals.proposals.map((proposal) => (
@@ -383,9 +395,21 @@ function ConnectorDraftProposalCards({
                 label="Approval to send/write"
                 value={
                   proposal.approval_required_to_send
-                    ? "required later"
+                    ? "blocked; future exact lane required"
                     : "not required"
                 }
+              />
+              <DetailTerm
+                label="OAuth"
+                value={proposal.oauth_enabled ? "enabled" : "blocked"}
+              />
+              <DetailTerm
+                label="Background sync"
+                value={proposal.background_sync_enabled ? "enabled" : "blocked"}
+              />
+              <DetailTerm
+                label="Scheduler"
+                value={proposal.scheduler_enabled ? "enabled" : "blocked"}
               />
               <DetailTerm
                 label="Send performed"

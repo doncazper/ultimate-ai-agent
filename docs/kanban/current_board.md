@@ -96,6 +96,26 @@ safe-disable/rollback, redaction, CLI/API/UI parity, Trust/Proof updates, route
 truth, docs, and tests. Verification:
 `scripts/verify_beta_09_provider_draft_preview.py`. No broad runtime authority
 is added.
+Beta 10 Connector Draft-Only now hardens connector draft proposals as embedded
+backend-owned safe-ref review artifacts across Source Readiness, `/inbox`,
+`/proof`, `/trust`, and CLI inspection. Full-strength connector drafting should
+eventually support operator-reviewed send/write/sync workflows with exact
+account and target scope, idempotency, receipts, revocation, safe-disable,
+rollback, redaction, Proof Detail, and Trust posture. The repo-safe version
+keeps connector drafts metadata-only and review-only: no standalone connector
+draft route, no connector send/write/sync/OAuth control, no account
+connection, no auth-material collection, no raw source ingestion, no delivery
+worker, no provider/model call, no memory/context injection, no background
+runtime, no public release, and no production authority is added. The older
+M128 low-risk connector write contract remains outside this beta-10 draft-only
+lane and is not wired to Source Readiness, Proof, Trust, or the frontend. Exact
+promotion requires a later verifier-backed lane PR with exact scope, test
+account or target allowlist, OAuth/account proof where needed, approval
+binding, idempotency, delivery receipt, redaction, revocation, safe-disable,
+rollback, CLI/API/UI parity, route truth, docs, and tests. Verification:
+`scripts/verify_beta_10_connector_draft_only.py`;
+`docs/control_center/CONNECTOR_DRAFT_ONLY_PROPOSALS.md`. No broad runtime
+authority is added.
 The `context_injection` prerequisite contract is contract-ready for future
 gate review only. It is not selected as a micro-lane, adds no runtime
 prompt/context injection route or Control Center control, and keeps runtime
