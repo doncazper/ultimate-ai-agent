@@ -2394,6 +2394,28 @@ export function TodaySurfacePanel({
               value={today.private_beta_readiness_evidence_packet_ref}
             />
             <DetailTerm
+              label="Full-strength version"
+              value={today.private_beta_readiness_full_strength_goal}
+            />
+            <DetailTerm
+              label="Repo-safe version"
+              value={today.private_beta_readiness_repo_safe_scope}
+            />
+            <DetailTerm
+              label="Blocked / needs authority"
+              value={today.private_beta_readiness_blocked_authority_summary}
+            />
+            <DetailTerm
+              label="Product-loop trial"
+              value={today.private_beta_readiness_product_loop_trial_script_ref}
+            />
+            <DetailTerm
+              label="Acceptance ledger"
+              value={
+                today.private_beta_readiness_private_operator_trial_ledger_ref
+              }
+            />
+            <DetailTerm
               label="Criteria"
               value={String(today.private_beta_readiness_criterion_count)}
             />
@@ -2422,6 +2444,14 @@ export function TodaySurfacePanel({
           <InlineListWithFallback
             emptyLabel="Acceptance states: missing"
             items={today.private_beta_readiness_acceptance_states}
+          />
+          <div className="status-card-header">
+            <h3>Exact promotion path</h3>
+            <span>{today.private_beta_readiness_promotion_path_refs.length}</span>
+          </div>
+          <RefListWithFallback
+            emptyLabel="Exact promotion path: missing"
+            refs={today.private_beta_readiness_promotion_path_refs}
           />
           <div className="status-card-header">
             <h3>Beta-test criteria</h3>
@@ -4910,6 +4940,27 @@ export function ActionInboxSurfacePanel({
             value={String(inbox.private_beta_readiness_criteria?.length ?? 0)}
           />
           <DetailTerm
+            label="Full-strength version"
+            value={
+              inbox.private_beta_readiness_full_strength_goal ??
+              "local-first operator workflow not available"
+            }
+          />
+          <DetailTerm
+            label="Repo-safe version"
+            value={
+              inbox.private_beta_readiness_repo_safe_scope ??
+              "backend-owned safe refs unavailable"
+            }
+          />
+          <DetailTerm
+            label="Blocked / needs authority"
+            value={
+              inbox.private_beta_readiness_blocked_authority_summary ??
+              "blocked authority summary unavailable"
+            }
+          />
+          <DetailTerm
             label="Action execution"
             value={
               inbox.private_beta_readiness_authority_posture?.action_execution_enabled
@@ -4927,6 +4978,14 @@ export function ActionInboxSurfacePanel({
             }
           />
         </dl>
+        <div className="status-card-header">
+          <h3>Exact promotion path</h3>
+          <span>{inbox.private_beta_readiness_promotion_path_refs?.length ?? 0}</span>
+        </div>
+        <RefListWithFallback
+          emptyLabel="Exact promotion path: missing"
+          refs={inbox.private_beta_readiness_promotion_path_refs ?? []}
+        />
         <RefListWithFallback
           emptyLabel="Beta-readiness blockers: missing"
           refs={inbox.private_beta_readiness_blocked_state_refs ?? []}

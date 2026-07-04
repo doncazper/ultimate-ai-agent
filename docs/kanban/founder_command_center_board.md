@@ -1333,9 +1333,10 @@ Status: Implemented / ready for review.
 
 Epic: Testing/Evals, Product/UX, Safety/Permissions
 
-Description: Define the local/private beta-test acceptance gate for Morning
-Briefing, Action Inbox, Memory Review, Evidence Timeline, safe local
-Chat/Plans handoff, governed Code proposal refs, and CRM-lite follow-ups.
+Description: Define the local/private beta-test acceptance gate for Start Here,
+Setup Assistant, Today, Morning Briefing, Action Inbox, Proof Detail, Memory
+Review, Evidence Timeline, Trust Authority Map, safe local Chat/Plans handoff,
+governed Code proposal refs, CRM-lite follow-ups, and Dogfood Live Loop.
 
 Acceptance criteria: Beta-readiness evidence distinguishes pass, fail, skipped,
 blocked, partial, mock-only, and accepted-failure states; no public beta,

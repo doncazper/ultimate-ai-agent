@@ -26,14 +26,19 @@ API_TEST = ROOT / "tests/test_control_center_founder_loop_api.py"
 APP_TEST = ROOT / "apps/control-center/src/App.test.tsx"
 
 REQUIRED_SURFACES = [
+    "Start Here",
+    "Setup Assistant",
     "Today",
     "Morning Briefing",
     "Action Inbox",
+    "Proof Detail",
     "Memory Review",
     "Evidence Timeline",
+    "Trust Authority Map",
     "Chat/Plans Handoff",
     "Governed Code",
     "CRM-Lite Follow-Ups",
+    "Dogfood Live Loop",
 ]
 ACCEPTANCE_STATES = [
     "pass",
@@ -185,6 +190,24 @@ def _extract(today: dict) -> dict:
         "private_beta_readiness_window_ref": today[
             "private_beta_readiness_window_ref"
         ],
+        "private_beta_readiness_full_strength_goal": today[
+            "private_beta_readiness_full_strength_goal"
+        ],
+        "private_beta_readiness_repo_safe_scope": today[
+            "private_beta_readiness_repo_safe_scope"
+        ],
+        "private_beta_readiness_blocked_authority_summary": today[
+            "private_beta_readiness_blocked_authority_summary"
+        ],
+        "private_beta_readiness_promotion_path_refs": today[
+            "private_beta_readiness_promotion_path_refs"
+        ],
+        "private_beta_readiness_product_loop_trial_script_ref": today[
+            "private_beta_readiness_product_loop_trial_script_ref"
+        ],
+        "private_beta_readiness_private_operator_trial_ledger_ref": today[
+            "private_beta_readiness_private_operator_trial_ledger_ref"
+        ],
         "private_beta_readiness_required_surfaces": today[
             "private_beta_readiness_required_surfaces"
         ],
@@ -251,9 +274,13 @@ def _validate_live_contract(schema: dict, failures: list[str]) -> None:
         PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS,
         PRIVATE_BETA_READINESS_REQUIRED_REF_FIELDS,
         PRIVATE_BETA_READINESS_REQUIRED_SURFACES,
+        PRIVATE_BETA_READINESS_SURFACE_BLOCKED_REFS,
         PrivateBetaReadinessGate,
         build_private_beta_readiness_gate,
         private_beta_readiness_authority_posture,
+    )
+    from ultimate_ai_agent.core.readiness.private_operator_trial import (
+        PRIVATE_PRODUCT_LOOP_TRIAL_SCRIPT_CONTRACT_REF,
     )
     from ultimate_ai_agent.core.storage import FounderLoopRepository
 
@@ -276,6 +303,16 @@ def _validate_live_contract(schema: dict, failures: list[str]) -> None:
         PRIVATE_BETA_READINESS_REQUIRED_SURFACES
     ):
         failures.append("live private beta-readiness surfaces drifted")
+    if contract["private_beta_readiness_required_surfaces"] != REQUIRED_SURFACES:
+        failures.append("live private beta-readiness verifier surfaces drifted")
+    if contract["private_beta_readiness_product_loop_trial_script_ref"] != (
+        PRIVATE_PRODUCT_LOOP_TRIAL_SCRIPT_CONTRACT_REF
+    ):
+        failures.append("live private beta-readiness product loop trial ref missing")
+    if contract["private_beta_readiness_private_operator_trial_ledger_ref"] != (
+        "ledger-ref:private-operator-trial-acceptance:v1"
+    ):
+        failures.append("live private beta-readiness trial ledger ref missing")
     if contract["private_beta_readiness_acceptance_states"] != (
         PRIVATE_BETA_READINESS_ACCEPTANCE_STATES
     ):
@@ -292,11 +329,26 @@ def _validate_live_contract(schema: dict, failures: list[str]) -> None:
         PRIVATE_BETA_READINESS_REQUIRED_SURFACES
     ):
         failures.append("live private beta-readiness criterion count drifted")
-    if {
-        criterion["surface"]
-        for criterion in contract["private_beta_readiness_criteria"]
-    } != set(PRIVATE_BETA_READINESS_REQUIRED_SURFACES):
+    criteria = contract["private_beta_readiness_criteria"]
+    if [criterion["surface"] for criterion in criteria] != (
+        PRIVATE_BETA_READINESS_REQUIRED_SURFACES
+    ):
         failures.append("live private beta-readiness criteria surfaces drifted")
+    if len({criterion["criterion_ref"] for criterion in criteria}) != len(criteria):
+        failures.append("live private beta-readiness criterion refs are not unique")
+    for criterion in criteria:
+        for ref_field in ["evidence_refs", "required_contract_refs", "acceptance_refs"]:
+            if not criterion[ref_field]:
+                failures.append(
+                    f"live private beta-readiness {criterion['surface']} missing {ref_field}"
+                )
+        surface_blockers = set(
+            PRIVATE_BETA_READINESS_SURFACE_BLOCKED_REFS[criterion["surface"]]
+        )
+        if surface_blockers - set(criterion["blocked_state_refs"]):
+            failures.append(
+                f"live private beta-readiness {criterion['surface']} missing surface blockers"
+            )
     if contract["private_beta_readiness_authority_posture"] != (
         private_beta_readiness_authority_posture()
     ):
@@ -363,6 +415,13 @@ def main() -> int:
         [
             "PRIVATE_BETA_READINESS_CONTRACT_REF",
             "PRIVATE_BETA_READINESS_ACCEPTANCE_STATES",
+            "PRIVATE_BETA_READINESS_SURFACE_BLOCKED_REFS",
+            "PRIVATE_PRODUCT_LOOP_TRIAL_SCRIPT_CONTRACT_REF",
+            "Start Here",
+            "Setup Assistant",
+            "Proof Detail",
+            "Trust Authority Map",
+            "Dogfood Live Loop",
             "PrivateBetaReadinessCriterion",
             "PrivateBetaReadinessGate",
             "build_private_beta_readiness_gate",
@@ -398,6 +457,10 @@ def main() -> int:
         FRONTEND_PANEL,
         [
             "Private beta-readiness gate",
+            "Full-strength version",
+            "Repo-safe version",
+            "Blocked / needs authority",
+            "Exact promotion path",
             "Beta-test criteria",
             "Beta-readiness action gate",
         ],
@@ -407,6 +470,8 @@ def main() -> int:
         FRONTEND_MOCK,
         [
             "privateBetaReadinessContractRef",
+            "privateBetaReadinessFullStrengthGoal",
+            "privateBetaReadinessProductLoopTrialScriptRef",
             "privateBetaReadinessAcceptanceStates",
             "private_beta_readiness_gate_ref",
         ],
@@ -435,6 +500,12 @@ def main() -> int:
         CONTRACT_DOC,
         [
             "UAA-P1-078",
+            "Full-strength version",
+            "Repo-safe version",
+            "Blocked / needs authority",
+            "Exact promotion path",
+            "product-loop-012-private-product-loop-trial-script",
+            "ledger-ref:private-operator-trial-acceptance:v1",
             "pass, fail, skipped, blocked, partial, mock-only, and accepted-failure",
             "Public beta remains blocked",
             "docs/schemas/private_beta_readiness_gate.schema.json",

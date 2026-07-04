@@ -8,6 +8,9 @@ from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
 )
+from ultimate_ai_agent.core.readiness.private_operator_trial import (
+    PRIVATE_PRODUCT_LOOP_TRIAL_SCRIPT_CONTRACT_REF,
+)
 
 
 PRIVATE_BETA_READINESS_CONTRACT_REF = (
@@ -15,14 +18,19 @@ PRIVATE_BETA_READINESS_CONTRACT_REF = (
 )
 
 PrivateBetaReadinessSurface = Literal[
+    "Start Here",
+    "Setup Assistant",
     "Today",
     "Morning Briefing",
     "Action Inbox",
+    "Proof Detail",
     "Memory Review",
     "Evidence Timeline",
+    "Trust Authority Map",
     "Chat/Plans Handoff",
     "Governed Code",
     "CRM-Lite Follow-Ups",
+    "Dogfood Live Loop",
 ]
 
 PrivateBetaReadinessGateState = Literal[
@@ -36,14 +44,19 @@ PrivateBetaReadinessGateState = Literal[
 ]
 
 PRIVATE_BETA_READINESS_REQUIRED_SURFACES: list[PrivateBetaReadinessSurface] = [
+    "Start Here",
+    "Setup Assistant",
     "Today",
     "Morning Briefing",
     "Action Inbox",
+    "Proof Detail",
     "Memory Review",
     "Evidence Timeline",
+    "Trust Authority Map",
     "Chat/Plans Handoff",
     "Governed Code",
     "CRM-Lite Follow-Ups",
+    "Dogfood Live Loop",
 ]
 
 PRIVATE_BETA_READINESS_ACCEPTANCE_STATES: list[PrivateBetaReadinessGateState] = [
@@ -69,7 +82,7 @@ PRIVATE_BETA_READINESS_REQUIRED_REF_FIELDS = [
     "next_safe_action",
 ]
 
-PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS = [
+_PRIVATE_BETA_READINESS_COMMON_BLOCKED_REFS = [
     "blocked-state:no-public-beta",
     "blocked-state:no-public-distribution",
     "blocked-state:no-production-readiness-claim",
@@ -89,6 +102,73 @@ PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS = [
     "blocked-state:no-action-execution",
     "blocked-state:no-code-apply-execution",
 ]
+
+PRIVATE_BETA_READINESS_SURFACE_BLOCKED_REFS: dict[str, list[str]] = {
+    "Start Here": [
+        "blocked-state:private-beta:start-here-runtime-control",
+    ],
+    "Setup Assistant": [
+        "blocked-state:private-beta:setup-install",
+        "blocked-state:private-beta:setup-launch-agent",
+        "blocked-state:private-beta:setup-notarization",
+        "blocked-state:private-beta:setup-login-material-capture",
+    ],
+    "Today": [
+        "blocked-state:private-beta:today-rehearsal-receipts",
+    ],
+    "Morning Briefing": [
+        "blocked-state:private-beta:briefing-source-reads",
+        "blocked-state:private-beta:briefing-delivery",
+    ],
+    "Action Inbox": [
+        "blocked-state:private-beta:action-inbox-execution",
+        "blocked-state:private-beta:approval-capture",
+    ],
+    "Proof Detail": [
+        "blocked-state:private-beta:proof-approval-grant",
+        "blocked-state:private-beta:proof-rollback-execution",
+    ],
+    "Memory Review": [
+        "blocked-state:private-beta:memory-write",
+        "blocked-state:private-beta:memory-context-injection",
+    ],
+    "Evidence Timeline": [
+        "blocked-state:private-beta:evidence-run-receipts",
+    ],
+    "Trust Authority Map": [
+        "blocked-state:private-beta:trust-authority-grant",
+        "blocked-state:private-beta:trust-standing-authority",
+    ],
+    "Chat/Plans Handoff": [
+        "blocked-state:private-beta:handoff-execution",
+        "blocked-state:private-beta:model-output-authority",
+    ],
+    "Governed Code": [
+        "blocked-state:private-beta:code-apply",
+        "blocked-state:private-beta:code-rollback-execution",
+    ],
+    "CRM-Lite Follow-Ups": [
+        "blocked-state:private-beta:crm-write",
+        "blocked-state:private-beta:account-sync",
+    ],
+    "Dogfood Live Loop": [
+        "blocked-state:private-beta:dogfood-seed-from-gate",
+        "blocked-state:private-beta:dogfood-gate-execution",
+    ],
+}
+
+PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS = list(
+    dict.fromkeys(
+        [
+            *_PRIVATE_BETA_READINESS_COMMON_BLOCKED_REFS,
+            *[
+                blocked_ref
+                for refs in PRIVATE_BETA_READINESS_SURFACE_BLOCKED_REFS.values()
+                for blocked_ref in refs
+            ],
+        ]
+    )
+)
 
 _DENIED_FLAGS = [
     "public_beta_claim_enabled",
@@ -229,6 +309,34 @@ class PrivateBetaReadinessGate(BaseModel):
     status: str = "implemented_private_beta_readiness_gate_authority_blocked"
     evidence_packet_ref: str = "evidence-packet:private-beta-readiness:local-founder-loop"
     readiness_window_ref: str = "readiness-window:local-private-beta"
+    full_strength_goal: str = (
+        "Local-first command center where setup, daily loop, Action Inbox, "
+        "exact local task commit, receipt, evidence, proof, reviewed memory, "
+        "and Trust posture form one operator workflow."
+    )
+    repo_safe_scope: str = (
+        "Backend-owned safe-ref readiness metadata, verifier coverage, and "
+        "read-only presentation only; no runtime authority is granted."
+    )
+    blocked_authority_summary: str = (
+        "Public beta, distribution, production authority, connector writes, "
+        "provider calls, browser automation, shell subprocess, background "
+        "autonomy, account sync, CRM writes, broad memory writes, context "
+        "injection, Code apply, rollback execution, and action execution remain blocked."
+    )
+    promotion_path_refs: list[str] = Field(
+        default_factory=lambda: [
+            "promotion-path-ref:private-beta:rehearsal-receipts",
+            "promotion-path-ref:private-beta:operator-review-notes",
+            "promotion-path-ref:private-beta:api-perimeter-hardening",
+            "promotion-path-ref:private-beta:scoped-authority-prs",
+        ],
+        min_length=1,
+    )
+    product_loop_trial_script_ref: str = PRIVATE_PRODUCT_LOOP_TRIAL_SCRIPT_CONTRACT_REF
+    private_operator_trial_ledger_ref: str = (
+        "ledger-ref:private-operator-trial-acceptance:v1"
+    )
     required_surfaces: list[PrivateBetaReadinessSurface] = Field(
         default_factory=lambda: list(PRIVATE_BETA_READINESS_REQUIRED_SURFACES)
     )
@@ -284,21 +392,44 @@ class PrivateBetaReadinessGate(BaseModel):
         _safe_ref(self.contract_ref, "contract_ref")
         _safe_ref(self.evidence_packet_ref, "evidence_packet_ref")
         _safe_ref(self.readiness_window_ref, "readiness_window_ref")
+        _safe_ref(self.product_loop_trial_script_ref, "product_loop_trial_script_ref")
+        _safe_ref(
+            self.private_operator_trial_ledger_ref,
+            "private_operator_trial_ledger_ref",
+        )
+        _safe_refs(self.promotion_path_refs, "promotion_path_refs")
         _safe_text(self.status, "status")
         _safe_text(self.overall_gate_state, "overall_gate_state")
+        _safe_text(self.full_strength_goal, "full_strength_goal")
+        _safe_text(self.repo_safe_scope, "repo_safe_scope")
+        _safe_text(self.blocked_authority_summary, "blocked_authority_summary")
         _safe_text(self.next_safe_action, "next_safe_action")
         if self.contract_ref != PRIVATE_BETA_READINESS_CONTRACT_REF:
             raise ValueError("private beta readiness gate ref drifted")
+        if self.product_loop_trial_script_ref != (
+            PRIVATE_PRODUCT_LOOP_TRIAL_SCRIPT_CONTRACT_REF
+        ):
+            raise ValueError("private beta readiness product loop trial ref drifted")
         if self.required_surfaces != PRIVATE_BETA_READINESS_REQUIRED_SURFACES:
             raise ValueError("private beta readiness required surfaces drifted")
         if set(self.acceptance_states) != set(PRIVATE_BETA_READINESS_ACCEPTANCE_STATES):
             raise ValueError("private beta readiness acceptance states drifted")
         if self.required_ref_fields != PRIVATE_BETA_READINESS_REQUIRED_REF_FIELDS:
             raise ValueError("private beta readiness ref fields drifted")
-        if {criterion.surface for criterion in self.criteria} != set(
-            PRIVATE_BETA_READINESS_REQUIRED_SURFACES
-        ):
+        criterion_surfaces = [criterion.surface for criterion in self.criteria]
+        if criterion_surfaces != PRIVATE_BETA_READINESS_REQUIRED_SURFACES:
             raise ValueError("private beta readiness criteria missing surfaces")
+        criterion_refs = [criterion.criterion_ref for criterion in self.criteria]
+        if len(criterion_refs) != len(set(criterion_refs)):
+            raise ValueError("private beta readiness criteria refs must be unique")
+        binding_surfaces = [binding.get("surface") for binding in self.surface_bindings]
+        if binding_surfaces != PRIVATE_BETA_READINESS_REQUIRED_SURFACES:
+            raise ValueError("private beta readiness surface bindings drifted")
+        if self.overall_gate_state == "pass":
+            if self.missing_evidence_refs:
+                raise ValueError("private beta readiness cannot pass with missing evidence")
+            if any(criterion.gate_state != "pass" for criterion in self.criteria):
+                raise ValueError("private beta readiness cannot pass with open criteria")
         for field_name in ["blocked_state_refs", "missing_evidence_refs"]:
             _safe_refs(getattr(self, field_name), field_name)
         for row in self.acceptance_state_definitions:
@@ -403,6 +534,24 @@ def private_beta_readiness_surface_bindings() -> list[dict[str, str]]:
 def _criteria() -> list[PrivateBetaReadinessCriterion]:
     rows = [
         (
+            "Start Here",
+            "partial",
+            "Start Here can guide one local governed loop with backend refs, while setup mutation and runtime control remain blocked.",
+            [
+                "contract-ref:start-here-local-loop:v1",
+                "contract-ref:private-beta-readiness-gate:v1",
+            ],
+        ),
+        (
+            "Setup Assistant",
+            "partial",
+            "Setup Assistant can show local prerequisite and package-readiness posture, but install, launch, login-material capture, shell, and public distribution authority remain blocked.",
+            [
+                "contract-ref:macos-setup-assistant:local-readiness",
+                "contract-ref:local-package-proof:macos-private",
+            ],
+        ),
+        (
             "Today",
             "partial",
             "Today can show the product spine, blockers, follow-ups, and readiness refs, but the gate still needs rehearsal receipts.",
@@ -427,6 +576,15 @@ def _criteria() -> list[PrivateBetaReadinessCriterion]:
             ],
         ),
         (
+            "Proof Detail",
+            "partial",
+            "Proof Detail can inspect safe refs, receipts, evidence, approval posture, and blocked authority, but cannot grant approval or execute rollback.",
+            [
+                "contract-ref:control-center-proof-spine:v1",
+                "contract-ref:dogfood-live-loop:acceptance",
+            ],
+        ),
+        (
             "Memory Review",
             "partial",
             "Memory Review shows source, provenance, quality, decision, and loop refs without writing memory or injecting context.",
@@ -441,6 +599,15 @@ def _criteria() -> list[PrivateBetaReadinessCriterion]:
             "partial",
             "Evidence Timeline reads as history for proposed, approved, happened, changed, undoable, stale, and blocked states.",
             ["contract-ref:evidence-history-grammar:v1"],
+        ),
+        (
+            "Trust Authority Map",
+            "partial",
+            "Trust can explain enabled local read/proposal lanes, exact approval requirements, safe-disable posture, rollback posture, and blocked authority without granting authority.",
+            [
+                "contract-ref:trust-authority-map:v1",
+                "contract-ref:usable-authority-tiers:v1",
+            ],
         ),
         (
             "Chat/Plans Handoff",
@@ -466,6 +633,15 @@ def _criteria() -> list[PrivateBetaReadinessCriterion]:
                 "contract-ref:memory-to-loop-binding:v1",
             ],
         ),
+        (
+            "Dogfood Live Loop",
+            "partial",
+            "Dogfood Live Loop can inspect one deterministic repo-local loop through safe refs; this gate cannot seed approvals, commit local tasks, or claim runtime authority.",
+            [
+                "contract-ref:dogfood-live-loop:acceptance",
+                "contract-ref:local-task-create:exact-lane",
+            ],
+        ),
     ]
     criteria: list[PrivateBetaReadinessCriterion] = []
     for surface, state, summary, contract_refs in rows:
@@ -484,6 +660,7 @@ def _criteria() -> list[PrivateBetaReadinessCriterion]:
                 missing_evidence_refs=[
                     f"missing-evidence-ref:private-beta:{surface_slug}:rehearsal"
                 ],
+                blocked_state_refs=list(PRIVATE_BETA_READINESS_REQUIRED_BLOCKED_REFS),
                 next_safe_action=(
                     "Collect local operator review evidence and keep blocked "
                     "authority refs visible before any readiness claim."
@@ -535,14 +712,19 @@ def _acceptance_state_definitions() -> list[dict[str, str | bool]]:
 
 def _surface_state(surface: PrivateBetaReadinessSurface) -> str:
     state_by_surface = {
+        "Start Here": "partial_backend_loop_guide_runtime_blocked",
+        "Setup Assistant": "partial_local_setup_readiness_mutation_blocked",
         "Today": "partial_spine_evidence_needs_rehearsal",
         "Morning Briefing": "mock_only_source_reads_blocked",
         "Action Inbox": "partial_reviewable_envelopes_execution_blocked",
+        "Proof Detail": "partial_safe_ref_proof_spine_execution_blocked",
         "Memory Review": "partial_review_only_memory_controls",
         "Evidence Timeline": "partial_history_grammar_present",
+        "Trust Authority Map": "partial_authority_map_grants_blocked",
         "Chat/Plans Handoff": "partial_local_operator_handoff_refs",
         "Governed Code": "partial_repo_local_proposal_refs_apply_blocked",
         "CRM-Lite Follow-Ups": "blocked_no_crm_write_or_account_sync",
+        "Dogfood Live Loop": "partial_repo_local_dogfood_loop_public_beta_blocked",
     }
     return state_by_surface[surface]
 

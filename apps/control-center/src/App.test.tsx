@@ -1420,6 +1420,28 @@ describe("Web Control Center shell", () => {
       "evidence-packet:private-beta-readiness:local-founder-loop",
     );
     expect(
+      screen.getAllByText("Full-strength version")[0].nextElementSibling,
+    ).toHaveTextContent("Local-first command center");
+    expect(
+      screen.getAllByText("Repo-safe version")[0].nextElementSibling,
+    ).toHaveTextContent("Backend-owned safe-ref readiness metadata");
+    expect(
+      screen.getAllByText("Blocked / needs authority")[0].nextElementSibling,
+    ).toHaveTextContent("Public beta");
+    expect(
+      screen.getByText("Product-loop trial").nextElementSibling,
+    ).toHaveTextContent(
+      "contract-ref:product-loop-012-private-product-loop-trial-script:v1",
+    );
+    expect(
+      screen.getAllByRole("heading", { name: /Exact promotion path/i }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "promotion-path-ref:private-beta:scoped-authority-prs",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
       screen.getByText("Public beta").nextElementSibling,
     ).toHaveTextContent("blocked");
     expect(
@@ -1428,6 +1450,8 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText(/CRM-Lite Follow-Ups: blocked/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Start Here: partial/i)).toBeInTheDocument();
+    expect(screen.getByText(/Dogfood Live Loop: partial/i)).toBeInTheDocument();
     expect(
       screen.getAllByText("blocked-state:no-public-beta").length,
     ).toBeGreaterThan(0);

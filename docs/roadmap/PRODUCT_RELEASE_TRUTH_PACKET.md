@@ -256,6 +256,13 @@ blocking gates below have evidence and the required verifiers pass.
 
 ## Product Excellence Matrix
 
+Current P1-078 beta-readiness surface set: Start Here, Setup Assistant, Today,
+Morning Briefing, Action Inbox, Proof Detail, Memory Review, Evidence Timeline,
+Trust Authority Map, Chat/Plans Handoff, Governed Code, CRM-lite follow-ups,
+and Dogfood Live Loop. Older row prose that names the narrower P1-078 surface
+set should be read through this current contract until the matrix row is
+rewritten in a later documentation compaction pass.
+
 Status values:
 
 - Shipped: evidence-backed current repository capability only, not a production

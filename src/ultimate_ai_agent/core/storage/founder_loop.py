@@ -5308,6 +5308,18 @@ def _private_beta_readiness_gate_contract_payload() -> dict[str, Any]:
         "private_beta_readiness_overall_state": payload["overall_gate_state"],
         "private_beta_readiness_evidence_packet_ref": payload["evidence_packet_ref"],
         "private_beta_readiness_window_ref": payload["readiness_window_ref"],
+        "private_beta_readiness_full_strength_goal": payload["full_strength_goal"],
+        "private_beta_readiness_repo_safe_scope": payload["repo_safe_scope"],
+        "private_beta_readiness_blocked_authority_summary": payload[
+            "blocked_authority_summary"
+        ],
+        "private_beta_readiness_promotion_path_refs": payload["promotion_path_refs"],
+        "private_beta_readiness_product_loop_trial_script_ref": payload[
+            "product_loop_trial_script_ref"
+        ],
+        "private_beta_readiness_private_operator_trial_ledger_ref": payload[
+            "private_operator_trial_ledger_ref"
+        ],
         "private_beta_readiness_required_surfaces": (
             PRIVATE_BETA_READINESS_REQUIRED_SURFACES
         ),
