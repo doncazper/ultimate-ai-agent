@@ -141,14 +141,20 @@ RuntimeGateway. Runtime profiles are:
   behind RuntimeGateway policy, redaction, and receipts; Phase 04 permits one
   exact read-only status command without an approval envelope. Phase 05 permits
   exact focused pytest command execution only after a validated
-  `operator-approved` Action Inbox approval envelope.
+  `operator-approved` Action Inbox approval envelope. Phase 06 makes the same
+  runtime truth inspectable through `uaa runtime ...`, `uaa actions
+  approve|deny ...`, Control Center status/readiness cards, and safe receipt
+  timeline refs without broadening command/provider/browser authority.
 - `operator-approved`: exact Action Inbox approval envelopes are required
   before execution-capable runtime actions.
 
 Pilot-scoped authority is limited to configured loopback/local model calls,
 one exact allowlisted argv-only read-only local status command, exact Action
 Inbox approval envelopes for focused pytest command execution, redacted runtime
-receipts/evidence refs, and CLI/API/Control Center parity. Repo verifier,
+receipts/evidence refs, and CLI/API/Control Center parity. Phase 06 adds
+launcher-backed `uaa runtime status`, `capabilities`, `invocations list/show`,
+`receipts show`, `safe-disable`, and `uaa actions approve|deny` inspection and
+decision paths over backend-owned safe refs only. Repo verifier,
 frontend-check, browser automation, connector writes, plugin runtime import,
 arbitrary shell/subprocess execution, remote execution, unrestricted web access,
 production authority, public beta, public release, and broad autonomy remain

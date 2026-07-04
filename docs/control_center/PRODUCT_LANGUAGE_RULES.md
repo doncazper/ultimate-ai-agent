@@ -94,7 +94,10 @@ only when copy preserves the current truth:
   exact allowlisted argv-only read-only local status command with redacted
   receipts. Phase 05 permits focused pytest command execution only after an
   exact validated `operator-approved` Action Inbox approval envelope; repo
-  verifiers, frontend-check, and arbitrary commands remain blocked.
+  verifiers, frontend-check, and arbitrary commands remain blocked. Phase 06 may
+  describe `uaa runtime ...`, `uaa actions approve|deny ...`, Control Center
+  readiness/status cards, and runtime evidence timeline refs only as
+  backend-owned inspection and exact-envelope decision surfaces.
 - `operator-approved` may describe execution-capable runtime actions only when
   exact Action Inbox approval envelopes validate before execution and the same
   action is inspectable through CLI/API/Control Center truth.

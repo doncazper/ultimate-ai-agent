@@ -5956,9 +5956,13 @@ const RUNTIME_ACTION_INBOX_BRIDGE_REQUIRED_NUMBERS = [
 
 const RUNTIME_ACTION_INBOX_BRIDGE_REQUIRED_ARRAYS = [
   "item_refs",
+  "approval_envelope_refs",
+  "pending_runtime_approval_refs",
+  "execution_result_refs",
   "receipt_refs",
   "evidence_refs",
   "items",
+  "evidence_timeline",
   "blocked_authority_refs",
 ] as const;
 
@@ -5970,11 +5974,13 @@ const RUNTIME_ACTION_INBOX_BRIDGE_ITEM_REQUIRED_STRINGS = [
   "status",
   "exact_scope_ref",
   "approval_ref",
+  "safe_disable_posture_ref",
   "idempotency_ref",
   "policy_decision_ref",
   "payload_fingerprint_ref",
   "rollback_ref",
   "safe_disable_ref",
+  "receipt_status",
   "safe_summary",
 ] as const;
 
@@ -5983,6 +5989,21 @@ const RUNTIME_ACTION_INBOX_BRIDGE_ITEM_REQUIRED_ARRAYS = [
   "evidence_refs",
   "blocked_reason_refs",
   "blocked_authority_refs",
+] as const;
+
+const RUNTIME_ACTION_INBOX_BRIDGE_EVENT_KINDS = [
+  "invocation_requested",
+  "policy_decision",
+  "approval_requested",
+  "approval_accepted",
+  "approval_denied",
+  "approval_expired",
+  "execution_started",
+  "execution_completed",
+  "execution_failed",
+  "execution_timed_out",
+  "receipt_recorded",
+  "safe_disable_invoked",
 ] as const;
 
 const ACTION_WORK_QUEUE_LANE_IDS = [
@@ -6012,7 +6033,20 @@ function isSafeRuntimeActionInboxBridgeReadModel(value: unknown): boolean {
     !hasStringFields(value, [
       "route_ref",
       "cli_ref",
+      "status_cli_ref",
+      "capabilities_cli_ref",
+      "invocations_cli_ref",
+      "receipts_cli_ref",
+      "safe_disable_cli_ref",
       "status",
+      "runtime_status_ref",
+      "default_profile",
+      "runtime_profile_status",
+      "local_model_readiness",
+      "command_runtime_readiness",
+      "safe_disable_ref",
+      "safe_disable_posture_ref",
+      "safe_disable_summary",
       "next_safe_action",
       "operator_summary",
     ])
@@ -6027,9 +6061,13 @@ function isSafeRuntimeActionInboxBridgeReadModel(value: unknown): boolean {
     return false;
   }
   const itemRefs = value.item_refs as unknown[];
+  const approvalEnvelopeRefs = value.approval_envelope_refs as unknown[];
+  const pendingApprovalRefs = value.pending_runtime_approval_refs as unknown[];
+  const executionResultRefs = value.execution_result_refs as unknown[];
   const receiptRefs = value.receipt_refs as unknown[];
   const evidenceRefs = value.evidence_refs as unknown[];
   const items = value.items as unknown[];
+  const evidenceTimeline = value.evidence_timeline as unknown[];
   const blockedAuthorityRefs = value.blocked_authority_refs as unknown[];
   return (
     value.item_count === items.length &&
@@ -6041,10 +6079,18 @@ function isSafeRuntimeActionInboxBridgeReadModel(value: unknown): boolean {
           ((items[index] as Record<string, unknown> | undefined)
             ?.invocation_ref ?? null),
     ) &&
+    isSafeActionWorkQueueRef(value.runtime_status_ref) &&
+    isSafeActionWorkQueueRef(value.safe_disable_ref) &&
+    isSafeActionWorkQueueRef(value.safe_disable_posture_ref) &&
+    typeof value.safe_disable_active === "boolean" &&
+    approvalEnvelopeRefs.every(isSafeActionWorkQueueRef) &&
+    pendingApprovalRefs.every(isSafeActionWorkQueueRef) &&
+    executionResultRefs.every(isSafeActionWorkQueueRef) &&
     receiptRefs.every(isSafeActionWorkQueueRef) &&
     evidenceRefs.every(isSafeActionWorkQueueRef) &&
     blockedAuthorityRefs.every(isSafeActionWorkQueueRef) &&
-    items.every(isSafeRuntimeActionInboxBridgeItem)
+    items.every(isSafeRuntimeActionInboxBridgeItem) &&
+    evidenceTimeline.every(isSafeRuntimeEvidenceTimelineItem)
   );
 }
 
@@ -6065,16 +6111,38 @@ function isSafeRuntimeActionInboxBridgeItem(value: unknown): boolean {
     return false;
   }
   const commandIntent = value.command_intent;
+  const approvalDecisionRef = value.approval_decision_ref;
+  const approvalValidationRef = value.approval_validation_ref;
+  const receiptRef = value.receipt_ref;
+  const executionResultRef = value.execution_result_ref;
   return (
     (commandIntent === null ||
       commandIntent === undefined ||
       typeof commandIntent === "string") &&
+    (approvalDecisionRef === null ||
+      approvalDecisionRef === undefined ||
+      isSafeActionWorkQueueRef(approvalDecisionRef)) &&
+    (approvalValidationRef === null ||
+      approvalValidationRef === undefined ||
+      isSafeActionWorkQueueRef(approvalValidationRef)) &&
+    (receiptRef === null ||
+      receiptRef === undefined ||
+      isSafeActionWorkQueueRef(receiptRef)) &&
+    (executionResultRef === null ||
+      executionResultRef === undefined ||
+      isSafeActionWorkQueueRef(executionResultRef)) &&
     typeof value.approval_validated === "boolean" &&
     typeof value.execution_performed === "boolean" &&
+    typeof value.timed_out === "boolean" &&
+    value.command_output_persisted === false &&
+    (value.exit_code === null ||
+      value.exit_code === undefined ||
+      typeof value.exit_code === "number") &&
     isSafeActionWorkQueueRef(value.invocation_ref) &&
     isSafeActionWorkQueueRef(value.action_envelope_ref) &&
     isSafeActionWorkQueueRef(value.exact_scope_ref) &&
     isSafeActionWorkQueueRef(value.approval_ref) &&
+    isSafeActionWorkQueueRef(value.safe_disable_posture_ref) &&
     isSafeActionWorkQueueRef(value.idempotency_ref) &&
     isSafeActionWorkQueueRef(value.policy_decision_ref) &&
     isSafeActionWorkQueueRef(value.payload_fingerprint_ref) &&
@@ -6084,6 +6152,43 @@ function isSafeRuntimeActionInboxBridgeItem(value: unknown): boolean {
     (value.evidence_refs as string[]).every(isSafeActionWorkQueueRef) &&
     (value.blocked_reason_refs as string[]).every(isSafeActionWorkQueueRef) &&
     (value.blocked_authority_refs as string[]).every(isSafeActionWorkQueueRef)
+  );
+}
+
+function isSafeRuntimeEvidenceTimelineItem(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    !hasStringFields(value, [
+      "event_ref",
+      "event_kind",
+      "invocation_ref",
+      "safe_summary",
+    ]) ||
+    !Array.isArray(value.evidence_refs)
+  ) {
+    return false;
+  }
+  const receiptRef = value.receipt_ref;
+  const policyDecisionRef = value.policy_decision_ref;
+  const actionEnvelopeRef = value.action_envelope_ref;
+  return (
+    isSafeActionWorkQueueRef(value.event_ref) &&
+    RUNTIME_ACTION_INBOX_BRIDGE_EVENT_KINDS.includes(
+      value.event_kind as (typeof RUNTIME_ACTION_INBOX_BRIDGE_EVENT_KINDS)[number],
+    ) &&
+    isSafeActionWorkQueueRef(value.invocation_ref) &&
+    (receiptRef === null ||
+      receiptRef === undefined ||
+      isSafeActionWorkQueueRef(receiptRef)) &&
+    (policyDecisionRef === null ||
+      policyDecisionRef === undefined ||
+      isSafeActionWorkQueueRef(policyDecisionRef)) &&
+    (actionEnvelopeRef === null ||
+      actionEnvelopeRef === undefined ||
+      isSafeActionWorkQueueRef(actionEnvelopeRef)) &&
+    (value.evidence_refs as string[]).every(isSafeActionWorkQueueRef)
   );
 }
 

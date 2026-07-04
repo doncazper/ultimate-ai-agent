@@ -611,6 +611,7 @@ class RuntimeInvocationStore:
         self.path = self.state_dir / RUNTIME_GATEWAY_JSONL
         self.lock_path = self.state_dir / RUNTIME_GATEWAY_LOCK
         self._records: dict[str, RuntimeInvocationRecord] = {}
+        self._entries: list[RuntimeGatewayStorageEntry] = []
         self._idempotency_index: dict[str, str] = {}
         self._idempotency_fingerprint_index: dict[str, str] = {}
         self._last_entry_hash_ref: str | None = None
@@ -623,6 +624,10 @@ class RuntimeInvocationStore:
     def list_invocations(self) -> list[RuntimeInvocationRecord]:
         self._load()
         return sorted(self._records.values(), key=lambda record: record.created_at.isoformat())
+
+    def list_entries(self) -> list[RuntimeGatewayStorageEntry]:
+        self._load()
+        return list(self._entries)
 
     def get_invocation(self, invocation_ref: str) -> RuntimeInvocationRecord:
         self._load()
@@ -1130,6 +1135,7 @@ class RuntimeInvocationStore:
 
     def _reload(self) -> None:
         self._records = {}
+        self._entries = []
         self._idempotency_index = {}
         self._idempotency_fingerprint_index = {}
         self._last_entry_hash_ref = None
@@ -1157,6 +1163,7 @@ class RuntimeInvocationStore:
             self._idempotency_fingerprint_index[entry.idempotency_ref] = (
                 entry.payload_fingerprint_ref
             )
+            self._entries.append(entry)
             previous_hash = entry.entry_hash_ref
         self._last_entry_hash_ref = previous_hash
 
@@ -1227,6 +1234,7 @@ class RuntimeInvocationStore:
         with self.path.open("a", encoding="utf-8") as handle:
             handle.write(_canonical_json(entry.model_dump(mode="json")) + "\n")
         self._records[record.invocation_ref] = record
+        self._entries.append(entry)
         self._idempotency_index[entry_idempotency_ref] = record.invocation_ref
         self._idempotency_fingerprint_index[entry_idempotency_ref] = payload_fingerprint_ref
         self._last_entry_hash_ref = entry.entry_hash_ref

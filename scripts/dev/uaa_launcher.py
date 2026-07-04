@@ -1192,6 +1192,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     openwebui_logs_parser.add_argument("--follow", action="store_true")
     uaa_setup = _load_setup_module()
     uaa_setup.add_setup_parser(subparsers)
+    runtime_parser = subparsers.add_parser("runtime")
+    runtime_parser.add_argument("runtime_args", nargs=argparse.REMAINDER)
+    actions_parser = subparsers.add_parser("actions")
+    actions_parser.add_argument("action_args", nargs=argparse.REMAINDER)
     install_parser = subparsers.add_parser("install-shell-command")
     install_parser.add_argument("--bin-dir", default=str(Path.home() / ".local" / "bin"))
     return parser.parse_args(argv)
@@ -1214,7 +1218,19 @@ def install_shell_command(root: Path, bin_dir: Path) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = parse_args(sys.argv[1:] if argv is None else argv)
+    raw_argv = sys.argv[1:] if argv is None else argv
+    if raw_argv and raw_argv[0] == "runtime":
+        uaa_runtime = _load_runtime_module()
+        return uaa_runtime.main(raw_argv[1:] or ["status"])
+    if raw_argv and raw_argv[0] == "actions":
+        uaa_runtime = _load_runtime_module()
+        action_args = raw_argv[1:] or ["--help"]
+        if action_args[:1] == ["--state-dir"] and len(action_args) >= 3:
+            return uaa_runtime.main(
+                ["--state-dir", action_args[1], "actions", *action_args[2:]]
+            )
+        return uaa_runtime.main(["actions", *action_args])
+    args = parse_args(raw_argv)
     root = repo_root()
     command = args.command or "help"
     try:
@@ -1232,6 +1248,8 @@ def main(argv: list[str] | None = None) -> int:
                 "local-model",
                 "openwebui",
                 "setup",
+                "runtime",
+                "actions",
                 "stop",
                 "restart",
                 "install-shell-command",
@@ -1271,6 +1289,14 @@ def main(argv: list[str] | None = None) -> int:
         if command == "setup":
             uaa_setup = _load_setup_module()
             return uaa_setup.command_setup(root, args)
+        if command == "runtime":
+            uaa_runtime = _load_runtime_module()
+            runtime_args = args.runtime_args or ["status"]
+            return uaa_runtime.main(runtime_args)
+        if command == "actions":
+            uaa_runtime = _load_runtime_module()
+            action_args = args.action_args or ["--help"]
+            return uaa_runtime.main(["actions", *action_args])
         if command == "stop":
             return command_stop(root)
         if command == "restart":
@@ -1308,6 +1334,20 @@ def _load_local_model_module() -> Any:
     spec = importlib.util.spec_from_file_location(module_name, local_model_path)
     if spec is None or spec.loader is None:
         raise RuntimeError("Unable to load local model inventory command")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_runtime_module() -> Any:
+    module_name = "uaa_runtime"
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+    runtime_path = Path(__file__).resolve().with_name("uaa_runtime.py")
+    spec = importlib.util.spec_from_file_location(module_name, runtime_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Unable to load governed runtime CLI")
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
