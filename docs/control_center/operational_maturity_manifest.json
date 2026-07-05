@@ -568,7 +568,7 @@
         ],
         "frontend_test_refs": [
           "apps/control-center/src/App.test.tsx::renders Settings and Local Models backend-owned status routes",
-          "apps/control-center/src/App.test.tsx::keeps read endpoints separate from the single preview POST endpoint"
+          "apps/control-center/src/App.test.tsx::keeps read endpoints separate from preview POST endpoints"
         ],
         "backend_only_status": false,
         "backend_only_reason": null,
@@ -679,7 +679,7 @@
         ],
         "frontend_test_refs": [
           "apps/control-center/src/App.test.tsx::renders Settings and Local Models backend-owned status routes",
-          "apps/control-center/src/App.test.tsx::keeps read endpoints separate from the single preview POST endpoint"
+          "apps/control-center/src/App.test.tsx::keeps read endpoints separate from preview POST endpoints"
         ],
         "backend_only_status": false,
         "backend_only_reason": null,

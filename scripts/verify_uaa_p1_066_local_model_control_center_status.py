@@ -238,7 +238,7 @@ def _validate_frontend_binding(root: Path, failures: list[str]) -> None:
             "model_pull",
             "Ollama",
             "MLX-LM",
-            "keeps read endpoints separate from the single preview POST endpoint",
+            "keeps read endpoints separate from preview POST endpoints",
         ],
     }
     for path, fragments in frontend_requirements.items():

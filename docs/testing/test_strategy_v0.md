@@ -123,7 +123,8 @@ M13 adds frontend shell tests plus Python gate integration tests:
 ```text
 React/Vite dashboard renders safe status, runtime, gate, API, approval, remote, mobile, and plugin summaries.
 Mock fallback data is visibly mock and non-authoritative.
-Action preview form posts only to /control-center/actions/preview.
+Action preview form posts only to /control-center/actions/preview; Turn Router
+Diagnostics posts only to /control-center/turn-router/preview.
 No action-run, plugin-enable, sensor, model-run, credential-use, or remote-dispatch button exists.
 Secret-like input is redacted from user-visible output.
 Frontend source and package dependencies remain local shell only.
@@ -540,7 +541,9 @@ v0.17.4 adds focused frontend and static documentation tests only:
 ```text
 Every local Web Control Center page has a clear route heading for browser smoke review.
 Loading and empty states expose accessible status text and read-only wording.
-Action preview displays risk level as preview metadata and still posts only to /control-center/actions/preview.
+Action preview displays risk level as preview metadata and still posts only to
+/control-center/actions/preview; Turn Router Diagnostics remains no-effect and
+posts only to /control-center/turn-router/preview.
 Secret-like backend preview errors are redacted before user-visible display.
 Local browser smoke reporting docs remain local-only, non-authoritative, and free of generated artifact requirements.
 Backend OpenAPI path count remains unchanged at 74.

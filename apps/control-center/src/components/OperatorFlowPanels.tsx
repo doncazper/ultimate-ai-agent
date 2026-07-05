@@ -28,6 +28,7 @@ import { EvidenceViewerPanel } from "./EvidenceFileMemoryViewerPanel";
 import { ChatToLoopHandoffPanel } from "./FounderLoopPanels";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 import { ProviderCatalogPanel } from "./ProviderCatalogPanel";
+import { TurnRouterDiagnosticsPanel } from "./TurnRouterDiagnosticsPanel";
 
 const DEFAULT_MODEL_ID = "uaa-llama-cpp-local";
 const SETTINGS_AUTHORITY_KEYS = [
@@ -158,6 +159,8 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
         status={statusLabel(models.state)}
         summary="Control Center can probe a redacted local turn through UAA /v1, record a durable receipt, and show model, runtime, auth, and tool-denial truth without treating output as authority."
       />
+
+      <TurnRouterDiagnosticsPanel />
 
       <div className="operator-flow-grid">
         <StatusPanel

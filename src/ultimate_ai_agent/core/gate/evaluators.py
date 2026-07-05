@@ -5441,6 +5441,7 @@ class FoundationGateEvaluator:
             "memoryContextPackActionProposalEndpoint(contextPackRef)",
             "API_ENDPOINTS.localChatCompletions",
             "API_ENDPOINTS.controlCenterWebEvidenceAttach",
+            "API_ENDPOINTS.turnRouterPreview",
         }
         for target in sorted(allowed_post_targets):
             if target not in client:

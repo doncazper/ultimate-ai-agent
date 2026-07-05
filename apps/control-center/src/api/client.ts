@@ -16,6 +16,8 @@ import type {
   ControlCenterSettingsStatus,
   ControlCenterStatus,
   TrustAuthorityMatrix,
+  TurnRouterPreviewReadModel,
+  TurnRouterPreviewRequest,
   FounderLoopActionsInbox,
   FounderLoopMorningBriefing,
   FounderLoopSourceReadiness,
@@ -895,6 +897,96 @@ export async function submitActionPreview(
     );
   }
   return decision;
+}
+
+export async function submitTurnRouterPreview(
+  request: TurnRouterPreviewRequest,
+): Promise<TurnRouterPreviewReadModel> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.turnRouterPreview}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await response.json()) as ResultEnvelope<TurnRouterPreviewReadModel>;
+  const preview = data.result ?? data.data;
+  if (!response.ok || !preview) {
+    throw new Error(
+      sanitizeForDisplay(
+        data.error?.message ?? "Turn router preview failed safely.",
+      ),
+    );
+  }
+  if (!isSafeTurnRouterPreview(preview)) {
+    throw new Error(
+      sanitizeForDisplay("Turn router preview was rejected safely."),
+    );
+  }
+  return preview;
+}
+
+function isSafeTurnRouterPreview(
+  value: unknown,
+): value is TurnRouterPreviewReadModel {
+  if (!isPlainRecord(value) || !isPlainRecord(value.policy_summary)) {
+    return false;
+  }
+  if (!isPlainRecord(value.no_effect_proof)) {
+    return false;
+  }
+  const noEffect = value.no_effect_proof;
+  const policy = value.policy_summary;
+  return (
+    value.contract_ref === "contract-ref:turn-router-preview:v1" &&
+    typeof value.preview_ref === "string" &&
+    typeof value.request_ref === "string" &&
+    value.route_refs instanceof Array &&
+    stringArray(value.route_refs).includes(
+      API_ENDPOINTS.turnRouterPreview,
+    ) &&
+    typeof value.selected_turn_contract === "string" &&
+    typeof value.confidence === "number" &&
+    stringArray(value.redactions_applied).includes(
+      "ephemeral_request_text_omitted",
+    ) &&
+    value.raw_content_included === false &&
+    value.ephemeral_request_text_omitted === true &&
+    noEffect.authority_granted === false &&
+    noEffect.execution_permitted === false &&
+    noEffect.no_runtime_model_call_performed === true &&
+    noEffect.no_provider_call_performed === true &&
+    noEffect.no_tool_execution_performed === true &&
+    noEffect.no_action_execution_performed === true &&
+    noEffect.no_workflow_execution_performed === true &&
+    noEffect.no_context_injection_performed === true &&
+    noEffect.no_memory_content_retrieved === true &&
+    noEffect.no_memory_write_performed === true &&
+    noEffect.no_durable_state_write_performed === true &&
+    noEffect.no_shell_subprocess_performed === true &&
+    noEffect.no_browser_network_performed === true &&
+    noEffect.no_connector_write_performed === true &&
+    noEffect.invocation_policy_compiled_only === true &&
+    noEffect.raw_request_text_persisted === false &&
+    policy.tool_execution_allowed === false &&
+    policy.action_execution_allowed === false &&
+    policy.workflow_execution_allowed === false &&
+    policy.context_injection_allowed === false &&
+    policy.runtime_model_call_allowed === false &&
+    policy.provider_call_allowed === false &&
+    policy.shell_subprocess_allowed === false &&
+    policy.browser_network_allowed === false &&
+    policy.connector_write_allowed === false &&
+    policy.side_effects_allowed === false &&
+    policy.execution_ready === false
+  );
 }
 
 export async function submitActionDecision(
