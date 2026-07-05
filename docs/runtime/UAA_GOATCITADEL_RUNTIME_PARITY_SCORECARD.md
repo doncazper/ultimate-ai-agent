@@ -91,7 +91,9 @@ that UAA already has the same runtime capability.
 ## Phase Lane Map
 
 Phase 02 Prompt binds live route decisions to the governed turn path without
-provider/model calls or action execution.
+provider/model calls or action execution. Implemented evidence now lives in
+`docs/runtime/UAA_GOATCITADEL_RUNTIME_ROUTE_DECISION_BINDING.md` and
+`src/ultimate_ai_agent/core/decision_router/route_binding.py`.
 
 Phase 03 Prompt adds the canonical Turn -> Durable Run -> Approval state model
 with safe refs, replay posture, and approval-wait truth.
