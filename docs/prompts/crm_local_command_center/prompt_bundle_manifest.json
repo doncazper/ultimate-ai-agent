@@ -1,0 +1,35 @@
+{
+  "bundle_ref": "prompt-bundle:crm-local-command-center:v1",
+  "title": "UAA CRM Local Command Center Prompt Pack",
+  "status": "stored_operator_prompt_pack",
+  "purpose": "Build UAA CRM from fixture-only shell into a governed local-first relationship command center inspired by public CRM feature patterns without copying proprietary apps.",
+  "wrapper_prompt": "docs/prompts/crm_local_command_center/00_execute_crm_local_command_center_end_to_end.prompt.md",
+  "prompt_order": [
+    "docs/prompts/crm_local_command_center/01_crm_product_truth_feature_map.prompt.md",
+    "docs/prompts/crm_local_command_center/02_crm_backend_read_model.prompt.md",
+    "docs/prompts/crm_local_command_center/03_crm_control_center_cockpit.prompt.md",
+    "docs/prompts/crm_local_command_center/04_crm_local_storage_seed.prompt.md",
+    "docs/prompts/crm_local_command_center/05_crm_relationship_timeline.prompt.md",
+    "docs/prompts/crm_local_command_center/06_crm_follow_up_queue.prompt.md",
+    "docs/prompts/crm_local_command_center/07_crm_smart_lists.prompt.md",
+    "docs/prompts/crm_local_command_center/08_crm_pipeline_board.prompt.md",
+    "docs/prompts/crm_local_command_center/09_crm_exact_local_mutations.prompt.md",
+    "docs/prompts/crm_local_command_center/10_crm_communication_drafts.prompt.md",
+    "docs/prompts/crm_local_command_center/11_crm_ai_proposal_layer.prompt.md",
+    "docs/prompts/crm_local_command_center/12_crm_local_import_export.prompt.md",
+    "docs/prompts/crm_local_command_center/13_crm_reporting.prompt.md",
+    "docs/prompts/crm_local_command_center/14_crm_connector_read_lanes.prompt.md",
+    "docs/prompts/crm_local_command_center/15_crm_sends_writes_authority_plan.prompt.md",
+    "docs/prompts/crm_local_command_center/16_crm_qa_gate.prompt.md"
+  ],
+  "authority_boundary": {
+    "python_core_owns_durable_truth": true,
+    "control_center_grants_authority": false,
+    "broad_connector_writes": false,
+    "broad_sends": false,
+    "broad_provider_model_calls": false,
+    "browser_automation_inside_uaa_runtime": false,
+    "background_autonomy": false,
+    "production_authority": false
+  }
+}
