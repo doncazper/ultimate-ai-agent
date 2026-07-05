@@ -24,6 +24,8 @@
     "blocked_capabilities",
     "docs_refs",
     "schema_refs",
+    "developer_guidance_refs",
+    "final_hardening_refs",
     "safe_summary"
   ],
   "properties": {
@@ -101,6 +103,18 @@
         "minLength": 1
       }
     },
+    "developer_guidance_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
+    "final_hardening_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
     "safe_summary": {
       "type": "string",
       "minLength": 1,
@@ -128,6 +142,13 @@
         "blocked_state",
         "blocker_refs",
         "audit_refs",
+        "visibility_status",
+        "trust_posture",
+        "callable_posture",
+        "required_grant_refs",
+        "blocked_reason",
+        "review_evidence_refs",
+        "safe_adoption_posture",
         "safe_summary"
       ],
       "properties": {
@@ -181,6 +202,57 @@
           "items": {
             "$ref": "#/$defs/safe_ref"
           }
+        },
+        "visibility_status": {
+          "enum": [
+            "implemented",
+            "partial",
+            "planned",
+            "mock_only",
+            "blocked",
+            "deprecated",
+            "contradicted",
+            "unknown"
+          ]
+        },
+        "trust_posture": {
+          "enum": [
+            "reviewed_metadata",
+            "unknown_blocked",
+            "blocked_by_policy",
+            "future_review_required"
+          ]
+        },
+        "callable_posture": {
+          "enum": [
+            "inspectable_only",
+            "blocked_runtime",
+            "future_exact_lane_required"
+          ]
+        },
+        "required_grant_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "blocked_reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "review_evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "safe_adoption_posture": {
+          "enum": [
+            "repo_owned_metadata_only",
+            "reviewed_adaptation_required",
+            "blocked_until_scoped_milestone"
+          ]
         },
         "safe_summary": {
           "type": "string",

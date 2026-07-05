@@ -55,6 +55,7 @@ only:
 | Revocation behavior | `revocation:*`, revocation supported, and revocation effect. | Revocation is inspectable and must make grants/catalog entries inactive. |
 | Audit refs | `audit:*` refs for manifest review, grant review, and revocation review. | Audit refs are summaries only, not raw logs. |
 | Catalog binding | `inspectable-catalog:*`, `callable-catalog:*`, and `callable_catalog_enabled: false`. | Inspectable catalog remains separate from callable catalog. |
+| Operator posture | visibility status, trust posture, callable posture, required grant refs, blocked reason, review evidence refs, and safe adoption posture. | UAA GoatCitadel catch-up Phase 09 makes metadata easier to inspect without enabling runtime import or execution. |
 
 The schema also requires `runtime_import_enabled: false` and
 `execution_enabled: false`.
@@ -188,6 +189,10 @@ UAA-P1-024 does not add:
   `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md`; runtime authority,
   connector writes, plugin execution, broad tool invocation, and network
   authority remain not scoped.
+- UAA GoatCitadel catch-up Phase 09 adds final operator posture fields and
+  `scripts/dev/uaa_extensions.py inspect-catalog`; plugin runtime import
+  remains blocked, connector writes remain blocked, and production authority
+  remains blocked.
 - Runtime import and callable execution remain disabled until a later accepted
   milestone explicitly grants and tests them.
 

@@ -79,6 +79,36 @@ class ExtensionBlockedState(str, Enum):
     future_scoped = "future_scoped"
 
 
+class ExtensionCatalogVisibilityStatus(str, Enum):
+    implemented = "implemented"
+    partial = "partial"
+    planned = "planned"
+    mock_only = "mock_only"
+    blocked = "blocked"
+    deprecated = "deprecated"
+    contradicted = "contradicted"
+    unknown = "unknown"
+
+
+class ExtensionTrustPosture(str, Enum):
+    reviewed_metadata = "reviewed_metadata"
+    unknown_blocked = "unknown_blocked"
+    blocked_by_policy = "blocked_by_policy"
+    future_review_required = "future_review_required"
+
+
+class ExtensionCallablePosture(str, Enum):
+    inspectable_only = "inspectable_only"
+    blocked_runtime = "blocked_runtime"
+    future_exact_lane_required = "future_exact_lane_required"
+
+
+class ExtensionSafeAdoptionPosture(str, Enum):
+    repo_owned_metadata_only = "repo_owned_metadata_only"
+    reviewed_adaptation_required = "reviewed_adaptation_required"
+    blocked_until_scoped_milestone = "blocked_until_scoped_milestone"
+
+
 class _ExtensionCatalogModel(BaseModel):
     model_config = ConfigDict(use_enum_values=True, extra="forbid", protected_namespaces=())
 
@@ -131,6 +161,13 @@ class InspectableExtensionCatalogEntry(_ExtensionCatalogModel):
     blocked_state: ExtensionBlockedState = ExtensionBlockedState.unknown
     blocker_refs: list[str] = Field(default_factory=list)
     audit_refs: list[str] = Field(default_factory=list)
+    visibility_status: ExtensionCatalogVisibilityStatus
+    trust_posture: ExtensionTrustPosture
+    callable_posture: ExtensionCallablePosture
+    required_grant_refs: list[str] = Field(default_factory=list)
+    blocked_reason: str = Field(..., min_length=1, max_length=240)
+    review_evidence_refs: list[str] = Field(default_factory=list)
+    safe_adoption_posture: ExtensionSafeAdoptionPosture
     safe_summary: str = Field(..., min_length=1, max_length=500)
 
 
@@ -156,6 +193,8 @@ class InspectableExtensionCatalog(_ExtensionCatalogModel):
     blocked_capabilities: list[str] = Field(default_factory=list)
     docs_refs: list[str] = Field(default_factory=list)
     schema_refs: list[str] = Field(default_factory=list)
+    developer_guidance_refs: list[str] = Field(default_factory=list)
+    final_hardening_refs: list[str] = Field(default_factory=list)
     safe_summary: str = Field(..., min_length=1, max_length=500)
 
 
@@ -262,6 +301,21 @@ def validate_inspectable_extension_catalog(
     if not catalog.inspectable_catalog_enabled:
         raise ValueError("EXTENSION_CATALOG_INSPECTION_REQUIRED")
     for entry in catalog.entries:
+        _validate_safe_ref_list(
+            entry.review_evidence_refs,
+            "EXTENSION_CATALOG_REVIEW_EVIDENCE_REF_REQUIRED",
+        )
+        if entry.required_grant_refs:
+            _validate_safe_ref_list(
+                entry.required_grant_refs,
+                "EXTENSION_CATALOG_REQUIRED_GRANT_REF_REQUIRED",
+            )
+        if entry.callable_posture not in {
+            ExtensionCallablePosture.inspectable_only.value,
+            ExtensionCallablePosture.blocked_runtime.value,
+            ExtensionCallablePosture.future_exact_lane_required.value,
+        }:
+            raise ValueError("EXTENSION_CATALOG_CALLABLE_POSTURE_DENIED")
         if entry.activation_status not in {
             ExtensionActivationStatus.inactive.value,
             ExtensionActivationStatus.blocked.value,
