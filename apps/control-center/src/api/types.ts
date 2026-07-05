@@ -7122,6 +7122,7 @@ export interface FounderLoopAgentLoopThread {
     context_injection_authorized: boolean;
     next_safe_action: string;
   };
+  operator_decision_matrix: FounderLoopOperatorDecisionMatrix;
   surface_bindings: Array<{
     surface: string;
     route_ref: string;
@@ -7142,6 +7143,47 @@ export interface FounderLoopAgentLoopThread {
   };
   blocked_authority_refs: string[];
   redactions_applied: string[];
+}
+
+export interface FounderLoopOperatorDecisionMatrix {
+  schema_version: string;
+  contract_ref: string;
+  status: string;
+  capability_status: string;
+  source: string;
+  backend_owned: boolean;
+  control_center_presentation_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  route_ref: string;
+  cli_ref: string;
+  operator_can_decide_from_cockpit: boolean;
+  ui_mints_authority: boolean;
+  mutation_controls_enabled: boolean;
+  row_count: number;
+  rows: FounderLoopOperatorDecisionRow[];
+  next_safe_operator_decision: string;
+  blocked_authority_refs: string[];
+  redactions_applied: string[];
+}
+
+export interface FounderLoopOperatorDecisionRow {
+  surface: string;
+  capability_status: string;
+  operator_question: string;
+  backend_route_ref: string;
+  cli_ref: string;
+  primary_ref: string;
+  approval_posture: string;
+  side_effect_class: string;
+  safe_action: string;
+  evidence_refs: string[];
+  proof_refs: string[];
+  receipt_refs: string[];
+  blocked_state_refs: string[];
+  mutation_enabled: boolean;
+  backend_truth_required: boolean;
+  no_go_reason: string;
 }
 
 export interface FounderLoopTodaySummary {

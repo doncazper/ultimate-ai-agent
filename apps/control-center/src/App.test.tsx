@@ -2086,6 +2086,66 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders the cockpit decision matrix from backend-owned agent loop refs", async () => {
+    const agentLoop = {
+      ...mockControlCenterData.founderAgentLoopThread,
+      thread_ref: "agent-loop-thread:app-test:cockpit-parity",
+      status: "implemented_backend_owned_read_model_no_new_authority",
+      capability_status: "partial",
+      source: "python_core_agent_loop_thread_read_model",
+      backend_owned: true,
+      operator_decision_matrix: {
+        ...mockControlCenterData.founderAgentLoopThread.operator_decision_matrix,
+        status: "implemented_backend_owned_read_model_no_new_authority",
+        capability_status: "implemented",
+        source: "python_core_agent_loop_thread_read_model",
+        backend_owned: true,
+        operator_can_decide_from_cockpit: true,
+        rows:
+          mockControlCenterData.founderAgentLoopThread.operator_decision_matrix.rows.map(
+            (row) => ({
+              ...row,
+              capability_status:
+                row.surface === "Today" ? "implemented" : "partial",
+              safe_action:
+                row.surface === "Action Inbox"
+                  ? "Open Action Inbox and inspect the approval envelope before mutation."
+                  : row.safe_action,
+              backend_truth_required: true,
+              mutation_enabled: false,
+              no_go_reason:
+                "Requires exact approval, receipt, and backend-owned state before mutation.",
+            }),
+          ),
+      },
+    };
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.founderAgentLoopThread]: agentLoop,
+    });
+    window.history.pushState({}, "", "/today");
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Operator decision matrix" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "contract-ref:goatcitadel-catchup-cockpit-cli-api-parity:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("scripts/dev/uaa_founder_loop.py inspect-cockpit-parity"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /control-center/actions/inbox").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/inspect the approval envelope before mutation/i),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("blocked").length).toBeGreaterThan(0);
+  });
+
   it("renders route state strips for partial, blocked, and planned surfaces", async () => {
     mockFetchWithFallback();
     for (const [path, expectedCopy] of [
@@ -15082,6 +15142,14 @@ function dogfoodLiveLoopEndpointData() {
       capability_status: "partial",
       source: "python_core_agent_loop_thread_read_model",
       backend_owned: true,
+      operator_decision_matrix: {
+        ...mockControlCenterData.founderAgentLoopThread.operator_decision_matrix,
+        status: "implemented_backend_owned_read_model_no_new_authority",
+        capability_status: "implemented",
+        source: "python_core_agent_loop_thread_read_model",
+        backend_owned: true,
+        operator_can_decide_from_cockpit: true,
+      },
     },
     [API_ENDPOINTS.founderStartHereSummary]: startHere,
     [API_ENDPOINTS.founderActionsInbox]: actionsInbox,
@@ -15165,6 +15233,14 @@ function envelopeForReadEndpoint(url: string) {
       capability_status: "partial",
       source: "python_core_agent_loop_thread_read_model",
       backend_owned: true,
+      operator_decision_matrix: {
+        ...mockControlCenterData.founderAgentLoopThread.operator_decision_matrix,
+        status: "implemented_backend_owned_read_model_no_new_authority",
+        capability_status: "implemented",
+        source: "python_core_agent_loop_thread_read_model",
+        backend_owned: true,
+        operator_can_decide_from_cockpit: true,
+      },
     },
     [API_ENDPOINTS.founderStartHereSummary]: {
       ...mockControlCenterData.founderStartHere,

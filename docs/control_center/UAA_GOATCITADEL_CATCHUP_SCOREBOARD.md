@@ -1,6 +1,6 @@
 # UAA GoatCitadel Catch-Up Scoreboard
 
-Status: Phase 07 active scoreboard. This document is documentation and verifier
+Status: Phase 08 active scoreboard. This document is documentation and verifier
 coverage only; it is not runtime authority, does not grant execution authority,
 and does not change Control Center behavior.
 
@@ -37,6 +37,8 @@ UAA evidence inspected:
 - `tests/test_goatcitadel_catchup_action_tool_code_lanes.py`
 - `tests/test_goatcitadel_catchup_memory_learning.py`
 - `tests/test_goatcitadel_catchup_evidence_audit.py`
+- `tests/test_goatcitadel_catchup_agent_loop_spine.py`
+- `scripts/verify_uaa_goatcitadel_catchup_cockpit_cli_api.py`
 - `scripts/verify_uaa_goatcitadel_catchup_action_tool_code_lanes.py`
 - `scripts/verify_uaa_goatcitadel_catchup_memory_learning.py`
 - `scripts/verify_uaa_goatcitadel_catchup_evidence_audit.py`
@@ -122,7 +124,7 @@ tests, and CLI/API/core parity.
 | 4 | Memory learning lifecycle with feedback, stale/wrong/conflict/duplicate states. | implemented read-model | Python memory core | Memory Workbench learning posture, CLI `memory-learning-posture`, Control Center Memory panel. | Broad memory-write authority, automatic memory writes, hidden context injection, memory-as-truth, delete/export execution, connector writes, model/provider calls, live web fetch, background autonomy, and production authority blocked. | `tests/test_goatcitadel_catchup_memory_learning.py`, `scripts/verify_uaa_goatcitadel_catchup_memory_learning.py`, memory provenance and redaction tests. | Phase 05 implemented: Memory/Learning |
 | 5 | Signed portable evidence and same-run lineage detail. | implemented read-model | Evidence/proof core | Evidence audit receipt spine, grouped timeline/read-model, receipt envelopes, missing receipt refs, artifact hash refs, verifier refs, CLI inspection. | External telemetry/export and production compliance claims blocked. | `tests/test_goatcitadel_catchup_evidence_audit.py`, `scripts/verify_uaa_goatcitadel_catchup_evidence_audit.py`, redaction and missing receipt tests. | Phase 06 implemented: Evidence/Audit |
 | 6 | Model/provider/research metadata parity. | implemented read-model | RuntimeGateway/local model core | Provider readiness/catalog metadata, route-decision trace read models, model-output truth posture, and WebAccessGateway external-information posture. | Runtime model calls, provider SDK calls, browser automation, and live web fetching by the control plane blocked. | `tests/test_goatcitadel_catchup_model_provider_research.py`, `scripts/verify_uaa_goatcitadel_catchup_model_provider_research.py`, runtime metadata tests and authority guard verifier. | Phase 07 implemented: Model/Provider/Research |
-| 7 | Cockpit UX parity for Today/Actions/Chat/Proof/Evidence/Memory/Runtime/Coding/Work Board. | partial to implemented | Control Center presentation over Python truth | UI polish over backend-owned refs; CLI/API parity preserved. | Browser automation inside UAA blocked. | Frontend route tests, visual checks if UI changes. | Phase 08: Cockpit/CLI/API |
+| 7 | Cockpit UX parity for Today/Actions/Chat/Proof/Evidence/Memory/Runtime/Coding/Work Board. | implemented read-model/UI parity | Control Center presentation over Python truth | `GET /control-center/agent-loop/thread`, `scripts/dev/uaa_founder_loop.py inspect-cockpit-parity`, and Today UI expose the same backend-owned operator decision matrix. | Browser automation inside UAA blocked; mutation controls stay exact-lane only. | `tests/test_goatcitadel_catchup_agent_loop_spine.py`, `apps/control-center/src/App.test.tsx`, `scripts/verify_uaa_goatcitadel_catchup_cockpit_cli_api.py`, frontend checks. | Phase 08 implemented: Cockpit/CLI/API |
 | 8 | Extension ecosystem clarity. | partial to partial-plus | Extension catalog core | Inspectable catalog, grant records, trust statuses; no runtime import. | Connector writes and plugin runtime import blocked. | Extension catalog tests and static guardrails. | Phase 09: Extensibility |
 
 ## GoatCitadel Patterns Borrowed As UAA-Native Designs
@@ -299,6 +301,28 @@ browser observe/action, credential entry, secret display, provider output as
 authority, memory/action/context escalation, connector writes, production
 authority, and broad autonomy remain blocked.
 
+## Phase 08 Evidence
+
+Phase 08 is implemented as a repo-safe cockpit CLI/API parity read-model and
+Control Center readability slice. It adds
+`docs/control_center/UAA_GOATCITADEL_CATCHUP_COCKPIT_CLI_API.md`, Python Core
+contract `contract-ref:goatcitadel-catchup-cockpit-cli-api-parity:v1`,
+the `operator_decision_matrix` field on the existing
+`GET /control-center/agent-loop/thread` payload, CLI command
+`scripts/dev/uaa_founder_loop.py inspect-cockpit-parity`, Today cockpit
+rendering, and focused tests/verifier coverage.
+
+The matrix gives the operator route refs, CLI refs, capability status,
+approval posture, side-effect class, safe action text, evidence/proof/receipt
+refs, blocked-state refs, and no-go reasons for Today, Action Inbox, Plans,
+Evidence, Memory, Trust, Runtime/Providers, Coding, and Work Board. It is
+backend-owned, safe-ref-only, and states that Control Center cannot mint
+authority. Runtime model calls, provider SDK calls, live web fetching, browser
+automation inside UAA, connector writes, unrestricted shell/subprocess
+execution, plugin runtime import, broad memory writes, background autonomy,
+public release claims, production authority, and broad action execution remain
+blocked.
+
 ## Merge-Gated Follow-Up Prompts
 
 Each prompt below should run as a separate branch/PR after Phase 01 merges or
@@ -359,7 +383,7 @@ authority guard verifiers.
 
 ### Phase 08 Prompt
 
-Execute `docs/prompts/uaa_goatcitadel_catchup/08_cockpit_cli_api_ui_productization.prompt.md`
+Execute `docs/prompts/uaa_goatcitadel_catchup/08_cockpit_cli_api_parity_and_operator_ux.prompt.md`
 only. Productize cockpit surfaces over backend-owned truth with CLI/API parity:
 Today, Actions, Chat, Proof, Evidence, Memory, Runtime, Coding, Work Board, and
 Trust. Browser automation inside UAA remains blocked. Run frontend tests and

@@ -2773,6 +2773,22 @@ function isSafeFounderAgentLoopThread(
     Array.isArray(value.proposed_actions) &&
     Array.isArray(value.evidence?.evidence_refs) &&
     Array.isArray(value.memory_review?.candidate_refs) &&
+    value.operator_decision_matrix?.backend_owned === true &&
+    value.operator_decision_matrix?.control_center_presentation_only === true &&
+    value.operator_decision_matrix?.safe_refs_only === true &&
+    value.operator_decision_matrix?.raw_content_included === false &&
+    value.operator_decision_matrix?.ui_mints_authority === false &&
+    value.operator_decision_matrix?.mutation_controls_enabled === false &&
+    Array.isArray(value.operator_decision_matrix?.rows) &&
+    value.operator_decision_matrix.rows.length > 0 &&
+    value.operator_decision_matrix.rows.every(
+      (row) =>
+        typeof row.surface === "string" &&
+        typeof row.backend_route_ref === "string" &&
+        typeof row.cli_ref === "string" &&
+        row.backend_truth_required === true &&
+        row.mutation_enabled === false,
+    ) &&
     Array.isArray(value.blocked_authority_refs) &&
     value.approval_posture?.control_center_mints_authority === false &&
     value.approval_posture?.action_execution_enabled === false &&

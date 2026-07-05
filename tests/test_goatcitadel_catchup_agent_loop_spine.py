@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from scripts.dev import uaa_founder_loop
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.control_center.agent_loop import (
+    AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF,
     AGENT_LOOP_THREAD_CONTRACT_REF,
     AGENT_LOOP_THREAD_ROUTE_REF,
     build_agent_loop_thread_read_model,
@@ -63,6 +64,31 @@ def _assert_safe_agent_loop_thread(thread: dict[str, object]) -> None:
     assert plan["steps"]
     assert all(step["execution_enabled"] is False for step in plan["steps"])
     assert thread["surface_bindings"]
+    matrix = thread["operator_decision_matrix"]
+    assert isinstance(matrix, dict)
+    assert matrix["schema_version"] == "goatcitadel_catchup_cockpit_cli_api_parity.v1"
+    assert matrix["contract_ref"] == AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF
+    assert matrix["backend_owned"] is True
+    assert matrix["control_center_presentation_only"] is True
+    assert matrix["safe_refs_only"] is True
+    assert matrix["raw_content_included"] is False
+    assert matrix["ui_mints_authority"] is False
+    assert matrix["mutation_controls_enabled"] is False
+    assert matrix["row_count"] == len(matrix["rows"])
+    assert matrix["rows"]
+    assert {row["surface"] for row in matrix["rows"]} >= {
+        "Today",
+        "Action Inbox",
+        "Evidence",
+        "Memory",
+        "Trust",
+    }
+    for row in matrix["rows"]:
+        assert row["backend_truth_required"] is True
+        assert row["mutation_enabled"] is False
+        assert row["backend_route_ref"].startswith("GET ")
+        assert row["cli_ref"].startswith("scripts/dev/")
+        assert row["primary_ref"]
     assert thread["blocked_authority_refs"]
     serialized = json.dumps(thread).lower()
     for unsafe_fragment in [
@@ -134,3 +160,35 @@ def test_agent_loop_thread_cli_inspection_uses_same_backend_contract(
     assert output["raw_content_omitted"] is True
     assert output["raw_paths_omitted"] is True
     _assert_safe_agent_loop_thread(output["agent_loop_thread"])
+
+
+def test_cockpit_parity_cli_inspects_same_operator_matrix(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    state_dir = tmp_path / "founder-loop"
+
+    exit_code = uaa_founder_loop.main(
+        [
+            "--state-dir",
+            str(state_dir),
+            "inspect-cockpit-parity",
+            "--limit",
+            "8",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["command_ref"] == (
+        "repo-local-command:founder-loop-cockpit-cli-api-parity"
+    )
+    assert output["safe_refs_only"] is True
+    assert output["raw_content_omitted"] is True
+    assert output["raw_paths_omitted"] is True
+    matrix = output["operator_decision_matrix"]
+    assert matrix["contract_ref"] == AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF
+    assert matrix["route_ref"] == AGENT_LOOP_THREAD_ROUTE_REF
+    assert matrix["cli_ref"].endswith("inspect-cockpit-parity")
+    assert matrix["operator_can_decide_from_cockpit"] is True
+    assert matrix["ui_mints_authority"] is False
+    assert matrix["mutation_controls_enabled"] is False

@@ -4094,6 +4094,7 @@ function AgentLoopThreadPanel({
   const planSteps = readModel.plan.steps.slice(0, 6);
   const actions = readModel.proposed_actions.slice(0, 6);
   const bindings = readModel.surface_bindings.slice(0, 8);
+  const decisionRows = readModel.operator_decision_matrix.rows.slice(0, 8);
   const truthLabel =
     readModel.backend_owned && readModel.source !== "mock_fallback_non_authoritative"
       ? "backend-owned"
@@ -4106,7 +4107,7 @@ function AgentLoopThreadPanel({
     >
       <div className="section-heading compact">
         <div>
-          <p className="eyebrow">GoatCitadel Catch-Up 02</p>
+          <p className="eyebrow">GoatCitadel Catch-Up 02 / 08</p>
           <h3>Agent Loop Thread</h3>
         </div>
         <span className="status-pill compact">{truthLabel}</span>
@@ -4118,6 +4119,67 @@ function AgentLoopThreadPanel({
         call models, write memory, browse, run shell commands, dispatch
         connectors, or grant production authority.
       </p>
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Operator decision matrix</h3>
+          <span>{readModel.operator_decision_matrix.capability_status}</span>
+        </div>
+        <dl className="detail-list">
+          <DetailTerm
+            label="Contract"
+            value={readModel.operator_decision_matrix.contract_ref}
+          />
+          <DetailTerm
+            label="Route"
+            value={readModel.operator_decision_matrix.route_ref}
+          />
+          <DetailTerm
+            label="CLI"
+            value={readModel.operator_decision_matrix.cli_ref}
+          />
+          <DetailTerm
+            label="UI authority"
+            value={
+              readModel.operator_decision_matrix.ui_mints_authority
+                ? "enabled"
+                : "blocked"
+            }
+          />
+        </dl>
+        <ul className="ref-list decision-matrix-list">
+          {decisionRows.map((row) => (
+            <li key={`${row.surface}:${row.primary_ref}`}>
+              <strong>{row.surface}</strong>: {row.operator_question}
+              <dl className="detail-list compact">
+                <DetailTerm label="Status" value={row.capability_status} />
+                <DetailTerm label="Route" value={row.backend_route_ref} />
+                <DetailTerm label="CLI" value={row.cli_ref} />
+                <DetailTerm label="Approval" value={row.approval_posture} />
+                <DetailTerm
+                  label="Mutation"
+                  value={row.mutation_enabled ? "enabled" : "blocked"}
+                />
+              </dl>
+              <p className="muted">{row.safe_action}</p>
+              <RefListWithFallback
+                emptyLabel="Decision refs: none"
+                refs={[
+                  row.primary_ref,
+                  ...row.evidence_refs,
+                  ...row.proof_refs,
+                  ...row.receipt_refs,
+                  ...row.blocked_state_refs,
+                ]}
+              />
+              <p className="safe-copy">{row.no_go_reason}</p>
+            </li>
+          ))}
+        </ul>
+        <p className="safe-copy">
+          Next safe decision:{" "}
+          {readModel.operator_decision_matrix.next_safe_operator_decision}
+        </p>
+      </article>
       <div className="panel-grid">
         <article className="status-card">
           <div className="status-card-header">

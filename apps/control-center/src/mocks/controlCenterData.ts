@@ -10252,6 +10252,78 @@ export const mockControlCenterData: ControlCenterData = {
       next_safe_action:
         "Wait for backend-owned Memory Review refs before memory decisions.",
     },
+    operator_decision_matrix: {
+      schema_version: "goatcitadel_catchup_cockpit_cli_api_parity.v1",
+      contract_ref:
+        "contract-ref:goatcitadel-catchup-cockpit-cli-api-parity:v1",
+      status: "mock_fallback_non_authoritative",
+      capability_status: "mock-only",
+      source: "mock_fallback_non_authoritative",
+      backend_owned: false,
+      control_center_presentation_only: true,
+      safe_refs_only: true,
+      raw_content_included: false,
+      route_ref: "GET /control-center/agent-loop/thread",
+      cli_ref: "scripts/dev/uaa_founder_loop.py inspect-cockpit-parity",
+      operator_can_decide_from_cockpit: false,
+      ui_mints_authority: false,
+      mutation_controls_enabled: false,
+      row_count: 2,
+      rows: [
+        {
+          surface: "Today",
+          capability_status: "mock-only",
+          operator_question: "Is the backend-owned Today summary available?",
+          backend_route_ref: "GET /control-center/today/summary",
+          cli_ref: "scripts/dev/uaa_founder_loop.py inspect-agent-loop",
+          primary_ref: "surface-ref:mock-fallback:today",
+          approval_posture: "backend_required_before_decision",
+          side_effect_class: "read_only",
+          safe_action:
+            "Reconnect the local backend before using cockpit parity refs.",
+          evidence_refs: ["GET /control-center/today/summary"],
+          proof_refs: [],
+          receipt_refs: [],
+          blocked_state_refs: ["blocked-state:agent-loop:mock-fallback"],
+          mutation_enabled: false,
+          backend_truth_required: true,
+          no_go_reason:
+            "Mock fallback cannot authorize operator workflow decisions.",
+        },
+        {
+          surface: "Action Inbox",
+          capability_status: "mock-only",
+          operator_question: "Can a fallback action be approved?",
+          backend_route_ref: "GET /control-center/actions/inbox",
+          cli_ref: "scripts/dev/uaa_founder_loop.py inspect-action-work-queue",
+          primary_ref: "action-ref:mock-fallback",
+          approval_posture: "backend_required_before_approval",
+          side_effect_class: "local_dev_workspace_only",
+          safe_action:
+            "Wait for Python Core Action Inbox refs before approving any mutation.",
+          evidence_refs: ["GET /control-center/actions/inbox"],
+          proof_refs: [],
+          receipt_refs: [],
+          blocked_state_refs: ["blocked-state:agent-loop:mock-fallback"],
+          mutation_enabled: false,
+          backend_truth_required: true,
+          no_go_reason:
+            "Fallback Action Inbox data is non-authoritative and cannot mutate.",
+        },
+      ],
+      next_safe_operator_decision:
+        "Reconnect the local backend before using cockpit parity refs.",
+      blocked_authority_refs: [
+        "blocked-state:agent-loop:mock-fallback",
+        "blocked-state:agent-loop:no-runtime-model-calls",
+      ],
+      redactions_applied: [
+        "safe_refs_only",
+        "bounded_summaries_only",
+        "raw_content_omitted",
+        "mock_fallback_non_authoritative",
+      ],
+    },
     surface_bindings: [
       { surface: "Today", route_ref: "GET /control-center/today/summary" },
       { surface: "Actions", route_ref: "GET /control-center/actions/inbox" },
