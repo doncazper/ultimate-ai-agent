@@ -170,6 +170,19 @@ output authority, direct memory write, automatic memory write, context
 injection, action execution, plan execution, connector write, provider/model
 call, browser execution, shell execution, public beta, or production authority.
 
+Turn Contract Router productization note: Chat now exposes Router Diagnostics
+as a Control Center presentation surface over the backend-owned
+`POST /control-center/turn-router/preview` no-effect read model. The panel
+shows selected turn contract, policy posture, reason refs, blocked-authority
+refs, and no-effect proof for protected samples and one-shot ephemeral preview
+text. It labels fallback as non-authoritative, fails closed when free-form
+preview is unavailable, and is covered by `make frontend-turn-router-smoke`.
+Durable workflow truth remains in Python Agent Core contracts and receipts, not
+React state. The route and UI add no provider/model call, memory body retrieval,
+memory write, tool/action execution, shell/subprocess execution, browser
+automation, connector write, public beta, public release, or production
+authority.
+
 Product Loop 010 Evidence Timeline narrative note: Evidence can expose the
 backend-owned `narrative_read_model` over existing Evidence Timeline safe refs
 so what happened, why it was recorded, approval posture, what changed, what
