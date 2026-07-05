@@ -112,6 +112,7 @@ def test_control_center_api_routes_are_read_only_preview_only() -> None:
         "/control-center/morning-briefing/summary",
         "/control-center/sources/readiness",
         "/control-center/storage/status",
+        "/control-center/agent-loop/thread",
     ]:
         response = client.get(path)
         assert response.status_code == 200

@@ -12,6 +12,7 @@ import {
 } from "../api/client";
 import { ConnectorDeliveryReviewQueuePanel } from "./ConnectorDeliveryReviewQueuePanel";
 import type {
+  FounderLoopAgentLoopThread,
   FounderLoopActionDecisionKind,
   FounderLoopActionDecisionReceipt,
   FounderLoopActionEnvelopePromotionReceipt,
@@ -2647,9 +2648,11 @@ function compactLabel(value: string): string {
 
 export function TodaySurfacePanel({
   actionReadModelAuthoritative,
+  agentLoopThread,
   today,
 }: {
   actionReadModelAuthoritative: boolean;
+  agentLoopThread: FounderLoopAgentLoopThread;
   today: FounderLoopTodaySummary;
 }) {
   return (
@@ -2666,6 +2669,7 @@ export function TodaySurfacePanel({
         today={today}
       />
       <TodayLoopReadModelPanel today={today} />
+      <AgentLoopThreadPanel readModel={agentLoopThread} />
       <OperatorWorkspaceSpinePanel
         readModel={today.operator_workspace_spine_read_model}
       />
@@ -3609,6 +3613,266 @@ function TodayLoopReadModelPanel({ today }: { today: FounderLoopTodaySummary }) 
             </li>
           ))}
         </ul>
+      </article>
+    </section>
+  );
+}
+
+function AgentLoopThreadPanel({
+  readModel,
+}: {
+  readModel: FounderLoopAgentLoopThread;
+}) {
+  const planSteps = readModel.plan.steps.slice(0, 6);
+  const actions = readModel.proposed_actions.slice(0, 6);
+  const bindings = readModel.surface_bindings.slice(0, 8);
+  const truthLabel =
+    readModel.backend_owned && readModel.source !== "mock_fallback_non_authoritative"
+      ? "backend-owned"
+      : "mock fallback";
+
+  return (
+    <section
+      aria-label="Backend-owned Agent Loop thread"
+      className="page-section embedded"
+    >
+      <div className="section-heading compact">
+        <div>
+          <p className="eyebrow">GoatCitadel Catch-Up 02</p>
+          <h3>Agent Loop Thread</h3>
+        </div>
+        <span className="status-pill compact">{truthLabel}</span>
+      </div>
+      <p className="section-copy">
+        One governed operator thread binds request, intent, plan, proposed
+        actions, approval posture, evidence, proof, memory review, and the next
+        safe decision from Python Core read models. It does not execute actions,
+        call models, write memory, browse, run shell commands, dispatch
+        connectors, or grant production authority.
+      </p>
+      <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Request and intent</h3>
+            <span>{readModel.capability_status}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm label="Contract" value={readModel.contract_ref} />
+            <DetailTerm label="Route" value={readModel.route_ref} />
+            <DetailTerm label="CLI" value={readModel.cli_ref} />
+            <DetailTerm
+              label="Request"
+              value={readModel.work_request.request_ref}
+            />
+            <DetailTerm
+              label="Intent"
+              value={readModel.intent.ambiguity_state}
+            />
+            <DetailTerm
+              label="Confidence"
+              value={readModel.intent.confidence_label}
+            />
+          </dl>
+          <p>{readModel.work_request.safe_summary}</p>
+        </article>
+
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Authority posture</h3>
+            <span>
+              {readModel.approval_posture.action_execution_enabled
+                ? "execution enabled"
+                : "proposal only"}
+            </span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Python Core truth"
+              value={
+                readModel.authority_posture.python_core_owns_truth
+                  ? "yes"
+                  : "no"
+              }
+            />
+            <DetailTerm
+              label="Control Center authority"
+              value={
+                readModel.authority_posture.control_center_mints_authority
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Model calls"
+              value={
+                readModel.authority_posture.runtime_model_calls_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Connector writes"
+              value={
+                readModel.authority_posture.connector_writes_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Memory write authority"
+              value={
+                readModel.authority_posture.memory_write_authority_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Production authority"
+              value={
+                readModel.authority_posture.production_authority_enabled
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="No blocked authority refs reported"
+            refs={readModel.blocked_authority_refs.slice(0, 8)}
+          />
+        </article>
+      </div>
+
+      <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Plan proposal</h3>
+            <span>{readModel.plan.status}</span>
+          </div>
+          <ul className="ref-list">
+            {planSteps.map((step) => (
+              <li key={step.step_ref}>
+                <strong>{step.title}</strong>: {step.status}; execution{" "}
+                {step.execution_enabled ? "enabled" : "blocked"}
+                <RefListWithFallback
+                  emptyLabel="Step refs: none"
+                  refs={[
+                    step.step_ref,
+                    ...step.evidence_refs,
+                    ...step.blocked_state_refs,
+                  ]}
+                />
+              </li>
+            ))}
+          </ul>
+        </article>
+
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Proposed actions</h3>
+            <span>{actions.length}</span>
+          </div>
+          {actions.length > 0 ? (
+            <ul className="ref-list">
+              {actions.map((action) => (
+                <li key={action.action_ref}>
+                  <strong>{action.title}</strong>: {action.status};{" "}
+                  {action.approval_required
+                    ? "approval required"
+                    : "inspection only"}
+                  <p className="muted">{action.next_safe_action}</p>
+                  <RefListWithFallback
+                    emptyLabel="Action refs: none"
+                    refs={[
+                      action.action_ref,
+                      action.approval_envelope_ref,
+                      ...action.receipt_refs,
+                      ...action.evidence_refs,
+                    ]}
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">
+              No backend proposed actions were returned for this thread.
+            </p>
+          )}
+        </article>
+      </div>
+
+      <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Evidence and proof</h3>
+            <span>{readModel.evidence.event_count}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Evidence route"
+              value={readModel.evidence.route_ref}
+            />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Evidence refs: none"
+            refs={readModel.evidence.evidence_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Proof refs: none"
+            refs={readModel.evidence.proof_refs}
+          />
+        </article>
+
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Memory review</h3>
+            <span>{readModel.memory_review.candidate_count}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Route"
+              value={readModel.memory_review.route_ref}
+            />
+            <DetailTerm
+              label="Automatic writes"
+              value={
+                readModel.memory_review.automatic_memory_write_authorized
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Context injection"
+              value={
+                readModel.memory_review.context_injection_authorized
+                  ? "enabled"
+                  : "blocked"
+              }
+            />
+          </dl>
+          <p>{readModel.memory_review.next_safe_action}</p>
+          <RefListWithFallback
+            emptyLabel="Memory candidate refs: none"
+            refs={readModel.memory_review.candidate_refs}
+          />
+        </article>
+      </div>
+
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Surface bindings</h3>
+          <span>{bindings.length}</span>
+        </div>
+        <ul className="ref-list">
+          {bindings.map((binding) => (
+            <li key={`${binding.surface}:${binding.route_ref}`}>
+              {binding.surface}: {binding.route_ref}
+            </li>
+          ))}
+        </ul>
+        <p className="safe-copy">
+          Next safe decision:{" "}
+          {readModel.current_state.next_safe_operator_decision}
+        </p>
       </article>
     </section>
   );

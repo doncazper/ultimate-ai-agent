@@ -108,7 +108,7 @@ tests, and CLI/API/core parity.
 
 | Rank | Gap | Target Status | Owner Surface | Route/API/CLI/UI Impact | Authority Needed Or Blocked | Tests And Verifiers Required | First Safe PR Lane |
 |---:|---|---|---|---|---|---|---|
-| 1 | Productized agent loop spine across chat, actions, proof, evidence, memory, and trust. | partial to implemented | Python Core plus Control Center read models | Add/read-model only unless existing routes already cover refs; CLI inspection required. | No new runtime authority. | Focused loop read-model tests, product truth, docs integrity. | Phase 02: Agent Loop Spine |
+| 1 | Productized agent loop spine across chat, actions, proof, evidence, memory, and trust. | implemented read-model | Python Core plus Control Center read models | `GET /control-center/agent-loop/thread`, `scripts/dev/uaa_founder_loop.py inspect-agent-loop`, and Today UI render the backend-owned thread. | No new runtime authority. | `tests/test_goatcitadel_catchup_agent_loop_spine.py`, route/API manifest checks, product truth, docs integrity. | Phase 02 implemented: Agent Loop Spine |
 | 2 | Durable orchestration progress, recovery, cancellation, retry, blocked, and dead-letter visibility. | planned to partial | Python execution core | Read-only run status/detail projections; CLI inspect. | Background autonomy and queue workers blocked. | Durable run tests, route manifest if routes change, docs integrity. | Phase 03: Durable Orchestration |
 | 3 | Action/tool/code lane catalog with inspectable/callable separation. | partial to partial-plus | Python tool/action/catalog core | Catalog read models and proposal receipts; no generic execution. | Unrestricted shell/subprocess execution and plugin runtime import blocked. | Catalog verifier, approval/receipt tests, product-language tests. | Phase 04: Action/Tool/Code Lanes |
 | 4 | Memory learning lifecycle with feedback, stale/wrong/conflict/duplicate states. | partial to implemented | Python memory core | Memory workbench/read models and CLI inspection. | Memory-write authority and hidden context injection blocked. | Memory provenance and redaction tests. | Phase 05: Memory/Learning |
@@ -176,6 +176,18 @@ Additional blocked or constrained states remain visible: raw prompt content,
 raw response content, raw provider payload content, raw local path content, raw
 log content, account material, credential material, hidden context injection,
 and model/provider output as authority.
+
+## Phase 02 Evidence
+
+Phase 02 is implemented as a repo-safe read-model slice. It adds
+`docs/control_center/UAA_GOATCITADEL_CATCHUP_AGENT_LOOP_SPINE.md`, Python Core
+contract `contract-ref:goatcitadel-catchup-agent-loop-thread:v1`, API route
+`GET /control-center/agent-loop/thread`, CLI command
+`scripts/dev/uaa_founder_loop.py inspect-agent-loop`, Control Center Today
+rendering, and focused tests. Runtime model calls, provider SDK calls, live web
+fetching, browser automation, connector writes, unrestricted shell/subprocess
+execution, plugin runtime import, background autonomy, and production authority
+remain blocked.
 
 ## Merge-Gated Follow-Up Prompts
 

@@ -19,6 +19,9 @@ from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E4
     FounderLoopActionEnvelopePromotionRequest,
     action_id_to_item_ref,
 )
+from ultimate_ai_agent.core.control_center.agent_loop import (  # noqa: E402
+    build_agent_loop_thread_read_model,
+)
 from ultimate_ai_agent.core.control_center import (  # noqa: E402
     FOUNDER_LOOP_PRODUCT_PROOF_CONTRACT_REF,
     FOUNDER_LOOP_PRODUCT_PROOF_READ_MODEL_SOURCE,
@@ -320,6 +323,31 @@ def _inspect_evidence_memory_binding(args: argparse.Namespace) -> int:
         "evidence_memory_loop_binding_read_model": today.get(
             "evidence_memory_loop_binding_read_model"
         ),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
+def _inspect_agent_loop(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    today_summary = repo.today_summary(limit=args.limit)
+    thread = build_agent_loop_thread_read_model(
+        today_summary=today_summary,
+        actions_inbox=repo.actions_inbox(limit=args.limit),
+        evidence_timeline=repo.evidence_timeline(limit=args.limit),
+        memory_review=repo.memory_review(limit=args.limit),
+        proof_index=build_control_center_proof_index(today_summary=today_summary),
+        trust_authority_matrix=build_trust_authority_matrix_read_model(
+            today_summary=today_summary
+        ),
+    )
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-agent-loop-thread",
+        "agent_loop_thread": thread,
         "safe_refs_only": True,
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
@@ -1624,6 +1652,16 @@ def build_parser() -> argparse.ArgumentParser:
     evidence_memory_binding_parser.set_defaults(
         func=_inspect_evidence_memory_binding
     )
+
+    agent_loop_parser = subparsers.add_parser(
+        "inspect-agent-loop",
+        help=(
+            "Print the backend-owned Agent Loop thread over Today, Actions, "
+            "Evidence, Proof, Memory, and Trust refs."
+        ),
+    )
+    agent_loop_parser.add_argument("--limit", type=int, default=50)
+    agent_loop_parser.set_defaults(func=_inspect_agent_loop)
 
     trust_authority_parser = subparsers.add_parser(
         "inspect-trust-authority",

@@ -13621,6 +13621,9 @@ describe("Web Control Center shell", () => {
       true,
     );
     expect(isAllowedReadEndpoint(API_ENDPOINTS.founderTodaySummary)).toBe(true);
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.founderAgentLoopThread)).toBe(
+      true,
+    );
     expect(isAllowedReadEndpoint(API_ENDPOINTS.founderActionsInbox)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.founderMorningBriefing)).toBe(
       true,
@@ -14558,6 +14561,14 @@ function dogfoodLiveLoopEndpointData() {
   );
   return {
     [API_ENDPOINTS.founderTodaySummary]: today,
+    [API_ENDPOINTS.founderAgentLoopThread]: {
+      ...mockControlCenterData.founderAgentLoopThread,
+      thread_ref: "agent-loop-thread:app-test:dogfood",
+      status: "implemented_backend_owned_read_model_no_new_authority",
+      capability_status: "partial",
+      source: "python_core_agent_loop_thread_read_model",
+      backend_owned: true,
+    },
     [API_ENDPOINTS.founderStartHereSummary]: startHere,
     [API_ENDPOINTS.founderActionsInbox]: actionsInbox,
     [API_ENDPOINTS.controlCenterProofIndex]: dogfoodProofIndex(),
@@ -14633,6 +14644,14 @@ function envelopeForReadEndpoint(url: string) {
     [API_ENDPOINTS.controlCenterLocalModelsStatus]:
       mockControlCenterData.localModelsStatus,
     [API_ENDPOINTS.founderTodaySummary]: mockControlCenterData.founderToday,
+    [API_ENDPOINTS.founderAgentLoopThread]: {
+      ...mockControlCenterData.founderAgentLoopThread,
+      thread_ref: "agent-loop-thread:app-test:current",
+      status: "implemented_backend_owned_read_model_no_new_authority",
+      capability_status: "partial",
+      source: "python_core_agent_loop_thread_read_model",
+      backend_owned: true,
+    },
     [API_ENDPOINTS.founderStartHereSummary]: {
       ...mockControlCenterData.founderStartHere,
       source: "python_core_control_center_start_here_read_model",

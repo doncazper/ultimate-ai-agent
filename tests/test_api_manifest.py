@@ -163,6 +163,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     ]:
         assert capability in manifest["capabilities_declared"]
     assert "control_center_today_summary" in manifest["capabilities_declared"]
+    assert (
+        "control_center_agent_loop_thread_read_model"
+        in manifest["capabilities_declared"]
+    )
     assert "control_center_action_inbox_summary" in manifest["capabilities_declared"]
     assert (
         "control_center_morning_briefing_summary" in manifest["capabilities_declared"]

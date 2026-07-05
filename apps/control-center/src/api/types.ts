@@ -6659,6 +6659,130 @@ export interface FounderLoopTodayLoopReadModel {
   blocked_state_refs: string[];
 }
 
+export interface FounderLoopAgentLoopFact {
+  fact_ref: string;
+  summary: string;
+  evidence_refs: string[];
+}
+
+export interface FounderLoopAgentLoopReviewItem {
+  assumption_ref?: string;
+  unknown_ref?: string;
+  summary: string;
+  review_required?: boolean;
+  blocked_state_refs?: string[];
+}
+
+export interface FounderLoopAgentLoopPlanStep {
+  step_ref: string;
+  title: string;
+  status: string;
+  evidence_refs: string[];
+  blocked_state_refs: string[];
+  execution_enabled: boolean;
+}
+
+export interface FounderLoopAgentLoopProposedAction {
+  action_ref: string;
+  title: string;
+  status: string;
+  action_kind: string;
+  approval_required: boolean;
+  approval_envelope_ref: string;
+  state_change_readiness: string;
+  execution_enabled: boolean;
+  receipt_refs: string[];
+  evidence_refs: string[];
+  next_safe_action: string;
+}
+
+export interface FounderLoopAgentLoopThread {
+  schema_version: string;
+  contract_ref: string;
+  thread_ref: string;
+  status: string;
+  capability_status: string;
+  source: string;
+  backend_owned: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  route_ref: string;
+  cli_ref: string;
+  work_request: {
+    request_ref: string;
+    safe_summary: string;
+    source_surface: string;
+  };
+  intent: {
+    status: string;
+    classification_ref: string;
+    ambiguity_state: string;
+    confidence_label: string;
+    low_confidence_asks_user: boolean;
+    action_execution_enabled: boolean;
+  };
+  facts: FounderLoopAgentLoopFact[];
+  assumptions: FounderLoopAgentLoopReviewItem[];
+  unknowns: FounderLoopAgentLoopReviewItem[];
+  plan: {
+    status: string;
+    revision_ref: string;
+    revision_count: number;
+    steps: FounderLoopAgentLoopPlanStep[];
+  };
+  proposed_actions: FounderLoopAgentLoopProposedAction[];
+  approval_posture: {
+    approval_required_before_mutation: boolean;
+    control_center_mints_authority: boolean;
+    approval_refs_are_identifiers_only: boolean;
+    action_execution_enabled: boolean;
+    exact_local_task_lane_visible: boolean;
+    decision_route_refs: string[];
+  };
+  current_state: {
+    state: string;
+    blocked_state_refs: string[];
+    degraded_state_refs: string[];
+    next_safe_operator_decision: string;
+  };
+  evidence: {
+    route_ref: string;
+    event_count: number;
+    evidence_refs: string[];
+    proof_refs: string[];
+  };
+  memory_review: {
+    route_ref: string;
+    candidate_refs: string[];
+    candidate_count: number;
+    decision_receipt_refs: string[];
+    automatic_memory_write_authorized: boolean;
+    context_injection_authorized: boolean;
+    next_safe_action: string;
+  };
+  surface_bindings: Array<{
+    surface: string;
+    route_ref: string;
+  }>;
+  authority_posture: {
+    python_core_owns_truth: boolean;
+    control_center_mints_authority: boolean;
+    runtime_model_calls_enabled: boolean;
+    provider_sdk_calls_enabled: boolean;
+    live_web_fetching_enabled: boolean;
+    browser_automation_enabled: boolean;
+    connector_writes_enabled: boolean;
+    unrestricted_shell_enabled: boolean;
+    plugin_runtime_import_enabled: boolean;
+    memory_write_authority_enabled: boolean;
+    background_autonomy_enabled: boolean;
+    production_authority_enabled: boolean;
+  };
+  blocked_authority_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface FounderLoopTodaySummary {
   schema_version: string;
   status: string;
@@ -8808,6 +8932,7 @@ export interface ControlCenterData {
   modelProviderControlPlane: ModelProviderControlPlaneReadModel;
   settingsStatus: ControlCenterSettingsStatus;
   localModelsStatus: ControlCenterLocalModelsStatus;
+  founderAgentLoopThread: FounderLoopAgentLoopThread;
   founderToday: FounderLoopTodaySummary;
   founderStartHere: ControlCenterStartHereSummary;
   proofIndex: ControlCenterProofIndex;
