@@ -12,6 +12,7 @@ from ultimate_ai_agent.core.hygiene.envelopes import (
     ResultEnvelope,
     Severity,
 )
+from ultimate_ai_agent.core.execution import build_sample_staged_orchestration_read_model
 from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeGateway,
     RuntimeInvocationConflictError,
@@ -131,6 +132,20 @@ def get_api_runtime_governed_product_pilot_profile() -> ResultEnvelope:
         data=profile.model_dump(mode="json"),
         evidence=[{"evidence_ref": profile.portable_evidence_envelope.evidence_ref}],
         redactions_applied=profile.redactions_applied,
+    )
+
+
+@router.get("/staged-orchestration", response_model=ResultEnvelope)
+def get_api_runtime_staged_orchestration() -> ResultEnvelope:
+    read_model = build_sample_staged_orchestration_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_staged_orchestration",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.plan.plan_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:staged-orchestration:api-read"}],
+        redactions_applied=read_model.redactions_applied,
     )
 
 

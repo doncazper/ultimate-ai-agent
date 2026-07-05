@@ -16,7 +16,10 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.core.control_center.runtime_action_bridge import (  # noqa: E402
     build_runtime_action_inbox_bridge_read_model,
 )
-from ultimate_ai_agent.core.execution import build_sample_turn_run_approval_chain  # noqa: E402
+from ultimate_ai_agent.core.execution import (  # noqa: E402
+    build_sample_staged_orchestration_read_model,
+    build_sample_turn_run_approval_chain,
+)
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     RuntimeInvocationConflictError,
     RuntimeInvocationNotFoundError,
@@ -663,6 +666,33 @@ def _inspect_turn_run_approval_chain(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_staged_orchestration(args: argparse.Namespace) -> int:
+    read_model = build_sample_staged_orchestration_read_model()
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-staged-orchestration",
+        "staged_orchestration": read_model.model_dump(mode="json"),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_logs_omitted": True,
+        "execution_performed": False,
+        "background_autonomy_enabled": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        plan = read_model.plan
+        print("Staged orchestration engine read model")
+        print(f"Plan: {plan.plan_ref}")
+        print(f"Status: {plan.status}")
+        print(f"Stages: {read_model.progress.total_stage_count}")
+        print(f"Steps: {read_model.progress.total_step_count}")
+        print(f"Validation: {read_model.validation.status}")
+        print("No background autonomy, hidden model calls, or execution performed.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="uaa_runtime",
@@ -803,6 +833,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref read model as JSON for automation.",
     )
     chain.set_defaults(func=_inspect_turn_run_approval_chain)
+
+    staged = subparsers.add_parser(
+        "inspect-staged-orchestration",
+        help="Inspect the no-effect staged orchestration engine read model.",
+    )
+    staged.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref staged orchestration read model as JSON.",
+    )
+    staged.set_defaults(func=_inspect_staged_orchestration)
 
     bridge = subparsers.add_parser(
         "inspect-action-inbox-bridge",
