@@ -68,6 +68,7 @@ CAPABILITIES_DECLARED = [
     "governed_runtime_loopback_local_model_call_pilot",
     "governed_runtime_allowlisted_readonly_command_pilot",
     "governed_runtime_action_inbox_focused_pytest_command_bridge",
+    "governed_runtime_staged_orchestration_read_model",
     "governed_product_pilot_authority_profile",
     "governed_product_pilot_portable_evidence_envelope",
     "governed_product_pilot_durable_orchestration_profile",
@@ -666,6 +667,7 @@ CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
 GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/capabilities",
     "/api/runtime/governed-product-pilot-profile",
+    "/api/runtime/staged-orchestration",
     "/api/runtime/invocations",
     "/api/runtime/invocations/{id}",
     "/api/runtime/invocations/{id}/receipt",

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `199`.
+Current OpenAPI path count: `200`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
@@ -28,7 +28,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `extension-catalog` | 1 | `extension-catalog` | `extension_catalog_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `foundation-gate` | 2 | `foundation-gate` | `verification_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | status_available_not_completion |
-| `governed-runtime` | 11 | `governed-runtime` | `runtime_pilot_service` | future auth required and exact approval before broader execution | `local_dev_workspace_only`:10, `validation_only`:1 | high | stable/generated from path; unique | partial_backend_not_product_ready |
+| `governed-runtime` | 12 | `governed-runtime` | `runtime_pilot_service` | future auth required and exact approval before broader execution | `local_dev_workspace_only`:11, `validation_only`:1 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `kernel` | 1 | `kernel` | `kernel_service` | future auth required | `local_dev_workspace_only`:1 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `ledger` | 3 | `ledger` | `evidence_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `mattermost` | 8 | `mattermost` | `integrations_service` | disabled by default and future auth required | `local_dev_workspace_only`:8 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -58,6 +58,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | GET | `/api/runtime/capabilities` | `get_api_runtime_capabilities` | `validation_only` | yes | future | yes |
 | POST | `/api/runtime/command/run` | `post_api_runtime_command_run` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/governed-product-pilot-profile` | `get_api_runtime_governed_product_pilot_profile` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/staged-orchestration` | `get_api_runtime_staged_orchestration` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/invocations` | `get_api_runtime_invocations` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/invocations` | `post_api_runtime_invocations` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/invocations/{id}` | `get_api_runtime_invocations_id` | `local_dev_workspace_only` | no | future | yes |

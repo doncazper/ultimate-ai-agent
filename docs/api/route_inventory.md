@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `199`.
+Current OpenAPI path count: `200`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -110,6 +110,10 @@ endpoint matching, receipt-detail execution truth, and approval preflight.
 Pilot authority profile as a protected read-only Python Core read model for
 exact lane posture, portable evidence envelopes, durable orchestration posture,
 and blocked authority refs.
+`GET /api/runtime/staged-orchestration` exposes a protected read-only Python
+Core staged orchestration plan/checkpoint/dependency read model and grants no
+scheduling, dispatch, background autonomy, model call, browser action,
+connector write, shell/subprocess authority, or production authority.
 Capability, invocation, policy, approval-ref, receipt, and safe-disable records
 store safe refs and redacted metadata only; model output is untrusted proposal
 text, and command output is redacted and bounded. Remote provider/model calls,
