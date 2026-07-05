@@ -10,14 +10,16 @@ from fastapi.routing import APIRoute
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from ultimate_ai_agent.api.app import app
-from ultimate_ai_agent.api.manifest import build_api_manifest
-from ultimate_ai_agent.api.rate_limits import route_rate_limit_group
-from scripts.verification.api_routes import (
+from ultimate_ai_agent.api.app import app  # noqa: E402
+from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
+from ultimate_ai_agent.api.rate_limits import route_rate_limit_group  # noqa: E402
+from scripts.verification.api_routes import (  # noqa: E402
     EXPECTED_OPENAPI_PATH_COUNT,
     EXPECTED_ROUTE_COUNT,
 )
-from scripts.verify_control_center_release_surface import verify as verify_release_surface
+from scripts.verify_control_center_release_surface import (  # noqa: E402
+    verify as verify_release_surface,
+)
 
 
 LANE_DOC = ROOT / "docs/api/BETA_12_BACKEND_MODULARIZATION_API.md"

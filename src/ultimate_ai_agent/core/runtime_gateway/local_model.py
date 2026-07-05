@@ -13,6 +13,7 @@ from ultimate_ai_agent.core.execution.validation import (
     validate_safe_execution_text,
 )
 from ultimate_ai_agent.core.local_model_management.gateway import (
+    build_m164_gateway_model_from_env,
     M164ChatCompletionRequest,
     M164ChatMessage,
     M164GatewayTransport,
@@ -490,8 +491,11 @@ def _validate_loopback_endpoint(request: RuntimeLocalModelCallRequest) -> str | 
             model_id=request.model_ref,
             base_url=request.base_url,
         )
+        configured = build_m164_gateway_model_from_env()
     except (ValueError, ValidationError) as exc:
         return _safe_error_category(str(exc))
+    if request.base_url.rstrip("/") != configured.base_url.rstrip("/"):
+        return "RUNTIME_LOCAL_MODEL_ENDPOINT_NOT_CONFIGURED"
     return None
 
 
@@ -570,6 +574,7 @@ def _safe_error_category(value: str) -> str:
         "M164_GATEWAY_RESPONSE_TOO_LARGE",
         "M164_GATEWAY_JSON_REQUIRED",
         "M164_GATEWAY_OBJECT_REQUIRED",
+        "RUNTIME_LOCAL_MODEL_ENDPOINT_NOT_CONFIGURED",
     ]:
         if known in value:
             return known
@@ -587,6 +592,7 @@ def _error_category_counts_as_call_attempt(error_category: str | None) -> bool:
         "M164_LOOPBACK_ONLY_REQUIRED",
         "M164_BASE_URL_SCOPE_DENIED",
         "M164_MODEL_ID_UNSAFE",
+        "RUNTIME_LOCAL_MODEL_ENDPOINT_NOT_CONFIGURED",
     }
 
 

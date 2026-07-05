@@ -1020,8 +1020,8 @@ def default_foundation_gate_criteria() -> List[FoundationGateCriterion]:
             "M18 Local Runtime Manual Smoke Surface Safe",
             FoundationGateCategory.security,
             "FoundationGateEvaluator.check_m18_local_runtime_manual_smoke_surface_safe",
-            "M18 read-only local runtime status and manual smoke report validation-only surfaces exist, keep OpenAPI path count at 78, add no backend routes, expose no runtime execution controls, show no raw smoke reports, and pass the frontend safety verifier.",
-            "M18 local runtime or manual smoke surface is missing, changed backend routes, or violates the read-only validation-only safety boundary.",
+            "M18 backend-owned local runtime status and manual smoke report validation-only surfaces exist, keep OpenAPI path count at 78, expose exact approved focused pytest receipts without broad runtime controls, show no raw smoke reports, and pass the frontend safety verifier.",
+            "M18 local runtime or manual smoke surface is missing, changed backend routes, or violates the exact-approved runtime and validation-only safety boundary.",
             "critical",
         ),
         _criterion(

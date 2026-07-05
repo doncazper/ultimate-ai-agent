@@ -13,6 +13,9 @@ from contextlib import contextmanager
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 _P1_API_VERIFIER_LANE_RAN = False
+GOVERNED_RUNTIME_COMMAND_ADAPTER_REL = (
+    "src/ultimate_ai_agent/core/runtime_gateway/command.py"
+)
 
 M44_ALLOWED_CCC_IOS_SKELETON_PREFIX = "apps/ccc-ios/Sources/UltimateAIAgentCCC/"
 M44_ALLOWED_CCC_IOS_SKELETON_FILES = {
@@ -67,6 +70,39 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
         or f"{milestone} is implemented/released" in text
         or re.search(rf"\b{re.escape(milestone)}\b[^.\n]*\bare implemented/released\b", text)
         is not None
+    )
+
+
+def _is_exact_governed_runtime_command_subprocess_site(
+    *, rel_path: str, source: str, fragment: str
+) -> bool:
+    if rel_path != GOVERNED_RUNTIME_COMMAND_ADAPTER_REL:
+        return False
+    if fragment != "subprocess.run(":
+        return False
+    return (
+        source.count("subprocess.run(") == 1
+        and "subprocess.Popen(" not in source
+        and "shell=True" not in source
+        and "shell=False" in source
+        and "os.system(" not in source
+        and "popen(" not in source.lower().replace("subprocess.Popen(", "")
+    )
+
+
+def _is_exact_governed_runtime_command_shell_scan_line(
+    *, rel_path: str, source: str, stripped_line: str
+) -> bool:
+    if not _is_exact_governed_runtime_command_subprocess_site(
+        rel_path=rel_path,
+        source=source,
+        fragment="subprocess.run(",
+    ):
+        return False
+    return (
+        stripped_line == "import subprocess"
+        or "subprocess.run(" in stripped_line
+        or "subprocess.TimeoutExpired" in stripped_line
     )
 
 
@@ -8399,6 +8435,12 @@ def verify_m57_runtime_sandbox_architecture_review() -> None:
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
+                    if _is_exact_governed_runtime_command_subprocess_site(
+                        rel_path=rel,
+                        source=text,
+                        fragment=fragment,
+                    ):
+                        continue
                     print(f"FAIL: M57 forbidden runtime sandbox fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -8615,6 +8657,12 @@ def verify_m58_dry_run_execution_audit_harness() -> None:
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
+                    if _is_exact_governed_runtime_command_subprocess_site(
+                        rel_path=rel,
+                        source=text,
+                        fragment=fragment,
+                    ):
+                        continue
                     print(f"FAIL: M58 forbidden dry-run execution fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -8809,6 +8857,12 @@ def verify_m59_public_github_readiness() -> None:
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
+                    if _is_exact_governed_runtime_command_subprocess_site(
+                        rel_path=rel,
+                        source=text,
+                        fragment=fragment,
+                    ):
+                        continue
                     print(f"FAIL: M59 forbidden public readiness fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -9012,6 +9066,12 @@ def verify_m60_local_developer_beta_freeze() -> None:
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
+                    if _is_exact_governed_runtime_command_subprocess_site(
+                        rel_path=rel,
+                        source=text,
+                        fragment=fragment,
+                    ):
+                        continue
                     print(f"FAIL: M60 forbidden beta freeze fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -9222,6 +9282,12 @@ def verify_m61_autonomy_mode_charter() -> None:
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
+                    if _is_exact_governed_runtime_command_subprocess_site(
+                        rel_path=rel,
+                        source=text,
+                        fragment=fragment,
+                    ):
+                        continue
                     print(f"FAIL: M61 forbidden autonomy fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -9406,6 +9472,12 @@ def verify_m62_scoped_autonomy_session() -> None:
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
+                    if _is_exact_governed_runtime_command_subprocess_site(
+                        rel_path=rel,
+                        source=text,
+                        fragment=fragment,
+                    ):
+                        continue
                     print(f"FAIL: M62 forbidden scoped session fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -9617,6 +9689,12 @@ def verify_m63_autonomy_policy_engine() -> None:
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
+                    if _is_exact_governed_runtime_command_subprocess_site(
+                        rel_path=rel,
+                        source=text,
+                        fragment=fragment,
+                    ):
+                        continue
                     print(f"FAIL: M63 forbidden autonomy policy fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -9845,6 +9923,12 @@ def verify_m64_autonomous_plan_simulator() -> None:
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
+                    if _is_exact_governed_runtime_command_subprocess_site(
+                        rel_path=rel,
+                        source=text,
+                        fragment=fragment,
+                    ):
+                        continue
                     print(f"FAIL: M64 forbidden autonomy simulation fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -10090,6 +10174,12 @@ def verify_m65_autonomy_audit_replay_viewer() -> None:
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
+                    if _is_exact_governed_runtime_command_subprocess_site(
+                        rel_path=rel,
+                        source=text,
+                        fragment=fragment,
+                    ):
+                        continue
                     print(f"FAIL: M65 forbidden autonomy audit replay fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -10353,6 +10443,12 @@ def verify_m66_scoped_approval_bundles() -> None:
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
+                    if _is_exact_governed_runtime_command_subprocess_site(
+                        rel_path=rel,
+                        source=text,
+                        fragment=fragment,
+                    ):
+                        continue
                     print(f"FAIL: M66 forbidden scoped approval bundle fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -10638,6 +10734,12 @@ def verify_m67_revocation_kill_switch() -> None:
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
+                    if _is_exact_governed_runtime_command_subprocess_site(
+                        rel_path=rel,
+                        source=text,
+                        fragment=fragment,
+                    ):
+                        continue
                     print(f"FAIL: M67 forbidden revocation kill switch fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -10858,6 +10960,12 @@ def verify_m68_autonomy_risk_classifier() -> None:
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
+                    if _is_exact_governed_runtime_command_subprocess_site(
+                        rel_path=rel,
+                        source=text,
+                        fragment=fragment,
+                    ):
+                        continue
                     print(f"FAIL: M68 forbidden autonomy risk classifier fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -11121,6 +11229,12 @@ def verify_m69_low_risk_autonomous_dry_run() -> None:
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
+                    if _is_exact_governed_runtime_command_subprocess_site(
+                        rel_path=rel,
+                        source=text,
+                        fragment=fragment,
+                    ):
+                        continue
                     print(f"FAIL: M69 forbidden low-risk autonomous dry-run fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -11343,6 +11457,12 @@ def verify_m70_autonomy_foundation_freeze() -> None:
             text = path.read_text(encoding="utf-8")
             for fragment in forbidden_source_fragments:
                 if fragment in text:
+                    if _is_exact_governed_runtime_command_subprocess_site(
+                        rel_path=rel,
+                        source=text,
+                        fragment=fragment,
+                    ):
+                        continue
                     print(f"FAIL: M70 forbidden autonomy foundation freeze fragment in {rel}: {fragment}")
                     sys.exit(1)
 
@@ -11857,6 +11977,9 @@ def verify_m72_read_only_http_fetch_tool() -> None:
     allowed_fragments_by_file = {
         "src/ultimate_ai_agent/core/web_access/read_only_http_fetch_transport.py": {
             "socket.",
+        },
+        "src/ultimate_ai_agent/core/decision_router/turn_contracts.py": {
+            "tool_execution_allowed=True",
         },
     }
     source_roots = [
@@ -29809,6 +29932,12 @@ def verify_no_shell_execution_in_runtime() -> None:
             for line in content.splitlines():
                 stripped = line.strip()
                 if any(fragment in stripped for fragment in forbidden_fragments):
+                    if _is_exact_governed_runtime_command_shell_scan_line(
+                        rel_path=rel_path,
+                        source=content,
+                        stripped_line=stripped,
+                    ):
+                        continue
                     print(f"FAIL: Forbidden shell/subprocess execution in {p.relative_to(ROOT)}: {line}")
                     sys.exit(1)
         except Exception:

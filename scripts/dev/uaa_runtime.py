@@ -321,6 +321,61 @@ def _approval_request_from_record(
     )
 
 
+def _action_decision_preflight_payload(
+    record: Any,
+    selector_ref: str,
+    decision: RuntimeActionInboxApprovalDecision,
+) -> dict[str, Any]:
+    envelope = record.action_inbox_envelope
+    return {
+        "schema_version": "governed-runtime-cli-action-preflight:v1",
+        "selector_ref": selector_ref,
+        "decision": decision.value,
+        "invocation_ref": record.invocation_ref,
+        "status": record.status,
+        "command_intent": envelope.command_intent if envelope is not None else None,
+        "action_envelope_ref": (
+            envelope.action_envelope_ref if envelope is not None else None
+        ),
+        "exact_scope_ref": envelope.exact_scope_ref if envelope is not None else None,
+        "approval_ref": envelope.approval_ref if envelope is not None else None,
+        "expected_payload_fingerprint_ref": record.payload_fingerprint_ref,
+        "expected_policy_decision_ref": record.policy_decision.policy_decision_ref,
+        "approval_records_only": True,
+        "execution_performed_by_approval": False,
+        "approval_can_enable_later_exact_execute": decision
+        == RuntimeActionInboxApprovalDecision.approve,
+        "blocked_broad_authority_refs": [
+            "blocked-authority:runtime-unrestricted-command-execution",
+            "blocked-authority:runtime-command-execution-without-gateway-allowlist",
+            "blocked-authority:runtime-browser-automation",
+            "blocked-authority:runtime-connector-writes",
+        ],
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_command_output_omitted": True,
+    }
+
+
+def _print_action_decision_preflight(payload: dict[str, Any]) -> None:
+    print("Governed runtime Action Inbox decision preflight")
+    print(f"Decision: {payload['decision']}")
+    print(f"Invocation: {payload['invocation_ref']}")
+    print(f"Current status: {payload['status']}")
+    print(f"Command intent: {payload['command_intent'] or 'not_available'}")
+    print(f"Envelope: {payload['action_envelope_ref'] or 'not_available'}")
+    print(f"Scope: {payload['exact_scope_ref'] or 'not_available'}")
+    print(f"Payload fingerprint: {payload['expected_payload_fingerprint_ref']}")
+    print(f"Policy decision: {payload['expected_policy_decision_ref']}")
+    print("Approval records a decision only; it does not execute the command.")
+    print("Execution still requires a later exact RuntimeGateway execute request.")
+    print(
+        "Blocked broad authority: "
+        + ", ".join(payload["blocked_broad_authority_refs"])
+    )
+
+
 def _action_decision_idempotency_ref(
     action_decision: str,
     selector_ref: str,
@@ -383,6 +438,31 @@ def _action_decision(args: argparse.Namespace) -> int:
     if request is None:
         print("Runtime approval envelope not found")
         return 1
+    preflight = _action_decision_preflight_payload(
+        selected,
+        args.approval_selector_ref,
+        decision,
+    )
+    if (
+        decision == RuntimeActionInboxApprovalDecision.approve
+        and not args.confirm_exact_runtime_action
+    ):
+        if args.json:
+            _print_json(
+                {
+                    "schema_version": "governed-runtime-cli:v1",
+                    "command_ref": "repo-local-command:governed-runtime-action-approve-preflight",
+                    "preflight": preflight,
+                    "mutation_performed": False,
+                    "confirmation_required": "--confirm-exact-runtime-action",
+                }
+            )
+        else:
+            _print_action_decision_preflight(preflight)
+            print("Re-run with --confirm-exact-runtime-action to record approval.")
+        return 2
+    if not args.json:
+        _print_action_decision_preflight(preflight)
     idempotency_ref = args.idempotency_ref or _action_decision_idempotency_ref(
         args.action_decision,
         args.approval_selector_ref,
@@ -409,6 +489,7 @@ def _action_decision(args: argparse.Namespace) -> int:
                 "schema_version": "governed-runtime-cli:v1",
                 "command_ref": f"repo-local-command:governed-runtime-action-{args.action_decision}",
                 "record": record.model_dump(mode="json"),
+                "preflight": preflight,
                 "safe_refs_only": True,
                 "raw_content_omitted": True,
             }
@@ -511,6 +592,15 @@ def build_parser() -> argparse.ArgumentParser:
             "--idempotency-ref",
             default=None,
             help="Safe idempotency ref for the decision.",
+        )
+        decision_parser.add_argument(
+            "--confirm-exact-runtime-action",
+            action="store_true",
+            help=(
+                "Required for approve after reviewing the exact command "
+                "preflight. Approval records a decision only; execution still "
+                "requires a later exact RuntimeGateway execute request."
+            ),
         )
         decision_parser.add_argument("--json", action="store_true", help="Emit safe JSON.")
         decision_parser.set_defaults(func=_action_decision)

@@ -9,10 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from scripts.verification.api_routes import (  # noqa: E402
-    EXPECTED_OPENAPI_PATH_COUNT,
-    EXPECTED_ROUTE_COUNT,
-)
+from scripts.verification.api_routes import EXPECTED_OPENAPI_PATH_COUNT  # noqa: E402
 
 
 def _current_version(root: Path = ROOT) -> str:
@@ -578,8 +575,9 @@ M17_HARDENING_SELECTED_STATE_MARKERS = [
 ]
 
 M18_RUNTIME_BOUNDARY_MARKERS = [
-    "Local runtime status is read-only",
-    "No local runtime is started, stopped, connected, or executed from this UI",
+    "Exact approved focused pytest execution is visible through RuntimeGateway receipts",
+    "blocked broad runtime authority",
+    "arbitrary command, browser, connector, plugin, remote, public beta, or production authority",
     "Manual smoke reports are safe summaries",
     "Manual smoke execution remains CLI-only, fixed-prompt-only, approval-gated",
 ]

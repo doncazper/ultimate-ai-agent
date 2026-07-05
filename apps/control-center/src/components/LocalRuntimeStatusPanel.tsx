@@ -2,7 +2,7 @@ import type { M18RuntimeData, RuntimeCapabilityMatrix, RuntimeReadinessReport } 
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
 const LOCAL_RUNTIME_BOUNDARY_COPY =
-  "Local runtime status is read-only. No local runtime is started, stopped, connected, or executed from this UI.";
+  "Local runtime status is backend-owned. Exact approved focused pytest execution is visible through RuntimeGateway receipts; this UI does not start runtimes or grant arbitrary command, browser, connector, plugin, remote, public beta, or production authority.";
 const MANUAL_SMOKE_BOUNDARY_COPY =
   "Manual smoke reports are safe summaries. Manual smoke execution remains CLI-only, fixed-prompt-only, approval-gated, and non-authoritative.";
 
@@ -38,7 +38,9 @@ export function LocalRuntimeStatusPanel({
             <span>{report.status}</span>
           </div>
           <p>
-            Model output remains non-authoritative and production runtime readiness is not claimed.
+            Model output remains non-authoritative. The pilot separates implemented exact
+            approval-bound local runtime lanes from blocked broad runtime authority, and
+            production runtime readiness is not claimed.
           </p>
           <dl className="metadata-list">
             <div>

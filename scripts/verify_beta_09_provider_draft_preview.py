@@ -19,9 +19,7 @@ from ultimate_ai_agent.core.control_center.trust_authority import (
     build_trust_authority_matrix_read_model,
 )
 from ultimate_ai_agent.core.providers import (
-    PROVIDER_DRAFT_SUMMARIZE_BLOCKED_AUTHORITY_REFS,
     PROVIDER_DRAFT_SUMMARIZE_CLI_REF,
-    PROVIDER_DRAFT_SUMMARIZE_LANE_REF,
     PROVIDER_DRAFT_SUMMARIZE_PROOF_REF,
     PROVIDER_DRAFT_SUMMARIZE_SAFE_DISABLE_REF,
     TINY_LIVE_PROVIDER_TRANSPORT_REF,

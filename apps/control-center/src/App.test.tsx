@@ -9430,7 +9430,12 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText(/Reviewed local model runtime evidence/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Local contract state only/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/implemented lane is exact Action Inbox approval/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/arbitrary shell, browser, connector, plugin/i),
+    ).toBeInTheDocument();
     runtime.unmount();
     vi.unstubAllGlobals();
 
@@ -11713,7 +11718,7 @@ describe("Web Control Center shell", () => {
     );
   });
 
-  it("renders M18 local runtime status as read-only validation-only metadata", async () => {
+  it("renders M18 local runtime status with implemented and blocked runtime truth", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/runtime/local");
     render(<App />);
@@ -11723,7 +11728,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/M18 local runtime surface/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/Local runtime status is read-only/i),
+      screen.getByText(/Exact approved focused pytest execution/i),
     ).toBeInTheDocument();
     expect(
       screen.getAllByText(/Runtime readiness report/i).length,
@@ -11736,9 +11741,10 @@ describe("Web Control Center shell", () => {
       0,
     );
     expect(
-      screen.getByText(
-        /No local runtime is started, stopped, connected, or executed from this UI/i,
-      ),
+      screen.getByText(/this UI does not start runtimes/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/arbitrary command, browser, connector, plugin, remote/i),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/Model output remains non-authoritative/i),

@@ -12,9 +12,7 @@ from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.connectors import (
     CONNECTOR_DRAFT_PROPOSAL_BLOCKED_AUTHORITY_REFS,
     CONNECTOR_DRAFT_PROPOSAL_CLI_REF,
-    CONNECTOR_DRAFT_PROPOSAL_CONTRACT_REF,
     CONNECTOR_DRAFT_PROPOSAL_PROOF_REF,
-    CONNECTOR_DRAFT_PROPOSAL_ROUTE_REF,
     ConnectorDraftProposalItem,
     ConnectorDraftProposalReadModel,
     build_connector_draft_proposal_read_model,

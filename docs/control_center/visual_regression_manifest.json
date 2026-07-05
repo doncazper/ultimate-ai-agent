@@ -86,8 +86,8 @@
         "mobile": "visual-baseline-file:mobile:actions"
       },
       "baseline_hashes": {
-        "desktop": "sha256:e08eca3881c7ca5ae9a69547235618b411f441bc3b8151db5ca781a3080bc158",
-        "mobile": "sha256:b0dd6cbe4396436b5fc14a2eb4b570c7d30bafa6a318ce8616fe70084ca3da19"
+        "desktop": "sha256:4e0b7d501e2c629ce90379f618b77d1742daa2eb8c5867ee9ddd0654c4794182",
+        "mobile": "sha256:73c9c3263287235b371907ce517412c819967879a94a79a65fef3857fec1a187"
       },
       "raw_private_screenshot_included": false
     },

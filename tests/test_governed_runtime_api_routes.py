@@ -12,6 +12,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
 )
 from ultimate_ai_agent.core.runtime_gateway.storage import RUNTIME_GATEWAY_STATE_DIR_ENV
 from ultimate_ai_agent.core.runtime_gateway.local_model import RUNTIME_LOCAL_MODEL_ENABLED_ENV
+from ultimate_ai_agent.core.local_model_management.gateway import UAA_LLAMA_CPP_BASE_URL_ENV
 
 
 client = TestClient(app)
@@ -374,6 +375,7 @@ def test_governed_runtime_local_model_call_records_safe_failure_receipt(
 ) -> None:
     monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
     monkeypatch.setenv(RUNTIME_LOCAL_MODEL_ENABLED_ENV, "1")
+    monkeypatch.setenv(UAA_LLAMA_CPP_BASE_URL_ENV, "http://127.0.0.1:9")
     reset_api_rate_limit_state()
 
     response = client.post(
@@ -393,6 +395,17 @@ def test_governed_runtime_local_model_call_records_safe_failure_receipt(
     assert body["data"]["response_preview"] is None
     assert body["data"]["response_preview_persisted"] is False
     assert body["data"]["record"]["receipt"]["model_output_non_authoritative"] is True
+    invocation_ref = body["data"]["record"]["invocation_ref"]
+
+    receipt = client.get(f"/api/runtime/invocations/{invocation_ref}/receipt")
+    assert receipt.status_code == 200
+    receipt_body = receipt.json()
+    assert receipt_body["success"] is True
+    assert receipt_body["data"]["execution_performed"] is True
+    assert receipt_body["data"]["model_call_performed"] is True
+    assert receipt_body["data"]["command_execution_performed"] is False
+    assert receipt_body["data"]["receipt"]["model_call_performed"] is True
+    assert "api prompt should not persist" not in receipt.text
 
     persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
         encoding="utf-8"
@@ -433,6 +446,14 @@ def test_governed_runtime_command_run_records_redacted_receipt(
     assert "git status --short" not in response.text
     assert "stdout" not in response.text
     assert "stderr" not in response.text
+    invocation_ref = body["data"]["record"]["invocation_ref"]
+
+    receipt = client.get(f"/api/runtime/invocations/{invocation_ref}/receipt")
+    assert receipt.status_code == 200
+    receipt_body = receipt.json()
+    assert receipt_body["success"] is True
+    assert receipt_body["data"]["execution_performed"] is True
+    assert receipt_body["data"]["command_execution_performed"] is True
 
     replay = client.post(
         "/api/runtime/command/run",
@@ -452,6 +473,83 @@ def test_governed_runtime_command_run_records_redacted_receipt(
     assert "/Users/" not in persisted
     assert "stdout" not in persisted
     assert "stderr" not in persisted
+
+
+def test_governed_runtime_action_inbox_execute_receipt_detail_reports_execution(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    reset_api_rate_limit_state()
+    command_request = RuntimeCommandExecutionRequest(
+        intent="focused_pytest",
+        requested_profile="operator-approved",
+        target_refs=["test-ref:governed-runtime-contracts"],
+        approval_ref=None,
+        safe_summary="Run the exact focused governed runtime contract test lane.",
+        timeout_seconds=30,
+    )
+    invocation_request = runtime_command_invocation_request(command_request)
+
+    create = client.post(
+        "/api/runtime/invocations",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-success-api-create"},
+        json=invocation_request.model_dump(mode="json"),
+    )
+    assert create.status_code == 200
+    record = create.json()["data"]["record"]
+    invocation_ref = record["invocation_ref"]
+    refs = _runtime_action_inbox_refs(record)
+
+    approve = client.post(
+        f"/api/runtime/invocations/{invocation_ref}/approve",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-success-api-approve"},
+        json={
+            "decision": "approve",
+            "action_envelope_ref": refs["action_envelope_ref"],
+            "exact_scope_ref": refs["exact_scope_ref"],
+            "expected_payload_fingerprint_ref": record["payload_fingerprint_ref"],
+            "expected_policy_decision_ref": record["policy_decision"]["policy_decision_ref"],
+            "adapter_id": "governed-command-runtime-adapter",
+            "command_intent": "focused_pytest",
+            "risk_class": "medium",
+            "safe_summary": "Action Inbox approved exact focused pytest runtime lane.",
+        },
+    )
+    assert approve.status_code == 200
+    envelope = approve.json()["data"]["record"]["action_inbox_envelope"]
+
+    execute_command = command_request.model_copy(
+        update={"approval_ref": envelope["approval_ref"]}
+    )
+    execute = client.post(
+        f"/api/runtime/invocations/{invocation_ref}/execute",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-action-inbox-success-api-execute"},
+        json={
+            "approval_ref": envelope["approval_ref"],
+            "action_envelope_ref": envelope["action_envelope_ref"],
+            "expected_payload_fingerprint_ref": record["payload_fingerprint_ref"],
+            "expected_policy_decision_ref": record["policy_decision"]["policy_decision_ref"],
+            "command_request": execute_command.model_dump(mode="json"),
+            "safe_summary": "Execute approved runtime command through exact bridge.",
+        },
+    )
+
+    assert execute.status_code == 200
+    body = execute.json()
+    assert body["success"] is True
+    assert body["data"]["execution_performed"] is True
+    assert body["data"]["command_execution_performed"] is True
+
+    receipt = client.get(f"/api/runtime/invocations/{invocation_ref}/receipt")
+    assert receipt.status_code == 200
+    receipt_body = receipt.json()
+    assert receipt_body["success"] is True
+    assert receipt_body["data"]["execution_performed"] is True
+    assert receipt_body["data"]["command_execution_performed"] is True
+    assert receipt_body["data"]["receipt"]["execution_performed"] is True
+    assert "stdout" not in receipt.text
+    assert "stderr" not in receipt.text
 
 
 def test_governed_runtime_command_run_blocks_unapproved_command_intent(

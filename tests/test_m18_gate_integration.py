@@ -12,7 +12,8 @@ def test_m18_local_runtime_manual_smoke_surface_criterion_exists_and_passes() ->
 
     assert "m18_local_runtime_manual_smoke_surface_safe" in criteria_by_id
     criterion = criteria_by_id["m18_local_runtime_manual_smoke_surface_safe"]
-    assert "read-only local runtime status" in criterion.pass_condition
+    assert "backend-owned local runtime status" in criterion.pass_condition
+    assert "exact approved focused pytest receipts" in criterion.pass_condition
     assert "manual smoke report validation-only" in criterion.pass_condition
     assert "OpenAPI path count at 78" in criterion.pass_condition
 

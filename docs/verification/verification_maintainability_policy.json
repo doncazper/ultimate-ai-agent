@@ -21,11 +21,11 @@
       ],
       "allowlist": {
         "scripts/verification/run_all_legacy.py": {
-          "max_lines": 30313,
+          "max_lines": 30442,
           "reason": "Frozen compatibility body moved out of scripts/verify_all.py; FCC-V1-003, FCC-V1-004, governed memory spine, fail-closed local auth compatibility, the operational maturity gate, exact-approved credential validation, and authority-lane verifier hooks remain accepted debt. Future static scans must move to small modules."
         },
         "scripts/verification/documentation_integrity/legacy.py": {
-          "max_lines": 21975,
+          "max_lines": 21976,
           "reason": "Frozen compatibility body moved out of scripts/verify_documentation_integrity.py; accumulated route-count and documentation-currentness checks remain accepted debt, future doc checks must be data-driven or modular."
         }
       }
@@ -49,8 +49,8 @@
           "reason": "Pre-existing oversized test outside this verifier refactor."
         },
         "tests/test_control_center_frontend_safety_verifier.py": {
-          "max_lines": 734,
-          "reason": "Pre-existing oversized test outside this verifier refactor."
+          "max_lines": 776,
+          "reason": "Oversized Control Center frontend safety verifier regression test accepted through governed runtime pilot frontend/runtime truth hardening; future cases should be sharded into focused tests."
         },
         "tests/test_foundation_gate_latency_scripts.py": {
           "max_lines": 709,
@@ -61,8 +61,8 @@
           "reason": "Frozen seed/read-model legacy chunk after behavior-specific tests were sharded; FCC-V1-002 through FCC-ACTION-001a add decision-state, receipt, and local-task assertions."
         },
         "tests/test_control_center_api_routes.py": {
-          "max_lines": 863,
-          "reason": "Frozen Control Center API route contract test; rank-2 Settings, Local Models, memory workbench, and route-currentness assertions remain accepted pre-sharding debt."
+          "max_lines": 884,
+          "reason": "Frozen Control Center API route contract test; rank-2 Settings, Local Models, memory workbench, runtime pilot route-currentness, and route-currentness assertions remain accepted pre-sharding debt."
         },
         "tests/test_control_center_founder_loop_api.py": {
           "max_lines": 792,
@@ -77,8 +77,20 @@
           "reason": "Pre-existing oversized operational maturity manifest regression test after authority graduation lane coverage; future maturity assertions should be sharded into focused tests."
         },
         "tests/test_api_manifest.py": {
-          "max_lines": 900,
-          "reason": "Frozen API manifest route/capability contract test with provider credential validation lane route-currentness assertions; future API manifest cases should be sharded into focused tests."
+          "max_lines": 925,
+          "reason": "Frozen API manifest route/capability contract test with provider credential validation and governed runtime pilot route-currentness assertions; future API manifest cases should be sharded into focused tests."
+        },
+        "tests/test_coding_cockpit_read_model.py": {
+          "max_lines": 1201,
+          "reason": "Frozen Coding Cockpit read-model regression test from prior coding prompt lanes; future coding cases should be sharded into focused tests."
+        },
+        "tests/test_governed_runtime_api_routes.py": {
+          "max_lines": 775,
+          "reason": "Frozen governed runtime API route contract test for Phase 07 receipt/detail/preflight hardening; future runtime API cases should be sharded into focused tests."
+        },
+        "tests/test_governed_runtime_contracts.py": {
+          "max_lines": 1811,
+          "reason": "Frozen governed runtime core contract test for local model, command, Action Inbox execution bridge, replay, and safe-disable hardening; future runtime core cases should be sharded into focused tests."
         }
       }
     }

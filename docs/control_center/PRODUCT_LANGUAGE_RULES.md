@@ -97,7 +97,11 @@ only when copy preserves the current truth:
   verifiers, frontend-check, and arbitrary commands remain blocked. Phase 06 may
   describe `uaa runtime ...`, `uaa actions approve|deny ...`, Control Center
   readiness/status cards, and runtime evidence timeline refs only as
-  backend-owned inspection and exact-envelope decision surfaces.
+  backend-owned inspection and exact-envelope decision surfaces. Phase 07 may
+  describe command root pinning, configured endpoint matching, receipt-detail
+  execution truth, approval preflight, blocked retry replay hardening, and
+  Foundation Gate/frontend/visual release checks only as scoped internal
+  RuntimeGateway pilot hardening.
 - `operator-approved` may describe execution-capable runtime actions only when
   exact Action Inbox approval envelopes validate before execution and the same
   action is inspectable through CLI/API/Control Center truth.

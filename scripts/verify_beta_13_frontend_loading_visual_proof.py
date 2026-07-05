@@ -8,9 +8,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import scripts.verify_control_center_frontend as frontend
-import scripts.verify_control_center_visual_regression as visual
-from scripts.verification.api_routes import EXPECTED_OPENAPI_PATH_COUNT
+import scripts.verify_control_center_frontend as frontend  # noqa: E402
+import scripts.verify_control_center_visual_regression as visual  # noqa: E402
+from scripts.verification.api_routes import EXPECTED_OPENAPI_PATH_COUNT  # noqa: E402
 
 
 def validate(root: Path = ROOT) -> list[str]:

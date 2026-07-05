@@ -1034,6 +1034,23 @@ class RuntimeInvocationStore:
             )
             return RuntimeInvocationStoreResult(record=record, replayed=False)
 
+    def replay_idempotent_operation(
+        self,
+        *,
+        idempotency_ref: str,
+        payload_fingerprint_ref: str,
+    ) -> RuntimeInvocationStoreResult | None:
+        with self._exclusive_mutation():
+            validate_execution_ref(idempotency_ref, "idempotency_ref")
+            validate_execution_ref(payload_fingerprint_ref, "payload_fingerprint_ref")
+            replayed = self._idempotent_operation_replay(
+                idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is None:
+                return None
+            return RuntimeInvocationStoreResult(record=replayed, replayed=True)
+
     def safe_disable(
         self,
         request: RuntimeSafeDisableRequest,

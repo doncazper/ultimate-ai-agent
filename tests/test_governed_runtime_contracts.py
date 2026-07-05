@@ -411,6 +411,55 @@ def test_runtime_gateway_blocks_non_loopback_model_url_without_persisting_url(
     assert "safe transient prompt" not in persisted
 
 
+@pytest.mark.parametrize(
+    ("base_url", "error_category"),
+    [
+        ("http://user:pass@127.0.0.1:8080", "M164_BASE_URL_SCOPE_DENIED"),
+        ("http://127.0.0.1:8080/prefix", "M164_BASE_URL_SCOPE_DENIED"),
+        ("http://127.0.0.1:8081", "RUNTIME_LOCAL_MODEL_ENDPOINT_NOT_CONFIGURED"),
+    ],
+)
+def test_runtime_gateway_blocks_unconfigured_or_scoped_model_urls_without_transport(
+    tmp_path: Path,
+    base_url: str,
+    error_category: str,
+) -> None:
+    calls = 0
+
+    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("SHOULD_NOT_RUN")
+
+    gateway = RuntimeGateway(
+        store=RuntimeInvocationStore(tmp_path),
+        local_model_adapter=LocalModelRuntimeAdapter(transport_factory=transport_factory),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url=base_url,
+        model_ref="uaa-local-runtime",
+        messages=[RuntimeLocalModelMessage(role="user", content="safe transient prompt")],
+        safe_summary="Attempt local model runtime with endpoint validation.",
+    )
+
+    result = gateway.invoke_local_model(
+        request,
+        idempotency_ref=f"idempotency-ref:runtime-local-model-url-{error_category.lower()}",
+    )
+
+    assert calls == 0
+    assert result.error_category == error_category
+    assert result.record.receipt is not None
+    assert result.record.receipt.model_call_performed is False
+    persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "SHOULD_NOT_RUN" not in persisted
+    assert "user:pass" not in persisted
+    assert "/prefix" not in persisted
+
+
 def test_runtime_gateway_allowlisted_command_records_redacted_receipt(
     tmp_path: Path,
 ) -> None:
@@ -428,7 +477,7 @@ def test_runtime_gateway_allowlisted_command_records_redacted_receipt(
     gateway = RuntimeGateway(
         store=RuntimeInvocationStore(tmp_path),
         command_adapter=GovernedCommandRuntimeAdapter(
-            workspace_root=tmp_path,
+            workspace_root=ROOT,
             runner=runner,
         ),
     )
@@ -459,8 +508,11 @@ def test_runtime_gateway_allowlisted_command_records_redacted_receipt(
     assert "2 bounded lines" in result.output_summary
     assert replay.replayed is True
     assert len(calls) == 1
-    assert calls[0]["argv"] == (
-        "git",
+    git_argv = calls[0]["argv"]
+    assert isinstance(git_argv, tuple)
+    assert Path(git_argv[0]).is_absolute()
+    assert Path(git_argv[0]).name == "git"
+    assert git_argv[1:] == (
         "--no-optional-locks",
         "-c",
         "core.fsmonitor=false",
@@ -472,6 +524,7 @@ def test_runtime_gateway_allowlisted_command_records_redacted_receipt(
         "--no-renames",
         "--untracked-files=no",
     )
+    assert calls[0]["cwd"] == ROOT
     assert calls[0]["env"] == {
         "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
         "LANG": "C",
@@ -489,6 +542,11 @@ def test_runtime_gateway_allowlisted_command_records_redacted_receipt(
     assert "git status --short" not in persisted
     assert "stdout" not in persisted
     assert "stderr" not in persisted
+
+
+def test_governed_command_runtime_rejects_unapproved_workspace_root(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="RUNTIME_COMMAND_WORKSPACE_ROOT_NOT_ALLOWLISTED"):
+        GovernedCommandRuntimeAdapter(workspace_root=tmp_path)
 
 
 def test_runtime_gateway_command_replay_after_safe_disable_keeps_idempotency_shape(
@@ -509,7 +567,7 @@ def test_runtime_gateway_command_replay_after_safe_disable_keeps_idempotency_sha
     gateway = RuntimeGateway(
         store=store,
         command_adapter=GovernedCommandRuntimeAdapter(
-            workspace_root=tmp_path,
+            workspace_root=ROOT,
             runner=runner,
         ),
     )
@@ -739,7 +797,7 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
     gateway = RuntimeGateway(
         store=store,
         command_adapter=GovernedCommandRuntimeAdapter(
-            workspace_root=tmp_path,
+            workspace_root=ROOT,
             runner=runner,
         ),
     )
@@ -775,13 +833,16 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
     ]
     assert replay.replayed is True
     assert len(calls) == 1
-    assert calls[0]["argv"] == (
-        ".venv/bin/python",
+    pytest_argv = calls[0]["argv"]
+    assert isinstance(pytest_argv, tuple)
+    assert pytest_argv == (
+        str(ROOT / ".venv/bin/python"),
         "-m",
         "pytest",
         "tests/test_governed_runtime_contracts.py",
         "-q",
     )
+    assert calls[0]["cwd"] == ROOT
     read_model = build_runtime_action_inbox_bridge_read_model(
         store.list_invocations(),
         entries=store.list_entries(),
@@ -955,7 +1016,7 @@ def test_runtime_launcher_actions_approve_and_deny_by_safe_selector_ref(
     )
     assert blocked.status == "execution_blocked"
 
-    approved = subprocess.run(
+    preflight = subprocess.run(
         [
             sys.executable,
             str(ROOT / "scripts/dev/uaa_launcher.py"),
@@ -965,10 +1026,35 @@ def test_runtime_launcher_actions_approve_and_deny_by_safe_selector_ref(
             "approve",
             refs["approval_ref"],
         ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert preflight.returncode == 2
+    assert "Governed runtime Action Inbox decision preflight" in preflight.stdout
+    assert "Re-run with --confirm-exact-runtime-action" in preflight.stdout
+    assert str(tmp_path) not in preflight.stdout
+    preflight_record = RuntimeInvocationStore(tmp_path).get_invocation(
+        created.record.invocation_ref
+    )
+    assert preflight_record.status == "execution_blocked"
+
+    approved = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_launcher.py"),
+            "actions",
+            "--state-dir",
+            str(tmp_path),
+            "approve",
+            refs["approval_ref"],
+            "--confirm-exact-runtime-action",
+        ],
         check=True,
         capture_output=True,
         text=True,
     )
+    assert "Governed runtime Action Inbox decision preflight" in approved.stdout
     assert "Governed runtime invocation" in approved.stdout
     assert str(tmp_path) not in approved.stdout
     reloaded = RuntimeInvocationStore(tmp_path).get_invocation(
@@ -1130,12 +1216,18 @@ def test_runtime_gateway_action_inbox_execute_requires_top_level_refs(
     gateway = RuntimeGateway(
         store=store,
         command_adapter=GovernedCommandRuntimeAdapter(
-            workspace_root=tmp_path,
+            workspace_root=ROOT,
             runner=runner,
         ),
     )
 
     result = gateway.execute_approved_command(
+        approved.invocation_ref,
+        _command_request_for_approved_record(command_request, approved),
+        RuntimeExecuteRequest(),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-missing-execute-refs",
+    )
+    replay = gateway.execute_approved_command(
         approved.invocation_ref,
         _command_request_for_approved_record(command_request, approved),
         RuntimeExecuteRequest(),
@@ -1149,6 +1241,19 @@ def test_runtime_gateway_action_inbox_execute_requires_top_level_refs(
     assert result.error_category == (
         "RUNTIME_COMMAND_EXECUTE_APPROVAL_REF_MISSING_OR_CHANGED"
     )
+    assert replay.replayed is True
+    assert replay.record.receipt is not None
+    assert replay.record.receipt.receipt_ref == result.record.receipt.receipt_ref
+    assert replay.error_category == (
+        "RUNTIME_COMMAND_EXECUTE_APPROVAL_REF_MISSING_OR_CHANGED"
+    )
+    read_model = build_runtime_action_inbox_bridge_read_model(
+        store.list_invocations(),
+        entries=store.list_entries(),
+    )
+    event_kinds = {event["event_kind"] for event in read_model["evidence_timeline"]}
+    assert "execution_started" not in event_kinds
+    assert "receipt_recorded" in event_kinds
 
 
 def test_runtime_gateway_action_inbox_safe_disable_after_approval_blocks_runner(
@@ -1178,7 +1283,7 @@ def test_runtime_gateway_action_inbox_safe_disable_after_approval_blocks_runner(
     gateway = RuntimeGateway(
         store=store,
         command_adapter=GovernedCommandRuntimeAdapter(
-            workspace_root=tmp_path,
+            workspace_root=ROOT,
             runner=runner,
         ),
     )
@@ -1218,7 +1323,7 @@ def test_runtime_gateway_command_replay_without_receipt_does_not_spawn_again(
     gateway = RuntimeGateway(
         store=store,
         command_adapter=GovernedCommandRuntimeAdapter(
-            workspace_root=tmp_path,
+            workspace_root=ROOT,
             runner=runner,
         ),
     )
@@ -1275,7 +1380,7 @@ def test_runtime_gateway_safe_disable_blocks_command_before_runner(
     gateway = RuntimeGateway(
         store=store,
         command_adapter=GovernedCommandRuntimeAdapter(
-            workspace_root=tmp_path,
+            workspace_root=ROOT,
             runner=runner,
         ),
     )
@@ -1314,7 +1419,7 @@ def test_runtime_gateway_late_safe_disable_remains_active_after_receipt(
     gateway = RuntimeGateway(
         store=store,
         command_adapter=GovernedCommandRuntimeAdapter(
-            workspace_root=tmp_path,
+            workspace_root=ROOT,
             runner=runner,
         ),
     )
@@ -1390,7 +1495,7 @@ def test_runtime_gateway_command_safe_disable_between_precheck_and_create_blocks
     gateway = RuntimeGateway(
         store=store,
         command_adapter=GovernedCommandRuntimeAdapter(
-            workspace_root=tmp_path,
+            workspace_root=ROOT,
             runner=runner,
         ),
     )
@@ -1445,14 +1550,14 @@ def test_runtime_gateway_command_duplicate_requests_reserve_idempotency_before_r
         RuntimeGateway(
             store=RuntimeInvocationStore(tmp_path),
             command_adapter=GovernedCommandRuntimeAdapter(
-                workspace_root=tmp_path,
+                workspace_root=ROOT,
                 runner=runner,
             ),
         ),
         RuntimeGateway(
             store=RuntimeInvocationStore(tmp_path),
             command_adapter=GovernedCommandRuntimeAdapter(
-                workspace_root=tmp_path,
+                workspace_root=ROOT,
                 runner=runner,
             ),
         ),
@@ -1504,7 +1609,7 @@ def test_runtime_gateway_command_nonzero_and_timeout_receipts(
     nonzero_gateway = RuntimeGateway(
         store=RuntimeInvocationStore(tmp_path / "nonzero"),
         command_adapter=GovernedCommandRuntimeAdapter(
-            workspace_root=tmp_path,
+            workspace_root=ROOT,
             runner=nonzero_runner,
         ),
     )
@@ -1536,7 +1641,7 @@ def test_runtime_gateway_command_nonzero_and_timeout_receipts(
     timeout_gateway = RuntimeGateway(
         store=RuntimeInvocationStore(tmp_path / "timeout"),
         command_adapter=GovernedCommandRuntimeAdapter(
-            workspace_root=tmp_path,
+            workspace_root=ROOT,
             runner=timeout_runner,
         ),
     )

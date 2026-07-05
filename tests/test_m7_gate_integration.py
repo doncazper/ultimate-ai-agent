@@ -4,6 +4,18 @@ from pathlib import Path
 from ultimate_ai_agent.core.gate import FoundationGateStatus, default_foundation_gate_criteria
 
 
+def _assert_exact_governed_runtime_command_subprocess_site(source: str) -> None:
+    assert source.count("subprocess.run(") == 1
+    assert source.count("subprocess.TimeoutExpired") == 1
+    assert "shell=False" in source
+    assert "shell=True" not in source
+    assert "subprocess.Popen(" not in source
+    allowed_removed = source.replace("subprocess.run(", "").replace(
+        "subprocess.TimeoutExpired", ""
+    )
+    assert "subprocess." not in allowed_removed
+
+
 def test_foundation_gate_criteria_include_m7_policy_only_surface() -> None:
     criteria = default_foundation_gate_criteria()
     by_id = {criterion.criterion_id: criterion for criterion in criteria}
@@ -39,7 +51,20 @@ def test_m7_does_not_add_runtime_execution_integrations() -> None:
         "import httpx",
         "subprocess.",
     ]
-    source = "\n".join(path.read_text(encoding="utf-8") for path in (Path("src") / "ultimate_ai_agent" / "core").rglob("*.py"))
+    allowed_subprocess_path = (
+        Path("src")
+        / "ultimate_ai_agent"
+        / "core"
+        / "runtime_gateway"
+        / "command.py"
+    )
+    sources = {
+        path: path.read_text(encoding="utf-8")
+        for path in (Path("src") / "ultimate_ai_agent" / "core").rglob("*.py")
+    }
+    command_source = sources.pop(allowed_subprocess_path)
+    _assert_exact_governed_runtime_command_subprocess_site(command_source)
 
     for marker in forbidden:
-        assert marker not in source
+        checked = "\n".join(sources.values())
+        assert marker not in checked

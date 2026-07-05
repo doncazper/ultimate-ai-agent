@@ -20,6 +20,7 @@ blocked, planned, and future-scoped states distinct.
 | Version and baseline | `VERSION.md`, `docs/release_notes/v0_104_0.md`, `docs/release_notes/checkpoint_m169.md` |
 | Tag history and release convention | `docs/releases/TAG_CATALOG.md`, `docs/maintenance/RELEASE_PROCESS.md`, `docs/maintenance/SEMVER_POLICY.md` |
 | Product truth | `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md` |
+| Governed runtime pilot | `VERSION.md`, `docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md`, `docs/control_center/PRODUCT_LANGUAGE_RULES.md`, `docs/control_center/AUTHORITY_GRADUATION_BOARD.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md`, `scripts/dev/uaa_runtime.py`, `tests/test_governed_runtime_contracts.py`, `tests/test_governed_runtime_api_routes.py` |
 | Governed cognitive memory spine | FCC-MEM-001 Memory Workbench V1 and FCC-MEM-022 Ranked Retrieval / Recall Tuning: `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md`, `docs/codex/GOVERNED_COGNITIVE_MEMORY_SPINE_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`, `docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md`, `docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md`, `docs/control_center/FCC_MEM_022_RANKED_RETRIEVAL_RECALL_TUNING.md` |
 | Agent module maturity review | `docs/registry/agent_module_maturity_map.json`, `docs/registry/agent_module_maturity_review_v2.json`, `docs/registry/AGENT_MODULE_MATURITY_REVIEW_V2.md` |
 | Top-level decision router contract | `docs/control_center/UAA_P1_089_TOP_LEVEL_DECISION_ROUTER_CONTRACT.md`, `src/ultimate_ai_agent/core/decision_router/contracts.py`, `scripts/verify_uaa_p1_089_top_level_decision_router_contract.py` |
@@ -78,6 +79,15 @@ visibility in this index.
 Product Loop 011 Settings and kill-switch clarity is backend-owned read-only posture with blocked/degraded/partial labels only: no toggles that grant authority, no provider configuration, no installer behavior, no runtime activation, no feature-flag writes, no kill-switch execution, no revocation execution, no connector runtime, no connector writes, no model calls, no provider SDK calls, no live web, no shell/browser execution, no public beta, no production readiness claims, and no production authority.
 
 Product Loop 012 Private product loop trial script is a local/private, safe-ref-only manual operator review artifact for Boot, Today, Morning Briefing, Follow-Ups, Memory, Actions, Plans, Chat Handoff, Evidence, Weekly Review, and Settings. `scripts/inspect_product_loop_trial_script.py` provides CLI parity for the same checklist and acceptance ledger posture. It adds no public beta, no public distribution, no telemetry export, no connector runtime, no connector reads/writes, no provider/model calls, no live web, no shell/browser execution, no production readiness claims, and no production authority.
+
+UAA-P1-091 v0.105.0 Governed Runtime Pilot Phase 07 is a scoped internal
+RuntimeGateway milestone, not a public/package baseline change. It may describe
+configured loopback local-model receipts, one exact read-only status command,
+and exact Action Inbox approved focused pytest receipts with CLI/API/Control
+Center parity. It must keep browser automation, connector writes, plugin import,
+remote execution, arbitrary shell/subprocess work, repo verifier/frontend-check
+runtime execution, public beta, public release, production authority, and broad
+autonomy blocked.
 
 FCC fusion routing/delegation readability is backend-owned review metadata in
 `docs/control_center/FCC_FUSION_ROUTING_DELEGATION.md`, backed by

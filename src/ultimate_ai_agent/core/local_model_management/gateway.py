@@ -358,6 +358,10 @@ def _validate_loopback_base_url(base_url: str) -> str:
     parsed = parse.urlparse(base_url)
     if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
         raise ValueError("M164_LOOPBACK_ONLY_REQUIRED")
+    if parsed.username or parsed.password:
+        raise ValueError("M164_BASE_URL_SCOPE_DENIED")
+    if parsed.path not in {"", "/"}:
+        raise ValueError("M164_BASE_URL_SCOPE_DENIED")
     if parsed.query or parsed.params or parsed.fragment:
         raise ValueError("M164_BASE_URL_SCOPE_DENIED")
     return base_url.rstrip("/")
