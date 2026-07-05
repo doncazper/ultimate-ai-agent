@@ -3201,6 +3201,9 @@ function isSafeModelProviderControlPlane(
   ) {
     return false;
   }
+  if (!isSafeModelProviderResearchPosture(value.model_provider_research_posture)) {
+    return false;
+  }
   return (
     Array.isArray(value.blocked_authority_refs) &&
     value.blocked_authority_refs.includes(
@@ -3209,6 +3212,133 @@ function isSafeModelProviderControlPlane(
     Array.isArray(value.exact_lane_route_refs) &&
     value.exact_lane_route_refs.includes(
       "POST /control-center/providers/exact-approved-lanes/tiny",
+    )
+  );
+}
+
+function isSafeModelProviderResearchPosture(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "provider_sdk_call_enabled",
+    "remote_model_call_enabled",
+    "live_web_fetch_enabled",
+    "browser_automation_enabled",
+    "credential_entry_enabled",
+    "memory_write_authorized",
+    "action_execution_authorized",
+    "context_injection_authorized",
+    "production_authority_enabled",
+    "broad_autonomy_enabled",
+  ];
+  return (
+    value.schema_version === "model_provider_research_posture.v1" &&
+    value.status === "metadata_read_model_wired" &&
+    value.route_ref === "GET /control-center/providers/runtime-control-plane" &&
+    falseFlags.every((field) => value[field] === false) &&
+    typeof value.provider_count === "number" &&
+    Array.isArray(value.provider_postures) &&
+    value.provider_postures.length === value.provider_count &&
+    value.provider_postures.every(isSafeModelProviderResearchProviderPosture) &&
+    isSafeModelOutputTruthPosture(value.model_output_truth) &&
+    isSafeExternalInformationResearchPosture(value.external_information) &&
+    Array.isArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-state:model-provider:model-output-as-authority",
+    ) &&
+    value.blocked_authority_refs.includes(
+      "blocked-state:web-access:browser-automation",
+    )
+  );
+}
+
+function isSafeModelProviderResearchProviderPosture(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "provider_sdk_call_enabled",
+    "model_invocation_enabled",
+    "credential_material_visible",
+    "provider_output_authority_enabled",
+    "live_metadata_discovery_enabled",
+  ];
+  return (
+    typeof value.provider_id === "string" &&
+    typeof value.provider_label === "string" &&
+    typeof value.provider_kind === "string" &&
+    [
+      "remote_provider_reference",
+      "local_runtime_reference",
+    ].includes(String(value.local_remote_posture)) &&
+    [
+      "reference_only",
+      "blocked_missing_refs",
+      "approval_required_exact_lane",
+    ].includes(String(value.status)) &&
+    falseFlags.every((field) => value[field] === false) &&
+    typeof value.blocked_reason_ref === "string" &&
+    typeof value.last_safe_diagnostic_receipt_ref === "string" &&
+    typeof value.operator_next_step === "string"
+  );
+}
+
+function isSafeModelOutputTruthPosture(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const trueFlags = [
+    "model_output_is_proposal",
+    "model_output_is_evidence_candidate",
+    "verified_fact_refs_required",
+    "uncertainty_unknowns_required",
+  ];
+  const falseFlags = [
+    "generated_text_is_verified_fact",
+    "memory_write_from_model_output_enabled",
+    "action_authority_from_model_output_enabled",
+    "context_injection_from_model_output_enabled",
+    "connector_write_from_model_output_enabled",
+    "production_authority_from_model_output_enabled",
+  ];
+  return (
+    value.status === "proposal_and_evidence_not_authority" &&
+    trueFlags.every((field) => value[field] === true) &&
+    falseFlags.every((field) => value[field] === false) &&
+    typeof value.truth_boundary_ref === "string"
+  );
+}
+
+function isSafeExternalInformationResearchPosture(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const trueFlags = [
+    "web_access_gateway_required",
+    "default_policy_denied",
+    "fetched_content_untrusted",
+    "source_metadata_required",
+    "audit_record_required",
+  ];
+  const falseFlags = [
+    "fetched_content_instruction_authority_enabled",
+    "live_web_fetch_enabled_by_control_plane",
+    "browser_observe_enabled_by_control_plane",
+    "browser_action_enabled_by_control_plane",
+    "provider_search_enabled_by_control_plane",
+    "context_injection_from_external_content_enabled",
+    "memory_write_from_external_content_enabled",
+  ];
+  return (
+    value.status === "web_access_gateway_deny_by_default" &&
+    trueFlags.every((field) => value[field] === true) &&
+    falseFlags.every((field) => value[field] === false) &&
+    Array.isArray(value.allowed_current_lane_refs) &&
+    value.allowed_current_lane_refs.length > 0 &&
+    Array.isArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-state:web-access:no-browser-actions",
     )
   );
 }

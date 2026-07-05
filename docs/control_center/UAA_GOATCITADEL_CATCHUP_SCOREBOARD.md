@@ -1,6 +1,6 @@
 # UAA GoatCitadel Catch-Up Scoreboard
 
-Status: Phase 06 active scoreboard. This document is documentation and verifier
+Status: Phase 07 active scoreboard. This document is documentation and verifier
 coverage only; it is not runtime authority, does not grant execution authority,
 and does not change Control Center behavior.
 
@@ -121,7 +121,7 @@ tests, and CLI/API/core parity.
 | 3 | Action/tool/code lane catalog with inspectable/callable separation. | implemented read-model | Python tool/action/catalog core | Catalog read models, proposal posture, receipt refs, CLI inspection, and Action Inbox UI panel; no generic execution. | Unrestricted shell/subprocess execution, generic tool execution, plugin runtime import, connector writes, provider/model calls, browser automation, and broad autonomy blocked. | `tests/test_goatcitadel_catchup_action_tool_code_lanes.py`, `scripts/verify_uaa_goatcitadel_catchup_action_tool_code_lanes.py`, catalog verifier, approval/receipt tests, product-language tests. | Phase 04 implemented: Action/Tool/Code Lanes |
 | 4 | Memory learning lifecycle with feedback, stale/wrong/conflict/duplicate states. | implemented read-model | Python memory core | Memory Workbench learning posture, CLI `memory-learning-posture`, Control Center Memory panel. | Broad memory-write authority, automatic memory writes, hidden context injection, memory-as-truth, delete/export execution, connector writes, model/provider calls, live web fetch, background autonomy, and production authority blocked. | `tests/test_goatcitadel_catchup_memory_learning.py`, `scripts/verify_uaa_goatcitadel_catchup_memory_learning.py`, memory provenance and redaction tests. | Phase 05 implemented: Memory/Learning |
 | 5 | Signed portable evidence and same-run lineage detail. | implemented read-model | Evidence/proof core | Evidence audit receipt spine, grouped timeline/read-model, receipt envelopes, missing receipt refs, artifact hash refs, verifier refs, CLI inspection. | External telemetry/export and production compliance claims blocked. | `tests/test_goatcitadel_catchup_evidence_audit.py`, `scripts/verify_uaa_goatcitadel_catchup_evidence_audit.py`, redaction and missing receipt tests. | Phase 06 implemented: Evidence/Audit |
-| 6 | Model/provider/research metadata parity. | partial to partial-plus | RuntimeGateway/local model core | Provider readiness/catalog metadata and route-decision trace read models. | Runtime model calls, provider SDK calls, and live web fetching blocked. | Runtime metadata tests and authority guard verifier. | Phase 07: Model/Provider/Research |
+| 6 | Model/provider/research metadata parity. | implemented read-model | RuntimeGateway/local model core | Provider readiness/catalog metadata, route-decision trace read models, model-output truth posture, and WebAccessGateway external-information posture. | Runtime model calls, provider SDK calls, browser automation, and live web fetching by the control plane blocked. | `tests/test_goatcitadel_catchup_model_provider_research.py`, `scripts/verify_uaa_goatcitadel_catchup_model_provider_research.py`, runtime metadata tests and authority guard verifier. | Phase 07 implemented: Model/Provider/Research |
 | 7 | Cockpit UX parity for Today/Actions/Chat/Proof/Evidence/Memory/Runtime/Coding/Work Board. | partial to implemented | Control Center presentation over Python truth | UI polish over backend-owned refs; CLI/API parity preserved. | Browser automation inside UAA blocked. | Frontend route tests, visual checks if UI changes. | Phase 08: Cockpit/CLI/API |
 | 8 | Extension ecosystem clarity. | partial to partial-plus | Extension catalog core | Inspectable catalog, grant records, trust statuses; no runtime import. | Connector writes and plugin runtime import blocked. | Extension catalog tests and static guardrails. | Phase 09: Extensibility |
 
@@ -274,6 +274,31 @@ telemetry/export, production compliance claims, provider/model calls, browser
 automation, connector writes, shell execution, background autonomy, and
 production authority remain blocked.
 
+## Phase 07 Evidence
+
+Phase 07 is implemented as a repo-safe model/provider/research posture read
+model slice. It adds
+`docs/control_center/UAA_GOATCITADEL_CATCHUP_MODEL_PROVIDER_RESEARCH.md` and
+Python Core contract
+`contract-ref:goatcitadel-catchup-model-provider-research-posture:v1`,
+embedded as `model_provider_research_posture` in the existing
+`GET /control-center/providers/runtime-control-plane` payload. CLI parity stays
+on `scripts/inspect_model_provider_control_plane.py`, with focused verifier
+coverage in
+`scripts/verify_uaa_goatcitadel_catchup_model_provider_research.py`.
+
+The posture summarizes provider readiness rows, credential readiness status,
+static cost/latency metadata posture, exact-lane or guidance-only authority
+modes, blocked reason refs, diagnostic receipt refs, model-output truth, and
+WebAccessGateway-governed external-information posture. Model output is
+proposal/evidence only, verified facts require separate evidence refs, and
+external content remains untrusted evidence, never instructions.
+
+Provider SDK calls, remote model calls by the read model, live web fetching,
+browser observe/action, credential entry, secret display, provider output as
+authority, memory/action/context escalation, connector writes, production
+authority, and broad autonomy remain blocked.
+
 ## Merge-Gated Follow-Up Prompts
 
 Each prompt below should run as a separate branch/PR after Phase 01 merges or
@@ -326,7 +351,7 @@ product-truth verifiers.
 
 ### Phase 07 Prompt
 
-Execute `docs/prompts/uaa_goatcitadel_catchup/07_model_provider_research_and_external_info.prompt.md`
+Execute `docs/prompts/uaa_goatcitadel_catchup/07_model_provider_research_and_external_info_posture.prompt.md`
 only. Add metadata/readiness/cost/secret-status/provider-catalog/read-model
 surfaces only; no runtime model calls, provider SDK calls, or live web fetching.
 Keep WebAccessGateway governed and default-deny. Run runtime metadata tests and

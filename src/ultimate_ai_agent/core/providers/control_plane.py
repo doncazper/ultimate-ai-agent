@@ -46,7 +46,6 @@ from ultimate_ai_agent.core.providers.catalog import (
 from ultimate_ai_agent.core.providers.credential_validation import (
     PROVIDER_CREDENTIAL_VALIDATION_ENDPOINT_REF,
     PROVIDER_CREDENTIAL_VALIDATION_NETWORK_SCOPE_REF,
-    PROVIDER_CREDENTIAL_VALIDATION_POLICY_REF,
     PROVIDER_CREDENTIAL_VALIDATION_PROVIDER_REF,
 )
 from ultimate_ai_agent.core.providers.invocation import (
@@ -65,6 +64,9 @@ from ultimate_ai_agent.core.providers.invocation import (
     TINY_PROVIDER_INVOCATION_POLICY_REF,
     TINY_PROVIDER_INVOCATION_PROVIDER_REF,
 )
+from ultimate_ai_agent.core.web_access.runtime_authority import (
+    build_web_runtime_authority_contract,
+)
 from ultimate_ai_agent.core.secrets.redaction import contains_obvious_secret
 
 
@@ -74,11 +76,18 @@ MODEL_PROVIDER_CONTROL_PLANE_CONTRACT_REF = (
 MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF = (
     "GET /control-center/providers/runtime-control-plane"
 )
-MODEL_PROVIDER_CONTROL_PLANE_CLI_REF = (
-    "scripts/inspect_model_provider_control_plane.py"
-)
+MODEL_PROVIDER_CONTROL_PLANE_CLI_REF = "scripts/inspect_model_provider_control_plane.py"
 MODEL_PROVIDER_CONTROL_PLANE_VERIFIER_REF = (
     "scripts/verify_model_provider_control_plane.py"
+)
+MODEL_PROVIDER_RESEARCH_POSTURE_CONTRACT_REF = (
+    "contract-ref:goatcitadel-catchup-model-provider-research-posture:v1"
+)
+MODEL_PROVIDER_RESEARCH_POSTURE_SOURCE = (
+    "python_core_goatcitadel_catchup_model_provider_research_posture"
+)
+MODEL_PROVIDER_RESEARCH_POSTURE_VERIFIER_REF = (
+    "scripts/verify_uaa_goatcitadel_catchup_model_provider_research.py"
 )
 
 
@@ -402,6 +411,253 @@ class ModelRouterTracePosture(BaseModel):
         return self
 
 
+class ModelProviderResearchProviderPosture(BaseModel):
+    provider_id: str = Field(..., min_length=1)
+    provider_label: str = Field(..., min_length=1)
+    provider_kind: str = Field(..., min_length=1)
+    local_remote_posture: Literal[
+        "remote_provider_reference", "local_runtime_reference"
+    ]
+    status: Literal[
+        "reference_only",
+        "blocked_missing_refs",
+        "approval_required_exact_lane",
+    ]
+    credential_readiness_status: str = Field(..., min_length=1)
+    cost_latency_metadata_status: Literal[
+        "static_cost_metadata_only",
+        "local_inventory_metadata_only",
+    ] = "static_cost_metadata_only"
+    supported_authority_mode: Literal[
+        "guidance_only",
+        "exact_lane_requires_approval",
+        "local_loopback_metadata_only",
+    ] = "guidance_only"
+    blocked_reason_ref: str = Field(..., min_length=1)
+    last_safe_diagnostic_receipt_ref: str = Field(..., min_length=1)
+    operator_next_step: str = Field(..., min_length=1)
+    provider_sdk_call_enabled: bool = False
+    model_invocation_enabled: bool = False
+    credential_material_visible: bool = False
+    provider_output_authority_enabled: bool = False
+    live_metadata_discovery_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def provider_posture_must_remain_metadata_only(self) -> Any:
+        denied = [
+            self.provider_sdk_call_enabled,
+            self.model_invocation_enabled,
+            self.credential_material_visible,
+            self.provider_output_authority_enabled,
+            self.live_metadata_discovery_enabled,
+        ]
+        if any(denied):
+            raise ValueError("MODEL_PROVIDER_RESEARCH_PROVIDER_AUTHORITY_DRIFT")
+        return self
+
+
+class ModelOutputTruthPosture(BaseModel):
+    status: Literal["proposal_and_evidence_not_authority"] = (
+        "proposal_and_evidence_not_authority"
+    )
+    model_output_is_proposal: bool = True
+    model_output_is_evidence_candidate: bool = True
+    generated_text_is_verified_fact: bool = False
+    verified_fact_refs_required: bool = True
+    uncertainty_unknowns_required: bool = True
+    memory_write_from_model_output_enabled: bool = False
+    action_authority_from_model_output_enabled: bool = False
+    context_injection_from_model_output_enabled: bool = False
+    connector_write_from_model_output_enabled: bool = False
+    production_authority_from_model_output_enabled: bool = False
+    truth_boundary_ref: str = "truth-boundary-ref:model-output:not-authority"
+    safe_summary: str = (
+        "Model output can be proposal text or evidence candidate only. "
+        "Verified facts require separate evidence refs, and model output cannot "
+        "grant memory, action, context, connector, or production authority."
+    )
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def model_output_must_not_be_authority(self) -> Any:
+        denied = [
+            self.generated_text_is_verified_fact,
+            self.memory_write_from_model_output_enabled,
+            self.action_authority_from_model_output_enabled,
+            self.context_injection_from_model_output_enabled,
+            self.connector_write_from_model_output_enabled,
+            self.production_authority_from_model_output_enabled,
+        ]
+        required = [
+            self.model_output_is_proposal,
+            self.model_output_is_evidence_candidate,
+            self.verified_fact_refs_required,
+            self.uncertainty_unknowns_required,
+        ]
+        if any(denied) or not all(required):
+            raise ValueError("MODEL_OUTPUT_TRUTH_AUTHORITY_DRIFT")
+        return self
+
+
+class ExternalInformationResearchPosture(BaseModel):
+    status: Literal["web_access_gateway_deny_by_default"] = (
+        "web_access_gateway_deny_by_default"
+    )
+    web_runtime_authority_contract_ref: str
+    web_access_gateway_required: bool = True
+    default_policy_denied: bool = True
+    fetched_content_untrusted: bool = True
+    fetched_content_instruction_authority_enabled: bool = False
+    source_metadata_required: bool = True
+    audit_record_required: bool = True
+    live_web_fetch_enabled_by_control_plane: bool = False
+    browser_observe_enabled_by_control_plane: bool = False
+    browser_action_enabled_by_control_plane: bool = False
+    provider_search_enabled_by_control_plane: bool = False
+    context_injection_from_external_content_enabled: bool = False
+    memory_write_from_external_content_enabled: bool = False
+    allowed_current_lane_refs: list[str] = Field(
+        default_factory=lambda: [
+            "lane-ref:web-evidence:allowlisted-https-get-through-web-access-gateway"
+        ]
+    )
+    blocked_authority_refs: list[str] = Field(
+        default_factory=lambda: [
+            "blocked-state:web-access:no-unrestricted-web-fetch",
+            "blocked-state:web-access:no-provider-search-calls",
+            "blocked-state:web-access:no-browser-observe-by-control-plane",
+            "blocked-state:web-access:no-browser-actions",
+            "blocked-state:web-access:no-context-injection",
+            "blocked-state:web-access:no-memory-write",
+            "blocked-state:web-access:no-production-authority",
+        ]
+    )
+    safe_summary: str = (
+        "External information remains WebAccessGateway governed and deny-by-default. "
+        "Fetched content is untrusted evidence, never instructions or authority."
+    )
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def external_information_must_remain_deny_by_default(self) -> Any:
+        denied = [
+            self.fetched_content_instruction_authority_enabled,
+            self.live_web_fetch_enabled_by_control_plane,
+            self.browser_observe_enabled_by_control_plane,
+            self.browser_action_enabled_by_control_plane,
+            self.provider_search_enabled_by_control_plane,
+            self.context_injection_from_external_content_enabled,
+            self.memory_write_from_external_content_enabled,
+        ]
+        required = [
+            self.web_access_gateway_required,
+            self.default_policy_denied,
+            self.fetched_content_untrusted,
+            self.source_metadata_required,
+            self.audit_record_required,
+        ]
+        if any(denied) or not all(required):
+            raise ValueError("EXTERNAL_INFORMATION_RESEARCH_AUTHORITY_DRIFT")
+        if not self.allowed_current_lane_refs or not self.blocked_authority_refs:
+            raise ValueError("EXTERNAL_INFORMATION_RESEARCH_REFS_REQUIRED")
+        return self
+
+
+class ModelProviderResearchPosture(BaseModel):
+    schema_version: Literal["model_provider_research_posture.v1"] = (
+        "model_provider_research_posture.v1"
+    )
+    contract_ref: str = MODEL_PROVIDER_RESEARCH_POSTURE_CONTRACT_REF
+    source: str = MODEL_PROVIDER_RESEARCH_POSTURE_SOURCE
+    status: Literal["metadata_read_model_wired"] = "metadata_read_model_wired"
+    route_ref: str = MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF
+    cli_ref: str = MODEL_PROVIDER_CONTROL_PLANE_CLI_REF
+    provider_count: int = Field(..., ge=0)
+    provider_postures: list[ModelProviderResearchProviderPosture]
+    model_output_truth: ModelOutputTruthPosture = Field(
+        default_factory=ModelOutputTruthPosture
+    )
+    external_information: ExternalInformationResearchPosture
+    proof_refs: list[str] = Field(
+        default_factory=lambda: [
+            "proof-ref:goatcitadel-catchup:model-provider-research-posture",
+            "proof-ref:model-provider-control-plane:read-model",
+        ]
+    )
+    docs_refs: list[str] = Field(
+        default_factory=lambda: [
+            "docs/control_center/UAA_GOATCITADEL_CATCHUP_MODEL_PROVIDER_RESEARCH.md",
+            "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
+            "docs/network/WEB_ACCESS_GATEWAY.md",
+        ]
+    )
+    verifier_refs: list[str] = Field(
+        default_factory=lambda: [
+            MODEL_PROVIDER_RESEARCH_POSTURE_VERIFIER_REF,
+            MODEL_PROVIDER_CONTROL_PLANE_VERIFIER_REF,
+        ]
+    )
+    blocked_authority_refs: list[str] = Field(
+        default_factory=lambda: [
+            "blocked-state:model-provider:provider-sdk-calls",
+            "blocked-state:model-provider:remote-model-calls-by-control-plane",
+            "blocked-state:model-provider:model-output-as-authority",
+            "blocked-state:model-provider:credential-material-display",
+            "blocked-state:web-access:live-fetch-by-control-plane",
+            "blocked-state:web-access:browser-automation",
+            "blocked-state:model-provider:memory-action-context-escalation",
+            "blocked-state:model-provider:production-authority",
+        ]
+    )
+    next_safe_action: str = (
+        "Use the control-plane CLI/API/UI to inspect readiness and exact blockers; "
+        "promote live calls or external research only through a later exact lane."
+    )
+    provider_sdk_call_enabled: bool = False
+    remote_model_call_enabled: bool = False
+    live_web_fetch_enabled: bool = False
+    browser_automation_enabled: bool = False
+    credential_entry_enabled: bool = False
+    memory_write_authorized: bool = False
+    action_execution_authorized: bool = False
+    context_injection_authorized: bool = False
+    production_authority_enabled: bool = False
+    broad_autonomy_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def research_posture_must_remain_safe(self) -> Any:
+        dump = self.model_dump(mode="json")
+        if contains_secret_like(dump) or contains_obvious_secret(dump):
+            raise ValueError(
+                "MODEL_PROVIDER_RESEARCH_POSTURE_SECRET_LIKE_VALUE_REJECTED"
+            )
+        denied = [
+            self.provider_sdk_call_enabled,
+            self.remote_model_call_enabled,
+            self.live_web_fetch_enabled,
+            self.browser_automation_enabled,
+            self.credential_entry_enabled,
+            self.memory_write_authorized,
+            self.action_execution_authorized,
+            self.context_injection_authorized,
+            self.production_authority_enabled,
+            self.broad_autonomy_enabled,
+        ]
+        if any(denied):
+            raise ValueError("MODEL_PROVIDER_RESEARCH_POSTURE_AUTHORITY_DRIFT")
+        if self.provider_count != len(self.provider_postures):
+            raise ValueError("MODEL_PROVIDER_RESEARCH_POSTURE_PROVIDER_COUNT_DRIFT")
+        if not self.provider_postures:
+            raise ValueError("MODEL_PROVIDER_RESEARCH_POSTURE_PROVIDER_ROWS_REQUIRED")
+        return self
+
+
 class ModelProviderControlPlaneReadModel(BaseModel):
     schema_version: Literal["model_provider_control_plane.v1"] = (
         "model_provider_control_plane.v1"
@@ -409,9 +665,7 @@ class ModelProviderControlPlaneReadModel(BaseModel):
     contract_ref: str = MODEL_PROVIDER_CONTROL_PLANE_CONTRACT_REF
     route_ref: str = MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF
     cli_ref: str = MODEL_PROVIDER_CONTROL_PLANE_CLI_REF
-    status: Literal["governed_control_plane_wired"] = (
-        "governed_control_plane_wired"
-    )
+    status: Literal["governed_control_plane_wired"] = "governed_control_plane_wired"
     backend_owned: bool = True
     read_only: bool = True
     safe_refs_only: bool = True
@@ -423,6 +677,7 @@ class ModelProviderControlPlaneReadModel(BaseModel):
     cost_hooks: ProviderCostHookPosture
     local_llama_cpp_lifecycle: LocalLlamaCppLifecyclePosture
     router_traces: list[ModelRouterTracePosture]
+    model_provider_research_posture: ModelProviderResearchPosture
     credential_readiness_ref: str = (
         "control-center-dashboard-field:provider_credential_readiness"
     )
@@ -439,6 +694,7 @@ class ModelProviderControlPlaneReadModel(BaseModel):
             "proof-ref:model-provider-control-plane:read-model",
             "proof-ref:model-provider-control-plane:router-traces",
             "proof-ref:model-provider-control-plane:cost-hooks",
+            "proof-ref:goatcitadel-catchup:model-provider-research-posture",
         ]
     )
     blocked_authority_refs: list[str] = Field(
@@ -454,12 +710,16 @@ class ModelProviderControlPlaneReadModel(BaseModel):
     docs_refs: list[str] = Field(
         default_factory=lambda: [
             "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
+            "docs/control_center/UAA_GOATCITADEL_CATCHUP_MODEL_PROVIDER_RESEARCH.md",
             "docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
             "docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md",
         ]
     )
     verifier_refs: list[str] = Field(
-        default_factory=lambda: [MODEL_PROVIDER_CONTROL_PLANE_VERIFIER_REF]
+        default_factory=lambda: [
+            MODEL_PROVIDER_CONTROL_PLANE_VERIFIER_REF,
+            MODEL_PROVIDER_RESEARCH_POSTURE_VERIFIER_REF,
+        ]
     )
     safe_summary: str = (
         "Backend-owned model/provider control plane unifies provider adapters, "
@@ -495,10 +755,7 @@ def build_model_provider_control_plane_read_model(
     provider_model_refs = [
         TINY_PROVIDER_INVOCATION_MODEL_REF,
         SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
-        *[
-            provider.cost_governor_binding.model_ref
-            for provider in readiness.providers
-        ],
+        *[provider.cost_governor_binding.model_ref for provider in readiness.providers],
     ]
     return ModelProviderControlPlaneReadModel(
         authority=ModelProviderAuthoritySummary(),
@@ -563,7 +820,106 @@ def build_model_provider_control_plane_read_model(
             gateway_readiness=gateway_readiness,
         ),
         router_traces=[_build_model_router_trace(readiness)],
+        model_provider_research_posture=_build_model_provider_research_posture(
+            readiness=readiness,
+            provider_catalog=catalog,
+        ),
         provider_catalog_ref=catalog.catalog_ref,
+    )
+
+
+def _build_model_provider_research_posture(
+    *,
+    readiness: ProviderCredentialReadinessSummary,
+    provider_catalog: ProviderCatalog,
+) -> ModelProviderResearchPosture:
+    web_runtime_contract = build_web_runtime_authority_contract()
+    provider_postures = [
+        _provider_research_posture(provider) for provider in readiness.providers
+    ]
+    if not provider_postures:
+        provider_postures = [
+            ModelProviderResearchProviderPosture(
+                provider_id="provider:catalog:fallback",
+                provider_label="Provider catalog fallback",
+                provider_kind="metadata_only",
+                local_remote_posture="remote_provider_reference",
+                status="reference_only",
+                credential_readiness_status="reference_missing",
+                blocked_reason_ref="blocked-state:model-provider:no-provider-readiness-items",
+                last_safe_diagnostic_receipt_ref=(
+                    "receipt-ref:model-provider-research:fallback-diagnostic"
+                ),
+                operator_next_step=(
+                    "Inspect provider setup guide and credential readiness before "
+                    "considering any exact provider lane."
+                ),
+            )
+        ]
+    return ModelProviderResearchPosture(
+        provider_count=len(provider_postures),
+        provider_postures=provider_postures,
+        external_information=ExternalInformationResearchPosture(
+            web_runtime_authority_contract_ref=web_runtime_contract.contract_ref,
+        ),
+        docs_refs=[
+            "docs/control_center/UAA_GOATCITADEL_CATCHUP_MODEL_PROVIDER_RESEARCH.md",
+            "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
+            "docs/network/WEB_ACCESS_GATEWAY.md",
+            "docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md",
+        ],
+        blocked_authority_refs=[
+            "blocked-state:model-provider:provider-sdk-calls",
+            "blocked-state:model-provider:remote-model-calls-by-control-plane",
+            "blocked-state:model-provider:model-output-as-authority",
+            "blocked-state:model-provider:credential-material-display",
+            "blocked-state:web-access:live-fetch-by-control-plane",
+            "blocked-state:web-access:browser-automation",
+            "blocked-state:web-access:provider-search-calls",
+            "blocked-state:model-provider:memory-action-context-escalation",
+            "blocked-state:model-provider:production-authority",
+            *provider_catalog.blocked_authorities[:3],
+        ],
+    )
+
+
+def _provider_research_posture(
+    provider: Any,
+) -> ModelProviderResearchProviderPosture:
+    status: Literal[
+        "reference_only",
+        "blocked_missing_refs",
+        "approval_required_exact_lane",
+    ] = (
+        "approval_required_exact_lane"
+        if provider.provider_model_refs_bound and provider.credential_configured
+        else "blocked_missing_refs"
+    )
+    return ModelProviderResearchProviderPosture(
+        provider_id=provider.provider_id,
+        provider_label=provider.provider_label,
+        provider_kind=provider.provider_kind,
+        local_remote_posture="remote_provider_reference",
+        status=status,
+        credential_readiness_status=provider.credential_ref_status,
+        cost_latency_metadata_status="static_cost_metadata_only",
+        supported_authority_mode=(
+            "exact_lane_requires_approval"
+            if status == "approval_required_exact_lane"
+            else "guidance_only"
+        ),
+        blocked_reason_ref=(
+            provider.blocker_codes[0]
+            if provider.blocker_codes
+            else "blocked-state:model-provider:metadata-only"
+        ),
+        last_safe_diagnostic_receipt_ref=(
+            f"receipt-ref:model-provider-research:{provider.provider_id.replace(':', '-')}:diagnostic"
+        ),
+        operator_next_step=(
+            "Bind provider, model, credential, CostGovernor, approval, "
+            "idempotency, and receipt refs before any future exact live lane."
+        ),
     )
 
 
@@ -602,7 +958,10 @@ def _build_model_router_trace(
                 runtime_id="runtime-ref:local-llama-cpp:m164",
                 model_id=DEFAULT_UAA_LLAMA_CPP_MODEL_ID,
                 display_name="Local llama.cpp chat",
-                capabilities=[ModelTaskCapability.chat, ModelTaskCapability.summarization],
+                capabilities=[
+                    ModelTaskCapability.chat,
+                    ModelTaskCapability.summarization,
+                ],
                 privacy_class=ModelPrivacyClass.local_only,
                 max_context_tokens=8192,
                 supports_streaming=False,

@@ -8357,6 +8357,97 @@ export interface ModelRouterTracePosture {
   safe_summary: string;
 }
 
+export interface ModelProviderResearchProviderPosture {
+  provider_id: string;
+  provider_label: string;
+  provider_kind: string;
+  local_remote_posture: "remote_provider_reference" | "local_runtime_reference";
+  status:
+    | "reference_only"
+    | "blocked_missing_refs"
+    | "approval_required_exact_lane";
+  credential_readiness_status: string;
+  cost_latency_metadata_status:
+    | "static_cost_metadata_only"
+    | "local_inventory_metadata_only";
+  supported_authority_mode:
+    | "guidance_only"
+    | "exact_lane_requires_approval"
+    | "local_loopback_metadata_only";
+  blocked_reason_ref: string;
+  last_safe_diagnostic_receipt_ref: string;
+  operator_next_step: string;
+  provider_sdk_call_enabled: boolean;
+  model_invocation_enabled: boolean;
+  credential_material_visible: boolean;
+  provider_output_authority_enabled: boolean;
+  live_metadata_discovery_enabled: boolean;
+}
+
+export interface ModelOutputTruthPosture {
+  status: "proposal_and_evidence_not_authority";
+  model_output_is_proposal: boolean;
+  model_output_is_evidence_candidate: boolean;
+  generated_text_is_verified_fact: boolean;
+  verified_fact_refs_required: boolean;
+  uncertainty_unknowns_required: boolean;
+  memory_write_from_model_output_enabled: boolean;
+  action_authority_from_model_output_enabled: boolean;
+  context_injection_from_model_output_enabled: boolean;
+  connector_write_from_model_output_enabled: boolean;
+  production_authority_from_model_output_enabled: boolean;
+  truth_boundary_ref: string;
+  safe_summary: string;
+}
+
+export interface ExternalInformationResearchPosture {
+  status: "web_access_gateway_deny_by_default";
+  web_runtime_authority_contract_ref: string;
+  web_access_gateway_required: boolean;
+  default_policy_denied: boolean;
+  fetched_content_untrusted: boolean;
+  fetched_content_instruction_authority_enabled: boolean;
+  source_metadata_required: boolean;
+  audit_record_required: boolean;
+  live_web_fetch_enabled_by_control_plane: boolean;
+  browser_observe_enabled_by_control_plane: boolean;
+  browser_action_enabled_by_control_plane: boolean;
+  provider_search_enabled_by_control_plane: boolean;
+  context_injection_from_external_content_enabled: boolean;
+  memory_write_from_external_content_enabled: boolean;
+  allowed_current_lane_refs: string[];
+  blocked_authority_refs: string[];
+  safe_summary: string;
+}
+
+export interface ModelProviderResearchPosture {
+  schema_version: "model_provider_research_posture.v1";
+  contract_ref: string;
+  source: string;
+  status: "metadata_read_model_wired";
+  route_ref: "GET /control-center/providers/runtime-control-plane";
+  cli_ref: string;
+  provider_count: number;
+  provider_postures: ModelProviderResearchProviderPosture[];
+  model_output_truth: ModelOutputTruthPosture;
+  external_information: ExternalInformationResearchPosture;
+  proof_refs: string[];
+  docs_refs: string[];
+  verifier_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action: string;
+  provider_sdk_call_enabled: boolean;
+  remote_model_call_enabled: boolean;
+  live_web_fetch_enabled: boolean;
+  browser_automation_enabled: boolean;
+  credential_entry_enabled: boolean;
+  memory_write_authorized: boolean;
+  action_execution_authorized: boolean;
+  context_injection_authorized: boolean;
+  production_authority_enabled: boolean;
+  broad_autonomy_enabled: boolean;
+}
+
 export interface ModelProviderControlPlaneReadModel {
   schema_version: "model_provider_control_plane.v1";
   contract_ref: string;
@@ -8374,6 +8465,7 @@ export interface ModelProviderControlPlaneReadModel {
   cost_hooks: ProviderCostHookPosture;
   local_llama_cpp_lifecycle: LocalLlamaCppLifecyclePosture;
   router_traces: ModelRouterTracePosture[];
+  model_provider_research_posture: ModelProviderResearchPosture;
   credential_readiness_ref: string;
   provider_catalog_ref: string;
   exact_lane_route_refs: string[];

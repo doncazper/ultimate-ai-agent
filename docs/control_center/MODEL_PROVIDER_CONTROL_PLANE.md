@@ -32,6 +32,9 @@ The read model unifies existing UAA contracts:
 - local model inventory and M164 llama.cpp gateway posture;
 - M163 llama.cpp lifecycle contract posture;
 - deterministic ModelRouter trace metadata.
+- GoatCitadel catch-up Phase 07 model/provider/research posture for provider
+  readiness rows, model-output truth handling, and WebAccessGateway-governed
+  external-information status.
 
 The Control Center `/models` surface renders this read model alongside Provider
 Catalog, provider credential readiness, and local model readiness.
@@ -46,6 +49,7 @@ Verifier:
 
 ```bash
 .venv/bin/python scripts/verify_model_provider_control_plane.py
+.venv/bin/python scripts/verify_uaa_goatcitadel_catchup_model_provider_research.py
 ```
 
 ## Still Blocked
@@ -64,6 +68,10 @@ The control plane does not grant:
 - shell execution;
 - background autonomy;
 - production authority.
+
+The Phase 07 research posture also keeps provider output as proposal/evidence
+only. It does not permit memory writes, action authority, context injection,
+connector writes, browser automation, live web fetch, or provider search calls.
 
 ## Exact Promotion Path
 
