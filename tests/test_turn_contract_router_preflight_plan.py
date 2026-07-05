@@ -25,12 +25,15 @@ def test_phase_two_preflight_plan_preserves_lane_names_and_boundaries() -> None:
     assert "not as execution authority" in text
 
 
-def test_phase_two_preflight_plan_remains_planning_only() -> None:
+def test_phase_two_preflight_engine_remains_no_effect() -> None:
     text = ARCHITECTURE_DOC.read_text(encoding="utf-8")
 
-    assert "Status: planning only" in text
-    assert "No parallel runtime behavior is implemented" in text
+    assert "Status: contract and no-effect engine implemented" in text
+    assert "run_parallel_turn_preflight" in text
+    assert "No product runtime" in text
     assert "No live provider/model call" in text
     assert "No tool execution" in text
     assert "No memory content retrieval" in text
+    assert "No context injection" in text
+    assert "No workflow execution" in text
     assert "No connector write" in text
