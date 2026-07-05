@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from fastapi import APIRouter, FastAPI, Header
+from fastapi import APIRouter, FastAPI, Header, Query
 from pydantic import ValidationError
 
 from ultimate_ai_agent.api.route_registration import register_router_once
@@ -12,6 +12,7 @@ from ultimate_ai_agent.core.hygiene.envelopes import (
     ResultEnvelope,
     Severity,
 )
+from ultimate_ai_agent.core.decision_router import prepare_turn
 from ultimate_ai_agent.core.execution import build_sample_staged_orchestration_read_model
 from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeGateway,
@@ -146,6 +147,43 @@ def get_api_runtime_staged_orchestration() -> ResultEnvelope:
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:staged-orchestration:api-read"}],
         redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/prepared-turn", response_model=ResultEnvelope)
+def get_api_runtime_prepared_turn(
+    sample: str = Query(default="diy-desk", min_length=1, max_length=80),
+) -> ResultEnvelope:
+    try:
+        prepared = prepare_turn(sample_id=sample)
+    except ValueError:
+        return ResultEnvelope(
+            success=False,
+            operation="api_runtime_prepared_turn",
+            service="GovernedRuntimeAPI",
+            trace_id="prepared-turn-ref:invalid-sample",
+            error=ErrorEnvelope(
+                code="PREPARED_TURN_SAMPLE_INVALID",
+                category=ErrorCategory.validation_error,
+                safe_message="The prepared-turn sample id is not available.",
+                severity=Severity.low,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+            ),
+            redactions_applied=[
+                "redaction-ref:prepared-turn:raw-turn-text-omitted",
+                "redaction-ref:prepared-turn:raw-model-output-omitted",
+            ],
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_prepared_turn",
+        service="GovernedRuntimeAPI",
+        trace_id=prepared.prepared_turn_ref,
+        data=prepared.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:prepared-turn:api-read"}],
+        redactions_applied=prepared.redactions_applied,
     )
 
 

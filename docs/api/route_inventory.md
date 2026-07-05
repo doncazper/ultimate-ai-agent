@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `200`.
+Current OpenAPI path count: `201`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -114,6 +114,10 @@ and blocked authority refs.
 Core staged orchestration plan/checkpoint/dependency read model and grants no
 scheduling, dispatch, background autonomy, model call, browser action,
 connector write, shell/subprocess authority, or production authority.
+`GET /api/runtime/prepared-turn` exposes a protected read-only Python Core
+prepared-turn read model over turn contract, route binding, readiness, durable
+run, and evidence refs without persisting raw prompt text or granting runtime
+authority.
 Capability, invocation, policy, approval-ref, receipt, and safe-disable records
 store safe refs and redacted metadata only; model output is untrusted proposal
 text, and command output is redacted and bounded. Remote provider/model calls,

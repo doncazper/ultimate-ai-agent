@@ -16,12 +16,14 @@ from ultimate_ai_agent.core.decision_router import (  # noqa: E402
     TURN_ROUTER_PREVIEW_SAMPLE_PROMPTS,
     TurnRouterPreviewRequest,
     build_route_decision_binding,
+    build_sample_prepared_turns,
     build_turn_router_preview,
     classify_turn_contract,
     compile_invocation_policy,
     context_from_route_decision_binding,
     safe_content_fingerprint_ref,
     validate_route_decision_binding,
+    prepare_turn,
 )
 
 
@@ -77,6 +79,30 @@ def route_binding(args: argparse.Namespace) -> int:
             "and grants no runtime/model/provider/tool authority."
         ),
     }
+    print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
+    return 0
+
+
+def prepare_turn_command(args: argparse.Namespace) -> int:
+    if args.all_samples:
+        payload: dict[str, object] = {
+            "schema_version": "prepared_turn_cli.v1",
+            "prepared_turns": [
+                item.model_dump(mode="json") for item in build_sample_prepared_turns()
+            ],
+            "raw_prompt_persisted": False,
+            "raw_model_output_persisted": False,
+            "execution_performed": False,
+        }
+    else:
+        prepared = prepare_turn(sample_id=args.sample, text=args.text)
+        payload = {
+            "schema_version": "prepared_turn_cli.v1",
+            "prepared_turn": prepared.model_dump(mode="json"),
+            "raw_prompt_persisted": False,
+            "raw_model_output_persisted": False,
+            "execution_performed": False,
+        }
     print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
     return 0
 
@@ -179,6 +205,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pretty-print the safe JSON read model.",
     )
     route_binding_parser.set_defaults(func=route_binding)
+    prepared_parser = subparsers.add_parser(
+        "prepare-turn",
+        help="Prepare a turn through routing, binding, run, and readiness refs.",
+    )
+    prepared_source = prepared_parser.add_mutually_exclusive_group(required=True)
+    prepared_source.add_argument(
+        "--sample",
+        choices=sorted(TURN_ROUTER_PREVIEW_SAMPLE_PROMPTS),
+        help="Prepare a protected sample prompt without printing raw prompt text.",
+    )
+    prepared_source.add_argument(
+        "--text",
+        help="Prepare ephemeral text. Output omits the raw submitted text.",
+    )
+    prepared_source.add_argument(
+        "--all-samples",
+        action="store_true",
+        help="Emit prepared-turn read models for the representative protected samples.",
+    )
+    prepared_parser.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print the safe JSON read model.",
+    )
+    prepared_parser.set_defaults(func=prepare_turn_command)
     return parser
 
 
