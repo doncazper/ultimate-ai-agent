@@ -1,0 +1,20 @@
+{
+  "$schema": "../../schemas/prompt_bundle_manifest.schema.json",
+  "bundle_id": "uaa-goatcitadel-runtime-parity-001",
+  "version": "1.0.0",
+  "purpose": "Stored prompts for bringing UAA's real operation loop closer to GoatCitadel-level runtime parity while preserving UAA's governed local-first authority model.",
+  "developer_prompt_refs": [
+    "docs/prompts/uaa_goatcitadel_runtime_parity/00_execute_runtime_parity_end_to_end.prompt.md",
+    "docs/prompts/uaa_goatcitadel_runtime_parity/01_baseline_scoreboard_and_gap_truth.prompt.md",
+    "docs/prompts/uaa_goatcitadel_runtime_parity/02_live_route_decision_binding.prompt.md",
+    "docs/prompts/uaa_goatcitadel_runtime_parity/03_turn_run_approval_state_model.prompt.md",
+    "docs/prompts/uaa_goatcitadel_runtime_parity/04_staged_orchestration_engine.prompt.md",
+    "docs/prompts/uaa_goatcitadel_runtime_parity/05_chat_turn_preparation_loop.prompt.md",
+    "docs/prompts/uaa_goatcitadel_runtime_parity/06_role_based_model_provider_evidence.prompt.md",
+    "docs/prompts/uaa_goatcitadel_runtime_parity/07_mature_action_execution_and_signed_evidence.prompt.md",
+    "docs/prompts/uaa_goatcitadel_runtime_parity/08_cockpit_cli_api_parity_and_final_hardening.prompt.md"
+  ],
+  "bundle_hash": "sha256:23be22f867dc2c38775ae66177a0324f0d444722e554106218ee31291a640062",
+  "stable_within_run": true,
+  "created_at": "2026-07-05"
+}
