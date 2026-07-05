@@ -934,6 +934,76 @@ export async function submitTurnRouterPreview(
   return preview;
 }
 
+const TURN_ROUTER_PREVIEW_CONTRACTS = [
+  "answer_directly",
+  "base_answer",
+  "answer_with_reviewed_memory",
+  "draft_or_plan",
+  "prepare_tool_or_action",
+  "approval_required",
+  "ask_clarifying_question",
+  "blocked_unsafe",
+] as const;
+const TURN_ROUTER_MEMORY_SCOPES = [
+  "none",
+  "reviewed_relevant_only",
+  "proposal_review_only",
+] as const;
+const TURN_ROUTER_TOOL_POLICIES = [
+  "none",
+  "read_only_or_proposal_only",
+  "envelope_only_no_execution",
+] as const;
+const TURN_ROUTER_TOOL_CHOICES = ["none", "auto_read_only"] as const;
+const TURN_ROUTER_APPROVAL_POLICIES = [
+  "not_required",
+  "required_before_execution",
+  "blocked",
+] as const;
+const TURN_ROUTER_STATE_POLICIES = [
+  "ephemeral_only",
+  "draft_state_only",
+  "proposal_state_only",
+  "action_envelope",
+] as const;
+const TURN_ROUTER_PROMPT_PROFILES = [
+  "minimal_answer",
+  "base_answer",
+  "memory_answer",
+  "draft_or_plan",
+  "tool_or_action_prep",
+  "approval_boundary",
+  "clarify",
+  "safe_refusal",
+] as const;
+const TURN_ROUTER_OUTPUT_CONTRACTS = [
+  "plain_answer",
+  "base_answer",
+  "memory_answer_with_refs",
+  "draft_or_plan",
+  "action_or_tool_proposal",
+  "approval_envelope_required",
+  "clarifying_question",
+  "safe_refusal",
+] as const;
+const TURN_ROUTER_RISK_FLAGS = [
+  "low_risk",
+  "external_side_effect",
+  "credential_or_payment",
+  "destructive",
+  "privacy_boundary",
+  "freshness_required",
+  "memory_requested",
+  "unsafe",
+] as const;
+const TURN_ROUTER_REDACTIONS = [
+  "ephemeral_request_text_omitted",
+  "secret_like_input_safely_summarized",
+] as const;
+const TURN_ROUTER_SAFE_CREDENTIAL_REFS = new Set([
+  "reason-ref:turn-contract:credential-account-privacy-boundary",
+]);
+
 function isSafeTurnRouterPreview(
   value: unknown,
 ): value is TurnRouterPreviewReadModel {
@@ -946,16 +1016,7 @@ function isSafeTurnRouterPreview(
   const noEffect = value.no_effect_proof;
   const policy = value.policy_summary;
   const selectedContract = String(value.selected_turn_contract ?? "");
-  const allowedPreviewContracts = [
-    "answer_directly",
-    "base_answer",
-    "answer_with_reviewed_memory",
-    "draft_or_plan",
-    "prepare_tool_or_action",
-    "approval_required",
-    "ask_clarifying_question",
-    "blocked_unsafe",
-  ];
+  const expectedPolicy = expectedTurnRouterPolicy(selectedContract);
   const blockedRefs = stringArray(value.blocked_authority_refs);
   const requiredBlockedRefs = [
     "blocked-state:turn-router-preview:no-runtime-model-call",
@@ -969,28 +1030,86 @@ function isSafeTurnRouterPreview(
   ];
   return (
     value.contract_ref === "contract-ref:turn-router-preview:v1" &&
-    typeof value.preview_ref === "string" &&
-    typeof value.request_ref === "string" &&
+    isSafeTurnRouterPreviewRef(value.contract_ref) &&
+    isSafeTurnRouterPreviewRef(value.preview_ref) &&
+    isSafeTurnRouterPreviewRef(value.request_ref) &&
+    (value.request_kind === "sample" ||
+      value.request_kind === "ephemeral_text") &&
+    (value.sample_id === null ||
+      hasExactStringValue(value.sample_id, [
+        "diy-desk",
+        "office-memory",
+        "shopping-list",
+        "current-lumber-prices",
+        "order-materials",
+        "card-pickup",
+        "base-answer-bypass",
+      ])) &&
     value.route_refs instanceof Array &&
-    stringArray(value.route_refs).includes(
+    hasExactStringList(stringArray(value.route_refs), [
       API_ENDPOINTS.turnRouterPreview,
-    ) &&
-    typeof value.selected_turn_contract === "string" &&
+    ]) &&
     typeof value.confidence === "number" &&
-    stringArray(value.redactions_applied).includes(
-      "ephemeral_request_text_omitted",
+    value.confidence >= 0 &&
+    value.confidence <= 1 &&
+    hasSafeTurnRouterStringArray(
+      value,
+      "reason_refs",
+      isSafeTurnRouterPreviewRef,
     ) &&
-    allowedPreviewContracts.includes(selectedContract) &&
+    hasSafeTurnRouterStringArray(value, "risk_flags", (item) =>
+      hasExactStringValue(item, TURN_ROUTER_RISK_FLAGS),
+    ) &&
+    hasSafeTurnRouterStringArray(
+      value,
+      "lane_result_refs",
+      isSafeTurnRouterPreviewRef,
+    ) &&
+    hasSafeTurnRouterStringArray(
+      value,
+      "source_refs",
+      isSafeTurnRouterPreviewRef,
+    ) &&
+    hasSafeTurnRouterStringArray(
+      value,
+      "evidence_refs",
+      isSafeTurnRouterPreviewRef,
+    ) &&
+    hasSafeTurnRouterStringArray(value, "redactions_applied", (item) =>
+      hasExactStringValue(item, TURN_ROUTER_REDACTIONS),
+    ) &&
+    stringArray(value.redactions_applied).includes("ephemeral_request_text_omitted") &&
+    isSafeTurnHarnessText(value.safe_summary) &&
+    hasExactStringValue(selectedContract, TURN_ROUTER_PREVIEW_CONTRACTS) &&
+    expectedPolicy !== null &&
     requiredBlockedRefs.every((ref) => blockedRefs.includes(ref)) &&
+    hasSafeTurnRouterStringArray(
+      value,
+      "blocked_authority_refs",
+      isSafeTurnRouterPreviewRef,
+    ) &&
     value.raw_content_included === false &&
     value.ephemeral_request_text_omitted === true &&
     policy.turn_contract === selectedContract &&
+    hasExactStringValue(policy.memory_scope, TURN_ROUTER_MEMORY_SCOPES) &&
+    policy.memory_scope === expectedPolicy.memoryScope &&
     policy.memory_write_allowed === false &&
-    policy.approval_required ===
-      (selectedContract === "approval_required") &&
-    policy.memory_read_allowed ===
-      (selectedContract === "answer_with_reviewed_memory") &&
-    policy.planner === (selectedContract === "draft_or_plan") &&
+    policy.memory_read_allowed === expectedPolicy.memoryReadAllowed &&
+    hasExactStringValue(policy.tool_policy, TURN_ROUTER_TOOL_POLICIES) &&
+    policy.tool_policy === expectedPolicy.toolPolicy &&
+    hasExactStringValue(policy.tool_choice, TURN_ROUTER_TOOL_CHOICES) &&
+    policy.tool_choice === expectedPolicy.toolChoice &&
+    hasExactStringValue(policy.approval_policy, TURN_ROUTER_APPROVAL_POLICIES) &&
+    policy.approval_policy === expectedPolicy.approvalPolicy &&
+    policy.approval_required === expectedPolicy.approvalRequired &&
+    policy.planner === expectedPolicy.planner &&
+    policy.durable_state === expectedPolicy.durableState &&
+    hasExactStringValue(policy.state_policy, TURN_ROUTER_STATE_POLICIES) &&
+    policy.state_policy === expectedPolicy.statePolicy &&
+    hasExactStringValue(policy.prompt_profile, TURN_ROUTER_PROMPT_PROFILES) &&
+    policy.prompt_profile === expectedPolicy.promptProfile &&
+    hasExactStringValue(policy.output_contract, TURN_ROUTER_OUTPUT_CONTRACTS) &&
+    policy.output_contract === expectedPolicy.outputContract &&
     noEffect.authority_granted === false &&
     noEffect.execution_permitted === false &&
     noEffect.no_runtime_model_call_performed === true &&
@@ -1019,6 +1138,164 @@ function isSafeTurnRouterPreview(
     policy.side_effects_allowed === false &&
     policy.execution_ready === false
   );
+}
+
+function hasSafeTurnRouterStringArray(
+  record: Record<string, unknown>,
+  field: string,
+  predicate: (value: string) => boolean,
+): boolean {
+  const value = record[field];
+  return (
+    Array.isArray(value) &&
+    value.every((item) => typeof item === "string" && predicate(item))
+  );
+}
+
+function isSafeTurnRouterPreviewRef(value: unknown): value is string {
+  if (typeof value !== "string" || !isSafeWebEvidenceRef(value)) {
+    return false;
+  }
+  const lowered = value.toLowerCase();
+  if (TURN_ROUTER_SAFE_CREDENTIAL_REFS.has(lowered)) {
+    return true;
+  }
+  return !EVIDENCE_NARRATIVE_UNSAFE_REF_FRAGMENTS.some((fragment) =>
+    lowered.includes(fragment),
+  );
+}
+
+function expectedTurnRouterPolicy(
+  selectedContract: string,
+): {
+  memoryScope: string;
+  memoryReadAllowed: boolean;
+  toolPolicy: string;
+  toolChoice: string;
+  approvalPolicy: string;
+  approvalRequired: boolean;
+  planner: boolean;
+  durableState: boolean;
+  statePolicy: string;
+  promptProfile: string;
+  outputContract: string;
+} | null {
+  switch (selectedContract) {
+    case "answer_directly":
+      return {
+        memoryScope: "none",
+        memoryReadAllowed: false,
+        toolPolicy: "none",
+        toolChoice: "none",
+        approvalPolicy: "not_required",
+        approvalRequired: false,
+        planner: false,
+        durableState: false,
+        statePolicy: "ephemeral_only",
+        promptProfile: "minimal_answer",
+        outputContract: "plain_answer",
+      };
+    case "base_answer":
+      return {
+        memoryScope: "none",
+        memoryReadAllowed: false,
+        toolPolicy: "none",
+        toolChoice: "none",
+        approvalPolicy: "not_required",
+        approvalRequired: false,
+        planner: false,
+        durableState: false,
+        statePolicy: "ephemeral_only",
+        promptProfile: "base_answer",
+        outputContract: "base_answer",
+      };
+    case "answer_with_reviewed_memory":
+      return {
+        memoryScope: "reviewed_relevant_only",
+        memoryReadAllowed: true,
+        toolPolicy: "none",
+        toolChoice: "none",
+        approvalPolicy: "not_required",
+        approvalRequired: false,
+        planner: false,
+        durableState: false,
+        statePolicy: "ephemeral_only",
+        promptProfile: "memory_answer",
+        outputContract: "memory_answer_with_refs",
+      };
+    case "draft_or_plan":
+      return {
+        memoryScope: "none",
+        memoryReadAllowed: false,
+        toolPolicy: "none",
+        toolChoice: "none",
+        approvalPolicy: "not_required",
+        approvalRequired: false,
+        planner: true,
+        durableState: false,
+        statePolicy: "draft_state_only",
+        promptProfile: "draft_or_plan",
+        outputContract: "draft_or_plan",
+      };
+    case "prepare_tool_or_action":
+      return {
+        memoryScope: "proposal_review_only",
+        memoryReadAllowed: false,
+        toolPolicy: "read_only_or_proposal_only",
+        toolChoice: "auto_read_only",
+        approvalPolicy: "not_required",
+        approvalRequired: false,
+        planner: true,
+        durableState: false,
+        statePolicy: "proposal_state_only",
+        promptProfile: "tool_or_action_prep",
+        outputContract: "action_or_tool_proposal",
+      };
+    case "approval_required":
+      return {
+        memoryScope: "proposal_review_only",
+        memoryReadAllowed: false,
+        toolPolicy: "envelope_only_no_execution",
+        toolChoice: "auto_read_only",
+        approvalPolicy: "required_before_execution",
+        approvalRequired: true,
+        planner: true,
+        durableState: true,
+        statePolicy: "action_envelope",
+        promptProfile: "approval_boundary",
+        outputContract: "approval_envelope_required",
+      };
+    case "ask_clarifying_question":
+      return {
+        memoryScope: "none",
+        memoryReadAllowed: false,
+        toolPolicy: "none",
+        toolChoice: "none",
+        approvalPolicy: "not_required",
+        approvalRequired: false,
+        planner: false,
+        durableState: false,
+        statePolicy: "ephemeral_only",
+        promptProfile: "clarify",
+        outputContract: "clarifying_question",
+      };
+    case "blocked_unsafe":
+      return {
+        memoryScope: "none",
+        memoryReadAllowed: false,
+        toolPolicy: "none",
+        toolChoice: "none",
+        approvalPolicy: "blocked",
+        approvalRequired: false,
+        planner: false,
+        durableState: false,
+        statePolicy: "ephemeral_only",
+        promptProfile: "safe_refusal",
+        outputContract: "safe_refusal",
+      };
+    default:
+      return null;
+  }
 }
 
 const TURN_HARNESS_CONTRACTS = [

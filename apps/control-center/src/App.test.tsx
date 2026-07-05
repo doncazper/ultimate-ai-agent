@@ -699,6 +699,7 @@ function turnRouterPreviewFixture(sampleId?: string, text?: string) {
   const approvalRequired = selected === "approval_required";
   const memoryRead = selected === "answer_with_reviewed_memory";
   const toolPrep = selected === "prepare_tool_or_action";
+  const planner = selected === "draft_or_plan" || toolPrep || approvalRequired;
   const suffix = sampleId ?? "ephemeral-text";
   return {
     contract_ref: "contract-ref:turn-router-preview:v1",
@@ -712,25 +713,59 @@ function turnRouterPreviewFixture(sampleId?: string, text?: string) {
     selected_turn_contract: selected,
     confidence: 0.94,
     reason_refs: [`reason-ref:turn-router-preview:test:${suffix}`],
-    risk_flags: approvalRequired ? ["payment_or_booking_boundary"] : [],
+    risk_flags: approvalRequired
+      ? ["external_side_effect", "credential_or_payment"]
+      : [],
     policy_summary: {
       turn_contract: selected,
-      memory_scope: memoryRead ? "reviewed_refs_only" : "none",
+      memory_scope: memoryRead
+        ? "reviewed_relevant_only"
+        : toolPrep || approvalRequired
+          ? "proposal_review_only"
+          : "none",
       memory_read_allowed: memoryRead,
       memory_write_allowed: false,
-      tool_policy: toolPrep ? "read_only_tool_prep" : "none",
-      tool_choice: "none",
+      tool_policy: approvalRequired
+        ? "envelope_only_no_execution"
+        : toolPrep
+          ? "read_only_or_proposal_only"
+          : "none",
+      tool_choice: toolPrep || approvalRequired ? "auto_read_only" : "none",
       tool_execution_allowed: false,
       action_execution_allowed: false,
       workflow_execution_allowed: false,
       context_injection_allowed: false,
-      approval_policy: approvalRequired ? "approval_required" : "not_required",
+      approval_policy: approvalRequired
+        ? "required_before_execution"
+        : "not_required",
       approval_required: approvalRequired,
-      planner: selected === "draft_or_plan",
-      durable_state: false,
-      state_policy: "none",
-      prompt_profile: "diagnostic_preview",
-      output_contract: "safe_summary_only",
+      planner,
+      durable_state: approvalRequired,
+      state_policy: approvalRequired
+        ? "action_envelope"
+        : toolPrep
+          ? "proposal_state_only"
+          : selected === "draft_or_plan"
+            ? "draft_state_only"
+            : "ephemeral_only",
+      prompt_profile: approvalRequired
+        ? "approval_boundary"
+        : toolPrep
+          ? "tool_or_action_prep"
+          : selected === "draft_or_plan"
+            ? "draft_or_plan"
+            : memoryRead
+              ? "memory_answer"
+              : "minimal_answer",
+      output_contract: approvalRequired
+        ? "approval_envelope_required"
+        : toolPrep
+          ? "action_or_tool_proposal"
+          : selected === "draft_or_plan"
+            ? "draft_or_plan"
+            : memoryRead
+              ? "memory_answer_with_refs"
+              : "plain_answer",
       runtime_model_call_allowed: false,
       provider_call_allowed: false,
       shell_subprocess_allowed: false,
@@ -4602,7 +4637,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       within(diagnostics).getByText("Memory").nextElementSibling,
-    ).toHaveTextContent("reviewed_refs_only; write no");
+    ).toHaveTextContent("reviewed_relevant_only; write no");
 
     fireEvent.click(
       within(diagnostics).getByRole("button", { name: /Order materials/i }),
@@ -4617,7 +4652,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       within(diagnostics).getByText("Approval").nextElementSibling,
-    ).toHaveTextContent("approval_required; required yes");
+    ).toHaveTextContent("required_before_execution; required yes");
 
     fireEvent.click(
       within(diagnostics).getByRole("button", {
@@ -4779,6 +4814,55 @@ describe("Web Control Center shell", () => {
     );
     expect(
       within(diagnostics).queryByText("Backend-owned router preview"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("rejects turn router previews with unsafe displayed strings", async () => {
+    const unsafePreview = {
+      ...turnRouterPreviewFixture("diy-desk"),
+      safe_summary: "raw prompt: use a private credential",
+      reason_refs: ["reason-ref:turn-router-preview:prompt-content-leak"],
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.turnRouterPreview)
+      ) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: unsafePreview,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    const diagnostics = await screen.findByRole("region", {
+      name: /Router Diagnostics/i,
+    });
+    expect(
+      await within(diagnostics).findByText("Non-authoritative mock fallback"),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(diagnostics).toHaveTextContent(
+        /Turn router preview was rejected safely/i,
+      ),
+    );
+    expect(within(diagnostics).queryByText(/raw prompt/i)).not.toBeInTheDocument();
+    expect(
+      within(diagnostics).queryByText(/prompt-content-leak/i),
     ).not.toBeInTheDocument();
   });
 
@@ -6552,6 +6636,32 @@ describe("Web Control Center shell", () => {
     expect(result.turnHarnessBinding).toBeUndefined();
     expect(result.reasonCodes).toContain(
       "TURN_HARNESS_BINDING_UNAVAILABLE_OR_REJECTED",
+    );
+  });
+
+  it("renders absent chat harness binding as unbound metadata", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Chat Local Operator$/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Harness contract").nextElementSibling).toHaveTextContent(
+      "not bound",
+    );
+    expect(screen.getByText("Harness approval").nextElementSibling).toHaveTextContent(
+      "not bound",
+    );
+    const harnessPanel = screen
+      .getByRole("heading", { name: /^Harness binding$/i })
+      .closest("article");
+    expect(harnessPanel).not.toBeNull();
+    expect(within(harnessPanel as HTMLElement).getByText("Memory scope").nextElementSibling).toHaveTextContent(
+      "not bound",
+    );
+    expect(within(harnessPanel as HTMLElement).getByText("Execution tools").nextElementSibling).toHaveTextContent(
+      "not recorded",
     );
   });
 

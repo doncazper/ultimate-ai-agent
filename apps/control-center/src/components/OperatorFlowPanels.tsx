@@ -203,7 +203,11 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
             ],
             [
               "Harness approval",
-              turnHarnessBinding?.approval_required ? "required" : "not required",
+              turnHarnessBinding
+                ? turnHarnessBinding.approval_required
+                  ? "required"
+                  : "not required"
+                : "not bound",
             ],
             ["Exchange body shown", "no"],
             ["Completion content shown", "no"],
@@ -266,7 +270,7 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
             </div>
             <div>
               <dt>Memory scope</dt>
-              <dd>{turnHarnessBinding?.memory_scope ?? "none"}</dd>
+              <dd>{turnHarnessBinding?.memory_scope ?? "not bound"}</dd>
             </div>
             <div>
               <dt>Tool posture</dt>
@@ -280,7 +284,10 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
             </div>
             <div>
               <dt>Execution tools</dt>
-              <dd>{turnHarnessBinding?.execution_tools_exposed_count ?? 0}</dd>
+              <dd>
+                {turnHarnessBinding?.execution_tools_exposed_count ??
+                  "not recorded"}
+              </dd>
             </div>
             <div>
               <dt>Action execution</dt>

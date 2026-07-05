@@ -24,6 +24,7 @@ from ultimate_ai_agent.core.planning.validation import validate_safe_task_text, 
 TURN_HARNESS_BINDING_CONTRACT_REF = "contract-ref:turn-contract-router:harness-binding:v1"
 TURN_HARNESS_BINDING_NO_EFFECT_SCOPE = "turn_harness_binding_compilation_only"
 DEFAULT_CHAT_HARNESS_ROUTE_REF = "/v1/chat/completions"
+CHAT_HARNESS_MISSING_USER_TEXT_SURROGATE = "Use my card and order this."
 
 
 class TurnHarnessBindingReadModel(BaseModel):
@@ -232,7 +233,7 @@ def _last_user_message_text(messages: Iterable[Any]) -> str:
         role, content = _message_role_and_content(message)
         if role == "user" and isinstance(content, str) and content.strip():
             last_user_text = content
-    return last_user_text or "status"
+    return last_user_text or CHAT_HARNESS_MISSING_USER_TEXT_SURROGATE
 
 
 def _message_role_and_content(message: Any) -> tuple[str | None, Any]:

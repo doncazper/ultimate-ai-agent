@@ -584,6 +584,7 @@ function turnRouterPreview(postData: string | null) {
   const approvalRequired = contract === "approval_required";
   const memoryRead = contract === "answer_with_reviewed_memory";
   const toolPrep = contract === "prepare_tool_or_action";
+  const planner = contract === "draft_or_plan" || toolPrep || approvalRequired;
   return {
     ok: true,
     result: {
@@ -597,25 +598,61 @@ function turnRouterPreview(postData: string | null) {
       selected_turn_contract: contract,
       confidence: 0.96,
       reason_refs: [`reason-ref:turn-router-smoke:${suffix}`],
-      risk_flags: approvalRequired ? ["risk-flag:approval-boundary"] : [],
+      risk_flags: approvalRequired
+        ? ["external_side_effect", "credential_or_payment"]
+        : contract === "answer_directly"
+          ? ["low_risk"]
+          : [],
       policy_summary: {
         turn_contract: contract,
-        memory_scope: memoryRead ? "reviewed_refs_only" : "none",
+        memory_scope: memoryRead
+          ? "reviewed_relevant_only"
+          : toolPrep || approvalRequired
+            ? "proposal_review_only"
+            : "none",
         memory_read_allowed: memoryRead,
         memory_write_allowed: false,
-        tool_policy: toolPrep ? "read_only_tool_prep" : "none",
-        tool_choice: "none",
+        tool_policy: approvalRequired
+          ? "envelope_only_no_execution"
+          : toolPrep
+            ? "read_only_or_proposal_only"
+            : "none",
+        tool_choice: toolPrep || approvalRequired ? "auto_read_only" : "none",
         tool_execution_allowed: false,
         action_execution_allowed: false,
         workflow_execution_allowed: false,
         context_injection_allowed: false,
-        approval_policy: approvalRequired ? "approval_required" : "not_required",
+        approval_policy: approvalRequired
+          ? "required_before_execution"
+          : "not_required",
         approval_required: approvalRequired,
-        planner: contract === "draft_or_plan",
-        durable_state: false,
-        state_policy: "none",
-        prompt_profile: "diagnostic_preview",
-        output_contract: "safe_summary_only",
+        planner,
+        durable_state: approvalRequired,
+        state_policy: approvalRequired
+          ? "action_envelope"
+          : toolPrep
+            ? "proposal_state_only"
+            : contract === "draft_or_plan"
+              ? "draft_state_only"
+              : "ephemeral_only",
+        prompt_profile: approvalRequired
+          ? "approval_boundary"
+          : toolPrep
+            ? "tool_or_action_prep"
+            : contract === "draft_or_plan"
+              ? "draft_or_plan"
+              : memoryRead
+                ? "memory_answer"
+                : "minimal_answer",
+        output_contract: approvalRequired
+          ? "approval_envelope_required"
+          : toolPrep
+            ? "action_or_tool_proposal"
+            : contract === "draft_or_plan"
+              ? "draft_or_plan"
+              : memoryRead
+                ? "memory_answer_with_refs"
+                : "plain_answer",
         runtime_model_call_allowed: false,
         provider_call_allowed: false,
         shell_subprocess_allowed: false,

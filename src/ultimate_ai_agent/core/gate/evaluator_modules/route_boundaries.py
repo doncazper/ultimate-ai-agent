@@ -2363,11 +2363,7 @@ WEB_EVIDENCE_PRODUCT_SLICE_ROUTES = frozenset(
         "/control-center/web-evidence/attach",
     }
 )
-TURN_CONTRACT_ROUTER_DIAGNOSTIC_ROUTES = frozenset(
-    {
-        "/control-center/turn-router/preview",
-    }
-)
+TURN_CONTRACT_ROUTER_DIAGNOSTIC_ROUTES = frozenset({"/control-center/turn-router/preview"})
 PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 VISUAL_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 EXPECTED_M152_OPENAPI_PATH_COUNT = EXPECTED_M150_OPENAPI_PATH_COUNT
@@ -5000,8 +4996,4 @@ def m167_openapi_route_failures(
     return failures
 
 
-__all__ = [
-    name
-    for name in globals()
-    if not name.startswith("__") and name not in {"re", "Iterable", "List"}
-]
+__all__ = [name for name in globals() if not name.startswith("__") and name not in {"re", "Iterable", "List"}]

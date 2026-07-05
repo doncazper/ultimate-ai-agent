@@ -344,6 +344,8 @@ function fallbackPreview(sampleId: TurnRouterPreviewSampleId): TurnRouterPreview
   const approvalRequired = sample.expectedContract === "approval_required";
   const memoryRead = sample.expectedContract === "answer_with_reviewed_memory";
   const toolPrep = sample.expectedContract === "prepare_tool_or_action";
+  const planner =
+    sample.expectedContract === "draft_or_plan" || toolPrep || approvalRequired;
   return {
     contract_ref: "contract-ref:turn-router-preview:v1",
     preview_ref: `turn-router-preview:mock:${sample.id}`,
@@ -353,25 +355,59 @@ function fallbackPreview(sampleId: TurnRouterPreviewSampleId): TurnRouterPreview
     selected_turn_contract: sample.expectedContract,
     confidence: 0.91,
     reason_refs: [`reason-ref:turn-router-preview:mock:${sample.id}`],
-    risk_flags: approvalRequired ? ["risk-flag:approval-boundary"] : [],
+    risk_flags: approvalRequired
+      ? ["external_side_effect", "credential_or_payment"]
+      : [],
     policy_summary: {
       turn_contract: sample.expectedContract,
-      memory_scope: memoryRead ? "reviewed_refs_only" : "none",
+      memory_scope: memoryRead
+        ? "reviewed_relevant_only"
+        : toolPrep || approvalRequired
+          ? "proposal_review_only"
+          : "none",
       memory_read_allowed: memoryRead,
       memory_write_allowed: false,
-      tool_policy: toolPrep ? "read_only_tool_prep" : "none",
-      tool_choice: "none",
+      tool_policy: approvalRequired
+        ? "envelope_only_no_execution"
+        : toolPrep
+          ? "read_only_or_proposal_only"
+          : "none",
+      tool_choice: toolPrep || approvalRequired ? "auto_read_only" : "none",
       tool_execution_allowed: false,
       action_execution_allowed: false,
       workflow_execution_allowed: false,
       context_injection_allowed: false,
-      approval_policy: approvalRequired ? "approval_required" : "not_required",
+      approval_policy: approvalRequired
+        ? "required_before_execution"
+        : "not_required",
       approval_required: approvalRequired,
-      planner: sample.expectedContract === "draft_or_plan",
-      durable_state: false,
-      state_policy: "none",
-      prompt_profile: "diagnostic_preview",
-      output_contract: "safe_summary_only",
+      planner,
+      durable_state: approvalRequired,
+      state_policy: approvalRequired
+        ? "action_envelope"
+        : toolPrep
+          ? "proposal_state_only"
+          : sample.expectedContract === "draft_or_plan"
+            ? "draft_state_only"
+            : "ephemeral_only",
+      prompt_profile: approvalRequired
+        ? "approval_boundary"
+        : toolPrep
+          ? "tool_or_action_prep"
+          : sample.expectedContract === "draft_or_plan"
+            ? "draft_or_plan"
+            : memoryRead
+              ? "memory_answer"
+              : "minimal_answer",
+      output_contract: approvalRequired
+        ? "approval_envelope_required"
+        : toolPrep
+          ? "action_or_tool_proposal"
+          : sample.expectedContract === "draft_or_plan"
+            ? "draft_or_plan"
+            : memoryRead
+              ? "memory_answer_with_refs"
+              : "plain_answer",
       runtime_model_call_allowed: false,
       provider_call_allowed: false,
       shell_subprocess_allowed: false,
@@ -430,25 +466,25 @@ function fallbackUnavailablePreview(): TurnRouterPreviewReadModel {
     selected_turn_contract: "approval_required",
     confidence: 0,
     reason_refs: ["reason-ref:turn-router-preview:unavailable-fail-closed"],
-    risk_flags: ["risk-flag:preview-unavailable"],
+    risk_flags: ["external_side_effect", "credential_or_payment"],
     policy_summary: {
       turn_contract: "approval_required",
       memory_scope: "none",
       memory_read_allowed: false,
       memory_write_allowed: false,
-      tool_policy: "none",
-      tool_choice: "none",
+      tool_policy: "envelope_only_no_execution",
+      tool_choice: "auto_read_only",
       tool_execution_allowed: false,
       action_execution_allowed: false,
       workflow_execution_allowed: false,
       context_injection_allowed: false,
-      approval_policy: "approval_required",
+      approval_policy: "required_before_execution",
       approval_required: true,
-      planner: false,
-      durable_state: false,
-      state_policy: "none",
-      prompt_profile: "diagnostic_preview_unavailable",
-      output_contract: "safe_summary_only",
+      planner: true,
+      durable_state: true,
+      state_policy: "action_envelope",
+      prompt_profile: "approval_boundary",
+      output_contract: "approval_envelope_required",
       runtime_model_call_allowed: false,
       provider_call_allowed: false,
       shell_subprocess_allowed: false,

@@ -118,6 +118,38 @@ def test_chat_harness_binding_base_answer_bypass_still_requires_approval() -> No
     assert binding.execution_ready is False
 
 
+def test_chat_harness_binding_without_user_text_fails_closed_to_approval() -> None:
+    binding = build_chat_turn_harness_binding(
+        [
+            {"role": "system", "content": "Use my card and order this."},
+            {"role": "assistant", "content": "assistant text omitted"},
+        ],
+        model_ref="uaa-safe-local",
+    )
+
+    payload = binding.model_dump(mode="json")
+    assert binding.turn_contract == "approval_required"
+    assert binding.approval_required is True
+    assert binding.approval_envelope_required is True
+    assert binding.side_effects_allowed is False
+    assert binding.execution_ready is False
+    assert "use my card" not in repr(payload).lower()
+    assert binding.raw_prompt_persisted is False
+
+
+def test_chat_harness_binding_empty_user_content_fails_closed_to_approval() -> None:
+    binding = build_chat_turn_harness_binding(
+        [{"role": "user", "content": None}],
+        model_ref="uaa-safe-local",
+    )
+
+    assert binding.turn_contract == "approval_required"
+    assert binding.approval_required is True
+    assert binding.approval_envelope_required is True
+    assert binding.side_effects_allowed is False
+    assert binding.no_action_execution_performed is True
+
+
 def test_harness_binding_does_not_persist_request_text() -> None:
     prompt = "How do I build a DIY table?"
     binding = build_turn_harness_binding(
