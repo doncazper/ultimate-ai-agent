@@ -27,10 +27,10 @@ Current route classification summary:
 | `public_metadata` | 3 |
 | `local_readonly` | 26 |
 | `local_sensitive` | 126 |
-| `mutating_requires_authority` | 41 |
+| `mutating_requires_authority` | 42 |
 
-The current OpenAPI path count is `195` and `/api/manifest` currently reports
-`196` route operations after later scoped FCC-V1-003 through
+The current OpenAPI path count is `196` and `/api/manifest` currently reports
+`197` route operations after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
@@ -48,7 +48,8 @@ context-pack preview route, proposal-only patch proposal route, and blocked
 patch apply readiness route, blocked test-command readiness route, blocked Git
 review route, blocked live-preview readiness route, and blocked multi-agent
 review readiness route, plus the backend-owned Work Board Kanban read-model
-route, plus the governed runtime pilot Phase 05 contract,
+route and exact approved persisted reorder route, plus the governed runtime
+pilot Phase 05 contract,
 invocation metadata, approval-ref binding, metadata-only local loopback model
 receipt, exact read-only command status receipt, exact Action Inbox approved
 focused pytest command receipt, blocked receipt, and safe-disable routes, plus

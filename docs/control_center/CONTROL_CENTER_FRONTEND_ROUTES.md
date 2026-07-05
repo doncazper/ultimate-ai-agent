@@ -68,11 +68,13 @@ it adds no generic execute button, connector write, shell/subprocess execution,
 provider/model authority, memory write, context injection, or production
 authority.
 `/work-board` renders the backend-owned Work Board Kanban read model from
-`GET /control-center/work-board`. It shows card, column, proof, evidence,
-blocker, promotion-path, drag/drop posture, and CLI inspection refs with a
-local-only drag/drop and keyboard preview. It does not persist board order,
-create tasks, sync issue trackers, call providers, run shell/browser work,
-write connectors, launch background autonomy, or grant production authority.
+`GET /control-center/work-board` and persists exact approved local reorder
+through `POST /control-center/work-board/reorder`. It shows card, column,
+proof, evidence, blocker, promotion-path, drag/drop posture, reorder receipt
+posture, and CLI inspection refs with local drag/drop and keyboard preview.
+It does not create tasks, sync issue trackers, call providers, run
+shell/browser work, write connectors, launch background autonomy, or grant
+production authority.
 `/crm` renders the backend-owned CRM Local Command Center M2 read model from
 `GET /control-center/crm/summary` and companion CRM read routes. It shows
 relationship refs, follow-up refs, timeline refs, pipeline refs, smart-list

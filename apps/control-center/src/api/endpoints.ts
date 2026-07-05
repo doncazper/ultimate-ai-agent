@@ -29,6 +29,7 @@ export const API_ENDPOINTS = {
   controlCenterCodingMultiAgentReview:
     "/control-center/coding/multi-agent-review",
   controlCenterWorkBoard: "/control-center/work-board",
+  controlCenterWorkBoardReorder: "/control-center/work-board/reorder",
   controlCenterProofIndex: "/control-center/proof/index",
   trustAuthorityMatrix: "/control-center/trust-authority/matrix",
   founderTodayActionEnvelope: "/control-center/today/action-envelope",

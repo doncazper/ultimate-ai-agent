@@ -105,6 +105,20 @@ candidates without granting connector runtime, external CRM writes, sends,
 calendar writes, account sync, provider/model calls, public beta, or
 production authority. Use Prompt 00 in that file for an end-to-end gated run.
 
+## CRM Local Command Center prompts
+
+Stored execution prompts for the CRM Local Command Center live in
+`docs/prompts/crm_local_command_center/`. They sequence UAA-native CRM work from
+product truth and backend-owned read models through local storage, timelines,
+follow-up queues, smart lists, pipeline views, drafts, import/export, reporting,
+connector-read planning, and later sends/writes authority planning. They are
+operator-run prompts, not runtime system prompts, and they do not grant CRM
+connector writes, sends, account sync, provider/model calls, browser automation,
+background autonomy, public release claims, or production authority by
+themselves. Use
+`docs/prompts/crm_local_command_center/00_execute_crm_local_command_center_end_to_end.prompt.md`
+for the end-to-end wrapper.
+
 ## Next capability and product prompts
 
 Stored execution prompts for the next capability/product catch-up sequence live

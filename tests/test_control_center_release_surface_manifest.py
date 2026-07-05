@@ -105,19 +105,21 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         for caveat in by_path["/coding"]["product_language_caveats"]
     )
     assert by_path["/work-board"]["status"] == "partial"
-    assert by_path["/work-board"]["backend_routes"][0]["path"] == (
-        "/control-center/work-board"
-    )
-    assert by_path["/work-board"]["approval_required"] is False
+    work_board_route_paths = {
+        route["path"] for route in by_path["/work-board"]["backend_routes"]
+    }
+    assert "/control-center/work-board" in work_board_route_paths
+    assert "/control-center/work-board/reorder" in work_board_route_paths
+    assert by_path["/work-board"]["approval_required"] is True
     assert by_path["/work-board"]["visual_proof_status"] == "blocked_no_baseline"
     assert by_path["/work-board"]["visual_baseline_ref"] == (
         "visual-baseline:control-center:work-board:not-captured"
     )
-    assert "missing_backend:work-board-durable-mutation-route" in (
+    assert "missing_backend:work-board-durable-mutation-route" not in (
         by_path["/work-board"]["blocked_capabilities"]
     )
     assert any(
-        "local-only preview" in caveat.lower()
+        "exact approved persisted reorder" in caveat.lower()
         for caveat in by_path["/work-board"]["product_language_caveats"]
     )
     assert by_path["/today"]["status"] == "partial"

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `195`.
+Current OpenAPI path count: `196`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -171,10 +171,12 @@ Contract rules:
   refs only.
   `GET /control-center/work-board` exposes the backend-owned Work Board Kanban
   read model with safe card, column, proof, evidence, blocker, promotion-path,
-  drag/drop posture, and CLI inspection refs only. Its Control Center drag/drop
-  and keyboard moves are local preview only and do not persist board order,
-  create tasks, call providers, execute shell/browser work, write connectors, or
-  grant production authority.
+  drag/drop posture, exact approved reorder posture, and CLI inspection refs.
+  `POST /control-center/work-board/reorder` persists one exact approved local
+  order with idempotency, safe refs, receipt refs, rollback/safe-disable
+  posture, and no external side effects. Card creation, task creation, issue
+  tracker sync, provider/model calls, shell/browser work, connector writes, and
+  production authority remain blocked.
   These routes do not write files, apply patches, read or persist raw file
   content, run shell/subprocess commands, execute commands, mutate Git state,
   start or inspect dev servers, persist raw URLs, capture screenshots, read

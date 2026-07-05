@@ -42,8 +42,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 195;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 85;
+export const MOCK_OPENAPI_ROUTE_COUNT = 196;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 86;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -7132,13 +7132,13 @@ export const mockWorkBoard: WorkBoardReadModel = {
   ],
   blocked_lanes: [
     {
-      lane_ref: "blocked-lane:work-board-durable-reorder",
-      label: "Durable board edits",
+      lane_ref: "blocked-lane:work-board-mock-fallback-persistence",
+      label: "Mock fallback persistence",
       safe_summary:
-        "Persisted reorder, create, archive, and assignment require a backend mutation contract.",
+        "This fallback is non-authoritative and cannot persist reorder, create, archive, or assignment state.",
       blocked_authority_refs: [
-        "blocked-state:work-board-no-durable-reorder",
-        "blocked-state:work-board-no-board-mutation",
+        "blocked-state:work-board-mock-fallback-no-persistence",
+        "blocked-state:work-board-no-card-create-archive-assignment",
       ],
       promotion_path_refs: ["prompt-ref:unblock-work-board-durable-edits"],
     },
@@ -7153,19 +7153,26 @@ export const mockWorkBoard: WorkBoardReadModel = {
     backend_mutation_route_available: false,
     receipt_created: false,
     rollback_available: false,
+    mutation_route_ref: "POST /control-center/work-board/reorder",
+    approval_required: true,
+    exact_scope_required: true,
+    idempotency_required: true,
+    safe_disable_refs: ["safe-disable-ref:work-board:durable-reorder"],
+    rollback_refs: ["rollback-ref:work-board:restore-previous-order"],
     blocked_authority_refs: [
-      "blocked-state:work-board-no-durable-reorder",
-      "blocked-state:work-board-no-board-mutation",
+      "blocked-state:work-board-mock-fallback-no-persistence",
+      "blocked-state:work-board-no-card-create-archive-assignment",
     ],
     promotion_path_refs: ["prompt-ref:unblock-work-board-durable-edits"],
   },
   proof_refs: ["proof-ref:work-board-mock-fallback"],
   evidence_refs: ["evidence-ref:work-board-mock-fallback"],
   blocked_authority_refs: [
-    "blocked-state:work-board-no-durable-reorder",
-    "blocked-state:work-board-no-board-mutation",
+    "blocked-state:work-board-mock-fallback-no-persistence",
+    "blocked-state:work-board-no-card-create-archive-assignment",
     "blocked-state:work-board-no-issue-tracker-write",
     "blocked-state:work-board-no-connector-write",
+    "blocked-state:work-board-no-provider-model-call",
     "blocked-state:work-board-no-shell-subprocess",
     "blocked-state:work-board-no-browser-automation",
     "blocked-state:work-board-no-background-autonomy",
@@ -7187,6 +7194,10 @@ export const mockWorkBoard: WorkBoardReadModel = {
   raw_content_included: false,
   board_mutation_enabled: false,
   durable_drag_drop_enabled: false,
+  durable_reorder_persistence_enabled: false,
+  approval_required_for_reorder: true,
+  reorder_route_ref: "POST /control-center/work-board/reorder",
+  latest_reorder_receipt_ref: null,
   issue_tracker_write_enabled: false,
   connector_write_enabled: false,
   shell_subprocess_execution_enabled: false,

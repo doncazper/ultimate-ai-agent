@@ -608,8 +608,15 @@ def validate_dogfood_live_loop_acceptance(
         issues.append("dogfood-live-loop-memory-binding-missing")
     if "trust-lane:local-task-commit" not in parsed.trust_approval_required_lane_refs:
         issues.append("dogfood-live-loop-trust-local-task-posture-missing")
-    if "trust-lane:external-mutations" not in parsed.trust_blocked_lane_refs:
-        issues.append("dogfood-live-loop-trust-blocked-external-mutation-missing")
+    for required_trust_lane in (
+        "trust-lane:connector-write-low-risk",
+        "trust-lane:production-authority-gate",
+    ):
+        if required_trust_lane not in parsed.trust_blocked_lane_refs:
+            issues.append(
+                "dogfood-live-loop-trust-blocked-lane-missing:"
+                f"{required_trust_lane}"
+            )
 
     required_section_refs = {
         "dogfood-live-loop-section:start-here",
@@ -682,9 +689,12 @@ def validate_dogfood_live_loop_acceptance(
                 )
             if (
                 section.section_ref == "dogfood-live-loop-section:trust"
-                and "trust-lane:external-mutations" not in parsed.trust_blocked_lane_refs
+                and "trust-lane:connector-write-low-risk"
+                not in parsed.trust_blocked_lane_refs
             ):
-                issues.append("dogfood-live-loop-section-trust-blocked-ref-missing")
+                issues.append(
+                    "dogfood-live-loop-section-trust-blocked-ref-missing"
+                )
 
     text = json.dumps(read_model, sort_keys=True).lower()
     for fragment in _DENIED_TRUE_FRAGMENTS:

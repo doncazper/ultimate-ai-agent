@@ -128,6 +128,21 @@ validated.
 If a task is docs-only or planning-only, do not add backend routes, Control
 Center controls, dependencies, runtime behavior, or product claims.
 
+## Governed Authority Graduation
+
+High-authority capabilities may move from `blocked` to `approval_required` only
+when they are implemented as exact lanes, not broad flags. A graduated lane must
+define the exact scope, approval binding, safe-disable posture, rollback or
+rollback-readiness posture, idempotency, receipt/proof refs, redaction behavior,
+CLI/API parity, route side-effect classification, and focused verifier coverage.
+
+Graduation of one exact lane does not grant standing authority or general
+capability class access. Control Center may show and initiate exact approved
+lanes, but it still cannot mint authority. Broad booleans such as provider,
+connector, shell, browser, background, or production authority remain false
+unless a separate production-grade policy explicitly proves and governs that
+exact flag.
+
 ## Tests And Verification
 
 Prefer repo-local commands and `.venv/bin/python`:

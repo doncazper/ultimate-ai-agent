@@ -87,7 +87,12 @@ def test_dogfood_live_loop_acceptance_seeds_one_complete_local_loop(
     assert "evidence-ref:founder-loop:local-task-commit" in parsed.evidence_refs
     assert parsed.memory_candidate_refs
     assert "trust-lane:local-task-commit" in parsed.trust_approval_required_lane_refs
-    assert "trust-lane:external-mutations" in parsed.trust_blocked_lane_refs
+    assert "trust-lane:connector-write-low-risk" in (
+        parsed.trust_blocked_lane_refs
+    )
+    assert "trust-lane:production-authority-gate" in (
+        parsed.trust_blocked_lane_refs
+    )
     assert validate_dogfood_live_loop_acceptance(read_model) == []
     assert {
         "dogfood-live-loop-section:start-here",
