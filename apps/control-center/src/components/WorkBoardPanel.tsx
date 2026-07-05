@@ -21,6 +21,7 @@ interface WorkBoardPanelProps {
 
 export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
   const backendOwned =
+    authoritative &&
     board.backend_owned &&
     board.read_only &&
     board.safe_refs_only &&
@@ -246,6 +247,17 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
     setNotice("Durable Work Board mutation remains blocked pending a governed lane.");
   }
 
+  function inspectCard(cardRef: string) {
+    const card = cardsByRef.get(cardRef);
+    setSelectedCardRef(cardRef);
+    setActiveView("proof");
+    setNotice(
+      card
+        ? `${card.title} opened in Proof view with safe refs only.`
+        : "Selected Work Board card opened in Proof view with safe refs only.",
+    );
+  }
+
   return (
     <section
       className="page-section work-board"
@@ -414,8 +426,8 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
           cards={visibleCards}
           columnRefByCardRef={columnRefByCardRef}
           columns={board.columns}
+          inspectCard={inspectCard}
           moveCardByOffset={moveCardByOffset}
-          setSelectedCardRef={setSelectedCardRef}
         />
       ) : (
         <WorkBoardProof
@@ -711,15 +723,15 @@ function WorkBoardList({
   cards,
   columnRefByCardRef,
   columns,
+  inspectCard,
   moveCardByOffset,
-  setSelectedCardRef,
 }: {
   canMoveCardByOffset: (cardRef: string, offset: number) => boolean;
   cards: WorkBoardCardReadModel[];
   columnRefByCardRef: Map<string, string>;
   columns: WorkBoardColumnReadModel[];
+  inspectCard: (cardRef: string) => void;
   moveCardByOffset: (cardRef: string, offset: number) => void;
-  setSelectedCardRef: (cardRef: string) => void;
 }) {
   const columnByRef = new Map(columns.map((column) => [column.column_ref, column]));
   if (cards.length === 0) {
@@ -748,7 +760,7 @@ function WorkBoardList({
           <p>{card.safe_summary}</p>
           <span>{card.priority}</span>
           <span>{card.authority_state.replaceAll("_", " ")}</span>
-          <button onClick={() => setSelectedCardRef(card.card_ref)} type="button">
+          <button onClick={() => inspectCard(card.card_ref)} type="button">
             <NorthStarIcon name="eye" />
             Inspect
           </button>

@@ -2241,7 +2241,23 @@ describe("Web Control Center shell", () => {
       );
       expect(within(actionRow).getByText("Review")).toBeInTheDocument();
       fireEvent.click(within(actionRow).getByRole("button", { name: "Move left" }));
-      expect(within(actionRow).getByText("Doing")).toBeInTheDocument();
+      const movedActionRow = within(board).getByLabelText(
+        "Action Inbox work queue list row",
+      );
+      expect(within(movedActionRow).getByText("Doing")).toBeInTheDocument();
+      fireEvent.click(within(movedActionRow).getByRole("button", { name: "Inspect" }));
+      const proofView = within(board).getByLabelText("Work Board proof view");
+      expect(proofView).toBeInTheDocument();
+      expect(
+        within(proofView).getByRole("heading", {
+          name: "Action Inbox work queue",
+        }),
+      ).toBeInTheDocument();
+      expect(
+        within(board).getByText(
+          /Action Inbox work queue opened in Proof view with safe refs only/i,
+        ),
+      ).toBeInTheDocument();
     } finally {
       view.unmount();
       cleanup();
