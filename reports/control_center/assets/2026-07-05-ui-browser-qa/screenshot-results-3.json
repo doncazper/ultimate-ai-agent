@@ -1,0 +1,40 @@
+[
+  {
+    "route": "/actions",
+    "name": "actions-desktop.png",
+    "ready": true,
+    "facts": {
+      "connection": "backend_degraded",
+      "headings": [
+        "Control Center",
+        "Founder daily loop",
+        "Morning Briefing to Weekly Review",
+        "Daily loop productization",
+        "Operator Run Timeline",
+        "Action Inbox",
+        "Decide what can receive a receipt, keep everything else bounded",
+        "Work queue"
+      ],
+      "path": "/actions"
+    }
+  },
+  {
+    "route": "/trust",
+    "name": "trust-desktop.png",
+    "ready": true,
+    "facts": {
+      "connection": "backend_degraded",
+      "headings": [
+        "Control Center",
+        "Founder daily loop",
+        "Morning Briefing to Weekly Review",
+        "Daily loop productization",
+        "Operator Run Timeline",
+        "Trust",
+        "Earned authority, low friction by default, strict only where consequences justify it.",
+        "Available Now"
+      ],
+      "path": "/trust"
+    }
+  }
+]

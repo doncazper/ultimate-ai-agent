@@ -1,0 +1,40 @@
+[
+  {
+    "route": "/",
+    "name": "overview-desktop.png",
+    "ready": true,
+    "facts": {
+      "connection": "backend_degraded",
+      "headings": [
+        "Control Center",
+        "Dashboard overview",
+        "Control Center",
+        "Foundation Gate",
+        "Runtime readiness",
+        "API boundary",
+        "Operator Loop",
+        "First product loop proof"
+      ],
+      "path": "/"
+    }
+  },
+  {
+    "route": "/start",
+    "name": "start-desktop.png",
+    "ready": true,
+    "facts": {
+      "connection": "backend_degraded",
+      "headings": [
+        "Control Center",
+        "Founder daily loop",
+        "Morning Briefing to Weekly Review",
+        "Daily loop productization",
+        "Operator Run Timeline",
+        "Start Here",
+        "Open the Action Inbox proposal, inspect its run/proof/evidence refs, then review Evidence and Memory before claiming the loop outcome.",
+        "Evidence"
+      ],
+      "path": "/start"
+    }
+  }
+]

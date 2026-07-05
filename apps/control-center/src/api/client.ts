@@ -95,6 +95,7 @@ const API_BASE_POLICY = resolveApiBaseUrl(
   import.meta.env.VITE_UAA_API_BASE_URL,
 );
 export const CONTROL_CENTER_READ_TIMEOUT_MS = 8000;
+export const CONTROL_CENTER_MAX_CONCURRENT_READS = 8;
 const DEFAULT_LOCAL_MODEL_ID = "uaa-llama-cpp-local";
 const CHAT_OPERATOR_CONTRACT_REF =
   "contract-ref:chat-local-operator-surface:v1";
@@ -145,9 +146,49 @@ const REQUIRED_PROVIDER_COST_BLOCKERS = [
 
 let sessionLocalApiBearer: string | null = null;
 
+interface ControlCenterReadLimiter {
+  acquire: () => Promise<void>;
+  release: () => void;
+  reset: () => void;
+}
+
+function createControlCenterReadLimiter(): ControlCenterReadLimiter {
+  let activeReadCount = 0;
+  const pendingReadStarts: Array<() => void> = [];
+  return {
+    async acquire() {
+      if (activeReadCount < CONTROL_CENTER_MAX_CONCURRENT_READS) {
+        activeReadCount += 1;
+        return;
+      }
+      await new Promise<void>((resolve) => {
+        pendingReadStarts.push(resolve);
+      });
+      activeReadCount += 1;
+    },
+    release() {
+      activeReadCount = Math.max(activeReadCount - 1, 0);
+      const next = pendingReadStarts.shift();
+      if (next) {
+        next();
+      }
+    },
+    reset() {
+      activeReadCount = 0;
+      pendingReadStarts.splice(0);
+    },
+  };
+}
+
+const defaultControlCenterReadLimiter = createControlCenterReadLimiter();
+
 export function setLocalApiBearerForSession(value: string | null): void {
   const trimmed = value?.trim() ?? "";
   sessionLocalApiBearer = trimmed.length > 0 ? trimmed : null;
+}
+
+export function resetControlCenterReadLimiterForTests(): void {
+  defaultControlCenterReadLimiter.reset();
 }
 
 function localApiBearerForRequest(): string | null {
@@ -170,33 +211,41 @@ function withLocalApiAuthHeaders(
   };
 }
 
-async function readEnvelope<T>(endpoint: string): Promise<T> {
-  const response = await withReadTimeout(
-    fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
-      headers: withLocalApiAuthHeaders({ Accept: "application/json" }),
-    }),
-    endpoint,
-  );
-  const data = (await response.json()) as ResultEnvelope<T> | T;
-  if (!response.ok) {
-    throw new Error(sanitizeForDisplay(data));
-  }
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    ("ok" in data || "success" in data)
-  ) {
-    const envelope = data as ResultEnvelope<T>;
-    const result = envelope.result ?? envelope.data;
-    const ok = envelope.ok ?? envelope.success;
-    if (!ok || result === undefined) {
-      throw new Error(
-        sanitizeForDisplay(envelope.error?.message ?? "Request failed"),
-      );
+async function readEnvelope<T>(
+  endpoint: string,
+  readLimiter = defaultControlCenterReadLimiter,
+): Promise<T> {
+  await readLimiter.acquire();
+  try {
+    const response = await withReadTimeout(
+      fetch(`${API_BASE_POLICY.baseUrl}${endpoint}`, {
+        headers: withLocalApiAuthHeaders({ Accept: "application/json" }),
+      }),
+      endpoint,
+    );
+    const data = (await response.json()) as ResultEnvelope<T> | T;
+    if (!response.ok) {
+      throw new Error(sanitizeForDisplay(data));
     }
-    return result;
+    if (
+      typeof data === "object" &&
+      data !== null &&
+      ("ok" in data || "success" in data)
+    ) {
+      const envelope = data as ResultEnvelope<T>;
+      const result = envelope.result ?? envelope.data;
+      const ok = envelope.ok ?? envelope.success;
+      if (!ok || result === undefined) {
+        throw new Error(
+          sanitizeForDisplay(envelope.error?.message ?? "Request failed"),
+        );
+      }
+      return result;
+    }
+    return data as T;
+  } finally {
+    readLimiter.release();
   }
-  return data as T;
 }
 
 function withReadTimeout<T>(promise: Promise<T>, endpoint: string): Promise<T> {
@@ -237,100 +286,104 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     );
   }
 
+  const loadReadLimiter = createControlCenterReadLimiter();
+  const read = <T>(endpoint: string): Promise<T> =>
+    readEnvelope<T>(endpoint, loadReadLimiter);
+
   const workBoardSettledPromise = Promise.allSettled([
-    readEnvelope<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard),
+    read<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard),
   ] as const);
   const results = await Promise.allSettled([
-    readEnvelope<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
-    readEnvelope<ControlCenterDashboardSnapshot>(
+    read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
+    read<ControlCenterDashboardSnapshot>(
       API_ENDPOINTS.controlCenterDashboard,
     ),
-    readEnvelope<ControlCenterStatus>(API_ENDPOINTS.controlCenterStatus),
-    readEnvelope<ApiRouteInventory>(API_ENDPOINTS.controlCenterRoutes),
-    readEnvelope<RuntimeReadinessReport>(API_ENDPOINTS.runtimeReadiness),
-    readEnvelope<RuntimeCapabilityMatrix>(
+    read<ControlCenterStatus>(API_ENDPOINTS.controlCenterStatus),
+    read<ApiRouteInventory>(API_ENDPOINTS.controlCenterRoutes),
+    read<RuntimeReadinessReport>(API_ENDPOINTS.runtimeReadiness),
+    read<RuntimeCapabilityMatrix>(
       API_ENDPOINTS.runtimeCapabilityMatrix,
     ),
-    readEnvelope<unknown>(API_ENDPOINTS.setupAssistantSummary),
-    readEnvelope<ProviderCatalog>(API_ENDPOINTS.providerSetupGuide),
-    readEnvelope<ControlCenterSettingsStatus>(
+    read<unknown>(API_ENDPOINTS.setupAssistantSummary),
+    read<ProviderCatalog>(API_ENDPOINTS.providerSetupGuide),
+    read<ControlCenterSettingsStatus>(
       API_ENDPOINTS.controlCenterSettingsStatus,
     ),
-    readEnvelope<ControlCenterLocalModelsStatus>(
+    read<ControlCenterLocalModelsStatus>(
       API_ENDPOINTS.controlCenterLocalModelsStatus,
     ),
-    readEnvelope<FounderLoopTodaySummary>(API_ENDPOINTS.founderTodaySummary),
-    readEnvelope<FounderLoopEvidenceTimelineIndex>(
+    read<FounderLoopTodaySummary>(API_ENDPOINTS.founderTodaySummary),
+    read<FounderLoopEvidenceTimelineIndex>(
       API_ENDPOINTS.founderEvidenceTimeline,
     ),
-    readEnvelope<FounderLoopMemoryReview>(API_ENDPOINTS.founderMemoryReview),
-    readEnvelope<FounderLoopMemoryWorkbench>(
+    read<FounderLoopMemoryReview>(API_ENDPOINTS.founderMemoryReview),
+    read<FounderLoopMemoryWorkbench>(
       API_ENDPOINTS.founderMemoryWorkbench,
     ),
-    readEnvelope<FounderLoopMemoryContextPacks>(
+    read<FounderLoopMemoryContextPacks>(
       API_ENDPOINTS.founderMemoryContextPacks,
     ),
-    readEnvelope<FounderLoopMemoryRetrievalDiagnostics>(
+    read<FounderLoopMemoryRetrievalDiagnostics>(
       API_ENDPOINTS.founderMemoryRetrievalDiagnostics,
     ),
-    readEnvelope<FounderLoopMemoryCitationIntegrity>(
+    read<FounderLoopMemoryCitationIntegrity>(
       API_ENDPOINTS.founderMemoryCitationIntegrity,
     ),
-    readEnvelope<FounderLoopMemoryQualityIssues>(
+    read<FounderLoopMemoryQualityIssues>(
       API_ENDPOINTS.founderMemoryQualityIssues,
     ),
-    readEnvelope<FounderLoopMemoryMaintenanceRuns>(
+    read<FounderLoopMemoryMaintenanceRuns>(
       API_ENDPOINTS.founderMemoryMaintenanceRuns,
     ),
-    readEnvelope<FounderLoopMemoryContextManifest>(
+    read<FounderLoopMemoryContextManifest>(
       API_ENDPOINTS.founderMemoryContextManifest,
     ),
-    readEnvelope<FounderLoopActionsInbox>(API_ENDPOINTS.founderActionsInbox),
-    readEnvelope<FounderLoopMorningBriefing>(
+    read<FounderLoopActionsInbox>(API_ENDPOINTS.founderActionsInbox),
+    read<FounderLoopMorningBriefing>(
       API_ENDPOINTS.founderMorningBriefing,
     ),
-    readEnvelope<FounderLoopSourceReadiness>(
+    read<FounderLoopSourceReadiness>(
       API_ENDPOINTS.founderSourceReadiness,
     ),
-    readEnvelope<FounderLoopStorageStatus>(API_ENDPOINTS.founderStorageStatus),
-    readEnvelope<ControlCenterDashboardSnapshot["approval_summary"]>(
+    read<FounderLoopStorageStatus>(API_ENDPOINTS.founderStorageStatus),
+    read<ControlCenterDashboardSnapshot["approval_summary"]>(
       API_ENDPOINTS.approvalSummary,
     ),
-    readEnvelope<RunAttachedApprovalQueue>(API_ENDPOINTS.approvalQueue),
-    readEnvelope<RunObservabilityReadModel>(API_ENDPOINTS.runObservability),
-    readEnvelope<ControlCenterDashboardSnapshot["runtime_readiness_summary"]>(
+    read<RunAttachedApprovalQueue>(API_ENDPOINTS.approvalQueue),
+    read<RunObservabilityReadModel>(API_ENDPOINTS.runObservability),
+    read<ControlCenterDashboardSnapshot["runtime_readiness_summary"]>(
       API_ENDPOINTS.runtimeReadinessSummary,
     ),
-    readEnvelope<ControlCenterDashboardSnapshot["foundation_gate_summary"]>(
+    read<ControlCenterDashboardSnapshot["foundation_gate_summary"]>(
       API_ENDPOINTS.foundationGateSummary,
     ),
-    readEnvelope<ControlCenterStartHereSummary>(
+    read<ControlCenterStartHereSummary>(
       API_ENDPOINTS.founderStartHereSummary,
     ),
-    readEnvelope<ControlCenterProofIndex>(API_ENDPOINTS.controlCenterProofIndex),
-    readEnvelope<TrustAuthorityMatrix>(API_ENDPOINTS.trustAuthorityMatrix),
-    readEnvelope<CodingCockpitSessionReadModel>(
+    read<ControlCenterProofIndex>(API_ENDPOINTS.controlCenterProofIndex),
+    read<TrustAuthorityMatrix>(API_ENDPOINTS.trustAuthorityMatrix),
+    read<CodingCockpitSessionReadModel>(
       API_ENDPOINTS.controlCenterCodingSession,
     ),
-    readEnvelope<CodingWorkspaceContextReadModel>(
+    read<CodingWorkspaceContextReadModel>(
       API_ENDPOINTS.controlCenterCodingContext,
     ),
-    readEnvelope<CodingPatchProposalReadModel>(
+    read<CodingPatchProposalReadModel>(
       API_ENDPOINTS.controlCenterCodingPatchProposal,
     ),
-    readEnvelope<CodingPatchApplyReadinessReadModel>(
+    read<CodingPatchApplyReadinessReadModel>(
       API_ENDPOINTS.controlCenterCodingPatchApplyReadiness,
     ),
-    readEnvelope<CodingTestCommandReadinessReadModel>(
+    read<CodingTestCommandReadinessReadModel>(
       API_ENDPOINTS.controlCenterCodingTestCommandReadiness,
     ),
-    readEnvelope<CodingGitReviewReadModel>(
+    read<CodingGitReviewReadModel>(
       API_ENDPOINTS.controlCenterCodingGitReview,
     ),
-    readEnvelope<CodingLivePreviewReadModel>(
+    read<CodingLivePreviewReadModel>(
       API_ENDPOINTS.controlCenterCodingLivePreview,
     ),
-    readEnvelope<CodingMultiAgentReviewReadModel>(
+    read<CodingMultiAgentReviewReadModel>(
       API_ENDPOINTS.controlCenterCodingMultiAgentReview,
     ),
   ] as const);

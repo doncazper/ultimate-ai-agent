@@ -1,0 +1,50 @@
+{
+  "paletteCount": 1,
+  "paletteFacts": {
+    "hasDialog": true,
+    "path": "/",
+    "text": [
+      "CC",
+      "Control Center",
+      "Backend degraded; verify refs",
+      "Start Here",
+      "Today",
+      "Source Inbox",
+      "Plans",
+      "Work Board",
+      "Action Inbox",
+      "Proof",
+      "Trust",
+      "Memory",
+      "Evidence",
+      "Settings",
+      "SUPPORTING SURFACES",
+      "Briefing",
+      "CRM",
+      "Trial Packet",
+      "Operator Loop",
+      "Setup",
+      "Chat",
+      "Action Preview",
+      "Runtime",
+      "Foundation Gate",
+      "Overview",
+      "Dashboard",
+      "API Routes",
+      "Differentiators",
+      "Privacy posture",
+      "Private by default",
+      "Kill-switch posture",
+      "Unverified in fallback",
+      "Local-first",
+      "Status + exact backend lanes",
+      "Control Center"
+    ]
+  },
+  "paletteSearchFacts": {
+    "dialogText": "CloseStart HereFounder Loop - partialViewTodayFounder Loop - partialViewSource InboxFounder Loop - partialViewPlansFounder Loop - partialViewWork BoardFounder Loop - partialViewAction InboxFounder Loop - exact route proofViewProofFounder Lo",
+    "hasExecuteButton": true,
+    "hasMemoryResult": true,
+    "path": "/"
+  }
+}

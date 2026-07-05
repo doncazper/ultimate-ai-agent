@@ -1,0 +1,40 @@
+[
+  {
+    "route": "/coding",
+    "name": "coding-desktop.png",
+    "ready": true,
+    "facts": {
+      "connection": "backend_degraded",
+      "headings": [
+        "Control Center",
+        "Coding Cockpit",
+        "Context",
+        "Workflow Timeline",
+        "Diff Preview",
+        "Proof Detail",
+        "Chat",
+        "Terminal Preview"
+      ],
+      "path": "/coding"
+    }
+  },
+  {
+    "route": "/settings",
+    "name": "settings-desktop.png",
+    "ready": true,
+    "facts": {
+      "connection": "backend_degraded",
+      "headings": [
+        "Control Center",
+        "Founder daily loop",
+        "Morning Briefing to Weekly Review",
+        "Daily loop productization",
+        "Operator Run Timeline",
+        "Settings",
+        "Provider Guidance",
+        "Authority posture"
+      ],
+      "path": "/settings"
+    }
+  }
+]

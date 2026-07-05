@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "./components/AppShell";
 import {
   ErrorState,
@@ -16,7 +16,7 @@ import type { BackendConnectionSummary } from "./api/types";
 
 export function App() {
   const state = useControlCenterData();
-  const activePath = useMemo(() => normalizePath(window.location.pathname), []);
+  const activePath = useActivePath();
   const activeSurfaceLabel = useMemo(
     () => getRouteSurfaceLabel(activePath),
     [activePath],
@@ -80,6 +80,70 @@ export function App() {
       {renderRoute(activePath, state.data)}
     </AppShell>
   );
+}
+
+function useActivePath(): string {
+  const [activePath, setActivePath] = useState(() =>
+    normalizePath(window.location.pathname),
+  );
+
+  useEffect(() => {
+    const syncActivePath = () => {
+      setActivePath(normalizePath(window.location.pathname));
+    };
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      ) {
+        return;
+      }
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      const anchor = target.closest("a[href]");
+      if (!(anchor instanceof HTMLAnchorElement)) {
+        return;
+      }
+      if (
+        anchor.target !== "" ||
+        anchor.hasAttribute("download") ||
+        anchor.getAttribute("rel")?.includes("external")
+      ) {
+        return;
+      }
+      const nextUrl = new URL(anchor.href, window.location.href);
+      if (nextUrl.origin !== window.location.origin) {
+        return;
+      }
+
+      event.preventDefault();
+      const nextPath = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+      window.history.pushState({}, "", nextPath);
+      syncActivePath();
+      try {
+        if (!navigator.userAgent.toLowerCase().includes("jsdom")) {
+          window.scrollTo({ top: 0, behavior: "auto" });
+        }
+      } catch {
+        // Older browser hosts may expose navigation without scroll APIs.
+      }
+    };
+
+    window.addEventListener("popstate", syncActivePath);
+    document.addEventListener("click", handleDocumentClick);
+    return () => {
+      window.removeEventListener("popstate", syncActivePath);
+      document.removeEventListener("click", handleDocumentClick);
+    };
+  }, []);
+
+  return activePath;
 }
 
 function ConnectionStatus({ connection }: { connection: BackendConnectionSummary }) {

@@ -1,0 +1,97 @@
+{
+  "wbActions": [
+    "filled search proof",
+    "cleared search",
+    "clicked List",
+    "clicked Proof",
+    "clicked Board",
+    "clicked Add local draft",
+    "clicked Reset preview",
+    "clicked Request persistence lane"
+  ],
+  "wbAfterActions": {
+    "buttons": [
+      {
+        "disabled": false,
+        "name": "Find route or action"
+      },
+      {
+        "disabled": false,
+        "name": "Board"
+      },
+      {
+        "disabled": false,
+        "name": "List"
+      },
+      {
+        "disabled": false,
+        "name": "Proof"
+      },
+      {
+        "disabled": false,
+        "name": "Add local draft"
+      },
+      {
+        "disabled": false,
+        "name": "Reset preview"
+      },
+      {
+        "disabled": false,
+        "name": "Request persistence lane"
+      },
+      {
+        "disabled": false,
+        "name": "All"
+      },
+      {
+        "disabled": false,
+        "name": "Critical"
+      },
+      {
+        "disabled": false,
+        "name": "High"
+      },
+      {
+        "disabled": false,
+        "name": "Medium"
+      },
+      {
+        "disabled": false,
+        "name": "Low"
+      },
+      {
+        "disabled": false,
+        "name": "All"
+      },
+      {
+        "disabled": false,
+        "name": "Read-only"
+      },
+      {
+        "disabled": false,
+        "name": "Proposal"
+      },
+      {
+        "disabled": false,
+        "name": "Blocked"
+      },
+      {
+        "disabled": false,
+        "name": "Keep blocked visible"
+      }
+    ],
+    "headings": [
+      "Control Center",
+      "Work Board",
+      "contract-ref:work-board-kanban-shell:v1",
+      "Setup Assistant hardening",
+      "Durable board edits"
+    ],
+    "path": "/work-board",
+    "textIncludes": {
+      "localOnly": true,
+      "noExecute": true,
+      "persistenceBlocked": true
+    }
+  }
+}

@@ -1,0 +1,17 @@
+[
+  {
+    "context": "",
+    "found": false,
+    "term": "approve all"
+  },
+  {
+    "context": "",
+    "found": false,
+    "term": "standing authority"
+  },
+  {
+    "context": "E_RECEIPT_REFS_REQUIRED PROVIDER_USAGE_CLAIM_REQUIRES_RECEIPT_REFS BLOCKED Web Public web visibility is metadata only; unrestricted fetching and browser execution remain blocked. GET /api/manifest docs/network/WEB_ACCESS_PROVIDER_AUTHORITY_SEQUENCE.md Inspect WebAccessGateway posture before scopin",
+    "found": true,
+    "term": "unrestricted"
+  }
+]

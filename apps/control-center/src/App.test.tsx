@@ -23,12 +23,14 @@ import {
   READ_ENDPOINTS,
 } from "./api/endpoints";
 import {
+  CONTROL_CENTER_MAX_CONCURRENT_READS,
   CONTROL_CENTER_READ_TIMEOUT_MS,
   fetchMemoryReviewDecisionReceipt,
   requestRedactedLocalChatProbe,
   recordChatTurnReceipt,
   recordMemoryFeedback,
   recordMemoryReviewDecision,
+  resetControlCenterReadLimiterForTests,
   setLocalApiBearerForSession,
 } from "./api/client";
 import { EmptyState, ErrorState, LoadingState } from "./components/DataState";
@@ -1859,6 +1861,45 @@ describe("Web Control Center shell", () => {
         view.unmount();
         cleanup();
       }
+    }
+  });
+
+  it("updates the active route when same-origin navigation links are clicked", async () => {
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.controlCenterWorkBoard]: backendOwnedWorkBoardFixture(),
+    });
+    window.history.pushState({}, "", "/");
+    const view = render(<App />);
+
+    try {
+      expect(await screen.findByText("Backend online")).toBeInTheDocument();
+      expect(screen.getByText("Dashboard overview")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("link", { name: "Start Here" }));
+
+      await waitFor(() => {
+        expect(window.location.pathname).toBe("/start");
+      });
+      expect(
+        screen.getByRole("heading", { name: /^Start Here$/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Start Here is partially usable/i),
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("link", { name: "Work Board" }));
+
+      await waitFor(() => {
+        expect(window.location.pathname).toBe("/work-board");
+      });
+      expect(
+        screen.getByRole("heading", { name: /^Work Board$/i }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Backend-owned Work Board")).toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
     }
   });
 
@@ -4034,7 +4075,12 @@ describe("Web Control Center shell", () => {
 
     try {
       expect(screen.getByText("Loading local Action Inbox")).toBeInTheDocument();
-      await advanceControlCenterReadTimeout();
+      const timeoutWaveCount =
+        Math.ceil(READ_ENDPOINTS.length / CONTROL_CENTER_MAX_CONCURRENT_READS) +
+        1;
+      for (let index = 0; index < timeoutWaveCount; index += 1) {
+        await advanceControlCenterReadTimeout();
+      }
       vi.useRealTimers();
 
       expect(
@@ -4073,6 +4119,7 @@ describe("Web Control Center shell", () => {
     } finally {
       view.unmount();
       cleanup();
+      resetControlCenterReadLimiterForTests();
       vi.unstubAllGlobals();
       vi.useRealTimers();
     }
@@ -10894,29 +10941,39 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("keeps backend checking state informational while reads are pending", () => {
+  it("keeps backend checking state informational while reads are pending", async () => {
+    vi.useFakeTimers();
     vi.stubGlobal(
       "fetch",
       vi.fn(() => new Promise(() => undefined)),
     );
     window.history.pushState({}, "", "/dashboard");
-    render(<App />);
+    const view = render(<App />);
 
-    expect(
-      screen
-        .getAllByRole("status")
-        .some((status) =>
-          /checking local backend connection state/i.test(
-            status.textContent ?? "",
+    try {
+      expect(
+        screen
+          .getAllByRole("status")
+          .some((status) =>
+            /checking local backend connection state/i.test(
+              status.textContent ?? "",
+            ),
           ),
-        ),
-    ).toBe(true);
-    expect(
-      screen.queryByRole("button", { name: /execute/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /approve/i }),
-    ).not.toBeInTheDocument();
+      ).toBe(true);
+      expect(
+        screen.queryByRole("button", { name: /execute/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /approve/i }),
+      ).not.toBeInTheDocument();
+
+      await advanceControlCenterReadTimeout();
+    } finally {
+      view.unmount();
+      cleanup();
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
   });
 
   it("renders M15 approval queue as read-only preview-only summaries", async () => {
@@ -13015,6 +13072,44 @@ describe("Web Control Center shell", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Mock fallback active/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps retrying cold local backend fallback until backend reads recover", async () => {
+    let readCycleCount = 0;
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      if (options?.method === "POST") {
+        throw new Error("unexpected preview request");
+      }
+      const urlText = String(url);
+      const endpoint = READ_ENDPOINTS.find((candidate) =>
+        urlText.endsWith(candidate),
+      );
+      if (!endpoint) {
+        throw new Error(`unexpected request ${urlText}`);
+      }
+      if (endpoint === API_ENDPOINTS.controlCenterWorkBoard) {
+        readCycleCount += 1;
+      }
+      if (readCycleCount <= 2) {
+        throw new Error("backend still warming");
+      }
+      return new Response(
+        JSON.stringify(envelopeForReadEndpoint(String(url))),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/dashboard");
+    render(<App />);
+
+    expect(await screen.findByText("Mock fallback active")).toBeInTheDocument();
+    expect(await screen.findByText("Backend online", {}, { timeout: 3000 }))
+      .toBeInTheDocument();
+    expect(screen.queryByText(/Mock fallback active/i)).not.toBeInTheDocument();
+    expect(readCycleCount).toBeGreaterThan(2);
   });
 
   it("renders setup assistant summary from the local backend when available", async () => {

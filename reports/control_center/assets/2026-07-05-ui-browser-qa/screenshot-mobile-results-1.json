@@ -1,0 +1,40 @@
+[
+  {
+    "route": "/",
+    "name": "overview-mobile.png",
+    "ready": true,
+    "facts": {
+      "headings": [
+        "Control Center",
+        "Dashboard overview",
+        "Control Center",
+        "Foundation Gate",
+        "Runtime readiness",
+        "API boundary",
+        "Operator Loop",
+        "First product loop proof"
+      ],
+      "overflowCount": 0,
+      "path": "/"
+    }
+  },
+  {
+    "route": "/work-board",
+    "name": "work-board-mobile.png",
+    "ready": true,
+    "facts": {
+      "headings": [
+        "Control Center",
+        "Work Board",
+        "Setup Assistant hardening",
+        "Action Inbox work queue",
+        "Universal Proof spine",
+        "Kanban Work Board shell",
+        "Daily loop productization",
+        "Trust authority map"
+      ],
+      "overflowCount": 208,
+      "path": "/work-board"
+    }
+  }
+]
