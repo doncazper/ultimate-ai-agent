@@ -35,6 +35,15 @@ def test_default_inspectable_extension_catalog_is_read_only_and_non_callable() -
     assert "plugin_runtime_import" in payload["blocked_capabilities"]
     assert "arbitrary_plugin_execution" in payload["blocked_capabilities"]
     assert "connector_writes" in payload["blocked_capabilities"]
+    assert "doc:goatcitadel-catchup-extensibility-final" in payload["docs_refs"]
+    assert (
+        "doc:goatcitadel-catchup-extensibility-final"
+        in payload["developer_guidance_refs"]
+    )
+    assert (
+        "verifier:goatcitadel-catchup-extensibility-final"
+        in payload["final_hardening_refs"]
+    )
 
     reviewed_entry = payload["entries"][0]
     assert reviewed_entry["provenance"]["provenance_status"] == "reviewed"
@@ -42,12 +51,26 @@ def test_default_inspectable_extension_catalog_is_read_only_and_non_callable() -
     assert all(item["file_ref"].startswith("file-ref:") for item in reviewed_entry["file_hashes"])
     assert reviewed_entry["declared_capabilities"][0]["capability_ref"].startswith("capability:")
     assert reviewed_entry["activation_status"] == "future_scoped"
+    assert reviewed_entry["visibility_status"] == "implemented"
+    assert reviewed_entry["trust_posture"] == "reviewed_metadata"
+    assert reviewed_entry["callable_posture"] == "inspectable_only"
+    assert reviewed_entry["required_grant_refs"] == [
+        "grant-request:extension-metadata-inspection"
+    ]
+    assert reviewed_entry["review_evidence_refs"]
+    assert reviewed_entry["safe_adoption_posture"] == "repo_owned_metadata_only"
+    assert "runtime import" in reviewed_entry["blocked_reason"]
 
     blocked_entry = payload["entries"][1]
     assert blocked_entry["provenance"]["provenance_status"] == "unknown"
     assert blocked_entry["blocked_state"] == "unknown"
     assert blocked_entry["activation_status"] == "blocked"
     assert blocked_entry["blocker_refs"]
+    assert blocked_entry["visibility_status"] == "blocked"
+    assert blocked_entry["trust_posture"] == "unknown_blocked"
+    assert blocked_entry["callable_posture"] == "blocked_runtime"
+    assert blocked_entry["required_grant_refs"] == ["grant-request:unknown-runtime"]
+    assert blocked_entry["safe_adoption_posture"] == "blocked_until_scoped_milestone"
 
 
 @pytest.mark.parametrize(
@@ -128,3 +151,15 @@ def test_inspectable_extension_catalog_schema_pins_disabled_runtime_fields() -> 
     assert schema["properties"]["runtime_import_enabled"]["const"] is False
     assert schema["properties"]["execution_enabled"]["const"] is False
     assert schema["properties"]["connector_writes_enabled"]["const"] is False
+    entry = schema["$defs"]["catalog_entry"]
+    for field in [
+        "visibility_status",
+        "trust_posture",
+        "callable_posture",
+        "required_grant_refs",
+        "blocked_reason",
+        "review_evidence_refs",
+        "safe_adoption_posture",
+    ]:
+        assert field in entry["required"]
+        assert field in entry["properties"]

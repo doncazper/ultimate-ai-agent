@@ -45,6 +45,8 @@ The catalog root includes:
 - `docs_refs`
 - `schema_refs`
 - `safe_summary`
+- `developer_guidance_refs`
+- `final_hardening_refs`
 
 Each catalog entry includes:
 
@@ -59,6 +61,13 @@ Each catalog entry includes:
 | Blocked/unknown state | `blocked`, `unknown`, or `future_scoped` with blocker refs. | Fail closed and keep inactive. |
 | Requested grants | Safe grant request refs and blocked/future-scoped status. | Requested grants do not grant authority. |
 | Audit refs | Safe review refs. | Audit refs are summaries, not raw logs. |
+| Visibility status | Implemented, partial, planned, mock-only, blocked, deprecated, contradicted, or unknown posture. | Visibility is not runtime authority. |
+| Trust posture | Reviewed metadata, unknown blocked, blocked by policy, or future review required. | Trust posture only describes inspectable metadata. |
+| Callable posture | Inspectable only, blocked runtime, or future exact lane required. | No current catalog entry is callable. |
+| Required grant refs | Future grant refs that would be required before runtime behavior. | Required grant refs do not grant authority. |
+| Blocked reason | Operator-readable reason the entry cannot execute. | Reasons must use redacted summaries only. |
+| Review evidence refs | Safe audit and review refs. | Evidence refs do not expose raw logs or package contents. |
+| Safe adoption posture | Repo-owned metadata only, reviewed adaptation required, or blocked until scoped milestone. | Adoption posture is not install or import authority. |
 
 ## Read-Only Route Behavior
 
@@ -133,6 +142,12 @@ UAA-P2-051 adds a strategy/watchlist-only MCP/A2A compatibility document in
 `docs/tooling/MCP_A2A_COMPATIBILITY_WATCHLIST.md`. The catalog does not expose
 MCP/A2A runtime support, connector writes, plugin execution, broad tool
 invocation, or network authority.
+
+UAA GoatCitadel catch-up Phase 09 adds final ecosystem posture fields and CLI
+inspection in `docs/control_center/UAA_GOATCITADEL_CATCHUP_EXTENSIBILITY_FINAL.md`
+and `scripts/dev/uaa_extensions.py inspect-catalog`. This is still read-only
+catalog metadata; plugin runtime import remains blocked, connector writes
+remain blocked, and production authority remains blocked.
 
 ## Known Gaps
 

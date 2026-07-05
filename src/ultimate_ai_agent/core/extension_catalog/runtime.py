@@ -4,12 +4,16 @@ from pathlib import Path
 from ultimate_ai_agent.core.extension_catalog.contracts import (
     ExtensionActivationStatus,
     ExtensionBlockedState,
+    ExtensionCallablePosture,
     ExtensionCapabilityKind,
+    ExtensionCatalogVisibilityStatus,
     ExtensionGrantStatus,
     ExtensionHashStatus,
     ExtensionPackageKind,
     ExtensionProvenanceStatus,
     ExtensionRiskClass,
+    ExtensionSafeAdoptionPosture,
+    ExtensionTrustPosture,
     InspectableExtensionCapability,
     InspectableExtensionCatalog,
     InspectableExtensionCatalogEntry,
@@ -25,6 +29,7 @@ INSPECTABLE_EXTENSION_CATALOG_DOCS = [
     "doc:plugin-skill-ecosystem-boundary",
     "doc:inspectable-extension-catalog",
     "doc:extension-activation-grants",
+    "doc:goatcitadel-catchup-extensibility-final",
 ]
 
 INSPECTABLE_EXTENSION_CATALOG_SCHEMAS = [
@@ -70,6 +75,14 @@ def build_default_inspectable_extension_catalog() -> InspectableExtensionCatalog
         generated_from_ref="boundary:uaa-p2-049",
         docs_refs=list(INSPECTABLE_EXTENSION_CATALOG_DOCS),
         schema_refs=list(INSPECTABLE_EXTENSION_CATALOG_SCHEMAS),
+        developer_guidance_refs=[
+            "doc:plugin-skill-ecosystem-boundary",
+            "doc:goatcitadel-catchup-extensibility-final",
+        ],
+        final_hardening_refs=[
+            "verifier:goatcitadel-catchup-extensibility-final",
+            "scoreboard:uaa-goatcitadel-catchup",
+        ],
         blocked_capabilities=list(EXTENSION_CATALOG_BLOCKED_CAPABILITIES),
         safe_summary=(
             "Read-only extension catalog metadata; packages remain non-callable "
@@ -118,11 +131,31 @@ def build_default_inspectable_extension_catalog() -> InspectableExtensionCatalog
                     )
                 ],
                 risk_class=ExtensionRiskClass.low,
-                requested_grants=[],
+                requested_grants=[
+                    InspectableExtensionRequestedGrant(
+                        grant_ref="grant-request:extension-metadata-inspection",
+                        scope_ref="scope:read-only-inspection",
+                        status=ExtensionGrantStatus.future_scoped,
+                    )
+                ],
                 activation_status=ExtensionActivationStatus.future_scoped,
                 blocked_state=ExtensionBlockedState.future_scoped,
                 blocker_refs=["blocker:runtime-import-not-scoped"],
                 audit_refs=["audit:uaa-p1-024", "audit:uaa-p2-049"],
+                visibility_status=ExtensionCatalogVisibilityStatus.implemented,
+                trust_posture=ExtensionTrustPosture.reviewed_metadata,
+                callable_posture=ExtensionCallablePosture.inspectable_only,
+                required_grant_refs=["grant-request:extension-metadata-inspection"],
+                blocked_reason=(
+                    "Metadata inspection is implemented, but runtime import and "
+                    "callable execution require a later exact authority lane."
+                ),
+                review_evidence_refs=[
+                    "audit:uaa-p1-024",
+                    "audit:uaa-p2-049",
+                    "audit:uaa-p2-050",
+                ],
+                safe_adoption_posture=ExtensionSafeAdoptionPosture.repo_owned_metadata_only,
                 safe_summary=(
                     "Repo-owned boundary metadata is inspectable; it is not "
                     "callable and grants no runtime authority."
@@ -177,6 +210,18 @@ def build_default_inspectable_extension_catalog() -> InspectableExtensionCatalog
                     "blocker:activation-not-approved",
                 ],
                 audit_refs=["audit:uaa-p2-049"],
+                visibility_status=ExtensionCatalogVisibilityStatus.blocked,
+                trust_posture=ExtensionTrustPosture.unknown_blocked,
+                callable_posture=ExtensionCallablePosture.blocked_runtime,
+                required_grant_refs=["grant-request:unknown-runtime"],
+                blocked_reason=(
+                    "Unknown extension candidates lack reviewed provenance, "
+                    "reviewed hashes, and exact activation approval."
+                ),
+                review_evidence_refs=["audit:uaa-p2-049"],
+                safe_adoption_posture=(
+                    ExtensionSafeAdoptionPosture.blocked_until_scoped_milestone
+                ),
                 safe_summary=(
                     "Unknown extension candidates are visible as blocked "
                     "metadata only and cannot become callable."

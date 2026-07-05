@@ -174,8 +174,10 @@ background monitoring, or process control.
 - `GET /extensions/catalog`
 
 This route returns read-only inspectable extension catalog metadata with safe
-refs. It is separate from any callable catalog and does not install, import,
-enable, activate, revoke, execute, fetch, or mutate extensions.
+refs, visibility status, trust posture, callable posture, blocked reasons,
+review evidence refs, and safe adoption posture. It is separate from any
+callable catalog and does not install, import, enable, activate, revoke,
+execute, fetch, or mutate extensions.
 
 ### Mattermost agent rooms
 

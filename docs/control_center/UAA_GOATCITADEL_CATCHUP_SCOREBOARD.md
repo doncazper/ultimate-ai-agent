@@ -1,6 +1,6 @@
 # UAA GoatCitadel Catch-Up Scoreboard
 
-Status: Phase 08 active scoreboard. This document is documentation and verifier
+Status: Phase 09 final catch-up scoreboard. This document is documentation and verifier
 coverage only; it is not runtime authority, does not grant execution authority,
 and does not change Control Center behavior.
 
@@ -39,6 +39,11 @@ UAA evidence inspected:
 - `tests/test_goatcitadel_catchup_evidence_audit.py`
 - `tests/test_goatcitadel_catchup_agent_loop_spine.py`
 - `scripts/verify_uaa_goatcitadel_catchup_cockpit_cli_api.py`
+- `scripts/verify_uaa_goatcitadel_catchup_extensibility_final.py`
+- `scripts/dev/uaa_extensions.py`
+- `src/ultimate_ai_agent/core/extension_catalog/contracts.py`
+- `src/ultimate_ai_agent/core/extension_catalog/runtime.py`
+- `docs/control_center/UAA_GOATCITADEL_CATCHUP_EXTENSIBILITY_FINAL.md`
 - `scripts/verify_uaa_goatcitadel_catchup_action_tool_code_lanes.py`
 - `scripts/verify_uaa_goatcitadel_catchup_memory_learning.py`
 - `scripts/verify_uaa_goatcitadel_catchup_evidence_audit.py`
@@ -88,7 +93,7 @@ model intelligence. Code and tests are weighted above roadmap claims.
 | Safety, security, and failure handling | 9 | implemented | 8 | implemented | UAA | UAA strongly blocks raw payload persistence, broad runtime authority, provider SDK calls, browser automation, shell execution, connector writes, and production claims. GoatCitadel has broad governance but more active runtime surface area. | Keep strict deny-by-default while introducing exact lanes only with rollback/safe-disable and receipts. |
 | UX as an AI cockpit | 6 | partial | 9 | implemented | GoatCitadel | UAA has many backend-owned surfaces but still feels modular. GoatCitadel presents one Work cockpit with Library/Ops/Settings and visual proof. | Productize UAA's Today/Actions/Chat/Proof/Evidence/Memory/Coding/Work Board into one flow. |
 | CLI/API parity | 8 | implemented | 7 | partial | UAA | UAA treats CLI and OpenAPI as first-class truth, with `/api/manifest` and verifier-backed route metadata. GoatCitadel has gateway APIs and contracts but less evidence here from inspected files. | Keep parity as UAA's differentiator while adding cockpit read models. |
-| Extensibility and ecosystem | 6 | partial | 8 | implemented | GoatCitadel | UAA has inspectable extension catalog, trust manifests, activation/revocation records, and runtime import blocked. GoatCitadel has capability packs, add-on policy, skill import trust, and MCP/tool scoping claims. | Borrow catalog/lifecycle clarity without adding plugin runtime import. |
+| Extensibility and ecosystem | 7 | partial | 8 | implemented | GoatCitadel | UAA has inspectable extension catalog, trust manifests, activation/revocation records, Phase 09 operator posture fields, CLI inspection, blocked reasons, safe adoption posture, and runtime import blocked. GoatCitadel has capability packs, add-on policy, skill import trust, and MCP/tool scoping claims. | Add static package review and one exact callable capability lane only after scoped authority exists. |
 | Productized agent loop | 6 | partial | 9 | implemented | GoatCitadel | UAA has a governed Founder Loop across Start, Today, Actions, Proof, Evidence, Memory, and Trust, but many lanes remain partial. GoatCitadel presents a broader input-to-plan-to-action-to-evidence-to-memory loop. | Make the UAA agent loop legible end to end with backend-owned run state and proof details. |
 
 ## Age-Adjusted Interpretation
@@ -125,7 +130,7 @@ tests, and CLI/API/core parity.
 | 5 | Signed portable evidence and same-run lineage detail. | implemented read-model | Evidence/proof core | Evidence audit receipt spine, grouped timeline/read-model, receipt envelopes, missing receipt refs, artifact hash refs, verifier refs, CLI inspection. | External telemetry/export and production compliance claims blocked. | `tests/test_goatcitadel_catchup_evidence_audit.py`, `scripts/verify_uaa_goatcitadel_catchup_evidence_audit.py`, redaction and missing receipt tests. | Phase 06 implemented: Evidence/Audit |
 | 6 | Model/provider/research metadata parity. | implemented read-model | RuntimeGateway/local model core | Provider readiness/catalog metadata, route-decision trace read models, model-output truth posture, and WebAccessGateway external-information posture. | Runtime model calls, provider SDK calls, browser automation, and live web fetching by the control plane blocked. | `tests/test_goatcitadel_catchup_model_provider_research.py`, `scripts/verify_uaa_goatcitadel_catchup_model_provider_research.py`, runtime metadata tests and authority guard verifier. | Phase 07 implemented: Model/Provider/Research |
 | 7 | Cockpit UX parity for Today/Actions/Chat/Proof/Evidence/Memory/Runtime/Coding/Work Board. | implemented read-model/UI parity | Control Center presentation over Python truth | `GET /control-center/agent-loop/thread`, `scripts/dev/uaa_founder_loop.py inspect-cockpit-parity`, and Today UI expose the same backend-owned operator decision matrix. | Browser automation inside UAA blocked; mutation controls stay exact-lane only. | `tests/test_goatcitadel_catchup_agent_loop_spine.py`, `apps/control-center/src/App.test.tsx`, `scripts/verify_uaa_goatcitadel_catchup_cockpit_cli_api.py`, frontend checks. | Phase 08 implemented: Cockpit/CLI/API |
-| 8 | Extension ecosystem clarity. | partial to partial-plus | Extension catalog core | Inspectable catalog, grant records, trust statuses; no runtime import. | Connector writes and plugin runtime import blocked. | Extension catalog tests and static guardrails. | Phase 09: Extensibility |
+| 8 | Extension ecosystem clarity. | implemented read-model/CLI hardening | Extension catalog core | Inspectable catalog, grant records, trust statuses, callable posture, required grant refs, blocked reasons, review evidence refs, safe adoption posture, and CLI inspection. | Connector writes, callable catalog, plugin runtime import, remote execution, public release claims, production authority, and broad autonomy blocked. | `tests/test_goatcitadel_catchup_extensibility_final.py`, `tests/test_inspectable_extension_catalog.py`, `scripts/verify_uaa_goatcitadel_catchup_extensibility_final.py`, documentation/product truth/verifier gates. | Phase 09 implemented: Extensibility Final |
 
 ## GoatCitadel Patterns Borrowed As UAA-Native Designs
 
@@ -322,6 +327,31 @@ automation inside UAA, connector writes, unrestricted shell/subprocess
 execution, plugin runtime import, broad memory writes, background autonomy,
 public release claims, production authority, and broad action execution remain
 blocked.
+
+## Phase 09 Evidence
+
+Phase 09 is implemented as a repo-safe extensibility ecosystem final hardening
+slice. It adds
+`docs/control_center/UAA_GOATCITADEL_CATCHUP_EXTENSIBILITY_FINAL.md`, explicit
+operator posture fields on the existing
+`uaa_inspectable_extension_catalog.v1` read model, CLI command
+`scripts/dev/uaa_extensions.py inspect-catalog`, and focused tests/verifier
+coverage in `tests/test_goatcitadel_catchup_extensibility_final.py` and
+`scripts/verify_uaa_goatcitadel_catchup_extensibility_final.py`.
+
+The existing `GET /extensions/catalog` route remains read-only and now gives
+operators visibility status, trust posture, callable posture, required grant
+refs, blocked reason, review evidence refs, and safe adoption posture. The
+route and CLI use safe refs and redacted summaries only. Visibility is
+separate from callability: callable catalog behavior, plugin runtime import,
+skill runtime import, connector writes, live web fetching, browser automation,
+arbitrary shell/subprocess execution, provider/model calls, remote execution,
+public release claims, production authority, and broad autonomy remain blocked.
+Plugin runtime import remains blocked. Connector writes remain blocked.
+Production authority remains blocked.
+
+The final 30-day plan is ranked by impact, effort, risk, and authority needed
+in `docs/control_center/UAA_GOATCITADEL_CATCHUP_EXTENSIBILITY_FINAL.md`.
 
 ## Merge-Gated Follow-Up Prompts
 
