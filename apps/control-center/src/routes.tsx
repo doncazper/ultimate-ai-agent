@@ -53,6 +53,7 @@ import {
   RemoteWorkerSummaryPanel,
 } from "./components/SummaryPanels";
 import { TrustAuthorityPanel } from "./components/TrustAuthorityPanel";
+import { WorkBoardPanel } from "./components/WorkBoardPanel";
 
 export type NavGroup =
   | "Founder Loop"
@@ -88,6 +89,7 @@ export const navItems: NavItem[] = [
   { path: "/today", label: "Today", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "primary" },
   { path: "/inbox", label: "Source Inbox", group: "Founder Loop", status: "supporting source readiness", releaseStatus: "partial", role: "primary" },
   { path: "/plans", label: "Plans", group: "Founder Loop", status: "partial", releaseStatus: "partial", role: "primary" },
+  { path: "/work-board", label: "Work Board", group: "Founder Loop", status: "backend-owned kanban", releaseStatus: "partial", role: "primary" },
   { path: "/actions", label: "Action Inbox", group: "Founder Loop", status: "storage-backed", releaseStatus: "ship", role: "primary" },
   { path: "/proof", label: "Proof", group: "Founder Loop", status: "backend-owned proof detail", releaseStatus: "partial", role: "primary" },
   { path: "/trust", label: "Trust", group: "Founder Loop", status: "authority map", releaseStatus: "partial", role: "primary" },
@@ -502,6 +504,13 @@ export function renderRoute(path: string, data: ControlCenterData) {
           />
           <PlansOperatorPanel data={data} />
         </>
+      );
+    case "/work-board":
+      return (
+        <WorkBoardPanel
+          authoritative={isAuthoritativeConnection(data)}
+          board={data.workBoard}
+        />
       );
     case "/models":
       return <ModelsOperatorPanel data={data} />;

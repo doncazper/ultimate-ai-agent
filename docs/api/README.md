@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `187`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `188` route
+Current OpenAPI path count: `188`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `189` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview adds one no-effect diagnostic route.
@@ -184,6 +184,11 @@ Current boundary summary:
   summaries and Chat receipt/handoff refs with safe refs and bounded summaries
   only. They do not grant action execution, connector writes, provider calls,
   memory writes, email/calendar reads, or notification delivery.
+- `GET /control-center/work-board` exposes the Work Board Kanban cockpit read
+  model with backend-owned safe refs, local-only drag/drop preview posture,
+  blocked durable mutation refs, and CLI inspection refs. It does not persist
+  board order, create tasks, execute work, write connectors, call providers, run
+  shell/browser automation, or grant production authority.
 - Route metadata must keep side-effect classes and public/protected route
   classification explicit.
 

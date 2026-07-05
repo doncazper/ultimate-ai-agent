@@ -573,6 +573,7 @@ CONTROL_CENTER_LOCAL_STATE_PREFIXES = (
     "/control-center/morning-briefing",
     "/control-center/sources",
     "/control-center/storage",
+    "/control-center/work-board",
 )
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
 PUBLIC_METADATA_PATHS = {"/api/manifest", "/health", "/version"}

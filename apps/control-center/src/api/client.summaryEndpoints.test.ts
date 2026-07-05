@@ -242,6 +242,29 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       "Coding backend read models were unavailable or unsafe",
     );
   });
+
+  it("marks missing Work Board route as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.controlCenterWorkBoard];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.workBoard.backend_owned).toBe(false);
+    expect(data.workBoard.non_authoritative_mock_fallback).toBe(true);
+    expect(data.workBoard.board_mutation_enabled).toBe(false);
+    expect(data.workBoard.durable_drag_drop_enabled).toBe(false);
+    expect(data.routeStates["/work-board"].state).toBe("mock_fallback");
+    expect(data.routeStates["/work-board"].backendRouteRefs).toContain(
+      "GET /control-center/work-board",
+    );
+    expect(data.routeStates["/work-board"].warningRefs).toContain(
+      "WORK_BOARD_MOCK_FALLBACK",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain("WORK_BOARD_MOCK_FALLBACK");
+  });
 });
 
 function baseRouteData(): Record<string, unknown> {
@@ -521,6 +544,34 @@ function baseRouteData(): Record<string, unknown> {
     connector_write_enabled: false,
     production_authority_enabled: false,
   };
+  const backendOwnedWorkBoard = {
+    ...mockControlCenterData.workBoard,
+    board_ref: "work-board:summary-endpoint-test",
+    source_label: "python_core_work_board_read_model",
+    backend_owned: true,
+    read_only: true,
+    safe_refs_only: true,
+    non_authoritative_mock_fallback: false,
+    raw_paths_included: false,
+    raw_content_included: false,
+    board_mutation_enabled: false,
+    durable_drag_drop_enabled: false,
+    issue_tracker_write_enabled: false,
+    connector_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    browser_automation_enabled: false,
+    background_autonomy_enabled: false,
+    production_authority_enabled: false,
+    drag_drop_posture: {
+      ...mockControlCenterData.workBoard.drag_drop_posture,
+      local_preview_enabled: true,
+      keyboard_reorder_preview_enabled: true,
+      durable_reorder_enabled: false,
+      backend_mutation_route_available: false,
+      receipt_created: false,
+      rollback_available: false,
+    },
+  };
   return {
     [API_ENDPOINTS.controlCenterManifest]: mockControlCenterData.manifest,
     [API_ENDPOINTS.controlCenterDashboard]: mockControlCenterData.dashboard,
@@ -553,6 +604,7 @@ function baseRouteData(): Record<string, unknown> {
       backendOwnedCodingLivePreview,
     [API_ENDPOINTS.controlCenterCodingMultiAgentReview]:
       backendOwnedCodingMultiAgentReview,
+    [API_ENDPOINTS.controlCenterWorkBoard]: backendOwnedWorkBoard,
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:

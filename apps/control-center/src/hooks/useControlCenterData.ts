@@ -12,10 +12,22 @@ export function useControlCenterData(): LoadState {
 
   useEffect(() => {
     let active = true;
+    let retryTimeout: ReturnType<typeof setTimeout> | undefined;
     loadControlCenterData()
       .then((data) => {
         if (active) {
           setState({ status: "ready", data, error: null });
+        }
+        if (active && shouldRetryMockFallback(data)) {
+          retryTimeout = setTimeout(() => {
+            loadControlCenterData()
+              .then((retryData) => {
+                if (active && !shouldRetryMockFallback(retryData)) {
+                  setState({ status: "ready", data: retryData, error: null });
+                }
+              })
+              .catch(() => undefined);
+          }, 50);
         }
       })
       .catch(() => {
@@ -30,8 +42,18 @@ export function useControlCenterData(): LoadState {
       });
     return () => {
       active = false;
+      if (retryTimeout !== undefined) {
+        clearTimeout(retryTimeout);
+      }
     };
   }, []);
 
   return state;
+}
+
+function shouldRetryMockFallback(data: ControlCenterData): boolean {
+  return (
+    data.connection.state === "mock_fallback" &&
+    data.connection.warnings.includes("LOCAL_BACKEND_UNAVAILABLE")
+  );
 }

@@ -36,12 +36,13 @@ import type {
   RunAttachedApprovalQueue,
   RunObservabilityReadModel,
   TrustAuthorityMatrix,
+  WorkBoardReadModel,
 } from "../api/types";
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 187;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 77;
+export const MOCK_OPENAPI_ROUTE_COUNT = 188;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 78;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -6682,6 +6683,252 @@ function mockRouteState(
   };
 }
 
+export const mockWorkBoard: WorkBoardReadModel = {
+  schema_version: "uaa-work-board-read-model.v1",
+  contract_ref: "contract-ref:work-board-kanban-shell:v1",
+  board_ref: "work-board:mock-fallback-kanban",
+  route_ref: "route-ref:control-center-work-board",
+  backend_route_refs: ["GET /control-center/work-board"],
+  frontend_route_refs: ["/work-board"],
+  cli_inspection_refs: ["scripts/dev/uaa_work_board.py inspect-board"],
+  docs_refs: [
+    "docs-ref:founder-command-center-board",
+    "docs-ref:current-kanban-board",
+    "docs-ref:control-center-frontend-routes",
+  ],
+  source_label: "mock_fallback_non_authoritative",
+  status: "backend_owned_read_model",
+  title: "Work Board",
+  safe_summary:
+    "Non-authoritative mock fallback Work Board. Use only for visual review until the local backend route returns.",
+  northstar_ref: "northstar-ref:uaa-local-first-kanban-cockpit",
+  repo_safe_scope:
+    "Mock fallback can render layout, filters, and local drag preview only; it is not durable workflow truth.",
+  full_strength_goal:
+    "A real operator Work Board where plans, actions, receipts, proof, agents, Git, and releases coordinate through governed lanes.",
+  columns: [
+    {
+      column_ref: "work-board-column:triage",
+      label: "Triage",
+      status: "planned",
+      safe_summary: "Mock triage lane with safe refs only.",
+      card_refs: ["work-board-card:mock-setup-assistant"],
+      wip_limit: 6,
+      blocked_authority_refs: [],
+    },
+    {
+      column_ref: "work-board-column:ready",
+      label: "Ready",
+      status: "planned",
+      safe_summary: "Mock ready lane with safe refs only.",
+      card_refs: [
+        "work-board-card:mock-action-inbox",
+        "work-board-card:mock-proof-spine",
+      ],
+      wip_limit: 5,
+      blocked_authority_refs: [],
+    },
+    {
+      column_ref: "work-board-column:doing",
+      label: "Doing",
+      status: "in_progress",
+      safe_summary: "Mock active lane with safe refs only.",
+      card_refs: ["work-board-card:mock-work-board"],
+      wip_limit: 3,
+      blocked_authority_refs: [],
+    },
+    {
+      column_ref: "work-board-column:review",
+      label: "Review",
+      status: "review",
+      safe_summary: "Mock review lane with proof refs only.",
+      card_refs: [],
+      wip_limit: 4,
+      blocked_authority_refs: [],
+    },
+    {
+      column_ref: "work-board-column:blocked",
+      label: "Blocked",
+      status: "blocked",
+      safe_summary: "Mock blocked lane keeps ungraduated authority visible.",
+      card_refs: ["work-board-card:mock-external-sync"],
+      wip_limit: 8,
+      blocked_authority_refs: [
+        "blocked-state:work-board-no-connector-write",
+        "blocked-state:work-board-no-background-autonomy",
+      ],
+    },
+    {
+      column_ref: "work-board-column:done",
+      label: "Done",
+      status: "done",
+      safe_summary: "Mock done lane with proof refs only.",
+      card_refs: ["work-board-card:mock-coding-cockpit"],
+      wip_limit: 8,
+      blocked_authority_refs: [],
+    },
+  ],
+  cards: [
+    mockWorkBoardCard(
+      "work-board-card:mock-setup-assistant",
+      "Setup Assistant hardening",
+      "work-board-column:triage",
+      "Clarify first-run local setup without installer side effects.",
+      "high",
+      "proposal_only",
+      "Queued",
+      ["setup", "local-first"],
+    ),
+    mockWorkBoardCard(
+      "work-board-card:mock-action-inbox",
+      "Action Inbox work queue",
+      "work-board-column:ready",
+      "Show exact work, approval posture, receipts, and proof refs.",
+      "critical",
+      "enabled_read_only",
+      "Ready",
+      ["actions", "approvals"],
+    ),
+    mockWorkBoardCard(
+      "work-board-card:mock-proof-spine",
+      "Universal Proof spine",
+      "work-board-column:ready",
+      "Bind actions, evidence, receipts, memory, and setup events.",
+      "critical",
+      "enabled_read_only",
+      "Ready",
+      ["proof", "receipts"],
+    ),
+    mockWorkBoardCard(
+      "work-board-card:mock-work-board",
+      "Kanban Work Board shell",
+      "work-board-column:doing",
+      "Render the Work Board as a real cockpit from backend read-model truth.",
+      "critical",
+      "enabled_read_only",
+      "In progress",
+      ["kanban", "control-center"],
+    ),
+    mockWorkBoardCard(
+      "work-board-card:mock-external-sync",
+      "External sync",
+      "work-board-column:blocked",
+      "Connector writes and external issue sync remain blocked.",
+      "medium",
+      "blocked",
+      "Blocked",
+      ["blocked", "connectors"],
+      ["blocked-state:work-board-no-connector-write"],
+    ),
+    mockWorkBoardCard(
+      "work-board-card:mock-coding-cockpit",
+      "Coding Cockpit shell",
+      "work-board-column:done",
+      "Read-only Coding cockpit baseline with proof refs.",
+      "high",
+      "enabled_read_only",
+      "Merged",
+      ["coding", "cockpit"],
+    ),
+  ],
+  blocked_lanes: [
+    {
+      lane_ref: "blocked-lane:work-board-durable-reorder",
+      label: "Durable board edits",
+      safe_summary:
+        "Persisted reorder, create, archive, and assignment require a backend mutation contract.",
+      blocked_authority_refs: [
+        "blocked-state:work-board-no-durable-reorder",
+        "blocked-state:work-board-no-board-mutation",
+      ],
+      promotion_path_refs: ["prompt-ref:unblock-work-board-durable-edits"],
+    },
+  ],
+  drag_drop_posture: {
+    posture_ref: "drag-drop-posture:work-board-local-preview-only",
+    safe_summary:
+      "Drag and keyboard moves are local preview only; mock fallback never persists board order.",
+    local_preview_enabled: true,
+    keyboard_reorder_preview_enabled: true,
+    durable_reorder_enabled: false,
+    backend_mutation_route_available: false,
+    receipt_created: false,
+    rollback_available: false,
+    blocked_authority_refs: [
+      "blocked-state:work-board-no-durable-reorder",
+      "blocked-state:work-board-no-board-mutation",
+    ],
+    promotion_path_refs: ["prompt-ref:unblock-work-board-durable-edits"],
+  },
+  proof_refs: ["proof-ref:work-board-mock-fallback"],
+  evidence_refs: ["evidence-ref:work-board-mock-fallback"],
+  blocked_authority_refs: [
+    "blocked-state:work-board-no-durable-reorder",
+    "blocked-state:work-board-no-board-mutation",
+    "blocked-state:work-board-no-issue-tracker-write",
+    "blocked-state:work-board-no-connector-write",
+    "blocked-state:work-board-no-shell-subprocess",
+    "blocked-state:work-board-no-browser-automation",
+    "blocked-state:work-board-no-background-autonomy",
+    "blocked-state:work-board-no-production-authority",
+  ],
+  promotion_path_refs: ["prompt-ref:unblock-work-board-durable-edits"],
+  redactions_applied: [
+    "redaction-ref:safe-refs-only",
+    "redaction-ref:raw-paths-omitted",
+    "redaction-ref:raw-content-omitted",
+  ],
+  next_safe_action:
+    "Start the local backend and inspect scripts/dev/uaa_work_board.py inspect-board before relying on this board.",
+  backend_owned: false,
+  read_only: true,
+  safe_refs_only: true,
+  non_authoritative_mock_fallback: true,
+  raw_paths_included: false,
+  raw_content_included: false,
+  board_mutation_enabled: false,
+  durable_drag_drop_enabled: false,
+  issue_tracker_write_enabled: false,
+  connector_write_enabled: false,
+  shell_subprocess_execution_enabled: false,
+  browser_automation_enabled: false,
+  background_autonomy_enabled: false,
+  production_authority_enabled: false,
+};
+
+function mockWorkBoardCard(
+  card_ref: string,
+  title: string,
+  column_ref: string,
+  safe_summary: string,
+  priority: WorkBoardReadModel["cards"][number]["priority"],
+  authority_state: WorkBoardReadModel["cards"][number]["authority_state"],
+  progress_label: string,
+  tags: string[],
+  blocker_refs: string[] = [],
+): WorkBoardReadModel["cards"][number] {
+  return {
+    card_ref,
+    title,
+    safe_summary,
+    column_ref,
+    priority,
+    authority_state,
+    owner_ref: "owner-ref:mock-work-board",
+    progress_label,
+    proof_refs: ["proof-ref:work-board-mock-fallback"],
+    evidence_refs: ["evidence-ref:work-board-mock-fallback"],
+    blocker_refs,
+    surface_refs: ["route-ref:control-center-work-board"],
+    cli_inspection_refs: ["scripts/dev/uaa_work_board.py inspect-board"],
+    tags,
+    raw_path_included: false,
+    raw_content_included: false,
+    mutation_enabled: false,
+    drag_persistence_enabled: false,
+  };
+}
+
 export const mockControlCenterData: ControlCenterData = {
   source: "mock",
   connection: {
@@ -6701,6 +6948,7 @@ export const mockControlCenterData: ControlCenterData = {
     "/proof": mockRouteState("Proof", "/proof", "GET /control-center/proof/index"),
     "/trust": mockRouteState("Trust", "/trust", "GET /control-center/trust-authority/matrix"),
     "/coding": mockRouteState("Coding", "/coding", "GET /control-center/coding/session"),
+    "/work-board": mockRouteState("Work Board", "/work-board", "GET /control-center/work-board"),
     "/memory": mockRouteState("Memory", "/memory", "GET /control-center/memory/review"),
     "/evidence": mockRouteState("Evidence", "/evidence", "GET /control-center/evidence/timeline"),
     "/settings": mockRouteState("Settings", "/settings", "GET /control-center/settings/status"),
@@ -9109,6 +9357,7 @@ export const mockControlCenterData: ControlCenterData = {
   codingGitReview: mockCodingGitReview,
   codingLivePreview: mockCodingLivePreview,
   codingMultiAgentReview: mockCodingMultiAgentReview,
+  workBoard: mockWorkBoard,
   founderToday: {
     schema_version: "founder_loop_storage.v1",
     status: "mock_storage_backed_partial_loop",

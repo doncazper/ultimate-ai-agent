@@ -10,6 +10,7 @@ from ultimate_ai_agent.core.control_center import (
     ControlCenterActionPreviewRequest,
     build_control_center_dashboard,
     build_control_center_manifest,
+    build_work_board_read_model,
     preview_control_center_action,
 )
 from ultimate_ai_agent.core.control_center.operational_status import (
@@ -228,6 +229,20 @@ def get_control_center_routes(request: Request) -> ResultEnvelope:
             "routes": control_center_routes,
             "read_only_preview_only": True,
         },
+    )
+
+
+@router.get("/work-board", response_model=ResultEnvelope)
+def get_control_center_work_board() -> ResultEnvelope:
+    board = build_work_board_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_work_board",
+        service="ControlCenterWorkBoardAPI",
+        trace_id=board.board_ref,
+        data=board.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:work-board-read-model"}],
+        redactions_applied=board.redactions_applied,
     )
 
 

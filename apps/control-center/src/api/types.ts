@@ -971,6 +971,114 @@ export interface CodingMultiAgentReviewReadModel {
   production_authority_enabled: boolean;
 }
 
+export type WorkBoardColumnStatus =
+  | "planned"
+  | "in_progress"
+  | "review"
+  | "blocked"
+  | "done";
+
+export type WorkBoardCardPriority = "critical" | "high" | "medium" | "low";
+
+export type WorkBoardCardAuthorityState =
+  | "enabled_read_only"
+  | "proposal_only"
+  | "blocked";
+
+export interface WorkBoardBlockedLaneReadModel {
+  lane_ref: string;
+  label: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+}
+
+export interface WorkBoardCardReadModel {
+  card_ref: string;
+  title: string;
+  safe_summary: string;
+  column_ref: string;
+  priority: WorkBoardCardPriority;
+  authority_state: WorkBoardCardAuthorityState;
+  owner_ref: string;
+  progress_label: string;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocker_refs: string[];
+  surface_refs: string[];
+  cli_inspection_refs: string[];
+  tags: string[];
+  raw_path_included: boolean;
+  raw_content_included: boolean;
+  mutation_enabled: boolean;
+  drag_persistence_enabled: boolean;
+}
+
+export interface WorkBoardColumnReadModel {
+  column_ref: string;
+  label: string;
+  status: WorkBoardColumnStatus;
+  safe_summary: string;
+  card_refs: string[];
+  wip_limit: number;
+  blocked_authority_refs: string[];
+}
+
+export interface WorkBoardDragDropPostureReadModel {
+  posture_ref: string;
+  safe_summary: string;
+  local_preview_enabled: boolean;
+  keyboard_reorder_preview_enabled: boolean;
+  durable_reorder_enabled: boolean;
+  backend_mutation_route_available: boolean;
+  receipt_created: boolean;
+  rollback_available: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+}
+
+export interface WorkBoardReadModel {
+  schema_version: "uaa-work-board-read-model.v1";
+  contract_ref: string;
+  board_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  source_label: string;
+  status: "backend_owned_read_model";
+  title: string;
+  safe_summary: string;
+  northstar_ref: string;
+  repo_safe_scope: string;
+  full_strength_goal: string;
+  columns: WorkBoardColumnReadModel[];
+  cards: WorkBoardCardReadModel[];
+  blocked_lanes: WorkBoardBlockedLaneReadModel[];
+  drag_drop_posture: WorkBoardDragDropPostureReadModel;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  safe_refs_only: boolean;
+  non_authoritative_mock_fallback: boolean;
+  raw_paths_included: boolean;
+  raw_content_included: boolean;
+  board_mutation_enabled: boolean;
+  durable_drag_drop_enabled: boolean;
+  issue_tracker_write_enabled: boolean;
+  connector_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_automation_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface RuntimeReadinessSummary {
   status: string;
   production_ready: boolean;
@@ -8219,6 +8327,7 @@ export interface ControlCenterData {
   codingGitReview: CodingGitReviewReadModel;
   codingLivePreview: CodingLivePreviewReadModel;
   codingMultiAgentReview: CodingMultiAgentReviewReadModel;
+  workBoard: WorkBoardReadModel;
   founderEvidenceTimeline: FounderLoopEvidenceTimelineIndex;
   founderMemoryReview: FounderLoopMemoryReview;
   founderMemoryWorkbench: FounderLoopMemoryWorkbench;

@@ -75,6 +75,7 @@ import type {
   CodingTestCommandReadinessReadModel,
   WebEvidenceProductSliceReceipt,
   WebEvidenceProductSliceRequest,
+  WorkBoardReadModel,
 } from "./types";
 import { resolveApiBaseUrl } from "./baseUrl";
 import {
@@ -236,6 +237,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     );
   }
 
+  const workBoardSettledPromise = Promise.allSettled([
+    readEnvelope<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard),
+  ] as const);
   const results = await Promise.allSettled([
     readEnvelope<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     readEnvelope<ControlCenterDashboardSnapshot>(
@@ -330,6 +334,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.controlCenterCodingMultiAgentReview,
     ),
   ] as const);
+  const workBoardResult = await workBoardSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -377,6 +382,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const codingGitReview = fulfilledValue(results[37]);
   const codingLivePreview = fulfilledValue(results[38]);
   const codingMultiAgentReview = fulfilledValue(results[39]);
+  const workBoard = fulfilledValue(workBoardResult[0]);
   const safeCodingMultiAgentReview = isSafeCodingMultiAgentReview(
     codingMultiAgentReview,
   )
@@ -476,6 +482,17 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ? ["CODING_MULTI_AGENT_REVIEW_MOCK_FALLBACK"]
       : []),
   ];
+  const workBoardFallbackUsed =
+    workBoard === undefined ||
+    workBoard.backend_owned !== true ||
+    workBoard.read_only !== true ||
+    workBoard.safe_refs_only !== true ||
+    workBoard.board_mutation_enabled !== false ||
+    workBoard.durable_drag_drop_enabled !== false ||
+    workBoard.drag_drop_posture?.durable_reorder_enabled !== false;
+  const workBoardEndpointFallbackWarningRefs = [
+    ...(workBoardFallbackUsed ? ["WORK_BOARD_MOCK_FALLBACK"] : []),
+  ];
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -560,6 +577,14 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         codingLivePreview.status_only !== true ||
         codingLivePreview.safe_refs_only !== true ||
         safeCodingMultiAgentReview === undefined,
+    }),
+    routeReadStateInput({
+      route: "/work-board",
+      surfaceLabel: "Work Board",
+      backendRouteRef: "GET /control-center/work-board",
+      endpointReturned: workBoard !== undefined,
+      warningRefs: workBoardEndpointFallbackWarningRefs,
+      usedFallback: workBoardFallbackUsed,
     }),
     routeReadStateInput({
       route: "/memory",
@@ -668,14 +693,18 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingGitReview === undefined ||
     codingLivePreview === undefined ||
     codingMultiAgentReview === undefined ||
+    workBoard === undefined ||
     setupAssistantSource === undefined ||
     providerCatalog === undefined ||
     controlCenterSettingsStatus === undefined ||
     controlCenterLocalModelsStatus === undefined ||
     founderStorageStatus === undefined;
-  const fulfilledCount = results.filter(
+  const coreFulfilledCount = results.filter(
     (result) => result.status === "fulfilled",
   ).length;
+  const fulfilledCount =
+    coreFulfilledCount + (workBoardResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 1;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -711,6 +740,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         codingLivePreview: mockControlCenterData.codingLivePreview,
         codingMultiAgentReview:
           mockControlCenterData.codingMultiAgentReview,
+        workBoard: mockControlCenterData.workBoard,
       },
       {
         state: "mock_fallback",
@@ -766,6 +796,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       codingLivePreview ?? mockControlCenterData.codingLivePreview,
     codingMultiAgentReview:
       safeCodingMultiAgentReview ?? mockControlCenterData.codingMultiAgentReview,
+    workBoard: workBoardFallbackUsed ? mockControlCenterData.workBoard : workBoard,
     founderEvidenceTimeline: normalizedFounderEvidenceTimeline.value,
     founderMemoryReview: normalizedFounderMemoryReview.value,
     founderMemoryWorkbench: normalizedFounderMemoryWorkbench.value,
@@ -788,12 +819,13 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   };
 
   if (
-    fulfilledCount === results.length &&
+    fulfilledCount === expectedReadCount &&
     !founderLoopFieldFallbackUsed &&
     !normalizedFounderStartHere.usedFallback &&
     !normalizedProofIndex.usedFallback &&
     !normalizedTrustAuthorityMatrix.usedFallback &&
     !codingSessionFallbackUsed &&
+    !workBoardFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
     !dashboardSummaryEndpointFallbackUsed
@@ -814,6 +846,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedProofIndex.usedFallback ||
     normalizedTrustAuthorityMatrix.usedFallback ||
     codingSessionFallbackUsed ||
+    workBoardFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
     runObservabilityEndpointFallbackUsed;
@@ -824,6 +857,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ? "Provider credential and cost posture was unavailable or unsafe; non-authoritative mock fallback kept provider readiness blocked."
       : codingSessionFallbackUsed
         ? "Some Coding backend read models were unavailable or unsafe; non-authoritative mock fallback kept coding authority blocked."
+      : workBoardFallbackUsed
+        ? "The Work Board backend read model was unavailable or unsafe; non-authoritative mock fallback kept board mutation blocked."
       : founderLoopFieldFallbackUsed ||
           normalizedFounderStartHere.usedFallback ||
           normalizedProofIndex.usedFallback ||
@@ -864,6 +899,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
           ? codingEndpointFallbackWarningRefs
           : ["CODING_SESSION_MOCK_FALLBACK"]
         : []),
+      ...(workBoardFallbackUsed ? workBoardEndpointFallbackWarningRefs : []),
       ...(providerCredentialReadinessFallbackUsed
         ? ["PARTIAL_PROVIDER_CREDENTIAL_READINESS_FALLBACK"]
         : []),

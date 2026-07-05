@@ -36,7 +36,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 73,
     "none": 4,
-    "local_dev_workspace_only": 108,
+    "local_dev_workspace_only": 109,
     "governed_network_read_only": 3,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
@@ -90,8 +90,8 @@ REQUIRED_DOC_SNIPPETS = {
         "Status: Implemented",
         str(EXPECTED_ROUTE_COUNT),
         "| `mutating_requires_authority` | 40 |",
-        "The current OpenAPI path count is `187`",
-        "`188` route operations",
+        "The current OpenAPI path count is `188`",
+        "`189` route operations",
         "public_metadata",
         "local_readonly",
         "local_sensitive",

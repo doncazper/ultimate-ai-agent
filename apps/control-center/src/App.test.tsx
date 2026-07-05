@@ -1103,6 +1103,41 @@ function backendOwnedCodingMultiAgentReviewFixture(
   };
 }
 
+function backendOwnedWorkBoardFixture(overrides: Record<string, unknown> = {}) {
+  const board = JSON.parse(
+    JSON.stringify(mockControlCenterData.workBoard),
+  ) as typeof mockControlCenterData.workBoard;
+  return {
+    ...board,
+    board_ref: "work-board:app-test-backend",
+    source_label: "python_core_work_board_read_model",
+    backend_owned: true,
+    read_only: true,
+    safe_refs_only: true,
+    non_authoritative_mock_fallback: false,
+    raw_paths_included: false,
+    raw_content_included: false,
+    board_mutation_enabled: false,
+    durable_drag_drop_enabled: false,
+    issue_tracker_write_enabled: false,
+    connector_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    browser_automation_enabled: false,
+    background_autonomy_enabled: false,
+    production_authority_enabled: false,
+    drag_drop_posture: {
+      ...board.drag_drop_posture,
+      local_preview_enabled: true,
+      keyboard_reorder_preview_enabled: true,
+      durable_reorder_enabled: false,
+      backend_mutation_route_available: false,
+      receipt_created: false,
+      rollback_available: false,
+    },
+    ...overrides,
+  };
+}
+
 function scrubCodingFallbackText(value: unknown): unknown {
   if (typeof value === "string") {
     return value
@@ -1985,12 +2020,223 @@ describe("Web Control Center shell", () => {
     }
   });
 
+  it("renders the Work Board from backend-owned read model data", async () => {
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.controlCenterWorkBoard]: backendOwnedWorkBoardFixture(),
+    });
+
+    window.history.pushState({}, "", "/work-board");
+    const view = render(<App />);
+
+    try {
+      expect(await screen.findByText("Backend online")).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: /^Work Board$/i }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Backend-owned Work Board")).toBeInTheDocument();
+      const board = screen.getByTestId("work-board");
+      expect(
+        within(board).getByText("work-board:app-test-backend"),
+      ).toBeInTheDocument();
+      expect(
+        within(board).getByText("GET /control-center/work-board"),
+      ).toBeInTheDocument();
+      expect(
+        within(board).getByText("scripts/dev/uaa_work_board.py inspect-board"),
+      ).toBeInTheDocument();
+      expect(within(board).getByLabelText("Triage column")).toBeInTheDocument();
+      expect(within(board).getByLabelText("Ready column")).toBeInTheDocument();
+      expect(within(board).getByLabelText("Doing column")).toBeInTheDocument();
+      expect(within(board).getByLabelText("Blocked column")).toBeInTheDocument();
+      expect(
+        within(board).getByLabelText("Kanban Work Board shell card"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Execute|Send|Apply/i }),
+      ).not.toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
+  });
+
+  it("supports Work Board filters, buttons, and local-only draft preview", async () => {
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.controlCenterWorkBoard]: backendOwnedWorkBoardFixture(),
+    });
+
+    window.history.pushState({}, "", "/work-board");
+    const view = render(<App />);
+
+    try {
+      expect(await screen.findByText("Backend online")).toBeInTheDocument();
+      const board = screen.getByTestId("work-board");
+      fireEvent.change(screen.getByLabelText("Search Work Board"), {
+        target: { value: "proof" },
+      });
+      expect(
+        within(board).getByLabelText("Universal Proof spine card"),
+      ).toBeInTheDocument();
+      expect(
+        within(board).queryByLabelText("Kanban Work Board shell card"),
+      ).not.toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText("Search Work Board"), {
+        target: { value: "no matching cards" },
+      });
+      expect(
+        within(board).getAllByText("No matching cards").length,
+      ).toBeGreaterThan(0);
+      fireEvent.click(
+        within(board).getByRole("button", { name: "Clear Work Board search" }),
+      );
+      expect(screen.getByLabelText("Search Work Board")).toHaveValue("");
+      fireEvent.click(within(board).getByRole("button", { name: "Blocked" }));
+      expect(within(board).getByLabelText("External sync card")).toBeInTheDocument();
+      expect(
+        within(board).queryByLabelText("Action Inbox work queue card"),
+      ).not.toBeInTheDocument();
+      fireEvent.click(within(board).getAllByRole("button", { name: "All" })[1]);
+      fireEvent.click(
+        within(board).getByRole("button", { name: "Add local draft" }),
+      );
+      expect(within(board).getByLabelText("Local draft 1 card")).toBeInTheDocument();
+      expect(within(board).getByText("Unsaved local preview")).toBeInTheDocument();
+      expect(
+        within(board).getByText(/Local draft added as UI-only preview/i),
+      ).toBeInTheDocument();
+      fireEvent.click(within(board).getByRole("button", { name: "Reset preview" }));
+      expect(
+        within(board).queryByLabelText("Local draft 1 card"),
+      ).not.toBeInTheDocument();
+      expect(within(board).getByText("Backend order")).toBeInTheDocument();
+      fireEvent.click(
+        within(board).getByRole("button", { name: "Request persistence lane" }),
+      );
+      expect(within(board).getByText("Durable board edits")).toBeInTheDocument();
+      expect(
+        within(board).getByText("blocked-state:work-board-no-durable-reorder"),
+      ).toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
+  });
+
+  it("moves Work Board cards with drag/drop and keyboard preview controls", async () => {
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.controlCenterWorkBoard]: backendOwnedWorkBoardFixture(),
+    });
+
+    window.history.pushState({}, "", "/work-board");
+    const view = render(<App />);
+
+    try {
+      expect(await screen.findByText("Backend online")).toBeInTheDocument();
+      const board = screen.getByTestId("work-board");
+      const readyColumn = within(board).getByLabelText("Ready column");
+      const doingColumn = within(board).getByLabelText("Doing column");
+      const makeDataTransfer = () => ({
+        data: {} as Record<string, string>,
+        effectAllowed: "move",
+        setData(type: string, value: string) {
+          this.data[type] = value;
+        },
+        getData(type: string) {
+          return this.data[type] ?? "";
+        },
+      });
+      const proofCard = within(readyColumn).getByLabelText(
+        "Universal Proof spine card",
+      );
+      const actionCard = within(readyColumn).getByLabelText(
+        "Action Inbox work queue card",
+      );
+      const reorderTransfer = makeDataTransfer();
+      fireEvent.dragStart(proofCard, { dataTransfer: reorderTransfer });
+      fireEvent.drop(actionCard, { dataTransfer: reorderTransfer });
+      expect(
+        within(board).getByText(
+          /Universal Proof spine moved above Action Inbox work queue in Ready/i,
+        ),
+      ).toBeInTheDocument();
+      const reorderedProofCard = within(readyColumn).getByLabelText(
+        "Universal Proof spine card",
+      );
+      const reorderedActionCard = within(readyColumn).getByLabelText(
+        "Action Inbox work queue card",
+      );
+      expect(
+        reorderedProofCard.compareDocumentPosition(reorderedActionCard) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+
+      const dataTransfer = makeDataTransfer();
+      fireEvent.dragStart(reorderedActionCard, { dataTransfer });
+      fireEvent.drop(doingColumn, { dataTransfer });
+      expect(
+        within(doingColumn).getByLabelText("Action Inbox work queue card"),
+      ).toBeInTheDocument();
+      expect(
+        within(board).getByText(
+          /moved to Doing as an unsaved local layout preview/i,
+        ),
+      ).toBeInTheDocument();
+      expect(within(board).getByText("Unsaved local preview")).toBeInTheDocument();
+
+      fireEvent.click(
+        within(doingColumn).getByRole("button", {
+          name: "Move Action Inbox work queue right",
+        }),
+      );
+      const reviewColumn = within(board).getByLabelText("Review column");
+      expect(
+        within(reviewColumn).getByLabelText("Action Inbox work queue card"),
+      ).toBeInTheDocument();
+      fireEvent.click(within(board).getByRole("button", { name: "List" }));
+      const actionRow = within(board).getByLabelText(
+        "Action Inbox work queue list row",
+      );
+      expect(within(actionRow).getByText("Review")).toBeInTheDocument();
+      fireEvent.click(within(actionRow).getByRole("button", { name: "Move left" }));
+      expect(within(actionRow).getByText("Doing")).toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
+  });
+
+  it("labels the Work Board mock fallback as non-authoritative", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/work-board");
+    const view = render(<App />);
+
+    try {
+      expect(await screen.findByText("Mock fallback active")).toBeInTheDocument();
+      expect(
+        screen.getByText("Non-authoritative Work Board fallback"),
+      ).toBeInTheDocument();
+      expect(screen.getAllByText(/mock fallback/i).length).toBeGreaterThan(0);
+      expect(
+        screen.getByText("Mock fallback; non-authoritative"),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/not durable workflow truth/i)).toBeInTheDocument();
+    } finally {
+      view.unmount();
+      cleanup();
+      window.history.pushState({}, "", "/");
+    }
+  });
+
   it("prioritizes the Founder Loop while keeping supporting routes reachable", async () => {
     expect(primaryNavItems.map((item) => item.label)).toEqual([
       "Start Here",
       "Today",
       "Source Inbox",
       "Plans",
+      "Work Board",
       "Action Inbox",
       "Proof",
       "Trust",
@@ -2021,11 +2267,12 @@ describe("Web Control Center shell", () => {
     const labels = within(navigation)
       .getAllByRole("link")
       .map((link) => link.getAttribute("aria-label"));
-    expect(labels.slice(0, 10)).toEqual([
+    expect(labels.slice(0, 11)).toEqual([
       "Start Here",
       "Today",
       "Source Inbox",
       "Plans",
+      "Work Board",
       "Action Inbox",
       "Proof",
       "Trust",
@@ -13060,6 +13307,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.controlCenterCodingMultiAgentReview),
     ).toBe(true);
+    expect(API_ENDPOINTS.controlCenterWorkBoard).toBe(
+      "/control-center/work-board",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterWorkBoard)).toBe(
+      true,
+    );
     expect(chatTurnReceiptEndpoint("chat-turn:test")).toBe(
       "/control-center/chat/turns/chat-turn%3Atest/receipt",
     );
@@ -14118,6 +14371,7 @@ function envelopeForReadEndpoint(url: string) {
       backendOwnedCodingLivePreviewFixture(),
     [API_ENDPOINTS.controlCenterCodingMultiAgentReview]:
       backendOwnedCodingMultiAgentReviewFixture(),
+    [API_ENDPOINTS.controlCenterWorkBoard]: backendOwnedWorkBoardFixture(),
     [API_ENDPOINTS.founderEvidenceTimeline]:
       mockControlCenterData.founderEvidenceTimeline,
     [API_ENDPOINTS.founderMemoryReview]:
