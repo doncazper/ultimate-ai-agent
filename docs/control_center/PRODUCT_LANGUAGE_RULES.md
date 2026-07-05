@@ -120,13 +120,17 @@ secret-like durable persistence.
 CRM and Communications copy is allowed as a contract-first product-line
 language lane only when it preserves Control Center as the current first-party
 shell and Founder Loop as the bounded operator workflow. CRM copy must
-distinguish fixture/read/proposal posture from callable runtime. It may name the
-`/crm` Control Center route only as the CRM M1 fixture-only shell with blocked
-backend authority. It must not imply backend CRM endpoints, backend CRM read
-models, connector runtime, connector writes, account auth, contact sync, sends,
+distinguish historical fixture proof, current backend-owned local read posture,
+proposal posture, and callable runtime. It may name the current `/crm` Control
+Center route as the CRM Local Command Center M2 only when it also says the lane
+is local-first, backend-owned, safe-ref-only, partial, and blocked from
+connector/source runtime and external writes. It may describe exact local CRM
+mutation receipts only when idempotency, exact `LocalApprovalAuthority` scope,
+and redacted receipt posture are present. It must not imply connector runtime,
+connector writes, account auth, contact sync, contact import commit, sends,
 calendar writes, silent merges, silent contact creation, model/provider calls,
-live web, browser runtime, public beta, or production authority until an
-accepted milestone adds the exact capability.
+live web, browser runtime, public beta, public release, production readiness,
+or production authority until an accepted milestone adds the exact capability.
 
 North-star visuals are allowed only as design direction. They must be labeled
 as north-star visual targets and must not be described as shipped
@@ -286,9 +290,10 @@ visible action truth, not evidence that the full operator loop is complete.
 FCC-V1-007 proofed only `/actions`, `/chat`, `/memory`, and `/evidence` for
 their exact backend-owned route-surface behavior. Chat handoff execution,
 Models lifecycle controls, Settings, Inbox, broader Today-spine completion,
-the CRM M1 `/crm` fixture-only shell beyond presentation, connector workflows,
-public beta, public release, and production authority remain blocked or partial
-until later gates add reviewed routes, UI, evidence, and rollback proof.
+CRM connector reads, CRM sends/writes, connector workflows, public beta, public
+release, production readiness, and production authority remain blocked or
+partial until later gates add reviewed routes, UI, evidence, and rollback
+proof.
 
 ## Enforcement
 

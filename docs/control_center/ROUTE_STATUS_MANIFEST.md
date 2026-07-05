@@ -102,10 +102,12 @@ The JSON manifest covers the current visible Control Center routes and actions:
 - Action Preview submission
 - Action Inbox approval-envelope/state-change posture inspection
 - Morning Briefing source-readiness and missing-contract posture inspection
-- CRM M1 fixture-only shell inspection with backend CRM routes, backend CRM
-  read models, connector runtime, writes, sends, calendar writes, provider/model
-  calls, live web, browser automation, public release, and production authority
-  blocked
+- CRM Local Command Center M2 inspection with backend CRM read routes, CLI
+  parity, local storage posture, redacted import/export preview, deterministic
+  proposal refs, and an exact local mutation receipt lane while connector
+  runtime, external writes, account sync, sends, calendar writes, provider/model
+  calls, live web, browser automation, public release, production readiness, and
+  production authority remain blocked
 - Memory Review candidate provenance/source/evidence posture inspection
 - Local detail-card selection
 - File Review approve/deny review-only local state

@@ -670,6 +670,13 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
         "/control-center/memory/observation-candidates",
         "/control-center/memory/probe",
         "/control-center/memory/contradictions",
+        "/control-center/crm/summary",
+        "/control-center/crm/relationships",
+        "/control-center/crm/timeline",
+        "/control-center/crm/follow-ups",
+        "/control-center/crm/pipelines",
+        "/control-center/crm/smart-lists",
+        "/control-center/crm/local-mutations",
     }
     assert required.issubset(paths)
     for forbidden in [

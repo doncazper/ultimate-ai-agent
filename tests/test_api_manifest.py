@@ -141,6 +141,15 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         "control_center_founder_loop_storage_summaries"
         in manifest["capabilities_declared"]
     )
+    for capability in [
+        "control_center_crm_local_command_center_read_model",
+        "control_center_crm_relationship_timeline_read_model",
+        "control_center_crm_follow_up_queue_read_model",
+        "control_center_crm_smart_lists_read_model",
+        "control_center_crm_pipeline_board_read_model",
+        "control_center_crm_exact_local_mutation_receipts",
+    ]:
+        assert capability in manifest["capabilities_declared"]
     assert "control_center_today_summary" in manifest["capabilities_declared"]
     assert "control_center_action_inbox_summary" in manifest["capabilities_declared"]
     assert (
@@ -178,6 +187,19 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert (
         "control_center_memory_safe_query_raw_echo" in manifest["capabilities_blocked"]
     )
+    for blocked_capability in [
+        "control_center_crm_connector_runtime",
+        "control_center_crm_connector_writes",
+        "control_center_crm_account_sync",
+        "control_center_crm_sends",
+        "control_center_crm_calendar_writes",
+        "control_center_crm_external_crm_writes",
+        "control_center_crm_provider_model_calls",
+        "control_center_crm_live_web_fetching",
+        "control_center_crm_browser_automation",
+        "control_center_crm_production_authority",
+    ]:
+        assert blocked_capability in manifest["capabilities_blocked"]
     for blocked_capability in [
         "control_center_coding_cockpit_file_writes",
         "control_center_coding_cockpit_shell_subprocess_execution",

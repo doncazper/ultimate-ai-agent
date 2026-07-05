@@ -166,6 +166,19 @@ runtime, no connector writes, no external CRM writes, no account sync, no
 contact import, no sends, no calendar writes, no provider/model calls, no live
 web, no browser runtime, no hidden context injection, no public beta, and no
 production authority.
+CRM Local Command Center M2 now adds the current backend-owned local CRM lane in
+`docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md`,
+`docs/control_center/UAA_CRM_LOCAL_COMMAND_CENTER_PLAN.md`,
+`src/ultimate_ai_agent/core/crm/local_command_center.py`,
+`scripts/dev/uaa_crm.py`, `scripts/verify_crm_local_command_center.py`,
+`tests/test_crm_local_command_center.py`, and
+`tests/test_crm_local_command_center_api_routes.py`. It exposes local CRM read
+routes, CLI inspection, local storage posture, redacted import/export preview,
+deterministic proposal refs, and an exact local mutation receipt lane. It adds
+no connector runtime, no connector writes, no external CRM writes, no account
+sync, no sends, no calendar writes, no provider/model calls, no live web, no
+browser runtime, no hidden context injection, no public beta, no public release,
+no production readiness, and no production authority.
 Provider Catalog + Cost Literacy now adds a backend-owned read-only setup guide
 at `GET /control-center/providers/setup-guide`, with typed catalog contracts,
 CLI inspection, route manifest coverage, and cost/budget posture language. It
@@ -496,11 +509,11 @@ no backend endpoints, no connector runtime, no connector writes, no sends, no
 calendar writes, no silent merges, no silent contact creation, no
 provider/model calls, no live web, no browser runtime, no public beta, or
 production authority is authorized.
-Next: after the CRM M1 fixture-only `/crm` shell is reviewed, consider a
-separate CRM M2 backend read-model planning/contract PR. That later PR must
-keep connector runtime, external CRM writes, account sync, sends, calendar
-writes, provider/model calls, live web, browser runtime, public beta, and
-production authority blocked unless separately accepted.
+Next: CRM M2 local command center is implemented as a partial backend-owned
+read/local mutation lane. Future work must stay exact-scoped: connector read
+lanes and any send/write lane remain blocked behind separate authority
+graduation reports, unblock prompts, route contracts, redaction tests,
+safe-disable posture, and rollback-readiness evidence.
 
 WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
 Goal: promote the web/provider/browser authority ladder into active roadmap and

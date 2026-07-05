@@ -1843,7 +1843,7 @@ describe("Web Control Center shell", () => {
     mockFetchWithFallback();
     for (const [path, expectedCopy] of [
       ["/dashboard", /Dashboard is partially usable/i],
-      ["/crm", /CRM remains blocked/i],
+      ["/crm", /CRM is using fallback route state/i],
       ["/private-trial", /Trial Packet is not release-ready/i],
     ] as const) {
       window.history.pushState({}, "", path);
@@ -7011,7 +7011,7 @@ describe("Web Control Center shell", () => {
       ["/inbox", /^Source Inbox$/i],
       ["/actions", /^Action Inbox$/i],
       ["/briefing", /Morning Briefing/i],
-      ["/crm", /CRM M1 fixture-only shell/i],
+      ["/crm", /UAA CRM local command center/i],
       ["/private-trial", /Private Operator Trial/i],
       ["/setup", /macOS Setup Assistant/i],
       ["/dashboard", /Dashboard overview/i],
@@ -9490,7 +9490,7 @@ describe("Web Control Center shell", () => {
       target: { value: "crm" },
     });
     expect(palette).toHaveTextContent("CRM");
-    expect(palette).toHaveTextContent("Founder Loop - blocked");
+    expect(palette).toHaveTextContent("Founder Loop - partial");
 
     fireEvent.change(screen.getByLabelText(/search routes and actions/i), {
       target: { value: "local state" },
@@ -9601,45 +9601,37 @@ describe("Web Control Center shell", () => {
     }
   });
 
-  it("renders CRM M1 fixture-only shell without CRM authority", async () => {
+  it("renders CRM local command center without external CRM authority", async () => {
     mockFetchWithFallback();
     window.history.pushState({}, "", "/crm");
     render(<App />);
 
     expect(
       await screen.findByRole("heading", {
-        name: /CRM M1 fixture-only shell/i,
+        name: /UAA CRM local command center/i,
       }),
     ).toBeInTheDocument();
+    expect(screen.getByText("CRM Local Command Center")).toBeInTheDocument();
+    expect(screen.getAllByText("Relationships").length).toBeGreaterThan(0);
+    expect(screen.getByText("Follow-up queue")).toBeInTheDocument();
+    expect(screen.getByText("Pipeline")).toBeInTheDocument();
+    expect(screen.getAllByText("Smart lists").length).toBeGreaterThan(0);
+    expect(screen.getByText("Authority boundary")).toBeInTheDocument();
     expect(
-      screen.getByText("contract-ref:crm-m1-fixture-only-vertical-shell:v1"),
+      screen.getByText("repo-local-command:uaa-crm:inspect-summary"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("route-ref:control-center:crm-fixture-only-shell"),
+      screen.getByText("blocked-state-ref:crm-local:no-connector-writes"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Real Estate Realtor")).toBeInTheDocument();
-    expect(screen.getByText("Healthcare")).toBeInTheDocument();
-    expect(screen.getByText("Finance Insurance")).toBeInTheDocument();
-    expect(screen.getByText("Retail E-commerce")).toBeInTheDocument();
-    expect(screen.getByText("Professional Services")).toBeInTheDocument();
-    expect(
-      screen.getByText("No CRM write controls are available"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Backend read model").nextElementSibling).toHaveTextContent(
+    expect(screen.getByText("External writes").nextElementSibling).toHaveTextContent(
       "blocked",
     );
-    expect(screen.getByText("Backend route").nextElementSibling).toHaveTextContent(
-      "blocked",
-    );
-    expect(screen.getByText("Connector runtime").nextElementSibling).toHaveTextContent(
-      "blocked",
-    );
-    expect(screen.getByText("Sends/calendar").nextElementSibling).toHaveTextContent(
+    expect(screen.getByText("Provider calls").nextElementSibling).toHaveTextContent(
       "blocked",
     );
     expect(
-      screen.queryByText(/GET \/control-center\/crm/i),
-    ).not.toBeInTheDocument();
+      screen.getByText(/Persisted stage changes require exact local mutation receipts/i),
+    ).toBeInTheDocument();
     for (const unsafeControl of [
       /send/i,
       /sync/i,
@@ -14547,6 +14539,40 @@ function envelopeForReadEndpoint(url: string) {
       },
     },
     [API_ENDPOINTS.founderStorageStatus]: mockApiData.founderStorageStatus,
+    [API_ENDPOINTS.crmSummary]: {
+      ...mockControlCenterData.crmLocalCommandCenter,
+      source: "python_core_crm_local_command_center_read_model",
+      backend_owned: true,
+      authority_posture: {
+        ...mockControlCenterData.crmLocalCommandCenter.authority_posture,
+        backend_owned: true,
+        exact_local_mutation_lane_enabled: true,
+      },
+    },
+    [API_ENDPOINTS.crmRelationships]: {
+      contract_ref: mockControlCenterData.crmLocalCommandCenter.contract_ref,
+      relationships: mockControlCenterData.crmLocalCommandCenter.relationships,
+      people: mockControlCenterData.crmLocalCommandCenter.people,
+      organizations: mockControlCenterData.crmLocalCommandCenter.organizations,
+    },
+    [API_ENDPOINTS.crmTimeline]: {
+      contract_ref: mockControlCenterData.crmLocalCommandCenter.contract_ref,
+      timeline_events: mockControlCenterData.crmLocalCommandCenter.timeline_events,
+      reports: mockControlCenterData.crmLocalCommandCenter.reports,
+    },
+    [API_ENDPOINTS.crmFollowUps]: {
+      contract_ref: mockControlCenterData.crmLocalCommandCenter.contract_ref,
+      follow_ups: mockControlCenterData.crmLocalCommandCenter.follow_ups,
+    },
+    [API_ENDPOINTS.crmPipelines]: {
+      contract_ref: mockControlCenterData.crmLocalCommandCenter.contract_ref,
+      pipelines: mockControlCenterData.crmLocalCommandCenter.pipelines,
+      opportunities: mockControlCenterData.crmLocalCommandCenter.opportunities,
+    },
+    [API_ENDPOINTS.crmSmartLists]: {
+      contract_ref: mockControlCenterData.crmLocalCommandCenter.contract_ref,
+      smart_lists: mockControlCenterData.crmLocalCommandCenter.smart_lists,
+    },
   };
   const endpoint = Object.keys(data).find((candidate) =>
     url.endsWith(candidate),

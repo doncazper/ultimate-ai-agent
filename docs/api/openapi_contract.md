@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `188`.
+Current OpenAPI path count: `195`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -78,6 +78,16 @@ Contract rules:
   or persist raw prompts/responses/command output/local paths/env, automate
   browsers, write connectors, import plugins, dispatch remote work, grant
   production authority, or claim public release readiness.
+- `/control-center/crm/*` is the CRM Local Command Center M2 contract surface.
+  Six CRM routes are local read routes, and
+  `POST /control-center/crm/local-mutations` is one exact local mutation
+  receipt lane requiring idempotency and exact `LocalApprovalAuthority`
+  validation. CRM routes expose safe refs, bounded summaries, redacted storage
+  posture, deterministic proposal refs, import/export preview posture, and
+  receipt refs only. They do not add connector runtime, connector writes,
+  external CRM writes, account sync, sends, calendar writes, provider/model
+  calls, live web, browser automation, background autonomy, public beta, public
+  release, production readiness, or production authority.
 - The local `/v1` gateway must remain disabled by default, loopback/local-only,
   bearer-gated, and constrained to the accepted local model lane.
 - `GET /extensions/catalog` must remain a read-only inspectable metadata route

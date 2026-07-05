@@ -36,7 +36,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 73,
     "none": 4,
-    "local_dev_workspace_only": 109,
+    "local_dev_workspace_only": 116,
     "governed_network_read_only": 3,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
@@ -65,6 +65,7 @@ HIGH_RISK_EXPECTATIONS = {
     ("POST", "/api/runtime/invocations/{id}/execute"): "mutating_requires_authority",
     ("POST", "/api/runtime/local-model/call"): "mutating_requires_authority",
     ("POST", "/api/runtime/safe-disable"): "mutating_requires_authority",
+    ("POST", "/control-center/crm/local-mutations"): "mutating_requires_authority",
     ("POST", "/web-evidence/request"): "local_sensitive",
 }
 REQUIRED_DOC_SNIPPETS = {
@@ -89,9 +90,9 @@ REQUIRED_DOC_SNIPPETS = {
     "docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md": [
         "Status: Implemented",
         str(EXPECTED_ROUTE_COUNT),
-        "| `mutating_requires_authority` | 40 |",
-        "The current OpenAPI path count is `188`",
-        "`189` route operations",
+        "| `mutating_requires_authority` | 41 |",
+        "The current OpenAPI path count is `195`",
+        "`196` route operations",
         "public_metadata",
         "local_readonly",
         "local_sensitive",

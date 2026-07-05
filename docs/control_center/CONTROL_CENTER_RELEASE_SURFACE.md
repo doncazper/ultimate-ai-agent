@@ -104,12 +104,14 @@ backend-owned accept/correct/reject receipts. FCC-V1-006 Evidence Timeline
 Productization is complete for the backend-owned timeline index. FCC-V1-007
 Promotion And Proof Lane is complete for proofing only `/actions`, `/chat`,
 `/memory`, and `/evidence`; `/today`, `/inbox`, `/settings`, model lifecycle,
-and product-readiness claims remain outside this release-surface proof. CRM M1
-adds `/crm` only as a fixture-only blocked shell; backend CRM read models,
-backend CRM routes, connector runtime, writes, sends, calendar writes,
-provider/model calls, live web, browser automation, public beta, public
-distribution, and production authority remain outside this release-surface
-proof.
+and product-readiness claims remain outside this release-surface proof. CRM
+Local Command Center M2 makes `/crm` a partial backend-owned local CRM surface
+over Python-core read routes, CLI inspection, local storage posture, redacted
+import/export preview, deterministic proposal refs, and one exact local
+mutation receipt lane. Connector runtime, external CRM writes, account sync,
+sends, calendar writes, provider/model calls, live web, browser automation,
+public beta, public distribution, production readiness, and production
+authority remain outside this release-surface proof.
 
 Usable Authority PR 02 adds `/start` as a partial Start Here surface backed by
 `GET /control-center/start-here/summary`. It is a local read-model entry point

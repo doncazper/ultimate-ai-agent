@@ -73,6 +73,15 @@ blocker, promotion-path, drag/drop posture, and CLI inspection refs with a
 local-only drag/drop and keyboard preview. It does not persist board order,
 create tasks, sync issue trackers, call providers, run shell/browser work,
 write connectors, launch background autonomy, or grant production authority.
+`/crm` renders the backend-owned CRM Local Command Center M2 read model from
+`GET /control-center/crm/summary` and companion CRM read routes. It shows
+relationship refs, follow-up refs, timeline refs, pipeline refs, smart-list
+refs, report refs, local storage posture, redacted import/export preview
+posture, deterministic proposal refs, exact local mutation receipt posture, and
+blocked authority refs. It does not add connector runtime, external CRM writes,
+account sync, contact import commit, sends, calendar writes, provider/model
+calls, live web, browser automation, public beta, public release, production
+readiness, or production authority.
 `/start`, `/proof`, and `/trust` are backend-owned Founder Loop support
 surfaces. `/start` renders `GET /control-center/start-here/summary`, `/proof`
 renders `GET /control-center/proof/index`, and `/trust` renders
@@ -251,8 +260,8 @@ provider/model calls, connector writes, coworker dispatch, background autonomy,
 raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
-OpenAPI remains a backend contract. The current backend path count is `188`
-with `189` unique manifest route operations; earlier milestone counts in the
+OpenAPI remains a backend contract. The current backend path count is `195`
+with `196` unique manifest route operations; earlier milestone counts in the
 historical sections below are audit context, not current route inventory.
 
 ## v0.18.0 M14 Connection Stabilization

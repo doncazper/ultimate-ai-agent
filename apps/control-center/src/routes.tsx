@@ -97,7 +97,7 @@ export const navItems: NavItem[] = [
   { path: "/evidence", label: "Evidence", group: "Founder Loop", status: "timeline", releaseStatus: "ship", role: "primary" },
   { path: "/settings", label: "Settings", group: "Founder Loop", status: "status-backed", releaseStatus: "partial", role: "primary" },
   { path: "/briefing", label: "Briefing", group: "Founder Loop", status: "storage-backed", releaseStatus: "partial", role: "supporting" },
-  { path: "/crm", label: "CRM", group: "Founder Loop", status: "fixture-only", releaseStatus: "blocked", role: "supporting" },
+  { path: "/crm", label: "CRM", group: "Founder Loop", status: "backend-owned local", releaseStatus: "partial", role: "supporting" },
   { path: "/private-trial", label: "Trial Packet", group: "Founder Loop", status: "087.2a-2c packet", releaseStatus: "experimental", role: "supporting" },
   { path: "/operator-loop", label: "Operator Loop", group: "Review", status: "readable proof", releaseStatus: "partial", role: "supporting" },
   { path: "/setup", label: "Setup", group: "Review", status: "dry-run", releaseStatus: "partial", role: "supporting" },
@@ -460,7 +460,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         </>
       );
     case "/crm":
-      return <CrmM1FixtureShellPanel fixture={data.crmM1FixtureShell} />;
+      return <CrmM1FixtureShellPanel crm={data.crmLocalCommandCenter} />;
     case "/private-trial":
       return <PrivateOperatorTrialPanel />;
     case "/storage":

@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `188`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `189` route
+Current OpenAPI path count: `195`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `196` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview adds one no-effect diagnostic route.
@@ -84,12 +84,20 @@ Current boundary summary:
   `uaa runtime ...`, `uaa actions approve|deny ...`, and Control Center runtime
   readiness/evidence timeline cards. It also hardens command root pinning,
   configured endpoint matching, receipt-detail execution truth, and CLI approval
-  preflight. They are backend-owned
-  safe-ref/metadata receipts; arbitrary shell/subprocess execution, focused
-  tests outside the exact lane, repo verifiers, frontend-check, arbitrary
-  adapter execution, remote provider/model calls, browser automation, connector
-  writes, plugin runtime import, remote execution, production authority, and
-  public release claims remain blocked.
+  preflight. They are backend-owned safe-ref/metadata receipts; arbitrary
+  shell/subprocess execution, focused tests outside the exact lane, repo
+  verifiers, frontend-check, arbitrary adapter execution, remote provider/model
+  calls, browser automation, connector writes, plugin runtime import, remote
+  execution, production authority, and public release claims remain blocked.
+- CRM Local Command Center M2 adds six local read routes under
+  `/control-center/crm/*` and one exact local mutation receipt route at
+  `POST /control-center/crm/local-mutations`. These routes expose safe-ref CRM
+  relationship, follow-up, timeline, pipeline, smart-list, report, storage,
+  import/export-preview, proposal, authority, and local receipt posture only.
+  Connector runtime, connector writes, external CRM writes, account sync,
+  sends, calendar writes, provider/model calls, live web, browser automation,
+  public beta, public release, production readiness, and production authority
+  remain blocked.
 - Beta 12 extracts the app-owned Control Center shell/status route block into
   `ultimate_ai_agent.api.control_center` while preserving the then-current
   169-route

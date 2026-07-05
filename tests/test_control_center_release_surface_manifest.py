@@ -174,9 +174,20 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert "release_blocker:dev_auth_bypass" in (
         by_path["/settings"]["blocked_capabilities"]
     )
-    assert by_path["/crm"]["status"] == "blocked"
-    assert by_path["/crm"]["backend_routes"] == []
-    assert "missing_backend:control-center-crm-read-route" in (
+    assert by_path["/crm"]["status"] == "partial"
+    assert {
+        route["path"] for route in by_path["/crm"]["backend_routes"]
+    } == {
+        "/control-center/crm/summary",
+        "/control-center/crm/relationships",
+        "/control-center/crm/timeline",
+        "/control-center/crm/follow-ups",
+        "/control-center/crm/pipelines",
+        "/control-center/crm/smart-lists",
+        "/control-center/crm/local-mutations",
+    }
+    assert by_path["/crm"]["approval_required"] is True
+    assert "crm_connector_read_lane_authority" in (
         by_path["/crm"]["blocked_capabilities"]
     )
     assert by_path["/chat"]["approval_required"] is True

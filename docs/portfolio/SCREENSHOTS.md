@@ -57,9 +57,10 @@ above memory recall.
 
 ### CRM
 
-No portfolio snapshot is checked in for the fixture-only `/crm` shell yet. The
-route remains blocked from visual-proof promotion until a scoped visual pass
-captures a sanitized baseline or records an accepted no-baseline rationale.
+No portfolio snapshot is checked in for the partial backend-owned `/crm` local
+command center yet. The route remains blocked from visual-proof promotion until
+a scoped visual pass captures a sanitized baseline or records an accepted
+no-baseline rationale.
 
 ## Snapshot Boundaries
 

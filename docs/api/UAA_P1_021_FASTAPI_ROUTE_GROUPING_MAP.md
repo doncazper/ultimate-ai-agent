@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `188`.
+Current OpenAPI path count: `195`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `189`
-- OpenAPI paths: `188`
+- Manifest route operations: `196`
+- OpenAPI paths: `195`
 - Production runtime authority: blocked
 - Public release authority: blocked
 

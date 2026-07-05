@@ -54,9 +54,13 @@ describe("getRouteStateDescriptor", () => {
         readState("/today", "Today", "backend_owned"),
       ).kind,
     ).toBe("partial");
-    expect(getRouteStateDescriptor("/crm", onlineConnection).kind).toBe(
-      "blocked",
-    );
+    expect(
+      getRouteStateDescriptor(
+        "/crm",
+        onlineConnection,
+        readState("/crm", "CRM", "backend_owned"),
+      ).kind,
+    ).toBe("partial");
     expect(
       getRouteStateDescriptor("/private-trial", onlineConnection).kind,
     ).toBe("empty");

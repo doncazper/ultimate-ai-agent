@@ -157,21 +157,11 @@ def _assert_no_runtime_or_backend_routes() -> None:
         for marker in BANNED_RUNTIME_MARKERS:
             if marker in text:
                 _fail(f"{path.relative_to(ROOT)} contains banned runtime marker {marker}")
-    backend_route_markers = ["/control-center/crm", "control-center/crm"]
-    for root in [ROOT / "src", ROOT / "apps"]:
-        for path in root.rglob("*"):
-            if path.is_dir() or path.suffix not in {".py", ".ts", ".tsx"}:
-                continue
-            text = path.read_text(encoding="utf-8").lower()
-            for marker in backend_route_markers:
-                if marker in text:
-                    _fail(f"CRM M1 must not add backend route marker {marker} in {path.relative_to(ROOT)}")
 
 
 def _assert_control_center_fixture_shell_route() -> None:
     routes_text = _read(ROOT / "apps/control-center/src/routes.tsx")
     app_test_text = _read(ROOT / "apps/control-center/src/App.test.tsx")
-    panel_text = _read(ROOT / "apps/control-center/src/components/CrmM1FixtureShellPanel.tsx")
     mock_data_text = _read(ROOT / "apps/control-center/src/mocks/controlCenterData.ts")
     for fragment in [
         'path: "/crm"',
@@ -181,21 +171,15 @@ def _assert_control_center_fixture_shell_route() -> None:
         if fragment not in routes_text:
             _fail(f"routes.tsx missing fixture shell marker: {fragment}")
     for fragment in [
-        "CRM M1 fixture-only shell",
-        "No CRM write controls are available",
-    ]:
-        if fragment not in panel_text:
-            _fail(f"CRM fixture shell panel missing fragment: {fragment}")
-    for fragment in [
         "contract-ref:crm-m1-fixture-only-vertical-shell:v1",
         CRM_M1_CONTROL_CENTER_ROUTE_REF,
     ]:
         if fragment not in mock_data_text:
             _fail(f"controlCenterData.ts missing CRM fixture fragment: {fragment}")
     for fragment in [
-        "renders CRM M1 fixture-only shell",
+        "renders CRM local command center",
         "/crm",
-        "No CRM write controls are available",
+        "blocked-state-ref:crm-local:no-connector-writes",
     ]:
         if fragment not in app_test_text:
             _fail(f"App.test.tsx missing CRM route assertion: {fragment}")
@@ -212,7 +196,8 @@ def main() -> int:
         PRODUCT_LANGUAGE,
         [
             "CRM and Communications copy",
-            "fixture/read/proposal posture",
+            "historical fixture proof",
+            "current backend-owned local read posture",
             "connector runtime",
             "public beta",
             "production authority",

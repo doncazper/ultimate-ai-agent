@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from fastapi import APIRouter, FastAPI, Query, Request
+from fastapi import APIRouter, FastAPI, Header, HTTPException, Query, Request
 
+from ultimate_ai_agent.api.idempotency import (
+    IDEMPOTENCY_KEY_HEADER,
+    IDEMPOTENCY_REF_HEADER,
+)
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.route_registration import register_router_once
 from ultimate_ai_agent.core.control_center import (
@@ -30,6 +34,14 @@ from ultimate_ai_agent.core.code import (
 from ultimate_ai_agent.core.decision_router import (
     TurnRouterPreviewRequest,
     build_turn_router_preview,
+)
+from ultimate_ai_agent.core.crm import (
+    CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF,
+    CrmLocalCommandCenterDuplicateError,
+    CrmLocalCommandCenterError,
+    CrmLocalMutationRequest,
+    CrmLocalStore,
+    build_crm_local_command_center_read_model,
 )
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.macos_setup_assistant import (
@@ -232,6 +244,169 @@ def get_control_center_routes(request: Request) -> ResultEnvelope:
     )
 
 
+@router.get("/crm/summary", response_model=ResultEnvelope)
+def get_control_center_crm_summary() -> ResultEnvelope:
+    crm = build_crm_local_command_center_read_model()
+    return _crm_result_envelope(
+        operation="control_center_crm_summary",
+        trace_id=crm.contract_ref,
+        data=crm.model_dump(mode="json"),
+        evidence_ref="evidence-ref:crm-local-command-center:summary",
+    )
+
+
+@router.get("/crm/relationships", response_model=ResultEnvelope)
+def get_control_center_crm_relationships() -> ResultEnvelope:
+    crm = build_crm_local_command_center_read_model()
+    return _crm_result_envelope(
+        operation="control_center_crm_relationships",
+        trace_id=crm.contract_ref,
+        data={
+            "contract_ref": crm.contract_ref,
+            "authority_posture": crm.authority_posture.model_dump(mode="json"),
+            "storage_status": crm.storage_status.model_dump(mode="json"),
+            "people": [item.model_dump(mode="json") for item in crm.people],
+            "organizations": [
+                item.model_dump(mode="json") for item in crm.organizations
+            ],
+            "relationships": [
+                item.model_dump(mode="json") for item in crm.relationships
+            ],
+            "communication_drafts": [
+                item.model_dump(mode="json") for item in crm.communication_drafts
+            ],
+            "ai_proposals": [
+                item.model_dump(mode="json") for item in crm.ai_proposals
+            ],
+        },
+        evidence_ref="evidence-ref:crm-local-command-center:relationships",
+    )
+
+
+@router.get("/crm/timeline", response_model=ResultEnvelope)
+def get_control_center_crm_timeline() -> ResultEnvelope:
+    crm = build_crm_local_command_center_read_model()
+    return _crm_result_envelope(
+        operation="control_center_crm_timeline",
+        trace_id=crm.contract_ref,
+        data={
+            "contract_ref": crm.contract_ref,
+            "timeline_events": [
+                item.model_dump(mode="json") for item in crm.timeline_events
+            ],
+            "reports": [item.model_dump(mode="json") for item in crm.reports],
+        },
+        evidence_ref="evidence-ref:crm-local-command-center:timeline",
+    )
+
+
+@router.get("/crm/follow-ups", response_model=ResultEnvelope)
+def get_control_center_crm_follow_ups() -> ResultEnvelope:
+    crm = build_crm_local_command_center_read_model()
+    return _crm_result_envelope(
+        operation="control_center_crm_follow_ups",
+        trace_id=crm.contract_ref,
+        data={
+            "contract_ref": crm.contract_ref,
+            "follow_ups": [item.model_dump(mode="json") for item in crm.follow_ups],
+            "authority_posture": crm.authority_posture.model_dump(mode="json"),
+        },
+        evidence_ref="evidence-ref:crm-local-command-center:follow-ups",
+    )
+
+
+@router.get("/crm/pipelines", response_model=ResultEnvelope)
+def get_control_center_crm_pipelines() -> ResultEnvelope:
+    crm = build_crm_local_command_center_read_model()
+    return _crm_result_envelope(
+        operation="control_center_crm_pipelines",
+        trace_id=crm.contract_ref,
+        data={
+            "contract_ref": crm.contract_ref,
+            "pipelines": [item.model_dump(mode="json") for item in crm.pipelines],
+            "opportunities": [
+                item.model_dump(mode="json") for item in crm.opportunities
+            ],
+            "authority_posture": crm.authority_posture.model_dump(mode="json"),
+        },
+        evidence_ref="evidence-ref:crm-local-command-center:pipelines",
+    )
+
+
+@router.get("/crm/smart-lists", response_model=ResultEnvelope)
+def get_control_center_crm_smart_lists() -> ResultEnvelope:
+    crm = build_crm_local_command_center_read_model()
+    return _crm_result_envelope(
+        operation="control_center_crm_smart_lists",
+        trace_id=crm.contract_ref,
+        data={
+            "contract_ref": crm.contract_ref,
+            "smart_lists": [
+                item.model_dump(mode="json") for item in crm.smart_lists
+            ],
+            "connector_read_lanes": crm.connector_read_lanes.model_dump(mode="json"),
+            "sends_writes_authority_plan": (
+                crm.sends_writes_authority_plan.model_dump(mode="json")
+            ),
+            "import_export_posture": crm.import_export_posture.model_dump(
+                mode="json"
+            ),
+        },
+        evidence_ref="evidence-ref:crm-local-command-center:smart-lists",
+    )
+
+
+@router.post("/crm/local-mutations", response_model=ResultEnvelope)
+def post_control_center_crm_local_mutation(
+    request: CrmLocalMutationRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _crm_idempotency_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    try:
+        receipt = CrmLocalStore.from_env().record_local_mutation(
+            request=request,
+            idempotency_ref=idempotency_ref,
+        )
+    except CrmLocalCommandCenterDuplicateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc) or "CRM_LOCAL_MUTATION_IDEMPOTENCY_CONFLICT",
+                "safe_message": (
+                    "The CRM local mutation idempotency ref already has a "
+                    "different safe payload fingerprint."
+                ),
+            },
+        ) from exc
+    except CrmLocalCommandCenterError as exc:
+        code = str(exc) or "CRM_LOCAL_MUTATION_ERROR"
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": code,
+                "safe_message": (
+                    "The exact local-only CRM mutation could not be recorded safely."
+                ),
+            },
+        ) from exc
+    return _crm_result_envelope(
+        operation="control_center_crm_local_mutation",
+        trace_id=receipt.receipt_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence_ref="evidence-ref:crm-local-command-center:local-mutation",
+    )
+
+
 @router.get("/work-board", response_model=ResultEnvelope)
 def get_control_center_work_board() -> ResultEnvelope:
     board = build_work_board_read_model()
@@ -400,6 +575,54 @@ def post_control_center_turn_router_preview(
         evidence=[{"evidence_ref": "evidence-ref:turn-router-preview:no-effect"}],
         redactions_applied=preview.redactions_applied,
     )
+
+
+def _crm_result_envelope(
+    *,
+    operation: str,
+    trace_id: str,
+    data: object,
+    evidence_ref: str,
+) -> ResultEnvelope:
+    return ResultEnvelope(
+        success=True,
+        operation=operation,
+        service="ControlCenterCrmAPI",
+        trace_id=trace_id,
+        data=data,
+        evidence=[
+            {
+                "evidence_ref": evidence_ref,
+                "contract_ref": CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF,
+            }
+        ],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_contact_details_omitted",
+            "raw_message_bodies_omitted",
+            "raw_paths_omitted",
+            "provider_payloads_omitted",
+        ],
+    )
+
+
+def _crm_idempotency_ref(
+    idempotency_key: str | None,
+    idempotency_ref: str | None,
+) -> str:
+    value = (idempotency_key or idempotency_ref or "").strip()
+    if not value:
+        raise HTTPException(
+            status_code=428,
+            detail={
+                "code": "API_IDEMPOTENCY_REQUIRED",
+                "safe_message": (
+                    "CRM local mutations require an idempotency key or scoped ref."
+                ),
+            },
+        )
+    return value
 
 
 def _task_decomposition_service() -> TaskDecompositionService:

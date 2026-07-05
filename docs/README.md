@@ -115,7 +115,8 @@ no /crm UI, no backend endpoints, no connector runtime, no connector writes,
 no sends, no calendar writes, no silent merges, no silent contact creation, no
 provider/model calls, no live web, no browser runtime, no public beta, and no
 production authority.
-CRM M1 Fixture-Only Vertical Shell is a deterministic screen-ready fixture map
+CRM M1 Fixture-Only Vertical Shell is the historical deterministic
+screen-ready fixture map
 in `docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md`,
 `src/ultimate_ai_agent/core/crm/fixtures.py`,
 `scripts/verify_crm_m1_fixture_only_vertical_shell.py`, and
@@ -126,6 +127,19 @@ fixture_only metadata only while adding no backend endpoints, no backend CRM
 read model, no connector runtime, no connector writes, no external CRM writes,
 no account sync, no sends, no calendar writes, no provider/model calls, no
 live web, no browser runtime, no public beta, and no production authority.
+CRM Local Command Center M2 is the current partial backend-owned CRM lane in
+`docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md`,
+`docs/control_center/UAA_CRM_LOCAL_COMMAND_CENTER_PLAN.md`,
+`src/ultimate_ai_agent/core/crm/local_command_center.py`,
+`scripts/dev/uaa_crm.py`, `scripts/verify_crm_local_command_center.py`,
+`tests/test_crm_local_command_center.py`, and
+`tests/test_crm_local_command_center_api_routes.py`. It adds local CRM read
+routes, CLI inspection, local storage posture, redacted import/export preview,
+deterministic proposal refs, and one exact local mutation receipt lane while
+keeping connector runtime, connector writes, external CRM writes, account sync,
+sends, calendar writes, provider/model calls, live web, browser runtime,
+public beta, public release, production readiness, and production authority
+blocked.
 
 Connector draft-only proposals are backend-owned safe-ref review artifacts in
 `docs/control_center/CONNECTOR_DRAFT_ONLY_PROPOSALS.md`,

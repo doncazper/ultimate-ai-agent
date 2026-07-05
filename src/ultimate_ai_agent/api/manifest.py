@@ -51,6 +51,14 @@ CAPABILITIES_DECLARED = [
     "control_center_setup_assistant_summary",
     "control_center_setup_approval_envelopes_dry_run",
     "control_center_founder_loop_storage_summaries",
+    "control_center_crm_local_command_center_read_model",
+    "control_center_crm_relationship_timeline_read_model",
+    "control_center_crm_follow_up_queue_read_model",
+    "control_center_crm_smart_lists_read_model",
+    "control_center_crm_pipeline_board_read_model",
+    "control_center_crm_exact_local_mutation_receipts",
+    "control_center_crm_redacted_local_import_export_preview",
+    "control_center_crm_deterministic_proposal_layer",
     "control_center_run_observability_read_model",
     "governed_runtime_gateway_contracts",
     "governed_runtime_profiles_manifest",
@@ -213,6 +221,21 @@ CAPABILITIES_BLOCKED = [
     "control_center_run_observability_live_streaming_runtime",
     "control_center_run_observability_connector_delivery_execution",
     "control_center_run_observability_background_worker_execution",
+    "control_center_crm_connector_runtime",
+    "control_center_crm_connector_writes",
+    "control_center_crm_account_sync",
+    "control_center_crm_sends",
+    "control_center_crm_calendar_writes",
+    "control_center_crm_external_crm_writes",
+    "control_center_crm_provider_model_calls",
+    "control_center_crm_live_web_fetching",
+    "control_center_crm_browser_automation",
+    "control_center_crm_hidden_context_injection",
+    "control_center_crm_background_autonomy",
+    "control_center_crm_production_authority",
+    "control_center_crm_public_distribution_claim",
+    "control_center_crm_raw_contact_detail_persistence",
+    "control_center_crm_raw_message_body_persistence",
     "control_center_coding_cockpit_file_writes",
     "control_center_coding_cockpit_shell_subprocess_execution",
     "control_center_coding_cockpit_git_mutation",
@@ -574,6 +597,7 @@ CONTROL_CENTER_LOCAL_STATE_PREFIXES = (
     "/control-center/sources",
     "/control-center/storage",
     "/control-center/work-board",
+    "/control-center/crm",
 )
 VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
 PUBLIC_METADATA_PATHS = {"/api/manifest", "/health", "/version"}
@@ -592,6 +616,9 @@ CONTROL_CENTER_TODAY_ACTION_ENVELOPE_PATHS = {
 }
 CONTROL_CENTER_ACTION_LOCAL_TASK_COMMIT_PATHS = {
     "/control-center/actions/{action_id}/local-task/commit",
+}
+CONTROL_CENTER_CRM_LOCAL_MUTATION_PATHS = {
+    "/control-center/crm/local-mutations",
 }
 CONTROL_CENTER_MEMORY_CONTEXT_PACK_ACTION_PROPOSAL_PATHS = {
     "/control-center/memory/context-packs/{context_pack_ref}/action-proposal",
@@ -642,6 +669,12 @@ LOCAL_READONLY_PATHS = {
     "/control-center/settings/status",
     "/control-center/sources/readiness",
     "/control-center/status",
+    "/control-center/crm/follow-ups",
+    "/control-center/crm/pipelines",
+    "/control-center/crm/relationships",
+    "/control-center/crm/smart-lists",
+    "/control-center/crm/summary",
+    "/control-center/crm/timeline",
     "/extensions/catalog",
     "/remote-workers/mesh/status",
     "/remote-workers/status",
@@ -878,6 +911,11 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Action Inbox local task commit authority route; exact approval, idempotency, receipt, evidence, and safe-disable posture required",
+        )
+    if normalized_method == "POST" and path in CONTROL_CENTER_CRM_LOCAL_MUTATION_PATHS:
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "CRM local mutation authority route; exact local-only approval, idempotency, receipt, rollback-readiness, evidence refs, and blocked external connector/send/write posture required",
         )
     if (
         normalized_method == "POST"

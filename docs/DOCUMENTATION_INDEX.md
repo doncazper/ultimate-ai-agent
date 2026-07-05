@@ -58,6 +58,7 @@ blocked, planned, and future-scoped states distinct.
 | Public-facing portfolio/developer-preview readiness prompt | `docs/prompts/uaa_public_preview_perfection_pass.prompt.md` |
 | CRM + Communications Spine M0 | `docs/strategy/CRM_COMMUNICATIONS_SPINE_M0.md`, `src/ultimate_ai_agent/core/crm/contracts.py`, `scripts/verify_crm_communications_spine_m0.py`, `tests/test_crm_communications_spine_contracts.py` |
 | CRM M1 Fixture-Only Vertical Shell | `docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md`, `src/ultimate_ai_agent/core/crm/fixtures.py`, `scripts/verify_crm_m1_fixture_only_vertical_shell.py`, `tests/test_crm_m1_fixture_only_vertical_shell.py` |
+| CRM Local Command Center M2 | `docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md`, `docs/control_center/UAA_CRM_LOCAL_COMMAND_CENTER_PLAN.md`, `docs/control_center/UAA_CRM_FEATURE_MINE_FOLLOWUPBOSS_WISEAGENT.md`, `src/ultimate_ai_agent/core/crm/local_command_center.py`, `scripts/dev/uaa_crm.py`, `scripts/verify_crm_local_command_center.py`, `tests/test_crm_local_command_center.py`, `tests/test_crm_local_command_center_api_routes.py` |
 | Operational maturity and authority ramp | `docs/control_center/OPERATIONALIZATION_LADDER.md`, `docs/control_center/operational_maturity_manifest.json`, `docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md`, `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, `docs/control_center/authority_candidate_scorecard.json` |
 | Catch-up/surpass loop | `docs/roadmap/OPERATOR_EXCELLENCE_LOOP.md`, `docs/backlog/codex_recommendation_log.md`, `docs/backlog/MORNING_RECONCILIATION_ARTIFACT.md` |
 | API boundary | `docs/api/README.md`, `docs/api/openapi_contract.md`, `docs/api/route_inventory.md`, `docs/api/FCC_V1_001_API_PERIMETER_FOR_REAL_MUTATIONS.md` |
@@ -112,7 +113,8 @@ connector writes, no sends, no calendar writes, no silent merges, no silent
 contact creation, no provider/model calls, no live web, no browser runtime, no
 public beta, and no production authority.
 
-CRM M1 Fixture-Only Vertical Shell is a deterministic screen-ready fixture map
+CRM M1 Fixture-Only Vertical Shell is the historical deterministic
+screen-ready fixture map
 in `docs/control_center/CRM_M1_FIXTURE_ONLY_VERTICAL_SHELL.md`, backed by
 `src/ultimate_ai_agent/core/crm/fixtures.py`,
 `scripts/verify_crm_m1_fixture_only_vertical_shell.py`, and
@@ -123,6 +125,20 @@ Control Center shell route while adding no backend endpoints, no backend CRM
 read model, no connector runtime, no connector writes, no external CRM writes,
 no account sync, no sends, no calendar writes, no provider/model calls, no
 live web, no browser runtime, no public beta, and no production authority.
+
+CRM Local Command Center M2 is the current backend-owned local CRM lane in
+`docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md`,
+`docs/control_center/UAA_CRM_LOCAL_COMMAND_CENTER_PLAN.md`, and
+`docs/control_center/UAA_CRM_FEATURE_MINE_FOLLOWUPBOSS_WISEAGENT.md`, backed
+by `src/ultimate_ai_agent/core/crm/local_command_center.py`,
+`scripts/dev/uaa_crm.py`, `scripts/verify_crm_local_command_center.py`,
+`tests/test_crm_local_command_center.py`, and
+`tests/test_crm_local_command_center_api_routes.py`. It exposes local CRM read
+routes, CLI inspection, local storage posture, redacted import/export preview,
+deterministic proposal refs, and exact local mutation receipts while keeping
+connector runtime, connector writes, external CRM writes, account sync, sends,
+calendar writes, provider/model calls, live web, browser runtime, public beta,
+public release, production readiness, and production authority blocked.
 
 Provider Catalog + Cost Literacy is backend-owned read-only metadata in
 `docs/control_center/PROVIDER_CATALOG_COST_LITERACY.md`, with Provider
@@ -224,7 +240,7 @@ verifier, and focused tests. UAA-P1-079 User Intent Understanding V1 completes
 reviewable intent proposals with confidence, source refs, evidence refs,
 ambiguity posture, and ask/act/defer routing. UAA-P1-080 API Route
 Classification And Public/Protected Inventory completes typed route
-classification in `/api/manifest`, the current 188-route inventory fixture,
+classification in `/api/manifest`, the current 196-route inventory fixture,
 route-status manifest alignment, and Control Center API Routes visibility.
 UAA-P1-081 Centralized FastAPI Security Headers completes centralized response
 headers, HTTPS-only HSTS, manifest capability posture, and focused verifier

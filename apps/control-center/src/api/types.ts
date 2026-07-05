@@ -1780,6 +1780,263 @@ export interface CrmM1FixtureShell {
   production_authority_enabled: boolean;
 }
 
+export interface CrmAuthorityPostureReadModel {
+  posture_ref: string;
+  backend_owned: boolean;
+  control_center_grants_authority: boolean;
+  read_only_routes_enabled: boolean;
+  exact_local_mutation_lane_enabled: boolean;
+  connector_runtime_enabled: boolean;
+  connector_write_enabled: boolean;
+  account_sync_enabled: boolean;
+  send_enabled: boolean;
+  calendar_write_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  live_web_enabled: boolean;
+  browser_runtime_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  external_crm_write_enabled: boolean;
+  production_authority_enabled: boolean;
+  blocked_authority_refs: string[];
+}
+
+export interface CrmStorageStatusReadModel {
+  storage_ref: string;
+  state: "code_seed" | "seeded_demo" | "local_state" | "cleared_demo";
+  initialized: boolean;
+  seeded_demo: boolean;
+  record_counts: Record<string, number>;
+  event_log_ref: string;
+  snapshot_ref: string;
+  raw_paths_omitted: boolean;
+  raw_contact_details_omitted: boolean;
+  connector_sync_enabled: boolean;
+  account_sync_enabled: boolean;
+}
+
+export interface CrmPersonReadModel {
+  person_ref: string;
+  safe_display_label: string;
+  relationship_refs: string[];
+  organization_refs: string[];
+  evidence_refs: string[];
+  memory_provenance_refs: string[];
+  tags: string[];
+  raw_contact_details_included: boolean;
+  account_sync_enabled: boolean;
+}
+
+export interface CrmOrganizationReadModel {
+  organization_ref: string;
+  safe_display_label: string;
+  relationship_refs: string[];
+  evidence_refs: string[];
+  raw_contact_details_included: boolean;
+  account_sync_enabled: boolean;
+}
+
+export interface CrmRelationshipReadModel {
+  relationship_ref: string;
+  person_ref: string;
+  organization_ref?: string | null;
+  safe_display_label: string;
+  relationship_kind_ref: string;
+  health_state: "warm" | "steady" | "stale" | "blocked" | "needs_evidence";
+  safe_summary: string;
+  why_shown: string;
+  timeline_event_refs: string[];
+  follow_up_refs: string[];
+  opportunity_refs: string[];
+  evidence_refs: string[];
+  memory_provenance_refs: string[];
+  stale_state: "fresh" | "stale" | "conflict" | "missing_evidence";
+  raw_contact_details_included: boolean;
+}
+
+export interface CrmTimelineEventReadModel {
+  event_ref: string;
+  relationship_ref: string;
+  event_kind: string;
+  occurred_at_ref: string;
+  safe_summary: string;
+  why_shown: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  memory_provenance_refs: string[];
+  proof_refs: string[];
+  stale_conflict_posture: "fresh" | "stale" | "conflict" | "missing_evidence";
+  raw_content_included: boolean;
+}
+
+export interface CrmFollowUpReadModel {
+  follow_up_ref: string;
+  relationship_ref: string;
+  status: "due" | "upcoming" | "stale" | "blocked" | "proposed" | "completed";
+  priority: "high" | "medium" | "low";
+  due_ref: string;
+  safe_summary: string;
+  reason_refs: string[];
+  evidence_refs: string[];
+  memory_provenance_refs: string[];
+  opportunity_refs: string[];
+  action_inbox_handoff_proposal_ref: string;
+  action_inbox_handoff_proposal_only: boolean;
+  send_enabled: boolean;
+  calendar_write_enabled: boolean;
+  connector_write_enabled: boolean;
+}
+
+export interface CrmOpportunityReadModel {
+  opportunity_ref: string;
+  relationship_ref: string;
+  pipeline_ref: string;
+  opportunity_kind: string;
+  stage_ref: string;
+  stage_label: string;
+  safe_summary: string;
+  evidence_refs: string[];
+  proof_refs: string[];
+  local_preview_drag_drop_enabled: boolean;
+  persisted_stage_mutation_route_ref: string;
+  external_crm_write_enabled: boolean;
+  fake_revenue_claim_enabled: boolean;
+}
+
+export interface CrmPipelineStageReadModel {
+  stage_ref: string;
+  safe_label: string;
+  opportunity_refs: string[];
+}
+
+export interface CrmPipelineReadModel {
+  pipeline_ref: string;
+  safe_label: string;
+  stages: CrmPipelineStageReadModel[];
+  opportunity_refs: string[];
+  evidence_refs: string[];
+  local_preview_drag_drop_enabled: boolean;
+  persisted_reorder_requires_exact_mutation: boolean;
+  external_sync_enabled: boolean;
+}
+
+export interface CrmSmartListReadModel {
+  smart_list_ref: string;
+  safe_label: string;
+  membership_rule_ref: string;
+  explanation: string;
+  relationship_refs: string[];
+  follow_up_refs: string[];
+  opportunity_refs: string[];
+  evidence_refs: string[];
+  hidden_context_injection_enabled: boolean;
+  external_sync_enabled: boolean;
+}
+
+export interface CrmCommunicationDraftReadModel {
+  draft_ref: string;
+  relationship_ref: string;
+  draft_kind: string;
+  bounded_redacted_summary: string;
+  proof_refs: string[];
+  local_review_artifact_only: boolean;
+  send_enabled: boolean;
+  calendar_write_enabled: boolean;
+  connector_write_enabled: boolean;
+  raw_body_persisted: boolean;
+}
+
+export interface CrmAiProposalReadModel {
+  proposal_ref: string;
+  proposal_type: string;
+  relationship_ref: string;
+  safe_summary: string;
+  proof_refs: string[];
+  deterministic_fixture: boolean;
+  proposal_only: boolean;
+  provider_model_call_enabled: boolean;
+  model_output_authority_enabled: boolean;
+  raw_prompt_or_response_persisted: boolean;
+}
+
+export interface CrmReportReadModel {
+  report_ref: string;
+  safe_label: string;
+  value_label: string;
+  freshness_ref: string;
+  drilldown_refs: string[];
+  evidence_refs: string[];
+  fake_revenue_claim_enabled: boolean;
+  external_sync_claim_enabled: boolean;
+}
+
+export interface CrmConnectorReadLaneReadModel {
+  posture_ref: string;
+  lanes: Array<Record<string, string>>;
+  disabled_by_default: boolean;
+  unblock_prompt_ref: string;
+  connector_runtime_enabled: boolean;
+  connector_writes_enabled: boolean;
+  raw_body_ingestion_enabled: boolean;
+}
+
+export interface CrmSendsWritesAuthorityPlanReadModel {
+  plan_ref: string;
+  lane_refs: string[];
+  blocker_report_refs: string[];
+  unblock_prompt_refs: string[];
+  sends_enabled: boolean;
+  connector_writes_enabled: boolean;
+  calendar_writes_enabled: boolean;
+  external_crm_writes_enabled: boolean;
+}
+
+export interface CrmImportExportPostureReadModel {
+  contract_ref: string;
+  import_preview_cli_ref: string;
+  export_redacted_cli_ref: string;
+  exact_import_commit_enabled: boolean;
+  export_redacted_snapshot_enabled: boolean;
+  no_raw_path_persistence: boolean;
+  identity_match_review_only: boolean;
+  silent_merge_enabled: boolean;
+}
+
+export interface CrmLocalCommandCenterReadModel {
+  schema_version: string;
+  contract_ref: string;
+  source_m0_contract_ref: string;
+  source: string;
+  state: "fixture_only" | "read_only" | "proposal_only" | "blocked";
+  backend_owned: boolean;
+  read_only: boolean;
+  safe_refs_only: boolean;
+  route_refs: string[];
+  cli_refs: string[];
+  redactions_applied: string[];
+  authority_posture: CrmAuthorityPostureReadModel;
+  storage_status: CrmStorageStatusReadModel;
+  people: CrmPersonReadModel[];
+  organizations: CrmOrganizationReadModel[];
+  relationships: CrmRelationshipReadModel[];
+  timeline_events: CrmTimelineEventReadModel[];
+  follow_ups: CrmFollowUpReadModel[];
+  opportunities: CrmOpportunityReadModel[];
+  pipelines: CrmPipelineReadModel[];
+  smart_lists: CrmSmartListReadModel[];
+  communication_drafts: CrmCommunicationDraftReadModel[];
+  ai_proposals: CrmAiProposalReadModel[];
+  reports: CrmReportReadModel[];
+  connector_read_lanes: CrmConnectorReadLaneReadModel;
+  sends_writes_authority_plan: CrmSendsWritesAuthorityPlanReadModel;
+  import_export_posture: CrmImportExportPostureReadModel;
+  blocked_authority_refs: string[];
+  raw_contact_details_included: boolean;
+  raw_message_bodies_included: boolean;
+  raw_paths_included: boolean;
+  provider_payloads_included: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopTaskDecompositionStep {
   step_ref: string;
   title: string;
@@ -8342,6 +8599,7 @@ export interface ControlCenterData {
   founderSourceReadiness: FounderLoopSourceReadiness;
   founderStorageStatus: FounderLoopStorageStatus;
   runObservability: RunObservabilityReadModel;
+  crmLocalCommandCenter: CrmLocalCommandCenterReadModel;
   crmM1FixtureShell: CrmM1FixtureShell;
   source: "api" | "mock";
   connection: BackendConnectionSummary;

@@ -15,6 +15,7 @@ import type {
   ControlCenterStartHereSummary,
   ControlCenterSettingsStatus,
   ControlCenterStatus,
+  CrmLocalCommandCenterReadModel,
   TrustAuthorityMatrix,
   TurnHarnessBindingReadModel,
   TurnRouterPreviewReadModel,
@@ -346,6 +347,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.founderSourceReadiness,
     ),
     read<FounderLoopStorageStatus>(API_ENDPOINTS.founderStorageStatus),
+    read<CrmLocalCommandCenterReadModel>(API_ENDPOINTS.crmSummary),
     read<ControlCenterDashboardSnapshot["approval_summary"]>(
       API_ENDPOINTS.approvalSummary,
     ),
@@ -418,23 +420,24 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const founderMorningBriefing = fulfilledValue(results[21]);
   const founderSourceReadiness = fulfilledValue(results[22]);
   const founderStorageStatus = fulfilledValue(results[23]);
-  const approvalSummary = fulfilledValue(results[24]);
-  const approvalQueue = fulfilledValue(results[25]);
-  const runObservability = fulfilledValue(results[26]);
+  const crmLocalCommandCenter = fulfilledValue(results[24]);
+  const approvalSummary = fulfilledValue(results[25]);
+  const approvalQueue = fulfilledValue(results[26]);
+  const runObservability = fulfilledValue(results[27]);
   const safeObservedRunObservability = safeRunObservability(runObservability);
-  const runtimeReadinessSummary = fulfilledValue(results[27]);
-  const foundationGateSummary = fulfilledValue(results[28]);
-  const founderStartHere = fulfilledValue(results[29]);
-  const proofIndex = fulfilledValue(results[30]);
-  const trustAuthorityMatrix = fulfilledValue(results[31]);
-  const codingSession = fulfilledValue(results[32]);
-  const codingContext = fulfilledValue(results[33]);
-  const codingPatchProposal = fulfilledValue(results[34]);
-  const codingPatchApplyReadiness = fulfilledValue(results[35]);
-  const codingTestCommandReadiness = fulfilledValue(results[36]);
-  const codingGitReview = fulfilledValue(results[37]);
-  const codingLivePreview = fulfilledValue(results[38]);
-  const codingMultiAgentReview = fulfilledValue(results[39]);
+  const runtimeReadinessSummary = fulfilledValue(results[28]);
+  const foundationGateSummary = fulfilledValue(results[29]);
+  const founderStartHere = fulfilledValue(results[30]);
+  const proofIndex = fulfilledValue(results[31]);
+  const trustAuthorityMatrix = fulfilledValue(results[32]);
+  const codingSession = fulfilledValue(results[33]);
+  const codingContext = fulfilledValue(results[34]);
+  const codingPatchProposal = fulfilledValue(results[35]);
+  const codingPatchApplyReadiness = fulfilledValue(results[36]);
+  const codingTestCommandReadiness = fulfilledValue(results[37]);
+  const codingGitReview = fulfilledValue(results[38]);
+  const codingLivePreview = fulfilledValue(results[39]);
+  const codingMultiAgentReview = fulfilledValue(results[40]);
   const workBoard = fulfilledValue(workBoardResult[0]);
   const safeCodingMultiAgentReview = isSafeCodingMultiAgentReview(
     codingMultiAgentReview,
@@ -546,6 +549,15 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const workBoardEndpointFallbackWarningRefs = [
     ...(workBoardFallbackUsed ? ["WORK_BOARD_MOCK_FALLBACK"] : []),
   ];
+  const crmEndpointFallbackUsed =
+    crmLocalCommandCenter === undefined ||
+    crmLocalCommandCenter.backend_owned !== true ||
+    crmLocalCommandCenter.safe_refs_only !== true ||
+    crmLocalCommandCenter.authority_posture?.control_center_grants_authority !==
+      false ||
+    crmLocalCommandCenter.authority_posture?.send_enabled !== false ||
+    crmLocalCommandCenter.authority_posture?.connector_write_enabled !== false ||
+    crmLocalCommandCenter.authority_posture?.provider_model_call_enabled !== false;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -680,6 +692,13 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       backendRouteRef: "GET /control-center/storage/status",
       endpointReturned: founderStorageStatus !== undefined,
       usedFallback: founderStorageStatus === undefined,
+    }),
+    routeReadStateInput({
+      route: "/crm",
+      surfaceLabel: "CRM",
+      backendRouteRef: "GET /control-center/crm/summary",
+      endpointReturned: crmLocalCommandCenter !== undefined,
+      usedFallback: crmEndpointFallbackUsed,
     }),
   ]);
   const founderLoopFieldFallbackUsed =
@@ -865,6 +884,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     founderSourceReadiness: normalizedFounderSourceReadiness.value,
     founderStorageStatus:
       founderStorageStatus ?? mockControlCenterData.founderStorageStatus,
+    crmLocalCommandCenter:
+      crmEndpointFallbackUsed || crmLocalCommandCenter === undefined
+        ? mockControlCenterData.crmLocalCommandCenter
+        : crmLocalCommandCenter,
     crmM1FixtureShell: mockControlCenterData.crmM1FixtureShell,
     source: "api",
     connection: mockControlCenterData.connection,
@@ -881,7 +904,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !workBoardFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
-    !dashboardSummaryEndpointFallbackUsed
+    !dashboardSummaryEndpointFallbackUsed &&
+    !crmEndpointFallbackUsed
   ) {
     return withConnection(data, {
       state: "online",
@@ -902,28 +926,44 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     workBoardFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
-    runObservabilityEndpointFallbackUsed;
+    runObservabilityEndpointFallbackUsed ||
+    crmEndpointFallbackUsed;
+  let degradedSafeMessage =
+    "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.";
+  if (providerCredentialReadinessFallbackUsed) {
+    degradedSafeMessage =
+      "Provider credential and cost posture was unavailable or unsafe; non-authoritative mock fallback kept provider readiness blocked.";
+  } else if (codingSessionFallbackUsed) {
+    degradedSafeMessage =
+      "Some Coding backend read models were unavailable or unsafe; non-authoritative mock fallback kept coding authority blocked.";
+  } else if (workBoardFallbackUsed) {
+    degradedSafeMessage =
+      "The Work Board backend read model was unavailable or unsafe; non-authoritative mock fallback kept board mutation blocked.";
+  } else if (
+    founderLoopFieldFallbackUsed ||
+    normalizedFounderStartHere.usedFallback ||
+    normalizedProofIndex.usedFallback ||
+    normalizedTrustAuthorityMatrix.usedFallback
+  ) {
+    degradedSafeMessage =
+      "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels.";
+  } else if (approvalQueueEndpointFallbackUsed) {
+    degradedSafeMessage =
+      "Run-attached approval queue endpoint was unavailable; non-authoritative mock fallback is shown without approval authority.";
+  } else if (runObservabilityEndpointFallbackUsed) {
+    degradedSafeMessage =
+      "Run observability endpoint was unavailable; Evidence remains read-only and uses non-authoritative mock fallback refs.";
+  } else if (crmEndpointFallbackUsed) {
+    degradedSafeMessage =
+      "CRM local command center endpoint was unavailable or unsafe; non-authoritative mock fallback keeps CRM authority blocked.";
+  } else if (dashboardSummaryEndpointFallbackUsed) {
+    degradedSafeMessage =
+      "Some dedicated Control Center summary routes were unavailable; backend dashboard summaries kept the visible state bounded.";
+  }
 
   return withConnection(data, {
     state: "degraded",
-    safeMessage: providerCredentialReadinessFallbackUsed
-      ? "Provider credential and cost posture was unavailable or unsafe; non-authoritative mock fallback kept provider readiness blocked."
-      : codingSessionFallbackUsed
-        ? "Some Coding backend read models were unavailable or unsafe; non-authoritative mock fallback kept coding authority blocked."
-      : workBoardFallbackUsed
-        ? "The Work Board backend read model was unavailable or unsafe; non-authoritative mock fallback kept board mutation blocked."
-      : founderLoopFieldFallbackUsed ||
-          normalizedFounderStartHere.usedFallback ||
-          normalizedProofIndex.usedFallback ||
-          normalizedTrustAuthorityMatrix.usedFallback
-        ? "Some local backend summaries or fields were unavailable; non-authoritative mock fallback filled missing Founder Loop panels."
-        : approvalQueueEndpointFallbackUsed
-          ? "Run-attached approval queue endpoint was unavailable; non-authoritative mock fallback is shown without approval authority."
-          : runObservabilityEndpointFallbackUsed
-            ? "Run observability endpoint was unavailable; Evidence remains read-only and uses non-authoritative mock fallback refs."
-            : dashboardSummaryEndpointFallbackUsed
-              ? "Some dedicated Control Center summary routes were unavailable; backend dashboard summaries kept the visible state bounded."
-              : "Some local backend summaries were unavailable; non-authoritative mock fallback filled missing panels.",
+    safeMessage: degradedSafeMessage,
     usingMockData: mockFallbackUsed,
     warnings: [
       "LOCAL_BACKEND_DEGRADED",
@@ -937,6 +977,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ...(runObservabilityEndpointFallbackUsed
         ? ["RUN_OBSERVABILITY_MOCK_FALLBACK"]
         : []),
+      ...(crmEndpointFallbackUsed ? ["CRM_LOCAL_COMMAND_CENTER_MOCK_FALLBACK"] : []),
       ...(founderLoopFieldFallbackUsed
         ? ["PARTIAL_FOUNDER_LOOP_FIELD_FALLBACK"]
         : []),

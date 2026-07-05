@@ -9,22 +9,22 @@ from .repo import load_json
 
 ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_133.json"
 ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v4"
-EXPECTED_ROUTE_COUNT = 189
-EXPECTED_OPENAPI_PATH_COUNT = 188
+EXPECTED_ROUTE_COUNT = 196
+EXPECTED_OPENAPI_PATH_COUNT = 195
 EXPECTED_AUTH_POSTURE_SUMMARY = {
     "public_metadata_no_auth": 3,
-    "protected_local_bearer_required": 186,
+    "protected_local_bearer_required": 193,
 }
 EXPECTED_APPROVAL_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 149,
-    "required_before_mutation_authority": 40,
+    "not_required_for_route_classification": 155,
+    "required_before_mutation_authority": 41,
 }
 EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
-    "not_required_for_route_classification": 149,
-    "required_before_mutation_authority": 40,
+    "not_required_for_route_classification": 155,
+    "required_before_mutation_authority": 41,
 }
 EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = {
-    "not_targeted_for_route": 125,
+    "not_targeted_for_route": 132,
     "targeted_local_fixed_window": 64,
 }
 EXPECTED_MUTATING_ROUTE_COUNT = EXPECTED_APPROVAL_POSTURE_SUMMARY[
@@ -33,7 +33,7 @@ EXPECTED_MUTATING_ROUTE_COUNT = EXPECTED_APPROVAL_POSTURE_SUMMARY[
 EXPECTED_TARGETED_RATE_LIMIT_ROUTE_COUNT = EXPECTED_RATE_LIMIT_POSTURE_SUMMARY[
     "targeted_local_fixed_window"
 ]
-EXPECTED_CONTROL_CENTER_ROUTE_COUNT = 78
+EXPECTED_CONTROL_CENTER_ROUTE_COUNT = 85
 EXPECTED_MUTATING_ROUTES = {
     ("POST", "/control-center/actions/{action_id}/approve"),
     ("POST", "/control-center/actions/{action_id}/defer"),
@@ -42,6 +42,7 @@ EXPECTED_MUTATING_ROUTES = {
     ("POST", "/control-center/actions/{action_id}/reject"),
     ("POST", "/control-center/chat/turns"),
     ("POST", "/control-center/chat/turns/{turn_ref}/handoff"),
+    ("POST", "/control-center/crm/local-mutations"),
     ("POST", "/control-center/memory/context-packs/{context_pack_ref}/action-proposal"),
     ("POST", "/control-center/memory/feedback"),
     ("POST", "/control-center/memory/review/{candidate_ref}/accept"),

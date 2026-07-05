@@ -4,7 +4,7 @@
   "baseline": "v0.104.0 / 0.104.0",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
-  "openapi_path_count": 188,
+  "openapi_path_count": 195,
   "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",
   "allowed_release_statuses": [
     "status_available_not_completion",
@@ -273,20 +273,70 @@
     },
     {
       "surface": "CRM",
-      "owner": "crm-m1-fixture-shell",
-      "auth_posture": "fixture_only_no_backend_route",
-      "side_effect_class": "local_ui_state_only",
+      "owner": "crm-local-command-center-m2",
+      "auth_posture": "protected_backend_owned_local",
+      "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
-      "release_status": "blocked_missing_backend",
-      "approval_requirement": "None for fixture-only inspection. Backend CRM read models, backend CRM routes, connector runtime, external CRM writes, account sync, sends, calendar writes, provider/model calls, live web, browser automation, and production authority require later accepted exact-scoped milestones.",
-      "evidence_audit_output": "Python-core CRM M1 fixture contract refs, route ref, safe display labels, screen-section refs, evidence refs, and blocked authority refs only; no backend CRM route, connector runtime, writes, sends, calendar writes, raw payloads, provider/model calls, live web, browser automation, hidden context injection, public release, or production authority.",
-      "current_backend_routes": [],
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "Read-only CRM inspection requires no approval. POST /control-center/crm/local-mutations requires idempotency, exact LocalApprovalAuthority scope, safe refs, replay/conflict posture, and redacted receipt refs. Connector reads, sends, calendar writes, external CRM writes, account sync, provider/model calls, live web, browser runtime, public release, production readiness, and production authority remain blocked until later accepted exact-scoped milestones.",
+      "evidence_audit_output": "CRM M2 contract refs, backend route refs, CLI refs, local storage refs, local mutation receipt refs, idempotency refs, approval scope refs, safe display labels, timeline/follow-up/pipeline/smart-list/report refs, import/export preview refs, blocked authority refs, and redaction refs only; no raw contact details, raw message bodies, provider payloads, raw paths, connector runtime, external writes, sends, calendar writes, live web, browser automation, public release, or production authority.",
+      "current_backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/crm/summary",
+          "operation_id": "get_control_center_crm_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/crm/relationships",
+          "operation_id": "get_control_center_crm_relationships",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/crm/timeline",
+          "operation_id": "get_control_center_crm_timeline",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/crm/follow-ups",
+          "operation_id": "get_control_center_crm_follow_ups",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/crm/pipelines",
+          "operation_id": "get_control_center_crm_pipelines",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/crm/smart-lists",
+          "operation_id": "get_control_center_crm_smart_lists",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/crm/local-mutations",
+          "operation_id": "post_control_center_crm_local_mutations",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        }
+      ],
       "missing_backend_routes": [
-        "crm-m1-backend-read-model",
-        "control-center-crm-read-route",
-        "crm-cli-inspection-read-model",
-        "crm-connector-runtime-contract",
-        "crm-write-proposal-contract"
+        "crm-connector-read-lane-authority",
+        "crm-send-write-authority-lane",
+        "crm-contact-import-commit-authority",
+        "crm-account-sync-authority",
+        "crm-visual-baseline-proof"
       ]
     },
     {
@@ -1344,20 +1394,70 @@
       "label": "Navigate CRM",
       "ui_surface": "CRM",
       "frontend_route": "/crm",
-      "owner": "crm-m1-fixture-shell",
-      "auth_posture": "fixture_only_no_backend_route",
-      "side_effect_class": "local_ui_state_only",
+      "owner": "crm-local-command-center-m2",
+      "auth_posture": "protected_backend_owned_local",
+      "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
-      "release_status": "blocked_missing_backend",
-      "approval_requirement": "No approval is required to inspect the fixture-only shell. Backend CRM read models, backend CRM routes, connector runtime, external CRM writes, account sync, sends, calendar writes, provider/model calls, live web, browser automation, and production authority remain blocked until later accepted exact-scoped milestones.",
-      "evidence_audit_output": "Fixture-only CRM M1 safe refs and blocked-authority refs; the route has no backend CRM route, no CRM write controls, no connector runtime, no sends, no calendar writes, no provider/model calls, and no production authority.",
-      "backend_routes": [],
+      "release_status": "partial_backend_not_product_ready",
+      "approval_requirement": "No approval is required to inspect the CRM local command center. Exact local CRM mutations require idempotency, exact LocalApprovalAuthority scope, safe refs, replay/conflict posture, and redacted receipt refs. Connector reads, sends, calendar writes, external CRM writes, account sync, provider/model calls, live web, browser runtime, public release, production readiness, and production authority remain blocked until later accepted exact-scoped milestones.",
+      "evidence_audit_output": "Backend-owned CRM M2 read-model refs, route refs, CLI refs, local storage refs, local mutation receipt refs, safe summaries, redaction refs, and blocked-authority refs; no external CRM writes, connector runtime, sends, calendar writes, provider/model calls, live web, browser automation, or production authority.",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/crm/summary",
+          "operation_id": "get_control_center_crm_summary",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/crm/relationships",
+          "operation_id": "get_control_center_crm_relationships",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/crm/timeline",
+          "operation_id": "get_control_center_crm_timeline",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/crm/follow-ups",
+          "operation_id": "get_control_center_crm_follow_ups",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/crm/pipelines",
+          "operation_id": "get_control_center_crm_pipelines",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/crm/smart-lists",
+          "operation_id": "get_control_center_crm_smart_lists",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_readonly"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/crm/local-mutations",
+          "operation_id": "post_control_center_crm_local_mutations",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        }
+      ],
       "missing_backend_routes": [
-        "crm-m1-backend-read-model",
-        "control-center-crm-read-route",
-        "crm-cli-inspection-read-model",
-        "crm-connector-runtime-contract",
-        "crm-write-proposal-contract"
+        "crm-connector-read-lane-authority",
+        "crm-send-write-authority-lane",
+        "crm-contact-import-commit-authority",
+        "crm-account-sync-authority",
+        "crm-visual-baseline-proof"
       ]
     },
     {
