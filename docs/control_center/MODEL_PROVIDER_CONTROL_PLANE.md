@@ -14,6 +14,7 @@ runtime cockpit:
 - CostGovernor and actual usage/cost receipt hooks;
 - local llama.cpp lifecycle posture;
 - ModelRouter and provider-router traces;
+- role-based model/provider selection evidence;
 - Control Center, API, CLI, verifier, and Proof parity.
 
 ## Current Repo-Safe Implementation
@@ -32,6 +33,9 @@ The read model unifies existing UAA contracts:
 - local model inventory and M164 llama.cpp gateway posture;
 - M163 llama.cpp lifecycle contract posture;
 - deterministic ModelRouter trace metadata.
+- UAA GoatCitadel Runtime Parity Phase 06 role-based provider/model evidence
+  for answerer, planner, reviewer, synthesizer, coder, extractor, and safety
+  reviewer roles.
 - GoatCitadel catch-up Phase 07 model/provider/research posture for provider
   readiness rows, model-output truth handling, and WebAccessGateway-governed
   external-information status.
@@ -43,6 +47,7 @@ CLI parity:
 
 ```bash
 .venv/bin/python scripts/inspect_model_provider_control_plane.py
+.venv/bin/python scripts/dev/uaa_runtime.py inspect-role-provider-evidence --json
 ```
 
 Verifier:
@@ -50,6 +55,7 @@ Verifier:
 ```bash
 .venv/bin/python scripts/verify_model_provider_control_plane.py
 .venv/bin/python scripts/verify_uaa_goatcitadel_catchup_model_provider_research.py
+.venv/bin/python scripts/verify_uaa_goatcitadel_runtime_role_provider_evidence.py
 ```
 
 ## Still Blocked
@@ -65,6 +71,7 @@ The control plane does not grant:
 - Control Center credential collection;
 - local llama.cpp process start from the read model;
 - model calls from the read model;
+- role-based provider evidence as execution permission;
 - shell execution;
 - background autonomy;
 - production authority.

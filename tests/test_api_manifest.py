@@ -327,6 +327,10 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         "control_center_provider_credential_validation_exact_approved_lane",
         "control_center_provider_credential_validation_redacted_receipts",
         "control_center_provider_credential_validation_cli_inspection",
+        "control_center_model_provider_control_plane_read_model",
+        "control_center_model_provider_control_plane_cli_inspection",
+        "control_center_role_based_model_provider_evidence_read_model",
+        "control_center_role_based_model_provider_evidence_cli_inspection",
         "control_center_turn_router_preview_no_effect",
         "control_center_turn_router_preview_cli_inspection",
     }:
@@ -349,6 +353,17 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         "tiny_provider_lane_billing_authority",
         "tiny_provider_lane_provider_sdk_or_network_call_by_default",
         "tiny_provider_lane_network_call_outside_scoped_adapter",
+        "control_center_model_provider_control_plane_as_runtime_authority",
+        "control_center_model_provider_control_plane_provider_sdk_calls",
+        "control_center_model_provider_control_plane_network_by_default",
+        "control_center_model_provider_control_plane_raw_prompt_response_persistence",
+        "control_center_model_provider_control_plane_background_autonomy",
+        "control_center_model_provider_control_plane_production_authority",
+        "control_center_role_based_model_provider_evidence_as_invocation_authority",
+        "control_center_role_based_model_provider_evidence_provider_sdk_calls",
+        "control_center_role_based_model_provider_evidence_remote_model_calls",
+        "control_center_role_based_model_provider_evidence_fallback_execution",
+        "control_center_role_based_model_provider_evidence_provider_output_authority",
     }:
         assert capability in manifest["capabilities_blocked"]
     assert (

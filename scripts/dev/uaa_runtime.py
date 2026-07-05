@@ -20,6 +20,9 @@ from ultimate_ai_agent.core.execution import (  # noqa: E402
     build_sample_staged_orchestration_read_model,
     build_sample_turn_run_approval_chain,
 )
+from ultimate_ai_agent.core.providers.control_plane import (  # noqa: E402
+    build_model_provider_control_plane_read_model,
+)
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     RuntimeInvocationConflictError,
     RuntimeInvocationNotFoundError,
@@ -175,6 +178,25 @@ def _print_authority_profile(read_model: dict[str, Any]) -> None:
         print(f"- {ref}")
 
 
+def _print_role_provider_evidence(read_model: dict[str, Any]) -> None:
+    print("Role-based model/provider evidence")
+    print(f"Status: {read_model['status']}")
+    print(f"Contract: {read_model['contract_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"Roles: {read_model['role_count']}")
+    print("Authority: advisory evidence only; no provider/model call was performed")
+    for role in read_model["role_evidence"]:
+        print(f"- {role['role_label']}: {role['selected_candidate_ref']}")
+        print(f"  policy: {role['policy_decision_ref']}")
+        print(f"  fallback: {role['fallback_ref']}")
+        blocked = [
+            candidate["candidate_ref"]
+            for candidate in role["candidates"]
+            if candidate["local_remote_posture"] == "remote_provider_reference"
+        ]
+        print("  remote blocked candidates: " + ", ".join(blocked or ["none"]))
+
+
 def _print_invocation(record: Any) -> None:
     print("Governed runtime invocation")
     print(f"Invocation: {record.invocation_ref}")
@@ -285,6 +307,28 @@ def _authority_profile(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_authority_profile(read_model)
+    return 0
+
+
+def _inspect_role_provider_evidence(args: argparse.Namespace) -> int:
+    evidence = build_model_provider_control_plane_read_model().role_provider_evidence
+    read_model = evidence.model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-role-provider-evidence",
+        "role_provider_evidence": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_credentials_omitted": True,
+        "raw_provider_payload_omitted": True,
+        "raw_paths_omitted": True,
+        "execution_performed": False,
+        "provider_model_call_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_role_provider_evidence(read_model)
     return 0
 
 
@@ -844,6 +888,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref staged orchestration read model as JSON.",
     )
     staged.set_defaults(func=_inspect_staged_orchestration)
+
+    role_provider = subparsers.add_parser(
+        "inspect-role-provider-evidence",
+        help="Inspect advisory role-based model/provider selection evidence.",
+    )
+    role_provider.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref role evidence read model as JSON.",
+    )
+    role_provider.set_defaults(func=_inspect_role_provider_evidence)
 
     bridge = subparsers.add_parser(
         "inspect-action-inbox-bridge",

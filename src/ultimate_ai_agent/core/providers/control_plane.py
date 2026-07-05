@@ -64,6 +64,10 @@ from ultimate_ai_agent.core.providers.invocation import (
     TINY_PROVIDER_INVOCATION_POLICY_REF,
     TINY_PROVIDER_INVOCATION_PROVIDER_REF,
 )
+from ultimate_ai_agent.core.providers.role_evidence import (
+    RoleBasedModelProviderEvidenceReadModel,
+    build_role_based_model_provider_evidence,
+)
 from ultimate_ai_agent.core.web_access.runtime_authority import (
     build_web_runtime_authority_contract,
 )
@@ -677,6 +681,7 @@ class ModelProviderControlPlaneReadModel(BaseModel):
     cost_hooks: ProviderCostHookPosture
     local_llama_cpp_lifecycle: LocalLlamaCppLifecyclePosture
     router_traces: list[ModelRouterTracePosture]
+    role_provider_evidence: RoleBasedModelProviderEvidenceReadModel
     model_provider_research_posture: ModelProviderResearchPosture
     credential_readiness_ref: str = (
         "control-center-dashboard-field:provider_credential_readiness"
@@ -739,6 +744,10 @@ class ModelProviderControlPlaneReadModel(BaseModel):
             raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_TRUTH_POSTURE_DRIFT")
         if len(self.provider_adapters) < 2 or not self.router_traces:
             raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_INCOMPLETE_WIRING")
+        if self.role_provider_evidence.provider_sdk_call_enabled:
+            raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_ROLE_EVIDENCE_AUTHORITY_DRIFT")
+        if self.role_provider_evidence.model_invocation_performed:
+            raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_ROLE_EVIDENCE_MODEL_CALL_DRIFT")
         return self
 
 
@@ -757,6 +766,7 @@ def build_model_provider_control_plane_read_model(
         SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
         *[provider.cost_governor_binding.model_ref for provider in readiness.providers],
     ]
+    router_trace = _build_model_router_trace(readiness)
     return ModelProviderControlPlaneReadModel(
         authority=ModelProviderAuthoritySummary(),
         provider_adapters=[
@@ -819,7 +829,12 @@ def build_model_provider_control_plane_read_model(
         local_llama_cpp_lifecycle=LocalLlamaCppLifecyclePosture(
             gateway_readiness=gateway_readiness,
         ),
-        router_traces=[_build_model_router_trace(readiness)],
+        router_traces=[router_trace],
+        role_provider_evidence=build_role_based_model_provider_evidence(
+            provider_readiness_items=readiness.providers,
+            provider_catalog_ref=catalog.catalog_ref,
+            router_trace_refs=[router_trace.trace_ref],
+        ),
         model_provider_research_posture=_build_model_provider_research_posture(
             readiness=readiness,
             provider_catalog=catalog,

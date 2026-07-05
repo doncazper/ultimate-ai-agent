@@ -46,6 +46,11 @@ def test_model_provider_control_plane_unifies_governed_runtime_posture() -> None
     assert read_model.router_traces[0].model_execution_performed is False
     assert read_model.router_traces[0].provider_execution_performed is False
     assert read_model.router_traces[0].reason_codes
+    assert read_model.role_provider_evidence.schema_version == (
+        "role_based_model_provider_evidence.v1"
+    )
+    assert read_model.role_provider_evidence.role_count == 7
+    assert read_model.role_provider_evidence.model_invocation_performed is False
     posture = read_model.model_provider_research_posture
     assert posture.schema_version == "model_provider_research_posture.v1"
     assert posture.provider_count == len(posture.provider_postures)
@@ -91,6 +96,11 @@ def test_model_provider_control_plane_route_is_protected_read_only_and_safe(
     assert data["network_allowlists"]["endpoint_refs"]
     assert data["local_llama_cpp_lifecycle"]["process_start_performed_by_read_model"] is False
     assert data["router_traces"][0]["model_execution_performed"] is False
+    assert (
+        data["role_provider_evidence"]["schema_version"]
+        == "role_based_model_provider_evidence.v1"
+    )
+    assert data["role_provider_evidence"]["provider_sdk_call_enabled"] is False
     assert data["model_provider_research_posture"]["provider_sdk_call_enabled"] is False
     assert data["model_provider_research_posture"]["live_web_fetch_enabled"] is False
     assert (
@@ -138,6 +148,8 @@ def test_model_provider_control_plane_cli_uses_same_safe_schema() -> None:
     assert payload["authority"]["local_llama_cpp_lifecycle_contract_available"] is True
     assert len(payload["provider_adapters"]) >= 2
     assert payload["router_traces"][0]["status"] == "trace_only_no_execution"
+    assert payload["role_provider_evidence"]["role_count"] == 7
+    assert payload["role_provider_evidence"]["model_invocation_performed"] is False
     assert payload["model_provider_research_posture"]["provider_count"] >= 1
     assert (
         payload["model_provider_research_posture"]["model_output_truth"][
