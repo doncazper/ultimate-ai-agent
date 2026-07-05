@@ -362,10 +362,13 @@ Product-language posture:
 - The Phase 00 naming lock remains binding: this router uses `base_answer` and
   `answer_profile_hint` language for UAA turn contracts.
 
-## Phase 07 Cheap Parallel Preflight Plan
+## Phase 07 Cheap Parallel Preflight
 
-Status: planning only. No parallel runtime behavior is implemented in this
-phase.
+Status: contract and no-effect engine implemented. No product runtime
+authority, provider/model call, tool execution, memory content retrieval,
+context injection, shell/subprocess behavior, browser/network action, connector
+write, public beta, public release, production readiness, or standing autonomy is
+implemented by this section.
 
 Prompt 01 productization adds typed parallel preflight contracts in
 `src/ultimate_ai_agent/core/decision_router/parallel_preflight.py` without
@@ -392,8 +395,17 @@ Contract truth:
   credential, or local-path content.
 - `direct_answer_draft` lane output is never user-visible unless central
   arbitration explicitly clears a direct/base answer posture in a later phase.
-- No parallel runtime behavior is implemented until the engine/arbitration
-  phase lands.
+- No product runtime authority is implemented by the preflight layer. Prompt
+  02 adds the no-effect engine and keeps execution authority blocked.
+
+Prompt 02 productization adds `run_parallel_turn_preflight` and
+`run_parallel_turn_preflight_async`. The engine runs deterministic no-effect
+lanes with `asyncio.gather`, centralizes arbitration, compiles exactly one
+`InvocationPolicy`, and returns safe refs plus bounded latency buckets. Failing
+lanes fail closed to approval posture. A risk/action lane veto can escalate a
+low-ceremony intent to approval-required, but no lane can increase authority,
+execute work, expose tools for direct answers, retrieve memory bodies, or make
+`direct_answer_draft` user-visible before central arbitration.
 
 Preflight lanes:
 
@@ -426,6 +438,7 @@ Explicit non-goals:
 - No tool execution
 - No memory content retrieval
 - No context injection
+- No workflow execution
 - No browser/network action
 - No shell/subprocess execution
 - No connector write

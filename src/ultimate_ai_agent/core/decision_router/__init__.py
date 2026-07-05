@@ -32,6 +32,9 @@ from ultimate_ai_agent.core.decision_router.parallel_preflight import (
     TurnPreflightBundle,
     TurnPreflightLaneKind,
     TurnPreflightLaneResult,
+    TurnPreflightRunResult,
+    run_parallel_turn_preflight,
+    run_parallel_turn_preflight_async,
 )
 from ultimate_ai_agent.core.decision_router.turn_contracts import (
     INVOCATION_POLICY_COMPILER_REF,
@@ -97,6 +100,7 @@ __all__ = [
     "TurnPreflightBundle",
     "TurnPreflightLaneKind",
     "TurnPreflightLaneResult",
+    "TurnPreflightRunResult",
     "TurnHarnessBindingReadModel",
     "binding_from_policy",
     "build_turn_harness_binding",
@@ -104,4 +108,6 @@ __all__ = [
     "compile_invocation_policy",
     "evaluate_executor_fence",
     "route_decision",
+    "run_parallel_turn_preflight",
+    "run_parallel_turn_preflight_async",
 ]

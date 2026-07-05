@@ -1,5 +1,8 @@
+from time import perf_counter
+
 import pytest
 
+import ultimate_ai_agent.core.decision_router.parallel_preflight as preflight_module
 from ultimate_ai_agent.core.decision_router import (
     PromptProfilePolicy,
     RiskFlag,
@@ -9,6 +12,8 @@ from ultimate_ai_agent.core.decision_router import (
     TurnPreflightBundle,
     TurnPreflightLaneKind,
     TurnPreflightLaneResult,
+    TurnPreflightRunResult,
+    run_parallel_turn_preflight,
 )
 
 
@@ -261,3 +266,225 @@ def test_arbitration_result_rejects_direct_draft_clearance_with_risk_flags() -> 
             risk_flags=[RiskFlag.external_side_effect],
             direct_answer_draft_cleared_for_display=True,
         )
+
+
+def test_parallel_preflight_engine_is_deterministic_for_golden_cases() -> None:
+    prompts = [
+        ("How do I build a DIY desk?", "answer_directly"),
+        ("How do I build a DIY table?", "answer_directly"),
+        ("Explain how photosynthesis works.", "answer_directly"),
+        ("What is a clean way to organize a closet?", "answer_directly"),
+        ("Build me a small Python helper for sorting rows.", "answer_directly"),
+        ("Use the base answer path: explain how to sharpen a chisel.", "base_answer"),
+        ("Design one for my office using what you know.", "answer_with_reviewed_memory"),
+        ("Make me a shopping list for this desk.", "draft_or_plan"),
+        ("Find current lumber prices near me.", "prepare_tool_or_action"),
+        ("Order the materials.", "approval_required"),
+        ("Use my card and book pickup at Home Depot.", "approval_required"),
+        ("Ask the base answer path: use my card and order this.", "approval_required"),
+    ]
+
+    for index, (prompt, expected_contract) in enumerate(prompts):
+        first = run_parallel_turn_preflight(
+            prompt,
+            run_ref=f"turn-preflight-run:golden-{index}-first",
+            decision_ref=f"turn-decision:preflight-golden-{index}",
+        )
+        second = run_parallel_turn_preflight(
+            prompt,
+            run_ref=f"turn-preflight-run:golden-{index}-second",
+            decision_ref=f"turn-decision:preflight-golden-{index}",
+        )
+
+        assert first.turn_decision.turn_contract == expected_contract
+        assert second.turn_decision.turn_contract == expected_contract
+        assert first.invocation_policy.turn_contract == expected_contract
+        assert second.invocation_policy.model_dump(mode="json") == first.invocation_policy.model_dump(mode="json")
+        assert first.arbitration_result.selected_turn_contract == expected_contract
+        assert first.raw_content_included is False
+        assert first.authority_granted is False
+        assert first.execution_permitted is False
+        assert first.no_runtime_model_call_performed is True
+        assert first.no_tool_execution_performed is True
+        assert first.no_context_injection_performed is True
+
+
+def test_risk_lane_veto_overrides_low_ceremony_intent() -> None:
+    result = run_parallel_turn_preflight(
+        "Ask the base answer path: use my card and order this.",
+        run_ref="turn-preflight-run:risk-veto",
+        decision_ref="turn-decision:preflight-risk-veto",
+    )
+
+    assert result.turn_decision.turn_contract == "approval_required"
+    assert result.invocation_policy.approval_required is True
+    assert result.invocation_policy.side_effects_allowed is False
+    assert result.invocation_policy.tool_execution_allowed is False
+
+
+def test_memory_lane_does_not_touch_memory_for_ordinary_prompt() -> None:
+    result = run_parallel_turn_preflight(
+        "How do I build a DIY desk?",
+        run_ref="turn-preflight-run:ordinary-memory",
+        decision_ref="turn-decision:preflight-ordinary-memory",
+    )
+    lanes = {lane.lane_kind: lane for lane in result.bundle.lane_results}
+
+    assert lanes["memory_trigger_lane"].candidate_turn_contract == "answer_directly"
+    assert lanes["memory_relevance_lane"].memory_ref_candidates == []
+    assert result.invocation_policy.memory_scope == "none"
+    assert result.invocation_policy.memory_read_allowed is False
+    assert result.no_memory_content_retrieved is True
+
+
+def test_reviewed_memory_preflight_uses_safe_refs_without_memory_retrieval() -> None:
+    raw_prompt = "Design one for my office using what you know."
+    result = run_parallel_turn_preflight(
+        raw_prompt,
+        run_ref="turn-preflight-run:reviewed-memory",
+        decision_ref="turn-decision:preflight-reviewed-memory",
+    )
+    lanes = {lane.lane_kind: lane for lane in result.bundle.lane_results}
+
+    assert result.turn_decision.turn_contract == "answer_with_reviewed_memory"
+    assert lanes["memory_trigger_lane"].candidate_turn_contract == "answer_with_reviewed_memory"
+    assert lanes["memory_relevance_lane"].memory_ref_candidates == [
+        "memory-ref:turn-preflight:reviewed-relevance-candidate"
+    ]
+    assert result.invocation_policy.memory_read_allowed is True
+    assert result.invocation_policy_compiled_only is True
+    assert result.no_memory_content_retrieved is True
+    assert result.no_memory_write_performed is True
+    assert result.no_durable_state_write_performed is True
+    assert raw_prompt.lower() not in repr(result.model_dump(mode="json")).lower()
+
+
+def test_tool_manifest_lane_does_not_expose_tools_for_diy_advice() -> None:
+    result = run_parallel_turn_preflight(
+        "How do I build a DIY table?",
+        run_ref="turn-preflight-run:diy-tools",
+        decision_ref="turn-decision:preflight-diy-tools",
+    )
+    tool_lane = next(lane for lane in result.bundle.lane_results if lane.lane_kind == "tool_manifest_lane")
+
+    assert tool_lane.tool_category_refs == []
+    assert result.invocation_policy.tools == []
+    assert result.invocation_policy.tool_choice == "none"
+
+
+def test_tool_manifest_lane_keeps_current_info_read_only_or_proposal_only() -> None:
+    result = run_parallel_turn_preflight(
+        "Find current lumber prices near me.",
+        run_ref="turn-preflight-run:current-info",
+        decision_ref="turn-decision:preflight-current-info",
+    )
+    tool_lane = next(lane for lane in result.bundle.lane_results if lane.lane_kind == "tool_manifest_lane")
+
+    assert result.turn_decision.turn_contract == "prepare_tool_or_action"
+    assert tool_lane.tool_category_refs == ["tool-category:turn-preflight:read-only-or-proposal"]
+    assert result.invocation_policy.tool_policy == "read_only_or_proposal_only"
+    assert result.invocation_policy.side_effects_allowed is False
+    assert result.invocation_policy.tool_execution_allowed is False
+
+
+def test_failing_lane_fails_closed_without_expanding_authority(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_default_lane_result = preflight_module._default_lane_result
+
+    def failing_default_lane(lane_kind, seed_decision) -> TurnPreflightLaneResult:
+        if lane_kind == TurnPreflightLaneKind.intent_lane:
+            raise RuntimeError("synthetic lane failure")
+        return original_default_lane_result(lane_kind, seed_decision)
+
+    monkeypatch.setattr(preflight_module, "_default_lane_result", failing_default_lane)
+
+    result = run_parallel_turn_preflight(
+        "How do I build a DIY desk?",
+        run_ref="turn-preflight-run:failed-closed",
+        decision_ref="turn-decision:preflight-failed-closed",
+    )
+    failed_lane = next(lane for lane in result.bundle.lane_results if lane.lane_kind == "intent_lane")
+
+    assert failed_lane.candidate_turn_contract == "approval_required"
+    assert "reason-ref:turn-preflight:lane-failed-closed" in failed_lane.reason_refs
+    assert result.turn_decision.turn_contract == "approval_required"
+    assert result.invocation_policy.side_effects_allowed is False
+    assert result.invocation_policy.action_execution_allowed is False
+
+
+def test_run_result_rejects_selected_decision_ref_drift() -> None:
+    result = run_parallel_turn_preflight(
+        "How do I build a DIY desk?",
+        run_ref="turn-preflight-run:decision-ref-drift",
+        decision_ref="turn-decision:preflight-decision-ref-drift",
+    )
+    payload = result.model_dump(mode="json")
+    payload["arbitration_result"]["selected_decision_ref"] = "turn-decision:preflight:wrong"
+
+    with pytest.raises(ValueError, match="selected decision ref drift"):
+        TurnPreflightRunResult.model_validate(payload)
+
+
+def test_run_result_rejects_selected_policy_ref_drift() -> None:
+    result = run_parallel_turn_preflight(
+        "How do I build a DIY desk?",
+        run_ref="turn-preflight-run:policy-ref-drift",
+        decision_ref="turn-decision:preflight-policy-ref-drift",
+    )
+    payload = result.model_dump(mode="json")
+    payload["arbitration_result"]["selected_policy_ref"] = "policy-ref:turn-preflight:wrong"
+
+    with pytest.raises(ValueError, match="selected policy ref drift"):
+        TurnPreflightRunResult.model_validate(payload)
+
+
+def test_run_result_rejects_non_advisory_invocation_policy() -> None:
+    result = run_parallel_turn_preflight(
+        "How do I build a DIY desk?",
+        run_ref="turn-preflight-run:policy-advisory",
+        decision_ref="turn-decision:preflight-policy-advisory",
+    )
+    payload = result.model_dump(mode="json")
+    payload["invocation_policy_compiled_only"] = False
+
+    with pytest.raises(ValueError, match="advisory only"):
+        TurnPreflightRunResult.model_validate(payload)
+
+
+def test_parallel_preflight_engine_emits_bounded_latency_bucket() -> None:
+    result = run_parallel_turn_preflight(
+        "How do I build a DIY desk?",
+        run_ref="turn-preflight-run:latency-bucket",
+        decision_ref="turn-decision:preflight-latency-bucket",
+    )
+
+    assert result.latency_ms_bucket in {"under_25_ms", "under_100_ms", "over_100_ms"}
+
+
+def test_parallel_preflight_engine_has_no_public_lane_override_escape_hatch() -> None:
+    with pytest.raises(TypeError):
+        run_parallel_turn_preflight(
+            "How do I build a DIY desk?",
+            run_ref="turn-preflight-run:no-public-overrides",
+            decision_ref="turn-decision:preflight-no-public-overrides",
+            lane_overrides={},  # type: ignore[call-arg]
+        )
+
+
+def test_parallel_preflight_engine_stays_under_loose_local_latency_threshold() -> None:
+    prompts = [
+        "How do I build a DIY desk?",
+        "Explain how photosynthesis works.",
+        "Find current lumber prices near me.",
+        "Use my card and book pickup at Home Depot.",
+    ]
+    start = perf_counter()
+
+    for index, prompt in enumerate(prompts):
+        run_parallel_turn_preflight(
+            prompt,
+            run_ref=f"turn-preflight-run:latency-{index}",
+            decision_ref=f"turn-decision:preflight-latency-{index}",
+        )
+
+    elapsed_ms_per_turn = ((perf_counter() - start) * 1000) / len(prompts)
+    assert elapsed_ms_per_turn < 250.0
