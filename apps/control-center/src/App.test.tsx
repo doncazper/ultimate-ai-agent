@@ -13098,7 +13098,7 @@ describe("Web Control Center shell", () => {
     expect(bodyText).not.toContain("provider_payload");
   });
 
-  it("does not backfill lifecycle posture or decisions from mocks for partial backend workbench responses", async () => {
+  it("does not backfill lifecycle or learning posture from mocks for partial backend workbench responses", async () => {
     const partialWorkbench = {
       ...mockControlCenterData.founderMemoryWorkbench,
       items: mockControlCenterData.founderMemoryWorkbench.items.map((item) => {
@@ -13108,6 +13108,7 @@ describe("Web Control Center shell", () => {
     };
     delete (partialWorkbench as { lifecycle_posture?: unknown })
       .lifecycle_posture;
+    delete (partialWorkbench as { learning_posture?: unknown }).learning_posture;
     const fetchMock = vi.fn(async (url: string) => {
       const urlText = String(url);
       if (urlText.endsWith(API_ENDPOINTS.founderMemoryWorkbench)) {
@@ -13134,9 +13135,16 @@ describe("Web Control Center shell", () => {
     expect(
       await screen.findByRole("heading", { name: /^Memory Review$/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText("backend posture missing")).toBeInTheDocument();
+    expect(screen.getAllByText("backend posture missing").length).toBeGreaterThan(
+      1,
+    );
     expect(
       screen.queryByText("contract-ref:memory-merge-supersede-posture:v1"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "contract-ref:goatcitadel-catchup-memory-learning-posture:v1",
+      ),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByText("receipt:memory-review:merge:mock-peer"),
@@ -13147,6 +13155,171 @@ describe("Web Control Center shell", () => {
     expect(
       screen.queryByRole("button", { name: /Record merge receipt/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("renders backend-owned memory learning posture without granting authority", async () => {
+    cleanup();
+    const learningPosture = {
+      schema_version: "goatcitadel-catchup-memory-learning-posture.v1",
+      contract_ref:
+        "contract-ref:goatcitadel-catchup-memory-learning-posture:v1",
+      route_ref: "GET /control-center/memory/workbench",
+      status: "implemented_backend_owned_learning_posture_read_model",
+      source: "python_core_memory_workbench_learning_posture",
+      backend_owned: true,
+      control_center_presentation_only: true,
+      safe_refs_only: true,
+      raw_content_included: false,
+      proposal_first_intake: true,
+      review_required_before_recall: true,
+      feedback_receipts_supported: true,
+      correction_receipts_supported: true,
+      rejection_receipts_supported: true,
+      forget_request_receipts_supported: true,
+      forget_execution_authorized: false,
+      broad_memory_write_authorized: false,
+      automatic_memory_write_authorized: false,
+      hidden_context_injection_authorized: false,
+      automatic_context_injection_authorized: false,
+      memory_truth_authority: false,
+      policy_override_authorized: false,
+      action_execution_authorized: false,
+      connector_write_authorized: false,
+      model_provider_call_authorized: false,
+      live_web_fetch_authorized: false,
+      background_autonomy_authorized: false,
+      hard_delete_authorized: false,
+      export_execution_authorized: false,
+      production_authority_enabled: false,
+      lifecycle_state_counts: {
+        proposed: 2,
+        active: 1,
+        needs_review: 1,
+        corrected: 1,
+        rejected: 1,
+        stale: 1,
+        forgotten: 1,
+        blocked: 2,
+      },
+      lifecycle_state_refs: [
+        "memory-learning-lifecycle-state:proposed",
+        "memory-learning-lifecycle-state:active",
+      ],
+      feedback_flow_refs: ["flow-ref:memory-learning:correct-safe-summary"],
+      quality_control_refs: [
+        "quality-control-ref:memory-learning:dedupe",
+        "quality-control-ref:memory-learning:source-provenance",
+      ],
+      context_pack_posture: {
+        status: "implemented_read_only_context_pack_proposals",
+        proposal_count: 1,
+        proposal_refs: ["context-pack-proposal-ref:memory-learning:test"],
+        context_pack_refs: ["context-pack-ref:memory-learning:test"],
+        separates_facts_assumptions_memories_unknowns: true,
+        context_injection_authorized: false,
+        hidden_prompt_context_authorized: false,
+        prompt_context_written: false,
+        provider_model_call_performed: false,
+        action_execution_authorized: false,
+      },
+      receipt_posture: {
+        decision_receipt_count: 3,
+        accepted_receipt_refs: ["receipt:memory-learning:accept"],
+        corrected_receipt_refs: ["receipt:memory-learning:correct"],
+        rejected_receipt_refs: ["receipt:memory-learning:reject"],
+        forget_request_receipt_refs: ["receipt:memory-learning:forget-request"],
+        reviewed_recall_refs: ["memory-record-ref:memory-learning:reviewed"],
+        receipt_backed_decision_kinds: ["correct", "reject", "forget_request"],
+      },
+      quality_posture: {
+        attention_refs: ["memory-review:learning-attention"],
+        quality_issue_refs: ["business-memory-quality:stale"],
+        ranking_contract_ref:
+          "contract-ref:fcc-mem-022-ranked-retrieval-recall-tuning:v1",
+        ranking_strategy_refs: ["retrieval-strategy-ref:lexical-safe-summary"],
+        search_index_status:
+          mockControlCenterData.founderMemoryWorkbench.search_index_status,
+        semantic_search_enabled: false,
+        vector_db_enabled: false,
+        embedding_search_enabled: false,
+      },
+      provenance_posture: {
+        provenance_refs: [
+          "source-ref:memory-learning:test",
+          "evidence-ref:memory-learning:test",
+          "receipt:memory-learning:correct",
+        ],
+        provenance_ref_count: 3,
+        source_refs_required: true,
+        evidence_refs_required: true,
+        receipt_refs_required_for_reviewed_recall: true,
+        safe_summary_only: true,
+      },
+      next_safe_action:
+        "Review memory candidates and receipt refs before scoped decisions.",
+      blocked_state_refs: [
+        "blocked-state:memory-learning-no-broad-memory-write",
+        "blocked-state:memory-learning-no-hidden-context-injection",
+        "blocked-state:memory-learning-no-production-authority",
+      ],
+    };
+    const workbench = {
+      ...mockControlCenterData.founderMemoryWorkbench,
+      learning_posture: learningPosture,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderMemoryWorkbench)) {
+        return new Response(JSON.stringify({ ok: true, result: workbench }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/memory");
+    render(<App />);
+
+    const panel = await screen.findByLabelText("Memory learning posture");
+    expect(
+      within(panel).getByRole("heading", { name: /Memory learning posture/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByText(
+        "contract-ref:goatcitadel-catchup-memory-learning-posture:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByText("python_core_memory_workbench_learning_posture"),
+    ).toBeInTheDocument();
+    expect(within(panel).getByText("Broad memory writes").nextElementSibling)
+      .toHaveTextContent("blocked");
+    expect(within(panel).getByText("Automatic memory writes").nextElementSibling)
+      .toHaveTextContent("blocked");
+    expect(within(panel).getByText("Memory truth authority").nextElementSibling)
+      .toHaveTextContent("blocked");
+    expect(within(panel).getByText("Provider/model call").nextElementSibling)
+      .toHaveTextContent("blocked");
+    expect(within(panel).getByText("Delete/export").nextElementSibling)
+      .toHaveTextContent("blocked");
+    expect(within(panel).getByText("proposed: 2")).toBeInTheDocument();
+    expect(
+      within(panel).getByText("quality-control-ref:memory-learning:dedupe"),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByText("context-pack-ref:memory-learning:test"),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByText("blocked-state:memory-learning-no-broad-memory-write"),
+    ).toBeInTheDocument();
+    expect(within(panel).queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("does not backfill nested lifecycle posture fields from mocks", async () => {

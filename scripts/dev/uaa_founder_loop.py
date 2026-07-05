@@ -1387,6 +1387,33 @@ def _inspect_memory_context_pack_preview(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_memory_learning_posture(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        workbench = repo.memory_workbench(
+            query_ref=args.query_ref,
+            limit=args.limit,
+        )
+    except ValueError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-learning-posture",
+                error_ref="FOUNDER_LOOP_MEMORY_LEARNING_POSTURE_REF_DENIED",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-learning-posture",
+        "learning_posture": workbench.get("learning_posture"),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
 def _inspect_memory_receipts(args: argparse.Namespace) -> int:
     repo = _repository(args)
     review = repo.memory_review(limit=args.limit)
@@ -1955,6 +1982,16 @@ def build_parser() -> argparse.ArgumentParser:
     memory_context_pack_preview_parser.add_argument("--context-pack-ref", required=True)
     memory_context_pack_preview_parser.set_defaults(
         func=_inspect_memory_context_pack_preview
+    )
+
+    memory_learning_posture_parser = subparsers.add_parser(
+        "memory-learning-posture",
+        help="Inspect governed memory learning, feedback, and context posture.",
+    )
+    memory_learning_posture_parser.add_argument("--query-ref", default=None)
+    memory_learning_posture_parser.add_argument("--limit", type=int, default=20)
+    memory_learning_posture_parser.set_defaults(
+        func=_inspect_memory_learning_posture
     )
 
     memory_receipts_parser = subparsers.add_parser(

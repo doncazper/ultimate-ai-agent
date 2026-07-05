@@ -3264,6 +3264,94 @@ export interface FounderLoopMemoryLifecyclePosture {
   blocked_state_refs: string[];
 }
 
+export interface FounderLoopMemoryLearningPosture {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  status: string;
+  source: string;
+  backend_owned: boolean;
+  control_center_presentation_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  proposal_first_intake: boolean;
+  review_required_before_recall: boolean;
+  feedback_receipts_supported: boolean;
+  correction_receipts_supported: boolean;
+  rejection_receipts_supported: boolean;
+  forget_request_receipts_supported: boolean;
+  forget_execution_authorized: boolean;
+  broad_memory_write_authorized: boolean;
+  automatic_memory_write_authorized: boolean;
+  hidden_context_injection_authorized: boolean;
+  automatic_context_injection_authorized: boolean;
+  memory_truth_authority: boolean;
+  policy_override_authorized: boolean;
+  action_execution_authorized: boolean;
+  connector_write_authorized: boolean;
+  model_provider_call_authorized: boolean;
+  live_web_fetch_authorized: boolean;
+  background_autonomy_authorized: boolean;
+  hard_delete_authorized: boolean;
+  export_execution_authorized: boolean;
+  production_authority_enabled: boolean;
+  lifecycle_state_counts: Record<
+    | "proposed"
+    | "active"
+    | "needs_review"
+    | "corrected"
+    | "rejected"
+    | "stale"
+    | "forgotten"
+    | "blocked",
+    number
+  >;
+  lifecycle_state_refs: string[];
+  feedback_flow_refs: string[];
+  quality_control_refs: string[];
+  context_pack_posture: {
+    status: string;
+    proposal_count: number;
+    proposal_refs: string[];
+    context_pack_refs: string[];
+    separates_facts_assumptions_memories_unknowns: boolean;
+    context_injection_authorized: boolean;
+    hidden_prompt_context_authorized: boolean;
+    prompt_context_written: boolean;
+    provider_model_call_performed: boolean;
+    action_execution_authorized: boolean;
+  };
+  receipt_posture: {
+    decision_receipt_count: number;
+    accepted_receipt_refs: string[];
+    corrected_receipt_refs: string[];
+    rejected_receipt_refs: string[];
+    forget_request_receipt_refs: string[];
+    reviewed_recall_refs: string[];
+    receipt_backed_decision_kinds: MemoryReviewDecisionKind[];
+  };
+  quality_posture: {
+    attention_refs: string[];
+    quality_issue_refs: string[];
+    ranking_contract_ref?: string;
+    ranking_strategy_refs: string[];
+    search_index_status: FounderLoopMemorySearchIndexStatus;
+    semantic_search_enabled: boolean;
+    vector_db_enabled: boolean;
+    embedding_search_enabled: boolean;
+  };
+  provenance_posture: {
+    provenance_refs: string[];
+    provenance_ref_count: number;
+    source_refs_required: boolean;
+    evidence_refs_required: boolean;
+    receipt_refs_required_for_reviewed_recall: boolean;
+    safe_summary_only: boolean;
+  };
+  next_safe_action: string;
+  blocked_state_refs: string[];
+}
+
 export interface FounderLoopMemoryRankingSourceMix {
   source_ref: string;
   count: number;
@@ -3427,6 +3515,7 @@ export interface FounderLoopMemoryWorkbench {
   items: FounderLoopMemoryWorkbenchItem[];
   health: FounderLoopMemoryWorkbenchHealth;
   lifecycle_posture?: FounderLoopMemoryLifecyclePosture;
+  learning_posture?: FounderLoopMemoryLearningPosture;
   decision_receipts: MemoryReviewDecisionReceipt[];
   l1_preview_refs: string[];
   l2_projection_refs: string[];
