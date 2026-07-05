@@ -13,6 +13,7 @@ Implemented frontend pages:
 - `/today`
 - `/inbox`
 - `/plans`
+- `/work-board`
 - `/actions`
 - `/proof`
 - `/trust`
@@ -66,6 +67,12 @@ visibly distinct. The grouping is read-only metadata from Python core storage;
 it adds no generic execute button, connector write, shell/subprocess execution,
 provider/model authority, memory write, context injection, or production
 authority.
+`/work-board` renders the backend-owned Work Board Kanban read model from
+`GET /control-center/work-board`. It shows card, column, proof, evidence,
+blocker, promotion-path, drag/drop posture, and CLI inspection refs with a
+local-only drag/drop and keyboard preview. It does not persist board order,
+create tasks, sync issue trackers, call providers, run shell/browser work,
+write connectors, launch background autonomy, or grant production authority.
 `/start`, `/proof`, and `/trust` are backend-owned Founder Loop support
 surfaces. `/start` renders `GET /control-center/start-here/summary`, `/proof`
 renders `GET /control-center/proof/index`, and `/trust` renders
@@ -160,6 +167,7 @@ Backend API endpoints consumed:
 - `GET /control-center/trust-authority/matrix`
 - `GET /control-center/morning-briefing/summary`
 - `GET /control-center/storage/status`
+- `GET /control-center/work-board`
 - `GET /runtime/readiness`
 - `GET /runtime/capability-matrix`
 - `GET /v1/models`
@@ -243,8 +251,8 @@ provider/model calls, connector writes, coworker dispatch, background autonomy,
 raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
-OpenAPI remains a backend contract. The current backend path count is `187`
-with `188` unique manifest route operations; earlier milestone counts in the
+OpenAPI remains a backend contract. The current backend path count is `188`
+with `189` unique manifest route operations; earlier milestone counts in the
 historical sections below are audit context, not current route inventory.
 
 ## v0.18.0 M14 Connection Stabilization

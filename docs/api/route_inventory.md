@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `187`.
+Current OpenAPI path count: `188`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -264,6 +264,7 @@ authority.
 - `GET /control-center/start-here/summary`
 - `GET /control-center/storage/status`
 - `POST /control-center/web-evidence/attach`
+- `GET /control-center/work-board`
 
 These routes expose storage-backed Founder Loop v1 summaries for Today, Action
 Inbox, Memory Review, Morning Briefing, local storage status, Action Inbox
@@ -273,7 +274,10 @@ memory index previews, L2 ref projections, L3 representation proposals, and
 Phase 5 context-pack proposal envelopes, plus a backend-owned Start Here local
 loop summary, FCC-MEM-022 feedback receipts, observation-candidate previews,
 probe index summaries, contradiction previews, and one allowlisted
-WebAccessGateway web evidence preview receipt path.
+WebAccessGateway web evidence preview receipt path. The Work Board route
+exposes backend-owned Kanban safe refs, local preview posture, blocked
+mutation refs, proof refs, and CLI inspection refs only; drag/drop remains
+presentation preview and creates no durable board order.
 Action decision routes record backend-owned
 approve/edit/reject/defer state, validate exact approval scope for approve where
 required, handle idempotency replay/conflict locally, and return safe receipt

@@ -225,6 +225,13 @@ function iconForName(name: string) {
           <path d="M8 6h4a4 4 0 0 1 0 8H9a3 3 0 0 0 0 6h7" />
         </>
       );
+    case "search":
+      return (
+        <>
+          <circle cx="11" cy="11" r="6" />
+          <path d="m16 16 4 4" />
+        </>
+      );
     case "shield":
     case "shield-check":
       return (

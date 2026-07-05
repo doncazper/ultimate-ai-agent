@@ -243,6 +243,7 @@ function navIconForLabel(label: string): string {
     Inbox: "inbox",
     "Source Inbox": "inbox",
     Plans: "list",
+    "Work Board": "clipboard",
     Actions: "check-circle",
     "Action Inbox": "check-circle",
     Memory: "brain",

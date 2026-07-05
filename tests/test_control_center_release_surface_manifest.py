@@ -60,7 +60,7 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         "blocked",
         "experimental",
     ]
-    assert len(manifest["routes"]) == len(visible_routes) == 38
+    assert len(manifest["routes"]) == len(visible_routes) == 39
     by_path = {route["path"]: route for route in manifest["routes"]}
     assert by_path["/start"]["status"] == "partial"
     assert by_path["/start"]["backend_routes"][0]["path"] == (
@@ -103,6 +103,22 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
     assert any(
         "read-only" in caveat.lower()
         for caveat in by_path["/coding"]["product_language_caveats"]
+    )
+    assert by_path["/work-board"]["status"] == "partial"
+    assert by_path["/work-board"]["backend_routes"][0]["path"] == (
+        "/control-center/work-board"
+    )
+    assert by_path["/work-board"]["approval_required"] is False
+    assert by_path["/work-board"]["visual_proof_status"] == "blocked_no_baseline"
+    assert by_path["/work-board"]["visual_baseline_ref"] == (
+        "visual-baseline:control-center:work-board:not-captured"
+    )
+    assert "missing_backend:work-board-durable-mutation-route" in (
+        by_path["/work-board"]["blocked_capabilities"]
+    )
+    assert any(
+        "local-only preview" in caveat.lower()
+        for caveat in by_path["/work-board"]["product_language_caveats"]
     )
     assert by_path["/today"]["status"] == "partial"
     assert by_path["/today"]["backend_contract_rationale"] == "backend-route-refs-present"

@@ -394,6 +394,72 @@
       ]
     },
     {
+      "path": "/work-board",
+      "label": "Work Board",
+      "group": "Founder Loop",
+      "ui_status": "backend-owned kanban",
+      "status": "partial",
+      "backend_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/work-board",
+          "operation_id": "get_control_center_work_board",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "side_effect_class": "local_dev_workspace_only",
+      "route_classification": "local_sensitive",
+      "approval_required": false,
+      "proof_lanes": [
+        "scripts/verify_control_center_release_surface.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "tests/test_control_center_work_board.py",
+        "apps/control-center/src/App.test.tsx"
+      ],
+      "blocked_capabilities": [
+        "missing_backend:work-board-durable-mutation-route",
+        "missing_backend:work-board-persisted-reorder-receipt-route",
+        "missing_backend:work-board-task-create-route",
+        "missing_backend:work-board-issue-tracker-sync-route",
+        "public_distribution_claim",
+        "production_readiness_claim",
+        "production_authority",
+        "broad_runtime_execution",
+        "connector_write",
+        "provider_model_call",
+        "shell_subprocess_execution",
+        "browser_execution",
+        "background_autonomy"
+      ],
+      "evidence_refs": [
+        "src/ultimate_ai_agent/core/control_center/work_board.py",
+        "src/ultimate_ai_agent/api/control_center.py",
+        "scripts/dev/uaa_work_board.py",
+        "apps/control-center/src/components/WorkBoardPanel.tsx",
+        "apps/control-center/src/routes.tsx",
+        "docs/control_center/route_status_manifest.json",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ],
+      "owner": "founder-loop",
+      "backend_contract_rationale": "backend-route-refs-present",
+      "visual_proof_status": "blocked_no_baseline",
+      "visual_baseline_ref": "visual-baseline:control-center:work-board:not-captured",
+      "visual_proof_rationale": "No checked-in visual baseline is recorded for this route; visual proof remains blocked or experimental until a scoped visual regression lane captures redacted desktop/mobile baselines.",
+      "promotion_criteria": [
+        "Keep the Work Board backed by the Python Core/API read model and CLI inspection.",
+        "Add exact scoped backend contracts, receipts, rollback/safe-disable posture, and tests before any durable board mutation.",
+        "Record visual baseline proof or explicit accepted no-baseline rationale.",
+        "Keep public beta, public release, production readiness, and production authority claims blocked."
+      ],
+      "product_language_caveats": [
+        "Work Board is a backend-owned local read model with local-only preview controls, not durable board mutation authority.",
+        "Python Agent Core/API remains product truth; Control Center is presentation only.",
+        "Route visibility and drag/drop preview do not grant connector writes, provider/model calls, browser execution, shell/subprocess execution, memory/context injection, broad runtime authority, hidden autonomy, or production authority.",
+        "Work Board is not a public beta and must not claim public release, production readiness, production authority, or completed product authority until later evidence-backed lanes graduate."
+      ]
+    },
+    {
       "path": "/actions",
       "label": "Action Inbox",
       "group": "Founder Loop",
