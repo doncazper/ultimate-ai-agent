@@ -65,4 +65,3 @@ make frontend-check
 ```
 
 Skip frontend checks only if no frontend files changed.
-

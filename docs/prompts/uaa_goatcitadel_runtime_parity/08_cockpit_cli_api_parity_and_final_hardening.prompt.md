@@ -66,4 +66,3 @@ make frontend-visual-check
 
 Run frontend checks only when frontend files changed. Report blockers instead
 of claiming success.
-

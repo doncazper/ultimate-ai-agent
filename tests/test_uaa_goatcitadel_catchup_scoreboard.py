@@ -52,4 +52,3 @@ def test_goatcitadel_catchup_scoreboard_verifier_blocks_absolute_paths(
 
     assert result.returncode == 1
     assert "absolute local path" in result.stderr
-

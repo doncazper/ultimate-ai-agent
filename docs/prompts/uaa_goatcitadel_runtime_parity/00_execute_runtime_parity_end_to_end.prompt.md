@@ -156,4 +156,3 @@ Report:
 - remaining risks;
 - current git status summary;
 - recommended next exact prompt or PR lane.
-

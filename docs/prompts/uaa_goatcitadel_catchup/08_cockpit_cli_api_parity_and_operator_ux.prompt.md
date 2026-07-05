@@ -69,4 +69,3 @@ make frontend-visual-check
 ```
 
 Run visual checks when UI layout or release-surface screenshots changed.
-

@@ -56,4 +56,3 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.p
 .venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
 make frontend-check
 ```
-

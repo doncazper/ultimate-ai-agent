@@ -88,4 +88,3 @@ git diff --check
 .venv/bin/python scripts/verify_uaa_goatcitadel_catchup_scoreboard.py
 .venv/bin/python scripts/verify_documentation_integrity.py
 ```
-

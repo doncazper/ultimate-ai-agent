@@ -53,4 +53,3 @@ def test_wrapper_dry_run_emits_combined_prompt(tmp_path: Path) -> None:
     text = output.read_text(encoding="utf-8")
     assert "UAA GoatCitadel Catch-Up Prompt Pack Combined Run" in text
     assert "00_execute_uaa_goatcitadel_catchup_end_to_end.prompt.md" in text
-

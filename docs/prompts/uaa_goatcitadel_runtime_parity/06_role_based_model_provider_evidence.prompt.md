@@ -62,4 +62,3 @@ git diff --check
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_model_runtime_no_real_calls.py -q
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_runtime_capability_matrix.py -q
 ```
-

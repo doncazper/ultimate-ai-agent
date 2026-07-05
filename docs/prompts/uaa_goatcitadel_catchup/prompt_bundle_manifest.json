@@ -15,7 +15,7 @@
     "docs/prompts/uaa_goatcitadel_catchup/08_cockpit_cli_api_parity_and_operator_ux.prompt.md",
     "docs/prompts/uaa_goatcitadel_catchup/09_extensibility_ecosystem_and_final_hardening.prompt.md"
   ],
-  "bundle_hash": "sha256:7952b575833507743292724fee3b3a2b9c69a642a1df3eaeba1400b86a535be1",
+  "bundle_hash": "sha256:ea24b30cb0c94a5dce87a7a4de344a90ad07d3099a49373b9208472c3c01ac22",
   "stable_within_run": true,
   "created_at": "2026-07-05"
 }

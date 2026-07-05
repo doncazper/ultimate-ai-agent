@@ -54,4 +54,3 @@ def test_wrapper_dry_run_emits_combined_prompt(tmp_path: Path) -> None:
     assert "00_execute_runtime_parity_end_to_end.prompt.md" in text
     assert "route-decision binding" in text
     assert "signed portable evidence" in text
-

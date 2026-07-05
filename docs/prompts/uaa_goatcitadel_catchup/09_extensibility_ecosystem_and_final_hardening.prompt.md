@@ -76,4 +76,3 @@ make frontend-visual-check
 ```
 
 Report any skipped checks with concrete blockers.
-

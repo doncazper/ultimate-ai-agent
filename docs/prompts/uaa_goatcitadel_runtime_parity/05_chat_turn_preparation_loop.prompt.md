@@ -58,4 +58,3 @@ make frontend-check
 ```
 
 Run frontend checks only when frontend files changed.
-

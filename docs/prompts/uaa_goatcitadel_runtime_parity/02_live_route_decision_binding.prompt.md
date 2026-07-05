@@ -64,4 +64,3 @@ git diff --check
 PYTHONPATH=src .venv/bin/python scripts/verify_openapi_contract.py
 PYTHONPATH=src .venv/bin/python -m pytest tests/test_api_manifest.py -q
 ```
-

@@ -106,4 +106,3 @@ echo "Stop now if you do not want Codex to implement, verify, and harden changes
 echo
 
 "$CODEX_BIN" exec -C "$ROOT" --sandbox "$SANDBOX" "${MODEL_ARG[@]}" - < "$PROMPT"
-

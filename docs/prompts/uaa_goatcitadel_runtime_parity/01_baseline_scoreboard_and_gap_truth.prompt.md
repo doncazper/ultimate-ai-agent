@@ -49,4 +49,3 @@ Run focused docs/verifier tests plus:
 git diff --check
 .venv/bin/python scripts/verify_documentation_integrity.py
 ```
-

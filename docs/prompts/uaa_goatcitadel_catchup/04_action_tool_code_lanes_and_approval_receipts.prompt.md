@@ -65,4 +65,3 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_control_center_api_routes.p
 .venv/bin/python scripts/verify_product_truth.py
 make frontend-check
 ```
-
