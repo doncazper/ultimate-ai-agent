@@ -1,6 +1,6 @@
 # UAA GoatCitadel Catch-Up Scoreboard
 
-Status: Phase 05 active scoreboard. This document is documentation and verifier
+Status: Phase 06 active scoreboard. This document is documentation and verifier
 coverage only; it is not runtime authority, does not grant execution authority,
 and does not change Control Center behavior.
 
@@ -36,8 +36,10 @@ UAA evidence inspected:
 - `tests/test_control_center_api_routes.py`
 - `tests/test_goatcitadel_catchup_action_tool_code_lanes.py`
 - `tests/test_goatcitadel_catchup_memory_learning.py`
+- `tests/test_goatcitadel_catchup_evidence_audit.py`
 - `scripts/verify_uaa_goatcitadel_catchup_action_tool_code_lanes.py`
 - `scripts/verify_uaa_goatcitadel_catchup_memory_learning.py`
+- `scripts/verify_uaa_goatcitadel_catchup_evidence_audit.py`
 - `scripts/verify_uaa_goatcitadel_catchup_prompt_pack.py`
 - `docs/prompts/uaa_goatcitadel_catchup/`
 
@@ -80,7 +82,7 @@ model intelligence. Code and tests are weighted above roadmap claims.
 | Code and implementation assistance | 6 | partial | 8 | implemented | GoatCitadel | UAA has Coding Cockpit shell, workspace workbench contracts, patch proposals/apply receipts in product truth, and blocked shell authority. GoatCitadel has Code Mode v1 contracts, hashes, approval, artifact refs, and sandbox posture. | Make UAA code proposals, diffs, receipts, and test lanes more coherent before broader command authority. |
 | Research, web, and external information handling | 5 | partial | 7 | partial | GoatCitadel | UAA has WebAccessGateway guardrails and one allowlisted web evidence preview lane. GoatCitadel has provider/research and browser/evidence posture in docs/contracts. | Keep UAA web evidence read-only and gateway-owned; do not graduate browser action or unrestricted web fetching. |
 | Model/provider management | 5 | partial | 8 | implemented | GoatCitadel | UAA has local model status/readiness, RuntimeGateway pilot contracts, and blocked provider/model authority. GoatCitadel has provider catalog, local llama.cpp posture, model discovery, provider summaries, and model-router trace contracts. | Add metadata, secret-status, cost/readiness, and route-decision traces without live provider/model calls. |
-| Evidence, audit, and observability | 8 | implemented | 9 | implemented | GoatCitadel | UAA has evidence timeline, receipts, redaction, proof refs, route/API/verifier evidence, and debug logging posture. GoatCitadel claims signed offline-verifiable evidence and compliance bundles. | Add signed portable evidence verification and stronger same-run lineage displays. |
+| Evidence, audit, and observability | 8 | implemented | 9 | implemented | GoatCitadel | UAA has Evidence Timeline, receipts, redaction, proof refs, route/API/verifier evidence, debug logging posture, and Phase 06 backend-owned evidence audit receipt spine with grouped lineage, artifact hash refs, verifier refs, missing receipt refs, and CLI parity. GoatCitadel claims signed offline-verifiable evidence and compliance bundles. | Add later signed portable evidence export/verification only through scoped local evidence milestones; no production compliance claims yet. |
 | Safety, security, and failure handling | 9 | implemented | 8 | implemented | UAA | UAA strongly blocks raw payload persistence, broad runtime authority, provider SDK calls, browser automation, shell execution, connector writes, and production claims. GoatCitadel has broad governance but more active runtime surface area. | Keep strict deny-by-default while introducing exact lanes only with rollback/safe-disable and receipts. |
 | UX as an AI cockpit | 6 | partial | 9 | implemented | GoatCitadel | UAA has many backend-owned surfaces but still feels modular. GoatCitadel presents one Work cockpit with Library/Ops/Settings and visual proof. | Productize UAA's Today/Actions/Chat/Proof/Evidence/Memory/Coding/Work Board into one flow. |
 | CLI/API parity | 8 | implemented | 7 | partial | UAA | UAA treats CLI and OpenAPI as first-class truth, with `/api/manifest` and verifier-backed route metadata. GoatCitadel has gateway APIs and contracts but less evidence here from inspected files. | Keep parity as UAA's differentiator while adding cockpit read models. |
@@ -118,7 +120,7 @@ tests, and CLI/API/core parity.
 | 2 | Durable orchestration progress, recovery, cancellation, retry, blocked, and dead-letter visibility. | implemented read-model | Python execution core | `GET /control-center/runs/observability`, CLI inspect, Control Center Evidence run panel. | Background autonomy, queue workers, retry/resume/cancel execution blocked. | `tests/test_run_observability_surface.py`, durable lifecycle tests, Phase 03 verifier. | Phase 03: Durable Orchestration |
 | 3 | Action/tool/code lane catalog with inspectable/callable separation. | implemented read-model | Python tool/action/catalog core | Catalog read models, proposal posture, receipt refs, CLI inspection, and Action Inbox UI panel; no generic execution. | Unrestricted shell/subprocess execution, generic tool execution, plugin runtime import, connector writes, provider/model calls, browser automation, and broad autonomy blocked. | `tests/test_goatcitadel_catchup_action_tool_code_lanes.py`, `scripts/verify_uaa_goatcitadel_catchup_action_tool_code_lanes.py`, catalog verifier, approval/receipt tests, product-language tests. | Phase 04 implemented: Action/Tool/Code Lanes |
 | 4 | Memory learning lifecycle with feedback, stale/wrong/conflict/duplicate states. | implemented read-model | Python memory core | Memory Workbench learning posture, CLI `memory-learning-posture`, Control Center Memory panel. | Broad memory-write authority, automatic memory writes, hidden context injection, memory-as-truth, delete/export execution, connector writes, model/provider calls, live web fetch, background autonomy, and production authority blocked. | `tests/test_goatcitadel_catchup_memory_learning.py`, `scripts/verify_uaa_goatcitadel_catchup_memory_learning.py`, memory provenance and redaction tests. | Phase 05 implemented: Memory/Learning |
-| 5 | Signed portable evidence and same-run lineage detail. | partial to implemented | Evidence/proof core | Evidence envelope read/verify surfaces and CLI verifier. | External telemetry/export and production compliance claims blocked. | Evidence signature/hash verifier and redaction tests. | Phase 06: Evidence/Audit |
+| 5 | Signed portable evidence and same-run lineage detail. | implemented read-model | Evidence/proof core | Evidence audit receipt spine, grouped timeline/read-model, receipt envelopes, missing receipt refs, artifact hash refs, verifier refs, CLI inspection. | External telemetry/export and production compliance claims blocked. | `tests/test_goatcitadel_catchup_evidence_audit.py`, `scripts/verify_uaa_goatcitadel_catchup_evidence_audit.py`, redaction and missing receipt tests. | Phase 06 implemented: Evidence/Audit |
 | 6 | Model/provider/research metadata parity. | partial to partial-plus | RuntimeGateway/local model core | Provider readiness/catalog metadata and route-decision trace read models. | Runtime model calls, provider SDK calls, and live web fetching blocked. | Runtime metadata tests and authority guard verifier. | Phase 07: Model/Provider/Research |
 | 7 | Cockpit UX parity for Today/Actions/Chat/Proof/Evidence/Memory/Runtime/Coding/Work Board. | partial to implemented | Control Center presentation over Python truth | UI polish over backend-owned refs; CLI/API parity preserved. | Browser automation inside UAA blocked. | Frontend route tests, visual checks if UI changes. | Phase 08: Cockpit/CLI/API |
 | 8 | Extension ecosystem clarity. | partial to partial-plus | Extension catalog core | Inspectable catalog, grant records, trust statuses; no runtime import. | Connector writes and plugin runtime import blocked. | Extension catalog tests and static guardrails. | Phase 09: Extensibility |
@@ -252,6 +254,25 @@ hidden/automatic context injection, memory-as-truth, action execution from
 memory, connector writes, model/provider calls, live web fetching, background
 autonomy, hard delete, export execution, public release, and production
 authority remain blocked.
+
+## Phase 06 Evidence
+
+Phase 06 is implemented as a repo-safe evidence audit receipt spine read-only
+lineage read-model slice. It adds
+`docs/control_center/UAA_GOATCITADEL_CATCHUP_EVIDENCE_AUDIT.md`, Python Core
+contract `contract-ref:goatcitadel-catchup-evidence-audit-spine:v1`, the
+existing `GET /control-center/evidence/timeline` API payload field
+`evidence_audit_receipt_spine`, CLI command
+`scripts/dev/uaa_founder_loop.py inspect-evidence-audit-spine`, Control Center
+Evidence rendering, and focused tests/verifier coverage.
+
+The spine groups plan changes, approval waits, action proposals, receipt
+events, memory decisions, blocked/no-go events, and recovery posture. Receipt
+envelopes expose safe refs, artifact hash refs, verifier refs, redaction
+status, missing receipt refs, and blocked-authority refs only. External
+telemetry/export, production compliance claims, provider/model calls, browser
+automation, connector writes, shell execution, background autonomy, and
+production authority remain blocked.
 
 ## Merge-Gated Follow-Up Prompts
 

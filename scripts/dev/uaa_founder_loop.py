@@ -348,6 +348,31 @@ def _inspect_evidence_memory_binding(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_evidence_audit_spine(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    timeline = repo.evidence_timeline(limit=args.limit)
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-evidence-audit-spine",
+        "evidence_audit_receipt_spine_contract_ref": timeline.get(
+            "evidence_audit_receipt_spine_contract_ref"
+        ),
+        "evidence_audit_receipt_spine": timeline.get(
+            "evidence_audit_receipt_spine"
+        ),
+        "receipt_refs": list(timeline.get("receipt_refs") or []),
+        "approval_refs": list(timeline.get("approval_refs") or []),
+        "idempotency_refs": list(timeline.get("idempotency_refs") or []),
+        "rollback_refs": list(timeline.get("rollback_refs") or []),
+        "blocked_states": list(timeline.get("blocked_states") or []),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
 def _inspect_agent_loop(args: argparse.Namespace) -> int:
     repo = _repository(args)
     today_summary = repo.today_summary(limit=args.limit)
@@ -1706,6 +1731,16 @@ def build_parser() -> argparse.ArgumentParser:
     evidence_memory_binding_parser.set_defaults(
         func=_inspect_evidence_memory_binding
     )
+
+    evidence_audit_spine_parser = subparsers.add_parser(
+        "inspect-evidence-audit-spine",
+        help=(
+            "Print the backend-owned Evidence audit receipt spine with "
+            "grouped timeline and receipt-envelope refs."
+        ),
+    )
+    evidence_audit_spine_parser.add_argument("--limit", type=int, default=50)
+    evidence_audit_spine_parser.set_defaults(func=_inspect_evidence_audit_spine)
 
     agent_loop_parser = subparsers.add_parser(
         "inspect-agent-loop",

@@ -442,6 +442,12 @@ EVIDENCE_TIMELINE_NARRATIVE_CONTRACT_REF = (
 EVIDENCE_TIMELINE_NARRATIVE_READ_MODEL_SOURCE = (
     "python_core_evidence_timeline_narrative_read_model"
 )
+EVIDENCE_AUDIT_RECEIPT_SPINE_CONTRACT_REF = (
+    "contract-ref:goatcitadel-catchup-evidence-audit-spine:v1"
+)
+EVIDENCE_AUDIT_RECEIPT_SPINE_SOURCE = (
+    "python_core_goatcitadel_catchup_evidence_audit_spine"
+)
 EVIDENCE_TIMELINE_PRODUCTIZATION_ROUTE_REFS = ("GET /control-center/evidence/timeline",)
 EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES = (
     "action_envelope_created",
@@ -458,6 +464,15 @@ EVIDENCE_TIMELINE_PRODUCTIZED_GROUP_KINDS = (
     "chat_turn",
     "memory_candidate",
     "web_evidence",
+)
+EVIDENCE_AUDIT_GROUP_KINDS = (
+    "plan_changes",
+    "approval_waits",
+    "action_proposals",
+    "execution_receipts",
+    "memory_proposals_review_decisions",
+    "blocked_no_go_events",
+    "recovery_events",
 )
 OPERATOR_RUN_TIMELINE_CONTRACT_REF = "contract-ref:operator-run-timeline:v1"
 FRONTIER_AI_COST_USAGE_CONTRACT_REF = "contract-ref:frontier-ai-cost-usage-telemetry:v1"
@@ -1753,6 +1768,354 @@ class FounderLoopEvidenceTimelineNarrativeReadModel(BaseModel):
         return self
 
 
+EvidenceAuditGroupKind = Literal[
+    "plan_changes",
+    "approval_waits",
+    "action_proposals",
+    "execution_receipts",
+    "memory_proposals_review_decisions",
+    "blocked_no_go_events",
+    "recovery_events",
+]
+
+
+class FounderLoopEvidenceAuditReceiptEnvelope(BaseModel):
+    envelope_ref: str = Field(..., min_length=1)
+    receipt_ref: str = Field(..., min_length=1)
+    receipt_recorded: bool = False
+    run_ref: str = Field(..., min_length=1)
+    action_ref: str = Field(..., min_length=1)
+    approval_ref: str = Field(..., min_length=1)
+    event_ref: str = Field(..., min_length=1)
+    timeline_item_ref: str = Field(..., min_length=1)
+    group_ref: str = Field(..., min_length=1)
+    side_effect_class: str = "local_dev_workspace_only"
+    authority_decision_ref: str = Field(..., min_length=1)
+    input_ref: str = Field(..., min_length=1)
+    output_ref: str = Field(..., min_length=1)
+    artifact_hash_ref: str = Field(..., min_length=1)
+    timestamp_ref: str = Field(..., min_length=1)
+    verifier_version_ref: str = Field(..., min_length=1)
+    redaction_status: str = "redacted_summary_only"
+    safe_summary: str = Field(..., min_length=1, max_length=420)
+    route_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    audit_refs: list[str] = Field(default_factory=list)
+    idempotency_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    blocked_state_refs: list[str] = Field(default_factory=list)
+    missing_receipt_refs: list[str] = Field(default_factory=list)
+    raw_content_included: bool = False
+    approval_ref_authority: bool = False
+    action_execution_enabled: bool = False
+    tool_execution_enabled: bool = False
+    connector_write_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    runtime_model_call_enabled: bool = False
+    provider_sdk_call_enabled: bool = False
+    live_web_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    browser_execution_enabled: bool = False
+    background_autonomy_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_safe_envelope(self) -> "FounderLoopEvidenceAuditReceiptEnvelope":
+        for field_name in [
+            "envelope_ref",
+            "receipt_ref",
+            "run_ref",
+            "action_ref",
+            "approval_ref",
+            "event_ref",
+            "timeline_item_ref",
+            "group_ref",
+            "authority_decision_ref",
+            "input_ref",
+            "output_ref",
+            "artifact_hash_ref",
+            "timestamp_ref",
+            "verifier_version_ref",
+        ]:
+            _validate_safe_ref(str(getattr(self, field_name)), field_name)
+        _validate_safe_text(self.side_effect_class, "side_effect_class")
+        _validate_safe_text(self.redaction_status, "redaction_status")
+        _validate_safe_text(self.safe_summary, "safe_summary")
+        for route_ref in self.route_refs:
+            _validate_safe_text(route_ref, "route_ref")
+        for field_name in [
+            "evidence_refs",
+            "audit_refs",
+            "idempotency_refs",
+            "rollback_refs",
+            "blocked_state_refs",
+            "missing_receipt_refs",
+        ]:
+            for ref_value in getattr(self, field_name):
+                _validate_safe_ref(ref_value, field_name)
+        if self.receipt_recorded and self.missing_receipt_refs:
+            raise ValueError("recorded receipt envelope cannot have missing refs")
+        if not self.receipt_recorded and not self.missing_receipt_refs:
+            raise ValueError("missing receipt envelope must expose missing ref")
+        denied_flags = {
+            "raw_content_included": self.raw_content_included,
+            "approval_ref_authority": self.approval_ref_authority,
+            "action_execution_enabled": self.action_execution_enabled,
+            "tool_execution_enabled": self.tool_execution_enabled,
+            "connector_write_enabled": self.connector_write_enabled,
+            "provider_model_call_enabled": self.provider_model_call_enabled,
+            "runtime_model_call_enabled": self.runtime_model_call_enabled,
+            "provider_sdk_call_enabled": self.provider_sdk_call_enabled,
+            "live_web_enabled": self.live_web_enabled,
+            "shell_subprocess_execution_enabled": self.shell_subprocess_execution_enabled,
+            "browser_execution_enabled": self.browser_execution_enabled,
+            "background_autonomy_enabled": self.background_autonomy_enabled,
+            "production_authority_enabled": self.production_authority_enabled,
+        }
+        enabled = [name for name, value in denied_flags.items() if value]
+        if enabled:
+            raise ValueError(
+                f"evidence audit receipt envelope enabled denied authority: {enabled[0]}"
+            )
+        _validate_safe_payload(
+            self.model_dump(mode="json"),
+            "evidence_audit_receipt_envelope",
+        )
+        return self
+
+
+class FounderLoopEvidenceAuditGroup(BaseModel):
+    group_ref: str = Field(..., min_length=1)
+    group_kind: EvidenceAuditGroupKind
+    label: str = Field(..., min_length=1, max_length=120)
+    status: str = Field(..., min_length=1, max_length=120)
+    safe_summary: str = Field(..., min_length=1, max_length=420)
+    event_refs: list[str] = Field(default_factory=list)
+    timeline_item_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    approval_refs: list[str] = Field(default_factory=list)
+    audit_refs: list[str] = Field(default_factory=list)
+    idempotency_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    missing_receipt_refs: list[str] = Field(default_factory=list)
+    blocked_state_refs: list[str] = Field(default_factory=list)
+    next_safe_action: str = Field(..., min_length=1, max_length=300)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_safe_group(self) -> "FounderLoopEvidenceAuditGroup":
+        _validate_safe_ref(self.group_ref, "evidence_audit_group_ref")
+        for field_name in ["group_kind", "label", "status", "safe_summary"]:
+            _validate_safe_text(str(getattr(self, field_name)), field_name)
+        for field_name in [
+            "event_refs",
+            "timeline_item_refs",
+            "receipt_refs",
+            "approval_refs",
+            "audit_refs",
+            "idempotency_refs",
+            "rollback_refs",
+            "evidence_refs",
+            "missing_receipt_refs",
+            "blocked_state_refs",
+        ]:
+            for ref_value in getattr(self, field_name):
+                _validate_safe_ref(ref_value, field_name)
+        _validate_safe_text(self.next_safe_action, "next_safe_action")
+        _validate_safe_payload(self.model_dump(mode="json"), "evidence_audit_group")
+        return self
+
+
+class FounderLoopEvidenceAuditReceiptSpine(BaseModel):
+    schema_version: str = "goatcitadel-catchup-evidence-audit-spine.v1"
+    contract_ref: str = EVIDENCE_AUDIT_RECEIPT_SPINE_CONTRACT_REF
+    source: str = EVIDENCE_AUDIT_RECEIPT_SPINE_SOURCE
+    status: str = "implemented_backend_owned_evidence_audit_receipt_spine"
+    backend_owned: bool = True
+    control_center_presentation_only: bool = True
+    local_read_model_only: bool = True
+    safe_refs_only: bool = True
+    redacted_summaries_only: bool = True
+    raw_content_included: bool = False
+    route_refs: list[str] = Field(default_factory=list)
+    cli_ref: str = "python scripts/dev/uaa_founder_loop.py inspect-evidence-audit-spine"
+    receipt_envelope_field_refs: list[str] = Field(default_factory=list)
+    timeline_group_kinds: list[EvidenceAuditGroupKind] = Field(default_factory=list)
+    group_count: int = Field(..., ge=0)
+    envelope_count: int = Field(..., ge=0)
+    missing_receipt_count: int = Field(..., ge=0)
+    groups: list[FounderLoopEvidenceAuditGroup] = Field(default_factory=list)
+    receipt_envelopes: list[FounderLoopEvidenceAuditReceiptEnvelope] = Field(
+        default_factory=list
+    )
+    receipt_refs: list[str] = Field(default_factory=list)
+    missing_receipt_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    audit_refs: list[str] = Field(default_factory=list)
+    approval_refs: list[str] = Field(default_factory=list)
+    idempotency_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    blocked_state_refs: list[str] = Field(default_factory=list)
+    portable_evidence_posture: str = (
+        "hash_refs_and_verifier_refs_available_for_local_inspection_only"
+    )
+    redaction_posture: str = (
+        "safe_refs_and_bounded_summaries_only_private_source_material_omitted"
+    )
+    authority_boundary: str = (
+        "Evidence audit receipt spine is read-only lineage over existing "
+        "timeline, receipt, proof, approval, audit, idempotency, rollback, "
+        "and blocked refs. It grants no approval, execution, connector, "
+        "provider, browser, shell, background, or production authority."
+    )
+    next_safe_action: str = (
+        "Inspect groups, receipt envelopes, missing receipt refs, and proof "
+        "refs before promoting any later exact authority lane."
+    )
+    approval_ref_authority: bool = False
+    action_execution_enabled: bool = False
+    tool_execution_enabled: bool = False
+    connector_write_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    runtime_model_call_enabled: bool = False
+    provider_sdk_call_enabled: bool = False
+    live_web_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    browser_execution_enabled: bool = False
+    background_autonomy_enabled: bool = False
+    external_export_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_safe_spine(self) -> "FounderLoopEvidenceAuditReceiptSpine":
+        if self.schema_version != "goatcitadel-catchup-evidence-audit-spine.v1":
+            raise ValueError("evidence audit spine schema drift")
+        if self.contract_ref != EVIDENCE_AUDIT_RECEIPT_SPINE_CONTRACT_REF:
+            raise ValueError("evidence audit spine contract drift")
+        if self.source != EVIDENCE_AUDIT_RECEIPT_SPINE_SOURCE:
+            raise ValueError("evidence audit spine source drift")
+        for field_name in [
+            "backend_owned",
+            "control_center_presentation_only",
+            "local_read_model_only",
+            "safe_refs_only",
+            "redacted_summaries_only",
+        ]:
+            if getattr(self, field_name) is not True:
+                raise ValueError(f"{field_name} must remain true")
+        denied_flags = {
+            "raw_content_included": self.raw_content_included,
+            "approval_ref_authority": self.approval_ref_authority,
+            "action_execution_enabled": self.action_execution_enabled,
+            "tool_execution_enabled": self.tool_execution_enabled,
+            "connector_write_enabled": self.connector_write_enabled,
+            "provider_model_call_enabled": self.provider_model_call_enabled,
+            "runtime_model_call_enabled": self.runtime_model_call_enabled,
+            "provider_sdk_call_enabled": self.provider_sdk_call_enabled,
+            "live_web_enabled": self.live_web_enabled,
+            "shell_subprocess_execution_enabled": self.shell_subprocess_execution_enabled,
+            "browser_execution_enabled": self.browser_execution_enabled,
+            "background_autonomy_enabled": self.background_autonomy_enabled,
+            "external_export_enabled": self.external_export_enabled,
+            "production_authority_enabled": self.production_authority_enabled,
+        }
+        enabled = [name for name, value in denied_flags.items() if value]
+        if enabled:
+            raise ValueError(
+                f"evidence audit spine enabled denied authority: {enabled[0]}"
+            )
+        if self.timeline_group_kinds != list(EVIDENCE_AUDIT_GROUP_KINDS):
+            raise ValueError("evidence audit spine group kinds drifted")
+        if self.group_count != len(self.groups):
+            raise ValueError("evidence audit group count mismatch")
+        if self.envelope_count != len(self.receipt_envelopes):
+            raise ValueError("evidence audit envelope count mismatch")
+        if self.missing_receipt_count != len(self.missing_receipt_refs):
+            raise ValueError("evidence audit missing receipt count mismatch")
+        expected = {
+            "receipt_refs": _unique_sorted_refs(
+                envelope.receipt_ref
+                for envelope in self.receipt_envelopes
+                if envelope.receipt_recorded
+            ),
+            "missing_receipt_refs": _unique_sorted_refs(
+                ref
+                for envelope in self.receipt_envelopes
+                for ref in envelope.missing_receipt_refs
+            ),
+            "evidence_refs": _unique_sorted_refs(
+                ref
+                for envelope in self.receipt_envelopes
+                for ref in envelope.evidence_refs
+            ),
+            "audit_refs": _unique_sorted_refs(
+                ref
+                for envelope in self.receipt_envelopes
+                for ref in envelope.audit_refs
+            ),
+            "approval_refs": _unique_sorted_refs(
+                ref
+                for envelope in self.receipt_envelopes
+                for ref in (
+                    [] if envelope.approval_ref.startswith("approval-ref:not-") else [envelope.approval_ref]
+                )
+            ),
+            "idempotency_refs": _unique_sorted_refs(
+                ref
+                for envelope in self.receipt_envelopes
+                for ref in envelope.idempotency_refs
+            ),
+            "rollback_refs": _unique_sorted_refs(
+                ref
+                for envelope in self.receipt_envelopes
+                for ref in envelope.rollback_refs
+            ),
+            "blocked_state_refs": _unique_sorted_refs(
+                ref
+                for envelope in self.receipt_envelopes
+                for ref in envelope.blocked_state_refs
+            ),
+        }
+        for field_name, expected_refs in expected.items():
+            if getattr(self, field_name) != expected_refs:
+                raise ValueError(f"{field_name} must match receipt envelopes")
+        for route_ref in self.route_refs:
+            _validate_safe_text(route_ref, "route_ref")
+        for field_name in [
+            "contract_ref",
+            "cli_ref",
+            "portable_evidence_posture",
+            "redaction_posture",
+            "authority_boundary",
+            "next_safe_action",
+        ]:
+            _validate_safe_text(str(getattr(self, field_name)), field_name)
+        for field_name in [
+            "receipt_envelope_field_refs",
+            "receipt_refs",
+            "missing_receipt_refs",
+            "evidence_refs",
+            "audit_refs",
+            "approval_refs",
+            "idempotency_refs",
+            "rollback_refs",
+            "blocked_state_refs",
+        ]:
+            for ref_value in getattr(self, field_name):
+                _validate_safe_ref(ref_value, field_name)
+        _validate_safe_payload(
+            self.model_dump(mode="json"),
+            "evidence_audit_receipt_spine",
+        )
+        return self
+
+
 class FounderLoopOperatorRunBorrowedPattern(BaseModel):
     pattern_id: str = Field(..., min_length=1, max_length=80)
     label: str = Field(..., min_length=1, max_length=120)
@@ -2270,6 +2633,183 @@ def _status_ref(prefix: str, value: str) -> str:
     if not safe_value:
         safe_value = "missing"
     return f"{prefix}:{safe_value}"
+
+
+def _missing_receipt_ref(value: str) -> str:
+    return _status_ref("missing-receipt", value)
+
+
+def _artifact_hash_ref(kind: str, value: Any) -> str:
+    payload = json.dumps(value, sort_keys=True, default=str, ensure_ascii=True)
+    digest = hashlib.sha256(payload.encode("utf-8", errors="replace")).hexdigest()
+    return f"artifact-hash-ref:{kind}:sha256-{digest[:16]}"
+
+
+def _first_action_ref(value: dict[str, Any]) -> str:
+    for ref_value in [
+        *list(value.get("source_refs") or []),
+        str(value.get("group_ref") or ""),
+    ]:
+        ref = str(ref_value)
+        if ref.startswith(
+            (
+                "founder-action:",
+                "action-envelope:",
+                "local-task:",
+                "internal-action-proposal:",
+            )
+        ):
+            return ref
+    return "action-ref:not-applicable"
+
+
+def _evidence_audit_group_definition(
+    group_kind: EvidenceAuditGroupKind,
+) -> dict[str, str]:
+    definitions = {
+        "plan_changes": {
+            "label": "Plan changes",
+            "safe_summary": (
+                "Plan and proposal changes are grouped as read-only evidence refs."
+            ),
+            "next_safe_action": (
+                "Inspect plan and proposal refs before creating any exact Action lane."
+            ),
+        },
+        "approval_waits": {
+            "label": "Approval waits",
+            "safe_summary": (
+                "Approval refs are identifiers only until an owner lane validates scope."
+            ),
+            "next_safe_action": (
+                "Inspect approval refs and blocked states; approval refs alone grant no authority."
+            ),
+        },
+        "action_proposals": {
+            "label": "Action proposals",
+            "safe_summary": (
+                "Action proposals and envelopes are visible before any execution lane."
+            ),
+            "next_safe_action": (
+                "Use Action Inbox owner routes for exact decision receipts."
+            ),
+        },
+        "execution_receipts": {
+            "label": "Execution receipts",
+            "safe_summary": (
+                "Recorded receipts are grouped for accepted exact lanes and receipt-only decisions."
+            ),
+            "next_safe_action": (
+                "Inspect receipt envelopes and proof refs; do not infer broader execution authority."
+            ),
+        },
+        "memory_proposals_review_decisions": {
+            "label": "Memory proposals and review decisions",
+            "safe_summary": (
+                "Memory proposals and reviewed decisions stay recall and review posture."
+            ),
+            "next_safe_action": (
+                "Inspect Memory Review receipts; broad memory write and context injection remain blocked."
+            ),
+        },
+        "blocked_no_go_events": {
+            "label": "Blocked and no-go events",
+            "safe_summary": (
+                "Blocked states are grouped so missing authority remains visible."
+            ),
+            "next_safe_action": (
+                "Keep the lane blocked until exact approval, receipt, rollback, and verifier coverage exist."
+            ),
+        },
+        "recovery_events": {
+            "label": "Recovery and rollback posture",
+            "safe_summary": (
+                "Rollback, idempotency, replay, and safe-disable refs are inspection posture only."
+            ),
+            "next_safe_action": (
+                "Inspect recovery refs; rollback execution requires a separate scoped lane."
+            ),
+        },
+    }
+    return definitions[group_kind]
+
+
+def _evidence_event_matches_audit_group(
+    event: dict[str, Any],
+    group_kind: EvidenceAuditGroupKind,
+) -> bool:
+    event_type = str(event.get("event_type") or "")
+    item_kind = str(event.get("item_kind") or "").lower()
+    text = " ".join(
+        [
+            item_kind,
+            str(event.get("title") or "").lower(),
+            " ".join(str(ref).lower() for ref in event.get("source_refs", [])),
+            " ".join(str(ref).lower() for ref in event.get("status_refs", [])),
+        ]
+    )
+    receipt_refs = list(event.get("receipt_refs") or [])
+    approval_refs = list(event.get("approval_refs") or [])
+    blocked_states = list(event.get("blocked_states") or [])
+    if group_kind == "plan_changes":
+        return "plan" in text or "proposal" in text
+    if group_kind == "approval_waits":
+        return bool(approval_refs and not receipt_refs)
+    if group_kind == "action_proposals":
+        return event_type == "action_envelope_created" or "action" in text
+    if group_kind == "execution_receipts":
+        return bool(receipt_refs)
+    if group_kind == "memory_proposals_review_decisions":
+        return event_type == "memory_review_decision_recorded" or "memory" in text
+    if group_kind == "blocked_no_go_events":
+        return bool(blocked_states) or not receipt_refs
+    if group_kind == "recovery_events":
+        return bool(
+            event.get("rollback_refs")
+            or event.get("rollback_blockers")
+            or event.get("idempotency_refs")
+        )
+    return False
+
+
+def _timeline_item_matches_audit_group(
+    item: dict[str, Any],
+    group_kind: EvidenceAuditGroupKind,
+) -> bool:
+    item_kind = str(item.get("item_kind") or "").lower()
+    text = " ".join(
+        [
+            item_kind,
+            str(item.get("title") or "").lower(),
+            " ".join(str(ref).lower() for ref in item.get("source_refs", [])),
+            " ".join(str(ref).lower() for ref in item.get("status_refs", [])),
+        ]
+    )
+    receipt_refs = list(item.get("receipt_refs") or [])
+    blocked_states = list(item.get("blocked_states") or [])
+    approved = item.get("history_answers", {}).get("approved", {})
+    approval_refs = approved.get("refs", []) if isinstance(approved, dict) else []
+    if group_kind == "plan_changes":
+        return "plan" in text or "proposal" in text
+    if group_kind == "approval_waits":
+        return bool(approval_refs and not receipt_refs)
+    if group_kind == "action_proposals":
+        return "action" in text or "envelope" in text
+    if group_kind == "execution_receipts":
+        return bool(receipt_refs)
+    if group_kind == "memory_proposals_review_decisions":
+        return "memory" in text
+    if group_kind == "blocked_no_go_events":
+        return bool(blocked_states) or approved.get("status") == "blocked"
+    if group_kind == "recovery_events":
+        return bool(
+            item.get("rollback_refs")
+            or item.get("rollback_blockers")
+            or item.get("idempotency_refs")
+            or item.get("replay_refs")
+            or item.get("safe_disable_refs")
+        )
+    return False
 
 
 def _evidence_narrative_status_ref(prefix: str, value: str) -> str:
@@ -6124,6 +6664,11 @@ class FounderLoopRepository:
             groups=groups,
             narrative_items=timeline,
         )
+        evidence_audit_receipt_spine = self._evidence_audit_receipt_spine(
+            events=events,
+            groups=groups,
+            narrative_items=timeline,
+        )
         event_type_counts = {
             event_type: sum(1 for event in events if event["event_type"] == event_type)
             for event_type in EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES
@@ -6160,6 +6705,10 @@ class FounderLoopRepository:
             "group_count": len(groups),
             "groups": groups,
             "events": events,
+            "evidence_audit_receipt_spine_contract_ref": (
+                EVIDENCE_AUDIT_RECEIPT_SPINE_CONTRACT_REF
+            ),
+            "evidence_audit_receipt_spine": evidence_audit_receipt_spine,
             "narrative_contract_ref": EVIDENCE_TIMELINE_NARRATIVE_CONTRACT_REF,
             "narrative_read_model": narrative_read_model,
             "operator_run_timeline": self._operator_run_timeline(
@@ -7218,6 +7767,337 @@ class FounderLoopRepository:
             output_metered_units=output_metered_units,
             frontier_usage_claimed=frontier_usage_claimed,
             unknown_cost=unknown_cost,
+        )
+
+    def _evidence_audit_receipt_spine(
+        self,
+        *,
+        events: list[dict[str, Any]],
+        groups: list[dict[str, Any]],
+        narrative_items: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        envelopes = [
+            self._evidence_audit_receipt_envelope(event) for event in events[:50]
+        ]
+        if not envelopes:
+            envelopes = [
+                self._evidence_audit_receipt_envelope_from_item(item)
+                for item in narrative_items[:10]
+            ]
+        audit_groups = [
+            self._evidence_audit_group(
+                group_kind=group_kind,
+                events=events,
+                narrative_items=narrative_items,
+            )
+            for group_kind in EVIDENCE_AUDIT_GROUP_KINDS
+        ]
+        spine = FounderLoopEvidenceAuditReceiptSpine(
+            route_refs=[
+                "GET /control-center/evidence/timeline",
+                "GET /control-center/proof/index",
+                "GET /control-center/proof/{proof_ref}",
+            ],
+            receipt_envelope_field_refs=[
+                "receipt-envelope-field:receipt-ref",
+                "receipt-envelope-field:run-ref",
+                "receipt-envelope-field:action-ref",
+                "receipt-envelope-field:approval-ref",
+                "receipt-envelope-field:side-effect-class",
+                "receipt-envelope-field:authority-decision-ref",
+                "receipt-envelope-field:input-ref",
+                "receipt-envelope-field:output-ref",
+                "receipt-envelope-field:artifact-hash-ref",
+                "receipt-envelope-field:timestamp-ref",
+                "receipt-envelope-field:verifier-version-ref",
+                "receipt-envelope-field:redaction-status",
+            ],
+            timeline_group_kinds=list(EVIDENCE_AUDIT_GROUP_KINDS),
+            group_count=len(audit_groups),
+            envelope_count=len(envelopes),
+            missing_receipt_count=len(
+                _unique_sorted_refs(
+                    ref
+                    for envelope in envelopes
+                    for ref in envelope.missing_receipt_refs
+                )
+            ),
+            groups=audit_groups,
+            receipt_envelopes=envelopes,
+            receipt_refs=_unique_sorted_refs(
+                envelope.receipt_ref
+                for envelope in envelopes
+                if envelope.receipt_recorded
+            ),
+            missing_receipt_refs=_unique_sorted_refs(
+                ref for envelope in envelopes for ref in envelope.missing_receipt_refs
+            ),
+            evidence_refs=_unique_sorted_refs(
+                ref for envelope in envelopes for ref in envelope.evidence_refs
+            ),
+            audit_refs=_unique_sorted_refs(
+                ref for envelope in envelopes for ref in envelope.audit_refs
+            ),
+            approval_refs=_unique_sorted_refs(
+                envelope.approval_ref
+                for envelope in envelopes
+                if not envelope.approval_ref.startswith("approval-ref:not-")
+            ),
+            idempotency_refs=_unique_sorted_refs(
+                ref for envelope in envelopes for ref in envelope.idempotency_refs
+            ),
+            rollback_refs=_unique_sorted_refs(
+                ref for envelope in envelopes for ref in envelope.rollback_refs
+            ),
+            blocked_state_refs=_unique_sorted_refs(
+                ref for envelope in envelopes for ref in envelope.blocked_state_refs
+            ),
+        )
+        _ = groups
+        return spine.model_dump(mode="json")
+
+    def _evidence_audit_receipt_envelope(
+        self,
+        event: dict[str, Any],
+    ) -> FounderLoopEvidenceAuditReceiptEnvelope:
+        event_ref = str(event["event_ref"])
+        receipt_refs = list(event.get("receipt_refs") or [])
+        recorded_receipt_ref = (
+            str(receipt_refs[0]) if receipt_refs else _missing_receipt_ref(event_ref)
+        )
+        receipt_recorded = bool(receipt_refs)
+        approval_refs = list(event.get("approval_refs") or [])
+        audit_refs = list(event.get("audit_refs") or [])
+        idempotency_refs = list(event.get("idempotency_refs") or [])
+        rollback_refs = list(event.get("rollback_refs") or [])
+        blocked_state_refs = _safe_blocked_refs(
+            [
+                *list(event.get("blocked_states") or []),
+                *list(event.get("rollback_blockers") or []),
+            ]
+        )
+        artifact_hash_ref = _artifact_hash_ref("evidence-audit-envelope", event)
+        evidence_refs = _unique_sorted_refs(
+            [
+                event_ref,
+                str(event.get("timeline_item_ref", "")),
+                str(event.get("event_type_ref", "")),
+                *list(event.get("source_refs") or []),
+                *list(event.get("status_refs") or []),
+                *receipt_refs,
+                *audit_refs,
+                *idempotency_refs,
+                *rollback_refs,
+                *blocked_state_refs,
+                artifact_hash_ref,
+            ]
+        )
+        return FounderLoopEvidenceAuditReceiptEnvelope(
+            envelope_ref=f"receipt-envelope:{_short_ref_suffix(event_ref)}",
+            receipt_ref=recorded_receipt_ref,
+            receipt_recorded=receipt_recorded,
+            run_ref="run-ref:founder-loop:daily-loop-v1",
+            action_ref=_first_action_ref(event),
+            approval_ref=(
+                str(approval_refs[0])
+                if approval_refs
+                else "approval-ref:not-required-or-not-scoped"
+            ),
+            event_ref=event_ref,
+            timeline_item_ref=str(event["timeline_item_ref"]),
+            group_ref=str(event["group_ref"]),
+            authority_decision_ref=(
+                "authority-decision-ref:receipt-recorded-read-only"
+                if receipt_recorded
+                else "authority-decision-ref:missing-receipt-read-only"
+            ),
+            input_ref=f"input-ref:redacted:{_short_ref_suffix(event_ref)}",
+            output_ref=f"output-ref:redacted:{_short_ref_suffix(event_ref)}",
+            artifact_hash_ref=artifact_hash_ref,
+            timestamp_ref=_status_ref(
+                "timestamp-ref",
+                str(event.get("created_at") or "recorded"),
+            ),
+            verifier_version_ref="verifier-ref:goatcitadel-catchup-evidence-audit:v1",
+            safe_summary=str(event["safe_summary"]),
+            route_refs=_unique_sorted_refs(
+                [
+                    *list(event.get("related_route_refs") or []),
+                    "GET /control-center/evidence/timeline",
+                ]
+            ),
+            evidence_refs=evidence_refs,
+            audit_refs=audit_refs,
+            idempotency_refs=idempotency_refs,
+            rollback_refs=rollback_refs,
+            blocked_state_refs=blocked_state_refs,
+            missing_receipt_refs=(
+                [] if receipt_recorded else [_missing_receipt_ref(event_ref)]
+            ),
+        )
+
+    def _evidence_audit_receipt_envelope_from_item(
+        self,
+        item: dict[str, Any],
+    ) -> FounderLoopEvidenceAuditReceiptEnvelope:
+        event_ref = f"evidence-event:missing-receipt:{_short_ref_suffix(str(item['timeline_item_ref']))}"
+        event = {
+            "event_ref": event_ref,
+            "event_type_ref": "evidence-event-type:timeline-item",
+            "timeline_item_ref": item["timeline_item_ref"],
+            "group_ref": item["timeline_item_ref"],
+            "safe_summary": item["safe_summary"],
+            "source_refs": list(item.get("source_refs") or []),
+            "status_refs": list(item.get("status_refs") or []),
+            "receipt_refs": list(item.get("receipt_refs") or []),
+            "approval_refs": _unique_sorted_refs(
+                item.get("history_answers", {}).get("approved", {}).get("refs", [])
+            ),
+            "audit_refs": list(item.get("audit_refs") or []),
+            "idempotency_refs": list(item.get("idempotency_refs") or []),
+            "rollback_refs": list(item.get("rollback_refs") or []),
+            "blocked_states": list(item.get("blocked_states") or []),
+            "rollback_blockers": list(item.get("rollback_blockers") or []),
+            "related_route_refs": list(item.get("related_route_refs") or []),
+            "created_at": item.get("created_at"),
+        }
+        return self._evidence_audit_receipt_envelope(event)
+
+    def _evidence_audit_group(
+        self,
+        *,
+        group_kind: EvidenceAuditGroupKind,
+        events: list[dict[str, Any]],
+        narrative_items: list[dict[str, Any]],
+    ) -> FounderLoopEvidenceAuditGroup:
+        selected_events = [
+            event for event in events if _evidence_event_matches_audit_group(event, group_kind)
+        ]
+        selected_items = [
+            item
+            for item in narrative_items
+            if _timeline_item_matches_audit_group(item, group_kind)
+        ]
+        event_refs = _unique_sorted_refs(event["event_ref"] for event in selected_events)
+        timeline_item_refs = _unique_sorted_refs(
+            [
+                *[event["timeline_item_ref"] for event in selected_events],
+                *[item["timeline_item_ref"] for item in selected_items],
+            ]
+        )
+        receipt_refs = _unique_sorted_refs(
+            [
+                *[
+                    ref
+                    for event in selected_events
+                    for ref in event.get("receipt_refs", [])
+                ],
+                *[
+                    ref
+                    for item in selected_items
+                    for ref in item.get("receipt_refs", [])
+                ],
+            ]
+        )
+        missing_receipt_refs = (
+            []
+            if receipt_refs
+            else [
+                _missing_receipt_ref(f"evidence-audit-group:{group_kind}")
+            ]
+            if selected_events or selected_items
+            else []
+        )
+        blocked_state_refs = _unique_sorted_refs(
+            [
+                *_safe_blocked_refs(
+                    blocked
+                    for event in selected_events
+                    for blocked in event.get("blocked_states", [])
+                ),
+                *_safe_blocked_refs(
+                    blocked
+                    for item in selected_items
+                    for blocked in item.get("blocked_states", [])
+                ),
+            ]
+        )
+        status = (
+            "receipt_refs_recorded"
+            if receipt_refs
+            else (
+                "missing_receipt_refs_visible"
+                if missing_receipt_refs
+                else "not_present_in_current_timeline"
+            )
+        )
+        definition = _evidence_audit_group_definition(group_kind)
+        return FounderLoopEvidenceAuditGroup(
+            group_ref=f"evidence-audit-group:{group_kind}",
+            group_kind=group_kind,
+            label=definition["label"],
+            status=status,
+            safe_summary=definition["safe_summary"],
+            event_refs=event_refs,
+            timeline_item_refs=timeline_item_refs,
+            receipt_refs=receipt_refs,
+            approval_refs=_unique_sorted_refs(
+                ref for event in selected_events for ref in event.get("approval_refs", [])
+            ),
+            audit_refs=_unique_sorted_refs(
+                [
+                    *[
+                        ref
+                        for event in selected_events
+                        for ref in event.get("audit_refs", [])
+                    ],
+                    *[
+                        ref
+                        for item in selected_items
+                        for ref in item.get("audit_refs", [])
+                    ],
+                ]
+            ),
+            idempotency_refs=_unique_sorted_refs(
+                [
+                    *[
+                        ref
+                        for event in selected_events
+                        for ref in event.get("idempotency_refs", [])
+                    ],
+                    *[
+                        ref
+                        for item in selected_items
+                        for ref in item.get("idempotency_refs", [])
+                    ],
+                ]
+            ),
+            rollback_refs=_unique_sorted_refs(
+                [
+                    *[
+                        ref
+                        for event in selected_events
+                        for ref in event.get("rollback_refs", [])
+                    ],
+                    *[
+                        ref
+                        for item in selected_items
+                        for ref in item.get("rollback_refs", [])
+                    ],
+                ]
+            ),
+            evidence_refs=_unique_sorted_refs(
+                [
+                    *event_refs,
+                    *timeline_item_refs,
+                    *receipt_refs,
+                    *blocked_state_refs,
+                    *missing_receipt_refs,
+                ]
+            ),
+            missing_receipt_refs=missing_receipt_refs,
+            blocked_state_refs=blocked_state_refs,
+            next_safe_action=definition["next_safe_action"],
         )
 
     def _build_evidence_timeline(
