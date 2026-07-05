@@ -7444,6 +7444,7 @@ export function MemoryReviewSurfacePanel({
         workbench={workbench}
       />
       <MemoryLifecyclePosturePanel workbench={workbench} />
+      <MemoryLearningPosturePanel workbench={workbench} />
       <MemoryRankingDiagnosticsPanel workbench={workbench} />
       <div className="panel-grid">
         <MemoryRetrievalDiagnosticsPanel diagnostics={retrievalDiagnostics} />
@@ -8486,6 +8487,153 @@ function MemoryLifecyclePosturePanel({
         emptyLabel="Lifecycle blockers: none"
         refs={posture.blocked_state_refs ?? []}
       />
+    </article>
+  );
+}
+
+function MemoryLearningPosturePanel({
+  workbench,
+}: {
+  workbench: FounderLoopMemoryWorkbench;
+}) {
+  const posture = workbench.learning_posture;
+  if (!posture) {
+    return (
+      <article aria-label="Memory learning posture" className="status-card warning">
+        <div className="status-card-header">
+          <h3>Memory learning posture</h3>
+          <span>backend posture missing</span>
+        </div>
+        <p>
+          Learning, feedback, context-pack, and provenance posture must be loaded
+          from the backend Memory Workbench before Control Center presents it as
+          current product truth.
+        </p>
+      </article>
+    );
+  }
+
+  const lifecycleItems = Object.entries(posture.lifecycle_state_counts).map(
+    ([state, count]) => `${state}: ${count}`,
+  );
+  const feedbackSignals = [
+    posture.feedback_receipts_supported ? "feedback receipts" : "feedback missing",
+    posture.correction_receipts_supported
+      ? "correction receipts"
+      : "correction missing",
+    posture.rejection_receipts_supported
+      ? "rejection receipts"
+      : "rejection missing",
+    posture.forget_request_receipts_supported
+      ? "forget-request receipts"
+      : "forget-request missing",
+  ];
+  const receiptRefs = [
+    ...posture.receipt_posture.accepted_receipt_refs,
+    ...posture.receipt_posture.corrected_receipt_refs,
+    ...posture.receipt_posture.rejected_receipt_refs,
+    ...posture.receipt_posture.forget_request_receipt_refs,
+    ...posture.receipt_posture.reviewed_recall_refs,
+  ].filter((ref, index, refs) => refs.indexOf(ref) === index);
+
+  return (
+    <article aria-label="Memory learning posture" className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Memory learning posture</h3>
+          <p className="muted">
+            Learning is reviewable recall context with provenance, feedback, and
+            quality controls. It is not truth, context injection, connector
+            write, model call, action execution, or production authority.
+          </p>
+        </div>
+        <span>{posture.status}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Contract ref" value={posture.contract_ref} />
+        <DetailTerm label="Source" value={posture.source} />
+        <DetailTerm
+          label="Backend-owned"
+          value={posture.backend_owned ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Proposal-first intake"
+          value={posture.proposal_first_intake ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Review before recall"
+          value={posture.review_required_before_recall ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Decision receipts"
+          value={String(posture.receipt_posture.decision_receipt_count)}
+        />
+        <DetailTerm
+          label="Context packs"
+          value={`${posture.context_pack_posture.proposal_count} proposal refs`}
+        />
+        <DetailTerm
+          label="Context injection"
+          value={
+            posture.context_pack_posture.context_injection_authorized
+              ? "enabled"
+              : "blocked"
+          }
+        />
+        <DetailTerm
+          label="Broad memory writes"
+          value={posture.broad_memory_write_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Automatic memory writes"
+          value={posture.automatic_memory_write_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Memory truth authority"
+          value={posture.memory_truth_authority ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Provider/model call"
+          value={posture.model_provider_call_authorized ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Delete/export"
+          value={
+            posture.hard_delete_authorized || posture.export_execution_authorized
+              ? "enabled"
+              : "blocked"
+          }
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Lifecycle counts: none"
+        items={lifecycleItems}
+      />
+      <InlineListWithFallback
+        emptyLabel="Feedback flows: none"
+        items={feedbackSignals}
+      />
+      <InlineListWithFallback
+        emptyLabel="Quality controls: none"
+        items={posture.quality_control_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Context-pack refs: none"
+        refs={posture.context_pack_posture.context_pack_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Provenance refs: none"
+        refs={posture.provenance_posture.provenance_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Receipt and recall refs: none"
+        refs={receiptRefs}
+      />
+      <RefListWithFallback
+        emptyLabel="Learning posture blockers: none"
+        refs={posture.blocked_state_refs}
+      />
+      <p>{posture.next_safe_action}</p>
     </article>
   );
 }

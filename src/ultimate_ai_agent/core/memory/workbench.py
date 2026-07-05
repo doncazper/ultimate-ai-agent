@@ -22,6 +22,9 @@ MEMORY_WORKBENCH_CONTRACT_REF = "contract-ref:fcc-mem-001-memory-workbench:v1"
 MEMORY_LIFECYCLE_POSTURE_CONTRACT_REF = (
     "contract-ref:memory-merge-supersede-posture:v1"
 )
+MEMORY_LEARNING_POSTURE_CONTRACT_REF = (
+    "contract-ref:goatcitadel-catchup-memory-learning-posture:v1"
+)
 MEMORY_RANKING_CONTRACT_REF = (
     "contract-ref:fcc-mem-022-ranked-retrieval-recall-tuning:v1"
 )
@@ -70,6 +73,21 @@ MEMORY_LIFECYCLE_POSTURE_BLOCKED_STATE_REFS = [
     "blocked-state:memory-lifecycle-no-connector-write",
     "blocked-state:memory-lifecycle-no-model-provider-call",
     "blocked-state:memory-lifecycle-no-production-authority",
+]
+MEMORY_LEARNING_POSTURE_BLOCKED_STATE_REFS = [
+    "blocked-state:memory-learning-no-broad-memory-write",
+    "blocked-state:memory-learning-no-automatic-memory-write",
+    "blocked-state:memory-learning-no-hidden-context-injection",
+    "blocked-state:memory-learning-no-memory-as-truth-authority",
+    "blocked-state:memory-learning-no-policy-override",
+    "blocked-state:memory-learning-no-action-execution",
+    "blocked-state:memory-learning-no-connector-write",
+    "blocked-state:memory-learning-no-model-provider-call",
+    "blocked-state:memory-learning-no-live-web-fetch",
+    "blocked-state:memory-learning-no-background-autonomy",
+    "blocked-state:memory-learning-no-hard-delete",
+    "blocked-state:memory-learning-no-export-execution",
+    "blocked-state:memory-learning-no-production-authority",
 ]
 MEMORY_RANKING_BLOCKED_STATE_REFS = [
     "blocked-state:memory-ranking-no-embeddings",
@@ -481,6 +499,12 @@ def build_memory_workbench(
         ranked_items,
         decision_receipts=decision_receipts,
     )
+    ranking = _ranking_read_model(
+        ranked_items,
+        query_ref=safe_query_ref,
+        safe_query_ref=hashed_safe_query_ref,
+        query_mode=query_mode,
+    )
     read_model = {
         "schema_version": "fcc_mem_001_memory_workbench.v1",
         "contract_ref": MEMORY_WORKBENCH_CONTRACT_REF,
@@ -493,6 +517,14 @@ def build_memory_workbench(
         "items": ranked_items,
         "health": health,
         "lifecycle_posture": lifecycle_posture,
+        "learning_posture": _memory_learning_posture(
+            ranked_items,
+            decision_receipts=decision_receipts,
+            context_packs=context_packs,
+            lifecycle_posture=lifecycle_posture,
+            ranking=ranking,
+            search_index_status=search_index_status,
+        ),
         "decision_receipts": decision_receipts,
         "l1_preview_refs": [
             str(item.get("memory_record_ref")) for item in l1_index.get("previews", [])
@@ -503,12 +535,7 @@ def build_memory_workbench(
             str(item.get("context_pack_ref"))
             for item in context_packs.get("proposals", []) or []
         ],
-        "ranking": _ranking_read_model(
-            ranked_items,
-            query_ref=safe_query_ref,
-            safe_query_ref=hashed_safe_query_ref,
-            query_mode=query_mode,
-        ),
+        "ranking": ranking,
         "safe_query_ref": hashed_safe_query_ref,
         "query_mode": query_mode,
         "retrieval_strategy_refs": _retrieval_strategy_refs(
@@ -527,6 +554,300 @@ def build_memory_workbench(
         "production_authority_enabled": False,
     }
     return read_model
+
+
+def _memory_learning_posture(
+    items: list[dict[str, Any]],
+    *,
+    decision_receipts: list[dict[str, Any]],
+    context_packs: dict[str, Any],
+    lifecycle_posture: dict[str, Any],
+    ranking: dict[str, Any],
+    search_index_status: dict[str, Any] | None,
+) -> dict[str, Any]:
+    lifecycle_counts = _memory_learning_lifecycle_counts(
+        items,
+        decision_receipts=decision_receipts,
+    )
+    accepted_receipts = _receipt_refs_for_decisions(decision_receipts, ["accept"])
+    corrected_receipts = _receipt_refs_for_decisions(decision_receipts, ["correct"])
+    rejected_receipts = _receipt_refs_for_decisions(decision_receipts, ["reject"])
+    forget_receipts = _receipt_refs_for_decisions(
+        decision_receipts,
+        ["forget_request"],
+    )
+    proposal_refs = _safe_refs(
+        [
+            proposal.get("proposal_ref") or proposal.get("context_pack_ref")
+            for proposal in context_packs.get("proposals", []) or []
+        ],
+        "memory_learning_context_pack_proposal_refs",
+    )
+    context_pack_refs = _safe_refs(
+        [
+            proposal.get("context_pack_ref")
+            for proposal in context_packs.get("proposals", []) or []
+        ],
+        "memory_learning_context_pack_refs",
+    )
+    reviewed_recall_refs = _safe_refs(
+        [
+            item.get("memory_ref")
+            for item in items
+            if item.get("source") == "reviewed_recall"
+            or "reviewed" in item.get("group_ids", [])
+        ],
+        "memory_learning_reviewed_recall_refs",
+    )
+    attention_refs = _safe_refs(
+        [
+            item.get("memory_ref")
+            for item in items
+            if any(
+                group_id in item.get("group_ids", [])
+                for group_id in [
+                    "needs_review",
+                    "conflict",
+                    "duplicate",
+                    "stale",
+                    "missing_evidence",
+                ]
+            )
+        ],
+        "memory_learning_attention_refs",
+    )
+    quality_issue_refs = _safe_refs(
+        [
+            ref
+            for item in items
+            for ref in item.get("quality_state_refs", []) or []
+        ],
+        "memory_learning_quality_issue_refs",
+    )
+    provenance_refs = _safe_refs(
+        [
+            ref
+            for item in items
+            for ref in [
+                *list(item.get("source_refs") or []),
+                *list(item.get("provenance_refs") or []),
+                *list(item.get("evidence_refs") or []),
+                *list(item.get("receipt_refs") or []),
+            ]
+        ],
+        "memory_learning_provenance_refs",
+    )
+    search_status = _search_index_status(search_index_status)
+    return {
+        "schema_version": "goatcitadel-catchup-memory-learning-posture.v1",
+        "contract_ref": MEMORY_LEARNING_POSTURE_CONTRACT_REF,
+        "route_ref": MEMORY_WORKBENCH_ROUTE_REF,
+        "status": "implemented_backend_owned_learning_posture_read_model",
+        "source": "python_core_memory_workbench_learning_posture",
+        "backend_owned": True,
+        "control_center_presentation_only": True,
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "proposal_first_intake": True,
+        "review_required_before_recall": True,
+        "feedback_receipts_supported": True,
+        "correction_receipts_supported": True,
+        "rejection_receipts_supported": True,
+        "forget_request_receipts_supported": True,
+        "forget_execution_authorized": False,
+        "broad_memory_write_authorized": False,
+        "automatic_memory_write_authorized": False,
+        "hidden_context_injection_authorized": False,
+        "automatic_context_injection_authorized": False,
+        "memory_truth_authority": False,
+        "policy_override_authorized": False,
+        "action_execution_authorized": False,
+        "connector_write_authorized": False,
+        "model_provider_call_authorized": False,
+        "live_web_fetch_authorized": False,
+        "background_autonomy_authorized": False,
+        "hard_delete_authorized": False,
+        "export_execution_authorized": False,
+        "production_authority_enabled": False,
+        "lifecycle_state_counts": lifecycle_counts,
+        "lifecycle_state_refs": [
+            _state_ref("memory-learning-lifecycle-state", state)
+            for state in [
+                "proposed",
+                "active",
+                "needs_review",
+                "corrected",
+                "rejected",
+                "stale",
+                "forgotten",
+                "blocked",
+            ]
+        ],
+        "feedback_flow_refs": [
+            "flow-ref:memory-learning:review-candidate",
+            "flow-ref:memory-learning:accept-reviewed-recall",
+            "flow-ref:memory-learning:correct-safe-summary",
+            "flow-ref:memory-learning:reject-candidate",
+            "flow-ref:memory-learning:defer-recheck",
+            "flow-ref:memory-learning:merge-duplicate",
+            "flow-ref:memory-learning:supersede-conflict",
+            "flow-ref:memory-learning:forget-request-receipt",
+            "flow-ref:memory-learning:feedback-quality-signal",
+        ],
+        "quality_control_refs": [
+            "quality-control-ref:memory-learning:dedupe",
+            "quality-control-ref:memory-learning:source-provenance",
+            "quality-control-ref:memory-learning:confidence-quality-labels",
+            "quality-control-ref:memory-learning:staleness",
+            "quality-control-ref:memory-learning:conflict-handling",
+            "quality-control-ref:memory-learning:safe-refs-redaction",
+        ],
+        "context_pack_posture": {
+            "status": context_packs.get("status")
+            or "implemented_read_only_context_pack_proposals",
+            "proposal_count": int(context_packs.get("context_pack_count") or 0),
+            "proposal_refs": proposal_refs,
+            "context_pack_refs": context_pack_refs,
+            "separates_facts_assumptions_memories_unknowns": True,
+            "context_injection_authorized": False,
+            "hidden_prompt_context_authorized": False,
+            "prompt_context_written": False,
+            "provider_model_call_performed": False,
+            "action_execution_authorized": False,
+        },
+        "receipt_posture": {
+            "decision_receipt_count": len(decision_receipts),
+            "accepted_receipt_refs": accepted_receipts,
+            "corrected_receipt_refs": corrected_receipts,
+            "rejected_receipt_refs": rejected_receipts,
+            "forget_request_receipt_refs": forget_receipts,
+            "reviewed_recall_refs": reviewed_recall_refs,
+            "receipt_backed_decision_kinds": list(
+                lifecycle_posture.get("receipt_backed_decision_kinds") or []
+            ),
+        },
+        "quality_posture": {
+            "attention_refs": attention_refs,
+            "quality_issue_refs": quality_issue_refs,
+            "ranking_contract_ref": ranking.get("contract_ref"),
+            "ranking_strategy_refs": list(
+                ranking.get("retrieval_strategy_refs") or []
+            ),
+            "search_index_status": search_status,
+            "semantic_search_enabled": False,
+            "vector_db_enabled": False,
+            "embedding_search_enabled": False,
+        },
+        "provenance_posture": {
+            "provenance_refs": provenance_refs[:80],
+            "provenance_ref_count": len(provenance_refs),
+            "source_refs_required": True,
+            "evidence_refs_required": True,
+            "receipt_refs_required_for_reviewed_recall": True,
+            "safe_summary_only": True,
+        },
+        "next_safe_action": (
+            "Review memory candidates, context-pack proposal refs, quality "
+            "signals, and receipt refs before any exact-scoped memory decision."
+        ),
+        "blocked_state_refs": list(MEMORY_LEARNING_POSTURE_BLOCKED_STATE_REFS),
+    }
+
+
+def _memory_learning_lifecycle_counts(
+    items: list[dict[str, Any]],
+    *,
+    decision_receipts: list[dict[str, Any]],
+) -> dict[str, int]:
+    counts = {
+        "proposed": 0,
+        "active": 0,
+        "needs_review": 0,
+        "corrected": 0,
+        "rejected": 0,
+        "stale": 0,
+        "forgotten": 0,
+        "blocked": 0,
+    }
+    for item in items:
+        review_state = str(item.get("review_state") or "")
+        groups = {str(group_id) for group_id in item.get("group_ids", []) or []}
+        if item.get("source") == "review_candidate" or review_state in {
+            "review_needed",
+            "needs_review",
+            "deferred",
+        }:
+            counts["proposed"] += 1
+        if item.get("source") == "reviewed_recall" or review_state in {
+            "accepted",
+            "reviewed",
+            "corrected",
+        }:
+            counts["active"] += 1
+        if "needs_review" in groups or review_state in {"review_needed", "needs_review"}:
+            counts["needs_review"] += 1
+        if review_state == "corrected":
+            counts["corrected"] += 1
+        if "rejected" in groups or review_state == "rejected":
+            counts["rejected"] += 1
+        if "stale" in groups or str(item.get("stale_state") or "none") != "none":
+            counts["stale"] += 1
+        if review_state in {"forget_requested", "revoked", "forgotten"}:
+            counts["forgotten"] += 1
+        if item.get("blocked_state_refs") or item.get("missing_contract_refs"):
+            counts["blocked"] += 1
+    if any(receipt.get("decision") == "correct" for receipt in decision_receipts):
+        counts["corrected"] = max(
+            counts["corrected"],
+            len(
+                [
+                    receipt
+                    for receipt in decision_receipts
+                    if receipt.get("decision") == "correct"
+                ]
+            ),
+        )
+    if any(receipt.get("decision") == "reject" for receipt in decision_receipts):
+        counts["rejected"] = max(
+            counts["rejected"],
+            len(
+                [
+                    receipt
+                    for receipt in decision_receipts
+                    if receipt.get("decision") == "reject"
+                ]
+            ),
+        )
+    if any(
+        receipt.get("decision") == "forget_request"
+        for receipt in decision_receipts
+    ):
+        counts["forgotten"] = max(
+            counts["forgotten"],
+            len(
+                [
+                    receipt
+                    for receipt in decision_receipts
+                    if receipt.get("decision") == "forget_request"
+                ]
+            ),
+        )
+    return counts
+
+
+def _receipt_refs_for_decisions(
+    decision_receipts: list[dict[str, Any]],
+    decisions: list[str],
+) -> list[str]:
+    decision_set = set(decisions)
+    return _safe_refs(
+        [
+            receipt.get("receipt_ref")
+            for receipt in decision_receipts
+            if receipt.get("decision") in decision_set
+        ],
+        "memory_learning_decision_receipt_refs",
+    )
 
 
 def _lifecycle_item_posture(item: dict[str, Any]) -> dict[str, Any]:

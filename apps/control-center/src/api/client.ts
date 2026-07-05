@@ -7855,6 +7855,13 @@ function normalizeFounderMemoryWorkbench(
     } else {
       delete workbenchWithoutMockPosture.lifecycle_posture;
     }
+    if (Object.prototype.hasOwnProperty.call(value, "learning_posture")) {
+      workbenchWithoutMockPosture.learning_posture = (
+        value as Record<string, unknown>
+      ).learning_posture;
+    } else {
+      delete workbenchWithoutMockPosture.learning_posture;
+    }
     return {
       value:
         workbenchWithoutMockPosture as unknown as FounderLoopMemoryWorkbench,

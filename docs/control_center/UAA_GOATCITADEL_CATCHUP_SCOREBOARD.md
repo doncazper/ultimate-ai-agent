@@ -1,6 +1,6 @@
 # UAA GoatCitadel Catch-Up Scoreboard
 
-Status: Phase 04 active scoreboard. This document is documentation and verifier
+Status: Phase 05 active scoreboard. This document is documentation and verifier
 coverage only; it is not runtime authority, does not grant execution authority,
 and does not change Control Center behavior.
 
@@ -30,11 +30,14 @@ UAA evidence inspected:
 - `src/ultimate_ai_agent/api/app.py`
 - `src/ultimate_ai_agent/api/routes/runtime_pilot_service.py`
 - `src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py`
+- `src/ultimate_ai_agent/core/memory/workbench.py`
 - `src/ultimate_ai_agent/core/runtime_gateway/__init__.py`
 - `tests/test_api_manifest.py`
 - `tests/test_control_center_api_routes.py`
 - `tests/test_goatcitadel_catchup_action_tool_code_lanes.py`
+- `tests/test_goatcitadel_catchup_memory_learning.py`
 - `scripts/verify_uaa_goatcitadel_catchup_action_tool_code_lanes.py`
+- `scripts/verify_uaa_goatcitadel_catchup_memory_learning.py`
 - `scripts/verify_uaa_goatcitadel_catchup_prompt_pack.py`
 - `docs/prompts/uaa_goatcitadel_catchup/`
 
@@ -69,7 +72,7 @@ model intelligence. Code and tests are weighted above roadmap claims.
 |---|---:|---|---:|---|---|---|---|
 | Reasoning and task understanding | 6 | partial | 8 | implemented | GoatCitadel | UAA has chat handoff, intent/readiness surfaces, proof refs, and strict model-output-not-authority language. GoatCitadel documents auto Chat/Cowork/Code routing, route-decision visibility, planner skip paths, and decision traces. | Make UAA turn contracts and answer-preservation/router outputs operator-visible and tied to run/proof refs. |
 | Planning and orchestration | 6 | partial | 8 | implemented | GoatCitadel | UAA has durable run contracts, task decomposition, Action Inbox approvals, and local receipts. GoatCitadel documents durable mission sessions, checkpoints, retries, approval waits, dead letters, and fan-out. | Add richer durable progress/recovery read models before any broader execution authority. |
-| Learning and adaptation | 6 | partial | 7 | partial | GoatCitadel | UAA has reviewed memory decisions, L1/L2/L3 indexes, context-pack proposal lanes, memory quality issues, and memory-to-loop binding. GoatCitadel contracts expose memory retrieval, action ledgers, freshness, feedback, and memory-write gates. | Expand UAA memory feedback/read models without adding memory-write authority or hidden context injection. |
+| Learning and adaptation | 7 | implemented | 7 | partial | Tie | UAA has reviewed memory decisions, L1/L2/L3 indexes, context-pack proposal lanes, memory quality issues, memory-to-loop binding, and Phase 05 backend-owned learning posture with lifecycle counts, feedback/correction/rejection/forget-request posture, provenance, and blocked-authority refs. GoatCitadel contracts expose memory retrieval, action ledgers, freshness, feedback, and memory-write gates. | Add automatic write/injection/delete/export lanes only through exact scoped milestones; keep memory as recall and reviewable context. |
 | Memory and context management | 7 | implemented | 7 | partial | Tie | UAA has governed recall-only memory with provenance, review receipts, safe refs, and redaction. GoatCitadel has broader structured memory contracts and model/provider metadata. | Improve freshness/conflict/operator correction surfaces while preserving recall-only authority. |
 | Communication and interaction quality | 6 | partial | 8 | implemented | GoatCitadel | UAA Control Center communicates blocked states and proof refs but remains spread across many modules. GoatCitadel README shows a unified Work/Projects/Library/Ops/Settings cockpit. | Make the UAA loop feel like one cockpit instead of a set of partial panels. |
 | Action and tool calling | 6 | partial | 8 | implemented | GoatCitadel | UAA has exact Action Inbox decisions, one approved local-task lane, CRM local mutation receipts, and blocked generic execution. GoatCitadel shows capability/tool catalogs, policy-gated invocation, approvals, and code-mode receipts. | Add inspectable/callable catalog separation and richer action proposals while keeping generic tool execution blocked. |
@@ -114,7 +117,7 @@ tests, and CLI/API/core parity.
 | 1 | Productized agent loop spine across chat, actions, proof, evidence, memory, and trust. | implemented read-model | Python Core plus Control Center read models | `GET /control-center/agent-loop/thread`, `scripts/dev/uaa_founder_loop.py inspect-agent-loop`, and Today UI render the backend-owned thread. | No new runtime authority. | `tests/test_goatcitadel_catchup_agent_loop_spine.py`, route/API manifest checks, product truth, docs integrity. | Phase 02 implemented: Agent Loop Spine |
 | 2 | Durable orchestration progress, recovery, cancellation, retry, blocked, and dead-letter visibility. | implemented read-model | Python execution core | `GET /control-center/runs/observability`, CLI inspect, Control Center Evidence run panel. | Background autonomy, queue workers, retry/resume/cancel execution blocked. | `tests/test_run_observability_surface.py`, durable lifecycle tests, Phase 03 verifier. | Phase 03: Durable Orchestration |
 | 3 | Action/tool/code lane catalog with inspectable/callable separation. | implemented read-model | Python tool/action/catalog core | Catalog read models, proposal posture, receipt refs, CLI inspection, and Action Inbox UI panel; no generic execution. | Unrestricted shell/subprocess execution, generic tool execution, plugin runtime import, connector writes, provider/model calls, browser automation, and broad autonomy blocked. | `tests/test_goatcitadel_catchup_action_tool_code_lanes.py`, `scripts/verify_uaa_goatcitadel_catchup_action_tool_code_lanes.py`, catalog verifier, approval/receipt tests, product-language tests. | Phase 04 implemented: Action/Tool/Code Lanes |
-| 4 | Memory learning lifecycle with feedback, stale/wrong/conflict/duplicate states. | partial to implemented | Python memory core | Memory workbench/read models and CLI inspection. | Memory-write authority and hidden context injection blocked. | Memory provenance and redaction tests. | Phase 05: Memory/Learning |
+| 4 | Memory learning lifecycle with feedback, stale/wrong/conflict/duplicate states. | implemented read-model | Python memory core | Memory Workbench learning posture, CLI `memory-learning-posture`, Control Center Memory panel. | Broad memory-write authority, automatic memory writes, hidden context injection, memory-as-truth, delete/export execution, connector writes, model/provider calls, live web fetch, background autonomy, and production authority blocked. | `tests/test_goatcitadel_catchup_memory_learning.py`, `scripts/verify_uaa_goatcitadel_catchup_memory_learning.py`, memory provenance and redaction tests. | Phase 05 implemented: Memory/Learning |
 | 5 | Signed portable evidence and same-run lineage detail. | partial to implemented | Evidence/proof core | Evidence envelope read/verify surfaces and CLI verifier. | External telemetry/export and production compliance claims blocked. | Evidence signature/hash verifier and redaction tests. | Phase 06: Evidence/Audit |
 | 6 | Model/provider/research metadata parity. | partial to partial-plus | RuntimeGateway/local model core | Provider readiness/catalog metadata and route-decision trace read models. | Runtime model calls, provider SDK calls, and live web fetching blocked. | Runtime metadata tests and authority guard verifier. | Phase 07: Model/Provider/Research |
 | 7 | Cockpit UX parity for Today/Actions/Chat/Proof/Evidence/Memory/Runtime/Coding/Work Board. | partial to implemented | Control Center presentation over Python truth | UI polish over backend-owned refs; CLI/API parity preserved. | Browser automation inside UAA blocked. | Frontend route tests, visual checks if UI changes. | Phase 08: Cockpit/CLI/API |
@@ -228,6 +231,27 @@ Unrestricted shell/subprocess execution, arbitrary command
 strings, connector writes, browser automation, plugin runtime import, remote
 execution, provider/model calls, background autonomy, production authority,
 public beta, and public release claims remain blocked.
+
+## Phase 05 Evidence
+
+Phase 05 is implemented as a repo-safe memory learning posture read-model
+slice. It adds
+`docs/control_center/UAA_GOATCITADEL_CATCHUP_MEMORY_LEARNING.md`, Python Core
+contract `contract-ref:goatcitadel-catchup-memory-learning-posture:v1`,
+Memory Workbench embedding through `GET /control-center/memory/workbench`, CLI
+command `scripts/dev/uaa_founder_loop.py memory-learning-posture`, Control
+Center Memory rendering, and focused tests/verifier coverage. Memory remains
+recall and reviewable context, not truth or authority.
+
+The posture shows proposed, active, needs-review, corrected, rejected, stale,
+forgotten, and blocked counts; feedback, correction, rejection, and
+forget-request receipt support; context-pack proposal posture; provenance
+requirements; quality controls; receipt refs; reviewed recall refs; blocked
+authority refs; and next safe action. Broad memory writes, automatic memory writes,
+hidden/automatic context injection, memory-as-truth, action execution from
+memory, connector writes, model/provider calls, live web fetching, background
+autonomy, hard delete, export execution, public release, and production
+authority remain blocked.
 
 ## Merge-Gated Follow-Up Prompts
 
