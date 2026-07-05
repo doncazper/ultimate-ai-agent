@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import os
 from typing import Any, Mapping
-from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -17,6 +16,7 @@ from ultimate_ai_agent.core.tools.runtime.http_fetch import (
     ReadOnlyHttpFetchPolicy,
     ReadOnlyHttpFetchRequest,
     build_read_only_http_fetch_output_via_web_access_gateway,
+    normalize_http_fetch_target,
 )
 from ultimate_ai_agent.core.web_access.read_only_http_fetch_transport import (
     build_read_only_real_world_http_fetch_transport,
@@ -429,11 +429,12 @@ def _enforce_product_slice_runtime_policy(
     configured_hosts = configured_web_evidence_product_slice_allowed_hosts()
     if not configured_hosts:
         raise ValueError("WEB_EVIDENCE_PRODUCT_SLICE_CONFIGURED_ALLOWLIST_REQUIRED")
-    request_host = _request_host(request.url)
-    scoped_host = ReadOnlyHttpFetchPolicy(
+    scope_policy = ReadOnlyHttpFetchPolicy(
         policy_ref="http-fetch-policy:web-evidence-product-slice-request-scope",
         allowed_hosts=(request.allowed_host,),
-    ).allowed_hosts[0]
+    )
+    scoped_host = scope_policy.allowed_hosts[0]
+    request_host = _request_host(request.url, scope_policy=scope_policy)
     if scoped_host != request_host:
         raise ValueError("WEB_EVIDENCE_PRODUCT_SLICE_HOST_SCOPE_MISMATCH")
     if scoped_host not in configured_hosts:
@@ -441,12 +442,14 @@ def _enforce_product_slice_runtime_policy(
     return scoped_host
 
 
-def _request_host(url: str) -> str:
-    parts = urlsplit(url)
-    host = (parts.hostname or "").strip().lower().rstrip(".")
-    if not host:
-        raise ValueError("WEB_EVIDENCE_PRODUCT_SLICE_HOST_REQUIRED")
-    return host
+def _request_host(url: str, *, scope_policy: ReadOnlyHttpFetchPolicy) -> str:
+    fetch_request = ReadOnlyHttpFetchRequest(
+        request_ref="http-fetch-request:web-evidence-product-slice-host-check",
+        url=url,
+        allowed_host_policy_ref=scope_policy.policy_ref,
+        safe_summary="Validate web evidence host scope through the read-only fetch boundary.",
+    )
+    return normalize_http_fetch_target(fetch_request, scope_policy).host
 
 
 def _is_safe_web_access_audit_summary(

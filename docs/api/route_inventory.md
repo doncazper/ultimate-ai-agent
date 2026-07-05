@@ -98,12 +98,13 @@ routes, and local model validation route groups.
 `rate_limit_group`. This is not auth, distributed quota, billing, production
 authority, or a public beta claim.
 
-Governed Runtime Pilot Phase 06 keeps `/api/runtime/*` governed by contract and
+Governed Runtime Pilot Phase 07 keeps `/api/runtime/*` governed by contract and
 storage metadata while promoting configured local loopback model calls, one exact
 allowlisted read-only command status lane, and exact Action Inbox approved
 focused pytest command execution through `RuntimeGateway`, with CLI/Control
 Center/evidence timeline parity for status, capabilities, invocation, receipt,
-safe-disable, and approval decision inspection.
+safe-disable, approval decision inspection, command root pinning, configured
+endpoint matching, receipt-detail execution truth, and approval preflight.
 Capability, invocation, policy, approval-ref, receipt, and safe-disable records
 store safe refs and redacted metadata only; model output is untrusted proposal
 text, and command output is redacted and bounded. Remote provider/model calls,

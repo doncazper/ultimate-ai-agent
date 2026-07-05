@@ -39,6 +39,12 @@ COMMAND_RUNTIME_MAX_OUTPUT_BYTES = 16_000
 COMMAND_RUNTIME_ENV_REF = "runtime-command-env-ref:minimal-git-no-optional-locks"
 COMMAND_RUNTIME_EXECUTION_PERFORMED = bool(1)
 COMMAND_RUNTIME_EXECUTION_ENABLED = bool(1)
+COMMAND_RUNTIME_APPROVED_REPO_ROOT = Path(__file__).resolve().parents[4]
+COMMAND_RUNTIME_REPO_MARKERS = ("AGENTS.md", "pyproject.toml")
+COMMAND_RUNTIME_ALLOWED_SYSTEM_EXECUTABLES = {
+    "git": (Path("/usr/bin/git"), Path("/bin/git")),
+    "make": (Path("/usr/bin/make"), Path("/bin/make")),
+}
 
 
 class RuntimeCommandExecutionRequest(BaseModel):
@@ -152,7 +158,9 @@ class GovernedCommandRuntimeAdapter:
         workspace_root: Path | None = None,
         runner: RuntimeCommandRunner | None = None,
     ) -> None:
-        self._workspace_root = (workspace_root or Path.cwd()).resolve()
+        self._workspace_root = _validate_workspace_root(
+            workspace_root or COMMAND_RUNTIME_APPROVED_REPO_ROOT
+        )
         self._runner = runner or _run_subprocess
 
     def invoke(
@@ -160,8 +168,8 @@ class GovernedCommandRuntimeAdapter:
         request: RuntimeCommandExecutionRequest,
         entry: RuntimeCommandAllowlistEntry,
     ) -> _CommandAttempt:
-        argv = _argv_for_entry(entry)
-        _validate_exact_argv(argv)
+        argv = _argv_for_entry(entry, workspace_root=self._workspace_root)
+        _validate_exact_argv(argv, workspace_root=self._workspace_root)
         result = self._runner(
             argv=argv,
             cwd=self._workspace_root,
@@ -478,13 +486,12 @@ def invoke_approved_governed_command(
             ),
         },
     )
-    reserved = store.begin_action_inbox_execution(
-        record.invocation_ref,
+    replayed = store.replay_idempotent_operation(
         idempotency_ref=idempotency_ref,
         payload_fingerprint_ref=execution_fingerprint_ref,
     )
-    record = reserved.record
-    if reserved.replayed:
+    if replayed is not None:
+        record = replayed.record
         if record.receipt is not None:
             metadata = record.receipt.command_receipt_metadata
             return RuntimeCommandGatewayResult(
@@ -517,6 +524,8 @@ def invoke_approved_governed_command(
             operation="approved-command-envelope-missing",
             error_category="RUNTIME_COMMAND_ACTION_INBOX_ENVELOPE_MISSING",
             replayed=False,
+            direct_idempotency_ref=True,
+            payload_fingerprint_ref=execution_fingerprint_ref,
         )
     blocked_error = _approved_command_block_reason(
         record=record,
@@ -534,6 +543,37 @@ def invoke_approved_governed_command(
             operation="approved-command-blocked",
             error_category=blocked_error,
             replayed=False,
+            direct_idempotency_ref=True,
+            payload_fingerprint_ref=execution_fingerprint_ref,
+        )
+    reserved = store.begin_action_inbox_execution(
+        record.invocation_ref,
+        idempotency_ref=idempotency_ref,
+        payload_fingerprint_ref=execution_fingerprint_ref,
+    )
+    record = reserved.record
+    if reserved.replayed:
+        if record.receipt is not None:
+            metadata = record.receipt.command_receipt_metadata
+            return RuntimeCommandGatewayResult(
+                record=record,
+                output_summary=metadata.output_summary if metadata else None,
+                output_summary_returned=metadata is not None,
+                exit_code=metadata.exit_code if metadata else None,
+                timed_out=metadata.timed_out if metadata else False,
+                error_category=metadata.error_category if metadata else None,
+                replayed=True,
+                command_execution_enabled=record.policy_decision.command_execution_enabled,
+            )
+        return _record_blocked_command_result(
+            store=store,
+            request=request,
+            entry=entry,
+            record=record,
+            idempotency_ref=idempotency_ref,
+            operation="approved-command-replay-without-receipt",
+            error_category="RUNTIME_COMMAND_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT",
+            replayed=True,
         )
     attempt = adapter.invoke(request, entry)
     status_category = _status_category(
@@ -657,6 +697,8 @@ def _record_blocked_command_result(
     operation: str,
     error_category: str,
     replayed: bool,
+    direct_idempotency_ref: bool = False,
+    payload_fingerprint_ref: str | None = None,
 ) -> RuntimeCommandGatewayResult:
     metadata = _command_metadata(
         request,
@@ -687,17 +729,23 @@ def _record_blocked_command_result(
         command_execution_performed=False,
         status=RuntimeInvocationStatus.execution_blocked,
     )
+    receipt_idempotency_ref = (
+        idempotency_ref
+        if direct_idempotency_ref
+        else _operation_idempotency_ref(idempotency_ref, operation)
+    )
+    receipt_payload_fingerprint_ref = payload_fingerprint_ref or _operation_fingerprint_ref(
+        record.invocation_ref,
+        {
+            "operation": operation.replace("-", "_"),
+            "metadata": metadata.model_dump(mode="json"),
+        },
+    )
     updated = store.record_receipt(
         record.invocation_ref,
         receipt,
-        idempotency_ref=_operation_idempotency_ref(idempotency_ref, operation),
-        payload_fingerprint_ref=_operation_fingerprint_ref(
-            record.invocation_ref,
-            {
-                "operation": operation.replace("-", "_"),
-                "metadata": metadata.model_dump(mode="json"),
-            },
-        ),
+        idempotency_ref=receipt_idempotency_ref,
+        payload_fingerprint_ref=receipt_payload_fingerprint_ref,
     )
     return RuntimeCommandGatewayResult(
         record=updated,
@@ -781,10 +829,14 @@ def _command_metadata(
     )
 
 
-def _argv_for_entry(entry: RuntimeCommandAllowlistEntry) -> tuple[str, ...]:
+def _argv_for_entry(
+    entry: RuntimeCommandAllowlistEntry,
+    *,
+    workspace_root: Path,
+) -> tuple[str, ...]:
     if entry.intent == RuntimeCommandIntent.git_status.value:
         return (
-            "git",
+            _system_executable("git"),
             "--no-optional-locks",
             "-c",
             "core.fsmonitor=false",
@@ -798,7 +850,7 @@ def _argv_for_entry(entry: RuntimeCommandAllowlistEntry) -> tuple[str, ...]:
         )
     if entry.intent == RuntimeCommandIntent.focused_pytest.value:
         return (
-            ".venv/bin/python",
+            str(workspace_root / ".venv/bin/python"),
             "-m",
             "pytest",
             "tests/test_governed_runtime_contracts.py",
@@ -806,21 +858,41 @@ def _argv_for_entry(entry: RuntimeCommandAllowlistEntry) -> tuple[str, ...]:
         )
     if entry.intent == RuntimeCommandIntent.repo_verifier.value:
         return (
-            ".venv/bin/python",
+            str(workspace_root / ".venv/bin/python"),
             "scripts/verify_documentation_integrity.py",
         )
     if entry.intent == RuntimeCommandIntent.frontend_check.value:
-        return ("make", "frontend-check")
+        return (_system_executable("make"), "frontend-check")
     raise ValueError("RUNTIME_COMMAND_ARGV_NOT_PROMOTED")
 
 
-def _validate_exact_argv(argv: tuple[str, ...]) -> None:
+def _validate_exact_argv(argv: tuple[str, ...], *, workspace_root: Path) -> None:
     if not argv:
         raise ValueError("RUNTIME_COMMAND_ARGV_REQUIRED")
     unsafe = {";", "&&", "||", "|", "`", "$(", ">", "<", "\n", "\r"}
+    allowed_system = {
+        candidate.resolve()
+        for candidates in COMMAND_RUNTIME_ALLOWED_SYSTEM_EXECUTABLES.values()
+        for candidate in candidates
+        if candidate.exists()
+    }
     for part in argv:
         if any(marker in part for marker in unsafe):
             raise ValueError("RUNTIME_COMMAND_ARGV_METACHAR_DENIED")
+        path = Path(part)
+        if path.is_absolute():
+            if _is_relative_to(path, workspace_root):
+                continue
+            resolved = path.resolve()
+            if not (
+                _is_relative_to(resolved, workspace_root) or resolved in allowed_system
+            ):
+                raise ValueError("RUNTIME_COMMAND_ARGV_ABSOLUTE_PATH_DENIED")
+            continue
+        if "/" in part:
+            resolved = (workspace_root / part).resolve()
+            if not _is_relative_to(resolved, workspace_root):
+                raise ValueError("RUNTIME_COMMAND_ARGV_RELATIVE_PATH_DENIED")
         validate_safe_execution_text(part, "runtime_command_argv_part")
 
 
@@ -891,6 +963,32 @@ def _argv_ref(entry: RuntimeCommandAllowlistEntry) -> str:
 
 def _cwd_ref(workspace_ref: str) -> str:
     return _hash_ref("runtime-command-cwd-ref", {"workspace_ref": workspace_ref})
+
+
+def _validate_workspace_root(workspace_root: Path) -> Path:
+    resolved = workspace_root.resolve()
+    approved = COMMAND_RUNTIME_APPROVED_REPO_ROOT.resolve()
+    if resolved != approved:
+        raise ValueError("RUNTIME_COMMAND_WORKSPACE_ROOT_NOT_ALLOWLISTED")
+    missing = [marker for marker in COMMAND_RUNTIME_REPO_MARKERS if not (resolved / marker).exists()]
+    if missing:
+        raise ValueError("RUNTIME_COMMAND_WORKSPACE_ROOT_MARKERS_MISSING")
+    return resolved
+
+
+def _system_executable(name: str) -> str:
+    for candidate in COMMAND_RUNTIME_ALLOWED_SYSTEM_EXECUTABLES.get(name, ()):
+        if candidate.exists():
+            return str(candidate.resolve())
+    raise ValueError("RUNTIME_COMMAND_SYSTEM_EXECUTABLE_UNAVAILABLE")
+
+
+def _is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+    except ValueError:
+        return False
+    return True
 
 
 def _operation_idempotency_ref(base_ref: str, operation: str) -> str:

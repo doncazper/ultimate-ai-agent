@@ -991,7 +991,7 @@ def _connector_draft_proposal_record(
             "Connector draft-only proposals are backend-owned email-response "
             "and calendar-hold review artifacts. They store safe refs and "
             "bounded redacted outlines only; no connector payload, account "
-            "content, credential material, send, write, or sync is persisted."
+            "content, auth material, send, write, or sync is persisted."
         ),
         authority_posture=(
             "Connector runtime, sends, writes, account sync, OAuth, auth-material "

@@ -360,20 +360,23 @@ adds WebAccessGateway routing, durable audit, side-effect ledger blockers,
 exact approval scope, blocked/degraded/partial operator labels, CostGovernor
 posture for paid/frontier use, CLI/UI inspection, and verifier evidence.
 
-UAA-P1-091 v0.105.0 Governed Runtime Pilot is the active scoped runtime
-authority WIP lane. Phase 06 preserves the Phase 01 verified baseline at
+UAA-P1-091 v0.105.0 Governed Runtime Pilot is the active scoped internal
+runtime authority WIP lane. Phase 07 preserves the Phase 01 verified baseline at
 `uaa-governed-runtime-baseline-2026-07-04`, keeps runtime profiles `sealed`,
 `local-runtime`, and `operator-approved`, and adds receipt-backed governed
 runtime evidence for configured loopback local-model calls, one exact
 allowlisted argv-only read-only command status lane, and exact Action Inbox
 approved focused pytest command execution plus CLI/Control Center/evidence
 timeline parity for status, capabilities, invocation, receipt, safe-disable,
-and approval decision inspection.
+and approval decision inspection. Phase 07 also pins command execution to the
+approved repo root, requires configured local-model endpoint matching, mirrors
+receipt execution truth on receipt detail, adds CLI approval preflight, and
+reconciles release verification hygiene.
 The full-strength target is useful local runtime authority through a governed
 RuntimeGateway: configured loopback/local model calls, allowlisted argv-only
 local command execution, exact Action Inbox approval before execution,
 redacted receipts/evidence, and CLI/API/Control Center parity. The repo-safe
-Phase 06 slice adds no repo verifier/frontend-check execution, remote
+Phase 07 slice adds no repo verifier/frontend-check execution, remote
 provider/model call, arbitrary command text, arbitrary shell/subprocess
 execution, browser/web authority, connector write, plugin runtime import,
 remote execution, public beta, public release, production authority, or broad

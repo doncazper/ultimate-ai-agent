@@ -12,6 +12,7 @@ from tests.control_center_frontend_fixtures import (
     control_center_mock_data,
     write_control_center_app_fixture,
 )
+from scripts.verification.api_routes import EXPECTED_OPENAPI_PATH_COUNT
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -105,7 +106,7 @@ def test_control_center_frontend_verifier_blocks_raw_ship_doc_claim(tmp_path: Pa
     failures = verifier._frontend_route_doc_failures(tmp_path)
 
     assert any("raw `ship`" in failure for failure in failures)
-    assert any("169" in failure for failure in failures)
+    assert any(str(EXPECTED_OPENAPI_PATH_COUNT) in failure for failure in failures)
 
 
 def test_control_center_frontend_verifier_requires_route_state_grammar() -> None:

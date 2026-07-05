@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from scripts.verification.api_routes import EXPECTED_OPENAPI_PATH_COUNT
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -10,7 +12,10 @@ def test_control_center_operator_shell_gap_map_is_current_and_safe() -> None:
     compact = " ".join(text.lower().split())
 
     assert "status: active uaa-p0-007 operator-shell gap map" in compact
-    assert "api boundary: current fastapi manifest has 169 openapi paths" in compact
+    assert (
+        f"api boundary: current fastapi manifest has {EXPECTED_OPENAPI_PATH_COUNT} "
+        "openapi paths"
+    ) in compact
     assert (
         "| surface | current frontend component/page | current backend route(s) | "
         "missing backend route(s) | authority boundary | side-effect class | "

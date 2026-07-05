@@ -672,7 +672,7 @@ def _redacted_web_access_audit_summary(
     host_ref: str,
 ) -> dict[str, Any]:
     audit = result.audit
-    policy_reasons = tuple(getattr(audit, "policy_reasons", ()) or ())
+    policy_reasons = tuple(audit.policy_reasons or ())
     return {
         "schema_version": "web-access-audit-summary.v1",
         "request_ref": result.request_id,

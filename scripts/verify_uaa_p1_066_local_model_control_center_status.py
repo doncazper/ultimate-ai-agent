@@ -29,6 +29,7 @@ OPERATIONAL_MATURITY_MANIFEST = (
 CORE_STATUS = ROOT / "src/ultimate_ai_agent/core/control_center/operational_status.py"
 CORE_READINESS = ROOT / "src/ultimate_ai_agent/core/local_model_management/readiness.py"
 API_APP = ROOT / "src/ultimate_ai_agent/api/app.py"
+API_CONTROL_CENTER = ROOT / "src/ultimate_ai_agent/api/control_center.py"
 API_MANIFEST = ROOT / "src/ultimate_ai_agent/api/manifest.py"
 FRONTEND_ENDPOINTS = ROOT / "apps/control-center/src/api/endpoints.ts"
 FRONTEND_CLIENT = ROOT / "apps/control-center/src/api/client.ts"
@@ -165,8 +166,8 @@ def _validate_backend_contract(root: Path, failures: list[str]) -> None:
             "OPTIONAL_LOCAL_MODEL_ADAPTER_AUTHORITY_DENIED",
             "OPTIONAL_LOCAL_MODEL_ADAPTER_UNSAFE_PAYLOAD_DENIED",
         ],
-        API_APP: [
-            '@app.get("/control-center/local-models/status"',
+        API_CONTROL_CENTER: [
+            '@router.get("/local-models/status"',
             "control_center_local_models_status",
             "build_control_center_local_models_status",
         ],

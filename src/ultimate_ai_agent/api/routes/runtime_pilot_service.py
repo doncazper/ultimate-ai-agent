@@ -386,7 +386,15 @@ def get_api_runtime_invocations_id_receipt(id: str) -> ResultEnvelope:
         data={
             "receipt": record.receipt.model_dump(mode="json") if record.receipt else None,
             "receipt_available": record.receipt is not None,
-            "execution_performed": False,
+            "execution_performed": bool(
+                record.receipt and record.receipt.execution_performed
+            ),
+            "model_call_performed": bool(
+                record.receipt and record.receipt.model_call_performed
+            ),
+            "command_execution_performed": bool(
+                record.receipt and record.receipt.command_execution_performed
+            ),
         },
         warnings=[] if record.receipt else ["RUNTIME_RECEIPT_NOT_RECORDED_YET"],
         redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),

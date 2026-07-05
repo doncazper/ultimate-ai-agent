@@ -15,9 +15,6 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
-from ultimate_ai_agent.core.control_center import (  # noqa: E402
-    web_evidence_product_slice as web_evidence_slice,
-)
 from ultimate_ai_agent.core.control_center.trust_authority import (  # noqa: E402
     build_trust_authority_matrix_read_model,
 )

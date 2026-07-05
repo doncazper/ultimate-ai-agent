@@ -26,8 +26,9 @@ export function RuntimeReadinessPanel({
         <span>{report.status}</span>
       </div>
       <p className="section-copy">
-        Local contract state only. These flags do not claim production runtime, model, remote,
-        mobile, or plugin readiness.
+        Scoped runtime pilot state. The implemented lane is exact Action Inbox approval for
+        focused pytest through RuntimeGateway; arbitrary shell, browser, connector, plugin,
+        remote, public beta, and production authority remain blocked.
       </p>
       <OperatorSurfaceStates surface="Runtime" />
       <div className="flag-list">

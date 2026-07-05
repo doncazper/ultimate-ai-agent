@@ -125,9 +125,12 @@ shell/subprocess execution, unrestricted network access, browser automation,
 tool execution authority, connector runtime, connector write, memory write,
 context injection, beta release, public distribution, or production authority.
 
-v0.105.0 Governed Runtime Pilot is the next scoped runtime-authority
-milestone. It is not the active baseline until the implementation phases,
-hardening passes, PR reviews, and release-truth checks are merged and tagged.
+v0.105.0 Governed Runtime Pilot is the scoped internal runtime-authority
+milestone for the governed runtime pilot. It does not change the active
+product/package baseline, public beta posture, distribution posture, or
+production authority. The milestone is eligible for the annotated
+`v0.105.0-governed-runtime-pilot` tag only after Phase 07 hardening, PR review,
+and release-truth checks are merged green.
 The clean baseline audit point for the pilot is
 `uaa-governed-runtime-baseline-2026-07-04` at commit
 `bd35e04426958dfb9b5993e99b0a5a62342f1fd1`; historical tags remain
@@ -144,7 +147,10 @@ RuntimeGateway. Runtime profiles are:
   `operator-approved` Action Inbox approval envelope. Phase 06 makes the same
   runtime truth inspectable through `uaa runtime ...`, `uaa actions
   approve|deny ...`, Control Center status/readiness cards, and safe receipt
-  timeline refs without broadening command/provider/browser authority.
+  timeline refs without broadening command/provider/browser authority. Phase
+  07 hardens command root pinning, configured endpoint matching, receipt-detail
+  truth, approval preflight, and release verification without adding broader
+  authority.
 - `operator-approved`: exact Action Inbox approval envelopes are required
   before execution-capable runtime actions.
 
@@ -154,7 +160,12 @@ Inbox approval envelopes for focused pytest command execution, redacted runtime
 receipts/evidence refs, and CLI/API/Control Center parity. Phase 06 adds
 launcher-backed `uaa runtime status`, `capabilities`, `invocations list/show`,
 `receipts show`, `safe-disable`, and `uaa actions approve|deny` inspection and
-decision paths over backend-owned safe refs only. Repo verifier,
+decision paths over backend-owned safe refs only. Phase 07 requires
+`uaa actions approve` to show a safe exact-envelope preflight before recording
+approval, pins governed command execution to the approved repo root, rejects
+local-model endpoint drift, mirrors receipt execution truth on the receipt
+detail route, and revalidates release-surface/front-end/visual/Foundation Gate
+truth. Repo verifier,
 frontend-check, browser automation, connector writes, plugin runtime import,
 arbitrary shell/subprocess execution, remote execution, unrestricted web access,
 production authority, public beta, public release, and broad autonomy remain

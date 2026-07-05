@@ -29,6 +29,7 @@ from ultimate_ai_agent.core.control_center.local_tasks import (  # noqa: E402
     FounderLoopLocalTaskCommitRequest,
 )
 from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (  # noqa: E402
+    WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV,
     WebEvidenceProductSliceRequest,
     build_web_evidence_product_slice_receipt,
 )
@@ -466,16 +467,24 @@ def _commit_local_task_for_timeline() -> str:
 
 def _record_web_evidence_for_timeline() -> str:
     repo = FounderLoopRepository.from_env()
-    receipt = build_web_evidence_product_slice_receipt(
-        WebEvidenceProductSliceRequest(
-            request_ref="web-evidence-request:fcc-v1-006",
-            url="https://example.org/status",
-            allowed_host="example.org",
-            evidence_refs=["evidence-ref:fcc-v1-006-web-evidence"],
-            metadata_refs=["metadata-ref:fcc-v1-006-web-evidence"],
-        ),
-        transport=_fake_web_evidence_transport,
-    )
+    previous_allowlist = os.environ.get(WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV)
+    os.environ[WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV] = "example.org"
+    try:
+        receipt = build_web_evidence_product_slice_receipt(
+            WebEvidenceProductSliceRequest(
+                request_ref="web-evidence-request:fcc-v1-006",
+                url="https://example.org/status",
+                allowed_host="example.org",
+                evidence_refs=["evidence-ref:fcc-v1-006-web-evidence"],
+                metadata_refs=["metadata-ref:fcc-v1-006-web-evidence"],
+            ),
+            transport=_fake_web_evidence_transport,
+        )
+    finally:
+        if previous_allowlist is None:
+            os.environ.pop(WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV, None)
+        else:
+            os.environ[WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV] = previous_allowlist
     repo.record_web_evidence_attachment(receipt)
     return receipt.receipt_ref
 

@@ -50,11 +50,13 @@ Contract rules:
   provider invocation, fallback execution, network calls, provider SDK calls,
   credential validation, model calls, billing authority, background execution,
   and raw prompt/response/provider payload persistence remain blocked.
-- `/api/runtime/*` is the governed runtime pilot contract surface. Phase 06
+- `/api/runtime/*` is the governed runtime pilot contract surface. Phase 07
   preserves configured local loopback model calls and the exact read-only status
   command while adding exact Action Inbox approved focused pytest command execution
   through `RuntimeGateway`, plus CLI/Control Center/evidence timeline parity
-  over the same backend-owned records. It records
+  over the same backend-owned records. It also records command root pinning,
+  configured endpoint matching, receipt-detail execution truth, and CLI approval
+  preflight posture. It records
   capability metadata, safe-ref invocation metadata, policy decisions,
   approval-ref bindings, metadata-only local model receipts, redacted command
   receipts, blocked execution receipts, and safe-disable posture. Model output
