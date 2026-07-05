@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.core.control_center.runtime_action_bridge import (  # noqa: E402
     build_runtime_action_inbox_bridge_read_model,
 )
+from ultimate_ai_agent.core.execution import build_sample_turn_run_approval_chain  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     RuntimeInvocationConflictError,
     RuntimeInvocationNotFoundError,
@@ -635,6 +636,33 @@ def _safe_disable(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_turn_run_approval_chain(args: argparse.Namespace) -> int:
+    chain = build_sample_turn_run_approval_chain()
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-turn-run-approval-chain",
+        "turn_run_approval_chain": chain.model_dump(mode="json"),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_logs_omitted": True,
+        "approval_ref_grants_authority": False,
+        "execution_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        print("Turn -> Durable Run -> Approval chain")
+        print(f"Chain: {chain.chain_ref}")
+        print(f"State: {chain.current_state}")
+        print(f"Turn: {chain.linkage.turn_ref.ref if chain.linkage.turn_ref else 'not_available'}")
+        print(f"Run: {chain.linkage.durable_run_ref.ref}")
+        print(f"Approval: {chain.linkage.approval_ref.ref if chain.linkage.approval_ref else 'not_available'}")
+        print(f"Transitions: {len(chain.transitions)}")
+        print("Approval refs are identifiers only; no execution was performed.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="uaa_runtime",
@@ -764,6 +792,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     safe_disable.add_argument("--json", action="store_true", help="Emit safe JSON.")
     safe_disable.set_defaults(func=_safe_disable)
+
+    chain = subparsers.add_parser(
+        "inspect-turn-run-approval-chain",
+        help="Inspect the canonical Turn -> Durable Run -> Approval chain read model.",
+    )
+    chain.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref read model as JSON for automation.",
+    )
+    chain.set_defaults(func=_inspect_turn_run_approval_chain)
 
     bridge = subparsers.add_parser(
         "inspect-action-inbox-bridge",
