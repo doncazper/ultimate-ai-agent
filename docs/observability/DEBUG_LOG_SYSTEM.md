@@ -2,6 +2,11 @@
 
 The debug log system provides local, structured JSONL records for everyday troubleshooting without expanding runtime authority or exporting raw private content.
 
+UAA also has an extreme diagnostic profile for short troubleshooting windows.
+It is disabled by default and must be enabled explicitly with
+`UAA_EXTREME_LOGGING_ENABLED=1`. Extreme logging is still redacted, bounded,
+local-only, and safe-ref oriented; it is not a raw forensic mode.
+
 ## Categories
 
 The core categories are:
@@ -24,6 +29,14 @@ The core categories are:
 - Records reject `raw_content_stored=True`.
 - Metadata rejects raw-content field names such as `raw_prompt`, `raw_terminal_output`, and `raw_provider_payload`.
 - The system adds no external logging service, network delivery, backend route, Control Center control, model/provider call, memory write, context injection, dependency, or production authority.
+- Extreme logging is disabled unless `UAA_EXTREME_LOGGING_ENABLED` is set to a
+  truthy value.
+- Extreme logging writes to local JSONL under `UAA_EXTREME_LOG_ROOT`, defaulting
+  to `.uaa/observability/extreme_debug.jsonl`.
+- `UAA_EXTREME_LOG_PREVIEW_CHARS` may raise bounded diagnostic previews up to
+  the hard cap, but raw prompt, response, provider payload, terminal output,
+  headers, query values, local paths, credentials, and private content remain
+  denied.
 
 ## Usage
 
@@ -57,7 +70,33 @@ logs.log_terminal(
 
 Callers that only need in-memory collection can instantiate `DebugLogStore()` without a path.
 
+## Extreme Logging
+
+Normal session logging records safe lifecycle summaries. Extreme logging records
+additional local diagnostic gateway metadata only when explicitly flagged on:
+
+```bash
+export UAA_EXTREME_LOGGING_ENABLED=1
+export UAA_EXTREME_LOG_ROOT=.uaa
+export UAA_EXTREME_LOG_PREVIEW_CHARS=2048
+```
+
+Programmatic callers can inspect the active posture:
+
+```python
+from ultimate_ai_agent.core.observability import build_extreme_debug_logging_settings
+
+settings = build_extreme_debug_logging_settings()
+assert settings.default_disabled is True
+assert settings.redacted_only is True
+assert settings.raw_content_stored is False
+```
+
+When disabled, UAA does not create the extreme debug JSONL file. When enabled,
+API middleware records extra route pattern, status, duration, correlation, and
+diagnostic posture metadata while omitting HTTP content, header values, query
+values, and raw local details.
+
 ## Querying
 
 Use `list_records()` to filter by session, run, category, or level. Use `latest()` for a bounded tail and `summary()` for counts by category and level.
-

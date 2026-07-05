@@ -7,6 +7,10 @@ from ultimate_ai_agent.core.observability import (
     DebugLogCategory,
     DebugLogRecord,
     DebugLogStore,
+    build_extreme_debug_logging_settings,
+    clear_extreme_debug_log_store_cache,
+    extreme_debug_log_path,
+    record_extreme_gateway_debug_log,
     redact_debug_text,
 )
 
@@ -154,3 +158,98 @@ def test_debug_log_jsonl_records_are_valid_json(tmp_path: Path) -> None:
     assert payload["status_code"] == 422
     assert payload["latency_ms"] == 5
 
+
+def test_extreme_debug_logging_is_default_disabled(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("UAA_EXTREME_LOGGING_ENABLED", raising=False)
+    monkeypatch.setenv("UAA_EXTREME_LOG_ROOT", str(tmp_path / ".uaa"))
+    clear_extreme_debug_log_store_cache()
+
+    settings = build_extreme_debug_logging_settings()
+    assert settings.enabled is False
+    assert settings.mode == "disabled"
+    assert settings.default_disabled is True
+    assert settings.redacted_only is True
+    assert settings.raw_content_stored is False
+
+    record = record_extreme_gateway_debug_log(
+        session_id="api-session:local",
+        source="api",
+        method="GET",
+        route="/health?token=abcdefghijklmnop",
+        status_code=200,
+        latency_ms=3,
+    )
+
+    assert record is None
+    assert not extreme_debug_log_path(tmp_path / ".uaa").exists()
+
+
+def test_extreme_debug_logging_enabled_records_safe_bounded_jsonl(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("UAA_EXTREME_LOGGING_ENABLED", "1")
+    monkeypatch.setenv("UAA_EXTREME_LOG_ROOT", str(tmp_path / ".uaa"))
+    monkeypatch.setenv("UAA_EXTREME_LOG_PREVIEW_CHARS", "99999")
+    clear_extreme_debug_log_store_cache()
+
+    settings = build_extreme_debug_logging_settings()
+    assert settings.enabled is True
+    assert settings.mode == "enabled"
+    assert settings.bounded_preview_chars == 4096
+    assert settings.external_export_enabled is False
+    assert settings.production_authority_enabled is False
+
+    record = record_extreme_gateway_debug_log(
+        session_id="api-session:local",
+        source="api",
+        method="GET",
+        route="/health",
+        status_code=200,
+        latency_ms=3,
+        trace_id="api-correlation:test",
+        metadata={
+            "route_pattern": "/health",
+            "query_values_omitted": True,
+            "header_values_omitted": True,
+            "safe_ref": "route-ref:health",
+        },
+    )
+
+    assert record is not None
+    assert record.category == "gateway"
+    assert record.metadata["diagnostic_profile"] == "extreme"
+    assert record.metadata["http_content_omitted"] is True
+    log_path = extreme_debug_log_path(tmp_path / ".uaa")
+    payload = log_path.read_text(encoding="utf-8")
+    assert "diagnostic_profile" in payload
+    assert "token=" not in payload
+    assert "abcdefghijklmnop" not in payload
+    assert "Authorization" not in payload
+    assert "Cookie" not in payload
+    assert "/Users/" not in payload
+
+
+def test_extreme_debug_logging_rejects_unsafe_metadata_without_leaking(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("UAA_EXTREME_LOGGING_ENABLED", "1")
+    monkeypatch.setenv("UAA_EXTREME_LOG_ROOT", str(tmp_path / ".uaa"))
+    clear_extreme_debug_log_store_cache()
+
+    record = record_extreme_gateway_debug_log(
+        session_id="api-session:local",
+        source="api",
+        method="GET",
+        route="/health",
+        status_code=200,
+        metadata={"raw_prompt": "api_key='abcdefghijklmnop'"},
+        fail_closed=False,
+    )
+
+    assert record is None
+    assert not extreme_debug_log_path(tmp_path / ".uaa").exists()

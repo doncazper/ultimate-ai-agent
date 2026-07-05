@@ -16,6 +16,8 @@ from ultimate_ai_agent.core.observability import (
     SessionLogStore,
     SessionLogValidationError,
     clear_default_session_log_store_cache,
+    clear_extreme_debug_log_store_cache,
+    extreme_debug_log_path,
     hash_sensitive_stack,
 )
 from ultimate_ai_agent.core.task_decomposition import CapabilityRegistryStore, CapabilityRegistryStoreConfig
@@ -166,6 +168,43 @@ def test_api_middleware_records_safe_route_metadata_without_http_content(tmp_pat
     assert event.metadata["status_code"] == 200
     assert event.duration_ms is not None
     payload = store.filepath.read_text(encoding="utf-8")
+    assert "abcdefghijklmnop" not in payload
+    assert "Authorization" not in payload
+    assert "Cookie" not in payload
+    assert "token=" not in payload
+
+
+def test_api_middleware_extreme_logging_is_flagged_and_redacted(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("UAA_SESSION_LOG_ROOT", str(tmp_path / ".uaa"))
+    monkeypatch.setenv("UAA_EXTREME_LOG_ROOT", str(tmp_path / ".uaa"))
+    monkeypatch.delenv("UAA_EXTREME_LOGGING_ENABLED", raising=False)
+    clear_default_session_log_store_cache()
+    clear_extreme_debug_log_store_cache()
+    client = TestClient(api_app.app)
+
+    response = client.get("/health?token=abcdefghijklmnop")
+
+    assert response.status_code == 200
+    assert not extreme_debug_log_path(tmp_path / ".uaa").exists()
+
+    monkeypatch.setenv("UAA_EXTREME_LOGGING_ENABLED", "true")
+    clear_default_session_log_store_cache()
+    clear_extreme_debug_log_store_cache()
+    response = client.get(
+        "/health?token=abcdefghijklmnop",
+        headers={
+            "Authorization": "Bearer abcdefghijklmnop",
+            "Cookie": "session=abcdefghijklmnop",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = extreme_debug_log_path(tmp_path / ".uaa").read_text(encoding="utf-8")
+    assert "Extreme API diagnostic metadata recorded" in payload
+    assert "diagnostic_profile" in payload
     assert "abcdefghijklmnop" not in payload
     assert "Authorization" not in payload
     assert "Cookie" not in payload

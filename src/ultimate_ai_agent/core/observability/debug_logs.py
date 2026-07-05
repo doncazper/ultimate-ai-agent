@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import uuid
 from collections import Counter
 from datetime import datetime
 from enum import Enum
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +19,12 @@ from ultimate_ai_agent.core.time import utc_now
 
 
 DEFAULT_DEBUG_PREVIEW_CHARS = 512
+DEFAULT_EXTREME_DEBUG_PREVIEW_CHARS = 2048
+MAX_EXTREME_DEBUG_PREVIEW_CHARS = 4096
+EXTREME_LOGGING_ENABLED_ENV = "UAA_EXTREME_LOGGING_ENABLED"
+EXTREME_LOG_ROOT_ENV = "UAA_EXTREME_LOG_ROOT"
+EXTREME_LOG_PREVIEW_CHARS_ENV = "UAA_EXTREME_LOG_PREVIEW_CHARS"
+DEFAULT_EXTREME_LOG_RELATIVE_PATH = Path("observability") / "extreme_debug.jsonl"
 
 PEM_BLOCK_RE = re.compile(r"-----BEGIN [^-]+-----.*?-----END [^-]+-----", re.DOTALL)
 BEARER_RE = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+")
@@ -143,6 +151,56 @@ class DebugLogSummary(BaseModel):
     latest_log_ids: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid")
+
+
+class ExtremeDebugLoggingSettings(BaseModel):
+    schema_version: str = "uaa.extreme_debug_logging_settings.v1"
+    enabled: bool
+    mode: str
+    env_flag_ref: str = "env-ref:UAA_EXTREME_LOGGING_ENABLED"
+    root_env_ref: str = "env-ref:UAA_EXTREME_LOG_ROOT"
+    preview_env_ref: str = "env-ref:UAA_EXTREME_LOG_PREVIEW_CHARS"
+    local_log_ref: str = "debug-log-ref:local-extreme-jsonl"
+    default_disabled: bool = True
+    bounded_preview_chars: int = Field(..., ge=32, le=MAX_EXTREME_DEBUG_PREVIEW_CHARS)
+    max_preview_chars_cap: int = MAX_EXTREME_DEBUG_PREVIEW_CHARS
+    redacted_only: bool = True
+    safe_refs_only: bool = True
+    raw_content_stored: bool = False
+    raw_prompt_stored: bool = False
+    raw_response_stored: bool = False
+    raw_provider_payload_stored: bool = False
+    raw_terminal_output_stored: bool = False
+    raw_local_path_stored: bool = False
+    external_export_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_extreme_settings(self) -> "ExtremeDebugLoggingSettings":
+        if self.mode not in {"disabled", "enabled"}:
+            raise ValueError("EXTREME_DEBUG_LOGGING_MODE_INVALID")
+        if self.enabled != (self.mode == "enabled"):
+            raise ValueError("EXTREME_DEBUG_LOGGING_MODE_MISMATCH")
+        if not self.default_disabled:
+            raise ValueError("EXTREME_DEBUG_LOGGING_DEFAULT_MUST_BE_DISABLED")
+        if not self.redacted_only or not self.safe_refs_only:
+            raise ValueError("EXTREME_DEBUG_LOGGING_REDACTION_REQUIRED")
+        if any(
+            [
+                self.raw_content_stored,
+                self.raw_prompt_stored,
+                self.raw_response_stored,
+                self.raw_provider_payload_stored,
+                self.raw_terminal_output_stored,
+                self.raw_local_path_stored,
+                self.external_export_enabled,
+                self.production_authority_enabled,
+            ]
+        ):
+            raise ValueError("EXTREME_DEBUG_LOGGING_UNSAFE_AUTHORITY_DENIED")
+        return self
 
 
 class DebugLogStore:
@@ -440,6 +498,123 @@ class DebugLogStore:
         )
 
 
+def extreme_logging_enabled() -> bool:
+    return os.environ.get(EXTREME_LOGGING_ENABLED_ENV, "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+        "enabled",
+        "extreme",
+    }
+
+
+def extreme_debug_log_root() -> Path:
+    return Path(os.environ.get(EXTREME_LOG_ROOT_ENV, ".uaa"))
+
+
+def extreme_debug_log_path(root: str | Path | None = None) -> Path:
+    base = Path(root) if root is not None else extreme_debug_log_root()
+    return base / DEFAULT_EXTREME_LOG_RELATIVE_PATH
+
+
+def extreme_debug_preview_chars() -> int:
+    raw_value = os.environ.get(EXTREME_LOG_PREVIEW_CHARS_ENV)
+    if raw_value is None:
+        return DEFAULT_EXTREME_DEBUG_PREVIEW_CHARS
+    try:
+        parsed = int(raw_value)
+    except ValueError:
+        return DEFAULT_EXTREME_DEBUG_PREVIEW_CHARS
+    return max(32, min(parsed, MAX_EXTREME_DEBUG_PREVIEW_CHARS))
+
+
+def build_extreme_debug_logging_settings() -> ExtremeDebugLoggingSettings:
+    enabled = extreme_logging_enabled()
+    return ExtremeDebugLoggingSettings(
+        enabled=enabled,
+        mode="enabled" if enabled else "disabled",
+        bounded_preview_chars=extreme_debug_preview_chars(),
+    )
+
+
+def get_default_extreme_debug_log_store() -> DebugLogStore:
+    return _cached_extreme_debug_log_store(
+        str(extreme_debug_log_path()),
+        extreme_debug_preview_chars(),
+    )
+
+
+def clear_extreme_debug_log_store_cache() -> None:
+    _cached_extreme_debug_log_store.cache_clear()
+
+
+@lru_cache(maxsize=8)
+def _cached_extreme_debug_log_store(filepath: str, max_preview_chars: int) -> DebugLogStore:
+    return DebugLogStore(filepath, max_preview_chars=max_preview_chars)
+
+
+def record_extreme_gateway_debug_log(
+    *,
+    session_id: str,
+    source: str,
+    method: str,
+    route: str,
+    status_code: int,
+    latency_ms: int | None = None,
+    run_id: str | None = None,
+    trace_id: str | None = None,
+    message: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    store: DebugLogStore | None = None,
+    fail_closed: bool = False,
+) -> DebugLogRecord | None:
+    if not extreme_logging_enabled():
+        return None
+    active_store = store or get_default_extreme_debug_log_store()
+    safe_route = _safe_route_pattern(route)
+    safe_metadata = {
+        "diagnostic_profile": "extreme",
+        "redacted_only": True,
+        "http_content_omitted": True,
+        "query_values_omitted": True,
+        "header_values_omitted": True,
+    }
+    if metadata:
+        safe_metadata.update(metadata)
+    try:
+        return active_store.log_gateway(
+            session_id=session_id,
+            source=source,
+            method=method,
+            route=safe_route,
+            status_code=status_code,
+            latency_ms=latency_ms,
+            run_id=run_id,
+            trace_id=trace_id,
+            message=message or "Extreme diagnostic gateway metadata recorded safely.",
+            metadata=safe_metadata,
+        )
+    except (ValueError, OSError):
+        if fail_closed:
+            raise
+    return None
+
+
+def _safe_route_pattern(route: str) -> str:
+    candidate = str(route or "").split("?", 1)[0].split("#", 1)[0].strip()
+    if (
+        not candidate
+        or scan_payload_for_secrets(candidate)
+        or LOCAL_PATH_RE.search(candidate)
+        or PEM_BLOCK_RE.search(candidate)
+    ):
+        return "redacted_route"
+    if len(candidate) > 160:
+        return candidate[:146] + "...[truncated]"
+    return candidate
+
+
 def redact_debug_text(value: str, *, max_chars: int = DEFAULT_DEBUG_PREVIEW_CHARS) -> RedactedDebugText:
     if max_chars < 32:
         raise ValueError("DEBUG_LOG_PREVIEW_TOO_SMALL")
@@ -536,4 +711,3 @@ def _assert_no_raw_field_markers(value: Any) -> None:
     elif isinstance(value, list):
         for item in value:
             _assert_no_raw_field_markers(item)
-

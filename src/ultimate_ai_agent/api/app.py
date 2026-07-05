@@ -178,6 +178,7 @@ from ultimate_ai_agent.core.observability import (
     classify_duration,
     get_default_session_log_store,
     record_client_error_report,
+    record_extreme_gateway_debug_log,
     record_session_event,
 )
 from ultimate_ai_agent.core.extension_catalog import build_default_inspectable_extension_catalog
@@ -535,6 +536,25 @@ def _record_api_session_event(
             "status_code": status_code,
             "correlation_ref": correlation_id,
         },
+    )
+    record_extreme_gateway_debug_log(
+        session_id="api-session:local",
+        source="api",
+        method=request.method.upper(),
+        route=route_pattern,
+        status_code=status_code,
+        latency_ms=int(round(duration_ms)),
+        trace_id=correlation_id,
+        message="Extreme API diagnostic metadata recorded as a redacted summary.",
+        metadata={
+            "event_type": event_type,
+            "lifecycle_state": lifecycle_state,
+            "correlation_ref": correlation_id,
+            "session_event_ref": build_safe_ref("session-event", correlation_id, route_pattern),
+            "status_bucket": "server_error" if status_code >= 500 else "completed",
+            "normal_session_log_also_recorded": True,
+        },
+        fail_closed=False,
     )
 
 
