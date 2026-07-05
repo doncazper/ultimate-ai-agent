@@ -170,6 +170,7 @@ def test_beta_12_control_center_shell_extraction_ownership_is_frozen() -> None:
         ("GET", "/control-center/coding/multi-agent-review"),
         ("GET", "/control-center/coding/test-command-readiness"),
         ("POST", "/control-center/actions/preview"),
+        ("POST", "/control-center/turn-router/preview"),
     }
 
     for route_key in sorted(extracted_routes):

@@ -40,8 +40,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 184;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 76;
+export const MOCK_OPENAPI_ROUTE_COUNT = 187;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 77;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",

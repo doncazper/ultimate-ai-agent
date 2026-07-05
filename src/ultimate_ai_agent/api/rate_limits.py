@@ -34,6 +34,7 @@ TARGETED_RATE_LIMIT_GROUP_DEFAULTS: dict[str, dict[str, int]] = {
 
 ACTION_PREVIEW_PROPOSAL_PATHS = {
     "/control-center/actions/preview",
+    "/control-center/turn-router/preview",
     "/files/diff/preview",
     "/".join(("", "files", "review", "approvals", "capture")),
     "/files/write/propose",

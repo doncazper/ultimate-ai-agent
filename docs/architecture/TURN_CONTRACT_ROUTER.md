@@ -407,6 +407,15 @@ low-ceremony intent to approval-required, but no lane can increase authority,
 execute work, expose tools for direct answers, retrieve memory bodies, or make
 `direct_answer_draft` user-visible before central arbitration.
 
+Prompt 03 productization adds the backend-owned no-effect preview read model
+and inspection surfaces: `POST /control-center/turn-router/preview` and
+`scripts/dev/uaa_turn_router.py`. These surfaces can classify protected samples
+or ephemeral request text for immediate operator diagnostics, but they return
+safe refs, selected contract, policy posture, no-effect proof flags, and
+redaction refs only. They do not persist raw request text, wire chat runtime,
+call providers/models, execute tools/actions, retrieve memory bodies, inject
+context, run shell/browser work, or write connectors.
+
 Preflight lanes:
 
 | Lane | Runs when | May read memory content? | May execute tools? | User-visible? | Output |
