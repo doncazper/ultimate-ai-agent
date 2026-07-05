@@ -78,7 +78,7 @@ def work_board_state_dir() -> Path:
     value = os.environ.get(WORK_BOARD_STATE_DIR_ENV, "").strip()
     if value:
         return Path(value).expanduser()
-    return Path.home() / ".uaa" / "work_board"
+    return Path(".uaa") / "work_board"
 
 
 def _work_board_actor_context(approval_ref: str | None = None) -> ActorContext:
