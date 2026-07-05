@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `200`, generated from the FastAPI application and
+Current OpenAPI path count: `201`, generated from the FastAPI application and
 exposed through `/api/manifest`. `/api/manifest` currently reports `200` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract

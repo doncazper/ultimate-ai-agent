@@ -79,13 +79,13 @@ that UAA already has the same runtime capability.
 
 | Runtime parity dimension | Current Score | Target Score | Confidence | Status | Strongest UAA evidence | Missing evidence | Exact implementation lane |
 |---|---:|---:|---|---|---|---|---|
-| Turn-contract clarity | 8 | 9 | High | partial | `src/ultimate_ai_agent/core/decision_router/`, `scripts/dev/uaa_turn_router.py`, `tests/test_turn_contract_router_harness_binding.py`, and `docs/architecture/TURN_CONTRACT_ROUTER.md` prove `base_answer` handling, preview routing, preflight posture, approval escalation, and executor fencing without model/provider calls. | Live route-decision binding is not yet attached to every prepared turn and durable run state. | Phase 02 Prompt: live route-decision binding |
+| Turn-contract clarity | 9 | 9 | High | implemented | `src/ultimate_ai_agent/core/decision_router/`, `PreparedTurn`, `scripts/dev/uaa_turn_router.py`, `tests/test_turn_contract_router_harness_binding.py`, and `docs/architecture/TURN_CONTRACT_ROUTER.md` prove `base_answer` handling, prepared-turn branches, preview routing, route binding, preflight posture, approval escalation, and executor fencing without model/provider calls. | Prepared turns are inspectable but not yet connected to live Control Center chat composition as a primary UI workflow. | Phase 08 Prompt: cockpit parity |
 | Authority/safety boundary | 9 | 9 | High | implemented | `AGENTS.md`, `src/ultimate_ai_agent/core/runtime_gateway/contracts.py`, `docs/control_center/AUTHORITY_GRADUATION_BOARD.md`, and `tests/test_governed_runtime_contracts.py` preserve sealed/default posture, exact approval scopes, idempotency, redaction, and blocked authority refs. | Later phases must prove they do not route around LocalApprovalAuthority, route side-effect classification, OpenAPI, redaction, or Foundation Gate checks. | Phase 02 Prompt through Phase 08 Prompt: harden each new surface against authority creep |
 | Execution readiness | 6 | 8 | Medium | partial | RuntimeGateway contracts, action inbox approval envelopes, local loopback metadata receipts, focused pytest approval bridge posture, and `tests/test_governed_runtime_contracts.py` show exact-lane execution scaffolding. | Signed portable evidence and a mature action execution receipt spine are not unified across turn, run, approval, and action records. | Phase 07 Prompt: mature action execution and signed evidence |
 | Durable runtime integration | 8 | 8 | Medium | partial | Durable run/read-model work, RuntimeGateway invocation storage, Run Observability, `TurnRunApprovalChainReadModel`, and `StagedOrchestrationReadModel` show local durable state, replay posture, approval-wait posture, staged dependencies, degraded handoff posture, and read-only API/CLI inspection. | Prepared chat turns have not yet been attached to the route-decision -> durable run -> staged orchestration -> approval-wait path. | Phase 05 Prompt: chat turn preparation |
 | Model/provider routing | 6 | 7 | Medium | partial | `src/ultimate_ai_agent/core/providers/control_plane.py`, provider research posture docs/tests, orchestration-efficiency previews, router-dry-run posture, and model/provider control-plane tests show read-only model/provider evidence and dry-run routing. | Role-based provider evidence is not yet tied to turn routing and orchestration traces without implying provider SDK calls or live model invocation. | Phase 06 Prompt: role-based model/provider evidence |
 | Operator inspectability | 8 | 8 | High | partial | CLI/API/Control Center surfaces for Turn Router, RuntimeGateway, Evidence, Action Inbox, Provider posture, Work Board, Coding, and GoatCitadel catch-up cockpit parity expose safe refs and blocked states. | The runtime loop is still scattered across panels and scripts rather than one cockpit-readable turn/run/action/proof chain. | Phase 08 Prompt: cockpit/CLI/API parity and final hardening |
-| Product usefulness today | 6 | 8 | Medium | partial | Today, Action Inbox, Evidence, Proof, Memory, Trust, Runtime readiness, Coding Cockpit, and Work Board surfaces provide local-first operator posture and exact-lane receipts where available. | There is no seamless prepared chat turn -> route decision -> durable approval wait -> exact action receipt -> proof narrative path for daily use. | Phase 05 Prompt, Phase 07 Prompt, and Phase 08 Prompt |
+| Product usefulness today | 7 | 8 | Medium | partial | Today, Action Inbox, Evidence, Proof, Memory, Trust, Runtime readiness, Coding Cockpit, Work Board, and PreparedTurn inspection provide local-first operator posture and exact-lane receipts where available. | There is no seamless prepared chat turn -> exact action receipt -> proof narrative path as the primary daily UI workflow. | Phase 07 Prompt and Phase 08 Prompt |
 | Long-term safe foundation | 9 | 9 | High | implemented | Python Agent Core owns durable truth; Control Center is presentation/initiation only; OpenAPI/API manifest, PolicyEngine, LocalApprovalAuthority, route classifications, product truth, and verifiers are active gates. | Future runtime phases must avoid broad flags and preserve safe refs, bounded previews, hashes, receipts, and blocked-state language. | All phases preserve this foundation |
 
 ## Phase Lane Map
@@ -107,8 +107,12 @@ dependency validation as no-effect planning/read-model truth only. Implemented e
 `src/ultimate_ai_agent/core/execution/staged_orchestration.py`, and
 `GET /api/runtime/staged-orchestration`.
 
-Phase 05 Prompt prepares chat turns through backend-owned context, route,
-memory, and action posture without hidden context injection.
+Phase 05 Prompt is implemented as backend-owned PreparedTurn context, route,
+memory, tool/action readiness, orchestration, durable run, evidence, and
+next-action posture without hidden context injection. Implemented evidence now
+lives in `docs/runtime/UAA_GOATCITADEL_RUNTIME_PREPARED_TURN_LOOP.md`,
+`src/ultimate_ai_agent/core/decision_router/prepared_turn.py`, and
+`GET /api/runtime/prepared-turn`.
 
 Phase 06 Prompt adds role-based model/provider evidence and routing traces
 without provider SDK calls, live remote model calls, or provider output

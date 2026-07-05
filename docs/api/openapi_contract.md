@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `200`.
+Current OpenAPI path count: `201`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -66,6 +66,10 @@ Contract rules:
   Python Core staged orchestration plan/checkpoint/dependency read model and
   grants no scheduling, dispatch, background autonomy, model call, browser
   action, connector write, shell/subprocess authority, or production authority.
+  `GET /api/runtime/prepared-turn` exposes a protected read-only Python Core
+  prepared-turn read model over turn contract, route binding, readiness,
+  durable run, and evidence refs without persisting raw prompt text or granting
+  runtime authority.
   Phase 07
   preserves configured local loopback model calls and the exact read-only status
   command while adding exact Action Inbox approved focused pytest command execution
