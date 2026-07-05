@@ -28,6 +28,7 @@ import type {
   FounderLoopSourceReadinessProposalCandidate,
   FounderLoopTodayLoopReadModel,
   FounderLoopWeeklyCeoReviewV1ReadModel,
+  ModelProviderControlPlaneReadModel,
   OperatorWorkspaceSpineReadModel,
   ProviderCatalog,
   ProviderCostGovernorBinding,
@@ -42,8 +43,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 196;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 86;
+export const MOCK_OPENAPI_ROUTE_COUNT = 197;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 87;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -3588,6 +3589,239 @@ const providerCatalog: ProviderCatalog = {
   no_automatic_pricing_fetch: true,
   no_provider_output_authority: true,
   catalog_visibility_grants_authority: false,
+};
+
+const modelProviderControlPlane: ModelProviderControlPlaneReadModel = {
+  schema_version: "model_provider_control_plane.v1",
+  contract_ref: "contract-ref:model-provider-control-plane:mock-fallback",
+  route_ref: "GET /control-center/providers/runtime-control-plane",
+  cli_ref: "scripts/inspect_model_provider_control_plane.py",
+  status: "governed_control_plane_wired",
+  backend_owned: true,
+  read_only: true,
+  safe_refs_only: true,
+  authority: {
+    status: "governed_exact_lanes_only",
+    broad_provider_runtime_enabled: false,
+    provider_sdk_call_enabled: false,
+    live_provider_network_call_enabled_by_default: false,
+    exact_tiny_provider_lane_available: true,
+    exact_tiny_provider_lane_requires_approval: true,
+    exact_credential_validation_lane_available: true,
+    exact_credential_validation_requires_approval: true,
+    provider_router_execution_enabled: false,
+    provider_router_dry_run_available: true,
+    model_router_execution_enabled: false,
+    model_router_trace_available: true,
+    local_llama_cpp_gateway_available: true,
+    local_llama_cpp_lifecycle_contract_available: true,
+    local_llama_cpp_process_started_by_control_plane: false,
+    shell_execution_enabled: false,
+    background_autonomy_enabled: false,
+    production_authority_enabled: false,
+    raw_prompt_response_provider_payload_persisted: false,
+    safe_summary:
+      "Mock fallback mirrors the governed model/provider control-plane contract; broad provider authority remains blocked.",
+  },
+  provider_adapters: [
+    {
+      adapter_ref: "provider-adapter-ref:tiny-exact-approved:openai-compatible-live",
+      provider_ref: "provider-ref:openai-compatible:tiny-exact-approved",
+      model_ref: "model-ref:openai-compatible:tiny-contract-model",
+      model_name_ref: "model-name-ref:openai-compatible:tiny-contract-model",
+      policy_ref: "policy-ref:provider-runtime:tiny-exact-approved:v1",
+      endpoint_ref: "provider-endpoint-ref:openai-compatible:responses",
+      transport_ref: "provider-transport-ref:openai-compatible:stdlib-no-redirect",
+      status: "exact_lane_wired_disabled_by_default",
+      provider_sdk_call_enabled: false,
+      network_call_enabled_by_default: false,
+      network_call_allowed_inside_exact_adapter: true,
+      credential_ref_required: true,
+      exact_approval_required: true,
+      cost_governor_required: true,
+      receipt_store_required_before_network: true,
+      redirects_blocked: true,
+      prompt_persistence_allowed: false,
+      response_persistence_allowed: false,
+      provider_payload_persistence_allowed: false,
+    },
+    {
+      adapter_ref:
+        "provider-adapter-ref:tiny-exact-approved:anthropic-compatible-live",
+      provider_ref: "provider-ref:anthropic-compatible:tiny-exact-approved",
+      model_ref: "model-ref:anthropic-compatible:tiny-contract-model",
+      model_name_ref: "model-name-ref:anthropic-compatible:tiny-contract-model",
+      policy_ref: "policy-ref:provider-runtime:tiny-second-exact-approved:v1",
+      endpoint_ref: "provider-endpoint-ref:anthropic-compatible:messages",
+      transport_ref:
+        "provider-transport-ref:anthropic-compatible:stdlib-no-redirect",
+      status: "exact_lane_wired_disabled_by_default",
+      provider_sdk_call_enabled: false,
+      network_call_enabled_by_default: false,
+      network_call_allowed_inside_exact_adapter: true,
+      credential_ref_required: true,
+      exact_approval_required: true,
+      cost_governor_required: true,
+      receipt_store_required_before_network: true,
+      redirects_blocked: true,
+      prompt_persistence_allowed: false,
+      response_persistence_allowed: false,
+      provider_payload_persistence_allowed: false,
+    },
+  ],
+  secret_status: {
+    status: "safe_refs_only",
+    vault_adapter_status: "blocked_no_approved_backend",
+    validation_readiness_status: "validation_blocked",
+    enrollment_status: "blocked_disabled_by_default",
+    credential_ref_statuses: {
+      "provider:openai-compatible:reference": "reference_missing",
+      "provider:anthropic-compatible:reference": "reference_missing",
+      "provider:gemini-compatible:reference": "reference_missing",
+    },
+    secret_material_visible: false,
+    secret_material_persisted_by_repo: false,
+    transient_secret_resolution_required_for_exact_lanes: true,
+    raw_key_collection_enabled: false,
+    safe_summary:
+      "Secrets are represented as refs only; mock fallback does not collect or persist credential material.",
+  },
+  network_allowlists: {
+    status: "exact_endpoint_refs_only",
+    allowlist_refs: [
+      "provider-network-allowlist-ref:tiny-exact-approved:v1",
+      "provider-credential-validation-network-scope-ref:openai-compatible-models",
+    ],
+    endpoint_refs: [
+      "provider-endpoint-ref:openai-compatible:responses",
+      "provider-endpoint-ref:anthropic-compatible:messages",
+      "provider-endpoint-ref:openai-compatible:models",
+    ],
+    transport_refs: [
+      "provider-transport-ref:openai-compatible:stdlib-no-redirect",
+      "provider-transport-ref:anthropic-compatible:stdlib-no-redirect",
+      "provider-credential-validation-transport-ref:openai-compatible-models",
+    ],
+    default_network_denied: true,
+    broad_web_fetch_enabled: false,
+    provider_sdk_network_enabled: false,
+    redirects_blocked: true,
+    post_mutation_scope_enabled: false,
+    safe_summary:
+      "Endpoint refs are allowlist metadata only; runtime network remains denied by default.",
+  },
+  model_metadata_discovery: {
+    status: "static_metadata_and_local_inventory",
+    provider_catalog_ref: "provider-catalog:cost-literacy:mock-fallback",
+    provider_count: 3,
+    provider_model_refs: [
+      "model-ref:openai-compatible:tiny-contract-model",
+      "model-ref:anthropic-compatible:tiny-contract-model",
+      "model-ref:local:uaa-llama-cpp-local",
+    ],
+    local_inventory_status: "empty",
+    local_inventory_model_ref_count: 0,
+    local_gateway_model_ref: "model-ref:local:uaa-llama-cpp-local",
+    live_provider_model_discovery_enabled: false,
+    automatic_pricing_fetch_enabled: false,
+    runtime_provider_metadata_fetch_enabled: false,
+    safe_summary:
+      "Model discovery is static provider metadata plus local inventory refs; no live provider discovery is performed.",
+  },
+  cost_hooks: {
+    status: "cost_governor_receipt_bound",
+    cost_governor_posture_ref:
+      "cost-governor-posture-ref:provider-runtime:required",
+    cost_governor_decision_ref:
+      "cost-governor-decision-ref:provider-runtime:blocked",
+    cost_estimate_refs_required: true,
+    budget_decision_refs_required: true,
+    max_approved_usd_refs_required: true,
+    expected_receipt_refs_required: true,
+    actual_usage_cost_refs_required: true,
+    unknown_paid_cost_blocks: true,
+    incomplete_actual_cost_blocks_further_use: true,
+    provider_spend_authority_granted: false,
+    safe_summary:
+      "Provider spend is CostGovernor and receipt bound; unknown paid cost remains blocked.",
+  },
+  local_llama_cpp_lifecycle: {
+    status: "local_loopback_lifecycle_governed",
+    supervisor_contract_ref: "contract-ref:llama-cpp-supervisor:m163",
+    gateway_contract_ref: "contract-ref:llama-cpp-gateway:m164",
+    gateway_readiness: {
+      gateway_mode: "disabled",
+      local_gateway_enabled: false,
+      llama_cpp_gateway_enabled: false,
+      bearer_env_configured: false,
+    },
+    model_ref: "model-ref:local:uaa-llama-cpp-local",
+    loopback_only: true,
+    structured_argv_only: true,
+    shell_string_allowed: false,
+    process_start_performed_by_read_model: false,
+    model_call_performed_by_read_model: false,
+    raw_local_path_returned: false,
+    raw_log_stored: false,
+    cli_inspection_refs: [
+      "scripts/dev/uaa_local_model.py local-model status --json",
+      "scripts/inspect_local_model_runtime.py",
+    ],
+    safe_summary:
+      "llama.cpp lifecycle posture is visible; the read model does not start processes or call models.",
+  },
+  router_traces: [
+    {
+      status: "trace_only_no_execution",
+      trace_ref: "model-router-trace-ref:model-provider-control-plane:mock",
+      decision: {
+        status: "selected",
+        selected_profile_id: "model-profile-ref:local-llama-cpp:chat",
+        selected_model_id: "uaa-llama-cpp-local",
+      },
+      provider_router_trace_ref: "provider-router-run-ref:dry-run:local",
+      provider_router_status: "proposal_only",
+      selected_profile_ref: "model-profile-ref:local-llama-cpp:chat",
+      selected_model_ref: "uaa-llama-cpp-local",
+      candidate_profile_refs: ["model-profile-ref:local-llama-cpp:chat"],
+      rejected_profile_refs: ["model-profile-ref:cloud-provider:blocked"],
+      reason_codes: ["SELECTED_PROFILE", "NO_MODEL_EXECUTION_PERFORMED"],
+      model_execution_performed: false,
+      provider_execution_performed: false,
+      provider_sdk_call_performed: false,
+      prompt_content_persisted: false,
+      response_content_persisted: false,
+      safe_summary:
+        "Router trace is metadata-only and performs no model or provider execution.",
+    },
+  ],
+  credential_readiness_ref:
+    "control-center-dashboard-field:provider_credential_readiness",
+  provider_catalog_ref: "provider-catalog:cost-literacy:mock-fallback",
+  exact_lane_route_refs: [
+    "POST /control-center/providers/exact-approved-lanes/tiny",
+    "POST /control-center/providers/credentials/validate",
+    "POST /control-center/providers/router/dry-run",
+  ],
+  proof_refs: [
+    "proof-ref:model-provider-control-plane:mock-read-model",
+    "proof-ref:model-provider-control-plane:mock-router-traces",
+  ],
+  blocked_authority_refs: [
+    "blocked-state:model-provider:broad-provider-runtime",
+    "blocked-state:model-provider:provider-sdk-calls",
+    "blocked-state:model-provider:network-by-default",
+    "blocked-state:model-provider:raw-prompt-response-persistence",
+    "blocked-state:model-provider:background-autonomy",
+    "blocked-state:model-provider:production-authority",
+  ],
+  docs_refs: [
+    "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
+    "docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
+  ],
+  verifier_refs: ["scripts/verify_model_provider_control_plane.py"],
+  safe_summary:
+    "Mock fallback keeps model/provider posture readable and blocked while backend data is unavailable.",
 };
 
 const evidenceHistoryQuestions: Record<EvidenceHistoryKey, string> = {
@@ -7303,6 +7537,7 @@ export const mockControlCenterData: ControlCenterData = {
     "/memory": mockRouteState("Memory", "/memory", "GET /control-center/memory/review"),
     "/evidence": mockRouteState("Evidence", "/evidence", "GET /control-center/evidence/timeline"),
     "/settings": mockRouteState("Settings", "/settings", "GET /control-center/settings/status"),
+    "/models": mockRouteState("Models", "/models", "GET /control-center/providers/runtime-control-plane"),
     "/briefing": mockRouteState("Briefing", "/briefing", "GET /control-center/morning-briefing/summary"),
     "/setup": mockRouteState("Setup", "/setup", "GET /control-center/setup-assistant/summary"),
     "/storage": mockRouteState("Storage", "/storage", "GET /control-center/storage/status"),
@@ -13958,6 +14193,7 @@ export const mockControlCenterData: ControlCenterData = {
     updated_at: "2026-01-01T00:00:00Z",
   },
   providerCatalog,
+  modelProviderControlPlane,
   macosSetupAssistant: {
     planRef: "macos-setup-plan:foundation",
     status: "dry_run_only",

@@ -26,6 +26,7 @@ import type {
   FounderLoopStorageStatus,
   FounderLoopTodaySummary,
   LocalModelsInspectionStatus,
+  ModelProviderControlPlaneReadModel,
   ProviderCatalog,
   RedactedLocalChatProbeStatus,
   ResultEnvelope,
@@ -309,6 +310,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     ),
     read<unknown>(API_ENDPOINTS.setupAssistantSummary),
     read<ProviderCatalog>(API_ENDPOINTS.providerSetupGuide),
+    read<ModelProviderControlPlaneReadModel>(
+      API_ENDPOINTS.modelProviderControlPlane,
+    ),
     read<ControlCenterSettingsStatus>(
       API_ENDPOINTS.controlCenterSettingsStatus,
     ),
@@ -406,45 +410,51 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     mockControlCenterData.macosSetupAssistant,
   );
   const providerCatalog = fulfilledValue(results[7]);
-  const controlCenterSettingsStatus = fulfilledValue(results[8]);
-  const controlCenterLocalModelsStatus = fulfilledValue(results[9]);
-  const founderToday = fulfilledValue(results[10]);
-  const founderEvidenceTimeline = fulfilledValue(results[11]);
-  const founderMemoryReview = fulfilledValue(results[12]);
-  const founderMemoryWorkbench = fulfilledValue(results[13]);
-  const founderMemoryContextPacks = fulfilledValue(results[14]);
-  const founderMemoryRetrievalDiagnostics = fulfilledValue(results[15]);
-  const founderMemoryCitationIntegrity = fulfilledValue(results[16]);
-  const founderMemoryQualityIssues = fulfilledValue(results[17]);
-  const founderMemoryMaintenanceRuns = fulfilledValue(results[18]);
-  const founderMemoryContextManifest = fulfilledValue(results[19]);
-  const founderActionsInbox = fulfilledValue(results[20]);
-  const founderMorningBriefing = fulfilledValue(results[21]);
-  const founderSourceReadiness = fulfilledValue(results[22]);
-  const founderStorageStatus = fulfilledValue(results[23]);
-  const crmLocalCommandCenter = fulfilledValue(results[24]);
-  const approvalSummary = fulfilledValue(results[25]);
-  const approvalQueue = fulfilledValue(results[26]);
-  const runObservability = fulfilledValue(results[27]);
+  const modelProviderControlPlane = fulfilledValue(results[8]);
+  const controlCenterSettingsStatus = fulfilledValue(results[9]);
+  const controlCenterLocalModelsStatus = fulfilledValue(results[10]);
+  const founderToday = fulfilledValue(results[11]);
+  const founderEvidenceTimeline = fulfilledValue(results[12]);
+  const founderMemoryReview = fulfilledValue(results[13]);
+  const founderMemoryWorkbench = fulfilledValue(results[14]);
+  const founderMemoryContextPacks = fulfilledValue(results[15]);
+  const founderMemoryRetrievalDiagnostics = fulfilledValue(results[16]);
+  const founderMemoryCitationIntegrity = fulfilledValue(results[17]);
+  const founderMemoryQualityIssues = fulfilledValue(results[18]);
+  const founderMemoryMaintenanceRuns = fulfilledValue(results[19]);
+  const founderMemoryContextManifest = fulfilledValue(results[20]);
+  const founderActionsInbox = fulfilledValue(results[21]);
+  const founderMorningBriefing = fulfilledValue(results[22]);
+  const founderSourceReadiness = fulfilledValue(results[23]);
+  const founderStorageStatus = fulfilledValue(results[24]);
+  const crmLocalCommandCenter = fulfilledValue(results[25]);
+  const approvalSummary = fulfilledValue(results[26]);
+  const approvalQueue = fulfilledValue(results[27]);
+  const runObservability = fulfilledValue(results[28]);
   const safeObservedRunObservability = safeRunObservability(runObservability);
-  const runtimeReadinessSummary = fulfilledValue(results[28]);
-  const foundationGateSummary = fulfilledValue(results[29]);
-  const founderStartHere = fulfilledValue(results[30]);
-  const proofIndex = fulfilledValue(results[31]);
-  const trustAuthorityMatrix = fulfilledValue(results[32]);
-  const codingSession = fulfilledValue(results[33]);
-  const codingContext = fulfilledValue(results[34]);
-  const codingPatchProposal = fulfilledValue(results[35]);
-  const codingPatchApplyReadiness = fulfilledValue(results[36]);
-  const codingTestCommandReadiness = fulfilledValue(results[37]);
-  const codingGitReview = fulfilledValue(results[38]);
-  const codingLivePreview = fulfilledValue(results[39]);
-  const codingMultiAgentReview = fulfilledValue(results[40]);
+  const runtimeReadinessSummary = fulfilledValue(results[29]);
+  const foundationGateSummary = fulfilledValue(results[30]);
+  const founderStartHere = fulfilledValue(results[31]);
+  const proofIndex = fulfilledValue(results[32]);
+  const trustAuthorityMatrix = fulfilledValue(results[33]);
+  const codingSession = fulfilledValue(results[34]);
+  const codingContext = fulfilledValue(results[35]);
+  const codingPatchProposal = fulfilledValue(results[36]);
+  const codingPatchApplyReadiness = fulfilledValue(results[37]);
+  const codingTestCommandReadiness = fulfilledValue(results[38]);
+  const codingGitReview = fulfilledValue(results[39]);
+  const codingLivePreview = fulfilledValue(results[40]);
+  const codingMultiAgentReview = fulfilledValue(results[41]);
   const workBoard = fulfilledValue(workBoardResult[0]);
   const safeCodingMultiAgentReview = isSafeCodingMultiAgentReview(
     codingMultiAgentReview,
   )
     ? codingMultiAgentReview
+    : undefined;
+  const safeModelProviderControlPlane = isSafeModelProviderControlPlane(
+    modelProviderControlPlane,
+  )
+    ? modelProviderControlPlane
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -564,6 +574,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     crmLocalCommandCenter.authority_posture?.send_enabled !== false ||
     crmLocalCommandCenter.authority_posture?.connector_write_enabled !== false ||
     crmLocalCommandCenter.authority_posture?.provider_model_call_enabled !== false;
+  const modelProviderControlPlaneFallbackUsed =
+    safeModelProviderControlPlane === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -679,6 +691,23 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       usedFallback: controlCenterSettingsStatus === undefined,
     }),
     routeReadStateInput({
+      route: "/models",
+      surfaceLabel: "Models",
+      backendRouteRefs: [
+        "GET /control-center/providers/runtime-control-plane",
+        "GET /control-center/local-models/status",
+      ],
+      endpointReturned:
+        modelProviderControlPlane !== undefined &&
+        controlCenterLocalModelsStatus !== undefined,
+      warningRefs: modelProviderControlPlaneFallbackUsed
+        ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
+        : [],
+      usedFallback:
+        modelProviderControlPlaneFallbackUsed ||
+        controlCenterLocalModelsStatus === undefined,
+    }),
+    routeReadStateInput({
       route: "/briefing",
       surfaceLabel: "Briefing",
       backendRouteRef: "GET /control-center/morning-briefing/summary",
@@ -774,6 +803,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     workBoard === undefined ||
     setupAssistantSource === undefined ||
     providerCatalog === undefined ||
+    safeModelProviderControlPlane === undefined ||
     controlCenterSettingsStatus === undefined ||
     controlCenterLocalModelsStatus === undefined ||
     founderStorageStatus === undefined;
@@ -851,6 +881,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     m39ContextProposals: mockControlCenterData.m39ContextProposals,
     macosSetupAssistant: setupAssistant,
     providerCatalog: providerCatalog ?? mockControlCenterData.providerCatalog,
+    modelProviderControlPlane:
+      safeModelProviderControlPlane ??
+      mockControlCenterData.modelProviderControlPlane,
     settingsStatus:
       controlCenterSettingsStatus ?? mockControlCenterData.settingsStatus,
     localModelsStatus:
@@ -908,6 +941,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !normalizedTrustAuthorityMatrix.usedFallback &&
     !codingSessionFallbackUsed &&
     !workBoardFallbackUsed &&
+    !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
     !dashboardSummaryEndpointFallbackUsed &&
@@ -930,6 +964,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedTrustAuthorityMatrix.usedFallback ||
     codingSessionFallbackUsed ||
     workBoardFallbackUsed ||
+    modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
     runObservabilityEndpointFallbackUsed ||
@@ -945,6 +980,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (workBoardFallbackUsed) {
     degradedSafeMessage =
       "The Work Board backend read model was unavailable or unsafe; non-authoritative mock fallback kept board mutation blocked.";
+  } else if (modelProviderControlPlaneFallbackUsed) {
+    degradedSafeMessage =
+      "Model/provider control-plane posture was unavailable or unsafe; non-authoritative mock fallback kept broad provider authority blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1000,6 +1038,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
           : ["CODING_SESSION_MOCK_FALLBACK"]
         : []),
       ...(workBoardFallbackUsed ? workBoardEndpointFallbackWarningRefs : []),
+      ...(modelProviderControlPlaneFallbackUsed
+        ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
+        : []),
       ...(providerCredentialReadinessFallbackUsed
         ? ["PARTIAL_PROVIDER_CREDENTIAL_READINESS_FALLBACK"]
         : []),
@@ -2978,6 +3019,220 @@ function normalizeControlCenterDashboard(
     value: normalized as unknown as ControlCenterDashboardSnapshot,
     usedFallback: true,
   };
+}
+
+function isSafeModelProviderControlPlane(
+  value: unknown,
+): value is ModelProviderControlPlaneReadModel {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.schema_version !== "model_provider_control_plane.v1" ||
+    value.status !== "governed_control_plane_wired" ||
+    value.backend_owned !== true ||
+    value.read_only !== true ||
+    value.safe_refs_only !== true
+  ) {
+    return false;
+  }
+  const authority = value.authority;
+  if (!isPlainRecord(authority)) {
+    return false;
+  }
+  const authorityFalseFlags = [
+    "broad_provider_runtime_enabled",
+    "provider_sdk_call_enabled",
+    "live_provider_network_call_enabled_by_default",
+    "provider_router_execution_enabled",
+    "model_router_execution_enabled",
+    "local_llama_cpp_process_started_by_control_plane",
+    "shell_execution_enabled",
+    "background_autonomy_enabled",
+    "production_authority_enabled",
+    "raw_prompt_response_provider_payload_persisted",
+  ];
+  const authorityTrueFlags = [
+    "exact_tiny_provider_lane_available",
+    "exact_tiny_provider_lane_requires_approval",
+    "exact_credential_validation_lane_available",
+    "exact_credential_validation_requires_approval",
+    "provider_router_dry_run_available",
+    "model_router_trace_available",
+    "local_llama_cpp_gateway_available",
+    "local_llama_cpp_lifecycle_contract_available",
+  ];
+  if (
+    authorityFalseFlags.some((field) => authority[field] !== false) ||
+    authorityTrueFlags.some((field) => authority[field] !== true)
+  ) {
+    return false;
+  }
+  if (
+    !Array.isArray(value.provider_adapters) ||
+    value.provider_adapters.length < 2 ||
+    !value.provider_adapters.every(isSafeProviderAdapterRuntimePosture)
+  ) {
+    return false;
+  }
+  if (!isSafeProviderSecretStatusPosture(value.secret_status)) {
+    return false;
+  }
+  if (!isSafeProviderNetworkAllowlistPosture(value.network_allowlists)) {
+    return false;
+  }
+  if (!isSafeModelMetadataDiscoveryPosture(value.model_metadata_discovery)) {
+    return false;
+  }
+  if (!isSafeProviderCostHookPosture(value.cost_hooks)) {
+    return false;
+  }
+  if (!isSafeLocalLlamaCppLifecyclePosture(value.local_llama_cpp_lifecycle)) {
+    return false;
+  }
+  if (
+    !Array.isArray(value.router_traces) ||
+    value.router_traces.length === 0 ||
+    !value.router_traces.every(isSafeModelRouterTracePosture)
+  ) {
+    return false;
+  }
+  return (
+    Array.isArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-state:model-provider:broad-provider-runtime",
+    ) &&
+    Array.isArray(value.exact_lane_route_refs) &&
+    value.exact_lane_route_refs.includes(
+      "POST /control-center/providers/exact-approved-lanes/tiny",
+    )
+  );
+}
+
+function isSafeProviderAdapterRuntimePosture(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "provider_sdk_call_enabled",
+    "network_call_enabled_by_default",
+    "prompt_persistence_allowed",
+    "response_persistence_allowed",
+    "provider_payload_persistence_allowed",
+  ];
+  const trueFlags = [
+    "network_call_allowed_inside_exact_adapter",
+    "credential_ref_required",
+    "exact_approval_required",
+    "cost_governor_required",
+    "receipt_store_required_before_network",
+    "redirects_blocked",
+  ];
+  return (
+    value.status === "exact_lane_wired_disabled_by_default" &&
+    falseFlags.every((field) => value[field] === false) &&
+    trueFlags.every((field) => value[field] === true)
+  );
+}
+
+function isSafeProviderSecretStatusPosture(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    value.status === "safe_refs_only" &&
+    value.secret_material_visible === false &&
+    value.secret_material_persisted_by_repo === false &&
+    value.transient_secret_resolution_required_for_exact_lanes === true &&
+    value.raw_key_collection_enabled === false &&
+    isPlainRecord(value.credential_ref_statuses)
+  );
+}
+
+function isSafeProviderNetworkAllowlistPosture(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    value.status === "exact_endpoint_refs_only" &&
+    value.default_network_denied === true &&
+    value.broad_web_fetch_enabled === false &&
+    value.provider_sdk_network_enabled === false &&
+    value.redirects_blocked === true &&
+    value.post_mutation_scope_enabled === false &&
+    Array.isArray(value.allowlist_refs) &&
+    value.allowlist_refs.length > 0 &&
+    Array.isArray(value.endpoint_refs) &&
+    value.endpoint_refs.length > 0
+  );
+}
+
+function isSafeModelMetadataDiscoveryPosture(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    value.status === "static_metadata_and_local_inventory" &&
+    typeof value.provider_count === "number" &&
+    value.provider_count > 0 &&
+    Array.isArray(value.provider_model_refs) &&
+    value.provider_model_refs.length > 0 &&
+    value.live_provider_model_discovery_enabled === false &&
+    value.automatic_pricing_fetch_enabled === false &&
+    value.runtime_provider_metadata_fetch_enabled === false
+  );
+}
+
+function isSafeProviderCostHookPosture(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const trueFlags = [
+    "cost_estimate_refs_required",
+    "budget_decision_refs_required",
+    "max_approved_usd_refs_required",
+    "expected_receipt_refs_required",
+    "actual_usage_cost_refs_required",
+    "unknown_paid_cost_blocks",
+    "incomplete_actual_cost_blocks_further_use",
+  ];
+  return (
+    value.status === "cost_governor_receipt_bound" &&
+    trueFlags.every((field) => value[field] === true) &&
+    value.provider_spend_authority_granted === false
+  );
+}
+
+function isSafeLocalLlamaCppLifecyclePosture(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    value.status === "local_loopback_lifecycle_governed" &&
+    value.loopback_only === true &&
+    value.structured_argv_only === true &&
+    value.shell_string_allowed === false &&
+    value.process_start_performed_by_read_model === false &&
+    value.model_call_performed_by_read_model === false &&
+    value.raw_local_path_returned === false &&
+    value.raw_log_stored === false
+  );
+}
+
+function isSafeModelRouterTracePosture(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    value.status === "trace_only_no_execution" &&
+    value.model_execution_performed === false &&
+    value.provider_execution_performed === false &&
+    value.provider_sdk_call_performed === false &&
+    value.prompt_content_persisted === false &&
+    value.response_content_persisted === false &&
+    Array.isArray(value.reason_codes) &&
+    value.reason_codes.length > 0
+  );
 }
 
 function isSafeProviderCredentialReadiness(
