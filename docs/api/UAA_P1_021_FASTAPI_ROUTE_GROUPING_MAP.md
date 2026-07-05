@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `198`.
+Current OpenAPI path count: `199`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `199`
-- OpenAPI paths: `198`
+- Manifest route operations: `200`
+- OpenAPI paths: `199`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -23,7 +23,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 79 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:2, `local_dev_workspace_only`:61, `validation_only`:16 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 88 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:2, `local_dev_workspace_only`:69, `validation_only`:17 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 1 | `extension-catalog` | `extension_catalog_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -56,8 +56,8 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | POST | `/adapter-manifest/validate` | `post_adapter_manifest_validate` | `validation_only` | yes | future | yes |
 | GET | `/api/manifest` | `get_api_manifest` | `none` | no | future | yes |
 | GET | `/api/runtime/capabilities` | `get_api_runtime_capabilities` | `validation_only` | yes | future | yes |
-| GET | `/api/runtime/governed-product-pilot-profile` | `get_api_runtime_governed_product_pilot_profile` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/command/run` | `post_api_runtime_command_run` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/governed-product-pilot-profile` | `get_api_runtime_governed_product_pilot_profile` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/invocations` | `get_api_runtime_invocations` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/invocations` | `post_api_runtime_invocations` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/invocations/{id}` | `get_api_runtime_invocations_id` | `local_dev_workspace_only` | no | future | yes |
@@ -83,6 +83,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | POST | `/control-center/actions/{action_id}/local-task/commit` | `post_control_center_actions_action_id_local_task_commit` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/actions/{action_id}/receipt` | `get_control_center_actions_action_id_receipt` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/actions/{action_id}/reject` | `post_control_center_actions_action_id_reject` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/agent-loop/thread` | `get_control_center_agent_loop_thread` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/approvals/queue` | `get_control_center_approvals_queue` | `validation_only` | yes | future | yes |
 | GET | `/control-center/approvals/summary` | `get_control_center_approvals_summary` | `validation_only` | yes | future | yes |
 | POST | `/control-center/chat/turns` | `post_control_center_chat_turns` | `local_dev_workspace_only` | no | future | yes |
@@ -96,6 +97,13 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | GET | `/control-center/coding/patch-proposal` | `get_control_center_coding_patch_proposal` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/session` | `get_control_center_coding_session` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/coding/test-command-readiness` | `get_control_center_coding_test_command_readiness` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/crm/follow-ups` | `get_control_center_crm_follow_ups` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/crm/local-mutations` | `post_control_center_crm_local_mutations` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/crm/pipelines` | `get_control_center_crm_pipelines` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/crm/relationships` | `get_control_center_crm_relationships` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/crm/smart-lists` | `get_control_center_crm_smart_lists` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/crm/summary` | `get_control_center_crm_summary` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/control-center/crm/timeline` | `get_control_center_crm_timeline` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/dashboard` | `get_control_center_dashboard` | `validation_only` | yes | future | yes |
 | GET | `/control-center/evidence/timeline` | `get_control_center_evidence_timeline` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/foundation-gate/summary` | `get_control_center_foundation_gate_summary` | `validation_only` | yes | future | yes |
@@ -137,6 +145,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | POST | `/control-center/providers/credentials/validate` | `post_control_center_providers_credentials_validate` | `governed_network_read_only` | no | future | yes |
 | POST | `/control-center/providers/exact-approved-lanes/tiny` | `post_control_center_providers_exact_approved_lanes_tiny` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/providers/router/dry-run` | `post_control_center_providers_router_dry_run` | `validation_only` | yes | future | yes |
+| GET | `/control-center/providers/runtime-control-plane` | `get_control_center_providers_runtime_control_plane` | `validation_only` | yes | future | yes |
 | GET | `/control-center/providers/setup-guide` | `get_control_center_providers_setup_guide` | `validation_only` | yes | future | yes |
 | GET | `/control-center/routes` | `get_control_center_routes` | `validation_only` | yes | future | yes |
 | GET | `/control-center/runs/observability` | `get_control_center_runs_observability` | `validation_only` | yes | future | yes |

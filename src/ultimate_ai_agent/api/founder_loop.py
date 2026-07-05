@@ -1100,6 +1100,31 @@ def get_control_center_evidence_timeline() -> ResultEnvelope:
     )
 
 
+@router.get("/agent-loop/thread", response_model=ResultEnvelope)
+def get_control_center_agent_loop_thread() -> ResultEnvelope:
+    data = get_founder_loop_service().agent_loop_thread()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_agent_loop_thread",
+        service="FounderLoopControlCenterAPI",
+        trace_id="founder-loop:agent-loop-thread",
+        data=data,
+        evidence=[
+            {"evidence_ref": "evidence-ref:control-center:agent-loop-thread"}
+        ],
+        redactions_applied=[
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "raw_prompt_omitted",
+            "raw_response_omitted",
+            "raw_provider_payload_omitted",
+            "raw_local_paths_omitted",
+            "read_only_control_center_projection",
+        ],
+    )
+
+
 @router.post("/web-evidence/attach", response_model=ResultEnvelope)
 def post_control_center_web_evidence_attach(
     request: WebEvidenceProductSliceRequest,

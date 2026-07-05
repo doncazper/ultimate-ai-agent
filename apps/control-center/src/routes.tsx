@@ -363,6 +363,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <>
           <TodaySurfacePanel
             actionReadModelAuthoritative={isAuthoritativeConnection(data)}
+            agentLoopThread={data.founderAgentLoopThread}
             today={data.founderToday}
           />
           <FounderLoopSpinePanel

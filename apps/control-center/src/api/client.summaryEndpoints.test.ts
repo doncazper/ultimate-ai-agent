@@ -649,6 +649,14 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.controlCenterLocalModelsStatus]:
       mockControlCenterData.localModelsStatus,
     [API_ENDPOINTS.founderTodaySummary]: mockControlCenterData.founderToday,
+    [API_ENDPOINTS.founderAgentLoopThread]: {
+      ...mockControlCenterData.founderAgentLoopThread,
+      thread_ref: "agent-loop-thread:summary-test:current",
+      status: "implemented_backend_owned_read_model_no_new_authority",
+      capability_status: "partial",
+      source: "python_core_agent_loop_thread_read_model",
+      backend_owned: true,
+    },
     [API_ENDPOINTS.founderStartHereSummary]: backendOwnedStartHere,
     [API_ENDPOINTS.controlCenterProofIndex]: backendOwnedProofIndex,
     [API_ENDPOINTS.trustAuthorityMatrix]: backendOwnedTrustAuthorityMatrix,

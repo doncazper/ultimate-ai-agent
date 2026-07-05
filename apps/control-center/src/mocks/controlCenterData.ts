@@ -43,8 +43,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 197;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 87;
+export const MOCK_OPENAPI_ROUTE_COUNT = 200;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 88;
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -9946,6 +9946,146 @@ export const mockControlCenterData: ControlCenterData = {
   codingLivePreview: mockCodingLivePreview,
   codingMultiAgentReview: mockCodingMultiAgentReview,
   workBoard: mockWorkBoard,
+  founderAgentLoopThread: {
+    schema_version: "goatcitadel_catchup_agent_loop_thread.v1",
+    contract_ref: "contract-ref:goatcitadel-catchup-agent-loop-thread:v1",
+    thread_ref: "agent-loop-thread:mock-fallback:current",
+    status: "mock_fallback_non_authoritative",
+    capability_status: "mock-only",
+    source: "mock_fallback_non_authoritative",
+    backend_owned: false,
+    local_read_model_only: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    route_ref: "GET /control-center/agent-loop/thread",
+    cli_ref: "scripts/dev/uaa_founder_loop.py inspect-agent-loop",
+    work_request: {
+      request_ref: "work-request-ref:mock-fallback",
+      safe_summary:
+        "Mock-only Agent Loop shape. Reconnect the local backend before treating loop refs as product truth.",
+      source_surface: "Today",
+    },
+    intent: {
+      status: "mock_fallback_review_required",
+      classification_ref: "intent-ref:mock-fallback",
+      ambiguity_state: "operator_review_required",
+      confidence_label: "mock_fallback",
+      low_confidence_asks_user: true,
+      action_execution_enabled: false,
+    },
+    facts: [
+      {
+        fact_ref: "fact-ref:mock-fallback:backend-required",
+        summary:
+          "The backend-owned Agent Loop thread endpoint did not return safely.",
+        evidence_refs: ["GET /control-center/agent-loop/thread"],
+      },
+    ],
+    assumptions: [
+      {
+        assumption_ref: "assumption-ref:mock-fallback:operator-review",
+        summary:
+          "Operator review is required before using any fallback loop shape.",
+        review_required: true,
+      },
+    ],
+    unknowns: [
+      {
+        unknown_ref: "unknown-ref:mock-fallback:runtime",
+        summary:
+          "Runtime, provider, connector, browser, shell, and production outcomes remain unknown and blocked.",
+        blocked_state_refs: [
+          "blocked-state:agent-loop:no-runtime-model-calls",
+          "blocked-state:agent-loop:no-connector-writes",
+        ],
+      },
+    ],
+    plan: {
+      status: "mock_fallback",
+      revision_ref: "plan-revision-ref:mock-fallback",
+      revision_count: 1,
+      steps: [
+        {
+          step_ref: "plan-step-ref:mock-fallback:reconnect-backend",
+          title: "Reconnect backend read model",
+          status: "blocked_until_backend_returns",
+          evidence_refs: ["GET /control-center/agent-loop/thread"],
+          blocked_state_refs: ["blocked-state:agent-loop:mock-fallback"],
+          execution_enabled: false,
+        },
+      ],
+    },
+    proposed_actions: [],
+    approval_posture: {
+      approval_required_before_mutation: true,
+      control_center_mints_authority: false,
+      approval_refs_are_identifiers_only: true,
+      action_execution_enabled: false,
+      exact_local_task_lane_visible: false,
+      decision_route_refs: [],
+    },
+    current_state: {
+      state: "mock_fallback",
+      blocked_state_refs: ["blocked-state:agent-loop:mock-fallback"],
+      degraded_state_refs: ["degraded-state:agent-loop:backend-unavailable"],
+      next_safe_operator_decision:
+        "Reconnect the local backend before using Agent Loop thread refs.",
+    },
+    evidence: {
+      route_ref: "GET /control-center/evidence/timeline",
+      event_count: 0,
+      evidence_refs: ["evidence-ref:mock-fallback:agent-loop"],
+      proof_refs: [],
+    },
+    memory_review: {
+      route_ref: "GET /control-center/memory/review",
+      candidate_refs: [],
+      candidate_count: 0,
+      decision_receipt_refs: [],
+      automatic_memory_write_authorized: false,
+      context_injection_authorized: false,
+      next_safe_action:
+        "Wait for backend-owned Memory Review refs before memory decisions.",
+    },
+    surface_bindings: [
+      { surface: "Today", route_ref: "GET /control-center/today/summary" },
+      { surface: "Actions", route_ref: "GET /control-center/actions/inbox" },
+      { surface: "Evidence", route_ref: "GET /control-center/evidence/timeline" },
+      { surface: "Memory", route_ref: "GET /control-center/memory/review" },
+    ],
+    authority_posture: {
+      python_core_owns_truth: true,
+      control_center_mints_authority: false,
+      runtime_model_calls_enabled: false,
+      provider_sdk_calls_enabled: false,
+      live_web_fetching_enabled: false,
+      browser_automation_enabled: false,
+      connector_writes_enabled: false,
+      unrestricted_shell_enabled: false,
+      plugin_runtime_import_enabled: false,
+      memory_write_authority_enabled: false,
+      background_autonomy_enabled: false,
+      production_authority_enabled: false,
+    },
+    blocked_authority_refs: [
+      "blocked-state:agent-loop:no-runtime-model-calls",
+      "blocked-state:agent-loop:no-provider-sdk-calls",
+      "blocked-state:agent-loop:no-live-web-fetching",
+      "blocked-state:agent-loop:no-browser-automation",
+      "blocked-state:agent-loop:no-connector-writes",
+      "blocked-state:agent-loop:no-unrestricted-shell",
+      "blocked-state:agent-loop:no-plugin-runtime-import",
+      "blocked-state:agent-loop:no-background-autonomy",
+      "blocked-state:agent-loop:no-production-authority",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_content_omitted",
+      "read_only_control_center_projection",
+      "mock_fallback_non_authoritative",
+    ],
+  },
   founderToday: {
     schema_version: "founder_loop_storage.v1",
     status: "mock_storage_backed_partial_loop",

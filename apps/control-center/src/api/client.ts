@@ -20,6 +20,7 @@ import type {
   TurnHarnessBindingReadModel,
   TurnRouterPreviewReadModel,
   TurnRouterPreviewRequest,
+  FounderLoopAgentLoopThread,
   FounderLoopActionsInbox,
   FounderLoopMorningBriefing,
   FounderLoopSourceReadiness,
@@ -297,6 +298,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const workBoardSettledPromise = Promise.allSettled([
     read<WorkBoardReadModel>(API_ENDPOINTS.controlCenterWorkBoard),
   ] as const);
+  const agentLoopSettledPromise = Promise.allSettled([
+    read<FounderLoopAgentLoopThread>(API_ENDPOINTS.founderAgentLoopThread),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -396,6 +400,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     ),
   ] as const);
   const workBoardResult = await workBoardSettledPromise;
+  const agentLoopResult = await agentLoopSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -446,6 +451,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const codingLivePreview = fulfilledValue(results[40]);
   const codingMultiAgentReview = fulfilledValue(results[41]);
   const workBoard = fulfilledValue(workBoardResult[0]);
+  const founderAgentLoopThread = fulfilledValue(agentLoopResult[0]);
   const safeCodingMultiAgentReview = isSafeCodingMultiAgentReview(
     codingMultiAgentReview,
   )
@@ -565,6 +571,13 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const workBoardEndpointFallbackWarningRefs = [
     ...(workBoardFallbackUsed ? ["WORK_BOARD_MOCK_FALLBACK"] : []),
   ];
+  const safeFounderAgentLoopThread = isSafeFounderAgentLoopThread(
+    founderAgentLoopThread,
+  )
+    ? founderAgentLoopThread
+    : undefined;
+  const agentLoopThreadFallbackUsed =
+    safeFounderAgentLoopThread === undefined;
   const crmEndpointFallbackUsed =
     crmLocalCommandCenter === undefined ||
     crmLocalCommandCenter.backend_owned !== true ||
@@ -749,7 +762,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedFounderMemoryMaintenanceRuns.usedFallback ||
     normalizedFounderMemoryContextManifest.usedFallback ||
     normalizedFounderMorningBriefing.usedFallback ||
-    normalizedFounderSourceReadiness.usedFallback;
+    normalizedFounderSourceReadiness.usedFallback ||
+    agentLoopThreadFallbackUsed;
   const providerCredentialReadinessFallbackUsed =
     normalizedDashboard.usedFallback;
   const codingSessionFallbackUsed =
@@ -801,6 +815,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingLivePreview === undefined ||
     codingMultiAgentReview === undefined ||
     workBoard === undefined ||
+    safeFounderAgentLoopThread === undefined ||
     setupAssistantSource === undefined ||
     providerCatalog === undefined ||
     safeModelProviderControlPlane === undefined ||
@@ -811,8 +826,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (result) => result.status === "fulfilled",
   ).length;
   const fulfilledCount =
-    coreFulfilledCount + (workBoardResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 1;
+    coreFulfilledCount +
+    (workBoardResult[0].status === "fulfilled" ? 1 : 0) +
+    (agentLoopResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 2;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -888,6 +905,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       controlCenterSettingsStatus ?? mockControlCenterData.settingsStatus,
     localModelsStatus:
       controlCenterLocalModelsStatus ?? mockControlCenterData.localModelsStatus,
+    founderAgentLoopThread:
+      safeFounderAgentLoopThread ??
+      mockControlCenterData.founderAgentLoopThread,
     founderToday: normalizedFounderToday.value,
     founderStartHere: normalizedFounderStartHere.value,
     proofIndex: normalizedProofIndex.value,
@@ -941,6 +961,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !normalizedTrustAuthorityMatrix.usedFallback &&
     !codingSessionFallbackUsed &&
     !workBoardFallbackUsed &&
+    !agentLoopThreadFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -964,6 +985,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     normalizedTrustAuthorityMatrix.usedFallback ||
     codingSessionFallbackUsed ||
     workBoardFallbackUsed ||
+    agentLoopThreadFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1038,6 +1060,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
           : ["CODING_SESSION_MOCK_FALLBACK"]
         : []),
       ...(workBoardFallbackUsed ? workBoardEndpointFallbackWarningRefs : []),
+      ...(agentLoopThreadFallbackUsed
+        ? ["AGENT_LOOP_THREAD_MOCK_FALLBACK"]
+        : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
         : []),
@@ -2728,6 +2753,42 @@ function isSafeCodingMultiAgentReview(
       slot.raw_response_included === false,
   );
   return safeTopLevel && safeSlots;
+}
+
+function isSafeFounderAgentLoopThread(
+  value: FounderLoopAgentLoopThread | undefined,
+): value is FounderLoopAgentLoopThread {
+  if (value === undefined) {
+    return false;
+  }
+  return (
+    value.backend_owned === true &&
+    value.local_read_model_only === true &&
+    value.safe_refs_only === true &&
+    value.raw_content_included === false &&
+    typeof value.contract_ref === "string" &&
+    typeof value.route_ref === "string" &&
+    typeof value.cli_ref === "string" &&
+    Array.isArray(value.plan?.steps) &&
+    Array.isArray(value.proposed_actions) &&
+    Array.isArray(value.evidence?.evidence_refs) &&
+    Array.isArray(value.memory_review?.candidate_refs) &&
+    Array.isArray(value.blocked_authority_refs) &&
+    value.approval_posture?.control_center_mints_authority === false &&
+    value.approval_posture?.action_execution_enabled === false &&
+    value.authority_posture?.python_core_owns_truth === true &&
+    value.authority_posture?.control_center_mints_authority === false &&
+    value.authority_posture?.runtime_model_calls_enabled === false &&
+    value.authority_posture?.provider_sdk_calls_enabled === false &&
+    value.authority_posture?.live_web_fetching_enabled === false &&
+    value.authority_posture?.browser_automation_enabled === false &&
+    value.authority_posture?.connector_writes_enabled === false &&
+    value.authority_posture?.unrestricted_shell_enabled === false &&
+    value.authority_posture?.plugin_runtime_import_enabled === false &&
+    value.authority_posture?.memory_write_authority_enabled === false &&
+    value.authority_posture?.background_autonomy_enabled === false &&
+    value.authority_posture?.production_authority_enabled === false
+  );
 }
 
 function isNonEmptyStringArray(value: unknown): value is string[] {

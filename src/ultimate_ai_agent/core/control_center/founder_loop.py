@@ -6,6 +6,9 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
     FounderLoopActionEnvelopePromotionRequest,
 )
+from ultimate_ai_agent.core.control_center.agent_loop import (
+    build_agent_loop_thread_read_model,
+)
 from ultimate_ai_agent.core.control_center.local_tasks import (
     FounderLoopLocalTaskCommitRequest,
 )
@@ -70,6 +73,16 @@ class FounderLoopControlCenterService:
 
     def evidence_timeline(self) -> dict:
         return self.repository.evidence_timeline()
+
+    def agent_loop_thread(self) -> dict[str, Any]:
+        return build_agent_loop_thread_read_model(
+            today_summary=self.repository.today_summary(limit=12),
+            actions_inbox=self.repository.actions_inbox(limit=50),
+            evidence_timeline=self.repository.evidence_timeline(limit=50),
+            memory_review=self.repository.memory_review(limit=20),
+            proof_index=self.proof_index(),
+            trust_authority_matrix=self.trust_authority_matrix(),
+        )
 
     def attach_web_evidence(
         self,
