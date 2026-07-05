@@ -82,6 +82,8 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
     probe?.plansHandoffRef ?? today.chat_local_operator_plans_handoff_ref;
   const actionsHandoffRef =
     probe?.actionsHandoffRef ?? today.chat_local_operator_actions_handoff_ref;
+  const turnHarnessBinding =
+    chatReceipt?.turn_harness_binding ?? probe?.turnHarnessBinding;
 
   useEffect(() => {
     let cancelled = false;
@@ -195,6 +197,14 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
             ["Runtime truth", runtimeTruth],
             ["Auth truth", authTruth],
             ["Tool denial", toolDenialTruth],
+            [
+              "Harness contract",
+              turnHarnessBinding?.turn_contract ?? "not bound",
+            ],
+            [
+              "Harness approval",
+              turnHarnessBinding?.approval_required ? "required" : "not required",
+            ],
             ["Exchange body shown", "no"],
             ["Completion content shown", "no"],
             [
@@ -239,6 +249,48 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
               <span key={ref}>{ref}</span>
             ))}
           </div>
+        </article>
+        <article className="panel">
+          <div className="panel-heading">
+            <h3>Harness binding</h3>
+            <span>router metadata</span>
+          </div>
+          <dl className="metadata-list">
+            <div>
+              <dt>Binding ref</dt>
+              <dd>{turnHarnessBinding?.binding_ref ?? "not recorded"}</dd>
+            </div>
+            <div>
+              <dt>Turn contract</dt>
+              <dd>{turnHarnessBinding?.turn_contract ?? "not bound"}</dd>
+            </div>
+            <div>
+              <dt>Memory scope</dt>
+              <dd>{turnHarnessBinding?.memory_scope ?? "none"}</dd>
+            </div>
+            <div>
+              <dt>Tool posture</dt>
+              <dd>{turnHarnessBinding?.tool_policy ?? "not exposed"}</dd>
+            </div>
+            <div>
+              <dt>No-effect scope</dt>
+              <dd>
+                {turnHarnessBinding?.no_effect_scope ?? "not recorded"}
+              </dd>
+            </div>
+            <div>
+              <dt>Execution tools</dt>
+              <dd>{turnHarnessBinding?.execution_tools_exposed_count ?? 0}</dd>
+            </div>
+            <div>
+              <dt>Action execution</dt>
+              <dd>
+                {turnHarnessBinding?.side_effects_allowed
+                  ? "blocked (unsafe receipt flag)"
+                  : "blocked"}
+              </dd>
+            </div>
+          </dl>
         </article>
         <article className="panel">
           <div className="panel-heading">
@@ -298,6 +350,29 @@ export function ChatOperatorPanel({ data }: { data: ControlCenterData }) {
               <dt>Memory write</dt>
               <dd>
                 {chatReceipt?.memory_write_authorized ? "enabled" : "blocked"}
+              </dd>
+            </div>
+            <div>
+              <dt>Harness binding</dt>
+              <dd>
+                {chatReceipt?.turn_harness_binding?.binding_ref ??
+                  "not recorded"}
+              </dd>
+            </div>
+            <div>
+              <dt>Harness no-effect</dt>
+              <dd>
+                {chatReceipt?.turn_harness_binding
+                  ?.no_action_execution_performed
+                  ? "proved"
+                  : "not recorded"}
+              </dd>
+            </div>
+            <div>
+              <dt>Harness scope</dt>
+              <dd>
+                {chatReceipt?.turn_harness_binding?.no_effect_scope ??
+                  "not recorded"}
               </dd>
             </div>
           </dl>
@@ -445,6 +520,7 @@ function chatTurnReceiptRequestFromProbe(
     auth_truth: probe.authTruth,
     tool_denial_truth: probe.toolDenialTruth,
     safe_summary_ref: "safe-summary-ref:control-center-chat-probe",
+    turn_harness_binding: probe.turnHarnessBinding,
     evidence_refs: uniqueRefs([
       "evidence-ref:control-center-chat-probe",
       ...probe.evidenceRefs,

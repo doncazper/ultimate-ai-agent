@@ -25,6 +25,8 @@ import {
 import {
   CONTROL_CENTER_READ_TIMEOUT_MS,
   fetchMemoryReviewDecisionReceipt,
+  requestRedactedLocalChatProbe,
+  recordChatTurnReceipt,
   recordMemoryFeedback,
   recordMemoryReviewDecision,
   setLocalApiBearerForSession,
@@ -5907,6 +5909,73 @@ describe("Web Control Center shell", () => {
   });
 
   it("records a Chat durable receipt and reviewable handoff with safe refs only", async () => {
+    const turnHarnessBinding = {
+      contract_ref: "contract-ref:turn-contract-router:harness-binding:v1",
+      binding_ref: "turn-harness-binding:v1-chat:v1-chat-completions-uaa-llama-cpp-local",
+      decision_ref: "turn-decision:v1-chat:v1-chat-completions-uaa-llama-cpp-local",
+      policy_ref: "policy-ref:turn-contract-router:turn-decision:v1-chat",
+      turn_contract: "answer_directly",
+      safe_summary:
+        "Turn harness binding read model prepared safe capability refs without execution.",
+      reason_refs: ["reason-ref:turn-harness-binding:compiled-policy"],
+      evidence_refs: ["evidence:turn-contract:deterministic-rules"],
+      risk_flags: ["low_risk"],
+      memory_scope: "none",
+      memory_touched: false,
+      reviewed_memory_refs_allowed: false,
+      memory_content_retrieved: false,
+      memory_write_allowed: false,
+      memory_write_performed: false,
+      tool_policy: "none",
+      tools_exposed_count: 0,
+      tool_refs: [],
+      execution_tools_exposed_count: 0,
+      planner: false,
+      durable_state: false,
+      approval_policy: "not_required",
+      approval_required: false,
+      approval_envelope_required: false,
+      side_effects_allowed: false,
+      execution_ready: false,
+      receipt_required: false,
+      raw_prompt_persisted: false,
+      raw_response_persisted: false,
+      raw_memory_body_persisted: false,
+      raw_local_path_persisted: false,
+      credential_persisted: false,
+      safe_refs_only: true,
+      blocked_authority_refs: [
+        "blocked-authority:no-runtime-model-call",
+        "blocked-authority:no-tool-execution",
+        "blocked-authority:no-action-execution",
+      ],
+      no_effect_scope: "turn_harness_binding_compilation_only",
+      no_runtime_model_call_performed: true,
+      no_provider_call_performed: true,
+      no_tool_execution_performed: true,
+      no_action_execution_performed: true,
+      no_shell_subprocess_performed: true,
+      no_browser_network_performed: true,
+      no_connector_write_performed: true,
+    };
+    const turnHarnessReceiptBinding = {
+      ...turnHarnessBinding,
+      prompt_body_persisted: false,
+      response_body_persisted: false,
+      memory_body_persisted: false,
+      local_path_body_persisted: false,
+      sensitive_material_persisted: false,
+    };
+    delete (turnHarnessReceiptBinding as Partial<typeof turnHarnessBinding>)
+      .raw_prompt_persisted;
+    delete (turnHarnessReceiptBinding as Partial<typeof turnHarnessBinding>)
+      .raw_response_persisted;
+    delete (turnHarnessReceiptBinding as Partial<typeof turnHarnessBinding>)
+      .raw_memory_body_persisted;
+    delete (turnHarnessReceiptBinding as Partial<typeof turnHarnessBinding>)
+      .raw_local_path_persisted;
+    delete (turnHarnessReceiptBinding as Partial<typeof turnHarnessBinding>)
+      .credential_persisted;
     const chatReceipt = {
       contract_ref: "contract-ref:founder-loop-chat-durable-receipt:v1",
       turn_ref: "chat-turn:local-operator:uaa-llama-cpp-local",
@@ -5916,6 +5985,7 @@ describe("Web Control Center shell", () => {
       auth_truth: "local-bearer-accepted",
       tool_denial_truth: "tools-functions-streaming-denied",
       safe_summary_ref: "safe-summary-ref:control-center-chat-probe",
+      turn_harness_binding: turnHarnessReceiptBinding,
       handoff_refs: [
         "handoff-ref:chat-to-actions:uaa-llama-cpp-local",
         "handoff-ref:chat-to-plans:uaa-llama-cpp-local",
@@ -6012,6 +6082,7 @@ describe("Web Control Center shell", () => {
                 tools_enabled: false,
                 functions_enabled: false,
                 streaming_enabled: false,
+                turn_harness_binding: turnHarnessBinding,
               },
             },
           }),
@@ -6064,6 +6135,17 @@ describe("Web Control Center shell", () => {
     );
 
     await screen.findByText("receipt:chat-turn:control-center-test");
+    const [, probeOptions] =
+      fetchMock.mock.calls.find(
+        ([url, options]) =>
+          options?.method === "POST" &&
+          String(url).endsWith(API_ENDPOINTS.localChatCompletions),
+      ) ?? [];
+    expect(probeOptions?.headers).toMatchObject({
+      "X-UAA-Idempotency-Key": expect.stringMatching(
+        /^idempotency-ref:control-center-local-chat-probe:/,
+      ),
+    });
     const [, receiptOptions] =
       fetchMock.mock.calls.find(
         ([url, options]) =>
@@ -6079,9 +6161,28 @@ describe("Web Control Center shell", () => {
       JSON.parse(String(receiptOptions?.body)),
     );
     expect(receiptBody).toContain("model-ref:uaa-llama-cpp-local");
+    expect(receiptBody).toContain(turnHarnessBinding.binding_ref);
     expect(receiptBody).not.toContain("messages");
-    expect(receiptBody).not.toContain("content");
-    expect(receiptBody).not.toContain("raw");
+    expect(receiptBody).not.toContain("status");
+    expect(receiptBody).not.toContain("completion text");
+    expect(receiptBody).not.toContain("prompt body");
+    expect(JSON.parse(String(receiptOptions?.body))).toMatchObject({
+      turn_harness_binding: {
+        binding_ref: turnHarnessBinding.binding_ref,
+        turn_contract: "answer_directly",
+        no_effect_scope: "turn_harness_binding_compilation_only",
+        tools_exposed_count: 0,
+        no_action_execution_performed: true,
+      },
+    });
+    expect(
+      screen.getAllByText(turnHarnessBinding.binding_ref).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("answer_directly").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("turn_harness_binding_compilation_only").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("proved")).toBeInTheDocument();
 
     fireEvent.click(
       await screen.findByRole("button", { name: /Record actions proposal/i }),
@@ -6107,6 +6208,183 @@ describe("Web Control Center shell", () => {
       handoff_target: "actions",
       decision_reason_ref: "decision-reason-ref:control-center-chat-actions",
     });
+  });
+
+  it("keys chat receipt idempotency from the full safe receipt request", async () => {
+    const binding: NonNullable<
+      Parameters<typeof recordChatTurnReceipt>[0]["turn_harness_binding"]
+    > = {
+      contract_ref: "contract-ref:turn-contract-router:harness-binding:v1",
+      binding_ref:
+        "turn-harness-binding:v1-chat:v1-chat-completions-uaa-safe-local",
+      decision_ref: "turn-decision:v1-chat:v1-chat-completions-uaa-safe-local",
+      policy_ref:
+        "policy-ref:turn-contract-router:invocation-policy-compiler:v1",
+      turn_contract: "answer_directly",
+      safe_summary:
+        "Turn harness binding read model prepared safe capability refs without execution.",
+      reason_refs: ["reason-ref:turn-harness-binding:compiled-policy"],
+      evidence_refs: ["evidence:turn-contract:deterministic-rules"],
+      risk_flags: ["low_risk"],
+      memory_scope: "none",
+      memory_touched: false,
+      reviewed_memory_refs_allowed: false,
+      memory_content_retrieved: false,
+      memory_write_allowed: false,
+      memory_write_performed: false,
+      tool_policy: "none",
+      tools_exposed_count: 0,
+      tool_refs: [],
+      execution_tools_exposed_count: 0,
+      planner: false,
+      durable_state: false,
+      approval_policy: "not_required",
+      approval_required: false,
+      approval_envelope_required: false,
+      side_effects_allowed: false,
+      execution_ready: false,
+      receipt_required: false,
+      raw_prompt_persisted: false,
+      raw_response_persisted: false,
+      raw_memory_body_persisted: false,
+      raw_local_path_persisted: false,
+      credential_persisted: false,
+      safe_refs_only: true,
+      blocked_authority_refs: ["blocked-authority:no-tool-execution"],
+      no_effect_scope: "turn_harness_binding_compilation_only",
+      no_runtime_model_call_performed: true,
+      no_provider_call_performed: true,
+      no_tool_execution_performed: true,
+      no_action_execution_performed: true,
+      no_shell_subprocess_performed: true,
+      no_browser_network_performed: true,
+      no_connector_write_performed: true,
+    };
+    const request = {
+      turn_ref: "chat-turn:local-operator:uaa-safe-local",
+      route_ref: API_ENDPOINTS.localChatCompletions,
+      model_ref: "model-ref:uaa-safe-local",
+      runtime_truth: "local-chat-route-answered",
+      auth_truth: "local-bearer-accepted",
+      tool_denial_truth: "tools-functions-streaming-denied",
+      safe_summary_ref: "safe-summary-ref:control-center-chat-probe",
+      turn_harness_binding: binding,
+      evidence_refs: ["evidence-ref:control-center-chat-probe"],
+      metadata_refs: ["metadata-ref:control-center-chat:uaa-safe-local"],
+    } satisfies Parameters<typeof recordChatTurnReceipt>[0];
+    const fetchMock = vi.fn(async (_url: string, _options?: RequestInit) => {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          result: {
+            turn_ref: request.turn_ref,
+            receipt_ref: "receipt:chat-turn:control-center-test",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await recordChatTurnReceipt(request);
+    await recordChatTurnReceipt({
+      ...request,
+      turn_harness_binding: {
+        ...binding,
+        safe_summary:
+          "Turn harness binding read model compiled safe capability refs without execution.",
+      },
+    });
+
+    const keys = fetchMock.mock.calls.map(
+      ([, options]) =>
+        (options?.headers as Record<string, string>)["X-UAA-Idempotency-Key"],
+    );
+    expect(keys[0]).toMatch(
+      /^idempotency-ref:control-center-chat-turn:chat-turn-local-operator-uaa-safe-local:/,
+    );
+    expect(keys[1]).toMatch(
+      /^idempotency-ref:control-center-chat-turn:chat-turn-local-operator-uaa-safe-local:/,
+    );
+    expect(keys[0]).not.toEqual(keys[1]);
+  });
+
+  it("rejects malformed local chat harness metadata before receipt handoff", async () => {
+    const malformedBinding: Record<string, unknown> = {
+      contract_ref: "contract-ref:turn-contract-router:harness-binding:v1",
+      binding_ref:
+        "turn-harness-binding:v1-chat:v1-chat-completions-uaa-safe-local",
+      decision_ref: "turn-decision:v1-chat:v1-chat-completions-uaa-safe-local",
+      policy_ref: "policy-ref:turn-contract-router:turn-decision:v1-chat",
+      turn_contract: "answer_directly",
+      safe_summary:
+        "Turn harness binding read model prepared safe capability refs without execution.",
+      reason_refs: ["reason-ref:turn-harness-binding:compiled-policy"],
+      evidence_refs: ["evidence:turn-contract:deterministic-rules"],
+      risk_flags: ["low_risk"],
+      memory_scope: "none",
+      reviewed_memory_refs_allowed: false,
+      memory_content_retrieved: false,
+      memory_write_allowed: false,
+      memory_write_performed: false,
+      tool_policy: "none",
+      tools_exposed_count: 0,
+      tool_refs: [],
+      execution_tools_exposed_count: 0,
+      planner: false,
+      durable_state: false,
+      approval_policy: "not_required",
+      approval_required: false,
+      approval_envelope_required: false,
+      side_effects_allowed: false,
+      execution_ready: false,
+      receipt_required: false,
+      raw_prompt_persisted: false,
+      raw_response_persisted: false,
+      raw_memory_body_persisted: false,
+      raw_local_path_persisted: false,
+      credential_persisted: false,
+      safe_refs_only: true,
+      blocked_authority_refs: ["blocked-authority:no-tool-execution"],
+      no_effect_scope: "turn_harness_binding_compilation_only",
+      no_runtime_model_call_performed: true,
+      no_provider_call_performed: true,
+      no_tool_execution_performed: true,
+      no_action_execution_performed: true,
+      no_shell_subprocess_performed: true,
+      no_browser_network_performed: true,
+      no_connector_write_performed: true,
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      expect(String(url)).toContain(API_ENDPOINTS.localChatCompletions);
+      expect(options?.headers).toMatchObject({
+        "X-UAA-Idempotency-Key": expect.stringMatching(
+          /^idempotency-ref:control-center-local-chat-probe:/,
+        ),
+      });
+      return new Response(
+        JSON.stringify({
+          id: "chatcmpl-safe-probe",
+          uaa_safety: {
+            tool_executed: false,
+            tools_enabled: false,
+            functions_enabled: false,
+            streaming_enabled: false,
+            turn_harness_binding: malformedBinding,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await requestRedactedLocalChatProbe("uaa-safe-local");
+
+    expect(result.state).toBe("ready");
+    expect(result.turnHarnessBinding).toBeUndefined();
+    expect(result.reasonCodes).toContain(
+      "TURN_HARNESS_BINDING_UNAVAILABLE_OR_REJECTED",
+    );
   });
 
   it("renders runtime, remote, mobile, and plugin governance panels as safe summaries", async () => {

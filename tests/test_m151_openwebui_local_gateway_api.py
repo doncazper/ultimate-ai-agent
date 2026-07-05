@@ -82,6 +82,12 @@ def test_m151_chat_completion_returns_deterministic_safe_response(monkeypatch: p
     assert body["uaa_safety"]["memory_written"] is False
     assert body["uaa_safety"]["context_injected"] is False
     assert body["uaa_safety"]["external_network_called"] is False
+    binding = body["uaa_safety"]["turn_harness_binding"]
+    assert binding["raw_prompt_persisted"] is False
+    assert binding["raw_response_persisted"] is False
+    assert binding["no_effect_scope"] == "turn_harness_binding_compilation_only"
+    assert binding["no_tool_execution_performed"] is True
+    assert binding["no_action_execution_performed"] is True
 
 
 def test_m151_chat_completion_rejects_streaming_and_tools(monkeypatch: pytest.MonkeyPatch) -> None:

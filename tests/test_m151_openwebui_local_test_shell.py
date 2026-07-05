@@ -1,6 +1,7 @@
 from typing import Any
 import pytest
 
+from ultimate_ai_agent.core.decision_router import build_turn_harness_binding
 from ultimate_ai_agent.core.openwebui_bridge import (
     DEFAULT_UAA_OPENWEBUI_TEST_GATEWAY_KEY,
     UAA_OPENWEBUI_TEST_MODEL_ID,
@@ -54,7 +55,16 @@ def test_m151_chat_response_does_not_echo_prompt_or_secret_like_text() -> None:
         messages=[{"role": "user", "content": secret_like_prompt}],
     )
 
-    response = build_openwebui_local_chat_completion_response(request)
+    turn_harness_binding = build_turn_harness_binding(
+        "How do I build a DIY shelf?",
+        binding_ref="turn-harness-binding:m151-test",
+        decision_ref="turn-decision:m151-test",
+    )
+
+    response = build_openwebui_local_chat_completion_response(
+        request,
+        turn_harness_binding=turn_harness_binding,
+    )
     response_text = str(response)
 
     assert "never-repeat-me" not in response_text
@@ -65,6 +75,12 @@ def test_m151_chat_response_does_not_echo_prompt_or_secret_like_text() -> None:
     assert response["uaa_safety"]["memory_written"] is False
     assert response["uaa_safety"]["context_injected"] is False
     assert response["uaa_safety"]["external_network_called"] is False
+    binding = response["uaa_safety"]["turn_harness_binding"]
+    assert binding["turn_contract"] == "answer_directly"
+    assert binding["raw_prompt_persisted"] is False
+    assert binding["tools_exposed_count"] == 0
+    assert binding["no_effect_scope"] == "turn_harness_binding_compilation_only"
+    assert binding["no_action_execution_performed"] is True
 
 
 @pytest.mark.parametrize(

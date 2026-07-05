@@ -7,6 +7,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.decision_router import (
+    TURN_HARNESS_BINDING_CONTRACT_REF,
+    TURN_HARNESS_BINDING_NO_EFFECT_SCOPE,
+    TurnHarnessBindingReadModel,
+)
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_payload,
     validate_safe_task_text,
@@ -67,6 +72,10 @@ UNSAFE_CHAT_OPERATOR_TEXT_FRAGMENTS = (
     "credential",
     "password",
 )
+SAFE_CHAT_OPERATOR_TEXT_VALUES = {
+    "credential_or_payment",
+    "reason-ref:turn-contract:credential-account-privacy-boundary",
+}
 
 
 class ChatLocalOperatorTurnEnvelope(BaseModel):
@@ -163,6 +172,7 @@ class ChatTurnReceiptRequest(BaseModel):
         min_length=1,
         max_length=160,
     )
+    turn_harness_binding: TurnHarnessBindingReadModel | None = None
     evidence_refs: list[str] = Field(default_factory=list)
     metadata_refs: list[str] = Field(default_factory=list)
 
@@ -184,6 +194,113 @@ class ChatTurnReceiptRequest(BaseModel):
         return self
 
 
+class ChatTurnHarnessBindingReceiptSummary(BaseModel):
+    contract_ref: str = TURN_HARNESS_BINDING_CONTRACT_REF
+    binding_ref: str = Field(..., min_length=1)
+    decision_ref: str = Field(..., min_length=1)
+    policy_ref: str = Field(..., min_length=1)
+    turn_contract: str = Field(..., min_length=1)
+    safe_summary: str = Field(..., min_length=1, max_length=500)
+    reason_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    risk_flags: list[str] = Field(default_factory=list)
+    memory_scope: str = Field(..., min_length=1)
+    memory_touched: bool = False
+    reviewed_memory_refs_allowed: bool = False
+    memory_content_retrieved: bool = False
+    memory_write_allowed: bool = False
+    memory_write_performed: bool = False
+    tool_policy: str = Field(..., min_length=1)
+    tools_exposed_count: int = Field(default=0, ge=0)
+    tool_refs: list[str] = Field(default_factory=list)
+    execution_tools_exposed_count: int = Field(default=0, ge=0)
+    planner: bool = False
+    durable_state: bool = False
+    approval_policy: str = Field(..., min_length=1)
+    approval_required: bool = False
+    approval_envelope_required: bool = False
+    side_effects_allowed: bool = False
+    execution_ready: bool = False
+    receipt_required: bool = False
+    prompt_body_persisted: bool = False
+    response_body_persisted: bool = False
+    memory_body_persisted: bool = False
+    local_path_body_persisted: bool = False
+    sensitive_material_persisted: bool = False
+    safe_refs_only: bool = True
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    no_effect_scope: str = TURN_HARNESS_BINDING_NO_EFFECT_SCOPE
+    no_runtime_model_call_performed: bool = True
+    no_provider_call_performed: bool = True
+    no_tool_execution_performed: bool = True
+    no_action_execution_performed: bool = True
+    no_shell_subprocess_performed: bool = True
+    no_browser_network_performed: bool = True
+    no_connector_write_performed: bool = True
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_summary(self) -> "ChatTurnHarnessBindingReceiptSummary":
+        if self.contract_ref != TURN_HARNESS_BINDING_CONTRACT_REF:
+            raise ValueError("unexpected Chat turn harness binding contract ref")
+        if self.no_effect_scope != TURN_HARNESS_BINDING_NO_EFFECT_SCOPE:
+            raise ValueError("Chat turn harness binding no-effect scope must be compilation-only")
+        for field_name in ("contract_ref", "binding_ref", "decision_ref", "policy_ref"):
+            validate_task_ref(getattr(self, field_name), field_name)
+        validate_safe_task_text(self.turn_contract, "turn_contract")
+        validate_safe_task_text(self.safe_summary, "safe_summary")
+        validate_safe_task_text(self.no_effect_scope, "no_effect_scope")
+        validate_safe_task_text(self.memory_scope, "memory_scope")
+        validate_safe_task_text(self.tool_policy, "tool_policy")
+        validate_safe_task_text(self.approval_policy, "approval_policy")
+        for field_name in (
+            "reason_refs",
+            "evidence_refs",
+            "tool_refs",
+            "blocked_authority_refs",
+        ):
+            for value in getattr(self, field_name):
+                validate_task_ref(value, field_name)
+        for value in self.risk_flags:
+            validate_safe_task_text(value, "risk_flags")
+        if any(
+            (
+                self.prompt_body_persisted,
+                self.response_body_persisted,
+                self.memory_body_persisted,
+                self.local_path_body_persisted,
+                self.sensitive_material_persisted,
+            )
+        ):
+            raise ValueError("Chat turn harness binding summary must not persist private bodies")
+        if not self.safe_refs_only:
+            raise ValueError("Chat turn harness binding summary must remain safe-ref only")
+        if self.memory_content_retrieved or self.memory_write_performed:
+            raise ValueError("Chat turn harness binding summary must not perform memory work")
+        if self.execution_tools_exposed_count:
+            raise ValueError("Chat turn harness binding summary must not expose execution tools")
+        if self.side_effects_allowed or self.execution_ready:
+            raise ValueError("Chat turn harness binding summary must not enable execution")
+        if not all(
+            (
+                self.no_runtime_model_call_performed,
+                self.no_provider_call_performed,
+                self.no_tool_execution_performed,
+                self.no_action_execution_performed,
+                self.no_shell_subprocess_performed,
+                self.no_browser_network_performed,
+                self.no_connector_write_performed,
+            )
+        ):
+            raise ValueError("Chat turn harness binding summary must remain no-effect")
+        validate_safe_task_payload(
+            self.model_dump(mode="json"),
+            "chat_turn_harness_binding_receipt_summary",
+        )
+        return self
+
+
 class ChatTurnReceipt(BaseModel):
     contract_ref: str = CHAT_DURABLE_RECEIPT_CONTRACT_REF
     turn_ref: str = Field(..., min_length=1)
@@ -193,6 +310,7 @@ class ChatTurnReceipt(BaseModel):
     auth_truth: str = Field(..., min_length=1, max_length=80)
     tool_denial_truth: str = Field(..., min_length=1, max_length=80)
     safe_summary_ref: str = Field(..., min_length=1)
+    turn_harness_binding: ChatTurnHarnessBindingReceiptSummary | None = None
     handoff_refs: list[str] = Field(default_factory=list, min_length=2)
     receipt_ref: str = Field(..., min_length=1)
     evidence_ref: str = Field(..., min_length=1)
@@ -351,6 +469,62 @@ def build_chat_local_operator_turn_envelope(
     )
 
 
+def chat_turn_harness_binding_receipt_summary(
+    binding: TurnHarnessBindingReadModel | None,
+) -> ChatTurnHarnessBindingReceiptSummary | None:
+    if binding is None:
+        return None
+    parsed = (
+        binding
+        if isinstance(binding, TurnHarnessBindingReadModel)
+        else TurnHarnessBindingReadModel.model_validate(binding)
+    )
+    return ChatTurnHarnessBindingReceiptSummary(
+        contract_ref=parsed.contract_ref,
+        binding_ref=parsed.binding_ref,
+        decision_ref=parsed.decision_ref,
+        policy_ref=parsed.policy_ref,
+        turn_contract=str(parsed.turn_contract),
+        safe_summary=parsed.safe_summary,
+        reason_refs=parsed.reason_refs,
+        evidence_refs=parsed.evidence_refs,
+        risk_flags=[str(flag) for flag in parsed.risk_flags],
+        memory_scope=str(parsed.memory_scope),
+        memory_touched=parsed.memory_touched,
+        reviewed_memory_refs_allowed=parsed.reviewed_memory_refs_allowed,
+        memory_content_retrieved=parsed.memory_content_retrieved,
+        memory_write_allowed=parsed.memory_write_allowed,
+        memory_write_performed=parsed.memory_write_performed,
+        tool_policy=str(parsed.tool_policy),
+        tools_exposed_count=parsed.tools_exposed_count,
+        tool_refs=parsed.tool_refs,
+        execution_tools_exposed_count=parsed.execution_tools_exposed_count,
+        planner=parsed.planner,
+        durable_state=parsed.durable_state,
+        approval_policy=str(parsed.approval_policy),
+        approval_required=parsed.approval_required,
+        approval_envelope_required=parsed.approval_envelope_required,
+        side_effects_allowed=parsed.side_effects_allowed,
+        execution_ready=parsed.execution_ready,
+        receipt_required=parsed.receipt_required,
+        prompt_body_persisted=parsed.raw_prompt_persisted,
+        response_body_persisted=parsed.raw_response_persisted,
+        memory_body_persisted=parsed.raw_memory_body_persisted,
+        local_path_body_persisted=parsed.raw_local_path_persisted,
+        sensitive_material_persisted=parsed.credential_persisted,
+        safe_refs_only=parsed.safe_refs_only,
+        blocked_authority_refs=parsed.blocked_authority_refs,
+        no_effect_scope=parsed.no_effect_scope,
+        no_runtime_model_call_performed=parsed.no_runtime_model_call_performed,
+        no_provider_call_performed=parsed.no_provider_call_performed,
+        no_tool_execution_performed=parsed.no_tool_execution_performed,
+        no_action_execution_performed=parsed.no_action_execution_performed,
+        no_shell_subprocess_performed=parsed.no_shell_subprocess_performed,
+        no_browser_network_performed=parsed.no_browser_network_performed,
+        no_connector_write_performed=parsed.no_connector_write_performed,
+    )
+
+
 def chat_turn_payload_for_fingerprint(
     *,
     request: ChatTurnReceiptRequest,
@@ -498,6 +672,8 @@ def _safe_suffix(value: str) -> str:
 def _validate_no_denied_fragments(payload: Any) -> None:
     if isinstance(payload, str):
         lowered = payload.lower()
+        if lowered in SAFE_CHAT_OPERATOR_TEXT_VALUES:
+            return
         for fragment in UNSAFE_CHAT_OPERATOR_TEXT_FRAGMENTS:
             if fragment in lowered:
                 raise ValueError("Chat local operator envelope contains denied raw content")
