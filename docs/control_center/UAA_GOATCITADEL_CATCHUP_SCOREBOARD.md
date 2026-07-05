@@ -109,7 +109,7 @@ tests, and CLI/API/core parity.
 | Rank | Gap | Target Status | Owner Surface | Route/API/CLI/UI Impact | Authority Needed Or Blocked | Tests And Verifiers Required | First Safe PR Lane |
 |---:|---|---|---|---|---|---|---|
 | 1 | Productized agent loop spine across chat, actions, proof, evidence, memory, and trust. | implemented read-model | Python Core plus Control Center read models | `GET /control-center/agent-loop/thread`, `scripts/dev/uaa_founder_loop.py inspect-agent-loop`, and Today UI render the backend-owned thread. | No new runtime authority. | `tests/test_goatcitadel_catchup_agent_loop_spine.py`, route/API manifest checks, product truth, docs integrity. | Phase 02 implemented: Agent Loop Spine |
-| 2 | Durable orchestration progress, recovery, cancellation, retry, blocked, and dead-letter visibility. | planned to partial | Python execution core | Read-only run status/detail projections; CLI inspect. | Background autonomy and queue workers blocked. | Durable run tests, route manifest if routes change, docs integrity. | Phase 03: Durable Orchestration |
+| 2 | Durable orchestration progress, recovery, cancellation, retry, blocked, and dead-letter visibility. | implemented read-model | Python execution core | `GET /control-center/runs/observability`, CLI inspect, Control Center Evidence run panel. | Background autonomy, queue workers, retry/resume/cancel execution blocked. | `tests/test_run_observability_surface.py`, durable lifecycle tests, Phase 03 verifier. | Phase 03: Durable Orchestration |
 | 3 | Action/tool/code lane catalog with inspectable/callable separation. | partial to partial-plus | Python tool/action/catalog core | Catalog read models and proposal receipts; no generic execution. | Unrestricted shell/subprocess execution and plugin runtime import blocked. | Catalog verifier, approval/receipt tests, product-language tests. | Phase 04: Action/Tool/Code Lanes |
 | 4 | Memory learning lifecycle with feedback, stale/wrong/conflict/duplicate states. | partial to implemented | Python memory core | Memory workbench/read models and CLI inspection. | Memory-write authority and hidden context injection blocked. | Memory provenance and redaction tests. | Phase 05: Memory/Learning |
 | 5 | Signed portable evidence and same-run lineage detail. | partial to implemented | Evidence/proof core | Evidence envelope read/verify surfaces and CLI verifier. | External telemetry/export and production compliance claims blocked. | Evidence signature/hash verifier and redaction tests. | Phase 06: Evidence/Audit |
@@ -188,6 +188,22 @@ rendering, and focused tests. Runtime model calls, provider SDK calls, live web
 fetching, browser automation, connector writes, unrestricted shell/subprocess
 execution, plugin runtime import, background autonomy, and production authority
 remain blocked.
+
+## Phase 03 Evidence
+
+Phase 03 is implemented as a repo-safe durable orchestration read-model
+hardening slice. It adds
+`docs/control_center/UAA_GOATCITADEL_CATCHUP_DURABLE_ORCHESTRATION.md`,
+first-class Run Observability fields for current phase/step, checkpoint
+summaries, retry/recovery posture, approval wait state,
+cancellation/dead-letter state, and redacted error summaries. The existing
+API route `GET /control-center/runs/observability`, CLI command
+`python -m ultimate_ai_agent.core.task_decomposition.cli inspect-run-observability`,
+and Control Center Evidence panel remain read-only, backend-owned, and
+safe-ref-only. Cancel, resume, retry, recovery, dead-letter execution, live
+streaming, background workers, schedulers, provider/model calls, tool
+execution, connector writes/sends, browser automation, unrestricted
+shell/subprocess execution, and production authority remain blocked.
 
 ## Merge-Gated Follow-Up Prompts
 

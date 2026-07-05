@@ -1471,6 +1471,59 @@ export type RunObservabilityStatus =
   | "implemented_read_only"
   | "state_not_found_no_write";
 
+export interface RunOrchestrationCheckpointSummary {
+  checkpoint_ref: string;
+  checkpoint_status: string;
+  sequence: number;
+  safe_summary: string;
+  evidence_refs: string[];
+  receipt_refs: string[];
+  rollback_refs: string[];
+  replay_refs: string[];
+  safe_refs_only: boolean;
+  raw_payloads_persisted: boolean;
+  execution_performed: boolean;
+}
+
+export interface RunRetryRecoveryPosture {
+  retry_state: string;
+  recovery_state: string;
+  retry_refs: string[];
+  recovery_refs: string[];
+  idempotency_key_refs: string[];
+  retry_execution_enabled: boolean;
+  recovery_execution_enabled: boolean;
+  next_safe_action: string;
+}
+
+export interface RunApprovalWaitState {
+  wait_state: string;
+  pending_approval_refs: string[];
+  approval_history_refs: string[];
+  pending_count: number;
+  approval_refs_are_identifiers_only: boolean;
+  approval_ref_grants_authority: boolean;
+  exact_scope_required_before_mutation: boolean;
+  resume_execution_enabled: boolean;
+}
+
+export interface RunCancellationDeadLetterState {
+  cancellation_state: string;
+  dead_letter_state: string;
+  cancellation_refs: string[];
+  dead_letter_refs: string[];
+  cancel_execution_enabled: boolean;
+  dead_letter_execution_enabled: boolean;
+  next_safe_action: string;
+}
+
+export interface RunRedactedErrorSummary {
+  error_ref: string;
+  safe_summary: string;
+  evidence_refs: string[];
+  raw_error_omitted: boolean;
+}
+
 export interface RunObservabilityReadModel {
   schema_version: "run_observability_read_model.v1";
   contract_ref: string;
@@ -1486,6 +1539,15 @@ export interface RunObservabilityReadModel {
   cli_ref: string;
   lifecycle?: Record<string, unknown> | null;
   progress?: Record<string, unknown> | null;
+  current_phase_ref: string;
+  current_phase_status: string;
+  current_step_ref: string;
+  current_step_status: string;
+  checkpoint_summaries: RunOrchestrationCheckpointSummary[];
+  retry_recovery_posture: RunRetryRecoveryPosture;
+  approval_wait_state: RunApprovalWaitState;
+  cancellation_dead_letter_state: RunCancellationDeadLetterState;
+  redacted_error_summaries: RunRedactedErrorSummary[];
   approval_queue: RunAttachedApprovalQueue;
   coworker_workers: Record<string, unknown>;
   connector_deliveries: Record<string, unknown>;

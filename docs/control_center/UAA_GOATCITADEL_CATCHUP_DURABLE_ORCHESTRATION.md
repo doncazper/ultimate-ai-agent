@@ -1,0 +1,54 @@
+# UAA GoatCitadel Catch-Up Durable Orchestration
+
+Status: Phase 03 implemented as backend-owned read-model hardening only.
+
+## Full-Strength Version
+
+UAA should make durable work legible across the whole operator loop: every run
+has lifecycle state, current phase, current step, checkpoints, retry/recovery
+posture, approval waits, cancellation and dead-letter posture, redacted error
+summaries, evidence refs, and proof refs. Future execution lanes may use those
+refs, but only after exact authority graduation.
+
+## Repo-Safe Version
+
+Phase 03 hardens the existing Run Observability contract:
+
+- Core:
+  `src/ultimate_ai_agent/core/execution/run_observability.py`
+- API:
+  `GET /control-center/runs/observability`
+- CLI:
+  `python -m ultimate_ai_agent.core.task_decomposition.cli inspect-run-observability`
+- Control Center:
+  Evidence renders current phase/step, checkpoints, approval wait,
+  retry/recovery posture, cancellation/dead-letter posture, and redacted error
+  summaries.
+
+All fields are derived from existing append-first durable run state, progress
+events, run-attached approvals, coworker metadata, connector delivery metadata,
+receipts, and evidence refs. The route remains read-only and safe-ref-only.
+
+## Blocked / Needs Authority
+
+These remain blocked:
+
+- cancel, resume, retry, recovery, or dead-letter execution
+- live streaming runtime
+- background workers or schedulers
+- provider/model calls
+- tool execution
+- connector writes or sends
+- browser automation
+- unrestricted shell/subprocess execution
+- public release or production authority
+- raw prompt, response, provider payload, log, local path, or credential
+  persistence
+
+## Exact Promotion Path
+
+Any future run-control lane must add exact scope, approval binding, idempotency,
+receipt/proof refs, rollback or safe-disable posture, redaction, CLI/API/Core
+parity, route classification, focused tests, and Control Center truth labels.
+Run Observability may display receipts from graduated lanes, but it must not
+itself execute, resume, cancel, retry, schedule, stream, or approve work.

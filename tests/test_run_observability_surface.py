@@ -10,6 +10,8 @@ from ultimate_ai_agent.core.execution import (
     BackgroundCoworkerWorkerEventContract,
     ConnectorDeliveryEnvelopeContract,
     ConnectorDeliveryTimelineEventContract,
+    DurableRunRecord,
+    DurableRunState,
     RunProgressEventReadModel,
     append_run_progress_event_receipt,
     record_background_coworker_worker_event,
@@ -161,6 +163,42 @@ def _record_observable_refs(service: TaskDecompositionService) -> None:
     )
 
 
+def _append_orchestration_state(
+    service: TaskDecompositionService,
+    *,
+    state: DurableRunState,
+    suffix: str,
+) -> None:
+    failure_refs = []
+    if state in {
+        DurableRunState.blocked,
+        DurableRunState.failed,
+        DurableRunState.dead_lettered,
+    }:
+        failure_refs = [f"failure-ref:test:orchestration:{suffix}"]
+    restart_refs = []
+    if state in {DurableRunState.restart_recovery, DurableRunState.dead_lettered}:
+        restart_refs = [f"restart-ref:test:orchestration:{suffix}"]
+    service.durable_run_storage.append_run_record(
+        DurableRunRecord(
+            run_id=RUN_REF,
+            source_ref=f"source-ref:test:orchestration:{suffix}",
+            state=state,
+            safe_summary=f"State-only durable run {suffix} summary.",
+            metadata={"approval_refs": [f"approval-ref:test:orchestration:{suffix}"]},
+            evidence_refs=[f"evidence-ref:test:orchestration:{suffix}"],
+            failure_refs=failure_refs,
+            restart_refs=restart_refs,
+        ),
+        idempotency_key=f"idempotency-ref:test:orchestration:{suffix}",
+        audit_ref=f"audit-ref:test:orchestration:{suffix}",
+        receipt_ref=f"receipt-ref:test:orchestration:{suffix}",
+        rollback_ref=f"rollback-ref:test:orchestration:{suffix}",
+        safe_summary=f"State-only durable run {suffix} checkpoint.",
+        evidence_refs=[f"evidence-ref:test:orchestration:{suffix}"],
+    )
+
+
 def test_run_observability_aggregates_read_only_backend_refs(tmp_path: Path) -> None:
     service = _service(tmp_path)
     _record_observable_refs(service)
@@ -184,6 +222,21 @@ def test_run_observability_aggregates_read_only_backend_refs(tmp_path: Path) -> 
     assert (
         observability["connector_delivery_review_queue"]["schema_version"]
         == "connector_delivery_review_queue.v1"
+    )
+    assert observability["current_phase_ref"]
+    assert observability["current_phase_status"]
+    assert observability["current_step_ref"]
+    assert observability["current_step_status"]
+    assert observability["checkpoint_summaries"]
+    assert observability["retry_recovery_posture"]["retry_execution_enabled"] is False
+    assert observability["retry_recovery_posture"]["recovery_execution_enabled"] is False
+    assert observability["approval_wait_state"]["approval_refs_are_identifiers_only"] is True
+    assert observability["approval_wait_state"]["approval_ref_grants_authority"] is False
+    assert observability["approval_wait_state"]["resume_execution_enabled"] is False
+    assert observability["cancellation_dead_letter_state"]["cancel_execution_enabled"] is False
+    assert (
+        observability["cancellation_dead_letter_state"]["dead_letter_execution_enabled"]
+        is False
     )
     assert observability["event_count"] >= 1
     assert observability["progress_event_count"] >= 1
@@ -223,6 +276,66 @@ def test_run_observability_aggregates_read_only_backend_refs(tmp_path: Path) -> 
     assert "provider payload" not in serialized.lower()
 
 
+def test_run_observability_exposes_recovery_and_dead_letter_posture(
+    tmp_path: Path,
+) -> None:
+    service = _service(tmp_path)
+    _append_orchestration_state(
+        service,
+        state=DurableRunState.created,
+        suffix="created",
+    )
+    _append_orchestration_state(
+        service,
+        state=DurableRunState.restart_recovery,
+        suffix="restart-recovery",
+    )
+    _append_orchestration_state(
+        service,
+        state=DurableRunState.dead_lettered,
+        suffix="dead-letter",
+    )
+
+    observability = service.run_observability(
+        RUN_REF,
+        lifecycle_limit=20,
+        related_limit=20,
+    )
+
+    assert observability["status"] == "implemented_read_only"
+    assert observability["current_phase_status"] == "failed"
+    assert observability["checkpoint_summaries"][-1]["checkpoint_status"] == "failed"
+    assert observability["checkpoint_summaries"][-1]["raw_payloads_persisted"] is False
+    assert observability["checkpoint_summaries"][-1]["execution_performed"] is False
+    assert (
+        observability["retry_recovery_posture"]["retry_state"]
+        == "retry_metadata_visible_execution_blocked"
+    )
+    assert observability["retry_recovery_posture"]["retry_refs"]
+    assert observability["retry_recovery_posture"]["recovery_refs"]
+    assert observability["retry_recovery_posture"]["retry_execution_enabled"] is False
+    assert observability["retry_recovery_posture"]["recovery_execution_enabled"] is False
+    assert (
+        observability["cancellation_dead_letter_state"]["dead_letter_state"]
+        == "dead_letter_metadata_visible_execution_blocked"
+    )
+    assert observability["cancellation_dead_letter_state"]["dead_letter_refs"]
+    assert observability["cancellation_dead_letter_state"]["cancel_execution_enabled"] is False
+    assert (
+        observability["cancellation_dead_letter_state"]["dead_letter_execution_enabled"]
+        is False
+    )
+    assert observability["redacted_error_summaries"]
+    assert all(
+        summary["raw_error_omitted"] is True
+        for summary in observability["redacted_error_summaries"]
+    )
+    serialized = json.dumps(observability)
+    assert "/Users/" not in serialized
+    assert "raw prompt" not in serialized.lower()
+    assert "provider payload" not in serialized.lower()
+
+
 def test_run_observability_reports_missing_state_without_writing(tmp_path: Path) -> None:
     service = _service(tmp_path)
 
@@ -235,6 +348,27 @@ def test_run_observability_reports_missing_state_without_writing(tmp_path: Path)
     )
     assert observability["lifecycle"] is None
     assert observability["progress"] is None
+    assert observability["current_phase_status"] == "state_not_found"
+    assert observability["current_step_status"] == "inspect_refs_only"
+    assert observability["checkpoint_summaries"] == []
+    assert (
+        observability["retry_recovery_posture"]["retry_state"]
+        == "state_not_found_no_retry_execution"
+    )
+    assert observability["approval_wait_state"]["wait_state"] in {
+        "no_pending_approval_wait",
+        "waiting_for_exact_approval_ref",
+    }
+    assert (
+        observability["approval_wait_state"]["pending_count"]
+        == len(observability["approval_wait_state"]["pending_approval_refs"])
+    )
+    assert observability["approval_wait_state"]["resume_execution_enabled"] is False
+    assert (
+        observability["cancellation_dead_letter_state"]["cancellation_state"]
+        == "state_not_found_no_cancel_execution"
+    )
+    assert observability["redacted_error_summaries"] == []
     assert observability["safe_refs_only"] is True
     assert observability["ui_mutation_controls_enabled"] is False
     assert observability["connector_sends_enabled"] is False

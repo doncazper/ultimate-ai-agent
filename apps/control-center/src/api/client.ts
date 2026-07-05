@@ -2916,8 +2916,51 @@ function safeRunObservability(
     !Array.isArray(record.run_refs) ||
     !Array.isArray(record.blocked_authority_refs) ||
     !Array.isArray(record.proof_refs) ||
+    !Array.isArray(record.checkpoint_summaries) ||
+    !Array.isArray(record.redacted_error_summaries) ||
+    !isPlainRecord(record.retry_recovery_posture) ||
+    !isPlainRecord(record.approval_wait_state) ||
+    !isPlainRecord(record.cancellation_dead_letter_state) ||
     !isPlainRecord(record.approval_queue) ||
     !isPlainRecord(record.connector_delivery_review_queue)
+  ) {
+    return undefined;
+  }
+  const retryRecovery = record.retry_recovery_posture as Record<string, unknown>;
+  const approvalWait = record.approval_wait_state as Record<string, unknown>;
+  const cancellationDeadLetter = record.cancellation_dead_letter_state as Record<
+    string,
+    unknown
+  >;
+  if (
+    retryRecovery.retry_execution_enabled !== false ||
+    retryRecovery.recovery_execution_enabled !== false ||
+    approvalWait.approval_refs_are_identifiers_only !== true ||
+    approvalWait.approval_ref_grants_authority !== false ||
+    approvalWait.exact_scope_required_before_mutation !== true ||
+    approvalWait.resume_execution_enabled !== false ||
+    cancellationDeadLetter.cancel_execution_enabled !== false ||
+    cancellationDeadLetter.dead_letter_execution_enabled !== false
+  ) {
+    return undefined;
+  }
+  const checkpointSummaries = record.checkpoint_summaries as unknown[];
+  if (
+    !checkpointSummaries.every(
+      (item) =>
+        isPlainRecord(item) &&
+        item.safe_refs_only === true &&
+        item.raw_payloads_persisted === false &&
+        item.execution_performed === false,
+    )
+  ) {
+    return undefined;
+  }
+  const redactedErrors = record.redacted_error_summaries as unknown[];
+  if (
+    !redactedErrors.every(
+      (item) => isPlainRecord(item) && item.raw_error_omitted === true,
+    )
   ) {
     return undefined;
   }
