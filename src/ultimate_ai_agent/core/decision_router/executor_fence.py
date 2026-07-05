@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.approvals import ApprovalValidationRequest, LocalApprovalAuthority
 from ultimate_ai_agent.core.decision_router.turn_contracts import (
     ApprovalPolicy,
     InvocationPolicy,
@@ -15,12 +16,21 @@ from ultimate_ai_agent.core.planning.validation import validate_safe_task_text, 
 
 
 EXECUTOR_FENCE_CONTRACT_REF = "contract-ref:turn-contract-router:executor-fence:v1"
+LOCAL_APPROVAL_AUTHORITY_REF = "local-approval-authority:exact-scope"
+LOCAL_APPROVAL_VALIDATION_STATUS = "local_approval_authority_exact_scope_validated"
+EXECUTOR_FENCE_APPROVAL_ACTION = "execute_turn_contract_action"
 
 
 class ExecutorFenceRequest(BaseModel):
     contract_ref: str = EXECUTOR_FENCE_CONTRACT_REF
     fence_request_ref: str = Field(..., min_length=1)
     invocation_policy: InvocationPolicy
+    local_approval_authority_ref: str = Field(..., min_length=1)
+    approval_ref: str = Field(..., min_length=1)
+    approval_validation_request: ApprovalValidationRequest
+    approval_validation_receipt_ref: str = Field(..., min_length=1)
+    approval_validation_scope_ref: str = Field(..., min_length=1)
+    approval_validation_status: str = Field(..., min_length=1)
     requested_approval_scope_ref: str = Field(..., min_length=1)
     requested_action_scope_ref: str = Field(..., min_length=1)
     requested_tool_ref: str = Field(..., min_length=1)
@@ -41,6 +51,10 @@ class ExecutorFenceRequest(BaseModel):
         for field_name in (
             "contract_ref",
             "fence_request_ref",
+            "local_approval_authority_ref",
+            "approval_ref",
+            "approval_validation_receipt_ref",
+            "approval_validation_scope_ref",
             "requested_approval_scope_ref",
             "requested_action_scope_ref",
             "requested_tool_ref",
@@ -53,6 +67,17 @@ class ExecutorFenceRequest(BaseModel):
             "requested_risk_ref",
         ):
             validate_task_ref(getattr(self, field_name), field_name)
+        validate_safe_task_text(self.approval_validation_status, "approval_validation_status")
+        if self.approval_validation_request.approval_ref != self.approval_ref:
+            raise ValueError("approval validation request ref must match executor fence approval ref")
+        if self.approval_validation_request.requested_action != EXECUTOR_FENCE_APPROVAL_ACTION:
+            raise ValueError("approval validation request action must match executor fence action")
+        expected_resource_refs = _expected_approval_resource_refs(self.invocation_policy)
+        missing_resource_refs = sorted(
+            set(expected_resource_refs).difference(self.approval_validation_request.resource_refs)
+        )
+        if missing_resource_refs:
+            raise ValueError(f"approval validation request missing exact resource ref: {missing_resource_refs[0]}")
         return self
 
 
@@ -110,7 +135,11 @@ class ExecutorFenceDecision(BaseModel):
         return self
 
 
-def evaluate_executor_fence(request: ExecutorFenceRequest) -> ExecutorFenceDecision:
+def evaluate_executor_fence(
+    request: ExecutorFenceRequest,
+    *,
+    approval_authority: LocalApprovalAuthority | None = None,
+) -> ExecutorFenceDecision:
     parsed = request if isinstance(request, ExecutorFenceRequest) else ExecutorFenceRequest(**request)
     policy = parsed.invocation_policy
     reason_refs: list[str] = []
@@ -129,6 +158,24 @@ def evaluate_executor_fence(request: ExecutorFenceRequest) -> ExecutorFenceDecis
         reason_refs.append("reason-ref:executor-fence:execution-not-ready")
     if policy.tools != [policy.allowed_tool_ref]:
         reason_refs.append("reason-ref:executor-fence:policy-tool-list-mismatch")
+    if (
+        parsed.local_approval_authority_ref != LOCAL_APPROVAL_AUTHORITY_REF
+        or parsed.approval_validation_status != LOCAL_APPROVAL_VALIDATION_STATUS
+        or parsed.approval_validation_receipt_ref != _expected_approval_validation_receipt_ref(parsed)
+    ):
+        reason_refs.append("reason-ref:executor-fence:local-approval-authority-validation-missing")
+    if approval_authority is None:
+        reason_refs.append("reason-ref:executor-fence:local-approval-authority-validation-missing")
+    else:
+        validation_decision = approval_authority.validate(parsed.approval_validation_request)
+        if not validation_decision.allowed or validation_decision.matched_grant_ref != parsed.approval_ref:
+            reason_refs.append("reason-ref:executor-fence:local-approval-authority-validation-missing")
+    _append_mismatch(
+        reason_refs,
+        parsed.approval_validation_scope_ref,
+        policy.approval_scope_ref,
+        "reason-ref:executor-fence:approval-validation-scope-mismatch",
+    )
 
     _append_mismatch(
         reason_refs,
@@ -216,6 +263,31 @@ def _append_mismatch(
 ) -> None:
     if approved_ref is None or requested_ref != approved_ref:
         reason_refs.append(reason_ref)
+
+
+def _expected_approval_resource_refs(policy: InvocationPolicy) -> list[str]:
+    return [
+        ref
+        for ref in (
+            policy.approval_scope_ref,
+            policy.action_scope_ref,
+            policy.allowed_tool_ref,
+            policy.allowed_arguments_ref,
+            policy.allowed_merchant_ref,
+            policy.allowed_recipient_ref,
+            policy.allowed_account_ref,
+            policy.allowed_cost_ref,
+            policy.allowed_credential_broker_ref,
+            policy.allowed_risk_ref,
+        )
+        if ref is not None
+    ]
+
+
+def _expected_approval_validation_receipt_ref(request: ExecutorFenceRequest) -> str:
+    approval_suffix = request.approval_ref.rsplit(":", 1)[-1]
+    scope_suffix = request.approval_validation_scope_ref.rsplit(":", 1)[-1]
+    return f"approval-validation-receipt:executor-fence:{approval_suffix}:{scope_suffix}"
 
 
 def _dedupe(values: list[str]) -> list[str]:

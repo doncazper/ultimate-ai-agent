@@ -265,6 +265,11 @@ Implemented fence surface:
 - `ExecutorFenceRequest` carries a current `InvocationPolicy` plus the exact
   requested approval, action, tool, arguments, merchant, recipient, account,
   cost, credential broker, and risk refs.
+- `ExecutorFenceRequest` also carries the exact `LocalApprovalAuthority`
+  validation request, approval ref, validation scope ref, validation receipt
+  ref, and validation status ref. Matching strings alone are not enough:
+  `evaluate_executor_fence` must receive a `LocalApprovalAuthority` that can
+  validate the exact approval request before the fence can pass.
 - `evaluate_executor_fence` returns an `ExecutorFenceDecision`.
 - The fence performs no execution. It is a validation contract any future
   side-effect lane must pass before execution can be considered.
@@ -274,6 +279,8 @@ Fence validation:
 | Check | Requirement |
 |---|---|
 | Approval | Policy must be `execute_approved_action` with `already_approved_exact_scope`. |
+| Local approval | LocalApprovalAuthority must validate the exact approval ref, subject, actor, action, risk, data classification, and all policy resource refs. |
+| Validation receipt | Validation receipt ref must bind to the exact approval ref and approval-scope ref. |
 | Action id | Requested action scope must match the approved action scope. |
 | Tool | Requested tool must match the exact approved tool and policy tool list. |
 | Arguments | Requested arguments must match the exact approved arguments ref. |
@@ -301,12 +308,27 @@ Implemented binding surface:
 
 - `build_turn_harness_binding` classifies a turn, compiles the invocation
   policy, and returns a `TurnHarnessBindingReadModel`.
+- `build_chat_turn_harness_binding` binds the same no-effect router metadata to
+  the local `/v1/chat/completions` path after chat request validation and before
+  the local response builder returns.
+- Local chat responses expose the binding only under `uaa_safety` as safe
+  metadata; prompt text is not used in persisted refs.
+- Durable Chat receipts store a receipt-safe binding projection with selected
+  contract, memory/tool, approval, blocked-authority, and no-effect fields. The
+  no-effect scope is explicitly `turn_harness_binding_compilation_only`, so it
+  describes router binding construction and not the whole local chat response
+  lifecycle. The projection omits `raw_*` storage keys while preserving false
+  body-persistence proof fields.
 - The read model exposes safe summaries, reason refs, evidence refs, risk
   flags, memory/tool/state posture, approval posture, and no-effect proof
   flags.
 - The read model does not persist raw request text, raw response text, raw
   memory bodies, local paths, credentials, or secret-like values.
 - The read model does not retrieve memory content or execute tools.
+- The binding does not make Chat output authoritative and does not grant memory
+  reads, memory writes, tool execution, action execution, shell/subprocess
+  execution, browser/network authority, connector writes, or provider/model
+  authority.
 
 Binding shape:
 
@@ -362,10 +384,135 @@ Product-language posture:
 - The Phase 00 naming lock remains binding: this router uses `base_answer` and
   `answer_profile_hint` language for UAA turn contracts.
 
-## Phase 07 Cheap Parallel Preflight Plan
+## Phase 07 Cheap Parallel Preflight
 
-Status: planning only. No parallel runtime behavior is implemented in this
-phase.
+Status: contract and no-effect engine implemented. No product runtime
+authority, provider/model call, tool execution, memory content retrieval,
+context injection, shell/subprocess behavior, browser/network action, connector
+write, public beta, public release, production readiness, or standing autonomy is
+implemented by this section.
+
+Prompt 01 productization adds typed parallel preflight contracts in
+`src/ultimate_ai_agent/core/decision_router/parallel_preflight.py` without
+adding the engine. The contracts are safe-ref-only, no-effect Pydantic models
+for lane results, bundles, arbitration input, and arbitration result. They make
+lane outputs inspectable while preserving the core invariant:
+
+```text
+Parallelize sensing. Centralize authority. Serialize execution.
+```
+
+Contract truth:
+
+- A preflight lane cannot grant authority.
+- A preflight lane cannot permit execution.
+- A preflight lane or arbitration result cannot select `execute_approved_action`;
+  that contract remains available only through exact approved scope,
+  `InvocationPolicy`, and `ExecutorFence` validation.
+- A preflight lane cannot retrieve raw memory content.
+- A preflight lane cannot call a model, provider, browser, connector, shell,
+  subprocess, or tool.
+- A preflight lane cannot run workflows or inject context.
+- A preflight lane cannot persist raw prompt, response, memory, tool, log,
+  credential, or local-path content.
+- `direct_answer_draft` lane output is never user-visible unless central
+  arbitration explicitly clears a direct/base answer posture in a later phase.
+- No product runtime authority is implemented by the preflight layer. Prompt
+  02 adds the no-effect engine and keeps execution authority blocked.
+
+Prompt 02 productization adds `run_parallel_turn_preflight` and
+`run_parallel_turn_preflight_async`. The engine runs deterministic no-effect
+lanes with `asyncio.gather`, centralizes arbitration, compiles exactly one
+`InvocationPolicy`, and returns safe refs plus bounded latency buckets. Failing
+lanes fail closed to approval posture. A risk/action lane veto can escalate a
+low-ceremony intent to approval-required, but no lane can increase authority,
+execute work, expose tools for direct answers, retrieve memory bodies, or make
+`direct_answer_draft` user-visible before central arbitration.
+
+Prompt 03 productization adds the backend-owned no-effect preview read model
+and inspection surfaces: `POST /control-center/turn-router/preview` and
+`scripts/dev/uaa_turn_router.py`. These surfaces can classify protected samples
+or ephemeral request text for immediate operator diagnostics, but they return
+safe refs, selected contract, policy posture, no-effect proof flags, and
+redaction refs only. They do not persist raw request text, wire chat runtime,
+call providers/models, execute tools/actions, retrieve memory bodies, inject
+context, run shell/browser work, or write connectors.
+
+Prompt 04 productization exposes that same preview contract in the Control
+Center Chat surface as Router Diagnostics. The panel calls the backend-owned
+preview route for protected samples, labels fallback previews as
+non-authoritative mock data, and renders selected contract, reason refs,
+memory/tool/state/approval posture, blocked authority refs, and no-effect proof
+without making raw JSON the primary UI. The optional free-form preview input is
+ephemeral UI state only; it is cleared after submission, rejects secret-like
+input locally, and does not save raw text to fixtures, logs, local storage, or
+durable evidence. The panel adds no chat runtime routing, provider/model call,
+tool/action execution, memory retrieval/write, shell/browser work, connector
+write, public release, or production authority.
+
+Prompt 05 productization binds the selected turn contract into the local Chat
+harness metadata before downstream response handling. The binding is a
+safe-ref-only read model under `uaa_safety` and a receipt-safe projection in
+the durable Chat receipt. It controls memory/tool/state/approval posture for
+the turn, but it still performs no tool/action execution, memory write,
+context injection, provider SDK call, browser/network work, connector write,
+or production authority.
+
+Prompt 06 productization adds a repeatable local browser smoke harness:
+
+```bash
+make frontend-turn-router-smoke
+```
+
+The harness runs Playwright against the local Control Center dev server and
+fixtures only the safe backend read models needed by `/chat`. It verifies that
+Router Diagnostics loads, protected sample prompts keep their expected
+contracts, DIY desk/table stay lightweight, approval boundaries are visible
+for order/card prompts, Chat displays the no-effect harness binding receipt,
+raw JSON is not the primary UI, console errors stay clean, and unsupported
+authority claims are absent on desktop and mobile viewports. The smoke harness
+is implementation-time QA only; it does not grant UAA product runtime browser
+automation, browser observe/action authority, web fetch, connector write,
+provider/model authority, or standing autonomous operation.
+
+Prompt 07 hardening adds the final productization regression sweep: broader
+approval-boundary classifier coverage for memory writes, calendar/task/reply/
+delete/reorder wording, required complete preflight lane bundles, hashed chat
+harness route/model refs, LocalApprovalAuthority-backed executor fence
+validation, bound approval-validation receipt refs, fail-closed Control Center
+preview fallback, stricter preview payload validation, unexpected-route smoke
+assertions, route-boundary normalization, and Foundation Gate hygiene.
+
+## How To Smoke Test Turn Contract Router
+
+Run the local browser smoke harness:
+
+```bash
+make frontend-turn-router-smoke
+```
+
+Expected result:
+
+- `/chat` loads Router Diagnostics from the backend-owned preview route fixture.
+- Protected sample buttons preserve the expected contracts for DIY desk,
+  office memory, shopping list, current lumber prices, order materials, card
+  and pickup, and base-answer bypass.
+- The ephemeral preview input omits raw text and a failed free-form preview
+  falls closed to a non-authoritative approval-boundary fallback instead of
+  reusing stale sample truth.
+- Chat displays the no-effect harness binding receipt and does not expose raw
+  prompt/response JSON as the primary UI.
+- Unsupported authority claims, unexpected API routes, console errors, raw
+  JSON primary UI, provider/model authority, browser automation, connector
+  writes, shell/subprocess execution, and action execution are absent.
+
+For the broader local product check, run:
+
+```bash
+make frontend-check
+make frontend-visual-check
+.venv/bin/python scripts/run_foundation_gate.py --command-mode report-only
+```
 
 Preflight lanes:
 
@@ -398,6 +545,7 @@ Explicit non-goals:
 - No tool execution
 - No memory content retrieval
 - No context injection
+- No workflow execution
 - No browser/network action
 - No shell/subprocess execution
 - No connector write

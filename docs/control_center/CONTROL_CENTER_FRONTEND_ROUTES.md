@@ -164,9 +164,20 @@ Backend API endpoints consumed:
 - `GET /runtime/capability-matrix`
 - `GET /v1/models`
 - `POST /v1/chat/completions` for the scoped redacted local readiness exchange
-  only when local gateway prerequisites are already configured.
+  only when local gateway prerequisites are already configured. The response may
+  include `uaa_safety.turn_harness_binding`, which the Chat surface can pass into
+  the durable chat receipt as backend-owned router metadata. The binding is
+  displayed as contract/proof posture only with
+  `turn_harness_binding_compilation_only` no-effect scope; it does not expose
+  raw prompts, raw responses, memory content, execution tools, action execution,
+  or approval authority.
 - `POST /runtime/smoke-reports/validate`
 - `POST /control-center/actions/preview`
+- `POST /control-center/turn-router/preview` for the Chat Router Diagnostics
+  no-effect preview only. The surface renders selected contract, policy
+  posture, blocked authority, and no-effect proof; it does not persist raw
+  turn text, execute actions/tools, retrieve memory bodies, call
+  providers/models, automate browsers, write connectors, or grant authority.
 
 Forbidden frontend route/API targets:
 
@@ -232,8 +243,8 @@ provider/model calls, connector writes, coworker dispatch, background autonomy,
 raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
-OpenAPI remains a backend contract. The current backend path count is `186`
-with `187` unique manifest route operations; earlier milestone counts in the
+OpenAPI remains a backend contract. The current backend path count is `187`
+with `188` unique manifest route operations; earlier milestone counts in the
 historical sections below are audit context, not current route inventory.
 
 ## v0.18.0 M14 Connection Stabilization
@@ -245,7 +256,7 @@ M14 — Web Control Center Local Backend Connection Stabilization, implemented
 M15 — Approval Queue + Receipt/Event Viewer UI, future
 ```
 
-M14 clarifies local backend connection states and mock-to-live transitions, but it does not add execute/run/send/deploy/enable/approve controls or any POST target beyond `/control-center/actions/preview`. M15 may add read-only/preview-only approval, receipt, and event views only after a reviewed milestone prompt.
+M14 clarifies local backend connection states and mock-to-live transitions, but it does not add execute/run/send/deploy/enable/approve controls. The frontend POST surface remains bounded to reviewed no-effect preview routes such as `/control-center/actions/preview` and `/control-center/turn-router/preview`. M15 may add read-only/preview-only approval, receipt, and event views only after a reviewed milestone prompt.
 
 ## v0.18.1 M14 Connection Safety Hardening
 

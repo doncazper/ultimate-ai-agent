@@ -10,6 +10,7 @@ from urllib import parse, request
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from ultimate_ai_agent.core.decision_router import TurnHarnessBindingReadModel
 from ultimate_ai_agent.core.local_model_management.contracts import (
     _SECRET_LIKE_RE,
     _validate_safe_payload,
@@ -261,6 +262,7 @@ def build_m164_chat_completion_response(
     gateway_model: M164LocalGatewayModel,
     transport: M164GatewayTransport | None = None,
     api_key: str | None = None,
+    turn_harness_binding: TurnHarnessBindingReadModel | None = None,
 ) -> dict[str, Any]:
     validated_model = M164LocalGatewayModel.model_validate(gateway_model.model_dump())
     validated_request = M164ChatCompletionRequest.model_validate(chat_request.model_dump())
@@ -269,6 +271,12 @@ def build_m164_chat_completion_response(
     active_transport = transport or StdlibM164LlamaCppGatewayTransport()
     response_payload = active_transport.chat_completions(validated_model, validated_request, api_key=api_key)
     choices = _sanitize_m164_choices(response_payload.get("choices"), validated_request)
+    safety = M164GatewayReceipt(
+        model=validated_model.model_id,
+        message_count=len(validated_request.messages),
+    ).model_dump(mode="json")
+    if turn_harness_binding is not None:
+        safety["turn_harness_binding"] = turn_harness_binding.model_dump(mode="json")
     return {
         "id": "chatcmpl-uaa-m164-local",
         "object": "chat.completion",
@@ -276,10 +284,7 @@ def build_m164_chat_completion_response(
         "model": validated_model.model_id,
         "choices": choices,
         "usage": _sanitize_m164_usage(response_payload.get("usage")),
-        "uaa_safety": M164GatewayReceipt(
-            model=validated_model.model_id,
-            message_count=len(validated_request.messages),
-        ).model_dump(mode="json"),
+        "uaa_safety": safety,
     }
 
 

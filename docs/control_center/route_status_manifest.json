@@ -4,7 +4,7 @@
   "baseline": "v0.104.0 / 0.104.0",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
-  "openapi_path_count": 186,
+  "openapi_path_count": 187,
   "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",
   "allowed_release_statuses": [
     "status_available_not_completion",
@@ -580,6 +580,13 @@
           "operation_id": "post_control_center_chat_turns_turn_ref_handoff",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/turn-router/preview",
+          "operation_id": "post_control_center_turn_router_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": []
@@ -1554,9 +1561,44 @@
           "operation_id": "post_control_center_chat_turns_turn_ref_handoff",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/turn-router/preview",
+          "operation_id": "post_control_center_turn_router_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "missing_backend_routes": []
+    },
+    {
+      "action_id": "preview-turn-router-diagnostics",
+      "label": "Preview Turn Router Diagnostics",
+      "ui_surface": "Chat Local Operator",
+      "frontend_route": "/chat",
+      "owner": "decision-router",
+      "auth_posture": "local_preview_only_no_effect",
+      "side_effect_class": "validation_only",
+      "risk_class": "medium",
+      "release_status": "preview_available_not_execution",
+      "approval_requirement": "Preview only; no approval ref becomes authority and no execution, provider/model call, memory write, connector write, shell/subprocess, browser, or network action is performed.",
+      "evidence_audit_output": "Backend-owned turn contract refs, policy summary refs, reason refs, risk flags, blocked authority refs, and no-effect proof only; raw turn text is omitted from durable route-status truth and the Control Center UI clears one-shot text after preview.",
+      "backend_routes": [
+        {
+          "method": "POST",
+          "path": "/control-center/turn-router/preview",
+          "operation_id": "post_control_center_turn_router_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        }
+      ],
+      "missing_backend_routes": [],
+      "visible_action_kinds": [
+        "view_status",
+        "preview_action",
+        "preview_runtime"
+      ]
     },
     {
       "action_id": "navigate-plans",

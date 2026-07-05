@@ -140,3 +140,16 @@ grant marketplace install, external code execution, plugin runtime import,
 browser automation, connector writes, credential access, or production
 authority. Use Prompt 00 in that file to run the sequence as small
 merge-gated PR lanes.
+
+## Turn Contract Router productization prompts
+
+Stored execution prompts for productizing the merged Turn Contract Router live
+in `docs/prompts/turn_contract_router_productization_prompt_pack.md`. They add
+parallel preflight contracts, central arbitration, CLI/API preview, Control
+Center diagnostics, chat/harness binding, browser product smoke checks, and a
+review/fix/harden sweep without granting broad runtime, browser, connector,
+provider/model, or production authority by themselves. Use
+`docs/prompts/turn_contract_router_productization_execute_end_to_end.prompt.md`
+for the strict enterprise integration wrapper that executes each phase
+one-at-a-time with review, fix, hardening, tests, browser smoke, PR merge, and
+final gap reporting gates.

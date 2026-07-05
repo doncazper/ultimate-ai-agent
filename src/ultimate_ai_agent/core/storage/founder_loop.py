@@ -37,6 +37,7 @@ from ultimate_ai_agent.core.chat import (
     chat_local_operator_authority_posture,
     chat_local_operator_surface_bindings,
     chat_payload_fingerprint_ref,
+    chat_turn_harness_binding_receipt_summary,
     chat_turn_evidence_ref,
     chat_turn_handoff_ref,
     chat_turn_payload_for_fingerprint,
@@ -9553,6 +9554,9 @@ class FounderLoopRepository:
             auth_truth=request.auth_truth,
             tool_denial_truth=request.tool_denial_truth,
             safe_summary_ref=request.safe_summary_ref,
+            turn_harness_binding=chat_turn_harness_binding_receipt_summary(
+                request.turn_harness_binding
+            ),
             handoff_refs=[
                 chat_turn_handoff_ref(turn_ref, "actions"),
                 chat_turn_handoff_ref(turn_ref, "plans"),

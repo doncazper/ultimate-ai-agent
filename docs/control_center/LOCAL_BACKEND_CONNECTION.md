@@ -49,9 +49,10 @@ Safety requirements:
 - partial mock fallback must be called out as degraded.
 - errors must be sanitized before display.
 - frontend requests must not add Authorization headers, cookies, API keys, credential APIs, analytics, SaaS SDKs, or external API hosts.
-- frontend POST targets remain bounded to `/control-center/actions/preview` and
+- frontend POST targets remain bounded to no-effect preview routes such as
+  `/control-center/actions/preview`, `/control-center/turn-router/preview`, and
   the disabled-by-default local chat shell endpoint `/v1/chat/completions`.
-  Neither target adds frontend auth headers, cookies, credentials, analytics,
+  These targets add no frontend auth headers, cookies, credentials, analytics,
   SaaS SDKs, external hosts, connector writes, or provider/model authority.
 - M14 adds no backend API path.
 - the Vite dev proxy, when used, must stay pinned to `http://127.0.0.1:8000`.

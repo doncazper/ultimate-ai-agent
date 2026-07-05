@@ -7,6 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from ultimate_ai_agent.core.decision_router import TurnHarnessBindingReadModel
+
 
 UAA_OPENWEBUI_TEST_MODEL_ID = "uaa-safe-local"
 UAA_OPENWEBUI_TEST_GATEWAY_ENV = "UAA_OPENWEBUI_TEST_GATEWAY_ENABLED"
@@ -118,6 +120,9 @@ class OpenWebUILocalGatewayReceipt(_OpenWebUILocalTestModel):
     provider_called: bool = False
     model_authority_granted: bool = False
     tool_executed: bool = False
+    tools_enabled: bool = False
+    functions_enabled: bool = False
+    streaming_enabled: bool = False
     memory_written: bool = False
     context_injected: bool = False
     external_network_called: bool = False
@@ -176,8 +181,13 @@ def build_openwebui_local_models_response() -> dict[str, Any]:
 
 def build_openwebui_local_chat_completion_response(
     request: OpenWebUILocalChatCompletionRequest,
+    *,
+    turn_harness_binding: TurnHarnessBindingReadModel | None = None,
 ) -> dict[str, Any]:
     receipt = OpenWebUILocalGatewayReceipt(message_count=len(request.messages))
+    safety = receipt.model_dump(mode="json")
+    if turn_harness_binding is not None:
+        safety["turn_harness_binding"] = turn_harness_binding.model_dump(mode="json")
     content = (
         "UAA safe local test gateway is online. "
         f"Received {receipt.message_count} message(s). "
@@ -196,5 +206,5 @@ def build_openwebui_local_chat_completion_response(
             }
         ],
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-        "uaa_safety": receipt.model_dump(mode="json"),
+        "uaa_safety": safety,
     }

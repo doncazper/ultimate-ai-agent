@@ -16,6 +16,9 @@ import type {
   ControlCenterSettingsStatus,
   ControlCenterStatus,
   TrustAuthorityMatrix,
+  TurnHarnessBindingReadModel,
+  TurnRouterPreviewReadModel,
+  TurnRouterPreviewRequest,
   FounderLoopActionsInbox,
   FounderLoopMorningBriefing,
   FounderLoopSourceReadiness,
@@ -897,6 +900,279 @@ export async function submitActionPreview(
   return decision;
 }
 
+export async function submitTurnRouterPreview(
+  request: TurnRouterPreviewRequest,
+): Promise<TurnRouterPreviewReadModel> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.turnRouterPreview}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await response.json()) as ResultEnvelope<TurnRouterPreviewReadModel>;
+  const preview = data.result ?? data.data;
+  if (!response.ok || !preview) {
+    throw new Error(
+      sanitizeForDisplay(
+        data.error?.message ?? "Turn router preview failed safely.",
+      ),
+    );
+  }
+  if (!isSafeTurnRouterPreview(preview)) {
+    throw new Error(
+      sanitizeForDisplay("Turn router preview was rejected safely."),
+    );
+  }
+  return preview;
+}
+
+function isSafeTurnRouterPreview(
+  value: unknown,
+): value is TurnRouterPreviewReadModel {
+  if (!isPlainRecord(value) || !isPlainRecord(value.policy_summary)) {
+    return false;
+  }
+  if (!isPlainRecord(value.no_effect_proof)) {
+    return false;
+  }
+  const noEffect = value.no_effect_proof;
+  const policy = value.policy_summary;
+  const selectedContract = String(value.selected_turn_contract ?? "");
+  const allowedPreviewContracts = [
+    "answer_directly",
+    "base_answer",
+    "answer_with_reviewed_memory",
+    "draft_or_plan",
+    "prepare_tool_or_action",
+    "approval_required",
+    "ask_clarifying_question",
+    "blocked_unsafe",
+  ];
+  const blockedRefs = stringArray(value.blocked_authority_refs);
+  const requiredBlockedRefs = [
+    "blocked-state:turn-router-preview:no-runtime-model-call",
+    "blocked-state:turn-router-preview:no-provider-call",
+    "blocked-state:turn-router-preview:no-tool-execution",
+    "blocked-state:turn-router-preview:no-action-execution",
+    "blocked-state:turn-router-preview:no-memory-write",
+    "blocked-state:turn-router-preview:no-shell-subprocess",
+    "blocked-state:turn-router-preview:no-browser-network",
+    "blocked-state:turn-router-preview:no-connector-write",
+  ];
+  return (
+    value.contract_ref === "contract-ref:turn-router-preview:v1" &&
+    typeof value.preview_ref === "string" &&
+    typeof value.request_ref === "string" &&
+    value.route_refs instanceof Array &&
+    stringArray(value.route_refs).includes(
+      API_ENDPOINTS.turnRouterPreview,
+    ) &&
+    typeof value.selected_turn_contract === "string" &&
+    typeof value.confidence === "number" &&
+    stringArray(value.redactions_applied).includes(
+      "ephemeral_request_text_omitted",
+    ) &&
+    allowedPreviewContracts.includes(selectedContract) &&
+    requiredBlockedRefs.every((ref) => blockedRefs.includes(ref)) &&
+    value.raw_content_included === false &&
+    value.ephemeral_request_text_omitted === true &&
+    policy.turn_contract === selectedContract &&
+    policy.memory_write_allowed === false &&
+    policy.approval_required ===
+      (selectedContract === "approval_required") &&
+    policy.memory_read_allowed ===
+      (selectedContract === "answer_with_reviewed_memory") &&
+    policy.planner === (selectedContract === "draft_or_plan") &&
+    noEffect.authority_granted === false &&
+    noEffect.execution_permitted === false &&
+    noEffect.no_runtime_model_call_performed === true &&
+    noEffect.no_provider_call_performed === true &&
+    noEffect.no_tool_execution_performed === true &&
+    noEffect.no_action_execution_performed === true &&
+    noEffect.no_workflow_execution_performed === true &&
+    noEffect.no_context_injection_performed === true &&
+    noEffect.no_memory_content_retrieved === true &&
+    noEffect.no_memory_write_performed === true &&
+    noEffect.no_durable_state_write_performed === true &&
+    noEffect.no_shell_subprocess_performed === true &&
+    noEffect.no_browser_network_performed === true &&
+    noEffect.no_connector_write_performed === true &&
+    noEffect.invocation_policy_compiled_only === true &&
+    noEffect.raw_request_text_persisted === false &&
+    policy.tool_execution_allowed === false &&
+    policy.action_execution_allowed === false &&
+    policy.workflow_execution_allowed === false &&
+    policy.context_injection_allowed === false &&
+    policy.runtime_model_call_allowed === false &&
+    policy.provider_call_allowed === false &&
+    policy.shell_subprocess_allowed === false &&
+    policy.browser_network_allowed === false &&
+    policy.connector_write_allowed === false &&
+    policy.side_effects_allowed === false &&
+    policy.execution_ready === false
+  );
+}
+
+const TURN_HARNESS_CONTRACTS = [
+  "answer_directly",
+  "base_answer",
+  "answer_with_reviewed_memory",
+  "draft_or_plan",
+  "prepare_tool_or_action",
+  "approval_required",
+  "ask_clarifying_question",
+  "blocked_unsafe",
+] as const;
+const TURN_HARNESS_MEMORY_SCOPES = [
+  "none",
+  "reviewed_relevant_only",
+  "scoped_to_approval",
+  "proposal_review_only",
+] as const;
+const TURN_HARNESS_TOOL_POLICIES = [
+  "none",
+  "read_only_or_proposal_only",
+  "envelope_only_no_execution",
+] as const;
+const TURN_HARNESS_APPROVAL_POLICIES = [
+  "not_required",
+  "required_before_execution",
+  "blocked",
+] as const;
+const TURN_HARNESS_RISK_FLAGS = [
+  "low_risk",
+  "external_side_effect",
+  "credential_or_payment",
+  "destructive",
+  "privacy_boundary",
+  "freshness_required",
+  "memory_requested",
+  "unsafe",
+] as const;
+const TURN_HARNESS_SAFE_CREDENTIAL_REFS = new Set([
+  "reason-ref:turn-contract:credential-account-privacy-boundary",
+]);
+
+function isSafeTurnHarnessBinding(
+  value: unknown,
+): value is TurnHarnessBindingReadModel {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const toolRefs = stringArray(value.tool_refs);
+  const answerLike =
+    value.turn_contract === "answer_directly" ||
+    value.turn_contract === "base_answer";
+  const directAnswerStaysEmpty =
+    !answerLike ||
+    (value.memory_touched === false &&
+      value.reviewed_memory_refs_allowed === false &&
+      value.memory_write_allowed === false &&
+      value.tools_exposed_count === 0 &&
+      toolRefs.length === 0 &&
+      value.planner === false &&
+      value.durable_state === false &&
+      value.approval_required === false);
+  return (
+    value.contract_ref ===
+      "contract-ref:turn-contract-router:harness-binding:v1" &&
+    isSafeTurnHarnessRef(value.contract_ref) &&
+    isSafeTurnHarnessRef(value.binding_ref) &&
+    isSafeTurnHarnessRef(value.decision_ref) &&
+    isSafeTurnHarnessRef(value.policy_ref) &&
+    hasExactStringValue(value.turn_contract, TURN_HARNESS_CONTRACTS) &&
+    isSafeTurnHarnessText(value.safe_summary) &&
+    hasSafeTurnHarnessStringArray(value, "reason_refs", isSafeTurnHarnessRef) &&
+    hasSafeTurnHarnessStringArray(value, "evidence_refs", isSafeTurnHarnessRef) &&
+    hasSafeTurnHarnessStringArray(value, "risk_flags", (item) =>
+      hasExactStringValue(item, TURN_HARNESS_RISK_FLAGS),
+    ) &&
+    hasExactStringValue(value.memory_scope, TURN_HARNESS_MEMORY_SCOPES) &&
+    typeof value.memory_touched === "boolean" &&
+    typeof value.reviewed_memory_refs_allowed === "boolean" &&
+    value.memory_content_retrieved === false &&
+    typeof value.memory_write_allowed === "boolean" &&
+    value.memory_write_performed === false &&
+    hasExactStringValue(value.tool_policy, TURN_HARNESS_TOOL_POLICIES) &&
+    isSafeNonNegativeInteger(value.tools_exposed_count) &&
+    hasSafeTurnHarnessStringArray(value, "tool_refs", isSafeTurnHarnessRef) &&
+    value.tools_exposed_count === toolRefs.length &&
+    value.execution_tools_exposed_count === 0 &&
+    typeof value.planner === "boolean" &&
+    typeof value.durable_state === "boolean" &&
+    hasExactStringValue(value.approval_policy, TURN_HARNESS_APPROVAL_POLICIES) &&
+    typeof value.approval_required === "boolean" &&
+    typeof value.approval_envelope_required === "boolean" &&
+    value.side_effects_allowed === false &&
+    value.execution_ready === false &&
+    typeof value.receipt_required === "boolean" &&
+    value.raw_prompt_persisted === false &&
+    value.raw_response_persisted === false &&
+    value.raw_memory_body_persisted === false &&
+    value.raw_local_path_persisted === false &&
+    value.credential_persisted === false &&
+    value.safe_refs_only === true &&
+    hasSafeTurnHarnessStringArray(
+      value,
+      "blocked_authority_refs",
+      isSafeTurnHarnessRef,
+    ) &&
+    value.no_effect_scope === "turn_harness_binding_compilation_only" &&
+    value.no_runtime_model_call_performed === true &&
+    value.no_provider_call_performed === true &&
+    value.no_tool_execution_performed === true &&
+    value.no_action_execution_performed === true &&
+    value.no_shell_subprocess_performed === true &&
+    value.no_browser_network_performed === true &&
+    value.no_connector_write_performed === true &&
+    directAnswerStaysEmpty
+  );
+}
+
+function hasSafeTurnHarnessStringArray(
+  record: Record<string, unknown>,
+  field: string,
+  predicate: (value: string) => boolean,
+): boolean {
+  const value = record[field];
+  return (
+    Array.isArray(value) &&
+    value.every((item) => typeof item === "string" && predicate(item))
+  );
+}
+
+function isSafeTurnHarnessRef(value: unknown): value is string {
+  if (typeof value !== "string" || !isSafeWebEvidenceRef(value)) {
+    return false;
+  }
+  const lowered = value.toLowerCase();
+  if (lowered.includes("credential")) {
+    return TURN_HARNESS_SAFE_CREDENTIAL_REFS.has(lowered);
+  }
+  return true;
+}
+
+function isSafeTurnHarnessText(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 500 &&
+    isSafeEvidenceNarrativeText(value)
+  );
+}
+
+function isSafeNonNegativeInteger(value: unknown): value is number {
+  return Number.isInteger(value) && Number(value) >= 0;
+}
+
 export async function submitActionDecision(
   actionId: string,
   decision: FounderLoopActionDecisionKind,
@@ -1558,7 +1834,8 @@ function chatTurnReceiptIdempotencyRef(
   turnRef: string,
   request?: ChatTurnReceiptRequest,
 ): string {
-  return `idempotency-ref:control-center-chat-turn:${safeChatSuffix(turnRef)}:${safeChatSuffix(request?.safe_summary_ref ?? "summary")}`;
+  const postureMaterial = stableStringifyForIdempotency(request ?? {});
+  return `idempotency-ref:control-center-chat-turn:${safeChatSuffix(turnRef)}:${safeChatSuffix(request?.safe_summary_ref ?? "summary")}:${safeHashSuffix(postureMaterial)}`;
 }
 
 function chatHandoffIdempotencyRef(
@@ -1567,6 +1844,10 @@ function chatHandoffIdempotencyRef(
   request?: ChatHandoffRequest,
 ): string {
   return `idempotency-ref:control-center-chat-handoff:${target}:${safeChatSuffix(turnRef)}:${safeChatSuffix(request?.decision_reason_ref ?? "decision")}`;
+}
+
+function localChatProbeIdempotencyRef(modelId: string): string {
+  return `idempotency-ref:control-center-local-chat-probe:${safeChatSuffix(modelId || DEFAULT_LOCAL_MODEL_ID)}`;
 }
 
 function memoryReviewDecisionIdempotencyRef(
@@ -1697,6 +1978,7 @@ export async function requestRedactedLocalChatProbe(
         headers: withLocalApiAuthHeaders({
           Accept: "application/json",
           "Content-Type": "application/json",
+          "X-UAA-Idempotency-Key": localChatProbeIdempotencyRef(modelId),
         }),
         body: JSON.stringify({
           model: modelId,
@@ -1738,6 +2020,11 @@ export async function requestRedactedLocalChatProbe(
       };
     }
     const safety = extractSafetyRecord(data);
+    const turnHarnessBinding = isSafeTurnHarnessBinding(
+      safety.turn_harness_binding,
+    )
+      ? safety.turn_harness_binding
+      : undefined;
     return {
       ...base,
       state: "ready",
@@ -1754,7 +2041,13 @@ export async function requestRedactedLocalChatProbe(
           : "tool-denial-truth-unavailable",
       statusCode: response.status,
       durationMs,
-      reasonCodes: ["LOCAL_CHAT_REDACTED_PROBE_READY"],
+      reasonCodes: [
+        "LOCAL_CHAT_REDACTED_PROBE_READY",
+        turnHarnessBinding
+          ? "TURN_HARNESS_BINDING_READY"
+          : "TURN_HARNESS_BINDING_UNAVAILABLE_OR_REJECTED",
+      ],
+      turnHarnessBinding,
     };
   } catch {
     return {
@@ -1825,6 +2118,27 @@ function safeHashSuffix(value: string): string {
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0).toString(16);
+}
+
+function stableStringifyForIdempotency(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringifyForIdempotency(item)).join(",")}]`;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .filter((key) => record[key] !== undefined)
+      .sort()
+      .map(
+        (key) =>
+          `${JSON.stringify(key)}:${stableStringifyForIdempotency(record[key])}`,
+      )
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
 function extractSafetyRecord(data: unknown): Record<string, unknown> {

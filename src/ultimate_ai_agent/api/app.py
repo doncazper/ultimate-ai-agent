@@ -186,6 +186,7 @@ from ultimate_ai_agent.core.file_review import (
     FileReviewApprovalStore,
     capture_file_review_approval_request,
 )
+from ultimate_ai_agent.core.decision_router import build_chat_turn_harness_binding
 from ultimate_ai_agent.core.openwebui_bridge import (
     OpenWebUILocalChatCompletionRequest,
     build_openwebui_local_chat_completion_response,
@@ -799,10 +800,16 @@ def post_v1_chat_completions(
     if readiness.gateway_mode == "m164_llama_cpp":
         _require_m164_llama_cpp_gateway(authorization, readiness)
         try:
+            local_request = M164ChatCompletionRequest(**payload)
+            turn_harness_binding = build_chat_turn_harness_binding(
+                local_request.messages,
+                model_ref=local_request.model,
+            )
             return build_m164_chat_completion_response(
-                M164ChatCompletionRequest(**payload),
+                local_request,
                 gateway_model=build_m164_gateway_model_from_env(),
                 api_key=llama_cpp_backend_api_key(),
+                turn_harness_binding=turn_harness_binding,
             )
         except ValueError as exc:
             raise HTTPException(
@@ -812,12 +819,19 @@ def post_v1_chat_completions(
     _require_openwebui_local_test_gateway(authorization, readiness)
     try:
         local_request = OpenWebUILocalChatCompletionRequest(**payload)
+        turn_harness_binding = build_chat_turn_harness_binding(
+            local_request.messages,
+            model_ref=local_request.model,
+        )
     except ValueError as exc:
         raise HTTPException(
             status_code=422,
             detail="M151 local OpenWebUI test gateway request failed safe validation.",
         ) from exc
-    return build_openwebui_local_chat_completion_response(local_request)
+    return build_openwebui_local_chat_completion_response(
+        local_request,
+        turn_harness_binding=turn_harness_binding,
+    )
 
 @app.post("/contracts/validate", response_model=ResultEnvelope)
 def post_validate_contract(contract: ExecutionContract) -> Any:

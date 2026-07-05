@@ -25,6 +25,7 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF,
     FounderLoopLocalTaskCommitRequest,
 )
+from ultimate_ai_agent.core.decision_router import TURN_ROUTER_PREVIEW_SAMPLE_PROMPTS
 from ultimate_ai_agent.core.storage import FounderLoopRepository
 
 
@@ -587,6 +588,54 @@ def test_control_center_action_preview_api_denies_execute_and_does_not_echo_secr
     assert secret not in body
 
 
+def test_control_center_turn_router_preview_api_matches_no_effect_samples() -> None:
+    expected = {
+        "diy-desk": "answer_directly",
+        "office-memory": "answer_with_reviewed_memory",
+        "shopping-list": "draft_or_plan",
+        "current-lumber-prices": "prepare_tool_or_action",
+        "order-materials": "approval_required",
+        "card-pickup": "approval_required",
+        "base-answer-bypass": "approval_required",
+    }
+
+    for sample_id, selected_contract in expected.items():
+        response = client.post(
+            "/control-center/turn-router/preview",
+            json={"sample_id": sample_id},
+        )
+        body = response.json()
+
+        assert response.status_code == 200
+        assert body["success"] is True
+        assert body["operation"] == "control_center_turn_router_preview"
+        assert body["data"]["selected_turn_contract"] == selected_contract
+        assert body["data"]["request_kind"] == "sample"
+        assert body["data"]["sample_id"] == sample_id
+        assert body["data"]["no_effect_proof"]["no_runtime_model_call_performed"] is True
+        assert body["data"]["no_effect_proof"]["no_tool_execution_performed"] is True
+        assert body["data"]["no_effect_proof"]["no_action_execution_performed"] is True
+        assert TURN_ROUTER_PREVIEW_SAMPLE_PROMPTS[sample_id] not in response.text
+
+
+def test_control_center_turn_router_preview_api_omits_ephemeral_text_and_secret() -> None:
+    secret = "api_key='abcdefghijklmnop'"
+    response = client.post(
+        "/control-center/turn-router/preview",
+        json={"text": secret},
+    )
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["data"]["selected_turn_contract"] == "approval_required"
+    assert body["data"]["request_kind"] == "ephemeral_text"
+    assert body["data"]["sample_id"] is None
+    assert body["data"]["ephemeral_request_text_omitted"] is True
+    assert "secret_like_input_safely_summarized" in body["redactions_applied"]
+    assert secret not in response.text
+    assert body["data"]["policy_summary"]["tool_execution_allowed"] is False
+
+
 def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     schema = app.openapi()
     paths = schema["paths"]
@@ -600,6 +649,7 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
         "/control-center/foundation-gate/summary",
         "/control-center/setup-assistant/summary",
         "/control-center/actions/preview",
+        "/control-center/turn-router/preview",
         "/control-center/today/summary",
         "/control-center/start-here/summary",
         "/control-center/proof/index",

@@ -55,6 +55,179 @@ export interface ResultEnvelope<T> {
   };
 }
 
+export type TurnRouterPreviewSampleId =
+  | "diy-desk"
+  | "office-memory"
+  | "shopping-list"
+  | "current-lumber-prices"
+  | "order-materials"
+  | "card-pickup"
+  | "base-answer-bypass";
+
+export interface TurnRouterPreviewRequest {
+  sample_id?: TurnRouterPreviewSampleId;
+  text?: string;
+}
+
+export interface TurnRouterPolicySummary {
+  turn_contract: string;
+  memory_scope: string;
+  memory_read_allowed: boolean;
+  memory_write_allowed: boolean;
+  tool_policy: string;
+  tool_choice: string;
+  tool_execution_allowed: boolean;
+  action_execution_allowed: boolean;
+  workflow_execution_allowed: boolean;
+  context_injection_allowed: boolean;
+  approval_policy: string;
+  approval_required: boolean;
+  planner: boolean;
+  durable_state: boolean;
+  state_policy: string;
+  prompt_profile: string;
+  output_contract: string;
+  runtime_model_call_allowed: boolean;
+  provider_call_allowed: boolean;
+  shell_subprocess_allowed: boolean;
+  browser_network_allowed: boolean;
+  connector_write_allowed: boolean;
+  side_effects_allowed: boolean;
+  execution_ready: boolean;
+}
+
+export interface TurnHarnessBindingReadModel {
+  contract_ref: "contract-ref:turn-contract-router:harness-binding:v1";
+  binding_ref: string;
+  decision_ref: string;
+  policy_ref: string;
+  turn_contract: string;
+  safe_summary: string;
+  reason_refs: string[];
+  evidence_refs: string[];
+  risk_flags: string[];
+  memory_scope: string;
+  memory_touched: boolean;
+  reviewed_memory_refs_allowed: boolean;
+  memory_content_retrieved: boolean;
+  memory_write_allowed: boolean;
+  memory_write_performed: boolean;
+  tool_policy: string;
+  tools_exposed_count: number;
+  tool_refs: string[];
+  execution_tools_exposed_count: number;
+  planner: boolean;
+  durable_state: boolean;
+  approval_policy: string;
+  approval_required: boolean;
+  approval_envelope_required: boolean;
+  side_effects_allowed: boolean;
+  execution_ready: boolean;
+  receipt_required: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  raw_memory_body_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  credential_persisted: boolean;
+  safe_refs_only: boolean;
+  blocked_authority_refs: string[];
+  no_effect_scope: "turn_harness_binding_compilation_only";
+  no_runtime_model_call_performed: boolean;
+  no_provider_call_performed: boolean;
+  no_tool_execution_performed: boolean;
+  no_action_execution_performed: boolean;
+  no_shell_subprocess_performed: boolean;
+  no_browser_network_performed: boolean;
+  no_connector_write_performed: boolean;
+}
+
+export interface TurnHarnessBindingReceiptSummary {
+  contract_ref: "contract-ref:turn-contract-router:harness-binding:v1";
+  binding_ref: string;
+  decision_ref: string;
+  policy_ref: string;
+  turn_contract: string;
+  safe_summary: string;
+  reason_refs: string[];
+  evidence_refs: string[];
+  risk_flags: string[];
+  memory_scope: string;
+  memory_touched: boolean;
+  reviewed_memory_refs_allowed: boolean;
+  memory_content_retrieved: boolean;
+  memory_write_allowed: boolean;
+  memory_write_performed: boolean;
+  tool_policy: string;
+  tools_exposed_count: number;
+  tool_refs: string[];
+  execution_tools_exposed_count: number;
+  planner: boolean;
+  durable_state: boolean;
+  approval_policy: string;
+  approval_required: boolean;
+  approval_envelope_required: boolean;
+  side_effects_allowed: boolean;
+  execution_ready: boolean;
+  receipt_required: boolean;
+  prompt_body_persisted: boolean;
+  response_body_persisted: boolean;
+  memory_body_persisted: boolean;
+  local_path_body_persisted: boolean;
+  sensitive_material_persisted: boolean;
+  safe_refs_only: boolean;
+  blocked_authority_refs: string[];
+  no_effect_scope: "turn_harness_binding_compilation_only";
+  no_runtime_model_call_performed: boolean;
+  no_provider_call_performed: boolean;
+  no_tool_execution_performed: boolean;
+  no_action_execution_performed: boolean;
+  no_shell_subprocess_performed: boolean;
+  no_browser_network_performed: boolean;
+  no_connector_write_performed: boolean;
+}
+
+export interface TurnRouterNoEffectProof {
+  authority_granted: boolean;
+  execution_permitted: boolean;
+  no_runtime_model_call_performed: boolean;
+  no_provider_call_performed: boolean;
+  no_tool_execution_performed: boolean;
+  no_action_execution_performed: boolean;
+  no_workflow_execution_performed: boolean;
+  no_context_injection_performed: boolean;
+  no_memory_content_retrieved: boolean;
+  no_memory_write_performed: boolean;
+  no_durable_state_write_performed: boolean;
+  no_shell_subprocess_performed: boolean;
+  no_browser_network_performed: boolean;
+  no_connector_write_performed: boolean;
+  invocation_policy_compiled_only: boolean;
+  raw_request_text_persisted: boolean;
+}
+
+export interface TurnRouterPreviewReadModel {
+  contract_ref: string;
+  preview_ref: string;
+  request_ref: string;
+  request_kind: "sample" | "ephemeral_text";
+  sample_id: TurnRouterPreviewSampleId | null;
+  selected_turn_contract: string;
+  confidence: number;
+  reason_refs: string[];
+  risk_flags: string[];
+  policy_summary: TurnRouterPolicySummary;
+  no_effect_proof: TurnRouterNoEffectProof;
+  blocked_authority_refs: string[];
+  lane_result_refs: string[];
+  source_refs: string[];
+  evidence_refs: string[];
+  route_refs: string[];
+  redactions_applied: string[];
+  safe_summary: string;
+  raw_content_included: boolean;
+  ephemeral_request_text_omitted: boolean;
+}
+
 export interface StatusCard {
   label: string;
   status: string;
@@ -2250,6 +2423,7 @@ export interface ChatTurnReceiptRequest {
   auth_truth: string;
   tool_denial_truth: string;
   safe_summary_ref: string;
+  turn_harness_binding?: TurnHarnessBindingReadModel;
   evidence_refs?: string[];
   metadata_refs?: string[];
 }
@@ -2263,6 +2437,7 @@ export interface ChatTurnReceipt {
   auth_truth: string;
   tool_denial_truth: string;
   safe_summary_ref: string;
+  turn_harness_binding?: TurnHarnessBindingReceiptSummary;
   handoff_refs: string[];
   receipt_ref: string;
   evidence_ref: string;
@@ -7460,6 +7635,7 @@ export interface RedactedLocalChatProbeStatus {
   durationMs?: number;
   responseVisible: false;
   reasonCodes: string[];
+  turnHarnessBinding?: TurnHarnessBindingReadModel;
 }
 
 export interface ActionPreviewRequest {

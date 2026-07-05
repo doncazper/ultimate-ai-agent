@@ -216,6 +216,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "redacted_observability",
         "run_attached_approval_queue",
         "task_decomposition",
+        "turn_contract_router_diagnostic",
         "visual_proof",
         "web_evidence_product_slice",
         "v1_local_model_gateway",

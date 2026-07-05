@@ -109,7 +109,7 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 # Route-boundary evaluators are imported here to preserve the historical public facade.
 from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import *  # noqa: F401,F403
 
-EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 76
+EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 77
 
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
@@ -5441,6 +5441,7 @@ class FoundationGateEvaluator:
             "memoryContextPackActionProposalEndpoint(contextPackRef)",
             "API_ENDPOINTS.localChatCompletions",
             "API_ENDPOINTS.controlCenterWebEvidenceAttach",
+            "API_ENDPOINTS.turnRouterPreview",
         }
         for target in sorted(allowed_post_targets):
             if target not in client:

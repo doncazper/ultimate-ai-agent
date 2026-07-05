@@ -24,6 +24,7 @@ blocked, planned, and future-scoped states distinct.
 | Governed cognitive memory spine | FCC-MEM-001 Memory Workbench V1 and FCC-MEM-022 Ranked Retrieval / Recall Tuning: `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md`, `docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_ROADMAP.md`, `docs/codex/GOVERNED_COGNITIVE_MEMORY_SPINE_HANDOFF.md`, `docs/control_center/FCC_V1_005_MEMORY_REVIEW_DECISIONS.md`, `docs/control_center/FCC_MEM_001_MEMORY_BASELINE_AUDIT.md`, `docs/control_center/FCC_MEM_001_MEMORY_WORKBENCH.md`, `docs/control_center/FCC_MEM_022_RANKED_RETRIEVAL_RECALL_TUNING.md` |
 | Agent module maturity review | `docs/registry/agent_module_maturity_map.json`, `docs/registry/agent_module_maturity_review_v2.json`, `docs/registry/AGENT_MODULE_MATURITY_REVIEW_V2.md` |
 | Top-level decision router contract | `docs/control_center/UAA_P1_089_TOP_LEVEL_DECISION_ROUTER_CONTRACT.md`, `src/ultimate_ai_agent/core/decision_router/contracts.py`, `scripts/verify_uaa_p1_089_top_level_decision_router_contract.py` |
+| Turn Contract Router productization | `docs/architecture/TURN_CONTRACT_ROUTER.md`, `src/ultimate_ai_agent/core/decision_router/`, `scripts/dev/uaa_turn_router.py`, `apps/control-center/src/components/TurnRouterDiagnosticsPanel.tsx`, `apps/control-center/tests/smoke/turn-router.browser-smoke.spec.ts`, `tests/test_turn_contract_router_*.py` |
 | Task decomposition proposal engine | `docs/control_center/UAA_P1_090_TASK_DECOMPOSITION_PROPOSAL_ENGINE.md`, `src/ultimate_ai_agent/core/task_decomposition/proposals.py`, `scripts/verify_uaa_p1_090_task_decomposition_proposal_engine.py` |
 | Durable run lifecycle inspection | `docs/architecture/DURABLE_RUN_LIFECYCLE_EVENT_LOG.md`, `docs/execution/DURABLE_RUN_SPINE.md`, `src/ultimate_ai_agent/core/execution/read_models.py`, `src/ultimate_ai_agent/core/execution/run_storage.py`, `tests/test_durable_run_lifecycle_read_model.py` |
 | Provider and Tool Runtime Safety Contracts | `docs/architecture/PROVIDER_TOOL_RUNTIME_SAFETY_CONTRACTS.md`, `src/ultimate_ai_agent/core/execution/provider_tool_runtime_safety.py`, `tests/test_provider_tool_runtime_safety_contracts.py` |
@@ -222,7 +223,7 @@ verifier, and focused tests. UAA-P1-079 User Intent Understanding V1 completes
 reviewable intent proposals with confidence, source refs, evidence refs,
 ambiguity posture, and ask/act/defer routing. UAA-P1-080 API Route
 Classification And Public/Protected Inventory completes typed route
-classification in `/api/manifest`, the current 187-route inventory fixture,
+classification in `/api/manifest`, the current 188-route inventory fixture,
 route-status manifest alignment, and Control Center API Routes visibility.
 UAA-P1-081 Centralized FastAPI Security Headers completes centralized response
 headers, HTTPS-only HSTS, manifest capability posture, and focused verifier

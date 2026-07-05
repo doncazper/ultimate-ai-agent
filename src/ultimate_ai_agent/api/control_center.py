@@ -26,6 +26,10 @@ from ultimate_ai_agent.core.code import (
     build_coding_test_command_readiness,
     build_coding_workspace_context_preview,
 )
+from ultimate_ai_agent.core.decision_router import (
+    TurnRouterPreviewRequest,
+    build_turn_router_preview,
+)
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.macos_setup_assistant import (
     build_default_macos_setup_assistant_plan,
@@ -364,6 +368,22 @@ def post_control_center_action_preview(
         trace_id=request.request_id,
         data=decision.model_dump(mode="json"),
         redactions_applied=decision.metadata.get("redactions_applied", []),
+    )
+
+
+@router.post("/turn-router/preview", response_model=ResultEnvelope)
+def post_control_center_turn_router_preview(
+    request: TurnRouterPreviewRequest,
+) -> ResultEnvelope:
+    preview = build_turn_router_preview(request)
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_turn_router_preview",
+        service="ControlCenterAPI",
+        trace_id=preview.preview_ref,
+        data=preview.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:turn-router-preview:no-effect"}],
+        redactions_applied=preview.redactions_applied,
     )
 
 

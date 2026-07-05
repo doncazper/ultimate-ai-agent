@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Iterable, Mapping
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.decision_router.turn_classifier import classify_turn_contract
@@ -18,6 +22,8 @@ from ultimate_ai_agent.core.planning.validation import validate_safe_task_text, 
 
 
 TURN_HARNESS_BINDING_CONTRACT_REF = "contract-ref:turn-contract-router:harness-binding:v1"
+TURN_HARNESS_BINDING_NO_EFFECT_SCOPE = "turn_harness_binding_compilation_only"
+DEFAULT_CHAT_HARNESS_ROUTE_REF = "/v1/chat/completions"
 
 
 class TurnHarnessBindingReadModel(BaseModel):
@@ -57,6 +63,7 @@ class TurnHarnessBindingReadModel(BaseModel):
     blocked_authority_refs: list[str] = Field(
         default_factory=lambda: list(TURN_CONTRACT_ROUTER_REQUIRED_BLOCKED_AUTHORITY_REFS)
     )
+    no_effect_scope: str = TURN_HARNESS_BINDING_NO_EFFECT_SCOPE
     no_runtime_model_call_performed: bool = True
     no_provider_call_performed: bool = True
     no_tool_execution_performed: bool = True
@@ -71,8 +78,11 @@ class TurnHarnessBindingReadModel(BaseModel):
     def validate_binding(self) -> "TurnHarnessBindingReadModel":
         if self.contract_ref != TURN_HARNESS_BINDING_CONTRACT_REF:
             raise ValueError("unexpected turn harness binding contract ref")
+        if self.no_effect_scope != TURN_HARNESS_BINDING_NO_EFFECT_SCOPE:
+            raise ValueError("turn harness binding no-effect scope must be compilation-only")
         for field_name in ("contract_ref", "binding_ref", "decision_ref", "policy_ref"):
             validate_task_ref(getattr(self, field_name), field_name)
+        validate_safe_task_text(self.no_effect_scope, "no_effect_scope")
         validate_safe_task_text(self.safe_summary, "safe_summary")
         _validate_ref_list(self.reason_refs, "reason_refs")
         _validate_ref_list(self.evidence_refs, "evidence_refs")
@@ -127,6 +137,20 @@ def build_turn_harness_binding(
         binding_ref=binding_ref,
         reason_refs=[*decision.reason_refs, "reason-ref:turn-harness-binding:compiled-policy"],
         evidence_refs=decision.evidence_refs,
+    )
+
+
+def build_chat_turn_harness_binding(
+    messages: Iterable[Any],
+    *,
+    model_ref: str,
+    route_ref: str = DEFAULT_CHAT_HARNESS_ROUTE_REF,
+) -> TurnHarnessBindingReadModel:
+    suffix = _safe_suffix(f"{route_ref}:{model_ref}")
+    return build_turn_harness_binding(
+        _last_user_message_text(messages),
+        binding_ref=f"turn-harness-binding:v1-chat:{suffix}",
+        decision_ref=f"turn-decision:v1-chat:{suffix}",
     )
 
 
@@ -200,3 +224,28 @@ def _validate_answer_binding_is_empty(binding: TurnHarnessBindingReadModel) -> N
 def _validate_ref_list(values: list[str], field_name: str) -> None:
     for value in values:
         validate_task_ref(value, field_name)
+
+
+def _last_user_message_text(messages: Iterable[Any]) -> str:
+    last_user_text: str | None = None
+    for message in messages:
+        role, content = _message_role_and_content(message)
+        if role == "user" and isinstance(content, str) and content.strip():
+            last_user_text = content
+    return last_user_text or "status"
+
+
+def _message_role_and_content(message: Any) -> tuple[str | None, Any]:
+    if isinstance(message, Mapping):
+        role = message.get("role")
+        content = message.get("content")
+    else:
+        role = getattr(message, "role", None)
+        content = getattr(message, "content", None)
+    normalized_role = role.strip().lower() if isinstance(role, str) else None
+    return normalized_role, content
+
+
+def _safe_suffix(value: str) -> str:
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+    return f"safe-{digest}"

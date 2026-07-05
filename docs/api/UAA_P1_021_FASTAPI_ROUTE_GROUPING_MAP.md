@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `186`.
+Current OpenAPI path count: `187`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `187`
-- OpenAPI paths: `186`
+- Manifest route operations: `188`
+- OpenAPI paths: `187`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -23,7 +23,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 76 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:2, `local_dev_workspace_only`:59, `validation_only`:15 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 77 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:2, `local_dev_workspace_only`:59, `validation_only`:16 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 1 | `extension-catalog` | `extension_catalog_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -149,6 +149,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | POST | `/control-center/today/action-envelope` | `post_control_center_today_action_envelope` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/today/summary` | `get_control_center_today_summary` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/control-center/trust-authority/matrix` | `get_control_center_trust_authority_matrix` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/turn-router/preview` | `post_control_center_turn_router_preview` | `validation_only` | yes | future | yes |
 | POST | `/control-center/web-evidence/attach` | `post_control_center_web_evidence_attach` | `governed_network_read_only` | no | future | yes |
 | POST | `/costs/budgets/validate` | `post_costs_budgets_validate` | `validation_only` | yes | future | yes |
 | POST | `/costs/estimate/preview` | `post_costs_estimate_preview` | `validation_only` | yes | future | yes |

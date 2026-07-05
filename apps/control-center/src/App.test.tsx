@@ -25,6 +25,8 @@ import {
 import {
   CONTROL_CENTER_READ_TIMEOUT_MS,
   fetchMemoryReviewDecisionReceipt,
+  requestRedactedLocalChatProbe,
+  recordChatTurnReceipt,
   recordMemoryFeedback,
   recordMemoryReviewDecision,
   setLocalApiBearerForSession,
@@ -639,6 +641,141 @@ function stubReadEndpointOverrides(overrides: Record<string, unknown>) {
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
+}
+
+function stubTurnRouterPreviewBackend() {
+  const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+    const urlText = String(url);
+    if (
+      options?.method === "POST" &&
+      urlText.endsWith(API_ENDPOINTS.turnRouterPreview)
+    ) {
+      const body = JSON.parse(String(options.body ?? "{}")) as {
+        sample_id?: string;
+        text?: string;
+      };
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          result: turnRouterPreviewFixture(body.sample_id, body.text),
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+      return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (urlText.endsWith(API_ENDPOINTS.localModels)) {
+      return new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    throw new Error(`unexpected request ${urlText}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+function turnRouterPreviewFixture(sampleId?: string, text?: string) {
+  const contractBySample: Record<string, string> = {
+    "diy-desk": "answer_directly",
+    "office-memory": "answer_with_reviewed_memory",
+    "shopping-list": "draft_or_plan",
+    "current-lumber-prices": "prepare_tool_or_action",
+    "order-materials": "approval_required",
+    "card-pickup": "approval_required",
+    "base-answer-bypass": "approval_required",
+  };
+  const selected =
+    sampleId !== undefined
+      ? (contractBySample[sampleId] ?? "answer_directly")
+      : text?.toLowerCase().includes("card") || text?.toLowerCase().includes("order")
+        ? "approval_required"
+        : "answer_directly";
+  const approvalRequired = selected === "approval_required";
+  const memoryRead = selected === "answer_with_reviewed_memory";
+  const toolPrep = selected === "prepare_tool_or_action";
+  const suffix = sampleId ?? "ephemeral-text";
+  return {
+    contract_ref: "contract-ref:turn-router-preview:v1",
+    preview_ref: `turn-router-preview:test:${suffix}`,
+    request_ref:
+      sampleId !== undefined
+        ? `turn-router-preview-request:sample:${sampleId}`
+        : "turn-router-preview-request:ephemeral-text",
+    request_kind: sampleId !== undefined ? "sample" : "ephemeral_text",
+    sample_id: sampleId ?? null,
+    selected_turn_contract: selected,
+    confidence: 0.94,
+    reason_refs: [`reason-ref:turn-router-preview:test:${suffix}`],
+    risk_flags: approvalRequired ? ["payment_or_booking_boundary"] : [],
+    policy_summary: {
+      turn_contract: selected,
+      memory_scope: memoryRead ? "reviewed_refs_only" : "none",
+      memory_read_allowed: memoryRead,
+      memory_write_allowed: false,
+      tool_policy: toolPrep ? "read_only_tool_prep" : "none",
+      tool_choice: "none",
+      tool_execution_allowed: false,
+      action_execution_allowed: false,
+      workflow_execution_allowed: false,
+      context_injection_allowed: false,
+      approval_policy: approvalRequired ? "approval_required" : "not_required",
+      approval_required: approvalRequired,
+      planner: selected === "draft_or_plan",
+      durable_state: false,
+      state_policy: "none",
+      prompt_profile: "diagnostic_preview",
+      output_contract: "safe_summary_only",
+      runtime_model_call_allowed: false,
+      provider_call_allowed: false,
+      shell_subprocess_allowed: false,
+      browser_network_allowed: false,
+      connector_write_allowed: false,
+      side_effects_allowed: false,
+      execution_ready: false,
+    },
+    no_effect_proof: {
+      authority_granted: false,
+      execution_permitted: false,
+      no_runtime_model_call_performed: true,
+      no_provider_call_performed: true,
+      no_tool_execution_performed: true,
+      no_action_execution_performed: true,
+      no_workflow_execution_performed: true,
+      no_context_injection_performed: true,
+      no_memory_content_retrieved: true,
+      no_memory_write_performed: true,
+      no_durable_state_write_performed: true,
+      no_shell_subprocess_performed: true,
+      no_browser_network_performed: true,
+      no_connector_write_performed: true,
+      invocation_policy_compiled_only: true,
+      raw_request_text_persisted: false,
+    },
+    blocked_authority_refs: [
+      "blocked-state:turn-router-preview:no-runtime-model-call",
+      "blocked-state:turn-router-preview:no-provider-call",
+      "blocked-state:turn-router-preview:no-tool-execution",
+      "blocked-state:turn-router-preview:no-action-execution",
+      "blocked-state:turn-router-preview:no-memory-write",
+      "blocked-state:turn-router-preview:no-shell-subprocess",
+      "blocked-state:turn-router-preview:no-browser-network",
+      "blocked-state:turn-router-preview:no-connector-write",
+    ],
+    lane_result_refs: [`turn-preflight-lane-result:test:${suffix}`],
+    source_refs: ["source-ref:turn-router-preview:no-effect"],
+    evidence_refs: ["evidence-ref:turn-router-preview:no-effect"],
+    route_refs: [API_ENDPOINTS.turnRouterPreview],
+    redactions_applied: ["ephemeral_request_text_omitted"],
+    safe_summary: "Turn router preview produced a no-effect diagnostic read model.",
+    raw_content_included: false,
+    ephemeral_request_text_omitted: true,
+  };
 }
 
 function backendOwnedCodingSessionFixture(overrides: Record<string, unknown> = {}) {
@@ -4418,6 +4555,350 @@ describe("Web Control Center shell", () => {
     ).toHaveTextContent("blocked");
   });
 
+  it("renders Control Center turn router diagnostics from backend preview data", async () => {
+    const fetchMock = stubTurnRouterPreviewBackend();
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    const diagnostics = await screen.findByRole("region", {
+      name: /Router Diagnostics/i,
+    });
+    expect(
+      await within(diagnostics).findByText("Backend-owned router preview"),
+    ).toBeInTheDocument();
+    expect(within(diagnostics).getAllByText("answer_directly").length).toBeGreaterThan(0);
+    expect(
+      within(diagnostics).getByText("Lightweight answer posture"),
+    ).toBeInTheDocument();
+    expect(
+      within(diagnostics).getByText("Memory").nextElementSibling,
+    ).toHaveTextContent("none; write no");
+    expect(
+      within(diagnostics).getByText("Approval").nextElementSibling,
+    ).toHaveTextContent("not_required; required no");
+    expect(
+      within(diagnostics).getByText("Action execution").nextElementSibling,
+    ).toHaveTextContent("not performed");
+    expect(
+      within(diagnostics).queryByText("selected_turn_contract"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(diagnostics).queryByRole("button", { name: /execute/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(diagnostics).getByText(/raw text omitted:\s+yes/i),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(diagnostics).getByRole("button", { name: /Office memory/i }),
+    );
+    await waitFor(() =>
+      expect(
+        within(diagnostics).getAllByText("answer_with_reviewed_memory").length,
+      ).toBeGreaterThan(0),
+    );
+    expect(
+      within(diagnostics).getByText("Reviewed-memory posture"),
+    ).toBeInTheDocument();
+    expect(
+      within(diagnostics).getByText("Memory").nextElementSibling,
+    ).toHaveTextContent("reviewed_refs_only; write no");
+
+    fireEvent.click(
+      within(diagnostics).getByRole("button", { name: /Order materials/i }),
+    );
+    await waitFor(() =>
+      expect(
+        within(diagnostics).getAllByText("approval_required").length,
+      ).toBeGreaterThan(0),
+    );
+    expect(
+      within(diagnostics).getByText("Approval boundary"),
+    ).toBeInTheDocument();
+    expect(
+      within(diagnostics).getByText("Approval").nextElementSibling,
+    ).toHaveTextContent("approval_required; required yes");
+
+    fireEvent.click(
+      within(diagnostics).getByRole("button", {
+        name: /Base-answer bypass/i,
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        within(diagnostics).getAllByText("approval_required").length,
+      ).toBeGreaterThan(0),
+    );
+    const previewCalls = fetchMock.mock.calls.filter(
+      ([url, options]) =>
+        String(url).endsWith(API_ENDPOINTS.turnRouterPreview) &&
+        options?.method === "POST",
+    );
+    expect(previewCalls.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("clears ephemeral router text and does not render the submitted text", async () => {
+    const rawText = "safe-ref:turn-router-test:ephemeral-answer-direct";
+    stubTurnRouterPreviewBackend();
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    const diagnostics = await screen.findByRole("region", {
+      name: /Router Diagnostics/i,
+    });
+    const input = within(diagnostics).getByLabelText(
+      "Ephemeral one-shot router text",
+    );
+    fireEvent.change(input, { target: { value: rawText } });
+    fireEvent.click(
+      within(diagnostics).getByRole("button", { name: /Preview turn/i }),
+    );
+
+    expect(
+      await within(diagnostics).findByText("Ephemeral text"),
+    ).toBeInTheDocument();
+    expect(within(diagnostics).queryByDisplayValue(rawText)).not.toBeInTheDocument();
+    expect(within(diagnostics).queryByText(rawText)).not.toBeInTheDocument();
+    expect(within(diagnostics).getAllByText("answer_directly").length).toBeGreaterThan(0);
+  });
+
+  it("fails closed without reusing sample contracts when ephemeral preview fails", async () => {
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.turnRouterPreview)
+      ) {
+        const body = JSON.parse(String(options.body ?? "{}")) as {
+          sample_id?: string;
+          text?: string;
+        };
+        if (typeof body.text === "string") {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              error: { message: "Turn router preview unavailable." },
+            }),
+            { status: 503, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: turnRouterPreviewFixture(body.sample_id),
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    const diagnostics = await screen.findByRole("region", {
+      name: /Router Diagnostics/i,
+    });
+    expect(
+      await within(diagnostics).findByText("Backend-owned router preview"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(
+      within(diagnostics).getByLabelText("Ephemeral one-shot router text"),
+      { target: { value: "Order the materials." } },
+    );
+    fireEvent.click(
+      within(diagnostics).getByRole("button", { name: /Preview turn/i }),
+    );
+
+    expect(
+      await within(diagnostics).findByText("Non-authoritative mock fallback"),
+    ).toBeInTheDocument();
+    expect(within(diagnostics).getByText("Ephemeral text")).toBeInTheDocument();
+    expect(within(diagnostics).getByText("Approval boundary")).toBeInTheDocument();
+    expect(
+      within(diagnostics).getAllByText("approval_required").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(diagnostics).getByText(/Preview route was unavailable/i),
+    ).toBeInTheDocument();
+  });
+
+  it("rejects unsafe turn router preview payloads as non-authoritative", async () => {
+    const unsafePreview = {
+      ...turnRouterPreviewFixture("diy-desk"),
+      raw_content_included: true,
+      ephemeral_request_text_omitted: false,
+      no_effect_proof: {
+        ...turnRouterPreviewFixture("diy-desk").no_effect_proof,
+        authority_granted: true,
+      },
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.turnRouterPreview)
+      ) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: unsafePreview,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    const diagnostics = await screen.findByRole("region", {
+      name: /Router Diagnostics/i,
+    });
+    expect(
+      await within(diagnostics).findByText("Non-authoritative mock fallback"),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(diagnostics).toHaveTextContent(
+        /Turn router preview was rejected safely/i,
+      ),
+    );
+    expect(
+      within(diagnostics).queryByText("Backend-owned router preview"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("rejects turn router previews with policy drift or missing blocked refs", async () => {
+    const unsafePreview = {
+      ...turnRouterPreviewFixture("order-materials"),
+      blocked_authority_refs: [
+        "blocked-state:turn-router-preview:no-runtime-model-call",
+      ],
+      policy_summary: {
+        ...turnRouterPreviewFixture("order-materials").policy_summary,
+        turn_contract: "answer_directly",
+        approval_required: false,
+      },
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.turnRouterPreview)
+      ) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: unsafePreview,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    const diagnostics = await screen.findByRole("region", {
+      name: /Router Diagnostics/i,
+    });
+    expect(
+      await within(diagnostics).findByText("Non-authoritative mock fallback"),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(diagnostics).toHaveTextContent(
+        /Turn router preview was rejected safely/i,
+      ),
+    );
+  });
+
+  it("rejects unsupported turn router preview contracts", async () => {
+    const unsafePreview = {
+      ...turnRouterPreviewFixture("diy-desk"),
+      selected_turn_contract: "execute_approved_action",
+      policy_summary: {
+        ...turnRouterPreviewFixture("diy-desk").policy_summary,
+        turn_contract: "execute_approved_action",
+      },
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.turnRouterPreview)
+      ) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: unsafePreview,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    const diagnostics = await screen.findByRole("region", {
+      name: /Router Diagnostics/i,
+    });
+    expect(
+      await within(diagnostics).findByText("Non-authoritative mock fallback"),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(diagnostics).toHaveTextContent(
+        /Turn router preview was rejected safely/i,
+      ),
+    );
+    expect(within(diagnostics).queryByText("execute_approved_action")).not.toBeInTheDocument();
+  });
+
+  it("labels turn router diagnostics mock fallback as non-authoritative", async () => {
+    mockFetchWithFallback();
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    const diagnostics = await screen.findByRole("region", {
+      name: /Router Diagnostics/i,
+    });
+    expect(
+      within(diagnostics).getByText("Non-authoritative mock fallback"),
+    ).toBeInTheDocument();
+    expect(within(diagnostics).getAllByText("answer_directly").length).toBeGreaterThan(0);
+    expect(
+      within(diagnostics).queryByText("selected_turn_contract"),
+    ).not.toBeInTheDocument();
+  });
+
   it("fails closed for unsafe Chat to Loop handoff payloads", async () => {
     const directMemoryWriteKey = "direct_memory_" + "write_authorized";
     const unsafeToday = {
@@ -5596,6 +6077,73 @@ describe("Web Control Center shell", () => {
   });
 
   it("records a Chat durable receipt and reviewable handoff with safe refs only", async () => {
+    const turnHarnessBinding = {
+      contract_ref: "contract-ref:turn-contract-router:harness-binding:v1",
+      binding_ref: "turn-harness-binding:v1-chat:v1-chat-completions-uaa-llama-cpp-local",
+      decision_ref: "turn-decision:v1-chat:v1-chat-completions-uaa-llama-cpp-local",
+      policy_ref: "policy-ref:turn-contract-router:turn-decision:v1-chat",
+      turn_contract: "answer_directly",
+      safe_summary:
+        "Turn harness binding read model prepared safe capability refs without execution.",
+      reason_refs: ["reason-ref:turn-harness-binding:compiled-policy"],
+      evidence_refs: ["evidence:turn-contract:deterministic-rules"],
+      risk_flags: ["low_risk"],
+      memory_scope: "none",
+      memory_touched: false,
+      reviewed_memory_refs_allowed: false,
+      memory_content_retrieved: false,
+      memory_write_allowed: false,
+      memory_write_performed: false,
+      tool_policy: "none",
+      tools_exposed_count: 0,
+      tool_refs: [],
+      execution_tools_exposed_count: 0,
+      planner: false,
+      durable_state: false,
+      approval_policy: "not_required",
+      approval_required: false,
+      approval_envelope_required: false,
+      side_effects_allowed: false,
+      execution_ready: false,
+      receipt_required: false,
+      raw_prompt_persisted: false,
+      raw_response_persisted: false,
+      raw_memory_body_persisted: false,
+      raw_local_path_persisted: false,
+      credential_persisted: false,
+      safe_refs_only: true,
+      blocked_authority_refs: [
+        "blocked-authority:no-runtime-model-call",
+        "blocked-authority:no-tool-execution",
+        "blocked-authority:no-action-execution",
+      ],
+      no_effect_scope: "turn_harness_binding_compilation_only",
+      no_runtime_model_call_performed: true,
+      no_provider_call_performed: true,
+      no_tool_execution_performed: true,
+      no_action_execution_performed: true,
+      no_shell_subprocess_performed: true,
+      no_browser_network_performed: true,
+      no_connector_write_performed: true,
+    };
+    const turnHarnessReceiptBinding = {
+      ...turnHarnessBinding,
+      prompt_body_persisted: false,
+      response_body_persisted: false,
+      memory_body_persisted: false,
+      local_path_body_persisted: false,
+      sensitive_material_persisted: false,
+    };
+    delete (turnHarnessReceiptBinding as Partial<typeof turnHarnessBinding>)
+      .raw_prompt_persisted;
+    delete (turnHarnessReceiptBinding as Partial<typeof turnHarnessBinding>)
+      .raw_response_persisted;
+    delete (turnHarnessReceiptBinding as Partial<typeof turnHarnessBinding>)
+      .raw_memory_body_persisted;
+    delete (turnHarnessReceiptBinding as Partial<typeof turnHarnessBinding>)
+      .raw_local_path_persisted;
+    delete (turnHarnessReceiptBinding as Partial<typeof turnHarnessBinding>)
+      .credential_persisted;
     const chatReceipt = {
       contract_ref: "contract-ref:founder-loop-chat-durable-receipt:v1",
       turn_ref: "chat-turn:local-operator:uaa-llama-cpp-local",
@@ -5605,6 +6153,7 @@ describe("Web Control Center shell", () => {
       auth_truth: "local-bearer-accepted",
       tool_denial_truth: "tools-functions-streaming-denied",
       safe_summary_ref: "safe-summary-ref:control-center-chat-probe",
+      turn_harness_binding: turnHarnessReceiptBinding,
       handoff_refs: [
         "handoff-ref:chat-to-actions:uaa-llama-cpp-local",
         "handoff-ref:chat-to-plans:uaa-llama-cpp-local",
@@ -5701,6 +6250,7 @@ describe("Web Control Center shell", () => {
                 tools_enabled: false,
                 functions_enabled: false,
                 streaming_enabled: false,
+                turn_harness_binding: turnHarnessBinding,
               },
             },
           }),
@@ -5753,6 +6303,17 @@ describe("Web Control Center shell", () => {
     );
 
     await screen.findByText("receipt:chat-turn:control-center-test");
+    const [, probeOptions] =
+      fetchMock.mock.calls.find(
+        ([url, options]) =>
+          options?.method === "POST" &&
+          String(url).endsWith(API_ENDPOINTS.localChatCompletions),
+      ) ?? [];
+    expect(probeOptions?.headers).toMatchObject({
+      "X-UAA-Idempotency-Key": expect.stringMatching(
+        /^idempotency-ref:control-center-local-chat-probe:/,
+      ),
+    });
     const [, receiptOptions] =
       fetchMock.mock.calls.find(
         ([url, options]) =>
@@ -5768,9 +6329,28 @@ describe("Web Control Center shell", () => {
       JSON.parse(String(receiptOptions?.body)),
     );
     expect(receiptBody).toContain("model-ref:uaa-llama-cpp-local");
+    expect(receiptBody).toContain(turnHarnessBinding.binding_ref);
     expect(receiptBody).not.toContain("messages");
-    expect(receiptBody).not.toContain("content");
-    expect(receiptBody).not.toContain("raw");
+    expect(receiptBody).not.toContain("status");
+    expect(receiptBody).not.toContain("completion text");
+    expect(receiptBody).not.toContain("prompt body");
+    expect(JSON.parse(String(receiptOptions?.body))).toMatchObject({
+      turn_harness_binding: {
+        binding_ref: turnHarnessBinding.binding_ref,
+        turn_contract: "answer_directly",
+        no_effect_scope: "turn_harness_binding_compilation_only",
+        tools_exposed_count: 0,
+        no_action_execution_performed: true,
+      },
+    });
+    expect(
+      screen.getAllByText(turnHarnessBinding.binding_ref).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("answer_directly").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("turn_harness_binding_compilation_only").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("proved")).toBeInTheDocument();
 
     fireEvent.click(
       await screen.findByRole("button", { name: /Record actions proposal/i }),
@@ -5796,6 +6376,183 @@ describe("Web Control Center shell", () => {
       handoff_target: "actions",
       decision_reason_ref: "decision-reason-ref:control-center-chat-actions",
     });
+  });
+
+  it("keys chat receipt idempotency from the full safe receipt request", async () => {
+    const binding: NonNullable<
+      Parameters<typeof recordChatTurnReceipt>[0]["turn_harness_binding"]
+    > = {
+      contract_ref: "contract-ref:turn-contract-router:harness-binding:v1",
+      binding_ref:
+        "turn-harness-binding:v1-chat:v1-chat-completions-uaa-safe-local",
+      decision_ref: "turn-decision:v1-chat:v1-chat-completions-uaa-safe-local",
+      policy_ref:
+        "policy-ref:turn-contract-router:invocation-policy-compiler:v1",
+      turn_contract: "answer_directly",
+      safe_summary:
+        "Turn harness binding read model prepared safe capability refs without execution.",
+      reason_refs: ["reason-ref:turn-harness-binding:compiled-policy"],
+      evidence_refs: ["evidence:turn-contract:deterministic-rules"],
+      risk_flags: ["low_risk"],
+      memory_scope: "none",
+      memory_touched: false,
+      reviewed_memory_refs_allowed: false,
+      memory_content_retrieved: false,
+      memory_write_allowed: false,
+      memory_write_performed: false,
+      tool_policy: "none",
+      tools_exposed_count: 0,
+      tool_refs: [],
+      execution_tools_exposed_count: 0,
+      planner: false,
+      durable_state: false,
+      approval_policy: "not_required",
+      approval_required: false,
+      approval_envelope_required: false,
+      side_effects_allowed: false,
+      execution_ready: false,
+      receipt_required: false,
+      raw_prompt_persisted: false,
+      raw_response_persisted: false,
+      raw_memory_body_persisted: false,
+      raw_local_path_persisted: false,
+      credential_persisted: false,
+      safe_refs_only: true,
+      blocked_authority_refs: ["blocked-authority:no-tool-execution"],
+      no_effect_scope: "turn_harness_binding_compilation_only",
+      no_runtime_model_call_performed: true,
+      no_provider_call_performed: true,
+      no_tool_execution_performed: true,
+      no_action_execution_performed: true,
+      no_shell_subprocess_performed: true,
+      no_browser_network_performed: true,
+      no_connector_write_performed: true,
+    };
+    const request = {
+      turn_ref: "chat-turn:local-operator:uaa-safe-local",
+      route_ref: API_ENDPOINTS.localChatCompletions,
+      model_ref: "model-ref:uaa-safe-local",
+      runtime_truth: "local-chat-route-answered",
+      auth_truth: "local-bearer-accepted",
+      tool_denial_truth: "tools-functions-streaming-denied",
+      safe_summary_ref: "safe-summary-ref:control-center-chat-probe",
+      turn_harness_binding: binding,
+      evidence_refs: ["evidence-ref:control-center-chat-probe"],
+      metadata_refs: ["metadata-ref:control-center-chat:uaa-safe-local"],
+    } satisfies Parameters<typeof recordChatTurnReceipt>[0];
+    const fetchMock = vi.fn(async (_url: string, _options?: RequestInit) => {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          result: {
+            turn_ref: request.turn_ref,
+            receipt_ref: "receipt:chat-turn:control-center-test",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await recordChatTurnReceipt(request);
+    await recordChatTurnReceipt({
+      ...request,
+      turn_harness_binding: {
+        ...binding,
+        safe_summary:
+          "Turn harness binding read model compiled safe capability refs without execution.",
+      },
+    });
+
+    const keys = fetchMock.mock.calls.map(
+      ([, options]) =>
+        (options?.headers as Record<string, string>)["X-UAA-Idempotency-Key"],
+    );
+    expect(keys[0]).toMatch(
+      /^idempotency-ref:control-center-chat-turn:chat-turn-local-operator-uaa-safe-local:/,
+    );
+    expect(keys[1]).toMatch(
+      /^idempotency-ref:control-center-chat-turn:chat-turn-local-operator-uaa-safe-local:/,
+    );
+    expect(keys[0]).not.toEqual(keys[1]);
+  });
+
+  it("rejects malformed local chat harness metadata before receipt handoff", async () => {
+    const malformedBinding: Record<string, unknown> = {
+      contract_ref: "contract-ref:turn-contract-router:harness-binding:v1",
+      binding_ref:
+        "turn-harness-binding:v1-chat:v1-chat-completions-uaa-safe-local",
+      decision_ref: "turn-decision:v1-chat:v1-chat-completions-uaa-safe-local",
+      policy_ref: "policy-ref:turn-contract-router:turn-decision:v1-chat",
+      turn_contract: "answer_directly",
+      safe_summary:
+        "Turn harness binding read model prepared safe capability refs without execution.",
+      reason_refs: ["reason-ref:turn-harness-binding:compiled-policy"],
+      evidence_refs: ["evidence:turn-contract:deterministic-rules"],
+      risk_flags: ["low_risk"],
+      memory_scope: "none",
+      reviewed_memory_refs_allowed: false,
+      memory_content_retrieved: false,
+      memory_write_allowed: false,
+      memory_write_performed: false,
+      tool_policy: "none",
+      tools_exposed_count: 0,
+      tool_refs: [],
+      execution_tools_exposed_count: 0,
+      planner: false,
+      durable_state: false,
+      approval_policy: "not_required",
+      approval_required: false,
+      approval_envelope_required: false,
+      side_effects_allowed: false,
+      execution_ready: false,
+      receipt_required: false,
+      raw_prompt_persisted: false,
+      raw_response_persisted: false,
+      raw_memory_body_persisted: false,
+      raw_local_path_persisted: false,
+      credential_persisted: false,
+      safe_refs_only: true,
+      blocked_authority_refs: ["blocked-authority:no-tool-execution"],
+      no_effect_scope: "turn_harness_binding_compilation_only",
+      no_runtime_model_call_performed: true,
+      no_provider_call_performed: true,
+      no_tool_execution_performed: true,
+      no_action_execution_performed: true,
+      no_shell_subprocess_performed: true,
+      no_browser_network_performed: true,
+      no_connector_write_performed: true,
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      expect(String(url)).toContain(API_ENDPOINTS.localChatCompletions);
+      expect(options?.headers).toMatchObject({
+        "X-UAA-Idempotency-Key": expect.stringMatching(
+          /^idempotency-ref:control-center-local-chat-probe:/,
+        ),
+      });
+      return new Response(
+        JSON.stringify({
+          id: "chatcmpl-safe-probe",
+          uaa_safety: {
+            tool_executed: false,
+            tools_enabled: false,
+            functions_enabled: false,
+            streaming_enabled: false,
+            turn_harness_binding: malformedBinding,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await requestRedactedLocalChatProbe("uaa-safe-local");
+
+    expect(result.state).toBe("ready");
+    expect(result.turnHarnessBinding).toBeUndefined();
+    expect(result.reasonCodes).toContain(
+      "TURN_HARNESS_BINDING_UNAVAILABLE_OR_REJECTED",
+    );
   });
 
   it("renders runtime, remote, mobile, and plugin governance panels as safe summaries", async () => {
@@ -12091,8 +12848,9 @@ describe("Web Control Center shell", () => {
     expect(screen.queryByText(/supersecretvalue123/i)).not.toBeInTheDocument();
   });
 
-  it("keeps read endpoints separate from the single preview POST endpoint", () => {
+  it("keeps read endpoints separate from preview POST endpoints", () => {
     expect(READ_ENDPOINTS).not.toContain(API_ENDPOINTS.actionPreview);
+    expect(READ_ENDPOINTS).not.toContain(API_ENDPOINTS.turnRouterPreview);
     expect(READ_ENDPOINTS).not.toContain(
       API_ENDPOINTS.founderTodayActionEnvelope,
     );
@@ -12101,6 +12859,9 @@ describe("Web Control Center shell", () => {
     );
     expect(READ_ENDPOINTS).not.toContain(API_ENDPOINTS.controlCenterChatTurns);
     expect(API_ENDPOINTS.actionPreview).toBe("/control-center/actions/preview");
+    expect(API_ENDPOINTS.turnRouterPreview).toBe(
+      "/control-center/turn-router/preview",
+    );
     expect(API_ENDPOINTS.controlCenterChatTurns).toBe(
       "/control-center/chat/turns",
     );
@@ -12199,6 +12960,7 @@ describe("Web Control Center shell", () => {
       "/runtime/smoke-reports/validate",
     );
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
+    expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
       true,
     );
