@@ -10319,6 +10319,28 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/Local llama\.cpp lifecycle/i)).toBeInTheDocument();
     expect(screen.getByText(/ModelRouter traces/i)).toBeInTheDocument();
     expect(
+      screen.getByText(/Model\/provider research posture/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/External information posture/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "contract-ref:goatcitadel-catchup-model-provider-research-posture:mock-fallback",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("truth-boundary-ref:model-output:not-authority"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "lane-ref:web-evidence:allowlisted-https-get-through-web-access-gateway",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-state:web-access:no-browser-actions"),
+    ).toBeInTheDocument();
+    expect(
       screen.getAllByText(
         "provider-adapter-ref:tiny-exact-approved:openai-compatible-live",
       ).length,
@@ -10366,6 +10388,13 @@ describe("Web Control Center shell", () => {
     )[0];
     unsafeAdapter.network_call_enabled_by_default = true;
     unsafeAdapter.provider_payload_persistence_allowed = true;
+    const unsafeResearchPosture = unsafeControlPlane.model_provider_research_posture as Record<
+      string,
+      unknown
+    >;
+    unsafeResearchPosture.provider_sdk_call_enabled = true;
+    unsafeResearchPosture.live_web_fetch_enabled = true;
+    unsafeResearchPosture.safe_summary = "unsafe research posture enabled";
 
     stubReadEndpointOverrides({
       [API_ENDPOINTS.modelProviderControlPlane]: unsafeControlPlane,
@@ -10382,7 +10411,15 @@ describe("Web Control Center shell", () => {
       screen.queryByText(/unsafe model provider enabled/i),
     ).not.toBeInTheDocument();
     expect(
+      screen.queryByText(/unsafe research posture enabled/i),
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByText("blocked-state:model-provider:broad-provider-runtime"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "truth-boundary-ref:model-output:not-authority",
+      ),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Provider SDK calls/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/^blocked$/i).length).toBeGreaterThan(0);

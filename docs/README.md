@@ -158,6 +158,8 @@ Provider Credential Readiness + Cost Governor Binding is documented in
 Provider And Settings Diagnostics is documented in
 `docs/control_center/PROVIDER_SETTINGS_DIAGNOSTICS.md`, Model/Provider Control
 Plane is documented in `docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md`,
+with GoatCitadel catch-up Phase 07 model/provider/research posture documented in
+`docs/control_center/UAA_GOATCITADEL_CATCHUP_MODEL_PROVIDER_RESEARCH.md`,
 and the
 Credential Vault Contract Shell is documented in
 `docs/control_center/CREDENTIAL_VAULT_CONTRACT_SHELL.md`, Credential Vault
@@ -208,7 +210,10 @@ usage/cost receipts, incomplete-cost blocking, revocation, UI/CLI inspection,
 audit/replay posture, safe-disable/rollback posture, and no broad spend toggle;
 this boundary is checked by
 `scripts/verify_provider_billing_authority_boundary.py` and
-`tests/test_provider_billing_authority_boundary.py`; backend safe-ref
+`tests/test_provider_billing_authority_boundary.py`; Phase 07 model/provider
+research posture is checked by
+`scripts/verify_uaa_goatcitadel_catchup_model_provider_research.py` and
+`tests/test_goatcitadel_catchup_model_provider_research.py`; backend safe-ref
 posture is checked by `scripts/verify_credential_vault_backend_v1.py`. They add no secret
 resolution API, no raw secret display, no built-in live validation transport,
 no provider SDK calls, no provider network call by default, no provider network

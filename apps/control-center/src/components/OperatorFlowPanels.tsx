@@ -814,6 +814,9 @@ function ModelProviderControlPlanePanel({
   controlPlane: ModelProviderControlPlaneReadModel;
 }) {
   const trace = controlPlane.router_traces[0];
+  const researchPosture = controlPlane.model_provider_research_posture;
+  const externalPosture = researchPosture.external_information;
+  const firstProviderPosture = researchPosture.provider_postures[0];
   return (
     <article className="panel model-provider-control-plane-panel">
       <div className="panel-heading">
@@ -1135,6 +1138,77 @@ function ModelProviderControlPlanePanel({
             ],
           ]}
           blockerCodes={trace?.reason_codes ?? ["NO_TRACE_AVAILABLE"]}
+        />
+        <ReadinessGateCard
+          title="Model/provider research posture"
+          status={researchPosture.status}
+          summary={researchPosture.model_output_truth.safe_summary}
+          details={[
+            ["Contract", researchPosture.contract_ref],
+            ["Providers summarized", String(researchPosture.provider_count)],
+            [
+              "First provider",
+              firstProviderPosture?.provider_label ?? "not reported",
+            ],
+            [
+              "First provider status",
+              firstProviderPosture?.status ?? "not reported",
+            ],
+            [
+              "Model output truth",
+              researchPosture.model_output_truth.status,
+            ],
+            [
+              "Memory/action escalation",
+              researchPosture.memory_write_authorized ||
+              researchPosture.action_execution_authorized
+                ? "enabled"
+                : "blocked",
+            ],
+          ]}
+          blockerCodes={[
+            researchPosture.model_output_truth.truth_boundary_ref,
+            ...researchPosture.blocked_authority_refs.slice(0, 5),
+          ]}
+        />
+        <ReadinessGateCard
+          title="External information posture"
+          status={externalPosture.status}
+          summary={externalPosture.safe_summary}
+          details={[
+            [
+              "Web runtime contract",
+              externalPosture.web_runtime_authority_contract_ref,
+            ],
+            [
+              "Gateway required",
+              externalPosture.web_access_gateway_required ? "yes" : "no",
+            ],
+            [
+              "Default policy",
+              externalPosture.default_policy_denied ? "denied" : "open",
+            ],
+            [
+              "Fetched content",
+              externalPosture.fetched_content_untrusted
+                ? "untrusted evidence"
+                : "trusted",
+            ],
+            [
+              "Browser action",
+              externalPosture.browser_action_enabled_by_control_plane
+                ? "enabled"
+                : "blocked",
+            ],
+            [
+              "Source metadata",
+              externalPosture.source_metadata_required ? "required" : "missing",
+            ],
+          ]}
+          blockerCodes={[
+            ...externalPosture.allowed_current_lane_refs,
+            ...externalPosture.blocked_authority_refs.slice(0, 5),
+          ]}
         />
       </div>
       <div
