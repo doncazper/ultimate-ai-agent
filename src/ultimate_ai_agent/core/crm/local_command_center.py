@@ -68,6 +68,7 @@ CRM_LOCAL_COMMAND_CENTER_CLI_REFS = [
     "repo-local-command:uaa-crm:inspect-relationships",
     "repo-local-command:uaa-crm:inspect-follow-ups",
     "repo-local-command:uaa-crm:inspect-pipelines",
+    "repo-local-command:uaa-crm:inspect-connector-read-lanes",
     "repo-local-command:uaa-crm:inspect-storage",
 ]
 
@@ -648,24 +649,118 @@ class CrmReportReadModel(_CrmLocalModel):
 class CrmConnectorReadLaneReadModel(_CrmLocalModel):
     posture_ref: str = CRM_LOCAL_CONNECTOR_READ_POSTURE_REF
     lanes: list[dict[str, str]]
+    readiness_status: Literal["blocked_missing_exact_authority"] = (
+        "blocked_missing_exact_authority"
+    )
+    source_scope_ref: str = (
+        "scope-ref:crm-connector-read:single-source-metadata-only:v1"
+    )
+    test_account_scope_ref: str = (
+        "scope-ref:crm-connector-read:named-test-account-required:v1"
+    )
+    gateway_boundary_ref: str = (
+        "gateway-ref:crm-connector-read:approved-read-gateway-required:v1"
+    )
+    policy_decision_ref: str = (
+        "policy-ref:crm-connector-read:deny-until-exact-lane:v1"
+    )
+    approval_scope_ref: str = (
+        "approval-scope-ref:crm-connector-read:per-attempt-required:v1"
+    )
+    audit_schema_ref: str = "audit-schema-ref:crm-connector-read:v1"
+    redaction_policy_ref: str = "redaction-ref:crm-connector-read:safe-refs-only:v1"
+    safe_disable_ref: str = "safe-disable-ref:crm-connector-read:disable-lane:v1"
+    rollback_readiness_ref: str = (
+        "rollback-readiness-ref:crm-connector-read:no-external-mutation:v1"
+    )
+    proof_ref: str = "proof-ref:crm-connector-read-readiness:v1"
+    evidence_ref: str = "evidence-ref:crm-connector-read-readiness:v1"
+    cli_inspection_ref: str = (
+        "repo-local-command:uaa-crm:inspect-connector-read-lanes"
+    )
+    api_surface_ref: str = "GET /control-center/crm/summary"
+    control_center_surface_ref: str = (
+        "route-ref:control-center:crm:connector-readiness-panel"
+    )
+    blocker_report_refs: list[str] = Field(
+        default_factory=lambda: [
+            "docs-ref:crm-blocker:connector-read-lanes",
+        ]
+    )
+    missing_prerequisite_refs: list[str] = Field(
+        default_factory=lambda: [
+            "missing-ref:crm-connector-read:approved-gateway-adapter",
+            "missing-ref:crm-connector-read:policy-source-decision",
+            "missing-ref:crm-connector-read:local-approval-scope",
+            "missing-ref:crm-connector-read:audit-receipt-schema",
+            "missing-ref:crm-connector-read:openapi-route-classification",
+        ]
+    )
+    promotion_path_refs: list[str] = Field(
+        default_factory=lambda: [
+            "promotion-ref:crm-connector-read:define-single-source-scope",
+            "promotion-ref:crm-connector-read:bind-test-account-scope",
+            "promotion-ref:crm-connector-read:add-policy-and-approval",
+            "promotion-ref:crm-connector-read:add-read-only-adapter",
+            "promotion-ref:crm-connector-read:add-cli-api-control-center-parity",
+        ]
+    )
     disabled_by_default: bool = True
     unblock_prompt_ref: str = "prompt-ref:crm:unblock-connector-read-lanes"
     connector_runtime_enabled: bool = False
     connector_writes_enabled: bool = False
     raw_body_ingestion_enabled: bool = False
+    live_connector_read_performed: bool = False
+    external_account_auth_enabled: bool = False
+    background_polling_enabled: bool = False
+    provider_model_call_enabled: bool = False
 
     @model_validator(mode="after")
     def validate_shape(self) -> "CrmConnectorReadLaneReadModel":
-        _validate_ref(self.posture_ref, "posture_ref")
-        _validate_ref(self.unblock_prompt_ref, "unblock_prompt_ref")
+        for field_name in [
+            "posture_ref",
+            "source_scope_ref",
+            "test_account_scope_ref",
+            "gateway_boundary_ref",
+            "policy_decision_ref",
+            "approval_scope_ref",
+            "audit_schema_ref",
+            "redaction_policy_ref",
+            "safe_disable_ref",
+            "rollback_readiness_ref",
+            "proof_ref",
+            "evidence_ref",
+            "cli_inspection_ref",
+            "control_center_surface_ref",
+            "unblock_prompt_ref",
+        ]:
+            _validate_ref(getattr(self, field_name), field_name)
+        for field_name in [
+            "blocker_report_refs",
+            "missing_prerequisite_refs",
+            "promotion_path_refs",
+        ]:
+            _validate_ref_list(getattr(self, field_name), field_name)
         if not self.disabled_by_default:
             raise ValueError("CRM_CONNECTOR_READ_DISABLED_DEFAULT_REQUIRED")
+        if self.api_surface_ref not in CRM_LOCAL_COMMAND_CENTER_READ_ROUTE_REFS:
+            raise ValueError("CRM_CONNECTOR_READ_API_SURFACE_UNSCOPED")
         _deny_true_flags(
             self,
             [
                 ("connector_runtime_enabled", "CRM_CONNECTOR_RUNTIME_DENIED"),
                 ("connector_writes_enabled", "CRM_CONNECTOR_WRITES_DENIED"),
                 ("raw_body_ingestion_enabled", "CRM_CONNECTOR_RAW_BODY_DENIED"),
+                (
+                    "live_connector_read_performed",
+                    "CRM_CONNECTOR_LIVE_READ_DENIED",
+                ),
+                (
+                    "external_account_auth_enabled",
+                    "CRM_CONNECTOR_ACCOUNT_AUTH_DENIED",
+                ),
+                ("background_polling_enabled", "CRM_CONNECTOR_POLLING_DENIED"),
+                ("provider_model_call_enabled", "CRM_CONNECTOR_PROVIDER_DENIED"),
             ],
         )
         _validate_safe_payload(self.lanes, "crm_connector_read_lanes")
@@ -1458,17 +1553,17 @@ def _state_to_read_model_payload(
                 {
                     "lane_ref": "lane-ref:crm-connector:email-metadata-read",
                     "status": "blocked",
-                    "safe_summary": "Email metadata read requires later exact connector authority.",
+                    "safe_summary": "Email metadata read is blocked until a single-source gateway lane, source policy, approval scope, audit schema, and redaction contract exist.",
                 },
                 {
                     "lane_ref": "lane-ref:crm-connector:calendar-metadata-read",
                     "status": "blocked",
-                    "safe_summary": "Calendar metadata read requires later exact connector authority.",
+                    "safe_summary": "Calendar metadata read is blocked until the same exact connector read authority is graduated.",
                 },
                 {
                     "lane_ref": "lane-ref:crm-connector:contacts-metadata-read",
                     "status": "blocked",
-                    "safe_summary": "Contacts metadata read requires later exact connector authority.",
+                    "safe_summary": "Contacts metadata read is blocked until the approved gateway, test scope, approval binding, and safe output receipt exist.",
                 },
             ]
         },

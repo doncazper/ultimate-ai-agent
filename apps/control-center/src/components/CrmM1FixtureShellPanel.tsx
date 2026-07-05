@@ -35,6 +35,21 @@ export function CrmM1FixtureShellPanel({
         : [],
     [crm.timeline_events, selected],
   );
+  const connectorReadiness = crm.connector_read_lanes;
+  const connectorReadinessStatus =
+    connectorReadiness.readiness_status ?? "blocked_missing_exact_authority";
+  const connectorLanes = connectorReadiness.lanes ?? [];
+  const connectorMissingPrerequisites =
+    connectorReadiness.missing_prerequisite_refs ?? [];
+  const connectorCliInspectionRef =
+    connectorReadiness.cli_inspection_ref ??
+    "repo-local-command:uaa-crm:inspect-connector-read-lanes";
+  const connectorSafeDisableRef =
+    connectorReadiness.safe_disable_ref ??
+    "safe-disable-ref:crm-connector-read:disable-lane:v1";
+  const connectorProofRef =
+    connectorReadiness.proof_ref ??
+    "proof-ref:crm-connector-read-readiness:v1";
 
   return (
     <section
@@ -219,6 +234,100 @@ export function CrmM1FixtureShellPanel({
             <li key={ref}>{ref}</li>
           ))}
         </ul>
+      </section>
+
+      <section
+        className="panel"
+        aria-labelledby="crm-connector-readiness-heading"
+      >
+        <div className="panel-heading">
+          <h3 id="crm-connector-readiness-heading">
+            Connector read readiness
+          </h3>
+          <span>{connectorReadinessStatus}</span>
+        </div>
+        <p className="section-copy">
+          CRM connector reads remain disabled until an exact single-source
+          gateway lane, policy decision, approval scope, audit receipt,
+          redaction contract, and route classification are graduated.
+        </p>
+        <div className="panel-grid">
+          <MetricCard
+            label="Runtime read"
+            value={
+              connectorReadiness.live_connector_read_performed
+                ? "unsafe"
+                : "blocked"
+            }
+          />
+          <MetricCard
+            label="Account auth"
+            value={
+              connectorReadiness.external_account_auth_enabled
+                ? "unsafe"
+                : "blocked"
+            }
+          />
+          <MetricCard
+            label="Polling"
+            value={
+              connectorReadiness.background_polling_enabled
+                ? "unsafe"
+                : "blocked"
+            }
+          />
+          <MetricCard
+            label="Provider calls"
+            value={
+              connectorReadiness.provider_model_call_enabled
+                ? "unsafe"
+                : "blocked"
+            }
+          />
+        </div>
+        <div className="crm-command-layout">
+          <div>
+            <h4>Current lanes</h4>
+            <ul className="safe-ref-list">
+              {connectorLanes.map((lane) => (
+                <li key={lane.lane_ref}>
+                  <strong>{lane.status}</strong> {lane.lane_ref}
+                  <span> - {lane.safe_summary}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h4>Missing prerequisites</h4>
+            <ul className="safe-ref-list">
+              {connectorMissingPrerequisites.length > 0 ? (
+                connectorMissingPrerequisites.map((ref) => (
+                  <li key={ref}>{ref}</li>
+                ))
+              ) : (
+                <li>missing-ref:crm-connector-read:backend-contract-refresh-required</li>
+              )}
+            </ul>
+          </div>
+        </div>
+        <dl className="crm-report-list">
+          <div>
+            <dt>CLI inspection</dt>
+            <dd>{connectorCliInspectionRef}</dd>
+          </div>
+          <div>
+            <dt>Safe disable</dt>
+            <dd>{connectorSafeDisableRef}</dd>
+          </div>
+          <div>
+            <dt>Proof</dt>
+            <dd>{connectorProofRef}</dd>
+          </div>
+          <div>
+            <dt>Unblock prompt</dt>
+            <dd>{crm.connector_read_lanes.unblock_prompt_ref}</dd>
+          </div>
+        </dl>
       </section>
 
       <section className="panel" aria-labelledby="crm-cli-heading">

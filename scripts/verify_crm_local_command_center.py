@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -17,6 +18,7 @@ from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E40
 from ultimate_ai_agent.core.crm import (  # noqa: E402
     CRM_LOCAL_BLOCKED_AUTHORITY_REFS,
     CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF,
+    CRM_LOCAL_COMMAND_CENTER_CLI_REFS,
     CRM_LOCAL_COMMAND_CENTER_ROUTE_REFS,
     CRM_LOCAL_MUTATION_CONTRACT_REF,
     CrmLocalMutationRequest,
@@ -57,6 +59,15 @@ DENIED_AUTHORITY_FIELDS = [
     "background_autonomy_enabled",
     "external_crm_write_enabled",
     "production_authority_enabled",
+]
+DENIED_CONNECTOR_READ_FIELDS = [
+    "connector_runtime_enabled",
+    "connector_writes_enabled",
+    "raw_body_ingestion_enabled",
+    "live_connector_read_performed",
+    "external_account_auth_enabled",
+    "background_polling_enabled",
+    "provider_model_call_enabled",
 ]
 FORBIDDEN_OUTPUT_FRAGMENTS = [
     "person@example",
@@ -105,6 +116,8 @@ def _assert_read_model() -> None:
         _fail("CRM read model exposed provider payload posture")
     if set(CRM_LOCAL_COMMAND_CENTER_ROUTE_REFS) - set(crm.route_refs):
         _fail("CRM route refs drifted")
+    if set(CRM_LOCAL_COMMAND_CENTER_CLI_REFS) - set(crm.cli_refs):
+        _fail("CRM CLI refs drifted")
     if len(crm.smart_lists) < 10 or len(crm.reports) < 9:
         _fail("CRM read model is missing smart-list or report coverage")
     for field in DENIED_AUTHORITY_FIELDS:
@@ -113,10 +126,48 @@ def _assert_read_model() -> None:
     for ref in CRM_LOCAL_BLOCKED_AUTHORITY_REFS:
         if ref not in crm.authority_posture.blocked_authority_refs:
             _fail(f"blocked authority ref missing: {ref}")
+    connector = crm.connector_read_lanes
+    if connector.readiness_status != "blocked_missing_exact_authority":
+        _fail("CRM connector read readiness must stay blocked until graduated")
+    if connector.disabled_by_default is not True:
+        _fail("CRM connector read lane must be disabled by default")
+    if connector.cli_inspection_ref not in crm.cli_refs:
+        _fail("CRM connector read CLI parity ref missing")
+    if len(connector.missing_prerequisite_refs) < 5:
+        _fail("CRM connector read lane is missing prerequisite refs")
+    if len(connector.promotion_path_refs) < 5:
+        _fail("CRM connector read lane is missing promotion path refs")
+    for field in DENIED_CONNECTOR_READ_FIELDS:
+        if getattr(connector, field) is not False:
+            _fail(f"connector read field unexpectedly enabled: {field}")
     lowered = serialized.lower()
     for fragment in FORBIDDEN_OUTPUT_FRAGMENTS:
         if fragment in lowered:
             _fail(f"forbidden raw output fragment leaked: {fragment}")
+
+
+def _assert_cli() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts/dev/uaa_crm.py"),
+                "inspect-connector-read-lanes",
+                "--state-dir",
+                str(Path(tmp) / "crm"),
+            ],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    payload = json.loads(result.stdout)
+    connector = payload["connector_read_lanes"]
+    if connector["readiness_status"] != "blocked_missing_exact_authority":
+        _fail("CRM connector read CLI readiness status drifted")
+    for field in DENIED_CONNECTOR_READ_FIELDS:
+        if connector[field] is not False:
+            _fail(f"CRM connector read CLI enabled denied field: {field}")
 
 
 def _assert_local_mutation() -> None:
@@ -251,6 +302,7 @@ def main() -> int:
         with tempfile.TemporaryDirectory() as tmp:
             os.environ["UAA_CRM_STATE_DIR"] = str(Path(tmp) / "crm")
             _assert_read_model()
+            _assert_cli()
             _assert_local_mutation()
             _assert_routes()
             _assert_docs()

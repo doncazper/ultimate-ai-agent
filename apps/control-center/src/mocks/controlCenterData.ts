@@ -1816,11 +1816,52 @@ const crmLocalCommandCenter: CrmLocalCommandCenterReadModel = {
         safe_summary: "Connector metadata reads require later authority.",
       },
     ],
+    readiness_status: "blocked_missing_exact_authority",
+    source_scope_ref: "scope-ref:crm-connector-read:single-source-metadata-only:v1",
+    test_account_scope_ref:
+      "scope-ref:crm-connector-read:named-test-account-required:v1",
+    gateway_boundary_ref:
+      "gateway-ref:crm-connector-read:approved-read-gateway-required:v1",
+    policy_decision_ref:
+      "policy-ref:crm-connector-read:deny-until-exact-lane:v1",
+    approval_scope_ref:
+      "approval-scope-ref:crm-connector-read:per-attempt-required:v1",
+    audit_schema_ref: "audit-schema-ref:crm-connector-read:v1",
+    redaction_policy_ref: "redaction-ref:crm-connector-read:safe-refs-only:v1",
+    safe_disable_ref: "safe-disable-ref:crm-connector-read:disable-lane:v1",
+    rollback_readiness_ref:
+      "rollback-readiness-ref:crm-connector-read:no-external-mutation:v1",
+    proof_ref: "proof-ref:crm-connector-read-readiness:v1",
+    evidence_ref: "evidence-ref:crm-connector-read-readiness:v1",
+    cli_inspection_ref:
+      "repo-local-command:uaa-crm:inspect-connector-read-lanes",
+    api_surface_ref: "GET /control-center/crm/summary",
+    control_center_surface_ref:
+      "route-ref:control-center:crm:connector-readiness-panel",
+    blocker_report_refs: ["docs-ref:crm-blocker:connector-read-lanes"],
+    missing_prerequisite_refs: [
+      "missing-ref:crm-connector-read:approved-gateway-adapter",
+      "missing-ref:crm-connector-read:policy-source-decision",
+      "missing-ref:crm-connector-read:local-approval-scope",
+      "missing-ref:crm-connector-read:audit-receipt-schema",
+      "missing-ref:crm-connector-read:openapi-route-classification",
+    ],
+    promotion_path_refs: [
+      "promotion-ref:crm-connector-read:define-single-source-scope",
+      "promotion-ref:crm-connector-read:bind-test-account-scope",
+      "promotion-ref:crm-connector-read:add-policy-and-approval",
+      "promotion-ref:crm-connector-read:add-read-only-adapter",
+      "promotion-ref:crm-connector-read:add-cli-api-control-center-parity",
+    ],
     disabled_by_default: true,
     unblock_prompt_ref: "prompt-ref:crm:unblock-connector-read-lanes",
     connector_runtime_enabled: false,
     connector_writes_enabled: false,
     raw_body_ingestion_enabled: false,
+    live_connector_read_performed: false,
+    external_account_auth_enabled: false,
+    background_polling_enabled: false,
+    provider_model_call_enabled: false,
   },
   sends_writes_authority_plan: {
     plan_ref: "plan-ref:crm-sends-writes-authority:v1",

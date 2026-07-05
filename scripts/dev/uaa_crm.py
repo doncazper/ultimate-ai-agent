@@ -118,6 +118,31 @@ def inspect_smart_lists(args: argparse.Namespace) -> int:
     return 0
 
 
+def inspect_connector_read_lanes(args: argparse.Namespace) -> int:
+    crm = _store(args).read_model()
+    _print(
+        {
+            "contract_ref": crm.contract_ref,
+            "connector_read_lanes": crm.connector_read_lanes.model_dump(mode="json"),
+            "authority_posture": {
+                "connector_runtime_enabled": (
+                    crm.authority_posture.connector_runtime_enabled
+                ),
+                "connector_write_enabled": crm.authority_posture.connector_write_enabled,
+                "account_sync_enabled": crm.authority_posture.account_sync_enabled,
+                "provider_model_call_enabled": (
+                    crm.authority_posture.provider_model_call_enabled
+                ),
+                "production_authority_enabled": (
+                    crm.authority_posture.production_authority_enabled
+                ),
+            },
+        },
+        pretty=args.pretty,
+    )
+    return 0
+
+
 def inspect_storage(args: argparse.Namespace) -> int:
     _print(_store(args).storage_status().model_dump(mode="json"), pretty=args.pretty)
     return 0
@@ -208,6 +233,11 @@ def build_parser() -> argparse.ArgumentParser:
         ("inspect-follow-ups", inspect_follow_ups, "Print follow-up queue refs."),
         ("inspect-pipelines", inspect_pipelines, "Print pipeline and opportunity refs."),
         ("inspect-smart-lists", inspect_smart_lists, "Print smart list refs."),
+        (
+            "inspect-connector-read-lanes",
+            inspect_connector_read_lanes,
+            "Print connector read readiness refs without connector runtime.",
+        ),
         ("inspect-storage", inspect_storage, "Print local storage status refs."),
         ("seed-demo", seed_demo, "Seed safe local demo CRM state."),
         ("export-redacted", export_redacted, "Print a redacted safe-ref snapshot."),

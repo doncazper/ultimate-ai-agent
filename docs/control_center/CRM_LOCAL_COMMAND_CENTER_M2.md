@@ -9,8 +9,8 @@ Verifier: `scripts/verify_crm_local_command_center.py`
 CRM M2 promotes the historical CRM M1 fixture-only `/crm` shell into a
 backend-owned local CRM command center. The current `/crm` surface reads from
 Python core and exposes local relationship, timeline, follow-up, pipeline,
-smart-list, proposal, report, import/export posture, storage, authority, and
-CLI refs.
+smart-list, proposal, report, connector-read readiness, import/export posture,
+storage, authority, and CLI refs.
 
 The M1 fixture contract remains historical evidence and fixture coverage. It
 does not grant current authority by itself.
@@ -46,6 +46,7 @@ paths, raw provider payloads, account material, and secret-like values.
 - `inspect-follow-ups`
 - `inspect-pipelines`
 - `inspect-smart-lists`
+- `inspect-connector-read-lanes`
 - `inspect-storage`
 - `seed-demo`
 - `clear-demo --confirm-local-only`
@@ -57,8 +58,13 @@ paths, raw provider payloads, account material, and secret-like values.
 ## Release Truth
 
 Current status is partial. UAA CRM has backend-owned local read routes and one
-exact local mutation lane. It does not have connector runtime, external CRM
-writeback, account sync, contact import commit, sends, calendar writes,
-provider/model calls, live web, no live web fetching, browser automation,
-background autonomy, public beta, public release, production readiness, or
-production authority.
+exact local mutation lane. The connector-read readiness contract is
+backend-owned metadata only:
+`posture-ref:crm-connector-read-lanes:v1`. It records missing prerequisites,
+safe-disable posture, proof/evidence refs, and the promotion path. It does not
+read from external sources.
+
+CRM does not have connector runtime, external CRM writeback, account sync,
+contact import commit, sends, calendar writes, provider/model calls, live web,
+no live web fetching, browser automation, background autonomy, public beta,
+public release, production readiness, or production authority.
