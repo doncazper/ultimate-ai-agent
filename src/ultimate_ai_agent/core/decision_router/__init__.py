@@ -23,6 +23,16 @@ from ultimate_ai_agent.core.decision_router.harness_binding import (
     binding_from_policy,
     build_turn_harness_binding,
 )
+from ultimate_ai_agent.core.decision_router.parallel_preflight import (
+    TURN_PREFLIGHT_CONTRACT_REF,
+    TURN_PREFLIGHT_REQUIRED_BLOCKED_AUTHORITY_REFS,
+    TURN_PREFLIGHT_REQUIRED_LANE_KINDS,
+    TurnPreflightArbitrationInput,
+    TurnPreflightArbitrationResult,
+    TurnPreflightBundle,
+    TurnPreflightLaneKind,
+    TurnPreflightLaneResult,
+)
 from ultimate_ai_agent.core.decision_router.turn_contracts import (
     INVOCATION_POLICY_COMPILER_REF,
     TURN_CONTRACT_ROUTER_CONTRACT_REF,
@@ -58,6 +68,9 @@ __all__ = [
     "TURN_CONTRACT_ROUTER_REQUIRED_CONTRACT_KINDS",
     "TURN_CLASSIFIER_POLICY_REF",
     "TURN_HARNESS_BINDING_CONTRACT_REF",
+    "TURN_PREFLIGHT_CONTRACT_REF",
+    "TURN_PREFLIGHT_REQUIRED_BLOCKED_AUTHORITY_REFS",
+    "TURN_PREFLIGHT_REQUIRED_LANE_KINDS",
     "ApprovedExecutionScope",
     "ApprovalPolicy",
     "DecisionRouterAmbiguityPosture",
@@ -79,6 +92,11 @@ __all__ = [
     "ToolPolicy",
     "TurnContractKind",
     "TurnDecision",
+    "TurnPreflightArbitrationInput",
+    "TurnPreflightArbitrationResult",
+    "TurnPreflightBundle",
+    "TurnPreflightLaneKind",
+    "TurnPreflightLaneResult",
     "TurnHarnessBindingReadModel",
     "binding_from_policy",
     "build_turn_harness_binding",
