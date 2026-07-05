@@ -29,6 +29,7 @@ import type {
   FounderLoopBriefingItem,
   FounderLoopChatToLoopHandoffReadModel,
   FounderLoopEvidenceNarrativeEntry,
+  FounderLoopEvidenceAuditReceiptSpine,
   FounderLoopEvidenceTimelineEvent,
   FounderLoopEvidenceTimelineIndex,
   FounderLoopEvidenceTimelineItem,
@@ -2482,6 +2483,169 @@ function RunObservabilityPanel({
             />
           </dl>
         </article>
+      </div>
+    </section>
+  );
+}
+
+function EvidenceAuditReceiptSpineSection({
+  readModel,
+}: {
+  readModel?: FounderLoopEvidenceAuditReceiptSpine;
+}) {
+  if (!readModel) {
+    return (
+      <article className="status-card">
+        <div className="status-card-header">
+          <h3>Evidence audit receipt spine</h3>
+          <span>missing</span>
+        </div>
+        <p>
+          Backend-owned audit grouping is unavailable from this response.
+          Evidence remains read-only through the timeline and proof refs already
+          present.
+        </p>
+      </article>
+    );
+  }
+
+  return (
+    <section className="nested-section" aria-labelledby="evidence-audit-spine-heading">
+      <div className="section-heading compact">
+        <div>
+          <p className="eyebrow">Proof spine</p>
+          <h3 id="evidence-audit-spine-heading">Evidence audit receipt spine</h3>
+        </div>
+        <span className="status-pill compact">{readModel.status}</span>
+      </div>
+      <div className="metric-grid">
+        <Metric label="Groups" value={readModel.group_count} />
+        <Metric label="Envelopes" value={readModel.envelope_count} />
+        <Metric label="Missing receipts" value={readModel.missing_receipt_count} />
+        <Metric label="Audit refs" value={readModel.audit_refs.length} />
+      </div>
+      <div className="panel-grid">
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Receipt envelope contract</h3>
+            <span>{readModel.contract_ref}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm label="Source" value={readModel.source} />
+            <DetailTerm label="CLI" value={readModel.cli_ref} />
+            <DetailTerm label="Portable evidence" value={readModel.portable_evidence_posture} />
+            <DetailTerm label="Redaction" value={readModel.redaction_posture} />
+            <DetailTerm label="Authority boundary" value={readModel.authority_boundary} />
+            <DetailTerm label="Next safe action" value={readModel.next_safe_action} />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Envelope fields: missing"
+            refs={readModel.receipt_envelope_field_refs}
+          />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Blocked authority</h3>
+            <span>read-only</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Approval ref authority"
+              value={readModel.approval_ref_authority ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Action execution"
+              value={readModel.action_execution_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Provider/model call"
+              value={readModel.provider_model_call_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Shell execution"
+              value={
+                readModel.shell_subprocess_execution_enabled ? "enabled" : "blocked"
+              }
+            />
+            <DetailTerm
+              label="Browser execution"
+              value={readModel.browser_execution_enabled ? "enabled" : "blocked"}
+            />
+            <DetailTerm
+              label="Production authority"
+              value={readModel.production_authority_enabled ? "enabled" : "blocked"}
+            />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Blocked state refs: none"
+            refs={readModel.blocked_state_refs}
+          />
+        </article>
+      </div>
+      <div className="review-grid">
+        {readModel.groups.map((group) => (
+          <article className="review-card" key={group.group_ref}>
+            <div className="review-card-heading">
+              <h3>{group.label}</h3>
+              <span>{group.status}</span>
+            </div>
+            <p>{group.safe_summary}</p>
+            <dl className="detail-list">
+              <DetailTerm label="Group ref" value={group.group_ref} />
+              <DetailTerm label="Kind" value={group.group_kind} />
+              <DetailTerm label="Next safe action" value={group.next_safe_action} />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Event refs: none"
+              refs={group.event_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Receipt refs: none recorded"
+              refs={group.receipt_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Missing receipt refs: none"
+              refs={group.missing_receipt_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Audit refs: none"
+              refs={group.audit_refs}
+            />
+          </article>
+        ))}
+      </div>
+      <div className="compact-stack">
+        {readModel.receipt_envelopes.slice(0, 3).map((envelope) => (
+          <article className="status-card" key={envelope.envelope_ref}>
+            <div className="status-card-header">
+              <h3>Receipt envelope</h3>
+              <span>{envelope.receipt_recorded ? "recorded" : "missing"}</span>
+            </div>
+            <p>{envelope.safe_summary}</p>
+            <dl className="detail-list">
+              <DetailTerm label="Envelope ref" value={envelope.envelope_ref} />
+              <DetailTerm label="Receipt ref" value={envelope.receipt_ref} />
+              <DetailTerm label="Run ref" value={envelope.run_ref} />
+              <DetailTerm label="Action ref" value={envelope.action_ref} />
+              <DetailTerm label="Approval ref" value={envelope.approval_ref} />
+              <DetailTerm
+                label="Authority decision"
+                value={envelope.authority_decision_ref}
+              />
+              <DetailTerm label="Artifact hash" value={envelope.artifact_hash_ref} />
+              <DetailTerm label="Verifier" value={envelope.verifier_version_ref} />
+              <DetailTerm label="Redaction" value={envelope.redaction_status} />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Missing receipt refs: none"
+              refs={envelope.missing_receipt_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Evidence refs: none"
+              refs={envelope.evidence_refs}
+            />
+          </article>
+        ))}
       </div>
     </section>
   );
@@ -9466,6 +9630,9 @@ export function EvidenceTimelineSurfacePanel({
         />
       </div>
       <EvidenceOperatorSummary evidence={evidence} today={today} />
+      <EvidenceAuditReceiptSpineSection
+        readModel={evidence?.evidence_audit_receipt_spine}
+      />
       <EvidenceMemoryLoopBindingPanel
         readModel={
           evidence?.evidence_memory_loop_binding_read_model ??

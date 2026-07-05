@@ -12074,6 +12074,357 @@ export const mockControlCenterData: ControlCenterData = {
         context_injection_authorized: false,
       },
     ],
+    evidence_audit_receipt_spine_contract_ref:
+      "contract-ref:goatcitadel-catchup-evidence-audit-spine:v1",
+    evidence_audit_receipt_spine: {
+      schema_version: "goatcitadel-catchup-evidence-audit-spine.v1",
+      contract_ref: "contract-ref:goatcitadel-catchup-evidence-audit-spine:v1",
+      source: "python_core_goatcitadel_catchup_evidence_audit_spine",
+      status: "implemented_backend_owned_evidence_audit_receipt_spine",
+      backend_owned: true,
+      control_center_presentation_only: true,
+      local_read_model_only: true,
+      safe_refs_only: true,
+      redacted_summaries_only: true,
+      raw_content_included: false,
+      route_refs: [
+        "GET /control-center/evidence/timeline",
+        "GET /control-center/proof/index",
+        "GET /control-center/proof/{proof_ref}",
+      ],
+      cli_ref:
+        "python scripts/dev/uaa_founder_loop.py inspect-evidence-audit-spine",
+      receipt_envelope_field_refs: [
+        "receipt-envelope-field:receipt-ref",
+        "receipt-envelope-field:run-ref",
+        "receipt-envelope-field:action-ref",
+        "receipt-envelope-field:approval-ref",
+        "receipt-envelope-field:side-effect-class",
+        "receipt-envelope-field:authority-decision-ref",
+        "receipt-envelope-field:input-ref",
+        "receipt-envelope-field:output-ref",
+        "receipt-envelope-field:artifact-hash-ref",
+        "receipt-envelope-field:timestamp-ref",
+        "receipt-envelope-field:verifier-version-ref",
+        "receipt-envelope-field:redaction-status",
+      ],
+      timeline_group_kinds: [
+        "plan_changes",
+        "approval_waits",
+        "action_proposals",
+        "execution_receipts",
+        "memory_proposals_review_decisions",
+        "blocked_no_go_events",
+        "recovery_events",
+      ],
+      group_count: 7,
+      envelope_count: 1,
+      missing_receipt_count: 1,
+      groups: [
+        {
+          group_ref: "evidence-audit-group:plan_changes",
+          group_kind: "plan_changes",
+          label: "Plan changes",
+          status: "not_present_in_current_timeline",
+          safe_summary:
+            "Plan and proposal changes are grouped as read-only evidence refs.",
+          event_refs: [],
+          timeline_item_refs: [],
+          receipt_refs: [],
+          approval_refs: [],
+          audit_refs: [],
+          idempotency_refs: [],
+          rollback_refs: [],
+          evidence_refs: [],
+          missing_receipt_refs: [],
+          blocked_state_refs: [],
+          next_safe_action:
+            "Inspect plan and proposal refs before creating any exact Action lane.",
+        },
+        {
+          group_ref: "evidence-audit-group:approval_waits",
+          group_kind: "approval_waits",
+          label: "Approval waits",
+          status: "missing_receipt_refs_visible",
+          safe_summary:
+            "Approval refs are identifiers only until an owner lane validates scope.",
+          event_refs: [
+            "evidence-event:action-envelope-created-mock-founder-loop",
+          ],
+          timeline_item_refs: [
+            "evidence-timeline:action/founder-action/mock-setup-hardening",
+          ],
+          receipt_refs: [],
+          approval_refs: ["approval-status:refs-identifiers-only"],
+          audit_refs: ["audit-plan:founder-loop:mock-setup-hardening"],
+          idempotency_refs: [
+            "idempotency-ref:founder-loop:mock-setup-hardening",
+          ],
+          rollback_refs: [],
+          evidence_refs: [
+            "evidence-event:action-envelope-created-mock-founder-loop",
+            "missing-receipt:evidence-audit-group-approval_waits",
+          ],
+          missing_receipt_refs: [
+            "missing-receipt:evidence-audit-group-approval_waits",
+          ],
+          blocked_state_refs: [
+            "blocked-state:blocked-pending-scoped-mutation-contract",
+          ],
+          next_safe_action:
+            "Inspect approval refs and blocked states; approval refs alone grant no authority.",
+        },
+        {
+          group_ref: "evidence-audit-group:action_proposals",
+          group_kind: "action_proposals",
+          label: "Action proposals",
+          status: "missing_receipt_refs_visible",
+          safe_summary:
+            "Action proposals and envelopes are visible before any execution lane.",
+          event_refs: [
+            "evidence-event:action-envelope-created-mock-founder-loop",
+          ],
+          timeline_item_refs: [
+            "evidence-timeline:action/founder-action/mock-setup-hardening",
+          ],
+          receipt_refs: [],
+          approval_refs: ["approval-status:refs-identifiers-only"],
+          audit_refs: ["audit-plan:founder-loop:mock-setup-hardening"],
+          idempotency_refs: [
+            "idempotency-ref:founder-loop:mock-setup-hardening",
+          ],
+          rollback_refs: [],
+          evidence_refs: [
+            "evidence-event:action-envelope-created-mock-founder-loop",
+            "missing-receipt:evidence-audit-group-action_proposals",
+          ],
+          missing_receipt_refs: [
+            "missing-receipt:evidence-audit-group-action_proposals",
+          ],
+          blocked_state_refs: [
+            "blocked-state:blocked-pending-scoped-mutation-contract",
+          ],
+          next_safe_action:
+            "Use Action Inbox owner routes for exact decision receipts.",
+        },
+        {
+          group_ref: "evidence-audit-group:execution_receipts",
+          group_kind: "execution_receipts",
+          label: "Execution receipts",
+          status: "not_present_in_current_timeline",
+          safe_summary:
+            "Recorded receipts are grouped for accepted exact lanes and receipt-only decisions.",
+          event_refs: [],
+          timeline_item_refs: [],
+          receipt_refs: [],
+          approval_refs: [],
+          audit_refs: [],
+          idempotency_refs: [],
+          rollback_refs: [],
+          evidence_refs: [],
+          missing_receipt_refs: [],
+          blocked_state_refs: [],
+          next_safe_action:
+            "Inspect receipt envelopes and proof refs; do not infer broader execution authority.",
+        },
+        {
+          group_ref: "evidence-audit-group:memory_proposals_review_decisions",
+          group_kind: "memory_proposals_review_decisions",
+          label: "Memory proposals and review decisions",
+          status: "not_present_in_current_timeline",
+          safe_summary:
+            "Memory proposals and reviewed decisions stay recall and review posture.",
+          event_refs: [],
+          timeline_item_refs: [],
+          receipt_refs: [],
+          approval_refs: [],
+          audit_refs: [],
+          idempotency_refs: [],
+          rollback_refs: [],
+          evidence_refs: [],
+          missing_receipt_refs: [],
+          blocked_state_refs: [],
+          next_safe_action:
+            "Inspect Memory Review receipts; broad memory write and context injection remain blocked.",
+        },
+        {
+          group_ref: "evidence-audit-group:blocked_no_go_events",
+          group_kind: "blocked_no_go_events",
+          label: "Blocked and no-go events",
+          status: "missing_receipt_refs_visible",
+          safe_summary:
+            "Blocked states are grouped so missing authority remains visible.",
+          event_refs: [
+            "evidence-event:action-envelope-created-mock-founder-loop",
+          ],
+          timeline_item_refs: [
+            "evidence-timeline:action/founder-action/mock-setup-hardening",
+          ],
+          receipt_refs: [],
+          approval_refs: ["approval-status:refs-identifiers-only"],
+          audit_refs: ["audit-plan:founder-loop:mock-setup-hardening"],
+          idempotency_refs: [
+            "idempotency-ref:founder-loop:mock-setup-hardening",
+          ],
+          rollback_refs: [],
+          evidence_refs: [
+            "evidence-event:action-envelope-created-mock-founder-loop",
+            "missing-receipt:evidence-audit-group-blocked_no_go_events",
+          ],
+          missing_receipt_refs: [
+            "missing-receipt:evidence-audit-group-blocked_no_go_events",
+          ],
+          blocked_state_refs: [
+            "blocked-state:blocked-pending-scoped-mutation-contract",
+          ],
+          next_safe_action:
+            "Keep the lane blocked until exact approval, receipt, rollback, and verifier coverage exist.",
+        },
+        {
+          group_ref: "evidence-audit-group:recovery_events",
+          group_kind: "recovery_events",
+          label: "Recovery and rollback posture",
+          status: "missing_receipt_refs_visible",
+          safe_summary:
+            "Rollback, idempotency, replay, and safe-disable refs are inspection posture only.",
+          event_refs: [
+            "evidence-event:action-envelope-created-mock-founder-loop",
+          ],
+          timeline_item_refs: [
+            "evidence-timeline:action/founder-action/mock-setup-hardening",
+          ],
+          receipt_refs: [],
+          approval_refs: ["approval-status:refs-identifiers-only"],
+          audit_refs: ["audit-plan:founder-loop:mock-setup-hardening"],
+          idempotency_refs: [
+            "idempotency-ref:founder-loop:mock-setup-hardening",
+          ],
+          rollback_refs: [],
+          evidence_refs: [
+            "evidence-event:action-envelope-created-mock-founder-loop",
+            "missing-receipt:evidence-audit-group-recovery_events",
+          ],
+          missing_receipt_refs: [
+            "missing-receipt:evidence-audit-group-recovery_events",
+          ],
+          blocked_state_refs: [
+            "blocked-state:blocked-pending-scoped-mutation-contract",
+          ],
+          next_safe_action:
+            "Inspect recovery refs; rollback execution requires a separate scoped lane.",
+        },
+      ],
+      receipt_envelopes: [
+        {
+          envelope_ref:
+            "receipt-envelope:evidence-event-action-envelope-created-mock-founder-loop",
+          receipt_ref:
+            "missing-receipt:evidence-event-action-envelope-created-mock-founder-loop",
+          receipt_recorded: false,
+          run_ref: "run-ref:founder-loop:daily-loop-v1",
+          action_ref: "founder-action:mock-setup-hardening",
+          approval_ref: "approval-status:refs-identifiers-only",
+          event_ref: "evidence-event:action-envelope-created-mock-founder-loop",
+          timeline_item_ref:
+            "evidence-timeline:action/founder-action/mock-setup-hardening",
+          group_ref: "action-envelope:plans:founder-loop-mock",
+          side_effect_class: "local_dev_workspace_only",
+          authority_decision_ref:
+            "authority-decision-ref:missing-receipt-read-only",
+          input_ref:
+            "input-ref:redacted:evidence-event-action-envelope-created-mock-founder-loop",
+          output_ref:
+            "output-ref:redacted:evidence-event-action-envelope-created-mock-founder-loop",
+          artifact_hash_ref:
+            "artifact-hash-ref:evidence-audit-envelope:sha256-mock000000000001",
+          timestamp_ref: "timestamp-ref:recorded",
+          verifier_version_ref:
+            "verifier-ref:goatcitadel-catchup-evidence-audit:v1",
+          redaction_status: "redacted_summary_only",
+          safe_summary:
+            "Mock evidence index event for a reviewable Today-to-Action envelope; no action execution or approval grant capture occurs.",
+          route_refs: [
+            "GET /control-center/evidence/timeline",
+            "GET /control-center/actions/inbox",
+            "/evidence",
+          ],
+          evidence_refs: [
+            "artifact-hash-ref:evidence-audit-envelope:sha256-mock000000000001",
+            "audit-plan:founder-loop:mock-setup-hardening",
+            "evidence-event:action-envelope-created-mock-founder-loop",
+            "evidence-timeline:action/founder-action/mock-setup-hardening",
+            "founder-action:mock-setup-hardening",
+            "idempotency-ref:founder-loop:mock-setup-hardening",
+          ],
+          audit_refs: ["audit-plan:founder-loop:mock-setup-hardening"],
+          idempotency_refs: [
+            "idempotency-ref:founder-loop:mock-setup-hardening",
+          ],
+          rollback_refs: [],
+          blocked_state_refs: [
+            "blocked-state:blocked-pending-scoped-mutation-contract",
+            "blocked-state:rollback-execution-not-scoped",
+          ],
+          missing_receipt_refs: [
+            "missing-receipt:evidence-event-action-envelope-created-mock-founder-loop",
+          ],
+          raw_content_included: false,
+          approval_ref_authority: false,
+          action_execution_enabled: false,
+          tool_execution_enabled: false,
+          connector_write_enabled: false,
+          provider_model_call_enabled: false,
+          runtime_model_call_enabled: false,
+          provider_sdk_call_enabled: false,
+          live_web_enabled: false,
+          shell_subprocess_execution_enabled: false,
+          browser_execution_enabled: false,
+          background_autonomy_enabled: false,
+          production_authority_enabled: false,
+        },
+      ],
+      receipt_refs: [],
+      missing_receipt_refs: [
+        "missing-receipt:evidence-event-action-envelope-created-mock-founder-loop",
+      ],
+      evidence_refs: [
+        "artifact-hash-ref:evidence-audit-envelope:sha256-mock000000000001",
+        "audit-plan:founder-loop:mock-setup-hardening",
+        "evidence-event:action-envelope-created-mock-founder-loop",
+        "evidence-timeline:action/founder-action/mock-setup-hardening",
+        "founder-action:mock-setup-hardening",
+        "idempotency-ref:founder-loop:mock-setup-hardening",
+      ],
+      audit_refs: ["audit-plan:founder-loop:mock-setup-hardening"],
+      approval_refs: ["approval-status:refs-identifiers-only"],
+      idempotency_refs: ["idempotency-ref:founder-loop:mock-setup-hardening"],
+      rollback_refs: [],
+      blocked_state_refs: [
+        "blocked-state:blocked-pending-scoped-mutation-contract",
+        "blocked-state:rollback-execution-not-scoped",
+      ],
+      portable_evidence_posture:
+        "hash_refs_and_verifier_refs_available_for_local_inspection_only",
+      redaction_posture:
+        "safe_refs_and_bounded_summaries_only_private_source_material_omitted",
+      authority_boundary:
+        "Evidence audit receipt spine is read-only lineage over existing timeline, receipt, proof, approval, audit, idempotency, rollback, and blocked refs. It grants no approval, execution, connector, provider, browser, shell, background, or production authority.",
+      next_safe_action:
+        "Inspect groups, receipt envelopes, missing receipt refs, and proof refs before promoting any later exact authority lane.",
+      approval_ref_authority: false,
+      action_execution_enabled: false,
+      tool_execution_enabled: false,
+      connector_write_enabled: false,
+      provider_model_call_enabled: false,
+      runtime_model_call_enabled: false,
+      provider_sdk_call_enabled: false,
+      live_web_enabled: false,
+      shell_subprocess_execution_enabled: false,
+      browser_execution_enabled: false,
+      background_autonomy_enabled: false,
+      external_export_enabled: false,
+      production_authority_enabled: false,
+    },
     narrative_contract_ref:
       "contract-ref:product-loop-010-evidence-timeline-narrative:v1",
     narrative_read_model: evidenceTimelineNarrativeReadModel,

@@ -11747,6 +11747,37 @@ describe("Web Control Center shell", () => {
       screen.getAllByText(/Operator Run Timeline/i).length,
     ).toBeGreaterThan(0);
     expect(
+      screen.getAllByText(/Evidence audit receipt spine/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "contract-ref:goatcitadel-catchup-evidence-audit-spine:v1",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "implemented_backend_owned_evidence_audit_receipt_spine",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "python scripts/dev/uaa_founder_loop.py inspect-evidence-audit-spine",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Missing receipts").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("receipt-envelope-field:artifact-hash-ref").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "missing-receipt:evidence-event-action-envelope-created-mock-founder-loop",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("approval_waits").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("blocked_no_go_events").length).toBeGreaterThan(
+      0,
+    );
+    expect(
       screen.getAllByText("contract-ref:operator-run-timeline:v1").length,
     ).toBeGreaterThan(0);
     expect(

@@ -4122,6 +4122,122 @@ export interface FounderLoopEvidenceTimelineNarrativeReadModel {
   production_authority_enabled: boolean;
 }
 
+export type FounderLoopEvidenceAuditGroupKind =
+  | "plan_changes"
+  | "approval_waits"
+  | "action_proposals"
+  | "execution_receipts"
+  | "memory_proposals_review_decisions"
+  | "blocked_no_go_events"
+  | "recovery_events";
+
+export interface FounderLoopEvidenceAuditReceiptEnvelope {
+  envelope_ref: string;
+  receipt_ref: string;
+  receipt_recorded: boolean;
+  run_ref: string;
+  action_ref: string;
+  approval_ref: string;
+  event_ref: string;
+  timeline_item_ref: string;
+  group_ref: string;
+  side_effect_class: string;
+  authority_decision_ref: string;
+  input_ref: string;
+  output_ref: string;
+  artifact_hash_ref: string;
+  timestamp_ref: string;
+  verifier_version_ref: string;
+  redaction_status: string;
+  safe_summary: string;
+  route_refs: string[];
+  evidence_refs: string[];
+  audit_refs: string[];
+  idempotency_refs: string[];
+  rollback_refs: string[];
+  blocked_state_refs: string[];
+  missing_receipt_refs: string[];
+  raw_content_included: boolean;
+  approval_ref_authority: boolean;
+  action_execution_enabled: boolean;
+  tool_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  runtime_model_call_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  live_web_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_execution_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface FounderLoopEvidenceAuditGroup {
+  group_ref: string;
+  group_kind: FounderLoopEvidenceAuditGroupKind;
+  label: string;
+  status: string;
+  safe_summary: string;
+  event_refs: string[];
+  timeline_item_refs: string[];
+  receipt_refs: string[];
+  approval_refs: string[];
+  audit_refs: string[];
+  idempotency_refs: string[];
+  rollback_refs: string[];
+  evidence_refs: string[];
+  missing_receipt_refs: string[];
+  blocked_state_refs: string[];
+  next_safe_action: string;
+}
+
+export interface FounderLoopEvidenceAuditReceiptSpine {
+  schema_version: string;
+  contract_ref: string;
+  source: string;
+  status: string;
+  backend_owned: boolean;
+  control_center_presentation_only: boolean;
+  local_read_model_only: boolean;
+  safe_refs_only: boolean;
+  redacted_summaries_only: boolean;
+  raw_content_included: boolean;
+  route_refs: string[];
+  cli_ref: string;
+  receipt_envelope_field_refs: string[];
+  timeline_group_kinds: FounderLoopEvidenceAuditGroupKind[];
+  group_count: number;
+  envelope_count: number;
+  missing_receipt_count: number;
+  groups: FounderLoopEvidenceAuditGroup[];
+  receipt_envelopes: FounderLoopEvidenceAuditReceiptEnvelope[];
+  receipt_refs: string[];
+  missing_receipt_refs: string[];
+  evidence_refs: string[];
+  audit_refs: string[];
+  approval_refs: string[];
+  idempotency_refs: string[];
+  rollback_refs: string[];
+  blocked_state_refs: string[];
+  portable_evidence_posture: string;
+  redaction_posture: string;
+  authority_boundary: string;
+  next_safe_action: string;
+  approval_ref_authority: boolean;
+  action_execution_enabled: boolean;
+  tool_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  runtime_model_call_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  live_web_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_execution_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  external_export_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface FounderLoopEvidenceMemoryEvidenceBinding {
   binding_ref: string;
   timeline_item_ref: string;
@@ -4258,6 +4374,8 @@ export interface FounderLoopEvidenceTimelineIndex {
   group_count: number;
   groups: FounderLoopEvidenceTimelineGroup[];
   events: FounderLoopEvidenceTimelineEvent[];
+  evidence_audit_receipt_spine_contract_ref?: string;
+  evidence_audit_receipt_spine?: FounderLoopEvidenceAuditReceiptSpine;
   operator_run_timeline?: FounderLoopOperatorRunTimeline;
   founder_loop_runs_integration_contract_ref?: string;
   founder_loop_runs_integration_read_model?: FounderLoopRunsIntegrationReadModel;
