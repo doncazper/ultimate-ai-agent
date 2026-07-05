@@ -1512,6 +1512,188 @@ function runtimeActionInboxBridgeFixture(
   };
 }
 
+function actionToolCodeLaneCatalogFixture(
+  overrides: Record<string, unknown> = {},
+) {
+  const flags = {
+    generic_tool_execution_enabled: false,
+    unrestricted_shell_execution_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    plugin_runtime_import_enabled: false,
+    remote_execution_enabled: false,
+    provider_model_call_enabled: false,
+    background_autonomy_enabled: false,
+    production_authority_enabled: false,
+  };
+  const entries = [
+    {
+      capability_id: "file.metadata_preview",
+      capability_ref: "capability-ref:tool-broker-v2:file-metadata-preview",
+      lane_ref: "lane-ref:tool-preview:file-metadata-preview",
+      label: "File metadata preview",
+      capability_kind: "tool_preview",
+      surface: "Tools",
+      status: "implemented_preview_only",
+      side_effect_class: "validation_only",
+      required_approval_scope: "approval-scope:not-required-for-preview",
+      eligibility_reason: "Preview safe refs only.",
+      blocked_reason: "Execution is not callable from Tool Broker v2.",
+      receipt_requirement: "Receipt plan refs only.",
+      rollback_or_safe_disable_posture: "No side effect is performed.",
+      route_refs: [],
+      cli_refs: ["tests/test_tool-broker-v2-contracts"],
+      receipt_refs: [],
+      evidence_refs: ["evidence-ref:tool-preview"],
+      proof_refs: ["proof-ref:tool-preview"],
+      blocked_authority_refs: [
+        "blocked-authority:action-tool-code:no-generic-tool-execution",
+      ],
+      unblock_prompt_refs: [],
+      operator_visible: true,
+      inspectable_now: true,
+      proposal_only: true,
+      exact_local_mutation_available: false,
+      exact_runtime_lane_available: false,
+      ...flags,
+    },
+    {
+      capability_id: "local_task_create",
+      capability_ref: "capability-ref:action-inbox:local-task-create",
+      lane_ref: "lane-ref:action-inbox:local-task-create",
+      label: "Action Inbox local task create",
+      capability_kind: "action_micro_lane",
+      surface: "Action Inbox",
+      status: "implemented_exact_local_mutation_lane",
+      side_effect_class: "local_dev_workspace_only",
+      required_approval_scope:
+        "approval-scope:founder-loop-local-task-create-exact",
+      eligibility_reason: "Available only for exact local-task approvals.",
+      blocked_reason: "External side effects remain blocked.",
+      receipt_requirement: "Requires local task commit receipt refs.",
+      rollback_or_safe_disable_posture: "Safe-disable posture is backend-owned.",
+      route_refs: ["POST /control-center/actions/local-task-commits"],
+      cli_refs: ["scripts/dev/uaa_founder_loop.py commit-local-task"],
+      receipt_refs: ["receipt-plan:founder-loop-local-task-create"],
+      evidence_refs: ["evidence-ref:founder-loop-local-task-create"],
+      proof_refs: ["proof-ref:founder-loop-local-task-create"],
+      blocked_authority_refs: ["blocked-state:no-external-side-effect"],
+      unblock_prompt_refs: [],
+      operator_visible: true,
+      inspectable_now: true,
+      proposal_only: false,
+      exact_local_mutation_available: true,
+      exact_runtime_lane_available: false,
+      ...flags,
+    },
+    {
+      capability_id: "runtime.focused_pytest_action_inbox",
+      capability_ref: "capability-ref:runtime-gateway:focused-pytest",
+      lane_ref: "lane-ref:runtime-gateway:focused-pytest",
+      label: "RuntimeGateway focused pytest command",
+      capability_kind: "runtime_micro_lane",
+      surface: "Runtime",
+      status: "implemented_exact_approval_required",
+      side_effect_class: "local_dev_workspace_only",
+      required_approval_scope:
+        "approval-scope-ref:governed-runtime-exact-envelope",
+      eligibility_reason: "Eligible only through exact Action Inbox approval.",
+      blocked_reason: "Arbitrary commands remain blocked.",
+      receipt_requirement: "Requires RuntimeGateway command receipt refs.",
+      rollback_or_safe_disable_posture: "Runtime safe-disable is backend-owned.",
+      route_refs: ["POST /runtime/action-inbox/approved-command/execute"],
+      cli_refs: ["scripts/dev/uaa_runtime.py receipts"],
+      receipt_refs: ["receipt-plan:runtime-action-inbox:focused-pytest"],
+      evidence_refs: ["evidence-ref:runtime-action-inbox:focused-pytest"],
+      proof_refs: ["proof-ref:runtime-action-inbox:focused-pytest"],
+      blocked_authority_refs: [
+        "blocked-authority:runtime-unrestricted-command-execution",
+      ],
+      unblock_prompt_refs: [],
+      operator_visible: true,
+      inspectable_now: true,
+      proposal_only: false,
+      exact_local_mutation_available: false,
+      exact_runtime_lane_available: true,
+      ...flags,
+    },
+    {
+      capability_id: "coding.approved_patch_apply",
+      capability_ref: "capability-ref:coding:approved-patch-apply",
+      lane_ref: "lane-ref:coding:approved-patch-apply",
+      label: "Coding approved patch apply",
+      capability_kind: "code_workflow",
+      surface: "Coding",
+      status: "blocked_missing_exact_authority",
+      side_effect_class: "local_dev_workspace_only",
+      required_approval_scope:
+        "approval-scope:coding-approved-patch-apply-exact",
+      eligibility_reason: "Patch apply readiness is visible only.",
+      blocked_reason: "Patch apply and file writes remain blocked.",
+      receipt_requirement: "Requires checkpoint and applied patch receipt refs.",
+      rollback_or_safe_disable_posture: "Rollback contract is required first.",
+      route_refs: ["GET /control-center/coding/patch-apply-readiness"],
+      cli_refs: ["scripts/dev/uaa_coding.py inspect-patch-apply-readiness"],
+      receipt_refs: [],
+      evidence_refs: ["evidence-ref:coding-patch-apply-readiness"],
+      proof_refs: ["proof-ref:coding-patch-apply-readiness"],
+      blocked_authority_refs: ["blocked-state:coding-no-file-write"],
+      unblock_prompt_refs: ["prompt-ref:unblock-coding-approved-patch-apply"],
+      operator_visible: true,
+      inspectable_now: true,
+      proposal_only: false,
+      exact_local_mutation_available: false,
+      exact_runtime_lane_available: false,
+      ...flags,
+    },
+  ];
+  return {
+    schema_version: "uaa-action-tool-code-lane-catalog.v1",
+    contract_ref: "contract-ref:goatcitadel-catchup-action-tool-code-catalog:v1",
+    source: "python_core_action_tool_code_lane_catalog_read_model",
+    catalog_ref: "action-tool-code-catalog:founder-loop:v1",
+    route_ref: "GET /control-center/actions/inbox",
+    cli_ref: "scripts/dev/uaa_founder_loop.py inspect-action-tool-code-catalog",
+    status: "implemented_backend_owned_inspectable_catalog",
+    backend_owned: true,
+    control_center_presentation_only: true,
+    safe_refs_only: true,
+    raw_content_included: false,
+    entry_count: entries.length,
+    preview_only_count: 1,
+    exact_local_mutation_count: 1,
+    exact_runtime_lane_count: 1,
+    proposal_only_count: 1,
+    blocked_count: 1,
+    entries,
+    unblock_prompts: [
+      {
+        prompt_ref: "prompt-ref:unblock-coding-approved-patch-apply",
+        title: "Unblock exact approved Coding patch apply",
+        target_capability_ref: "capability-ref:coding:approved-patch-apply",
+        blocked_authority_refs: [
+          "blocked-authority:action-tool-code:no-generic-tool-execution",
+          "blocked-state:coding-no-file-write",
+        ],
+        copy_ready_prompt:
+          "Promote only exact Coding patch apply with checkpoint, approval binding, receipts, rollback refs, redaction, and tests.",
+      },
+    ],
+    blocked_authority_refs: [
+      "blocked-authority:action-tool-code:no-generic-tool-execution",
+      "blocked-authority:action-tool-code:no-unrestricted-shell",
+      "blocked-authority:action-tool-code:no-provider-model-call",
+      "blocked-authority:action-tool-code:no-production-authority",
+    ],
+    next_safe_action:
+      "Inspect lane eligibility and graduate each blocked capability through exact authority.",
+    operator_summary:
+      "Four action, tool, runtime, and code lanes are inspectable; only exact micro-lanes may produce receipts.",
+    ...flags,
+    ...overrides,
+  };
+}
+
 function actionDecisionLaneReadModelFixture(
   overrides: Record<string, unknown> = {},
 ) {
@@ -6001,6 +6183,97 @@ describe("Web Control Center shell", () => {
         name: /execute|run|apply|commit/i,
       }),
     ).not.toBeInTheDocument();
+  });
+
+  it("renders the Action Tool Code catalog from backend data without execution controls", async () => {
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      action_tool_code_lane_catalog_contract_ref:
+        "contract-ref:goatcitadel-catchup-action-tool-code-catalog:v1",
+      action_tool_code_lane_catalog_read_model: actionToolCodeLaneCatalogFixture(),
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Action Inbox$/i }),
+    ).toBeInTheDocument();
+    const catalog = screen.getByLabelText("Action tool code catalog");
+    expect(catalog).toHaveTextContent("backend-owned");
+    expect(catalog).toHaveTextContent(
+      "contract-ref:goatcitadel-catchup-action-tool-code-catalog:v1",
+    );
+    expect(catalog).toHaveTextContent("Action Inbox local task create");
+    expect(catalog).toHaveTextContent("RuntimeGateway focused pytest command");
+    expect(catalog).toHaveTextContent("Coding approved patch apply");
+    expect(catalog).toHaveTextContent("Generic tool execution");
+    expect(catalog).toHaveTextContent("blocked");
+    expect(catalog).toHaveTextContent(
+      "blocked-authority:action-tool-code:no-generic-tool-execution",
+    );
+    expect(catalog).toHaveTextContent(
+      "scripts/dev/uaa_founder_loop.py inspect-action-tool-code-catalog",
+    );
+    expect(
+      within(catalog).queryByRole("button", {
+        name: /execute|run|apply|commit/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed when the Action Tool Code catalog exposes broad execution", async () => {
+    const inbox = {
+      ...mockControlCenterData.founderActionsInbox,
+      action_tool_code_lane_catalog_contract_ref:
+        "contract-ref:goatcitadel-catchup-action-tool-code-catalog:v1",
+      action_tool_code_lane_catalog_read_model: actionToolCodeLaneCatalogFixture({
+        generic_tool_execution_enabled: true,
+      }),
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderActionsInbox)) {
+        return new Response(JSON.stringify({ ok: true, result: inbox }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((candidate) => urlText.endsWith(candidate))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/actions");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: /^Action Inbox$/i }),
+    ).toBeInTheDocument();
+    const catalog = screen.getByLabelText("Action tool code catalog");
+    expect(catalog).toHaveTextContent("backend read model missing");
+    expect(screen.queryByText("lane-ref:action-inbox:local-task-create")).not.toBeInTheDocument();
+    expect(screen.queryByText("RuntimeGateway focused pytest command")).not.toBeInTheDocument();
   });
 
   it("fails closed when the governed runtime bridge exposes unsafe controls", async () => {

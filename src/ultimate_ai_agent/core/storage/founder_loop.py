@@ -120,6 +120,10 @@ from ultimate_ai_agent.core.control_center.action_inbox_work_queue import (
     ACTION_INBOX_WORK_QUEUE_CONTRACT_REF,
     build_action_inbox_work_queue_read_model,
 )
+from ultimate_ai_agent.core.control_center.action_tool_code_catalog import (
+    ACTION_TOOL_CODE_CATALOG_CONTRACT_REF,
+    build_action_tool_code_lane_catalog_read_model,
+)
 from ultimate_ai_agent.core.control_center.evidence_memory_loop_binding import (
     EVIDENCE_MEMORY_LOOP_BINDING_CONTRACT_REF,
     build_evidence_memory_loop_binding_read_model,
@@ -8944,6 +8948,12 @@ class FounderLoopRepository:
         action_inbox_decision_lane_read_model = (
             build_action_inbox_decision_lane_read_model(actions=items)
         )
+        action_tool_code_lane_catalog_read_model = (
+            build_action_tool_code_lane_catalog_read_model(
+                action_work_queue=action_inbox_work_queue_read_model,
+                runtime_action_bridge=runtime_action_inbox_bridge_read_model,
+            ).model_dump(mode="json")
+        )
         plans_to_actions_bridge_read_model = build_plans_to_actions_bridge_read_model(
             plans=self.list_plan_summaries(limit=3),
             action_items=items,
@@ -8986,6 +8996,12 @@ class FounderLoopRepository:
             ),
             "runtime_action_inbox_bridge_read_model": (
                 runtime_action_inbox_bridge_read_model
+            ),
+            "action_tool_code_lane_catalog_contract_ref": (
+                ACTION_TOOL_CODE_CATALOG_CONTRACT_REF
+            ),
+            "action_tool_code_lane_catalog_read_model": (
+                action_tool_code_lane_catalog_read_model
             ),
             "action_inbox_decision_lane_contract_ref": (
                 ACTION_INBOX_DECISION_LANE_CONTRACT_REF

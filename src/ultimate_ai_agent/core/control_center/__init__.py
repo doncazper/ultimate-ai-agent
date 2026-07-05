@@ -53,6 +53,14 @@ from ultimate_ai_agent.core.control_center.action_inbox_decision_lanes import (
     ActionInboxDecisionLaneReadModel,
     build_action_inbox_decision_lane_read_model,
 )
+from ultimate_ai_agent.core.control_center.action_tool_code_catalog import (
+    ACTION_TOOL_CODE_CATALOG_CONTRACT_REF,
+    ACTION_TOOL_CODE_CATALOG_SOURCE,
+    ActionToolCodeLaneCatalogReadModel,
+    ActionToolCodeLaneEntry,
+    ActionToolCodeUnblockPrompt,
+    build_action_tool_code_lane_catalog_read_model,
+)
 from ultimate_ai_agent.core.control_center.fusion_routing import (
     FCC_FUSION_ROUTING_DELEGATION_CONTRACT_REF,
     FCC_FUSION_ROUTING_READ_MODEL_SOURCE,
@@ -223,7 +231,12 @@ __all__ = [
     "ACTION_INBOX_DECISION_LANE_ORDER",
     "ACTION_INBOX_DECISION_LANE_READ_MODEL_SOURCE",
     "ACTION_INBOX_DECISION_LANE_REQUIRED_BLOCKED_REFS",
+    "ACTION_TOOL_CODE_CATALOG_CONTRACT_REF",
+    "ACTION_TOOL_CODE_CATALOG_SOURCE",
     "ApiSummary",
+    "ActionToolCodeLaneCatalogReadModel",
+    "ActionToolCodeLaneEntry",
+    "ActionToolCodeUnblockPrompt",
     "ApprovalSummary",
     "CONTROL_CENTER_ROUTES",
     "ControlCenterActionDecisionStatus",
@@ -365,6 +378,7 @@ __all__ = [
     "build_provider_credential_readiness_summary",
     "build_control_center_manifest",
     "build_action_inbox_decision_lane_read_model",
+    "build_action_tool_code_lane_catalog_read_model",
     "build_follow_up_tracker_read_model",
     "build_morning_briefing_v1_read_model",
     "build_plans_to_actions_bridge_read_model",

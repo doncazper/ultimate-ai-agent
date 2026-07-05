@@ -6703,6 +6703,9 @@ function normalizeFounderActionsInbox(
     isSafeRuntimeActionInboxBridgeReadModel(
       valueRecord.runtime_action_inbox_bridge_read_model,
     );
+  const safeActionToolCodeCatalog = isSafeActionToolCodeCatalogReadModel(
+    valueRecord.action_tool_code_lane_catalog_read_model,
+  );
   if (
     value === undefined ||
     !isSafeActionInboxDecisionLaneReadModel(
@@ -6729,6 +6732,15 @@ function normalizeFounderActionsInbox(
     } else {
       delete withoutMockLanes.runtime_action_inbox_bridge_read_model;
       delete withoutMockLanes.runtime_action_inbox_bridge_contract_ref;
+    }
+    if (safeActionToolCodeCatalog) {
+      withoutMockLanes.action_tool_code_lane_catalog_read_model =
+        valueRecord.action_tool_code_lane_catalog_read_model;
+      withoutMockLanes.action_tool_code_lane_catalog_contract_ref =
+        valueRecord.action_tool_code_lane_catalog_contract_ref;
+    } else {
+      delete withoutMockLanes.action_tool_code_lane_catalog_read_model;
+      delete withoutMockLanes.action_tool_code_lane_catalog_contract_ref;
     }
     delete withoutMockLanes.action_inbox_decision_lane_read_model;
     delete withoutMockLanes.action_inbox_decision_lane_contract_ref;
@@ -6780,6 +6792,15 @@ function normalizeFounderActionsInbox(
   } else {
     delete normalized.runtime_action_inbox_bridge_read_model;
     delete normalized.runtime_action_inbox_bridge_contract_ref;
+  }
+  if (safeActionToolCodeCatalog) {
+    normalized.action_tool_code_lane_catalog_read_model =
+      valueRecord.action_tool_code_lane_catalog_read_model;
+    normalized.action_tool_code_lane_catalog_contract_ref =
+      valueRecord.action_tool_code_lane_catalog_contract_ref;
+  } else {
+    delete normalized.action_tool_code_lane_catalog_read_model;
+    delete normalized.action_tool_code_lane_catalog_contract_ref;
   }
   if (safePlansToActionsBridge) {
     normalized.plans_to_actions_bridge_read_model =
@@ -7130,6 +7151,46 @@ const RUNTIME_ACTION_INBOX_BRIDGE_EVENT_KINDS = [
   "safe_disable_invoked",
 ] as const;
 
+const ACTION_TOOL_CODE_CATALOG_DENIED_FLAGS = [
+  "generic_tool_execution_enabled",
+  "unrestricted_shell_execution_enabled",
+  "browser_automation_enabled",
+  "connector_write_enabled",
+  "plugin_runtime_import_enabled",
+  "remote_execution_enabled",
+  "provider_model_call_enabled",
+  "background_autonomy_enabled",
+  "production_authority_enabled",
+] as const;
+
+const ACTION_TOOL_CODE_ENTRY_DENIED_FLAGS = [
+  "generic_tool_execution_enabled",
+  "unrestricted_shell_execution_enabled",
+  "browser_automation_enabled",
+  "connector_write_enabled",
+  "plugin_runtime_import_enabled",
+  "remote_execution_enabled",
+  "provider_model_call_enabled",
+  "background_autonomy_enabled",
+  "production_authority_enabled",
+] as const;
+
+const ACTION_TOOL_CODE_REQUIRED_ARRAYS = [
+  "entries",
+  "unblock_prompts",
+  "blocked_authority_refs",
+] as const;
+
+const ACTION_TOOL_CODE_ENTRY_REQUIRED_ARRAYS = [
+  "route_refs",
+  "cli_refs",
+  "receipt_refs",
+  "evidence_refs",
+  "proof_refs",
+  "blocked_authority_refs",
+  "unblock_prompt_refs",
+] as const;
+
 const ACTION_WORK_QUEUE_LANE_IDS = [
   "ready_for_decision",
   "approved_local_task_lane",
@@ -7313,6 +7374,150 @@ function isSafeRuntimeEvidenceTimelineItem(value: unknown): boolean {
       actionEnvelopeRef === undefined ||
       isSafeActionWorkQueueRef(actionEnvelopeRef)) &&
     (value.evidence_refs as string[]).every(isSafeActionWorkQueueRef)
+  );
+}
+
+function isSafeActionToolCodeCatalogReadModel(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    value.schema_version !== "uaa-action-tool-code-lane-catalog.v1" ||
+    value.contract_ref !==
+      "contract-ref:goatcitadel-catchup-action-tool-code-catalog:v1" ||
+    value.source !==
+      "python_core_action_tool_code_lane_catalog_read_model" ||
+    value.backend_owned !== true ||
+    value.control_center_presentation_only !== true ||
+    value.safe_refs_only !== true ||
+    value.raw_content_included !== false ||
+    !hasDeniedFlagsFalse(value, ACTION_TOOL_CODE_CATALOG_DENIED_FLAGS) ||
+    !hasStringFields(value, [
+      "catalog_ref",
+      "route_ref",
+      "cli_ref",
+      "status",
+      "next_safe_action",
+      "operator_summary",
+    ]) ||
+    !hasNumberFields(value, [
+      "entry_count",
+      "preview_only_count",
+      "exact_local_mutation_count",
+      "exact_runtime_lane_count",
+      "proposal_only_count",
+      "blocked_count",
+    ]) ||
+    !hasStringArrays(value, ["blocked_authority_refs"]) ||
+    !ACTION_TOOL_CODE_REQUIRED_ARRAYS.every((field) =>
+      Array.isArray(value[field]),
+    )
+  ) {
+    return false;
+  }
+  const entries = value.entries as unknown[];
+  const prompts = value.unblock_prompts as unknown[];
+  return (
+    value.entry_count === entries.length &&
+    value.preview_only_count ===
+      entries.filter(
+        (entry) =>
+          isPlainRecord(entry) && entry.status === "implemented_preview_only",
+      ).length &&
+    value.exact_local_mutation_count ===
+      entries.filter(
+        (entry) =>
+          isPlainRecord(entry) &&
+          entry.exact_local_mutation_available === true,
+      ).length &&
+    value.exact_runtime_lane_count ===
+      entries.filter(
+        (entry) =>
+          isPlainRecord(entry) &&
+          entry.exact_runtime_lane_available === true,
+      ).length &&
+    value.proposal_only_count ===
+      entries.filter(
+        (entry) => isPlainRecord(entry) && entry.proposal_only === true,
+      ).length &&
+    value.blocked_count ===
+      entries.filter(
+        (entry) =>
+          isPlainRecord(entry) &&
+          entry.status === "blocked_missing_exact_authority",
+      ).length &&
+    isSafeActionWorkQueueRef(value.catalog_ref) &&
+    (value.blocked_authority_refs as string[]).every(isSafeActionWorkQueueRef) &&
+    entries.every(isSafeActionToolCodeLaneEntry) &&
+    prompts.every(isSafeActionToolCodeUnblockPrompt)
+  );
+}
+
+function isSafeActionToolCodeLaneEntry(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  if (
+    !hasStringFields(value, [
+      "capability_id",
+      "capability_ref",
+      "lane_ref",
+      "label",
+      "capability_kind",
+      "surface",
+      "status",
+      "side_effect_class",
+      "required_approval_scope",
+      "eligibility_reason",
+      "blocked_reason",
+      "receipt_requirement",
+      "rollback_or_safe_disable_posture",
+    ]) ||
+    !hasStringArrays(value, ACTION_TOOL_CODE_ENTRY_REQUIRED_ARRAYS) ||
+    !hasDeniedFlagsFalse(value, ACTION_TOOL_CODE_ENTRY_DENIED_FLAGS)
+  ) {
+    return false;
+  }
+  return (
+    isSafeActionWorkQueueRef(value.capability_ref) &&
+    isSafeActionWorkQueueRef(value.lane_ref) &&
+    typeof value.operator_visible === "boolean" &&
+    value.operator_visible === true &&
+    typeof value.inspectable_now === "boolean" &&
+    value.inspectable_now === true &&
+    typeof value.proposal_only === "boolean" &&
+    typeof value.exact_local_mutation_available === "boolean" &&
+    typeof value.exact_runtime_lane_available === "boolean" &&
+    (value.receipt_refs as string[]).every(isSafeActionWorkQueueRef) &&
+    (value.evidence_refs as string[]).every(isSafeActionWorkQueueRef) &&
+    (value.proof_refs as string[]).every(isSafeActionWorkQueueRef) &&
+    (value.blocked_authority_refs as string[]).every(isSafeActionWorkQueueRef) &&
+    (value.unblock_prompt_refs as string[]).every(isSafeActionWorkQueueRef)
+  );
+}
+
+function isSafeActionToolCodeUnblockPrompt(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const prompt = String(value.copy_ready_prompt ?? "").toLowerCase();
+  return (
+    hasStringFields(value, [
+      "prompt_ref",
+      "title",
+      "target_capability_ref",
+      "copy_ready_prompt",
+    ]) &&
+    hasStringArrays(value, ["blocked_authority_refs"]) &&
+    isSafeActionWorkQueueRef(value.prompt_ref) &&
+    isSafeActionWorkQueueRef(value.target_capability_ref) &&
+    (value.blocked_authority_refs as string[]).every(isSafeActionWorkQueueRef) &&
+    !prompt.includes("/users/") &&
+    !prompt.includes("raw_prompt") &&
+    !prompt.includes("raw_response") &&
+    !prompt.includes("provider_payload") &&
+    !prompt.includes("credential material") &&
+    !prompt.includes("secret")
   );
 }
 
