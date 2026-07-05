@@ -4890,14 +4890,22 @@ th {
   grid-template-columns: minmax(0, 1fr) minmax(260px, 330px);
   gap: 12px;
   align-items: start;
+  min-width: 0;
+}
+
+.work-board-layout > * {
+  min-width: 0;
 }
 
 .work-board-columns {
   display: grid;
   grid-template-columns: repeat(6, minmax(210px, 1fr));
   gap: 10px;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   padding-bottom: 6px;
 }
 

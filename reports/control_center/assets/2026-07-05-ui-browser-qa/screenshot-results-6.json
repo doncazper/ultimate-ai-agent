@@ -1,0 +1,40 @@
+[
+  {
+    "route": "/memory",
+    "name": "memory-desktop.png",
+    "ready": true,
+    "facts": {
+      "connection": "backend_degraded",
+      "headings": [
+        "Control Center",
+        "Founder daily loop",
+        "Morning Briefing to Weekly Review",
+        "Daily loop productization",
+        "Operator Run Timeline",
+        "Memory Review",
+        "Non-authoritative fallback",
+        "Memory Workbench V1"
+      ],
+      "path": "/memory"
+    }
+  },
+  {
+    "route": "/crm",
+    "name": "crm-desktop.png",
+    "ready": true,
+    "facts": {
+      "connection": "backend_degraded",
+      "headings": [
+        "Control Center",
+        "CRM M1 fixture-only shell",
+        "Fixture contract",
+        "Authority boundary",
+        "Real Estate Realtor",
+        "Healthcare",
+        "Finance Insurance",
+        "Retail E-commerce"
+      ],
+      "path": "/crm"
+    }
+  }
+]

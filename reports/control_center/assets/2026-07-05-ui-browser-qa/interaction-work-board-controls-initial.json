@@ -1,0 +1,272 @@
+[
+  {
+    "disabled": false,
+    "name": "Find route or action",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Search Work Board",
+    "tag": "input"
+  },
+  {
+    "disabled": false,
+    "name": "Board",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "List",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Proof",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Add local draft",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Reset preview",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Request persistence lane",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "All",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Critical",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "High",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Medium",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Low",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "All",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Read-only",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Proposal",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Blocked",
+    "tag": "button"
+  },
+  {
+    "disabled": true,
+    "name": "Move Setup Assistant hardening left",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move Setup Assistant hardening right",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Select",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Persist blocked",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move Action Inbox work queue left",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move Action Inbox work queue right",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Select",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Persist blocked",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move Universal Proof spine left",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move Universal Proof spine right",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Select",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Persist blocked",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move Kanban Work Board shell left",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move Kanban Work Board shell right",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Select",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Persist blocked",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move Daily loop productization left",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move Daily loop productization right",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Select",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Persist blocked",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move Trust authority map left",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move Trust authority map right",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Select",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Persist blocked",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move External agent dispatch left",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move External agent dispatch right",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Select",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Persist blocked",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move Connector write actions left",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move Connector write actions right",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Select",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Persist blocked",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Move Coding Cockpit shell left",
+    "tag": "button"
+  },
+  {
+    "disabled": true,
+    "name": "Move Coding Cockpit shell right",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Select",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Persist blocked",
+    "tag": "button"
+  },
+  {
+    "disabled": false,
+    "name": "Show blocked lane",
+    "tag": "button"
+  }
+]

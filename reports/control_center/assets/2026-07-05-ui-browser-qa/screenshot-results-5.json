@@ -1,0 +1,40 @@
+[
+  {
+    "route": "/proof",
+    "name": "proof-desktop.png",
+    "ready": true,
+    "facts": {
+      "connection": "backend_degraded",
+      "headings": [
+        "Control Center",
+        "Founder daily loop",
+        "Morning Briefing to Weekly Review",
+        "Daily loop productization",
+        "Operator Run Timeline",
+        "Proof Detail",
+        "Mock Proof",
+        "Mock Proof"
+      ],
+      "path": "/proof"
+    }
+  },
+  {
+    "route": "/evidence",
+    "name": "evidence-desktop.png",
+    "ready": true,
+    "facts": {
+      "connection": "backend_degraded",
+      "headings": [
+        "Control Center",
+        "Founder daily loop",
+        "Morning Briefing to Weekly Review",
+        "Daily loop productization",
+        "Operator Run Timeline",
+        "Evidence Timeline",
+        "Use evidence to answer what changed, what stayed blocked",
+        "Evidence/Memory loop binding"
+      ],
+      "path": "/evidence"
+    }
+  }
+]

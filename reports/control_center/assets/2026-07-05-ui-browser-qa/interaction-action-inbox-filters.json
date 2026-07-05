@@ -1,0 +1,27 @@
+{
+  "actionFilterResults": [
+    {
+      "filterName": "Filter lane: Proposal-only / no execution path (9)",
+      "count": 1
+    },
+    {
+      "filterName": "Filter lane: Receipt recorded (1)",
+      "count": 1
+    },
+    {
+      "filterName": "Filter lane: All lanes (10)",
+      "count": 1
+    }
+  ],
+  "actionAfterFilters": {
+    "exactMutationButtons": [
+      "Filter lane: Approved local-task create lane (0)"
+    ],
+    "filteredTextIncludes": {
+      "blockedAuthority": true,
+      "proposalOnly": true,
+      "receiptRecorded": true
+    },
+    "path": "/actions"
+  }
+}

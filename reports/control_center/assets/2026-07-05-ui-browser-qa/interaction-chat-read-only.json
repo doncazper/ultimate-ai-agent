@@ -1,0 +1,246 @@
+{
+  "authorityCopy": {
+    "noModelAuthority": true,
+    "noRawOutputClaim": true,
+    "noToolExecution": true
+  },
+  "controls": [
+    {
+      "disabled": false,
+      "href": "/start",
+      "name": "Start Here",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/today",
+      "name": "Today",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/inbox",
+      "name": "Source Inbox",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/plans",
+      "name": "Plans",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/work-board",
+      "name": "Work Board",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/actions",
+      "name": "Action Inbox",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/proof",
+      "name": "Proof",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/trust",
+      "name": "Trust",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/memory",
+      "name": "Memory",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/evidence",
+      "name": "Evidence",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/settings",
+      "name": "Settings",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/briefing",
+      "name": "Briefing",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/crm",
+      "name": "CRM",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/private-trial",
+      "name": "Trial Packet",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/operator-loop",
+      "name": "Operator Loop",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/setup",
+      "name": "Setup",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/chat",
+      "name": "Chat",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/action-preview",
+      "name": "Action Preview",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/runtime",
+      "name": "Runtime",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/foundation-gate",
+      "name": "Foundation Gate",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/",
+      "name": "Overview",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/dashboard",
+      "name": "Dashboard",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/api-routes",
+      "name": "API Routes",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/differentiators",
+      "name": "Differentiators",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": null,
+      "name": "Find route or action",
+      "tag": "button"
+    },
+    {
+      "disabled": false,
+      "href": null,
+      "name": "DIY deskanswer_directly",
+      "tag": "button"
+    },
+    {
+      "disabled": false,
+      "href": null,
+      "name": "Office memoryanswer_with_reviewed_memory",
+      "tag": "button"
+    },
+    {
+      "disabled": false,
+      "href": null,
+      "name": "Shopping listdraft_or_plan",
+      "tag": "button"
+    },
+    {
+      "disabled": false,
+      "href": null,
+      "name": "Current lumber pricesprepare_tool_or_action",
+      "tag": "button"
+    },
+    {
+      "disabled": false,
+      "href": null,
+      "name": "Order materialsapproval_required",
+      "tag": "button"
+    },
+    {
+      "disabled": false,
+      "href": null,
+      "name": "Card and pickupapproval_required",
+      "tag": "button"
+    },
+    {
+      "disabled": false,
+      "href": null,
+      "name": "Base-answer bypassapproval_required",
+      "tag": "button"
+    },
+    {
+      "disabled": false,
+      "href": null,
+      "name": "Ephemeral one-shot router text",
+      "tag": "input"
+    },
+    {
+      "disabled": true,
+      "href": null,
+      "name": "Preview turn",
+      "tag": "button"
+    },
+    {
+      "disabled": true,
+      "href": null,
+      "name": "Probe redacted local turn",
+      "tag": "button"
+    },
+    {
+      "disabled": true,
+      "href": null,
+      "name": "Record actions proposal",
+      "tag": "button"
+    },
+    {
+      "disabled": true,
+      "href": null,
+      "name": "Record plans proposal",
+      "tag": "button"
+    }
+  ],
+  "headings": [
+    "Control Center",
+    "Chat Local Operator",
+    "Router Diagnostics",
+    "Lightweight answer posture",
+    "Why",
+    "No-effect proof",
+    "Blocked Authority",
+    "UAA /v1 model route",
+    "Local chat turn",
+    "Safe evidence",
+    "Harness binding",
+    "Proposal handoff"
+  ],
+  "path": "/chat"
+}

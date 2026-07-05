@@ -43,6 +43,8 @@ UI_TARGETS = ("control-center", "openwebui")
 PRIMARY_READY_SECONDARY_BLOCKED = "primary_ready_secondary_blocked"
 UAA_OPENWEBUI_TEST_GATEWAY_ENV = "UAA_OPENWEBUI_TEST_GATEWAY_ENABLED"
 UAA_OPENWEBUI_TEST_GATEWAY_VALUE = "uaa-local-test"
+UAA_API_LOCAL_BEARER_ENV = "UAA_API_LOCAL_BEARER"
+VITE_UAA_LOCAL_API_BEARER_ENV = "VITE_UAA_LOCAL_API_BEARER"
 UAA_LLAMA_CPP_GATEWAY_ENV = "UAA_LLAMA_CPP_GATEWAY_ENABLED"
 UAA_LLAMA_CPP_GATEWAY_KEY_ENV = "UAA_LLAMA_CPP_GATEWAY_KEY"
 UAA_LLAMA_CPP_MODEL_ID_ENV = "UAA_LLAMA_CPP_MODEL_ID"
@@ -231,6 +233,9 @@ def safe_env(root: Path, service_name: str) -> dict[str, str]:
     env["PYTHONUNBUFFERED"] = "1"
     if service_name == "backend":
         env["PYTHONPATH"] = str(root / "src")
+        if os.environ.get(UAA_API_LOCAL_BEARER_ENV):
+            env[UAA_API_LOCAL_BEARER_ENV] = os.environ[UAA_API_LOCAL_BEARER_ENV]
+            sensitive_passthrough_keys.add(UAA_API_LOCAL_BEARER_ENV)
         if os.environ.get(UAA_OPENWEBUI_TEST_GATEWAY_ENV):
             env[UAA_OPENWEBUI_TEST_GATEWAY_ENV] = os.environ[UAA_OPENWEBUI_TEST_GATEWAY_ENV]
         for key in [
@@ -246,6 +251,11 @@ def safe_env(root: Path, service_name: str) -> dict[str, str]:
                 sensitive_passthrough_keys.add(key)
     if service_name == "frontend":
         env["VITE_UAA_API_BASE_URL"] = ""
+        if os.environ.get(VITE_UAA_LOCAL_API_BEARER_ENV):
+            env[VITE_UAA_LOCAL_API_BEARER_ENV] = os.environ[
+                VITE_UAA_LOCAL_API_BEARER_ENV
+            ]
+            sensitive_passthrough_keys.add(VITE_UAA_LOCAL_API_BEARER_ENV)
     if service_name == "openwebui" and llama_cpp_gateway_requested():
         openwebui_env, secret_env_keys = openwebui_container_env()
         for key in secret_env_keys:

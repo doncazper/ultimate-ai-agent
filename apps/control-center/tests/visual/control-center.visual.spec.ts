@@ -81,6 +81,7 @@ for (const scenario of routeStateScenarios) {
   test(`${scenario.name} route state visual baseline`, async ({ page }) => {
     await page.goto("/");
     const main = page.locator("main");
+    await expect(page.getByText("Mock fallback active")).toBeVisible();
     await expect(main).toBeVisible();
     await main.evaluate((node, routeStateScenario) => {
       node.innerHTML = `

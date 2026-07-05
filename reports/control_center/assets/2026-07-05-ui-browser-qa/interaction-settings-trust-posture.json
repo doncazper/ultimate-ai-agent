@@ -1,0 +1,624 @@
+{
+  "controls": [
+    {
+      "disabled": false,
+      "href": "/start",
+      "name": "Start Here",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/today",
+      "name": "Today",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/inbox",
+      "name": "Source Inbox",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/plans",
+      "name": "Plans",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/work-board",
+      "name": "Work Board",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/actions",
+      "name": "Action Inbox",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/proof",
+      "name": "Proof",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/trust",
+      "name": "Trust",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/memory",
+      "name": "Memory",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/evidence",
+      "name": "Evidence",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/settings",
+      "name": "Settings",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/briefing",
+      "name": "Briefing",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/crm",
+      "name": "CRM",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/private-trial",
+      "name": "Trial Packet",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/operator-loop",
+      "name": "Operator Loop",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/setup",
+      "name": "Setup",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/chat",
+      "name": "Chat",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/action-preview",
+      "name": "Action Preview",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/runtime",
+      "name": "Runtime",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/foundation-gate",
+      "name": "Foundation Gate",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/",
+      "name": "Overview",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/dashboard",
+      "name": "Dashboard",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/api-routes",
+      "name": "API Routes",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/differentiators",
+      "name": "Differentiators",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": null,
+      "name": "Find route or action",
+      "tag": "button"
+    },
+    {
+      "disabled": false,
+      "href": "/briefing",
+      "name": "1Morning Briefingbackend owned read model",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/today",
+      "name": "2Todayimplemented backend owned review digest",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/actions",
+      "name": "3Action Inboxreceipt-backed",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/actions",
+      "name": "4Receiptreceipt-backed",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/evidence",
+      "name": "5Evidence Timelinereceipt-backed",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/memory",
+      "name": "6Memory Reviewcandidate available",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/today",
+      "name": "7Weekly Reviewreceipt-backed",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/start",
+      "name": "Start Herepartialbackend_owned_entrypointStart Here opens the local daily loop with shared run, proo",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/today",
+      "name": "Todaypartialbackend_owned_homeToday remains the local home surface for what matters, what needs revi",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/actions",
+      "name": "Action Inboxreceipt-backedreceipt_lane_visibleAction Inbox shows exact local work, decision receipts",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/proof",
+      "name": "Proofreceipt-backedbackend_owned_proof_indexProof ties the same run, receipt, evidence, memory, roll",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/evidence",
+      "name": "Evidenceimplementedstorage_backed_timelineEvidence shows what was proposed, approved, changed, stale",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/memory",
+      "name": "Memoryimplementedreviewed_recall_onlyMemory remains reviewed recall only and explains which evidence",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/trust",
+      "name": "Trustauthority-gatedauthority_map_visibleTrust turns the loop into an operator authority map with en",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/settings",
+      "name": "Settingsimplementedread_only_status_backedSettings closes the loop with local status, kill switch po",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://platform.openai.com/api-keys",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://developers.openai.com/api/reference/overview/",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://openai.com/api/pricing/",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://platform.claude.com/",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://platform.claude.com/docs/en/api/overview",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://aistudio.google.com/app/apikey",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://ai.google.dev/gemini-api/docs",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://ai.google.dev/gemini-api/docs/pricing",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://x.ai/api",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.x.ai/overview",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.x.ai/developers/pricing",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.mistral.ai/",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.mistral.ai/api/endpoint/chat",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://mistral.ai/pricing/",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.cohere.com/docs/rate-limits",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.cohere.com/reference/about",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://cohere.com/pricing",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://api-docs.deepseek.com/",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://api-docs.deepseek.com/api/deepseek-api",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://api-docs.deepseek.com/quick_start/pricing",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.perplexity.ai/docs/admin/api-key-management",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.perplexity.ai/docs/getting-started/overview",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.perplexity.ai/docs/getting-started/pricing",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.ai21.com/docs/create-api-key",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.ai21.com/home",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.ai21.com/docs/usage-cost",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://platform.kimi.ai/docs/overview",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://platform.kimi.ai/docs/overview",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://platform.kimi.ai/docs/pricing/chat",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.z.ai/guides/overview/quick-start",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.z.ai/guides/develop/http/introduction",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.z.ai/guides/overview/pricing",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://openrouter.ai/docs/api/reference/authentication",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://openrouter.ai/docs/api/reference/overview",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://openrouter.ai/pricing",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.together.ai/docs/quickstart",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.together.ai/docs/quickstart",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://www.together.ai/pricing",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.fireworks.ai/getting-started/quickstart",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.fireworks.ai/api-reference/introduction",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://fireworks.ai/pricing",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://console.groq.com/",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://console.groq.com/docs/api-reference",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://groq.com/pricing",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://replicate.com/docs/topics/security/api-tokens",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://replicate.com/docs/reference/http",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://replicate.com/pricing",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://inference-docs.cerebras.ai/introduction",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://inference-docs.cerebras.ai/introduction",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://www.cerebras.ai/pricing",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://cloud.sambanova.ai/apis",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.sambanova.ai/docs/en/get-started/quickstart",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://cloud.sambanova.ai/plans/pricing",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://build.nvidia.com/settings/api-keys",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://docs.nvidia.com/nim/large-language-models/latest/api-reference.html",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://developer.nvidia.com/nim",
+      "name": "Pricing docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://learn.microsoft.com/en-us/azure/foundry/openai/reference",
+      "name": "Setup docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://learn.microsoft.com/en-us/azure/foundry/openai/reference",
+      "name": "API docs",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "https://azure.microsoft.com/en-us/pricing/details/azure-openai/",
+      "name": "Pricing docs",
+      "tag": "a"
+    }
+  ],
+  "headings": [
+    "Control Center",
+    "Founder daily loop",
+    "Morning Briefing to Weekly Review",
+    "Daily loop productization",
+    "Operator Run Timeline",
+    "Settings",
+    "Provider Guidance",
+    "Authority posture",
+    "Budget posture",
+    "Token cost examples",
+    "Provider setup cards",
+    "Backend-owned Settings status"
+  ],
+  "language": {
+    "blockedAuthority": true,
+    "killSwitch": true,
+    "noBroadApproveAll": false
+  },
+  "path": "/settings"
+}

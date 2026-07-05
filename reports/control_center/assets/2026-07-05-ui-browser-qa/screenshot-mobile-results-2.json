@@ -1,0 +1,36 @@
+[
+  {
+    "bodyScrollWidth": 390,
+    "headings": [
+      "Control Center",
+      "Founder daily loop",
+      "Morning Briefing to Weekly Review",
+      "Daily loop productization",
+      "Operator Run Timeline",
+      "Action Inbox",
+      "Decide what can receive a receipt, keep everything else bounded",
+      "Work queue"
+    ],
+    "name": "actions-mobile.png",
+    "path": "/actions",
+    "route": "/actions",
+    "viewport": 390
+  },
+  {
+    "bodyScrollWidth": 390,
+    "headings": [
+      "Control Center",
+      "Coding Cockpit",
+      "Context",
+      "Workflow Timeline",
+      "Diff Preview",
+      "Proof Detail",
+      "Chat",
+      "Terminal Preview"
+    ],
+    "name": "coding-mobile.png",
+    "path": "/coding",
+    "route": "/coding",
+    "viewport": 390
+  }
+]

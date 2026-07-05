@@ -7,27 +7,44 @@ type LoadState =
   | { status: "ready"; data: ControlCenterData; error: null }
   | { status: "error"; data: null; error: string };
 
+const MOCK_FALLBACK_RETRY_DELAYS_MS = [250, 750, 1500, 3000, 5000];
+
 export function useControlCenterData(): LoadState {
   const [state, setState] = useState<LoadState>({ status: "loading", data: null, error: null });
 
   useEffect(() => {
     let active = true;
     let retryTimeout: ReturnType<typeof setTimeout> | undefined;
+    const scheduleMockFallbackRetry = (attemptIndex: number) => {
+      if (!active || attemptIndex >= MOCK_FALLBACK_RETRY_DELAYS_MS.length) {
+        return;
+      }
+      retryTimeout = setTimeout(() => {
+        loadControlCenterData()
+          .then((retryData) => {
+            if (!active) {
+              return;
+            }
+            if (!shouldRetryMockFallback(retryData)) {
+              setState({ status: "ready", data: retryData, error: null });
+              return;
+            }
+            scheduleMockFallbackRetry(attemptIndex + 1);
+          })
+          .catch(() => {
+            if (active) {
+              scheduleMockFallbackRetry(attemptIndex + 1);
+            }
+          });
+      }, MOCK_FALLBACK_RETRY_DELAYS_MS[attemptIndex]);
+    };
     loadControlCenterData()
       .then((data) => {
         if (active) {
           setState({ status: "ready", data, error: null });
         }
         if (active && shouldRetryMockFallback(data)) {
-          retryTimeout = setTimeout(() => {
-            loadControlCenterData()
-              .then((retryData) => {
-                if (active && !shouldRetryMockFallback(retryData)) {
-                  setState({ status: "ready", data: retryData, error: null });
-                }
-              })
-              .catch(() => undefined);
-          }, 50);
+          scheduleMockFallbackRetry(0);
         }
       })
       .catch(() => {

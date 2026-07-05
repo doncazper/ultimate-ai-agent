@@ -1,0 +1,8 @@
+{
+  "setupCardCount": 1,
+  "after": {
+    "changedPreview": false,
+    "persistenceBlocked": true,
+    "setupInReady": true
+  }
+}

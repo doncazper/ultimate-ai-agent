@@ -1,0 +1,174 @@
+[
+  {
+    "connection": "backend_degraded",
+    "controls": [
+      {
+        "disabled": false,
+        "name": "Start Here",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Today",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Source Inbox",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Plans",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Work Board",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Action Inbox",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Proof",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Trust",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Memory",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Evidence",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Settings",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Briefing",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "CRM",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Trial Packet",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Operator Loop",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Setup",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Chat",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Action Preview",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Runtime",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Foundation Gate",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Overview",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Dashboard",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "API Routes",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Differentiators",
+        "tag": "a"
+      },
+      {
+        "disabled": false,
+        "name": "Find route or action",
+        "tag": "button"
+      }
+    ],
+    "hasBlocked": true,
+    "hasMockLabel": true,
+    "hasOverclaim": false,
+    "hasPartial": true,
+    "hasRawLocalPath": false,
+    "headings": [
+      "Control Center",
+      "Dashboard overview",
+      "Control Center",
+      "Foundation Gate",
+      "Runtime readiness",
+      "API boundary",
+      "Operator Loop",
+      "First product loop proof",
+      "Steps surfaced",
+      "Routes surfaced",
+      "Blocked prerequisites",
+      "Frontend authority"
+    ],
+    "label": "Overview",
+    "mode": "direct-url",
+    "overflowCount": 0,
+    "route": "/",
+    "safeTextSample": [
+      "CC",
+      "Control Center",
+      "Backend degraded; verify refs",
+      "Start Here",
+      "Today",
+      "Source Inbox",
+      "Plans",
+      "Work Board",
+      "Action Inbox",
+      "Proof",
+      "Trust",
+      "Memory",
+      "Evidence",
+      "Settings",
+      "SUPPORTING SURFACES",
+      "Briefing"
+    ],
+    "urlPath": "/"
+  }
+]

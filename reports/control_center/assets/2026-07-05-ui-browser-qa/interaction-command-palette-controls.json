@@ -1,0 +1,105 @@
+{
+  "buttonNames": [
+    "Close"
+  ],
+  "controls": [
+    {
+      "disabled": false,
+      "href": null,
+      "name": "Search routes and actions",
+      "tag": "input"
+    },
+    {
+      "disabled": false,
+      "href": null,
+      "name": "Close",
+      "tag": "button"
+    },
+    {
+      "disabled": false,
+      "href": "/start",
+      "name": "View",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/today",
+      "name": "View",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/inbox",
+      "name": "View",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/plans",
+      "name": "View",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/work-board",
+      "name": "View",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/actions",
+      "name": "View",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/proof",
+      "name": "View",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/trust",
+      "name": "View",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/memory",
+      "name": "View",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/evidence",
+      "name": "View",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/settings",
+      "name": "View",
+      "tag": "a"
+    },
+    {
+      "disabled": false,
+      "href": "/briefing",
+      "name": "View",
+      "tag": "a"
+    }
+  ],
+  "linkNames": [
+    "View",
+    "View",
+    "View",
+    "View",
+    "View",
+    "View",
+    "View",
+    "View",
+    "View",
+    "View",
+    "View",
+    "View"
+  ]
+}

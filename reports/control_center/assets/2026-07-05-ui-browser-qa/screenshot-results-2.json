@@ -1,0 +1,40 @@
+[
+  {
+    "route": "/today",
+    "name": "today-desktop.png",
+    "ready": true,
+    "facts": {
+      "connection": "backend_degraded",
+      "headings": [
+        "Control Center",
+        "Today",
+        "Daily Status",
+        "Top Priorities",
+        "Backend Truth Summary",
+        "Today decisions first",
+        "Loop posture",
+        "Now refs"
+      ],
+      "path": "/today"
+    }
+  },
+  {
+    "route": "/work-board",
+    "name": "work-board-desktop.png",
+    "ready": true,
+    "facts": {
+      "connection": "backend_degraded",
+      "headings": [
+        "Control Center",
+        "Work Board",
+        "Setup Assistant hardening",
+        "Action Inbox work queue",
+        "Universal Proof spine",
+        "Kanban Work Board shell",
+        "Daily loop productization",
+        "Trust authority map"
+      ],
+      "path": "/work-board"
+    }
+  }
+]

@@ -506,6 +506,28 @@ def test_launcher_backend_env_allows_only_openwebui_gateway_flag(monkeypatch: py
     assert env["UAA_LLAMA_CPP_API_KEY"] == "local-backend-secret"
 
 
+def test_launcher_env_passes_configured_local_control_center_bearers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = load_launcher()
+    monkeypatch.setenv("UAA_API_LOCAL_BEARER", "local-control-center-bearer")
+    monkeypatch.setenv(
+        "VITE_UAA_LOCAL_API_BEARER",
+        "local-control-center-bearer",
+    )
+    monkeypatch.setenv("UNRELATED_TOKEN", "should-not-pass-through")
+
+    backend_env = launcher.safe_env(ROOT, "backend")
+    frontend_env = launcher.safe_env(ROOT, "frontend")
+
+    assert backend_env["UAA_API_LOCAL_BEARER"] == "local-control-center-bearer"
+    assert "VITE_UAA_LOCAL_API_BEARER" not in backend_env
+    assert frontend_env["VITE_UAA_LOCAL_API_BEARER"] == "local-control-center-bearer"
+    assert "UAA_API_LOCAL_BEARER" not in frontend_env
+    assert "UNRELATED_TOKEN" not in backend_env
+    assert "UNRELATED_TOKEN" not in frontend_env
+
+
 def test_shell_wrapper_exists_and_is_executable() -> None:
     assert WRAPPER_PATH.exists()
     mode = WRAPPER_PATH.stat().st_mode

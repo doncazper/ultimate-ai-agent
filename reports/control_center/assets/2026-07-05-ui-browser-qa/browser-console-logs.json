@@ -1,0 +1,42 @@
+[
+  {
+    "label": "overview/start",
+    "count": 0,
+    "logs": []
+  },
+  {
+    "label": "desktop-routes",
+    "count": 0,
+    "logs": []
+  },
+  {
+    "label": "work-board",
+    "count": 0,
+    "logs": []
+  },
+  {
+    "label": "actions",
+    "count": 0,
+    "logs": []
+  },
+  {
+    "label": "chat",
+    "count": 0,
+    "logs": []
+  },
+  {
+    "label": "runtime",
+    "count": 0,
+    "logs": []
+  },
+  {
+    "label": "settings",
+    "count": 0,
+    "logs": []
+  },
+  {
+    "label": "mobile-work-board",
+    "count": 0,
+    "logs": []
+  }
+]

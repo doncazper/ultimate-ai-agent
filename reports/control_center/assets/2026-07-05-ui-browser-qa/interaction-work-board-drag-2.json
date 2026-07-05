@@ -1,0 +1,58 @@
+{
+  "dragPoints": {
+    "end": {
+      "x": 566,
+      "y": 701
+    },
+    "start": {
+      "x": 346,
+      "y": 688
+    }
+  },
+  "after": {
+    "changedPreview": false,
+    "setupInReady": false,
+    "textSample": [
+      "CC",
+      "Control Center",
+      "Backend degraded; verify refs",
+      "Start Here",
+      "Today",
+      "Source Inbox",
+      "Plans",
+      "Work Board",
+      "Action Inbox",
+      "Proof",
+      "Trust",
+      "Memory",
+      "Evidence",
+      "Settings",
+      "SUPPORTING SURFACES",
+      "Briefing",
+      "CRM",
+      "Trial Packet",
+      "Operator Loop",
+      "Setup",
+      "Chat",
+      "Action Preview",
+      "Runtime",
+      "Foundation Gate",
+      "Overview",
+      "Dashboard",
+      "API Routes",
+      "Differentiators",
+      "Privacy posture",
+      "Private by default",
+      "Kill-switch posture",
+      "Unverified in fallback",
+      "Local-first",
+      "Status + exact backend lanes",
+      "Control Center",
+      "FOUNDER LOOP",
+      "OPERATOR SHELL",
+      "BACKEND TRUTH",
+      "SAFETY FIRST",
+      "Operate with local facts. Review backend refs where available; blocked, partial, and mock states stay visible."
+    ]
+  }
+}
