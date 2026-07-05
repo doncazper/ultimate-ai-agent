@@ -59,6 +59,7 @@ export const API_ENDPOINTS = {
   localModels: "/v1/models",
   localChatCompletions: "/v1/chat/completions",
   actionPreview: "/control-center/actions/preview",
+  turnRouterPreview: "/control-center/turn-router/preview",
 } as const;
 
 export const ACTION_DECISION_KINDS = [
@@ -193,8 +194,13 @@ export function isAllowedReadEndpoint(
 
 export function isPreviewEndpoint(
   endpoint: string,
-): endpoint is typeof API_ENDPOINTS.actionPreview {
-  return endpoint === API_ENDPOINTS.actionPreview;
+): endpoint is
+  | typeof API_ENDPOINTS.actionPreview
+  | typeof API_ENDPOINTS.turnRouterPreview {
+  return (
+    endpoint === API_ENDPOINTS.actionPreview ||
+    endpoint === API_ENDPOINTS.turnRouterPreview
+  );
 }
 
 export function isRuntimeValidationEndpoint(

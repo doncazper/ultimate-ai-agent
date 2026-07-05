@@ -9,7 +9,8 @@ M13 adds a local TypeScript React/Vite shell under `apps/control-center/` for re
 Implemented shell behavior:
 
 - renders read-only dashboard, runtime readiness, Foundation Gate, API route, approval queue, receipt viewer, event viewer, event timeline trace viewer, evidence viewer, file reference viewer, memory viewer, remote worker, private mesh, mobile planning, plugin governance, setup assistant, and settings summaries.
-- submits exactly one preview-only request type to `/control-center/actions/preview`.
+- submits bounded no-effect preview requests, including
+  `/control-center/actions/preview` and `/control-center/turn-router/preview`.
 - labels action preview as preview-only and displays blocked decisions as non-executed safety results.
 - exposes the action preview risk level as policy metadata only.
 - provides route-level headings and accessible loading, empty, error, and mock fallback states for local browser smoke review.

@@ -416,6 +416,18 @@ redaction refs only. They do not persist raw request text, wire chat runtime,
 call providers/models, execute tools/actions, retrieve memory bodies, inject
 context, run shell/browser work, or write connectors.
 
+Prompt 04 productization exposes that same preview contract in the Control
+Center Chat surface as Router Diagnostics. The panel calls the backend-owned
+preview route for protected samples, labels fallback previews as
+non-authoritative mock data, and renders selected contract, reason refs,
+memory/tool/state/approval posture, blocked authority refs, and no-effect proof
+without making raw JSON the primary UI. The optional free-form preview input is
+ephemeral UI state only; it is cleared after submission, rejects secret-like
+input locally, and does not save raw text to fixtures, logs, local storage, or
+durable evidence. The panel adds no chat runtime routing, provider/model call,
+tool/action execution, memory retrieval/write, shell/browser work, connector
+write, public release, or production authority.
+
 Preflight lanes:
 
 | Lane | Runs when | May read memory content? | May execute tools? | User-visible? | Output |

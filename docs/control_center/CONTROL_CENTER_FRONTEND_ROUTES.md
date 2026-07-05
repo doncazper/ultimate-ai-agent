@@ -167,6 +167,11 @@ Backend API endpoints consumed:
   only when local gateway prerequisites are already configured.
 - `POST /runtime/smoke-reports/validate`
 - `POST /control-center/actions/preview`
+- `POST /control-center/turn-router/preview` for the Chat Router Diagnostics
+  no-effect preview only. The surface renders selected contract, policy
+  posture, blocked authority, and no-effect proof; it does not persist raw
+  turn text, execute actions/tools, retrieve memory bodies, call
+  providers/models, automate browsers, write connectors, or grant authority.
 
 Forbidden frontend route/API targets:
 
@@ -245,7 +250,7 @@ M14 — Web Control Center Local Backend Connection Stabilization, implemented
 M15 — Approval Queue + Receipt/Event Viewer UI, future
 ```
 
-M14 clarifies local backend connection states and mock-to-live transitions, but it does not add execute/run/send/deploy/enable/approve controls or any POST target beyond `/control-center/actions/preview`. M15 may add read-only/preview-only approval, receipt, and event views only after a reviewed milestone prompt.
+M14 clarifies local backend connection states and mock-to-live transitions, but it does not add execute/run/send/deploy/enable/approve controls. The frontend POST surface remains bounded to reviewed no-effect preview routes such as `/control-center/actions/preview` and `/control-center/turn-router/preview`. M15 may add read-only/preview-only approval, receipt, and event views only after a reviewed milestone prompt.
 
 ## v0.18.1 M14 Connection Safety Hardening
 

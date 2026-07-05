@@ -10,7 +10,8 @@ Frontend safety rules:
 
 - UI controls may read status, route inventory, readiness reports, setup
   assistant summaries, and other scoped read-only summaries.
-- The only action preview POST from the frontend is `/control-center/actions/preview`.
+- Frontend POST calls remain bounded to scoped no-effect preview routes such as
+  `/control-center/actions/preview` and `/control-center/turn-router/preview`.
 - M18 may reference the existing validation-only `POST /runtime/smoke-reports/validate` route for safe manual smoke report metadata validation.
 - Action preview must never be treated as execution, approval, credential resolution, remote dispatch, model invocation, plugin enablement, or sensor access.
 - Mock fixtures must be visibly marked mock and non-authoritative.
