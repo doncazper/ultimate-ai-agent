@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `197`.
+Current OpenAPI path count: `198`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -57,7 +57,11 @@ Contract rules:
   persist raw request text, call providers/models, execute tools/actions,
   retrieve memory bodies, inject context, run shell/browser work, write
   connectors, or wire chat runtime behavior.
-- `/api/runtime/*` is the governed runtime pilot contract surface. Phase 07
+- `/api/runtime/*` is the governed runtime pilot contract surface. The
+  Governed Product Pilot authority profile is exposed at
+  `GET /api/runtime/governed-product-pilot-profile` as a protected read-only
+  Python Core read model for exact lane posture, portable evidence envelopes,
+  durable orchestration posture, and blocked authority refs. Phase 07
   preserves configured local loopback model calls and the exact read-only status
   command while adding exact Action Inbox approved focused pytest command execution
   through `RuntimeGateway`, plus CLI/Control Center/evidence timeline parity

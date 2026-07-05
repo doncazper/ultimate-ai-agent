@@ -106,6 +106,19 @@ only when copy preserves the current truth:
   exact Action Inbox approval envelopes validate before execution and the same
   action is inspectable through CLI/API/Control Center truth.
 
+The Governed Product Pilot authority profile may be described as a local
+governed pilot profile only when copy also preserves the sealed/default profile
+as deny-by-default. The profile may name exact local RuntimeGateway lanes,
+portable local hash evidence envelopes, durable run orchestration posture, and
+CLI/API/Core parity through
+`GET /api/runtime/governed-product-pilot-profile`,
+`scripts/dev/uaa_runtime.py authority-profile`, and the Python Core contract.
+It must not be described as production authority, public beta, public release,
+unrestricted provider/model authority, generic tool execution, unrestricted
+shell/subprocess authority, browser automation, connector writes, plugin
+runtime import, remote execution, broad autonomy, or raw prompt/response/
+provider-payload/log/local-path persistence.
+
 Allowed pilot copy may say that UAA is working toward governed local runtime
 authority through RuntimeGateway. It must also say which portion is
 implemented, planned, blocked, or pilot-scoped. The pilot must never be

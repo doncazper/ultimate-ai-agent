@@ -2,11 +2,12 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `197`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `198` route
+Current OpenAPI path count: `198`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `199` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
-Router preview adds one no-effect diagnostic route.
+Router preview adds one no-effect diagnostic route. The Governed Product Pilot
+authority profile adds a protected read-only `/api/runtime/*` profile route.
 
 The API boundary is metadata-first, validation-first, approval-aware for
 local/dev policy checks, simulated/fallback-first for model runtime behavior,
@@ -89,6 +90,10 @@ Current boundary summary:
   verifiers, frontend-check, arbitrary adapter execution, remote provider/model
   calls, browser automation, connector writes, plugin runtime import, remote
   execution, production authority, and public release claims remain blocked.
+- `GET /api/runtime/governed-product-pilot-profile` exposes a Python Core
+  Governed Product Pilot read model with sealed/default denial, exact lane
+  posture, portable evidence envelope refs, durable orchestration posture, and
+  blocked authority refs. It does not add a mutation lane.
 - CRM Local Command Center M2 adds six local read routes under
   `/control-center/crm/*` and one exact local mutation receipt route at
   `POST /control-center/crm/local-mutations`. These routes expose safe-ref CRM

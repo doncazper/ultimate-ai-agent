@@ -26,6 +26,21 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeSafeDisableState,
     build_default_runtime_capabilities,
 )
+from ultimate_ai_agent.core.runtime_gateway.governed_product_pilot_profile import (
+    GOVERNED_PRODUCT_PILOT_CLI_REF,
+    GOVERNED_PRODUCT_PILOT_PROFILE_CONTRACT_REF,
+    GOVERNED_PRODUCT_PILOT_PROFILE_REF,
+    GOVERNED_PRODUCT_PILOT_REQUIRED_BLOCKED_AUTHORITY_REFS,
+    GOVERNED_PRODUCT_PILOT_ROUTE_REF,
+    GOVERNED_PRODUCT_PILOT_VERIFIER_REF,
+    GovernedProductPilotAuthorityProfileReadModel,
+    GovernedProductPilotEvidenceVerificationResult,
+    GovernedProductPilotLane,
+    GovernedProductPilotPortableEvidenceEnvelope,
+    build_governed_product_pilot_authority_profile,
+    build_portable_evidence_envelope,
+    verify_portable_evidence_envelope,
+)
 from ultimate_ai_agent.core.runtime_gateway.command import (
     GovernedCommandRuntimeAdapter,
     RuntimeCommandExecutionRequest,
@@ -50,6 +65,12 @@ from ultimate_ai_agent.core.runtime_gateway.storage import (
 
 __all__ = [
     "GOVERNED_RUNTIME_CONTRACT_REF",
+    "GOVERNED_PRODUCT_PILOT_CLI_REF",
+    "GOVERNED_PRODUCT_PILOT_PROFILE_CONTRACT_REF",
+    "GOVERNED_PRODUCT_PILOT_PROFILE_REF",
+    "GOVERNED_PRODUCT_PILOT_REQUIRED_BLOCKED_AUTHORITY_REFS",
+    "GOVERNED_PRODUCT_PILOT_ROUTE_REF",
+    "GOVERNED_PRODUCT_PILOT_VERIFIER_REF",
     "GOVERNED_RUNTIME_DEFAULT_PROFILE",
     "GOVERNED_RUNTIME_IMPLEMENTED_AUTHORITY_REFS",
     "GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS",
@@ -89,5 +110,12 @@ __all__ = [
     "RuntimeSafeDisableRequest",
     "RuntimeSafeDisableState",
     "build_default_runtime_capabilities",
+    "GovernedProductPilotAuthorityProfileReadModel",
+    "GovernedProductPilotEvidenceVerificationResult",
+    "GovernedProductPilotLane",
+    "GovernedProductPilotPortableEvidenceEnvelope",
+    "build_governed_product_pilot_authority_profile",
+    "build_portable_evidence_envelope",
+    "verify_portable_evidence_envelope",
     "command_allowlist_catalog",
 ]

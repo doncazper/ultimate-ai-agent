@@ -39,10 +39,22 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert "governed_runtime_loopback_local_model_call_pilot" in manifest[
         "capabilities_declared"
     ]
+    assert "governed_product_pilot_authority_profile" in manifest[
+        "capabilities_declared"
+    ]
+    assert "governed_product_pilot_portable_evidence_envelope" in manifest[
+        "capabilities_declared"
+    ]
     assert "runtime_remote_or_unrestricted_model_calls" in manifest[
         "capabilities_blocked"
     ]
     assert "governed_runtime_remote_or_provider_model_calls" in manifest[
+        "capabilities_blocked"
+    ]
+    assert "governed_product_pilot_production_authority" in manifest[
+        "capabilities_blocked"
+    ]
+    assert "governed_product_pilot_unrestricted_shell_subprocess" in manifest[
         "capabilities_blocked"
     ]
     assert "web_fetching" in manifest["capabilities_blocked"]

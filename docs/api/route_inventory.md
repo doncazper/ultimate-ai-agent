@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `197`.
+Current OpenAPI path count: `198`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -43,8 +43,8 @@ Current route classification summary:
 | Classification | Count |
 |---|---:|
 | `public_metadata` | 3 |
-| `local_readonly` | 26 |
-| `local_sensitive` | 126 |
+| `local_readonly` | 27 |
+| `local_sensitive` | 127 |
 | `mutating_requires_authority` | 42 |
 
 Allowed current side-effect classes are:
@@ -106,6 +106,10 @@ focused pytest command execution through `RuntimeGateway`, with CLI/Control
 Center/evidence timeline parity for status, capabilities, invocation, receipt,
 safe-disable, approval decision inspection, command root pinning, configured
 endpoint matching, receipt-detail execution truth, and approval preflight.
+`GET /api/runtime/governed-product-pilot-profile` exposes the Governed Product
+Pilot authority profile as a protected read-only Python Core read model for
+exact lane posture, portable evidence envelopes, durable orchestration posture,
+and blocked authority refs.
 Capability, invocation, policy, approval-ref, receipt, and safe-disable records
 store safe refs and redacted metadata only; model output is untrusted proposal
 text, and command output is redacted and bounded. Remote provider/model calls,

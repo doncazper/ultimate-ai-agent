@@ -20,7 +20,10 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     RuntimeInvocationConflictError,
     RuntimeInvocationNotFoundError,
     RuntimeInvocationStore,
+    build_portable_evidence_envelope,
     build_default_runtime_capabilities,
+    build_governed_product_pilot_authority_profile,
+    verify_portable_evidence_envelope,
 )
 from ultimate_ai_agent.core.runtime_gateway.contracts import (  # noqa: E402
     RuntimeActionInboxApprovalDecision,
@@ -145,6 +148,29 @@ def _print_capabilities() -> None:
         print(f"- {ref}")
 
 
+def _print_authority_profile(read_model: dict[str, Any]) -> None:
+    print("Governed Product Pilot authority profile")
+    print(f"Status: {read_model['status']}")
+    print(f"Profile: {read_model['profile_ref']}")
+    print(f"Default profile: {read_model['default_runtime_profile']}")
+    print(f"Sealed default preserved: {read_model['sealed_default_hard_rules_preserved']}")
+    print(f"RuntimeGateway required: {read_model['runtime_gateway_required']}")
+    print(f"Control Center mints authority: {read_model['control_center_mints_authority']}")
+    print("Promoted exact authority:")
+    for ref in read_model["promoted_authority_refs"]:
+        print(f"- {ref}")
+    print("Lanes:")
+    for lane in read_model["lanes"]:
+        print(f"- {lane['title']} status={lane['status']}")
+        print(f"  lane: {lane['lane_ref']}")
+        print(f"  promotion: {lane['promotion_path_ref']}")
+    envelope = read_model["portable_evidence_envelope"]
+    print(f"Portable evidence: {envelope['signed_envelope_ref']}")
+    print("Still blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
 def _print_invocation(record: Any) -> None:
     print("Governed runtime invocation")
     print(f"Invocation: {record.invocation_ref}")
@@ -237,6 +263,92 @@ def _capabilities(args: argparse.Namespace) -> int:
     else:
         _print_capabilities()
     return 0
+
+
+def _authority_profile(args: argparse.Namespace) -> int:
+    profile = build_governed_product_pilot_authority_profile()
+    read_model = profile.model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-authority-profile",
+        "authority_profile": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_command_output_omitted": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_authority_profile(read_model)
+    return 0
+
+
+def _portable_evidence_payload(command_ref: str, envelope: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": command_ref,
+        "portable_evidence_envelope": envelope,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_command_output_omitted": True,
+    }
+
+
+def _export_evidence_envelope(args: argparse.Namespace) -> int:
+    envelope = build_portable_evidence_envelope().model_dump(mode="json")
+    payload = _portable_evidence_payload(
+        "repo-local-command:uaa-runtime-export-evidence-envelope",
+        envelope,
+    )
+    if args.json:
+        _print_json(payload)
+    else:
+        print("Governed Product Pilot portable evidence envelope")
+        print(f"Envelope: {envelope['envelope_ref']}")
+        print(f"Receipt: {envelope['receipt_ref']}")
+        print(f"Evidence: {envelope['evidence_ref']}")
+        print(f"Hash: {envelope['envelope_hash_ref']}")
+        print(f"Signed ref: {envelope['signed_envelope_ref']}")
+        print("Safe refs only: true")
+    return 0
+
+
+def _verification_payload(result: Any) -> dict[str, Any]:
+    return {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-verify-evidence-envelope",
+        "verification": result.model_dump(mode="json"),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_command_output_omitted": True,
+    }
+
+
+def _verify_evidence_envelope(args: argparse.Namespace) -> int:
+    if args.profile:
+        envelope_payload: dict[str, Any] = build_portable_evidence_envelope().model_dump(
+            mode="json"
+        )
+    else:
+        envelope_payload = json.loads(Path(args.input).read_text(encoding="utf-8"))
+    result = verify_portable_evidence_envelope(envelope_payload)
+    payload = _verification_payload(result)
+    if args.json:
+        _print_json(payload)
+    else:
+        verification = payload["verification"]
+        print("Governed Product Pilot evidence envelope verification")
+        print(f"Status: {verification['verification_status']}")
+        print(f"Envelope: {verification['envelope_ref']}")
+        print(f"Hash valid: {verification['envelope_hash_valid']}")
+        print(f"Signed ref valid: {verification['signed_envelope_ref_valid']}")
+        print(f"Redaction valid: {verification['redaction_status_valid']}")
+        print(f"Tamper detected: {verification['tamper_detected']}")
+        print("Input path echoed: false")
+    return 0 if result.verification_status == "passed" else 1
 
 
 def _invocations_list(args: argparse.Namespace) -> int:
@@ -544,6 +656,37 @@ def build_parser() -> argparse.ArgumentParser:
     )
     capabilities.add_argument("--json", action="store_true", help="Emit safe JSON.")
     capabilities.set_defaults(func=_capabilities)
+
+    authority_profile = subparsers.add_parser(
+        "authority-profile",
+        help="Inspect the Governed Product Pilot authority profile.",
+    )
+    authority_profile.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    authority_profile.set_defaults(func=_authority_profile)
+
+    export_evidence = subparsers.add_parser(
+        "export-evidence-envelope",
+        help="Export a safe portable evidence envelope for offline inspection.",
+    )
+    export_evidence.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    export_evidence.set_defaults(func=_export_evidence_envelope)
+
+    verify_evidence = subparsers.add_parser(
+        "verify-evidence-envelope",
+        help="Verify a safe portable evidence envelope offline.",
+    )
+    evidence_source = verify_evidence.add_mutually_exclusive_group(required=True)
+    evidence_source.add_argument(
+        "--profile",
+        action="store_true",
+        help="Verify the current governed product pilot profile envelope.",
+    )
+    evidence_source.add_argument(
+        "--input",
+        help="Read an envelope JSON file without echoing the local path.",
+    )
+    verify_evidence.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    verify_evidence.set_defaults(func=_verify_evidence_envelope)
 
     invocations = subparsers.add_parser(
         "invocations",

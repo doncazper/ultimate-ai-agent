@@ -21,6 +21,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeCommandExecutionRequest,
     RuntimeLocalModelCallRequest,
     build_default_runtime_capabilities,
+    build_governed_product_pilot_authority_profile,
     command_allowlist_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
@@ -116,6 +117,20 @@ def get_api_runtime_capabilities() -> ResultEnvelope:
         data=data,
         evidence=[{"evidence_ref": "evidence-ref:governed-runtime-capabilities"}],
         redactions_applied=capabilities.redactions_applied,
+    )
+
+
+@router.get("/governed-product-pilot-profile", response_model=ResultEnvelope)
+def get_api_runtime_governed_product_pilot_profile() -> ResultEnvelope:
+    profile = build_governed_product_pilot_authority_profile()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_governed_product_pilot_profile",
+        service="GovernedRuntimeAPI",
+        trace_id=profile.profile_ref,
+        data=profile.model_dump(mode="json"),
+        evidence=[{"evidence_ref": profile.portable_evidence_envelope.evidence_ref}],
+        redactions_applied=profile.redactions_applied,
     )
 
 

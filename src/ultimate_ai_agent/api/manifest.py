@@ -68,6 +68,9 @@ CAPABILITIES_DECLARED = [
     "governed_runtime_loopback_local_model_call_pilot",
     "governed_runtime_allowlisted_readonly_command_pilot",
     "governed_runtime_action_inbox_focused_pytest_command_bridge",
+    "governed_product_pilot_authority_profile",
+    "governed_product_pilot_portable_evidence_envelope",
+    "governed_product_pilot_durable_orchestration_profile",
     "control_center_coding_cockpit_session_read_model",
     "control_center_coding_context_pack_preview_read_model",
     "control_center_coding_patch_apply_readiness_read_model",
@@ -197,6 +200,15 @@ CAPABILITIES_BLOCKED = [
     "governed_runtime_raw_prompt_response_persistence",
     "governed_runtime_raw_command_output_persistence",
     "governed_runtime_raw_local_path_or_env_persistence",
+    "governed_product_pilot_broad_autonomy",
+    "governed_product_pilot_unrestricted_shell_subprocess",
+    "governed_product_pilot_browser_automation",
+    "governed_product_pilot_connector_writes",
+    "governed_product_pilot_remote_execution",
+    "governed_product_pilot_plugin_runtime_import",
+    "governed_product_pilot_production_authority",
+    "governed_product_pilot_public_beta_or_release_claim",
+    "governed_product_pilot_raw_persistence",
     "security_headers_as_authentication",
     "security_headers_as_cors_policy",
     "security_headers_as_rate_limits",
@@ -651,6 +663,7 @@ CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
 }
 GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/capabilities",
+    "/api/runtime/governed-product-pilot-profile",
     "/api/runtime/invocations",
     "/api/runtime/invocations/{id}",
     "/api/runtime/invocations/{id}/receipt",
@@ -875,7 +888,7 @@ def route_classification_for_path(
     if normalized_method == "GET" and path in GOVERNED_RUNTIME_READONLY_PATHS:
         return (
             ApiRouteClassification.local_sensitive,
-            "Governed runtime invocation inspection route exposes local safe refs, policy decisions, receipts, and blocked execution posture only.",
+            "Governed runtime inspection route exposes local safe refs, policy decisions, receipts, authority profile, and blocked execution posture only.",
         )
     if normalized_method == "POST" and path == "/api/runtime/invocations":
         return (
