@@ -6,6 +6,7 @@ import type {
   WorkBoardColumnReadModel,
   WorkBoardReadModel,
 } from "../api/types";
+import { persistWorkBoardOrder } from "../api/client";
 import { SafeAlert } from "./SafeAlert";
 import { NorthStarIcon } from "./NorthStarIcon";
 
@@ -31,8 +32,15 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
   const [authorityFilter, setAuthorityFilter] = useState<AuthorityFilter>("all");
   const [query, setQuery] = useState("");
   const [draftCards, setDraftCards] = useState<WorkBoardCardReadModel[]>([]);
+  const [backendLayout, setBackendLayout] = useState<PreviewLayout>(() =>
+    initialLayout(board.columns),
+  );
   const [layout, setLayout] = useState<PreviewLayout>(() =>
     initialLayout(board.columns),
+  );
+  const [isPersisting, setIsPersisting] = useState(false);
+  const [lastReceiptRef, setLastReceiptRef] = useState(
+    board.latest_reorder_receipt_ref ?? "",
   );
   const [selectedCardRef, setSelectedCardRef] = useState(
     board.cards[0]?.card_ref ?? "",
@@ -44,8 +52,11 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
   );
 
   useEffect(() => {
+    const nextLayout = initialLayout(board.columns);
     setDraftCards([]);
-    setLayout(initialLayout(board.columns));
+    setBackendLayout(nextLayout);
+    setLayout(nextLayout);
+    setLastReceiptRef(board.latest_reorder_receipt_ref ?? "");
     setSelectedCardRef(board.cards[0]?.card_ref ?? "");
     setNotice(board.drag_drop_posture.safe_summary);
     setSelectedBlockedLaneRef(board.blocked_lanes[0]?.lane_ref ?? "");
@@ -55,6 +66,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
     board.cards,
     board.columns,
     board.drag_drop_posture.safe_summary,
+    board.latest_reorder_receipt_ref,
   ]);
 
   const cards = useMemo(
@@ -115,7 +127,13 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
     board.blocked_lanes.find(
       (lane) => lane.lane_ref === selectedBlockedLaneRef,
     ) ?? board.blocked_lanes[0];
-  const previewChanged = hasPreviewChanged(board.columns, layout, draftCards);
+  const previewChanged = hasPreviewChanged(backendLayout, layout, draftCards);
+  const canPersistOrder =
+    backendOwned &&
+    board.durable_reorder_persistence_enabled &&
+    board.approval_required_for_reorder &&
+    board.drag_drop_posture.durable_reorder_enabled &&
+    board.drag_drop_posture.backend_mutation_route_available;
 
   function moveCard(
     cardRef: string,
@@ -201,7 +219,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
 
   function resetPreview() {
     setDraftCards([]);
-    setLayout(initialLayout(board.columns));
+    setLayout(backendLayout);
     setSelectedCardRef(board.cards[0]?.card_ref ?? "");
     setNotice("Local layout preview reset to the backend-owned board order.");
   }
@@ -221,7 +239,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
       progress_label: "Preview only",
       proof_refs: ["proof-ref:work-board-local-preview"],
       evidence_refs: ["evidence-ref:work-board-local-preview"],
-      blocker_refs: ["blocked-state:work-board-no-board-mutation"],
+      blocker_refs: ["blocked-state:work-board-no-card-create-archive-assignment"],
       surface_refs: [board.route_ref],
       cli_inspection_refs: board.cli_inspection_refs,
       tags: ["local-preview", "draft"],
@@ -244,7 +262,54 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
       setSelectedBlockedLaneRef(laneRef);
     }
     setActiveView("proof");
-    setNotice("Durable Work Board mutation remains blocked pending a governed lane.");
+    setNotice(
+      "Card create/archive, issue tracker sync, and external dispatch remain separate governed lanes.",
+    );
+  }
+
+  async function persistOrder() {
+    if (!canPersistOrder) {
+      openBlockedLane();
+      return;
+    }
+    if (!previewChanged) {
+      setNotice("Board order already matches the latest backend-owned order.");
+      return;
+    }
+    if (draftCards.length > 0) {
+      setNotice("Local draft cards cannot be persisted; remove drafts or reset before persisting order.");
+      return;
+    }
+    setIsPersisting(true);
+    try {
+      const idempotencyRef = `idempotency-ref:work-board-reorder-${Date.now()}`;
+      const receipt = await persistWorkBoardOrder(
+        {
+          decision_reason_ref: "decision-reason-ref:work-board-ui-reorder",
+          columns: board.columns.map((column) => ({
+            column_ref: column.column_ref,
+            card_refs: layout[column.column_ref] ?? [],
+          })),
+        },
+        idempotencyRef,
+      );
+      const receiptRef = receipt.receipt_ref;
+      setBackendLayout(cloneLayout(layout));
+      setLastReceiptRef(receiptRef);
+      setNotice(
+        receiptRef
+          ? `Exact approved order persisted with receipt ${receiptRef}.`
+          : "Exact approved order persisted with a backend receipt.",
+      );
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Work Board reorder could not reach the local backend route.",
+      );
+    } finally {
+      setIsPersisting(false);
+    }
   }
 
   function inspectCard(cardRef: string) {
@@ -283,7 +348,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
         }
         message={
           backendOwned
-            ? "Python Core owns the board order and safe refs. Drag/drop changes here are preview-only until a mutation lane exists."
+            ? "Python Core owns the board order and safe refs. Drag/drop changes can persist only through the exact approved reorder lane."
             : "This Work Board is mock fallback for visual continuity only; it is not durable workflow truth."
         }
       />
@@ -346,12 +411,21 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
             Reset preview
           </button>
           <button
+            className="icon-text-button"
+            disabled={isPersisting || !previewChanged}
+            onClick={persistOrder}
+            type="button"
+          >
+            <NorthStarIcon name="check-circle" />
+            {isPersisting ? "Persisting" : "Persist order"}
+          </button>
+          <button
             className="icon-text-button warning"
             onClick={() => openBlockedLane()}
             type="button"
           >
             <NorthStarIcon name="lock" />
-            Request persistence lane
+            External lanes
           </button>
         </div>
       </div>
@@ -416,6 +490,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
             backendOwned={backendOwned}
             board={board}
             card={selectedCard}
+            lastReceiptRef={lastReceiptRef}
             openBlockedLane={openBlockedLane}
             selectedBlockedLane={selectedBlockedLane}
           />
@@ -433,6 +508,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
         <WorkBoardProof
           board={board}
           card={selectedCard}
+          lastReceiptRef={lastReceiptRef}
           openBlockedLane={openBlockedLane}
           selectedBlockedLane={selectedBlockedLane}
         />
@@ -655,7 +731,7 @@ function WorkBoardCard({
           type="button"
         >
           <NorthStarIcon name="lock" />
-          Persist blocked
+          Other lanes
         </button>
       </div>
     </article>
@@ -667,6 +743,7 @@ function WorkBoardInspector({
   backendOwned,
   board,
   card,
+  lastReceiptRef,
   openBlockedLane,
   selectedBlockedLane,
 }: {
@@ -674,6 +751,7 @@ function WorkBoardInspector({
   backendOwned: boolean;
   board: WorkBoardReadModel;
   card?: WorkBoardCardReadModel;
+  lastReceiptRef: string;
   openBlockedLane: (laneRef?: string) => void;
   selectedBlockedLane?: WorkBoardReadModel["blocked_lanes"][number];
 }) {
@@ -691,15 +769,19 @@ function WorkBoardInspector({
       </div>
       <div className="inspector-card">
         <p className="eyebrow">Authority</p>
-        <h3>{backendOwned ? "Read-only backend truth" : "Fallback only"}</h3>
+        <h3>{backendOwned ? "Exact reorder persistence" : "Fallback only"}</h3>
         <p>
           {authoritative
             ? board.repo_safe_scope
             : "Connection is degraded or fallback. Controls remain local preview only."}
         </p>
+        <div className="inspector-ref-list">
+          <span>{board.reorder_route_ref}</span>
+          <span>{lastReceiptRef || "receipt-ref:work-board-reorder:not-yet-recorded"}</span>
+        </div>
         <button onClick={() => openBlockedLane()} type="button">
           <NorthStarIcon name="lock" />
-          Show blocked lane
+          Show external lanes
         </button>
       </div>
       {selectedBlockedLane ? (
@@ -789,11 +871,13 @@ function WorkBoardList({
 function WorkBoardProof({
   board,
   card,
+  lastReceiptRef,
   openBlockedLane,
   selectedBlockedLane,
 }: {
   board: WorkBoardReadModel;
   card?: WorkBoardCardReadModel;
+  lastReceiptRef: string;
   openBlockedLane: (laneRef?: string) => void;
   selectedBlockedLane?: WorkBoardReadModel["blocked_lanes"][number];
 }) {
@@ -820,13 +904,18 @@ function WorkBoardProof({
         </div>
       </div>
       <div className="inspector-card blocked">
-        <p className="eyebrow">Promotion lane</p>
-        <h3>{selectedBlockedLane?.label ?? "Durable board edits"}</h3>
+        <p className="eyebrow">Governed lanes</p>
+        <h3>{selectedBlockedLane?.label ?? "Exact reorder persistence"}</h3>
         <p>{selectedBlockedLane?.safe_summary ?? board.next_safe_action}</p>
         <div className="inspector-ref-list">
-          {(selectedBlockedLane?.blocked_authority_refs ??
-            board.blocked_authority_refs
-          ).map((ref) => (
+          {[
+            board.reorder_route_ref,
+            lastReceiptRef || "receipt-ref:work-board-reorder:not-yet-recorded",
+            ...new Set([
+              ...board.blocked_authority_refs,
+              ...(selectedBlockedLane?.blocked_authority_refs ?? []),
+            ]),
+          ].map((ref) => (
             <span key={ref}>{ref}</span>
           ))}
         </div>
@@ -990,16 +1079,30 @@ function initialLayout(columns: WorkBoardColumnReadModel[]): PreviewLayout {
   );
 }
 
+function cloneLayout(layout: PreviewLayout): PreviewLayout {
+  return Object.fromEntries(
+    Object.entries(layout).map(([columnRef, cardRefs]) => [
+      columnRef,
+      [...cardRefs],
+    ]),
+  );
+}
+
 function hasPreviewChanged(
-  columns: WorkBoardColumnReadModel[],
+  backendLayout: PreviewLayout,
   layout: PreviewLayout,
   draftCards: WorkBoardCardReadModel[],
 ): boolean {
   if (draftCards.length > 0) {
     return true;
   }
-  return columns.some((column) => {
-    const current = layout[column.column_ref] ?? [];
-    return current.join("|") !== column.card_refs.join("|");
+  const columnRefs = new Set([
+    ...Object.keys(backendLayout),
+    ...Object.keys(layout),
+  ]);
+  return Array.from(columnRefs).some((columnRef) => {
+    const current = layout[columnRef] ?? [];
+    const backend = backendLayout[columnRef] ?? [];
+    return current.join("|") !== backend.join("|");
   });
 }

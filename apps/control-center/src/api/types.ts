@@ -1024,6 +1024,46 @@ export interface WorkBoardColumnReadModel {
   blocked_authority_refs: string[];
 }
 
+export interface WorkBoardReorderColumnRequest {
+  column_ref: string;
+  card_refs: string[];
+}
+
+export interface WorkBoardReorderRequest {
+  board_ref?: string;
+  decision?: "approve";
+  approval_ref?: string;
+  exact_scope_ref?: string;
+  action_envelope_ref?: string;
+  decision_reason_ref: string;
+  columns: WorkBoardReorderColumnRequest[];
+  metadata_refs?: string[];
+}
+
+export interface WorkBoardReorderReceipt {
+  receipt_ref: string;
+  status: "applied" | "replayed";
+  approval_ref: string;
+  exact_scope_ref: string;
+  action_envelope_ref: string;
+  idempotency_ref: string;
+  previous_order_ref: string;
+  new_order_ref: string;
+  proof_ref: string;
+  evidence_ref: string;
+  route_ref: string;
+  safe_summary: string;
+  replayed: boolean;
+  raw_paths_included: boolean;
+  raw_content_included: boolean;
+  connector_write_performed: boolean;
+  provider_model_call_performed?: boolean;
+  shell_subprocess_execution_performed: boolean;
+  browser_automation_performed: boolean;
+  background_autonomy_performed: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface WorkBoardDragDropPostureReadModel {
   posture_ref: string;
   safe_summary: string;
@@ -1033,6 +1073,12 @@ export interface WorkBoardDragDropPostureReadModel {
   backend_mutation_route_available: boolean;
   receipt_created: boolean;
   rollback_available: boolean;
+  mutation_route_ref: string;
+  approval_required: boolean;
+  exact_scope_required: boolean;
+  idempotency_required: boolean;
+  safe_disable_refs: string[];
+  rollback_refs: string[];
   blocked_authority_refs: string[];
   promotion_path_refs: string[];
 }
@@ -1071,6 +1117,10 @@ export interface WorkBoardReadModel {
   raw_content_included: boolean;
   board_mutation_enabled: boolean;
   durable_drag_drop_enabled: boolean;
+  durable_reorder_persistence_enabled: boolean;
+  approval_required_for_reorder: boolean;
+  reorder_route_ref: string;
+  latest_reorder_receipt_ref: string | null;
   issue_tracker_write_enabled: boolean;
   connector_write_enabled: boolean;
   shell_subprocess_execution_enabled: boolean;

@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from fastapi import APIRouter, FastAPI, Query, Request
+from fastapi import APIRouter, FastAPI, Header, HTTPException, Query, Request
 
+from ultimate_ai_agent.api.idempotency import (
+    IDEMPOTENCY_KEY_HEADER,
+    IDEMPOTENCY_REF_HEADER,
+)
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.route_registration import register_router_once
 from ultimate_ai_agent.core.control_center import (
@@ -16,6 +20,13 @@ from ultimate_ai_agent.core.control_center import (
 from ultimate_ai_agent.core.control_center.operational_status import (
     build_control_center_local_models_status,
     build_control_center_settings_status,
+)
+from ultimate_ai_agent.core.control_center.work_board import (
+    WorkBoardApprovalError,
+    WorkBoardReorderRequest,
+    WorkBoardStateStore,
+    WorkBoardStorageConflictError,
+    prepare_work_board_reorder_approval,
 )
 from ultimate_ai_agent.core.code import (
     build_coding_cockpit_session_seed,
@@ -246,6 +257,93 @@ def get_control_center_work_board() -> ResultEnvelope:
     )
 
 
+@router.post("/work-board/reorder", response_model=ResultEnvelope)
+def post_control_center_work_board_reorder(
+    request: WorkBoardReorderRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _work_board_idempotency_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    base_board = build_work_board_read_model(apply_persisted_state=False)
+    try:
+        receipt = WorkBoardStateStore().persist_reorder(
+            request,
+            columns=base_board.columns,
+            cards=base_board.cards,
+            idempotency_ref=idempotency_ref,
+        )
+    except WorkBoardStorageConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc) or "WORK_BOARD_REORDER_IDEMPOTENCY_CONFLICT",
+                "safe_message": (
+                    "The Work Board reorder idempotency ref already exists with "
+                    "different safe card order refs."
+                ),
+            },
+        ) from exc
+    except WorkBoardApprovalError as exc:
+        required_refs = dict(exc.required_refs)
+        if not required_refs:
+            try:
+                approval_preview = prepare_work_board_reorder_approval(
+                    request,
+                    columns=base_board.columns,
+                    cards=base_board.cards,
+                    idempotency_ref=idempotency_ref,
+                )
+                required_refs = {
+                    "approval_ref": approval_preview.expected_approval_ref,
+                    "exact_scope_ref": approval_preview.exact_scope_ref,
+                    "action_envelope_ref": approval_preview.action_envelope_ref,
+                }
+            except ValueError:
+                required_refs = {}
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "WORK_BOARD_REORDER_APPROVAL_DENIED",
+                "safe_message": (
+                    "Work Board reorder requires an exact approved approval "
+                    "ref, scope ref, and action envelope before persistence."
+                ),
+                "reason_refs": exc.reason_refs,
+                "required_refs": required_refs,
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "WORK_BOARD_REORDER_UNSAFE_INPUT",
+                "safe_message": "The Work Board reorder request contains unsafe refs.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_work_board_reorder",
+        service="ControlCenterWorkBoardAPI",
+        trace_id=receipt.receipt_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence=[{"evidence_ref": receipt.evidence_ref}],
+        redactions_applied=[
+            "safe_refs_only",
+            "receipt_refs_only",
+            "raw_content_omitted",
+        ],
+    )
+
+
 @router.get("/approvals/summary", response_model=ResultEnvelope)
 def get_control_center_approvals_summary() -> ResultEnvelope:
     dashboard = build_control_center_dashboard()
@@ -406,6 +504,22 @@ def _task_decomposition_service() -> TaskDecompositionService:
     if _task_decomposition_service_getter is None:
         return TaskDecompositionService.from_env()
     return _task_decomposition_service_getter()
+
+
+def _work_board_idempotency_ref(
+    idempotency_key: str | None,
+    idempotency_ref: str | None,
+) -> str:
+    value = (idempotency_key or idempotency_ref or "").strip()
+    if value:
+        return value
+    raise HTTPException(
+        status_code=428,
+        detail={
+            "code": "WORK_BOARD_REORDER_IDEMPOTENCY_REQUIRED",
+            "safe_message": "Work Board reorder requires an idempotency ref.",
+        },
+    )
 
 
 def _safe_task_decomposition_payload(

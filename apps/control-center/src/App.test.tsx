@@ -621,8 +621,30 @@ function stubReadEndpointsWithHungEndpoint(hungEndpoint: string) {
 }
 
 function stubReadEndpointOverrides(overrides: Record<string, unknown>) {
-  const fetchMock = vi.fn(async (url: string) => {
+  const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
     const urlText = String(url);
+    if (
+      options?.method === "POST" &&
+      urlText.endsWith(API_ENDPOINTS.controlCenterWorkBoardReorder)
+    ) {
+      return new Response(
+        JSON.stringify({
+          detail: {
+            code: "WORK_BOARD_REORDER_APPROVAL_DENIED",
+            safe_message:
+              "Work Board reorder requires an exact approved approval ref, scope ref, and action envelope before persistence.",
+            reason_refs: ["blocked-state:work-board-reorder-approval-required"],
+            required_refs: {
+              approval_ref: "work-board-approval-ref:sha256:app-test",
+              exact_scope_ref: "work-board-approval-scope-ref:sha256:app-test",
+              action_envelope_ref:
+                "work-board-action-envelope-ref:sha256:app-test",
+            },
+          },
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } },
+      );
+    }
     const endpoint = READ_ENDPOINTS.find((candidate) =>
       urlText.endsWith(candidate),
     );
@@ -1113,6 +1135,20 @@ function backendOwnedWorkBoardFixture(overrides: Record<string, unknown> = {}) {
     ...board,
     board_ref: "work-board:app-test-backend",
     source_label: "python_core_work_board_read_model",
+    blocked_lanes: [
+      {
+        lane_ref: "blocked-lane:work-board-external-sync",
+        label: "External sync",
+        safe_summary:
+          "Issue tracker, connector, and agent dispatch writes are separate authority lanes.",
+        blocked_authority_refs: [
+          "blocked-state:work-board-no-issue-tracker-write",
+          "blocked-state:work-board-no-connector-write",
+          "blocked-state:work-board-no-background-autonomy",
+        ],
+        promotion_path_refs: ["prompt-ref:unblock-work-board-external-sync"],
+      },
+    ],
     backend_owned: true,
     read_only: true,
     safe_refs_only: true,
@@ -1121,20 +1157,49 @@ function backendOwnedWorkBoardFixture(overrides: Record<string, unknown> = {}) {
     raw_content_included: false,
     board_mutation_enabled: false,
     durable_drag_drop_enabled: false,
+    durable_reorder_persistence_enabled: true,
+    approval_required_for_reorder: true,
+    reorder_route_ref: "POST /control-center/work-board/reorder",
+    latest_reorder_receipt_ref: null,
     issue_tracker_write_enabled: false,
     connector_write_enabled: false,
     shell_subprocess_execution_enabled: false,
     browser_automation_enabled: false,
     background_autonomy_enabled: false,
     production_authority_enabled: false,
+    blocked_authority_refs: [
+      "blocked-state:work-board-no-card-create-archive-assignment",
+      "blocked-state:work-board-no-issue-tracker-write",
+      "blocked-state:work-board-no-connector-write",
+      "blocked-state:work-board-no-provider-model-call",
+      "blocked-state:work-board-no-shell-subprocess",
+      "blocked-state:work-board-no-browser-automation",
+      "blocked-state:work-board-no-background-autonomy",
+      "blocked-state:work-board-no-production-authority",
+    ],
+    promotion_path_refs: [
+      "prompt-ref:work-board-card-mutation-lane",
+      "prompt-ref:unblock-work-board-external-sync",
+    ],
     drag_drop_posture: {
       ...board.drag_drop_posture,
       local_preview_enabled: true,
       keyboard_reorder_preview_enabled: true,
-      durable_reorder_enabled: false,
-      backend_mutation_route_available: false,
+      durable_reorder_enabled: true,
+      backend_mutation_route_available: true,
       receipt_created: false,
-      rollback_available: false,
+      rollback_available: true,
+      mutation_route_ref: "POST /control-center/work-board/reorder",
+      approval_required: true,
+      exact_scope_required: true,
+      idempotency_required: true,
+      safe_disable_refs: ["safe-disable-ref:work-board:durable-reorder"],
+      rollback_refs: ["rollback-ref:work-board:restore-previous-order"],
+      blocked_authority_refs: [
+        "blocked-state:work-board-no-card-create-archive-assignment",
+        "blocked-state:work-board-no-issue-tracker-write",
+      ],
+      promotion_path_refs: ["prompt-ref:work-board-card-mutation-lane"],
     },
     ...overrides,
   };
@@ -2152,11 +2217,11 @@ describe("Web Control Center shell", () => {
       ).not.toBeInTheDocument();
       expect(within(board).getByText("Backend order")).toBeInTheDocument();
       fireEvent.click(
-        within(board).getByRole("button", { name: "Request persistence lane" }),
+        within(board).getByRole("button", { name: "External lanes" }),
       );
-      expect(within(board).getByText("Durable board edits")).toBeInTheDocument();
+      expect(within(board).getByText("External sync")).toBeInTheDocument();
       expect(
-        within(board).getByText("blocked-state:work-board-no-durable-reorder"),
+        within(board).getByText("blocked-state:work-board-no-connector-write"),
       ).toBeInTheDocument();
     } finally {
       view.unmount();
@@ -2166,7 +2231,7 @@ describe("Web Control Center shell", () => {
   });
 
   it("moves Work Board cards with drag/drop and keyboard preview controls", async () => {
-    stubReadEndpointOverrides({
+    const fetchMock = stubReadEndpointOverrides({
       [API_ENDPOINTS.controlCenterWorkBoard]: backendOwnedWorkBoardFixture(),
     });
 
@@ -2225,9 +2290,38 @@ describe("Web Control Center shell", () => {
         ),
       ).toBeInTheDocument();
       expect(within(board).getByText("Unsaved local preview")).toBeInTheDocument();
+      fireEvent.click(within(board).getByRole("button", { name: "Persist order" }));
+      await waitFor(() =>
+        expect(
+          within(board).getByText(
+            /Work Board reorder requires an exact approved approval ref/i,
+          ),
+        ).toBeInTheDocument(),
+      );
+      const reorderCall = fetchMock.mock.calls.find(
+        ([url, request]) =>
+          String(url).endsWith(API_ENDPOINTS.controlCenterWorkBoardReorder) &&
+          request?.method === "POST",
+      );
+      expect(reorderCall).toBeTruthy();
+      expect(reorderCall?.[1]?.headers).toMatchObject({
+        "Content-Type": "application/json",
+      });
+      expect(
+        (reorderCall?.[1]?.headers as Record<string, string>)[
+          "X-UAA-Idempotency-Key"
+        ],
+      ).toMatch(/^idempotency-ref:work-board-reorder-/);
+      fireEvent.click(within(board).getByRole("button", { name: "Proof" }));
+      expect(
+        within(board).getByText("blocked-state:work-board-no-provider-model-call"),
+      ).toBeInTheDocument();
+      expect(within(board).getByText("Unsaved local preview")).toBeInTheDocument();
+      fireEvent.click(within(board).getByRole("button", { name: "Board" }));
+      const activeDoingColumn = within(board).getByLabelText("Doing column");
 
       fireEvent.click(
-        within(doingColumn).getByRole("button", {
+        within(activeDoingColumn).getByRole("button", {
           name: "Move Action Inbox work queue right",
         }),
       );
@@ -13628,28 +13722,23 @@ function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
       requires_rollback_posture: true,
     }),
     trustFixtureLane({
-      lane_ref: "trust-lane:external-mutations",
-      label: "External sends/writes and broad runtime actions",
+      lane_ref: "trust-lane:connector-write-low-risk",
+      label: "Connector writes",
       tier: 4,
       tier_id: "tier_4_external_mutation",
       tier_label: "External mutation",
       lane_kind: "external_mutation",
-      authority_state: "blocked",
-      authority_state_label: "blocked",
-      operator_posture: "blocked",
-      proof_refs: ["proof-ref:external-mutation:blocked"],
-      safe_disable_refs: [
-        "safe-disable-ref:trust:external-mutations:default-deny",
-      ],
-      rollback_refs: [
-        "rollback-ref:trust:external-mutations:future-lane-required",
-      ],
-      promotion_path_refs: [
-        "promotion-path-ref:trust:external-mutations:connector-write-send",
-      ],
+      authority_state: "approval_required",
+      authority_state_label: "approval required",
+      operator_posture: "approval_required",
+      route_refs: ["GET /control-center/sources/readiness#connector_draft_proposals"],
+      proof_refs: ["proof-ref:connector-write:low-risk-exact"],
+      safe_disable_refs: ["safe-disable-ref:connector-write:low-risk"],
+      rollback_refs: ["rollback-ref:connector-write:compensating-action-required"],
+      promotion_path_refs: ["promotion-path-ref:connector-write:live-adapter-scope"],
       blocked_authority_refs: [
-        "blocked-state:trust:no-connector-write-send",
-        "blocked-state:trust:no-shell-subprocess-execution",
+        "blocked-state:connector-write:no-bulk-send",
+        "blocked-state:connector-write:no-sensitive-material",
       ],
       requires_exact_approval: true,
       requires_safe_disable: true,

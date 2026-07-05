@@ -134,8 +134,19 @@ def _assert_matrix(matrix: dict[str, Any], failures: list[str], label: str) -> N
             failures.append(f"{label} tier 2 lane must remain review_only: {lane.lane_ref}")
         if lane.tier >= 3 and (not lane.requires_safe_disable or not lane.requires_rollback_posture):
             failures.append(f"{label} mutation lane missing safe-disable/rollback posture: {lane.lane_ref}")
-        if lane.tier >= 4 and lane.authority_state != "blocked":
-            failures.append(f"{label} tier 4/5 lane must remain blocked: {lane.lane_ref}")
+        if lane.tier >= 4 and lane.authority_state == "available_now":
+            failures.append(
+                f"{label} tier 4/5 lane must be blocked or approval-required: {lane.lane_ref}"
+            )
+        if lane.tier >= 4 and lane.authority_state == "approval_required":
+            if (
+                not lane.requires_exact_approval
+                or not lane.requires_safe_disable
+                or not lane.requires_rollback_posture
+            ):
+                failures.append(
+                    f"{label} tier 4/5 lane missing exact safeguards: {lane.lane_ref}"
+                )
         for cli_ref in lane.cli_inspection_refs:
             if cli_ref not in TRUST_AUTHORITY_ALLOWED_CLI_INSPECTION_REFS:
                 failures.append(f"{label} unregistered CLI ref: {cli_ref}")
@@ -316,7 +327,7 @@ def _static_failures() -> list[str]:
             "rollback_refs",
             "promotion_path_refs",
             "rollback_execution_enabled",
-            "Tier 4 and Tier 5 authority remains blocked here",
+            "Tier 4 and Tier 5 authority requires exact approval",
         ],
         failures,
     )
