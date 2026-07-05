@@ -2042,6 +2042,99 @@ function RunObservabilityPanel({
         </article>
         <article className="status-card">
           <div className="status-card-header">
+            <h3>Orchestration posture</h3>
+            <span>{readModel.current_phase_status}</span>
+          </div>
+          <dl className="detail-list">
+            <DetailTerm
+              label="Current phase"
+              value={readModel.current_phase_ref}
+            />
+            <DetailTerm
+              label="Current step"
+              value={readModel.current_step_ref}
+            />
+            <DetailTerm
+              label="Step status"
+              value={readModel.current_step_status}
+            />
+            <DetailTerm
+              label="Approval wait"
+              value={readModel.approval_wait_state.wait_state}
+            />
+            <DetailTerm
+              label="Retry"
+              value={readModel.retry_recovery_posture.retry_state}
+            />
+            <DetailTerm
+              label="Recovery"
+              value={readModel.retry_recovery_posture.recovery_state}
+            />
+            <DetailTerm
+              label="Cancel"
+              value={readModel.cancellation_dead_letter_state.cancellation_state}
+            />
+            <DetailTerm
+              label="Dead letter"
+              value={readModel.cancellation_dead_letter_state.dead_letter_state}
+            />
+          </dl>
+          <p>
+            Retry, recovery, cancellation, and resume are inspection posture
+            only here; execution stays blocked until exact backend authority is
+            graduated.
+          </p>
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Checkpoints and recovery</h3>
+            <span>{readModel.checkpoint_summaries.length}</span>
+          </div>
+          <ul className="ref-list">
+            {readModel.checkpoint_summaries.slice(0, 6).map((checkpoint) => (
+              <li key={checkpoint.checkpoint_ref}>
+                <strong>{checkpoint.checkpoint_status}</strong>:{" "}
+                {checkpoint.safe_summary}{" "}
+                <span>#{checkpoint.sequence}</span>
+              </li>
+            ))}
+          </ul>
+          <RefListWithFallback
+            emptyLabel="Retry refs: none"
+            refs={readModel.retry_recovery_posture.retry_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Recovery refs: none"
+            refs={readModel.retry_recovery_posture.recovery_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Pending approvals: none"
+            refs={readModel.approval_wait_state.pending_approval_refs}
+          />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
+            <h3>Failure posture</h3>
+            <span>{readModel.redacted_error_summaries.length}</span>
+          </div>
+          <ul className="ref-list">
+            {readModel.redacted_error_summaries.slice(0, 6).map((summary) => (
+              <li key={summary.error_ref}>
+                <strong>{summary.error_ref}</strong>: {summary.safe_summary}
+              </li>
+            ))}
+          </ul>
+          <RefListWithFallback
+            emptyLabel="Cancellation refs: none"
+            refs={readModel.cancellation_dead_letter_state.cancellation_refs}
+          />
+          <RefListWithFallback
+            emptyLabel="Dead-letter refs: none"
+            refs={readModel.cancellation_dead_letter_state.dead_letter_refs}
+          />
+        </article>
+        <article className="status-card">
+          <div className="status-card-header">
             <h3>Runtime controls</h3>
             <span>blocked/planned</span>
           </div>
