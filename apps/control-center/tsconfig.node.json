@@ -12,5 +12,9 @@
     "strict": true,
     "noEmit": true
   },
-  "include": ["vite.config.ts", "playwright.visual.config.ts"]
+  "include": [
+    "vite.config.ts",
+    "playwright.visual.config.ts",
+    "playwright.smoke.config.ts"
+  ]
 }

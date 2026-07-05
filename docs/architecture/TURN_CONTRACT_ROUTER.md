@@ -443,6 +443,31 @@ durable evidence. The panel adds no chat runtime routing, provider/model call,
 tool/action execution, memory retrieval/write, shell/browser work, connector
 write, public release, or production authority.
 
+Prompt 05 productization binds the selected turn contract into the local Chat
+harness metadata before downstream response handling. The binding is a
+safe-ref-only read model under `uaa_safety` and a receipt-safe projection in
+the durable Chat receipt. It controls memory/tool/state/approval posture for
+the turn, but it still performs no tool/action execution, memory write,
+context injection, provider SDK call, browser/network work, connector write,
+or production authority.
+
+Prompt 06 productization adds a repeatable local browser smoke harness:
+
+```bash
+make frontend-turn-router-smoke
+```
+
+The harness runs Playwright against the local Control Center dev server and
+fixtures only the safe backend read models needed by `/chat`. It verifies that
+Router Diagnostics loads, protected sample prompts keep their expected
+contracts, DIY desk/table stay lightweight, approval boundaries are visible
+for order/card prompts, Chat displays the no-effect harness binding receipt,
+raw JSON is not the primary UI, console errors stay clean, and unsupported
+authority claims are absent on desktop and mobile viewports. The smoke harness
+is implementation-time QA only; it does not grant UAA product runtime browser
+automation, browser observe/action authority, web fetch, connector write,
+provider/model authority, or broad autonomy.
+
 Preflight lanes:
 
 | Lane | Runs when | May read memory content? | May execute tools? | User-visible? | Output |
