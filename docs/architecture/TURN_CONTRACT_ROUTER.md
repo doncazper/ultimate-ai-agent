@@ -367,6 +367,34 @@ Product-language posture:
 Status: planning only. No parallel runtime behavior is implemented in this
 phase.
 
+Prompt 01 productization adds typed parallel preflight contracts in
+`src/ultimate_ai_agent/core/decision_router/parallel_preflight.py` without
+adding the engine. The contracts are safe-ref-only, no-effect Pydantic models
+for lane results, bundles, arbitration input, and arbitration result. They make
+lane outputs inspectable while preserving the core invariant:
+
+```text
+Parallelize sensing. Centralize authority. Serialize execution.
+```
+
+Contract truth:
+
+- A preflight lane cannot grant authority.
+- A preflight lane cannot permit execution.
+- A preflight lane or arbitration result cannot select `execute_approved_action`;
+  that contract remains available only through exact approved scope,
+  `InvocationPolicy`, and `ExecutorFence` validation.
+- A preflight lane cannot retrieve raw memory content.
+- A preflight lane cannot call a model, provider, browser, connector, shell,
+  subprocess, or tool.
+- A preflight lane cannot run workflows or inject context.
+- A preflight lane cannot persist raw prompt, response, memory, tool, log,
+  credential, or local-path content.
+- `direct_answer_draft` lane output is never user-visible unless central
+  arbitration explicitly clears a direct/base answer posture in a later phase.
+- No parallel runtime behavior is implemented until the engine/arbitration
+  phase lands.
+
 Preflight lanes:
 
 | Lane | Runs when | May read memory content? | May execute tools? | User-visible? | Output |
