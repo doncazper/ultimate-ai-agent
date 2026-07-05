@@ -642,6 +642,8 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
+    [API_ENDPOINTS.modelProviderControlPlane]:
+      mockControlCenterData.modelProviderControlPlane,
     [API_ENDPOINTS.controlCenterSettingsStatus]:
       mockControlCenterData.settingsStatus,
     [API_ENDPOINTS.controlCenterLocalModelsStatus]:

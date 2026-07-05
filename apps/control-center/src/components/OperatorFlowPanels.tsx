@@ -17,6 +17,7 @@ import type {
   ControlCenterSettingsFeatureFlagPosture,
   ControlCenterSettingsKillSwitchPosture,
   LocalModelsInspectionStatus,
+  ModelProviderControlPlaneReadModel,
   OperatorLoopStepSummary,
   OperatorRouteInspectionState,
   ProviderCredentialReadinessSummary,
@@ -661,6 +662,9 @@ export function ModelsOperatorPanel({ data }: { data: ControlCenterData }) {
       />
 
       <ProviderCatalogPanel catalog={data.providerCatalog} mode="models" />
+      <ModelProviderControlPlanePanel
+        controlPlane={data.modelProviderControlPlane}
+      />
       <ProviderCredentialReadinessPanel
         readiness={data.dashboard.provider_credential_readiness}
       />
@@ -801,6 +805,347 @@ export function ModelsOperatorPanel({ data }: { data: ControlCenterData }) {
       <OperatorStepStrip steps={[localModelStep]} />
       <OperatorSurfaceStates surface="Models" />
     </section>
+  );
+}
+
+function ModelProviderControlPlanePanel({
+  controlPlane,
+}: {
+  controlPlane: ModelProviderControlPlaneReadModel;
+}) {
+  const trace = controlPlane.router_traces[0];
+  return (
+    <article className="panel model-provider-control-plane-panel">
+      <div className="panel-heading">
+        <h3>Model/provider control plane</h3>
+        <span>{controlPlane.status}</span>
+      </div>
+      <p>{controlPlane.safe_summary}</p>
+      <dl className="metadata-list">
+        <div>
+          <dt>Backend owned</dt>
+          <dd>{controlPlane.backend_owned ? "yes" : "no"}</dd>
+        </div>
+        <div>
+          <dt>Broad provider runtime</dt>
+          <dd>
+            {controlPlane.authority.broad_provider_runtime_enabled
+              ? "enabled"
+              : "blocked"}
+          </dd>
+        </div>
+        <div>
+          <dt>Provider SDK calls</dt>
+          <dd>
+            {controlPlane.authority.provider_sdk_call_enabled
+              ? "enabled"
+              : "blocked"}
+          </dd>
+        </div>
+        <div>
+          <dt>Network by default</dt>
+          <dd>
+            {controlPlane.authority.live_provider_network_call_enabled_by_default
+              ? "enabled"
+              : "blocked"}
+          </dd>
+        </div>
+        <div>
+          <dt>Exact tiny live lane</dt>
+          <dd>
+            {controlPlane.authority.exact_tiny_provider_lane_available
+              ? "wired, approval required"
+              : "not available"}
+          </dd>
+        </div>
+        <div>
+          <dt>Credential validation lane</dt>
+          <dd>
+            {controlPlane.authority.exact_credential_validation_lane_available
+              ? "wired, approval required"
+              : "not available"}
+          </dd>
+        </div>
+        <div>
+          <dt>Provider router</dt>
+          <dd>
+            {controlPlane.authority.provider_router_dry_run_available
+              ? "dry-run trace only"
+              : "not available"}
+          </dd>
+        </div>
+        <div>
+          <dt>ModelRouter trace</dt>
+          <dd>{trace?.status ?? "not available"}</dd>
+        </div>
+        <div>
+          <dt>llama.cpp lifecycle</dt>
+          <dd>{controlPlane.local_llama_cpp_lifecycle.status}</dd>
+        </div>
+        <div>
+          <dt>Production authority</dt>
+          <dd>
+            {controlPlane.authority.production_authority_enabled
+              ? "enabled"
+              : "blocked"}
+          </dd>
+        </div>
+      </dl>
+
+      <div
+        className="provider-readiness-list"
+        aria-label="Model provider control plane details"
+      >
+        <ReadinessGateCard
+          title="Live provider adapter lanes"
+          status={`${controlPlane.provider_adapters.length} exact lanes`}
+          summary="Provider adapters are wired as exact lanes with receipt-before-network, endpoint refs, credential refs, and CostGovernor posture."
+          details={[
+            ["First adapter", controlPlane.provider_adapters[0]?.adapter_ref ?? "not reported"],
+            [
+              "Default network",
+              controlPlane.provider_adapters.some(
+                (adapter) => adapter.network_call_enabled_by_default,
+              )
+                ? "enabled"
+                : "blocked",
+            ],
+            [
+              "Receipt before network",
+              controlPlane.provider_adapters.every(
+                (adapter) => adapter.receipt_store_required_before_network,
+              )
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Provider payload persistence",
+              controlPlane.provider_adapters.some(
+                (adapter) => adapter.provider_payload_persistence_allowed,
+              )
+                ? "enabled"
+                : "blocked",
+            ],
+          ]}
+          blockerCodes={controlPlane.provider_adapters.map(
+            (adapter) => adapter.adapter_ref,
+          )}
+        />
+        <ReadinessGateCard
+          title="Secret status"
+          status={controlPlane.secret_status.status}
+          summary={controlPlane.secret_status.safe_summary}
+          details={[
+            ["Vault adapter", controlPlane.secret_status.vault_adapter_status],
+            [
+              "Validation",
+              controlPlane.secret_status.validation_readiness_status,
+            ],
+            ["Enrollment", controlPlane.secret_status.enrollment_status],
+            [
+              "Credential refs",
+              String(
+                Object.keys(controlPlane.secret_status.credential_ref_statuses)
+                  .length,
+              ),
+            ],
+            [
+              "Raw key collection",
+              controlPlane.secret_status.raw_key_collection_enabled
+                ? "enabled"
+                : "blocked",
+            ],
+          ]}
+          blockerCodes={[
+            "raw_credentials_omitted",
+            "secret_material_not_persisted",
+          ]}
+        />
+        <ReadinessGateCard
+          title="Network allowlists"
+          status={controlPlane.network_allowlists.status}
+          summary={controlPlane.network_allowlists.safe_summary}
+          details={[
+            [
+              "Endpoint refs",
+              String(controlPlane.network_allowlists.endpoint_refs.length),
+            ],
+            [
+              "Transport refs",
+              String(controlPlane.network_allowlists.transport_refs.length),
+            ],
+            [
+              "Default network",
+              controlPlane.network_allowlists.default_network_denied
+                ? "denied"
+                : "enabled",
+            ],
+            [
+              "Provider SDK network",
+              controlPlane.network_allowlists.provider_sdk_network_enabled
+                ? "enabled"
+                : "blocked",
+            ],
+            [
+              "Redirects",
+              controlPlane.network_allowlists.redirects_blocked
+                ? "blocked"
+                : "allowed",
+            ],
+          ]}
+          blockerCodes={controlPlane.network_allowlists.endpoint_refs}
+        />
+        <ReadinessGateCard
+          title="Model metadata discovery"
+          status={controlPlane.model_metadata_discovery.status}
+          summary={controlPlane.model_metadata_discovery.safe_summary}
+          details={[
+            [
+              "Provider catalog",
+              controlPlane.model_metadata_discovery.provider_catalog_ref,
+            ],
+            [
+              "Provider models",
+              String(
+                controlPlane.model_metadata_discovery.provider_model_refs
+                  .length,
+              ),
+            ],
+            [
+              "Local inventory",
+              controlPlane.model_metadata_discovery.local_inventory_status,
+            ],
+            [
+              "Local gateway model",
+              controlPlane.model_metadata_discovery.local_gateway_model_ref,
+            ],
+            [
+              "Live provider discovery",
+              controlPlane.model_metadata_discovery
+                .live_provider_model_discovery_enabled
+                ? "enabled"
+                : "blocked",
+            ],
+          ]}
+          blockerCodes={controlPlane.model_metadata_discovery.provider_model_refs}
+        />
+        <ReadinessGateCard
+          title="Cost hooks"
+          status={controlPlane.cost_hooks.status}
+          summary={controlPlane.cost_hooks.safe_summary}
+          details={[
+            [
+              "Cost posture",
+              controlPlane.cost_hooks.cost_governor_posture_ref,
+            ],
+            [
+              "Cost decision",
+              controlPlane.cost_hooks.cost_governor_decision_ref,
+            ],
+            [
+              "Unknown paid cost",
+              controlPlane.cost_hooks.unknown_paid_cost_blocks
+                ? "blocked"
+                : "allowed",
+            ],
+            [
+              "Actual usage/cost refs",
+              controlPlane.cost_hooks.actual_usage_cost_refs_required
+                ? "required"
+                : "missing",
+            ],
+            [
+              "Provider spend authority",
+              controlPlane.cost_hooks.provider_spend_authority_granted
+                ? "granted"
+                : "not granted",
+            ],
+          ]}
+          blockerCodes={[
+            "UNKNOWN_PAID_COST_BLOCKS",
+            "ACTUAL_USAGE_COST_REFS_REQUIRED",
+          ]}
+        />
+        <ReadinessGateCard
+          title="Local llama.cpp lifecycle"
+          status={controlPlane.local_llama_cpp_lifecycle.status}
+          summary={controlPlane.local_llama_cpp_lifecycle.safe_summary}
+          details={[
+            [
+              "Supervisor",
+              controlPlane.local_llama_cpp_lifecycle.supervisor_contract_ref,
+            ],
+            [
+              "Gateway",
+              controlPlane.local_llama_cpp_lifecycle.gateway_contract_ref,
+            ],
+            [
+              "Gateway mode",
+              statusRecordValue(
+                controlPlane.local_llama_cpp_lifecycle.gateway_readiness,
+                "gateway_mode",
+              ),
+            ],
+            [
+              "Process start",
+              controlPlane.local_llama_cpp_lifecycle
+                .process_start_performed_by_read_model
+                ? "performed"
+                : "not performed",
+            ],
+            [
+              "Model call",
+              controlPlane.local_llama_cpp_lifecycle
+                .model_call_performed_by_read_model
+                ? "performed"
+                : "not performed",
+            ],
+          ]}
+          blockerCodes={
+            controlPlane.local_llama_cpp_lifecycle.cli_inspection_refs
+          }
+        />
+        <ReadinessGateCard
+          title="ModelRouter traces"
+          status={trace?.status ?? "not available"}
+          summary={
+            trace?.safe_summary ??
+            "ModelRouter trace was not available from the backend read model."
+          }
+          details={[
+            ["Trace ref", trace?.trace_ref ?? "not reported"],
+            [
+              "Selected profile",
+              trace?.selected_profile_ref ?? "not selected",
+            ],
+            ["Selected model", trace?.selected_model_ref ?? "not selected"],
+            [
+              "Provider router trace",
+              trace?.provider_router_trace_ref ?? "not reported",
+            ],
+            [
+              "Model execution",
+              trace?.model_execution_performed ? "performed" : "not performed",
+            ],
+            [
+              "Provider execution",
+              trace?.provider_execution_performed
+                ? "performed"
+                : "not performed",
+            ],
+          ]}
+          blockerCodes={trace?.reason_codes ?? ["NO_TRACE_AVAILABLE"]}
+        />
+      </div>
+      <div
+        className="note-list"
+        aria-label="Model provider control plane blocked authorities"
+      >
+        {controlPlane.blocked_authority_refs.map((ref) => (
+          <span key={ref}>{ref}</span>
+        ))}
+      </div>
+    </article>
   );
 }
 

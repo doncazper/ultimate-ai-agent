@@ -7734,6 +7734,169 @@ export interface ProviderCatalog {
   catalog_visibility_grants_authority: boolean;
 }
 
+export interface ModelProviderAuthoritySummary {
+  status: "governed_exact_lanes_only";
+  broad_provider_runtime_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  live_provider_network_call_enabled_by_default: boolean;
+  exact_tiny_provider_lane_available: boolean;
+  exact_tiny_provider_lane_requires_approval: boolean;
+  exact_credential_validation_lane_available: boolean;
+  exact_credential_validation_requires_approval: boolean;
+  provider_router_execution_enabled: boolean;
+  provider_router_dry_run_available: boolean;
+  model_router_execution_enabled: boolean;
+  model_router_trace_available: boolean;
+  local_llama_cpp_gateway_available: boolean;
+  local_llama_cpp_lifecycle_contract_available: boolean;
+  local_llama_cpp_process_started_by_control_plane: boolean;
+  shell_execution_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+  raw_prompt_response_provider_payload_persisted: boolean;
+  safe_summary: string;
+}
+
+export interface ProviderAdapterRuntimePosture {
+  adapter_ref: string;
+  provider_ref: string;
+  model_ref: string;
+  model_name_ref: string;
+  policy_ref: string;
+  endpoint_ref: string;
+  transport_ref: string;
+  status: "exact_lane_wired_disabled_by_default";
+  provider_sdk_call_enabled: boolean;
+  network_call_enabled_by_default: boolean;
+  network_call_allowed_inside_exact_adapter: boolean;
+  credential_ref_required: boolean;
+  exact_approval_required: boolean;
+  cost_governor_required: boolean;
+  receipt_store_required_before_network: boolean;
+  redirects_blocked: boolean;
+  prompt_persistence_allowed: boolean;
+  response_persistence_allowed: boolean;
+  provider_payload_persistence_allowed: boolean;
+}
+
+export interface ProviderSecretStatusPosture {
+  status: "safe_refs_only";
+  vault_adapter_status: string;
+  validation_readiness_status: string;
+  enrollment_status: string;
+  credential_ref_statuses: Record<string, string>;
+  secret_material_visible: boolean;
+  secret_material_persisted_by_repo: boolean;
+  transient_secret_resolution_required_for_exact_lanes: boolean;
+  raw_key_collection_enabled: boolean;
+  safe_summary: string;
+}
+
+export interface ProviderNetworkAllowlistPosture {
+  status: "exact_endpoint_refs_only";
+  allowlist_refs: string[];
+  endpoint_refs: string[];
+  transport_refs: string[];
+  default_network_denied: boolean;
+  broad_web_fetch_enabled: boolean;
+  provider_sdk_network_enabled: boolean;
+  redirects_blocked: boolean;
+  post_mutation_scope_enabled: boolean;
+  safe_summary: string;
+}
+
+export interface ModelMetadataDiscoveryPosture {
+  status: "static_metadata_and_local_inventory";
+  provider_catalog_ref: string;
+  provider_count: number;
+  provider_model_refs: string[];
+  local_inventory_status: string;
+  local_inventory_model_ref_count: number;
+  local_gateway_model_ref: string;
+  live_provider_model_discovery_enabled: boolean;
+  automatic_pricing_fetch_enabled: boolean;
+  runtime_provider_metadata_fetch_enabled: boolean;
+  safe_summary: string;
+}
+
+export interface ProviderCostHookPosture {
+  status: "cost_governor_receipt_bound";
+  cost_governor_posture_ref: string;
+  cost_governor_decision_ref: string;
+  cost_estimate_refs_required: boolean;
+  budget_decision_refs_required: boolean;
+  max_approved_usd_refs_required: boolean;
+  expected_receipt_refs_required: boolean;
+  actual_usage_cost_refs_required: boolean;
+  unknown_paid_cost_blocks: boolean;
+  incomplete_actual_cost_blocks_further_use: boolean;
+  provider_spend_authority_granted: boolean;
+  safe_summary: string;
+}
+
+export interface LocalLlamaCppLifecyclePosture {
+  status: "local_loopback_lifecycle_governed";
+  supervisor_contract_ref: string;
+  gateway_contract_ref: string;
+  gateway_readiness: Record<string, unknown>;
+  model_ref: string;
+  loopback_only: boolean;
+  structured_argv_only: boolean;
+  shell_string_allowed: boolean;
+  process_start_performed_by_read_model: boolean;
+  model_call_performed_by_read_model: boolean;
+  raw_local_path_returned: boolean;
+  raw_log_stored: boolean;
+  cli_inspection_refs: string[];
+  safe_summary: string;
+}
+
+export interface ModelRouterTracePosture {
+  status: "trace_only_no_execution";
+  trace_ref: string;
+  decision: Record<string, unknown>;
+  provider_router_trace_ref: string;
+  provider_router_status: string;
+  selected_profile_ref?: string | null;
+  selected_model_ref?: string | null;
+  candidate_profile_refs: string[];
+  rejected_profile_refs: string[];
+  reason_codes: string[];
+  model_execution_performed: boolean;
+  provider_execution_performed: boolean;
+  provider_sdk_call_performed: boolean;
+  prompt_content_persisted: boolean;
+  response_content_persisted: boolean;
+  safe_summary: string;
+}
+
+export interface ModelProviderControlPlaneReadModel {
+  schema_version: "model_provider_control_plane.v1";
+  contract_ref: string;
+  route_ref: "GET /control-center/providers/runtime-control-plane";
+  cli_ref: string;
+  status: "governed_control_plane_wired";
+  backend_owned: boolean;
+  read_only: boolean;
+  safe_refs_only: boolean;
+  authority: ModelProviderAuthoritySummary;
+  provider_adapters: ProviderAdapterRuntimePosture[];
+  secret_status: ProviderSecretStatusPosture;
+  network_allowlists: ProviderNetworkAllowlistPosture;
+  model_metadata_discovery: ModelMetadataDiscoveryPosture;
+  cost_hooks: ProviderCostHookPosture;
+  local_llama_cpp_lifecycle: LocalLlamaCppLifecyclePosture;
+  router_traces: ModelRouterTracePosture[];
+  credential_readiness_ref: string;
+  provider_catalog_ref: string;
+  exact_lane_route_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  docs_refs: string[];
+  verifier_refs: string[];
+  safe_summary: string;
+}
+
 export interface OperatorLoopStepSummary {
   step_id: string;
   label: string;
@@ -8642,6 +8805,7 @@ export interface ControlCenterData {
   m39ContextProposals: M39ContextProposalData;
   macosSetupAssistant: MacOSSetupAssistantData;
   providerCatalog: ProviderCatalog;
+  modelProviderControlPlane: ModelProviderControlPlaneReadModel;
   settingsStatus: ControlCenterSettingsStatus;
   localModelsStatus: ControlCenterLocalModelsStatus;
   founderToday: FounderLoopTodaySummary;

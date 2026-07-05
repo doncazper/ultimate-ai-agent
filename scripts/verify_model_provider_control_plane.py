@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV
+from ultimate_ai_agent.core.providers.control_plane import (
+    MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF,
+    build_model_provider_control_plane_read_model,
+)
+
+
+ROOT = Path(__file__).resolve().parents[1]
+LOCAL_TEST_BEARER = "model-provider-local-bearer"
+
+
+def _assert(condition: bool, message: str) -> None:
+    if not condition:
+        raise AssertionError(message)
+
+
+def _assert_no_authority(payload: dict[str, object]) -> None:
+    serialized = json.dumps(payload, sort_keys=True)
+    forbidden_enabled_fragments = [
+        '"broad_provider_runtime_enabled": true',
+        '"provider_sdk_call_enabled": true',
+        '"live_provider_network_call_enabled_by_default": true',
+        '"network_call_enabled_by_default": true',
+        '"provider_router_execution_enabled": true',
+        '"model_router_execution_enabled": true',
+        '"local_llama_cpp_process_started_by_control_plane": true',
+        '"process_start_performed_by_read_model": true',
+        '"model_call_performed_by_read_model": true',
+        '"shell_execution_enabled": true',
+        '"background_autonomy_enabled": true',
+        '"production_authority_enabled": true',
+        '"raw_prompt_response_provider_payload_persisted": true',
+        '"prompt_content_persisted": true',
+        '"response_content_persisted": true',
+    ]
+    for fragment in forbidden_enabled_fragments:
+        _assert(fragment not in serialized, f"forbidden enabled authority: {fragment}")
+
+
+def main() -> int:
+    read_model = build_model_provider_control_plane_read_model()
+    payload = read_model.model_dump(mode="json")
+    _assert(read_model.backend_owned, "read model must be backend owned")
+    _assert(read_model.read_only, "read model must be read-only")
+    _assert(read_model.safe_refs_only, "read model must be safe refs only")
+    _assert(
+        read_model.route_ref == MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF,
+        "route ref drifted",
+    )
+    _assert(len(read_model.provider_adapters) >= 2, "provider adapters missing")
+    _assert(read_model.network_allowlists.endpoint_refs, "endpoint refs missing")
+    _assert(read_model.cost_hooks.unknown_paid_cost_blocks, "cost block missing")
+    _assert(
+        read_model.local_llama_cpp_lifecycle.loopback_only,
+        "llama.cpp lifecycle must be loopback-only",
+    )
+    _assert(read_model.router_traces, "router traces missing")
+    _assert_no_authority(payload)
+
+    client = TestClient(app)
+    os.environ[LOCAL_API_BEARER_ENV] = LOCAL_TEST_BEARER
+    response = client.get(
+        "/control-center/providers/runtime-control-plane",
+        headers={"Authorization": f"Bearer {LOCAL_TEST_BEARER}"},
+    )
+    _assert(response.status_code == 200, "runtime control plane endpoint failed")
+    envelope = response.json()
+    api_payload = envelope.get("data") or envelope.get("result")
+    _assert(isinstance(api_payload, dict), "endpoint did not return payload")
+    _assert(api_payload["contract_ref"] == read_model.contract_ref, "contract mismatch")
+    _assert_no_authority(api_payload)
+
+    cli = subprocess.run(
+        [
+            sys.executable,
+            "scripts/inspect_model_provider_control_plane.py",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    cli_payload = json.loads(cli.stdout)
+    _assert(cli_payload["contract_ref"] == read_model.contract_ref, "CLI contract mismatch")
+    _assert_no_authority(cli_payload)
+    print("model_provider_control_plane: ok")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

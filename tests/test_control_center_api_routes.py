@@ -677,6 +677,7 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
         "/control-center/crm/pipelines",
         "/control-center/crm/smart-lists",
         "/control-center/crm/local-mutations",
+        "/control-center/providers/runtime-control-plane",
     }
     assert required.issubset(paths)
     for forbidden in [

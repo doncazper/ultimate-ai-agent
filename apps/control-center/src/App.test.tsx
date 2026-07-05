@@ -10033,6 +10033,30 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("heading", { name: /Provider Cost Literacy/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Model\/provider control plane/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("governed_control_plane_wired")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Live provider adapter lanes/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Secret status/i)).toBeInTheDocument();
+    expect(screen.getByText(/Network allowlists/i)).toBeInTheDocument();
+    expect(screen.getByText(/Model metadata discovery/i)).toBeInTheDocument();
+    expect(screen.getByText(/Local llama\.cpp lifecycle/i)).toBeInTheDocument();
+    expect(screen.getByText(/ModelRouter traces/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        "provider-adapter-ref:tiny-exact-approved:openai-compatible-live",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("blocked-state:model-provider:broad-provider-runtime"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/GET \/control-center\/providers\/runtime-control-plane/i)
+        .length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("Quick chat")).toBeInTheDocument();
     expect(screen.getByText("CRM briefing")).toBeInTheDocument();
     expect(screen.getByText("Long document review")).toBeInTheDocument();
@@ -10046,6 +10070,52 @@ describe("Web Control Center shell", () => {
     expect(
       screen.queryByRole("button", {
         name: /download|switch|start|stop|execute/i,
+      }),
+    ).not.toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("fails closed for unsafe model provider control-plane payloads", async () => {
+    const unsafeControlPlane = JSON.parse(
+      JSON.stringify(mockControlCenterData.modelProviderControlPlane),
+    ) as Record<string, unknown>;
+    const unsafeAuthority = unsafeControlPlane.authority as Record<
+      string,
+      unknown
+    >;
+    unsafeAuthority.provider_sdk_call_enabled = true;
+    unsafeAuthority.live_provider_network_call_enabled_by_default = true;
+    unsafeAuthority.production_authority_enabled = true;
+    unsafeAuthority.safe_summary = "unsafe model provider enabled";
+    const unsafeAdapter = (
+      unsafeControlPlane.provider_adapters as Array<Record<string, unknown>>
+    )[0];
+    unsafeAdapter.network_call_enabled_by_default = true;
+    unsafeAdapter.provider_payload_persistence_allowed = true;
+
+    stubReadEndpointOverrides({
+      [API_ENDPOINTS.modelProviderControlPlane]: unsafeControlPlane,
+    });
+    window.history.pushState({}, "", "/models");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /Model\/provider control plane/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/unsafe model provider enabled/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-state:model-provider:broad-provider-runtime"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Provider SDK calls/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^blocked$/i).length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", {
+        name: /invoke provider|call provider|validate provider|start|stop|execute/i,
       }),
     ).not.toBeInTheDocument();
 
@@ -14556,6 +14626,8 @@ function envelopeForReadEndpoint(url: string) {
     },
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
+    [API_ENDPOINTS.modelProviderControlPlane]:
+      mockControlCenterData.modelProviderControlPlane,
     [API_ENDPOINTS.controlCenterSettingsStatus]:
       mockControlCenterData.settingsStatus,
     [API_ENDPOINTS.controlCenterLocalModelsStatus]:

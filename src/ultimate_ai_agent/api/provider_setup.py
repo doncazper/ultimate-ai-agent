@@ -14,6 +14,9 @@ from ultimate_ai_agent.core.providers import (
     evaluate_provider_router_dry_run,
     evaluate_tiny_provider_invocation,
 )
+from ultimate_ai_agent.core.providers.control_plane import (
+    build_model_provider_control_plane_read_model,
+)
 from ultimate_ai_agent.core.control_center.dashboard import (
     build_provider_credential_readiness_summary,
 )
@@ -48,6 +51,28 @@ def get_control_center_providers_setup_guide() -> ResultEnvelope:
         data=catalog.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:provider-catalog:cost-literacy"}],
         redactions_applied=catalog.redactions_applied,
+    )
+
+
+@router.get("/runtime-control-plane", response_model=ResultEnvelope)
+def get_control_center_providers_runtime_control_plane() -> ResultEnvelope:
+    control_plane = build_model_provider_control_plane_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_providers_runtime_control_plane",
+        service="ControlCenterProviderSetupAPI",
+        trace_id=control_plane.contract_ref,
+        data=control_plane.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": evidence_ref}
+            for evidence_ref in control_plane.proof_refs
+        ],
+        redactions_applied=[
+            "model_provider_safe_refs_only",
+            "raw_prompt_response_provider_payload_omitted",
+            "raw_credentials_omitted",
+            "raw_local_paths_omitted",
+        ],
     )
 
 
