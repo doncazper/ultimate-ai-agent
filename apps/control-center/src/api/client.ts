@@ -76,6 +76,8 @@ import type {
   WebEvidenceProductSliceReceipt,
   WebEvidenceProductSliceRequest,
   WorkBoardReadModel,
+  WorkBoardReorderReceipt,
+  WorkBoardReorderRequest,
 } from "./types";
 import { resolveApiBaseUrl } from "./baseUrl";
 import {
@@ -542,7 +544,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     workBoard.safe_refs_only !== true ||
     workBoard.board_mutation_enabled !== false ||
     workBoard.durable_drag_drop_enabled !== false ||
-    workBoard.drag_drop_posture?.durable_reorder_enabled !== false;
+    workBoard.durable_reorder_persistence_enabled !== true ||
+    workBoard.approval_required_for_reorder !== true ||
+    workBoard.drag_drop_posture?.durable_reorder_enabled !== true ||
+    workBoard.drag_drop_posture?.backend_mutation_route_available !== true ||
+    workBoard.drag_drop_posture?.approval_required !== true;
   const workBoardEndpointFallbackWarningRefs = [
     ...(workBoardFallbackUsed ? ["WORK_BOARD_MOCK_FALLBACK"] : []),
   ];
@@ -1609,6 +1615,42 @@ export async function commitLocalTask(
         extractErrorMessage(
           data,
           "Local task commit receipt was not recorded safely.",
+        ),
+      ),
+    );
+  }
+  return receipt;
+}
+
+export async function persistWorkBoardOrder(
+  request: WorkBoardReorderRequest,
+  idempotencyRef: string,
+): Promise<WorkBoardReorderReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.controlCenterWorkBoardReorder}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": idempotencyRef,
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<WorkBoardReorderReceipt>;
+  const receipt = data.result ?? data.data;
+  if (!response.ok || !receipt) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "Work Board reorder was not persisted; inspect blocked refs.",
         ),
       ),
     );
@@ -4222,7 +4264,9 @@ function isSafeTrustAuthorityLane(value: unknown): boolean {
     hasExactStringValue(value.lane_kind, TRUST_AUTHORITY_LANE_KINDS) &&
     hasExactStringValue(value.authority_state, TRUST_AUTHORITY_STATES) &&
     hasExpectedTrustTier(value) &&
-    (value.tier < 4 || value.authority_state === "blocked") &&
+    (value.tier < 4 ||
+      value.authority_state === "blocked" ||
+      value.authority_state === "approval_required") &&
     typeof value.authority_state_label === "string" &&
     typeof value.operator_posture === "string" &&
     typeof value.current_posture === "string" &&

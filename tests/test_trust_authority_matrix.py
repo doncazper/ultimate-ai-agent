@@ -66,9 +66,22 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     assert parsed.safe_refs_only is True
     assert parsed.available_now_lane_refs
     assert parsed.approval_required_lane_refs
-    assert parsed.blocked_lane_refs
     assert "trust-lane:local-task-commit" in parsed.approval_required_lane_refs
-    assert "trust-lane:external-mutations" in parsed.blocked_lane_refs
+    assert "trust-lane:work-board-durable-mutation" in (
+        parsed.approval_required_lane_refs
+    )
+    assert "trust-lane:governed-command-execution" in (
+        parsed.approval_required_lane_refs
+    )
+    for blocked_lane_ref in (
+        "trust-lane:provider-model-invocation",
+        "trust-lane:issue-tracker-sync",
+        "trust-lane:connector-write-low-risk",
+        "trust-lane:browser-low-risk-action",
+        "trust-lane:background-autonomy-scoped",
+        "trust-lane:production-authority-gate",
+    ):
+        assert blocked_lane_ref in parsed.blocked_lane_refs
     assert "trust-lane:local-draft-proposal" in parsed.available_now_lane_refs
     assert "trust-lane:web-evidence-product-slice" in parsed.available_now_lane_refs
     assert "trust-lane:provider-draft-summarize" in parsed.available_now_lane_refs
@@ -81,8 +94,9 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
         lane.tier == 3 and lane.requires_exact_approval for lane in parsed.lanes
     )
     assert all(
-        lane.authority_state == "blocked" for lane in parsed.lanes if lane.tier >= 4
+        lane.authority_state != "available_now" for lane in parsed.lanes if lane.tier >= 4
     )
+    assert all(lane.authority_state == "blocked" for lane in parsed.lanes if lane.tier >= 4)
     assert all(lane.cli_inspection_refs for lane in parsed.lanes)
     assert all(lane.safe_disable_refs for lane in parsed.lanes)
     assert all(lane.rollback_refs for lane in parsed.lanes)

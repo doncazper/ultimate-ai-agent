@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/prompt_bundle_manifest.schema.json",
+  "bundle_id": "uaa-kanban-board-001",
+  "version": "1.0.0",
+  "purpose": "Stored prompts for the UAA Work Board / Kanban cockpit read model, local-only UI interactions, and verification/doc hardening while preserving UAA authority invariants.",
+  "developer_prompt_refs": [
+    "docs/prompts/kanban_board/00_execute_kanban_board_end_to_end.prompt.md",
+    "docs/prompts/kanban_board/01_work_board_read_model_and_cli.prompt.md",
+    "docs/prompts/kanban_board/02_work_board_ui_interactions.prompt.md",
+    "docs/prompts/kanban_board/03_work_board_verification_and_docs.prompt.md"
+  ],
+  "bundle_hash": "sha256:55d818cf4e751cf7de467c4c4cf76e2f76bed0369e9698837c36a8444fb97fe8",
+  "stable_within_run": true,
+  "created_at": "2026-07-05"
+}

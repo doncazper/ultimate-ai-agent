@@ -66,6 +66,11 @@ TRUST_AUTHORITY_ALLOWED_CLI_INSPECTION_REFS: tuple[str, ...] = (
     "python scripts/dev/uaa_founder_loop.py memory-context-manifest",
     "python scripts/dev/uaa_founder_loop.py memory-receipts",
     OPERATOR_WORKSPACE_SPINE_CLI_REF,
+    "python scripts/dev/uaa_work_board.py inspect-board",
+    "python scripts/dev/uaa_work_board.py inspect-reorder-receipt",
+    "python scripts/dev/uaa_runtime.py capabilities --json",
+    "python scripts/dev/uaa_runtime.py status --json",
+    "python scripts/inspect_tiny_provider_invocation_lane.py",
     PROVIDER_DRAFT_SUMMARIZE_CLI_REF,
     CONNECTOR_DRAFT_PROPOSAL_CLI_REF,
 )
@@ -197,8 +202,15 @@ class TrustAuthorityLane(BaseModel):
             raise ValueError("Mutation authority lanes require rollback posture refs")
         if self.authority_state in {"planned", "blocked"} and not self.promotion_path_refs:
             raise ValueError("Blocked/planned lanes require promotion path refs")
-        if self.tier >= 4 and self.authority_state != "blocked":
-            raise ValueError("Tier 4 and Tier 5 authority remains blocked here")
+        if self.tier >= 4 and self.authority_state == "available_now":
+            raise ValueError("Tier 4 and Tier 5 authority requires exact approval")
+        if self.tier >= 4 and self.authority_state == "approval_required":
+            if (
+                not self.requires_exact_approval
+                or not self.requires_safe_disable
+                or not self.requires_rollback_posture
+            ):
+                raise ValueError("Tier 4 and Tier 5 lanes require exact safeguards")
         return self
 
 
@@ -364,9 +376,9 @@ def build_trust_authority_matrix_read_model(
         doctrine="Earned authority, low friction by default, strict only where consequences justify it.",
         operator_summary=(
             "UAA can inspect local read models, previews, drafts, proof, evidence, "
-            "memory review state, one exact local task commit lane, and one "
-            "allowlisted web evidence preview lane now. External mutation and "
-            "standing authority remain blocked."
+            "memory review state, exact local receipt lanes, governed runtime "
+            "lanes, and high-authority promotion paths that remain blocked "
+            "until exact route, CLI, receipt, rollback, and verifier contracts exist."
         ),
         lanes=lanes,
         tier_summaries=tier_summaries,
@@ -543,6 +555,65 @@ def _trust_authority_lanes(
                 TRUST_AUTHORITY_MATRIX_CLI_REF,
                 "python scripts/dev/uaa_founder_loop.py inspect-action-work-queue",
             ],
+        ),
+        _lane(
+            lane_ref="trust-lane:work-board-durable-mutation",
+            label="Work Board durable mutation and persisted reorder",
+            tier=3,
+            lane_kind="reversible_local_mutation",
+            authority_state="approval_required",
+            current_posture=(
+                "Persisted Work Board reorder is promoted as an exact local "
+                "mutation lane requiring approval, idempotency, receipt, "
+                "safe-disable, and rollback posture before persistence; card "
+                "create/archive/assignment remain separate blocked lanes."
+            ),
+            approval_posture=(
+                "Exact Work Board approval required for a selected reorder; "
+                "local drag/drop preview and card mutation controls are not authority."
+            ),
+            operator_can_do_now=(
+                "Use the Work Board preview, then submit only the exact approved "
+                "reorder through Python Core once the approval scope validates."
+            ),
+            next_safe_action=(
+                "Bind persisted reorder to a Work Board receipt and rollback ref."
+            ),
+            route_refs=[
+                "GET /control-center/work-board",
+                "POST /control-center/work-board/reorder",
+            ],
+            proof_refs=["proof-ref:work-board-kanban-shell"],
+            verifier_refs=[
+                "tests/test_control_center_work_board.py",
+                "apps/control-center/src/App.test.tsx",
+            ],
+            docs_refs=[
+                "docs/prompts/kanban_board/00_execute_kanban_board_end_to_end.prompt.md",
+                TRUST_AUTHORITY_MATRIX_DOC_REF,
+            ],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                "python scripts/dev/uaa_work_board.py inspect-board",
+                "python scripts/dev/uaa_work_board.py inspect-reorder-receipt",
+            ],
+            safe_disable_refs=[
+                "safe-disable-ref:work-board:durable-mutation",
+            ],
+            rollback_refs=[
+                "rollback-ref:work-board:restore-previous-board-order",
+            ],
+            promotion_path_refs=[
+                "promotion-path-ref:work-board:durable-mutation-route",
+                "promotion-path-ref:work-board:persisted-reorder-receipt",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:work-board:no-broad-board-mutation",
+                "blocked-state:work-board:no-issue-tracker-write-from-board",
+            ],
+            requires_exact_approval=True,
+            requires_safe_disable=True,
+            requires_rollback_posture=True,
         ),
         _lane(
             lane_ref="trust-lane:local-task-commit",
@@ -801,72 +872,276 @@ def _trust_authority_lanes(
             ],
         ),
         _lane(
-            lane_ref="trust-lane:external-mutations",
-            label="External sends/writes and broad runtime actions",
-            tier=4,
-            lane_kind="external_mutation",
-            authority_state="blocked",
-            current_posture="Connector writes/sends, shell/subprocess execution, browser actions, broad provider/model calls, and external side effects remain blocked.",
-            approval_posture="Future Tier 4 lanes require exact approval, idempotency, receipts, safe-disable, rollback posture, redaction, and tests.",
-            operator_can_do_now="Use local read, preview, draft, and exact local receipt lanes only.",
-            next_safe_action="Promote one external mutation lane at a time with a verifier-backed contract.",
-            route_refs=[],
-            proof_refs=["proof-ref:external-mutation:blocked"],
-            verifier_refs=["scripts/verify_operational_maturity.py"],
-            docs_refs=[TRUST_AUTHORITY_MATRIX_DOC_REF],
-            cli_inspection_refs=[TRUST_AUTHORITY_MATRIX_CLI_REF],
-            safe_disable_refs=[
-                "safe-disable-ref:trust:external-mutations:default-deny",
+            lane_ref="trust-lane:governed-command-execution",
+            label="Governed allowlisted command execution",
+            tier=3,
+            lane_kind="reversible_local_mutation",
+            authority_state="approval_required",
+            current_posture=(
+                "RuntimeGateway supports argv-only allowlisted local commands "
+                "with redacted receipts; arbitrary shell strings, networked "
+                "commands, installs, and raw output persistence remain denied."
+            ),
+            approval_posture=(
+                "Exact Action Inbox approval envelope required for mutation-capable "
+                "command intents; read-only git status stays allowlisted."
+            ),
+            operator_can_do_now=(
+                "Run governed command capabilities through `/api/runtime/command/run` "
+                "when the intent is allowlisted and the approval envelope validates."
+            ),
+            next_safe_action="Inspect runtime receipt refs and keep arbitrary shell blocked.",
+            route_refs=[
+                "POST /api/runtime/command/run",
+                "GET /api/runtime/capabilities",
             ],
-            rollback_refs=[
-                "rollback-ref:trust:external-mutations:future-lane-required",
+            proof_refs=["proof-ref:governed-runtime-command-run"],
+            verifier_refs=[
+                "tests/test_governed_runtime_contracts.py",
+                "tests/test_governed_runtime_api_routes.py",
             ],
+            docs_refs=["docs/prompts/governed_runtime_pilot/00_execute_end_to_end_merge_push_harden.prompt.md"],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                "python scripts/dev/uaa_runtime.py capabilities --json",
+                "python scripts/dev/uaa_runtime.py status --json",
+            ],
+            safe_disable_refs=["safe-disable-ref:governed-runtime-pilot"],
+            rollback_refs=["rollback-ref:governed-runtime-pilot:disable-profile"],
             promotion_path_refs=[
-                "promotion-path-ref:trust:external-mutations:connector-write-send",
-                "promotion-path-ref:trust:external-mutations:shell-subprocess",
-                "promotion-path-ref:trust:external-mutations:browser-action",
-                "promotion-path-ref:trust:external-mutations:provider-model-call",
+                "promotion-path-ref:runtime:allowlisted-command-expansion",
             ],
             blocked_authority_refs=[
-                "blocked-state:trust:no-connector-write-send",
-                "blocked-state:trust:no-shell-subprocess-execution",
-                "blocked-state:trust:no-browser-execution",
-                "blocked-state:trust:no-broad-provider-model-call",
+                "blocked-authority:runtime-unrestricted-command-execution",
+                "blocked-authority:runtime-command-network-access",
             ],
             requires_exact_approval=True,
             requires_safe_disable=True,
             requires_rollback_posture=True,
         ),
         _lane(
-            lane_ref="trust-lane:background-standing-authority",
-            label="Background and standing authority",
-            tier=5,
-            lane_kind="background_standing_authority",
+            lane_ref="trust-lane:provider-model-invocation",
+            label="Exact approved provider/model invocation",
+            tier=4,
+            lane_kind="external_mutation",
             authority_state="blocked",
-            current_posture="Schedulers, background workers, auto-send, standing provider calls, and broad autonomy remain blocked.",
-            approval_posture="Separate Tier 5 graduation is required with revocation, pause/cancel/kill, queue inspection, budgets, replay/audit, observability, and safe-disable.",
-            operator_can_do_now="Run foreground local review loops only.",
-            next_safe_action="Do not add standing authority until exact scope and kill-switch posture are proven.",
-            route_refs=[],
-            proof_refs=["proof-ref:background-authority:blocked"],
+            current_posture=(
+                "Provider/model invocation remains blocked as a broad UAA runtime "
+                "authority. Existing local/tiny evidence is promotion proof only; "
+                "Trust does not invoke providers or models."
+            ),
+            approval_posture=(
+                "Future promotion requires exact provider, model, access ref, "
+                "cost estimate, budget, idempotency, receipt, safe-disable, and "
+                "rollback binding."
+            ),
+            operator_can_do_now=(
+                "Inspect local runtime and tiny-lane proof refs only; do not "
+                "treat Trust as provider/model execution."
+            ),
+            next_safe_action="Inspect model/provider receipts; do not treat output as authority.",
+            route_refs=[
+                "POST /api/runtime/local-model/call",
+                "provider-lane-ref:tiny-exact-approved-provider-invocation",
+            ],
+            proof_refs=[
+                PROVIDER_DRAFT_SUMMARIZE_PROOF_REF,
+                "proof-ref:provider-runtime:tiny-exact-approved",
+            ],
+            verifier_refs=[
+                "tests/test_tiny_provider_invocation_lane.py",
+                "tests/test_tiny_live_provider_adapter.py",
+                "tests/test_governed_runtime_api_routes.py",
+            ],
+            docs_refs=[
+                "docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
+                "docs/control_center/PROVIDER_DRAFT_SUMMARIZE_MICRO_LANE.md",
+            ],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                "python scripts/inspect_tiny_provider_invocation_lane.py",
+                PROVIDER_DRAFT_SUMMARIZE_CLI_REF,
+            ],
+            safe_disable_refs=[
+                PROVIDER_DRAFT_SUMMARIZE_SAFE_DISABLE_REF,
+                "safe-disable-ref:provider-runtime:tiny-exact-approved",
+            ],
+            rollback_refs=[
+                "rollback-ref:provider-runtime:discard-receipt-bound-draft",
+            ],
+            promotion_path_refs=[
+                "promotion-path-ref:provider-runtime:additional-provider-adapters",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:trust:no-provider-output-authority",
+                "blocked-state:trust:no-broad-provider-router",
+            ],
+            requires_exact_approval=True,
+            requires_safe_disable=True,
+            requires_rollback_posture=True,
+        ),
+        _lane(
+            lane_ref="trust-lane:issue-tracker-sync",
+            label="Issue tracker sync",
+            tier=4,
+            lane_kind="external_mutation",
+            authority_state="blocked",
+            current_posture=(
+                "Issue tracker sync remains blocked until an exact external "
+                "mutation route, adapter, receipt, safe-disable, rollback, and "
+                "CLI inspection lane exists."
+            ),
+            approval_posture="Future exact issue workspace, project, item, field, and write action approval required.",
+            operator_can_do_now="Inspect the promotion path only; no issue tracker write is available from UAA.",
+            next_safe_action="Implement a route/API/CLI/receipt lane before enabling issue sync.",
+            route_refs=["external-lane-ref:issue-tracker-sync-exact-approved"],
+            proof_refs=["proof-ref:issue-tracker-sync:exact-approved"],
             verifier_refs=["scripts/verify_operational_maturity.py"],
             docs_refs=[TRUST_AUTHORITY_MATRIX_DOC_REF],
             cli_inspection_refs=[TRUST_AUTHORITY_MATRIX_CLI_REF],
-            safe_disable_refs=[
-                "safe-disable-ref:trust:background-standing-authority:default-deny",
-            ],
-            rollback_refs=[
-                "rollback-ref:trust:background-standing-authority:future-lane-required",
-            ],
-            promotion_path_refs=[
-                "promotion-path-ref:trust:background-standing-authority:revocation-and-kill-switch",
-                "promotion-path-ref:trust:background-standing-authority:queue-inspection",
-                "promotion-path-ref:trust:background-standing-authority:budget-and-replay",
-            ],
+            safe_disable_refs=["safe-disable-ref:issue-tracker-sync:exact-approved"],
+            rollback_refs=["rollback-ref:issue-tracker-sync:compensating-update-required"],
+            promotion_path_refs=["promotion-path-ref:issue-tracker-sync:adapter-implementation"],
             blocked_authority_refs=[
-                "blocked-state:trust:no-background-autonomy",
-                "blocked-state:trust:no-standing-authority",
-                "blocked-state:trust:no-production-authority",
+                "blocked-state:issue-tracker-sync:no-bulk-write",
+                "blocked-state:issue-tracker-sync:no-unapproved-project-access",
+            ],
+            requires_exact_approval=True,
+            requires_safe_disable=True,
+            requires_rollback_posture=True,
+        ),
+        _lane(
+            lane_ref="trust-lane:connector-write-low-risk",
+            label="Connector writes",
+            tier=4,
+            lane_kind="external_mutation",
+            authority_state="blocked",
+            current_posture=(
+                "Connector writes remain blocked in UAA runtime. Connector draft "
+                "proposals are available as local review artifacts only."
+            ),
+            approval_posture="Future exact connector, dry-run, write target, safe result, audit, replay, revocation, and approval refs required.",
+            operator_can_do_now="Use connector draft proposals only; no connector send/write executes.",
+            next_safe_action="Implement a live adapter scope with receipts before enabling connector writes.",
+            route_refs=[CONNECTOR_DRAFT_PROPOSAL_ROUTE_REF],
+            proof_refs=["proof-ref:connector-write:low-risk-exact"],
+            verifier_refs=[
+                "tests/test_m128_connector_write_execution_low_risk.py",
+                "tests/test_connector_draft_proposals.py",
+            ],
+            docs_refs=[
+                "docs/connectors/CONNECTOR_WRITE_EXECUTION_LOW_RISK.md",
+                "docs/control_center/CONNECTOR_DRAFT_ONLY_PROPOSALS.md",
+            ],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                CONNECTOR_DRAFT_PROPOSAL_CLI_REF,
+            ],
+            safe_disable_refs=["safe-disable-ref:connector-write:low-risk"],
+            rollback_refs=["rollback-ref:connector-write:compensating-action-required"],
+            promotion_path_refs=["promotion-path-ref:connector-write:live-adapter-scope"],
+            blocked_authority_refs=[
+                "blocked-state:connector-write:no-bulk-send",
+                "blocked-state:connector-write:no-sensitive-material",
+            ],
+            requires_exact_approval=True,
+            requires_safe_disable=True,
+            requires_rollback_posture=True,
+        ),
+        _lane(
+            lane_ref="trust-lane:browser-low-risk-action",
+            label="Browser automation inside UAA",
+            tier=4,
+            lane_kind="external_mutation",
+            authority_state="blocked",
+            current_posture=(
+                "Browser automation inside UAA remains blocked. Browser observe, "
+                "dry-run, clicks, forms, auth, downloads, uploads, raw DOM, "
+                "screenshots, and broad navigation require separate authority lanes."
+            ),
+            approval_posture="Future exact scoped session, page, action, dry-run, promotion, approval, audit, replay, revocation, and kill switch refs required.",
+            operator_can_do_now="Inspect blocked browser posture only; no browser action executes inside UAA.",
+            next_safe_action="Promote browser observe/dry-run before any action lane.",
+            route_refs=["browser-lane-ref:low-risk-click-exact-approved"],
+            proof_refs=["proof-ref:browser-low-risk-click:exact-approved"],
+            verifier_refs=["tests/test_m94_low_risk_browser_clicks.py"],
+            docs_refs=["docs/browser/LOW_RISK_BROWSER_CLICKS.md"],
+            cli_inspection_refs=[TRUST_AUTHORITY_MATRIX_CLI_REF],
+            safe_disable_refs=["safe-disable-ref:browser-low-risk-click"],
+            rollback_refs=["rollback-ref:browser-low-risk-click:revocation-and-replay"],
+            promotion_path_refs=["promotion-path-ref:browser:forms-auth-downloads-separate-lanes"],
+            blocked_authority_refs=[
+                "blocked-state:browser:no-authenticated-actions",
+                "blocked-state:browser:no-form-submit-download-upload",
+            ],
+            requires_exact_approval=True,
+            requires_safe_disable=True,
+            requires_rollback_posture=True,
+        ),
+        _lane(
+            lane_ref="trust-lane:background-autonomy-scoped",
+            label="Background autonomy",
+            tier=5,
+            lane_kind="background_standing_authority",
+            authority_state="blocked",
+            current_posture=(
+                "Background autonomy remains blocked until scoped work-session "
+                "runtime, supervisor, checkpoint, queue inspection, revocation, "
+                "kill switch, budgets, receipts, and replay are implemented."
+            ),
+            approval_posture="Future exact workflow, schedule/session, budget, queue, supervisor, checkpoint, revocation, and kill-switch approval required.",
+            operator_can_do_now="Inspect blocked background posture only; no background worker or standing session starts.",
+            next_safe_action="Keep standing recurring workflows disabled until exact runtime evidence exists.",
+            route_refs=["autonomy-lane-ref:scoped-background-work-session"],
+            proof_refs=["proof-ref:background-autonomy:scoped-work-session"],
+            verifier_refs=[
+                "tests/test_m132_trusted_recurring_workflow.py",
+                "tests/test_m137_browser_connector_combined_workflow.py",
+            ],
+            docs_refs=[
+                "docs/roadmap/M101_M150_CAPABILITY_CHARTERS.md",
+                "docs/autonomy/BROWSER_CONNECTOR_COMBINED_WORKFLOW.md",
+            ],
+            cli_inspection_refs=[TRUST_AUTHORITY_MATRIX_CLI_REF],
+            safe_disable_refs=["safe-disable-ref:background-autonomy:scoped-work-session"],
+            rollback_refs=["rollback-ref:background-autonomy:pause-cancel-kill"],
+            promotion_path_refs=["promotion-path-ref:background-autonomy:standing-recurring-separate-review"],
+            blocked_authority_refs=[
+                "blocked-state:background-autonomy:no-unbounded-standing-authority",
+                "blocked-state:background-autonomy:no-uninspected-queue",
+            ],
+            requires_exact_approval=True,
+            requires_safe_disable=True,
+            requires_rollback_posture=True,
+        ),
+        _lane(
+            lane_ref="trust-lane:production-authority-gate",
+            label="Production authority",
+            tier=5,
+            lane_kind="background_standing_authority",
+            authority_state="blocked",
+            current_posture=(
+                "Production authority remains blocked. Readiness-review docs do "
+                "not grant deployment, release, merge, tag, public beta, or "
+                "production action authority."
+            ),
+            approval_posture="Future exact production environment, deployment mode, authority tier, release evidence, rollback, audit, and operator approval required.",
+            operator_can_do_now="Inspect readiness blockers only; no production action is available.",
+            next_safe_action="Complete production red-team and rollback evidence before proposing a production gate.",
+            route_refs=["production-lane-ref:authority-readiness-review"],
+            proof_refs=["proof-ref:production-authority-readiness-review"],
+            verifier_refs=[
+                "tests/test_m120_production_authority_readiness_review.py",
+                "tests/test_m166_production_release_gate.py",
+            ],
+            docs_refs=["docs/production/PRODUCTION_AUTHORITY_READINESS_REVIEW.md"],
+            cli_inspection_refs=[TRUST_AUTHORITY_MATRIX_CLI_REF],
+            safe_disable_refs=["safe-disable-ref:production-authority:global-off"],
+            rollback_refs=["rollback-ref:production-authority:release-rollback-required"],
+            promotion_path_refs=["promotion-path-ref:production-authority:go-live-exact-gate"],
+            blocked_authority_refs=[
+                "blocked-state:production-authority:no-silent-go-live",
+                "blocked-state:production-authority:no-unreviewed-release",
             ],
             requires_exact_approval=True,
             requires_safe_disable=True,

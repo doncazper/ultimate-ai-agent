@@ -153,3 +153,16 @@ provider/model, or production authority by themselves. Use
 for the strict enterprise integration wrapper that executes each phase
 one-at-a-time with review, fix, hardening, tests, browser smoke, PR merge, and
 final gap reporting gates.
+
+## Kanban Board / Work Board prompts
+
+Stored execution prompts for the UAA Work Board / Kanban cockpit live in
+`docs/prompts/kanban_board/`. They cover the backend-owned read model, API/CLI
+inspection, local-only drag/drop and keyboard preview, list/proof views,
+blocked persistence posture, tests, docs, and release-surface alignment. They
+are operator-run prompts, not runtime system prompts, and they do not grant
+durable board mutation, issue tracker writes, connector writes, provider/model
+calls, shell/subprocess execution, browser automation, background autonomy,
+public beta/release, or production authority. Use
+`docs/prompts/kanban_board/00_execute_kanban_board_end_to_end.prompt.md` for the
+end-to-end wrapper.
