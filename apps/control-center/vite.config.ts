@@ -26,7 +26,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    exclude: [...configDefaults.exclude, "tests/visual/**"],
+    exclude: [...configDefaults.exclude, "tests/visual/**", "tests/smoke/**"],
     globals: true,
     setupFiles: "./src/test/setup.ts",
   },

@@ -11,7 +11,8 @@
     "test": "vitest",
     "lint": "tsc -b --pretty false",
     "visual:capture": "playwright test --config=playwright.visual.config.ts --update-snapshots",
-    "visual:check": "playwright test --config=playwright.visual.config.ts"
+    "visual:check": "playwright test --config=playwright.visual.config.ts",
+    "smoke:turn-router": "playwright test --config=playwright.smoke.config.ts"
   },
   "dependencies": {
     "react": "19.2.7",
