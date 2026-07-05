@@ -398,6 +398,32 @@ def _inspect_agent_loop(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_cockpit_parity(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    today_summary = repo.today_summary(limit=args.limit)
+    thread = build_agent_loop_thread_read_model(
+        today_summary=today_summary,
+        actions_inbox=repo.actions_inbox(limit=args.limit),
+        evidence_timeline=repo.evidence_timeline(limit=args.limit),
+        memory_review=repo.memory_review(limit=args.limit),
+        proof_index=build_control_center_proof_index(today_summary=today_summary),
+        trust_authority_matrix=build_trust_authority_matrix_read_model(
+            today_summary=today_summary
+        ),
+    )
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-cockpit-cli-api-parity",
+        "operator_decision_matrix": thread.get("operator_decision_matrix"),
+        "agent_loop_thread_ref": thread.get("thread_ref"),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
 def _inspect_trust_authority(args: argparse.Namespace) -> int:
     repo = _repository(args)
     matrix = build_trust_authority_matrix_read_model(
@@ -1751,6 +1777,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     agent_loop_parser.add_argument("--limit", type=int, default=50)
     agent_loop_parser.set_defaults(func=_inspect_agent_loop)
+
+    cockpit_parity_parser = subparsers.add_parser(
+        "inspect-cockpit-parity",
+        help=(
+            "Print the backend-owned cockpit operator decision matrix with "
+            "matching route, CLI, evidence, proof, and blocked-authority refs."
+        ),
+    )
+    cockpit_parity_parser.add_argument("--limit", type=int, default=50)
+    cockpit_parity_parser.set_defaults(func=_inspect_cockpit_parity)
 
     trust_authority_parser = subparsers.add_parser(
         "inspect-trust-authority",

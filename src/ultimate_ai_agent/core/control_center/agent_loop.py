@@ -8,6 +8,12 @@ AGENT_LOOP_THREAD_CONTRACT_REF = (
 )
 AGENT_LOOP_THREAD_ROUTE_REF = "GET /control-center/agent-loop/thread"
 AGENT_LOOP_THREAD_CLI_REF = "scripts/dev/uaa_founder_loop.py inspect-agent-loop"
+AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF = (
+    "contract-ref:goatcitadel-catchup-cockpit-cli-api-parity:v1"
+)
+AGENT_LOOP_COCKPIT_PARITY_CLI_REF = (
+    "scripts/dev/uaa_founder_loop.py inspect-cockpit-parity"
+)
 AGENT_LOOP_THREAD_SOURCE = "python_core_agent_loop_thread_read_model"
 AGENT_LOOP_THREAD_BLOCKED_AUTHORITY_REFS = (
     "blocked-state:agent-loop:no-runtime-model-calls",
@@ -160,6 +166,14 @@ def build_agent_loop_thread_read_model(
         or actions_inbox.get("next_safe_action"),
         fallback="Review Action Inbox and Memory Review refs before any approved local mutation.",
     )
+    operator_decision_matrix = _build_operator_decision_matrix(
+        action_items=action_items,
+        memory_items=memory_items,
+        evidence_refs=evidence_refs,
+        proof_refs=proof_refs,
+        blocked_refs=blocked_refs,
+        next_decision=next_decision,
+    )
 
     return {
         "schema_version": "goatcitadel_catchup_agent_loop_thread.v1",
@@ -287,6 +301,7 @@ def build_agent_loop_thread_read_model(
                 fallback="Review memory candidates without hidden context injection.",
             ),
         },
+        "operator_decision_matrix": operator_decision_matrix,
         "surface_bindings": [
             {"surface": "Chat", "route_ref": "GET /control-center/chat/turns"},
             {"surface": "Today", "route_ref": "GET /control-center/today/summary"},
@@ -323,6 +338,240 @@ def build_agent_loop_thread_read_model(
             "read_only_control_center_projection",
         ],
     }
+
+
+def _build_operator_decision_matrix(
+    *,
+    action_items: list[dict[str, Any]],
+    memory_items: list[dict[str, Any]],
+    evidence_refs: list[str],
+    proof_refs: list[str],
+    blocked_refs: list[str],
+    next_decision: str,
+) -> dict[str, Any]:
+    local_action = _first_record(action_items)
+    memory_item = _first_record(memory_items)
+
+    rows = [
+        _operator_decision_row(
+            surface="Today",
+            capability_status="implemented",
+            operator_question="What should I inspect first?",
+            backend_route_ref="GET /control-center/today/summary",
+            cli_ref=AGENT_LOOP_THREAD_CLI_REF,
+            primary_ref="surface-ref:today:summary",
+            approval_posture="read_only_no_approval_required",
+            side_effect_class="read_only",
+            safe_action="Inspect priorities, blockers, and next safe actions from Python Core.",
+            evidence_refs=["evidence-ref:founder-loop:today-summary"],
+            proof_refs=proof_refs[:2],
+        ),
+        _operator_decision_row(
+            surface="Action Inbox",
+            capability_status="partial",
+            operator_question="Which exact local task can I approve or inspect?",
+            backend_route_ref="GET /control-center/actions/inbox",
+            cli_ref="scripts/dev/uaa_founder_loop.py inspect-action-work-queue",
+            primary_ref=_safe_text(
+                local_action.get("item_ref"),
+                fallback="action-ref:founder-loop:current",
+            ),
+            approval_posture=_safe_text(
+                local_action.get("approval_envelope_status"),
+                fallback="approval_required_before_mutation",
+            ),
+            side_effect_class=_safe_text(
+                local_action.get("side_effect_class"),
+                fallback="local_dev_workspace_only",
+            ),
+            safe_action=_safe_text(
+                local_action.get("next_safe_action"),
+                fallback="Open Action Inbox and inspect the approval envelope before mutation.",
+            ),
+            evidence_refs=_string_values(local_action.get("evidence_refs"))
+            or ["evidence-ref:founder-loop:action-inbox"],
+            proof_refs=_string_values(local_action.get("receipt_refs")),
+            receipt_refs=_string_values(local_action.get("receipt_refs")),
+            blocked_state_refs=_string_values(
+                local_action.get("local_task_commit_blocked_reasons")
+            ),
+            mutation_enabled=False,
+        ),
+        _operator_decision_row(
+            surface="Plans",
+            capability_status="proposal_only",
+            operator_question="What plan is visible, and what still needs review?",
+            backend_route_ref="GET /control-center/today/summary",
+            cli_ref="scripts/dev/uaa_founder_loop.py inspect-state",
+            primary_ref="plan-revision-ref:agent-loop:current",
+            approval_posture="review_required_before_action",
+            side_effect_class="read_only",
+            safe_action="Review plan steps and blocked refs; do not treat the plan as execution authority.",
+            evidence_refs=["evidence-ref:founder-loop:today-summary"],
+            proof_refs=proof_refs[:2],
+            blocked_state_refs=["blocked-state:agent-loop:no-plan-execution"],
+        ),
+        _operator_decision_row(
+            surface="Evidence",
+            capability_status="implemented",
+            operator_question="What proof or receipt backs this state?",
+            backend_route_ref="GET /control-center/evidence/timeline",
+            cli_ref="scripts/dev/uaa_founder_loop.py inspect-evidence-audit-spine",
+            primary_ref="evidence-ref:control-center:agent-loop-thread",
+            approval_posture="read_only_no_approval_required",
+            side_effect_class="read_only",
+            safe_action="Open Evidence or Proof refs before trusting any action summary.",
+            evidence_refs=evidence_refs[:4],
+            proof_refs=proof_refs[:4],
+        ),
+        _operator_decision_row(
+            surface="Memory",
+            capability_status="partial",
+            operator_question="What can be recalled or reviewed without hidden injection?",
+            backend_route_ref="GET /control-center/memory/review",
+            cli_ref="scripts/dev/uaa_founder_loop.py memory-learning-posture",
+            primary_ref=_safe_text(
+                memory_item.get("candidate_ref")
+                or memory_item.get("business_memory_candidate_ref"),
+                fallback="memory-candidate-ref:review-queue",
+            ),
+            approval_posture="review_required_for_memory_decisions",
+            side_effect_class="read_only",
+            safe_action="Review memory candidates as recall only; keep automatic writes and context injection blocked.",
+            evidence_refs=_string_values(memory_item.get("evidence_refs"))
+            or ["evidence-ref:founder-loop:memory-review"],
+            proof_refs=[],
+            blocked_state_refs=[
+                "blocked-state:agent-loop:no-memory-write-authority",
+                "blocked-state:agent-loop:no-hidden-context-injection",
+            ],
+        ),
+        _operator_decision_row(
+            surface="Trust",
+            capability_status="implemented",
+            operator_question="Which authority is enabled, review-only, or blocked?",
+            backend_route_ref="GET /control-center/trust-authority/matrix",
+            cli_ref="scripts/dev/uaa_founder_loop.py inspect-trust-authority",
+            primary_ref="trust-authority-matrix:current",
+            approval_posture="policy_boundary_visible",
+            side_effect_class="read_only",
+            safe_action="Use Trust to confirm the exact approval lane before any mutation.",
+            evidence_refs=["evidence-ref:control-center:trust-authority"],
+            proof_refs=proof_refs[:2],
+            blocked_state_refs=blocked_refs[:8],
+        ),
+        _operator_decision_row(
+            surface="Runtime and Providers",
+            capability_status="blocked",
+            operator_question="Can model/provider output make decisions?",
+            backend_route_ref="GET /control-center/model-provider/control-plane",
+            cli_ref="scripts/dev/uaa_runtime.py inspect-capabilities",
+            primary_ref="runtime-provider-posture:metadata-only",
+            approval_posture="metadata_only_no_invocation",
+            side_effect_class="read_only",
+            safe_action="Inspect readiness metadata only; model/provider output is not authority.",
+            evidence_refs=["evidence-ref:model-provider:control-plane"],
+            proof_refs=[],
+            blocked_state_refs=[
+                "blocked-state:agent-loop:no-runtime-model-calls",
+                "blocked-state:agent-loop:no-provider-sdk-calls",
+            ],
+        ),
+        _operator_decision_row(
+            surface="Coding and Work Board",
+            capability_status="partial",
+            operator_question="Which workspace/code/board state is safe to inspect?",
+            backend_route_ref="GET /control-center/coding/session",
+            cli_ref="scripts/dev/uaa_coding.py inspect-session",
+            primary_ref="operator-workspace-spine:current",
+            approval_posture="proposal_or_read_only_until_exact_lane",
+            side_effect_class="read_only",
+            safe_action="Inspect backend-owned workspace, coding, and board refs; mutation lanes remain exact-scoped.",
+            evidence_refs=["evidence-ref:operator-workspace-spine:read-model"],
+            proof_refs=proof_refs[:2],
+            blocked_state_refs=[
+                "blocked-state:agent-loop:no-unrestricted-shell",
+                "blocked-state:agent-loop:no-plugin-runtime-import",
+                "blocked-state:agent-loop:no-production-authority",
+            ],
+        ),
+    ]
+
+    return {
+        "schema_version": "goatcitadel_catchup_cockpit_cli_api_parity.v1",
+        "contract_ref": AGENT_LOOP_COCKPIT_PARITY_CONTRACT_REF,
+        "status": "implemented_backend_owned_read_model_no_new_authority",
+        "capability_status": "implemented",
+        "source": AGENT_LOOP_THREAD_SOURCE,
+        "backend_owned": True,
+        "control_center_presentation_only": True,
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "route_ref": AGENT_LOOP_THREAD_ROUTE_REF,
+        "cli_ref": AGENT_LOOP_COCKPIT_PARITY_CLI_REF,
+        "operator_can_decide_from_cockpit": True,
+        "ui_mints_authority": False,
+        "mutation_controls_enabled": False,
+        "row_count": len(rows),
+        "rows": rows,
+        "next_safe_operator_decision": next_decision,
+        "blocked_authority_refs": blocked_refs[:12],
+        "redactions_applied": [
+            "safe_refs_only",
+            "bounded_summaries_only",
+            "raw_content_omitted",
+            "raw_prompt_omitted",
+            "raw_response_omitted",
+            "raw_provider_payload_omitted",
+            "raw_local_paths_omitted",
+        ],
+    }
+
+
+def _operator_decision_row(
+    *,
+    surface: str,
+    capability_status: str,
+    operator_question: str,
+    backend_route_ref: str,
+    cli_ref: str,
+    primary_ref: str,
+    approval_posture: str,
+    side_effect_class: str,
+    safe_action: str,
+    evidence_refs: list[str],
+    proof_refs: list[str],
+    receipt_refs: list[str] | None = None,
+    blocked_state_refs: list[str] | None = None,
+    mutation_enabled: bool = False,
+) -> dict[str, Any]:
+    blocked = _dedupe(blocked_state_refs or [])
+    return {
+        "surface": _safe_text(surface),
+        "capability_status": _safe_text(capability_status),
+        "operator_question": _safe_text(operator_question),
+        "backend_route_ref": _safe_text(backend_route_ref),
+        "cli_ref": _safe_text(cli_ref),
+        "primary_ref": _safe_text(primary_ref),
+        "approval_posture": _safe_text(approval_posture),
+        "side_effect_class": _safe_text(side_effect_class),
+        "safe_action": _safe_text(safe_action),
+        "evidence_refs": _dedupe(evidence_refs),
+        "proof_refs": _dedupe(proof_refs),
+        "receipt_refs": _dedupe(receipt_refs or []),
+        "blocked_state_refs": blocked,
+        "mutation_enabled": mutation_enabled,
+        "backend_truth_required": True,
+        "no_go_reason": (
+            "Requires exact approval, receipt, and backend-owned state before mutation."
+            if blocked or not mutation_enabled
+            else "Exact scoped backend lane only."
+        ),
+    }
+
+
+def _first_record(records: list[dict[str, Any]]) -> dict[str, Any]:
+    return records[0] if records else {}
 
 
 def _records(value: object) -> list[dict[str, Any]]:
