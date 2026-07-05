@@ -178,8 +178,21 @@ are operator-run prompts, not runtime system prompts, and they do not grant
 durable board mutation, issue tracker writes, connector writes, provider/model
 calls, shell/subprocess execution, browser automation, background autonomy,
 public beta/release, or production authority. Use
-`docs/prompts/kanban_board/00_execute_kanban_board_end_to_end.prompt.md` for the
-end-to-end wrapper.
+`docs/prompts/kanban_board/00_execute_kanban_board_end_to_end.prompt.md` for
+the end-to-end wrapper.
+
+## Hermes Runtime Adoption prompts
+
+Stored execution prompts for adopting Hermes Agent patterns into UAA-native
+governed runtime delegation live in `docs/prompts/hermes_runtime_adoption/`.
+They cover 45 merge-gated phases, including runtime delegation, capability
+discovery, run/event/approval posture, provider/catalog UX, toolsets, memory,
+skills, context refs, rollback, orchestration, coding, diagnostics, MCP/plugin
+metadata, parity evals, and final reporting. They are operator-run prompts, not
+runtime system prompts, and they do not copy Hermes code or grant broad runtime
+authority by themselves. Use
+`docs/prompts/hermes_runtime_adoption/00_execute_all_45_review_fix_merge_harden.prompt.md`
+for the strict wrapper.
 
 ## UAA GoatCitadel catch-up prompts
 

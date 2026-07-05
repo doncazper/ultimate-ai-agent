@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/prompt_bundle_manifest.schema.json",
+  "bundle_id": "uaa-hermes-runtime-adoption-001",
+  "version": "1.0.0",
+  "purpose": "Stored execution prompts for adopting Hermes Agent patterns into UAA-native governed runtime delegation across 45 merge-gated phases without copying Hermes code or granting broad runtime authority.",
+  "developer_prompt_refs": [
+    "docs/prompts/hermes_runtime_adoption/00_execute_all_45_review_fix_merge_harden.prompt.md",
+    "docs/prompts/hermes_runtime_adoption/01_critical_runtime_delegation_and_capabilities.prompt.md",
+    "docs/prompts/hermes_runtime_adoption/02_tools_memory_context_and_rollback.prompt.md",
+    "docs/prompts/hermes_runtime_adoption/03_orchestration_coding_and_runtime_safety.prompt.md",
+    "docs/prompts/hermes_runtime_adoption/04_operator_surfaces_extensions_and_diagnostics.prompt.md",
+    "docs/prompts/hermes_runtime_adoption/05_advanced_lanes_and_final_report.prompt.md"
+  ],
+  "bundle_hash": "sha256:35f3c86950b16b0f05c8826ebcacdeb6da79fe699acbc289804be0096093fac2",
+  "stable_within_run": true,
+  "created_at": "2026-07-05"
+}
