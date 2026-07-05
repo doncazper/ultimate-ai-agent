@@ -14,6 +14,7 @@
     "idempotency_audit_policy_ref",
     "route_rate_limit_posture_summary",
     "rate_limit_policy_ref",
+    "projection_fields",
     "routes",
     "schema_version"
   ],
@@ -143,6 +144,30 @@
     },
     "rate_limit_policy_ref": {
       "const": "rate-limit:p1-085:targeted-local:v1"
+    },
+    "projection_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "const": [
+        "path",
+        "method",
+        "operation_id",
+        "tags",
+        "summary",
+        "side_effect_class",
+        "route_classification",
+        "auth_posture",
+        "approval_posture",
+        "idempotency_required",
+        "idempotency_posture",
+        "idempotency_policy_ref",
+        "rate_limit_targeted",
+        "rate_limit_posture",
+        "rate_limit_policy_ref",
+        "rate_limit_group"
+      ]
     },
     "routes": {
       "type": "array",

@@ -20,6 +20,7 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     CONTROL_CENTER_CODING_COCKPIT_ROUTES,
     CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES,
     CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES,
+    CONTROL_CENTER_WORK_BOARD_ROUTES,
     FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES,
     FOUNDER_LOOP_MEMORY_CONTEXT_ACTION_PROPOSAL_ROUTES,
@@ -186,6 +187,9 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/control-center/coding/session",
         "/control-center/coding/test-command-readiness",
     }
+    assert CONTROL_CENTER_WORK_BOARD_ROUTES == {
+        "/control-center/work-board",
+    }
     assert GOVERNED_RUNTIME_PILOT_CONTRACT_ROUTES == {
         "/api/runtime/capabilities",
         "/api/runtime/command/run",
@@ -207,6 +211,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "control_center_provider_credential_validation",
         "control_center_provider_router_dry_run",
         "control_center_coding_cockpit",
+        "control_center_work_board",
         "control_center_setup_assistant",
         "control_center_tiny_provider_lane",
         "founder_loop",

@@ -109,7 +109,7 @@ def _version_doc_marks_milestone_implemented(text: str, milestone: str) -> bool:
 # Route-boundary evaluators are imported here to preserve the historical public facade.
 from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import *  # noqa: F401,F403
 
-EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 77
+EXPECTED_M13_CONTROL_CENTER_ROUTE_COUNT = 78
 
 STATIC_SAFETY_EVALUATOR_DATA_FILES = frozenset(
     {
@@ -5176,6 +5176,18 @@ class FoundationGateEvaluator:
                 and route.rate_limit_group is None
                 and route.blocked_from_production
             )
+            is_work_board_read_model = (
+                path in CONTROL_CENTER_WORK_BOARD_ROUTES
+                and route.method == "GET"
+                and route.side_effect_class == "local_dev_workspace_only"
+                and route.route_classification == "local_sensitive"
+                and route.protected_route
+                and route.approval_posture == "not_required_for_route_classification"
+                and not route.idempotency_required
+                and not route.rate_limit_targeted
+                and route.rate_limit_group is None
+                and route.blocked_from_production
+            )
             if (
                 not route.validation_only
                 and not is_founder_loop_summary
@@ -5191,6 +5203,7 @@ class FoundationGateEvaluator:
                 and not is_provider_credential_validation_state
                 and not is_web_evidence_product_slice_state
                 and not is_coding_cockpit_read_model
+                and not is_work_board_read_model
             ):
                 failures.append(
                     f"{path} is not read-only/preview-only/founder-loop-state"

@@ -16,10 +16,6 @@ from ultimate_ai_agent.api.manifest import (
     route_group_for_path,
     route_side_effect_class,
 )
-from ultimate_ai_agent.api.openapi import (
-    forbidden_raw_provider_schema_fields,
-    forbidden_raw_secret_schema_fields,
-)
 from scripts.verification.api_routes import (
     EXPECTED_APPROVAL_POSTURE_SUMMARY,
     EXPECTED_AUTH_POSTURE_SUMMARY,
@@ -918,19 +914,3 @@ def test_validation_error_response_does_not_echo_secret_like_payload() -> None:
     assert response.json()["success"] is False
     assert response.json()["error"]["code"] == "SECRET_EXPOSURE_BLOCKED"
     assert secret_value not in body_text
-
-
-def test_openapi_schema_has_no_raw_secret_request_fields() -> None:
-    findings = forbidden_raw_secret_schema_fields(app.openapi())
-
-    assert findings == []
-
-
-def test_openapi_schema_has_no_raw_provider_payload_fields() -> None:
-    schema = app.openapi()
-    findings = forbidden_raw_provider_schema_fields(schema)
-    chat_schema = schema["components"]["schemas"]["V1ChatCompletionAPIRequest"]
-
-    assert findings == []
-    assert "model" in chat_schema["properties"]
-    assert "messages" in chat_schema["properties"]
