@@ -37,6 +37,17 @@ def test_crm_local_command_center_read_model_preserves_authority_boundaries() ->
     assert crm.authority_posture.live_web_enabled is False
     assert crm.authority_posture.browser_runtime_enabled is False
     assert crm.authority_posture.production_authority_enabled is False
+    assert crm.connector_read_lanes.readiness_status == (
+        "blocked_missing_exact_authority"
+    )
+    assert crm.connector_read_lanes.disabled_by_default is True
+    assert crm.connector_read_lanes.connector_runtime_enabled is False
+    assert crm.connector_read_lanes.live_connector_read_performed is False
+    assert crm.connector_read_lanes.external_account_auth_enabled is False
+    assert crm.connector_read_lanes.background_polling_enabled is False
+    assert crm.connector_read_lanes.provider_model_call_enabled is False
+    assert crm.connector_read_lanes.cli_inspection_ref in crm.cli_refs
+    assert len(crm.connector_read_lanes.missing_prerequisite_refs) >= 5
     assert payload["raw_contact_details_included"] is False
     assert payload["raw_message_bodies_included"] is False
     assert payload["raw_paths_included"] is False
@@ -165,3 +176,32 @@ def test_crm_cli_inspects_backend_read_model(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert payload["contract_ref"] == CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF
     assert len(payload["follow_ups"]) >= 3
+
+
+def test_crm_cli_inspects_connector_read_readiness(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_crm.py"),
+            "inspect-connector-read-lanes",
+            "--state-dir",
+            str(tmp_path),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    payload = json.loads(result.stdout)
+    connector = payload["connector_read_lanes"]
+
+    assert payload["contract_ref"] == CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF
+    assert connector["readiness_status"] == "blocked_missing_exact_authority"
+    assert connector["disabled_by_default"] is True
+    assert connector["connector_runtime_enabled"] is False
+    assert connector["live_connector_read_performed"] is False
+    assert connector["external_account_auth_enabled"] is False
+    assert connector["background_polling_enabled"] is False
+    assert connector["provider_model_call_enabled"] is False
+    assert payload["authority_posture"]["connector_runtime_enabled"] is False
+    assert payload["authority_posture"]["connector_write_enabled"] is False

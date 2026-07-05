@@ -2022,11 +2022,33 @@ export interface CrmReportReadModel {
 export interface CrmConnectorReadLaneReadModel {
   posture_ref: string;
   lanes: Array<Record<string, string>>;
+  readiness_status: string;
+  source_scope_ref: string;
+  test_account_scope_ref: string;
+  gateway_boundary_ref: string;
+  policy_decision_ref: string;
+  approval_scope_ref: string;
+  audit_schema_ref: string;
+  redaction_policy_ref: string;
+  safe_disable_ref: string;
+  rollback_readiness_ref: string;
+  proof_ref: string;
+  evidence_ref: string;
+  cli_inspection_ref: string;
+  api_surface_ref: string;
+  control_center_surface_ref: string;
+  blocker_report_refs: string[];
+  missing_prerequisite_refs: string[];
+  promotion_path_refs: string[];
   disabled_by_default: boolean;
   unblock_prompt_ref: string;
   connector_runtime_enabled: boolean;
   connector_writes_enabled: boolean;
   raw_body_ingestion_enabled: boolean;
+  live_connector_read_performed: boolean;
+  external_account_auth_enabled: boolean;
+  background_polling_enabled: boolean;
+  provider_model_call_enabled: boolean;
 }
 
 export interface CrmSendsWritesAuthorityPlanReadModel {

@@ -9711,6 +9711,30 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("Pipeline")).toBeInTheDocument();
     expect(screen.getAllByText("Smart lists").length).toBeGreaterThan(0);
     expect(screen.getByText("Authority boundary")).toBeInTheDocument();
+    expect(screen.getByText("Connector read readiness")).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked_missing_exact_authority"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Runtime read").nextElementSibling).toHaveTextContent(
+      "blocked",
+    );
+    expect(screen.getByText("Account auth").nextElementSibling).toHaveTextContent(
+      "blocked",
+    );
+    expect(screen.getByText("Polling").nextElementSibling).toHaveTextContent(
+      "blocked",
+    );
+    expect(
+      screen.getByText("repo-local-command:uaa-crm:inspect-connector-read-lanes"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "missing-ref:crm-connector-read:approved-gateway-adapter",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("proof-ref:crm-connector-read-readiness:v1"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("repo-local-command:uaa-crm:inspect-summary"),
     ).toBeInTheDocument();
@@ -9720,9 +9744,11 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("External writes").nextElementSibling).toHaveTextContent(
       "blocked",
     );
-    expect(screen.getByText("Provider calls").nextElementSibling).toHaveTextContent(
-      "blocked",
-    );
+    const providerCallLabels = screen.getAllByText("Provider calls");
+    expect(providerCallLabels.length).toBeGreaterThanOrEqual(2);
+    for (const label of providerCallLabels) {
+      expect(label.nextElementSibling).toHaveTextContent("blocked");
+    }
     expect(
       screen.getByText(/Persisted stage changes require exact local mutation receipts/i),
     ).toBeInTheDocument();
