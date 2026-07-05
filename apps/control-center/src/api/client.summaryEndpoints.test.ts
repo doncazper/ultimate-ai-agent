@@ -265,6 +265,29 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.connection.usingMockData).toBe(true);
     expect(data.connection.warnings).toContain("WORK_BOARD_MOCK_FALLBACK");
   });
+
+  it("marks missing CRM route as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.crmSummary];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.crmLocalCommandCenter.backend_owned).toBe(false);
+    expect(data.crmLocalCommandCenter.authority_posture.send_enabled).toBe(false);
+    expect(data.crmLocalCommandCenter.authority_posture.connector_write_enabled).toBe(
+      false,
+    );
+    expect(data.routeStates["/crm"].state).toBe("mock_fallback");
+    expect(data.routeStates["/crm"].backendRouteRefs).toContain(
+      "GET /control-center/crm/summary",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain(
+      "CRM_LOCAL_COMMAND_CENTER_MOCK_FALLBACK",
+    );
+  });
 });
 
 function baseRouteData(): Record<string, unknown> {
@@ -582,6 +605,32 @@ function baseRouteData(): Record<string, unknown> {
       rollback_refs: ["rollback-ref:work-board:restore-previous-order"],
     },
   };
+  const backendOwnedCrm = {
+    ...mockControlCenterData.crmLocalCommandCenter,
+    source: "python_core_crm_local_command_center_read_model" as const,
+    state: "read_only" as const,
+    backend_owned: true,
+    read_only: true,
+    safe_refs_only: true,
+    authority_posture: {
+      ...mockControlCenterData.crmLocalCommandCenter.authority_posture,
+      backend_owned: true,
+      control_center_grants_authority: false,
+      read_only_routes_enabled: true,
+      exact_local_mutation_lane_enabled: true,
+      connector_runtime_enabled: false,
+      connector_write_enabled: false,
+      account_sync_enabled: false,
+      send_enabled: false,
+      calendar_write_enabled: false,
+      provider_model_call_enabled: false,
+      live_web_enabled: false,
+      browser_runtime_enabled: false,
+      background_autonomy_enabled: false,
+      external_crm_write_enabled: false,
+      production_authority_enabled: false,
+    },
+  };
   return {
     [API_ENDPOINTS.controlCenterManifest]: mockControlCenterData.manifest,
     [API_ENDPOINTS.controlCenterDashboard]: mockControlCenterData.dashboard,
@@ -641,6 +690,7 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.founderSourceReadiness,
     [API_ENDPOINTS.founderStorageStatus]:
       mockControlCenterData.founderStorageStatus,
+    [API_ENDPOINTS.crmSummary]: backendOwnedCrm,
     [API_ENDPOINTS.approvalSummary]:
       mockControlCenterData.dashboard.approval_summary,
     [API_ENDPOINTS.approvalQueue]: backendOwnedApprovalQueue,
