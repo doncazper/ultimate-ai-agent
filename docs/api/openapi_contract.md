@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `186`.
+Current OpenAPI path count: `187`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -50,6 +50,13 @@ Contract rules:
   provider invocation, fallback execution, network calls, provider SDK calls,
   credential validation, model calls, billing authority, background execution,
   and raw prompt/response/provider payload persistence remain blocked.
+- `POST /control-center/turn-router/preview` is a no-effect diagnostic route
+  for the UAA Turn Contract Router. It may classify sample or ephemeral request
+  text for immediate inspection, but returns safe refs, selected contract,
+  policy posture, no-effect proof flags, and redaction refs only. It does not
+  persist raw request text, call providers/models, execute tools/actions,
+  retrieve memory bodies, inject context, run shell/browser work, write
+  connectors, or wire chat runtime behavior.
 - `/api/runtime/*` is the governed runtime pilot contract surface. Phase 07
   preserves configured local loopback model calls and the exact read-only status
   command while adding exact Action Inbox approved focused pytest command execution

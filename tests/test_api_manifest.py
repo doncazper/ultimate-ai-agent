@@ -293,6 +293,8 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
         "control_center_provider_credential_validation_exact_approved_lane",
         "control_center_provider_credential_validation_redacted_receipts",
         "control_center_provider_credential_validation_cli_inspection",
+        "control_center_turn_router_preview_no_effect",
+        "control_center_turn_router_preview_cli_inspection",
     }:
         assert capability in manifest["capabilities_declared"]
     for capability in {
@@ -583,6 +585,15 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         "local_model_validation"
     )
     assert routes_by_path["/control-center/actions/preview"]["rate_limit_group"] == (
+        "action_preview_proposal"
+    )
+    assert routes_by_path["/control-center/turn-router/preview"][
+        "side_effect_class"
+    ] == "validation_only"
+    assert routes_by_path["/control-center/turn-router/preview"][
+        "approval_posture"
+    ] == "not_required_for_route_classification"
+    assert routes_by_path["/control-center/turn-router/preview"]["rate_limit_group"] == (
         "action_preview_proposal"
     )
     assert routes_by_path["/v1/chat/completions"]["rate_limit_group"] == "model_chat"

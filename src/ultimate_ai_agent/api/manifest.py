@@ -123,6 +123,8 @@ CAPABILITIES_DECLARED = [
     "control_center_provider_credential_validation_cli_inspection",
     "control_center_provider_router_dry_run_proposal_only",
     "control_center_provider_router_dry_run_cli_inspection",
+    "control_center_turn_router_preview_no_effect",
+    "control_center_turn_router_preview_cli_inspection",
     "control_center_source_readiness_status",
     "control_center_storage_status",
     "openwebui_local_test_gateway_disabled_by_default",
@@ -624,6 +626,7 @@ GOVERNED_RUNTIME_MUTATING_PATHS = {
 }
 CONTROL_CENTER_VALIDATION_ONLY_PATHS = {
     "/control-center/actions/preview",
+    "/control-center/turn-router/preview",
 }
 LOCAL_READONLY_PATHS = {
     "/control-center/dashboard",
