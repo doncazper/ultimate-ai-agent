@@ -28,7 +28,10 @@ _BLOCKED_UNSAFE_PATTERNS = (
     re.compile(r"\b(hack into|bypass security|exfiltrate|keylogger|unauthorized access)\b", re.IGNORECASE),
 )
 _HIGH_RISK_EXTERNAL_PATTERNS = (
-    re.compile(r"\b(use my card|credit card|debit card|checkout|buy|purchase|pay|order|book|reserve)\b", re.IGNORECASE),
+    re.compile(
+        r"\b(use my card|credit card|debit card|checkout|buy|purchase|pay|order|reorder|book|reserve)\b",
+        re.IGNORECASE,
+    ),
     re.compile(r"\b(cancel|submit|sign|transfer|withdraw|grant access|change password)\b", re.IGNORECASE),
 )
 _CREDENTIAL_PRIVACY_PATTERNS = (
@@ -36,11 +39,19 @@ _CREDENTIAL_PRIVACY_PATTERNS = (
     re.compile(r"\b(private|personal|confidential)\s+(account|data|file|document|information)\b", re.IGNORECASE),
 )
 _EXTERNAL_SIDE_EFFECT_PATTERNS = (
-    re.compile(r"\b(send|email|message|post|share|upload)\b", re.IGNORECASE),
-    re.compile(r"\b(delete|remove|overwrite|destroy)\b", re.IGNORECASE),
+    re.compile(r"\b(send|email|message|post|share|upload|text|dm|reply|invite)\b", re.IGNORECASE),
+    re.compile(r"\b(delete|remove|overwrite|destroy|erase|wipe|purge|archive)\b", re.IGNORECASE),
+    re.compile(
+        r"\b(add|create|schedule|update|reschedule|cancel)\b.*\b(calendar|meeting|event|appointment|task|todo|reminder)\b",
+        re.IGNORECASE,
+    ),
 )
 _MEMORY_WRITE_PATTERNS = (
     re.compile(r"\b(remember this|save this|remember that|store this|keep this in memory)\b", re.IGNORECASE),
+    re.compile(r"\bremember\s+(?:i|my)\b", re.IGNORECASE),
+    re.compile(r"\bremember\s*:?\s+(?:that\s+)?(?:i|my)\b", re.IGNORECASE),
+    re.compile(r"\b(?:memorize|retain)\s+(?:that\s+)?(?:i|my|this)\b", re.IGNORECASE),
+    re.compile(r"\b(?:save|store)\s+(?:that|this|my|i)\b", re.IGNORECASE),
 )
 _MEMORY_READ_PATTERNS = (
     re.compile(r"\b(using what you know|what you know about me|my preferences|my office|my home)\b", re.IGNORECASE),
@@ -117,7 +128,7 @@ def _classify_normalized_request(text: str) -> _ClassificationResult:
         )
     if _matches_any(text, _EXTERNAL_SIDE_EFFECT_PATTERNS):
         flags = [RiskFlag.external_side_effect]
-        if re.search(r"\b(delete|remove|overwrite|destroy)\b", text, re.IGNORECASE):
+        if re.search(r"\b(delete|remove|overwrite|destroy|erase|wipe|purge|archive)\b", text, re.IGNORECASE):
             flags.append(RiskFlag.destructive)
         return _ClassificationResult(
             turn_contract=TurnContractKind.approval_required,

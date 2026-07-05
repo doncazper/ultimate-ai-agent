@@ -183,7 +183,7 @@ class TurnPreflightBundle(BaseModel):
         _validate_required_blocked_authorities(self.blocked_authority_refs, "turn preflight bundle")
         _validate_no_authority(self, "turn preflight bundle")
         _validate_no_effect_flags(self, "turn preflight bundle")
-        _validate_unique_lane_kinds(self.lane_results)
+        _validate_required_lane_kinds(self.lane_results)
         return self
 
 
@@ -717,10 +717,13 @@ def _validate_no_effect_flags(model: BaseModel, owner: str) -> None:
         raise ValueError(f"{owner} failed no-effect proof flag: {failed[0]}")
 
 
-def _validate_unique_lane_kinds(lane_results: list[TurnPreflightLaneResult]) -> None:
+def _validate_required_lane_kinds(lane_results: list[TurnPreflightLaneResult]) -> None:
     seen: set[str] = set()
     for result in lane_results:
         lane_kind = str(result.lane_kind)
         if lane_kind in seen:
             raise ValueError(f"duplicate turn preflight lane kind: {lane_kind}")
         seen.add(lane_kind)
+    missing = sorted(set(TURN_PREFLIGHT_REQUIRED_LANE_KINDS).difference(seen))
+    if missing:
+        raise ValueError(f"missing required turn preflight lane kind: {missing[0]}")

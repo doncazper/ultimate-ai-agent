@@ -81,7 +81,9 @@ def test_chat_harness_binding_uses_last_user_message_without_prompt_ref() -> Non
 
     payload = binding.model_dump(mode="json")
     assert binding.turn_contract == "answer_directly"
-    assert binding.binding_ref == "turn-harness-binding:v1-chat:v1-chat-completions-uaa-safe-local"
+    assert binding.binding_ref.startswith("turn-harness-binding:v1-chat:safe-")
+    assert binding.decision_ref.startswith("turn-decision:v1-chat:safe-")
+    assert "uaa-safe-local" not in binding.binding_ref
     assert "diy table" not in repr(payload).lower()
     assert binding.raw_prompt_persisted is False
     assert binding.tools_exposed_count == 0
@@ -125,3 +127,22 @@ def test_harness_binding_does_not_persist_request_text() -> None:
     )
 
     assert prompt.lower() not in repr(binding.model_dump(mode="json")).lower()
+
+
+def test_chat_harness_binding_hashes_route_and_model_refs() -> None:
+    path_like_model_ref = "/" + "Users" + "/example/.cache/models/foo.gguf"
+    binding = build_chat_turn_harness_binding(
+        [{"role": "user", "content": "How do I build a DIY table?"}],
+        model_ref=path_like_model_ref,
+    )
+
+    serialized = repr(binding.model_dump(mode="json")).lower()
+    assert binding.binding_ref.startswith("turn-harness-binding:v1-chat:safe-")
+    assert binding.decision_ref.startswith("turn-decision:v1-chat:safe-")
+    assert "users" not in binding.binding_ref.lower()
+    assert "cache" not in binding.binding_ref.lower()
+    assert "foo" not in binding.binding_ref.lower()
+    assert "gguf" not in binding.binding_ref.lower()
+    assert "users" not in serialized
+    assert "cache" not in serialized
+    assert binding.raw_local_path_persisted is False

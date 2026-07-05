@@ -2363,6 +2363,11 @@ WEB_EVIDENCE_PRODUCT_SLICE_ROUTES = frozenset(
         "/control-center/web-evidence/attach",
     }
 )
+TURN_CONTRACT_ROUTER_DIAGNOSTIC_ROUTES = frozenset(
+    {
+        "/control-center/turn-router/preview",
+    }
+)
 PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 VISUAL_PROOF_ROUTE_BOUNDARY_ROUTES = frozenset()
 EXPECTED_M152_OPENAPI_PATH_COUNT = EXPECTED_M150_OPENAPI_PATH_COUNT
@@ -2565,6 +2570,7 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "redacted_observability": M167_REDACTED_OBSERVABILITY_ROUTES,
     "run_attached_approval_queue": RUN_ATTACHED_APPROVAL_QUEUE_ROUTES,
     "task_decomposition": TASK_DECOMPOSITION_CANONICAL_ROUTES,
+    "turn_contract_router_diagnostic": TURN_CONTRACT_ROUTER_DIAGNOSTIC_ROUTES,
     "visual_proof": VISUAL_PROOF_ROUTE_BOUNDARY_ROUTES,
     "web_evidence_product_slice": WEB_EVIDENCE_PRODUCT_SLICE_ROUTES,
     "v1_local_model_gateway": M151_LOCAL_OPENWEBUI_TEST_ROUTES,

@@ -34,6 +34,7 @@ const bindingRef =
   "turn-harness-binding:v1-chat:v1-chat-completions-uaa-safe-local";
 
 const consoleFindingsByPage = new WeakMap<Page, string[]>();
+const unexpectedRoutesByPage = new WeakMap<Page, string[]>();
 
 const allowedBackgroundReadPaths = new Set([
   "/health",
@@ -99,6 +100,7 @@ const unsupportedAuthorityClaimPatterns = [
 test.beforeEach(async ({ page }) => {
   const consoleFindings: string[] = [];
   consoleFindingsByPage.set(page, consoleFindings);
+  unexpectedRoutesByPage.set(page, []);
   page.on("console", (message) => {
     if (["error", "warning"].includes(message.type())) {
       consoleFindings.push(`${message.type()}:redacted-console-event`);
@@ -112,6 +114,7 @@ test.beforeEach(async ({ page }) => {
 
 test.afterEach(async ({ page }) => {
   expect(consoleFindingsByPage.get(page) ?? []).toEqual([]);
+  expect(unexpectedRoutesByPage.get(page) ?? []).toEqual([]);
   await expectNoRawJsonPrimaryUi(page);
   await expectUnsupportedAuthorityClaimsAbsent(page);
 });
@@ -326,8 +329,11 @@ async function fulfillSmokeRoute(route: Route) {
   if (
     path.startsWith("/control-center/") ||
     path.startsWith("/runtime/") ||
+    path.startsWith("/v1/") ||
+    path.startsWith("/api/") ||
     url.origin !== "http://127.0.0.1:5173"
   ) {
+    recordUnexpectedRoute(request);
     await route.fulfill(
       jsonResponse(
         {
@@ -340,6 +346,13 @@ async function fulfillSmokeRoute(route: Route) {
     return;
   }
   await route.fallback();
+}
+
+function recordUnexpectedRoute(request: ReturnType<Route["request"]>) {
+  const page = request.frame().page();
+  unexpectedRoutesByPage
+    .get(page)
+    ?.push(`${request.method()}:redacted-unexpected-route`);
 }
 
 function validateLocalChatCompletionRequest(

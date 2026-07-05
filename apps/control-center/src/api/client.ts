@@ -945,6 +945,28 @@ function isSafeTurnRouterPreview(
   }
   const noEffect = value.no_effect_proof;
   const policy = value.policy_summary;
+  const selectedContract = String(value.selected_turn_contract ?? "");
+  const allowedPreviewContracts = [
+    "answer_directly",
+    "base_answer",
+    "answer_with_reviewed_memory",
+    "draft_or_plan",
+    "prepare_tool_or_action",
+    "approval_required",
+    "ask_clarifying_question",
+    "blocked_unsafe",
+  ];
+  const blockedRefs = stringArray(value.blocked_authority_refs);
+  const requiredBlockedRefs = [
+    "blocked-state:turn-router-preview:no-runtime-model-call",
+    "blocked-state:turn-router-preview:no-provider-call",
+    "blocked-state:turn-router-preview:no-tool-execution",
+    "blocked-state:turn-router-preview:no-action-execution",
+    "blocked-state:turn-router-preview:no-memory-write",
+    "blocked-state:turn-router-preview:no-shell-subprocess",
+    "blocked-state:turn-router-preview:no-browser-network",
+    "blocked-state:turn-router-preview:no-connector-write",
+  ];
   return (
     value.contract_ref === "contract-ref:turn-router-preview:v1" &&
     typeof value.preview_ref === "string" &&
@@ -958,8 +980,17 @@ function isSafeTurnRouterPreview(
     stringArray(value.redactions_applied).includes(
       "ephemeral_request_text_omitted",
     ) &&
+    allowedPreviewContracts.includes(selectedContract) &&
+    requiredBlockedRefs.every((ref) => blockedRefs.includes(ref)) &&
     value.raw_content_included === false &&
     value.ephemeral_request_text_omitted === true &&
+    policy.turn_contract === selectedContract &&
+    policy.memory_write_allowed === false &&
+    policy.approval_required ===
+      (selectedContract === "approval_required") &&
+    policy.memory_read_allowed ===
+      (selectedContract === "answer_with_reviewed_memory") &&
+    policy.planner === (selectedContract === "draft_or_plan") &&
     noEffect.authority_granted === false &&
     noEffect.execution_permitted === false &&
     noEffect.no_runtime_model_call_performed === true &&

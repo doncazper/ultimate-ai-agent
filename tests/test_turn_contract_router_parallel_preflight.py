@@ -220,6 +220,23 @@ def test_bundle_rejects_duplicate_lane_kinds() -> None:
         )
 
 
+def test_bundle_rejects_missing_required_lane_kind() -> None:
+    lane_results = [
+        _lane(lane_kind)
+        for lane_kind in TurnPreflightLaneKind
+        if lane_kind != TurnPreflightLaneKind.tool_manifest_lane
+    ]
+
+    with pytest.raises(ValueError, match="missing required turn preflight lane kind: tool_manifest_lane"):
+        TurnPreflightBundle(
+            bundle_ref="turn-preflight-bundle:missing-lane",
+            safe_summary="Parallel preflight bundle is missing one required lane ref.",
+            lane_results=lane_results,
+            reason_refs=["reason-ref:turn-preflight:missing-lane"],
+            source_refs=["source:turn-preflight:missing-lane"],
+        )
+
+
 def test_arbitration_result_only_clears_direct_draft_for_direct_or_base_answer() -> None:
     with pytest.raises(ValueError, match="direct_answer_draft can only be cleared"):
         TurnPreflightArbitrationResult(
