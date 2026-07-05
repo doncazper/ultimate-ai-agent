@@ -36,6 +36,9 @@ def _assert_no_authority(payload: dict[str, object]) -> None:
         '"provider_router_execution_enabled": true',
         '"model_router_execution_enabled": true',
         '"local_llama_cpp_process_started_by_control_plane": true',
+        '"remote_model_call_enabled": true',
+        '"local_model_call_performed": true',
+        '"model_invocation_performed": true',
         '"process_start_performed_by_read_model": true',
         '"model_call_performed_by_read_model": true',
         '"shell_execution_enabled": true',
@@ -67,6 +70,10 @@ def main() -> int:
         "llama.cpp lifecycle must be loopback-only",
     )
     _assert(read_model.router_traces, "router traces missing")
+    _assert(
+        read_model.role_provider_evidence.role_count == 7,
+        "role provider evidence missing roles",
+    )
     _assert_no_authority(payload)
 
     client = TestClient(app)
@@ -80,6 +87,11 @@ def main() -> int:
     api_payload = envelope.get("data") or envelope.get("result")
     _assert(isinstance(api_payload, dict), "endpoint did not return payload")
     _assert(api_payload["contract_ref"] == read_model.contract_ref, "contract mismatch")
+    _assert(
+        api_payload["role_provider_evidence"]["schema_version"]
+        == "role_based_model_provider_evidence.v1",
+        "API role provider evidence missing",
+    )
     _assert_no_authority(api_payload)
 
     cli = subprocess.run(
@@ -94,6 +106,10 @@ def main() -> int:
     )
     cli_payload = json.loads(cli.stdout)
     _assert(cli_payload["contract_ref"] == read_model.contract_ref, "CLI contract mismatch")
+    _assert(
+        cli_payload["role_provider_evidence"]["role_count"] == 7,
+        "CLI role provider evidence missing",
+    )
     _assert_no_authority(cli_payload)
     print("model_provider_control_plane: ok")
     return 0
