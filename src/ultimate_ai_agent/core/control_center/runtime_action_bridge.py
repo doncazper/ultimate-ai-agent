@@ -11,6 +11,10 @@ from ultimate_ai_agent.core.execution.validation import (
     validate_safe_execution_text,
 )
 from ultimate_ai_agent.core.runtime_gateway import RuntimeInvocationRecord
+from ultimate_ai_agent.core.runtime_gateway.action_evidence import (
+    build_runtime_action_signed_evidence,
+    verify_runtime_action_signed_evidence,
+)
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
     GOVERNED_RUNTIME_SAFE_DISABLE_POSTURE_REF,
     GOVERNED_RUNTIME_SAFE_DISABLE_REF,
@@ -81,6 +85,9 @@ class RuntimeActionInboxBridgeItem(BaseModel):
     safe_disable_posture_ref: str = Field(..., min_length=1)
     receipt_ref: str | None = None
     execution_result_ref: str | None = None
+    signed_evidence_ref: str | None = None
+    signed_evidence_verifier_ref: str | None = None
+    signed_evidence_verification_status: str = "not_available"
     receipt_status: str = "receipt_not_recorded"
     exit_code: int | None = None
     timed_out: bool = False
@@ -110,6 +117,8 @@ class RuntimeActionInboxBridgeItem(BaseModel):
             (self.safe_disable_posture_ref, "safe_disable_posture_ref"),
             (self.receipt_ref, "receipt_ref"),
             (self.execution_result_ref, "execution_result_ref"),
+            (self.signed_evidence_ref, "signed_evidence_ref"),
+            (self.signed_evidence_verifier_ref, "signed_evidence_verifier_ref"),
         ]:
             if value is not None:
                 validate_execution_ref(value, field_name)
@@ -118,6 +127,7 @@ class RuntimeActionInboxBridgeItem(BaseModel):
             (self.requested_authority, "requested_authority"),
             (self.command_intent or "not_applicable", "command_intent"),
             (self.status, "status"),
+            (self.signed_evidence_verification_status, "signed_evidence_verification_status"),
             (self.receipt_status, "receipt_status"),
             (self.safe_summary, "safe_summary"),
         ]:
@@ -180,6 +190,8 @@ class RuntimeActionInboxBridgeReadModel(BaseModel):
     capabilities_cli_ref: str = "uaa runtime capabilities"
     invocations_cli_ref: str = "uaa runtime invocations list"
     receipts_cli_ref: str = "uaa runtime receipts show"
+    signed_evidence_cli_ref: str = "uaa runtime receipts evidence"
+    signed_evidence_verifier_cli_ref: str = "uaa runtime receipts verify-evidence"
     safe_disable_cli_ref: str = "uaa runtime safe-disable"
     status: str = "backend_owned_runtime_action_inbox_bridge"
     runtime_status_ref: str = "runtime-status-ref:governed-runtime-pilot"
@@ -201,6 +213,7 @@ class RuntimeActionInboxBridgeReadModel(BaseModel):
     pending_runtime_approval_refs: list[str] = Field(default_factory=list)
     execution_result_refs: list[str] = Field(default_factory=list)
     receipt_refs: list[str] = Field(default_factory=list)
+    signed_evidence_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     items: list[RuntimeActionInboxBridgeItem] = Field(default_factory=list)
     evidence_timeline: list[RuntimeActionInboxBridgeEvidenceItem] = Field(default_factory=list)
@@ -239,6 +252,8 @@ class RuntimeActionInboxBridgeReadModel(BaseModel):
             "capabilities_cli_ref",
             "invocations_cli_ref",
             "receipts_cli_ref",
+            "signed_evidence_cli_ref",
+            "signed_evidence_verifier_cli_ref",
             "safe_disable_cli_ref",
             "status",
             "default_profile",
@@ -262,6 +277,7 @@ class RuntimeActionInboxBridgeReadModel(BaseModel):
             "pending_runtime_approval_refs",
             "execution_result_refs",
             "receipt_refs",
+            "signed_evidence_refs",
             "evidence_refs",
             "blocked_authority_refs",
         ):
@@ -287,6 +303,11 @@ def build_runtime_action_inbox_bridge_read_model(
 ) -> dict[str, Any]:
     items = [_item_for_record(record) for record in records if record.action_inbox_envelope]
     receipt_refs = list(dict.fromkeys(ref for item in items for ref in item.receipt_refs))
+    signed_evidence_refs = list(
+        dict.fromkeys(
+            ref for item in items for ref in [item.signed_evidence_ref] if ref is not None
+        )
+    )
     evidence_refs = list(dict.fromkeys(ref for item in items for ref in item.evidence_refs))
     execution_result_refs = list(
         dict.fromkeys(
@@ -337,13 +358,15 @@ def build_runtime_action_inbox_bridge_read_model(
         ],
         execution_result_refs=execution_result_refs,
         receipt_refs=receipt_refs,
+        signed_evidence_refs=signed_evidence_refs,
         evidence_refs=evidence_refs,
         items=items,
         evidence_timeline=evidence_timeline,
         blocked_authority_refs=list(RUNTIME_ACTION_INBOX_BRIDGE_BLOCKED_AUTHORITY_REFS),
         operator_summary=(
             f"{len(items)} governed runtime approval envelopes are visible with "
-            f"{len(receipt_refs)} receipt refs, {len(evidence_refs)} evidence refs, "
+            f"{len(receipt_refs)} receipt refs, {len(signed_evidence_refs)} signed evidence refs, "
+            f"{len(evidence_refs)} evidence refs, "
             f"and {len(evidence_timeline)} timeline events."
         ),
     )
@@ -359,6 +382,9 @@ def _item_for_record(record: RuntimeInvocationRecord) -> RuntimeActionInboxBridg
     receipt_ref = None
     execution_result_ref = None
     receipt_status = "receipt_not_recorded"
+    signed_evidence_ref = None
+    signed_evidence_verifier_ref = None
+    signed_evidence_verification_status = "not_available"
     exit_code = None
     timed_out = False
     if record.receipt is not None:
@@ -371,6 +397,11 @@ def _item_for_record(record: RuntimeInvocationRecord) -> RuntimeActionInboxBridg
             execution_result_ref = metadata.redacted_output_ref
             exit_code = metadata.exit_code
             timed_out = metadata.timed_out
+        signed_evidence = _signed_evidence_for_record(record)
+        if signed_evidence is not None:
+            signed_evidence_ref = signed_evidence["signed_evidence_ref"]
+            signed_evidence_verifier_ref = signed_evidence["verifier_ref"]
+            signed_evidence_verification_status = signed_evidence["verification_status"]
     return RuntimeActionInboxBridgeItem(
         invocation_ref=record.invocation_ref,
         action_envelope_ref=envelope.action_envelope_ref,
@@ -396,6 +427,9 @@ def _item_for_record(record: RuntimeInvocationRecord) -> RuntimeActionInboxBridg
         safe_disable_posture_ref=envelope.safe_disable_posture_ref,
         receipt_ref=receipt_ref,
         execution_result_ref=execution_result_ref,
+        signed_evidence_ref=signed_evidence_ref,
+        signed_evidence_verifier_ref=signed_evidence_verifier_ref,
+        signed_evidence_verification_status=signed_evidence_verification_status,
         receipt_status=receipt_status,
         exit_code=exit_code,
         timed_out=timed_out,
@@ -409,6 +443,21 @@ def _item_for_record(record: RuntimeInvocationRecord) -> RuntimeActionInboxBridg
             "broad runtime authority remains blocked."
         ),
     )
+
+
+def _signed_evidence_for_record(record: RuntimeInvocationRecord) -> dict[str, str] | None:
+    if record.receipt is None:
+        return None
+    try:
+        envelope = build_runtime_action_signed_evidence(record)
+        verification = verify_runtime_action_signed_evidence(envelope)
+    except ValueError:
+        return None
+    return {
+        "signed_evidence_ref": envelope.signed_envelope_ref,
+        "verifier_ref": envelope.verifier_ref,
+        "verification_status": verification.verification_status,
+    }
 
 
 def _safe_disable_state(records: list[RuntimeInvocationRecord]) -> RuntimeSafeDisableState:

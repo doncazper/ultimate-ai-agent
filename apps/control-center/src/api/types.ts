@@ -2591,6 +2591,9 @@ export interface FounderLoopRuntimeActionInboxBridgeItem {
   safe_disable_posture_ref: string;
   receipt_ref?: string | null;
   execution_result_ref?: string | null;
+  signed_evidence_ref?: string | null;
+  signed_evidence_verifier_ref?: string | null;
+  signed_evidence_verification_status: string;
   receipt_status: string;
   exit_code?: number | null;
   timed_out: boolean;
@@ -2615,6 +2618,8 @@ export interface FounderLoopRuntimeActionInboxBridgeReadModel {
   capabilities_cli_ref: string;
   invocations_cli_ref: string;
   receipts_cli_ref: string;
+  signed_evidence_cli_ref: string;
+  signed_evidence_verifier_cli_ref: string;
   safe_disable_cli_ref: string;
   status: string;
   runtime_status_ref: string;
@@ -2636,6 +2641,7 @@ export interface FounderLoopRuntimeActionInboxBridgeReadModel {
   pending_runtime_approval_refs: string[];
   execution_result_refs: string[];
   receipt_refs: string[];
+  signed_evidence_refs: string[];
   evidence_refs: string[];
   items: FounderLoopRuntimeActionInboxBridgeItem[];
   evidence_timeline: FounderLoopRuntimeEvidenceTimelineItem[];

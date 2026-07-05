@@ -1428,6 +1428,10 @@ function runtimeActionInboxBridgeFixture(
     safe_disable_posture_ref: "safe-disable-posture-ref:runtime-app-test",
     receipt_ref: "receipt:runtime-command:app-test",
     execution_result_ref: "redacted-output-ref:runtime-app-test",
+    signed_evidence_ref: "runtime-action-signed-envelope-ref:app-test",
+    signed_evidence_verifier_ref:
+      "verifier-ref:governed-runtime-action-signed-evidence",
+    signed_evidence_verification_status: "passed",
     receipt_status: "receipt_recorded",
     exit_code: 0,
     timed_out: false,
@@ -1455,6 +1459,8 @@ function runtimeActionInboxBridgeFixture(
     capabilities_cli_ref: "uaa runtime capabilities",
     invocations_cli_ref: "uaa runtime invocations list",
     receipts_cli_ref: "uaa runtime receipts show",
+    signed_evidence_cli_ref: "uaa runtime receipts evidence",
+    signed_evidence_verifier_cli_ref: "uaa runtime receipts verify-evidence",
     safe_disable_cli_ref: "uaa runtime safe-disable",
     status: "backend_owned_runtime_action_inbox_bridge",
     runtime_status_ref: "runtime-status-ref:governed-runtime-pilot",
@@ -1477,6 +1483,7 @@ function runtimeActionInboxBridgeFixture(
     pending_runtime_approval_refs: [],
     execution_result_refs: ["redacted-output-ref:runtime-app-test"],
     receipt_refs: ["receipt:runtime-command:app-test"],
+    signed_evidence_refs: ["runtime-action-signed-envelope-ref:app-test"],
     evidence_refs: ["evidence-ref:runtime-command:app-test"],
     items: [item],
     evidence_timeline: [
@@ -5327,6 +5334,9 @@ describe("Web Control Center shell", () => {
     const diagnostics = await screen.findByRole("region", {
       name: /Router Diagnostics/i,
     });
+    expect(
+      await within(diagnostics).findByText("Backend-owned router preview"),
+    ).toBeInTheDocument();
     const input = within(diagnostics).getByLabelText(
       "Ephemeral one-shot router text",
     );
@@ -6230,9 +6240,16 @@ describe("Web Control Center shell", () => {
     expect(bridge).toHaveTextContent("focused_pytest_receipt_recorded");
     expect(bridge).toHaveTextContent("uaa runtime status");
     expect(bridge).toHaveTextContent("uaa runtime receipts show");
+    expect(bridge).toHaveTextContent("uaa runtime receipts evidence");
+    expect(bridge).toHaveTextContent("uaa runtime receipts verify-evidence");
     expect(bridge).toHaveTextContent("focused_pytest");
     expect(bridge).toHaveTextContent("runtime-invocation:app-test");
     expect(bridge).toHaveTextContent("receipt:runtime-command:app-test");
+    expect(bridge).toHaveTextContent("runtime-action-signed-envelope-ref:app-test");
+    expect(bridge).toHaveTextContent(
+      "verifier-ref:governed-runtime-action-signed-evidence",
+    );
+    expect(bridge).toHaveTextContent("passed");
     expect(bridge).toHaveTextContent("redacted-output-ref:runtime-app-test");
     expect(bridge).toHaveTextContent("execution_completed");
     expect(bridge).toHaveTextContent(
