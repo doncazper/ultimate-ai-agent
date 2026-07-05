@@ -96,6 +96,96 @@ export interface TurnRouterPolicySummary {
   execution_ready: boolean;
 }
 
+export interface TurnHarnessBindingReadModel {
+  contract_ref: "contract-ref:turn-contract-router:harness-binding:v1";
+  binding_ref: string;
+  decision_ref: string;
+  policy_ref: string;
+  turn_contract: string;
+  safe_summary: string;
+  reason_refs: string[];
+  evidence_refs: string[];
+  risk_flags: string[];
+  memory_scope: string;
+  memory_touched: boolean;
+  reviewed_memory_refs_allowed: boolean;
+  memory_content_retrieved: boolean;
+  memory_write_allowed: boolean;
+  memory_write_performed: boolean;
+  tool_policy: string;
+  tools_exposed_count: number;
+  tool_refs: string[];
+  execution_tools_exposed_count: number;
+  planner: boolean;
+  durable_state: boolean;
+  approval_policy: string;
+  approval_required: boolean;
+  approval_envelope_required: boolean;
+  side_effects_allowed: boolean;
+  execution_ready: boolean;
+  receipt_required: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  raw_memory_body_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  credential_persisted: boolean;
+  safe_refs_only: boolean;
+  blocked_authority_refs: string[];
+  no_effect_scope: "turn_harness_binding_compilation_only";
+  no_runtime_model_call_performed: boolean;
+  no_provider_call_performed: boolean;
+  no_tool_execution_performed: boolean;
+  no_action_execution_performed: boolean;
+  no_shell_subprocess_performed: boolean;
+  no_browser_network_performed: boolean;
+  no_connector_write_performed: boolean;
+}
+
+export interface TurnHarnessBindingReceiptSummary {
+  contract_ref: "contract-ref:turn-contract-router:harness-binding:v1";
+  binding_ref: string;
+  decision_ref: string;
+  policy_ref: string;
+  turn_contract: string;
+  safe_summary: string;
+  reason_refs: string[];
+  evidence_refs: string[];
+  risk_flags: string[];
+  memory_scope: string;
+  memory_touched: boolean;
+  reviewed_memory_refs_allowed: boolean;
+  memory_content_retrieved: boolean;
+  memory_write_allowed: boolean;
+  memory_write_performed: boolean;
+  tool_policy: string;
+  tools_exposed_count: number;
+  tool_refs: string[];
+  execution_tools_exposed_count: number;
+  planner: boolean;
+  durable_state: boolean;
+  approval_policy: string;
+  approval_required: boolean;
+  approval_envelope_required: boolean;
+  side_effects_allowed: boolean;
+  execution_ready: boolean;
+  receipt_required: boolean;
+  prompt_body_persisted: boolean;
+  response_body_persisted: boolean;
+  memory_body_persisted: boolean;
+  local_path_body_persisted: boolean;
+  sensitive_material_persisted: boolean;
+  safe_refs_only: boolean;
+  blocked_authority_refs: string[];
+  no_effect_scope: "turn_harness_binding_compilation_only";
+  no_runtime_model_call_performed: boolean;
+  no_provider_call_performed: boolean;
+  no_tool_execution_performed: boolean;
+  no_action_execution_performed: boolean;
+  no_shell_subprocess_performed: boolean;
+  no_browser_network_performed: boolean;
+  no_connector_write_performed: boolean;
+}
+
 export interface TurnRouterNoEffectProof {
   authority_granted: boolean;
   execution_permitted: boolean;
@@ -2333,6 +2423,7 @@ export interface ChatTurnReceiptRequest {
   auth_truth: string;
   tool_denial_truth: string;
   safe_summary_ref: string;
+  turn_harness_binding?: TurnHarnessBindingReadModel;
   evidence_refs?: string[];
   metadata_refs?: string[];
 }
@@ -2346,6 +2437,7 @@ export interface ChatTurnReceipt {
   auth_truth: string;
   tool_denial_truth: string;
   safe_summary_ref: string;
+  turn_harness_binding?: TurnHarnessBindingReceiptSummary;
   handoff_refs: string[];
   receipt_ref: string;
   evidence_ref: string;
@@ -7543,6 +7635,7 @@ export interface RedactedLocalChatProbeStatus {
   durationMs?: number;
   responseVisible: false;
   reasonCodes: string[];
+  turnHarnessBinding?: TurnHarnessBindingReadModel;
 }
 
 export interface ActionPreviewRequest {

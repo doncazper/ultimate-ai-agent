@@ -301,12 +301,27 @@ Implemented binding surface:
 
 - `build_turn_harness_binding` classifies a turn, compiles the invocation
   policy, and returns a `TurnHarnessBindingReadModel`.
+- `build_chat_turn_harness_binding` binds the same no-effect router metadata to
+  the local `/v1/chat/completions` path after chat request validation and before
+  the local response builder returns.
+- Local chat responses expose the binding only under `uaa_safety` as safe
+  metadata; prompt text is not used in persisted refs.
+- Durable Chat receipts store a receipt-safe binding projection with selected
+  contract, memory/tool, approval, blocked-authority, and no-effect fields. The
+  no-effect scope is explicitly `turn_harness_binding_compilation_only`, so it
+  describes router binding construction and not the whole local chat response
+  lifecycle. The projection omits `raw_*` storage keys while preserving false
+  body-persistence proof fields.
 - The read model exposes safe summaries, reason refs, evidence refs, risk
   flags, memory/tool/state posture, approval posture, and no-effect proof
   flags.
 - The read model does not persist raw request text, raw response text, raw
   memory bodies, local paths, credentials, or secret-like values.
 - The read model does not retrieve memory content or execute tools.
+- The binding does not make Chat output authoritative and does not grant memory
+  reads, memory writes, tool execution, action execution, shell/subprocess
+  execution, browser/network authority, connector writes, or provider/model
+  authority.
 
 Binding shape:
 

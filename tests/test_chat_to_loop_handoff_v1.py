@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.control_center.chat_to_loop_handoff import (
     ChatToLoopHandoffReadModel,
     build_chat_to_loop_handoff_read_model,
 )
+from ultimate_ai_agent.core.decision_router import build_turn_harness_binding
 from ultimate_ai_agent.core.storage import (
     FounderLoopRepository,
     FounderLoopStorageDuplicateError,
@@ -41,6 +42,25 @@ def _chat_turn_request(
         safe_summary_ref=safe_summary_ref,
         evidence_refs=["evidence-ref:chat-to-loop:test"],
         metadata_refs=["metadata-ref:chat-to-loop:test"],
+    )
+
+
+def _chat_turn_request_with_binding() -> ChatTurnReceiptRequest:
+    return ChatTurnReceiptRequest(
+        turn_ref="chat-turn:product-loop-router-binding",
+        route_ref="/v1/chat/completions",
+        model_ref="model-ref:local-chat-gateway",
+        runtime_truth="local-chat-route-answered",
+        auth_truth="local-bearer-accepted",
+        tool_denial_truth="tools-functions-streaming-denied",
+        safe_summary_ref="safe-summary-ref:chat-to-loop-router-test",
+        turn_harness_binding=build_turn_harness_binding(
+            "Use my card and book pickup at Home Depot.",
+            binding_ref="turn-harness-binding:chat-to-loop-test",
+            decision_ref="turn-decision:chat-to-loop-test",
+        ),
+        evidence_refs=["evidence-ref:chat-to-loop:router-test"],
+        metadata_refs=["metadata-ref:chat-to-loop:router-test"],
     )
 
 
@@ -194,6 +214,25 @@ def test_chat_to_loop_handoff_idempotency_replay_and_conflict(tmp_path: Path) ->
             ),
             idempotency_key_ref="idempotency-ref:chat-to-loop-actions",
         )
+
+
+def test_chat_to_loop_preserves_turn_harness_binding_refs_without_authority(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    turn_receipt = repo.record_chat_turn_receipt(
+        request=_chat_turn_request_with_binding(),
+        idempotency_key_ref="idempotency-ref:chat-to-loop-router-turn",
+    )
+    stored = repo.latest_chat_turn_receipt(turn_receipt["turn_ref"])
+
+    assert stored is not None
+    assert stored["turn_harness_binding"]["turn_contract"] == "approval_required"
+    assert stored["turn_harness_binding"]["approval_required"] is True
+    assert stored["turn_harness_binding"]["no_action_execution_performed"] is True
+    assert stored["turn_harness_binding"]["side_effects_allowed"] is False
+    assert stored["action_execution_enabled"] is False
+    assert stored["memory_write_authorized"] is False
 
 
 def test_chat_to_loop_handoff_keeps_created_refs_on_their_source_turn(

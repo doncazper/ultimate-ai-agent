@@ -11,6 +11,10 @@ Implemented shell behavior:
 - renders read-only dashboard, runtime readiness, Foundation Gate, API route, approval queue, receipt viewer, event viewer, event timeline trace viewer, evidence viewer, file reference viewer, memory viewer, remote worker, private mesh, mobile planning, plugin governance, setup assistant, and settings summaries.
 - submits bounded no-effect preview requests, including
   `/control-center/actions/preview` and `/control-center/turn-router/preview`.
+- records durable Chat receipt metadata from the local chat readiness probe,
+  including receipt-safe turn harness binding refs from `uaa_safety` when the
+  backend supplies them; the binding no-effect scope is compilation-only and is
+  not a claim that a configured local chat response did not run.
 - labels action preview as preview-only and displays blocked decisions as non-executed safety results.
 - exposes the action preview risk level as policy metadata only.
 - provides route-level headings and accessible loading, empty, error, and mock fallback states for local browser smoke review.
@@ -34,6 +38,8 @@ Non-goals:
   scoped read/validation summaries.
 - no public execution API.
 - no runtime/model/provider call.
+- no Chat router binding execution authority, memory content retrieval, memory
+  write, tool execution, or action execution.
 - no provider credential collection form.
 - no raw provider key, token, secret, or environment-value display.
 - no provider credential resolution, validation call, vault adapter runtime, or

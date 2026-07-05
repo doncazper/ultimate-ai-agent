@@ -3,6 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import ultimate_ai_agent.api.app as api_app
+from ultimate_ai_agent.core.decision_router import build_turn_harness_binding
 from ultimate_ai_agent.core.local_model_management import (
     DEFAULT_UAA_LLAMA_CPP_GATEWAY_KEY,
     DEFAULT_UAA_LLAMA_CPP_MODEL_ID,
@@ -69,11 +70,17 @@ def test_m164_fake_gateway_forwards_to_loopback_transport_without_tools_or_strea
         model=DEFAULT_UAA_LLAMA_CPP_MODEL_ID,
         messages=[{"role": "user", "content": "hello"}],
     )
+    turn_harness_binding = build_turn_harness_binding(
+        "How do I build a DIY table?",
+        binding_ref="turn-harness-binding:m164-test",
+        decision_ref="turn-decision:m164-test",
+    )
 
     response = build_m164_chat_completion_response(
         request,
         gateway_model=M164LocalGatewayModel(),
         transport=transport,
+        turn_harness_binding=turn_harness_binding,
     )
 
     assert len(transport.calls) == 1
@@ -84,6 +91,12 @@ def test_m164_fake_gateway_forwards_to_loopback_transport_without_tools_or_strea
     assert response["uaa_safety"]["raw_prompt_logged"] is False
     assert response["uaa_safety"]["raw_provider_payload_exposed"] is False
     assert response["uaa_safety"]["backend_fields_allowlisted"] is True
+    assert response["uaa_safety"]["turn_harness_binding"]["turn_contract"] == "answer_directly"
+    assert response["uaa_safety"]["turn_harness_binding"]["tools_exposed_count"] == 0
+    assert (
+        response["uaa_safety"]["turn_harness_binding"]["no_effect_scope"]
+        == "turn_harness_binding_compilation_only"
+    )
 
 
 def test_m164_gateway_omits_unknown_backend_fields() -> None:
@@ -198,9 +211,18 @@ def test_m164_api_requires_configured_gateway_bearer_when_enabled(monkeypatch: p
 def test_m164_api_chat_success_uses_typed_request_without_live_backend(monkeypatch: pytest.MonkeyPatch) -> None:
     _enable_gateway(monkeypatch)
 
-    def fake_response(request: Any, *, gateway_model: Any, api_key: Any | None = None) -> dict[str, Any]:
+    def fake_response(
+        request: Any,
+        *,
+        gateway_model: Any,
+        api_key: Any | None = None,
+        turn_harness_binding: Any | None = None,
+    ) -> dict[str, Any]:
         del gateway_model, api_key
         assert isinstance(request, M164ChatCompletionRequest)
+        assert turn_harness_binding is not None
+        assert turn_harness_binding.turn_contract == "answer_directly"
+        assert turn_harness_binding.tools_exposed_count == 0
         return {
             "id": "chatcmpl-uaa-m164-local",
             "object": "chat.completion",
@@ -208,7 +230,10 @@ def test_m164_api_chat_success_uses_typed_request_without_live_backend(monkeypat
             "model": request.model,
             "choices": [{"index": 0, "message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-            "uaa_safety": {"raw_provider_payload_exposed": False},
+            "uaa_safety": {
+                "raw_provider_payload_exposed": False,
+                "turn_harness_binding": turn_harness_binding.model_dump(mode="json"),
+            },
         }
 
     monkeypatch.setattr(api_app, "build_m164_chat_completion_response", fake_response)
@@ -223,7 +248,14 @@ def test_m164_api_chat_success_uses_typed_request_without_live_backend(monkeypat
     )
 
     assert response.status_code == 200
-    assert response.json()["choices"][0]["message"]["content"] == "ok"
+    body = response.json()
+    assert body["choices"][0]["message"]["content"] == "ok"
+    assert body["uaa_safety"]["turn_harness_binding"]["turn_contract"] == "answer_directly"
+    assert body["uaa_safety"]["turn_harness_binding"]["raw_prompt_persisted"] is False
+    assert (
+        body["uaa_safety"]["turn_harness_binding"]["no_effect_scope"]
+        == "turn_harness_binding_compilation_only"
+    )
 
 
 def test_m164_api_redacts_validation_errors_in_llama_cpp_mode(monkeypatch: pytest.MonkeyPatch) -> None:

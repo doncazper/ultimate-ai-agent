@@ -164,7 +164,13 @@ Backend API endpoints consumed:
 - `GET /runtime/capability-matrix`
 - `GET /v1/models`
 - `POST /v1/chat/completions` for the scoped redacted local readiness exchange
-  only when local gateway prerequisites are already configured.
+  only when local gateway prerequisites are already configured. The response may
+  include `uaa_safety.turn_harness_binding`, which the Chat surface can pass into
+  the durable chat receipt as backend-owned router metadata. The binding is
+  displayed as contract/proof posture only with
+  `turn_harness_binding_compilation_only` no-effect scope; it does not expose
+  raw prompts, raw responses, memory content, execution tools, action execution,
+  or approval authority.
 - `POST /runtime/smoke-reports/validate`
 - `POST /control-center/actions/preview`
 - `POST /control-center/turn-router/preview` for the Chat Router Diagnostics

@@ -20,7 +20,9 @@ from ultimate_ai_agent.core.chat import (
     ChatHandoffRequest,
     ChatTurnReceipt,
     ChatTurnReceiptRequest,
+    chat_turn_harness_binding_receipt_summary,
 )
+from ultimate_ai_agent.core.decision_router import build_turn_harness_binding
 
 
 def test_fcc_v1_004_verifier_passes() -> None:
@@ -37,6 +39,109 @@ def test_chat_receipt_request_rejects_raw_private_content() -> None:
             auth_truth="local-bearer-accepted",
             tool_denial_truth="tools-functions-streaming-denied",
             safe_summary_ref="safe-summary-ref:test",
+        )
+
+
+def test_chat_receipt_records_safe_turn_harness_binding_refs_only() -> None:
+    binding = build_turn_harness_binding(
+        "Find current lumber prices near me.",
+        binding_ref="turn-harness-binding:chat-receipt-test",
+        decision_ref="turn-decision:chat-receipt-test",
+    )
+    request = ChatTurnReceiptRequest(
+        turn_ref="chat-turn:test-router-binding",
+        route_ref="/v1/chat/completions",
+        model_ref="model-ref:test",
+        runtime_truth="local-chat-route-answered",
+        auth_truth="local-bearer-accepted",
+        tool_denial_truth="tools-functions-streaming-denied",
+        safe_summary_ref="safe-summary-ref:test",
+        turn_harness_binding=binding,
+    )
+    receipt = ChatTurnReceipt(
+        contract_ref=CHAT_DURABLE_RECEIPT_CONTRACT_REF,
+        turn_ref="chat-turn:test-router-binding",
+        route_ref="/v1/chat/completions",
+        model_ref="model-ref:test",
+        runtime_truth=request.runtime_truth,
+        auth_truth=request.auth_truth,
+        tool_denial_truth=request.tool_denial_truth,
+        safe_summary_ref=request.safe_summary_ref,
+        turn_harness_binding=chat_turn_harness_binding_receipt_summary(
+            request.turn_harness_binding
+        ),
+        handoff_refs=[
+            "handoff-ref:chat-to-actions:test-router-binding",
+            "handoff-ref:chat-to-plans:test-router-binding",
+        ],
+        receipt_ref="receipt:chat-turn:test-router-binding",
+        evidence_ref="evidence-ref:chat-turn:test-router-binding",
+        idempotency_key_ref="idempotency-ref:test-router-binding",
+        payload_fingerprint_ref="payload-fingerprint:chat:test-router-binding",
+        blocked_state_refs=list(CHAT_LOCAL_OPERATOR_REQUIRED_BLOCKED_REFS),
+    )
+
+    payload = receipt.model_dump(mode="json")
+    assert payload["turn_harness_binding"]["turn_contract"] == "prepare_tool_or_action"
+    assert payload["turn_harness_binding"]["tool_policy"] == "read_only_or_proposal_only"
+    assert payload["turn_harness_binding"]["execution_tools_exposed_count"] == 0
+    assert (
+        payload["turn_harness_binding"]["no_effect_scope"]
+        == "turn_harness_binding_compilation_only"
+    )
+    assert payload["turn_harness_binding"]["prompt_body_persisted"] is False
+    assert "current lumber prices" not in repr(payload).lower()
+
+
+def test_chat_receipt_accepts_router_credential_privacy_safe_ref() -> None:
+    binding = build_turn_harness_binding(
+        "Review my account privacy boundary.",
+        binding_ref="turn-harness-binding:chat-receipt-privacy-boundary",
+        decision_ref="turn-decision:chat-receipt-privacy-boundary",
+    )
+    request = ChatTurnReceiptRequest(
+        turn_ref="chat-turn:test-privacy-boundary",
+        route_ref="/v1/chat/completions",
+        model_ref="model-ref:test",
+        runtime_truth="local-chat-route-answered",
+        auth_truth="local-bearer-accepted",
+        tool_denial_truth="tools-functions-streaming-denied",
+        safe_summary_ref="safe-summary-ref:test",
+        turn_harness_binding=binding,
+    )
+    summary = chat_turn_harness_binding_receipt_summary(
+        request.turn_harness_binding
+    )
+
+    assert summary is not None
+    assert summary.turn_contract == "approval_required"
+    assert (
+        "reason-ref:turn-contract:credential-account-privacy-boundary"
+        in summary.reason_refs
+    )
+    assert "credential_or_payment" in summary.risk_flags
+    assert summary.no_effect_scope == "turn_harness_binding_compilation_only"
+    assert summary.no_action_execution_performed is True
+
+
+def test_chat_receipt_rejects_unsafe_turn_harness_binding_payload() -> None:
+    binding = build_turn_harness_binding(
+        "How do I build a DIY table?",
+        binding_ref="turn-harness-binding:unsafe-chat-receipt-test",
+        decision_ref="turn-decision:unsafe-chat-receipt-test",
+    ).model_dump(mode="json")
+    binding["raw_prompt_persisted"] = True
+
+    with pytest.raises(ValidationError):
+        ChatTurnReceiptRequest(
+            turn_ref="chat-turn:test",
+            route_ref="/v1/chat/completions",
+            model_ref="model-ref:test",
+            runtime_truth="local-chat-route-answered",
+            auth_truth="local-bearer-accepted",
+            tool_denial_truth="tools-functions-streaming-denied",
+            safe_summary_ref="safe-summary-ref:test",
+            turn_harness_binding=binding,
         )
 
 
