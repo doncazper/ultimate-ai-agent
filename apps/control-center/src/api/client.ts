@@ -7251,6 +7251,7 @@ const RUNTIME_ACTION_INBOX_BRIDGE_REQUIRED_ARRAYS = [
   "pending_runtime_approval_refs",
   "execution_result_refs",
   "receipt_refs",
+  "signed_evidence_refs",
   "evidence_refs",
   "items",
   "evidence_timeline",
@@ -7272,6 +7273,7 @@ const RUNTIME_ACTION_INBOX_BRIDGE_ITEM_REQUIRED_STRINGS = [
   "rollback_ref",
   "safe_disable_ref",
   "receipt_status",
+  "signed_evidence_verification_status",
   "safe_summary",
 ] as const;
 
@@ -7368,6 +7370,8 @@ function isSafeRuntimeActionInboxBridgeReadModel(value: unknown): boolean {
       "capabilities_cli_ref",
       "invocations_cli_ref",
       "receipts_cli_ref",
+      "signed_evidence_cli_ref",
+      "signed_evidence_verifier_cli_ref",
       "safe_disable_cli_ref",
       "status",
       "runtime_status_ref",
@@ -7396,6 +7400,7 @@ function isSafeRuntimeActionInboxBridgeReadModel(value: unknown): boolean {
   const pendingApprovalRefs = value.pending_runtime_approval_refs as unknown[];
   const executionResultRefs = value.execution_result_refs as unknown[];
   const receiptRefs = value.receipt_refs as unknown[];
+  const signedEvidenceRefs = value.signed_evidence_refs as unknown[];
   const evidenceRefs = value.evidence_refs as unknown[];
   const items = value.items as unknown[];
   const evidenceTimeline = value.evidence_timeline as unknown[];
@@ -7418,6 +7423,7 @@ function isSafeRuntimeActionInboxBridgeReadModel(value: unknown): boolean {
     pendingApprovalRefs.every(isSafeActionWorkQueueRef) &&
     executionResultRefs.every(isSafeActionWorkQueueRef) &&
     receiptRefs.every(isSafeActionWorkQueueRef) &&
+    signedEvidenceRefs.every(isSafeActionWorkQueueRef) &&
     evidenceRefs.every(isSafeActionWorkQueueRef) &&
     blockedAuthorityRefs.every(isSafeActionWorkQueueRef) &&
     items.every(isSafeRuntimeActionInboxBridgeItem) &&
@@ -7446,6 +7452,8 @@ function isSafeRuntimeActionInboxBridgeItem(value: unknown): boolean {
   const approvalValidationRef = value.approval_validation_ref;
   const receiptRef = value.receipt_ref;
   const executionResultRef = value.execution_result_ref;
+  const signedEvidenceRef = value.signed_evidence_ref;
+  const signedEvidenceVerifierRef = value.signed_evidence_verifier_ref;
   return (
     (commandIntent === null ||
       commandIntent === undefined ||
@@ -7462,6 +7470,12 @@ function isSafeRuntimeActionInboxBridgeItem(value: unknown): boolean {
     (executionResultRef === null ||
       executionResultRef === undefined ||
       isSafeActionWorkQueueRef(executionResultRef)) &&
+    (signedEvidenceRef === null ||
+      signedEvidenceRef === undefined ||
+      isSafeActionWorkQueueRef(signedEvidenceRef)) &&
+    (signedEvidenceVerifierRef === null ||
+      signedEvidenceVerifierRef === undefined ||
+      isSafeActionWorkQueueRef(signedEvidenceVerifierRef)) &&
     typeof value.approval_validated === "boolean" &&
     typeof value.execution_performed === "boolean" &&
     typeof value.timed_out === "boolean" &&

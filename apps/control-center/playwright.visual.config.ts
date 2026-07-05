@@ -1,5 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const visualPort = Number(process.env.CONTROL_CENTER_VISUAL_PORT ?? "5177");
+const visualBaseUrl = `http://127.0.0.1:${visualPort}`;
+const reuseExistingVisualServer =
+  process.env.CONTROL_CENTER_VISUAL_REUSE_EXISTING_SERVER === "1";
+
 export default defineConfig({
   testDir: "./tests/visual",
   fullyParallel: false,
@@ -8,7 +13,7 @@ export default defineConfig({
   reporter: process.env.CI ? [["dot"], ["github"]] : [["list"]],
   snapshotPathTemplate: "{testDir}/__snapshots__/{projectName}/{arg}{ext}",
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: visualBaseUrl,
     colorScheme: "light",
     trace: "retain-on-failure",
   },
@@ -19,9 +24,9 @@ export default defineConfig({
     },
   },
   webServer: {
-    command: "npm run dev -- --clearScreen false",
-    url: "http://127.0.0.1:5173",
-    reuseExistingServer: !process.env.CI,
+    command: `npm run dev -- --host 127.0.0.1 --port ${visualPort} --strictPort --clearScreen false`,
+    url: visualBaseUrl,
+    reuseExistingServer: reuseExistingVisualServer,
     timeout: 120_000,
   },
   projects: [

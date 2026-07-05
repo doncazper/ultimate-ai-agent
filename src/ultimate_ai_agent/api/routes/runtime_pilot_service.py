@@ -24,7 +24,9 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeLocalModelCallRequest,
     build_default_runtime_capabilities,
     build_governed_product_pilot_authority_profile,
+    build_runtime_action_signed_evidence,
     command_allowlist_catalog,
+    verify_runtime_action_signed_evidence,
 )
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
     GOVERNED_RUNTIME_REDACTIONS,
@@ -77,6 +79,33 @@ def _not_found(operation: str, invocation_ref: str) -> ResultEnvelope:
         ),
         redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
     )
+
+
+def _runtime_action_signed_evidence_payload(record) -> dict[str, object]:
+    if record.receipt is None or record.action_inbox_envelope is None:
+        return {
+            "signed_evidence_available": False,
+            "signed_evidence_unavailable_reason": (
+                "runtime-action-evidence-unavailable-ref:receipt-or-action-envelope-missing"
+            ),
+        }
+    try:
+        envelope = build_runtime_action_signed_evidence(record)
+    except ValueError:
+        return {
+            "signed_evidence_available": False,
+            "signed_evidence_unavailable_reason": (
+                "runtime-action-evidence-unavailable-ref:validation-failed"
+            ),
+        }
+    verification = verify_runtime_action_signed_evidence(envelope)
+    return {
+        "signed_evidence_available": True,
+        "signed_evidence_envelope": envelope.model_dump(mode="json"),
+        "signed_evidence_verification": verification.model_dump(mode="json"),
+        "signed_evidence_ref": envelope.signed_envelope_ref,
+        "signed_evidence_verification_status": verification.verification_status,
+    }
 
 
 @router.get("/capabilities", response_model=ResultEnvelope)
@@ -454,6 +483,7 @@ def get_api_runtime_invocations_id_receipt(id: str) -> ResultEnvelope:
         data={
             "receipt": record.receipt.model_dump(mode="json") if record.receipt else None,
             "receipt_available": record.receipt is not None,
+            **_runtime_action_signed_evidence_payload(record),
             "execution_performed": bool(
                 record.receipt and record.receipt.execution_performed
             ),
@@ -595,6 +625,7 @@ def post_api_runtime_invocations_id_execute(
         receipt = result.record.receipt
         metadata = receipt.command_receipt_metadata if receipt else None
         execution_performed = bool(receipt and receipt.execution_performed)
+        signed_evidence = _runtime_action_signed_evidence_payload(result.record)
         return ResultEnvelope(
             success=result.error_category is None and execution_performed,
             operation="api_runtime_invocation_execute",
@@ -617,6 +648,13 @@ def post_api_runtime_invocations_id_execute(
                     else None
                 ),
                 "receipt_ref": receipt.receipt_ref if receipt else None,
+                "signed_evidence_ref": signed_evidence.get("signed_evidence_ref"),
+                "signed_evidence_available": signed_evidence.get(
+                    "signed_evidence_available", False
+                ),
+                "signed_evidence_verification_status": signed_evidence.get(
+                    "signed_evidence_verification_status"
+                ),
                 "evidence_refs": receipt.evidence_refs if receipt else [],
                 "metadata_ref": metadata.redacted_output_ref if metadata else None,
                 "output_summary": result.output_summary,

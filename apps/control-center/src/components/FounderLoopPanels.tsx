@@ -1192,12 +1192,21 @@ function RuntimeActionInboxBridgePanel({
           label="results"
           value={readModel.execution_result_refs.length}
         />
+        <Metric
+          label="signed evidence"
+          value={readModel.signed_evidence_refs.length}
+        />
       </div>
       <dl className="detail-list">
         <DetailTerm label="Status CLI" value={readModel.status_cli_ref} />
         <DetailTerm label="Capabilities CLI" value={readModel.capabilities_cli_ref} />
         <DetailTerm label="Invocations CLI" value={readModel.invocations_cli_ref} />
         <DetailTerm label="Receipts CLI" value={readModel.receipts_cli_ref} />
+        <DetailTerm label="Evidence CLI" value={readModel.signed_evidence_cli_ref} />
+        <DetailTerm
+          label="Verifier CLI"
+          value={readModel.signed_evidence_verifier_cli_ref}
+        />
         <DetailTerm label="Safe-disable CLI" value={readModel.safe_disable_cli_ref} />
       </dl>
       <p className="muted">{readModel.safe_disable_summary}</p>
@@ -1224,6 +1233,10 @@ function RuntimeActionInboxBridgePanel({
                 value={item.execution_performed ? "yes" : "no"}
               />
               <DetailTerm label="Receipt status" value={item.receipt_status} />
+              <DetailTerm
+                label="Signed evidence"
+                value={item.signed_evidence_verification_status}
+              />
               <DetailTerm
                 label="Exit"
                 value={item.exit_code === null || item.exit_code === undefined ? "none" : String(item.exit_code)}
@@ -1255,6 +1268,20 @@ function RuntimeActionInboxBridgePanel({
               emptyLabel="Execution result refs: none"
               refs={
                 item.execution_result_ref ? [item.execution_result_ref] : []
+              }
+            />
+            <RefListWithFallback
+              emptyLabel="Signed evidence refs: none"
+              refs={
+                item.signed_evidence_ref ? [item.signed_evidence_ref] : []
+              }
+            />
+            <RefListWithFallback
+              emptyLabel="Signed verifier refs: none"
+              refs={
+                item.signed_evidence_verifier_ref
+                  ? [item.signed_evidence_verifier_ref]
+                  : []
               }
             />
             <RefListWithFallback
@@ -1316,6 +1343,10 @@ function RuntimeActionInboxBridgePanel({
       <RefListWithFallback
         emptyLabel="Runtime bridge execution results: none"
         refs={readModel.execution_result_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Runtime bridge signed evidence refs: none"
+        refs={readModel.signed_evidence_refs}
       />
       <RefListWithFallback
         emptyLabel="Runtime bridge evidence refs: none"

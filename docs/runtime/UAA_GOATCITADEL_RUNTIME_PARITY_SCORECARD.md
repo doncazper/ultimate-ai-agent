@@ -82,7 +82,7 @@ that UAA already has the same runtime capability.
 |---|---:|---:|---|---|---|---|---|
 | Turn-contract clarity | 9 | 9 | High | implemented | `src/ultimate_ai_agent/core/decision_router/`, `PreparedTurn`, `scripts/dev/uaa_turn_router.py`, `tests/test_turn_contract_router_harness_binding.py`, and `docs/architecture/TURN_CONTRACT_ROUTER.md` prove `base_answer` handling, prepared-turn branches, preview routing, route binding, preflight posture, approval escalation, and executor fencing without model/provider calls. | Prepared turns are inspectable but not yet connected to live Control Center chat composition as a primary UI workflow. | Phase 08 Prompt: cockpit parity |
 | Authority/safety boundary | 9 | 9 | High | implemented | `AGENTS.md`, `src/ultimate_ai_agent/core/runtime_gateway/contracts.py`, `docs/control_center/AUTHORITY_GRADUATION_BOARD.md`, and `tests/test_governed_runtime_contracts.py` preserve sealed/default posture, exact approval scopes, idempotency, redaction, and blocked authority refs. | Later phases must prove they do not route around LocalApprovalAuthority, route side-effect classification, OpenAPI, redaction, or Foundation Gate checks. | Phase 02 Prompt through Phase 08 Prompt: harden each new surface against authority creep |
-| Execution readiness | 6 | 8 | Medium | partial | RuntimeGateway contracts, action inbox approval envelopes, local loopback metadata receipts, focused pytest approval bridge posture, and `tests/test_governed_runtime_contracts.py` show exact-lane execution scaffolding. | Signed portable evidence and a mature action execution receipt spine are not unified across turn, run, approval, and action records. | Phase 07 Prompt: mature action execution and signed evidence |
+| Execution readiness | 8 | 8 | Medium | implemented | RuntimeGateway contracts, Action Inbox approval envelopes, local loopback metadata receipts, focused pytest approval bridge posture, `RuntimeActionSignedEvidenceEnvelope`, signed evidence CLI/API/Control Center refs, and `tests/test_runtime_action_signed_evidence.py` show exact-lane execution scaffolding, idempotent replay, safe-disable, scope-drift blocking, redaction, and offline verification. | Signed evidence is implemented for the exact focused pytest lane only; broader action lanes still need separate approval, receipt, rollback, redaction, route classification, and verifier proof. | Phase 07 Prompt: mature action execution and signed evidence |
 | Durable runtime integration | 8 | 8 | Medium | partial | Durable run/read-model work, RuntimeGateway invocation storage, Run Observability, `TurnRunApprovalChainReadModel`, and `StagedOrchestrationReadModel` show local durable state, replay posture, approval-wait posture, staged dependencies, degraded handoff posture, and read-only API/CLI inspection. | Prepared chat turns have not yet been attached to the route-decision -> durable run -> staged orchestration -> approval-wait path. | Phase 05 Prompt: chat turn preparation |
 | Model/provider routing | 7 | 7 | Medium | implemented | `src/ultimate_ai_agent/core/providers/control_plane.py`, `src/ultimate_ai_agent/core/providers/role_evidence.py`, provider research posture docs/tests, router-dry-run posture, `scripts/dev/uaa_runtime.py inspect-role-provider-evidence`, and model/provider control-plane tests show read-only role-based provider/model evidence and dry-run routing. | Evidence is advisory/read-only and not yet a live execution router; remote provider calls, provider SDK calls, fallback execution, and provider-output authority remain blocked. | Phase 06 Prompt: role-based model/provider evidence |
 | Operator inspectability | 8 | 8 | High | partial | CLI/API/Control Center surfaces for Turn Router, RuntimeGateway, Evidence, Action Inbox, Provider posture, Work Board, Coding, and GoatCitadel catch-up cockpit parity expose safe refs and blocked states. | The runtime loop is still scattered across panels and scripts rather than one cockpit-readable turn/run/action/proof chain. | Phase 08 Prompt: cockpit/CLI/API parity and final hardening |
@@ -129,8 +129,16 @@ output authority. Implemented evidence now lives in
 `src/ultimate_ai_agent/core/providers/control_plane.py`, and
 `scripts/dev/uaa_runtime.py inspect-role-provider-evidence`.
 
-Phase 07 Prompt hardens exact action execution receipts and signed evidence for
-approved local lanes without generic tool execution or unrestricted shell.
+Phase 07 Prompt is implemented for the exact focused pytest Action Inbox lane.
+It adds `RuntimeActionSignedEvidenceEnvelope`,
+`verify_runtime_action_signed_evidence`, receipt-detail API evidence,
+`scripts/dev/uaa_runtime.py receipts evidence`,
+`scripts/dev/uaa_runtime.py receipts verify-evidence`, Control Center bridge signed evidence refs, and
+tests for pass path, missing receipt/envelope, scope drift, idempotent replay,
+safe-disable, redaction, and offline verification. It does not add generic tool
+execution, unrestricted shell, connector writes, browser automation, provider
+SDK calls, remote execution, plugin runtime import, production authority, public
+notarization, or public release claims.
 
 Phase 08 Prompt completes cockpit, CLI, API, docs, and verifier parity while
 keeping Control Center as presentation/initiation only.

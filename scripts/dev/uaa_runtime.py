@@ -30,7 +30,9 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_portable_evidence_envelope,
     build_default_runtime_capabilities,
     build_governed_product_pilot_authority_profile,
+    build_runtime_action_signed_evidence,
     verify_portable_evidence_envelope,
+    verify_runtime_action_signed_evidence,
 )
 from ultimate_ai_agent.core.runtime_gateway.contracts import (  # noqa: E402
     RuntimeActionInboxApprovalDecision,
@@ -248,6 +250,13 @@ def _print_receipt(record: Any) -> None:
         print(f"Exit code: {metadata.exit_code if metadata.exit_code is not None else 'none'}")
         print(f"Timed out: {metadata.timed_out}")
         print(f"Output summary: {metadata.output_summary}")
+    try:
+        evidence = build_runtime_action_signed_evidence(record)
+    except ValueError:
+        evidence = None
+    if evidence is not None:
+        print(f"Signed evidence: {evidence.signed_envelope_ref}")
+        print(f"Evidence verifier: {evidence.verifier_ref}")
 
 
 def _runtime_store(args: argparse.Namespace) -> RuntimeInvocationStore:
@@ -583,6 +592,60 @@ def _receipts_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def _receipts_evidence(args: argparse.Namespace) -> int:
+    record = _receipt_record_for_ref(_runtime_store(args), args.receipt_ref)
+    if record is None:
+        print("Receipt not found")
+        return 1
+    try:
+        envelope = build_runtime_action_signed_evidence(record)
+    except ValueError:
+        print("Runtime action signed evidence not available")
+        return 1
+    payload = _portable_evidence_payload(
+        "repo-local-command:governed-runtime-receipt-signed-evidence",
+        envelope.model_dump(mode="json"),
+    )
+    payload["runtime_action_signed_evidence"] = payload.pop(
+        "portable_evidence_envelope"
+    )
+    if args.json:
+        _print_json(payload)
+    else:
+        print("Governed runtime action signed evidence")
+        print(f"Envelope: {envelope.envelope_ref}")
+        print(f"Receipt: {envelope.receipt_ref}")
+        print(f"Hash: {envelope.envelope_hash_ref}")
+        print(f"Signed ref: {envelope.signed_envelope_ref}")
+        print(f"Verifier: {envelope.verifier_ref}")
+        print("Safe refs only: true")
+    return 0
+
+
+def _receipts_verify_evidence(args: argparse.Namespace) -> int:
+    envelope_payload = json.loads(Path(args.input).read_text(encoding="utf-8"))
+    result = verify_runtime_action_signed_evidence(envelope_payload)
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:governed-runtime-receipt-verify-signed-evidence",
+        "verification": result.model_dump(mode="json"),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_command_output_omitted": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        print("Governed runtime action signed evidence verification")
+        print(f"Envelope: {result.envelope_ref}")
+        print(f"Status: {result.verification_status}")
+        print(f"Hash valid: {result.envelope_hash_valid}")
+        print(f"Signed ref valid: {result.signed_envelope_ref_valid}")
+        print(f"Tamper detected: {result.tamper_detected}")
+    return 0 if result.verification_status == "passed" else 1
+
+
 def _action_decision(args: argparse.Namespace) -> int:
     decision = (
         RuntimeActionInboxApprovalDecision.approve
@@ -815,6 +878,20 @@ def build_parser() -> argparse.ArgumentParser:
     receipt_show.add_argument("receipt_ref")
     receipt_show.add_argument("--json", action="store_true", help="Emit safe JSON.")
     receipt_show.set_defaults(func=_receipts_show)
+    receipt_evidence = receipt_subparsers.add_parser(
+        "evidence",
+        help="Export signed evidence for a runtime receipt.",
+    )
+    receipt_evidence.add_argument("receipt_ref")
+    receipt_evidence.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    receipt_evidence.set_defaults(func=_receipts_evidence)
+    receipt_verify_evidence = receipt_subparsers.add_parser(
+        "verify-evidence",
+        help="Verify a runtime receipt signed evidence envelope without echoing paths.",
+    )
+    receipt_verify_evidence.add_argument("--input", required=True)
+    receipt_verify_evidence.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    receipt_verify_evidence.set_defaults(func=_receipts_verify_evidence)
 
     actions = subparsers.add_parser(
         "actions",

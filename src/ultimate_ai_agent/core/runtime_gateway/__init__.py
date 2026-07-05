@@ -26,6 +26,15 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeSafeDisableState,
     build_default_runtime_capabilities,
 )
+from ultimate_ai_agent.core.runtime_gateway.action_evidence import (
+    RUNTIME_ACTION_EVIDENCE_CONTRACT_REF,
+    RUNTIME_ACTION_EVIDENCE_VERIFIER_REF,
+    RUNTIME_ACTION_EVIDENCE_VERIFIER_VERSION_REF,
+    RuntimeActionSignedEvidenceEnvelope,
+    RuntimeActionSignedEvidenceVerificationResult,
+    build_runtime_action_signed_evidence,
+    verify_runtime_action_signed_evidence,
+)
 from ultimate_ai_agent.core.runtime_gateway.governed_product_pilot_profile import (
     GOVERNED_PRODUCT_PILOT_CLI_REF,
     GOVERNED_PRODUCT_PILOT_PROFILE_CONTRACT_REF,
@@ -65,6 +74,9 @@ from ultimate_ai_agent.core.runtime_gateway.storage import (
 
 __all__ = [
     "GOVERNED_RUNTIME_CONTRACT_REF",
+    "RUNTIME_ACTION_EVIDENCE_CONTRACT_REF",
+    "RUNTIME_ACTION_EVIDENCE_VERIFIER_REF",
+    "RUNTIME_ACTION_EVIDENCE_VERIFIER_VERSION_REF",
     "GOVERNED_PRODUCT_PILOT_CLI_REF",
     "GOVERNED_PRODUCT_PILOT_PROFILE_CONTRACT_REF",
     "GOVERNED_PRODUCT_PILOT_PROFILE_REF",
@@ -75,6 +87,8 @@ __all__ = [
     "GOVERNED_RUNTIME_IMPLEMENTED_AUTHORITY_REFS",
     "GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS",
     "RuntimeApprovalRequirement",
+    "RuntimeActionSignedEvidenceEnvelope",
+    "RuntimeActionSignedEvidenceVerificationResult",
     "RuntimeApprovalBindingRequest",
     "RuntimeActionInboxApprovalDecision",
     "RuntimeActionInboxApprovalEnvelope",
@@ -110,6 +124,7 @@ __all__ = [
     "RuntimeSafeDisableRequest",
     "RuntimeSafeDisableState",
     "build_default_runtime_capabilities",
+    "build_runtime_action_signed_evidence",
     "GovernedProductPilotAuthorityProfileReadModel",
     "GovernedProductPilotEvidenceVerificationResult",
     "GovernedProductPilotLane",
@@ -117,5 +132,6 @@ __all__ = [
     "build_governed_product_pilot_authority_profile",
     "build_portable_evidence_envelope",
     "verify_portable_evidence_envelope",
+    "verify_runtime_action_signed_evidence",
     "command_allowlist_catalog",
 ]
