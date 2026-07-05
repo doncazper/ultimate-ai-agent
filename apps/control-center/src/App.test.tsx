@@ -4662,6 +4662,74 @@ describe("Web Control Center shell", () => {
     expect(within(diagnostics).getAllByText("answer_directly").length).toBeGreaterThan(0);
   });
 
+  it("fails closed without reusing sample contracts when ephemeral preview fails", async () => {
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.turnRouterPreview)
+      ) {
+        const body = JSON.parse(String(options.body ?? "{}")) as {
+          sample_id?: string;
+          text?: string;
+        };
+        if (typeof body.text === "string") {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              error: { message: "Turn router preview unavailable." },
+            }),
+            { status: 503, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: turnRouterPreviewFixture(body.sample_id),
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    const diagnostics = await screen.findByRole("region", {
+      name: /Router Diagnostics/i,
+    });
+    expect(
+      await within(diagnostics).findByText("Backend-owned router preview"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(
+      within(diagnostics).getByLabelText("Ephemeral one-shot router text"),
+      { target: { value: "Order the materials." } },
+    );
+    fireEvent.click(
+      within(diagnostics).getByRole("button", { name: /Preview turn/i }),
+    );
+
+    expect(
+      await within(diagnostics).findByText("Non-authoritative mock fallback"),
+    ).toBeInTheDocument();
+    expect(within(diagnostics).getByText("Ephemeral text")).toBeInTheDocument();
+    expect(within(diagnostics).getByText("Approval boundary")).toBeInTheDocument();
+    expect(
+      within(diagnostics).getAllByText("approval_required").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(diagnostics).getByText(/Preview route was unavailable/i),
+    ).toBeInTheDocument();
+  });
+
   it("rejects unsafe turn router preview payloads as non-authoritative", async () => {
     const unsafePreview = {
       ...turnRouterPreviewFixture("diy-desk"),
@@ -4712,6 +4780,106 @@ describe("Web Control Center shell", () => {
     expect(
       within(diagnostics).queryByText("Backend-owned router preview"),
     ).not.toBeInTheDocument();
+  });
+
+  it("rejects turn router previews with policy drift or missing blocked refs", async () => {
+    const unsafePreview = {
+      ...turnRouterPreviewFixture("order-materials"),
+      blocked_authority_refs: [
+        "blocked-state:turn-router-preview:no-runtime-model-call",
+      ],
+      policy_summary: {
+        ...turnRouterPreviewFixture("order-materials").policy_summary,
+        turn_contract: "answer_directly",
+        approval_required: false,
+      },
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.turnRouterPreview)
+      ) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: unsafePreview,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    const diagnostics = await screen.findByRole("region", {
+      name: /Router Diagnostics/i,
+    });
+    expect(
+      await within(diagnostics).findByText("Non-authoritative mock fallback"),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(diagnostics).toHaveTextContent(
+        /Turn router preview was rejected safely/i,
+      ),
+    );
+  });
+
+  it("rejects unsupported turn router preview contracts", async () => {
+    const unsafePreview = {
+      ...turnRouterPreviewFixture("diy-desk"),
+      selected_turn_contract: "execute_approved_action",
+      policy_summary: {
+        ...turnRouterPreviewFixture("diy-desk").policy_summary,
+        turn_contract: "execute_approved_action",
+      },
+    };
+    const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
+      const urlText = String(url);
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.turnRouterPreview)
+      ) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: unsafePreview,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/chat");
+    render(<App />);
+
+    const diagnostics = await screen.findByRole("region", {
+      name: /Router Diagnostics/i,
+    });
+    expect(
+      await within(diagnostics).findByText("Non-authoritative mock fallback"),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(diagnostics).toHaveTextContent(
+        /Turn router preview was rejected safely/i,
+      ),
+    );
+    expect(within(diagnostics).queryByText("execute_approved_action")).not.toBeInTheDocument();
   });
 
   it("labels turn router diagnostics mock fallback as non-authoritative", async () => {

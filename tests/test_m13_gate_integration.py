@@ -54,6 +54,7 @@ def test_frontend_source_declares_only_scoped_post_routes() -> None:
         "memoryReviewDecisionEndpoint(candidateRef, decision)",
         "memoryContextPackActionProposalEndpoint(contextPackRef)",
         "API_ENDPOINTS.localChatCompletions",
+        "API_ENDPOINTS.turnRouterPreview",
         "API_ENDPOINTS.controlCenterWebEvidenceAttach",
     }
     assert client.count('method: "POST"') == len(allowed_post_targets)

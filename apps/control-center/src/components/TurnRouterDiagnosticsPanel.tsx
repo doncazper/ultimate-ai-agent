@@ -138,7 +138,7 @@ export function TurnRouterDiagnosticsPanel() {
       setPreview(result);
       setPreviewSource("backend_owned");
     } catch (caught) {
-      setPreview(fallbackPreview(selectedSample));
+      setPreview(fallbackUnavailablePreview());
       setPreviewSource("mock_fallback");
       setError(
         sanitizeForDisplay(
@@ -165,7 +165,7 @@ export function TurnRouterDiagnosticsPanel() {
   const sourceMessage =
     previewSource === "backend_owned"
       ? "This panel is rendering the Python Core no-effect preview route. It is diagnostic only and does not grant execution authority."
-      : "The backend preview route is unavailable; displayed sample posture is mock-only and cannot be used as product truth.";
+      : "The backend preview route is unavailable; displayed posture is mock-only and cannot be used as product truth.";
 
   return (
     <section
@@ -415,6 +415,83 @@ function fallbackPreview(sampleId: TurnRouterPreviewSampleId): TurnRouterPreview
     redactions_applied: ["ephemeral_request_text_omitted"],
     safe_summary:
       "Non-authoritative fallback preview mirrors protected sample posture only.",
+    raw_content_included: false,
+    ephemeral_request_text_omitted: true,
+  };
+}
+
+function fallbackUnavailablePreview(): TurnRouterPreviewReadModel {
+  return {
+    contract_ref: "contract-ref:turn-router-preview:v1",
+    preview_ref: "turn-router-preview:mock:unavailable",
+    request_ref: "turn-router-preview-request:ephemeral-text:unavailable",
+    request_kind: "ephemeral_text",
+    sample_id: null,
+    selected_turn_contract: "approval_required",
+    confidence: 0,
+    reason_refs: ["reason-ref:turn-router-preview:unavailable-fail-closed"],
+    risk_flags: ["risk-flag:preview-unavailable"],
+    policy_summary: {
+      turn_contract: "approval_required",
+      memory_scope: "none",
+      memory_read_allowed: false,
+      memory_write_allowed: false,
+      tool_policy: "none",
+      tool_choice: "none",
+      tool_execution_allowed: false,
+      action_execution_allowed: false,
+      workflow_execution_allowed: false,
+      context_injection_allowed: false,
+      approval_policy: "approval_required",
+      approval_required: true,
+      planner: false,
+      durable_state: false,
+      state_policy: "none",
+      prompt_profile: "diagnostic_preview_unavailable",
+      output_contract: "safe_summary_only",
+      runtime_model_call_allowed: false,
+      provider_call_allowed: false,
+      shell_subprocess_allowed: false,
+      browser_network_allowed: false,
+      connector_write_allowed: false,
+      side_effects_allowed: false,
+      execution_ready: false,
+    },
+    no_effect_proof: {
+      authority_granted: false,
+      execution_permitted: false,
+      no_runtime_model_call_performed: true,
+      no_provider_call_performed: true,
+      no_tool_execution_performed: true,
+      no_action_execution_performed: true,
+      no_workflow_execution_performed: true,
+      no_context_injection_performed: true,
+      no_memory_content_retrieved: true,
+      no_memory_write_performed: true,
+      no_durable_state_write_performed: true,
+      no_shell_subprocess_performed: true,
+      no_browser_network_performed: true,
+      no_connector_write_performed: true,
+      invocation_policy_compiled_only: true,
+      raw_request_text_persisted: false,
+    },
+    blocked_authority_refs: [
+      "blocked-state:turn-router-preview:no-runtime-model-call",
+      "blocked-state:turn-router-preview:no-provider-call",
+      "blocked-state:turn-router-preview:no-tool-execution",
+      "blocked-state:turn-router-preview:no-action-execution",
+      "blocked-state:turn-router-preview:no-memory-write",
+      "blocked-state:turn-router-preview:no-shell-subprocess",
+      "blocked-state:turn-router-preview:no-browser-network",
+      "blocked-state:turn-router-preview:no-connector-write",
+    ],
+    lane_result_refs: ["turn-preflight-lane-result:mock:unavailable"],
+    source_refs: ["source-ref:turn-router-preview:mock-fallback"],
+    evidence_refs: ["evidence-ref:turn-router-preview:mock-fallback"],
+    route_refs: ["/control-center/turn-router/preview"],
+    redactions_applied: ["ephemeral_request_text_omitted"],
+    safe_summary:
+      "Preview route was unavailable; fail-closed fallback did not classify the submitted text.",
     raw_content_included: false,
     ephemeral_request_text_omitted: true,
   };

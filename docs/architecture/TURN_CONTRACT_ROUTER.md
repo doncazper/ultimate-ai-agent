@@ -466,7 +466,7 @@ raw JSON is not the primary UI, console errors stay clean, and unsupported
 authority claims are absent on desktop and mobile viewports. The smoke harness
 is implementation-time QA only; it does not grant UAA product runtime browser
 automation, browser observe/action authority, web fetch, connector write,
-provider/model authority, or broad autonomy.
+provider/model authority, or standing autonomous operation.
 
 Preflight lanes:
 

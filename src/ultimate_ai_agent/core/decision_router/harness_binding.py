@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import re
+import hashlib
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -24,7 +24,6 @@ from ultimate_ai_agent.core.planning.validation import validate_safe_task_text, 
 TURN_HARNESS_BINDING_CONTRACT_REF = "contract-ref:turn-contract-router:harness-binding:v1"
 TURN_HARNESS_BINDING_NO_EFFECT_SCOPE = "turn_harness_binding_compilation_only"
 DEFAULT_CHAT_HARNESS_ROUTE_REF = "/v1/chat/completions"
-_SAFE_HARNESS_SUFFIX_CHARS = re.compile(r"[^a-z0-9_.@-]+")
 
 
 class TurnHarnessBindingReadModel(BaseModel):
@@ -248,6 +247,5 @@ def _message_role_and_content(message: Any) -> tuple[str | None, Any]:
 
 
 def _safe_suffix(value: str) -> str:
-    lowered = value.strip().lower().replace(":", "-")
-    suffix = _SAFE_HARNESS_SUFFIX_CHARS.sub("-", lowered).strip("-")
-    return suffix or "local-chat"
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+    return f"safe-{digest}"

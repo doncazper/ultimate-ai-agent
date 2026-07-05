@@ -21,6 +21,17 @@ GOLDEN_CASES = [
     ("Send this to Alex.", TurnContractKind.approval_required),
     ("Delete these files.", TurnContractKind.approval_required),
     ("Ask the base answer path: use my card and order this.", TurnContractKind.approval_required),
+    ("Remember I prefer walnut.", TurnContractKind.approval_required),
+    ("Please remember: I prefer walnut.", TurnContractKind.approval_required),
+    ("Memorize that I prefer walnut.", TurnContractKind.approval_required),
+    ("Ask the base answer path: remember I prefer walnut.", TurnContractKind.approval_required),
+    ("Ask the base answer path: please remember: I prefer walnut.", TurnContractKind.approval_required),
+    ("Text Alex that I am running late.", TurnContractKind.approval_required),
+    ("Erase those files.", TurnContractKind.approval_required),
+    ("Reorder the materials.", TurnContractKind.approval_required),
+    ("Add a meeting to my calendar.", TurnContractKind.approval_required),
+    ("Reply to Sarah with the update.", TurnContractKind.approval_required),
+    ("Create a task to follow up with Jordan.", TurnContractKind.approval_required),
 ]
 
 
@@ -80,6 +91,43 @@ def test_base_answer_request_cannot_bypass_action_safety() -> None:
 
     assert decision.turn_contract in {"approval_required", "blocked_unsafe"}
     assert decision.turn_contract != "base_answer"
+
+
+def test_base_answer_request_cannot_bypass_memory_write_safety() -> None:
+    decision = classify_turn_contract(
+        "Ask the base answer path: remember I prefer walnut.",
+        decision_ref="turn-decision:base-answer-memory-write-safety",
+    )
+
+    assert decision.turn_contract == "approval_required"
+    assert RiskFlag.memory_requested.value in decision.risk_flags
+    assert decision.turn_contract != "base_answer"
+
+
+def test_external_calendar_task_and_reply_actions_require_approval() -> None:
+    prompts = [
+        "Add a meeting to my calendar.",
+        "Reply to Sarah with the update.",
+        "Create a task to follow up with Jordan.",
+    ]
+
+    for index, prompt in enumerate(prompts):
+        decision = classify_turn_contract(
+            prompt,
+            decision_ref=f"turn-decision:external-action-regression-{index}",
+        )
+
+        assert decision.turn_contract == "approval_required"
+        assert RiskFlag.external_side_effect.value in decision.risk_flags
+
+
+def test_software_creation_request_remains_direct_answer() -> None:
+    decision = classify_turn_contract(
+        "Build me a small Python helper for sorting rows.",
+        decision_ref="turn-decision:software-helper-direct",
+    )
+
+    assert decision.turn_contract == "answer_directly"
 
 
 def test_memory_write_request_goes_to_review_boundary() -> None:
