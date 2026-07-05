@@ -1,6 +1,6 @@
 # UAA GoatCitadel Catch-Up Scoreboard
 
-Status: Phase 01 baseline artifact. This document is documentation and verifier
+Status: Phase 04 active scoreboard. This document is documentation and verifier
 coverage only; it is not runtime authority, does not grant execution authority,
 and does not change Control Center behavior.
 
@@ -29,9 +29,12 @@ UAA evidence inspected:
 - `src/ultimate_ai_agent/api/founder_loop.py`
 - `src/ultimate_ai_agent/api/app.py`
 - `src/ultimate_ai_agent/api/routes/runtime_pilot_service.py`
+- `src/ultimate_ai_agent/core/control_center/action_tool_code_catalog.py`
 - `src/ultimate_ai_agent/core/runtime_gateway/__init__.py`
 - `tests/test_api_manifest.py`
 - `tests/test_control_center_api_routes.py`
+- `tests/test_goatcitadel_catchup_action_tool_code_lanes.py`
+- `scripts/verify_uaa_goatcitadel_catchup_action_tool_code_lanes.py`
 - `scripts/verify_uaa_goatcitadel_catchup_prompt_pack.py`
 - `docs/prompts/uaa_goatcitadel_catchup/`
 
@@ -110,7 +113,7 @@ tests, and CLI/API/core parity.
 |---:|---|---|---|---|---|---|---|
 | 1 | Productized agent loop spine across chat, actions, proof, evidence, memory, and trust. | implemented read-model | Python Core plus Control Center read models | `GET /control-center/agent-loop/thread`, `scripts/dev/uaa_founder_loop.py inspect-agent-loop`, and Today UI render the backend-owned thread. | No new runtime authority. | `tests/test_goatcitadel_catchup_agent_loop_spine.py`, route/API manifest checks, product truth, docs integrity. | Phase 02 implemented: Agent Loop Spine |
 | 2 | Durable orchestration progress, recovery, cancellation, retry, blocked, and dead-letter visibility. | implemented read-model | Python execution core | `GET /control-center/runs/observability`, CLI inspect, Control Center Evidence run panel. | Background autonomy, queue workers, retry/resume/cancel execution blocked. | `tests/test_run_observability_surface.py`, durable lifecycle tests, Phase 03 verifier. | Phase 03: Durable Orchestration |
-| 3 | Action/tool/code lane catalog with inspectable/callable separation. | partial to partial-plus | Python tool/action/catalog core | Catalog read models and proposal receipts; no generic execution. | Unrestricted shell/subprocess execution and plugin runtime import blocked. | Catalog verifier, approval/receipt tests, product-language tests. | Phase 04: Action/Tool/Code Lanes |
+| 3 | Action/tool/code lane catalog with inspectable/callable separation. | implemented read-model | Python tool/action/catalog core | Catalog read models, proposal posture, receipt refs, CLI inspection, and Action Inbox UI panel; no generic execution. | Unrestricted shell/subprocess execution, generic tool execution, plugin runtime import, connector writes, provider/model calls, browser automation, and broad autonomy blocked. | `tests/test_goatcitadel_catchup_action_tool_code_lanes.py`, `scripts/verify_uaa_goatcitadel_catchup_action_tool_code_lanes.py`, catalog verifier, approval/receipt tests, product-language tests. | Phase 04 implemented: Action/Tool/Code Lanes |
 | 4 | Memory learning lifecycle with feedback, stale/wrong/conflict/duplicate states. | partial to implemented | Python memory core | Memory workbench/read models and CLI inspection. | Memory-write authority and hidden context injection blocked. | Memory provenance and redaction tests. | Phase 05: Memory/Learning |
 | 5 | Signed portable evidence and same-run lineage detail. | partial to implemented | Evidence/proof core | Evidence envelope read/verify surfaces and CLI verifier. | External telemetry/export and production compliance claims blocked. | Evidence signature/hash verifier and redaction tests. | Phase 06: Evidence/Audit |
 | 6 | Model/provider/research metadata parity. | partial to partial-plus | RuntimeGateway/local model core | Provider readiness/catalog metadata and route-decision trace read models. | Runtime model calls, provider SDK calls, and live web fetching blocked. | Runtime metadata tests and authority guard verifier. | Phase 07: Model/Provider/Research |
@@ -204,6 +207,27 @@ safe-ref-only. Cancel, resume, retry, recovery, dead-letter execution, live
 streaming, background workers, schedulers, provider/model calls, tool
 execution, connector writes/sends, browser automation, unrestricted
 shell/subprocess execution, and production authority remain blocked.
+
+## Phase 04 Evidence
+
+Phase 04 is implemented as a repo-safe action/tool/code lane catalog read-model
+slice. It adds
+`docs/control_center/UAA_GOATCITADEL_CATCHUP_ACTION_TOOL_CODE_LANES.md`,
+Python Core contract
+`contract-ref:goatcitadel-catchup-action-tool-code-catalog:v1`, Action Inbox
+embedding through `GET /control-center/actions/inbox`, CLI command
+`scripts/dev/uaa_founder_loop.py inspect-action-tool-code-catalog`, Control
+Center Action Inbox rendering, and focused tests/verifier coverage.
+
+The catalog shows four Tool Broker v2 entries as preview-only, Action Inbox
+`local_task_create` as one exact local mutation lane, RuntimeGateway focused
+pytest as one exact approval-required lane, Coding patch proposal as
+proposal-only, and Coding patch apply, allowlisted test command, Git review,
+and live preview as blocked missing exact authority. Generic tool execution remains blocked.
+Unrestricted shell/subprocess execution, arbitrary command
+strings, connector writes, browser automation, plugin runtime import, remote
+execution, provider/model calls, background autonomy, production authority,
+public beta, and public release claims remain blocked.
 
 ## Merge-Gated Follow-Up Prompts
 

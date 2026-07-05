@@ -12,6 +12,8 @@ import {
 } from "../api/client";
 import { ConnectorDeliveryReviewQueuePanel } from "./ConnectorDeliveryReviewQueuePanel";
 import type {
+  ActionToolCodeLaneCatalogReadModel,
+  ActionToolCodeLaneEntry,
   FounderLoopAgentLoopThread,
   FounderLoopActionDecisionKind,
   FounderLoopActionDecisionReceipt,
@@ -1321,6 +1323,215 @@ function RuntimeActionInboxBridgePanel({
       <RefListWithFallback
         emptyLabel="Blocked authority refs: none"
         refs={readModel.blocked_authority_refs}
+      />
+    </article>
+  );
+}
+
+function ActionToolCodeLaneCatalogPanel({
+  contractRef,
+  readModel,
+}: {
+  contractRef?: string;
+  readModel?: ActionToolCodeLaneCatalogReadModel;
+}) {
+  if (!readModel) {
+    return (
+      <article className="status-card" aria-label="Action tool code catalog">
+        <div className="status-card-header">
+          <h3>Action/tool/code catalog</h3>
+          <span>backend read model missing</span>
+        </div>
+        <p>
+          Action, tool, runtime, and code-lane posture is unavailable. The UI
+          will not infer callable tools, shell access, code apply authority, or
+          provider execution from local presentation state.
+        </p>
+        <dl className="detail-list">
+          <DetailTerm label="Generic tools" value="blocked" />
+          <DetailTerm label="Unrestricted shell" value="blocked" />
+          <DetailTerm label="Code apply" value="blocked unless exact lane exists" />
+          <DetailTerm label="Provider/browser/connector" value="blocked" />
+        </dl>
+      </article>
+    );
+  }
+
+  const exactLaneCount =
+    readModel.exact_local_mutation_count + readModel.exact_runtime_lane_count;
+  const blockedAuthorityEnabled =
+    readModel.generic_tool_execution_enabled ||
+    readModel.unrestricted_shell_execution_enabled ||
+    readModel.browser_automation_enabled ||
+    readModel.connector_write_enabled ||
+    readModel.plugin_runtime_import_enabled ||
+    readModel.remote_execution_enabled ||
+    readModel.provider_model_call_enabled ||
+    readModel.background_autonomy_enabled ||
+    readModel.production_authority_enabled;
+
+  return (
+    <article className="status-card" aria-label="Action tool code catalog">
+      <div className="status-card-header">
+        <h3>Action/tool/code catalog</h3>
+        <span>{readModel.backend_owned ? "backend-owned" : "non-authoritative"}</span>
+      </div>
+      <p>{readModel.operator_summary}</p>
+      <div className="operator-loop-summary-grid">
+        <Metric label="lanes" value={readModel.entry_count} />
+        <Metric label="preview" value={readModel.preview_only_count} />
+        <Metric label="exact" value={exactLaneCount} />
+        <Metric label="proposals" value={readModel.proposal_only_count} />
+        <Metric label="blocked" value={readModel.blocked_count} />
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Contract" value={contractRef ?? readModel.contract_ref} />
+        <DetailTerm label="Catalog" value={readModel.catalog_ref} />
+        <DetailTerm label="Status" value={readModel.status} />
+        <DetailTerm label="Route" value={readModel.route_ref} />
+        <DetailTerm label="CLI" value={readModel.cli_ref} />
+        <DetailTerm
+          label="Presentation boundary"
+          value={
+            readModel.control_center_presentation_only
+              ? "Control Center displays only"
+              : "unsafe"
+          }
+        />
+        <DetailTerm
+          label="Raw content"
+          value={readModel.raw_content_included ? "included" : "omitted"}
+        />
+        <DetailTerm
+          label="Broad authority"
+          value={blockedAuthorityEnabled ? "unsafe" : "blocked"}
+        />
+        <DetailTerm
+          label="Generic tool execution"
+          value={readModel.generic_tool_execution_enabled ? "enabled" : "blocked"}
+        />
+        <DetailTerm
+          label="Shell/provider/browser/connector"
+          value={
+            readModel.unrestricted_shell_execution_enabled ||
+            readModel.provider_model_call_enabled ||
+            readModel.browser_automation_enabled ||
+            readModel.connector_write_enabled
+              ? "enabled"
+              : "blocked"
+          }
+        />
+      </dl>
+      <p className="muted">{readModel.next_safe_action}</p>
+      <div className="review-grid">
+        {readModel.entries.map((entry) => (
+          <ActionToolCodeLaneEntryCard entry={entry} key={entry.lane_ref} />
+        ))}
+      </div>
+      <div className="review-grid">
+        {readModel.unblock_prompts.map((prompt) => (
+          <article className="review-card" key={prompt.prompt_ref}>
+            <div className="review-card-heading">
+              <h4>{prompt.title}</h4>
+              <span>blocked lane prompt</span>
+            </div>
+            <p>{prompt.copy_ready_prompt}</p>
+            <dl className="detail-list">
+              <DetailTerm label="Prompt" value={prompt.prompt_ref} />
+              <DetailTerm label="Target" value={prompt.target_capability_ref} />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Blocked authority refs: none"
+              refs={prompt.blocked_authority_refs}
+            />
+          </article>
+        ))}
+      </div>
+      <RefListWithFallback
+        emptyLabel="Catalog blocked authority refs: none"
+        refs={readModel.blocked_authority_refs}
+      />
+    </article>
+  );
+}
+
+function ActionToolCodeLaneEntryCard({
+  entry,
+}: {
+  entry: ActionToolCodeLaneEntry;
+}) {
+  const broadAuthorityEnabled =
+    entry.generic_tool_execution_enabled ||
+    entry.unrestricted_shell_execution_enabled ||
+    entry.browser_automation_enabled ||
+    entry.connector_write_enabled ||
+    entry.plugin_runtime_import_enabled ||
+    entry.remote_execution_enabled ||
+    entry.provider_model_call_enabled ||
+    entry.background_autonomy_enabled ||
+    entry.production_authority_enabled;
+
+  return (
+    <article className="review-card">
+      <div className="review-card-heading">
+        <h4>{entry.label}</h4>
+        <span>{entry.status}</span>
+      </div>
+      <p>{entry.eligibility_reason}</p>
+      <dl className="detail-list">
+        <DetailTerm label="Lane" value={entry.lane_ref} />
+        <DetailTerm label="Capability" value={entry.capability_ref} />
+        <DetailTerm label="Surface" value={entry.surface} />
+        <DetailTerm label="Kind" value={entry.capability_kind} />
+        <DetailTerm label="Side effect" value={entry.side_effect_class} />
+        <DetailTerm label="Approval" value={entry.required_approval_scope} />
+        <DetailTerm label="Blocked reason" value={entry.blocked_reason} />
+        <DetailTerm label="Receipt" value={entry.receipt_requirement} />
+        <DetailTerm
+          label="Rollback/safe-disable"
+          value={entry.rollback_or_safe_disable_posture}
+        />
+        <DetailTerm
+          label="Proposal only"
+          value={entry.proposal_only ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Exact local lane"
+          value={entry.exact_local_mutation_available ? "available" : "blocked"}
+        />
+        <DetailTerm
+          label="Exact runtime lane"
+          value={entry.exact_runtime_lane_available ? "available" : "blocked"}
+        />
+        <DetailTerm
+          label="Broad authority"
+          value={broadAuthorityEnabled ? "unsafe" : "blocked"}
+        />
+      </dl>
+      <RefListWithFallback
+        emptyLabel="Routes: none"
+        refs={entry.route_refs}
+      />
+      <RefListWithFallback emptyLabel="CLI refs: none" refs={entry.cli_refs} />
+      <RefListWithFallback
+        emptyLabel="Receipt refs: none"
+        refs={entry.receipt_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Evidence refs: none"
+        refs={entry.evidence_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Proof refs: none"
+        refs={entry.proof_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Blocked authority refs: none"
+        refs={entry.blocked_authority_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Unblock prompt refs: none"
+        refs={entry.unblock_prompt_refs}
       />
     </article>
   );
@@ -5825,6 +6036,10 @@ export function ActionInboxSurfacePanel({
       />
       <ActionInboxWorkQueuePanel
         readModel={displayedInbox.action_inbox_work_queue_read_model}
+      />
+      <ActionToolCodeLaneCatalogPanel
+        contractRef={displayedInbox.action_tool_code_lane_catalog_contract_ref}
+        readModel={displayedInbox.action_tool_code_lane_catalog_read_model}
       />
       <RuntimeActionInboxBridgePanel
         contractRef={displayedInbox.runtime_action_inbox_bridge_contract_ref}

@@ -314,6 +314,23 @@ def _inspect_action_work_queue(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_action_tool_code_catalog(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    inbox = repo.actions_inbox(limit=args.limit)
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-action-tool-code-catalog",
+        "action_tool_code_lane_catalog_read_model": inbox.get(
+            "action_tool_code_lane_catalog_read_model"
+        ),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
 def _inspect_evidence_memory_binding(args: argparse.Namespace) -> int:
     repo = _repository(args)
     today = repo.today_summary(limit=args.limit)
@@ -1643,6 +1660,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     action_work_queue_parser.add_argument("--limit", type=int, default=50)
     action_work_queue_parser.set_defaults(func=_inspect_action_work_queue)
+
+    action_tool_code_parser = subparsers.add_parser(
+        "inspect-action-tool-code-catalog",
+        help=(
+            "Print the backend-owned Action/Tool/Code lane catalog with "
+            "approval, receipt, and blocked-authority posture."
+        ),
+    )
+    action_tool_code_parser.add_argument("--limit", type=int, default=50)
+    action_tool_code_parser.set_defaults(func=_inspect_action_tool_code_catalog)
 
     evidence_memory_binding_parser = subparsers.add_parser(
         "inspect-evidence-memory-binding",
