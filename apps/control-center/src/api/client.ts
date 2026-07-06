@@ -7253,6 +7253,7 @@ const RUNTIME_ACTION_INBOX_BRIDGE_REQUIRED_ARRAYS = [
   "receipt_refs",
   "signed_evidence_refs",
   "evidence_refs",
+  "runtime_parity_loop_stage_refs",
   "items",
   "evidence_timeline",
   "blocked_authority_refs",
@@ -7366,6 +7367,9 @@ function isSafeRuntimeActionInboxBridgeReadModel(value: unknown): boolean {
     !hasStringFields(value, [
       "route_ref",
       "cli_ref",
+      "runtime_parity_loop_api_ref",
+      "runtime_parity_loop_cli_ref",
+      "runtime_parity_loop_status",
       "status_cli_ref",
       "capabilities_cli_ref",
       "invocations_cli_ref",
@@ -7402,6 +7406,8 @@ function isSafeRuntimeActionInboxBridgeReadModel(value: unknown): boolean {
   const receiptRefs = value.receipt_refs as unknown[];
   const signedEvidenceRefs = value.signed_evidence_refs as unknown[];
   const evidenceRefs = value.evidence_refs as unknown[];
+  const runtimeParityLoopStageRefs =
+    value.runtime_parity_loop_stage_refs as unknown[];
   const items = value.items as unknown[];
   const evidenceTimeline = value.evidence_timeline as unknown[];
   const blockedAuthorityRefs = value.blocked_authority_refs as unknown[];
@@ -7425,6 +7431,7 @@ function isSafeRuntimeActionInboxBridgeReadModel(value: unknown): boolean {
     receiptRefs.every(isSafeActionWorkQueueRef) &&
     signedEvidenceRefs.every(isSafeActionWorkQueueRef) &&
     evidenceRefs.every(isSafeActionWorkQueueRef) &&
+    runtimeParityLoopStageRefs.every(isSafeActionWorkQueueRef) &&
     blockedAuthorityRefs.every(isSafeActionWorkQueueRef) &&
     items.every(isSafeRuntimeActionInboxBridgeItem) &&
     evidenceTimeline.every(isSafeRuntimeEvidenceTimelineItem)

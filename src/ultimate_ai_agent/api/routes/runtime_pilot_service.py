@@ -13,6 +13,9 @@ from ultimate_ai_agent.core.hygiene.envelopes import (
     Severity,
 )
 from ultimate_ai_agent.core.decision_router import prepare_turn
+from ultimate_ai_agent.core.control_center.runtime_parity_loop import (
+    build_runtime_parity_loop_read_model,
+)
 from ultimate_ai_agent.core.execution import build_sample_staged_orchestration_read_model
 from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeGateway,
@@ -213,6 +216,24 @@ def get_api_runtime_prepared_turn(
         data=prepared.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:prepared-turn:api-read"}],
         redactions_applied=prepared.redactions_applied,
+    )
+
+
+@router.get("/parity-loop", response_model=ResultEnvelope)
+def get_api_runtime_parity_loop() -> ResultEnvelope:
+    store = _runtime_store()
+    read_model = build_runtime_parity_loop_read_model(
+        store.list_invocations(),
+        entries=store.list_entries(),
+    )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_parity_loop",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model["contract_ref"],
+        data=read_model,
+        evidence=[{"evidence_ref": "evidence-ref:runtime-parity-loop-final-hardening"}],
+        redactions_applied=read_model["redactions_applied"],
     )
 
 

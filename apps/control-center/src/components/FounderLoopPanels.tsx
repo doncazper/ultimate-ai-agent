@@ -1148,6 +1148,18 @@ function RuntimeActionInboxBridgePanel({
         <DetailTerm label="Status" value={readModel.status} />
         <DetailTerm label="Route" value={readModel.route_ref} />
         <DetailTerm label="CLI" value={readModel.cli_ref} />
+        <DetailTerm
+          label="Parity loop API"
+          value={readModel.runtime_parity_loop_api_ref}
+        />
+        <DetailTerm
+          label="Parity loop CLI"
+          value={readModel.runtime_parity_loop_cli_ref}
+        />
+        <DetailTerm
+          label="Parity loop status"
+          value={readModel.runtime_parity_loop_status}
+        />
         <DetailTerm label="Runtime profile" value={readModel.runtime_profile_status} />
         <DetailTerm label="Local model" value={readModel.local_model_readiness} />
         <DetailTerm label="Command runtime" value={readModel.command_runtime_readiness} />
@@ -1347,6 +1359,10 @@ function RuntimeActionInboxBridgePanel({
       <RefListWithFallback
         emptyLabel="Runtime bridge signed evidence refs: none"
         refs={readModel.signed_evidence_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Runtime parity loop stage refs: none"
+        refs={readModel.runtime_parity_loop_stage_refs}
       />
       <RefListWithFallback
         emptyLabel="Runtime bridge evidence refs: none"

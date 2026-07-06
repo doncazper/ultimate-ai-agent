@@ -34,9 +34,9 @@ ALLOWED_CLASSIFICATIONS = {
     "mutating_requires_authority",
 }
 EXPECTED_SIDE_EFFECT_MIX = {
-    "validation_only": 73,
+    "validation_only": 74,
     "none": 4,
-    "local_dev_workspace_only": 117,
+    "local_dev_workspace_only": 122,
     "governed_network_read_only": 3,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
@@ -92,8 +92,8 @@ REQUIRED_DOC_SNIPPETS = {
         "Status: Implemented",
         str(EXPECTED_ROUTE_COUNT),
         "| `mutating_requires_authority` | 42 |",
-        "The current OpenAPI path count is `196`",
-        "`197` route operations",
+        "The current OpenAPI path count is `202`",
+        "`203` route operations",
         "public_metadata",
         "local_readonly",
         "local_sensitive",
