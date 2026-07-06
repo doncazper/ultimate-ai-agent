@@ -41,6 +41,7 @@ import type {
   RuntimeDoctorDiagnosticsReadModel,
   RuntimeHardlineCommandBlocklistReadModel,
   RuntimeManagedScopePolicyReadModel,
+  RuntimeMcpCatalogFilteringReadModel,
   RuntimePromptStabilityTiersReadModel,
   RuntimeSessionContinuityReadModel,
   RuntimeToolsetCapabilityPosture,
@@ -381,6 +382,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeSessionContinuity,
     ),
   ] as const);
+  const runtimeMcpCatalogFilteringSettledPromise = Promise.allSettled([
+    read<RuntimeMcpCatalogFilteringReadModel>(
+      API_ENDPOINTS.runtimeMcpCatalogFiltering,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -509,6 +515,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeDoctorDiagnosticsSettledPromise;
   const runtimeSessionContinuityResult =
     await runtimeSessionContinuitySettledPromise;
+  const runtimeMcpCatalogFilteringResult =
+    await runtimeMcpCatalogFilteringSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -551,6 +559,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const runtimeSessionContinuity = fulfilledValue(
     runtimeSessionContinuityResult[0],
+  );
+  const runtimeMcpCatalogFiltering = fulfilledValue(
+    runtimeMcpCatalogFilteringResult[0],
   );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
@@ -672,6 +683,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeSessionContinuity,
   )
     ? runtimeSessionContinuity
+    : undefined;
+  const safeRuntimeMcpCatalogFiltering = isSafeRuntimeMcpCatalogFiltering(
+    runtimeMcpCatalogFiltering,
+  )
+    ? runtimeMcpCatalogFiltering
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -828,6 +844,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeDoctorDiagnostics === undefined;
   const runtimeSessionContinuityFallbackUsed =
     safeRuntimeSessionContinuity === undefined;
+  const runtimeMcpCatalogFilteringFallbackUsed =
+    safeRuntimeMcpCatalogFiltering === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -980,6 +998,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/managed-scope-policy",
         "GET /api/runtime/doctor-diagnostics",
         "GET /api/runtime/session-continuity",
+        "GET /api/runtime/mcp-catalog-filtering",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -998,7 +1017,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeHardlineCommandBlocklist !== undefined &&
         runtimeManagedScopePolicy !== undefined &&
         runtimeDoctorDiagnostics !== undefined &&
-        runtimeSessionContinuity !== undefined,
+        runtimeSessionContinuity !== undefined &&
+        runtimeMcpCatalogFiltering !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -1045,6 +1065,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeSessionContinuityFallbackUsed
           ? ["RUNTIME_SESSION_CONTINUITY_MOCK_FALLBACK"]
           : []),
+        ...(runtimeMcpCatalogFilteringFallbackUsed
+          ? ["RUNTIME_MCP_CATALOG_FILTERING_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1063,7 +1086,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeHardlineCommandBlocklistFallbackUsed ||
         runtimeManagedScopePolicyFallbackUsed ||
         runtimeDoctorDiagnosticsFallbackUsed ||
-        runtimeSessionContinuityFallbackUsed,
+        runtimeSessionContinuityFallbackUsed ||
+        runtimeMcpCatalogFilteringFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1166,6 +1190,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeManagedScopePolicy === undefined ||
     runtimeDoctorDiagnostics === undefined ||
     runtimeSessionContinuity === undefined ||
+    runtimeMcpCatalogFiltering === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1202,8 +1227,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeHardlineCommandBlocklistResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeManagedScopePolicyResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeDoctorDiagnosticsResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeSessionContinuityResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 16;
+    (runtimeSessionContinuityResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeMcpCatalogFilteringResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 17;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1301,6 +1327,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeSessionContinuity:
       safeRuntimeSessionContinuity ??
       mockControlCenterData.runtimeSessionContinuity,
+    runtimeMcpCatalogFiltering:
+      safeRuntimeMcpCatalogFiltering ??
+      mockControlCenterData.runtimeMcpCatalogFiltering,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1392,6 +1421,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeManagedScopePolicyFallbackUsed &&
     !runtimeDoctorDiagnosticsFallbackUsed &&
     !runtimeSessionContinuityFallbackUsed &&
+    !runtimeMcpCatalogFilteringFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1431,6 +1461,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeManagedScopePolicyFallbackUsed ||
     runtimeDoctorDiagnosticsFallbackUsed ||
     runtimeSessionContinuityFallbackUsed ||
+    runtimeMcpCatalogFilteringFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1495,6 +1526,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeSessionContinuityFallbackUsed) {
     degradedSafeMessage =
       "Runtime session continuity was unavailable or unsafe; non-authoritative mock fallback kept external gateways, account sync, connector writes, and remote sessions blocked.";
+  } else if (runtimeMcpCatalogFilteringFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime MCP catalog filtering was unavailable or unsafe; non-authoritative mock fallback kept server install, tool invocation, and connector writes blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -4216,6 +4250,108 @@ function isSafeRuntimeSessionContinuity(
         surface.raw_response_persisted === false &&
         surface.raw_provider_payload_persisted === false &&
         surface.control_center_mints_authority === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeMcpCatalogFiltering(
+  value: RuntimeMcpCatalogFilteringReadModel | undefined,
+): value is RuntimeMcpCatalogFilteringReadModel {
+  if (value === undefined || !Array.isArray(value.servers)) {
+    return false;
+  }
+  const allowedServerStates = new Set([
+    "reviewed_metadata",
+    "review_required",
+    "activation_blocked",
+  ]);
+  const allowedToolStates = new Set([
+    "metadata_visible",
+    "filtered_blocked",
+    "grant_required",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeMcpCatalogFilteringReadModel> =
+    [
+      "install_enabled",
+      "subprocess_runtime_enabled",
+      "oauth_login_enabled",
+      "tool_invocation_enabled",
+      "connector_write_enabled",
+      "raw_manifest_persisted",
+      "control_center_mints_authority",
+    ];
+  const toolSlices = value.servers.flatMap((server) => server.tool_slices);
+  return (
+    value.schema_version === "runtime_mcp_catalog_filtering.v1" &&
+    value.status === "metadata_catalog_filtering_posture" &&
+    value.route_ref === "GET /api/runtime/mcp-catalog-filtering" &&
+    value.cli_ref === "uaa runtime inspect-mcp-catalog-filtering" &&
+    value.server_count === value.servers.length &&
+    value.reviewed_metadata_count ===
+      value.servers.filter(
+        (server) => server.catalog_state === "reviewed_metadata",
+      ).length &&
+    value.review_required_count ===
+      value.servers.filter((server) => server.catalog_state === "review_required")
+        .length &&
+    value.activation_blocked_count ===
+      value.servers.filter(
+        (server) => server.catalog_state === "activation_blocked",
+      ).length &&
+    value.tool_slice_count === toolSlices.length &&
+    value.metadata_visible_tool_count ===
+      toolSlices.filter((tool) => tool.filter_state === "metadata_visible").length &&
+    value.filtered_blocked_tool_count ===
+      toolSlices.filter((tool) => tool.filter_state === "filtered_blocked")
+        .length &&
+    value.grant_required_tool_count ===
+      toolSlices.filter((tool) => tool.filter_state === "grant_required").length &&
+    value.metadata_catalog_visible === true &&
+    value.tool_filter_contracts_visible === true &&
+    value.blocked_activation_states_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:mcp-catalog-no-tool-invocation",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.servers.every(
+      (server) =>
+        allowedServerStates.has(server.catalog_state) &&
+        server.tool_count === server.tool_slices.length &&
+        server.metadata_visible_tool_count ===
+          server.tool_slices.filter(
+            (tool) => tool.filter_state === "metadata_visible",
+          ).length &&
+        server.filtered_blocked_tool_count ===
+          server.tool_slices.filter(
+            (tool) => tool.filter_state === "filtered_blocked",
+          ).length &&
+        server.grant_required_tool_count ===
+          server.tool_slices.filter(
+            (tool) => tool.filter_state === "grant_required",
+          ).length &&
+        isNonEmptyStringArray(server.blocked_authority_refs) &&
+        isNonEmptyStringArray(server.proof_refs) &&
+        server.install_enabled === false &&
+        server.subprocess_runtime_enabled === false &&
+        server.oauth_login_enabled === false &&
+        server.tool_invocation_enabled === false &&
+        server.connector_write_enabled === false &&
+        server.raw_manifest_persisted === false &&
+        server.tool_slices.every(
+          (tool) =>
+            allowedToolStates.has(tool.filter_state) &&
+            tool.metadata_visible === true &&
+            tool.invocation_enabled === false &&
+            tool.connector_write_enabled === false &&
+            tool.raw_schema_persisted === false &&
+            tool.runtime_dispatch_enabled === false &&
+            isNonEmptyStringArray(tool.blocked_authority_refs),
+        ),
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

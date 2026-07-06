@@ -7622,6 +7622,19 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("blocked-authority:session-continuity-no-remote-session"),
     ).toBeInTheDocument();
+    expect(screen.getByText("MCP")).toBeInTheDocument();
+    expect(screen.getByText("MCP catalog filtering")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/mcp-catalog-filtering").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-mcp-catalog-filtering").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Filesystem metadata server")).toBeInTheDocument();
+    expect(screen.getByText("CRM draft server")).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-authority:mcp-catalog-no-tool-invocation"),
+    ).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
     expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
@@ -14712,6 +14725,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.runtimeSessionContinuity),
     ).toBe(true);
+    expect(API_ENDPOINTS.runtimeMcpCatalogFiltering).toBe(
+      "/api/runtime/mcp-catalog-filtering",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeMcpCatalogFiltering),
+    ).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15767,6 +15786,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeDoctorDiagnostics,
     [API_ENDPOINTS.runtimeSessionContinuity]:
       mockControlCenterData.runtimeSessionContinuity,
+    [API_ENDPOINTS.runtimeMcpCatalogFiltering]:
+      mockControlCenterData.runtimeMcpCatalogFiltering,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:

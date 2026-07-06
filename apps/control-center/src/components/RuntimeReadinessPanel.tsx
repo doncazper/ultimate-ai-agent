@@ -7,6 +7,7 @@ import type {
   RuntimeDoctorDiagnosticsReadModel,
   RuntimeHardlineCommandBlocklistReadModel,
   RuntimeManagedScopePolicyReadModel,
+  RuntimeMcpCatalogFilteringReadModel,
   RuntimeSessionContinuityReadModel,
   RuntimeToolRegistryAvailabilityReadModel,
   RuntimeRunEventsReadModel,
@@ -38,6 +39,7 @@ export function RuntimeReadinessPanel({
   managedScopePolicy,
   doctorDiagnostics,
   sessionContinuity,
+  mcpCatalogFiltering,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -56,6 +58,7 @@ export function RuntimeReadinessPanel({
   managedScopePolicy: RuntimeManagedScopePolicyReadModel;
   doctorDiagnostics: RuntimeDoctorDiagnosticsReadModel;
   sessionContinuity: RuntimeSessionContinuityReadModel;
+  mcpCatalogFiltering: RuntimeMcpCatalogFilteringReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -536,6 +539,108 @@ export function RuntimeReadinessPanel({
         <h4>Blocked authority</h4>
         <ul className="compact-list">
           {sessionContinuity.blocked_authority_refs.slice(0, 5).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">MCP</p>
+            <h3>MCP catalog filtering</h3>
+          </div>
+          <span className="status-pill compact">
+            {mcpCatalogFiltering.status}
+          </span>
+        </div>
+        <p>{mcpCatalogFiltering.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{mcpCatalogFiltering.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{mcpCatalogFiltering.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Servers</dt>
+            <dd>{mcpCatalogFiltering.server_count}</dd>
+          </div>
+          <div>
+            <dt>Tool slices</dt>
+            <dd>{mcpCatalogFiltering.tool_slice_count}</dd>
+          </div>
+          <div>
+            <dt>Filtered</dt>
+            <dd>{mcpCatalogFiltering.filtered_blocked_tool_count}</dd>
+          </div>
+          <div>
+            <dt>Grant required</dt>
+            <dd>{mcpCatalogFiltering.grant_required_tool_count}</dd>
+          </div>
+          <div>
+            <dt>Server install</dt>
+            <dd>{mcpCatalogFiltering.install_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+          <div>
+            <dt>Tool invocation</dt>
+            <dd>
+              {mcpCatalogFiltering.tool_invocation_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Server</th>
+                <th>State</th>
+                <th>Tools</th>
+                <th>Summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mcpCatalogFiltering.servers.map((server) => (
+                <tr key={server.server_ref}>
+                  <td>{server.display_label}</td>
+                  <td>{server.catalog_state}</td>
+                  <td>{server.tool_count}</td>
+                  <td>{server.safe_summary}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tool slice</th>
+                <th>Filter</th>
+                <th>Risk</th>
+                <th>Invocation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mcpCatalogFiltering.servers.flatMap((server) =>
+                server.tool_slices.map((tool) => (
+                  <tr key={tool.tool_ref}>
+                    <td>{tool.display_label}</td>
+                    <td>{tool.filter_state}</td>
+                    <td>{tool.risk_label}</td>
+                    <td>{tool.invocation_enabled ? "enabled" : "blocked"}</td>
+                  </tr>
+                )),
+              )}
+            </tbody>
+          </table>
+        </div>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {mcpCatalogFiltering.blocked_authority_refs.slice(0, 6).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>

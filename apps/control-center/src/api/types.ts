@@ -9953,6 +9953,93 @@ export interface RuntimeSessionContinuityReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeMcpServerCatalogState =
+  | "reviewed_metadata"
+  | "review_required"
+  | "activation_blocked";
+
+export type RuntimeMcpToolFilterState =
+  | "metadata_visible"
+  | "filtered_blocked"
+  | "grant_required";
+
+export interface RuntimeMcpToolSlice {
+  tool_ref: string;
+  display_label: string;
+  filter_state: RuntimeMcpToolFilterState;
+  risk_label: string;
+  safe_summary: string;
+  filter_reason_refs: string[];
+  grant_requirement_refs: string[];
+  receipt_requirement_refs: string[];
+  blocked_authority_refs: string[];
+  metadata_visible: boolean;
+  invocation_enabled: boolean;
+  connector_write_enabled: boolean;
+  raw_schema_persisted: boolean;
+  runtime_dispatch_enabled: boolean;
+}
+
+export interface RuntimeMcpServerCatalogEntry {
+  server_ref: string;
+  display_label: string;
+  catalog_state: RuntimeMcpServerCatalogState;
+  manifest_ref: string;
+  filter_contract_ref: string;
+  safe_summary: string;
+  tool_slices: RuntimeMcpToolSlice[];
+  tool_count: number;
+  metadata_visible_tool_count: number;
+  filtered_blocked_tool_count: number;
+  grant_required_tool_count: number;
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  install_enabled: boolean;
+  subprocess_runtime_enabled: boolean;
+  oauth_login_enabled: boolean;
+  tool_invocation_enabled: boolean;
+  connector_write_enabled: boolean;
+  raw_manifest_persisted: boolean;
+}
+
+export interface RuntimeMcpCatalogFilteringReadModel {
+  schema_version: "runtime_mcp_catalog_filtering.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  servers: RuntimeMcpServerCatalogEntry[];
+  server_count: number;
+  reviewed_metadata_count: number;
+  review_required_count: number;
+  activation_blocked_count: number;
+  tool_slice_count: number;
+  metadata_visible_tool_count: number;
+  filtered_blocked_tool_count: number;
+  grant_required_tool_count: number;
+  metadata_catalog_visible: boolean;
+  tool_filter_contracts_visible: boolean;
+  blocked_activation_states_visible: boolean;
+  install_enabled: boolean;
+  subprocess_runtime_enabled: boolean;
+  oauth_login_enabled: boolean;
+  tool_invocation_enabled: boolean;
+  connector_write_enabled: boolean;
+  raw_manifest_persisted: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -11131,6 +11218,7 @@ export interface ControlCenterData {
   runtimeManagedScopePolicy: RuntimeManagedScopePolicyReadModel;
   runtimeDoctorDiagnostics: RuntimeDoctorDiagnosticsReadModel;
   runtimeSessionContinuity: RuntimeSessionContinuityReadModel;
+  runtimeMcpCatalogFiltering: RuntimeMcpCatalogFilteringReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

@@ -535,6 +535,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           managedScopePolicy={data.runtimeManagedScopePolicy}
           doctorDiagnostics={data.runtimeDoctorDiagnostics}
           sessionContinuity={data.runtimeSessionContinuity}
+          mcpCatalogFiltering={data.runtimeMcpCatalogFiltering}
         />
       );
     case "/operator-loop":
