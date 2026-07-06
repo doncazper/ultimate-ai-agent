@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import ultimate_ai_agent.api.app as api_app
+from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.task_decomposition import (
     CapabilityCallContext,
     CapabilityRegistryStore,
@@ -24,6 +25,10 @@ from ultimate_ai_agent.core.task_decomposition.runtime import (
     TaskDecompositionService,
     TaskPlanExecutionRequest,
 )
+from tests.authority_helpers import (
+    issue_workspace_execute_authority_lease,
+    workspace_execute_authority_lease,
+)
 
 
 TASK_API_BEARER = "test-task-decomposition-local"
@@ -36,9 +41,18 @@ TASK_API_IDEMPOTENCY_ONLY_HEADERS = {
 }
 
 
-def _client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Any, ...]:
+def _client(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    *,
+    grant_workspace_execute: bool = True,
+) -> tuple[Any, ...]:
     monkeypatch.setenv(api_app.TASK_DECOMPOSITION_API_ENV, "1")
     monkeypatch.setenv(api_app.TASK_DECOMPOSITION_API_BEARER_ENV, TASK_API_BEARER)
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    if grant_workspace_execute:
+        issue_workspace_execute_authority_lease(authority_state_dir)
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
     service = TaskDecompositionService(registry_store=store)
     monkeypatch.setattr(api_app, "_task_decomposition_service", service)
@@ -205,6 +219,39 @@ def test_task_decomposition_api_returns_safe_durable_binding(monkeypatch: pytest
     assert "Summarize this request directly" not in approvals_response.text
 
 
+def test_task_decomposition_run_requires_workspace_execute_authority_lease(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    client, _service = _client(monkeypatch, tmp_path, grant_workspace_execute=False)
+    client.post("/task-decomposition/examples/init", headers=TASK_API_HEADERS)
+
+    response = client.post(
+        "/task-decomposition/run",
+        headers=TASK_API_HEADERS,
+        json={
+            "raw_request": "Summarize this request directly.",
+            "context": {},
+            "idempotency_key": "p1-027-authority-lease-required",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is False
+    execution = body["data"]["execution"]
+    assert execution["status"] == "awaiting_approval"
+    assert execution["authority_decision_outcome"] == "degrade_to_draft"
+    assert execution["authority_lease_ref"] is None
+    assert execution["authority_audit_record_ref"].startswith("audit-ref:authority-policy:")
+    assert execution["authority_required_domain_refs"] == ["authority-domain-ref:workspace"]
+    assert execution["authority_required_capability_refs"] == [
+        "authority-capability-ref:execute"
+    ]
+    assert "TASK_DECOMPOSITION_WORKSPACE_EXECUTE_AUTHORITY_REQUIRED" in execution["reason_codes"]
+    assert "Summarize this request directly" not in response.text
+
+
 def test_task_decomposition_explicit_idempotency_key_denies_duplicate_mutation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     client, _service = _client(monkeypatch, tmp_path)
     client.post("/task-decomposition/examples/init", headers=TASK_API_HEADERS)
@@ -226,7 +273,10 @@ def test_task_decomposition_explicit_idempotency_key_denies_duplicate_mutation(m
 
 def test_task_decomposition_durable_run_binds_approval_receipt_replay_and_restart(tmp_path: Path) -> None:
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
-    service = TaskDecompositionService(registry_store=store)
+    service = TaskDecompositionService(
+        registry_store=store,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
     base = build_echo_tool_capability()
     gated = base.model_copy(
         update={
@@ -320,7 +370,10 @@ def test_task_decomposition_durable_run_binds_approval_receipt_replay_and_restar
     restart_binding = service.record_restart_visibility(run_id, restart_ref="restart:p1-027")
     assert "restart:p1-027" in restart_binding.restart_refs
 
-    reloaded = TaskDecompositionService(registry_store=store)
+    reloaded = TaskDecompositionService(
+        registry_store=store,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
     reloaded_binding = reloaded.durable_binding(run_id)
     assert reloaded_binding is not None
     assert reloaded_binding.state == "succeeded"
@@ -482,7 +535,10 @@ def test_registry_store_uses_versioned_tamper_evident_documents(tmp_path: Path) 
 
 def test_top_level_handler_ref_persists_in_registered_contract(tmp_path: Path) -> None:
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
-    service = TaskDecompositionService(registry_store=store)
+    service = TaskDecompositionService(
+        registry_store=store,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
     base = build_echo_tool_capability()
     contract = base.model_copy(
         update={
@@ -500,7 +556,10 @@ def test_top_level_handler_ref_persists_in_registered_contract(tmp_path: Path) -
 
     assert registered.handler_ref == "example.echo_summary_handler"
 
-    reloaded = TaskDecompositionService(registry_store=store)
+    reloaded = TaskDecompositionService(
+        registry_store=store,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
     plan = TaskPlan(
         plan_id="task-decomposition-run:durable-handler-ref",
         goal="Run reloaded handler.",

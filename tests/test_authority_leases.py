@@ -66,6 +66,18 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         mapping.domain == "workspace" and mapping.capability == "execute"
         for mapping in read_model.capability_mappings
     )
+    task_decomposition_execute = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /task-decomposition/plans/execute" in mapping.route_refs
+    )
+    assert task_decomposition_execute.domain == "workspace"
+    assert task_decomposition_execute.capability == "execute"
+    assert task_decomposition_execute.required_mode == "approved_safe_local_work_session"
+    assert (
+        task_decomposition_execute.status
+        == "implemented_exact_lease_required_local_orchestration"
+    )
     work_board_card_create = next(
         mapping
         for mapping in read_model.capability_mappings

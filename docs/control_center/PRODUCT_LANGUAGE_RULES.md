@@ -93,6 +93,14 @@ idempotency, receipt/audit refs, and safe-disable posture before local Founder
 Loop task state is written. Read-only mode must be described as requiring
 Workspace write authority, not as a generic blocked lane.
 
+Plans and task-decomposition execution copy must say local plan execution
+requires `Approved safe local work` or stronger with `workspace/execute`
+before registered local handlers run. If a node is approval-bound or high-risk,
+the operator also needs the exact LocalApprovalAuthority grant for that
+capability. Read-only mode must be described as requiring Workspace execute
+authority, with degraded-to-draft or blocked decision refs, not as a generic
+blocked lane or as permission to run shell/browser/provider/connector work.
+
 Memory Review accept/correct copy must say reviewed recall writes require
 `Ask before changes` or stronger with `memory/write`, exact approval,
 idempotency, redacted receipt/audit refs, and rollback/safe-disable posture
@@ -136,8 +144,8 @@ low-friction authority tier vocabulary:
   require exact approval, idempotency, receipt, redaction, safe-disable, and
   rollback or compensating posture.
 - Tier 5 background/standing authority: scheduled, repeated, autonomous, or
-  standing authority requires a separate scoped graduation and visible
-  revocation, queue, budget, retry, timeout, and kill posture.
+  standing authority requires an explicit session or mission AuthorityLease
+  with visible revocation, queue, budget, retry, timeout, and kill posture.
 
 Draft available is not send available. Preview available is not runtime
 execution. Product copy should let Tier 1 and Tier 2 work feel usable when the

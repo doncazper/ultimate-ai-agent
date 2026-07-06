@@ -359,6 +359,13 @@ class DAGExecutionResult(BaseModel):
     repair_requested: bool = False
     repair_node_ids: List[str] = Field(default_factory=list)
     durable_binding: Optional[TaskDecompositionDurableBinding] = None
+    authority_decision_ref: Optional[str] = None
+    authority_decision_outcome: Optional[str] = None
+    authority_lease_ref: Optional[str] = None
+    authority_receipt_ref: Optional[str] = None
+    authority_audit_record_ref: Optional[str] = None
+    authority_required_domain_refs: List[str] = Field(default_factory=list)
+    authority_required_capability_refs: List[str] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid")
 

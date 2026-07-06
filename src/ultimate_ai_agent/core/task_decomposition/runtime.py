@@ -16,6 +16,18 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ultimate_ai_agent.core.approvals import ApprovalGrant, ApprovalRequest, LocalApprovalAuthority
 from ultimate_ai_agent.core.approvals.enums import ApprovalRiskLevel, ApprovalSubjectType
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityCapability,
+    AuthorityDecisionOutcome,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityLeaseStore,
+    AuthorityPolicyDecision,
+    TrustMode,
+    build_default_authority_leases,
+    evaluate_authority_request,
+)
 from ultimate_ai_agent.core.execution import (
     AppendFirstRunStorage,
     DurableRunRecord,
@@ -71,6 +83,22 @@ DEFAULT_REGISTRY_PATH = ".uaa/task_decomposition_registry.json"
 REGISTRY_SCHEMA_VERSION = "task-decomposition-registry/v1"
 APPROVAL_STATE_SCHEMA_VERSION = "task-decomposition-approvals/v1"
 AUDIT_SCHEMA_VERSION = "task-decomposition-audit/v1"
+TASK_DECOMPOSITION_EXECUTE_AUTHORITY_ACTION_REF = (
+    "authority-action-ref:task-decomposition-plan-execute"
+)
+TASK_DECOMPOSITION_RUN_AUTHORITY_ACTION_REF = "authority-action-ref:task-decomposition-run"
+TASK_DECOMPOSITION_EXECUTE_AUTHORITY_LANE_REF = "lane-ref:task-decomposition-plan-execute"
+TASK_DECOMPOSITION_EXECUTE_ROUTE_REF = "POST /task-decomposition/plans/execute"
+TASK_DECOMPOSITION_RUN_ROUTE_REF = "POST /task-decomposition/run"
+TASK_DECOMPOSITION_EXECUTE_SAFE_DISABLE_REF = (
+    "safe-disable-ref:task-decomposition:local-plan-execute"
+)
+TASK_DECOMPOSITION_EXECUTE_ROLLBACK_REF = (
+    "rollback-ref:task-decomposition:durable-run-blocked-state"
+)
+TASK_DECOMPOSITION_AUTHORITY_REQUIRED_BLOCKED_REF = (
+    "blocked-state:task-decomposition-workspace-execute-authority-lease-required"
+)
 
 SAFE_HANDLER_REFS = {
     "example.echo_summary_handler": echo_summary_handler,
@@ -266,6 +294,11 @@ class TaskDecompositionRunResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+def active_task_decomposition_authority_leases() -> list[AuthorityLease]:
+    active = AuthorityLeaseStore().list_leases(active_only=True)
+    return active or build_default_authority_leases()
+
+
 class CapabilityRegistryStore:
     def __init__(self, config: CapabilityRegistryStoreConfig | None = None) -> None:
         self.config = config or CapabilityRegistryStoreConfig()
@@ -441,6 +474,7 @@ class TaskDecompositionService:
         reflection_store: ReflectionStore | None = None,
         approval_authority: LocalApprovalAuthority | None = None,
         rate_limiter: TaskDecompositionRateLimiter | None = None,
+        active_authority_leases: list[AuthorityLease] | None = None,
     ) -> None:
         self.registry_store = registry_store or CapabilityRegistryStore()
         self.registry = registry or self.registry_store.load()
@@ -448,6 +482,7 @@ class TaskDecompositionService:
         self.registry.approval_authority = self.approval_authority
         self.reflection_store = reflection_store or ReflectionStore()
         self.rate_limiter = rate_limiter or TaskDecompositionRateLimiter()
+        self._active_authority_leases = active_authority_leases
         self.durable_run_storage = AppendFirstRunStorage(self.registry_store.durable_run_path)
         self.validator = PlanValidator()
         self._approval_requests: dict[str, ApprovalRequest] = {}
@@ -1000,12 +1035,23 @@ class TaskDecompositionService:
         document = self.registry_store.export_document(self.registry)
         return document.model_dump(mode="json")
 
-    async def execute_plan(self, request: TaskPlanExecutionRequest) -> DAGExecutionResult:
+    async def execute_plan(
+        self,
+        request: TaskPlanExecutionRequest,
+        *,
+        route_ref: str = TASK_DECOMPOSITION_EXECUTE_ROUTE_REF,
+        action_ref: str = TASK_DECOMPOSITION_EXECUTE_AUTHORITY_ACTION_REF,
+    ) -> DAGExecutionResult:
         self._check_rate_limit(request.call_context.actor_id)
         if request.approval_grants:
             raise ValueError("TASK_DECOMPOSITION_INLINE_APPROVAL_GRANTS_DENIED")
         self.registry.approval_authority = self.approval_authority
         call_context = request.call_context.model_copy(update={"approved_capability_ids": []})
+        authority_decision = self._execute_authority_decision(
+            request,
+            route_ref=route_ref,
+            action_ref=action_ref,
+        )
         record = self._ensure_durable_run(
             request.plan.plan_id,
             safe_summary="Task decomposition durable run was attached to plan execution.",
@@ -1013,6 +1059,42 @@ class TaskDecompositionService:
             handler_refs=self._handler_refs_for_plan(request.plan),
         )
         self._deny_duplicate_idempotency(record, request.idempotency_key, "execute")
+        if authority_decision.outcome not in {
+            AuthorityDecisionOutcome.allow.value,
+            AuthorityDecisionOutcome.ask.value,
+        }:
+            record = self._transition_durable_run(
+                record,
+                DurableRunTransitionKind.block,
+                safe_summary=(
+                    "Task decomposition durable run is blocked on Workspace "
+                    "execute AuthorityLease scope."
+                ),
+                actor_id=call_context.actor_id,
+                idempotency_key=self._explicit_idempotency_ref(record.run_id, "execute", request.idempotency_key),
+                approval_refs=self._approval_refs_for_context(call_context),
+                handler_refs=self._handler_refs_for_plan(request.plan),
+            )
+            binding = self.durable_binding(record.run_id)
+            result = self._authority_denied_execution_result(
+                request.plan.plan_id,
+                authority_decision,
+                binding,
+            )
+            self.record_audit_event(
+                "plan_executed",
+                run_id=request.plan.plan_id,
+                actor_id=call_context.actor_id,
+                status=result.status.value if hasattr(result.status, "value") else str(result.status),
+                safe_summary=result.safe_summary,
+                reason_codes=result.reason_codes,
+                capability_ids=[node.selected_capability for node in request.plan.nodes if node.selected_capability],
+                durable_run_ref=binding.durable_run_ref if binding else None,
+                receipt_ref=self._latest_ref(binding.receipt_refs if binding else []),
+                replay_ref=self._latest_ref(binding.replay_refs if binding else []),
+                rollback_ref=self._latest_ref(binding.rollback_refs if binding else []),
+            )
+            return result
         record = self._prepare_durable_run_for_execution(
             record,
             actor_id=call_context.actor_id,
@@ -1058,7 +1140,12 @@ class TaskDecompositionService:
             handler_refs=self._handler_refs_for_plan(request.plan),
         )
         binding = self.durable_binding(record.run_id)
-        result = result.model_copy(update={"durable_binding": binding})
+        result = result.model_copy(
+            update={
+                "durable_binding": binding,
+                **self._authority_result_fields(authority_decision),
+            }
+        )
         self._record_task_node_session_events(result, binding)
         self.record_audit_event(
             "plan_executed",
@@ -1095,7 +1182,9 @@ class TaskDecompositionService:
                 approval_grants=request.approval_grants,
                 persist_reflections=request.persist_reflections,
                 idempotency_key=request.idempotency_key,
-            )
+            ),
+            route_ref=TASK_DECOMPOSITION_RUN_ROUTE_REF,
+            action_ref=TASK_DECOMPOSITION_RUN_AUTHORITY_ACTION_REF,
         )
         return decomposed.model_copy(update={"execution": execution, "durable_binding": execution.durable_binding})
 
@@ -1239,6 +1328,91 @@ class TaskDecompositionService:
             failure_ref=self._new_ref("failure", record.run_id, "execution"),
             approval_refs=approval_refs,
             handler_refs=handler_refs,
+        )
+
+    def _execute_authority_decision(
+        self,
+        request: TaskPlanExecutionRequest,
+        *,
+        route_ref: str,
+        action_ref: str,
+    ) -> AuthorityPolicyDecision:
+        leases = (
+            self._active_authority_leases
+            if self._active_authority_leases is not None
+            else active_task_decomposition_authority_leases()
+        )
+        return evaluate_authority_request(
+            AuthorityActionRequest(
+                action_ref=action_ref,
+                domain=AuthorityDomain.workspace,
+                capability=AuthorityCapability.execute,
+                safe_summary=(
+                    "Evaluate Workspace execute authority for local task "
+                    "decomposition plan execution."
+                ),
+                resource_refs=[
+                    self._safe_ref("task-decomposition-plan", request.plan.plan_id),
+                    self._safe_ref(
+                        "task-decomposition-node-count",
+                        request.plan.plan_id,
+                        str(len(request.plan.nodes)),
+                    ),
+                    *self._handler_refs_for_plan(request.plan),
+                    *self._approval_refs_for_context(request.call_context),
+                ],
+                route_ref=route_ref,
+                lane_ref=TASK_DECOMPOSITION_EXECUTE_AUTHORITY_LANE_REF,
+                requested_mode=TrustMode.approved_safe_local_work_session,
+                draft_fallback_available=True,
+                rollback_ref=TASK_DECOMPOSITION_EXECUTE_ROLLBACK_REF,
+                safe_disable_ref=TASK_DECOMPOSITION_EXECUTE_SAFE_DISABLE_REF,
+            ),
+            leases,
+        )
+
+    def _authority_result_fields(
+        self,
+        authority_decision: AuthorityPolicyDecision,
+    ) -> dict[str, Any]:
+        return {
+            "authority_decision_ref": authority_decision.decision_ref,
+            "authority_decision_outcome": authority_decision.outcome,
+            "authority_lease_ref": authority_decision.lease_ref,
+            "authority_receipt_ref": authority_decision.receipt_ref,
+            "authority_audit_record_ref": authority_decision.audit_record_ref,
+            "authority_required_domain_refs": list(authority_decision.required_domain_refs),
+            "authority_required_capability_refs": list(
+                authority_decision.required_capability_refs
+            ),
+        }
+
+    def _authority_denied_execution_result(
+        self,
+        plan_id: str,
+        authority_decision: AuthorityPolicyDecision,
+        binding: TaskDecompositionDurableBinding | None,
+    ) -> DAGExecutionResult:
+        return DAGExecutionResult(
+            plan_id=plan_id,
+            status=DAGExecutionStatus.awaiting_approval,
+            node_records=[],
+            outputs={},
+            reason_codes=list(
+                dict.fromkeys(
+                    [
+                        *authority_decision.reason_refs,
+                        TASK_DECOMPOSITION_AUTHORITY_REQUIRED_BLOCKED_REF,
+                        "TASK_DECOMPOSITION_WORKSPACE_EXECUTE_AUTHORITY_REQUIRED",
+                    ]
+                )
+            ),
+            safe_summary=(
+                "Task decomposition plan execution requires active Workspace "
+                "execute AuthorityLease scope."
+            ),
+            durable_binding=binding,
+            **self._authority_result_fields(authority_decision),
         )
 
     def _transition_durable_run(

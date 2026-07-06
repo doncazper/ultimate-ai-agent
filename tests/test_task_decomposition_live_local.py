@@ -31,7 +31,12 @@ from ultimate_ai_agent.core.task_decomposition.runtime import (
     TaskCapabilityApprovalRequestPayload,
     TaskPlanExecutionRequest,
 )
+from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.time import utc_now
+from tests.authority_helpers import (
+    issue_workspace_execute_authority_lease,
+    workspace_execute_authority_lease,
+)
 
 
 DEV_API_BEARER = "test-task-decomposition-dev"
@@ -52,7 +57,10 @@ def test_json_registry_store_persists_and_reloads_example_handlers(tmp_path: Pat
 
 def test_service_decompose_and_run_uses_persistent_registry(tmp_path: Path) -> None:
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
-    service = TaskDecompositionService(registry_store=store)
+    service = TaskDecompositionService(
+        registry_store=store,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
     service.ensure_examples()
 
     result = service.run_sync(TaskDecompositionRunRequest(raw_request="Summarize this request directly."))
@@ -64,7 +72,10 @@ def test_service_decompose_and_run_uses_persistent_registry(tmp_path: Path) -> N
 
 def test_local_approval_authority_grant_authorizes_gated_capability(tmp_path: Path) -> None:
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
-    service = TaskDecompositionService(registry_store=store)
+    service = TaskDecompositionService(
+        registry_store=store,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
     contract = build_echo_tool_capability().model_copy(
         update={
             "card": build_echo_tool_capability().card.model_copy(
@@ -146,7 +157,14 @@ def test_kernel_adapter_previews_local_decomposition(tmp_path: Path) -> None:
     assert preview.plan.nodes[0].selected_capability == "capability:example-echo-summary"
 
 
-def test_cli_init_catalog_decompose_and_run(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_cli_init_catalog_decompose_and_run(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    issue_workspace_execute_authority_lease(authority_state_dir)
     registry_path = str(tmp_path / "registry.json")
     request = "Summarize this request."
     plan_id = f"task-decomposition-plan:{hashlib.sha1(request.encode()).hexdigest()[:12]}"
@@ -171,7 +189,10 @@ def test_api_routes_initialize_decompose_and_run(tmp_path: Path, monkeypatch: py
     monkeypatch.setenv(TASK_DECOMPOSITION_API_ENV, "1")
     monkeypatch.setenv(TASK_DECOMPOSITION_API_BEARER_ENV, DEV_API_BEARER)
     store = CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json")))
-    service = TaskDecompositionService(registry_store=store)
+    service = TaskDecompositionService(
+        registry_store=store,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
     client = TestClient(build_task_decomposition_dev_app(service))
 
     init_response = client.post("/task-decomposition/examples/init", headers=DEV_API_HEADERS)

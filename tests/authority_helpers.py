@@ -137,3 +137,23 @@ def workspace_execute_authority_lease() -> AuthorityLease:
             "commands."
         ),
     )
+
+
+def issue_workspace_execute_authority_lease(state_dir: Path) -> None:
+    AuthorityLeaseStore(state_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.approved_safe_local_work_session,
+            requested_domains={
+                AuthorityDomain.workspace: [
+                    AuthorityCapability.read,
+                    AuthorityCapability.execute,
+                ]
+            },
+            decision_reason_ref="decision-reason-ref:test-workspace-execute-authority",
+            safe_summary=(
+                "Test session lease grants Workspace read and execute for exact "
+                "local orchestration/runtime commands."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:test-workspace-execute-authority",
+    )

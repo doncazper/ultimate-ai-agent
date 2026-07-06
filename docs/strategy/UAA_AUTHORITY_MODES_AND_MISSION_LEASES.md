@@ -54,6 +54,14 @@ approval capture requires active `files/write` authority before the review-only
 safe-ref record is persisted. Raw file access, context injection, memory
 writes, export, execution, patch apply, and rollback execution remain
 unsupported until separately implemented and tested.
+Task Decomposition local plan execution now requires an active
+`workspace/execute` AuthorityLease before registered local handlers run. Exact
+LocalApprovalAuthority grants remain a separate second gate for approval-bound
+or high-risk capabilities inside a plan. In read-only mode, `/task-decomposition/run`
+and `/task-decomposition/plans/execute` return a durable, redacted blocked/draft
+decision with authority decision refs, required domain/capability refs, audit
+refs, receipt posture, and rollback/safe-disable refs instead of silently
+executing or claiming broad shell/tool authority.
 Provider/model transport remains blocked by authority policy unless a later
 supported provider/model execution lease is implemented and tested.
 

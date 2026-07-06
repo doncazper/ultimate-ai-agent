@@ -10,6 +10,7 @@ from ultimate_ai_agent.core.openwebui_bridge.local_test_shell import (
     UAA_OPENWEBUI_TEST_MODEL_ID,
 )
 from ultimate_ai_agent.core.local_model_management.gateway import UAA_LLAMA_CPP_GATEWAY_ENV
+from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.task_decomposition import CapabilityCallContext, RiskLevel, TaskNode, TaskPlan
 from ultimate_ai_agent.core.task_decomposition.api_safety import (
     TASK_DECOMPOSITION_API_BEARER_ENV,
@@ -21,6 +22,7 @@ from ultimate_ai_agent.core.task_decomposition.runtime import (
     CapabilityRegistryStoreConfig,
     TaskDecompositionService,
 )
+from tests.authority_helpers import issue_workspace_execute_authority_lease
 
 
 TASK_BEARER = "uaa-p1-011-local-placeholder"
@@ -32,6 +34,9 @@ def test_uaa_p1_011_first_product_loop_is_locally_inspectable(monkeypatch: pytes
     monkeypatch.setenv(UAA_OPENWEBUI_TEST_GATEWAY_KEY_ENV, DEFAULT_UAA_OPENWEBUI_TEST_GATEWAY_KEY)
     monkeypatch.setenv(TASK_DECOMPOSITION_API_ENV, "1")
     monkeypatch.setenv(TASK_DECOMPOSITION_API_BEARER_ENV, TASK_BEARER)
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    issue_workspace_execute_authority_lease(authority_state_dir)
 
     store = CapabilityRegistryStore(
         CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "task-registry.json"))

@@ -1243,6 +1243,21 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             "Requires Approved safe local work with workspace/execute plus RuntimeGateway allowlist and receipts.",
         ),
         _mapping(
+            "lane-ref:task-decomposition-plan-execute",
+            "Task decomposition local plan execution",
+            AuthorityDomain.workspace,
+            AuthorityCapability.execute,
+            TrustMode.approved_safe_local_work_session,
+            "implemented_exact_lease_required_local_orchestration",
+            ["POST /task-decomposition/plans/execute", "POST /task-decomposition/run"],
+            ["repo-local-command:task-decomposition:inspect-run"],
+            (
+                "Requires Approved safe local work with workspace/execute "
+                "AuthorityLease scope before local registered handlers run; "
+                "high-risk nodes still require exact LocalApprovalAuthority grants."
+            ),
+        ),
+        _mapping(
             "lane-ref:work-board-reorder",
             "Work Board reorder",
             AuthorityDomain.workspace,
