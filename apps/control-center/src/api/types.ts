@@ -8679,6 +8679,58 @@ export interface RuntimeCapabilityMatrix {
   metadata: Record<string, boolean | string | number>;
 }
 
+export interface RuntimeDelegationEndpointPosture {
+  endpoint_ref: string;
+  endpoint_configured: boolean;
+  endpoint_loopback_or_approved_network_required: boolean;
+  live_transport_enabled: boolean;
+  credential_ref: string;
+  credential_material_exposed: boolean;
+  network_policy_ref: string;
+  safe_summary: string;
+}
+
+export interface RuntimeDelegationAdapterReadModel {
+  schema_version: "runtime_delegation_adapter.v1";
+  contract_ref: string;
+  adapter_ref: string;
+  runtime_identity_ref: string;
+  runtime_label: string;
+  runtime_kind: string;
+  authority_mode: string;
+  status: string;
+  endpoint_posture: RuntimeDelegationEndpointPosture;
+  capability_refs: string[];
+  health_refs: string[];
+  proof_refs: string[];
+  blocked_reason_refs: string[];
+  next_safe_action_refs: string[];
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  uaa_controls_authority: boolean;
+  runtime_provides_capability_only: boolean;
+  control_center_talks_directly_to_runtime: boolean;
+  live_run_submission_enabled: boolean;
+  runtime_model_calls_enabled: boolean;
+  provider_sdk_calls_enabled: boolean;
+  tool_execution_enabled: boolean;
+  shell_execution_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+  safe_refs_only: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  raw_provider_payload_persisted: boolean;
+  raw_log_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  credential_material_persisted: boolean;
+  safe_summary: string;
+  redactions_applied: string[];
+}
+
 export type OperatorRouteInspectionState =
   "checking" | "ready" | "blocked" | "denied" | "degraded" | "unavailable";
 
@@ -9427,6 +9479,7 @@ export interface ControlCenterData {
   routes: ApiRouteInventory;
   runtimeReadiness: RuntimeReadinessReport;
   capabilityMatrix: RuntimeCapabilityMatrix;
+  runtimeDelegationAdapter: RuntimeDelegationAdapterReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

@@ -1,13 +1,19 @@
-import type { RuntimeCapabilityMatrix, RuntimeReadinessReport } from "../api/types";
+import type {
+  RuntimeCapabilityMatrix,
+  RuntimeDelegationAdapterReadModel,
+  RuntimeReadinessReport,
+} from "../api/types";
 import { EmptyState } from "./DataState";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
 
 export function RuntimeReadinessPanel({
   report,
   matrix,
+  delegationAdapter,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
+  delegationAdapter: RuntimeDelegationAdapterReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -38,6 +44,60 @@ export function RuntimeReadinessPanel({
             <strong>{value ? "yes" : "no"}</strong>
           </div>
         ))}
+      </div>
+      <div className="panel-grid two">
+        <article className="info-card">
+          <div className="panel-heading compact-heading">
+            <div>
+              <p className="eyebrow">Delegated runtime</p>
+              <h3>{delegationAdapter.runtime_label}</h3>
+            </div>
+            <span className="status-pill compact">
+              {delegationAdapter.authority_mode}
+            </span>
+          </div>
+          <p>{delegationAdapter.safe_summary}</p>
+          <dl className="detail-grid">
+            <div>
+              <dt>Route</dt>
+              <dd>{delegationAdapter.route_ref}</dd>
+            </div>
+            <div>
+              <dt>CLI</dt>
+              <dd>{delegationAdapter.cli_ref}</dd>
+            </div>
+            <div>
+              <dt>Endpoint configured</dt>
+              <dd>
+                {delegationAdapter.endpoint_posture.endpoint_configured
+                  ? "yes"
+                  : "no"}
+              </dd>
+            </div>
+            <div>
+              <dt>Live submission</dt>
+              <dd>
+                {delegationAdapter.live_run_submission_enabled
+                  ? "enabled"
+                  : "blocked"}
+              </dd>
+            </div>
+          </dl>
+        </article>
+        <article className="info-card">
+          <h3>Delegation blockers</h3>
+          <ul className="compact-list">
+            {delegationAdapter.blocked_reason_refs.slice(0, 6).map((ref) => (
+              <li key={ref}>{ref}</li>
+            ))}
+          </ul>
+          <h3>Next safe actions</h3>
+          <ul className="compact-list">
+            {delegationAdapter.next_safe_action_refs.map((ref) => (
+              <li key={ref}>{ref}</li>
+            ))}
+          </ul>
+        </article>
       </div>
       <h3>Capability Matrix</h3>
       {matrix.entries.length > 0 ? (

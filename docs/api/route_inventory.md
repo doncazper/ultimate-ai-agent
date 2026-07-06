@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `202`.
+Current OpenAPI path count: `203`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 127 |
+| `local_sensitive` | 132 |
 | `mutating_requires_authority` | 42 |
 
 Allowed current side-effect classes are:
@@ -123,6 +123,14 @@ runtime parity-loop read model over prepared turn, route decision, durable run,
 staged orchestration, provider evidence, Action Inbox approval, receipt, signed
 evidence, and blocked-state refs without executing work or granting runtime
 authority.
+`GET /api/runtime/delegation-adapter` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 01 delegation adapter readiness model. It shows
+runtime identity refs, endpoint posture, authority mode, capability refs,
+health refs, proof refs, blocked reasons, next safe actions, CLI parity, and
+Control Center binding while keeping live run submission, runtime model calls,
+provider SDK calls, tool execution, shell/subprocess execution, browser
+automation, connector writes, background autonomy, production authority, and
+raw prompt/response/provider payload/log/local-path persistence blocked.
 Capability, invocation, policy, approval-ref, receipt, and safe-disable records
 store safe refs and redacted metadata only; model output is untrusted proposal
 text, and command output is redacted and bounded. Remote provider/model calls,

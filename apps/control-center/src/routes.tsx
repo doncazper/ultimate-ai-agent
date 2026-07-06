@@ -520,6 +520,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <RuntimeReadinessPanel
           report={data.runtimeReadiness}
           matrix={data.capabilityMatrix}
+          delegationAdapter={data.runtimeDelegationAdapter}
         />
       );
     case "/operator-loop":
