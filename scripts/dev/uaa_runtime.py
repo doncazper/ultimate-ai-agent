@@ -42,6 +42,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_streaming_progress_read_model,
     build_runtime_tool_registry_availability_read_model,
     build_runtime_action_signed_evidence,
+    build_runtime_context_references_read_model,
     verify_portable_evidence_envelope,
     verify_runtime_action_signed_evidence,
 )
@@ -371,6 +372,36 @@ def _print_session_search(read_model: dict[str, Any]) -> None:
         print(f"  run={result.get('run_ref') or 'none'}")
         print(f"  context={result['attachable_context_ref']}")
         print(f"  summary: {result['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_context_references(read_model: dict[str, Any]) -> None:
+    print("Runtime context references")
+    print(f"Status: {read_model['status']}")
+    print(f"Preview: {read_model['preview_ref']}")
+    print(f"Preview hash: {read_model['preview_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"References: {read_model['reference_count']}")
+    print(f"Included: {read_model['included_count']}")
+    print(f"Candidates: {read_model['candidate_count']}")
+    print(f"Blocked: {read_model['blocked_count']}")
+    print(
+        "Token budget: "
+        f"{read_model['estimated_token_count']}/"
+        f"{read_model['token_budget_limit']}"
+    )
+    print("References:")
+    for ref in read_model["references"]:
+        print(
+            f"- {ref['display_label']}: kind={ref['ref_kind']} "
+            f"status={ref['status']} ref={ref['context_ref']}"
+        )
+        print(f"  tokens={ref['token_estimate']}")
+        print(f"  summary: {ref['safe_summary']}")
+        print(f"  why={', '.join(ref['why_included_refs'])}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -762,6 +793,32 @@ def _inspect_session_search(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_session_search(read_model)
+    return 0
+
+
+def _inspect_context_references(args: argparse.Namespace) -> int:
+    read_model = build_runtime_context_references_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-context-references",
+        "runtime_context_references": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_file_content_omitted": True,
+        "raw_url_body_omitted": True,
+        "raw_prompt_omitted": True,
+        "raw_response_omitted": True,
+        "raw_provider_payload_omitted": True,
+        "live_url_fetch_performed": False,
+        "automatic_context_injection_performed": False,
+        "secret_config_read_performed": False,
+        "provider_model_call_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_context_references(read_model)
     return 0
 
 
@@ -1567,6 +1624,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref session search read model as JSON.",
     )
     session_search.set_defaults(func=_inspect_session_search)
+
+    context_references = subparsers.add_parser(
+        "inspect-context-references",
+        help="Inspect governed context reference preview without live fetch or injection.",
+    )
+    context_references.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref context reference read model as JSON.",
+    )
+    context_references.set_defaults(func=_inspect_context_references)
 
     run_events = subparsers.add_parser(
         "inspect-run-events",
