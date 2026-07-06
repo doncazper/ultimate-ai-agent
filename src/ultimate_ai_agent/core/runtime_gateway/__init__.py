@@ -464,6 +464,20 @@ from ultimate_ai_agent.core.runtime_gateway.remote_execution_posture import (
     RuntimeRemoteExecutionPostureReadModel,
     build_runtime_remote_execution_posture_read_model,
 )
+from ultimate_ai_agent.core.runtime_gateway.plugin_metadata_posture import (
+    RUNTIME_PLUGIN_METADATA_BLOCKED_AUTHORITY_REFS,
+    RUNTIME_PLUGIN_METADATA_POSTURE_CLI_REF,
+    RUNTIME_PLUGIN_METADATA_POSTURE_CONTRACT_REF,
+    RUNTIME_PLUGIN_METADATA_POSTURE_DOC_REF,
+    RUNTIME_PLUGIN_METADATA_POSTURE_PROOF_REF,
+    RUNTIME_PLUGIN_METADATA_POSTURE_SNAPSHOT_REF,
+    RUNTIME_PLUGIN_METADATA_POSTURE_VERIFIER_REF,
+    RuntimePluginMetadataPostureReadModel,
+    RuntimePluginMetadataSurface,
+    RuntimePluginSurfaceKind,
+    RuntimePluginSurfaceStatus,
+    build_runtime_plugin_metadata_posture_read_model,
+)
 from ultimate_ai_agent.core.runtime_gateway.context_references import (
     RUNTIME_CONTEXT_REFERENCES_BLOCKED_AUTHORITY_REFS,
     RUNTIME_CONTEXT_REFERENCES_CLI_REF,
@@ -912,6 +926,7 @@ __all__ = [
     "build_runtime_voice_media_posture_read_model",
     "build_runtime_messaging_gateway_posture_read_model",
     "build_runtime_remote_execution_posture_read_model",
+    "build_runtime_plugin_metadata_posture_read_model",
     "build_runtime_context_references_read_model",
     "build_runtime_checkpoint_rollback_read_model",
     "classify_sensitive_context_candidate",
