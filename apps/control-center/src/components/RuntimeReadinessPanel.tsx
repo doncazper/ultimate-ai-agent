@@ -4,6 +4,7 @@ import type {
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeContextBudgetPressureReadModel,
   RuntimeDelegationAdapterReadModel,
+  RuntimeDoctorDiagnosticsReadModel,
   RuntimeHardlineCommandBlocklistReadModel,
   RuntimeManagedScopePolicyReadModel,
   RuntimeToolRegistryAvailabilityReadModel,
@@ -34,6 +35,7 @@ export function RuntimeReadinessPanel({
   contextBudgetPressure,
   hardlineCommandBlocklist,
   managedScopePolicy,
+  doctorDiagnostics,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -50,6 +52,7 @@ export function RuntimeReadinessPanel({
   contextBudgetPressure: RuntimeContextBudgetPressureReadModel;
   hardlineCommandBlocklist: RuntimeHardlineCommandBlocklistReadModel;
   managedScopePolicy: RuntimeManagedScopePolicyReadModel;
+  doctorDiagnostics: RuntimeDoctorDiagnosticsReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -382,6 +385,82 @@ export function RuntimeReadinessPanel({
         <h4>Blocked authority</h4>
         <ul className="compact-list">
           {managedScopePolicy.blocked_authority_refs.slice(0, 5).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Doctor</p>
+            <h3>Setup diagnostics</h3>
+          </div>
+          <span className="status-pill compact">{doctorDiagnostics.status}</span>
+        </div>
+        <p>{doctorDiagnostics.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{doctorDiagnostics.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{doctorDiagnostics.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Diagnostics</dt>
+            <dd>{doctorDiagnostics.diagnostic_count}</dd>
+          </div>
+          <div>
+            <dt>Review</dt>
+            <dd>{doctorDiagnostics.review_count}</dd>
+          </div>
+          <div>
+            <dt>Blocked</dt>
+            <dd>{doctorDiagnostics.blocked_count}</dd>
+          </div>
+          <div>
+            <dt>Installs</dt>
+            <dd>{doctorDiagnostics.install_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+          <div>
+            <dt>Service starts</dt>
+            <dd>
+              {doctorDiagnostics.service_start_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Config mutation</dt>
+            <dd>
+              {doctorDiagnostics.runtime_config_mutation_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Domain</th>
+                <th>Status</th>
+                <th>Summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              {doctorDiagnostics.diagnostics.map((item) => (
+                <tr key={item.diagnostic_ref}>
+                  <td>{item.display_label}</td>
+                  <td>{item.status}</td>
+                  <td>{item.safe_summary}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {doctorDiagnostics.blocked_authority_refs.slice(0, 5).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>

@@ -37,6 +37,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_capability_discovery_read_model,
     build_runtime_context_budget_pressure_read_model,
     build_runtime_delegation_adapter_read_model,
+    build_runtime_doctor_diagnostics_read_model,
     build_runtime_hardline_command_blocklist_read_model,
     build_runtime_managed_scope_policy_read_model,
     build_runtime_profile_isolation_read_model,
@@ -552,6 +553,40 @@ def _print_managed_scope_policy(read_model: dict[str, Any]) -> None:
     for warning in read_model["drift_warnings"]:
         print(f"- {warning['warning_ref']} status={warning['status']}")
         print(f"  summary: {warning['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_doctor_diagnostics(read_model: dict[str, Any]) -> None:
+    print("Runtime doctor diagnostics")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Diagnostics: {read_model['diagnostic_count']}")
+    print(
+        "Counts: "
+        f"ok={read_model['ok_count']} "
+        f"review={read_model['review_count']} "
+        f"blocked={read_model['blocked_count']} "
+        f"unavailable={read_model['unavailable_count']}"
+    )
+    print(
+        "Mutations: "
+        f"installs={read_model['install_enabled']} "
+        f"service_starts={read_model['service_start_enabled']} "
+        f"credential_writes={read_model['credential_write_enabled']} "
+        f"runtime_config={read_model['runtime_config_mutation_enabled']}"
+    )
+    print("Diagnostic items:")
+    for item in read_model["diagnostics"]:
+        print(
+            f"- {item['display_label']}: "
+            f"domain={item['domain']} status={item['status']}"
+        )
+        print(f"  summary: {item['safe_summary']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1202,6 +1237,32 @@ def _inspect_managed_scope_policy(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_managed_scope_policy(read_model)
+    return 0
+
+
+def _inspect_doctor_diagnostics(args: argparse.Namespace) -> int:
+    read_model = build_runtime_doctor_diagnostics_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-doctor-diagnostics",
+        "runtime_doctor_diagnostics": read_model,
+        "safe_refs_only": True,
+        "redacted_status_only": True,
+        "raw_logs_omitted": True,
+        "raw_paths_omitted": True,
+        "provider_payloads_omitted": True,
+        "protected_material_omitted": True,
+        "install_performed": False,
+        "service_start_performed": False,
+        "credential_write_performed": False,
+        "runtime_config_mutation_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_doctor_diagnostics(read_model)
     return 0
 
 
@@ -2197,6 +2258,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref managed scope policy read model as JSON.",
     )
     managed_scope_policy.set_defaults(func=_inspect_managed_scope_policy)
+
+    doctor_diagnostics = subparsers.add_parser(
+        "inspect-doctor-diagnostics",
+        help="Inspect redacted local runtime doctor diagnostics posture.",
+    )
+    doctor_diagnostics.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref runtime doctor diagnostics read model as JSON.",
+    )
+    doctor_diagnostics.set_defaults(func=_inspect_doctor_diagnostics)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",

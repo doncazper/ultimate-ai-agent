@@ -78,6 +78,7 @@ export const API_ENDPOINTS = {
   runtimeContextBudgetPressure: "/api/runtime/context-budget-pressure",
   runtimeHardlineCommandBlocklist: "/api/runtime/hardline-command-blocklist",
   runtimeManagedScopePolicy: "/api/runtime/managed-scope-policy",
+  runtimeDoctorDiagnostics: "/api/runtime/doctor-diagnostics",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
   localModels: "/v1/models",
   localChatCompletions: "/v1/chat/completions",
@@ -229,6 +230,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.runtimeContextBudgetPressure,
   API_ENDPOINTS.runtimeHardlineCommandBlocklist,
   API_ENDPOINTS.runtimeManagedScopePolicy,
+  API_ENDPOINTS.runtimeDoctorDiagnostics,
 ] as const;
 
 export function isAllowedReadEndpoint(

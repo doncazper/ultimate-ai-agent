@@ -9794,6 +9794,83 @@ export interface RuntimeManagedScopePolicyReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeDoctorDiagnosticDomain =
+  | "setup"
+  | "runtime_readiness"
+  | "providers"
+  | "tools"
+  | "protected_material"
+  | "local_services"
+  | "authority"
+  | "next_actions";
+
+export type RuntimeDoctorDiagnosticStatus =
+  | "ok"
+  | "review"
+  | "blocked"
+  | "unavailable";
+
+export interface RuntimeDoctorDiagnosticItem {
+  diagnostic_ref: string;
+  domain: RuntimeDoctorDiagnosticDomain;
+  status: RuntimeDoctorDiagnosticStatus;
+  display_label: string;
+  safe_summary: string;
+  signal_refs: string[];
+  route_refs: string[];
+  cli_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  install_performed: boolean;
+  service_start_performed: boolean;
+  credential_write_performed: boolean;
+  runtime_config_mutation_performed: boolean;
+  raw_log_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  provider_payload_persisted: boolean;
+}
+
+export interface RuntimeDoctorDiagnosticsReadModel {
+  schema_version: "runtime_doctor_diagnostics.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  diagnostics: RuntimeDoctorDiagnosticItem[];
+  diagnostic_count: number;
+  ok_count: number;
+  review_count: number;
+  blocked_count: number;
+  unavailable_count: number;
+  setup_visible: boolean;
+  runtime_readiness_visible: boolean;
+  provider_posture_visible: boolean;
+  tool_posture_visible: boolean;
+  protected_material_posture_visible: boolean;
+  service_posture_visible: boolean;
+  authority_posture_visible: boolean;
+  next_safe_actions_visible: boolean;
+  install_enabled: boolean;
+  service_start_enabled: boolean;
+  credential_write_enabled: boolean;
+  runtime_config_mutation_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_log_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  provider_payload_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -10970,6 +11047,7 @@ export interface ControlCenterData {
   runtimeContextBudgetPressure: RuntimeContextBudgetPressureReadModel;
   runtimeHardlineCommandBlocklist: RuntimeHardlineCommandBlocklistReadModel;
   runtimeManagedScopePolicy: RuntimeManagedScopePolicyReadModel;
+  runtimeDoctorDiagnostics: RuntimeDoctorDiagnosticsReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

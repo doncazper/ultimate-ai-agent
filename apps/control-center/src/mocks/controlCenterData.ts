@@ -40,6 +40,7 @@ import type {
   RunObservabilityReadModel,
   RuntimeContextBudgetProposal,
   RuntimeContextBudgetSegment,
+  RuntimeDoctorDiagnosticItem,
   RuntimeHardlineCommandClassification,
   RuntimeManagedScopePolicyDriftWarning,
   RuntimeManagedScopePolicyPinSource,
@@ -1004,6 +1005,108 @@ const runtimeManagedScopeDriftWarnings: RuntimeManagedScopePolicyDriftWarning[] 
     unsigned_override_accepted: false,
     production_enforcement_claimed: false,
   },
+];
+
+const runtimeDoctorBlockedRefs = [
+  "blocked-authority:runtime-doctor-no-installs",
+  "blocked-authority:runtime-doctor-no-service-starts",
+  "blocked-authority:runtime-doctor-no-protected-material-write",
+  "blocked-authority:runtime-doctor-no-runtime-config-mutation",
+  "blocked-authority:runtime-doctor-no-provider-payload-persistence",
+  "blocked-authority:runtime-doctor-no-control-center-authority-mint",
+];
+
+function runtimeDoctorDiagnosticItem(
+  slug: string,
+  {
+    domain,
+    status,
+    display_label,
+    safe_summary,
+  }: Pick<
+    RuntimeDoctorDiagnosticItem,
+    "domain" | "status" | "display_label" | "safe_summary"
+  >,
+): RuntimeDoctorDiagnosticItem {
+  return {
+    diagnostic_ref: `runtime-doctor-diagnostic-ref:${slug}`,
+    domain,
+    status,
+    display_label,
+    safe_summary,
+    signal_refs: [`diagnostic-signal-ref:runtime-doctor:${slug}`],
+    route_refs: [],
+    cli_refs: [],
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-28:doctor-diagnostics"],
+    blocked_authority_refs: runtimeDoctorBlockedRefs,
+    next_safe_action_refs: [`next-safe-action-ref:runtime-doctor:${slug}`],
+    install_performed: false,
+    service_start_performed: false,
+    credential_write_performed: false,
+    runtime_config_mutation_performed: false,
+    raw_log_persisted: false,
+    raw_local_path_persisted: false,
+    provider_payload_persisted: false,
+  };
+}
+
+const runtimeDoctorDiagnosticsItems: RuntimeDoctorDiagnosticItem[] = [
+  runtimeDoctorDiagnosticItem("setup", {
+    domain: "setup",
+    status: "review",
+    display_label: "Setup",
+    safe_summary:
+      "Mock setup diagnostics are readable only; installs stay proposal-only.",
+  }),
+  runtimeDoctorDiagnosticItem("runtime-readiness", {
+    domain: "runtime_readiness",
+    status: "ok",
+    display_label: "Runtime readiness",
+    safe_summary:
+      "Mock runtime readiness uses status refs only and does not launch services.",
+  }),
+  runtimeDoctorDiagnosticItem("providers", {
+    domain: "providers",
+    status: "review",
+    display_label: "Providers",
+    safe_summary:
+      "Mock provider posture is metadata only; provider calls stay blocked.",
+  }),
+  runtimeDoctorDiagnosticItem("tools", {
+    domain: "tools",
+    status: "ok",
+    display_label: "Tools",
+    safe_summary:
+      "Mock tool posture is catalog visibility only; invocation stays blocked.",
+  }),
+  runtimeDoctorDiagnosticItem("protected-material", {
+    domain: "protected_material",
+    status: "blocked",
+    display_label: "Protected material",
+    safe_summary:
+      "Mock protected material posture uses redacted refs only; writes stay blocked.",
+  }),
+  runtimeDoctorDiagnosticItem("local-services", {
+    domain: "local_services",
+    status: "review",
+    display_label: "Local services",
+    safe_summary:
+      "Mock local service posture is readable only; starts and restarts stay blocked.",
+  }),
+  runtimeDoctorDiagnosticItem("authority", {
+    domain: "authority",
+    status: "ok",
+    display_label: "Authority",
+    safe_summary:
+      "Mock authority posture points to exact lanes without minting authority.",
+  }),
+  runtimeDoctorDiagnosticItem("next-actions", {
+    domain: "next_actions",
+    status: "review",
+    display_label: "Next safe actions",
+    safe_summary:
+      "Mock next actions are proposal refs until approval and receipt lanes exist.",
+  }),
 ];
 
 const memoryLifecycleBlockedRefs = [
@@ -12648,6 +12751,76 @@ export const mockControlCenterData: ControlCenterData = {
       "raw_path_omitted",
       "protected_material_omitted",
       "account_material_omitted",
+    ],
+  },
+  runtimeDoctorDiagnostics: {
+    schema_version: "runtime_doctor_diagnostics.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-doctor-diagnostics:v1",
+    status: "read_only_diagnostics_posture",
+    snapshot_ref: "doctor-diagnostics-snapshot-ref:runtime:mock",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-doctor:mock",
+    route_ref: "GET /api/runtime/doctor-diagnostics",
+    cli_ref: "uaa runtime inspect-doctor-diagnostics",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime doctor diagnostics mock fallback explains local setup and readiness with redacted status refs only.",
+    diagnostics: runtimeDoctorDiagnosticsItems,
+    diagnostic_count: runtimeDoctorDiagnosticsItems.length,
+    ok_count: runtimeDoctorDiagnosticsItems.filter((item) => item.status === "ok")
+      .length,
+    review_count: runtimeDoctorDiagnosticsItems.filter(
+      (item) => item.status === "review",
+    ).length,
+    blocked_count: runtimeDoctorDiagnosticsItems.filter(
+      (item) => item.status === "blocked",
+    ).length,
+    unavailable_count: runtimeDoctorDiagnosticsItems.filter(
+      (item) => item.status === "unavailable",
+    ).length,
+    setup_visible: true,
+    runtime_readiness_visible: true,
+    provider_posture_visible: true,
+    tool_posture_visible: true,
+    protected_material_posture_visible: true,
+    service_posture_visible: true,
+    authority_posture_visible: true,
+    next_safe_actions_visible: true,
+    install_enabled: false,
+    service_start_enabled: false,
+    credential_write_enabled: false,
+    runtime_config_mutation_enabled: false,
+    control_center_mints_authority: false,
+    raw_log_persisted: false,
+    raw_local_path_persisted: false,
+    provider_payload_persisted: false,
+    blocked_authority_refs: runtimeDoctorBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:runtime-doctor:setup-action-proposals",
+      "promotion-path-ref:runtime-doctor:approval-envelope",
+      "promotion-path-ref:runtime-doctor:receipt",
+      "promotion-path-ref:runtime-doctor:rollback-safe-disable",
+      "promotion-path-ref:runtime-doctor:proof",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-28:doctor-diagnostics",
+      "proof-ref:runtime-doctor:redacted-diagnostics",
+      "proof-ref:runtime-doctor:blocked-mutation-posture",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-28:doctor-diagnostics",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-doctor:review-diagnostics",
+      "next-safe-action-ref:runtime-doctor:create-setup-proposal-lane",
+      "next-safe-action-ref:runtime-doctor:bind-approval-and-receipt",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_logs_omitted",
+      "raw_paths_omitted",
+      "provider_payloads_omitted",
+      "protected_material_omitted",
     ],
   },
   runtimeApprovalBridge: {

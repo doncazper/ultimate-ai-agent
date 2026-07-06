@@ -38,6 +38,7 @@ import type {
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeContextBudgetPressureReadModel,
   RuntimeDelegationAdapterReadModel,
+  RuntimeDoctorDiagnosticsReadModel,
   RuntimeHardlineCommandBlocklistReadModel,
   RuntimeManagedScopePolicyReadModel,
   RuntimePromptStabilityTiersReadModel,
@@ -369,6 +370,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeManagedScopePolicy,
     ),
   ] as const);
+  const runtimeDoctorDiagnosticsSettledPromise = Promise.allSettled([
+    read<RuntimeDoctorDiagnosticsReadModel>(
+      API_ENDPOINTS.runtimeDoctorDiagnostics,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -493,6 +499,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeHardlineCommandBlocklistSettledPromise;
   const runtimeManagedScopePolicyResult =
     await runtimeManagedScopePolicySettledPromise;
+  const runtimeDoctorDiagnosticsResult =
+    await runtimeDoctorDiagnosticsSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -529,6 +537,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const runtimeManagedScopePolicy = fulfilledValue(
     runtimeManagedScopePolicyResult[0],
+  );
+  const runtimeDoctorDiagnostics = fulfilledValue(
+    runtimeDoctorDiagnosticsResult[0],
   );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
@@ -640,6 +651,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeManagedScopePolicy,
   )
     ? runtimeManagedScopePolicy
+    : undefined;
+  const safeRuntimeDoctorDiagnostics = isSafeRuntimeDoctorDiagnostics(
+    runtimeDoctorDiagnostics,
+  )
+    ? runtimeDoctorDiagnostics
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -792,6 +808,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeHardlineCommandBlocklist === undefined;
   const runtimeManagedScopePolicyFallbackUsed =
     safeRuntimeManagedScopePolicy === undefined;
+  const runtimeDoctorDiagnosticsFallbackUsed =
+    safeRuntimeDoctorDiagnostics === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -942,6 +960,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/context-budget-pressure",
         "GET /api/runtime/hardline-command-blocklist",
         "GET /api/runtime/managed-scope-policy",
+        "GET /api/runtime/doctor-diagnostics",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -958,7 +977,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimePromptStabilityTiers !== undefined &&
         runtimeContextBudgetPressure !== undefined &&
         runtimeHardlineCommandBlocklist !== undefined &&
-        runtimeManagedScopePolicy !== undefined,
+        runtimeManagedScopePolicy !== undefined &&
+        runtimeDoctorDiagnostics !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -999,6 +1019,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeManagedScopePolicyFallbackUsed
           ? ["RUNTIME_MANAGED_SCOPE_POLICY_MOCK_FALLBACK"]
           : []),
+        ...(runtimeDoctorDiagnosticsFallbackUsed
+          ? ["RUNTIME_DOCTOR_DIAGNOSTICS_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1015,7 +1038,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimePromptStabilityTiersFallbackUsed ||
         runtimeContextBudgetPressureFallbackUsed ||
         runtimeHardlineCommandBlocklistFallbackUsed ||
-        runtimeManagedScopePolicyFallbackUsed,
+        runtimeManagedScopePolicyFallbackUsed ||
+        runtimeDoctorDiagnosticsFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1116,6 +1140,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeContextBudgetPressure === undefined ||
     runtimeHardlineCommandBlocklist === undefined ||
     runtimeManagedScopePolicy === undefined ||
+    runtimeDoctorDiagnostics === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1150,8 +1175,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimePromptStabilityTiersResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeContextBudgetPressureResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeHardlineCommandBlocklistResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeManagedScopePolicyResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 14;
+    (runtimeManagedScopePolicyResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeDoctorDiagnosticsResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 15;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1243,6 +1269,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeManagedScopePolicy:
       safeRuntimeManagedScopePolicy ??
       mockControlCenterData.runtimeManagedScopePolicy,
+    runtimeDoctorDiagnostics:
+      safeRuntimeDoctorDiagnostics ??
+      mockControlCenterData.runtimeDoctorDiagnostics,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1332,6 +1361,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeContextBudgetPressureFallbackUsed &&
     !runtimeHardlineCommandBlocklistFallbackUsed &&
     !runtimeManagedScopePolicyFallbackUsed &&
+    !runtimeDoctorDiagnosticsFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1369,6 +1399,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeContextBudgetPressureFallbackUsed ||
     runtimeHardlineCommandBlocklistFallbackUsed ||
     runtimeManagedScopePolicyFallbackUsed ||
+    runtimeDoctorDiagnosticsFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1427,6 +1458,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeManagedScopePolicyFallbackUsed) {
     degradedSafeMessage =
       "Runtime managed scope policy posture was unavailable or unsafe; non-authoritative mock fallback kept local policy config writes and privileged delivery blocked.";
+  } else if (runtimeDoctorDiagnosticsFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime doctor diagnostics were unavailable or unsafe; non-authoritative mock fallback kept installs, service starts, credential writes, and runtime config mutation blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1521,6 +1555,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         : []),
       ...(runtimeManagedScopePolicyFallbackUsed
         ? ["RUNTIME_MANAGED_SCOPE_POLICY_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeDoctorDiagnosticsFallbackUsed
+        ? ["RUNTIME_DOCTOR_DIAGNOSTICS_MOCK_FALLBACK"]
         : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
@@ -3984,6 +4021,81 @@ function isSafeRuntimeManagedScopePolicy(
         warning.runtime_config_write_performed === false &&
         warning.unsigned_override_accepted === false &&
         warning.production_enforcement_claimed === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeDoctorDiagnostics(
+  value: RuntimeDoctorDiagnosticsReadModel | undefined,
+): value is RuntimeDoctorDiagnosticsReadModel {
+  if (value === undefined || !Array.isArray(value.diagnostics)) {
+    return false;
+  }
+  const allowedDomains = new Set([
+    "setup",
+    "runtime_readiness",
+    "providers",
+    "tools",
+    "protected_material",
+    "local_services",
+    "authority",
+    "next_actions",
+  ]);
+  const allowedStatuses = new Set(["ok", "review", "blocked", "unavailable"]);
+  const deniedTopLevelFlags: Array<keyof RuntimeDoctorDiagnosticsReadModel> = [
+    "install_enabled",
+    "service_start_enabled",
+    "credential_write_enabled",
+    "runtime_config_mutation_enabled",
+    "control_center_mints_authority",
+    "raw_log_persisted",
+    "raw_local_path_persisted",
+    "provider_payload_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_doctor_diagnostics.v1" &&
+    value.status === "read_only_diagnostics_posture" &&
+    value.route_ref === "GET /api/runtime/doctor-diagnostics" &&
+    value.cli_ref === "uaa runtime inspect-doctor-diagnostics" &&
+    value.diagnostic_count === value.diagnostics.length &&
+    value.ok_count ===
+      value.diagnostics.filter((item) => item.status === "ok").length &&
+    value.review_count ===
+      value.diagnostics.filter((item) => item.status === "review").length &&
+    value.blocked_count ===
+      value.diagnostics.filter((item) => item.status === "blocked").length &&
+    value.unavailable_count ===
+      value.diagnostics.filter((item) => item.status === "unavailable").length &&
+    value.setup_visible === true &&
+    value.runtime_readiness_visible === true &&
+    value.provider_posture_visible === true &&
+    value.tool_posture_visible === true &&
+    value.protected_material_posture_visible === true &&
+    value.service_posture_visible === true &&
+    value.authority_posture_visible === true &&
+    value.next_safe_actions_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:runtime-doctor-no-installs",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.diagnostics.every(
+      (item) =>
+        allowedDomains.has(item.domain) &&
+        allowedStatuses.has(item.status) &&
+        isNonEmptyStringArray(item.blocked_authority_refs) &&
+        isNonEmptyStringArray(item.proof_refs) &&
+        item.install_performed === false &&
+        item.service_start_performed === false &&
+        item.credential_write_performed === false &&
+        item.runtime_config_mutation_performed === false &&
+        item.raw_log_persisted === false &&
+        item.raw_local_path_persisted === false &&
+        item.provider_payload_persisted === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );
