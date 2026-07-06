@@ -70,6 +70,13 @@ def test_governed_product_pilot_lanes_are_exact_and_receipt_backed() -> None:
         assert lane["evidence_refs"]
         if lane["execution_capable"] and not lane["read_only_no_op"]:
             assert lane["approval_binding_required"] is True
+    action_lane = lanes["lane-ref:governed-product-pilot-mature-action-execution"]
+    assert "authority-ref:runtime-action-inbox-repo-verifier-phase-05" in (
+        action_lane["authority_refs"]
+    )
+    assert "receipt-ref:runtime-repo-verifier-command" in action_lane["receipt_refs"]
+    assert "evidence-ref:runtime-repo-verifier-command" in action_lane["evidence_refs"]
+    assert "frontend" not in action_lane["repo_safe_status"].lower()
 
 
 def test_portable_evidence_envelope_contains_required_signed_fields() -> None:

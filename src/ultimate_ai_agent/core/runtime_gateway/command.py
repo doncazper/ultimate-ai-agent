@@ -261,6 +261,7 @@ def runtime_command_invocation_request(
 def promoted_approval_bridge_command_intents() -> set[RuntimeCommandIntent]:
     return {
         RuntimeCommandIntent.focused_pytest,
+        RuntimeCommandIntent.repo_verifier,
     }
 
 

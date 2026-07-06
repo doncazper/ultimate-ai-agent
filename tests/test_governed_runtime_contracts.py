@@ -639,13 +639,15 @@ def test_runtime_gateway_command_disabled_intent_records_blocked_receipt(
     assert "execution_timed_out" not in event_kinds
 
 
-def _approved_runtime_command_request() -> RuntimeCommandExecutionRequest:
+def _approved_runtime_command_request(
+    intent: str = "focused_pytest",
+) -> RuntimeCommandExecutionRequest:
     return RuntimeCommandExecutionRequest(
-        intent="focused_pytest",
+        intent=intent,
         requested_profile="operator-approved",
-        target_refs=["test-ref:governed-runtime-contracts"],
+        target_refs=[f"test-ref:governed-runtime-{intent.replace('_', '-')}"],
         approval_ref=None,
-        safe_summary="Run the exact focused governed runtime contract test lane.",
+        safe_summary="Run one exact approved governed runtime command lane.",
     )
 
 
@@ -663,6 +665,7 @@ def _runtime_action_inbox_refs(
     record,
     *,
     decision: str = "approve",
+    command_intent: str = "focused_pytest",
 ) -> dict[str, str]:
     exact_scope_ref = _test_hash_ref(
         "runtime-approval-scope-ref",
@@ -680,7 +683,7 @@ def _runtime_action_inbox_refs(
             "requested_authority": record.request.requested_authority,
             "requested_profile": record.request.requested_profile,
             "adapter_id": "governed-command-runtime-adapter",
-            "command_intent": "focused_pytest",
+            "command_intent": command_intent,
             "decision": decision,
             "exact_scope_ref": exact_scope_ref,
             "payload_fingerprint_ref": record.payload_fingerprint_ref,
@@ -734,11 +737,16 @@ def _bind_runtime_action_inbox_approval(
     expires_delta: timedelta = timedelta(minutes=30),
 ):
     command_request = command_request or _approved_runtime_command_request()
+    command_intent = str(getattr(command_request.intent, "value", command_request.intent))
     created = store.create_invocation(
         runtime_command_invocation_request(command_request),
         idempotency_ref="idempotency-ref:runtime-action-inbox-create",
     )
-    refs = _runtime_action_inbox_refs(created.record, decision=decision)
+    refs = _runtime_action_inbox_refs(
+        created.record,
+        decision=decision,
+        command_intent=command_intent,
+    )
     return store.bind_approval(
         created.record.invocation_ref,
         RuntimeApprovalBindingRequest(
@@ -754,10 +762,10 @@ def _bind_runtime_action_inbox_approval(
                 or created.record.policy_decision.policy_decision_ref
             ),
             adapter_id="governed-command-runtime-adapter",
-            command_intent="focused_pytest",
+            command_intent=command_intent,
             risk_class="medium",
             expires_at=utc_now() + expires_delta,
-            safe_summary="Action Inbox approved exact focused pytest runtime lane.",
+            safe_summary="Action Inbox approved one exact governed runtime command lane.",
         ),
         idempotency_ref=f"idempotency-ref:runtime-action-inbox-{decision}",
     )
@@ -985,6 +993,110 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
     assert "safe pytest output" not in persisted
     assert "stdout" not in persisted
     assert "stderr" not in persisted
+
+
+def test_runtime_gateway_action_inbox_approval_executes_exact_repo_verifier_command(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=4,
+            output_bytes=b"raw repo verifier output should be redacted",
+        )
+
+    store = RuntimeInvocationStore(tmp_path)
+    command_request = _approved_runtime_command_request(intent="repo_verifier")
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+
+    result = gateway.execute_approved_command(
+        approved.invocation_ref,
+        _command_request_for_approved_record(command_request, approved),
+        _runtime_execute_request(approved),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-repo-verifier-execute",
+    )
+
+    assert result.record.status == "receipt_recorded"
+    assert result.record.receipt is not None
+    assert result.record.receipt.command_execution_performed is True
+    assert result.record.receipt.command_receipt_metadata is not None
+    assert result.record.receipt.command_receipt_metadata.intent == "repo_verifier"
+    assert result.output_persisted is False
+    assert len(calls) == 1
+    argv = calls[0]["argv"]
+    assert isinstance(argv, tuple)
+    assert argv == (
+        str(ROOT / ".venv/bin/python"),
+        "scripts/verify_documentation_integrity.py",
+    )
+
+    persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "raw repo verifier output" not in persisted
+    assert "stdout" not in persisted
+    assert "stderr" not in persisted
+
+
+def test_runtime_gateway_action_inbox_keeps_frontend_check_unpromoted(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"frontend check output should not exist",
+        )
+
+    store = RuntimeInvocationStore(tmp_path)
+    command_request = _approved_runtime_command_request(intent="frontend_check")
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+
+    result = gateway.execute_approved_command(
+        approved.invocation_ref,
+        _command_request_for_approved_record(command_request, approved),
+        _runtime_execute_request(approved),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-frontend-check-execute",
+    )
+
+    assert result.record.status == "execution_blocked"
+    assert result.error_category == "RUNTIME_COMMAND_APPROVAL_BRIDGE_INTENT_NOT_PROMOTED"
+    assert result.record.receipt is not None
+    assert result.record.receipt.command_execution_performed is False
+    assert calls == []
+
+    persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "frontend check output" not in persisted
 
 
 def test_runtime_launcher_actions_approve_and_deny_by_safe_selector_ref(

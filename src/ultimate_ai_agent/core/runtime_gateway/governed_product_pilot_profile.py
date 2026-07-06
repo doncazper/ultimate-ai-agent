@@ -737,7 +737,7 @@ def _pilot_lanes() -> list[GovernedProductPilotLane]:
             ),
             repo_safe_status=(
                 "Only exact allowlisted RuntimeGateway command lanes exist: read-only "
-                "git status and Action Inbox approved focused pytest."
+                "git status and Action Inbox approved focused pytest plus repo-verifier."
             ),
             promotion_path_ref="promotion-path-ref:runtime-command-exact-micro-lanes",
             execution_capable=True,
@@ -759,9 +759,16 @@ def _pilot_lanes() -> list[GovernedProductPilotLane]:
             authority_refs=[
                 "authority-ref:runtime-allowlisted-readonly-command-phase-04",
                 "authority-ref:runtime-action-inbox-focused-pytest-phase-05",
+                "authority-ref:runtime-action-inbox-repo-verifier-phase-05",
             ],
-            receipt_refs=["receipt-ref:runtime-focused-pytest-command"],
-            evidence_refs=["evidence-ref:runtime-focused-pytest-command"],
+            receipt_refs=[
+                "receipt-ref:runtime-focused-pytest-command",
+                "receipt-ref:runtime-repo-verifier-command",
+            ],
+            evidence_refs=[
+                "evidence-ref:runtime-focused-pytest-command",
+                "evidence-ref:runtime-repo-verifier-command",
+            ],
             rollback_refs=["rollback-ref:governed-runtime-pilot:disable-profile"],
             safe_disable_refs=["safe-disable-ref:governed-runtime-pilot"],
             verifier_refs=[GOVERNED_PRODUCT_PILOT_VERIFIER_REF],

@@ -965,7 +965,7 @@ def route_classification_for_path(
     if normalized_method == "POST" and path == "/api/runtime/invocations/{id}/execute":
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Governed runtime execute route can run only the Phase 05 exact Action Inbox approved focused pytest RuntimeGateway command lane with top-level approval/envelope/payload/policy refs, idempotency, redacted receipts, and safe-disable posture; arbitrary shell, Makefile/frontend commands, browser, connector, provider, plugin, remote, and production authority remain blocked.",
+            "Governed runtime execute route can run only the Phase 05 exact Action Inbox approved focused pytest and repo-verifier RuntimeGateway command lanes with top-level approval/envelope/payload/policy refs, idempotency, redacted receipts, and safe-disable posture; arbitrary shell, Makefile/frontend commands, browser, connector, provider, plugin, remote, and production authority remain blocked.",
         )
     if normalized_method == "POST" and path == "/api/runtime/safe-disable":
         return (

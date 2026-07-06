@@ -137,7 +137,7 @@ Morning Briefing
 - **Safe workspace previews**: patch proposals, validation proof, and rollback posture.
 - **Local model lane**: llama.cpp/OpenWebUI readiness evidence with local-first limits.
 - **Local CRM lane**: backend-owned relationship, follow-up, pipeline, smart-list, report, proposal, import/export-preview, and exact local mutation receipt posture with connector/sends/writes blocked.
-- **Governed runtime pilot**: scoped internal RuntimeGateway lanes for configured loopback local-model receipts, one read-only status command, exact Action Inbox approved focused pytest execution, and an approved-runtime-command staged orchestration step that can consume that exact focused pytest lane; broad runtime authority remains blocked.
+- **Governed runtime pilot**: scoped internal RuntimeGateway lanes for configured loopback local-model receipts, one read-only status command, exact Action Inbox approved focused pytest and repo-verifier execution, and an approved-runtime-command staged orchestration step that can consume the exact focused pytest lane; broad runtime authority remains blocked.
 - **Verification gates**: Foundation Gate, OpenAPI, docs, backend, frontend, and product-truth checks.
 
 ## Current Technical Snapshot
@@ -364,7 +364,7 @@ These lines keep the active docs and verifiers aligned.
 - UAA-P1-087.2a Private Trial Packet And UI Tuning Surface is complete.
 - UAA-P1-087.2b Private Trial Findings Capture And Acceptance Ledger is complete.
 - UAA-P1-087.2c Private Trial Manual Review Scaffold is complete.
-- UAA-P1-091 v0.105.0 Governed Runtime Pilot Phase 07 is the active scoped internal runtime-authority lane: configured loopback local-model calls, one exact read-only status command, exact Action Inbox approved focused pytest execution, and an approved-runtime-command staged orchestration step for the exact focused pytest lane are governed through RuntimeGateway receipts; browser automation, connector writes, plugin import, remote execution, arbitrary shell/subprocess work, repo verifier/frontend-check runtime execution outside future exact lanes, public beta, public release, production authority, and broad autonomy remain blocked.
+- UAA-P1-091 v0.105.0 Governed Runtime Pilot Phase 07 is the active scoped internal runtime-authority lane: configured loopback local-model calls, one exact read-only status command, exact Action Inbox approved focused pytest and repo-verifier execution, and an approved-runtime-command staged orchestration step for the exact focused pytest lane are governed through RuntimeGateway receipts; browser automation, connector writes, plugin import, remote execution, arbitrary shell/subprocess work, frontend-check runtime execution outside a future exact lane, public beta, public release, production authority, and broad autonomy remain blocked.
 - UAA-P1-066 is implemented as read-only Local Model Control Center inventory/status support via `GET /control-center/local-models/status`. No lifecycle, switching, activation, downloads, model pulls, model calls, runtime adapters, provider/model authority, or production-readiness claim is added.
 - P0-016 hardens tuning advice without granting runtime authority.
 - P0-017 adds safe local model operational recovery guidance.

@@ -7,7 +7,8 @@ Python Agent Core orchestration contract. It does not copy GoatCitadel code or
 import GoatCitadel packages. The base read model remains non-mutating, and the
 first execution-capable slice is limited to one approved-runtime-command step
 that can consume the existing exact Action Inbox approved focused pytest
-RuntimeGateway lane.
+RuntimeGateway lane. The runtime approval bridge also promotes the exact
+`repo_verifier` utility command lane.
 
 ## Implemented Repo-Safe Slice
 
@@ -78,11 +79,11 @@ output or raw payloads and does not enable unrestricted command execution.
 Control Center cannot mint authority. The read model remains inspection-only.
 The execution-capable path is backend-owned, exact-scope, approval-bound, and
 limited to the existing promoted focused pytest RuntimeGateway lane. It does not
-add runtime authority outside that exact approved lane, and it adds no autonomous worker, hidden model call,
-unrestricted command execution, browser automation, connector write, production
-authority, or raw payload persistence.
-This does not add runtime authority beyond the exact focused pytest lane, and
-production authority remains blocked.
+add runtime authority outside exact approved utility lanes, and it adds no
+autonomous worker, hidden model call, unrestricted command execution, browser
+automation, connector write, production authority, or raw payload persistence.
+This does not add runtime authority beyond exact approved utility lanes;
+browser automation remains blocked.
 
 All durable output uses safe refs, redacted summaries, bounded status fields,
 checkpoint refs, receipt refs, evidence refs, rollback refs, and blocked
