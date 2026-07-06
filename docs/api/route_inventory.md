@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `211`.
+Current OpenAPI path count: `212`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -163,6 +163,11 @@ proof, task, memory, CRM object, and issue refs. Live URL fetch, raw path
 persistence, raw file-content persistence, protected config reads, automatic
 context injection, provider/model calls, connector writes, shell/subprocess
 execution, browser automation, and production authority remain blocked.
+`GET /api/runtime/checkpoint-rollback` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 18 checkpoint/rollback posture. It returns safe
+checkpoint, receipt, rollback-plan, proof, verifier, and blocked authority refs
+only; rollback execution, broad filesystem snapshots, Git mutation, raw
+path/content persistence, and production authority remain blocked.
 `GET /api/runtime/run-events` exposes a protected read-only Python Core Hermes
 Runtime Adoption Phase 03 run/event posture for external runtime lifecycle
 state, UAA durable run state mapping, event-ref grammar, proof binding, blocked

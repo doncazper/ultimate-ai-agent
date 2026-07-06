@@ -42,6 +42,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_streaming_progress_read_model,
     build_runtime_tool_registry_availability_read_model,
     build_runtime_action_signed_evidence,
+    build_runtime_checkpoint_rollback_read_model,
     build_runtime_context_references_read_model,
     verify_portable_evidence_envelope,
     verify_runtime_action_signed_evidence,
@@ -412,6 +413,30 @@ def _print_context_references(read_model: dict[str, Any]) -> None:
         print(f"  tokens={ref['token_estimate']}")
         print(f"  summary: {ref['safe_summary']}")
         print(f"  why={', '.join(ref['why_included_refs'])}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_checkpoint_rollback(read_model: dict[str, Any]) -> None:
+    print("Runtime checkpoint rollback posture")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Lanes: {read_model['lane_count']}")
+    print(f"Checkpoint available: {read_model['checkpoint_available_count']}")
+    print(f"Exact core rollback receipts: {read_model['exact_core_supported_count']}")
+    print(f"Rollback route enabled: {read_model['rollback_execution_route_enabled']}")
+    for lane in read_model["lanes"]:
+        print(
+            f"- {lane['lane_ref']}: kind={lane['lane_kind']} "
+            f"status={lane['status']}"
+        )
+        print(f"  checkpoint={lane['checkpoint_ref']}")
+        print(f"  rollback_plan={lane['rollback_plan_ref']}")
+        print(f"  summary: {lane['safe_summary']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -829,6 +854,33 @@ def _inspect_context_references(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_context_references(read_model)
+    return 0
+
+
+def _inspect_checkpoint_rollback(args: argparse.Namespace) -> int:
+    read_model = build_runtime_checkpoint_rollback_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-checkpoint-rollback",
+        "runtime_checkpoint_rollback": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "checkpoint_payloads_omitted": True,
+        "rollback_payloads_omitted": True,
+        "broad_filesystem_snapshot_performed": False,
+        "rollback_execution_performed": False,
+        "git_mutation_performed": False,
+        "provider_model_call_performed": False,
+        "shell_execution_performed": False,
+        "browser_automation_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_checkpoint_rollback(read_model)
     return 0
 
 
@@ -1645,6 +1697,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref context reference read model as JSON.",
     )
     context_references.set_defaults(func=_inspect_context_references)
+
+    checkpoint_rollback = subparsers.add_parser(
+        "inspect-checkpoint-rollback",
+        help="Inspect checkpoint and rollback posture without executing rollback.",
+    )
+    checkpoint_rollback.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit checkpoint and rollback posture as JSON.",
+    )
+    checkpoint_rollback.set_defaults(func=_inspect_checkpoint_rollback)
 
     run_events = subparsers.add_parser(
         "inspect-run-events",

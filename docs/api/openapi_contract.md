@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `211`.
+Current OpenAPI path count: `212`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -116,6 +116,11 @@ Contract rules:
   raw file-content persistence, protected config read, automatic context
   injection, provider/model call, connector write, shell/subprocess execution,
   browser automation, or production authority.
+  `GET /api/runtime/checkpoint-rollback` exposes the Hermes Runtime Adoption
+  Phase 18 backend-owned checkpoint/rollback posture. It returns exact lane
+  checkpoint, receipt, rollback-plan, proof, verifier, and blocked authority
+  refs only; rollback execution, broad filesystem snapshots, Git mutation, raw
+  path/content persistence, and production authority remain blocked.
   `GET /api/runtime/run-events` exposes the Hermes Runtime Adoption Phase 03
   backend-owned runtime run/event posture for lifecycle mappings, event refs,
   stop posture, and approval-wait proposals. It is read/proposal only and does
