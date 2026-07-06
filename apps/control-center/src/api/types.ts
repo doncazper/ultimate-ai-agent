@@ -9637,6 +9637,74 @@ export interface RuntimeContextBudgetPressureReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeHardlineCommandClassificationStatus =
+  | "allowed_shape"
+  | "hardline_denied";
+
+export type RuntimeHardlineCommandDenialCategory =
+  | "allowed"
+  | "empty_argv"
+  | "shell_metachar"
+  | "shell_interpreter"
+  | "inline_code"
+  | "destructive_filesystem"
+  | "disk_writer"
+  | "network_transfer"
+  | "remote_access"
+  | "privilege_escalation"
+  | "permission_mutation"
+  | "git_mutation"
+  | "package_install"
+  | "production_orchestration"
+  | "container_runtime"
+  | "desktop_automation"
+  | "browser_automation";
+
+export interface RuntimeHardlineCommandClassification {
+  candidate_ref: string;
+  source_ref: string;
+  status: RuntimeHardlineCommandClassificationStatus;
+  denial_category: RuntimeHardlineCommandDenialCategory;
+  denied: boolean;
+  non_overridable: boolean;
+  override_bypass_permitted: boolean;
+  raw_command_text_persisted: boolean;
+  raw_command_output_persisted: boolean;
+  command_execution_performed: boolean;
+  denial_reason_ref: string;
+  safe_summary: string;
+}
+
+export interface RuntimeHardlineCommandBlocklistReadModel {
+  schema_version: "runtime_hardline_command_blocklist.v1";
+  contract_ref: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  proof_ref: string;
+  verifier_ref: string;
+  status: string;
+  non_overridable_floor: boolean;
+  override_bypass_permitted: boolean;
+  command_execution_performed: boolean;
+  raw_command_text_persisted: boolean;
+  raw_command_output_persisted: boolean;
+  route_classification_ref: string;
+  foundation_gate_ref: string;
+  safe_disable_ref: string;
+  classification_count: number;
+  denied_classification_count: number;
+  allowed_classification_count: number;
+  classifications: RuntimeHardlineCommandClassification[];
+  hardline_rule_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+  safe_summary: string;
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -10787,6 +10855,7 @@ export interface ControlCenterData {
   runtimeUsageCostAnalytics: RuntimeUsageCostAnalyticsReadModel;
   runtimePromptStabilityTiers: RuntimePromptStabilityTiersReadModel;
   runtimeContextBudgetPressure: RuntimeContextBudgetPressureReadModel;
+  runtimeHardlineCommandBlocklist: RuntimeHardlineCommandBlocklistReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

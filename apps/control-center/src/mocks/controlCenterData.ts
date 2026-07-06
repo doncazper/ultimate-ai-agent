@@ -40,6 +40,7 @@ import type {
   RunObservabilityReadModel,
   RuntimeContextBudgetProposal,
   RuntimeContextBudgetSegment,
+  RuntimeHardlineCommandClassification,
   RuntimeVirtualAgentSlot,
   RuntimeVirtualProviderPreset,
   RuntimeUsageCostRecord,
@@ -815,6 +816,97 @@ const runtimeContextBudgetSegments: RuntimeContextBudgetSegment[] = [
       "Mock operator turn material remains omitted; UAA can ask for priority.",
   }),
 ];
+
+const runtimeHardlineCommandBlockedRefs = [
+  "blocked-authority:runtime-hardline-command-floor-override",
+  "blocked-authority:runtime-command-string-bypass",
+  "blocked-authority:runtime-shell-metachar-bypass",
+  "blocked-authority:runtime-destructive-command-bypass",
+  "blocked-authority:runtime-network-command-bypass",
+  "blocked-authority:runtime-git-mutation-bypass",
+  "blocked-authority:runtime-package-install-bypass",
+  "blocked-authority:runtime-privilege-escalation-bypass",
+  "blocked-authority:runtime-production-command-bypass",
+  "blocked-authority:runtime-raw-command-text-persistence",
+  "blocked-authority:runtime-raw-command-output-persistence",
+  "blocked-authority:runtime-production-authority",
+];
+
+function runtimeHardlineCommandClassification(
+  slug: string,
+  overrides: Partial<RuntimeHardlineCommandClassification>,
+): RuntimeHardlineCommandClassification {
+  const denied = overrides.denied ?? false;
+  return {
+    candidate_ref: `hardline-command-candidate-ref:${slug}`,
+    source_ref:
+      overrides.source_ref ?? "test-corpus-ref:runtime-hardline-command-blocklist",
+    status: overrides.status ?? (denied ? "hardline_denied" : "allowed_shape"),
+    denial_category: overrides.denial_category ?? (denied ? "shell_metachar" : "allowed"),
+    denied,
+    non_overridable: true,
+    override_bypass_permitted: false,
+    raw_command_text_persisted: false,
+    raw_command_output_persisted: false,
+    command_execution_performed: false,
+    denial_reason_ref:
+      overrides.denial_reason_ref ??
+      (denied
+        ? `hardline-command-deny-ref:${overrides.denial_category ?? "shell_metachar"}`
+        : "hardline-command-allow-ref:exact-allowlisted-shape"),
+    safe_summary:
+      overrides.safe_summary ??
+      "Mock hardline command classification stores safe refs only.",
+  };
+}
+
+const runtimeHardlineCommandClassifications: RuntimeHardlineCommandClassification[] =
+  [
+    runtimeHardlineCommandClassification("allowlisted-git-status", {
+      source_ref: "allowlisted-shape-ref:runtime-command-git-status",
+      denied: false,
+      denial_category: "allowed",
+      safe_summary:
+        "Mock git status shape passes the hardline floor and still requires exact lane checks.",
+    }),
+    runtimeHardlineCommandClassification("allowlisted-focused-pytest", {
+      source_ref: "allowlisted-shape-ref:runtime-command-focused-pytest",
+      denied: false,
+      denial_category: "allowed",
+      safe_summary:
+        "Mock focused pytest shape passes the hardline floor and still requires exact approval checks.",
+    }),
+    runtimeHardlineCommandClassification("shell-metachar", {
+      denied: true,
+      denial_category: "shell_metachar",
+      safe_summary: "Mock shell metachar shape is hardline denied.",
+    }),
+    runtimeHardlineCommandClassification("destructive-filesystem", {
+      denied: true,
+      denial_category: "destructive_filesystem",
+      safe_summary: "Mock destructive filesystem shape is hardline denied.",
+    }),
+    runtimeHardlineCommandClassification("network-transfer", {
+      denied: true,
+      denial_category: "network_transfer",
+      safe_summary: "Mock network transfer shape is hardline denied.",
+    }),
+    runtimeHardlineCommandClassification("git-mutation", {
+      denied: true,
+      denial_category: "git_mutation",
+      safe_summary: "Mock Git mutation shape is hardline denied.",
+    }),
+    runtimeHardlineCommandClassification("package-install", {
+      denied: true,
+      denial_category: "package_install",
+      safe_summary: "Mock package install shape is hardline denied.",
+    }),
+    runtimeHardlineCommandClassification("production-orchestration", {
+      denied: true,
+      denial_category: "production_orchestration",
+      safe_summary: "Mock production orchestration shape is hardline denied.",
+    }),
+  ];
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -12326,6 +12418,68 @@ export const mockControlCenterData: ControlCenterData = {
       "provider_payloads_omitted",
       "summaries_omitted_until_approved",
     ],
+  },
+  runtimeHardlineCommandBlocklist: {
+    schema_version: "runtime_hardline_command_blocklist.v1",
+    contract_ref:
+      "contract-ref:hermes-runtime-adoption-hardline-command-blocklist:v1",
+    snapshot_ref: "hardline-command-blocklist-snapshot-ref:runtime:mock",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-hardline-command-blocklist:mock",
+    route_ref: "GET /api/runtime/hardline-command-blocklist",
+    cli_ref: "uaa runtime inspect-hardline-command-blocklist",
+    proof_ref:
+      "proof-ref:hermes-runtime-adoption:phase-25:hardline-command-blocklist",
+    verifier_ref:
+      "verifier-ref:hermes-runtime-adoption:phase-25:hardline-command-blocklist",
+    status: "read_only_hardline_command_blocklist_floor",
+    non_overridable_floor: true,
+    override_bypass_permitted: false,
+    command_execution_performed: false,
+    raw_command_text_persisted: false,
+    raw_command_output_persisted: false,
+    route_classification_ref:
+      "route-classification-ref:runtime-hardline-command-blocklist-readonly",
+    foundation_gate_ref:
+      "foundation-gate-ref:runtime-hardline-command-blocklist-floor",
+    safe_disable_ref: "safe-disable-ref:runtime-command-floor-always-on",
+    classification_count: runtimeHardlineCommandClassifications.length,
+    denied_classification_count: runtimeHardlineCommandClassifications.filter(
+      (classification) => classification.denied,
+    ).length,
+    allowed_classification_count: runtimeHardlineCommandClassifications.filter(
+      (classification) => !classification.denied,
+    ).length,
+    classifications: runtimeHardlineCommandClassifications,
+    hardline_rule_refs: [
+      "hardline-command-rule-ref:no-shell-metachar",
+      "hardline-command-rule-ref:no-shell-interpreter",
+      "hardline-command-rule-ref:no-inline-code",
+      "hardline-command-rule-ref:no-destructive-filesystem",
+      "hardline-command-rule-ref:no-network-transfer",
+      "hardline-command-rule-ref:no-git-mutation",
+      "hardline-command-rule-ref:no-package-install",
+      "hardline-command-rule-ref:no-production-orchestration",
+    ],
+    blocked_authority_refs: runtimeHardlineCommandBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:runtime-command-floor-security-review",
+      "promotion-path-ref:runtime-command-floor-test-corpus",
+      "promotion-path-ref:runtime-command-floor-route-classification",
+      "promotion-path-ref:runtime-command-floor-foundation-gate",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-command-floor-expand-static-corpus",
+      "next-safe-action-ref:runtime-command-floor-bind-foundation-gate",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_command_text_omitted",
+      "raw_command_output_omitted",
+      "argv_examples_omitted",
+    ],
+    safe_summary:
+      "Runtime hardline command blocklist mock fallback shows safe category refs only; floor override remains blocked.",
   },
   runtimeApprovalBridge: {
     schema_version: "runtime_approval_bridge.v1",

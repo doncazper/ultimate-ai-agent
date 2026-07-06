@@ -26,6 +26,9 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     build_command_receipt,
     runtime_payload_fingerprint_ref,
 )
+from ultimate_ai_agent.core.runtime_gateway.hardline_command_blocklist import (
+    hardline_block_reason_for_argv,
+)
 from ultimate_ai_agent.core.runtime_gateway.storage import RuntimeInvocationStore
 from ultimate_ai_agent.core.time import utc_now
 
@@ -169,6 +172,9 @@ class GovernedCommandRuntimeAdapter:
         entry: RuntimeCommandAllowlistEntry,
     ) -> _CommandAttempt:
         argv = _argv_for_entry(entry, workspace_root=self._workspace_root)
+        hardline_block_reason = hardline_block_reason_for_argv(argv)
+        if hardline_block_reason is not None:
+            raise ValueError(hardline_block_reason)
         _validate_exact_argv(argv, workspace_root=self._workspace_root)
         result = self._runner(
             argv=argv,
@@ -444,6 +450,9 @@ def _command_block_reason(
         return "RUNTIME_COMMAND_WORKSPACE_REF_NOT_ALLOWLISTED"
     if request.target_refs and request.intent == RuntimeCommandIntent.git_status.value:
         return "RUNTIME_COMMAND_TARGET_REFS_NOT_ALLOWED_FOR_STATUS"
+    hardline_block_reason = _hardline_block_reason(entry)
+    if hardline_block_reason is not None:
+        return hardline_block_reason
     if not entry.enabled_for_phase:
         return "RUNTIME_COMMAND_APPROVAL_BRIDGE_REQUIRED"
     if entry.approval_required:
@@ -669,6 +678,9 @@ def _approved_command_block_reason(
         return "RUNTIME_COMMAND_ACTION_INBOX_ADAPTER_CHANGED"
     if request.workspace_ref != COMMAND_RUNTIME_WORKSPACE_REF:
         return "RUNTIME_COMMAND_WORKSPACE_REF_NOT_ALLOWLISTED"
+    hardline_block_reason = _hardline_block_reason(entry)
+    if hardline_block_reason is not None:
+        return hardline_block_reason
     if entry.intent not in {intent.value for intent in promoted_approval_bridge_command_intents()}:
         return "RUNTIME_COMMAND_APPROVAL_BRIDGE_INTENT_NOT_PROMOTED"
     expected_request = _runtime_invocation_request(request, entry=entry)
@@ -685,6 +697,11 @@ def _approved_command_block_reason(
 
 def _record_safe_disabled(record: RuntimeInvocationRecord) -> bool:
     return record.status == RuntimeInvocationStatus.safe_disabled.value
+
+
+def _hardline_block_reason(entry: RuntimeCommandAllowlistEntry) -> str | None:
+    argv = _argv_for_entry(entry, workspace_root=COMMAND_RUNTIME_APPROVED_REPO_ROOT)
+    return hardline_block_reason_for_argv(argv)
 
 
 def _record_blocked_command_result(
