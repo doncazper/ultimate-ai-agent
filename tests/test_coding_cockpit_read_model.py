@@ -26,6 +26,7 @@ from ultimate_ai_agent.core.code import (
     CODING_COCKPIT_PATCH_APPLY_READINESS_REF,
     CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF,
     CODING_COCKPIT_PATCH_PROPOSAL_REF,
+    CODING_COCKPIT_PROJECT_MODEL_REF,
     CODING_COCKPIT_REQUIRED_BLOCKED_REFS,
     CODING_COCKPIT_SESSION_REF,
     CODING_COCKPIT_TEST_COMMAND_BACKEND_ROUTE_REF,
@@ -36,6 +37,7 @@ from ultimate_ai_agent.core.code import (
     CodingMultiAgentReviewReadModel,
     CodingPatchApplyReadinessReadModel,
     CodingPatchProposalReadModel,
+    CodingProjectModelReadModel,
     CodingTestCommandReadinessReadModel,
     CodingWorkspaceContextReadModel,
     build_coding_cockpit_session_seed,
@@ -44,6 +46,7 @@ from ultimate_ai_agent.core.code import (
     build_coding_multi_agent_review,
     build_coding_patch_apply_readiness,
     build_coding_patch_proposal_preview,
+    build_coding_project_model_read_model,
     build_coding_test_command_readiness,
     build_coding_workspace_context_preview,
 )
@@ -71,6 +74,7 @@ def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
     )
     assert session.same_ref_spine == [
         "coding-session:local-readonly-cockpit",
+        CODING_COCKPIT_PROJECT_MODEL_REF,
         "coding-task:cockpit-shell-seed",
         CODING_COCKPIT_CONTEXT_PACK_REF,
         CODING_COCKPIT_PATCH_PROPOSAL_REF,
@@ -82,9 +86,22 @@ def test_coding_cockpit_session_seed_is_backend_owned_safe_refs_only() -> None:
         CODING_COCKPIT_MULTI_AGENT_REVIEW_REF,
         "proof-ref:coding-cockpit-seed",
     ]
+    assert session.project_model.project_model_ref == CODING_COCKPIT_PROJECT_MODEL_REF
+    assert session.project_model.backend_owned is True
+    assert session.project_model.read_only is True
+    assert session.project_model.safe_refs_only is True
+    assert session.project_model.repo_file_read_performed is False
+    assert session.project_model.file_write_enabled is False
+    assert session.project_model.shell_subprocess_execution_enabled is False
+    assert session.project_model.git_mutation_enabled is False
+    assert session.project_model.browser_automation_enabled is False
     assert "Local coding cockpit" in session.full_strength_goal
     assert "Prompt 01 seed" in session.repo_safe_scope
     assert "scripts/dev/uaa_coding.py inspect-session" in session.cli_inspection_refs
+    assert (
+        "scripts/dev/uaa_coding.py inspect-project-model"
+        in session.cli_inspection_refs
+    )
     assert "scripts/dev/uaa_coding.py inspect-context" in session.cli_inspection_refs
     assert (
         "scripts/dev/uaa_coding.py inspect-patch-proposal"
@@ -142,6 +159,91 @@ def test_coding_cockpit_session_rejects_panel_mutation_authority() -> None:
 
     with pytest.raises(ValidationError, match="runtime authority"):
         CodingCockpitSessionReadModel(**payload)
+
+
+def test_coding_project_model_is_backend_owned_safe_refs_only() -> None:
+    project_model = build_coding_project_model_read_model()
+    payload = project_model.model_dump(mode="json")
+
+    assert project_model.schema_version == "uaa-coding-project-model.v1"
+    assert project_model.project_model_ref == CODING_COCKPIT_PROJECT_MODEL_REF
+    assert project_model.session_ref == CODING_COCKPIT_SESSION_REF
+    assert project_model.backend_route_refs == [CODING_COCKPIT_BACKEND_ROUTE_REF]
+    assert project_model.frontend_route_refs == [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    assert project_model.backend_owned is True
+    assert project_model.read_only is True
+    assert project_model.safe_refs_only is True
+    assert project_model.raw_paths_included is False
+    assert project_model.raw_content_included is False
+    assert project_model.repo_file_read_performed is False
+    assert project_model.project_scan_performed is False
+    assert project_model.file_write_enabled is False
+    assert project_model.shell_subprocess_execution_enabled is False
+    assert project_model.git_status_execution_enabled is False
+    assert project_model.git_mutation_enabled is False
+    assert project_model.dev_server_control_enabled is False
+    assert project_model.browser_preview_enabled is False
+    assert project_model.browser_automation_enabled is False
+    assert project_model.provider_model_call_enabled is False
+    assert project_model.background_autonomy_enabled is False
+    assert project_model.production_authority_enabled is False
+    assert {item.capability_kind for item in project_model.capabilities} == {
+        "workspace",
+        "repo",
+        "lane",
+        "branch",
+        "worktree",
+        "files",
+        "diffs",
+        "tests",
+        "preview",
+        "terminal",
+        "git",
+        "proof",
+    }
+    assert set(project_model.capability_refs) == {
+        item.capability_ref for item in project_model.capabilities
+    }
+    assert {
+        "blocked-state:coding-no-file-write",
+        "blocked-state:coding-no-shell-subprocess",
+        "blocked-state:coding-no-git-mutation",
+        "blocked-state:coding-no-browser-automation",
+        "blocked-state:coding-no-provider-model-call",
+        "blocked-state:coding-no-background-autonomy",
+        "blocked-state:coding-no-production-authority",
+    }.issubset(project_model.blocked_authority_refs)
+    assert "/Users/" not in json.dumps(payload)
+    assert "credential" not in json.dumps(payload).lower()
+    assert "secret" not in json.dumps(payload).lower()
+
+
+def test_coding_project_model_rejects_runtime_authority() -> None:
+    for flag_name in [
+        "raw_paths_included",
+        "raw_content_included",
+        "repo_file_read_performed",
+        "project_scan_performed",
+        "file_write_enabled",
+        "shell_subprocess_execution_enabled",
+        "git_status_execution_enabled",
+        "git_mutation_enabled",
+        "dev_server_control_enabled",
+        "browser_preview_enabled",
+        "browser_automation_enabled",
+        "provider_model_call_enabled",
+        "background_autonomy_enabled",
+        "production_authority_enabled",
+    ]:
+        payload = build_coding_project_model_read_model().model_dump(mode="json")
+        payload[flag_name] = True
+        with pytest.raises(ValidationError, match=flag_name):
+            CodingProjectModelReadModel(**payload)
+
+    payload = build_coding_project_model_read_model().model_dump(mode="json")
+    payload["capabilities"][0]["file_write_enabled"] = True
+    with pytest.raises(ValidationError, match="file_write_enabled"):
+        CodingProjectModelReadModel(**payload)
 
 
 def test_coding_context_pack_preview_is_backend_owned_safe_refs_only() -> None:
@@ -656,6 +758,14 @@ def test_control_center_coding_session_route_returns_safe_read_model() -> None:
     assert data["connector_write_enabled"] is False
     assert data["background_autonomy_enabled"] is False
     assert data["production_authority_enabled"] is False
+    assert data["project_model"]["project_model_ref"] == CODING_COCKPIT_PROJECT_MODEL_REF
+    assert data["project_model"]["backend_owned"] is True
+    assert data["project_model"]["read_only"] is True
+    assert data["project_model"]["safe_refs_only"] is True
+    assert data["project_model"]["repo_file_read_performed"] is False
+    assert data["project_model"]["file_write_enabled"] is False
+    assert data["project_model"]["git_mutation_enabled"] is False
+    assert data["project_model"]["browser_automation_enabled"] is False
     assert set(CODING_COCKPIT_REQUIRED_BLOCKED_REFS).issubset(
         data["blocked_authority_refs"]
     )
@@ -1007,6 +1117,34 @@ def test_coding_cockpit_cli_inspection_prints_same_safe_session() -> None:
     assert data["frontend_route_refs"] == [CODING_COCKPIT_FRONTEND_ROUTE_REF]
     assert "/Users/" not in result.stdout
     assert "credential" not in result.stdout.lower()
+
+
+def test_coding_project_model_cli_inspection_prints_same_safe_model() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_coding.py"),
+            "inspect-project-model",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    data = json.loads(result.stdout)
+
+    assert data["project_model_ref"] == CODING_COCKPIT_PROJECT_MODEL_REF
+    assert data["backend_owned"] is True
+    assert data["read_only"] is True
+    assert data["safe_refs_only"] is True
+    assert data["repo_file_read_performed"] is False
+    assert data["file_write_enabled"] is False
+    assert data["shell_subprocess_execution_enabled"] is False
+    assert data["git_mutation_enabled"] is False
+    assert data["browser_automation_enabled"] is False
+    assert "/Users/" not in result.stdout
+    assert "credential" not in result.stdout.lower()
+    assert "secret" not in result.stdout.lower()
 
 
 def test_coding_context_cli_inspection_prints_same_safe_context() -> None:

@@ -16,7 +16,9 @@ from ultimate_ai_agent.core.decision_router import prepare_turn
 from ultimate_ai_agent.core.control_center.runtime_parity_loop import (
     build_runtime_parity_loop_read_model,
 )
-from ultimate_ai_agent.core.execution import build_sample_staged_orchestration_read_model
+from ultimate_ai_agent.core.execution import (
+    build_sample_staged_orchestration_read_model,
+)
 from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeGateway,
     RuntimeInvocationConflictError,
@@ -27,7 +29,36 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeLocalModelCallRequest,
     build_default_runtime_capabilities,
     build_governed_product_pilot_authority_profile,
+    build_runtime_approval_bridge_read_model,
+    build_runtime_capability_discovery_read_model,
+    build_runtime_context_budget_pressure_read_model,
+    build_runtime_delegation_adapter_read_model,
+    build_runtime_doctor_diagnostics_read_model,
+    build_runtime_background_jobs_read_model,
+    build_runtime_hardline_command_blocklist_read_model,
+    build_runtime_managed_scope_policy_read_model,
+    build_runtime_mcp_catalog_filtering_read_model,
+    build_runtime_subagent_isolation_read_model,
+    build_runtime_worktree_per_agent_read_model,
+    build_runtime_lsp_diagnostics_read_model,
+    build_runtime_preview_rail_read_model,
+    build_runtime_slash_command_registry_read_model,
+    build_runtime_interrupt_redirect_read_model,
+    build_runtime_logging_profile_read_model,
+    build_runtime_result_classification_read_model,
+    build_runtime_profile_isolation_read_model,
+    build_runtime_prompt_stability_tiers_read_model,
+    build_runtime_run_events_read_model,
+    build_runtime_session_continuity_read_model,
+    build_runtime_session_search_read_model,
+    build_runtime_session_lineage_read_model,
+    build_runtime_streaming_progress_read_model,
+    build_runtime_tool_registry_availability_read_model,
+    build_runtime_usage_cost_analytics_read_model,
+    build_runtime_virtual_provider_moa_read_model,
     build_runtime_action_signed_evidence,
+    build_runtime_checkpoint_rollback_read_model,
+    build_runtime_context_references_read_model,
     command_allowlist_catalog,
     verify_runtime_action_signed_evidence,
 )
@@ -168,6 +199,465 @@ def get_api_runtime_governed_product_pilot_profile() -> ResultEnvelope:
     )
 
 
+@router.get("/delegation-adapter", response_model=ResultEnvelope)
+def get_api_runtime_delegation_adapter() -> ResultEnvelope:
+    read_model = build_runtime_delegation_adapter_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_delegation_adapter",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.adapter_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-delegation-adapter:phase-01"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/capability-discovery", response_model=ResultEnvelope)
+def get_api_runtime_capability_discovery() -> ResultEnvelope:
+    read_model = build_runtime_capability_discovery_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_capability_discovery",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-capability-discovery:phase-02"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/tool-registry", response_model=ResultEnvelope)
+def get_api_runtime_tool_registry() -> ResultEnvelope:
+    read_model = build_runtime_tool_registry_availability_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_tool_registry",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-tool-registry:phase-10"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/virtual-provider-moa", response_model=ResultEnvelope)
+def get_api_runtime_virtual_provider_moa() -> ResultEnvelope:
+    read_model = build_runtime_virtual_provider_moa_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_virtual_provider_moa",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-virtual-provider-moa:phase-20"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/usage-cost-analytics", response_model=ResultEnvelope)
+def get_api_runtime_usage_cost_analytics() -> ResultEnvelope:
+    read_model = build_runtime_usage_cost_analytics_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_usage_cost_analytics",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-usage-cost-analytics:phase-22"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/prompt-stability-tiers", response_model=ResultEnvelope)
+def get_api_runtime_prompt_stability_tiers() -> ResultEnvelope:
+    read_model = build_runtime_prompt_stability_tiers_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_prompt_stability_tiers",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-prompt-stability:phase-23"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/context-budget-pressure", response_model=ResultEnvelope)
+def get_api_runtime_context_budget_pressure() -> ResultEnvelope:
+    read_model = build_runtime_context_budget_pressure_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_context_budget_pressure",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-context-budget:phase-24"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/hardline-command-blocklist", response_model=ResultEnvelope)
+def get_api_runtime_hardline_command_blocklist() -> ResultEnvelope:
+    read_model = build_runtime_hardline_command_blocklist_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_hardline_command_blocklist",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-hardline-command-blocklist:phase-25"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/managed-scope-policy", response_model=ResultEnvelope)
+def get_api_runtime_managed_scope_policy() -> ResultEnvelope:
+    read_model = build_runtime_managed_scope_policy_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_managed_scope_policy",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-managed-scope-policy:phase-27"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/doctor-diagnostics", response_model=ResultEnvelope)
+def get_api_runtime_doctor_diagnostics() -> ResultEnvelope:
+    read_model = build_runtime_doctor_diagnostics_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_doctor_diagnostics",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-doctor-diagnostics:phase-28"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/session-continuity", response_model=ResultEnvelope)
+def get_api_runtime_session_continuity() -> ResultEnvelope:
+    read_model = build_runtime_session_continuity_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_session_continuity",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-session-continuity:phase-29"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/mcp-catalog-filtering", response_model=ResultEnvelope)
+def get_api_runtime_mcp_catalog_filtering() -> ResultEnvelope:
+    read_model = build_runtime_mcp_catalog_filtering_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_mcp_catalog_filtering",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-mcp-catalog-filtering:phase-30"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/background-jobs", response_model=ResultEnvelope)
+def get_api_runtime_background_jobs() -> ResultEnvelope:
+    read_model = build_runtime_background_jobs_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_background_jobs",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-background-jobs:phase-31"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/subagent-isolation", response_model=ResultEnvelope)
+def get_api_runtime_subagent_isolation() -> ResultEnvelope:
+    read_model = build_runtime_subagent_isolation_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_subagent_isolation",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-subagent-isolation:phase-32"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/worktree-per-agent", response_model=ResultEnvelope)
+def get_api_runtime_worktree_per_agent() -> ResultEnvelope:
+    read_model = build_runtime_worktree_per_agent_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_worktree_per_agent",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-worktree-per-agent:phase-33"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/lsp-diagnostics", response_model=ResultEnvelope)
+def get_api_runtime_lsp_diagnostics() -> ResultEnvelope:
+    read_model = build_runtime_lsp_diagnostics_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_lsp_diagnostics",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-lsp-diagnostics:phase-34"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/preview-rail", response_model=ResultEnvelope)
+def get_api_runtime_preview_rail() -> ResultEnvelope:
+    read_model = build_runtime_preview_rail_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_preview_rail",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-preview-rail:phase-35"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/slash-command-registry", response_model=ResultEnvelope)
+def get_api_runtime_slash_command_registry() -> ResultEnvelope:
+    read_model = build_runtime_slash_command_registry_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_slash_command_registry",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-slash-command-registry:phase-36"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/interrupt-redirect", response_model=ResultEnvelope)
+def get_api_runtime_interrupt_redirect() -> ResultEnvelope:
+    read_model = build_runtime_interrupt_redirect_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_interrupt_redirect",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-interrupt-redirect:phase-37"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/logging-profile", response_model=ResultEnvelope)
+def get_api_runtime_logging_profile() -> ResultEnvelope:
+    read_model = build_runtime_logging_profile_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_logging_profile",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-logging-profile:phase-38"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/result-classification", response_model=ResultEnvelope)
+def get_api_runtime_result_classification() -> ResultEnvelope:
+    read_model = build_runtime_result_classification_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_result_classification",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-result-classification:phase-39"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/session-search", response_model=ResultEnvelope)
+def get_api_runtime_session_search(
+    query_ref: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=25),
+) -> ResultEnvelope:
+    try:
+        read_model = build_runtime_session_search_read_model(
+            query_ref=query_ref,
+            limit=limit,
+        )
+    except ValueError as exc:
+        return ResultEnvelope(
+            success=False,
+            operation="api_runtime_session_search",
+            service="GovernedRuntimeAPI",
+            trace_id="query-ref:runtime-session-search:invalid",
+            error=ErrorEnvelope(
+                code="RUNTIME_SESSION_SEARCH_REF_DENIED",
+                category=ErrorCategory.validation_error,
+                safe_message="Session search accepts safe query refs only.",
+                severity=Severity.medium,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+                metadata={"reason_ref": str(exc) or "invalid_query_ref"},
+            ),
+            redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
+        )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_session_search",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-session-search:phase-12"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/session-lineage", response_model=ResultEnvelope)
+def get_api_runtime_session_lineage() -> ResultEnvelope:
+    read_model = build_runtime_session_lineage_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_session_lineage",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-session-lineage:phase-19"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/context-references", response_model=ResultEnvelope)
+def get_api_runtime_context_references() -> ResultEnvelope:
+    read_model = build_runtime_context_references_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_context_references",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.preview_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-context-references:phase-16"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/checkpoint-rollback", response_model=ResultEnvelope)
+def get_api_runtime_checkpoint_rollback() -> ResultEnvelope:
+    read_model = build_runtime_checkpoint_rollback_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_checkpoint_rollback",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:checkpoint-rollback:phase-18"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/run-events", response_model=ResultEnvelope)
+def get_api_runtime_run_events() -> ResultEnvelope:
+    read_model = build_runtime_run_events_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_run_events",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.contract_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-run-events:phase-03"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/approval-bridge", response_model=ResultEnvelope)
+def get_api_runtime_approval_bridge() -> ResultEnvelope:
+    read_model = build_runtime_approval_bridge_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_approval_bridge",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.contract_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-approval-bridge:phase-04"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/streaming-progress", response_model=ResultEnvelope)
+def get_api_runtime_streaming_progress() -> ResultEnvelope:
+    read_model = build_runtime_streaming_progress_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_streaming_progress",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.contract_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-streaming-progress:phase-05"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/profiles", response_model=ResultEnvelope)
+def get_api_runtime_profiles() -> ResultEnvelope:
+    read_model = build_runtime_profile_isolation_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_profiles",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.contract_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-profiles:phase-06"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
 @router.get("/staged-orchestration", response_model=ResultEnvelope)
 def get_api_runtime_staged_orchestration() -> ResultEnvelope:
     read_model = build_sample_staged_orchestration_read_model()
@@ -268,8 +758,12 @@ def get_api_runtime_invocations() -> ResultEnvelope:
 @router.post("/local-model/call", response_model=ResultEnvelope)
 def post_api_runtime_local_model_call(
     request: RuntimeLocalModelCallRequest,
-    x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
-    x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
     try:
@@ -297,7 +791,8 @@ def post_api_runtime_local_model_call(
     receipt = result.record.receipt
     metadata = receipt.model_receipt_metadata if receipt else None
     return ResultEnvelope(
-        success=result.error_category is None and result.record.status == "receipt_recorded",
+        success=result.error_category is None
+        and result.record.status == "receipt_recorded",
         operation="api_runtime_local_model_call",
         service="GovernedRuntimeAPI",
         trace_id=result.record.invocation_ref,
@@ -346,8 +841,12 @@ def post_api_runtime_local_model_call(
 @router.post("/command/run", response_model=ResultEnvelope)
 def post_api_runtime_command_run(
     request: RuntimeCommandExecutionRequest,
-    x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
-    x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
     try:
@@ -432,14 +931,20 @@ def post_api_runtime_command_run(
 @router.post("/invocations", response_model=ResultEnvelope)
 def post_api_runtime_invocations(
     request: RuntimeInvocationRequest,
-    x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
-    x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
 ) -> ResultEnvelope:
     store = _runtime_store()
     try:
         result = store.create_invocation(
             request,
-            idempotency_ref=_idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref),
+            idempotency_ref=_idempotency_ref(
+                x_uaa_idempotency_key, x_uaa_idempotency_ref
+            ),
         )
     except RuntimeInvocationConflictError:
         return ResultEnvelope(
@@ -469,7 +974,9 @@ def post_api_runtime_invocations(
             "execution_performed": False,
             "adapter_execution_enabled": False,
         },
-        evidence=[{"evidence_ref": "evidence-ref:governed-runtime-invocation-recorded"}],
+        evidence=[
+            {"evidence_ref": "evidence-ref:governed-runtime-invocation-recorded"}
+        ],
         redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
     )
 
@@ -502,7 +1009,9 @@ def get_api_runtime_invocations_id_receipt(id: str) -> ResultEnvelope:
         service="GovernedRuntimeAPI",
         trace_id=record.invocation_ref,
         data={
-            "receipt": record.receipt.model_dump(mode="json") if record.receipt else None,
+            "receipt": record.receipt.model_dump(mode="json")
+            if record.receipt
+            else None,
             "receipt_available": record.receipt is not None,
             **_runtime_action_signed_evidence_payload(record),
             "execution_performed": bool(
@@ -524,14 +1033,20 @@ def get_api_runtime_invocations_id_receipt(id: str) -> ResultEnvelope:
 def post_api_runtime_invocations_id_approve(
     id: str,
     request: RuntimeApprovalBindingRequest,
-    x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
-    x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
 ) -> ResultEnvelope:
     try:
         record = _runtime_store().bind_approval(
             id,
             request,
-            idempotency_ref=_idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref),
+            idempotency_ref=_idempotency_ref(
+                x_uaa_idempotency_key, x_uaa_idempotency_ref
+            ),
         )
     except RuntimeInvocationNotFoundError:
         return _not_found("api_runtime_invocation_approve", id)
@@ -594,8 +1109,12 @@ def post_api_runtime_invocations_id_approve(
 def post_api_runtime_invocations_id_execute(
     id: str,
     request: RuntimeExecuteRequest,
-    x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
-    x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
     if request.command_request is not None:
@@ -697,7 +1216,9 @@ def post_api_runtime_invocations_id_execute(
                     "production_authority",
                 ],
             },
-            evidence=[{"evidence_ref": "evidence-ref:governed-runtime-action-inbox-execute"}],
+            evidence=[
+                {"evidence_ref": "evidence-ref:governed-runtime-action-inbox-execute"}
+            ],
             redactions_applied=[
                 *GOVERNED_RUNTIME_REDACTIONS,
                 "raw_command_output_not_persisted",
@@ -749,13 +1270,19 @@ def post_api_runtime_invocations_id_execute(
 @router.post("/safe-disable", response_model=ResultEnvelope)
 def post_api_runtime_safe_disable(
     request: RuntimeSafeDisableRequest,
-    x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
-    x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
 ) -> ResultEnvelope:
     try:
         state = _runtime_store().safe_disable(
             request,
-            idempotency_ref=_idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref),
+            idempotency_ref=_idempotency_ref(
+                x_uaa_idempotency_key, x_uaa_idempotency_ref
+            ),
         )
     except RuntimeInvocationConflictError:
         return ResultEnvelope(

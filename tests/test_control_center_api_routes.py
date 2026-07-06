@@ -708,6 +708,20 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/integrations/mattermost/events/message" in paths
     assert "/control-center/actions/{action_id}/local-task/commit" in paths
     assert "/control-center/sources/readiness" in paths
+    assert "/api/runtime/usage-cost-analytics" in paths
+    assert "/api/runtime/prompt-stability-tiers" in paths
+    assert "/api/runtime/context-budget-pressure" in paths
+    assert "/api/runtime/hardline-command-blocklist" in paths
+    assert "/api/runtime/managed-scope-policy" in paths
+    assert "/api/runtime/doctor-diagnostics" in paths
+    assert "/api/runtime/session-continuity" in paths
+    assert "/api/runtime/mcp-catalog-filtering" in paths
+    assert "/api/runtime/background-jobs" in paths
+    assert "/api/runtime/subagent-isolation" in paths
+    assert "/api/runtime/worktree-per-agent" in paths
+    assert "/api/runtime/lsp-diagnostics" in paths
+    assert "/api/runtime/preview-rail" in paths
+    assert "/api/runtime/slash-command-registry" in paths
     assert len(paths) == EXPECTED_OPENAPI_PATH_COUNT
     assert len(operation_ids) == len(set(operation_ids)) == EXPECTED_ROUTE_COUNT
 

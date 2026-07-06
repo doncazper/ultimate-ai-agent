@@ -429,6 +429,7 @@ export interface CodingCockpitSessionReadModel {
   full_strength_goal: string;
   repo_safe_scope: string;
   authority_modes: CodingCockpitAuthorityMode[];
+  project_model: CodingProjectModelReadModel;
   workspace_context: CodingCockpitPreviewPanel;
   task_thread: CodingCockpitPreviewPanel;
   task_timeline: CodingCockpitPreviewPanel;
@@ -450,6 +451,94 @@ export interface CodingCockpitSessionReadModel {
   provider_model_call_enabled: boolean;
   browser_automation_enabled: boolean;
   connector_write_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export type CodingProjectCapabilityKind =
+  | "workspace"
+  | "repo"
+  | "lane"
+  | "branch"
+  | "worktree"
+  | "files"
+  | "diffs"
+  | "tests"
+  | "preview"
+  | "terminal"
+  | "git"
+  | "proof";
+
+export type CodingProjectCapabilityState =
+  | "read_only"
+  | "proposal_only"
+  | "blocked"
+  | "planned";
+
+export interface CodingProjectCapabilityReadModel {
+  capability_ref: string;
+  label: string;
+  capability_kind: CodingProjectCapabilityKind;
+  state: CodingProjectCapabilityState;
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  file_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  git_mutation_enabled: boolean;
+  browser_automation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  background_autonomy_enabled: boolean;
+}
+
+export interface CodingProjectModelReadModel {
+  schema_version: "uaa-coding-project-model.v1";
+  project_model_ref: string;
+  session_ref: string;
+  workspace_ref: string;
+  repo_scope_ref: string;
+  branch_ref: string;
+  worktree_ref: string;
+  lane_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  status: "read_only_project_posture";
+  project_label: string;
+  repo_label: string;
+  branch_label: string;
+  worktree_label: string;
+  full_strength_goal: string;
+  repo_safe_current_state: string;
+  safe_summary: string;
+  capabilities: CodingProjectCapabilityReadModel[];
+  capability_refs: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  safe_refs_only: boolean;
+  raw_paths_included: boolean;
+  raw_content_included: boolean;
+  repo_file_read_performed: boolean;
+  project_scan_performed: boolean;
+  file_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  git_status_execution_enabled: boolean;
+  git_mutation_enabled: boolean;
+  dev_server_control_enabled: boolean;
+  browser_preview_enabled: boolean;
+  browser_automation_enabled: boolean;
+  provider_model_call_enabled: boolean;
   background_autonomy_enabled: boolean;
   production_authority_enabled: boolean;
 }
@@ -3393,6 +3482,99 @@ export interface FounderLoopMemorySearchIndexStatus {
   algebraic_retrieval_enabled: boolean;
 }
 
+export interface FounderLoopMemoryBoundedPosture {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  proof_ref: string;
+  status: string;
+  source: string;
+  backend_owned: boolean;
+  control_center_presentation_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  target_posture: {
+    supported_target_kinds: string[];
+    target_refs: string[];
+    target_ref_count: number;
+    operator_selected_context_required: boolean;
+    automatic_context_injection_authorized: boolean;
+    hidden_context_injection_authorized: boolean;
+  };
+  capacity_posture: {
+    visible_item_count: number;
+    candidate_count: number;
+    context_pack_count: number;
+    max_visible_items: number;
+    max_provenance_refs: number;
+    token_estimate: number;
+    token_budget_state: string;
+    search_index_status: FounderLoopMemorySearchIndexStatus;
+  };
+  source_posture: {
+    source_refs: string[];
+    source_ref_count: number;
+    provenance_refs: string[];
+    provenance_ref_count: number;
+    evidence_refs: string[];
+    evidence_ref_count: number;
+    receipt_refs: string[];
+    receipt_ref_count: number;
+    safe_summary_only: boolean;
+    source_refs_required: boolean;
+  };
+  staleness_posture: {
+    stale_count: number;
+    stale_item_refs: string[];
+    stale_state_refs: string[];
+    recheck_required_before_recall: boolean;
+  };
+  why_shown_posture: {
+    why_shown_required: boolean;
+    why_shown_refs: string[];
+    included_reason_refs: string[];
+    quality_state_refs: string[];
+  };
+  quality_review_posture: {
+    review_required_before_recall: boolean;
+    correction_supported: boolean;
+    rejection_supported: boolean;
+    correction_receipt_refs: string[];
+    rejection_receipt_refs: string[];
+    accepted_receipt_refs: string[];
+    receipt_backed_decision_kinds: MemoryReviewDecisionKind[];
+    reviewed_recall_write_scope_ref: string;
+    memory_write_requires_review_receipt: boolean;
+    rollback_posture: string;
+  };
+  context_pack_posture: {
+    context_pack_refs: string[];
+    proposal_count: number;
+    context_pack_preview_only: boolean;
+    prompt_context_written: boolean;
+    context_injection_authorized: boolean;
+    hidden_prompt_context_authorized: boolean;
+  };
+  automatic_memory_write_authorized: boolean;
+  autonomous_memory_write_authorized: boolean;
+  hidden_prompt_injection_authorized: boolean;
+  external_memory_provider_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  memory_truth_authority: boolean;
+  semantic_provider_enabled: boolean;
+  vector_db_enabled: boolean;
+  embedding_search_enabled: boolean;
+  model_provider_call_authorized: boolean;
+  live_web_fetch_authorized: boolean;
+  connector_write_authorized: boolean;
+  delete_export_execution_authorized: boolean;
+  background_autonomy_authorized: boolean;
+  production_authority_enabled: boolean;
+  blocked_state_refs: string[];
+  next_safe_action: string;
+}
+
 export interface FounderLoopMemoryHrrReadiness {
   schema_version: string;
   contract_ref: string;
@@ -3526,6 +3708,7 @@ export interface FounderLoopMemoryWorkbench {
   health: FounderLoopMemoryWorkbenchHealth;
   lifecycle_posture?: FounderLoopMemoryLifecyclePosture;
   learning_posture?: FounderLoopMemoryLearningPosture;
+  bounded_memory_posture?: FounderLoopMemoryBoundedPosture;
   decision_receipts: MemoryReviewDecisionReceipt[];
   l1_preview_refs: string[];
   l2_projection_refs: string[];
@@ -3556,6 +3739,8 @@ export interface FounderLoopMemoryReview {
   workbench_contract_ref?: string;
   workbench_health?: FounderLoopMemoryWorkbenchHealth;
   workbench_groups?: FounderLoopMemoryWorkbenchGroup[];
+  bounded_memory_posture_contract_ref?: string;
+  bounded_memory_posture?: FounderLoopMemoryBoundedPosture;
   evidence_memory_loop_binding_contract_ref?: string;
   evidence_memory_loop_binding_read_model?: FounderLoopEvidenceMemoryLoopBindingReadModel;
   decision_route_refs: string[];
@@ -7679,6 +7864,11 @@ export interface PluginGovernanceSummary {
   status: string;
   plugin_enablement_allowed: boolean;
   native_build_tools_enabled: boolean;
+  skill_bundle_proposal_status: string;
+  skill_bundle_proposal_count: number;
+  skill_bundle_proposal_refs: string[];
+  skill_bundle_activation_enabled: boolean;
+  skill_bundle_tool_execution_enabled: boolean;
 }
 
 export type ProviderCredentialReadinessPosture =
@@ -8500,6 +8690,153 @@ export interface ModelProviderResearchPosture {
   broad_autonomy_enabled: boolean;
 }
 
+export interface DelegatedRuntimeModelAvailabilityRecord {
+  runtime_ref: string;
+  runtime_profile_ref: string;
+  delegated_runtime_profile_ref: string;
+  provider_ref: string;
+  model_ref: string;
+  display_label: string;
+  runtime_availability_status:
+    | "runtime_reports_available"
+    | "runtime_reports_planned"
+    | "local_gateway_metadata_available";
+  uaa_invocation_posture:
+    | "blocked_no_exact_invocation_lane"
+    | "blocked_profile_not_configured"
+    | "metadata_only_existing_lane_separate";
+  cost_metadata_status:
+    | "static_cost_metadata_only"
+    | "local_hardware_cost_posture_only"
+    | "cost_unknown_blocks_use";
+  latency_metadata_status:
+    | "static_latency_label_only"
+    | "local_gateway_readiness_only"
+    | "latency_unknown_blocks_use";
+  source_ref: string;
+  cost_posture_ref: string;
+  latency_posture_ref: string;
+  runtime_reported_available: boolean;
+  uaa_invocation_allowed: boolean;
+  provider_sdk_call_enabled: boolean;
+  live_provider_discovery_performed: boolean;
+  live_provider_network_call_performed: boolean;
+  credential_collection_enabled: boolean;
+  credential_material_visible: boolean;
+  billing_authority_granted: boolean;
+  model_output_authority_enabled: boolean;
+  raw_provider_payload_persisted: boolean;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+}
+
+export interface DelegatedRuntimeModelCatalogPosture {
+  schema_version: "delegated_runtime_model_catalog.v1";
+  contract_ref: string;
+  status: "read_only_runtime_model_availability";
+  route_ref: "GET /control-center/providers/runtime-control-plane";
+  cli_ref: string;
+  runtime_profiles_route_ref: string;
+  provider_catalog_ref: string;
+  model_count: number;
+  runtime_profile_count: number;
+  runtime_reported_available_count: number;
+  uaa_authorized_model_count: number;
+  records: DelegatedRuntimeModelAvailabilityRecord[];
+  runtime_says_available_is_not_authority: boolean;
+  uaa_may_invoke_any_listed_model: boolean;
+  static_cost_metadata_only: boolean;
+  static_latency_metadata_only: boolean;
+  live_provider_discovery_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  remote_model_call_enabled: boolean;
+  credential_collection_enabled: boolean;
+  billing_authority_granted: boolean;
+  model_output_authority_enabled: boolean;
+  proof_refs: string[];
+  docs_refs: string[];
+  verifier_refs: string[];
+  blocked_authority_refs: string[];
+  safe_summary: string;
+}
+
+export interface ModelSlotPostureRecord {
+  slot_ref: string;
+  slot_role:
+    | "main_thinking"
+    | "summarization"
+    | "title"
+    | "approval_scoring"
+    | "compression"
+    | "retrieval"
+    | "vision"
+    | "review";
+  display_label: string;
+  intended_provider_ref: string;
+  intended_model_ref: string;
+  source_profile_ref: string;
+  delegated_runtime_profile_ref: string;
+  configured_status:
+    | "configured_metadata_only"
+    | "planned_not_configured"
+    | "runtime_reported_available_not_authorized";
+  uaa_execution_posture:
+    | "blocked_no_exact_model_authority"
+    | "blocked_missing_runtime_profile"
+    | "metadata_only_existing_lane_separate";
+  provider_readiness_ref: string;
+  cost_posture_ref: string;
+  latency_posture_ref: string;
+  route_decision_trace_ref: string;
+  model_output_truth_ref: string;
+  warning_refs: string[];
+  blocked_authority_refs: string[];
+  live_auxiliary_call_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  runtime_selection_mutation_enabled: boolean;
+  hidden_model_routing_enabled: boolean;
+  route_decision_trace_required: boolean;
+  cost_estimate_required: boolean;
+  approval_profile_mapping_required: boolean;
+  model_output_truth_envelope_required: boolean;
+  receipt_required_before_execution: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  safe_summary: string;
+}
+
+export interface ModelSlotPostureReadModel {
+  schema_version: "hermes_runtime_model_slot_posture.v1";
+  contract_ref: string;
+  status: "read_only_model_slot_intent";
+  route_ref: "GET /control-center/providers/runtime-control-plane";
+  cli_ref: string;
+  trust_lane_ref: string;
+  provider_readiness_ref: string;
+  delegated_model_catalog_ref: string;
+  slot_count: number;
+  warning_count: number;
+  records: ModelSlotPostureRecord[];
+  main_slot_ref: string;
+  auxiliary_slot_refs: string[];
+  live_auxiliary_calls_enabled: boolean;
+  provider_sdk_use_enabled: boolean;
+  runtime_selection_mutation_enabled: boolean;
+  hidden_model_routing_enabled: boolean;
+  raw_prompt_persistence_enabled: boolean;
+  raw_response_persistence_enabled: boolean;
+  route_decision_trace_required: boolean;
+  cost_estimate_required: boolean;
+  approval_profile_mapping_required: boolean;
+  model_output_truth_envelope_required: boolean;
+  receipts_required_before_execution: boolean;
+  proof_refs: string[];
+  docs_refs: string[];
+  verifier_refs: string[];
+  blocked_authority_refs: string[];
+  safe_summary: string;
+}
+
 export interface ModelProviderControlPlaneReadModel {
   schema_version: "model_provider_control_plane.v1";
   contract_ref: string;
@@ -8517,6 +8854,8 @@ export interface ModelProviderControlPlaneReadModel {
   cost_hooks: ProviderCostHookPosture;
   local_llama_cpp_lifecycle: LocalLlamaCppLifecyclePosture;
   router_traces: ModelRouterTracePosture[];
+  delegated_runtime_model_catalog: DelegatedRuntimeModelCatalogPosture;
+  model_slot_posture: ModelSlotPostureReadModel;
   model_provider_research_posture: ModelProviderResearchPosture;
   credential_readiness_ref: string;
   provider_catalog_ref: string;
@@ -8677,6 +9016,2207 @@ export interface RuntimeCapabilityMatrix {
   baseline_version: string;
   entries: RuntimeCapabilityEntry[];
   metadata: Record<string, boolean | string | number>;
+}
+
+export interface RuntimeDelegationEndpointPosture {
+  endpoint_ref: string;
+  endpoint_configured: boolean;
+  endpoint_loopback_or_approved_network_required: boolean;
+  live_transport_enabled: boolean;
+  credential_ref: string;
+  credential_material_exposed: boolean;
+  network_policy_ref: string;
+  safe_summary: string;
+}
+
+export interface RuntimeDelegationAdapterReadModel {
+  schema_version: "runtime_delegation_adapter.v1";
+  contract_ref: string;
+  adapter_ref: string;
+  runtime_identity_ref: string;
+  runtime_label: string;
+  runtime_kind: string;
+  authority_mode: string;
+  status: string;
+  endpoint_posture: RuntimeDelegationEndpointPosture;
+  capability_refs: string[];
+  health_refs: string[];
+  proof_refs: string[];
+  blocked_reason_refs: string[];
+  next_safe_action_refs: string[];
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  uaa_controls_authority: boolean;
+  runtime_provides_capability_only: boolean;
+  control_center_talks_directly_to_runtime: boolean;
+  live_run_submission_enabled: boolean;
+  runtime_model_calls_enabled: boolean;
+  provider_sdk_calls_enabled: boolean;
+  tool_execution_enabled: boolean;
+  shell_execution_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+  safe_refs_only: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  raw_provider_payload_persisted: boolean;
+  raw_log_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  credential_material_persisted: boolean;
+  safe_summary: string;
+  redactions_applied: string[];
+}
+
+export interface RuntimeDiscoveredCapabilityGroup {
+  group_ref: string;
+  group_kind:
+    | "models"
+    | "runs"
+    | "events"
+    | "approvals"
+    | "sessions"
+    | "skills"
+    | "toolsets"
+    | "jobs"
+    | "blocked_actions";
+  runtime_support_status:
+    | "reference_only_unverified"
+    | "unknown_unreachable"
+    | "planned_disabled"
+    | "blocked_by_uaa";
+  uaa_authorization_status:
+    | "read_model_only"
+    | "blocked"
+    | "approval_required_future_lane";
+  runtime_supported_by_reference: boolean;
+  uaa_authorized_for_execution: boolean;
+  stale_or_unreachable_degrades_to_blocked: boolean;
+  trust_label: string;
+  safe_summary: string;
+  capability_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+}
+
+export interface RuntimeToolsetCapabilityRecord {
+  toolset_ref: string;
+  display_label: string;
+  runtime_ref: string;
+  profile_ref: string;
+  runtime_support_status:
+    | "runtime_supported_by_reference"
+    | "runtime_configured_metadata_only"
+    | "runtime_planned_disabled"
+    | "runtime_unsupported"
+    | "runtime_blocked_by_uaa";
+  uaa_allowance_status:
+    | "enabled_read_only"
+    | "configured_metadata_only"
+    | "approval_required_future_lane"
+    | "blocked"
+    | "unsupported";
+  side_effect_class:
+    | "read_only_metadata"
+    | "local_workspace"
+    | "external_mutation"
+    | "high_authority"
+    | "unsupported";
+  authority_mode_ref: string;
+  approval_scope_ref: string;
+  safe_disable_ref: string;
+  receipt_ref: string;
+  verifier_ref: string;
+  safe_summary: string;
+  runtime_supports_toolset: boolean;
+  uaa_allows_execution: boolean;
+  tool_invocation_enabled: boolean;
+  toolset_config_mutation_enabled: boolean;
+  hermes_toolset_enablement_enabled: boolean;
+  raw_tool_payload_persisted: boolean;
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+}
+
+export interface RuntimeToolsetCapabilityPosture {
+  schema_version: "runtime_toolset_capability_posture.v1";
+  contract_ref: string;
+  status: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  authority_profile_ref: string;
+  safe_summary: string;
+  records: RuntimeToolsetCapabilityRecord[];
+  toolset_count: number;
+  runtime_supported_count: number;
+  uaa_allowed_execution_count: number;
+  enabled_read_only_count: number;
+  configured_metadata_only_count: number;
+  approval_required_future_count: number;
+  blocked_count: number;
+  unsupported_count: number;
+  live_tool_invocation_enabled: boolean;
+  toolset_config_mutation_enabled: boolean;
+  hermes_toolset_enablement_enabled: boolean;
+  raw_tool_payload_persisted: boolean;
+  production_authority_enabled: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+}
+
+export interface RuntimeToolRegistryEntry {
+  tool_ref: string;
+  tool_id: string;
+  display_label: string;
+  origin:
+    | "uaa_native"
+    | "hermes_reference"
+    | "codex_reference"
+    | "claude_reference"
+    | "mcp_reference"
+    | "future_runtime_reference";
+  runtime_ref: string;
+  toolset_ref: string;
+  availability_status:
+    | "available_metadata_only"
+    | "configured_disabled"
+    | "approval_required_future_lane"
+    | "blocked"
+    | "unsupported";
+  configured_status:
+    | "configured_metadata_only"
+    | "configured_disabled"
+    | "unconfigured"
+    | "blocked_by_policy"
+    | "unsupported";
+  authority_class:
+    | "validation_only"
+    | "preview_only"
+    | "approval_required_future_lane"
+    | "blocked_high_authority"
+    | "unsupported";
+  target_kind: string;
+  side_effect_class: string;
+  risk_class: string;
+  approval_requirement: string;
+  safe_summary: string;
+  uaa_native_catalog_entry: boolean;
+  runtime_supported_by_reference: boolean;
+  uaa_available_for_preview: boolean;
+  uaa_allows_invocation: boolean;
+  execution_enabled: boolean;
+  remote_discovery_performed: boolean;
+  live_web_fetch_performed: boolean;
+  provider_model_call_performed: boolean;
+  plugin_import_enabled: boolean;
+  connector_write_activation_enabled: boolean;
+  raw_tool_payload_persisted: boolean;
+  approval_scope_ref: string;
+  safe_disable_ref: string;
+  receipt_plan_ref: string;
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+}
+
+export interface RuntimeToolRegistryAvailabilityReadModel {
+  schema_version: "runtime_tool_registry_availability.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  capability_discovery_route_ref: string;
+  safe_summary: string;
+  entries: RuntimeToolRegistryEntry[];
+  tool_count: number;
+  uaa_native_count: number;
+  delegated_reference_count: number;
+  available_metadata_only_count: number;
+  configured_disabled_count: number;
+  approval_required_future_count: number;
+  blocked_count: number;
+  unsupported_count: number;
+  invocation_enabled_count: number;
+  preview_available_count: number;
+  tool_invocation_enabled: boolean;
+  remote_discovery_enabled: boolean;
+  live_web_fetch_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  plugin_import_enabled: boolean;
+  connector_write_activation_enabled: boolean;
+  raw_tool_payload_persisted: boolean;
+  production_authority_enabled: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeVirtualAgentRole =
+  | "codex_implementer"
+  | "claude_reviewer"
+  | "hermes_researcher"
+  | "local_verifier"
+  | "uaa_supervisor"
+  | "security_reviewer";
+
+export type RuntimeVirtualProviderPresetStatus =
+  | "metadata_only"
+  | "readiness_only"
+  | "blocked_requires_authority";
+
+export interface RuntimeVirtualAgentSlot {
+  slot_ref: string;
+  display_label: string;
+  role: RuntimeVirtualAgentRole;
+  runtime_ref: string;
+  provider_ref: string;
+  model_ref: string;
+  authority_profile_ref: string;
+  route_decision_trace_ref: string;
+  cost_estimate_ref: string;
+  output_envelope_ref: string;
+  comparison_proof_ref: string;
+  safe_disable_ref: string;
+  safe_summary: string;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  configured_for_live_call: boolean;
+  provider_sdk_call_enabled: boolean;
+  external_runtime_dispatch_enabled: boolean;
+  hidden_advisor_prompt_enabled: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  output_authoritative: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface RuntimeVirtualProviderPreset {
+  preset_ref: string;
+  display_label: string;
+  status: RuntimeVirtualProviderPresetStatus;
+  safe_summary: string;
+  approval_mode_ref: string;
+  route_decision_trace_ref: string;
+  cost_estimate_ref: string;
+  comparison_proof_ref: string;
+  safe_disable_ref: string;
+  slots: RuntimeVirtualAgentSlot[];
+  slot_count: number;
+  proof_refs: string[];
+  evidence_refs: string[];
+  verifier_refs: string[];
+  blocked_authority_refs: string[];
+  per_agent_output_envelopes_required: boolean;
+  comparison_proof_required: boolean;
+  live_model_fanout_enabled: boolean;
+  provider_sdk_enabled: boolean;
+  external_runtime_dispatch_enabled: boolean;
+  hidden_advisor_prompts_enabled: boolean;
+  raw_prompt_persistence_enabled: boolean;
+  raw_response_persistence_enabled: boolean;
+  output_authority_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface RuntimeVirtualProviderMoaReadModel {
+  schema_version: "runtime_virtual_provider_moa.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  presets: RuntimeVirtualProviderPreset[];
+  preset_count: number;
+  agent_slot_count: number;
+  ready_preset_count: number;
+  blocked_preset_count: number;
+  live_model_fanout_enabled: boolean;
+  provider_sdk_enabled: boolean;
+  external_runtime_dispatch_enabled: boolean;
+  hidden_advisor_prompts_enabled: boolean;
+  raw_prompt_persistence_enabled: boolean;
+  raw_response_persistence_enabled: boolean;
+  output_authority_enabled: boolean;
+  production_authority_enabled: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeUsageAccountingSource =
+  | "manual_diagnostic_receipt"
+  | "runtime_receipt_metadata"
+  | "provider_catalog_reference"
+  | "delegated_runtime_future";
+
+export type RuntimeUsageAccountingStatus =
+  | "recorded_diagnostic"
+  | "read_only_estimate"
+  | "blocked_missing_authority";
+
+export interface RuntimeUsageCostRecord {
+  record_ref: string;
+  display_label: string;
+  source_kind: RuntimeUsageAccountingSource;
+  status: RuntimeUsageAccountingStatus;
+  runtime_ref: string;
+  provider_ref: string;
+  model_ref: string;
+  task_value_ref: string;
+  receipt_ref: string;
+  cost_estimate_ref: string;
+  safe_summary: string;
+  estimated_input_tokens: number;
+  estimated_output_tokens: number;
+  estimated_total_tokens: number;
+  latency_ms: number;
+  estimated_cost_minor_units: number;
+  currency_ref: string;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  provider_call_performed: boolean;
+  provider_sdk_call_performed: boolean;
+  billing_action_performed: boolean;
+  live_price_fetch_performed: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  provider_payload_persisted: boolean;
+  output_authoritative: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface RuntimeUsageCostAnalyticsReadModel {
+  schema_version: "runtime_usage_cost_analytics.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  records: RuntimeUsageCostRecord[];
+  record_count: number;
+  manual_diagnostic_receipt_count: number;
+  runtime_receipt_record_count: number;
+  provider_catalog_reference_count: number;
+  blocked_record_count: number;
+  total_estimated_input_tokens: number;
+  total_estimated_output_tokens: number;
+  total_estimated_tokens: number;
+  total_latency_ms: number;
+  total_estimated_cost_minor_units: number;
+  currency_ref: string;
+  operator_export_available: boolean;
+  billing_action_enabled: boolean;
+  provider_call_enabled: boolean;
+  provider_sdk_enabled: boolean;
+  live_price_fetch_enabled: boolean;
+  raw_prompt_persistence_enabled: boolean;
+  raw_response_persistence_enabled: boolean;
+  provider_payload_persistence_enabled: boolean;
+  output_authority_enabled: boolean;
+  production_authority_enabled: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimePromptStabilityTierKind =
+  | "stable_identity_policy"
+  | "durable_context_refs"
+  | "retrieval_refs"
+  | "volatile_runtime_state"
+  | "operator_turn_ref";
+
+export type RuntimePromptStabilityClass =
+  | "stable_cache_candidate"
+  | "semi_stable_ref_set"
+  | "volatile_no_cache"
+  | "operator_scoped_no_cache";
+
+export interface RuntimePromptStabilityTier {
+  tier_ref: string;
+  display_label: string;
+  tier_kind: RuntimePromptStabilityTierKind;
+  stability_class: RuntimePromptStabilityClass;
+  manifest_ref: string;
+  tier_hash_ref: string;
+  cache_policy_ref: string;
+  proof_ref: string;
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  cache_candidate: boolean;
+  cache_write_enabled: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  provider_payload_persisted: boolean;
+  hidden_prompt_injection_enabled: boolean;
+  context_injection_enabled: boolean;
+  model_call_performed: boolean;
+  provider_sdk_call_performed: boolean;
+  model_output_authoritative: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface RuntimePromptStabilityTiersReadModel {
+  schema_version: "runtime_prompt_stability_tiers.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  tiers: RuntimePromptStabilityTier[];
+  tier_count: number;
+  stable_cache_candidate_count: number;
+  semi_stable_ref_set_count: number;
+  volatile_no_cache_count: number;
+  operator_scoped_no_cache_count: number;
+  safe_prompt_manifest_required: boolean;
+  prompt_hashes_required: boolean;
+  redacted_receipt_required: boolean;
+  proof_link_required: boolean;
+  raw_prompt_persistence_enabled: boolean;
+  raw_response_persistence_enabled: boolean;
+  provider_payload_persistence_enabled: boolean;
+  hidden_prompt_injection_enabled: boolean;
+  context_injection_enabled: boolean;
+  model_call_enabled: boolean;
+  provider_sdk_enabled: boolean;
+  model_output_authority_enabled: boolean;
+  cache_write_enabled: boolean;
+  production_authority_enabled: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeContextBudgetPressureLevel =
+  | "within_budget"
+  | "warning"
+  | "critical"
+  | "blocked";
+
+export type RuntimeContextBudgetProposalKind =
+  | "trim_context_refs"
+  | "request_operator_choice"
+  | "summarize_with_approval"
+  | "defer_context";
+
+export interface RuntimeContextBudgetSegment {
+  segment_ref: string;
+  display_label: string;
+  source_ref: string;
+  source_route_ref: string;
+  budget_bucket_ref: string;
+  pressure_level: RuntimeContextBudgetPressureLevel;
+  safe_summary: string;
+  token_estimate: number;
+  token_budget_limit: number;
+  token_budget_remaining: number;
+  warning_refs: string[];
+  proposal_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  hidden_compression_enabled: boolean;
+  automatic_context_mutation_enabled: boolean;
+  model_summarization_call_performed: boolean;
+  summary_receipt_created: boolean;
+  raw_context_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  provider_payload_persisted: boolean;
+  context_injection_performed: boolean;
+  provider_sdk_call_performed: boolean;
+  cache_write_performed: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface RuntimeContextBudgetProposal {
+  proposal_ref: string;
+  proposal_kind: RuntimeContextBudgetProposalKind;
+  target_segment_ref: string;
+  display_label: string;
+  safe_summary: string;
+  expected_token_delta: number;
+  approval_required: boolean;
+  source_coverage_required: boolean;
+  retrieval_log_required: boolean;
+  summary_receipt_required: boolean;
+  source_refs: string[];
+  retrieval_log_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  auto_applied: boolean;
+  hidden_compression_performed: boolean;
+  automatic_context_mutation_performed: boolean;
+  model_summarization_call_performed: boolean;
+  summary_receipt_created: boolean;
+  raw_context_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  provider_payload_persisted: boolean;
+  context_injection_performed: boolean;
+  provider_sdk_call_performed: boolean;
+  cache_write_performed: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface RuntimeContextBudgetPressureReadModel {
+  schema_version: "runtime_context_budget_pressure.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  pressure_level: RuntimeContextBudgetPressureLevel;
+  token_budget_limit: number;
+  estimated_token_count: number;
+  token_budget_remaining: number;
+  pressure_ratio: number;
+  segments: RuntimeContextBudgetSegment[];
+  proposals: RuntimeContextBudgetProposal[];
+  segment_count: number;
+  proposal_count: number;
+  warning_count: number;
+  critical_count: number;
+  trimming_proposal_count: number;
+  summarization_proposal_count: number;
+  ask_operator_proposal_count: number;
+  blocked_hidden_compression_label: string;
+  compression_proposal_required: boolean;
+  operator_approval_required: boolean;
+  source_coverage_required: boolean;
+  retrieval_log_required: boolean;
+  summary_receipt_required: boolean;
+  hidden_compression_enabled: boolean;
+  automatic_context_mutation_enabled: boolean;
+  model_summarization_enabled: boolean;
+  raw_context_persistence_enabled: boolean;
+  raw_prompt_persistence_enabled: boolean;
+  raw_response_persistence_enabled: boolean;
+  provider_payload_persistence_enabled: boolean;
+  context_injection_enabled: boolean;
+  provider_sdk_enabled: boolean;
+  cache_write_enabled: boolean;
+  production_authority_enabled: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeHardlineCommandClassificationStatus =
+  | "allowed_shape"
+  | "hardline_denied";
+
+export type RuntimeHardlineCommandDenialCategory =
+  | "allowed"
+  | "empty_argv"
+  | "shell_metachar"
+  | "shell_interpreter"
+  | "inline_code"
+  | "destructive_filesystem"
+  | "disk_writer"
+  | "network_transfer"
+  | "remote_access"
+  | "privilege_escalation"
+  | "permission_mutation"
+  | "git_mutation"
+  | "package_install"
+  | "production_orchestration"
+  | "container_runtime"
+  | "desktop_automation"
+  | "browser_automation";
+
+export interface RuntimeHardlineCommandClassification {
+  candidate_ref: string;
+  source_ref: string;
+  status: RuntimeHardlineCommandClassificationStatus;
+  denial_category: RuntimeHardlineCommandDenialCategory;
+  denied: boolean;
+  non_overridable: boolean;
+  override_bypass_permitted: boolean;
+  raw_command_text_persisted: boolean;
+  raw_command_output_persisted: boolean;
+  command_execution_performed: boolean;
+  denial_reason_ref: string;
+  safe_summary: string;
+}
+
+export interface RuntimeHardlineCommandBlocklistReadModel {
+  schema_version: "runtime_hardline_command_blocklist.v1";
+  contract_ref: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  proof_ref: string;
+  verifier_ref: string;
+  status: string;
+  non_overridable_floor: boolean;
+  override_bypass_permitted: boolean;
+  command_execution_performed: boolean;
+  raw_command_text_persisted: boolean;
+  raw_command_output_persisted: boolean;
+  route_classification_ref: string;
+  foundation_gate_ref: string;
+  safe_disable_ref: string;
+  classification_count: number;
+  denied_classification_count: number;
+  allowed_classification_count: number;
+  classifications: RuntimeHardlineCommandClassification[];
+  hardline_rule_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+  safe_summary: string;
+}
+
+export type RuntimeManagedScopePolicySourceKind =
+  | "repo_local_policy"
+  | "prompt_pack_policy"
+  | "operator_profile"
+  | "runtime_default";
+
+export type RuntimeManagedScopeDriftStatus = "aligned" | "warning" | "blocked";
+
+export interface RuntimeManagedScopePolicyPinSource {
+  source_ref: string;
+  source_kind: RuntimeManagedScopePolicySourceKind;
+  display_label: string;
+  precedence: number;
+  pinned: boolean;
+  verified: boolean;
+  active: boolean;
+  checksum_ref: string;
+  drift_status: RuntimeManagedScopeDriftStatus;
+  drift_warning_ref?: string | null;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  system_config_write_performed: boolean;
+  privileged_write_performed: boolean;
+  mdm_delivery_performed: boolean;
+  managed_protected_material_performed: boolean;
+  unsigned_runtime_config_override_performed: boolean;
+  production_enforcement_claimed: boolean;
+}
+
+export interface RuntimeManagedScopePolicyDriftWarning {
+  warning_ref: string;
+  source_ref: string;
+  status: RuntimeManagedScopeDriftStatus;
+  severity: string;
+  safe_summary: string;
+  expected_policy_ref: string;
+  observed_policy_ref: string;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  operator_review_required: boolean;
+  auto_remediation_performed: boolean;
+  runtime_config_write_performed: boolean;
+  unsigned_override_accepted: boolean;
+  production_enforcement_claimed: boolean;
+}
+
+export interface RuntimeManagedScopePolicyReadModel {
+  schema_version: "runtime_managed_scope_policy.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  policy_profile_ref: string;
+  profile_label: string;
+  safe_summary: string;
+  pinned_sources: RuntimeManagedScopePolicyPinSource[];
+  drift_warnings: RuntimeManagedScopePolicyDriftWarning[];
+  pinned_source_count: number;
+  active_pinned_source_count: number;
+  drift_warning_count: number;
+  blocked_drift_warning_count: number;
+  local_config_source_visible: boolean;
+  precedence_visible: boolean;
+  verification_visible: boolean;
+  rollback_ref: string;
+  admin_operator_proof_ref: string;
+  system_config_write_enabled: boolean;
+  privileged_write_enabled: boolean;
+  mdm_delivery_enabled: boolean;
+  managed_secrets_enabled: boolean;
+  unsigned_runtime_config_override_enabled: boolean;
+  production_enforcement_claimed: boolean;
+  control_center_mints_authority: boolean;
+  runtime_config_mutation_performed: boolean;
+  raw_config_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  account_material_persisted: boolean;
+  credential_material_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeDoctorDiagnosticDomain =
+  | "setup"
+  | "runtime_readiness"
+  | "providers"
+  | "tools"
+  | "protected_material"
+  | "local_services"
+  | "authority"
+  | "next_actions";
+
+export type RuntimeDoctorDiagnosticStatus =
+  | "ok"
+  | "review"
+  | "blocked"
+  | "unavailable";
+
+export interface RuntimeDoctorDiagnosticItem {
+  diagnostic_ref: string;
+  domain: RuntimeDoctorDiagnosticDomain;
+  status: RuntimeDoctorDiagnosticStatus;
+  display_label: string;
+  safe_summary: string;
+  signal_refs: string[];
+  route_refs: string[];
+  cli_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  install_performed: boolean;
+  service_start_performed: boolean;
+  credential_write_performed: boolean;
+  runtime_config_mutation_performed: boolean;
+  raw_log_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  provider_payload_persisted: boolean;
+}
+
+export interface RuntimeDoctorDiagnosticsReadModel {
+  schema_version: "runtime_doctor_diagnostics.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  diagnostics: RuntimeDoctorDiagnosticItem[];
+  diagnostic_count: number;
+  ok_count: number;
+  review_count: number;
+  blocked_count: number;
+  unavailable_count: number;
+  setup_visible: boolean;
+  runtime_readiness_visible: boolean;
+  provider_posture_visible: boolean;
+  tool_posture_visible: boolean;
+  protected_material_posture_visible: boolean;
+  service_posture_visible: boolean;
+  authority_posture_visible: boolean;
+  next_safe_actions_visible: boolean;
+  install_enabled: boolean;
+  service_start_enabled: boolean;
+  credential_write_enabled: boolean;
+  runtime_config_mutation_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_log_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  provider_payload_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeSessionContinuitySource =
+  | "control_center_desktop"
+  | "cli"
+  | "delegated_runtime"
+  | "future_mobile"
+  | "coding_cockpit";
+
+export type RuntimeSessionContinuityState =
+  | "current"
+  | "stale"
+  | "conflict_review"
+  | "blocked";
+
+export interface RuntimeSessionContinuitySurface {
+  surface_ref: string;
+  source: RuntimeSessionContinuitySource;
+  source_label: string;
+  continuity_state: RuntimeSessionContinuityState;
+  session_ref: string;
+  run_ref: string | null;
+  route_ref: string;
+  cli_ref: string | null;
+  last_seen_ref: string;
+  staleness_state_ref: string;
+  conflict_state_ref: string;
+  safe_summary: string;
+  evidence_refs: string[];
+  proof_refs: string[];
+  receipt_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  external_message_gateway_enabled: boolean;
+  account_sync_enabled: boolean;
+  connector_write_enabled: boolean;
+  remote_session_enabled: boolean;
+  raw_transcript_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  raw_provider_payload_persisted: boolean;
+  control_center_mints_authority: boolean;
+}
+
+export interface RuntimeSessionContinuityReadModel {
+  schema_version: "runtime_session_continuity.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  primary_session_ref: string;
+  safe_summary: string;
+  surfaces: RuntimeSessionContinuitySurface[];
+  surface_count: number;
+  current_count: number;
+  stale_count: number;
+  conflict_count: number;
+  blocked_count: number;
+  source_labels_visible: boolean;
+  staleness_states_visible: boolean;
+  conflict_states_visible: boolean;
+  delivery_receipts_required_for_promotion: boolean;
+  revoke_required_for_promotion: boolean;
+  audit_required_for_promotion: boolean;
+  external_message_gateway_enabled: boolean;
+  account_sync_enabled: boolean;
+  connector_write_enabled: boolean;
+  remote_session_enabled: boolean;
+  raw_transcript_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  raw_provider_payload_persisted: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeMcpServerCatalogState =
+  | "reviewed_metadata"
+  | "review_required"
+  | "activation_blocked";
+
+export type RuntimeMcpToolFilterState =
+  | "metadata_visible"
+  | "filtered_blocked"
+  | "grant_required";
+
+export interface RuntimeMcpToolSlice {
+  tool_ref: string;
+  display_label: string;
+  filter_state: RuntimeMcpToolFilterState;
+  risk_label: string;
+  safe_summary: string;
+  filter_reason_refs: string[];
+  grant_requirement_refs: string[];
+  receipt_requirement_refs: string[];
+  blocked_authority_refs: string[];
+  metadata_visible: boolean;
+  invocation_enabled: boolean;
+  connector_write_enabled: boolean;
+  raw_schema_persisted: boolean;
+  runtime_dispatch_enabled: boolean;
+}
+
+export interface RuntimeMcpServerCatalogEntry {
+  server_ref: string;
+  display_label: string;
+  catalog_state: RuntimeMcpServerCatalogState;
+  manifest_ref: string;
+  filter_contract_ref: string;
+  safe_summary: string;
+  tool_slices: RuntimeMcpToolSlice[];
+  tool_count: number;
+  metadata_visible_tool_count: number;
+  filtered_blocked_tool_count: number;
+  grant_required_tool_count: number;
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  install_enabled: boolean;
+  subprocess_runtime_enabled: boolean;
+  oauth_login_enabled: boolean;
+  tool_invocation_enabled: boolean;
+  connector_write_enabled: boolean;
+  raw_manifest_persisted: boolean;
+}
+
+export interface RuntimeMcpCatalogFilteringReadModel {
+  schema_version: "runtime_mcp_catalog_filtering.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  servers: RuntimeMcpServerCatalogEntry[];
+  server_count: number;
+  reviewed_metadata_count: number;
+  review_required_count: number;
+  activation_blocked_count: number;
+  tool_slice_count: number;
+  metadata_visible_tool_count: number;
+  filtered_blocked_tool_count: number;
+  grant_required_tool_count: number;
+  metadata_catalog_visible: boolean;
+  tool_filter_contracts_visible: boolean;
+  blocked_activation_states_visible: boolean;
+  install_enabled: boolean;
+  subprocess_runtime_enabled: boolean;
+  oauth_login_enabled: boolean;
+  tool_invocation_enabled: boolean;
+  connector_write_enabled: boolean;
+  raw_manifest_persisted: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeBackgroundJobKind =
+  | "runtime_doctor_check"
+  | "proof_pack_export"
+  | "context_budget_review"
+  | "connector_delivery_followup";
+
+export type RuntimeBackgroundJobStatus =
+  | "proposal"
+  | "paused"
+  | "approval_required"
+  | "execution_blocked";
+
+export type RuntimeBackgroundJobSchedulePolicy =
+  | "manual_review_only"
+  | "operator_window_required"
+  | "blocked_scheduler";
+
+export interface RuntimeBackgroundJobProposalReadModel {
+  job_ref: string;
+  display_label: string;
+  job_kind: RuntimeBackgroundJobKind;
+  status: RuntimeBackgroundJobStatus;
+  schedule_policy: RuntimeBackgroundJobSchedulePolicy;
+  cadence_ref: string;
+  approval_scope_ref: string;
+  idempotency_ref: string;
+  safe_disable_ref: string;
+  receipt_plan_ref: string;
+  failure_handling_ref: string;
+  safe_summary: string;
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  pause_enabled: boolean;
+  resume_enabled: boolean;
+  run_now_enabled: boolean;
+  scheduler_enabled: boolean;
+  background_worker_enabled: boolean;
+  autonomous_retry_enabled: boolean;
+  external_delivery_enabled: boolean;
+  provider_call_enabled: boolean;
+  shell_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  raw_job_payload_persisted: boolean;
+}
+
+export interface RuntimeBackgroundJobsReadModel {
+  schema_version: "runtime_background_jobs.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  jobs: RuntimeBackgroundJobProposalReadModel[];
+  job_count: number;
+  proposal_count: number;
+  paused_count: number;
+  approval_required_count: number;
+  execution_blocked_count: number;
+  reviewable_job_count: number;
+  durable_job_refs_visible: boolean;
+  schedule_policy_visible: boolean;
+  approval_scope_visible: boolean;
+  idempotency_visible: boolean;
+  safe_disable_visible: boolean;
+  receipt_plan_visible: boolean;
+  failure_handling_visible: boolean;
+  pause_enabled: boolean;
+  resume_enabled: boolean;
+  run_now_enabled: boolean;
+  scheduler_enabled: boolean;
+  background_worker_enabled: boolean;
+  autonomous_background_execution_enabled: boolean;
+  autonomous_retry_enabled: boolean;
+  external_delivery_enabled: boolean;
+  provider_call_enabled: boolean;
+  shell_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_job_payload_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeSubagentRoleKind =
+  | "implementer"
+  | "reviewer"
+  | "verifier";
+
+export type RuntimeSubagentReadinessStatus =
+  | "contract_ready"
+  | "review_ready"
+  | "blocked_dispatch";
+
+export type RuntimeSubagentArtifactKind =
+  | "plan_comparison"
+  | "review_packet"
+  | "disagreement_summary";
+
+export interface RuntimeSubagentIsolationRole {
+  role_ref: string;
+  display_label: string;
+  role_kind: RuntimeSubagentRoleKind;
+  readiness_status: RuntimeSubagentReadinessStatus;
+  scope_envelope_ref: string;
+  context_pack_ref: string;
+  tool_grant_ref: string;
+  memory_grant_ref: string;
+  budget_ref: string;
+  kill_switch_ref: string;
+  receipt_plan_ref: string;
+  proof_ref: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  live_dispatch_enabled: boolean;
+  background_fanout_enabled: boolean;
+  cross_agent_memory_transfer_enabled: boolean;
+  tool_sharing_enabled: boolean;
+  autonomous_delegation_enabled: boolean;
+  provider_call_enabled: boolean;
+  shell_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  raw_transcript_persisted: boolean;
+}
+
+export interface RuntimeSubagentReviewArtifact {
+  artifact_ref: string;
+  artifact_kind: RuntimeSubagentArtifactKind;
+  display_label: string;
+  source_role_refs: string[];
+  safe_summary: string;
+  proof_refs: string[];
+  raw_agent_output_persisted: boolean;
+  executable_authority: boolean;
+}
+
+export interface RuntimeSubagentIsolationReadModel {
+  schema_version: "runtime_subagent_isolation.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  roles: RuntimeSubagentIsolationRole[];
+  review_artifacts: RuntimeSubagentReviewArtifact[];
+  role_count: number;
+  review_artifact_count: number;
+  contract_ready_count: number;
+  review_ready_count: number;
+  blocked_dispatch_count: number;
+  identity_registry_visible: boolean;
+  scope_envelopes_visible: boolean;
+  context_pack_grants_visible: boolean;
+  tool_grants_visible: boolean;
+  memory_grants_visible: boolean;
+  budget_visible: boolean;
+  kill_switch_visible: boolean;
+  receipt_plan_visible: boolean;
+  proof_visible: boolean;
+  live_dispatch_enabled: boolean;
+  background_fanout_enabled: boolean;
+  cross_agent_memory_transfer_enabled: boolean;
+  tool_sharing_enabled: boolean;
+  autonomous_delegation_enabled: boolean;
+  provider_call_enabled: boolean;
+  shell_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_transcript_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeWorktreeAgentRole =
+  | "implementer"
+  | "reviewer"
+  | "verifier";
+
+export type RuntimeWorktreeLaneStatus =
+  | "proposal"
+  | "review_ready"
+  | "mutation_blocked";
+
+export type RuntimeWorktreeIsolationMode =
+  | "branch_proposal_only"
+  | "existing_worktree_ref_only"
+  | "blocked_worktree_mutation";
+
+export interface RuntimeWorktreePerAgentLane {
+  lane_ref: string;
+  display_label: string;
+  agent_role: RuntimeWorktreeAgentRole;
+  lane_status: RuntimeWorktreeLaneStatus;
+  isolation_mode: RuntimeWorktreeIsolationMode;
+  workspace_scope_ref: string;
+  branch_proposal_ref: string;
+  branch_name_ref: string;
+  worktree_ref: string;
+  checkpoint_plan_ref: string;
+  git_receipt_plan_ref: string;
+  rollback_plan_ref: string;
+  safe_summary: string;
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  git_worktree_create_enabled: boolean;
+  git_worktree_delete_enabled: boolean;
+  branch_mutation_enabled: boolean;
+  file_write_enabled: boolean;
+  commit_enabled: boolean;
+  push_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  raw_path_persisted: boolean;
+}
+
+export interface RuntimeWorktreePerAgentReadModel {
+  schema_version: "runtime_worktree_per_agent.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  lanes: RuntimeWorktreePerAgentLane[];
+  lane_count: number;
+  proposal_count: number;
+  review_ready_count: number;
+  mutation_blocked_count: number;
+  workspace_grants_visible: boolean;
+  branch_name_policy_visible: boolean;
+  checkpoint_plan_visible: boolean;
+  git_receipt_plan_visible: boolean;
+  rollback_plan_visible: boolean;
+  cli_parity_visible: boolean;
+  git_worktree_create_enabled: boolean;
+  git_worktree_delete_enabled: boolean;
+  branch_mutation_enabled: boolean;
+  file_write_enabled: boolean;
+  commit_enabled: boolean;
+  push_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_path_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeLspDiagnosticLanguage = "python" | "typescript" | "docs";
+
+export type RuntimeLspDiagnosticStatus =
+  | "evidence_placeholder"
+  | "proof_ready"
+  | "execution_blocked";
+
+export interface RuntimeLspDiagnosticEvidenceContract {
+  diagnostic_ref: string;
+  display_label: string;
+  language: RuntimeLspDiagnosticLanguage;
+  status: RuntimeLspDiagnosticStatus;
+  source_scope_ref: string;
+  evidence_ref: string;
+  receipt_plan_ref: string;
+  proof_ref: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  language_server_started: boolean;
+  dependency_install_enabled: boolean;
+  shell_execution_enabled: boolean;
+  file_read_enabled: boolean;
+  file_write_enabled: boolean;
+  provider_call_enabled: boolean;
+  raw_path_persisted: boolean;
+  raw_diagnostic_payload_persisted: boolean;
+}
+
+export interface RuntimeLspDiagnosticsReadModel {
+  schema_version: "runtime_lsp_diagnostics.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  diagnostics: RuntimeLspDiagnosticEvidenceContract[];
+  diagnostic_count: number;
+  evidence_placeholder_count: number;
+  proof_ready_count: number;
+  execution_blocked_count: number;
+  diagnostic_evidence_contract_visible: boolean;
+  receipt_plan_visible: boolean;
+  proof_link_visible: boolean;
+  redaction_policy_visible: boolean;
+  allowlisted_server_required_for_promotion: boolean;
+  cwd_jail_required_for_promotion: boolean;
+  timeout_required_for_promotion: boolean;
+  language_server_started: boolean;
+  dependency_install_enabled: boolean;
+  shell_execution_enabled: boolean;
+  file_read_enabled: boolean;
+  file_write_enabled: boolean;
+  provider_call_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_path_persisted: boolean;
+  raw_diagnostic_payload_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimePreviewRailSlotKind =
+  | "file_ref"
+  | "diff_ref"
+  | "artifact_ref"
+  | "run_output_ref"
+  | "proof_ref"
+  | "runtime_event_ref";
+
+export type RuntimePreviewRailSlotStatus =
+  | "safe_ref_ready"
+  | "bounded_preview_placeholder"
+  | "execution_blocked";
+
+export interface RuntimePreviewRailSlot {
+  slot_ref: string;
+  display_label: string;
+  slot_kind: RuntimePreviewRailSlotKind;
+  slot_status: RuntimePreviewRailSlotStatus;
+  source_ref: string;
+  source_classification_ref: string;
+  bounded_preview_ref: string;
+  redaction_policy_ref: string;
+  attach_plan_ref: string;
+  receipt_plan_ref: string;
+  proof_ref: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  browser_automation_enabled: boolean;
+  raw_sensitive_file_display_enabled: boolean;
+  direct_runtime_payload_rendering_enabled: boolean;
+  screenshot_capture_enabled: boolean;
+  file_read_enabled: boolean;
+  file_write_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  raw_path_persisted: boolean;
+  raw_file_content_persisted: boolean;
+  raw_runtime_payload_persisted: boolean;
+}
+
+export interface RuntimePreviewRailReadModel {
+  schema_version: "runtime_preview_rail.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  slots: RuntimePreviewRailSlot[];
+  slot_count: number;
+  safe_ref_ready_count: number;
+  bounded_preview_placeholder_count: number;
+  execution_blocked_count: number;
+  source_classification_visible: boolean;
+  redaction_policy_visible: boolean;
+  bounded_preview_visible: boolean;
+  operator_attach_visible: boolean;
+  receipt_plan_visible: boolean;
+  proof_link_visible: boolean;
+  browser_automation_enabled: boolean;
+  raw_sensitive_file_display_enabled: boolean;
+  direct_runtime_payload_rendering_enabled: boolean;
+  screenshot_capture_enabled: boolean;
+  file_read_enabled: boolean;
+  file_write_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_path_persisted: boolean;
+  raw_file_content_persisted: boolean;
+  raw_runtime_payload_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeSlashCommandStatus =
+  | "metadata_ready"
+  | "disabled_requires_exact_lane"
+  | "blocked_high_authority";
+
+export type RuntimeSlashCommandAuthorityClass =
+  | "read_only_metadata"
+  | "proposal_only"
+  | "approval_required_future_lane"
+  | "blocked_high_authority";
+
+export type RuntimeSlashCommandSideEffectClass =
+  | "none"
+  | "proposal_only"
+  | "command_execution"
+  | "model_call"
+  | "local_mutation"
+  | "runtime_invocation";
+
+export interface RuntimeSlashCommandRegistryEntry {
+  command_ref: string;
+  display_label: string;
+  trigger_label: string;
+  command_status: RuntimeSlashCommandStatus;
+  authority_class: RuntimeSlashCommandAuthorityClass;
+  side_effect_class: RuntimeSlashCommandSideEffectClass;
+  docs_ref: string;
+  approval_policy_ref: string;
+  idempotency_policy_ref: string;
+  receipt_plan_ref: string;
+  proof_ref: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  visible_in_control_center: boolean;
+  registered_metadata_only: boolean;
+  chat_trigger_enabled: boolean;
+  runtime_invocation_enabled: boolean;
+  state_mutation_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+}
+
+export interface RuntimeSlashCommandRegistryReadModel {
+  schema_version: "runtime_slash_command_registry.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  commands: RuntimeSlashCommandRegistryEntry[];
+  command_count: number;
+  metadata_ready_count: number;
+  disabled_count: number;
+  blocked_count: number;
+  command_contract_visible: boolean;
+  side_effect_class_visible: boolean;
+  approval_policy_visible: boolean;
+  idempotency_policy_visible: boolean;
+  receipt_plan_visible: boolean;
+  cli_api_alignment_visible: boolean;
+  chat_trigger_enabled: boolean;
+  runtime_invocation_enabled: boolean;
+  state_mutation_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeRunControlActionKind =
+  | "pause"
+  | "stop"
+  | "redirect"
+  | "revise"
+  | "recover";
+
+export type RuntimeRunControlActionStatus =
+  | "read_only_proposal"
+  | "blocked_until_exact_lane"
+  | "approval_required_future_lane";
+
+export type RuntimeRunControlSideEffectClass =
+  | "none"
+  | "runtime_control_mutation"
+  | "operator_instruction_update"
+  | "recovery_state_transition";
+
+export interface RuntimeRunControlProposal {
+  action_ref: string;
+  action_kind: RuntimeRunControlActionKind;
+  display_label: string;
+  action_status: RuntimeRunControlActionStatus;
+  side_effect_class: RuntimeRunControlSideEffectClass;
+  approval_scope_ref: string;
+  idempotency_ref: string;
+  receipt_plan_ref: string;
+  recovery_state_ref: string;
+  proof_ref: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  visible_in_control_center: boolean;
+  proposal_only: boolean;
+  live_stop_post_enabled: boolean;
+  process_kill_enabled: boolean;
+  runtime_mutation_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_runtime_payload_persisted: boolean;
+  raw_log_persisted: boolean;
+}
+
+export interface RuntimeInterruptRedirectReadModel {
+  schema_version: "runtime_interrupt_redirect.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  proposals: RuntimeRunControlProposal[];
+  proposal_count: number;
+  read_only_proposal_count: number;
+  approval_required_future_lane_count: number;
+  blocked_count: number;
+  run_ownership_visible: boolean;
+  stop_scope_visible: boolean;
+  idempotency_visible: boolean;
+  cancellation_receipt_visible: boolean;
+  recovery_state_visible: boolean;
+  proof_link_visible: boolean;
+  live_stop_post_enabled: boolean;
+  process_kill_enabled: boolean;
+  runtime_mutation_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_runtime_payload_persisted: boolean;
+  raw_log_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeLoggingProfileKind =
+  | "quiet_normal"
+  | "redacted_troubleshooting"
+  | "forensic_safe_refs";
+
+export type RuntimeLoggingProfileStatus =
+  | "active_default"
+  | "disabled_until_flagged"
+  | "blocked_raw_detail";
+
+export type RuntimeLoggingRetentionClass =
+  | "session_only"
+  | "bounded_local_receipt"
+  | "no_persistence";
+
+export interface RuntimeLoggingProfileRecord {
+  profile_ref: string;
+  profile_kind: RuntimeLoggingProfileKind;
+  display_label: string;
+  profile_status: RuntimeLoggingProfileStatus;
+  retention_class: RuntimeLoggingRetentionClass;
+  flag_scope_ref: string;
+  ttl_policy_ref: string;
+  retention_policy_ref: string;
+  redaction_policy_ref: string;
+  redaction_verifier_ref: string;
+  proof_ref: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  visible_in_control_center: boolean;
+  operator_flag_required: boolean;
+  safe_disable_available: boolean;
+  raw_logs_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  provider_payload_persisted: boolean;
+  local_path_persisted: boolean;
+  credential_material_persisted: boolean;
+  remote_telemetry_export_enabled: boolean;
+  background_log_stream_enabled: boolean;
+  control_center_mints_authority: boolean;
+}
+
+export interface RuntimeLoggingProfileReadModel {
+  schema_version: "runtime_logging_profile.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  active_profile_ref: string;
+  safe_summary: string;
+  profiles: RuntimeLoggingProfileRecord[];
+  profile_count: number;
+  quiet_default_count: number;
+  disabled_until_flagged_count: number;
+  blocked_raw_detail_count: number;
+  flag_scope_visible: boolean;
+  ttl_policy_visible: boolean;
+  redaction_rules_visible: boolean;
+  retention_policy_visible: boolean;
+  operator_proof_visible: boolean;
+  safe_disable_visible: boolean;
+  verbose_logging_enabled: boolean;
+  raw_logs_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  provider_payload_persisted: boolean;
+  local_path_persisted: boolean;
+  credential_material_persisted: boolean;
+  remote_telemetry_export_enabled: boolean;
+  background_log_stream_enabled: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export type RuntimeResultClassKind =
+  | "evidence"
+  | "mutation"
+  | "warning"
+  | "blocked"
+  | "proposal"
+  | "diagnostic"
+  | "untrusted_data";
+
+export type RuntimeResultVerificationStatus =
+  | "verified_safe_ref"
+  | "receipt_required"
+  | "review_required"
+  | "blocked_authority"
+  | "untrusted_until_verified";
+
+export interface RuntimeResultClassificationRecord {
+  classification_ref: string;
+  result_kind: RuntimeResultClassKind;
+  display_label: string;
+  verification_status: RuntimeResultVerificationStatus;
+  provenance_policy_ref: string;
+  redaction_policy_ref: string;
+  receipt_requirement_ref: string;
+  proof_binding_ref: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  visible_in_control_center: boolean;
+  result_label_required: boolean;
+  provenance_required: boolean;
+  redaction_required: boolean;
+  proof_binding_required: boolean;
+  tool_output_as_truth_enabled: boolean;
+  action_authority_enabled: boolean;
+  mutation_without_receipt_enabled: boolean;
+  unverified_evidence_promotion_enabled: boolean;
+  raw_output_persisted: boolean;
+  provider_payload_persisted: boolean;
+  control_center_mints_authority: boolean;
+}
+
+export interface RuntimeResultClassificationReadModel {
+  schema_version: "runtime_result_classification.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  classifications: RuntimeResultClassificationRecord[];
+  classification_count: number;
+  evidence_count: number;
+  mutation_count: number;
+  warning_count: number;
+  blocked_count: number;
+  proposal_count: number;
+  diagnostic_count: number;
+  untrusted_data_count: number;
+  labels_visible: boolean;
+  provenance_visible: boolean;
+  redaction_visible: boolean;
+  verification_status_visible: boolean;
+  proof_binding_visible: boolean;
+  receipt_requirement_visible: boolean;
+  tool_output_as_truth_enabled: boolean;
+  action_authority_enabled: boolean;
+  mutation_without_receipt_enabled: boolean;
+  unverified_evidence_promotion_enabled: boolean;
+  raw_output_persisted: boolean;
+  provider_payload_persisted: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
+export interface RuntimeCapabilityDiscoveryReadModel {
+  schema_version: "runtime_capability_discovery.v1";
+  contract_ref: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  runtime_identity_ref: string;
+  adapter_ref: string;
+  runtime_label: string;
+  status: string;
+  freshness_status: string;
+  runtime_reachable: boolean;
+  live_discovery_performed: boolean;
+  stale: boolean;
+  stale_or_unreachable_degrades_to_blocked: boolean;
+  runtime_supported_cannot_grant_uaa_permission: boolean;
+  uaa_controls_authority: boolean;
+  control_center_talks_directly_to_runtime: boolean;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  freshness_policy_ref: string;
+  policy_evaluation_ref: string;
+  capability_groups: RuntimeDiscoveredCapabilityGroup[];
+  toolset_posture: RuntimeToolsetCapabilityPosture;
+  runtime_supported_capability_count: number;
+  uaa_authorized_capability_count: number;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  next_safe_action_refs: string[];
+  safe_refs_only: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  raw_provider_payload_persisted: boolean;
+  raw_runtime_payload_persisted: boolean;
+  raw_log_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  credential_material_persisted: boolean;
+  safe_summary: string;
+  redactions_applied: string[];
+}
+
+export interface RuntimeRunLifecycleMapping {
+  runtime_state:
+    | "proposed"
+    | "approval_wait"
+    | "queued"
+    | "running"
+    | "stopping"
+    | "cancelled"
+    | "failed"
+    | "completed"
+    | "blocked"
+    | "unknown_stale";
+  uaa_durable_run_state:
+    | "proposed"
+    | "approval_wait"
+    | "queued"
+    | "running"
+    | "cancellation_requested"
+    | "cancelled"
+    | "failed"
+    | "completed"
+    | "blocked"
+    | "stale_unknown";
+  operator_label: string;
+  safe_summary: string;
+  receipt_required_before_claim: boolean;
+}
+
+export interface RuntimeRunEventRefGrammar {
+  grammar_ref: string;
+  event_ref_prefix: string;
+  required_bindings: string[];
+  safe_summary: string;
+}
+
+export interface RuntimeRunEventPreview {
+  event_ref: string;
+  event_kind:
+    | "run_proposed"
+    | "approval_wait_entered"
+    | "event_stream_preview"
+    | "stop_requested_preview"
+    | "proof_bound";
+  runtime_run_ref: string;
+  uaa_durable_run_ref: string;
+  proof_ref: string;
+  redaction_status: string;
+  safe_summary: string;
+  runtime_payload_persisted: boolean;
+  raw_log_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+}
+
+export interface RuntimeRunProposalReadModel {
+  proposal_ref: string;
+  runtime_run_ref: string;
+  uaa_durable_run_ref: string;
+  runtime_state: string;
+  uaa_durable_run_state: string;
+  create_posture: string;
+  stop_posture: string;
+  approval_resolution_posture: string;
+  event_stream_posture: string;
+  create_run_enabled: boolean;
+  stop_run_enabled: boolean;
+  approval_resolution_enabled: boolean;
+  live_event_stream_enabled: boolean;
+  retry_recovery_enabled: boolean;
+  cancellation_proof_required: boolean;
+  event_refs: string[];
+  proof_refs: string[];
+  receipt_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  safe_summary: string;
+}
+
+export interface RuntimeRunEventsReadModel {
+  schema_version: "runtime_run_events.v1";
+  contract_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  runtime_identity_ref: string;
+  adapter_ref: string;
+  status: string;
+  lifecycle_mappings: RuntimeRunLifecycleMapping[];
+  event_ref_grammar: RuntimeRunEventRefGrammar;
+  run_proposals: RuntimeRunProposalReadModel[];
+  event_previews: RuntimeRunEventPreview[];
+  proposal_count: number;
+  approval_wait_count: number;
+  completed_run_count: number;
+  create_run_route_enabled: boolean;
+  stop_run_route_enabled: boolean;
+  approval_resolution_route_enabled: boolean;
+  live_event_stream_enabled: boolean;
+  uaa_controls_authority: boolean;
+  control_center_talks_directly_to_runtime: boolean;
+  no_mutation_routes_registered: boolean;
+  safe_refs_only: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  raw_provider_payload_persisted: boolean;
+  raw_runtime_payload_persisted: boolean;
+  raw_log_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  credential_material_persisted: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  next_safe_action_refs: string[];
+  safe_summary: string;
+  redactions_applied: string[];
+}
+
+export interface RuntimeStreamingProgressEventPreview {
+  event_ref: string;
+  sequence: number;
+  event_kind:
+    | "token"
+    | "tool_started"
+    | "tool_completed"
+    | "warning"
+    | "approval_wait"
+    | "stopped"
+    | "failed"
+    | "completed";
+  runtime_run_ref: string;
+  uaa_durable_run_ref: string;
+  tool_call_ref?: string | null;
+  proof_ref: string;
+  event_hash_ref: string;
+  redaction_status: string;
+  preview_limit_bytes: number;
+  safe_summary: string;
+  runtime_payload_persisted: boolean;
+  raw_tool_payload_persisted: boolean;
+  raw_token_persisted: boolean;
+  raw_log_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+}
+
+export interface RuntimeStreamingProgressReadModel {
+  schema_version: "runtime_streaming_progress.v1";
+  contract_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  runtime_identity_ref: string;
+  runtime_run_ref: string;
+  uaa_durable_run_ref: string;
+  status: string;
+  stream_state:
+    | "fixture_preview"
+    | "locally_stored_preview"
+    | "stale_disconnected"
+    | "live_transport_blocked";
+  event_previews: RuntimeStreamingProgressEventPreview[];
+  event_count: number;
+  stale_stream: boolean;
+  live_subscription_enabled: boolean;
+  sse_transport_enabled: boolean;
+  websocket_transport_enabled: boolean;
+  reconnect_enabled: boolean;
+  event_ingest_enabled: boolean;
+  bounded_retention_required: boolean;
+  event_hashes_required: boolean;
+  uaa_controls_authority: boolean;
+  control_center_talks_directly_to_runtime: boolean;
+  safe_refs_only: boolean;
+  raw_runtime_payload_persisted: boolean;
+  raw_tool_payload_persisted: boolean;
+  raw_token_persisted: boolean;
+  raw_log_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  next_safe_action_refs: string[];
+  safe_summary: string;
+  redactions_applied: string[];
+}
+
+export interface RuntimeProfileIsolationRecord {
+  profile_ref: string;
+  delegated_runtime_profile_ref: string;
+  display_label: string;
+  role: "coding" | "research" | "operations" | "crm" | "review";
+  configured_status:
+    | "metadata_configured"
+    | "not_configured"
+    | "planned_disabled"
+    | "blocked";
+  authority_profile:
+    | "sealed"
+    | "read_only_proposal"
+    | "approval_required_future_lane";
+  authority_profile_ref: string;
+  workspace_scope_ref: string;
+  memory_scope_ref: string;
+  toolset_posture: string;
+  profile_health:
+    | "healthy_metadata_only"
+    | "unconfigured_blocked"
+    | "planned_blocked"
+    | "needs_operator_review";
+  isolated_from_profile_refs: string[];
+  configured_for_live_runtime: boolean;
+  can_create_runtime_profile: boolean;
+  can_delete_runtime_profile: boolean;
+  can_write_runtime_config: boolean;
+  can_copy_sensitive_material: boolean;
+  can_change_runtime_defaults: boolean;
+  can_execute_tools: boolean;
+  can_call_models: boolean;
+  can_write_memory: boolean;
+  can_access_workspace_paths: boolean;
+  cross_profile_authority_bleed_allowed: boolean;
+  safe_summary: string;
+  blocked_reason_refs: string[];
+  proof_refs: string[];
+  next_safe_action_refs: string[];
+}
+
+export interface RuntimeProfileIsolationReadModel {
+  schema_version: "runtime_profile_isolation.v1";
+  contract_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  status: string;
+  default_uaa_profile_ref: string;
+  profiles: RuntimeProfileIsolationRecord[];
+  profile_count: number;
+  configured_profile_count: number;
+  blocked_profile_count: number;
+  uaa_profile_refs_separate_from_delegated_runtime_refs: boolean;
+  profile_creation_enabled: boolean;
+  profile_deletion_enabled: boolean;
+  runtime_config_write_enabled: boolean;
+  sensitive_material_copy_enabled: boolean;
+  runtime_default_change_enabled: boolean;
+  cross_profile_authority_bleed_allowed: boolean;
+  control_center_mints_profiles: boolean;
+  safe_refs_only: boolean;
+  raw_profile_names_persisted: boolean;
+  raw_workspace_paths_persisted: boolean;
+  raw_sensitive_material_persisted: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  next_safe_action_refs: string[];
+  safe_summary: string;
+  redactions_applied: string[];
+}
+
+export interface RuntimeApprovalScopeValidationResult {
+  validation_ref: string;
+  requested_scope_ref: string;
+  provided_scope_ref: string;
+  scope_matches: boolean;
+  status: string;
+  safe_summary: string;
+}
+
+export interface RuntimeApprovalBridgeEnvelope {
+  envelope_ref: string;
+  runtime_approval_ref: string;
+  runtime_run_ref: string;
+  uaa_durable_run_ref: string;
+  action_inbox_item_ref: string;
+  proof_ref: string;
+  requested_scope_ref: string;
+  idempotency_key_ref: string;
+  side_effect_class: string;
+  risk_class: string;
+  state: string;
+  resolution_posture: string;
+  timeout_policy_ref: string;
+  deny_receipt_ref: string;
+  approval_refs_are_identifiers_only: boolean;
+  runtime_requested: boolean;
+  uaa_approval_recorded: boolean;
+  runtime_resolution_sent: boolean;
+  approval_resolution_enabled: boolean;
+  denial_resolution_enabled: boolean;
+  timeout_defaults_to_deny: boolean;
+  raw_runtime_payload_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+}
+
+export interface RuntimeApprovalBridgeDecisionPreview {
+  decision_ref: string;
+  decision_kind: "approve" | "deny" | "timeout" | "scope_mismatch";
+  envelope_ref: string;
+  action_inbox_item_ref: string;
+  receipt_ref: string;
+  runtime_resolution_sent: boolean;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+}
+
+export interface RuntimeApprovalActionInboxProjection {
+  action_inbox_item_ref: string;
+  source: string;
+  lane: string;
+  status: string;
+  proof_ref: string;
+  approval_controls_visible: boolean;
+  runtime_resolution_controls_visible: boolean;
+  safe_summary: string;
+}
+
+export interface RuntimeApprovalFailClosedTimeoutPosture {
+  policy_ref: string;
+  status: string;
+  timeout_denial_receipt_ref: string;
+  ambiguous_denial_receipt_ref: string;
+  expired_waits_default_to_deny: boolean;
+  ambiguous_waits_default_to_deny: boolean;
+  explicit_expiration_required: boolean;
+  revoke_required: boolean;
+  safe_disable_required: boolean;
+  auto_approve_enabled: boolean;
+  approve_all_enabled: boolean;
+  standing_broad_authority_enabled: boolean;
+  expired_grant_reuse_enabled: boolean;
+  ambiguous_grant_enabled: boolean;
+  approval_resolution_sent: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  safe_summary: string;
+}
+
+export interface RuntimeApprovalBridgeReadModel {
+  schema_version: "runtime_approval_bridge.v1";
+  contract_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  status: string;
+  action_inbox_projection: RuntimeApprovalActionInboxProjection;
+  fail_closed_timeout_posture: RuntimeApprovalFailClosedTimeoutPosture;
+  envelopes: RuntimeApprovalBridgeEnvelope[];
+  decision_previews: RuntimeApprovalBridgeDecisionPreview[];
+  scope_validation: RuntimeApprovalScopeValidationResult;
+  pending_runtime_approval_count: number;
+  denied_preview_count: number;
+  timeout_preview_count: number;
+  scope_mismatch_count: number;
+  runtime_resolution_sent_count: number;
+  approval_resolution_route_enabled: boolean;
+  deny_resolution_route_enabled: boolean;
+  timeout_resolution_route_enabled: boolean;
+  uaa_controls_authority: boolean;
+  control_center_talks_directly_to_runtime: boolean;
+  safe_refs_only: boolean;
+  raw_runtime_payload_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  next_safe_action_refs: string[];
+  safe_summary: string;
+  redactions_applied: string[];
 }
 
 export type OperatorRouteInspectionState =
@@ -9427,6 +11967,31 @@ export interface ControlCenterData {
   routes: ApiRouteInventory;
   runtimeReadiness: RuntimeReadinessReport;
   capabilityMatrix: RuntimeCapabilityMatrix;
+  runtimeDelegationAdapter: RuntimeDelegationAdapterReadModel;
+  runtimeCapabilityDiscovery: RuntimeCapabilityDiscoveryReadModel;
+  runtimeRunEvents: RuntimeRunEventsReadModel;
+  runtimeApprovalBridge: RuntimeApprovalBridgeReadModel;
+  runtimeStreamingProgress: RuntimeStreamingProgressReadModel;
+  runtimeProfiles: RuntimeProfileIsolationReadModel;
+  runtimeToolRegistry: RuntimeToolRegistryAvailabilityReadModel;
+  runtimeVirtualProviderMoa: RuntimeVirtualProviderMoaReadModel;
+  runtimeUsageCostAnalytics: RuntimeUsageCostAnalyticsReadModel;
+  runtimePromptStabilityTiers: RuntimePromptStabilityTiersReadModel;
+  runtimeContextBudgetPressure: RuntimeContextBudgetPressureReadModel;
+  runtimeHardlineCommandBlocklist: RuntimeHardlineCommandBlocklistReadModel;
+  runtimeManagedScopePolicy: RuntimeManagedScopePolicyReadModel;
+  runtimeDoctorDiagnostics: RuntimeDoctorDiagnosticsReadModel;
+  runtimeSessionContinuity: RuntimeSessionContinuityReadModel;
+  runtimeMcpCatalogFiltering: RuntimeMcpCatalogFilteringReadModel;
+  runtimeBackgroundJobs: RuntimeBackgroundJobsReadModel;
+  runtimeSubagentIsolation: RuntimeSubagentIsolationReadModel;
+  runtimeWorktreePerAgent: RuntimeWorktreePerAgentReadModel;
+  runtimeLspDiagnostics: RuntimeLspDiagnosticsReadModel;
+  runtimePreviewRail: RuntimePreviewRailReadModel;
+  runtimeSlashCommandRegistry: RuntimeSlashCommandRegistryReadModel;
+  runtimeInterruptRedirect: RuntimeInterruptRedirectReadModel;
+  runtimeLoggingProfile: RuntimeLoggingProfileReadModel;
+  runtimeResultClassification: RuntimeResultClassificationReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

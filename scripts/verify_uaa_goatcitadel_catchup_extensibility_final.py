@@ -40,6 +40,11 @@ REQUIRED_BLOCKED = {
 
 DENIED_TRUE_FLAGS = (
     "callable_catalog_enabled",
+    "automatic_instruction_loading_enabled",
+    "full_instruction_auto_load_enabled",
+    "hidden_skill_activation_enabled",
+    "skill_runtime_import_enabled",
+    "external_marketplace_fetch_enabled",
     "runtime_import_enabled",
     "execution_enabled",
     "connector_writes_enabled",
@@ -65,7 +70,9 @@ def _catalog_payload() -> dict[str, object]:
 
 
 def _verify_catalog_contract(payload: dict[str, object]) -> None:
-    _require(payload["catalog_status"] == "read_only_inspection", "catalog is not read-only")
+    _require(
+        payload["catalog_status"] == "read_only_inspection", "catalog is not read-only"
+    )
     for field in DENIED_TRUE_FLAGS:
         _require(payload[field] is False, f"catalog enables denied flag: {field}")
 
@@ -101,7 +108,9 @@ def _verify_catalog_contract(payload: dict[str, object]) -> None:
             "safe_adoption_posture",
         ):
             _require(field in entry, f"catalog entry missing {field}")
-        _require(entry["callable_posture"] != "callable", "entry claims callable posture")
+        _require(
+            entry["callable_posture"] != "callable", "entry claims callable posture"
+        )
         _require(entry["review_evidence_refs"], "entry missing review evidence refs")
 
 
@@ -111,8 +120,12 @@ def _verify_api_route(payload: dict[str, object]) -> None:
     _require(response.status_code == 200, "extension catalog route failed")
     body = response.json()
     _require(body["success"] is True, "extension catalog route did not succeed")
-    _require(body["operation"] == "inspect_extension_catalog", "route operation drifted")
-    _require(body["data"]["catalog_ref"] == payload["catalog_ref"], "route catalog drifted")
+    _require(
+        body["operation"] == "inspect_extension_catalog", "route operation drifted"
+    )
+    _require(
+        body["data"]["catalog_ref"] == payload["catalog_ref"], "route catalog drifted"
+    )
     for field in DENIED_TRUE_FLAGS:
         _require(body["data"][field] is False, f"route enables denied flag: {field}")
 
@@ -134,7 +147,9 @@ def _verify_cli(payload: dict[str, object]) -> None:
         timeout=20,
     )
     cli_payload = json.loads(result.stdout)
-    _require(cli_payload["catalog_ref"] == payload["catalog_ref"], "CLI catalog drifted")
+    _require(
+        cli_payload["catalog_ref"] == payload["catalog_ref"], "CLI catalog drifted"
+    )
     _require(
         cli_payload["callable_catalog_enabled"] is False,
         "CLI claims callable catalog authority",

@@ -33,8 +33,34 @@ import type {
   ResultEnvelope,
   RunAttachedApprovalQueue,
   RunObservabilityReadModel,
+  RuntimeApprovalBridgeReadModel,
+  RuntimeBackgroundJobsReadModel,
+  RuntimeLspDiagnosticsReadModel,
+  RuntimeSubagentIsolationReadModel,
   RuntimeCapabilityMatrix,
+  RuntimeCapabilityDiscoveryReadModel,
+  RuntimeContextBudgetPressureReadModel,
+  RuntimeDelegationAdapterReadModel,
+  RuntimeDoctorDiagnosticsReadModel,
+  RuntimeHardlineCommandBlocklistReadModel,
+  RuntimeManagedScopePolicyReadModel,
+  RuntimeMcpCatalogFilteringReadModel,
+  RuntimePromptStabilityTiersReadModel,
+  RuntimePreviewRailReadModel,
+  RuntimeInterruptRedirectReadModel,
+  RuntimeLoggingProfileReadModel,
+  RuntimeResultClassificationReadModel,
+  RuntimeSessionContinuityReadModel,
+  RuntimeToolsetCapabilityPosture,
+  RuntimeToolRegistryAvailabilityReadModel,
+  RuntimeUsageCostAnalyticsReadModel,
+  RuntimeVirtualProviderMoaReadModel,
+  RuntimeRunEventsReadModel,
+  RuntimeStreamingProgressReadModel,
+  RuntimeProfileIsolationReadModel,
   RuntimeReadinessReport,
+  RuntimeSlashCommandRegistryReadModel,
+  RuntimeWorktreePerAgentReadModel,
   ApiRouteInventory,
   FounderLoopActionDecisionKind,
   FounderLoopActionDecisionReceipt,
@@ -301,6 +327,114 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const agentLoopSettledPromise = Promise.allSettled([
     read<FounderLoopAgentLoopThread>(API_ENDPOINTS.founderAgentLoopThread),
   ] as const);
+  const runtimeCapabilityDiscoverySettledPromise = Promise.allSettled([
+    read<RuntimeCapabilityDiscoveryReadModel>(
+      API_ENDPOINTS.runtimeCapabilityDiscovery,
+    ),
+  ] as const);
+  const runtimeRunEventsSettledPromise = Promise.allSettled([
+    read<RuntimeRunEventsReadModel>(API_ENDPOINTS.runtimeRunEvents),
+  ] as const);
+  const runtimeApprovalBridgeSettledPromise = Promise.allSettled([
+    read<RuntimeApprovalBridgeReadModel>(API_ENDPOINTS.runtimeApprovalBridge),
+  ] as const);
+  const runtimeStreamingProgressSettledPromise = Promise.allSettled([
+    read<RuntimeStreamingProgressReadModel>(
+      API_ENDPOINTS.runtimeStreamingProgress,
+    ),
+  ] as const);
+  const runtimeProfilesSettledPromise = Promise.allSettled([
+    read<RuntimeProfileIsolationReadModel>(API_ENDPOINTS.runtimeProfiles),
+  ] as const);
+  const runtimeToolRegistrySettledPromise = Promise.allSettled([
+    read<RuntimeToolRegistryAvailabilityReadModel>(
+      API_ENDPOINTS.runtimeToolRegistry,
+    ),
+  ] as const);
+  const runtimeVirtualProviderMoaSettledPromise = Promise.allSettled([
+    read<RuntimeVirtualProviderMoaReadModel>(
+      API_ENDPOINTS.runtimeVirtualProviderMoa,
+    ),
+  ] as const);
+  const runtimeUsageCostAnalyticsSettledPromise = Promise.allSettled([
+    read<RuntimeUsageCostAnalyticsReadModel>(
+      API_ENDPOINTS.runtimeUsageCostAnalytics,
+    ),
+  ] as const);
+  const runtimePromptStabilityTiersSettledPromise = Promise.allSettled([
+    read<RuntimePromptStabilityTiersReadModel>(
+      API_ENDPOINTS.runtimePromptStabilityTiers,
+    ),
+  ] as const);
+  const runtimeContextBudgetPressureSettledPromise = Promise.allSettled([
+    read<RuntimeContextBudgetPressureReadModel>(
+      API_ENDPOINTS.runtimeContextBudgetPressure,
+    ),
+  ] as const);
+  const runtimeHardlineCommandBlocklistSettledPromise = Promise.allSettled([
+    read<RuntimeHardlineCommandBlocklistReadModel>(
+      API_ENDPOINTS.runtimeHardlineCommandBlocklist,
+    ),
+  ] as const);
+  const runtimeManagedScopePolicySettledPromise = Promise.allSettled([
+    read<RuntimeManagedScopePolicyReadModel>(
+      API_ENDPOINTS.runtimeManagedScopePolicy,
+    ),
+  ] as const);
+  const runtimeDoctorDiagnosticsSettledPromise = Promise.allSettled([
+    read<RuntimeDoctorDiagnosticsReadModel>(
+      API_ENDPOINTS.runtimeDoctorDiagnostics,
+    ),
+  ] as const);
+  const runtimeSessionContinuitySettledPromise = Promise.allSettled([
+    read<RuntimeSessionContinuityReadModel>(
+      API_ENDPOINTS.runtimeSessionContinuity,
+    ),
+  ] as const);
+  const runtimeMcpCatalogFilteringSettledPromise = Promise.allSettled([
+    read<RuntimeMcpCatalogFilteringReadModel>(
+      API_ENDPOINTS.runtimeMcpCatalogFiltering,
+    ),
+  ] as const);
+  const runtimeBackgroundJobsSettledPromise = Promise.allSettled([
+    read<RuntimeBackgroundJobsReadModel>(API_ENDPOINTS.runtimeBackgroundJobs),
+  ] as const);
+  const runtimeSubagentIsolationSettledPromise = Promise.allSettled([
+    read<RuntimeSubagentIsolationReadModel>(
+      API_ENDPOINTS.runtimeSubagentIsolation,
+    ),
+  ] as const);
+  const runtimeWorktreePerAgentSettledPromise = Promise.allSettled([
+    read<RuntimeWorktreePerAgentReadModel>(
+      API_ENDPOINTS.runtimeWorktreePerAgent,
+    ),
+  ] as const);
+  const runtimeLspDiagnosticsSettledPromise = Promise.allSettled([
+    read<RuntimeLspDiagnosticsReadModel>(
+      API_ENDPOINTS.runtimeLspDiagnostics,
+    ),
+  ] as const);
+  const runtimePreviewRailSettledPromise = Promise.allSettled([
+    read<RuntimePreviewRailReadModel>(API_ENDPOINTS.runtimePreviewRail),
+  ] as const);
+  const runtimeSlashCommandRegistrySettledPromise = Promise.allSettled([
+    read<RuntimeSlashCommandRegistryReadModel>(
+      API_ENDPOINTS.runtimeSlashCommandRegistry,
+    ),
+  ] as const);
+  const runtimeInterruptRedirectSettledPromise = Promise.allSettled([
+    read<RuntimeInterruptRedirectReadModel>(
+      API_ENDPOINTS.runtimeInterruptRedirect,
+    ),
+  ] as const);
+  const runtimeLoggingProfileSettledPromise = Promise.allSettled([
+    read<RuntimeLoggingProfileReadModel>(API_ENDPOINTS.runtimeLoggingProfile),
+  ] as const);
+  const runtimeResultClassificationSettledPromise = Promise.allSettled([
+    read<RuntimeResultClassificationReadModel>(
+      API_ENDPOINTS.runtimeResultClassification,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -311,6 +445,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     read<RuntimeReadinessReport>(API_ENDPOINTS.runtimeReadiness),
     read<RuntimeCapabilityMatrix>(
       API_ENDPOINTS.runtimeCapabilityMatrix,
+    ),
+    read<RuntimeDelegationAdapterReadModel>(
+      API_ENDPOINTS.runtimeDelegationAdapter,
     ),
     read<unknown>(API_ENDPOINTS.setupAssistantSummary),
     read<ProviderCatalog>(API_ENDPOINTS.providerSetupGuide),
@@ -401,6 +538,47 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   ] as const);
   const workBoardResult = await workBoardSettledPromise;
   const agentLoopResult = await agentLoopSettledPromise;
+  const runtimeCapabilityDiscoveryResult =
+    await runtimeCapabilityDiscoverySettledPromise;
+  const runtimeRunEventsResult = await runtimeRunEventsSettledPromise;
+  const runtimeApprovalBridgeResult =
+    await runtimeApprovalBridgeSettledPromise;
+  const runtimeStreamingProgressResult =
+    await runtimeStreamingProgressSettledPromise;
+  const runtimeProfilesResult = await runtimeProfilesSettledPromise;
+  const runtimeToolRegistryResult = await runtimeToolRegistrySettledPromise;
+  const runtimeVirtualProviderMoaResult =
+    await runtimeVirtualProviderMoaSettledPromise;
+  const runtimeUsageCostAnalyticsResult =
+    await runtimeUsageCostAnalyticsSettledPromise;
+  const runtimePromptStabilityTiersResult =
+    await runtimePromptStabilityTiersSettledPromise;
+  const runtimeContextBudgetPressureResult =
+    await runtimeContextBudgetPressureSettledPromise;
+  const runtimeHardlineCommandBlocklistResult =
+    await runtimeHardlineCommandBlocklistSettledPromise;
+  const runtimeManagedScopePolicyResult =
+    await runtimeManagedScopePolicySettledPromise;
+  const runtimeDoctorDiagnosticsResult =
+    await runtimeDoctorDiagnosticsSettledPromise;
+  const runtimeSessionContinuityResult =
+    await runtimeSessionContinuitySettledPromise;
+  const runtimeMcpCatalogFilteringResult =
+    await runtimeMcpCatalogFilteringSettledPromise;
+  const runtimeBackgroundJobsResult = await runtimeBackgroundJobsSettledPromise;
+  const runtimeSubagentIsolationResult =
+    await runtimeSubagentIsolationSettledPromise;
+  const runtimeWorktreePerAgentResult =
+    await runtimeWorktreePerAgentSettledPromise;
+  const runtimeLspDiagnosticsResult = await runtimeLspDiagnosticsSettledPromise;
+  const runtimePreviewRailResult = await runtimePreviewRailSettledPromise;
+  const runtimeSlashCommandRegistryResult =
+    await runtimeSlashCommandRegistrySettledPromise;
+  const runtimeInterruptRedirectResult =
+    await runtimeInterruptRedirectSettledPromise;
+  const runtimeLoggingProfileResult = await runtimeLoggingProfileSettledPromise;
+  const runtimeResultClassificationResult =
+    await runtimeResultClassificationSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -409,47 +587,102 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const routes = fulfilledValue(results[3]);
   const runtimeReadiness = fulfilledValue(results[4]);
   const capabilityMatrix = fulfilledValue(results[5]);
-  const setupAssistantSource = fulfilledValue(results[6]);
+  const runtimeDelegationAdapter = fulfilledValue(results[6]);
+  const runtimeCapabilityDiscovery = fulfilledValue(
+    runtimeCapabilityDiscoveryResult[0],
+  );
+  const runtimeRunEvents = fulfilledValue(runtimeRunEventsResult[0]);
+  const runtimeApprovalBridge = fulfilledValue(runtimeApprovalBridgeResult[0]);
+  const runtimeStreamingProgress = fulfilledValue(
+    runtimeStreamingProgressResult[0],
+  );
+  const runtimeProfiles = fulfilledValue(runtimeProfilesResult[0]);
+  const runtimeToolRegistry = fulfilledValue(runtimeToolRegistryResult[0]);
+  const runtimeVirtualProviderMoa = fulfilledValue(
+    runtimeVirtualProviderMoaResult[0],
+  );
+  const runtimeUsageCostAnalytics = fulfilledValue(
+    runtimeUsageCostAnalyticsResult[0],
+  );
+  const runtimePromptStabilityTiers = fulfilledValue(
+    runtimePromptStabilityTiersResult[0],
+  );
+  const runtimeContextBudgetPressure = fulfilledValue(
+    runtimeContextBudgetPressureResult[0],
+  );
+  const runtimeHardlineCommandBlocklist = fulfilledValue(
+    runtimeHardlineCommandBlocklistResult[0],
+  );
+  const runtimeManagedScopePolicy = fulfilledValue(
+    runtimeManagedScopePolicyResult[0],
+  );
+  const runtimeDoctorDiagnostics = fulfilledValue(
+    runtimeDoctorDiagnosticsResult[0],
+  );
+  const runtimeSessionContinuity = fulfilledValue(
+    runtimeSessionContinuityResult[0],
+  );
+  const runtimeMcpCatalogFiltering = fulfilledValue(
+    runtimeMcpCatalogFilteringResult[0],
+  );
+  const runtimeBackgroundJobs = fulfilledValue(runtimeBackgroundJobsResult[0]);
+  const runtimeSubagentIsolation = fulfilledValue(
+    runtimeSubagentIsolationResult[0],
+  );
+  const runtimeWorktreePerAgent = fulfilledValue(runtimeWorktreePerAgentResult[0]);
+  const runtimeLspDiagnostics = fulfilledValue(runtimeLspDiagnosticsResult[0]);
+  const runtimePreviewRail = fulfilledValue(runtimePreviewRailResult[0]);
+  const runtimeSlashCommandRegistry = fulfilledValue(
+    runtimeSlashCommandRegistryResult[0],
+  );
+  const runtimeInterruptRedirect = fulfilledValue(
+    runtimeInterruptRedirectResult[0],
+  );
+  const runtimeLoggingProfile = fulfilledValue(runtimeLoggingProfileResult[0]);
+  const runtimeResultClassification = fulfilledValue(
+    runtimeResultClassificationResult[0],
+  );
+  const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
     mockControlCenterData.macosSetupAssistant,
   );
-  const providerCatalog = fulfilledValue(results[7]);
-  const modelProviderControlPlane = fulfilledValue(results[8]);
-  const controlCenterSettingsStatus = fulfilledValue(results[9]);
-  const controlCenterLocalModelsStatus = fulfilledValue(results[10]);
-  const founderToday = fulfilledValue(results[11]);
-  const founderEvidenceTimeline = fulfilledValue(results[12]);
-  const founderMemoryReview = fulfilledValue(results[13]);
-  const founderMemoryWorkbench = fulfilledValue(results[14]);
-  const founderMemoryContextPacks = fulfilledValue(results[15]);
-  const founderMemoryRetrievalDiagnostics = fulfilledValue(results[16]);
-  const founderMemoryCitationIntegrity = fulfilledValue(results[17]);
-  const founderMemoryQualityIssues = fulfilledValue(results[18]);
-  const founderMemoryMaintenanceRuns = fulfilledValue(results[19]);
-  const founderMemoryContextManifest = fulfilledValue(results[20]);
-  const founderActionsInbox = fulfilledValue(results[21]);
-  const founderMorningBriefing = fulfilledValue(results[22]);
-  const founderSourceReadiness = fulfilledValue(results[23]);
-  const founderStorageStatus = fulfilledValue(results[24]);
-  const crmLocalCommandCenter = fulfilledValue(results[25]);
-  const approvalSummary = fulfilledValue(results[26]);
-  const approvalQueue = fulfilledValue(results[27]);
-  const runObservability = fulfilledValue(results[28]);
+  const providerCatalog = fulfilledValue(results[8]);
+  const modelProviderControlPlane = fulfilledValue(results[9]);
+  const controlCenterSettingsStatus = fulfilledValue(results[10]);
+  const controlCenterLocalModelsStatus = fulfilledValue(results[11]);
+  const founderToday = fulfilledValue(results[12]);
+  const founderEvidenceTimeline = fulfilledValue(results[13]);
+  const founderMemoryReview = fulfilledValue(results[14]);
+  const founderMemoryWorkbench = fulfilledValue(results[15]);
+  const founderMemoryContextPacks = fulfilledValue(results[16]);
+  const founderMemoryRetrievalDiagnostics = fulfilledValue(results[17]);
+  const founderMemoryCitationIntegrity = fulfilledValue(results[18]);
+  const founderMemoryQualityIssues = fulfilledValue(results[19]);
+  const founderMemoryMaintenanceRuns = fulfilledValue(results[20]);
+  const founderMemoryContextManifest = fulfilledValue(results[21]);
+  const founderActionsInbox = fulfilledValue(results[22]);
+  const founderMorningBriefing = fulfilledValue(results[23]);
+  const founderSourceReadiness = fulfilledValue(results[24]);
+  const founderStorageStatus = fulfilledValue(results[25]);
+  const crmLocalCommandCenter = fulfilledValue(results[26]);
+  const approvalSummary = fulfilledValue(results[27]);
+  const approvalQueue = fulfilledValue(results[28]);
+  const runObservability = fulfilledValue(results[29]);
   const safeObservedRunObservability = safeRunObservability(runObservability);
-  const runtimeReadinessSummary = fulfilledValue(results[29]);
-  const foundationGateSummary = fulfilledValue(results[30]);
-  const founderStartHere = fulfilledValue(results[31]);
-  const proofIndex = fulfilledValue(results[32]);
-  const trustAuthorityMatrix = fulfilledValue(results[33]);
-  const codingSession = fulfilledValue(results[34]);
-  const codingContext = fulfilledValue(results[35]);
-  const codingPatchProposal = fulfilledValue(results[36]);
-  const codingPatchApplyReadiness = fulfilledValue(results[37]);
-  const codingTestCommandReadiness = fulfilledValue(results[38]);
-  const codingGitReview = fulfilledValue(results[39]);
-  const codingLivePreview = fulfilledValue(results[40]);
-  const codingMultiAgentReview = fulfilledValue(results[41]);
+  const runtimeReadinessSummary = fulfilledValue(results[30]);
+  const foundationGateSummary = fulfilledValue(results[31]);
+  const founderStartHere = fulfilledValue(results[32]);
+  const proofIndex = fulfilledValue(results[33]);
+  const trustAuthorityMatrix = fulfilledValue(results[34]);
+  const codingSession = fulfilledValue(results[35]);
+  const codingContext = fulfilledValue(results[36]);
+  const codingPatchProposal = fulfilledValue(results[37]);
+  const codingPatchApplyReadiness = fulfilledValue(results[38]);
+  const codingTestCommandReadiness = fulfilledValue(results[39]);
+  const codingGitReview = fulfilledValue(results[40]);
+  const codingLivePreview = fulfilledValue(results[41]);
+  const codingMultiAgentReview = fulfilledValue(results[42]);
   const workBoard = fulfilledValue(workBoardResult[0]);
   const founderAgentLoopThread = fulfilledValue(agentLoopResult[0]);
   const safeCodingMultiAgentReview = isSafeCodingMultiAgentReview(
@@ -461,6 +694,122 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     modelProviderControlPlane,
   )
     ? modelProviderControlPlane
+    : undefined;
+  const safeRuntimeDelegationAdapter = isSafeRuntimeDelegationAdapter(
+    runtimeDelegationAdapter,
+  )
+    ? runtimeDelegationAdapter
+    : undefined;
+  const safeRuntimeCapabilityDiscovery = isSafeRuntimeCapabilityDiscovery(
+    runtimeCapabilityDiscovery,
+  )
+    ? runtimeCapabilityDiscovery
+    : undefined;
+  const safeRuntimeRunEvents = isSafeRuntimeRunEvents(runtimeRunEvents)
+    ? runtimeRunEvents
+    : undefined;
+  const safeRuntimeApprovalBridge = isSafeRuntimeApprovalBridge(
+    runtimeApprovalBridge,
+  )
+    ? runtimeApprovalBridge
+    : undefined;
+  const safeRuntimeStreamingProgress = isSafeRuntimeStreamingProgress(
+    runtimeStreamingProgress,
+  )
+    ? runtimeStreamingProgress
+    : undefined;
+  const safeRuntimeProfiles = isSafeRuntimeProfileIsolation(runtimeProfiles)
+    ? runtimeProfiles
+    : undefined;
+  const safeRuntimeToolRegistry = isSafeRuntimeToolRegistry(runtimeToolRegistry)
+    ? runtimeToolRegistry
+    : undefined;
+  const safeRuntimeVirtualProviderMoa = isSafeRuntimeVirtualProviderMoa(
+    runtimeVirtualProviderMoa,
+  )
+    ? runtimeVirtualProviderMoa
+    : undefined;
+  const safeRuntimeUsageCostAnalytics = isSafeRuntimeUsageCostAnalytics(
+    runtimeUsageCostAnalytics,
+  )
+    ? runtimeUsageCostAnalytics
+    : undefined;
+  const safeRuntimePromptStabilityTiers = isSafeRuntimePromptStabilityTiers(
+    runtimePromptStabilityTiers,
+  )
+    ? runtimePromptStabilityTiers
+    : undefined;
+  const safeRuntimeContextBudgetPressure = isSafeRuntimeContextBudgetPressure(
+    runtimeContextBudgetPressure,
+  )
+    ? runtimeContextBudgetPressure
+    : undefined;
+  const safeRuntimeHardlineCommandBlocklist =
+    isSafeRuntimeHardlineCommandBlocklist(runtimeHardlineCommandBlocklist)
+      ? runtimeHardlineCommandBlocklist
+      : undefined;
+  const safeRuntimeManagedScopePolicy = isSafeRuntimeManagedScopePolicy(
+    runtimeManagedScopePolicy,
+  )
+    ? runtimeManagedScopePolicy
+    : undefined;
+  const safeRuntimeDoctorDiagnostics = isSafeRuntimeDoctorDiagnostics(
+    runtimeDoctorDiagnostics,
+  )
+    ? runtimeDoctorDiagnostics
+    : undefined;
+  const safeRuntimeSessionContinuity = isSafeRuntimeSessionContinuity(
+    runtimeSessionContinuity,
+  )
+    ? runtimeSessionContinuity
+    : undefined;
+  const safeRuntimeMcpCatalogFiltering = isSafeRuntimeMcpCatalogFiltering(
+    runtimeMcpCatalogFiltering,
+  )
+    ? runtimeMcpCatalogFiltering
+    : undefined;
+  const safeRuntimeBackgroundJobs = isSafeRuntimeBackgroundJobs(
+    runtimeBackgroundJobs,
+  )
+    ? runtimeBackgroundJobs
+    : undefined;
+  const safeRuntimeSubagentIsolation = isSafeRuntimeSubagentIsolation(
+    runtimeSubagentIsolation,
+  )
+    ? runtimeSubagentIsolation
+    : undefined;
+  const safeRuntimeWorktreePerAgent = isSafeRuntimeWorktreePerAgent(
+    runtimeWorktreePerAgent,
+  )
+    ? runtimeWorktreePerAgent
+    : undefined;
+  const safeRuntimeLspDiagnostics = isSafeRuntimeLspDiagnostics(
+    runtimeLspDiagnostics,
+  )
+    ? runtimeLspDiagnostics
+    : undefined;
+  const safeRuntimePreviewRail = isSafeRuntimePreviewRail(runtimePreviewRail)
+    ? runtimePreviewRail
+    : undefined;
+  const safeRuntimeSlashCommandRegistry = isSafeRuntimeSlashCommandRegistry(
+    runtimeSlashCommandRegistry,
+  )
+    ? runtimeSlashCommandRegistry
+    : undefined;
+  const safeRuntimeInterruptRedirect = isSafeRuntimeInterruptRedirect(
+    runtimeInterruptRedirect,
+  )
+    ? runtimeInterruptRedirect
+    : undefined;
+  const safeRuntimeLoggingProfile = isSafeRuntimeLoggingProfile(
+    runtimeLoggingProfile,
+  )
+    ? runtimeLoggingProfile
+    : undefined;
+  const safeRuntimeResultClassification = isSafeRuntimeResultClassification(
+    runtimeResultClassification,
+  )
+    ? runtimeResultClassification
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -589,6 +938,53 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     crmLocalCommandCenter.authority_posture?.provider_model_call_enabled !== false;
   const modelProviderControlPlaneFallbackUsed =
     safeModelProviderControlPlane === undefined;
+  const runtimeDelegationAdapterFallbackUsed =
+    safeRuntimeDelegationAdapter === undefined;
+  const runtimeCapabilityDiscoveryFallbackUsed =
+    safeRuntimeCapabilityDiscovery === undefined;
+  const runtimeRunEventsFallbackUsed = safeRuntimeRunEvents === undefined;
+  const runtimeApprovalBridgeFallbackUsed =
+    safeRuntimeApprovalBridge === undefined;
+  const runtimeStreamingProgressFallbackUsed =
+    safeRuntimeStreamingProgress === undefined;
+  const runtimeProfilesFallbackUsed = safeRuntimeProfiles === undefined;
+  const runtimeToolRegistryFallbackUsed =
+    safeRuntimeToolRegistry === undefined;
+  const runtimeVirtualProviderMoaFallbackUsed =
+    safeRuntimeVirtualProviderMoa === undefined;
+  const runtimeUsageCostAnalyticsFallbackUsed =
+    safeRuntimeUsageCostAnalytics === undefined;
+  const runtimePromptStabilityTiersFallbackUsed =
+    safeRuntimePromptStabilityTiers === undefined;
+  const runtimeContextBudgetPressureFallbackUsed =
+    safeRuntimeContextBudgetPressure === undefined;
+  const runtimeHardlineCommandBlocklistFallbackUsed =
+    safeRuntimeHardlineCommandBlocklist === undefined;
+  const runtimeManagedScopePolicyFallbackUsed =
+    safeRuntimeManagedScopePolicy === undefined;
+  const runtimeDoctorDiagnosticsFallbackUsed =
+    safeRuntimeDoctorDiagnostics === undefined;
+  const runtimeSessionContinuityFallbackUsed =
+    safeRuntimeSessionContinuity === undefined;
+  const runtimeMcpCatalogFilteringFallbackUsed =
+    safeRuntimeMcpCatalogFiltering === undefined;
+  const runtimeBackgroundJobsFallbackUsed =
+    safeRuntimeBackgroundJobs === undefined;
+  const runtimeSubagentIsolationFallbackUsed =
+    safeRuntimeSubagentIsolation === undefined;
+  const runtimeWorktreePerAgentFallbackUsed =
+    safeRuntimeWorktreePerAgent === undefined;
+  const runtimeLspDiagnosticsFallbackUsed =
+    safeRuntimeLspDiagnostics === undefined;
+  const runtimePreviewRailFallbackUsed = safeRuntimePreviewRail === undefined;
+  const runtimeSlashCommandRegistryFallbackUsed =
+    safeRuntimeSlashCommandRegistry === undefined;
+  const runtimeInterruptRedirectFallbackUsed =
+    safeRuntimeInterruptRedirect === undefined;
+  const runtimeLoggingProfileFallbackUsed =
+    safeRuntimeLoggingProfile === undefined;
+  const runtimeResultClassificationFallbackUsed =
+    safeRuntimeResultClassification === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -721,6 +1117,169 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         controlCenterLocalModelsStatus === undefined,
     }),
     routeReadStateInput({
+      route: "/runtime",
+      surfaceLabel: "Runtime",
+      backendRouteRefs: [
+        "GET /runtime/readiness",
+        "GET /runtime/capability-matrix",
+        "GET /api/runtime/delegation-adapter",
+        "GET /api/runtime/capability-discovery",
+        "GET /api/runtime/run-events",
+        "GET /api/runtime/approval-bridge",
+        "GET /api/runtime/streaming-progress",
+        "GET /api/runtime/profiles",
+        "GET /api/runtime/tool-registry",
+        "GET /api/runtime/virtual-provider-moa",
+        "GET /api/runtime/usage-cost-analytics",
+        "GET /api/runtime/prompt-stability-tiers",
+        "GET /api/runtime/context-budget-pressure",
+        "GET /api/runtime/hardline-command-blocklist",
+        "GET /api/runtime/managed-scope-policy",
+        "GET /api/runtime/doctor-diagnostics",
+        "GET /api/runtime/session-continuity",
+        "GET /api/runtime/mcp-catalog-filtering",
+        "GET /api/runtime/background-jobs",
+        "GET /api/runtime/subagent-isolation",
+        "GET /api/runtime/worktree-per-agent",
+        "GET /api/runtime/lsp-diagnostics",
+        "GET /api/runtime/preview-rail",
+        "GET /api/runtime/slash-command-registry",
+      ],
+      endpointReturned:
+        runtimeReadiness !== undefined &&
+        capabilityMatrix !== undefined &&
+        runtimeDelegationAdapter !== undefined &&
+        runtimeCapabilityDiscovery !== undefined &&
+        runtimeRunEvents !== undefined &&
+        runtimeApprovalBridge !== undefined &&
+        runtimeStreamingProgress !== undefined &&
+        runtimeProfiles !== undefined &&
+        runtimeToolRegistry !== undefined &&
+        runtimeVirtualProviderMoa !== undefined &&
+        runtimeUsageCostAnalytics !== undefined &&
+        runtimePromptStabilityTiers !== undefined &&
+        runtimeContextBudgetPressure !== undefined &&
+        runtimeHardlineCommandBlocklist !== undefined &&
+        runtimeManagedScopePolicy !== undefined &&
+        runtimeDoctorDiagnostics !== undefined &&
+        runtimeSessionContinuity !== undefined &&
+        runtimeMcpCatalogFiltering !== undefined &&
+        runtimeBackgroundJobs !== undefined &&
+        runtimeSubagentIsolation !== undefined &&
+        runtimeWorktreePerAgent !== undefined &&
+        runtimeLspDiagnostics !== undefined &&
+        runtimePreviewRail !== undefined &&
+        runtimeSlashCommandRegistry !== undefined &&
+        runtimeInterruptRedirect !== undefined &&
+        runtimeLoggingProfile !== undefined &&
+        runtimeResultClassification !== undefined,
+      warningRefs: [
+        ...(runtimeDelegationAdapterFallbackUsed
+          ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeCapabilityDiscoveryFallbackUsed
+          ? ["RUNTIME_CAPABILITY_DISCOVERY_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeRunEventsFallbackUsed
+          ? ["RUNTIME_RUN_EVENTS_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeApprovalBridgeFallbackUsed
+          ? ["RUNTIME_APPROVAL_BRIDGE_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeStreamingProgressFallbackUsed
+          ? ["RUNTIME_STREAMING_PROGRESS_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeProfilesFallbackUsed
+          ? ["RUNTIME_PROFILES_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeToolRegistryFallbackUsed
+          ? ["RUNTIME_TOOL_REGISTRY_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeVirtualProviderMoaFallbackUsed
+          ? ["RUNTIME_VIRTUAL_PROVIDER_MOA_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeUsageCostAnalyticsFallbackUsed
+          ? ["RUNTIME_USAGE_COST_ANALYTICS_MOCK_FALLBACK"]
+          : []),
+        ...(runtimePromptStabilityTiersFallbackUsed
+          ? ["RUNTIME_PROMPT_STABILITY_TIERS_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeContextBudgetPressureFallbackUsed
+          ? ["RUNTIME_CONTEXT_BUDGET_PRESSURE_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeHardlineCommandBlocklistFallbackUsed
+          ? ["RUNTIME_HARDLINE_COMMAND_BLOCKLIST_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeManagedScopePolicyFallbackUsed
+          ? ["RUNTIME_MANAGED_SCOPE_POLICY_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeDoctorDiagnosticsFallbackUsed
+          ? ["RUNTIME_DOCTOR_DIAGNOSTICS_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeSessionContinuityFallbackUsed
+          ? ["RUNTIME_SESSION_CONTINUITY_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeMcpCatalogFilteringFallbackUsed
+          ? ["RUNTIME_MCP_CATALOG_FILTERING_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeBackgroundJobsFallbackUsed
+          ? ["RUNTIME_BACKGROUND_JOBS_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeSubagentIsolationFallbackUsed
+          ? ["RUNTIME_SUBAGENT_ISOLATION_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeWorktreePerAgentFallbackUsed
+          ? ["RUNTIME_WORKTREE_PER_AGENT_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeLspDiagnosticsFallbackUsed
+          ? ["RUNTIME_LSP_DIAGNOSTICS_MOCK_FALLBACK"]
+          : []),
+        ...(runtimePreviewRailFallbackUsed
+          ? ["RUNTIME_PREVIEW_RAIL_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeSlashCommandRegistryFallbackUsed
+          ? ["RUNTIME_SLASH_COMMAND_REGISTRY_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeInterruptRedirectFallbackUsed
+          ? ["RUNTIME_INTERRUPT_REDIRECT_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeLoggingProfileFallbackUsed
+          ? ["RUNTIME_LOGGING_PROFILE_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeResultClassificationFallbackUsed
+          ? ["RUNTIME_RESULT_CLASSIFICATION_MOCK_FALLBACK"]
+          : []),
+      ],
+      usedFallback:
+        runtimeReadiness === undefined ||
+        capabilityMatrix === undefined ||
+        runtimeDelegationAdapterFallbackUsed ||
+        runtimeCapabilityDiscoveryFallbackUsed ||
+        runtimeRunEventsFallbackUsed ||
+        runtimeApprovalBridgeFallbackUsed ||
+        runtimeStreamingProgressFallbackUsed ||
+        runtimeProfilesFallbackUsed ||
+        runtimeToolRegistryFallbackUsed ||
+        runtimeVirtualProviderMoaFallbackUsed ||
+        runtimeUsageCostAnalyticsFallbackUsed ||
+        runtimePromptStabilityTiersFallbackUsed ||
+        runtimeContextBudgetPressureFallbackUsed ||
+        runtimeHardlineCommandBlocklistFallbackUsed ||
+        runtimeManagedScopePolicyFallbackUsed ||
+        runtimeDoctorDiagnosticsFallbackUsed ||
+        runtimeSessionContinuityFallbackUsed ||
+        runtimeMcpCatalogFilteringFallbackUsed ||
+        runtimeBackgroundJobsFallbackUsed ||
+        runtimeSubagentIsolationFallbackUsed ||
+        runtimeWorktreePerAgentFallbackUsed ||
+        runtimeLspDiagnosticsFallbackUsed ||
+        runtimePreviewRailFallbackUsed ||
+        runtimeSlashCommandRegistryFallbackUsed ||
+        runtimeInterruptRedirectFallbackUsed ||
+        runtimeLoggingProfileFallbackUsed ||
+        runtimeResultClassificationFallbackUsed,
+    }),
+    routeReadStateInput({
       route: "/briefing",
       surfaceLabel: "Briefing",
       backendRouteRef: "GET /control-center/morning-briefing/summary",
@@ -806,6 +1365,31 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     routes === undefined ||
     runtimeReadiness === undefined ||
     capabilityMatrix === undefined ||
+    runtimeDelegationAdapter === undefined ||
+    runtimeCapabilityDiscovery === undefined ||
+    runtimeRunEvents === undefined ||
+    runtimeApprovalBridge === undefined ||
+    runtimeStreamingProgress === undefined ||
+    runtimeProfiles === undefined ||
+    runtimeToolRegistry === undefined ||
+    runtimeVirtualProviderMoa === undefined ||
+    runtimeUsageCostAnalytics === undefined ||
+    runtimePromptStabilityTiers === undefined ||
+    runtimeContextBudgetPressure === undefined ||
+    runtimeHardlineCommandBlocklist === undefined ||
+    runtimeManagedScopePolicy === undefined ||
+    runtimeDoctorDiagnostics === undefined ||
+    runtimeSessionContinuity === undefined ||
+    runtimeMcpCatalogFiltering === undefined ||
+    runtimeBackgroundJobs === undefined ||
+    runtimeSubagentIsolation === undefined ||
+    runtimeWorktreePerAgent === undefined ||
+    runtimeLspDiagnostics === undefined ||
+    runtimePreviewRail === undefined ||
+    runtimeSlashCommandRegistry === undefined ||
+    runtimeInterruptRedirect === undefined ||
+    runtimeLoggingProfile === undefined ||
+    runtimeResultClassification === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -828,8 +1412,32 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const fulfilledCount =
     coreFulfilledCount +
     (workBoardResult[0].status === "fulfilled" ? 1 : 0) +
-    (agentLoopResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 2;
+    (agentLoopResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeCapabilityDiscoveryResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeRunEventsResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeApprovalBridgeResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeStreamingProgressResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeProfilesResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeToolRegistryResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeVirtualProviderMoaResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeUsageCostAnalyticsResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimePromptStabilityTiersResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeContextBudgetPressureResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeHardlineCommandBlocklistResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeManagedScopePolicyResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeDoctorDiagnosticsResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeSessionContinuityResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeMcpCatalogFilteringResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeBackgroundJobsResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeSubagentIsolationResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeWorktreePerAgentResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeLspDiagnosticsResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimePreviewRailResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeSlashCommandRegistryResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeInterruptRedirectResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeLoggingProfileResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeResultClassificationResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 26;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -886,6 +1494,74 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       runtimeReadiness ?? mockControlCenterData.runtimeReadiness,
     capabilityMatrix:
       capabilityMatrix ?? mockControlCenterData.capabilityMatrix,
+    runtimeDelegationAdapter:
+      safeRuntimeDelegationAdapter ??
+      mockControlCenterData.runtimeDelegationAdapter,
+    runtimeCapabilityDiscovery:
+      safeRuntimeCapabilityDiscovery ??
+      mockControlCenterData.runtimeCapabilityDiscovery,
+    runtimeRunEvents:
+      safeRuntimeRunEvents ?? mockControlCenterData.runtimeRunEvents,
+    runtimeApprovalBridge:
+      safeRuntimeApprovalBridge ?? mockControlCenterData.runtimeApprovalBridge,
+    runtimeStreamingProgress:
+      safeRuntimeStreamingProgress ??
+      mockControlCenterData.runtimeStreamingProgress,
+    runtimeProfiles:
+      safeRuntimeProfiles ?? mockControlCenterData.runtimeProfiles,
+    runtimeToolRegistry:
+      safeRuntimeToolRegistry ?? mockControlCenterData.runtimeToolRegistry,
+    runtimeVirtualProviderMoa:
+      safeRuntimeVirtualProviderMoa ??
+      mockControlCenterData.runtimeVirtualProviderMoa,
+    runtimeUsageCostAnalytics:
+      safeRuntimeUsageCostAnalytics ??
+      mockControlCenterData.runtimeUsageCostAnalytics,
+    runtimePromptStabilityTiers:
+      safeRuntimePromptStabilityTiers ??
+      mockControlCenterData.runtimePromptStabilityTiers,
+    runtimeContextBudgetPressure:
+      safeRuntimeContextBudgetPressure ??
+      mockControlCenterData.runtimeContextBudgetPressure,
+    runtimeHardlineCommandBlocklist:
+      safeRuntimeHardlineCommandBlocklist ??
+      mockControlCenterData.runtimeHardlineCommandBlocklist,
+    runtimeManagedScopePolicy:
+      safeRuntimeManagedScopePolicy ??
+      mockControlCenterData.runtimeManagedScopePolicy,
+    runtimeDoctorDiagnostics:
+      safeRuntimeDoctorDiagnostics ??
+      mockControlCenterData.runtimeDoctorDiagnostics,
+    runtimeSessionContinuity:
+      safeRuntimeSessionContinuity ??
+      mockControlCenterData.runtimeSessionContinuity,
+    runtimeMcpCatalogFiltering:
+      safeRuntimeMcpCatalogFiltering ??
+      mockControlCenterData.runtimeMcpCatalogFiltering,
+    runtimeBackgroundJobs:
+      safeRuntimeBackgroundJobs ?? mockControlCenterData.runtimeBackgroundJobs,
+    runtimeSubagentIsolation:
+      safeRuntimeSubagentIsolation ??
+      mockControlCenterData.runtimeSubagentIsolation,
+    runtimeWorktreePerAgent:
+      safeRuntimeWorktreePerAgent ??
+      mockControlCenterData.runtimeWorktreePerAgent,
+    runtimeLspDiagnostics:
+      safeRuntimeLspDiagnostics ??
+      mockControlCenterData.runtimeLspDiagnostics,
+    runtimePreviewRail:
+      safeRuntimePreviewRail ?? mockControlCenterData.runtimePreviewRail,
+    runtimeSlashCommandRegistry:
+      safeRuntimeSlashCommandRegistry ??
+      mockControlCenterData.runtimeSlashCommandRegistry,
+    runtimeInterruptRedirect:
+      safeRuntimeInterruptRedirect ??
+      mockControlCenterData.runtimeInterruptRedirect,
+    runtimeLoggingProfile:
+      safeRuntimeLoggingProfile ?? mockControlCenterData.runtimeLoggingProfile,
+    runtimeResultClassification:
+      safeRuntimeResultClassification ??
+      mockControlCenterData.runtimeResultClassification,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -962,6 +1638,31 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !codingSessionFallbackUsed &&
     !workBoardFallbackUsed &&
     !agentLoopThreadFallbackUsed &&
+    !runtimeDelegationAdapterFallbackUsed &&
+    !runtimeCapabilityDiscoveryFallbackUsed &&
+    !runtimeRunEventsFallbackUsed &&
+    !runtimeApprovalBridgeFallbackUsed &&
+    !runtimeStreamingProgressFallbackUsed &&
+    !runtimeProfilesFallbackUsed &&
+    !runtimeToolRegistryFallbackUsed &&
+    !runtimeVirtualProviderMoaFallbackUsed &&
+    !runtimeUsageCostAnalyticsFallbackUsed &&
+    !runtimePromptStabilityTiersFallbackUsed &&
+    !runtimeContextBudgetPressureFallbackUsed &&
+    !runtimeHardlineCommandBlocklistFallbackUsed &&
+    !runtimeManagedScopePolicyFallbackUsed &&
+    !runtimeDoctorDiagnosticsFallbackUsed &&
+    !runtimeSessionContinuityFallbackUsed &&
+    !runtimeMcpCatalogFilteringFallbackUsed &&
+    !runtimeBackgroundJobsFallbackUsed &&
+    !runtimeSubagentIsolationFallbackUsed &&
+    !runtimeWorktreePerAgentFallbackUsed &&
+    !runtimeLspDiagnosticsFallbackUsed &&
+    !runtimePreviewRailFallbackUsed &&
+    !runtimeSlashCommandRegistryFallbackUsed &&
+    !runtimeInterruptRedirectFallbackUsed &&
+    !runtimeLoggingProfileFallbackUsed &&
+    !runtimeResultClassificationFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -986,6 +1687,31 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingSessionFallbackUsed ||
     workBoardFallbackUsed ||
     agentLoopThreadFallbackUsed ||
+    runtimeDelegationAdapterFallbackUsed ||
+    runtimeCapabilityDiscoveryFallbackUsed ||
+    runtimeRunEventsFallbackUsed ||
+    runtimeApprovalBridgeFallbackUsed ||
+    runtimeStreamingProgressFallbackUsed ||
+    runtimeProfilesFallbackUsed ||
+    runtimeToolRegistryFallbackUsed ||
+    runtimeVirtualProviderMoaFallbackUsed ||
+    runtimeUsageCostAnalyticsFallbackUsed ||
+    runtimePromptStabilityTiersFallbackUsed ||
+    runtimeContextBudgetPressureFallbackUsed ||
+    runtimeHardlineCommandBlocklistFallbackUsed ||
+    runtimeManagedScopePolicyFallbackUsed ||
+    runtimeDoctorDiagnosticsFallbackUsed ||
+    runtimeSessionContinuityFallbackUsed ||
+    runtimeMcpCatalogFilteringFallbackUsed ||
+    runtimeBackgroundJobsFallbackUsed ||
+    runtimeSubagentIsolationFallbackUsed ||
+    runtimeWorktreePerAgentFallbackUsed ||
+    runtimeLspDiagnosticsFallbackUsed ||
+    runtimePreviewRailFallbackUsed ||
+    runtimeSlashCommandRegistryFallbackUsed ||
+    runtimeInterruptRedirectFallbackUsed ||
+    runtimeLoggingProfileFallbackUsed ||
+    runtimeResultClassificationFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1005,6 +1731,81 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (modelProviderControlPlaneFallbackUsed) {
     degradedSafeMessage =
       "Model/provider control-plane posture was unavailable or unsafe; non-authoritative mock fallback kept broad provider authority blocked.";
+  } else if (runtimeDelegationAdapterFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime delegation adapter posture was unavailable or unsafe; non-authoritative mock fallback kept delegated runtime authority blocked.";
+  } else if (runtimeCapabilityDiscoveryFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime capability discovery posture was unavailable or unsafe; non-authoritative mock fallback kept runtime controls blocked.";
+  } else if (runtimeRunEventsFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime run/event posture was unavailable or unsafe; non-authoritative mock fallback kept delegated run controls blocked.";
+  } else if (runtimeApprovalBridgeFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime approval bridge posture was unavailable or unsafe; non-authoritative mock fallback kept runtime approval resolution blocked.";
+  } else if (runtimeStreamingProgressFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime streaming progress posture was unavailable or unsafe; non-authoritative mock fallback kept live runtime transport blocked.";
+  } else if (runtimeProfilesFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime profile isolation posture was unavailable or unsafe; non-authoritative mock fallback kept profile mutation blocked.";
+  } else if (runtimeToolRegistryFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime tool registry posture was unavailable or unsafe; non-authoritative mock fallback kept tool invocation blocked.";
+  } else if (runtimeVirtualProviderMoaFallbackUsed) {
+    degradedSafeMessage =
+      "Virtual multi-agent provider posture was unavailable or unsafe; non-authoritative mock fallback kept provider fan-out blocked.";
+  } else if (runtimeUsageCostAnalyticsFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime usage and cost posture was unavailable or unsafe; non-authoritative mock fallback kept billing and provider execution blocked.";
+  } else if (runtimePromptStabilityTiersFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime prompt stability posture was unavailable or unsafe; non-authoritative mock fallback kept raw prompts, hidden injection, and model-output authority blocked.";
+  } else if (runtimeContextBudgetPressureFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime context budget posture was unavailable or unsafe; non-authoritative mock fallback kept hidden compression, automatic context mutation, and model summarization blocked.";
+  } else if (runtimeHardlineCommandBlocklistFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime hardline command blocklist posture was unavailable or unsafe; non-authoritative mock fallback kept command floor override and catastrophic command categories blocked.";
+  } else if (runtimeManagedScopePolicyFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime managed scope policy posture was unavailable or unsafe; non-authoritative mock fallback kept local policy config writes and privileged delivery blocked.";
+  } else if (runtimeDoctorDiagnosticsFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime doctor diagnostics were unavailable or unsafe; non-authoritative mock fallback kept installs, service starts, credential writes, and runtime config mutation blocked.";
+  } else if (runtimeSessionContinuityFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime session continuity was unavailable or unsafe; non-authoritative mock fallback kept external gateways, account sync, connector writes, and remote sessions blocked.";
+  } else if (runtimeMcpCatalogFilteringFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime MCP catalog filtering was unavailable or unsafe; non-authoritative mock fallback kept server install, tool invocation, and connector writes blocked.";
+  } else if (runtimeBackgroundJobsFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime background job posture was unavailable or unsafe; non-authoritative mock fallback kept schedulers, workers, run-now, and connector writes blocked.";
+  } else if (runtimeSubagentIsolationFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime subagent isolation posture was unavailable or unsafe; non-authoritative mock fallback kept live dispatch, fan-out, tool sharing, and memory transfer blocked.";
+  } else if (runtimeWorktreePerAgentFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime worktree-per-agent posture was unavailable or unsafe; non-authoritative mock fallback kept Git worktree, branch, file, commit, and push mutation blocked.";
+  } else if (runtimeLspDiagnosticsFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime LSP diagnostics posture was unavailable or unsafe; non-authoritative mock fallback kept language-server launch, installs, shell execution, and raw diagnostic persistence blocked.";
+  } else if (runtimePreviewRailFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime preview rail posture was unavailable or unsafe; non-authoritative mock fallback kept browser automation, raw sensitive file display, screenshot capture, and direct runtime payload rendering blocked.";
+  } else if (runtimeSlashCommandRegistryFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime slash command registry posture was unavailable or unsafe; non-authoritative mock fallback kept command execution, runtime invocation, state mutation, and raw prompt/response persistence blocked.";
+  } else if (runtimeInterruptRedirectFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime interrupt and redirect posture was unavailable or unsafe; non-authoritative mock fallback kept live stop, process kill, runtime mutation, and raw runtime payload persistence blocked.";
+  } else if (runtimeLoggingProfileFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime logging profile posture was unavailable or unsafe; non-authoritative mock fallback kept verbose logging, raw log persistence, and remote telemetry export blocked.";
+  } else if (runtimeResultClassificationFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime result classification posture was unavailable or unsafe; non-authoritative mock fallback kept tool output from becoming truth or action authority.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1062,6 +1863,49 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ...(workBoardFallbackUsed ? workBoardEndpointFallbackWarningRefs : []),
       ...(agentLoopThreadFallbackUsed
         ? ["AGENT_LOOP_THREAD_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeDelegationAdapterFallbackUsed
+        ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeCapabilityDiscoveryFallbackUsed
+        ? ["RUNTIME_CAPABILITY_DISCOVERY_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeRunEventsFallbackUsed
+        ? ["RUNTIME_RUN_EVENTS_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeApprovalBridgeFallbackUsed
+        ? ["RUNTIME_APPROVAL_BRIDGE_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeStreamingProgressFallbackUsed
+        ? ["RUNTIME_STREAMING_PROGRESS_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeProfilesFallbackUsed ? ["RUNTIME_PROFILES_MOCK_FALLBACK"] : []),
+      ...(runtimeToolRegistryFallbackUsed
+        ? ["RUNTIME_TOOL_REGISTRY_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeVirtualProviderMoaFallbackUsed
+        ? ["RUNTIME_VIRTUAL_PROVIDER_MOA_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeUsageCostAnalyticsFallbackUsed
+        ? ["RUNTIME_USAGE_COST_ANALYTICS_MOCK_FALLBACK"]
+        : []),
+      ...(runtimePromptStabilityTiersFallbackUsed
+        ? ["RUNTIME_PROMPT_STABILITY_TIERS_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeContextBudgetPressureFallbackUsed
+        ? ["RUNTIME_CONTEXT_BUDGET_PRESSURE_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeHardlineCommandBlocklistFallbackUsed
+        ? ["RUNTIME_HARDLINE_COMMAND_BLOCKLIST_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeManagedScopePolicyFallbackUsed
+        ? ["RUNTIME_MANAGED_SCOPE_POLICY_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeDoctorDiagnosticsFallbackUsed
+        ? ["RUNTIME_DOCTOR_DIAGNOSTICS_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeSessionContinuityFallbackUsed
+        ? ["RUNTIME_SESSION_CONTINUITY_MOCK_FALLBACK"]
         : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
@@ -2675,6 +3519,2207 @@ function safetyFlagIsFalse(
   return names.some((name) => safety[name] === false);
 }
 
+function isSafeRuntimeDelegationAdapter(
+  value: RuntimeDelegationAdapterReadModel | undefined,
+): value is RuntimeDelegationAdapterReadModel {
+  if (value === undefined || !isPlainRecord(value.endpoint_posture)) {
+    return false;
+  }
+  const deniedTopLevelFlags: Array<keyof RuntimeDelegationAdapterReadModel> = [
+    "control_center_talks_directly_to_runtime",
+    "live_run_submission_enabled",
+    "runtime_model_calls_enabled",
+    "provider_sdk_calls_enabled",
+    "tool_execution_enabled",
+    "shell_execution_enabled",
+    "browser_automation_enabled",
+    "connector_write_enabled",
+    "background_autonomy_enabled",
+    "production_authority_enabled",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+    "raw_provider_payload_persisted",
+    "raw_log_persisted",
+    "raw_local_path_persisted",
+    "credential_material_persisted",
+  ];
+  const endpoint = value.endpoint_posture;
+  return (
+    value.schema_version === "runtime_delegation_adapter.v1" &&
+    value.status === "readiness_only" &&
+    value.runtime_kind === "hermes_agent" &&
+    value.uaa_controls_authority === true &&
+    value.runtime_provides_capability_only === true &&
+    value.safe_refs_only === true &&
+    endpoint.live_transport_enabled === false &&
+    endpoint.credential_material_exposed === false &&
+    isNonEmptyStringArray(value.capability_refs) &&
+    isNonEmptyStringArray(value.health_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.blocked_reason_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.blocked_reason_refs.includes(
+      "blocked-authority:runtime-delegation-live-run-submission",
+    ) &&
+    value.blocked_reason_refs.includes(
+      "blocked-authority:runtime-delegation-direct-control-center-runtime-access",
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeCapabilityDiscovery(
+  value: RuntimeCapabilityDiscoveryReadModel | undefined,
+): value is RuntimeCapabilityDiscoveryReadModel {
+  if (
+    value === undefined ||
+    !Array.isArray(value.capability_groups) ||
+    !isSafeRuntimeToolsetCapabilityPosture(value.toolset_posture)
+  ) {
+    return false;
+  }
+  const requiredGroupKinds = [
+    "models",
+    "runs",
+    "events",
+    "approvals",
+    "sessions",
+    "skills",
+    "toolsets",
+    "jobs",
+    "blocked_actions",
+  ] as const;
+  const groupKinds = new Set(
+    value.capability_groups.map((group) => group.group_kind),
+  );
+  const deniedTopLevelFlags: Array<keyof RuntimeCapabilityDiscoveryReadModel> = [
+    "runtime_reachable",
+    "live_discovery_performed",
+    "control_center_talks_directly_to_runtime",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+    "raw_provider_payload_persisted",
+    "raw_runtime_payload_persisted",
+    "raw_log_persisted",
+    "raw_local_path_persisted",
+    "credential_material_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_capability_discovery.v1" &&
+    value.status === "static_readiness_only" &&
+    value.uaa_controls_authority === true &&
+    value.safe_refs_only === true &&
+    value.stale === true &&
+    value.stale_or_unreachable_degrades_to_blocked === true &&
+    value.runtime_supported_cannot_grant_uaa_permission === true &&
+    value.uaa_authorized_capability_count === 0 &&
+    value.toolset_posture.uaa_allowed_execution_count === 0 &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    requiredGroupKinds.every((kind) => groupKinds.has(kind)) &&
+    value.capability_groups.every(
+      (group) =>
+        group.uaa_authorized_for_execution === false &&
+        group.stale_or_unreachable_degrades_to_blocked === true &&
+        isNonEmptyStringArray(group.capability_refs) &&
+        isNonEmptyStringArray(group.blocked_authority_refs) &&
+        isNonEmptyStringArray(group.next_safe_action_refs),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeToolsetCapabilityPosture(
+  value: RuntimeToolsetCapabilityPosture | undefined,
+): value is RuntimeToolsetCapabilityPosture {
+  if (value === undefined || !Array.isArray(value.records)) {
+    return false;
+  }
+  const allowedSupportStatuses = new Set([
+    "runtime_supported_by_reference",
+    "runtime_configured_metadata_only",
+    "runtime_planned_disabled",
+    "runtime_unsupported",
+    "runtime_blocked_by_uaa",
+  ]);
+  const allowedAllowanceStatuses = new Set([
+    "enabled_read_only",
+    "configured_metadata_only",
+    "approval_required_future_lane",
+    "blocked",
+    "unsupported",
+  ]);
+  const allowedSideEffectClasses = new Set([
+    "read_only_metadata",
+    "local_workspace",
+    "external_mutation",
+    "high_authority",
+    "unsupported",
+  ]);
+  const recordCount = value.records.length;
+  const runtimeSupportedCount = value.records.filter(
+    (record) => record.runtime_supports_toolset,
+  ).length;
+  const allowanceCounts: Record<string, number> = {
+    enabled_read_only: 0,
+    configured_metadata_only: 0,
+    approval_required_future_lane: 0,
+    blocked: 0,
+    unsupported: 0,
+  };
+  for (const record of value.records) {
+    if (
+      !allowedSupportStatuses.has(record.runtime_support_status) ||
+      !allowedAllowanceStatuses.has(record.uaa_allowance_status) ||
+      !allowedSideEffectClasses.has(record.side_effect_class)
+    ) {
+      return false;
+    }
+    allowanceCounts[record.uaa_allowance_status] += 1;
+  }
+  const deniedTopLevelFlags: Array<keyof RuntimeToolsetCapabilityPosture> = [
+    "live_tool_invocation_enabled",
+    "toolset_config_mutation_enabled",
+    "hermes_toolset_enablement_enabled",
+    "raw_tool_payload_persisted",
+    "production_authority_enabled",
+  ];
+  return (
+    value.schema_version === "runtime_toolset_capability_posture.v1" &&
+    value.status === "read_only_toolset_capability_posture" &&
+    value.toolset_count === recordCount &&
+    value.runtime_supported_count === runtimeSupportedCount &&
+    value.uaa_allowed_execution_count === 0 &&
+    value.enabled_read_only_count === allowanceCounts.enabled_read_only &&
+    value.configured_metadata_only_count ===
+      allowanceCounts.configured_metadata_only &&
+    value.approval_required_future_count ===
+      allowanceCounts.approval_required_future_lane &&
+    value.blocked_count === allowanceCounts.blocked &&
+    value.unsupported_count === allowanceCounts.unsupported &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:runtime-toolset-invocation",
+    ) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.records.every(
+      (record) =>
+        record.uaa_allows_execution === false &&
+        record.tool_invocation_enabled === false &&
+        record.toolset_config_mutation_enabled === false &&
+        record.hermes_toolset_enablement_enabled === false &&
+        record.raw_tool_payload_persisted === false &&
+        isNonEmptyStringArray(record.blocked_authority_refs) &&
+        isNonEmptyStringArray(record.next_safe_action_refs),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeToolRegistry(
+  value: RuntimeToolRegistryAvailabilityReadModel | undefined,
+): value is RuntimeToolRegistryAvailabilityReadModel {
+  if (value === undefined || !Array.isArray(value.entries)) {
+    return false;
+  }
+  const allowedAvailabilityStatuses = new Set([
+    "available_metadata_only",
+    "configured_disabled",
+    "approval_required_future_lane",
+    "blocked",
+    "unsupported",
+  ]);
+  const allowedConfiguredStatuses = new Set([
+    "configured_metadata_only",
+    "configured_disabled",
+    "unconfigured",
+    "blocked_by_policy",
+    "unsupported",
+  ]);
+  const allowedAuthorityClasses = new Set([
+    "validation_only",
+    "preview_only",
+    "approval_required_future_lane",
+    "blocked_high_authority",
+    "unsupported",
+  ]);
+  const entryCount = value.entries.length;
+  const uaaNativeCount = value.entries.filter(
+    (entry) => entry.origin === "uaa_native",
+  ).length;
+  const delegatedReferenceCount = value.entries.filter(
+    (entry) => entry.origin !== "uaa_native",
+  ).length;
+  const previewAvailableCount = value.entries.filter(
+    (entry) => entry.uaa_available_for_preview,
+  ).length;
+  const availabilityCounts: Record<string, number> = {
+    available_metadata_only: 0,
+    configured_disabled: 0,
+    approval_required_future_lane: 0,
+    blocked: 0,
+    unsupported: 0,
+  };
+  for (const entry of value.entries) {
+    if (
+      !allowedAvailabilityStatuses.has(entry.availability_status) ||
+      !allowedConfiguredStatuses.has(entry.configured_status) ||
+      !allowedAuthorityClasses.has(entry.authority_class)
+    ) {
+      return false;
+    }
+    availabilityCounts[entry.availability_status] += 1;
+  }
+  const deniedTopLevelFlags: Array<
+    keyof RuntimeToolRegistryAvailabilityReadModel
+  > = [
+    "tool_invocation_enabled",
+    "remote_discovery_enabled",
+    "live_web_fetch_enabled",
+    "provider_model_call_enabled",
+    "plugin_import_enabled",
+    "connector_write_activation_enabled",
+    "raw_tool_payload_persisted",
+    "production_authority_enabled",
+  ];
+  return (
+    value.schema_version === "runtime_tool_registry_availability.v1" &&
+    value.status === "read_only_tool_registry_availability" &&
+    value.tool_count === entryCount &&
+    value.uaa_native_count === uaaNativeCount &&
+    value.delegated_reference_count === delegatedReferenceCount &&
+    value.invocation_enabled_count === 0 &&
+    value.preview_available_count === previewAvailableCount &&
+    value.available_metadata_only_count ===
+      availabilityCounts.available_metadata_only &&
+    value.configured_disabled_count ===
+      availabilityCounts.configured_disabled &&
+    value.approval_required_future_count ===
+      availabilityCounts.approval_required_future_lane &&
+    value.blocked_count === availabilityCounts.blocked &&
+    value.unsupported_count === availabilityCounts.unsupported &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:runtime-tool-registry-invocation",
+    ) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.entries.every(
+      (entry) =>
+        entry.uaa_allows_invocation === false &&
+        entry.execution_enabled === false &&
+        entry.remote_discovery_performed === false &&
+        entry.live_web_fetch_performed === false &&
+        entry.provider_model_call_performed === false &&
+        entry.plugin_import_enabled === false &&
+        entry.connector_write_activation_enabled === false &&
+        entry.raw_tool_payload_persisted === false &&
+        isNonEmptyStringArray(entry.proof_refs) &&
+        isNonEmptyStringArray(entry.blocked_authority_refs) &&
+        isNonEmptyStringArray(entry.next_safe_action_refs),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeVirtualProviderMoa(
+  value: RuntimeVirtualProviderMoaReadModel | undefined,
+): value is RuntimeVirtualProviderMoaReadModel {
+  if (value === undefined || !Array.isArray(value.presets)) {
+    return false;
+  }
+  const allowedStatuses = new Set([
+    "metadata_only",
+    "readiness_only",
+    "blocked_requires_authority",
+  ]);
+  const presetCount = value.presets.length;
+  const agentSlotCount = value.presets.reduce(
+    (count, preset) => count + preset.slots.length,
+    0,
+  );
+  const readyPresetCount = value.presets.filter(
+    (preset) => preset.status === "readiness_only",
+  ).length;
+  const blockedPresetCount = value.presets.filter(
+    (preset) => preset.status === "blocked_requires_authority",
+  ).length;
+  const deniedTopLevelFlags: Array<keyof RuntimeVirtualProviderMoaReadModel> = [
+    "live_model_fanout_enabled",
+    "provider_sdk_enabled",
+    "external_runtime_dispatch_enabled",
+    "hidden_advisor_prompts_enabled",
+    "raw_prompt_persistence_enabled",
+    "raw_response_persistence_enabled",
+    "output_authority_enabled",
+    "production_authority_enabled",
+  ];
+  return (
+    value.schema_version === "runtime_virtual_provider_moa.v1" &&
+    value.status === "read_only_virtual_provider_preset_posture" &&
+    value.route_ref === "GET /api/runtime/virtual-provider-moa" &&
+    value.cli_ref === "uaa runtime inspect-virtual-provider-moa" &&
+    value.preset_count === presetCount &&
+    value.agent_slot_count === agentSlotCount &&
+    value.ready_preset_count === readyPresetCount &&
+    value.blocked_preset_count === blockedPresetCount &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:virtual-provider-moa-no-live-model-fanout",
+    ) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.presets.every(
+      (preset) =>
+        allowedStatuses.has(preset.status) &&
+        preset.slot_count === preset.slots.length &&
+        preset.per_agent_output_envelopes_required === true &&
+        preset.comparison_proof_required === true &&
+        preset.live_model_fanout_enabled === false &&
+        preset.provider_sdk_enabled === false &&
+        preset.external_runtime_dispatch_enabled === false &&
+        preset.hidden_advisor_prompts_enabled === false &&
+        preset.raw_prompt_persistence_enabled === false &&
+        preset.raw_response_persistence_enabled === false &&
+        preset.output_authority_enabled === false &&
+        preset.production_authority_enabled === false &&
+        isNonEmptyStringArray(preset.blocked_authority_refs) &&
+        preset.slots.every(
+          (slot) =>
+            slot.configured_for_live_call === false &&
+            slot.provider_sdk_call_enabled === false &&
+            slot.external_runtime_dispatch_enabled === false &&
+            slot.hidden_advisor_prompt_enabled === false &&
+            slot.raw_prompt_persisted === false &&
+            slot.raw_response_persisted === false &&
+            slot.output_authoritative === false &&
+            slot.production_authority_enabled === false &&
+            isNonEmptyStringArray(slot.blocked_authority_refs),
+        ),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeUsageCostAnalytics(
+  value: RuntimeUsageCostAnalyticsReadModel | undefined,
+): value is RuntimeUsageCostAnalyticsReadModel {
+  if (value === undefined || !Array.isArray(value.records)) {
+    return false;
+  }
+  const allowedSources = new Set([
+    "manual_diagnostic_receipt",
+    "runtime_receipt_metadata",
+    "provider_catalog_reference",
+    "delegated_runtime_future",
+  ]);
+  const allowedStatuses = new Set([
+    "recorded_diagnostic",
+    "read_only_estimate",
+    "blocked_missing_authority",
+  ]);
+  const totalInput = value.records.reduce(
+    (sum, record) => sum + record.estimated_input_tokens,
+    0,
+  );
+  const totalOutput = value.records.reduce(
+    (sum, record) => sum + record.estimated_output_tokens,
+    0,
+  );
+  const totalUnits = value.records.reduce(
+    (sum, record) => sum + record.estimated_total_tokens,
+    0,
+  );
+  const totalLatency = value.records.reduce(
+    (sum, record) => sum + record.latency_ms,
+    0,
+  );
+  const totalCostMinor = value.records.reduce(
+    (sum, record) => sum + record.estimated_cost_minor_units,
+    0,
+  );
+  const deniedTopLevelFlags: Array<keyof RuntimeUsageCostAnalyticsReadModel> = [
+    "operator_export_available",
+    "billing_action_enabled",
+    "provider_call_enabled",
+    "provider_sdk_enabled",
+    "live_price_fetch_enabled",
+    "raw_prompt_persistence_enabled",
+    "raw_response_persistence_enabled",
+    "provider_payload_persistence_enabled",
+    "output_authority_enabled",
+    "production_authority_enabled",
+  ];
+  return (
+    value.schema_version === "runtime_usage_cost_analytics.v1" &&
+    value.status === "read_only_redacted_accounting_posture" &&
+    value.route_ref === "GET /api/runtime/usage-cost-analytics" &&
+    value.cli_ref === "uaa runtime inspect-usage-cost-analytics" &&
+    value.record_count === value.records.length &&
+    value.manual_diagnostic_receipt_count ===
+      value.records.filter(
+        (record) => record.source_kind === "manual_diagnostic_receipt",
+      ).length &&
+    value.runtime_receipt_record_count ===
+      value.records.filter(
+        (record) => record.source_kind === "runtime_receipt_metadata",
+      ).length &&
+    value.provider_catalog_reference_count ===
+      value.records.filter(
+        (record) => record.source_kind === "provider_catalog_reference",
+      ).length &&
+    value.blocked_record_count ===
+      value.records.filter(
+        (record) => record.status === "blocked_missing_authority",
+      ).length &&
+    value.total_estimated_input_tokens === totalInput &&
+    value.total_estimated_output_tokens === totalOutput &&
+    value.total_estimated_tokens === totalUnits &&
+    value.total_latency_ms === totalLatency &&
+    value.total_estimated_cost_minor_units === totalCostMinor &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:usage-cost-analytics-no-billing-action",
+    ) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.records.every(
+      (record) =>
+        allowedSources.has(record.source_kind) &&
+        allowedStatuses.has(record.status) &&
+        record.estimated_total_tokens ===
+          record.estimated_input_tokens + record.estimated_output_tokens &&
+        record.estimated_input_tokens >= 0 &&
+        record.estimated_output_tokens >= 0 &&
+        record.estimated_total_tokens >= 0 &&
+        record.latency_ms >= 0 &&
+        record.estimated_cost_minor_units >= 0 &&
+        record.provider_call_performed === false &&
+        record.provider_sdk_call_performed === false &&
+        record.billing_action_performed === false &&
+        record.live_price_fetch_performed === false &&
+        record.raw_prompt_persisted === false &&
+        record.raw_response_persisted === false &&
+        record.provider_payload_persisted === false &&
+        record.output_authoritative === false &&
+        record.production_authority_enabled === false &&
+        isNonEmptyStringArray(record.blocked_authority_refs),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimePromptStabilityTiers(
+  value: RuntimePromptStabilityTiersReadModel | undefined,
+): value is RuntimePromptStabilityTiersReadModel {
+  if (value === undefined || !Array.isArray(value.tiers)) {
+    return false;
+  }
+  const allowedKinds = new Set([
+    "stable_identity_policy",
+    "durable_context_refs",
+    "retrieval_refs",
+    "volatile_runtime_state",
+    "operator_turn_ref",
+  ]);
+  const allowedClasses = new Set([
+    "stable_cache_candidate",
+    "semi_stable_ref_set",
+    "volatile_no_cache",
+    "operator_scoped_no_cache",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimePromptStabilityTiersReadModel> = [
+    "raw_prompt_persistence_enabled",
+    "raw_response_persistence_enabled",
+    "provider_payload_persistence_enabled",
+    "hidden_prompt_injection_enabled",
+    "context_injection_enabled",
+    "model_call_enabled",
+    "provider_sdk_enabled",
+    "model_output_authority_enabled",
+    "cache_write_enabled",
+    "production_authority_enabled",
+  ];
+  return (
+    value.schema_version === "runtime_prompt_stability_tiers.v1" &&
+    value.status === "read_only_prompt_contract_posture" &&
+    value.route_ref === "GET /api/runtime/prompt-stability-tiers" &&
+    value.cli_ref === "uaa runtime inspect-prompt-stability-tiers" &&
+    value.tier_count === value.tiers.length &&
+    value.stable_cache_candidate_count ===
+      value.tiers.filter(
+        (tier) => tier.stability_class === "stable_cache_candidate",
+      ).length &&
+    value.semi_stable_ref_set_count ===
+      value.tiers.filter((tier) => tier.stability_class === "semi_stable_ref_set")
+        .length &&
+    value.volatile_no_cache_count ===
+      value.tiers.filter((tier) => tier.stability_class === "volatile_no_cache")
+        .length &&
+    value.operator_scoped_no_cache_count ===
+      value.tiers.filter(
+        (tier) => tier.stability_class === "operator_scoped_no_cache",
+      ).length &&
+    value.safe_prompt_manifest_required === true &&
+    value.prompt_hashes_required === true &&
+    value.redacted_receipt_required === true &&
+    value.proof_link_required === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:prompt-stability-no-hidden-prompt-injection",
+    ) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.tiers.every(
+      (tier) =>
+        allowedKinds.has(tier.tier_kind) &&
+        allowedClasses.has(tier.stability_class) &&
+        tier.cache_write_enabled === false &&
+        tier.raw_prompt_persisted === false &&
+        tier.raw_response_persisted === false &&
+        tier.provider_payload_persisted === false &&
+        tier.hidden_prompt_injection_enabled === false &&
+        tier.context_injection_enabled === false &&
+        tier.model_call_performed === false &&
+        tier.provider_sdk_call_performed === false &&
+        tier.model_output_authoritative === false &&
+        tier.production_authority_enabled === false &&
+        isNonEmptyStringArray(tier.source_refs) &&
+        isNonEmptyStringArray(tier.blocked_authority_refs),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeContextBudgetPressure(
+  value: RuntimeContextBudgetPressureReadModel | undefined,
+): value is RuntimeContextBudgetPressureReadModel {
+  if (
+    value === undefined ||
+    !Array.isArray(value.segments) ||
+    !Array.isArray(value.proposals)
+  ) {
+    return false;
+  }
+  const allowedPressureLevels = new Set([
+    "within_budget",
+    "warning",
+    "critical",
+    "blocked",
+  ]);
+  const allowedProposalKinds = new Set([
+    "trim_context_refs",
+    "request_operator_choice",
+    "summarize_with_approval",
+    "defer_context",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeContextBudgetPressureReadModel> =
+    [
+      "hidden_compression_enabled",
+      "automatic_context_mutation_enabled",
+      "model_summarization_enabled",
+      "raw_context_persistence_enabled",
+      "raw_prompt_persistence_enabled",
+      "raw_response_persistence_enabled",
+      "provider_payload_persistence_enabled",
+      "context_injection_enabled",
+      "provider_sdk_enabled",
+      "cache_write_enabled",
+      "production_authority_enabled",
+    ];
+  return (
+    value.schema_version === "runtime_context_budget_pressure.v1" &&
+    value.status === "read_only_context_budget_pressure_posture" &&
+    value.route_ref === "GET /api/runtime/context-budget-pressure" &&
+    value.cli_ref === "uaa runtime inspect-context-budget-pressure" &&
+    allowedPressureLevels.has(value.pressure_level) &&
+    value.segment_count === value.segments.length &&
+    value.proposal_count === value.proposals.length &&
+    value.warning_count ===
+      value.segments.filter((segment) => segment.pressure_level === "warning")
+        .length &&
+    value.critical_count ===
+      value.segments.filter((segment) => segment.pressure_level === "critical")
+        .length &&
+    value.trimming_proposal_count ===
+      value.proposals.filter(
+        (proposal) => proposal.proposal_kind === "trim_context_refs",
+      ).length &&
+    value.summarization_proposal_count ===
+      value.proposals.filter(
+        (proposal) => proposal.proposal_kind === "summarize_with_approval",
+      ).length &&
+    value.ask_operator_proposal_count ===
+      value.proposals.filter(
+        (proposal) => proposal.proposal_kind === "request_operator_choice",
+      ).length &&
+    value.compression_proposal_required === true &&
+    value.operator_approval_required === true &&
+    value.source_coverage_required === true &&
+    value.retrieval_log_required === true &&
+    value.summary_receipt_required === true &&
+    value.blocked_hidden_compression_label === "blocked" &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:context-budget-no-hidden-compression",
+    ) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.segments.every(
+      (segment) =>
+        allowedPressureLevels.has(segment.pressure_level) &&
+        segment.token_budget_remaining ===
+          segment.token_budget_limit - segment.token_estimate &&
+        isNonEmptyStringArray(segment.evidence_refs) &&
+        isNonEmptyStringArray(segment.proof_refs) &&
+        isNonEmptyStringArray(segment.blocked_authority_refs) &&
+        segment.hidden_compression_enabled === false &&
+        segment.automatic_context_mutation_enabled === false &&
+        segment.model_summarization_call_performed === false &&
+        segment.summary_receipt_created === false &&
+        segment.raw_context_persisted === false &&
+        segment.raw_prompt_persisted === false &&
+        segment.raw_response_persisted === false &&
+        segment.provider_payload_persisted === false &&
+        segment.context_injection_performed === false &&
+        segment.provider_sdk_call_performed === false &&
+        segment.cache_write_performed === false &&
+        segment.production_authority_enabled === false,
+    ) &&
+    value.proposals.every(
+      (proposal) =>
+        allowedProposalKinds.has(proposal.proposal_kind) &&
+        proposal.approval_required === true &&
+        proposal.source_coverage_required === true &&
+        proposal.retrieval_log_required === true &&
+        proposal.summary_receipt_required === true &&
+        isNonEmptyStringArray(proposal.source_refs) &&
+        isNonEmptyStringArray(proposal.retrieval_log_refs) &&
+        isNonEmptyStringArray(proposal.proof_refs) &&
+        isNonEmptyStringArray(proposal.blocked_authority_refs) &&
+        proposal.auto_applied === false &&
+        proposal.hidden_compression_performed === false &&
+        proposal.automatic_context_mutation_performed === false &&
+        proposal.model_summarization_call_performed === false &&
+        proposal.summary_receipt_created === false &&
+        proposal.raw_context_persisted === false &&
+        proposal.raw_prompt_persisted === false &&
+        proposal.raw_response_persisted === false &&
+        proposal.provider_payload_persisted === false &&
+        proposal.context_injection_performed === false &&
+        proposal.provider_sdk_call_performed === false &&
+        proposal.cache_write_performed === false &&
+        proposal.production_authority_enabled === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeHardlineCommandBlocklist(
+  value: RuntimeHardlineCommandBlocklistReadModel | undefined,
+): value is RuntimeHardlineCommandBlocklistReadModel {
+  if (value === undefined || !Array.isArray(value.classifications)) {
+    return false;
+  }
+  const allowedStatuses = new Set(["allowed_shape", "hardline_denied"]);
+  const allowedCategories = new Set([
+    "allowed",
+    "empty_argv",
+    "shell_metachar",
+    "shell_interpreter",
+    "inline_code",
+    "destructive_filesystem",
+    "disk_writer",
+    "network_transfer",
+    "remote_access",
+    "privilege_escalation",
+    "permission_mutation",
+    "git_mutation",
+    "package_install",
+    "production_orchestration",
+    "container_runtime",
+    "desktop_automation",
+    "browser_automation",
+  ]);
+  return (
+    value.schema_version === "runtime_hardline_command_blocklist.v1" &&
+    value.status === "read_only_hardline_command_blocklist_floor" &&
+    value.route_ref === "GET /api/runtime/hardline-command-blocklist" &&
+    value.cli_ref === "uaa runtime inspect-hardline-command-blocklist" &&
+    value.non_overridable_floor === true &&
+    value.override_bypass_permitted === false &&
+    value.command_execution_performed === false &&
+    value.raw_command_text_persisted === false &&
+    value.raw_command_output_persisted === false &&
+    value.classification_count === value.classifications.length &&
+    value.denied_classification_count ===
+      value.classifications.filter((classification) => classification.denied)
+        .length &&
+    value.allowed_classification_count ===
+      value.classifications.filter((classification) => !classification.denied)
+        .length &&
+    isNonEmptyStringArray(value.hardline_rule_refs) &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:runtime-hardline-command-floor-override",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.classifications.every(
+      (classification) =>
+        allowedStatuses.has(classification.status) &&
+        allowedCategories.has(classification.denial_category) &&
+        classification.non_overridable === true &&
+        classification.override_bypass_permitted === false &&
+        classification.raw_command_text_persisted === false &&
+        classification.raw_command_output_persisted === false &&
+        classification.command_execution_performed === false &&
+        (classification.denied
+          ? classification.status === "hardline_denied" &&
+            classification.denial_category !== "allowed"
+          : classification.status === "allowed_shape" &&
+            classification.denial_category === "allowed"),
+    )
+  );
+}
+
+function isSafeRuntimeManagedScopePolicy(
+  value: RuntimeManagedScopePolicyReadModel | undefined,
+): value is RuntimeManagedScopePolicyReadModel {
+  if (
+    value === undefined ||
+    !Array.isArray(value.pinned_sources) ||
+    !Array.isArray(value.drift_warnings)
+  ) {
+    return false;
+  }
+  const allowedSourceKinds = new Set([
+    "repo_local_policy",
+    "prompt_pack_policy",
+    "operator_profile",
+    "runtime_default",
+  ]);
+  const allowedDriftStatuses = new Set(["aligned", "warning", "blocked"]);
+  const deniedTopLevelFlags: Array<keyof RuntimeManagedScopePolicyReadModel> = [
+    "system_config_write_enabled",
+    "privileged_write_enabled",
+    "mdm_delivery_enabled",
+    "managed_secrets_enabled",
+    "unsigned_runtime_config_override_enabled",
+    "production_enforcement_claimed",
+    "control_center_mints_authority",
+    "runtime_config_mutation_performed",
+    "raw_config_persisted",
+    "raw_local_path_persisted",
+    "account_material_persisted",
+    "credential_material_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_managed_scope_policy.v1" &&
+    value.status === "read_only_local_policy_profile_posture" &&
+    value.route_ref === "GET /api/runtime/managed-scope-policy" &&
+    value.cli_ref === "uaa runtime inspect-managed-scope-policy" &&
+    value.pinned_source_count === value.pinned_sources.length &&
+    value.active_pinned_source_count ===
+      value.pinned_sources.filter((source) => source.active).length &&
+    value.drift_warning_count === value.drift_warnings.length &&
+    value.blocked_drift_warning_count ===
+      value.drift_warnings.filter((warning) => warning.status === "blocked")
+        .length &&
+    value.local_config_source_visible === true &&
+    value.precedence_visible === true &&
+    value.verification_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:managed-scope-no-system-config-write",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.pinned_sources.every(
+      (source) =>
+        allowedSourceKinds.has(source.source_kind) &&
+        allowedDriftStatuses.has(source.drift_status) &&
+        source.pinned === true &&
+        source.verified === true &&
+        isNonEmptyStringArray(source.blocked_authority_refs) &&
+        source.system_config_write_performed === false &&
+        source.privileged_write_performed === false &&
+        source.mdm_delivery_performed === false &&
+        source.managed_protected_material_performed === false &&
+        source.unsigned_runtime_config_override_performed === false &&
+        source.production_enforcement_claimed === false,
+    ) &&
+    value.drift_warnings.every(
+      (warning) =>
+        allowedDriftStatuses.has(warning.status) &&
+        warning.operator_review_required === true &&
+        isNonEmptyStringArray(warning.blocked_authority_refs) &&
+        isNonEmptyStringArray(warning.proof_refs) &&
+        warning.auto_remediation_performed === false &&
+        warning.runtime_config_write_performed === false &&
+        warning.unsigned_override_accepted === false &&
+        warning.production_enforcement_claimed === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeDoctorDiagnostics(
+  value: RuntimeDoctorDiagnosticsReadModel | undefined,
+): value is RuntimeDoctorDiagnosticsReadModel {
+  if (value === undefined || !Array.isArray(value.diagnostics)) {
+    return false;
+  }
+  const allowedDomains = new Set([
+    "setup",
+    "runtime_readiness",
+    "providers",
+    "tools",
+    "protected_material",
+    "local_services",
+    "authority",
+    "next_actions",
+  ]);
+  const allowedStatuses = new Set(["ok", "review", "blocked", "unavailable"]);
+  const deniedTopLevelFlags: Array<keyof RuntimeDoctorDiagnosticsReadModel> = [
+    "install_enabled",
+    "service_start_enabled",
+    "credential_write_enabled",
+    "runtime_config_mutation_enabled",
+    "control_center_mints_authority",
+    "raw_log_persisted",
+    "raw_local_path_persisted",
+    "provider_payload_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_doctor_diagnostics.v1" &&
+    value.status === "read_only_diagnostics_posture" &&
+    value.route_ref === "GET /api/runtime/doctor-diagnostics" &&
+    value.cli_ref === "uaa runtime inspect-doctor-diagnostics" &&
+    value.diagnostic_count === value.diagnostics.length &&
+    value.ok_count ===
+      value.diagnostics.filter((item) => item.status === "ok").length &&
+    value.review_count ===
+      value.diagnostics.filter((item) => item.status === "review").length &&
+    value.blocked_count ===
+      value.diagnostics.filter((item) => item.status === "blocked").length &&
+    value.unavailable_count ===
+      value.diagnostics.filter((item) => item.status === "unavailable").length &&
+    value.setup_visible === true &&
+    value.runtime_readiness_visible === true &&
+    value.provider_posture_visible === true &&
+    value.tool_posture_visible === true &&
+    value.protected_material_posture_visible === true &&
+    value.service_posture_visible === true &&
+    value.authority_posture_visible === true &&
+    value.next_safe_actions_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:runtime-doctor-no-installs",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.diagnostics.every(
+      (item) =>
+        allowedDomains.has(item.domain) &&
+        allowedStatuses.has(item.status) &&
+        isNonEmptyStringArray(item.blocked_authority_refs) &&
+        isNonEmptyStringArray(item.proof_refs) &&
+        item.install_performed === false &&
+        item.service_start_performed === false &&
+        item.credential_write_performed === false &&
+        item.runtime_config_mutation_performed === false &&
+        item.raw_log_persisted === false &&
+        item.raw_local_path_persisted === false &&
+        item.provider_payload_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeSessionContinuity(
+  value: RuntimeSessionContinuityReadModel | undefined,
+): value is RuntimeSessionContinuityReadModel {
+  if (value === undefined || !Array.isArray(value.surfaces)) {
+    return false;
+  }
+  const allowedSources = new Set([
+    "control_center_desktop",
+    "cli",
+    "delegated_runtime",
+    "future_mobile",
+    "coding_cockpit",
+  ]);
+  const allowedStates = new Set([
+    "current",
+    "stale",
+    "conflict_review",
+    "blocked",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeSessionContinuityReadModel> = [
+    "external_message_gateway_enabled",
+    "account_sync_enabled",
+    "connector_write_enabled",
+    "remote_session_enabled",
+    "raw_transcript_persisted",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+    "raw_provider_payload_persisted",
+    "control_center_mints_authority",
+  ];
+  return (
+    value.schema_version === "runtime_session_continuity.v1" &&
+    value.status === "read_only_multi_surface_session_continuity_posture" &&
+    value.route_ref === "GET /api/runtime/session-continuity" &&
+    value.cli_ref === "uaa runtime inspect-session-continuity" &&
+    value.surface_count === value.surfaces.length &&
+    value.current_count ===
+      value.surfaces.filter((surface) => surface.continuity_state === "current")
+        .length &&
+    value.stale_count ===
+      value.surfaces.filter((surface) => surface.continuity_state === "stale")
+        .length &&
+    value.conflict_count ===
+      value.surfaces.filter(
+        (surface) => surface.continuity_state === "conflict_review",
+      ).length &&
+    value.blocked_count ===
+      value.surfaces.filter((surface) => surface.continuity_state === "blocked")
+        .length &&
+    value.source_labels_visible === true &&
+    value.staleness_states_visible === true &&
+    value.conflict_states_visible === true &&
+    value.delivery_receipts_required_for_promotion === true &&
+    value.revoke_required_for_promotion === true &&
+    value.audit_required_for_promotion === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:session-continuity-no-remote-session",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.surfaces.every(
+      (surface) =>
+        allowedSources.has(surface.source) &&
+        allowedStates.has(surface.continuity_state) &&
+        isNonEmptyStringArray(surface.blocked_authority_refs) &&
+        isNonEmptyStringArray(surface.proof_refs) &&
+        surface.external_message_gateway_enabled === false &&
+        surface.account_sync_enabled === false &&
+        surface.connector_write_enabled === false &&
+        surface.remote_session_enabled === false &&
+        surface.raw_transcript_persisted === false &&
+        surface.raw_prompt_persisted === false &&
+        surface.raw_response_persisted === false &&
+        surface.raw_provider_payload_persisted === false &&
+        surface.control_center_mints_authority === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeMcpCatalogFiltering(
+  value: RuntimeMcpCatalogFilteringReadModel | undefined,
+): value is RuntimeMcpCatalogFilteringReadModel {
+  if (value === undefined || !Array.isArray(value.servers)) {
+    return false;
+  }
+  const allowedServerStates = new Set([
+    "reviewed_metadata",
+    "review_required",
+    "activation_blocked",
+  ]);
+  const allowedToolStates = new Set([
+    "metadata_visible",
+    "filtered_blocked",
+    "grant_required",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeMcpCatalogFilteringReadModel> =
+    [
+      "install_enabled",
+      "subprocess_runtime_enabled",
+      "oauth_login_enabled",
+      "tool_invocation_enabled",
+      "connector_write_enabled",
+      "raw_manifest_persisted",
+      "control_center_mints_authority",
+    ];
+  const toolSlices = value.servers.flatMap((server) => server.tool_slices);
+  return (
+    value.schema_version === "runtime_mcp_catalog_filtering.v1" &&
+    value.status === "metadata_catalog_filtering_posture" &&
+    value.route_ref === "GET /api/runtime/mcp-catalog-filtering" &&
+    value.cli_ref === "uaa runtime inspect-mcp-catalog-filtering" &&
+    value.server_count === value.servers.length &&
+    value.reviewed_metadata_count ===
+      value.servers.filter(
+        (server) => server.catalog_state === "reviewed_metadata",
+      ).length &&
+    value.review_required_count ===
+      value.servers.filter((server) => server.catalog_state === "review_required")
+        .length &&
+    value.activation_blocked_count ===
+      value.servers.filter(
+        (server) => server.catalog_state === "activation_blocked",
+      ).length &&
+    value.tool_slice_count === toolSlices.length &&
+    value.metadata_visible_tool_count ===
+      toolSlices.filter((tool) => tool.filter_state === "metadata_visible").length &&
+    value.filtered_blocked_tool_count ===
+      toolSlices.filter((tool) => tool.filter_state === "filtered_blocked")
+        .length &&
+    value.grant_required_tool_count ===
+      toolSlices.filter((tool) => tool.filter_state === "grant_required").length &&
+    value.metadata_catalog_visible === true &&
+    value.tool_filter_contracts_visible === true &&
+    value.blocked_activation_states_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:mcp-catalog-no-tool-invocation",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.servers.every(
+      (server) =>
+        allowedServerStates.has(server.catalog_state) &&
+        server.tool_count === server.tool_slices.length &&
+        server.metadata_visible_tool_count ===
+          server.tool_slices.filter(
+            (tool) => tool.filter_state === "metadata_visible",
+          ).length &&
+        server.filtered_blocked_tool_count ===
+          server.tool_slices.filter(
+            (tool) => tool.filter_state === "filtered_blocked",
+          ).length &&
+        server.grant_required_tool_count ===
+          server.tool_slices.filter(
+            (tool) => tool.filter_state === "grant_required",
+          ).length &&
+        isNonEmptyStringArray(server.blocked_authority_refs) &&
+        isNonEmptyStringArray(server.proof_refs) &&
+        server.install_enabled === false &&
+        server.subprocess_runtime_enabled === false &&
+        server.oauth_login_enabled === false &&
+        server.tool_invocation_enabled === false &&
+        server.connector_write_enabled === false &&
+        server.raw_manifest_persisted === false &&
+        server.tool_slices.every(
+          (tool) =>
+            allowedToolStates.has(tool.filter_state) &&
+            tool.metadata_visible === true &&
+            tool.invocation_enabled === false &&
+            tool.connector_write_enabled === false &&
+            tool.raw_schema_persisted === false &&
+            tool.runtime_dispatch_enabled === false &&
+            isNonEmptyStringArray(tool.blocked_authority_refs),
+        ),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeBackgroundJobs(
+  value: RuntimeBackgroundJobsReadModel | undefined,
+): value is RuntimeBackgroundJobsReadModel {
+  if (value === undefined || !Array.isArray(value.jobs)) {
+    return false;
+  }
+  const allowedKinds = new Set([
+    "runtime_doctor_check",
+    "proof_pack_export",
+    "context_budget_review",
+    "connector_delivery_followup",
+  ]);
+  const allowedStatuses = new Set([
+    "proposal",
+    "paused",
+    "approval_required",
+    "execution_blocked",
+  ]);
+  const allowedSchedulePolicies = new Set([
+    "manual_review_only",
+    "operator_window_required",
+    "blocked_scheduler",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeBackgroundJobsReadModel> = [
+    "pause_enabled",
+    "resume_enabled",
+    "run_now_enabled",
+    "scheduler_enabled",
+    "background_worker_enabled",
+    "autonomous_background_execution_enabled",
+    "autonomous_retry_enabled",
+    "external_delivery_enabled",
+    "provider_call_enabled",
+    "shell_execution_enabled",
+    "connector_write_enabled",
+    "control_center_mints_authority",
+    "raw_job_payload_persisted",
+  ];
+  const reviewableCount = value.jobs.filter((job) =>
+    ["proposal", "paused", "approval_required"].includes(job.status),
+  ).length;
+  return (
+    value.schema_version === "runtime_background_jobs.v1" &&
+    value.status === "durable_job_proposal_posture" &&
+    value.route_ref === "GET /api/runtime/background-jobs" &&
+    value.cli_ref === "uaa runtime inspect-background-jobs" &&
+    value.job_count === value.jobs.length &&
+    value.proposal_count ===
+      value.jobs.filter((job) => job.status === "proposal").length &&
+    value.paused_count ===
+      value.jobs.filter((job) => job.status === "paused").length &&
+    value.approval_required_count ===
+      value.jobs.filter((job) => job.status === "approval_required").length &&
+    value.execution_blocked_count ===
+      value.jobs.filter((job) => job.status === "execution_blocked").length &&
+    value.reviewable_job_count === reviewableCount &&
+    value.durable_job_refs_visible === true &&
+    value.schedule_policy_visible === true &&
+    value.approval_scope_visible === true &&
+    value.idempotency_visible === true &&
+    value.safe_disable_visible === true &&
+    value.receipt_plan_visible === true &&
+    value.failure_handling_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:background-jobs-no-background-worker",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.jobs.every(
+      (job) =>
+        allowedKinds.has(job.job_kind) &&
+        allowedStatuses.has(job.status) &&
+        allowedSchedulePolicies.has(job.schedule_policy) &&
+        isNonEmptyStringArray(job.proof_refs) &&
+        isNonEmptyStringArray(job.blocked_authority_refs) &&
+        job.pause_enabled === false &&
+        job.resume_enabled === false &&
+        job.run_now_enabled === false &&
+        job.scheduler_enabled === false &&
+        job.background_worker_enabled === false &&
+        job.autonomous_retry_enabled === false &&
+        job.external_delivery_enabled === false &&
+        job.provider_call_enabled === false &&
+        job.shell_execution_enabled === false &&
+        job.connector_write_enabled === false &&
+        job.raw_job_payload_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeSubagentIsolation(
+  value: RuntimeSubagentIsolationReadModel | undefined,
+): value is RuntimeSubagentIsolationReadModel {
+  if (
+    value === undefined ||
+    !Array.isArray(value.roles) ||
+    !Array.isArray(value.review_artifacts)
+  ) {
+    return false;
+  }
+  const allowedRoleKinds = new Set(["implementer", "reviewer", "verifier"]);
+  const allowedStatuses = new Set([
+    "contract_ready",
+    "review_ready",
+    "blocked_dispatch",
+  ]);
+  const allowedArtifactKinds = new Set([
+    "plan_comparison",
+    "review_packet",
+    "disagreement_summary",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeSubagentIsolationReadModel> = [
+    "live_dispatch_enabled",
+    "background_fanout_enabled",
+    "cross_agent_memory_transfer_enabled",
+    "tool_sharing_enabled",
+    "autonomous_delegation_enabled",
+    "provider_call_enabled",
+    "shell_execution_enabled",
+    "connector_write_enabled",
+    "control_center_mints_authority",
+    "raw_transcript_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_subagent_isolation.v1" &&
+    value.status === "identity_isolation_readiness" &&
+    value.route_ref === "GET /api/runtime/subagent-isolation" &&
+    value.cli_ref === "uaa runtime inspect-subagent-isolation" &&
+    value.role_count === value.roles.length &&
+    value.review_artifact_count === value.review_artifacts.length &&
+    value.contract_ready_count ===
+      value.roles.filter((role) => role.readiness_status === "contract_ready")
+        .length &&
+    value.review_ready_count ===
+      value.roles.filter((role) => role.readiness_status === "review_ready")
+        .length &&
+    value.blocked_dispatch_count ===
+      value.roles.filter((role) => role.readiness_status === "blocked_dispatch")
+        .length &&
+    value.identity_registry_visible === true &&
+    value.scope_envelopes_visible === true &&
+    value.context_pack_grants_visible === true &&
+    value.tool_grants_visible === true &&
+    value.memory_grants_visible === true &&
+    value.budget_visible === true &&
+    value.kill_switch_visible === true &&
+    value.receipt_plan_visible === true &&
+    value.proof_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:subagent-isolation-no-live-dispatch",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.roles.every(
+      (role) =>
+        allowedRoleKinds.has(role.role_kind) &&
+        allowedStatuses.has(role.readiness_status) &&
+        isNonEmptyStringArray(role.blocked_authority_refs) &&
+        isNonEmptyStringArray(role.next_safe_action_refs) &&
+        role.live_dispatch_enabled === false &&
+        role.background_fanout_enabled === false &&
+        role.cross_agent_memory_transfer_enabled === false &&
+        role.tool_sharing_enabled === false &&
+        role.autonomous_delegation_enabled === false &&
+        role.provider_call_enabled === false &&
+        role.shell_execution_enabled === false &&
+        role.connector_write_enabled === false &&
+        role.raw_transcript_persisted === false,
+    ) &&
+    value.review_artifacts.every(
+      (artifact) =>
+        allowedArtifactKinds.has(artifact.artifact_kind) &&
+        isNonEmptyStringArray(artifact.source_role_refs) &&
+        isNonEmptyStringArray(artifact.proof_refs) &&
+        artifact.raw_agent_output_persisted === false &&
+        artifact.executable_authority === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeWorktreePerAgent(
+  value: RuntimeWorktreePerAgentReadModel | undefined,
+): value is RuntimeWorktreePerAgentReadModel {
+  if (value === undefined || !Array.isArray(value.lanes)) {
+    return false;
+  }
+  const allowedRoles = new Set(["implementer", "reviewer", "verifier"]);
+  const allowedStatuses = new Set([
+    "proposal",
+    "review_ready",
+    "mutation_blocked",
+  ]);
+  const allowedIsolationModes = new Set([
+    "branch_proposal_only",
+    "existing_worktree_ref_only",
+    "blocked_worktree_mutation",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeWorktreePerAgentReadModel> = [
+    "git_worktree_create_enabled",
+    "git_worktree_delete_enabled",
+    "branch_mutation_enabled",
+    "file_write_enabled",
+    "commit_enabled",
+    "push_enabled",
+    "shell_execution_enabled",
+    "provider_call_enabled",
+    "control_center_mints_authority",
+    "raw_path_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_worktree_per_agent.v1" &&
+    value.status === "read_only_worktree_lane_posture" &&
+    value.route_ref === "GET /api/runtime/worktree-per-agent" &&
+    value.cli_ref === "uaa runtime inspect-worktree-per-agent" &&
+    value.lane_count === value.lanes.length &&
+    value.proposal_count ===
+      value.lanes.filter((lane) => lane.lane_status === "proposal").length &&
+    value.review_ready_count ===
+      value.lanes.filter((lane) => lane.lane_status === "review_ready").length &&
+    value.mutation_blocked_count ===
+      value.lanes.filter((lane) => lane.lane_status === "mutation_blocked")
+        .length &&
+    value.workspace_grants_visible === true &&
+    value.branch_name_policy_visible === true &&
+    value.checkpoint_plan_visible === true &&
+    value.git_receipt_plan_visible === true &&
+    value.rollback_plan_visible === true &&
+    value.cli_parity_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:worktree-per-agent-no-git-worktree-create",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.lanes.every(
+      (lane) =>
+        allowedRoles.has(lane.agent_role) &&
+        allowedStatuses.has(lane.lane_status) &&
+        allowedIsolationModes.has(lane.isolation_mode) &&
+        isNonEmptyStringArray(lane.proof_refs) &&
+        isNonEmptyStringArray(lane.blocked_authority_refs) &&
+        isNonEmptyStringArray(lane.next_safe_action_refs) &&
+        lane.git_worktree_create_enabled === false &&
+        lane.git_worktree_delete_enabled === false &&
+        lane.branch_mutation_enabled === false &&
+        lane.file_write_enabled === false &&
+        lane.commit_enabled === false &&
+        lane.push_enabled === false &&
+        lane.shell_execution_enabled === false &&
+        lane.provider_call_enabled === false &&
+        lane.raw_path_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeLspDiagnostics(
+  value: RuntimeLspDiagnosticsReadModel | undefined,
+): value is RuntimeLspDiagnosticsReadModel {
+  if (value === undefined || !Array.isArray(value.diagnostics)) {
+    return false;
+  }
+  const allowedLanguages = new Set(["python", "typescript", "docs"]);
+  const allowedStatuses = new Set([
+    "evidence_placeholder",
+    "proof_ready",
+    "execution_blocked",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeLspDiagnosticsReadModel> = [
+    "language_server_started",
+    "dependency_install_enabled",
+    "shell_execution_enabled",
+    "file_read_enabled",
+    "file_write_enabled",
+    "provider_call_enabled",
+    "control_center_mints_authority",
+    "raw_path_persisted",
+    "raw_diagnostic_payload_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_lsp_diagnostics.v1" &&
+    value.status === "diagnostic_evidence_placeholder_posture" &&
+    value.route_ref === "GET /api/runtime/lsp-diagnostics" &&
+    value.cli_ref === "uaa runtime inspect-lsp-diagnostics" &&
+    value.diagnostic_count === value.diagnostics.length &&
+    value.evidence_placeholder_count ===
+      value.diagnostics.filter(
+        (diagnostic) => diagnostic.status === "evidence_placeholder",
+      ).length &&
+    value.proof_ready_count ===
+      value.diagnostics.filter((diagnostic) => diagnostic.status === "proof_ready")
+        .length &&
+    value.execution_blocked_count ===
+      value.diagnostics.filter(
+        (diagnostic) => diagnostic.status === "execution_blocked",
+      ).length &&
+    value.diagnostic_evidence_contract_visible === true &&
+    value.receipt_plan_visible === true &&
+    value.proof_link_visible === true &&
+    value.redaction_policy_visible === true &&
+    value.allowlisted_server_required_for_promotion === true &&
+    value.cwd_jail_required_for_promotion === true &&
+    value.timeout_required_for_promotion === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:lsp-diagnostics-no-language-server-launch",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.diagnostics.every(
+      (diagnostic) =>
+        allowedLanguages.has(diagnostic.language) &&
+        allowedStatuses.has(diagnostic.status) &&
+        isNonEmptyStringArray(diagnostic.blocked_authority_refs) &&
+        isNonEmptyStringArray(diagnostic.next_safe_action_refs) &&
+        diagnostic.language_server_started === false &&
+        diagnostic.dependency_install_enabled === false &&
+        diagnostic.shell_execution_enabled === false &&
+        diagnostic.file_read_enabled === false &&
+        diagnostic.file_write_enabled === false &&
+        diagnostic.provider_call_enabled === false &&
+        diagnostic.raw_path_persisted === false &&
+        diagnostic.raw_diagnostic_payload_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimePreviewRail(
+  value: RuntimePreviewRailReadModel | undefined,
+): value is RuntimePreviewRailReadModel {
+  if (value === undefined || !Array.isArray(value.slots)) {
+    return false;
+  }
+  const allowedKinds = new Set([
+    "file_ref",
+    "diff_ref",
+    "artifact_ref",
+    "run_output_ref",
+    "proof_ref",
+    "runtime_event_ref",
+  ]);
+  const allowedStatuses = new Set([
+    "safe_ref_ready",
+    "bounded_preview_placeholder",
+    "execution_blocked",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimePreviewRailReadModel> = [
+    "browser_automation_enabled",
+    "raw_sensitive_file_display_enabled",
+    "direct_runtime_payload_rendering_enabled",
+    "screenshot_capture_enabled",
+    "file_read_enabled",
+    "file_write_enabled",
+    "shell_execution_enabled",
+    "provider_call_enabled",
+    "control_center_mints_authority",
+    "raw_path_persisted",
+    "raw_file_content_persisted",
+    "raw_runtime_payload_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_preview_rail.v1" &&
+    value.status === "safe_ref_preview_rail_posture" &&
+    value.route_ref === "GET /api/runtime/preview-rail" &&
+    value.cli_ref === "uaa runtime inspect-preview-rail" &&
+    value.slot_count === value.slots.length &&
+    value.safe_ref_ready_count ===
+      value.slots.filter((slot) => slot.slot_status === "safe_ref_ready").length &&
+    value.bounded_preview_placeholder_count ===
+      value.slots.filter(
+        (slot) => slot.slot_status === "bounded_preview_placeholder",
+      ).length &&
+    value.execution_blocked_count ===
+      value.slots.filter((slot) => slot.slot_status === "execution_blocked")
+        .length &&
+    value.source_classification_visible === true &&
+    value.redaction_policy_visible === true &&
+    value.bounded_preview_visible === true &&
+    value.operator_attach_visible === true &&
+    value.receipt_plan_visible === true &&
+    value.proof_link_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:preview-rail-no-browser-automation",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.slots.every(
+      (slot) =>
+        allowedKinds.has(slot.slot_kind) &&
+        allowedStatuses.has(slot.slot_status) &&
+        isNonEmptyStringArray(slot.blocked_authority_refs) &&
+        isNonEmptyStringArray(slot.next_safe_action_refs) &&
+        slot.browser_automation_enabled === false &&
+        slot.raw_sensitive_file_display_enabled === false &&
+        slot.direct_runtime_payload_rendering_enabled === false &&
+        slot.screenshot_capture_enabled === false &&
+        slot.file_read_enabled === false &&
+        slot.file_write_enabled === false &&
+        slot.shell_execution_enabled === false &&
+        slot.provider_call_enabled === false &&
+        slot.raw_path_persisted === false &&
+        slot.raw_file_content_persisted === false &&
+        slot.raw_runtime_payload_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeSlashCommandRegistry(
+  value: RuntimeSlashCommandRegistryReadModel | undefined,
+): value is RuntimeSlashCommandRegistryReadModel {
+  if (value === undefined || !Array.isArray(value.commands)) {
+    return false;
+  }
+  const allowedStatuses = new Set([
+    "metadata_ready",
+    "disabled_requires_exact_lane",
+    "blocked_high_authority",
+  ]);
+  const allowedAuthorityClasses = new Set([
+    "read_only_metadata",
+    "proposal_only",
+    "approval_required_future_lane",
+    "blocked_high_authority",
+  ]);
+  const allowedSideEffectClasses = new Set([
+    "none",
+    "proposal_only",
+    "command_execution",
+    "model_call",
+    "local_mutation",
+    "runtime_invocation",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeSlashCommandRegistryReadModel> = [
+    "chat_trigger_enabled",
+    "runtime_invocation_enabled",
+    "state_mutation_enabled",
+    "shell_execution_enabled",
+    "provider_call_enabled",
+    "browser_automation_enabled",
+    "connector_write_enabled",
+    "control_center_mints_authority",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_slash_command_registry.v1" &&
+    value.status === "metadata_registry_all_commands_disabled" &&
+    value.route_ref === "GET /api/runtime/slash-command-registry" &&
+    value.cli_ref === "uaa runtime inspect-slash-command-registry" &&
+    value.command_count === value.commands.length &&
+    value.metadata_ready_count ===
+      value.commands.filter((command) => command.command_status === "metadata_ready")
+        .length &&
+    value.disabled_count ===
+      value.commands.filter(
+        (command) => command.command_status === "disabled_requires_exact_lane",
+      ).length &&
+    value.blocked_count ===
+      value.commands.filter(
+        (command) => command.command_status === "blocked_high_authority",
+      ).length &&
+    value.command_contract_visible === true &&
+    value.side_effect_class_visible === true &&
+    value.approval_policy_visible === true &&
+    value.idempotency_policy_visible === true &&
+    value.receipt_plan_visible === true &&
+    value.cli_api_alignment_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:slash-command-registry-no-chat-execution",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.commands.every(
+      (command) =>
+        allowedStatuses.has(command.command_status) &&
+        allowedAuthorityClasses.has(command.authority_class) &&
+        allowedSideEffectClasses.has(command.side_effect_class) &&
+        isNonEmptyStringArray(command.blocked_authority_refs) &&
+        isNonEmptyStringArray(command.promotion_path_refs) &&
+        isNonEmptyStringArray(command.next_safe_action_refs) &&
+        command.visible_in_control_center === true &&
+        command.registered_metadata_only === true &&
+        command.chat_trigger_enabled === false &&
+        command.runtime_invocation_enabled === false &&
+        command.state_mutation_enabled === false &&
+        command.shell_execution_enabled === false &&
+        command.provider_call_enabled === false &&
+        command.browser_automation_enabled === false &&
+        command.connector_write_enabled === false &&
+        command.control_center_mints_authority === false &&
+        command.raw_prompt_persisted === false &&
+        command.raw_response_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeInterruptRedirect(
+  value: RuntimeInterruptRedirectReadModel | undefined,
+): value is RuntimeInterruptRedirectReadModel {
+  if (value === undefined || !Array.isArray(value.proposals)) {
+    return false;
+  }
+  const allowedStatuses = new Set([
+    "read_only_proposal",
+    "blocked_until_exact_lane",
+    "approval_required_future_lane",
+  ]);
+  const allowedSideEffects = new Set([
+    "none",
+    "runtime_control_mutation",
+    "operator_instruction_update",
+    "recovery_state_transition",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeInterruptRedirectReadModel> = [
+    "live_stop_post_enabled",
+    "process_kill_enabled",
+    "runtime_mutation_enabled",
+    "background_autonomy_enabled",
+    "shell_execution_enabled",
+    "provider_call_enabled",
+    "browser_automation_enabled",
+    "connector_write_enabled",
+    "control_center_mints_authority",
+    "raw_runtime_payload_persisted",
+    "raw_log_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_interrupt_redirect.v1" &&
+    value.status === "run_control_proposal_only" &&
+    value.route_ref === "GET /api/runtime/interrupt-redirect" &&
+    value.cli_ref === "uaa runtime inspect-interrupt-redirect" &&
+    value.proposal_count === value.proposals.length &&
+    value.read_only_proposal_count ===
+      value.proposals.filter(
+        (proposal) => proposal.action_status === "read_only_proposal",
+      ).length &&
+    value.approval_required_future_lane_count ===
+      value.proposals.filter(
+        (proposal) =>
+          proposal.action_status === "approval_required_future_lane",
+      ).length &&
+    value.blocked_count ===
+      value.proposals.filter(
+        (proposal) => proposal.action_status === "blocked_until_exact_lane",
+      ).length &&
+    value.run_ownership_visible === true &&
+    value.stop_scope_visible === true &&
+    value.idempotency_visible === true &&
+    value.cancellation_receipt_visible === true &&
+    value.recovery_state_visible === true &&
+    value.proof_link_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:interrupt-redirect-no-live-stop-post",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.proposals.every(
+      (proposal) =>
+        allowedStatuses.has(proposal.action_status) &&
+        allowedSideEffects.has(proposal.side_effect_class) &&
+        proposal.visible_in_control_center === true &&
+        proposal.proposal_only === true &&
+        isNonEmptyStringArray(proposal.blocked_authority_refs) &&
+        isNonEmptyStringArray(proposal.promotion_path_refs) &&
+        isNonEmptyStringArray(proposal.next_safe_action_refs) &&
+        proposal.live_stop_post_enabled === false &&
+        proposal.process_kill_enabled === false &&
+        proposal.runtime_mutation_enabled === false &&
+        proposal.background_autonomy_enabled === false &&
+        proposal.shell_execution_enabled === false &&
+        proposal.provider_call_enabled === false &&
+        proposal.browser_automation_enabled === false &&
+        proposal.connector_write_enabled === false &&
+        proposal.control_center_mints_authority === false &&
+        proposal.raw_runtime_payload_persisted === false &&
+        proposal.raw_log_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeLoggingProfile(
+  value: RuntimeLoggingProfileReadModel | undefined,
+): value is RuntimeLoggingProfileReadModel {
+  if (value === undefined || !Array.isArray(value.profiles)) {
+    return false;
+  }
+  const allowedStatuses = new Set([
+    "active_default",
+    "disabled_until_flagged",
+    "blocked_raw_detail",
+  ]);
+  const allowedRetention = new Set([
+    "session_only",
+    "bounded_local_receipt",
+    "no_persistence",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeLoggingProfileReadModel> = [
+    "verbose_logging_enabled",
+    "raw_logs_persisted",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+    "provider_payload_persisted",
+    "local_path_persisted",
+    "credential_material_persisted",
+    "remote_telemetry_export_enabled",
+    "background_log_stream_enabled",
+    "control_center_mints_authority",
+  ];
+  return (
+    value.schema_version === "runtime_logging_profile.v1" &&
+    value.status === "quiet_default_redacted_troubleshooting_available" &&
+    value.route_ref === "GET /api/runtime/logging-profile" &&
+    value.cli_ref === "uaa runtime inspect-logging-profile" &&
+    value.active_profile_ref === "logging-profile-ref:runtime:quiet-normal" &&
+    value.profile_count === value.profiles.length &&
+    value.quiet_default_count ===
+      value.profiles.filter(
+        (profile) => profile.profile_status === "active_default",
+      ).length &&
+    value.disabled_until_flagged_count ===
+      value.profiles.filter(
+        (profile) => profile.profile_status === "disabled_until_flagged",
+      ).length &&
+    value.blocked_raw_detail_count ===
+      value.profiles.filter(
+        (profile) => profile.profile_status === "blocked_raw_detail",
+      ).length &&
+    value.flag_scope_visible === true &&
+    value.ttl_policy_visible === true &&
+    value.redaction_rules_visible === true &&
+    value.retention_policy_visible === true &&
+    value.operator_proof_visible === true &&
+    value.safe_disable_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:logging-profile-no-raw-log-persistence",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.profiles.every(
+      (profile) =>
+        allowedStatuses.has(profile.profile_status) &&
+        allowedRetention.has(profile.retention_class) &&
+        profile.visible_in_control_center === true &&
+        profile.operator_flag_required === true &&
+        profile.safe_disable_available === true &&
+        isNonEmptyStringArray(profile.blocked_authority_refs) &&
+        isNonEmptyStringArray(profile.promotion_path_refs) &&
+        isNonEmptyStringArray(profile.next_safe_action_refs) &&
+        profile.raw_logs_persisted === false &&
+        profile.raw_prompt_persisted === false &&
+        profile.raw_response_persisted === false &&
+        profile.provider_payload_persisted === false &&
+        profile.local_path_persisted === false &&
+        profile.credential_material_persisted === false &&
+        profile.remote_telemetry_export_enabled === false &&
+        profile.background_log_stream_enabled === false &&
+        profile.control_center_mints_authority === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeResultClassification(
+  value: RuntimeResultClassificationReadModel | undefined,
+): value is RuntimeResultClassificationReadModel {
+  if (value === undefined || !Array.isArray(value.classifications)) {
+    return false;
+  }
+  const allowedKinds = new Set([
+    "evidence",
+    "mutation",
+    "warning",
+    "blocked",
+    "proposal",
+    "diagnostic",
+    "untrusted_data",
+  ]);
+  const allowedVerification = new Set([
+    "verified_safe_ref",
+    "receipt_required",
+    "review_required",
+    "blocked_authority",
+    "untrusted_until_verified",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeResultClassificationReadModel> = [
+    "tool_output_as_truth_enabled",
+    "action_authority_enabled",
+    "mutation_without_receipt_enabled",
+    "unverified_evidence_promotion_enabled",
+    "raw_output_persisted",
+    "provider_payload_persisted",
+    "control_center_mints_authority",
+  ];
+  return (
+    value.schema_version === "runtime_result_classification.v1" &&
+    value.status === "taxonomy_read_model_only" &&
+    value.route_ref === "GET /api/runtime/result-classification" &&
+    value.cli_ref === "uaa runtime inspect-result-classification" &&
+    value.classification_count === value.classifications.length &&
+    value.evidence_count ===
+      value.classifications.filter((item) => item.result_kind === "evidence")
+        .length &&
+    value.mutation_count ===
+      value.classifications.filter((item) => item.result_kind === "mutation")
+        .length &&
+    value.warning_count ===
+      value.classifications.filter((item) => item.result_kind === "warning")
+        .length &&
+    value.blocked_count ===
+      value.classifications.filter((item) => item.result_kind === "blocked")
+        .length &&
+    value.proposal_count ===
+      value.classifications.filter((item) => item.result_kind === "proposal")
+        .length &&
+    value.diagnostic_count ===
+      value.classifications.filter((item) => item.result_kind === "diagnostic")
+        .length &&
+    value.untrusted_data_count ===
+      value.classifications.filter((item) => item.result_kind === "untrusted_data")
+        .length &&
+    value.labels_visible === true &&
+    value.provenance_visible === true &&
+    value.redaction_visible === true &&
+    value.verification_status_visible === true &&
+    value.proof_binding_visible === true &&
+    value.receipt_requirement_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:result-classification-no-tool-output-as-truth",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.classifications.every(
+      (item) =>
+        allowedKinds.has(item.result_kind) &&
+        allowedVerification.has(item.verification_status) &&
+        item.visible_in_control_center === true &&
+        item.result_label_required === true &&
+        item.provenance_required === true &&
+        item.redaction_required === true &&
+        item.proof_binding_required === true &&
+        isNonEmptyStringArray(item.blocked_authority_refs) &&
+        isNonEmptyStringArray(item.promotion_path_refs) &&
+        isNonEmptyStringArray(item.next_safe_action_refs) &&
+        item.tool_output_as_truth_enabled === false &&
+        item.action_authority_enabled === false &&
+        item.mutation_without_receipt_enabled === false &&
+        item.unverified_evidence_promotion_enabled === false &&
+        item.raw_output_persisted === false &&
+        item.provider_payload_persisted === false &&
+        item.control_center_mints_authority === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeRunEvents(
+  value: RuntimeRunEventsReadModel | undefined,
+): value is RuntimeRunEventsReadModel {
+  if (
+    value === undefined ||
+    !Array.isArray(value.lifecycle_mappings) ||
+    !Array.isArray(value.run_proposals) ||
+    !Array.isArray(value.event_previews)
+  ) {
+    return false;
+  }
+  const deniedTopLevelFlags: Array<keyof RuntimeRunEventsReadModel> = [
+    "create_run_route_enabled",
+    "stop_run_route_enabled",
+    "approval_resolution_route_enabled",
+    "live_event_stream_enabled",
+    "control_center_talks_directly_to_runtime",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+    "raw_provider_payload_persisted",
+    "raw_runtime_payload_persisted",
+    "raw_log_persisted",
+    "raw_local_path_persisted",
+    "credential_material_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_run_events.v1" &&
+    value.status === "proposal_read_model_only" &&
+    value.uaa_controls_authority === true &&
+    value.no_mutation_routes_registered === true &&
+    value.safe_refs_only === true &&
+    value.proposal_count === value.run_proposals.length &&
+    value.approval_wait_count ===
+      value.run_proposals.filter(
+        (proposal) => proposal.uaa_durable_run_state === "approval_wait",
+      ).length &&
+    value.completed_run_count === 0 &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.lifecycle_mappings.length > 0 &&
+    value.lifecycle_mappings.every(
+      (mapping) => mapping.receipt_required_before_claim === true,
+    ) &&
+    value.run_proposals.every(
+      (proposal) =>
+        proposal.uaa_durable_run_state !== "completed" &&
+        proposal.create_run_enabled === false &&
+        proposal.stop_run_enabled === false &&
+        proposal.approval_resolution_enabled === false &&
+        proposal.live_event_stream_enabled === false &&
+        proposal.retry_recovery_enabled === false &&
+        proposal.cancellation_proof_required === true &&
+        isNonEmptyStringArray(proposal.event_refs) &&
+        isNonEmptyStringArray(proposal.proof_refs) &&
+        isNonEmptyStringArray(proposal.blocked_authority_refs),
+    ) &&
+    value.event_previews.every(
+      (event) =>
+        event.runtime_payload_persisted === false &&
+        event.raw_log_persisted === false &&
+        event.raw_prompt_persisted === false &&
+        event.raw_response_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeStreamingProgress(
+  value: RuntimeStreamingProgressReadModel | undefined,
+): value is RuntimeStreamingProgressReadModel {
+  if (value === undefined || !Array.isArray(value.event_previews)) {
+    return false;
+  }
+  const deniedTopLevelFlags: Array<keyof RuntimeStreamingProgressReadModel> = [
+    "live_subscription_enabled",
+    "sse_transport_enabled",
+    "websocket_transport_enabled",
+    "reconnect_enabled",
+    "event_ingest_enabled",
+    "control_center_talks_directly_to_runtime",
+    "raw_runtime_payload_persisted",
+    "raw_tool_payload_persisted",
+    "raw_token_persisted",
+    "raw_log_persisted",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+  ];
+  const eventSequences = value.event_previews.map((event) => event.sequence);
+  const sortedSequences = [...eventSequences].sort((left, right) => left - right);
+  const uniqueSequences = new Set(eventSequences);
+  const eventKinds = new Set(
+    value.event_previews.map((event) => event.event_kind),
+  );
+  return (
+    value.schema_version === "runtime_streaming_progress.v1" &&
+    value.status === "read_model_event_preview_only" &&
+    value.stream_state === "stale_disconnected" &&
+    value.stale_stream === true &&
+    value.uaa_controls_authority === true &&
+    value.safe_refs_only === true &&
+    value.bounded_retention_required === true &&
+    value.event_hashes_required === true &&
+    value.event_count === value.event_previews.length &&
+    eventSequences.length === uniqueSequences.size &&
+    eventSequences.every((sequence, index) => sequence === sortedSequences[index]) &&
+    eventKinds.has("token") &&
+    eventKinds.has("tool_started") &&
+    eventKinds.has("tool_completed") &&
+    eventKinds.has("approval_wait") &&
+    eventKinds.has("warning") &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.event_previews.every(
+      (event) =>
+        typeof event.event_ref === "string" &&
+        typeof event.proof_ref === "string" &&
+        typeof event.event_hash_ref === "string" &&
+        value.proof_refs.includes(event.proof_ref) &&
+        event.event_hash_ref.startsWith("event-hash-ref:") &&
+        event.preview_limit_bytes > 0 &&
+        event.preview_limit_bytes <= 2048 &&
+        event.runtime_payload_persisted === false &&
+        event.raw_tool_payload_persisted === false &&
+        event.raw_token_persisted === false &&
+        event.raw_log_persisted === false &&
+        event.raw_prompt_persisted === false &&
+        event.raw_response_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeProfileIsolation(
+  value: RuntimeProfileIsolationReadModel | undefined,
+): value is RuntimeProfileIsolationReadModel {
+  if (value === undefined || !Array.isArray(value.profiles)) {
+    return false;
+  }
+  const deniedTopLevelFlags: Array<keyof RuntimeProfileIsolationReadModel> = [
+    "profile_creation_enabled",
+    "profile_deletion_enabled",
+    "runtime_config_write_enabled",
+    "sensitive_material_copy_enabled",
+    "runtime_default_change_enabled",
+    "cross_profile_authority_bleed_allowed",
+    "control_center_mints_profiles",
+    "raw_profile_names_persisted",
+    "raw_workspace_paths_persisted",
+    "raw_sensitive_material_persisted",
+  ];
+  const profileRefs = new Set(value.profiles.map((profile) => profile.profile_ref));
+  const delegatedRefs = new Set(
+    value.profiles.map((profile) => profile.delegated_runtime_profile_ref),
+  );
+  const roleSet = new Set(value.profiles.map((profile) => profile.role));
+  const hasRefOverlap = [...profileRefs].some((ref) => delegatedRefs.has(ref));
+  const configuredCount = value.profiles.filter(
+    (profile) => profile.configured_status === "metadata_configured",
+  ).length;
+  const blockedCount = value.profiles.length - configuredCount;
+  return (
+    value.schema_version === "runtime_profile_isolation.v1" &&
+    value.status === "profile_metadata_read_model_only" &&
+    value.uaa_profile_refs_separate_from_delegated_runtime_refs === true &&
+    value.safe_refs_only === true &&
+    value.profile_count === value.profiles.length &&
+    value.configured_profile_count === configuredCount &&
+    value.blocked_profile_count === blockedCount &&
+    hasRefOverlap === false &&
+    roleSet.has("coding") &&
+    roleSet.has("research") &&
+    roleSet.has("operations") &&
+    roleSet.has("crm") &&
+    roleSet.has("review") &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.profiles.every(
+      (profile) =>
+        typeof profile.profile_ref === "string" &&
+        typeof profile.delegated_runtime_profile_ref === "string" &&
+        profile.profile_ref !== profile.delegated_runtime_profile_ref &&
+        profile.configured_for_live_runtime === false &&
+        profile.can_create_runtime_profile === false &&
+        profile.can_delete_runtime_profile === false &&
+        profile.can_write_runtime_config === false &&
+        profile.can_copy_sensitive_material === false &&
+        profile.can_change_runtime_defaults === false &&
+        profile.can_execute_tools === false &&
+        profile.can_call_models === false &&
+        profile.can_write_memory === false &&
+        profile.can_access_workspace_paths === false &&
+        profile.cross_profile_authority_bleed_allowed === false &&
+        isNonEmptyStringArray(profile.blocked_reason_refs) &&
+        isNonEmptyStringArray(profile.proof_refs) &&
+        isNonEmptyStringArray(profile.next_safe_action_refs),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeApprovalBridge(
+  value: RuntimeApprovalBridgeReadModel | undefined,
+): value is RuntimeApprovalBridgeReadModel {
+  if (
+    value === undefined ||
+    !isPlainRecord(value.action_inbox_projection) ||
+    !isPlainRecord(value.fail_closed_timeout_posture) ||
+    !isPlainRecord(value.scope_validation) ||
+    !Array.isArray(value.envelopes) ||
+    !Array.isArray(value.decision_previews)
+  ) {
+    return false;
+  }
+  const deniedTopLevelFlags: Array<keyof RuntimeApprovalBridgeReadModel> = [
+    "approval_resolution_route_enabled",
+    "deny_resolution_route_enabled",
+    "timeout_resolution_route_enabled",
+    "control_center_talks_directly_to_runtime",
+    "raw_runtime_payload_persisted",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+  ];
+  const projection = value.action_inbox_projection;
+  const failClosedPosture = value.fail_closed_timeout_posture;
+  const denyCount = value.decision_previews.filter(
+    (preview) => preview.decision_kind === "deny",
+  ).length;
+  const timeoutCount = value.decision_previews.filter(
+    (preview) => preview.decision_kind === "timeout",
+  ).length;
+  const scopeMismatchCount = value.decision_previews.filter(
+    (preview) => preview.decision_kind === "scope_mismatch",
+  ).length;
+  return (
+    value.schema_version === "runtime_approval_bridge.v1" &&
+    value.status === "read_model_resolution_blocked" &&
+    value.uaa_controls_authority === true &&
+    value.safe_refs_only === true &&
+    value.runtime_resolution_sent_count === 0 &&
+    value.pending_runtime_approval_count ===
+      value.envelopes.filter((envelope) => envelope.state === "runtime_requested")
+        .length &&
+    value.denied_preview_count === denyCount &&
+    value.timeout_preview_count === timeoutCount &&
+    value.scope_mismatch_count === scopeMismatchCount &&
+    value.scope_validation.scope_matches === false &&
+    projection.approval_controls_visible === false &&
+    projection.runtime_resolution_controls_visible === false &&
+    failClosedPosture.expired_waits_default_to_deny === true &&
+    failClosedPosture.ambiguous_waits_default_to_deny === true &&
+    failClosedPosture.explicit_expiration_required === true &&
+    failClosedPosture.revoke_required === true &&
+    failClosedPosture.safe_disable_required === true &&
+    failClosedPosture.auto_approve_enabled === false &&
+    failClosedPosture.approve_all_enabled === false &&
+    failClosedPosture.standing_broad_authority_enabled === false &&
+    failClosedPosture.expired_grant_reuse_enabled === false &&
+    failClosedPosture.ambiguous_grant_enabled === false &&
+    failClosedPosture.approval_resolution_sent === false &&
+    failClosedPosture.control_center_mints_authority === false &&
+    isNonEmptyStringArray(failClosedPosture.blocked_authority_refs) &&
+    isNonEmptyStringArray(failClosedPosture.promotion_path_refs) &&
+    isNonEmptyStringArray(failClosedPosture.next_safe_action_refs) &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    failClosedPosture.blocked_authority_refs.every((ref) =>
+      value.blocked_authority_refs.includes(ref),
+    ) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.envelopes.length > 0 &&
+    value.envelopes.every(
+      (envelope) =>
+        envelope.runtime_requested === true &&
+        envelope.uaa_approval_recorded === false &&
+        envelope.runtime_resolution_sent === false &&
+        envelope.approval_resolution_enabled === false &&
+        envelope.denial_resolution_enabled === false &&
+        envelope.timeout_defaults_to_deny === true &&
+        envelope.approval_refs_are_identifiers_only === true &&
+        envelope.raw_runtime_payload_persisted === false &&
+        envelope.raw_prompt_persisted === false &&
+        envelope.raw_response_persisted === false &&
+        value.proof_refs.includes(envelope.proof_ref) &&
+        projection.action_inbox_item_ref === envelope.action_inbox_item_ref &&
+        isNonEmptyStringArray(envelope.blocked_authority_refs) &&
+        isNonEmptyStringArray(envelope.next_safe_action_refs),
+    ) &&
+    value.decision_previews.every(
+      (preview) =>
+        preview.runtime_resolution_sent === false &&
+        projection.action_inbox_item_ref === preview.action_inbox_item_ref &&
+        isNonEmptyStringArray(preview.blocked_authority_refs),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
 function isSafeCodingMultiAgentReview(
   value: CodingMultiAgentReviewReadModel | undefined,
 ): value is CodingMultiAgentReviewReadModel {
@@ -3217,6 +6262,16 @@ function isSafeModelProviderControlPlane(
   ) {
     return false;
   }
+  if (
+    !isSafeDelegatedRuntimeModelCatalogPosture(
+      value.delegated_runtime_model_catalog,
+    )
+  ) {
+    return false;
+  }
+  if (!isSafeModelSlotPosture(value.model_slot_posture)) {
+    return false;
+  }
   if (!isSafeModelProviderResearchPosture(value.model_provider_research_posture)) {
     return false;
   }
@@ -3229,6 +6284,177 @@ function isSafeModelProviderControlPlane(
     value.exact_lane_route_refs.includes(
       "POST /control-center/providers/exact-approved-lanes/tiny",
     )
+  );
+}
+
+function isSafeDelegatedRuntimeModelCatalogPosture(value: unknown): boolean {
+  if (!isPlainRecord(value) || !Array.isArray(value.records)) {
+    return false;
+  }
+  const falseFlags = [
+    "uaa_may_invoke_any_listed_model",
+    "live_provider_discovery_enabled",
+    "provider_sdk_call_enabled",
+    "remote_model_call_enabled",
+    "credential_collection_enabled",
+    "billing_authority_granted",
+    "model_output_authority_enabled",
+  ];
+  const availableCount = value.records.filter(
+    (record) =>
+      isPlainRecord(record) && record.runtime_reported_available === true,
+  ).length;
+  return (
+    value.schema_version === "delegated_runtime_model_catalog.v1" &&
+    value.status === "read_only_runtime_model_availability" &&
+    value.route_ref === "GET /control-center/providers/runtime-control-plane" &&
+    value.runtime_says_available_is_not_authority === true &&
+    value.static_cost_metadata_only === true &&
+    value.static_latency_metadata_only === true &&
+    value.uaa_authorized_model_count === 0 &&
+    value.model_count === value.records.length &&
+    value.runtime_reported_available_count === availableCount &&
+    falseFlags.every((field) => value[field] === false) &&
+    value.records.every(isSafeDelegatedRuntimeModelAvailabilityRecord) &&
+    Array.isArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-state:model-provider:runtime-availability-is-not-invocation",
+    )
+  );
+}
+
+function isSafeDelegatedRuntimeModelAvailabilityRecord(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "uaa_invocation_allowed",
+    "provider_sdk_call_enabled",
+    "live_provider_discovery_performed",
+    "live_provider_network_call_performed",
+    "credential_collection_enabled",
+    "credential_material_visible",
+    "billing_authority_granted",
+    "model_output_authority_enabled",
+    "raw_provider_payload_persisted",
+  ];
+  return (
+    typeof value.runtime_ref === "string" &&
+    typeof value.runtime_profile_ref === "string" &&
+    typeof value.delegated_runtime_profile_ref === "string" &&
+    value.runtime_profile_ref !== value.delegated_runtime_profile_ref &&
+    typeof value.model_ref === "string" &&
+    typeof value.provider_ref === "string" &&
+    typeof value.safe_summary === "string" &&
+    ["runtime_reports_available", "runtime_reports_planned", "local_gateway_metadata_available"].includes(
+      String(value.runtime_availability_status),
+    ) &&
+    [
+      "blocked_no_exact_invocation_lane",
+      "blocked_profile_not_configured",
+      "metadata_only_existing_lane_separate",
+    ].includes(String(value.uaa_invocation_posture)) &&
+    falseFlags.every((field) => value[field] === false) &&
+    Array.isArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.length > 0
+  );
+}
+
+function isSafeModelSlotPosture(value: unknown): boolean {
+  if (!isPlainRecord(value) || !Array.isArray(value.records)) {
+    return false;
+  }
+  const falseFlags = [
+    "live_auxiliary_calls_enabled",
+    "provider_sdk_use_enabled",
+    "runtime_selection_mutation_enabled",
+    "hidden_model_routing_enabled",
+    "raw_prompt_persistence_enabled",
+    "raw_response_persistence_enabled",
+  ];
+  const trueFlags = [
+    "route_decision_trace_required",
+    "cost_estimate_required",
+    "approval_profile_mapping_required",
+    "model_output_truth_envelope_required",
+    "receipts_required_before_execution",
+  ];
+  const warningCount = value.records.filter(
+    (record) =>
+      isPlainRecord(record) &&
+      Array.isArray(record.warning_refs) &&
+      record.warning_refs.length > 0,
+  ).length;
+  return (
+    value.schema_version === "hermes_runtime_model_slot_posture.v1" &&
+    value.status === "read_only_model_slot_intent" &&
+    value.route_ref === "GET /control-center/providers/runtime-control-plane" &&
+    value.trust_lane_ref === "trust-lane:model-slot-posture" &&
+    value.slot_count === value.records.length &&
+    value.warning_count === warningCount &&
+    value.main_slot_ref === "model-slot-ref:uaa:main-thinking" &&
+    Array.isArray(value.auxiliary_slot_refs) &&
+    value.auxiliary_slot_refs.length === value.records.length - 1 &&
+    falseFlags.every((field) => value[field] === false) &&
+    trueFlags.every((field) => value[field] === true) &&
+    value.records.every(isSafeModelSlotPostureRecord) &&
+    Array.isArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-state:model-slot:hidden-model-routing",
+    )
+  );
+}
+
+function isSafeModelSlotPostureRecord(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "live_auxiliary_call_enabled",
+    "provider_sdk_call_enabled",
+    "runtime_selection_mutation_enabled",
+    "hidden_model_routing_enabled",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+  ];
+  const trueFlags = [
+    "route_decision_trace_required",
+    "cost_estimate_required",
+    "approval_profile_mapping_required",
+    "model_output_truth_envelope_required",
+    "receipt_required_before_execution",
+  ];
+  return (
+    typeof value.slot_ref === "string" &&
+    typeof value.display_label === "string" &&
+    typeof value.intended_provider_ref === "string" &&
+    typeof value.intended_model_ref === "string" &&
+    typeof value.route_decision_trace_ref === "string" &&
+    typeof value.model_output_truth_ref === "string" &&
+    [
+      "main_thinking",
+      "summarization",
+      "title",
+      "approval_scoring",
+      "compression",
+      "retrieval",
+      "vision",
+      "review",
+    ].includes(String(value.slot_role)) &&
+    [
+      "configured_metadata_only",
+      "planned_not_configured",
+      "runtime_reported_available_not_authorized",
+    ].includes(String(value.configured_status)) &&
+    [
+      "blocked_no_exact_model_authority",
+      "blocked_missing_runtime_profile",
+      "metadata_only_existing_lane_separate",
+    ].includes(String(value.uaa_execution_posture)) &&
+    falseFlags.every((field) => value[field] === false) &&
+    trueFlags.every((field) => value[field] === true) &&
+    Array.isArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.length > 0
   );
 }
 
@@ -5166,10 +8392,145 @@ function normalizeFounderMemoryReview(
     ...(merged.value as unknown as Record<string, unknown>),
   };
   normalizeEvidenceMemoryLoopBinding(normalized, valueRecord);
+  normalizeBoundedMemoryPosture(normalized, valueRecord);
   return {
     value: normalized as unknown as FounderLoopMemoryReview,
     usedFallback: merged.usedFallback,
   };
+}
+
+const MEMORY_BOUNDED_POSTURE_DENIED_FLAGS = [
+  "automatic_memory_write_authorized",
+  "autonomous_memory_write_authorized",
+  "hidden_prompt_injection_authorized",
+  "external_memory_provider_write_authorized",
+  "context_injection_authorized",
+  "memory_truth_authority",
+  "semantic_provider_enabled",
+  "vector_db_enabled",
+  "embedding_search_enabled",
+  "model_provider_call_authorized",
+  "live_web_fetch_authorized",
+  "connector_write_authorized",
+  "delete_export_execution_authorized",
+  "background_autonomy_authorized",
+  "production_authority_enabled",
+] as const;
+
+function normalizeBoundedMemoryPosture(
+  normalized: Record<string, unknown>,
+  valueRecord: Record<string, unknown>,
+): void {
+  const posture = valueRecord.bounded_memory_posture;
+  if (isSafeBoundedMemoryPosture(posture)) {
+    normalized.bounded_memory_posture = posture;
+    normalized.bounded_memory_posture_contract_ref = (
+      posture as Record<string, unknown>
+    ).contract_ref;
+  } else {
+    delete normalized.bounded_memory_posture;
+    delete normalized.bounded_memory_posture_contract_ref;
+  }
+}
+
+function isSafeBoundedMemoryPosture(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const nestedRecords = [
+    value.target_posture,
+    value.capacity_posture,
+    value.source_posture,
+    value.staleness_posture,
+    value.why_shown_posture,
+    value.quality_review_posture,
+    value.context_pack_posture,
+  ];
+  if (!nestedRecords.every(isPlainRecord)) {
+    return false;
+  }
+  const targetPosture = value.target_posture as Record<string, unknown>;
+  const capacityPosture = value.capacity_posture as Record<string, unknown>;
+  const sourcePosture = value.source_posture as Record<string, unknown>;
+  const stalenessPosture = value.staleness_posture as Record<string, unknown>;
+  const whyShownPosture = value.why_shown_posture as Record<string, unknown>;
+  const qualityPosture = value.quality_review_posture as Record<string, unknown>;
+  const contextPackPosture = value.context_pack_posture as Record<string, unknown>;
+  const blockedStateRefs = value.blocked_state_refs;
+  return (
+    value.schema_version ===
+      "hermes_runtime_adoption_bounded_memory_posture.v1" &&
+    value.contract_ref ===
+      "contract-ref:hermes-runtime-adoption-bounded-memory-posture:v1" &&
+    value.source === "python_core_memory_workbench_bounded_memory_posture" &&
+    hasStringFields(value, [
+      "route_ref",
+      "cli_ref",
+      "proof_ref",
+      "status",
+      "next_safe_action",
+    ]) &&
+    value.backend_owned === true &&
+    value.control_center_presentation_only === true &&
+    value.safe_refs_only === true &&
+    value.raw_content_included === false &&
+    hasDeniedFlagsFalse(value, MEMORY_BOUNDED_POSTURE_DENIED_FLAGS) &&
+    Array.isArray(blockedStateRefs) &&
+    blockedStateRefs.every((item) => typeof item === "string") &&
+    blockedStateRefs.length > 0 &&
+    hasStringArrays(targetPosture, ["supported_target_kinds", "target_refs"]) &&
+    targetPosture.operator_selected_context_required === true &&
+    targetPosture.automatic_context_injection_authorized === false &&
+    targetPosture.hidden_context_injection_authorized === false &&
+    hasNumberFields(capacityPosture, [
+      "visible_item_count",
+      "candidate_count",
+      "context_pack_count",
+      "max_visible_items",
+      "max_provenance_refs",
+      "token_estimate",
+    ]) &&
+    typeof capacityPosture.token_budget_state === "string" &&
+    isPlainRecord(capacityPosture.search_index_status) &&
+    hasStringArrays(sourcePosture, [
+      "source_refs",
+      "provenance_refs",
+      "evidence_refs",
+      "receipt_refs",
+    ]) &&
+    sourcePosture.safe_summary_only === true &&
+    sourcePosture.source_refs_required === true &&
+    hasStringArrays(stalenessPosture, [
+      "stale_item_refs",
+      "stale_state_refs",
+    ]) &&
+    typeof stalenessPosture.stale_count === "number" &&
+    typeof stalenessPosture.recheck_required_before_recall === "boolean" &&
+    hasStringArrays(whyShownPosture, [
+      "why_shown_refs",
+      "included_reason_refs",
+      "quality_state_refs",
+    ]) &&
+    whyShownPosture.why_shown_required === true &&
+    hasStringArrays(qualityPosture, [
+      "correction_receipt_refs",
+      "rejection_receipt_refs",
+      "accepted_receipt_refs",
+      "receipt_backed_decision_kinds",
+    ]) &&
+    qualityPosture.review_required_before_recall === true &&
+    qualityPosture.correction_supported === true &&
+    qualityPosture.rejection_supported === true &&
+    qualityPosture.memory_write_requires_review_receipt === true &&
+    typeof qualityPosture.reviewed_recall_write_scope_ref === "string" &&
+    typeof qualityPosture.rollback_posture === "string" &&
+    hasStringArrays(contextPackPosture, ["context_pack_refs"]) &&
+    typeof contextPackPosture.proposal_count === "number" &&
+    contextPackPosture.context_pack_preview_only === true &&
+    contextPackPosture.prompt_context_written === false &&
+    contextPackPosture.context_injection_authorized === false &&
+    contextPackPosture.hidden_prompt_context_authorized === false
+  );
 }
 
 function normalizeEvidenceMemoryLoopBinding(
@@ -8029,6 +11390,10 @@ function normalizeFounderMemoryWorkbench(
     } else {
       delete workbenchWithoutMockPosture.learning_posture;
     }
+    normalizeBoundedMemoryPosture(
+      workbenchWithoutMockPosture,
+      value as unknown as Record<string, unknown>,
+    );
     return {
       value:
         workbenchWithoutMockPosture as unknown as FounderLoopMemoryWorkbench,

@@ -109,8 +109,41 @@ class ExtensionSafeAdoptionPosture(str, Enum):
     blocked_until_scoped_milestone = "blocked_until_scoped_milestone"
 
 
+class ExtensionProgressiveDisclosureStatus(str, Enum):
+    metadata_indexed = "metadata_indexed"
+    full_instructions_blocked = "full_instructions_blocked"
+    future_review_required = "future_review_required"
+    blocked = "blocked"
+
+
+class ExtensionFullInstructionLoadPosture(str, Enum):
+    metadata_only = "metadata_only"
+    operator_selected_review_required = "operator_selected_review_required"
+    blocked_runtime_import = "blocked_runtime_import"
+
+
+class SkillWriteProposalKind(str, Enum):
+    create_skill = "create_skill"
+    update_skill = "update_skill"
+
+
+class SkillWriteReviewStatus(str, Enum):
+    awaiting_operator_review = "awaiting_operator_review"
+    revision_requested = "revision_requested"
+    rejected = "rejected"
+    blocked = "blocked"
+
+
+class SkillBundleProposalStatus(str, Enum):
+    proposal_only = "proposal_only"
+    review_required = "review_required"
+    blocked = "blocked"
+
+
 class _ExtensionCatalogModel(BaseModel):
-    model_config = ConfigDict(use_enum_values=True, extra="forbid", protected_namespaces=())
+    model_config = ConfigDict(
+        use_enum_values=True, extra="forbid", protected_namespaces=()
+    )
 
 
 class InspectableExtensionPackageIdentity(_ExtensionCatalogModel):
@@ -151,12 +184,18 @@ class InspectableExtensionRequestedGrant(_ExtensionCatalogModel):
 class InspectableExtensionCatalogEntry(_ExtensionCatalogModel):
     catalog_entry_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
     manifest_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    compact_skill_index_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    metadata_summary_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
     package_identity: InspectableExtensionPackageIdentity
     provenance: InspectableExtensionProvenance
     file_hashes: list[InspectableExtensionFileHash] = Field(default_factory=list)
-    declared_capabilities: list[InspectableExtensionCapability] = Field(default_factory=list)
+    declared_capabilities: list[InspectableExtensionCapability] = Field(
+        default_factory=list
+    )
     risk_class: ExtensionRiskClass
-    requested_grants: list[InspectableExtensionRequestedGrant] = Field(default_factory=list)
+    requested_grants: list[InspectableExtensionRequestedGrant] = Field(
+        default_factory=list
+    )
     activation_status: ExtensionActivationStatus = ExtensionActivationStatus.inactive
     blocked_state: ExtensionBlockedState = ExtensionBlockedState.unknown
     blocker_refs: list[str] = Field(default_factory=list)
@@ -168,7 +207,120 @@ class InspectableExtensionCatalogEntry(_ExtensionCatalogModel):
     blocked_reason: str = Field(..., min_length=1, max_length=240)
     review_evidence_refs: list[str] = Field(default_factory=list)
     safe_adoption_posture: ExtensionSafeAdoptionPosture
+    progressive_disclosure_status: ExtensionProgressiveDisclosureStatus
+    full_instruction_load_posture: ExtensionFullInstructionLoadPosture
+    metadata_first: Literal[True] = True
+    operator_selected_before_full_instruction: Literal[True] = True
+    automatic_instruction_loading_enabled: Literal[False] = False
+    hidden_activation_enabled: Literal[False] = False
     safe_summary: str = Field(..., min_length=1, max_length=500)
+
+
+class SkillWriteDiffPreview(_ExtensionCatalogModel):
+    diff_preview_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    target_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    change_summary_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    safe_summary: str = Field(..., min_length=1, max_length=500)
+    raw_diff_persisted: Literal[False] = False
+    raw_file_content_persisted: Literal[False] = False
+
+
+class SkillWriteProposal(_ExtensionCatalogModel):
+    proposal_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    proposal_kind: SkillWriteProposalKind
+    skill_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    target_skill_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    staged_artifact_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    review_decision_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    review_status: SkillWriteReviewStatus
+    diff_previews: list[SkillWriteDiffPreview] = Field(default_factory=list)
+    blocked_execution_labels: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    safe_summary: str = Field(..., min_length=1, max_length=500)
+    file_write_performed: Literal[False] = False
+    skill_enablement_performed: Literal[False] = False
+    runtime_import_performed: Literal[False] = False
+    execution_performed: Literal[False] = False
+    raw_instruction_body_persisted: Literal[False] = False
+
+
+class SkillWriteApprovalGateReadModel(_ExtensionCatalogModel):
+    schema_version: Literal["uaa_skill_write_approval_gate.v1"] = (
+        "uaa_skill_write_approval_gate.v1"
+    )
+    gate_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    status: Literal["staged_review_only"] = "staged_review_only"
+    proposal_count: int = Field(..., ge=0)
+    proposals: list[SkillWriteProposal] = Field(default_factory=list)
+    review_queue_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    required_authority_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    verifier_refs: list[str] = Field(default_factory=list)
+    next_safe_action_refs: list[str] = Field(default_factory=list)
+    safe_summary: str = Field(..., min_length=1, max_length=500)
+    file_write_enabled: Literal[False] = False
+    direct_skill_write_enabled: Literal[False] = False
+    skill_enablement_enabled: Literal[False] = False
+    runtime_import_enabled: Literal[False] = False
+    execution_enabled: Literal[False] = False
+    connector_writes_enabled: Literal[False] = False
+    shell_execution_enabled: Literal[False] = False
+    provider_model_call_enabled: Literal[False] = False
+    browser_automation_enabled: Literal[False] = False
+    production_authority_enabled: Literal[False] = False
+
+
+class SkillBundleProposal(_ExtensionCatalogModel):
+    proposal_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    bundle_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    bundle_name: str = Field(..., min_length=1, max_length=120)
+    proposal_status: SkillBundleProposalStatus
+    skill_refs: list[str] = Field(..., min_length=1)
+    context_pack_refs: list[str] = Field(..., min_length=1)
+    toolset_refs: list[str] = Field(..., min_length=1)
+    authority_profile_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    verification_refs: list[str] = Field(..., min_length=1)
+    blocked_authority_refs: list[str] = Field(..., min_length=1)
+    proof_refs: list[str] = Field(default_factory=list)
+    next_safe_action_refs: list[str] = Field(default_factory=list)
+    safe_summary: str = Field(..., min_length=1, max_length=500)
+    activation_performed: Literal[False] = False
+    skill_enablement_performed: Literal[False] = False
+    tool_execution_performed: Literal[False] = False
+    context_injection_performed: Literal[False] = False
+    runtime_import_performed: Literal[False] = False
+    provider_model_call_performed: Literal[False] = False
+    connector_write_performed: Literal[False] = False
+    shell_execution_performed: Literal[False] = False
+    browser_automation_performed: Literal[False] = False
+    production_authority_performed: Literal[False] = False
+
+
+class SkillBundleProposalPostureReadModel(_ExtensionCatalogModel):
+    schema_version: Literal["uaa_skill_bundle_proposal_posture.v1"] = (
+        "uaa_skill_bundle_proposal_posture.v1"
+    )
+    posture_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    status: Literal["proposal_only"] = "proposal_only"
+    proposal_count: int = Field(..., ge=0)
+    proposals: list[SkillBundleProposal] = Field(default_factory=list)
+    bundle_review_queue_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    required_authority_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    verifier_refs: list[str] = Field(default_factory=list)
+    next_safe_action_refs: list[str] = Field(default_factory=list)
+    safe_summary: str = Field(..., min_length=1, max_length=500)
+    bundle_activation_enabled: Literal[False] = False
+    skill_enablement_enabled: Literal[False] = False
+    tool_execution_enabled: Literal[False] = False
+    context_injection_enabled: Literal[False] = False
+    runtime_import_enabled: Literal[False] = False
+    provider_model_call_enabled: Literal[False] = False
+    connector_writes_enabled: Literal[False] = False
+    shell_execution_enabled: Literal[False] = False
+    browser_automation_enabled: Literal[False] = False
+    production_authority_enabled: Literal[False] = False
 
 
 class InspectableExtensionCatalog(_ExtensionCatalogModel):
@@ -181,7 +333,14 @@ class InspectableExtensionCatalog(_ExtensionCatalogModel):
     entries: list[InspectableExtensionCatalogEntry] = Field(default_factory=list)
     read_only: Literal[True] = True
     inspectable_catalog_enabled: Literal[True] = True
+    progressive_disclosure_enabled: Literal[True] = True
+    metadata_first_index_enabled: Literal[True] = True
     callable_catalog_enabled: Literal[False] = False
+    automatic_instruction_loading_enabled: Literal[False] = False
+    full_instruction_auto_load_enabled: Literal[False] = False
+    hidden_skill_activation_enabled: Literal[False] = False
+    skill_runtime_import_enabled: Literal[False] = False
+    external_marketplace_fetch_enabled: Literal[False] = False
     runtime_import_enabled: Literal[False] = False
     execution_enabled: Literal[False] = False
     connector_writes_enabled: Literal[False] = False
@@ -191,6 +350,10 @@ class InspectableExtensionCatalog(_ExtensionCatalogModel):
     mobile_control_enabled: Literal[False] = False
     public_distribution_claimed: Literal[False] = False
     blocked_capabilities: list[str] = Field(default_factory=list)
+    compact_skill_index_refs: list[str] = Field(default_factory=list)
+    progressive_disclosure_refs: list[str] = Field(default_factory=list)
+    skill_write_approval_gate: SkillWriteApprovalGateReadModel
+    skill_bundle_proposal_posture: SkillBundleProposalPostureReadModel
     docs_refs: list[str] = Field(default_factory=list)
     schema_refs: list[str] = Field(default_factory=list)
     developer_guidance_refs: list[str] = Field(default_factory=list)
@@ -262,6 +425,11 @@ class ExtensionActivationRevocationRecord(_ExtensionCatalogModel):
 
 CATALOG_DENIED_TRUE_FLAGS = (
     "callable_catalog_enabled",
+    "automatic_instruction_loading_enabled",
+    "full_instruction_auto_load_enabled",
+    "hidden_skill_activation_enabled",
+    "skill_runtime_import_enabled",
+    "external_marketplace_fetch_enabled",
     "runtime_import_enabled",
     "execution_enabled",
     "connector_writes_enabled",
@@ -270,6 +438,53 @@ CATALOG_DENIED_TRUE_FLAGS = (
     "browser_automation_enabled",
     "mobile_control_enabled",
     "public_distribution_claimed",
+)
+
+SKILL_WRITE_GATE_DENIED_TRUE_FLAGS = (
+    "file_write_enabled",
+    "direct_skill_write_enabled",
+    "skill_enablement_enabled",
+    "runtime_import_enabled",
+    "execution_enabled",
+    "connector_writes_enabled",
+    "shell_execution_enabled",
+    "provider_model_call_enabled",
+    "browser_automation_enabled",
+    "production_authority_enabled",
+)
+
+SKILL_WRITE_PROPOSAL_DENIED_TRUE_FLAGS = (
+    "file_write_performed",
+    "skill_enablement_performed",
+    "runtime_import_performed",
+    "execution_performed",
+    "raw_instruction_body_persisted",
+)
+
+SKILL_BUNDLE_POSTURE_DENIED_TRUE_FLAGS = (
+    "bundle_activation_enabled",
+    "skill_enablement_enabled",
+    "tool_execution_enabled",
+    "context_injection_enabled",
+    "runtime_import_enabled",
+    "provider_model_call_enabled",
+    "connector_writes_enabled",
+    "shell_execution_enabled",
+    "browser_automation_enabled",
+    "production_authority_enabled",
+)
+
+SKILL_BUNDLE_PROPOSAL_DENIED_TRUE_FLAGS = (
+    "activation_performed",
+    "skill_enablement_performed",
+    "tool_execution_performed",
+    "context_injection_performed",
+    "runtime_import_performed",
+    "provider_model_call_performed",
+    "connector_write_performed",
+    "shell_execution_performed",
+    "browser_automation_performed",
+    "production_authority_performed",
 )
 
 ACTIVATION_GRANT_DENIED_TRUE_FLAGS = (
@@ -300,11 +515,37 @@ def validate_inspectable_extension_catalog(
         raise ValueError("EXTENSION_CATALOG_READ_ONLY_REQUIRED")
     if not catalog.inspectable_catalog_enabled:
         raise ValueError("EXTENSION_CATALOG_INSPECTION_REQUIRED")
+    if not catalog.progressive_disclosure_enabled:
+        raise ValueError("EXTENSION_CATALOG_PROGRESSIVE_DISCLOSURE_REQUIRED")
+    if not catalog.metadata_first_index_enabled:
+        raise ValueError("EXTENSION_CATALOG_METADATA_FIRST_REQUIRED")
+    _validate_safe_ref_list(
+        catalog.compact_skill_index_refs,
+        "EXTENSION_CATALOG_COMPACT_SKILL_INDEX_REF_REQUIRED",
+    )
+    _validate_safe_ref_list(
+        catalog.progressive_disclosure_refs,
+        "EXTENSION_CATALOG_PROGRESSIVE_DISCLOSURE_REF_REQUIRED",
+    )
+    validate_skill_write_approval_gate(catalog.skill_write_approval_gate)
+    validate_skill_bundle_proposal_posture(catalog.skill_bundle_proposal_posture)
     for entry in catalog.entries:
+        _validate_safe_ref_list(
+            [entry.compact_skill_index_ref, entry.metadata_summary_ref],
+            "EXTENSION_CATALOG_SKILL_METADATA_REF_REQUIRED",
+        )
         _validate_safe_ref_list(
             entry.review_evidence_refs,
             "EXTENSION_CATALOG_REVIEW_EVIDENCE_REF_REQUIRED",
         )
+        if not entry.metadata_first:
+            raise ValueError("EXTENSION_CATALOG_ENTRY_METADATA_FIRST_REQUIRED")
+        if not entry.operator_selected_before_full_instruction:
+            raise ValueError("EXTENSION_CATALOG_ENTRY_OPERATOR_SELECTION_REQUIRED")
+        if entry.automatic_instruction_loading_enabled:
+            raise ValueError("EXTENSION_CATALOG_ENTRY_AUTO_INSTRUCTION_LOAD_DENIED")
+        if entry.hidden_activation_enabled:
+            raise ValueError("EXTENSION_CATALOG_ENTRY_HIDDEN_ACTIVATION_DENIED")
         if entry.required_grant_refs:
             _validate_safe_ref_list(
                 entry.required_grant_refs,
@@ -324,11 +565,108 @@ def validate_inspectable_extension_catalog(
         }:
             raise ValueError("EXTENSION_CATALOG_ACTIVE_STATUS_DENIED")
         if (
-            entry.blocked_state in {ExtensionBlockedState.blocked.value, ExtensionBlockedState.unknown.value}
+            entry.blocked_state
+            in {
+                ExtensionBlockedState.blocked.value,
+                ExtensionBlockedState.unknown.value,
+            }
             and not entry.blocker_refs
         ):
             raise ValueError("EXTENSION_CATALOG_BLOCKER_REF_REQUIRED")
     return catalog
+
+
+def validate_skill_bundle_proposal_posture(
+    posture: SkillBundleProposalPostureReadModel,
+) -> SkillBundleProposalPostureReadModel:
+    for field_name in SKILL_BUNDLE_POSTURE_DENIED_TRUE_FLAGS:
+        if getattr(posture, field_name):
+            raise ValueError(f"SKILL_BUNDLE_POSTURE_{field_name.upper()}_DENIED")
+    if posture.proposal_count != len(posture.proposals):
+        raise ValueError("SKILL_BUNDLE_POSTURE_PROPOSAL_COUNT_MISMATCH")
+    _validate_safe_ref_list(
+        posture.blocked_authority_refs,
+        "SKILL_BUNDLE_POSTURE_BLOCKED_AUTHORITY_REF_REQUIRED",
+    )
+    _validate_safe_ref_list(
+        posture.verifier_refs,
+        "SKILL_BUNDLE_POSTURE_VERIFIER_REF_REQUIRED",
+    )
+    _validate_safe_ref_list(
+        posture.next_safe_action_refs,
+        "SKILL_BUNDLE_POSTURE_NEXT_ACTION_REF_REQUIRED",
+    )
+    for proposal in posture.proposals:
+        for field_name in SKILL_BUNDLE_PROPOSAL_DENIED_TRUE_FLAGS:
+            if getattr(proposal, field_name):
+                raise ValueError(f"SKILL_BUNDLE_PROPOSAL_{field_name.upper()}_DENIED")
+        _validate_safe_ref_list(
+            proposal.skill_refs,
+            "SKILL_BUNDLE_PROPOSAL_SKILL_REF_REQUIRED",
+        )
+        _validate_safe_ref_list(
+            proposal.context_pack_refs,
+            "SKILL_BUNDLE_PROPOSAL_CONTEXT_REF_REQUIRED",
+        )
+        _validate_safe_ref_list(
+            proposal.toolset_refs,
+            "SKILL_BUNDLE_PROPOSAL_TOOLSET_REF_REQUIRED",
+        )
+        _validate_safe_ref_list(
+            proposal.verification_refs,
+            "SKILL_BUNDLE_PROPOSAL_VERIFICATION_REF_REQUIRED",
+        )
+        _validate_safe_ref_list(
+            proposal.blocked_authority_refs,
+            "SKILL_BUNDLE_PROPOSAL_BLOCKED_AUTHORITY_REF_REQUIRED",
+        )
+        _validate_safe_ref_list(
+            proposal.next_safe_action_refs,
+            "SKILL_BUNDLE_PROPOSAL_NEXT_ACTION_REF_REQUIRED",
+        )
+    return posture
+
+
+def validate_skill_write_approval_gate(
+    gate: SkillWriteApprovalGateReadModel,
+) -> SkillWriteApprovalGateReadModel:
+    for field_name in SKILL_WRITE_GATE_DENIED_TRUE_FLAGS:
+        if getattr(gate, field_name):
+            raise ValueError(f"SKILL_WRITE_GATE_{field_name.upper()}_DENIED")
+    if gate.proposal_count != len(gate.proposals):
+        raise ValueError("SKILL_WRITE_GATE_PROPOSAL_COUNT_MISMATCH")
+    _validate_safe_ref_list(
+        gate.blocked_authority_refs,
+        "SKILL_WRITE_GATE_BLOCKED_AUTHORITY_REF_REQUIRED",
+    )
+    _validate_safe_ref_list(
+        gate.verifier_refs,
+        "SKILL_WRITE_GATE_VERIFIER_REF_REQUIRED",
+    )
+    _validate_safe_ref_list(
+        gate.next_safe_action_refs,
+        "SKILL_WRITE_GATE_NEXT_ACTION_REF_REQUIRED",
+    )
+    for proposal in gate.proposals:
+        for field_name in SKILL_WRITE_PROPOSAL_DENIED_TRUE_FLAGS:
+            if getattr(proposal, field_name):
+                raise ValueError(f"SKILL_WRITE_PROPOSAL_{field_name.upper()}_DENIED")
+        if not proposal.diff_previews:
+            raise ValueError("SKILL_WRITE_PROPOSAL_DIFF_PREVIEW_REQUIRED")
+        _validate_safe_ref_list(
+            proposal.blocked_execution_labels,
+            "SKILL_WRITE_PROPOSAL_BLOCKED_LABEL_REQUIRED",
+        )
+        _validate_safe_ref_list(
+            proposal.proof_refs,
+            "SKILL_WRITE_PROPOSAL_PROOF_REF_REQUIRED",
+        )
+        for diff_preview in proposal.diff_previews:
+            if diff_preview.raw_diff_persisted:
+                raise ValueError("SKILL_WRITE_DIFF_RAW_DIFF_DENIED")
+            if diff_preview.raw_file_content_persisted:
+                raise ValueError("SKILL_WRITE_DIFF_RAW_FILE_CONTENT_DENIED")
+    return gate
 
 
 def _validate_safe_ref_list(refs: list[str], reason: str) -> None:
@@ -349,12 +687,16 @@ def validate_extension_activation_grant_record(
         raise ValueError("EXTENSION_ACTIVATION_EXACT_SCOPE_REQUIRED")
     if record.approval_ref in MISSING_APPROVAL_REFS:
         raise ValueError("EXTENSION_ACTIVATION_APPROVAL_REQUIRED")
-    _validate_safe_ref_list(record.capability_refs, "EXTENSION_ACTIVATION_CAPABILITY_REF_REQUIRED")
+    _validate_safe_ref_list(
+        record.capability_refs, "EXTENSION_ACTIVATION_CAPABILITY_REF_REQUIRED"
+    )
     _validate_safe_ref_list(
         record.requested_grant_refs,
         "EXTENSION_ACTIVATION_REQUESTED_GRANT_REF_REQUIRED",
     )
-    _validate_safe_ref_list(record.audit_refs, "EXTENSION_ACTIVATION_AUDIT_REF_REQUIRED")
+    _validate_safe_ref_list(
+        record.audit_refs, "EXTENSION_ACTIVATION_AUDIT_REF_REQUIRED"
+    )
     if record.grant_status == ExtensionActivationGrantStatus.granted.value:
         if record.staleness_status != ExtensionActivationGrantStaleness.current.value:
             raise ValueError("EXTENSION_ACTIVATION_STALE_GRANT_DENIED")
@@ -410,7 +752,9 @@ def validate_extension_activation_revocation_record(
         raise ValueError("EXTENSION_ACTIVATION_EXACT_SCOPE_REQUIRED")
     if record.approval_ref in MISSING_APPROVAL_REFS:
         raise ValueError("EXTENSION_ACTIVATION_APPROVAL_REQUIRED")
-    _validate_safe_ref_list(record.audit_refs, "EXTENSION_ACTIVATION_AUDIT_REF_REQUIRED")
+    _validate_safe_ref_list(
+        record.audit_refs, "EXTENSION_ACTIVATION_AUDIT_REF_REQUIRED"
+    )
     return record
 
 
@@ -421,7 +765,11 @@ def revoke_extension_activation_grant(
     validate_extension_activation_grant_record(grant)
     validate_extension_activation_revocation_record(revocation)
     binding_pairs = (
-        ("activation_grant_ref", grant.activation_grant_ref, revocation.activation_grant_ref),
+        (
+            "activation_grant_ref",
+            grant.activation_grant_ref,
+            revocation.activation_grant_ref,
+        ),
         ("package_ref", grant.package_ref, revocation.package_ref),
         ("manifest_ref", grant.manifest_ref, revocation.manifest_ref),
         ("version_ref", grant.version_ref, revocation.version_ref),
@@ -436,7 +784,9 @@ def revoke_extension_activation_grant(
         update={
             "grant_status": ExtensionActivationGrantStatus.revoked,
             "revocation_ref": revocation.revocation_ref,
-            "audit_refs": list(dict.fromkeys([*grant.audit_refs, *revocation.audit_refs])),
+            "audit_refs": list(
+                dict.fromkeys([*grant.audit_refs, *revocation.audit_refs])
+            ),
             "receipt_refs": list(
                 dict.fromkeys([*grant.receipt_refs, *revocation.receipt_refs])
             ),

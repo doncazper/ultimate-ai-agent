@@ -2,13 +2,40 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `202`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `203` route
+Current OpenAPI path count: `231`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `232` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
-Router preview adds one no-effect diagnostic route. The Governed Product Pilot
-authority profile and runtime parity loop add protected read-only
-`/api/runtime/*` inspection routes.
+Router preview adds one no-effect diagnostic route. The Hermes Runtime
+Adoption delegation adapter, capability discovery, run-events, approval bridge,
+streaming progress, profile isolation, tool registry, session-search,
+session-lineage, virtual-provider Mixture-of-Agents posture, usage/cost
+analytics posture, prompt stability tier posture, context budget pressure,
+hardline command blocklist posture, managed scope policy posture, doctor
+diagnostics posture, session continuity posture, MCP catalog filtering
+posture, background job posture, subagent isolation posture,
+worktree-per-agent posture, LSP diagnostics posture, context-reference, and
+checkpoint-rollback routes,
+Governed Product
+Pilot authority profile, and
+runtime parity loop add protected read-only `/api/runtime/*` inspection routes.
+Hermes Runtime Adoption Phase 35 adds `GET /api/runtime/preview-rail` as a
+protected read-only preview-rail posture route with safe refs and bounded
+preview plans only.
+Hermes Runtime Adoption Phase 36 adds `GET /api/runtime/slash-command-registry`
+as a protected read-only command metadata route with command execution and
+runtime invocation blocked.
+Hermes Runtime Adoption Phase 37 adds `GET /api/runtime/interrupt-redirect`
+as a protected read-only run-control proposal route with live stop, process
+kill, runtime mutation, raw runtime payload persistence, and raw log
+persistence blocked.
+Hermes Runtime Adoption Phase 38 adds `GET /api/runtime/logging-profile` as a
+protected read-only logging profile route with verbose toggling, raw log
+persistence, provider payload persistence, and remote telemetry export blocked.
+Hermes Runtime Adoption Phase 39 adds `GET /api/runtime/result-classification`
+as a protected read-only result taxonomy route with tool-output-as-truth,
+action authority, unverified evidence promotion, and raw output persistence
+blocked.
 
 The API boundary is metadata-first, validation-first, approval-aware for
 local/dev policy checks, simulated/fallback-first for model runtime behavior,
@@ -81,14 +108,14 @@ Current boundary summary:
 - Governed Runtime Pilot Phase 07 keeps `/api/runtime/*` contract, policy,
   approval-binding, receipt, and safe-disable metadata routes while promoting
   configured local loopback model calls, one exact allowlisted read-only command
-  status lane, and exact Action Inbox approved focused pytest command execution
+  status lane, and exact Action Inbox approved focused pytest, repo verifier, and frontend check command execution
   through `RuntimeGateway`, then makes those records visible through
   `uaa runtime ...`, `uaa actions approve|deny ...`, and Control Center runtime
   readiness/evidence timeline cards. It also hardens command root pinning,
   configured endpoint matching, receipt-detail execution truth, and CLI approval
   preflight. They are backend-owned safe-ref/metadata receipts; arbitrary
-  shell/subprocess execution, focused tests outside the exact lane, repo
-  verifiers, frontend-check, arbitrary adapter execution, remote provider/model
+  shell/subprocess execution, focused tests outside the exact lane, repo verifier
+  and frontend-check execution outside named exact lanes, arbitrary adapter execution, remote provider/model
   calls, browser automation, connector writes, plugin runtime import, remote
   execution, production authority, and public release claims remain blocked.
 - `GET /api/runtime/governed-product-pilot-profile` exposes a Python Core

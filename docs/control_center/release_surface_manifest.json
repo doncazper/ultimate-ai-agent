@@ -1284,6 +1284,27 @@
           "operation_id": "get_runtime_capability_matrix",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/delegation-adapter",
+          "operation_id": "get_api_runtime_delegation_adapter",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/capability-discovery",
+          "operation_id": "get_api_runtime_capability_discovery",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/run-events",
+          "operation_id": "get_api_runtime_run_events",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "side_effect_class": "validation_only",
@@ -1343,6 +1364,13 @@
           "operation_id": "get_control_center_dashboard",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/agent-loop/thread",
+          "operation_id": "get_control_center_agent_loop_thread",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "GET",
@@ -1527,6 +1555,13 @@
           "operation_id": "get_control_center_providers_setup_guide",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/providers/runtime-control-plane",
+          "operation_id": "get_control_center_providers_runtime_control_plane",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "side_effect_class": "local_dev_workspace_only",
@@ -1552,7 +1587,10 @@
       "evidence_refs": [
         "apps/control-center/src/routes.tsx",
         "docs/control_center/route_status_manifest.json",
-        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
+        "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_MODEL_PROVIDER_CATALOG.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_MODEL_SLOT_POSTURE.md"
       ],
       "owner": "local-model-management",
       "backend_contract_rationale": "backend-route-refs-present",
@@ -1866,10 +1904,66 @@
           "operation_id": "get_runtime_capability_matrix",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/delegation-adapter",
+          "operation_id": "get_api_runtime_delegation_adapter",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/capability-discovery",
+          "operation_id": "get_api_runtime_capability_discovery",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/run-events",
+          "operation_id": "get_api_runtime_run_events",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/approval-bridge",
+          "operation_id": "get_api_runtime_approval_bridge",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/streaming-progress",
+          "operation_id": "get_api_runtime_streaming_progress",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/profiles",
+          "operation_id": "get_api_runtime_profiles",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/tool-registry",
+          "operation_id": "get_api_runtime_tool_registry",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/session-search",
+          "operation_id": "get_api_runtime_session_search",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
-      "side_effect_class": "validation_only",
-      "route_classification": "local_readonly",
+      "side_effect_class": "mixed_validation_and_local_dev_workspace_only",
+      "route_classification": "mixed_local_readonly_and_sensitive",
       "approval_required": false,
       "proof_lanes": [
         "scripts/verify_control_center_release_surface.py",
@@ -1888,7 +1982,15 @@
       "evidence_refs": [
         "apps/control-center/src/routes.tsx",
         "docs/control_center/route_status_manifest.json",
-        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_DELEGATION_ADAPTER.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_CAPABILITY_DISCOVERY.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_TOOLSET_CAPABILITY_POSTURE.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_TOOL_REGISTRY_AVAILABILITY.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_RUN_EVENTS.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_APPROVAL_BRIDGE.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_STREAMING_PROGRESS.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_PROFILE_ISOLATION.md"
       ],
       "owner": "runtime-readiness",
       "backend_contract_rationale": "backend-route-refs-present",

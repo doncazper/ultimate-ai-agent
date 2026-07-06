@@ -857,6 +857,32 @@ function backendOwnedCodingSessionFixture(overrides: Record<string, unknown> = {
     safe_refs_only: true,
     raw_content_included: false,
     control_center_grants_authority: false,
+    project_model: {
+      ...session.project_model,
+      project_model_ref: "coding-project-model:app-test",
+      session_ref: "coding-session:app-test-backend",
+      workspace_ref: "workspace-ref:coding:app-test",
+      repo_scope_ref: "repo-scope:coding:app-test",
+      branch_ref: "branch-ref:coding:app-test",
+      worktree_ref: "worktree-ref:coding:app-test",
+      backend_owned: true,
+      read_only: true,
+      safe_refs_only: true,
+      raw_paths_included: false,
+      raw_content_included: false,
+      repo_file_read_performed: false,
+      project_scan_performed: false,
+      file_write_enabled: false,
+      shell_subprocess_execution_enabled: false,
+      git_status_execution_enabled: false,
+      git_mutation_enabled: false,
+      dev_server_control_enabled: false,
+      browser_preview_enabled: false,
+      browser_automation_enabled: false,
+      provider_model_call_enabled: false,
+      background_autonomy_enabled: false,
+      production_authority_enabled: false,
+    },
     file_write_enabled: false,
     shell_subprocess_execution_enabled: false,
     git_mutation_enabled: false,
@@ -2265,6 +2291,14 @@ describe("Web Control Center shell", () => {
         0,
       );
       expect(within(cockpit).getByText("Context")).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "Project posture is backend-owned, read-only, and safe-ref only.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(cockpit).getAllByText("coding-project-model:app-test").length,
+      ).toBeGreaterThan(0);
       expect(
         within(cockpit).getByText("Context preview is backend-owned, read-only, and safe-ref only."),
       ).toBeInTheDocument();
@@ -7442,6 +7476,349 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/runtime");
     const { unmount } = render(<App />);
     expect(await screen.findByText("Capability Matrix")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: /Hermes Agent optional delegated runtime/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("GET /api/runtime/delegation-adapter"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("uaa runtime inspect-delegation-adapter"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Capability discovery")).toBeInTheDocument();
+    expect(
+      screen.getByText("GET /api/runtime/capability-discovery"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("uaa runtime inspect-capability-discovery"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Toolset posture")).toBeInTheDocument();
+    expect(screen.getByText("Runtime support vs UAA allowance")).toBeInTheDocument();
+    expect(screen.getByText("Coding workspace tools")).toBeInTheDocument();
+    expect(screen.getByText("Browser and web tools")).toBeInTheDocument();
+    expect(screen.getByText("UAA execution allowed")).toBeInTheDocument();
+    expect(
+      screen.getByText("proof-ref:hermes-runtime-adoption:phase-09:toolsets"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-authority:runtime-toolset-invocation"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Tool registry")).toBeInTheDocument();
+    expect(screen.getByText("Availability and authority")).toBeInTheDocument();
+    expect(screen.getByText("Virtual provider")).toBeInTheDocument();
+    expect(screen.getByText("Multi-agent preset posture")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/virtual-provider-moa").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-virtual-provider-moa").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Codex implementer plus Claude reviewer"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Claude reviewer: claude_reviewer/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:virtual-provider-moa-no-live-model-fanout",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Usage and cost")).toBeInTheDocument();
+    expect(screen.getByText("Redacted accounting posture")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/usage-cost-analytics").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-usage-cost-analytics").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Local diagnostic accounting")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:usage-cost-analytics-no-billing-action",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Prompt stability")).toBeInTheDocument();
+    expect(screen.getByText("Tier contract posture")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/prompt-stability-tiers").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-prompt-stability-tiers").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Stable identity and policy")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:prompt-stability-no-hidden-prompt-injection",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Context budget")).toBeInTheDocument();
+    expect(screen.getByText("Pressure posture")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/context-budget-pressure").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-context-budget-pressure").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Trim low-signal context refs")).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-authority:context-budget-no-hidden-compression"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Command floor")).toBeInTheDocument();
+    expect(screen.getByText("Hardline blocklist")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/hardline-command-blocklist").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-hardline-command-blocklist")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("hardline-command-candidate-ref:shell-metachar"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:runtime-hardline-command-floor-override",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Managed scope")).toBeInTheDocument();
+    expect(screen.getByText("Local policy profile")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/managed-scope-policy").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-managed-scope-policy").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Workspace standards baseline")).toBeInTheDocument();
+    expect(
+      screen.getByText("drift-warning-ref:managed-scope-policy:sealed-default: warning"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:managed-scope-no-system-config-write",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Doctor")).toBeInTheDocument();
+    expect(screen.getByText("Setup diagnostics")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/doctor-diagnostics").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-doctor-diagnostics").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Protected material")).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-authority:runtime-doctor-no-installs"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Continuity")).toBeInTheDocument();
+    expect(screen.getByText("Session continuity")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/session-continuity").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-session-continuity").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Coding cockpit")).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-authority:session-continuity-no-remote-session"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("MCP")).toBeInTheDocument();
+    expect(screen.getByText("MCP catalog filtering")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/mcp-catalog-filtering").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-mcp-catalog-filtering").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Filesystem metadata server")).toBeInTheDocument();
+    expect(screen.getByText("CRM draft server")).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-authority:mcp-catalog-no-tool-invocation"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Background")).toBeInTheDocument();
+    expect(screen.getByText("Background job model")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/background-jobs").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-background-jobs").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Runtime doctor check")).toBeInTheDocument();
+    expect(screen.getByText("Connector delivery follow-up")).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-authority:background-jobs-no-background-worker"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Subagents")).toBeInTheDocument();
+    expect(screen.getByText("Isolation model")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/subagent-isolation").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-subagent-isolation").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Implementer")).toBeInTheDocument();
+    expect(screen.getByText("Disagreement summary")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:subagent-isolation-no-live-dispatch",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Worktrees")).toBeInTheDocument();
+    expect(screen.getByText("Per-agent posture")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/worktree-per-agent").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-worktree-per-agent").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Implementer worktree lane")).toBeInTheDocument();
+    expect(screen.getByText("Verifier proof lane")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:worktree-per-agent-no-git-worktree-create",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Diagnostics").length).toBeGreaterThan(0);
+    expect(screen.getByText("Semantic proof posture")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/lsp-diagnostics").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-lsp-diagnostics").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Python semantic proof")).toBeInTheDocument();
+    expect(screen.getByText("Docs diagnostic blocked lane")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:lsp-diagnostics-no-language-server-launch",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Preview rail")).toBeInTheDocument();
+    expect(screen.getByText("Right rail posture")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/preview-rail").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-preview-rail").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Safe file ref preview")).toBeInTheDocument();
+    expect(
+      screen.getByText("Delegated runtime event preview"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-authority:preview-rail-no-browser-automation"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Slash commands")).toBeInTheDocument();
+    expect(screen.getByText("Governed registry")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/slash-command-registry").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-slash-command-registry").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("/explain Explain repo")).toBeInTheDocument();
+    expect(screen.getByText("/apply-patch Apply patch")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:slash-command-registry-no-chat-execution",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Run control")).toBeInTheDocument();
+    expect(screen.getByText("Interrupt and redirect")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/interrupt-redirect").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-interrupt-redirect").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Pause current work")).toBeInTheDocument();
+    expect(screen.getByText("Stop current work")).toBeInTheDocument();
+    expect(screen.getByText("Redirect work")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:interrupt-redirect-no-live-stop-post",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Logging")).toBeInTheDocument();
+    expect(screen.getByText("Verbose detail posture")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/logging-profile").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-logging-profile").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Quiet normal")).toBeInTheDocument();
+    expect(screen.getByText("Redacted troubleshooting")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:logging-profile-no-raw-log-persistence",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Result labels")).toBeInTheDocument();
+    expect(screen.getByText("Tool result classification")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/result-classification").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-result-classification").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Untrusted Data")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:result-classification-no-tool-output-as-truth",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
+    expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
+    expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
+    expect(screen.getByText("Hermes command execution")).toBeInTheDocument();
+    expect(
+      screen.getByText("proof-ref:hermes-runtime-adoption:phase-10:tool-registry"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("blocked-authority:runtime-tool-registry-invocation")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Runs and events")).toBeInTheDocument();
+    expect(screen.getByText("GET /api/runtime/run-events")).toBeInTheDocument();
+    expect(screen.getByText("uaa runtime inspect-run-events")).toBeInTheDocument();
+    expect(screen.getByText("Approval-wait proposal lane")).toBeInTheDocument();
+    expect(screen.getByText("Streaming progress")).toBeInTheDocument();
+    expect(
+      screen.getByText("GET /api/runtime/streaming-progress"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("uaa runtime inspect-streaming-progress"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("stale_disconnected")).toBeInTheDocument();
+    expect(screen.getByText("Runtime profiles")).toBeInTheDocument();
+    expect(screen.getByText("GET /api/runtime/profiles")).toBeInTheDocument();
+    expect(screen.getByText("uaa runtime inspect-profiles")).toBeInTheDocument();
+    expect(screen.getByText("Isolated profile metadata")).toBeInTheDocument();
+    expect(screen.getByText("Approval bridge")).toBeInTheDocument();
+    expect(
+      screen.getByText("GET /api/runtime/approval-bridge"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("uaa runtime inspect-approval-bridge"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("review_required_resolution_blocked"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/fail_closed_default_deny/)).toBeInTheDocument();
+    expect(screen.getByText("Ambiguous waits")).toBeInTheDocument();
+    expect(screen.getByText("Approve all")).toBeInTheDocument();
+    expect(screen.getByText("Standing authority")).toBeInTheDocument();
+    expect(screen.getByText("Expired grants")).toBeInTheDocument();
+    expect(screen.getByText("not reused")).toBeInTheDocument();
+    expect(screen.getAllByText("blocked").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("not performed").length).toBeGreaterThan(0);
+    expect(screen.getByText("UAA authorized execution")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:runtime-unrestricted-command-execution",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("cloud_provider_runtime")).toBeInTheDocument();
     unmount();
 
@@ -7462,6 +7839,16 @@ describe("Web Control Center shell", () => {
     expect(await screen.findByText("Plugin Governance")).toBeInTheDocument();
     expect(
       screen.getByText(/Plugin enablement allowed: no/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Skill bundle proposals: 1/i)).toBeInTheDocument();
+    expect(
+      screen.getByText("skill-bundle-proposal:founder-loop-review"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Skill bundle activation enabled: no/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Skill bundle tool execution enabled: no/i),
     ).toBeInTheDocument();
   });
 
@@ -10410,6 +10797,36 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/Secret status/i)).toBeInTheDocument();
     expect(screen.getByText(/Network allowlists/i)).toBeInTheDocument();
     expect(screen.getByText(/Model metadata discovery/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Delegated runtime model catalog/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "proof-ref:hermes-runtime-adoption:phase-07:model-provider-catalog",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-state:model-provider:runtime-availability-is-not-invocation",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Runtime says available/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/not authority/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Main and auxiliary model slots/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "proof-ref:hermes-runtime-adoption:phase-08:model-slot-posture",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("trust-lane:model-slot-posture")).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-state:model-slot:hidden-model-routing"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("model-slot-ref:uaa:main-thinking")).toBeInTheDocument();
+    expect(screen.getByText(/Approval scoring/i)).toBeInTheDocument();
+    expect(screen.getByText(/Vision/i)).toBeInTheDocument();
     expect(screen.getByText(/Local llama\.cpp lifecycle/i)).toBeInTheDocument();
     expect(screen.getByText(/ModelRouter traces/i)).toBeInTheDocument();
     expect(
@@ -10489,6 +10906,29 @@ describe("Web Control Center shell", () => {
     unsafeResearchPosture.provider_sdk_call_enabled = true;
     unsafeResearchPosture.live_web_fetch_enabled = true;
     unsafeResearchPosture.safe_summary = "unsafe research posture enabled";
+    const unsafeDelegatedCatalog = unsafeControlPlane.delegated_runtime_model_catalog as Record<
+      string,
+      unknown
+    >;
+    unsafeDelegatedCatalog.uaa_may_invoke_any_listed_model = true;
+    unsafeDelegatedCatalog.remote_model_call_enabled = true;
+    unsafeDelegatedCatalog.safe_summary = "unsafe delegated runtime catalog enabled";
+    const unsafeDelegatedRecord = (
+      unsafeDelegatedCatalog.records as Array<Record<string, unknown>>
+    )[0];
+    unsafeDelegatedRecord.uaa_invocation_allowed = true;
+    unsafeDelegatedRecord.provider_sdk_call_enabled = true;
+    const unsafeModelSlotPosture = unsafeControlPlane.model_slot_posture as Record<
+      string,
+      unknown
+    >;
+    unsafeModelSlotPosture.hidden_model_routing_enabled = true;
+    unsafeModelSlotPosture.safe_summary = "unsafe model slot routing enabled";
+    const unsafeModelSlot = (
+      unsafeModelSlotPosture.records as Array<Record<string, unknown>>
+    )[0];
+    unsafeModelSlot.live_auxiliary_call_enabled = true;
+    unsafeModelSlot.raw_prompt_persisted = true;
 
     stubReadEndpointOverrides({
       [API_ENDPOINTS.modelProviderControlPlane]: unsafeControlPlane,
@@ -10508,7 +10948,21 @@ describe("Web Control Center shell", () => {
       screen.queryByText(/unsafe research posture enabled/i),
     ).not.toBeInTheDocument();
     expect(
+      screen.queryByText(/unsafe delegated runtime catalog enabled/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/unsafe model slot routing enabled/i),
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByText("blocked-state:model-provider:broad-provider-runtime"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-state:model-provider:runtime-availability-is-not-invocation",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-state:model-slot:hidden-model-routing"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -13271,6 +13725,8 @@ describe("Web Control Center shell", () => {
     delete (partialWorkbench as { lifecycle_posture?: unknown })
       .lifecycle_posture;
     delete (partialWorkbench as { learning_posture?: unknown }).learning_posture;
+    delete (partialWorkbench as { bounded_memory_posture?: unknown })
+      .bounded_memory_posture;
     const fetchMock = vi.fn(async (url: string) => {
       const urlText = String(url);
       if (urlText.endsWith(API_ENDPOINTS.founderMemoryWorkbench)) {
@@ -13306,6 +13762,11 @@ describe("Web Control Center shell", () => {
     expect(
       screen.queryByText(
         "contract-ref:goatcitadel-catchup-memory-learning-posture:v1",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "contract-ref:hermes-runtime-adoption-bounded-memory-posture:v1",
       ),
     ).not.toBeInTheDocument();
     expect(
@@ -13480,6 +13941,102 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       within(panel).getByText("blocked-state:memory-learning-no-broad-memory-write"),
+    ).toBeInTheDocument();
+    expect(within(panel).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("renders backend-owned bounded memory posture without granting authority", async () => {
+    cleanup();
+    const baseBoundedPosture =
+      mockControlCenterData.founderMemoryWorkbench.bounded_memory_posture;
+    expect(baseBoundedPosture).toBeDefined();
+    const boundedPosture = {
+      ...baseBoundedPosture!,
+      status: "implemented_backend_owned_bounded_memory_posture",
+      capacity_posture: {
+        ...baseBoundedPosture!.capacity_posture,
+        visible_item_count: 2,
+        candidate_count: 2,
+        context_pack_count: 1,
+        token_estimate: 128,
+      },
+      source_posture: {
+        ...baseBoundedPosture!.source_posture,
+        receipt_refs: ["receipt:memory-bounded:test"],
+        receipt_ref_count: 1,
+      },
+      quality_review_posture: {
+        ...baseBoundedPosture!.quality_review_posture,
+        accepted_receipt_refs: ["receipt:memory-bounded:accept"],
+        correction_receipt_refs: ["receipt:memory-bounded:correct"],
+        rejection_receipt_refs: ["receipt:memory-bounded:reject"],
+        receipt_backed_decision_kinds: ["accept", "correct", "reject"],
+      },
+    };
+    const workbench = {
+      ...mockControlCenterData.founderMemoryWorkbench,
+      bounded_memory_posture: boundedPosture,
+    };
+    const review = {
+      ...mockControlCenterData.founderMemoryReview,
+      bounded_memory_posture_contract_ref: boundedPosture?.contract_ref,
+      bounded_memory_posture: boundedPosture,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderMemoryWorkbench)) {
+        return new Response(JSON.stringify({ ok: true, result: workbench }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (urlText.endsWith(API_ENDPOINTS.founderMemoryReview)) {
+        return new Response(JSON.stringify({ ok: true, result: review }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/memory");
+    render(<App />);
+
+    const panel = await screen.findByLabelText("Bounded memory posture");
+    expect(
+      within(panel).getByRole("heading", { name: /Bounded memory posture/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByText(
+        "contract-ref:hermes-runtime-adoption-bounded-memory-posture:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByText(
+        "repo-local-command:founder-loop-memory-bounded-posture",
+      ),
+    ).toBeInTheDocument();
+    expect(within(panel).getByText("visible items: 2")).toBeInTheDocument();
+    expect(within(panel).getByText("candidate refs: 2")).toBeInTheDocument();
+    expect(within(panel).getByText("automatic writes: blocked"))
+      .toBeInTheDocument();
+    expect(within(panel).getByText("hidden prompt injection: blocked"))
+      .toBeInTheDocument();
+    expect(within(panel).getByText("external memory provider writes: blocked"))
+      .toBeInTheDocument();
+    expect(within(panel).getByText("memory truth authority: blocked"))
+      .toBeInTheDocument();
+    expect(
+      within(panel).getByText("blocked-state:bounded-memory-no-autonomous-memory-write"),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByText("receipt:memory-bounded:correct"),
     ).toBeInTheDocument();
     expect(within(panel).queryByRole("button")).not.toBeInTheDocument();
   });
@@ -14223,6 +14780,142 @@ describe("Web Control Center shell", () => {
     expect(API_ENDPOINTS.runtimeSmokeReportValidate).toBe(
       "/runtime/smoke-reports/validate",
     );
+    expect(API_ENDPOINTS.runtimeDelegationAdapter).toBe(
+      "/api/runtime/delegation-adapter",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeDelegationAdapter)).toBe(
+      true,
+    );
+    expect(API_ENDPOINTS.runtimeCapabilityDiscovery).toBe(
+      "/api/runtime/capability-discovery",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeCapabilityDiscovery),
+    ).toBe(true);
+    expect(API_ENDPOINTS.runtimeRunEvents).toBe("/api/runtime/run-events");
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeRunEvents)).toBe(true);
+    expect(API_ENDPOINTS.runtimeApprovalBridge).toBe(
+      "/api/runtime/approval-bridge",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeApprovalBridge)).toBe(
+      true,
+    );
+    expect(API_ENDPOINTS.runtimeStreamingProgress).toBe(
+      "/api/runtime/streaming-progress",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeStreamingProgress)).toBe(
+      true,
+    );
+    expect(API_ENDPOINTS.runtimeProfiles).toBe("/api/runtime/profiles");
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeProfiles)).toBe(true);
+    expect(API_ENDPOINTS.runtimeToolRegistry).toBe("/api/runtime/tool-registry");
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeToolRegistry)).toBe(true);
+    expect(API_ENDPOINTS.runtimeVirtualProviderMoa).toBe(
+      "/api/runtime/virtual-provider-moa",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeVirtualProviderMoa),
+    ).toBe(true);
+    expect(API_ENDPOINTS.runtimeUsageCostAnalytics).toBe(
+      "/api/runtime/usage-cost-analytics",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeUsageCostAnalytics),
+    ).toBe(true);
+    expect(API_ENDPOINTS.runtimePromptStabilityTiers).toBe(
+      "/api/runtime/prompt-stability-tiers",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimePromptStabilityTiers),
+    ).toBe(true);
+    expect(API_ENDPOINTS.runtimeContextBudgetPressure).toBe(
+      "/api/runtime/context-budget-pressure",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeContextBudgetPressure),
+    ).toBe(true);
+    expect(API_ENDPOINTS.runtimeHardlineCommandBlocklist).toBe(
+      "/api/runtime/hardline-command-blocklist",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeHardlineCommandBlocklist),
+    ).toBe(true);
+    expect(API_ENDPOINTS.runtimeManagedScopePolicy).toBe(
+      "/api/runtime/managed-scope-policy",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeManagedScopePolicy),
+    ).toBe(true);
+    expect(API_ENDPOINTS.runtimeDoctorDiagnostics).toBe(
+      "/api/runtime/doctor-diagnostics",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeDoctorDiagnostics),
+    ).toBe(true);
+    expect(API_ENDPOINTS.runtimeSessionContinuity).toBe(
+      "/api/runtime/session-continuity",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeSessionContinuity),
+    ).toBe(true);
+    expect(API_ENDPOINTS.runtimeMcpCatalogFiltering).toBe(
+      "/api/runtime/mcp-catalog-filtering",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeMcpCatalogFiltering),
+    ).toBe(true);
+    expect(API_ENDPOINTS.runtimeBackgroundJobs).toBe(
+      "/api/runtime/background-jobs",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeBackgroundJobs)).toBe(
+      true,
+    );
+    expect(API_ENDPOINTS.runtimeSubagentIsolation).toBe(
+      "/api/runtime/subagent-isolation",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeSubagentIsolation)).toBe(
+      true,
+    );
+    expect(API_ENDPOINTS.runtimeWorktreePerAgent).toBe(
+      "/api/runtime/worktree-per-agent",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeWorktreePerAgent)).toBe(
+      true,
+    );
+    expect(API_ENDPOINTS.runtimeLspDiagnostics).toBe(
+      "/api/runtime/lsp-diagnostics",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeLspDiagnostics)).toBe(
+      true,
+    );
+    expect(API_ENDPOINTS.runtimePreviewRail).toBe(
+      "/api/runtime/preview-rail",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimePreviewRail)).toBe(true);
+    expect(API_ENDPOINTS.runtimeSlashCommandRegistry).toBe(
+      "/api/runtime/slash-command-registry",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeSlashCommandRegistry),
+    ).toBe(true);
+    expect(API_ENDPOINTS.runtimeInterruptRedirect).toBe(
+      "/api/runtime/interrupt-redirect",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeInterruptRedirect)).toBe(
+      true,
+    );
+    expect(API_ENDPOINTS.runtimeLoggingProfile).toBe(
+      "/api/runtime/logging-profile",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeLoggingProfile)).toBe(
+      true,
+    );
+    expect(API_ENDPOINTS.runtimeResultClassification).toBe(
+      "/api/runtime/result-classification",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeResultClassification),
+    ).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15251,6 +15944,53 @@ function envelopeForReadEndpoint(url: string) {
       ...mockApiData.capabilityMatrix,
       baseline_version: "0.20.1",
     },
+    [API_ENDPOINTS.runtimeDelegationAdapter]:
+      mockControlCenterData.runtimeDelegationAdapter,
+    [API_ENDPOINTS.runtimeCapabilityDiscovery]:
+      mockControlCenterData.runtimeCapabilityDiscovery,
+    [API_ENDPOINTS.runtimeRunEvents]: mockControlCenterData.runtimeRunEvents,
+    [API_ENDPOINTS.runtimeApprovalBridge]:
+      mockControlCenterData.runtimeApprovalBridge,
+    [API_ENDPOINTS.runtimeStreamingProgress]:
+      mockControlCenterData.runtimeStreamingProgress,
+    [API_ENDPOINTS.runtimeProfiles]: mockControlCenterData.runtimeProfiles,
+    [API_ENDPOINTS.runtimeToolRegistry]: mockControlCenterData.runtimeToolRegistry,
+    [API_ENDPOINTS.runtimeVirtualProviderMoa]:
+      mockControlCenterData.runtimeVirtualProviderMoa,
+    [API_ENDPOINTS.runtimeUsageCostAnalytics]:
+      mockControlCenterData.runtimeUsageCostAnalytics,
+    [API_ENDPOINTS.runtimePromptStabilityTiers]:
+      mockControlCenterData.runtimePromptStabilityTiers,
+    [API_ENDPOINTS.runtimeContextBudgetPressure]:
+      mockControlCenterData.runtimeContextBudgetPressure,
+    [API_ENDPOINTS.runtimeHardlineCommandBlocklist]:
+      mockControlCenterData.runtimeHardlineCommandBlocklist,
+    [API_ENDPOINTS.runtimeManagedScopePolicy]:
+      mockControlCenterData.runtimeManagedScopePolicy,
+    [API_ENDPOINTS.runtimeDoctorDiagnostics]:
+      mockControlCenterData.runtimeDoctorDiagnostics,
+    [API_ENDPOINTS.runtimeSessionContinuity]:
+      mockControlCenterData.runtimeSessionContinuity,
+    [API_ENDPOINTS.runtimeMcpCatalogFiltering]:
+      mockControlCenterData.runtimeMcpCatalogFiltering,
+    [API_ENDPOINTS.runtimeBackgroundJobs]:
+      mockControlCenterData.runtimeBackgroundJobs,
+    [API_ENDPOINTS.runtimeSubagentIsolation]:
+      mockControlCenterData.runtimeSubagentIsolation,
+    [API_ENDPOINTS.runtimeWorktreePerAgent]:
+      mockControlCenterData.runtimeWorktreePerAgent,
+    [API_ENDPOINTS.runtimeLspDiagnostics]:
+      mockControlCenterData.runtimeLspDiagnostics,
+    [API_ENDPOINTS.runtimePreviewRail]:
+      mockControlCenterData.runtimePreviewRail,
+    [API_ENDPOINTS.runtimeSlashCommandRegistry]:
+      mockControlCenterData.runtimeSlashCommandRegistry,
+    [API_ENDPOINTS.runtimeInterruptRedirect]:
+      mockControlCenterData.runtimeInterruptRedirect,
+    [API_ENDPOINTS.runtimeLoggingProfile]:
+      mockControlCenterData.runtimeLoggingProfile,
+    [API_ENDPOINTS.runtimeResultClassification]:
+      mockControlCenterData.runtimeResultClassification,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
@@ -15488,6 +16228,11 @@ const mockApiData = {
       status: "planned_disabled",
       plugin_enablement_allowed: false,
       native_build_tools_enabled: false,
+      skill_bundle_proposal_status: "proposal_only",
+      skill_bundle_proposal_count: 1,
+      skill_bundle_proposal_refs: ["skill-bundle-proposal:founder-loop-review"],
+      skill_bundle_activation_enabled: false,
+      skill_bundle_tool_execution_enabled: false,
     },
     warnings: [],
     blockers: [],

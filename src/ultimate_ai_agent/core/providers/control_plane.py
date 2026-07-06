@@ -68,6 +68,10 @@ from ultimate_ai_agent.core.providers.role_evidence import (
     RoleBasedModelProviderEvidenceReadModel,
     build_role_based_model_provider_evidence,
 )
+from ultimate_ai_agent.core.runtime_gateway.profile_isolation import (
+    RUNTIME_PROFILE_ISOLATION_ROUTE_REF,
+    build_runtime_profile_isolation_read_model,
+)
 from ultimate_ai_agent.core.web_access.runtime_authority import (
     build_web_runtime_authority_contract,
 )
@@ -93,6 +97,15 @@ MODEL_PROVIDER_RESEARCH_POSTURE_SOURCE = (
 MODEL_PROVIDER_RESEARCH_POSTURE_VERIFIER_REF = (
     "scripts/verify_uaa_goatcitadel_catchup_model_provider_research.py"
 )
+DELEGATED_RUNTIME_MODEL_CATALOG_CONTRACT_REF = (
+    "contract-ref:hermes-runtime-model-provider-catalog:v1"
+)
+DELEGATED_RUNTIME_MODEL_CATALOG_VERIFIER_REF = (
+    "scripts/verify_hermes_runtime_adoption_phase_07.py"
+)
+MODEL_SLOT_POSTURE_CONTRACT_REF = "contract-ref:hermes-runtime-model-slot-posture:v1"
+MODEL_SLOT_POSTURE_TRUST_LANE_REF = "trust-lane:model-slot-posture"
+MODEL_SLOT_POSTURE_VERIFIER_REF = "scripts/verify_hermes_runtime_adoption_phase_08.py"
 
 
 class ModelProviderAuthoritySummary(BaseModel):
@@ -296,6 +309,171 @@ class ModelMetadataDiscoveryPosture(BaseModel):
         return self
 
 
+class DelegatedRuntimeModelAvailabilityRecord(BaseModel):
+    runtime_ref: str = Field(..., min_length=1)
+    runtime_profile_ref: str = Field(..., min_length=1)
+    delegated_runtime_profile_ref: str = Field(..., min_length=1)
+    provider_ref: str = Field(..., min_length=1)
+    model_ref: str = Field(..., min_length=1)
+    display_label: str = Field(..., min_length=1)
+    runtime_availability_status: Literal[
+        "runtime_reports_available",
+        "runtime_reports_planned",
+        "local_gateway_metadata_available",
+    ]
+    uaa_invocation_posture: Literal[
+        "blocked_no_exact_invocation_lane",
+        "blocked_profile_not_configured",
+        "metadata_only_existing_lane_separate",
+    ]
+    cost_metadata_status: Literal[
+        "static_cost_metadata_only",
+        "local_hardware_cost_posture_only",
+        "cost_unknown_blocks_use",
+    ]
+    latency_metadata_status: Literal[
+        "static_latency_label_only",
+        "local_gateway_readiness_only",
+        "latency_unknown_blocks_use",
+    ]
+    source_ref: str = Field(..., min_length=1)
+    cost_posture_ref: str = Field(..., min_length=1)
+    latency_posture_ref: str = Field(..., min_length=1)
+    runtime_reported_available: bool
+    uaa_invocation_allowed: bool = False
+    provider_sdk_call_enabled: bool = False
+    live_provider_discovery_performed: bool = False
+    live_provider_network_call_performed: bool = False
+    credential_collection_enabled: bool = False
+    credential_material_visible: bool = False
+    billing_authority_granted: bool = False
+    model_output_authority_enabled: bool = False
+    raw_provider_payload_persisted: bool = False
+    safe_summary: str
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def availability_record_must_not_grant_invocation(self) -> Any:
+        dump = self.model_dump(mode="json")
+        if contains_secret_like(dump) or contains_obvious_secret(dump):
+            raise ValueError(
+                "DELEGATED_RUNTIME_MODEL_CATALOG_SECRET_LIKE_VALUE_REJECTED"
+            )
+        denied = [
+            self.uaa_invocation_allowed,
+            self.provider_sdk_call_enabled,
+            self.live_provider_discovery_performed,
+            self.live_provider_network_call_performed,
+            self.credential_collection_enabled,
+            self.credential_material_visible,
+            self.billing_authority_granted,
+            self.model_output_authority_enabled,
+            self.raw_provider_payload_persisted,
+        ]
+        if any(denied):
+            raise ValueError("DELEGATED_RUNTIME_MODEL_CATALOG_AUTHORITY_DRIFT")
+        if not self.blocked_authority_refs:
+            raise ValueError("DELEGATED_RUNTIME_MODEL_CATALOG_BLOCKERS_REQUIRED")
+        return self
+
+
+class DelegatedRuntimeModelCatalogPosture(BaseModel):
+    schema_version: Literal["delegated_runtime_model_catalog.v1"] = (
+        "delegated_runtime_model_catalog.v1"
+    )
+    contract_ref: str = DELEGATED_RUNTIME_MODEL_CATALOG_CONTRACT_REF
+    status: Literal["read_only_runtime_model_availability"] = (
+        "read_only_runtime_model_availability"
+    )
+    route_ref: str = MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF
+    cli_ref: str = MODEL_PROVIDER_CONTROL_PLANE_CLI_REF
+    runtime_profiles_route_ref: str = RUNTIME_PROFILE_ISOLATION_ROUTE_REF
+    provider_catalog_ref: str
+    model_count: int = Field(..., ge=0)
+    runtime_profile_count: int = Field(..., ge=0)
+    runtime_reported_available_count: int = Field(..., ge=0)
+    uaa_authorized_model_count: int = 0
+    records: list[DelegatedRuntimeModelAvailabilityRecord]
+    runtime_says_available_is_not_authority: bool = True
+    uaa_may_invoke_any_listed_model: bool = False
+    static_cost_metadata_only: bool = True
+    static_latency_metadata_only: bool = True
+    live_provider_discovery_enabled: bool = False
+    provider_sdk_call_enabled: bool = False
+    remote_model_call_enabled: bool = False
+    credential_collection_enabled: bool = False
+    billing_authority_granted: bool = False
+    model_output_authority_enabled: bool = False
+    proof_refs: list[str] = Field(
+        default_factory=lambda: [
+            "proof-ref:hermes-runtime-adoption:phase-07:model-provider-catalog",
+            "proof-ref:model-provider-control-plane:read-model",
+        ]
+    )
+    docs_refs: list[str] = Field(
+        default_factory=lambda: [
+            "docs/runtime/UAA_HERMES_RUNTIME_MODEL_PROVIDER_CATALOG.md",
+            "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
+        ]
+    )
+    verifier_refs: list[str] = Field(
+        default_factory=lambda: [DELEGATED_RUNTIME_MODEL_CATALOG_VERIFIER_REF]
+    )
+    blocked_authority_refs: list[str] = Field(
+        default_factory=lambda: [
+            "blocked-state:model-provider:runtime-availability-is-not-invocation",
+            "blocked-state:model-provider:provider-sdk-calls",
+            "blocked-state:model-provider:remote-model-calls-by-control-plane",
+            "blocked-state:model-provider:credential-collection",
+            "blocked-state:model-provider:billing-authority",
+            "blocked-state:model-provider:model-output-as-authority",
+            "blocked-state:model-provider:live-provider-discovery",
+        ]
+    )
+    safe_summary: str = (
+        "Delegated runtime model availability is displayed as read-only "
+        "metadata. Runtime-reported availability is separated from UAA "
+        "invocation authority, which remains blocked by this catalog."
+    )
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def catalog_must_remain_read_only_metadata(self) -> Any:
+        dump = self.model_dump(mode="json")
+        if contains_secret_like(dump) or contains_obvious_secret(dump):
+            raise ValueError(
+                "DELEGATED_RUNTIME_MODEL_CATALOG_SECRET_LIKE_VALUE_REJECTED"
+            )
+        if self.model_count != len(self.records):
+            raise ValueError("DELEGATED_RUNTIME_MODEL_CATALOG_COUNT_DRIFT")
+        if self.runtime_reported_available_count != len(
+            [record for record in self.records if record.runtime_reported_available]
+        ):
+            raise ValueError("DELEGATED_RUNTIME_MODEL_CATALOG_AVAILABLE_COUNT_DRIFT")
+        if self.uaa_authorized_model_count != 0:
+            raise ValueError("DELEGATED_RUNTIME_MODEL_CATALOG_AUTHORIZED_COUNT_DENIED")
+        denied = [
+            self.uaa_may_invoke_any_listed_model,
+            self.live_provider_discovery_enabled,
+            self.provider_sdk_call_enabled,
+            self.remote_model_call_enabled,
+            self.credential_collection_enabled,
+            self.billing_authority_granted,
+            self.model_output_authority_enabled,
+        ]
+        required = [
+            self.runtime_says_available_is_not_authority,
+            self.static_cost_metadata_only,
+            self.static_latency_metadata_only,
+        ]
+        if any(denied) or not all(required):
+            raise ValueError("DELEGATED_RUNTIME_MODEL_CATALOG_AUTHORITY_DRIFT")
+        return self
+
+
 class ProviderCostHookPosture(BaseModel):
     status: Literal["cost_governor_receipt_bound"] = "cost_governor_receipt_bound"
     cost_governor_posture_ref: str
@@ -412,6 +590,177 @@ class ModelRouterTracePosture(BaseModel):
             raise ValueError("MODEL_PROVIDER_ROUTER_TRACE_AUTHORITY_DRIFT")
         if not self.reason_codes:
             raise ValueError("MODEL_PROVIDER_ROUTER_TRACE_REASON_CODES_REQUIRED")
+        return self
+
+
+class ModelSlotPostureRecord(BaseModel):
+    slot_ref: str = Field(..., min_length=1)
+    slot_role: Literal[
+        "main_thinking",
+        "summarization",
+        "title",
+        "approval_scoring",
+        "compression",
+        "retrieval",
+        "vision",
+        "review",
+    ]
+    display_label: str = Field(..., min_length=1)
+    intended_provider_ref: str = Field(..., min_length=1)
+    intended_model_ref: str = Field(..., min_length=1)
+    source_profile_ref: str = Field(..., min_length=1)
+    delegated_runtime_profile_ref: str = Field(..., min_length=1)
+    configured_status: Literal[
+        "configured_metadata_only",
+        "planned_not_configured",
+        "runtime_reported_available_not_authorized",
+    ]
+    uaa_execution_posture: Literal[
+        "blocked_no_exact_model_authority",
+        "blocked_missing_runtime_profile",
+        "metadata_only_existing_lane_separate",
+    ]
+    provider_readiness_ref: str = Field(..., min_length=1)
+    cost_posture_ref: str = Field(..., min_length=1)
+    latency_posture_ref: str = Field(..., min_length=1)
+    route_decision_trace_ref: str = Field(..., min_length=1)
+    model_output_truth_ref: str = Field(..., min_length=1)
+    warning_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    live_auxiliary_call_enabled: bool = False
+    provider_sdk_call_enabled: bool = False
+    runtime_selection_mutation_enabled: bool = False
+    hidden_model_routing_enabled: bool = False
+    route_decision_trace_required: bool = True
+    cost_estimate_required: bool = True
+    approval_profile_mapping_required: bool = True
+    model_output_truth_envelope_required: bool = True
+    receipt_required_before_execution: bool = True
+    raw_prompt_persisted: bool = False
+    raw_response_persisted: bool = False
+    safe_summary: str = Field(..., min_length=1)
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def slot_record_must_remain_metadata_only(self) -> Any:
+        dump = self.model_dump(mode="json")
+        if contains_secret_like(dump) or contains_obvious_secret(dump):
+            raise ValueError("MODEL_SLOT_POSTURE_SECRET_LIKE_VALUE_REJECTED")
+        denied = [
+            self.live_auxiliary_call_enabled,
+            self.provider_sdk_call_enabled,
+            self.runtime_selection_mutation_enabled,
+            self.hidden_model_routing_enabled,
+            self.raw_prompt_persisted,
+            self.raw_response_persisted,
+        ]
+        required = [
+            self.route_decision_trace_required,
+            self.cost_estimate_required,
+            self.approval_profile_mapping_required,
+            self.model_output_truth_envelope_required,
+            self.receipt_required_before_execution,
+        ]
+        if any(denied) or not all(required):
+            raise ValueError("MODEL_SLOT_POSTURE_AUTHORITY_DRIFT")
+        if not self.blocked_authority_refs:
+            raise ValueError("MODEL_SLOT_POSTURE_BLOCKERS_REQUIRED")
+        return self
+
+
+class ModelSlotPostureReadModel(BaseModel):
+    schema_version: Literal["hermes_runtime_model_slot_posture.v1"] = (
+        "hermes_runtime_model_slot_posture.v1"
+    )
+    contract_ref: str = MODEL_SLOT_POSTURE_CONTRACT_REF
+    status: Literal["read_only_model_slot_intent"] = "read_only_model_slot_intent"
+    route_ref: str = MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF
+    cli_ref: str = MODEL_PROVIDER_CONTROL_PLANE_CLI_REF
+    trust_lane_ref: str = MODEL_SLOT_POSTURE_TRUST_LANE_REF
+    provider_readiness_ref: str = (
+        "control-center-dashboard-field:provider_credential_readiness"
+    )
+    delegated_model_catalog_ref: str = DELEGATED_RUNTIME_MODEL_CATALOG_CONTRACT_REF
+    slot_count: int = Field(..., ge=0)
+    warning_count: int = Field(..., ge=0)
+    records: list[ModelSlotPostureRecord]
+    main_slot_ref: str = "model-slot-ref:uaa:main-thinking"
+    auxiliary_slot_refs: list[str] = Field(default_factory=list)
+    live_auxiliary_calls_enabled: bool = False
+    provider_sdk_use_enabled: bool = False
+    runtime_selection_mutation_enabled: bool = False
+    hidden_model_routing_enabled: bool = False
+    raw_prompt_persistence_enabled: bool = False
+    raw_response_persistence_enabled: bool = False
+    route_decision_trace_required: bool = True
+    cost_estimate_required: bool = True
+    approval_profile_mapping_required: bool = True
+    model_output_truth_envelope_required: bool = True
+    receipts_required_before_execution: bool = True
+    proof_refs: list[str] = Field(
+        default_factory=lambda: [
+            "proof-ref:hermes-runtime-adoption:phase-08:model-slot-posture",
+            "proof-ref:model-provider-control-plane:model-slot-posture",
+        ]
+    )
+    docs_refs: list[str] = Field(
+        default_factory=lambda: [
+            "docs/runtime/UAA_HERMES_RUNTIME_MODEL_SLOT_POSTURE.md",
+            "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
+        ]
+    )
+    verifier_refs: list[str] = Field(default_factory=lambda: [MODEL_SLOT_POSTURE_VERIFIER_REF])
+    blocked_authority_refs: list[str] = Field(
+        default_factory=lambda: [
+            "blocked-state:model-slot:live-auxiliary-model-calls",
+            "blocked-state:model-slot:provider-sdk-use",
+            "blocked-state:model-slot:runtime-selection-mutation",
+            "blocked-state:model-slot:hidden-model-routing",
+            "blocked-state:model-slot:raw-prompt-persistence",
+            "blocked-state:model-slot:raw-response-persistence",
+        ]
+    )
+    safe_summary: str = (
+        "Main and auxiliary model slots are visible as backend-owned intent "
+        "metadata only. Slot routing does not call providers, mutate runtime "
+        "selection, or hide model routing."
+    )
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    @model_validator(mode="after")
+    def slot_posture_must_remain_read_only(self) -> Any:
+        dump = self.model_dump(mode="json")
+        if contains_secret_like(dump) or contains_obvious_secret(dump):
+            raise ValueError("MODEL_SLOT_POSTURE_SECRET_LIKE_VALUE_REJECTED")
+        denied = [
+            self.live_auxiliary_calls_enabled,
+            self.provider_sdk_use_enabled,
+            self.runtime_selection_mutation_enabled,
+            self.hidden_model_routing_enabled,
+            self.raw_prompt_persistence_enabled,
+            self.raw_response_persistence_enabled,
+        ]
+        required = [
+            self.route_decision_trace_required,
+            self.cost_estimate_required,
+            self.approval_profile_mapping_required,
+            self.model_output_truth_envelope_required,
+            self.receipts_required_before_execution,
+        ]
+        if any(denied) or not all(required):
+            raise ValueError("MODEL_SLOT_POSTURE_AUTHORITY_DRIFT")
+        if self.slot_count != len(self.records):
+            raise ValueError("MODEL_SLOT_POSTURE_COUNT_DRIFT")
+        if self.warning_count != sum(bool(record.warning_refs) for record in self.records):
+            raise ValueError("MODEL_SLOT_POSTURE_WARNING_COUNT_DRIFT")
+        if self.main_slot_ref not in {record.slot_ref for record in self.records}:
+            raise ValueError("MODEL_SLOT_POSTURE_MAIN_SLOT_MISSING")
+        if set(self.auxiliary_slot_refs) != {
+            record.slot_ref for record in self.records if record.slot_ref != self.main_slot_ref
+        }:
+            raise ValueError("MODEL_SLOT_POSTURE_AUXILIARY_SLOT_DRIFT")
         return self
 
 
@@ -681,6 +1030,8 @@ class ModelProviderControlPlaneReadModel(BaseModel):
     cost_hooks: ProviderCostHookPosture
     local_llama_cpp_lifecycle: LocalLlamaCppLifecyclePosture
     router_traces: list[ModelRouterTracePosture]
+    delegated_runtime_model_catalog: DelegatedRuntimeModelCatalogPosture
+    model_slot_posture: ModelSlotPostureReadModel
     role_provider_evidence: RoleBasedModelProviderEvidenceReadModel
     model_provider_research_posture: ModelProviderResearchPosture
     credential_readiness_ref: str = (
@@ -700,6 +1051,8 @@ class ModelProviderControlPlaneReadModel(BaseModel):
             "proof-ref:model-provider-control-plane:router-traces",
             "proof-ref:model-provider-control-plane:cost-hooks",
             "proof-ref:goatcitadel-catchup:model-provider-research-posture",
+            "proof-ref:hermes-runtime-adoption:phase-07:model-provider-catalog",
+            "proof-ref:hermes-runtime-adoption:phase-08:model-slot-posture",
         ]
     )
     blocked_authority_refs: list[str] = Field(
@@ -715,6 +1068,8 @@ class ModelProviderControlPlaneReadModel(BaseModel):
     docs_refs: list[str] = Field(
         default_factory=lambda: [
             "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
+            "docs/runtime/UAA_HERMES_RUNTIME_MODEL_PROVIDER_CATALOG.md",
+            "docs/runtime/UAA_HERMES_RUNTIME_MODEL_SLOT_POSTURE.md",
             "docs/control_center/UAA_GOATCITADEL_CATCHUP_MODEL_PROVIDER_RESEARCH.md",
             "docs/control_center/EXACT_APPROVED_PROVIDER_INVOCATION_PROMOTION_PLAN.md",
             "docs/model_management/UAA_P1_066_LOCAL_MODEL_CONTROL_CENTER_READ_ONLY_STATUS.md",
@@ -744,6 +1099,12 @@ class ModelProviderControlPlaneReadModel(BaseModel):
             raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_TRUTH_POSTURE_DRIFT")
         if len(self.provider_adapters) < 2 or not self.router_traces:
             raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_INCOMPLETE_WIRING")
+        if self.delegated_runtime_model_catalog.uaa_may_invoke_any_listed_model:
+            raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_DELEGATED_CATALOG_DRIFT")
+        if self.model_slot_posture.hidden_model_routing_enabled:
+            raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_MODEL_SLOT_ROUTING_DRIFT")
+        if self.model_slot_posture.live_auxiliary_calls_enabled:
+            raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_MODEL_SLOT_AUTHORITY_DRIFT")
         if self.role_provider_evidence.provider_sdk_call_enabled:
             raise ValueError("MODEL_PROVIDER_CONTROL_PLANE_ROLE_EVIDENCE_AUTHORITY_DRIFT")
         if self.role_provider_evidence.model_invocation_performed:
@@ -761,6 +1122,7 @@ def build_model_provider_control_plane_read_model(
     catalog = provider_catalog or build_provider_setup_guide_catalog()
     inventory = inspect_local_model_inventory()
     gateway_readiness = inspect_local_model_gateway(env=env)
+    runtime_profiles = build_runtime_profile_isolation_read_model()
     provider_model_refs = [
         TINY_PROVIDER_INVOCATION_MODEL_REF,
         SECOND_TINY_PROVIDER_INVOCATION_MODEL_REF,
@@ -830,6 +1192,11 @@ def build_model_provider_control_plane_read_model(
             gateway_readiness=gateway_readiness,
         ),
         router_traces=[router_trace],
+        delegated_runtime_model_catalog=_build_delegated_runtime_model_catalog(
+            provider_catalog_ref=catalog.catalog_ref,
+            runtime_profile_count=runtime_profiles.profile_count,
+        ),
+        model_slot_posture=_build_model_slot_posture(),
         role_provider_evidence=build_role_based_model_provider_evidence(
             provider_readiness_items=readiness.providers,
             provider_catalog_ref=catalog.catalog_ref,
@@ -840,6 +1207,348 @@ def build_model_provider_control_plane_read_model(
             provider_catalog=catalog,
         ),
         provider_catalog_ref=catalog.catalog_ref,
+    )
+
+
+def _build_delegated_runtime_model_catalog(
+    *,
+    provider_catalog_ref: str,
+    runtime_profile_count: int,
+) -> DelegatedRuntimeModelCatalogPosture:
+    records = [
+        DelegatedRuntimeModelAvailabilityRecord(
+            runtime_ref="runtime-ref:hermes:delegated-coding",
+            runtime_profile_ref="runtime-profile-ref:uaa:coding",
+            delegated_runtime_profile_ref="delegated-profile-ref:hermes:coding",
+            provider_ref="provider-ref:delegated-runtime:hermes",
+            model_ref="model-ref:delegated-runtime:hermes:coding-primary",
+            display_label="Hermes coding primary model ref",
+            runtime_availability_status="runtime_reports_available",
+            uaa_invocation_posture="blocked_no_exact_invocation_lane",
+            cost_metadata_status="cost_unknown_blocks_use",
+            latency_metadata_status="latency_unknown_blocks_use",
+            source_ref="runtime-capability-ref:hermes:coding:model-catalog",
+            cost_posture_ref="cost-posture-ref:delegated-runtime:unknown-paid-cost",
+            latency_posture_ref="latency-posture-ref:delegated-runtime:not-measured",
+            runtime_reported_available=True,
+            safe_summary=(
+                "Hermes coding profile reports a model ref, but UAA has not "
+                "authorized invocation from this catalog."
+            ),
+            blocked_authority_refs=[
+                "blocked-state:model-provider:runtime-availability-is-not-invocation",
+                "blocked-state:model-provider:delegated-runtime-invocation",
+                "blocked-state:model-provider:cost-unknown",
+            ],
+        ),
+        DelegatedRuntimeModelAvailabilityRecord(
+            runtime_ref="runtime-ref:hermes:delegated-review",
+            runtime_profile_ref="runtime-profile-ref:uaa:review",
+            delegated_runtime_profile_ref="delegated-profile-ref:hermes:review",
+            provider_ref="provider-ref:delegated-runtime:hermes",
+            model_ref="model-ref:delegated-runtime:hermes:review-primary",
+            display_label="Hermes review primary model ref",
+            runtime_availability_status="runtime_reports_available",
+            uaa_invocation_posture="blocked_no_exact_invocation_lane",
+            cost_metadata_status="cost_unknown_blocks_use",
+            latency_metadata_status="latency_unknown_blocks_use",
+            source_ref="runtime-capability-ref:hermes:review:model-catalog",
+            cost_posture_ref="cost-posture-ref:delegated-runtime:unknown-paid-cost",
+            latency_posture_ref="latency-posture-ref:delegated-runtime:not-measured",
+            runtime_reported_available=True,
+            safe_summary=(
+                "Hermes review profile reports a model ref, but UAA treats it "
+                "as proposal metadata until an exact invocation lane exists."
+            ),
+            blocked_authority_refs=[
+                "blocked-state:model-provider:runtime-availability-is-not-invocation",
+                "blocked-state:model-provider:delegated-runtime-invocation",
+                "blocked-state:model-provider:cost-unknown",
+            ],
+        ),
+        DelegatedRuntimeModelAvailabilityRecord(
+            runtime_ref="runtime-ref:uaa-native:local-llama-cpp",
+            runtime_profile_ref="runtime-profile-ref:uaa:sealed-default",
+            delegated_runtime_profile_ref="delegated-profile-ref:uaa-native:local-llama-cpp",
+            provider_ref="provider-ref:uaa-native:local-runtime",
+            model_ref=f"model-ref:local:{DEFAULT_UAA_LLAMA_CPP_MODEL_ID}",
+            display_label="UAA local llama.cpp model ref",
+            runtime_availability_status="local_gateway_metadata_available",
+            uaa_invocation_posture="metadata_only_existing_lane_separate",
+            cost_metadata_status="local_hardware_cost_posture_only",
+            latency_metadata_status="local_gateway_readiness_only",
+            source_ref="local-model-inventory-ref:llama-cpp:metadata",
+            cost_posture_ref="cost-posture-ref:local-runtime:hardware-only",
+            latency_posture_ref="latency-posture-ref:local-gateway:readiness-only",
+            runtime_reported_available=True,
+            safe_summary=(
+                "Local llama.cpp metadata is visible here, while any existing "
+                "exact local invocation lane remains separate from catalog visibility."
+            ),
+            blocked_authority_refs=[
+                "blocked-state:model-provider:catalog-visibility-is-not-invocation",
+                "blocked-state:model-provider:lifecycle-start-from-catalog",
+                "blocked-state:model-provider:model-output-as-authority",
+            ],
+        ),
+        DelegatedRuntimeModelAvailabilityRecord(
+            runtime_ref="runtime-ref:hermes:delegated-research",
+            runtime_profile_ref="runtime-profile-ref:uaa:research",
+            delegated_runtime_profile_ref="delegated-profile-ref:hermes:research",
+            provider_ref="provider-ref:delegated-runtime:hermes",
+            model_ref="model-ref:delegated-runtime:hermes:research-planned",
+            display_label="Hermes research planned model ref",
+            runtime_availability_status="runtime_reports_planned",
+            uaa_invocation_posture="blocked_profile_not_configured",
+            cost_metadata_status="cost_unknown_blocks_use",
+            latency_metadata_status="latency_unknown_blocks_use",
+            source_ref="runtime-capability-ref:hermes:research:model-catalog",
+            cost_posture_ref="cost-posture-ref:delegated-runtime:unknown-paid-cost",
+            latency_posture_ref="latency-posture-ref:delegated-runtime:not-measured",
+            runtime_reported_available=False,
+            safe_summary=(
+                "Hermes research profile is planned and remains blocked for "
+                "UAA model invocation."
+            ),
+            blocked_authority_refs=[
+                "blocked-state:model-provider:runtime-profile-not-configured",
+                "blocked-state:model-provider:delegated-runtime-invocation",
+                "blocked-state:web-access:live-fetch-by-control-plane",
+            ],
+        ),
+    ]
+    return DelegatedRuntimeModelCatalogPosture(
+        provider_catalog_ref=provider_catalog_ref,
+        model_count=len(records),
+        runtime_profile_count=runtime_profile_count,
+        runtime_reported_available_count=len(
+            [record for record in records if record.runtime_reported_available]
+        ),
+        records=records,
+    )
+
+
+def _build_model_slot_posture() -> ModelSlotPostureReadModel:
+    shared_blockers = [
+        "blocked-state:model-slot:live-auxiliary-model-calls",
+        "blocked-state:model-slot:provider-sdk-use",
+        "blocked-state:model-slot:hidden-model-routing",
+    ]
+    records = [
+        ModelSlotPostureRecord(
+            slot_ref="model-slot-ref:uaa:main-thinking",
+            slot_role="main_thinking",
+            display_label="Main thinking",
+            intended_provider_ref="provider-ref:uaa-governed:main",
+            intended_model_ref="model-ref:uaa:intended-main-thinking",
+            source_profile_ref="runtime-profile-ref:uaa:sealed-default",
+            delegated_runtime_profile_ref="delegated-profile-ref:uaa-native:main",
+            configured_status="configured_metadata_only",
+            uaa_execution_posture="blocked_no_exact_model_authority",
+            provider_readiness_ref=(
+                "control-center-dashboard-field:provider_credential_readiness"
+            ),
+            cost_posture_ref="cost-posture-ref:model-slot:main-cost-policy-required",
+            latency_posture_ref="latency-posture-ref:model-slot:main-not-measured",
+            route_decision_trace_ref="model-route-trace-ref:model-slot:main-thinking",
+            model_output_truth_ref="truth-boundary-ref:model-output:not-authority",
+            warning_refs=["warning-ref:model-slot:main-thinking-cost-policy-required"],
+            safe_summary=(
+                "Main reasoning slot is visible as intended routing metadata only; "
+                "UAA does not call or switch a model from this posture."
+            ),
+            blocked_authority_refs=[
+                *shared_blockers,
+                "blocked-state:model-slot:runtime-selection-mutation",
+            ],
+        ),
+        ModelSlotPostureRecord(
+            slot_ref="model-slot-ref:uaa:summarization",
+            slot_role="summarization",
+            display_label="Summarization",
+            intended_provider_ref="provider-ref:uaa-governed:auxiliary",
+            intended_model_ref="model-ref:uaa:intended-summarization-small",
+            source_profile_ref="runtime-profile-ref:uaa:sealed-default",
+            delegated_runtime_profile_ref="delegated-profile-ref:uaa-native:summarization",
+            configured_status="configured_metadata_only",
+            uaa_execution_posture="blocked_no_exact_model_authority",
+            provider_readiness_ref=(
+                "control-center-dashboard-field:provider_credential_readiness"
+            ),
+            cost_posture_ref="cost-posture-ref:model-slot:cheap-model-required",
+            latency_posture_ref="latency-posture-ref:model-slot:fast-path-required",
+            route_decision_trace_ref="model-route-trace-ref:model-slot:summarization",
+            model_output_truth_ref="truth-boundary-ref:model-output:not-authority",
+            safe_summary=(
+                "Summarization slot is intended to use a cheap/fast model later, "
+                "but no auxiliary call is enabled by this read model."
+            ),
+            blocked_authority_refs=shared_blockers,
+        ),
+        ModelSlotPostureRecord(
+            slot_ref="model-slot-ref:uaa:title",
+            slot_role="title",
+            display_label="Title generation",
+            intended_provider_ref="provider-ref:uaa-governed:auxiliary",
+            intended_model_ref="model-ref:uaa:intended-title-small",
+            source_profile_ref="runtime-profile-ref:uaa:sealed-default",
+            delegated_runtime_profile_ref="delegated-profile-ref:uaa-native:title",
+            configured_status="configured_metadata_only",
+            uaa_execution_posture="blocked_no_exact_model_authority",
+            provider_readiness_ref=(
+                "control-center-dashboard-field:provider_credential_readiness"
+            ),
+            cost_posture_ref="cost-posture-ref:model-slot:cheap-model-required",
+            latency_posture_ref="latency-posture-ref:model-slot:fast-path-required",
+            route_decision_trace_ref="model-route-trace-ref:model-slot:title",
+            model_output_truth_ref="truth-boundary-ref:model-output:not-authority",
+            safe_summary=(
+                "Title slot is visible for future cheap auxiliary routing; it "
+                "does not create hidden title model calls."
+            ),
+            blocked_authority_refs=shared_blockers,
+        ),
+        ModelSlotPostureRecord(
+            slot_ref="model-slot-ref:uaa:approval-scoring",
+            slot_role="approval_scoring",
+            display_label="Approval scoring",
+            intended_provider_ref="provider-ref:uaa-governed:policy",
+            intended_model_ref="model-ref:uaa:intended-approval-scoring",
+            source_profile_ref="runtime-profile-ref:uaa:sealed-default",
+            delegated_runtime_profile_ref="delegated-profile-ref:uaa-native:approval",
+            configured_status="planned_not_configured",
+            uaa_execution_posture="blocked_no_exact_model_authority",
+            provider_readiness_ref=(
+                "control-center-dashboard-field:provider_credential_readiness"
+            ),
+            cost_posture_ref="cost-posture-ref:model-slot:approval-cost-review",
+            latency_posture_ref="latency-posture-ref:model-slot:policy-not-measured",
+            route_decision_trace_ref="model-route-trace-ref:model-slot:approval-scoring",
+            model_output_truth_ref="truth-boundary-ref:model-output:not-authority",
+            warning_refs=["warning-ref:model-slot:approval-scoring-no-hidden-routing"],
+            safe_summary=(
+                "Approval scoring remains planned metadata; approval decisions "
+                "are not delegated to a hidden model."
+            ),
+            blocked_authority_refs=[
+                *shared_blockers,
+                "blocked-state:model-slot:approval-decision-by-model",
+            ],
+        ),
+        ModelSlotPostureRecord(
+            slot_ref="model-slot-ref:uaa:compression",
+            slot_role="compression",
+            display_label="Context compression",
+            intended_provider_ref="provider-ref:uaa-governed:auxiliary",
+            intended_model_ref="model-ref:uaa:intended-compression-small",
+            source_profile_ref="runtime-profile-ref:uaa:sealed-default",
+            delegated_runtime_profile_ref="delegated-profile-ref:uaa-native:compression",
+            configured_status="planned_not_configured",
+            uaa_execution_posture="blocked_no_exact_model_authority",
+            provider_readiness_ref=(
+                "control-center-dashboard-field:provider_credential_readiness"
+            ),
+            cost_posture_ref="cost-posture-ref:model-slot:cheap-model-required",
+            latency_posture_ref="latency-posture-ref:model-slot:fast-path-required",
+            route_decision_trace_ref="model-route-trace-ref:model-slot:compression",
+            model_output_truth_ref="truth-boundary-ref:model-output:not-authority",
+            safe_summary=(
+                "Compression slot is a future auxiliary intent and does not "
+                "persist operator input or context bodies."
+            ),
+            blocked_authority_refs=[
+                *shared_blockers,
+                "blocked-state:model-slot:raw-prompt-persistence",
+            ],
+        ),
+        ModelSlotPostureRecord(
+            slot_ref="model-slot-ref:uaa:retrieval",
+            slot_role="retrieval",
+            display_label="Retrieval helper",
+            intended_provider_ref="provider-ref:uaa-native:retrieval",
+            intended_model_ref="model-ref:uaa:intended-retrieval-local-metadata",
+            source_profile_ref="runtime-profile-ref:uaa:sealed-default",
+            delegated_runtime_profile_ref="delegated-profile-ref:uaa-native:retrieval",
+            configured_status="configured_metadata_only",
+            uaa_execution_posture="metadata_only_existing_lane_separate",
+            provider_readiness_ref="memory-context-pack-posture-ref:reviewed-refs-only",
+            cost_posture_ref="cost-posture-ref:model-slot:local-metadata-only",
+            latency_posture_ref="latency-posture-ref:model-slot:local-readiness-only",
+            route_decision_trace_ref="model-route-trace-ref:model-slot:retrieval",
+            model_output_truth_ref="truth-boundary-ref:retrieval-output:not-authority",
+            safe_summary=(
+                "Retrieval slot points at reviewed local metadata and context refs; "
+                "it does not inject hidden context or call a retrieval model."
+            ),
+            blocked_authority_refs=[
+                *shared_blockers,
+                "blocked-state:model-slot:hidden-context-injection",
+            ],
+        ),
+        ModelSlotPostureRecord(
+            slot_ref="model-slot-ref:uaa:vision",
+            slot_role="vision",
+            display_label="Vision",
+            intended_provider_ref="provider-ref:uaa-governed:vision",
+            intended_model_ref="model-ref:uaa:intended-vision-planned",
+            source_profile_ref="runtime-profile-ref:uaa:sealed-default",
+            delegated_runtime_profile_ref="delegated-profile-ref:hermes:vision-planned",
+            configured_status="planned_not_configured",
+            uaa_execution_posture="blocked_missing_runtime_profile",
+            provider_readiness_ref=(
+                "control-center-dashboard-field:provider_credential_readiness"
+            ),
+            cost_posture_ref="cost-posture-ref:model-slot:vision-cost-unknown",
+            latency_posture_ref="latency-posture-ref:model-slot:vision-not-measured",
+            route_decision_trace_ref="model-route-trace-ref:model-slot:vision",
+            model_output_truth_ref="truth-boundary-ref:model-output:not-authority",
+            warning_refs=["warning-ref:model-slot:vision-unavailable"],
+            safe_summary=(
+                "Vision slot is planned and unavailable; no image/model provider "
+                "call is enabled."
+            ),
+            blocked_authority_refs=[
+                *shared_blockers,
+                "blocked-state:model-slot:vision-provider-not-configured",
+            ],
+        ),
+        ModelSlotPostureRecord(
+            slot_ref="model-slot-ref:uaa:review",
+            slot_role="review",
+            display_label="Review",
+            intended_provider_ref="provider-ref:delegated-runtime:hermes",
+            intended_model_ref="model-ref:delegated-runtime:hermes:review-primary",
+            source_profile_ref="runtime-profile-ref:uaa:review",
+            delegated_runtime_profile_ref="delegated-profile-ref:hermes:review",
+            configured_status="runtime_reported_available_not_authorized",
+            uaa_execution_posture="blocked_no_exact_model_authority",
+            provider_readiness_ref=DELEGATED_RUNTIME_MODEL_CATALOG_CONTRACT_REF,
+            cost_posture_ref="cost-posture-ref:delegated-runtime:unknown-paid-cost",
+            latency_posture_ref="latency-posture-ref:delegated-runtime:not-measured",
+            route_decision_trace_ref="model-route-trace-ref:model-slot:review",
+            model_output_truth_ref="truth-boundary-ref:model-output:not-authority",
+            warning_refs=[
+                "warning-ref:model-slot:review-runtime-availability-not-authority"
+            ],
+            safe_summary=(
+                "Review slot can reference Hermes review availability metadata, "
+                "but UAA cannot invoke it from this posture."
+            ),
+            blocked_authority_refs=[
+                *shared_blockers,
+                "blocked-state:model-provider:runtime-availability-is-not-invocation",
+            ],
+        ),
+    ]
+    return ModelSlotPostureReadModel(
+        slot_count=len(records),
+        warning_count=sum(bool(record.warning_refs) for record in records),
+        records=records,
+        auxiliary_slot_refs=[
+            record.slot_ref
+            for record in records
+            if record.slot_ref != "model-slot-ref:uaa:main-thinking"
+        ],
     )
 
 

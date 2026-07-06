@@ -32,7 +32,14 @@ The catalog root includes:
 - `catalog_status: read_only_inspection`
 - `read_only: true`
 - `inspectable_catalog_enabled: true`
+- `progressive_disclosure_enabled: true`
+- `metadata_first_index_enabled: true`
 - `callable_catalog_enabled: false`
+- `automatic_instruction_loading_enabled: false`
+- `full_instruction_auto_load_enabled: false`
+- `hidden_skill_activation_enabled: false`
+- `skill_runtime_import_enabled: false`
+- `external_marketplace_fetch_enabled: false`
 - `runtime_import_enabled: false`
 - `execution_enabled: false`
 - `connector_writes_enabled: false`
@@ -42,6 +49,10 @@ The catalog root includes:
 - `mobile_control_enabled: false`
 - `public_distribution_claimed: false`
 - `blocked_capabilities`
+- `compact_skill_index_refs`
+- `progressive_disclosure_refs`
+- `skill_write_approval_gate`
+- `skill_bundle_proposal_posture`
 - `docs_refs`
 - `schema_refs`
 - `safe_summary`
@@ -53,6 +64,7 @@ Each catalog entry includes:
 | Field | Meaning | Safety boundary |
 |---|---|---|
 | Package identity | Safe package, version, publisher, and kind refs. | Identity is not install, import, or execution authority. |
+| Compact skill metadata | Safe compact skill index and metadata summary refs. | Metadata can be inspected before any full instruction review. |
 | Provenance | Safe source, review, license refs, and reviewed/blocked/unknown status. | Unknown or blocked provenance keeps the entry inactive. |
 | Hashes | Safe file refs, SHA-256 values when reviewed, and reviewed/missing/unknown status. | Raw package content and raw local paths are not returned. |
 | Declared capabilities | Safe capability refs, kind, risk, and safe purpose. | Capabilities are inspectable only and not callable. |
@@ -68,16 +80,25 @@ Each catalog entry includes:
 | Blocked reason | Operator-readable reason the entry cannot execute. | Reasons must use redacted summaries only. |
 | Review evidence refs | Safe audit and review refs. | Evidence refs do not expose raw logs or package contents. |
 | Safe adoption posture | Repo-owned metadata only, reviewed adaptation required, or blocked until scoped milestone. | Adoption posture is not install or import authority. |
+| Progressive disclosure | Metadata-first status, full-instruction load posture, operator-selection requirement, and disabled hidden/automatic loading flags. | Full skill instructions are never auto-loaded and cannot become hidden context or runtime authority. |
+| Skill write gate | Staged proposal refs, diff-preview refs, review decision refs, blocked execution labels, and proof refs. | The gate is review-only; it writes no files and enables no skill runtime. |
+| Skill bundle proposals | Reusable task-profile proposal refs, constituent skill refs, context-pack refs, toolset refs, authority-profile refs, verifier refs, and blocked authority refs. | Bundles are proposal metadata only; they do not activate skills, inject context, import runtime code, or execute tools. |
 
 ## Read-Only Route Behavior
 
 `GET /extensions/catalog` may show:
 
 - declared capabilities
+- compact skill index refs
+- metadata summary refs
 - provenance status
 - file hash status and reviewed SHA-256 values
 - risk class
 - requested grant status
+- staged skill-write proposal refs
+- diff-preview refs and blocked execution labels
+- staged skill-bundle proposal refs
+- constituent skill, context-pack, toolset, authority-profile, verifier, and proof refs
 - activation status
 - blocked or unknown state
 - blocker refs
@@ -108,6 +129,12 @@ Callable/runtime catalog behavior remains not scoped:
 - no autonomous background execution
 - no public distribution claim
 - no production authority claim
+- no automatic full instruction loading
+- no hidden skill activation
+- no skill bundle activation
+- no bundle-driven context injection
+- no bundle-driven tool execution
+- no external marketplace fetch
 
 ## OpenAPI Impact
 
@@ -149,6 +176,33 @@ and `scripts/dev/uaa_extensions.py inspect-catalog`. This is still read-only
 catalog metadata; plugin runtime import remains blocked, connector writes
 remain blocked, and production authority remains blocked.
 
+Hermes Runtime Adoption Phase 13 adds progressive skill disclosure posture in
+`docs/runtime/UAA_HERMES_RUNTIME_PROGRESSIVE_SKILL_DISCLOSURE.md`. The catalog
+now exposes compact skill index refs, metadata summary refs, operator-selected
+full-instruction posture, blocked automatic instruction loading, blocked hidden
+activation, blocked skill runtime import, and blocked marketplace fetch. It
+does not add a new route, package install, runtime import, executable skill
+enablement, hidden context injection, provider/model call, connector write, or
+production authority.
+
+Hermes Runtime Adoption Phase 14 adds a Skill Write Approval Gate read model in
+`docs/runtime/UAA_HERMES_RUNTIME_SKILL_WRITE_APPROVAL_GATE.md` and
+`scripts/dev/uaa_extensions.py inspect-skill-write-gate`. The gate exposes
+staged skill-write proposals, diff-preview refs, review-decision refs, blocked
+execution labels, proof refs, and verifier refs only. It performs no file
+writes, skill enablement, runtime import, execution, provider/model call,
+connector write, shell/subprocess execution, browser automation, or production
+authority.
+
+Hermes Runtime Adoption Phase 15 adds a Skill Bundle Proposal Posture read model
+in `docs/runtime/UAA_HERMES_RUNTIME_SKILL_BUNDLE_PROPOSALS.md` and
+`scripts/dev/uaa_extensions.py inspect-skill-bundles`. Bundle proposals expose
+safe refs for constituent skills, context packs, toolsets, authority profiles,
+verification, proof, and blocked authority only. They do not activate bundles,
+enable skills, inject context, import runtime code, execute tools, call
+providers/models, write connectors, run shell/subprocess commands, perform
+browser automation, or claim production authority.
+
 ## Known Gaps
 
 - Static package review for arbitrary packages remains scoped to UAA-P2-048.
@@ -156,6 +210,11 @@ remain blocked, and production authority remains blocked.
   ships record-only activation and revocation contracts.
 - No callable catalog exists.
 - No runtime import or package execution exists.
+- No automatic full-instruction loading or hidden skill activation exists.
+- No skill-write apply lane or direct skill-file mutation exists.
+- No skill bundle activation, context injection, or bundle-driven tool execution
+  exists.
+- No marketplace fetch or external package import exists.
 - No persistence-backed extension registry exists.
 - MCP/A2A compatibility remains watchlist-only.
 

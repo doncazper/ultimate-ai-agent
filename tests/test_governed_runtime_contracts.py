@@ -1152,6 +1152,54 @@ def test_runtime_gateway_action_inbox_denied_expired_or_changed_scope_blocks(
     )
 
 
+def test_runtime_gateway_expired_approval_execution_fails_closed_with_receipt(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"SHOULD_NOT_RUN",
+        )
+
+    store = RuntimeInvocationStore(tmp_path)
+    command_request = _approved_runtime_command_request()
+    expired = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+        expires_delta=timedelta(minutes=-1),
+    )
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+
+    result = gateway.execute_approved_command(
+        expired.invocation_ref,
+        _command_request_for_approved_record(command_request, expired),
+        _runtime_execute_request(expired),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-expired-execute",
+    )
+
+    assert calls == []
+    assert result.error_category == "RUNTIME_COMMAND_ACTION_INBOX_APPROVAL_EXPIRED"
+    assert result.record.status == "execution_blocked"
+    assert result.record.receipt is not None
+    assert result.record.receipt.command_execution_performed is False
+    assert result.record.receipt.command_receipt_metadata is not None
+    assert (
+        result.record.receipt.command_receipt_metadata.command_execution_attempted
+        is False
+    )
+
+
 def test_runtime_gateway_action_inbox_arbitrary_approval_ref_does_not_authorize(
     tmp_path: Path,
 ) -> None:

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `202`.
+Current OpenAPI path count: `231`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -74,9 +74,228 @@ Contract rules:
   parity-loop inspection model that ties prepared turn, route decision, durable
   run, staged orchestration, provider evidence, Action Inbox approval, receipt,
   signed evidence, and blocked-state refs together without executing work.
+  `GET /api/runtime/delegation-adapter` exposes the Hermes Runtime Adoption
+  Phase 01 backend-owned runtime delegation adapter readiness model with
+  runtime identity refs, endpoint posture, authority mode, capability refs,
+  health refs, proof refs, blocked reasons, and next safe actions. It is
+  read-only readiness only: UAA controls authority, Control Center does not
+  talk directly to Hermes, and live run submission, model/provider calls, tool
+  execution, shell/subprocess execution, browser automation, connector writes,
+  background autonomy, production authority, and raw prompt/response/provider
+  payload/log/local-path persistence remain blocked.
+  `GET /api/runtime/capability-discovery` exposes the Hermes Runtime Adoption
+  Phase 02 backend-owned runtime capability discovery posture for models, runs,
+  events, approvals, sessions, skills, toolsets, jobs, and blocked actions. It
+  distinguishes runtime-supported reference metadata from UAA-authorized
+  execution, treats stale or unreachable runtime state as blocked, includes a
+  snapshot hash ref, and performs no live runtime call. It also includes the
+  Phase 09 runtime toolset capability posture, which maps runtime support to
+  UAA allowance states while keeping runtime tool invocation, Hermes toolset
+  enablement, toolset config mutation, raw tool payload persistence, and
+  production authority disabled.
+  `GET /api/runtime/tool-registry` exposes the Hermes Runtime Adoption Phase
+  10 backend-owned runtime tool registry availability posture. It lists
+  UAA-native preview tools and delegated Hermes/Codex/Claude/MCP/future runtime
+  tool references with availability, configured status, authority class,
+  side-effect class, risk, blocker refs, proof refs, and next safe actions. It
+  is read-only metadata only and does not invoke tools, perform remote
+  discovery, fetch the web, call providers/models, import plugins, activate
+  connector writes, persist raw tool payloads, or grant production authority.
+  `GET /api/runtime/session-search` exposes the Hermes Runtime Adoption Phase
+  12 backend-owned session/run search posture. It returns safe refs and bounded
+  summaries only, stays separate from durable memory, requires operator-selected
+  attach refs before any future context use, and grants no raw transcript
+  persistence, prompt/response exposure, semantic provider call, embedding or
+  vector index, hidden context injection, memory write, action execution, or
+  production authority.
+  `GET /api/runtime/session-lineage` exposes the Hermes Runtime Adoption Phase
+  19 backend-owned session lineage and fork posture. It returns safe
+  parent/child, user request, task, run, proof, branch, reason, redacted
+  fork-envelope, retrieval-log, compare-view, verifier, and blocked authority
+  refs only. It does not clone raw transcripts, persist raw prompts or
+  responses, inject hidden context, dispatch runtimes, call providers/models,
+  write connectors, run shell/subprocess commands, automate browsers, or grant
+  production authority.
+  `GET /api/runtime/virtual-provider-moa` exposes the Hermes Runtime Adoption
+  Phase 20 backend-owned virtual provider Mixture-of-Agents posture. It returns
+  preset, agent-slot, route-decision trace, cost-estimate, approval-mode,
+  output-envelope, comparison-proof, safe-disable, verifier, and blocked
+  authority refs only. It does not perform live model fan-out, call provider
+  SDKs, dispatch external runtimes, use hidden advisor prompts, treat agent
+  output as authority, write connectors, run shell/subprocess commands,
+  automate browsers, or grant production authority.
+  `GET /api/runtime/usage-cost-analytics` exposes the Hermes Runtime Adoption
+  Phase 22 backend-owned usage and cost analytics posture. It returns redacted
+  accounting record refs, runtime/provider/model refs, task-value refs, receipt
+  refs, estimate refs, bounded usage estimates, latency estimates, cost minor
+  units, proof refs, verifier refs, and blocked authority refs only. It does
+  not perform billing actions, provider calls, provider SDK calls, live pricing
+  fetches, operator export, raw prompt/response/provider-payload persistence,
+  model-output authority, or production authority.
+  `GET /api/runtime/prompt-stability-tiers` exposes the Hermes Runtime
+  Adoption Phase 23 backend-owned prompt stability tier posture. It returns
+  prompt tier refs, manifest refs, redacted hash refs, cache policy refs, safe
+  source refs, proof refs, verifier refs, next-safe-action refs, and blocked
+  authority refs only. It does not persist raw prompts or responses, inject
+  hidden prompt/context material, call models or provider SDKs, write caches,
+  treat model output as authority, or grant production authority.
+  `GET /api/runtime/context-budget-pressure` exposes the Hermes Runtime
+  Adoption Phase 24 backend-owned context budget pressure posture. It returns
+  context budget segment refs, pressure levels, warning refs, review-only
+  trimming and summary proposal refs, source refs, retrieval log refs, proof
+  refs, verifier refs, next-safe-action refs, and blocked authority refs only.
+  It does not perform hidden compression, automatic context mutation, model
+  summarization calls, context injection, provider SDK calls, cache writes, raw
+  context/prompt/response/provider-payload persistence, or production
+  authority.
+  `GET /api/runtime/hardline-command-blocklist` exposes the Hermes Runtime
+  Adoption Phase 25 backend-owned hardline command blocklist posture. It
+  returns command-shape classification refs, denied category refs, allowed
+  shape counts, hardline rule refs, proof refs, verifier refs,
+  next-safe-action refs, and blocked authority refs only. It does not run
+  commands, accept raw command strings, persist raw command text or output,
+  permit floor override, or grant production authority.
+  `GET /api/runtime/managed-scope-policy` exposes the Hermes Runtime Adoption
+  Phase 27 backend-owned managed scope policy posture. It returns pinned local
+  policy source refs, precedence, checksum refs, drift warning refs, rollback
+  refs, admin/operator proof refs, verifier refs, next-safe-action refs, and
+  blocked authority refs only. It does not write system config, perform
+  privileged writes, deliver MDM profiles, manage secrets, accept unsigned
+  runtime config overrides, persist raw config/local path/account/credential
+  material, or claim production enforcement.
+  `GET /api/runtime/doctor-diagnostics` exposes the Hermes Runtime Adoption
+  Phase 28 backend-owned runtime doctor diagnostics posture. It returns
+  diagnostic refs, setup/runtime/provider/tool/protected-material/service/
+  authority status refs, CLI refs, proof refs, next-safe-action refs, and
+  blocked authority refs only. It does not install dependencies, start
+  services, write credentials, mutate runtime config, persist raw logs or local
+  paths, persist provider payloads, or mint authority from Control Center.
+  `GET /api/runtime/session-continuity` exposes the Hermes Runtime Adoption
+  Phase 29 backend-owned multi-surface session continuity posture. It returns
+  session refs, source labels, staleness refs, conflict refs, proof refs,
+  verifier refs, and blocked authority refs only. It does not enable external
+  messaging gateways, account sync, connector writes, remote sessions, raw
+  transcript or provider payload persistence, or Control Center authority
+  minting.
+  `GET /api/runtime/mcp-catalog-filtering` exposes the Hermes Runtime Adoption
+  Phase 30 backend-owned MCP catalog filtering posture. It returns metadata
+  catalog refs, tool filter contracts, blocked activation states, proof refs,
+  verifier refs, and blocked authority refs only. Installing MCP servers,
+  running subprocess MCPs, OAuth login, tool invocation, connector writes, raw
+  manifest persistence, and Control Center authority minting remain blocked.
+  `GET /api/runtime/background-jobs` exposes the Hermes Runtime Adoption Phase
+  31 backend-owned background job posture. It returns durable job proposal refs,
+  schedule policies, approval scope refs, idempotency refs, safe-disable refs,
+  receipt plans, failure handling refs, proof refs, verifier refs, and blocked
+  authority refs only. Schedulers, workers, run-now, pause/resume mutation,
+  autonomous retries, external delivery, provider calls, shell execution, and
+  connector writes remain blocked.
+  `GET /api/runtime/subagent-isolation` exposes the Hermes Runtime Adoption
+  Phase 32 backend-owned subagent isolation posture. It returns role refs,
+  scope envelopes, context/tool/memory grant refs, budget refs, kill-switch
+  refs, review artifacts, proof refs, verifier refs, and blocked authority refs
+  only. Live dispatch, background fan-out, cross-agent memory transfer, tool
+  sharing, autonomous delegation, raw transcript persistence, and raw agent
+  output persistence remain blocked.
+  `GET /api/runtime/worktree-per-agent` exposes the Hermes Runtime Adoption
+  Phase 33 backend-owned worktree-per-agent posture. It returns lane refs,
+  workspace scope refs, branch proposal refs, worktree refs, checkpoint plans,
+  Git receipt plans, rollback plans, proof refs, verifier refs, and blocked
+  authority refs only. Git worktree create/delete, branch mutation, file
+  writes, commits, pushes, raw path persistence, shell execution, and provider
+  calls remain blocked.
+  `GET /api/runtime/lsp-diagnostics` exposes the Hermes Runtime Adoption Phase
+  34 backend-owned semantic diagnostics proof posture. It returns diagnostic
+  refs, safe source scope refs, evidence refs, receipt-plan refs, proof refs,
+  verifier refs, promotion refs, redaction refs, and blocked authority refs
+  only. Language-server launch, dependency install, shell execution, file
+  reads/writes, provider calls, raw path persistence, and raw diagnostic
+  payload persistence remain blocked.
+  `GET /api/runtime/preview-rail` exposes the Hermes Runtime Adoption Phase 35
+  backend-owned right preview rail posture. It returns safe source refs,
+  source-classification refs, bounded preview refs, redaction policy refs,
+  attach-plan refs, receipt-plan refs, proof refs, verifier refs, promotion
+  refs, and blocked authority refs only. Browser automation, screenshot
+  capture, raw sensitive file display, direct runtime payload rendering, file
+  reads/writes, shell execution, provider calls, Control Center authority
+  minting, raw path persistence, raw file-content persistence, and raw runtime
+  payload persistence remain blocked.
+  `GET /api/runtime/slash-command-registry` exposes the Hermes Runtime Adoption
+  Phase 36 backend-owned slash command registry posture. It returns command
+  refs, trigger labels, command status, authority class, side-effect class,
+  docs refs, approval policy refs, idempotency policy refs, receipt-plan refs,
+  proof refs, verifier refs, promotion refs, and blocked authority refs only.
+  Chat slash-command execution, runtime invocation, state mutation, shell
+  execution, provider calls, browser automation, connector writes, Control
+  Center authority minting, raw prompt persistence, raw response persistence,
+  production authority, and public release claims remain blocked.
+  `GET /api/runtime/interrupt-redirect` exposes the Hermes Runtime Adoption
+  Phase 37 backend-owned interrupt/redirect run-control posture. It returns
+  pause, stop, redirect, revise, and recovery proposal refs, approval scope
+  refs, idempotency refs, receipt-plan refs, recovery-state refs, proof refs,
+  verifier refs, promotion refs, and blocked authority refs only. Live stop
+  POST, process kill, runtime mutation, background autonomy, shell execution,
+  provider calls, browser automation, connector writes, Control Center
+  authority minting, raw runtime payload persistence, raw log persistence,
+  production authority, and public release claims remain blocked.
+  `GET /api/runtime/logging-profile` exposes the Hermes Runtime Adoption Phase
+  38 backend-owned logging profile posture. It returns quiet, redacted
+  troubleshooting, and forensic safe-ref profile refs, flag scope refs, TTL
+  policy refs, retention policy refs, redaction policy/verifier refs, proof
+  refs, verifier refs, promotion refs, and blocked authority refs only. Verbose
+  toggling, raw log persistence, raw prompt/response/provider payload/path
+  persistence, credential persistence, remote telemetry export, background log
+  streaming, production authority, and public release claims remain blocked.
+  `GET /api/runtime/result-classification` exposes the Hermes Runtime Adoption
+  Phase 39 backend-owned result taxonomy posture. It returns evidence,
+  mutation, warning, blocked, proposal, diagnostic, and untrusted-data class
+  refs, provenance policy refs, redaction policy refs, receipt requirement
+  refs, proof binding refs, verifier refs, promotion refs, and blocked authority
+  refs only. Treating tool output as truth, treating output as action
+  authority, mutation without receipt, unverified evidence promotion, raw output
+  persistence, provider payload persistence, production authority, and public
+  release claims remain blocked.
+  `GET /api/runtime/context-references` exposes the Hermes Runtime Adoption
+  Phase 16 backend-owned context-reference posture. It returns safe-ref grammar,
+  preview refs, budget estimates, why-included refs, and blocked URL/live-fetch
+  posture for file, folder, diff, URL evidence, run, proof, task, memory, CRM
+  object, and issue refs. It grants no live URL fetch, raw path persistence,
+  raw file-content persistence, protected config read, automatic context
+  injection, provider/model call, connector write, shell/subprocess execution,
+  browser automation, or production authority.
+  `GET /api/runtime/checkpoint-rollback` exposes the Hermes Runtime Adoption
+  Phase 18 backend-owned checkpoint/rollback posture. It returns exact lane
+  checkpoint, receipt, rollback-plan, proof, verifier, and blocked authority
+  refs only; rollback execution, broad filesystem snapshots, Git mutation, raw
+  path/content persistence, and production authority remain blocked.
+  `GET /api/runtime/run-events` exposes the Hermes Runtime Adoption Phase 03
+  backend-owned runtime run/event posture for lifecycle mappings, event refs,
+  stop posture, and approval-wait proposals. It is read/proposal only and does
+  not create runs, stop runs, resolve approvals, or stream live events.
+  `GET /api/runtime/approval-bridge` exposes the Hermes Runtime Adoption Phase
+  04 backend-owned runtime approval bridge posture for approval envelopes,
+  Action Inbox projection refs, proof refs, denial/timeout/scope-mismatch
+  previews, and default-deny timeout posture. It is read-model only and does
+  not send approval, denial, timeout, or scope-mismatch resolutions to Hermes or
+  any delegated runtime.
+  `GET /api/runtime/streaming-progress` exposes the Hermes Runtime Adoption
+  Phase 05 backend-owned runtime streaming progress posture for ordered,
+  redacted event previews, stale/disconnected stream state, event hash refs,
+  and proof refs. It is read-model only and does not open SSE/WebSocket
+  subscriptions, reconnect to Hermes, ingest live runtime events, or persist
+  raw runtime/tool/generated/log/prompt/response payloads.
+  `GET /api/runtime/profiles` exposes the Hermes Runtime Adoption Phase 06
+  backend-owned runtime profile isolation posture for UAA-owned profile refs
+  that are separate from delegated runtime profile refs, safe display labels,
+  role, configured status, authority posture, workspace and memory scope refs,
+  toolset posture, profile health, blocked reasons, and proof refs. It is
+  read-model only and does not create profiles, delete profiles, write runtime
+  config, copy sensitive material, change runtime defaults, allow cross-profile
+  authority bleed, expose raw delegated profile names, or expose workspace
+  paths.
   Phase 07
   preserves configured local loopback model calls and the exact read-only status
-  command while adding exact Action Inbox approved focused pytest command execution
+  command while adding exact Action Inbox approved focused pytest, repo verifier, and frontend check command execution
   through `RuntimeGateway`, plus CLI/Control Center/evidence timeline parity
   over the same backend-owned records. It also records command root pinning,
   configured endpoint matching, receipt-detail execution truth, and CLI approval
@@ -90,7 +309,7 @@ Contract rules:
   `uaa actions approve|deny` are local inspection/exact-envelope decision
   surfaces over those records; approval refs remain identifiers, not authority.
   It does not run arbitrary shell/subprocess commands, execute focused tests
-  outside the exact pytest lane, run repo verifiers or frontend checks, invoke
+  outside the exact pytest lane, run repo verifier/frontend check work outside named exact lanes, invoke
   remote providers, read
   or persist raw prompts/responses/command output/local paths/env, automate
   browsers, write connectors, import plugins, dispatch remote work, grant

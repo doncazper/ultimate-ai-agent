@@ -520,6 +520,31 @@ export function renderRoute(path: string, data: ControlCenterData) {
         <RuntimeReadinessPanel
           report={data.runtimeReadiness}
           matrix={data.capabilityMatrix}
+          delegationAdapter={data.runtimeDelegationAdapter}
+          capabilityDiscovery={data.runtimeCapabilityDiscovery}
+          runEvents={data.runtimeRunEvents}
+          approvalBridge={data.runtimeApprovalBridge}
+          streamingProgress={data.runtimeStreamingProgress}
+          profiles={data.runtimeProfiles}
+          toolRegistry={data.runtimeToolRegistry}
+          virtualProviderMoa={data.runtimeVirtualProviderMoa}
+          usageCostAnalytics={data.runtimeUsageCostAnalytics}
+          promptStabilityTiers={data.runtimePromptStabilityTiers}
+          contextBudgetPressure={data.runtimeContextBudgetPressure}
+          hardlineCommandBlocklist={data.runtimeHardlineCommandBlocklist}
+          managedScopePolicy={data.runtimeManagedScopePolicy}
+          doctorDiagnostics={data.runtimeDoctorDiagnostics}
+          sessionContinuity={data.runtimeSessionContinuity}
+          mcpCatalogFiltering={data.runtimeMcpCatalogFiltering}
+          backgroundJobs={data.runtimeBackgroundJobs}
+          subagentIsolation={data.runtimeSubagentIsolation}
+          worktreePerAgent={data.runtimeWorktreePerAgent}
+          lspDiagnostics={data.runtimeLspDiagnostics}
+          previewRail={data.runtimePreviewRail}
+          slashCommandRegistry={data.runtimeSlashCommandRegistry}
+          interruptRedirect={data.runtimeInterruptRedirect}
+          loggingProfile={data.runtimeLoggingProfile}
+          resultClassification={data.runtimeResultClassification}
         />
       );
     case "/operator-loop":

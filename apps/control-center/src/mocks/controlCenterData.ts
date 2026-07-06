@@ -22,6 +22,7 @@ import type {
   FounderLoopEvidenceHistoryAnswer,
   FounderLoopEvidenceHistoryAnswers,
   FounderLoopFollowUpTrackerReadModel,
+  FounderLoopMemoryBoundedPosture,
   FounderLoopSourceReadiness,
   FounderLoopSourceReadinessItem,
   FounderLoopSourceReadinessPosture,
@@ -37,6 +38,30 @@ import type {
   ConnectorDeliveryReviewQueue,
   RunAttachedApprovalQueue,
   RunObservabilityReadModel,
+  RuntimeBackgroundJobProposalReadModel,
+  RuntimeContextBudgetProposal,
+  RuntimeContextBudgetSegment,
+  RuntimeDoctorDiagnosticItem,
+  RuntimeHardlineCommandClassification,
+  RuntimeManagedScopePolicyDriftWarning,
+  RuntimeManagedScopePolicyPinSource,
+  RuntimeMcpServerCatalogEntry,
+  RuntimeMcpToolSlice,
+  RuntimeSubagentIsolationRole,
+  RuntimeSubagentReviewArtifact,
+  RuntimeLspDiagnosticEvidenceContract,
+  RuntimeLoggingProfileRecord,
+  RuntimePreviewRailSlot,
+  RuntimeResultClassificationRecord,
+  RuntimeRunControlProposal,
+  RuntimeSlashCommandRegistryEntry,
+  RuntimeSessionContinuitySurface,
+  RuntimeWorktreePerAgentLane,
+  RuntimeVirtualAgentSlot,
+  RuntimeVirtualProviderPreset,
+  RuntimeUsageCostRecord,
+  RuntimePromptStabilityTier,
+  RuntimeToolRegistryEntry,
   TrustAuthorityMatrix,
   WorkBoardReadModel,
 } from "../api/types";
@@ -45,6 +70,2138 @@ type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
 export const MOCK_OPENAPI_ROUTE_COUNT = 200;
 export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 88;
+
+function runtimeToolRegistryEntry(
+  slug: string,
+  overrides: Partial<RuntimeToolRegistryEntry>,
+): RuntimeToolRegistryEntry {
+  return {
+    tool_ref: `tool-registry-entry-ref:mock:${slug}`,
+    tool_id: slug.replaceAll("-", "."),
+    display_label: slug
+      .split("-")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" "),
+    origin: "future_runtime_reference",
+    runtime_ref: "runtime-identity-ref:mock:optional-reference",
+    toolset_ref: "toolset-ref:runtime:core-readonly-metadata",
+    availability_status: "blocked",
+    configured_status: "blocked_by_policy",
+    authority_class: "blocked_high_authority",
+    target_kind: "none",
+    side_effect_class: "none",
+    risk_class: "high",
+    approval_requirement: "future_runtime_approval_required",
+    safe_summary:
+      "Mock fallback tool registry entry is non-authoritative and cannot invoke tools.",
+    uaa_native_catalog_entry: false,
+    runtime_supported_by_reference: false,
+    uaa_available_for_preview: false,
+    uaa_allows_invocation: false,
+    execution_enabled: false,
+    remote_discovery_performed: false,
+    live_web_fetch_performed: false,
+    provider_model_call_performed: false,
+    plugin_import_enabled: false,
+    connector_write_activation_enabled: false,
+    raw_tool_payload_persisted: false,
+    approval_scope_ref: `approval-scope-ref:tool-registry:${slug}:future`,
+    safe_disable_ref: `safe-disable-ref:tool-registry:${slug}:disabled`,
+    receipt_plan_ref: `receipt-plan-ref:tool-registry:${slug}:not-executed`,
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-10:tool-registry"],
+    blocked_authority_refs: [
+      "blocked-authority:runtime-tool-registry-invocation",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-tool-registry:bind-per-tool-approval",
+    ],
+    ...overrides,
+  };
+}
+
+const runtimeToolRegistryEntries: RuntimeToolRegistryEntry[] = [
+  runtimeToolRegistryEntry("file-metadata-preview", {
+    tool_ref: "tool-registry-entry-ref:uaa-native:file-metadata-preview",
+    tool_id: "file.metadata_preview",
+    display_label: "File Metadata Preview",
+    origin: "uaa_native",
+    runtime_ref: "runtime-identity-ref:uaa-native:python-core",
+    availability_status: "available_metadata_only",
+    configured_status: "configured_metadata_only",
+    authority_class: "preview_only",
+    target_kind: "file_ref",
+    risk_class: "low",
+    approval_requirement: "not_required",
+    safe_summary: "Validation-only preview of safe file metadata refs.",
+    uaa_native_catalog_entry: true,
+    uaa_available_for_preview: true,
+  }),
+  runtimeToolRegistryEntry("memory-metadata-preview", {
+    tool_ref: "tool-registry-entry-ref:uaa-native:memory-metadata-preview",
+    tool_id: "memory.metadata_preview",
+    display_label: "Memory Metadata Preview",
+    origin: "uaa_native",
+    runtime_ref: "runtime-identity-ref:uaa-native:python-core",
+    availability_status: "available_metadata_only",
+    configured_status: "configured_metadata_only",
+    authority_class: "preview_only",
+    target_kind: "memory_ref",
+    risk_class: "low",
+    approval_requirement: "not_required",
+    safe_summary: "Validation-only preview of recall memory refs.",
+    uaa_native_catalog_entry: true,
+    uaa_available_for_preview: true,
+  }),
+  runtimeToolRegistryEntry("message-draft-preview", {
+    tool_ref: "tool-registry-entry-ref:uaa-native:message-draft-preview",
+    tool_id: "message.draft_preview",
+    display_label: "Message Draft Preview",
+    origin: "uaa_native",
+    runtime_ref: "runtime-identity-ref:uaa-native:python-core",
+    availability_status: "available_metadata_only",
+    configured_status: "configured_metadata_only",
+    authority_class: "preview_only",
+    target_kind: "message_draft_ref",
+    risk_class: "low",
+    approval_requirement: "not_required",
+    safe_summary: "Validation-only preview of a message draft ref.",
+    uaa_native_catalog_entry: true,
+    uaa_available_for_preview: true,
+  }),
+  runtimeToolRegistryEntry("api-route-preview", {
+    tool_ref: "tool-registry-entry-ref:uaa-native:api-route-preview",
+    tool_id: "api.route_preview",
+    display_label: "API Route Preview",
+    origin: "uaa_native",
+    runtime_ref: "runtime-identity-ref:uaa-native:python-core",
+    availability_status: "available_metadata_only",
+    configured_status: "configured_metadata_only",
+    authority_class: "preview_only",
+    target_kind: "api_route_ref",
+    risk_class: "low",
+    approval_requirement: "not_required",
+    safe_summary: "Validation-only preview of API route metadata.",
+    uaa_native_catalog_entry: true,
+    uaa_available_for_preview: true,
+  }),
+  runtimeToolRegistryEntry("hermes-coding-workspace-context", {
+    tool_id: "hermes.coding_workspace_context",
+    display_label: "Hermes coding workspace context",
+    origin: "hermes_reference",
+    toolset_ref: "toolset-ref:runtime:coding-workspace",
+    availability_status: "approval_required_future_lane",
+    configured_status: "configured_disabled",
+    authority_class: "approval_required_future_lane",
+    target_kind: "context_pack_ref",
+    side_effect_class: "context_injection",
+    runtime_supported_by_reference: true,
+  }),
+  runtimeToolRegistryEntry("hermes-command-execution", {
+    tool_id: "hermes.command_execution",
+    display_label: "Hermes command execution",
+    origin: "hermes_reference",
+    toolset_ref: "toolset-ref:runtime:command-execution",
+    side_effect_class: "shell_execution",
+    risk_class: "critical",
+    blocked_authority_refs: [
+      "blocked-authority:runtime-tool-registry-high-authority",
+      "blocked-authority:runtime-command-execution-without-gateway-allowlist",
+    ],
+    runtime_supported_by_reference: true,
+  }),
+  runtimeToolRegistryEntry("codex-patch-proposal-review", {
+    tool_id: "codex.patch_proposal_review",
+    display_label: "Codex patch proposal review",
+    origin: "codex_reference",
+    toolset_ref: "toolset-ref:runtime:coding-workspace",
+    availability_status: "approval_required_future_lane",
+    configured_status: "configured_disabled",
+    authority_class: "approval_required_future_lane",
+    target_kind: "file_ref",
+    side_effect_class: "file_write",
+    runtime_supported_by_reference: true,
+  }),
+  runtimeToolRegistryEntry("claude-review-summary", {
+    tool_id: "claude.review_summary",
+    display_label: "Claude review summary",
+    origin: "claude_reference",
+    availability_status: "configured_disabled",
+    configured_status: "unconfigured",
+    authority_class: "approval_required_future_lane",
+    target_kind: "context_pack_ref",
+    side_effect_class: "model_call",
+    blocked_authority_refs: [
+      "blocked-authority:runtime-tool-registry-invocation",
+      "blocked-authority:runtime-remote-provider-model-call",
+    ],
+    runtime_supported_by_reference: true,
+  }),
+  runtimeToolRegistryEntry("mcp-catalog-metadata", {
+    tool_id: "mcp.catalog_metadata",
+    display_label: "MCP catalog metadata",
+    origin: "mcp_reference",
+    toolset_ref: "toolset-ref:runtime:plugin-runtime-import",
+    availability_status: "configured_disabled",
+    configured_status: "configured_disabled",
+    authority_class: "approval_required_future_lane",
+    target_kind: "plugin_ref",
+    side_effect_class: "plugin_enablement",
+    blocked_authority_refs: [
+      "blocked-authority:runtime-tool-registry-invocation",
+      "blocked-authority:runtime-plugin-import",
+    ],
+    runtime_supported_by_reference: true,
+  }),
+  runtimeToolRegistryEntry("future-browser-observe", {
+    tool_id: "future.browser_observe",
+    display_label: "Browser observe tool",
+    toolset_ref: "toolset-ref:runtime:web-browser",
+    target_kind: "browser_ref",
+    side_effect_class: "browser_action",
+    risk_class: "critical",
+    blocked_authority_refs: [
+      "blocked-authority:runtime-tool-registry-high-authority",
+      "blocked-authority:runtime-browser-automation",
+    ],
+  }),
+  runtimeToolRegistryEntry("future-connector-write", {
+    tool_id: "future.connector_write",
+    display_label: "Connector write tool",
+    toolset_ref: "toolset-ref:runtime:connector-write",
+    target_kind: "remote_node_ref",
+    side_effect_class: "external_send",
+    risk_class: "critical",
+    blocked_authority_refs: [
+      "blocked-authority:runtime-tool-registry-high-authority",
+      "blocked-authority:runtime-connector-write",
+    ],
+  }),
+  runtimeToolRegistryEntry("future-production-operation", {
+    tool_id: "future.production_operation",
+    display_label: "Production operation tool",
+    toolset_ref: "toolset-ref:runtime:production-ops",
+    availability_status: "unsupported",
+    configured_status: "unsupported",
+    authority_class: "unsupported",
+    target_kind: "remote_node_ref",
+    side_effect_class: "remote_execution",
+    risk_class: "forbidden",
+    blocked_authority_refs: [
+      "blocked-authority:runtime-production-authority",
+      "blocked-authority:runtime-remote-execution",
+    ],
+  }),
+];
+
+const virtualProviderMoaBlockedRefs = [
+  "blocked-authority:virtual-provider-moa-no-live-model-fanout",
+  "blocked-authority:virtual-provider-moa-no-provider-sdk-call",
+  "blocked-authority:virtual-provider-moa-no-external-runtime-dispatch",
+  "blocked-authority:virtual-provider-moa-no-hidden-advisor-prompts",
+  "blocked-authority:virtual-provider-moa-no-output-authority",
+  "blocked-authority:virtual-provider-moa-no-production-authority",
+];
+
+function virtualProviderSlot(
+  slug: string,
+  overrides: Partial<RuntimeVirtualAgentSlot>,
+): RuntimeVirtualAgentSlot {
+  return {
+    slot_ref: `virtual-agent-slot-ref:mock:${slug}`,
+    display_label: slug
+      .split("-")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" "),
+    role: "uaa_supervisor",
+    runtime_ref: `runtime-ref:mock:${slug}`,
+    provider_ref: `provider-ref:mock:${slug}`,
+    model_ref: `model-ref:mock:${slug}`,
+    authority_profile_ref: `authority-profile-ref:virtual-agent-slot:${slug}:blocked`,
+    route_decision_trace_ref: `route-decision-trace-ref:virtual-provider-moa:${slug}`,
+    cost_estimate_ref: `cost-estimate-ref:virtual-provider-moa:${slug}:not-executed`,
+    output_envelope_ref: `agent-output-envelope-ref:virtual-provider-moa:${slug}:required`,
+    comparison_proof_ref: `comparison-proof-ref:virtual-provider-moa:${slug}:required`,
+    safe_disable_ref: `safe-disable-ref:virtual-provider-moa:${slug}`,
+    safe_summary:
+      "Mock virtual agent slot is non-authoritative metadata and cannot call models.",
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-20:virtual-provider-moa"],
+    evidence_refs: [`evidence-ref:virtual-provider-moa:${slug}`],
+    blocked_authority_refs: virtualProviderMoaBlockedRefs,
+    configured_for_live_call: false,
+    provider_sdk_call_enabled: false,
+    external_runtime_dispatch_enabled: false,
+    hidden_advisor_prompt_enabled: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    output_authoritative: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+function virtualProviderPreset(
+  slug: string,
+  overrides: Partial<RuntimeVirtualProviderPreset>,
+): RuntimeVirtualProviderPreset {
+  const slots = overrides.slots ?? [];
+  return {
+    preset_ref: `virtual-provider-preset-ref:mock:${slug}`,
+    display_label: slug
+      .split("-")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" "),
+    status: "metadata_only",
+    safe_summary:
+      "Mock virtual provider preset is non-authoritative; model fan-out remains blocked.",
+    approval_mode_ref: `approval-mode-ref:virtual-provider-moa:${slug}:future`,
+    route_decision_trace_ref: `route-decision-trace-ref:virtual-provider-moa:${slug}`,
+    cost_estimate_ref: `cost-estimate-ref:virtual-provider-moa:${slug}:aggregate`,
+    comparison_proof_ref: `comparison-proof-ref:virtual-provider-moa:${slug}`,
+    safe_disable_ref: `safe-disable-ref:virtual-provider-moa:${slug}`,
+    slots,
+    slot_count: slots.length,
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-20:virtual-provider-moa"],
+    evidence_refs: [`evidence-ref:virtual-provider-moa:${slug}`],
+    verifier_refs: ["verifier-ref:hermes-runtime-adoption:phase-20"],
+    blocked_authority_refs: virtualProviderMoaBlockedRefs,
+    per_agent_output_envelopes_required: true,
+    comparison_proof_required: true,
+    live_model_fanout_enabled: false,
+    provider_sdk_enabled: false,
+    external_runtime_dispatch_enabled: false,
+    hidden_advisor_prompts_enabled: false,
+    raw_prompt_persistence_enabled: false,
+    raw_response_persistence_enabled: false,
+    output_authority_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+const runtimeVirtualProviderMoaPresets: RuntimeVirtualProviderPreset[] = [
+  virtualProviderPreset("codex-implement-claude-review", {
+    display_label: "Codex implementer plus Claude reviewer",
+    status: "readiness_only",
+    safe_summary:
+      "Mock fallback models a future Codex implementation branch with Claude review and UAA supervision; no calls are made.",
+    slots: [
+      virtualProviderSlot("codex-implementer", {
+        display_label: "Codex implementer",
+        role: "codex_implementer",
+        runtime_ref: "runtime-ref:codex:future-governed-adapter",
+        provider_ref: "provider-ref:codex:external-future",
+        model_ref: "model-ref:codex:implementation-role",
+      }),
+      virtualProviderSlot("claude-reviewer", {
+        display_label: "Claude reviewer",
+        role: "claude_reviewer",
+        runtime_ref: "runtime-ref:claude:future-governed-adapter",
+        provider_ref: "provider-ref:anthropic:external-future",
+        model_ref: "model-ref:claude:review-role",
+      }),
+      virtualProviderSlot("uaa-supervisor-coding", {
+        display_label: "UAA supervisor",
+        role: "uaa_supervisor",
+        runtime_ref: "runtime-ref:uaa:local-supervisor",
+        provider_ref: "provider-ref:uaa:python-core",
+        model_ref: "model-ref:uaa:policy-supervisor",
+      }),
+    ],
+  }),
+  virtualProviderPreset("hermes-research-local-verify", {
+    display_label: "Hermes researcher plus local verifier",
+    slots: [
+      virtualProviderSlot("hermes-researcher", {
+        display_label: "Hermes researcher",
+        role: "hermes_researcher",
+        runtime_ref: "runtime-ref:hermes-agent:optional-target",
+        provider_ref: "provider-ref:hermes:delegated-runtime",
+        model_ref: "model-ref:hermes:research-role",
+      }),
+      virtualProviderSlot("local-verifier", {
+        display_label: "Local verifier",
+        role: "local_verifier",
+        runtime_ref: "runtime-ref:uaa:local-verifier",
+        provider_ref: "provider-ref:uaa:python-core",
+        model_ref: "model-ref:uaa:verifier-role",
+      }),
+    ],
+  }),
+  virtualProviderPreset("security-review-board", {
+    display_label: "Security review board",
+    status: "blocked_requires_authority",
+    slots: [
+      virtualProviderSlot("security-reviewer", {
+        display_label: "Security reviewer",
+        role: "security_reviewer",
+        runtime_ref: "runtime-ref:security-reviewer:future",
+        provider_ref: "provider-ref:security-reviewer:future",
+        model_ref: "model-ref:security-reviewer:future",
+      }),
+      virtualProviderSlot("uaa-safety-supervisor", {
+        display_label: "UAA safety supervisor",
+        role: "uaa_supervisor",
+        runtime_ref: "runtime-ref:uaa:safety-supervisor",
+        provider_ref: "provider-ref:uaa:python-core",
+        model_ref: "model-ref:uaa:safety-supervisor",
+      }),
+    ],
+  }),
+];
+
+const runtimeUsageCostAnalyticsBlockedRefs = [
+  "blocked-authority:usage-cost-analytics-no-billing-action",
+  "blocked-authority:usage-cost-analytics-no-provider-call",
+  "blocked-authority:usage-cost-analytics-no-provider-sdk-call",
+  "blocked-authority:usage-cost-analytics-no-live-price-fetch",
+  "blocked-authority:usage-cost-analytics-no-raw-prompt-persistence",
+  "blocked-authority:usage-cost-analytics-no-raw-response-persistence",
+  "blocked-authority:usage-cost-analytics-no-provider-payload-persistence",
+  "blocked-authority:usage-cost-analytics-no-operator-export",
+  "blocked-authority:usage-cost-analytics-no-production-authority",
+];
+
+function runtimeUsageCostRecord(
+  slug: string,
+  overrides: Partial<RuntimeUsageCostRecord>,
+): RuntimeUsageCostRecord {
+  return {
+    record_ref: `usage-cost-record-ref:${slug}`,
+    display_label: overrides.display_label ?? "Runtime accounting record",
+    source_kind: overrides.source_kind ?? "manual_diagnostic_receipt",
+    status: overrides.status ?? "read_only_estimate",
+    runtime_ref: overrides.runtime_ref ?? "runtime-ref:uaa:mock-runtime",
+    provider_ref: overrides.provider_ref ?? "provider-ref:uaa:mock-provider",
+    model_ref: overrides.model_ref ?? "model-ref:uaa:mock-model",
+    task_value_ref:
+      overrides.task_value_ref ?? `task-value-ref:runtime-usage:${slug}`,
+    receipt_ref: overrides.receipt_ref ?? `runtime-receipt-ref:usage-cost:${slug}`,
+    cost_estimate_ref:
+      overrides.cost_estimate_ref ?? `cost-estimate-ref:runtime-usage:${slug}`,
+    safe_summary:
+      overrides.safe_summary ??
+      "Mock fallback row is read-only accounting posture only.",
+    estimated_input_tokens: overrides.estimated_input_tokens ?? 0,
+    estimated_output_tokens: overrides.estimated_output_tokens ?? 0,
+    estimated_total_tokens: overrides.estimated_total_tokens ?? 0,
+    latency_ms: overrides.latency_ms ?? 0,
+    estimated_cost_minor_units: overrides.estimated_cost_minor_units ?? 0,
+    currency_ref: overrides.currency_ref ?? "currency-ref:usd",
+    proof_refs: overrides.proof_refs ?? [
+      "proof-ref:hermes-runtime-adoption:phase-22:usage-cost-analytics",
+    ],
+    evidence_refs: overrides.evidence_refs ?? [
+      `evidence-ref:runtime-usage-cost:${slug}`,
+    ],
+    blocked_authority_refs:
+      overrides.blocked_authority_refs ?? runtimeUsageCostAnalyticsBlockedRefs,
+    provider_call_performed: false,
+    provider_sdk_call_performed: false,
+    billing_action_performed: false,
+    live_price_fetch_performed: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    provider_payload_persisted: false,
+    output_authoritative: false,
+    production_authority_enabled: false,
+  };
+}
+
+const runtimeUsageCostAnalyticsRecords: RuntimeUsageCostRecord[] = [
+  runtimeUsageCostRecord("local-loopback-diagnostic", {
+    display_label: "Local diagnostic accounting",
+    source_kind: "manual_diagnostic_receipt",
+    status: "recorded_diagnostic",
+    runtime_ref: "runtime-ref:uaa:runtime-gateway",
+    provider_ref: "provider-ref:uaa:local-loopback",
+    model_ref: "model-ref:uaa:loopback-diagnostic",
+    safe_summary:
+      "Mock local diagnostic row shows bounded accounting metadata only.",
+    estimated_input_tokens: 128,
+    estimated_output_tokens: 64,
+    estimated_total_tokens: 192,
+    latency_ms: 42,
+  }),
+  runtimeUsageCostRecord("provider-catalog-reference", {
+    display_label: "Provider catalog cost reference",
+    source_kind: "provider_catalog_reference",
+    runtime_ref: "runtime-ref:provider-catalog:read-only",
+    provider_ref: "provider-ref:frontier-provider:blocked-reference",
+    model_ref: "model-ref:frontier-model:cost-reference",
+    safe_summary:
+      "Mock catalog reference is an offline estimate; no provider call is made.",
+    estimated_input_tokens: 900,
+    estimated_output_tokens: 250,
+    estimated_total_tokens: 1150,
+    estimated_cost_minor_units: 14,
+  }),
+  runtimeUsageCostRecord("delegated-runtime-future", {
+    display_label: "Delegated runtime future accounting",
+    source_kind: "delegated_runtime_future",
+    status: "blocked_missing_authority",
+    runtime_ref: "runtime-ref:hermes-agent:optional-target",
+    provider_ref: "provider-ref:delegated-runtime:future",
+    model_ref: "model-ref:delegated-runtime:future",
+    safe_summary:
+      "Mock delegated runtime accounting remains blocked until receipts exist.",
+  }),
+];
+
+const runtimePromptStabilityBlockedRefs = [
+  "blocked-authority:prompt-stability-no-hidden-prompt-injection",
+  "blocked-authority:prompt-stability-no-raw-prompt-persistence",
+  "blocked-authority:prompt-stability-no-raw-response-persistence",
+  "blocked-authority:prompt-stability-no-provider-payload-persistence",
+  "blocked-authority:prompt-stability-no-model-output-authority",
+  "blocked-authority:prompt-stability-no-model-call",
+  "blocked-authority:prompt-stability-no-context-injection",
+  "blocked-authority:prompt-stability-no-provider-sdk-call",
+  "blocked-authority:prompt-stability-no-cache-write",
+  "blocked-authority:prompt-stability-no-production-authority",
+];
+
+function runtimePromptStabilityTier(
+  slug: string,
+  overrides: Partial<RuntimePromptStabilityTier>,
+): RuntimePromptStabilityTier {
+  return {
+    tier_ref: `prompt-stability-tier-ref:${slug}`,
+    display_label: overrides.display_label ?? "Prompt stability tier",
+    tier_kind: overrides.tier_kind ?? "durable_context_refs",
+    stability_class: overrides.stability_class ?? "semi_stable_ref_set",
+    manifest_ref: overrides.manifest_ref ?? `prompt-manifest-ref:runtime:${slug}`,
+    tier_hash_ref:
+      overrides.tier_hash_ref ?? `prompt-tier-hash-ref:runtime:${slug}:redacted`,
+    cache_policy_ref:
+      overrides.cache_policy_ref ?? `cache-policy-ref:prompt-stability:${slug}`,
+    proof_ref:
+      overrides.proof_ref ??
+      "proof-ref:hermes-runtime-adoption:phase-23:prompt-stability-tiers",
+    safe_summary:
+      overrides.safe_summary ??
+      "Mock prompt tier stores safe refs only and no prompt material.",
+    source_refs: overrides.source_refs ?? [
+      `prompt-source-ref:runtime:${slug}:safe-ref-only`,
+    ],
+    evidence_refs: overrides.evidence_refs ?? [
+      `evidence-ref:prompt-stability:${slug}`,
+    ],
+    blocked_authority_refs:
+      overrides.blocked_authority_refs ?? runtimePromptStabilityBlockedRefs,
+    cache_candidate: overrides.cache_candidate ?? false,
+    cache_write_enabled: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    provider_payload_persisted: false,
+    hidden_prompt_injection_enabled: false,
+    context_injection_enabled: false,
+    model_call_performed: false,
+    provider_sdk_call_performed: false,
+    model_output_authoritative: false,
+    production_authority_enabled: false,
+  };
+}
+
+const runtimePromptStabilityTiers: RuntimePromptStabilityTier[] = [
+  runtimePromptStabilityTier("stable-identity-policy", {
+    display_label: "Stable identity and policy",
+    tier_kind: "stable_identity_policy",
+    stability_class: "stable_cache_candidate",
+    cache_candidate: true,
+    source_refs: [
+      "policy-ref:uaa:non-negotiable-invariants",
+      "authority-profile-ref:runtime:sealed-default",
+    ],
+    safe_summary:
+      "Mock stable policy tier is hash-addressable posture only; no prompt text is stored.",
+  }),
+  runtimePromptStabilityTier("durable-context-refs", {
+    display_label: "Durable context refs",
+    tier_kind: "durable_context_refs",
+    stability_class: "semi_stable_ref_set",
+    cache_candidate: true,
+    source_refs: [
+      "context-pack-ref:prepared-turn:review-required",
+      "proof-ref:runtime-context-references:phase-16",
+    ],
+  }),
+  runtimePromptStabilityTier("retrieval-refs", {
+    display_label: "Retrieval refs",
+    tier_kind: "retrieval_refs",
+    stability_class: "semi_stable_ref_set",
+    cache_candidate: true,
+    source_refs: [
+      "search-ref:runtime-session-search:sample",
+      "memory-ref:reviewed:operator-context",
+    ],
+  }),
+  runtimePromptStabilityTier("volatile-runtime-state", {
+    display_label: "Volatile runtime state",
+    tier_kind: "volatile_runtime_state",
+    stability_class: "volatile_no_cache",
+    source_refs: [
+      "run-state-ref:runtime:approval-wait",
+      "event-preview-ref:runtime-streaming-progress:stale",
+    ],
+  }),
+  runtimePromptStabilityTier("operator-turn-ref", {
+    display_label: "Operator turn ref",
+    tier_kind: "operator_turn_ref",
+    stability_class: "operator_scoped_no_cache",
+    source_refs: [
+      "turn-ref:prepared-turn:ephemeral",
+      "content-fingerprint-ref:prepared-turn-content:required",
+    ],
+  }),
+];
+
+const runtimeContextBudgetBlockedRefs = [
+  "blocked-authority:context-budget-no-hidden-compression",
+  "blocked-authority:context-budget-no-automatic-context-mutation",
+  "blocked-authority:context-budget-no-model-summarization-call",
+  "blocked-authority:context-budget-no-raw-context-persistence",
+  "blocked-authority:context-budget-no-raw-prompt-persistence",
+  "blocked-authority:context-budget-no-raw-response-persistence",
+  "blocked-authority:context-budget-no-provider-payload-persistence",
+  "blocked-authority:context-budget-no-context-injection",
+  "blocked-authority:context-budget-no-provider-sdk-call",
+  "blocked-authority:context-budget-no-cache-write",
+  "blocked-authority:context-budget-no-production-authority",
+];
+
+function runtimeContextBudgetSegment(
+  slug: string,
+  overrides: Partial<RuntimeContextBudgetSegment>,
+): RuntimeContextBudgetSegment {
+  const tokenEstimate = overrides.token_estimate ?? 0;
+  const tokenBudgetLimit = overrides.token_budget_limit ?? 1;
+  return {
+    segment_ref: `context-budget-segment-ref:${slug}`,
+    display_label: overrides.display_label ?? "Context budget segment",
+    source_ref: overrides.source_ref ?? `context-source-ref:runtime:${slug}`,
+    source_route_ref: overrides.source_route_ref ?? "GET /api/runtime/context-references",
+    budget_bucket_ref:
+      overrides.budget_bucket_ref ?? `context-budget-bucket-ref:${slug}`,
+    pressure_level: overrides.pressure_level ?? "within_budget",
+    safe_summary:
+      overrides.safe_summary ??
+      "Mock context budget segment is safe-ref posture only.",
+    token_estimate: tokenEstimate,
+    token_budget_limit: tokenBudgetLimit,
+    token_budget_remaining:
+      overrides.token_budget_remaining ?? tokenBudgetLimit - tokenEstimate,
+    warning_refs: overrides.warning_refs ?? [],
+    proposal_refs: overrides.proposal_refs ?? [],
+    evidence_refs: overrides.evidence_refs ?? [
+      `evidence-ref:context-budget:${slug}`,
+    ],
+    proof_refs: overrides.proof_refs ?? [
+      "proof-ref:hermes-runtime-adoption:phase-24:context-budget-pressure",
+    ],
+    blocked_authority_refs:
+      overrides.blocked_authority_refs ?? runtimeContextBudgetBlockedRefs,
+    hidden_compression_enabled: false,
+    automatic_context_mutation_enabled: false,
+    model_summarization_call_performed: false,
+    summary_receipt_created: false,
+    raw_context_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    provider_payload_persisted: false,
+    context_injection_performed: false,
+    provider_sdk_call_performed: false,
+    cache_write_performed: false,
+    production_authority_enabled: false,
+  };
+}
+
+function runtimeContextBudgetProposal(
+  slug: string,
+  overrides: Partial<RuntimeContextBudgetProposal>,
+): RuntimeContextBudgetProposal {
+  return {
+    proposal_ref: `context-budget-proposal-ref:${slug}`,
+    proposal_kind: overrides.proposal_kind ?? "trim_context_refs",
+    target_segment_ref:
+      overrides.target_segment_ref ?? "context-budget-segment-ref:retrieval-context",
+    display_label: overrides.display_label ?? "Context budget proposal",
+    safe_summary:
+      overrides.safe_summary ??
+      "Mock context budget proposal requires operator review before any work.",
+    expected_token_delta: overrides.expected_token_delta ?? 0,
+    approval_required: true,
+    source_coverage_required: true,
+    retrieval_log_required: true,
+    summary_receipt_required: true,
+    source_refs: overrides.source_refs ?? [
+      `context-budget-source-ref:${slug}:safe-ref-only`,
+    ],
+    retrieval_log_refs: overrides.retrieval_log_refs ?? [
+      `retrieval-log-ref:context-budget:${slug}`,
+    ],
+    proof_refs: overrides.proof_refs ?? [
+      "proof-ref:hermes-runtime-adoption:phase-24:context-budget-pressure",
+    ],
+    blocked_authority_refs:
+      overrides.blocked_authority_refs ?? runtimeContextBudgetBlockedRefs,
+    auto_applied: false,
+    hidden_compression_performed: false,
+    automatic_context_mutation_performed: false,
+    model_summarization_call_performed: false,
+    summary_receipt_created: false,
+    raw_context_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    provider_payload_persisted: false,
+    context_injection_performed: false,
+    provider_sdk_call_performed: false,
+    cache_write_performed: false,
+    production_authority_enabled: false,
+  };
+}
+
+const runtimeContextBudgetProposals: RuntimeContextBudgetProposal[] = [
+  runtimeContextBudgetProposal("trim-low-signal-context-refs", {
+    proposal_kind: "trim_context_refs",
+    target_segment_ref: "context-budget-segment-ref:retrieval-context",
+    display_label: "Trim low-signal context refs",
+    safe_summary:
+      "Mock trim proposal is review-only and cannot mutate context.",
+    expected_token_delta: -1800,
+  }),
+  runtimeContextBudgetProposal("ask-operator-context-priority", {
+    proposal_kind: "request_operator_choice",
+    target_segment_ref: "context-budget-segment-ref:operator-turn",
+    display_label: "Ask operator for context priority",
+    safe_summary:
+      "Mock operator-choice proposal asks for priority instead of compressing text.",
+  }),
+  runtimeContextBudgetProposal("summarize-with-approval", {
+    proposal_kind: "summarize_with_approval",
+    target_segment_ref: "context-budget-segment-ref:durable-context",
+    display_label: "Summarize only with approval",
+    safe_summary:
+      "Mock summary proposal remains blocked until approval and receipt lanes exist.",
+    expected_token_delta: -2400,
+  }),
+];
+
+const runtimeContextBudgetSegments: RuntimeContextBudgetSegment[] = [
+  runtimeContextBudgetSegment("stable-policy", {
+    display_label: "Stable policy refs",
+    source_ref: "policy-ref:uaa:non-negotiable-invariants",
+    source_route_ref: "GET /api/runtime/prompt-stability-tiers",
+    token_estimate: 1500,
+    token_budget_limit: 4000,
+    safe_summary: "Mock stable policy refs are within budget.",
+  }),
+  runtimeContextBudgetSegment("durable-context", {
+    display_label: "Durable context refs",
+    source_ref: "context-pack-ref:prepared-turn:review-required",
+    token_estimate: 5200,
+    token_budget_limit: 6000,
+    pressure_level: "warning",
+    warning_refs: ["warning-ref:context-budget:durable-context:warning"],
+    proposal_refs: ["context-budget-proposal-ref:summarize-with-approval"],
+    safe_summary:
+      "Mock durable context refs are near budget and remain review-only.",
+  }),
+  runtimeContextBudgetSegment("retrieval-context", {
+    display_label: "Retrieval context refs",
+    source_ref: "search-ref:runtime-session-search:sample",
+    source_route_ref: "GET /api/runtime/session-search",
+    token_estimate: 6100,
+    token_budget_limit: 6000,
+    token_budget_remaining: -100,
+    pressure_level: "critical",
+    warning_refs: ["warning-ref:context-budget:retrieval-context:critical"],
+    proposal_refs: ["context-budget-proposal-ref:trim-low-signal-context-refs"],
+    safe_summary:
+      "Mock retrieval context exceeds its segment budget and can only propose trims.",
+  }),
+  runtimeContextBudgetSegment("operator-turn", {
+    display_label: "Operator turn ref",
+    source_ref: "turn-ref:prepared-turn:ephemeral",
+    source_route_ref: "GET /api/turn-router/prepared-turn",
+    token_estimate: 2100,
+    token_budget_limit: 4000,
+    pressure_level: "warning",
+    warning_refs: ["warning-ref:context-budget:operator-turn:warning"],
+    proposal_refs: ["context-budget-proposal-ref:ask-operator-context-priority"],
+    safe_summary:
+      "Mock operator turn material remains omitted; UAA can ask for priority.",
+  }),
+];
+
+const runtimeHardlineCommandBlockedRefs = [
+  "blocked-authority:runtime-hardline-command-floor-override",
+  "blocked-authority:runtime-command-string-bypass",
+  "blocked-authority:runtime-shell-metachar-bypass",
+  "blocked-authority:runtime-destructive-command-bypass",
+  "blocked-authority:runtime-network-command-bypass",
+  "blocked-authority:runtime-git-mutation-bypass",
+  "blocked-authority:runtime-package-install-bypass",
+  "blocked-authority:runtime-privilege-escalation-bypass",
+  "blocked-authority:runtime-production-command-bypass",
+  "blocked-authority:runtime-raw-command-text-persistence",
+  "blocked-authority:runtime-raw-command-output-persistence",
+  "blocked-authority:runtime-production-authority",
+];
+
+function runtimeHardlineCommandClassification(
+  slug: string,
+  overrides: Partial<RuntimeHardlineCommandClassification>,
+): RuntimeHardlineCommandClassification {
+  const denied = overrides.denied ?? false;
+  return {
+    candidate_ref: `hardline-command-candidate-ref:${slug}`,
+    source_ref:
+      overrides.source_ref ?? "test-corpus-ref:runtime-hardline-command-blocklist",
+    status: overrides.status ?? (denied ? "hardline_denied" : "allowed_shape"),
+    denial_category: overrides.denial_category ?? (denied ? "shell_metachar" : "allowed"),
+    denied,
+    non_overridable: true,
+    override_bypass_permitted: false,
+    raw_command_text_persisted: false,
+    raw_command_output_persisted: false,
+    command_execution_performed: false,
+    denial_reason_ref:
+      overrides.denial_reason_ref ??
+      (denied
+        ? `hardline-command-deny-ref:${overrides.denial_category ?? "shell_metachar"}`
+        : "hardline-command-allow-ref:exact-allowlisted-shape"),
+    safe_summary:
+      overrides.safe_summary ??
+      "Mock hardline command classification stores safe refs only.",
+  };
+}
+
+const runtimeHardlineCommandClassifications: RuntimeHardlineCommandClassification[] =
+  [
+    runtimeHardlineCommandClassification("allowlisted-git-status", {
+      source_ref: "allowlisted-shape-ref:runtime-command-git-status",
+      denied: false,
+      denial_category: "allowed",
+      safe_summary:
+        "Mock git status shape passes the hardline floor and still requires exact lane checks.",
+    }),
+    runtimeHardlineCommandClassification("allowlisted-focused-pytest", {
+      source_ref: "allowlisted-shape-ref:runtime-command-focused-pytest",
+      denied: false,
+      denial_category: "allowed",
+      safe_summary:
+        "Mock focused pytest shape passes the hardline floor and still requires exact approval checks.",
+    }),
+    runtimeHardlineCommandClassification("shell-metachar", {
+      denied: true,
+      denial_category: "shell_metachar",
+      safe_summary: "Mock shell metachar shape is hardline denied.",
+    }),
+    runtimeHardlineCommandClassification("destructive-filesystem", {
+      denied: true,
+      denial_category: "destructive_filesystem",
+      safe_summary: "Mock destructive filesystem shape is hardline denied.",
+    }),
+    runtimeHardlineCommandClassification("network-transfer", {
+      denied: true,
+      denial_category: "network_transfer",
+      safe_summary: "Mock network transfer shape is hardline denied.",
+    }),
+    runtimeHardlineCommandClassification("git-mutation", {
+      denied: true,
+      denial_category: "git_mutation",
+      safe_summary: "Mock Git mutation shape is hardline denied.",
+    }),
+    runtimeHardlineCommandClassification("package-install", {
+      denied: true,
+      denial_category: "package_install",
+      safe_summary: "Mock package install shape is hardline denied.",
+    }),
+    runtimeHardlineCommandClassification("production-orchestration", {
+      denied: true,
+      denial_category: "production_orchestration",
+      safe_summary: "Mock production orchestration shape is hardline denied.",
+    }),
+  ];
+
+const runtimeManagedScopeBlockedRefs = [
+  "blocked-authority:managed-scope-no-system-config-write",
+  "blocked-authority:managed-scope-no-privileged-write",
+  "blocked-authority:managed-scope-no-mdm-delivery",
+  "blocked-authority:managed-scope-no-protected-material-management",
+  "blocked-authority:managed-scope-no-unsigned-runtime-config-override",
+  "blocked-authority:managed-scope-no-production-enforcement",
+  "blocked-authority:managed-scope-no-control-center-authority-mint",
+];
+
+const runtimeManagedScopePinnedSources: RuntimeManagedScopePolicyPinSource[] = [
+  {
+    source_ref: "managed-policy-source-ref:runtime:agents-md-baseline",
+    source_kind: "repo_local_policy",
+    display_label: "Workspace standards baseline",
+    precedence: 1,
+    pinned: true,
+    verified: true,
+    active: true,
+    checksum_ref: "checksum-ref:managed-scope-policy:agents-md-baseline",
+    drift_status: "aligned",
+    drift_warning_ref: null,
+    safe_summary:
+      "Mock workspace standards pin runtime authority defaults for local review.",
+    blocked_authority_refs: runtimeManagedScopeBlockedRefs,
+    system_config_write_performed: false,
+    privileged_write_performed: false,
+    mdm_delivery_performed: false,
+    managed_protected_material_performed: false,
+    unsigned_runtime_config_override_performed: false,
+    production_enforcement_claimed: false,
+  },
+  {
+    source_ref: "managed-policy-source-ref:runtime:hermes-adoption-pack",
+    source_kind: "prompt_pack_policy",
+    display_label: "Hermes adoption prompt pack",
+    precedence: 2,
+    pinned: true,
+    verified: true,
+    active: true,
+    checksum_ref: "checksum-ref:managed-scope-policy:hermes-pack",
+    drift_status: "aligned",
+    drift_warning_ref: null,
+    safe_summary:
+      "Mock Hermes adoption policy pins UAA-owned runtime boundaries.",
+    blocked_authority_refs: runtimeManagedScopeBlockedRefs,
+    system_config_write_performed: false,
+    privileged_write_performed: false,
+    mdm_delivery_performed: false,
+    managed_protected_material_performed: false,
+    unsigned_runtime_config_override_performed: false,
+    production_enforcement_claimed: false,
+  },
+  {
+    source_ref: "managed-policy-source-ref:runtime:sealed-default-profile",
+    source_kind: "runtime_default",
+    display_label: "Sealed default runtime profile",
+    precedence: 3,
+    pinned: true,
+    verified: true,
+    active: true,
+    checksum_ref: "checksum-ref:managed-scope-policy:sealed-default",
+    drift_status: "warning",
+    drift_warning_ref: "drift-warning-ref:managed-scope-policy:sealed-default",
+    safe_summary:
+      "Mock sealed default differs from requested pilot scope; review stays local.",
+    blocked_authority_refs: runtimeManagedScopeBlockedRefs,
+    system_config_write_performed: false,
+    privileged_write_performed: false,
+    mdm_delivery_performed: false,
+    managed_protected_material_performed: false,
+    unsigned_runtime_config_override_performed: false,
+    production_enforcement_claimed: false,
+  },
+];
+
+const runtimeManagedScopeDriftWarnings: RuntimeManagedScopePolicyDriftWarning[] = [
+  {
+    warning_ref: "drift-warning-ref:managed-scope-policy:sealed-default",
+    source_ref: "managed-policy-source-ref:runtime:sealed-default-profile",
+    status: "warning",
+    severity: "medium",
+    safe_summary:
+      "Mock requested pilot scope is visible as review posture; sealed default stays deny-by-default.",
+    expected_policy_ref: "managed-policy-ref:runtime:local-operator-pilot",
+    observed_policy_ref: "managed-policy-ref:runtime:sealed-default",
+    blocked_authority_refs: runtimeManagedScopeBlockedRefs,
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-27:managed-scope-policy"],
+    operator_review_required: true,
+    auto_remediation_performed: false,
+    runtime_config_write_performed: false,
+    unsigned_override_accepted: false,
+    production_enforcement_claimed: false,
+  },
+];
+
+const runtimeDoctorBlockedRefs = [
+  "blocked-authority:runtime-doctor-no-installs",
+  "blocked-authority:runtime-doctor-no-service-starts",
+  "blocked-authority:runtime-doctor-no-protected-material-write",
+  "blocked-authority:runtime-doctor-no-runtime-config-mutation",
+  "blocked-authority:runtime-doctor-no-provider-payload-persistence",
+  "blocked-authority:runtime-doctor-no-control-center-authority-mint",
+];
+
+function runtimeDoctorDiagnosticItem(
+  slug: string,
+  {
+    domain,
+    status,
+    display_label,
+    safe_summary,
+  }: Pick<
+    RuntimeDoctorDiagnosticItem,
+    "domain" | "status" | "display_label" | "safe_summary"
+  >,
+): RuntimeDoctorDiagnosticItem {
+  return {
+    diagnostic_ref: `runtime-doctor-diagnostic-ref:${slug}`,
+    domain,
+    status,
+    display_label,
+    safe_summary,
+    signal_refs: [`diagnostic-signal-ref:runtime-doctor:${slug}`],
+    route_refs: [],
+    cli_refs: [],
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-28:doctor-diagnostics"],
+    blocked_authority_refs: runtimeDoctorBlockedRefs,
+    next_safe_action_refs: [`next-safe-action-ref:runtime-doctor:${slug}`],
+    install_performed: false,
+    service_start_performed: false,
+    credential_write_performed: false,
+    runtime_config_mutation_performed: false,
+    raw_log_persisted: false,
+    raw_local_path_persisted: false,
+    provider_payload_persisted: false,
+  };
+}
+
+const runtimeDoctorDiagnosticsItems: RuntimeDoctorDiagnosticItem[] = [
+  runtimeDoctorDiagnosticItem("setup", {
+    domain: "setup",
+    status: "review",
+    display_label: "Setup",
+    safe_summary:
+      "Mock setup diagnostics are readable only; installs stay proposal-only.",
+  }),
+  runtimeDoctorDiagnosticItem("runtime-readiness", {
+    domain: "runtime_readiness",
+    status: "ok",
+    display_label: "Runtime readiness",
+    safe_summary:
+      "Mock runtime readiness uses status refs only and does not launch services.",
+  }),
+  runtimeDoctorDiagnosticItem("providers", {
+    domain: "providers",
+    status: "review",
+    display_label: "Providers",
+    safe_summary:
+      "Mock provider posture is metadata only; provider calls stay blocked.",
+  }),
+  runtimeDoctorDiagnosticItem("tools", {
+    domain: "tools",
+    status: "ok",
+    display_label: "Tools",
+    safe_summary:
+      "Mock tool posture is catalog visibility only; invocation stays blocked.",
+  }),
+  runtimeDoctorDiagnosticItem("protected-material", {
+    domain: "protected_material",
+    status: "blocked",
+    display_label: "Protected material",
+    safe_summary:
+      "Mock protected material posture uses redacted refs only; writes stay blocked.",
+  }),
+  runtimeDoctorDiagnosticItem("local-services", {
+    domain: "local_services",
+    status: "review",
+    display_label: "Local services",
+    safe_summary:
+      "Mock local service posture is readable only; starts and restarts stay blocked.",
+  }),
+  runtimeDoctorDiagnosticItem("authority", {
+    domain: "authority",
+    status: "ok",
+    display_label: "Authority",
+    safe_summary:
+      "Mock authority posture points to exact lanes without minting authority.",
+  }),
+  runtimeDoctorDiagnosticItem("next-actions", {
+    domain: "next_actions",
+    status: "review",
+    display_label: "Next safe actions",
+    safe_summary:
+      "Mock next actions are proposal refs until approval and receipt lanes exist.",
+  }),
+];
+
+const runtimeSessionContinuityBlockedRefs = [
+  "blocked-authority:session-continuity-no-external-message-gateway",
+  "blocked-authority:session-continuity-no-account-sync",
+  "blocked-authority:session-continuity-no-connector-write",
+  "blocked-authority:session-continuity-no-remote-session",
+  "blocked-authority:session-continuity-no-raw-transcript-persistence",
+  "blocked-authority:session-continuity-no-raw-prompt-response-persistence",
+  "blocked-authority:session-continuity-no-provider-payload-persistence",
+  "blocked-authority:session-continuity-no-control-center-authority-mint",
+];
+
+function runtimeSessionContinuitySurface(
+  slug: string,
+  {
+    source,
+    source_label,
+    continuity_state,
+    session_ref,
+    route_ref,
+    safe_summary,
+    run_ref = null,
+    cli_ref = null,
+  }: Pick<
+    RuntimeSessionContinuitySurface,
+    | "source"
+    | "source_label"
+    | "continuity_state"
+    | "session_ref"
+    | "route_ref"
+    | "safe_summary"
+  > &
+    Partial<Pick<RuntimeSessionContinuitySurface, "run_ref" | "cli_ref">>,
+): RuntimeSessionContinuitySurface {
+  return {
+    surface_ref: `session-continuity-surface-ref:${slug}`,
+    source,
+    source_label,
+    continuity_state,
+    session_ref,
+    run_ref,
+    route_ref,
+    cli_ref,
+    last_seen_ref: `last-seen-ref:session-continuity:${slug}`,
+    staleness_state_ref: `staleness-state-ref:session-continuity:${slug}`,
+    conflict_state_ref: `conflict-state-ref:session-continuity:${slug}`,
+    safe_summary,
+    evidence_refs: [`evidence-ref:session-continuity:${slug}`],
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-29:session-continuity"],
+    receipt_refs: [],
+    blocked_authority_refs: runtimeSessionContinuityBlockedRefs,
+    next_safe_action_refs: [`next-safe-action-ref:session-continuity:${slug}`],
+    external_message_gateway_enabled: false,
+    account_sync_enabled: false,
+    connector_write_enabled: false,
+    remote_session_enabled: false,
+    raw_transcript_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    raw_provider_payload_persisted: false,
+    control_center_mints_authority: false,
+  };
+}
+
+const runtimeSessionContinuitySurfaces: RuntimeSessionContinuitySurface[] = [
+  runtimeSessionContinuitySurface("control-center-desktop", {
+    source: "control_center_desktop",
+    source_label: "Control Center desktop",
+    continuity_state: "current",
+    session_ref: "session-ref:runtime-continuity:operator-loop",
+    run_ref: "run-ref:runtime-continuity:operator-loop",
+    route_ref: "GET /runtime/readiness",
+    safe_summary:
+      "Mock desktop Control Center points at the current operator session refs.",
+  }),
+  runtimeSessionContinuitySurface("cli", {
+    source: "cli",
+    source_label: "CLI",
+    continuity_state: "current",
+    session_ref: "session-ref:runtime-continuity:operator-loop",
+    run_ref: "run-ref:runtime-continuity:operator-loop",
+    route_ref: "repo-local-cli",
+    cli_ref: "uaa runtime inspect-session-continuity",
+    safe_summary: "Mock CLI inspection uses the same safe session refs.",
+  }),
+  runtimeSessionContinuitySurface("delegated-runtime", {
+    source: "delegated_runtime",
+    source_label: "Delegated runtime",
+    continuity_state: "stale",
+    session_ref: "session-ref:runtime-continuity:delegated-runtime",
+    run_ref: "run-ref:runtime-continuity:delegated-runtime",
+    route_ref: "GET /api/runtime/delegation-adapter",
+    safe_summary:
+      "Mock delegated runtime continuity is stale until receipt binding exists.",
+  }),
+  runtimeSessionContinuitySurface("coding-cockpit", {
+    source: "coding_cockpit",
+    source_label: "Coding cockpit",
+    continuity_state: "conflict_review",
+    session_ref: "session-ref:runtime-continuity:coding-cockpit",
+    route_ref: "GET /control-center/coding/session",
+    safe_summary:
+      "Mock Coding Cockpit continuity requires operator conflict review.",
+  }),
+  runtimeSessionContinuitySurface("future-mobile", {
+    source: "future_mobile",
+    source_label: "Future mobile",
+    continuity_state: "blocked",
+    session_ref: "session-ref:runtime-continuity:future-mobile",
+    route_ref: "planned-route-ref:future-mobile-session-continuity",
+    safe_summary:
+      "Mock future mobile continuity is blocked; no account sync or remote session is active.",
+  }),
+];
+
+const runtimeMcpCatalogBlockedRefs = [
+  "blocked-authority:mcp-catalog-no-server-install",
+  "blocked-authority:mcp-catalog-no-subprocess-runtime",
+  "blocked-authority:mcp-catalog-no-oauth-login",
+  "blocked-authority:mcp-catalog-no-tool-invocation",
+  "blocked-authority:mcp-catalog-no-connector-write",
+  "blocked-authority:mcp-catalog-no-raw-manifest-persistence",
+  "blocked-authority:mcp-catalog-no-control-center-authority-mint",
+];
+
+function runtimeMcpToolSlice(
+  slug: string,
+  overrides: Pick<
+    RuntimeMcpToolSlice,
+    "display_label" | "filter_state" | "risk_label" | "safe_summary"
+  >,
+): RuntimeMcpToolSlice {
+  return {
+    tool_ref: `mcp-tool-slice-ref:${slug}`,
+    display_label: overrides.display_label,
+    filter_state: overrides.filter_state,
+    risk_label: overrides.risk_label,
+    safe_summary: overrides.safe_summary,
+    filter_reason_refs: [`mcp-filter-reason-ref:${slug}`],
+    grant_requirement_refs: [`mcp-grant-requirement-ref:${slug}`],
+    receipt_requirement_refs: [`mcp-receipt-requirement-ref:${slug}`],
+    blocked_authority_refs: runtimeMcpCatalogBlockedRefs,
+    metadata_visible: true,
+    invocation_enabled: false,
+    connector_write_enabled: false,
+    raw_schema_persisted: false,
+    runtime_dispatch_enabled: false,
+  };
+}
+
+function runtimeMcpServerCatalogEntry(
+  slug: string,
+  overrides: Pick<
+    RuntimeMcpServerCatalogEntry,
+    "display_label" | "catalog_state" | "safe_summary" | "tool_slices"
+  >,
+): RuntimeMcpServerCatalogEntry {
+  return {
+    server_ref: `mcp-server-ref:${slug}`,
+    display_label: overrides.display_label,
+    catalog_state: overrides.catalog_state,
+    manifest_ref: `mcp-manifest-ref:${slug}:redacted`,
+    filter_contract_ref: `mcp-filter-contract-ref:${slug}:reviewed-slices`,
+    safe_summary: overrides.safe_summary,
+    tool_slices: overrides.tool_slices,
+    tool_count: overrides.tool_slices.length,
+    metadata_visible_tool_count: overrides.tool_slices.filter(
+      (tool) => tool.filter_state === "metadata_visible",
+    ).length,
+    filtered_blocked_tool_count: overrides.tool_slices.filter(
+      (tool) => tool.filter_state === "filtered_blocked",
+    ).length,
+    grant_required_tool_count: overrides.tool_slices.filter(
+      (tool) => tool.filter_state === "grant_required",
+    ).length,
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-30:mcp-catalog-filtering",
+    ],
+    blocked_authority_refs: runtimeMcpCatalogBlockedRefs,
+    next_safe_action_refs: [
+      `next-safe-action-ref:mcp-catalog:${slug}:review-filter`,
+    ],
+    install_enabled: false,
+    subprocess_runtime_enabled: false,
+    oauth_login_enabled: false,
+    tool_invocation_enabled: false,
+    connector_write_enabled: false,
+    raw_manifest_persisted: false,
+  };
+}
+
+const runtimeMcpCatalogServers: RuntimeMcpServerCatalogEntry[] = [
+  runtimeMcpServerCatalogEntry("filesystem-metadata", {
+    display_label: "Filesystem metadata server",
+    catalog_state: "reviewed_metadata",
+    safe_summary:
+      "Mock filesystem MCP server is metadata only; subprocess runtime remains blocked.",
+    tool_slices: [
+      runtimeMcpToolSlice("filesystem-list-metadata", {
+        display_label: "List file metadata",
+        filter_state: "metadata_visible",
+        risk_label: "read_metadata_only",
+        safe_summary: "Tool metadata is visible; invocation is blocked.",
+      }),
+      runtimeMcpToolSlice("filesystem-write-file", {
+        display_label: "Write file",
+        filter_state: "filtered_blocked",
+        risk_label: "file_mutation_blocked",
+        safe_summary: "File mutation tool slice is filtered out.",
+      }),
+    ],
+  }),
+  runtimeMcpServerCatalogEntry("browser-research", {
+    display_label: "Browser research server",
+    catalog_state: "activation_blocked",
+    safe_summary:
+      "Mock browser MCP server is catalog metadata only; browser runtime and web fetching remain blocked.",
+    tool_slices: [
+      runtimeMcpToolSlice("browser-fetch-page", {
+        display_label: "Fetch page",
+        filter_state: "filtered_blocked",
+        risk_label: "web_fetch_blocked",
+        safe_summary: "Web fetch tool slice is blocked.",
+      }),
+      runtimeMcpToolSlice("browser-click", {
+        display_label: "Browser click",
+        filter_state: "filtered_blocked",
+        risk_label: "browser_action_blocked",
+        safe_summary: "Browser action tool slice is blocked.",
+      }),
+    ],
+  }),
+  runtimeMcpServerCatalogEntry("crm-draft", {
+    display_label: "CRM draft server",
+    catalog_state: "review_required",
+    safe_summary:
+      "Mock CRM draft MCP server needs reviewed grants before any helper can become more than metadata.",
+    tool_slices: [
+      runtimeMcpToolSlice("crm-draft-summary", {
+        display_label: "Draft CRM summary",
+        filter_state: "grant_required",
+        risk_label: "draft_review_required",
+        safe_summary: "Draft helper metadata needs exact grants and receipts.",
+      }),
+      runtimeMcpToolSlice("crm-send-message", {
+        display_label: "Send CRM message",
+        filter_state: "filtered_blocked",
+        risk_label: "connector_write_blocked",
+        safe_summary: "Connector write tool slice is filtered out.",
+      }),
+    ],
+  }),
+];
+
+const runtimeBackgroundJobsBlockedRefs = [
+  "blocked-authority:background-jobs-no-autonomous-background-execution",
+  "blocked-authority:background-jobs-no-background-worker",
+  "blocked-authority:background-jobs-no-scheduler",
+  "blocked-authority:background-jobs-no-autonomous-retry",
+  "blocked-authority:background-jobs-no-external-delivery",
+  "blocked-authority:background-jobs-no-provider-call",
+  "blocked-authority:background-jobs-no-shell-execution",
+  "blocked-authority:background-jobs-no-connector-write",
+  "blocked-authority:background-jobs-no-control-center-authority-mint",
+  "blocked-authority:background-jobs-no-raw-job-payload-persistence",
+];
+
+function runtimeBackgroundJob(
+  slug: string,
+  overrides: Pick<
+    RuntimeBackgroundJobProposalReadModel,
+    "display_label" | "job_kind" | "status" | "schedule_policy" | "safe_summary"
+  >,
+): RuntimeBackgroundJobProposalReadModel {
+  return {
+    job_ref: `background-job-ref:${slug}`,
+    display_label: overrides.display_label,
+    job_kind: overrides.job_kind,
+    status: overrides.status,
+    schedule_policy: overrides.schedule_policy,
+    cadence_ref: `cadence-ref:background-job:${slug}:review-only`,
+    approval_scope_ref: `approval-scope-ref:background-job:${slug}`,
+    idempotency_ref: `idempotency-ref:background-job:${slug}`,
+    safe_disable_ref: `safe-disable-ref:background-job:${slug}`,
+    receipt_plan_ref: `receipt-plan-ref:background-job:${slug}`,
+    failure_handling_ref: `failure-handling-ref:background-job:${slug}`,
+    safe_summary: overrides.safe_summary,
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-31:background-jobs"],
+    blocked_authority_refs: runtimeBackgroundJobsBlockedRefs,
+    next_safe_action_refs: [`next-safe-action-ref:background-job:${slug}:review`],
+    pause_enabled: false,
+    resume_enabled: false,
+    run_now_enabled: false,
+    scheduler_enabled: false,
+    background_worker_enabled: false,
+    autonomous_retry_enabled: false,
+    external_delivery_enabled: false,
+    provider_call_enabled: false,
+    shell_execution_enabled: false,
+    connector_write_enabled: false,
+    raw_job_payload_persisted: false,
+  };
+}
+
+const runtimeBackgroundJobs: RuntimeBackgroundJobProposalReadModel[] = [
+  runtimeBackgroundJob("runtime-doctor-check", {
+    display_label: "Runtime doctor check",
+    job_kind: "runtime_doctor_check",
+    status: "approval_required",
+    schedule_policy: "manual_review_only",
+    safe_summary:
+      "Mock runtime doctor job is a reviewable proposal; scheduler and worker execution remain blocked.",
+  }),
+  runtimeBackgroundJob("proof-pack-export", {
+    display_label: "Proof pack export",
+    job_kind: "proof_pack_export",
+    status: "proposal",
+    schedule_policy: "operator_window_required",
+    safe_summary:
+      "Mock proof pack export needs an operator window before any future run lane.",
+  }),
+  runtimeBackgroundJob("context-budget-review", {
+    display_label: "Context budget review",
+    job_kind: "context_budget_review",
+    status: "paused",
+    schedule_policy: "manual_review_only",
+    safe_summary:
+      "Mock context budget review is paused metadata; resume and run-now stay blocked.",
+  }),
+  runtimeBackgroundJob("connector-delivery-followup", {
+    display_label: "Connector delivery follow-up",
+    job_kind: "connector_delivery_followup",
+    status: "execution_blocked",
+    schedule_policy: "blocked_scheduler",
+    safe_summary:
+      "Mock connector delivery job remains blocked because external delivery and connector writes are not promoted.",
+  }),
+];
+
+const runtimeSubagentIsolationBlockedRefs = [
+  "blocked-authority:subagent-isolation-no-live-dispatch",
+  "blocked-authority:subagent-isolation-no-background-fanout",
+  "blocked-authority:subagent-isolation-no-cross-agent-memory-transfer",
+  "blocked-authority:subagent-isolation-no-tool-sharing",
+  "blocked-authority:subagent-isolation-no-autonomous-delegation",
+  "blocked-authority:subagent-isolation-no-provider-call",
+  "blocked-authority:subagent-isolation-no-shell-execution",
+  "blocked-authority:subagent-isolation-no-connector-write",
+  "blocked-authority:subagent-isolation-no-control-center-authority-mint",
+  "blocked-authority:subagent-isolation-no-raw-transcript-persistence",
+];
+
+function runtimeSubagentIsolationRole(
+  slug: string,
+  overrides: Pick<
+    RuntimeSubagentIsolationRole,
+    "display_label" | "role_kind" | "readiness_status" | "safe_summary"
+  >,
+): RuntimeSubagentIsolationRole {
+  return {
+    role_ref: `subagent-role-ref:${slug}`,
+    display_label: overrides.display_label,
+    role_kind: overrides.role_kind,
+    readiness_status: overrides.readiness_status,
+    scope_envelope_ref: `scope-envelope-ref:subagent:${slug}`,
+    context_pack_ref: `context-pack-ref:subagent:${slug}:safe-summary`,
+    tool_grant_ref: `tool-grant-ref:subagent:${slug}:none-active`,
+    memory_grant_ref: `memory-grant-ref:subagent:${slug}:read-none`,
+    budget_ref: `budget-ref:subagent:${slug}:review-only`,
+    kill_switch_ref: `kill-switch-ref:subagent:${slug}:required-before-dispatch`,
+    receipt_plan_ref: `receipt-plan-ref:subagent:${slug}`,
+    proof_ref: "proof-ref:hermes-runtime-adoption:phase-32:subagent-isolation",
+    safe_summary: overrides.safe_summary,
+    blocked_authority_refs: runtimeSubagentIsolationBlockedRefs,
+    next_safe_action_refs: [`next-safe-action-ref:subagent:${slug}:review`],
+    live_dispatch_enabled: false,
+    background_fanout_enabled: false,
+    cross_agent_memory_transfer_enabled: false,
+    tool_sharing_enabled: false,
+    autonomous_delegation_enabled: false,
+    provider_call_enabled: false,
+    shell_execution_enabled: false,
+    connector_write_enabled: false,
+    raw_transcript_persisted: false,
+  };
+}
+
+const runtimeSubagentIsolationRoles: RuntimeSubagentIsolationRole[] = [
+  runtimeSubagentIsolationRole("implementer", {
+    display_label: "Implementer",
+    role_kind: "implementer",
+    readiness_status: "contract_ready",
+    safe_summary:
+      "Mock implementer contract is ready for review; live dispatch and tool grants remain blocked.",
+  }),
+  runtimeSubagentIsolationRole("reviewer", {
+    display_label: "Reviewer",
+    role_kind: "reviewer",
+    readiness_status: "review_ready",
+    safe_summary:
+      "Mock reviewer role is proposal metadata; memory transfer and tool sharing remain blocked.",
+  }),
+  runtimeSubagentIsolationRole("verifier", {
+    display_label: "Verifier",
+    role_kind: "verifier",
+    readiness_status: "blocked_dispatch",
+    safe_summary:
+      "Mock verifier role documents proof duties; background fan-out is not enabled.",
+  }),
+];
+
+const runtimeSubagentReviewArtifacts: RuntimeSubagentReviewArtifact[] = [
+  {
+    artifact_ref: "subagent-artifact-ref:plan-comparison",
+    artifact_kind: "plan_comparison",
+    display_label: "Plan comparison",
+    source_role_refs: runtimeSubagentIsolationRoles.slice(0, 2).map(
+      (role) => role.role_ref,
+    ),
+    safe_summary:
+      "Mock plan comparison uses safe refs only and omits raw agent output.",
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-32:subagent-isolation"],
+    raw_agent_output_persisted: false,
+    executable_authority: false,
+  },
+  {
+    artifact_ref: "subagent-artifact-ref:review-packet",
+    artifact_kind: "review_packet",
+    display_label: "Review packet",
+    source_role_refs: runtimeSubagentIsolationRoles.map((role) => role.role_ref),
+    safe_summary:
+      "Mock review packet groups role refs, proof refs, and blockers only.",
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-32:subagent-isolation"],
+    raw_agent_output_persisted: false,
+    executable_authority: false,
+  },
+  {
+    artifact_ref: "subagent-artifact-ref:disagreement-summary",
+    artifact_kind: "disagreement_summary",
+    display_label: "Disagreement summary",
+    source_role_refs: runtimeSubagentIsolationRoles.slice(0, 2).map(
+      (role) => role.role_ref,
+    ),
+    safe_summary: "Mock disagreement summary is safe metadata only.",
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-32:subagent-isolation"],
+    raw_agent_output_persisted: false,
+    executable_authority: false,
+  },
+];
+
+const runtimeWorktreePerAgentBlockedRefs = [
+  "blocked-authority:worktree-per-agent-no-git-worktree-create",
+  "blocked-authority:worktree-per-agent-no-git-worktree-delete",
+  "blocked-authority:worktree-per-agent-no-branch-mutation",
+  "blocked-authority:worktree-per-agent-no-file-write",
+  "blocked-authority:worktree-per-agent-no-commit",
+  "blocked-authority:worktree-per-agent-no-push",
+  "blocked-authority:worktree-per-agent-no-shell-execution",
+  "blocked-authority:worktree-per-agent-no-provider-call",
+  "blocked-authority:worktree-per-agent-no-control-center-authority-mint",
+  "blocked-authority:worktree-per-agent-no-raw-path-persistence",
+];
+
+function runtimeWorktreePerAgentLane(
+  slug: string,
+  overrides: Pick<
+    RuntimeWorktreePerAgentLane,
+    "display_label" | "agent_role" | "lane_status" | "isolation_mode" | "safe_summary"
+  >,
+): RuntimeWorktreePerAgentLane {
+  return {
+    lane_ref: `worktree-agent-lane-ref:${slug}`,
+    display_label: overrides.display_label,
+    agent_role: overrides.agent_role,
+    lane_status: overrides.lane_status,
+    isolation_mode: overrides.isolation_mode,
+    workspace_scope_ref: `workspace-scope-ref:worktree-agent:${slug}`,
+    branch_proposal_ref: `branch-proposal-ref:worktree-agent:${slug}`,
+    branch_name_ref: `branch-name-ref:worktree-agent:${slug}:proposal`,
+    worktree_ref: `worktree-ref:worktree-agent:${slug}:safe-ref-only`,
+    checkpoint_plan_ref: `checkpoint-plan-ref:worktree-agent:${slug}`,
+    git_receipt_plan_ref: `git-receipt-plan-ref:worktree-agent:${slug}`,
+    rollback_plan_ref: `rollback-plan-ref:worktree-agent:${slug}`,
+    safe_summary: overrides.safe_summary,
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-33:worktree-per-agent"],
+    blocked_authority_refs: runtimeWorktreePerAgentBlockedRefs,
+    next_safe_action_refs: [
+      `next-safe-action-ref:worktree-agent:${slug}:review`,
+    ],
+    git_worktree_create_enabled: false,
+    git_worktree_delete_enabled: false,
+    branch_mutation_enabled: false,
+    file_write_enabled: false,
+    commit_enabled: false,
+    push_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    raw_path_persisted: false,
+  };
+}
+
+const runtimeWorktreePerAgentLanes: RuntimeWorktreePerAgentLane[] = [
+  runtimeWorktreePerAgentLane("implementer", {
+    display_label: "Implementer worktree lane",
+    agent_role: "implementer",
+    lane_status: "proposal",
+    isolation_mode: "branch_proposal_only",
+    safe_summary:
+      "Mock implementer lane proposes branch/worktree shape; Git and file mutation remain blocked.",
+  }),
+  runtimeWorktreePerAgentLane("reviewer", {
+    display_label: "Reviewer comparison lane",
+    agent_role: "reviewer",
+    lane_status: "review_ready",
+    isolation_mode: "existing_worktree_ref_only",
+    safe_summary:
+      "Mock reviewer lane compares safe refs only; worktree create/delete remains blocked.",
+  }),
+  runtimeWorktreePerAgentLane("verifier", {
+    display_label: "Verifier proof lane",
+    agent_role: "verifier",
+    lane_status: "mutation_blocked",
+    isolation_mode: "blocked_worktree_mutation",
+    safe_summary:
+      "Mock verifier lane records checkpoint and rollback plans without running Git.",
+  }),
+];
+
+const runtimeLspDiagnosticsBlockedRefs = [
+  "blocked-authority:lsp-diagnostics-no-language-server-launch",
+  "blocked-authority:lsp-diagnostics-no-dependency-install",
+  "blocked-authority:lsp-diagnostics-no-shell-execution",
+  "blocked-authority:lsp-diagnostics-no-file-read",
+  "blocked-authority:lsp-diagnostics-no-file-write",
+  "blocked-authority:lsp-diagnostics-no-provider-call",
+  "blocked-authority:lsp-diagnostics-no-control-center-authority-mint",
+  "blocked-authority:lsp-diagnostics-no-raw-path-persistence",
+  "blocked-authority:lsp-diagnostics-no-raw-diagnostic-payload-persistence",
+];
+
+function runtimeLspDiagnostic(
+  slug: string,
+  overrides: Pick<
+    RuntimeLspDiagnosticEvidenceContract,
+    "display_label" | "language" | "status" | "safe_summary"
+  >,
+): RuntimeLspDiagnosticEvidenceContract {
+  return {
+    diagnostic_ref: `lsp-diagnostic-ref:${slug}`,
+    display_label: overrides.display_label,
+    language: overrides.language,
+    status: overrides.status,
+    source_scope_ref: `source-scope-ref:lsp-diagnostic:${slug}:safe-ref-only`,
+    evidence_ref: `evidence-ref:lsp-diagnostic:${slug}`,
+    receipt_plan_ref: `receipt-plan-ref:lsp-diagnostic:${slug}`,
+    proof_ref: "proof-ref:hermes-runtime-adoption:phase-34:lsp-diagnostics",
+    safe_summary: overrides.safe_summary,
+    blocked_authority_refs: runtimeLspDiagnosticsBlockedRefs,
+    next_safe_action_refs: [`next-safe-action-ref:lsp-diagnostic:${slug}:review`],
+    language_server_started: false,
+    dependency_install_enabled: false,
+    shell_execution_enabled: false,
+    file_read_enabled: false,
+    file_write_enabled: false,
+    provider_call_enabled: false,
+    raw_path_persisted: false,
+    raw_diagnostic_payload_persisted: false,
+  };
+}
+
+const runtimeLspDiagnostics = [
+  runtimeLspDiagnostic("python-semantic-proof", {
+    display_label: "Python semantic proof",
+    language: "python",
+    status: "proof_ready",
+    safe_summary:
+      "Mock Python diagnostic proof contract is ready, but no language server is launched.",
+  }),
+  runtimeLspDiagnostic("typescript-diagnostic-placeholder", {
+    display_label: "TypeScript diagnostic placeholder",
+    language: "typescript",
+    status: "evidence_placeholder",
+    safe_summary:
+      "Mock TypeScript diagnostics stay as safe evidence placeholders until an allowlisted server lane exists.",
+  }),
+  runtimeLspDiagnostic("docs-diagnostic-blocked", {
+    display_label: "Docs diagnostic blocked lane",
+    language: "docs",
+    status: "execution_blocked",
+    safe_summary:
+      "Mock docs diagnostic lane keeps shell execution and file reads blocked.",
+  }),
+];
+
+const runtimePreviewRailBlockedRefs = [
+  "blocked-authority:preview-rail-no-browser-automation",
+  "blocked-authority:preview-rail-no-raw-sensitive-file-display",
+  "blocked-authority:preview-rail-no-direct-runtime-payload-rendering",
+  "blocked-authority:preview-rail-no-screenshot-capture",
+  "blocked-authority:preview-rail-no-file-read",
+  "blocked-authority:preview-rail-no-file-write",
+  "blocked-authority:preview-rail-no-shell-execution",
+  "blocked-authority:preview-rail-no-provider-call",
+  "blocked-authority:preview-rail-no-control-center-authority-mint",
+  "blocked-authority:preview-rail-no-raw-path-persistence",
+  "blocked-authority:preview-rail-no-raw-file-content-persistence",
+  "blocked-authority:preview-rail-no-raw-runtime-payload-persistence",
+];
+
+function runtimePreviewRailSlot(
+  slug: string,
+  overrides: Pick<
+    RuntimePreviewRailSlot,
+    "display_label" | "slot_kind" | "slot_status" | "safe_summary"
+  >,
+): RuntimePreviewRailSlot {
+  return {
+    slot_ref: `preview-rail-slot-ref:${slug}`,
+    display_label: overrides.display_label,
+    slot_kind: overrides.slot_kind,
+    slot_status: overrides.slot_status,
+    source_ref: `preview-source-ref:${slug}:safe-ref-only`,
+    source_classification_ref: `source-classification-ref:preview-rail:${slug}`,
+    bounded_preview_ref: `bounded-preview-ref:preview-rail:${slug}`,
+    redaction_policy_ref: `redaction-policy-ref:preview-rail:${slug}`,
+    attach_plan_ref: `attach-plan-ref:preview-rail:${slug}`,
+    receipt_plan_ref: `receipt-plan-ref:preview-rail:${slug}`,
+    proof_ref: "proof-ref:hermes-runtime-adoption:phase-35:preview-rail",
+    safe_summary: overrides.safe_summary,
+    blocked_authority_refs: runtimePreviewRailBlockedRefs,
+    next_safe_action_refs: [`next-safe-action-ref:preview-rail:${slug}:review`],
+    browser_automation_enabled: false,
+    raw_sensitive_file_display_enabled: false,
+    direct_runtime_payload_rendering_enabled: false,
+    screenshot_capture_enabled: false,
+    file_read_enabled: false,
+    file_write_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    raw_path_persisted: false,
+    raw_file_content_persisted: false,
+    raw_runtime_payload_persisted: false,
+  };
+}
+
+const runtimePreviewRailSlots = [
+  runtimePreviewRailSlot("safe-file-ref", {
+    display_label: "Safe file ref preview",
+    slot_kind: "file_ref",
+    slot_status: "safe_ref_ready",
+    safe_summary:
+      "Mock file preview exposes a safe ref and bounded summary plan only.",
+  }),
+  runtimePreviewRailSlot("diff-ref", {
+    display_label: "Diff ref preview",
+    slot_kind: "diff_ref",
+    slot_status: "safe_ref_ready",
+    safe_summary:
+      "Mock diff preview exposes safe diff refs without applying patches.",
+  }),
+  runtimePreviewRailSlot("artifact-ref", {
+    display_label: "Artifact ref preview",
+    slot_kind: "artifact_ref",
+    slot_status: "bounded_preview_placeholder",
+    safe_summary:
+      "Mock artifact preview stays bounded until source classification is promoted.",
+  }),
+  runtimePreviewRailSlot("run-output-ref", {
+    display_label: "Run output summary preview",
+    slot_kind: "run_output_ref",
+    slot_status: "bounded_preview_placeholder",
+    safe_summary: "Mock run output preview omits raw logs and command output.",
+  }),
+  runtimePreviewRailSlot("proof-ref", {
+    display_label: "Proof detail preview",
+    slot_kind: "proof_ref",
+    slot_status: "bounded_preview_placeholder",
+    safe_summary: "Mock proof preview links proof refs without raw payloads.",
+  }),
+  runtimePreviewRailSlot("runtime-event-ref", {
+    display_label: "Delegated runtime event preview",
+    slot_kind: "runtime_event_ref",
+    slot_status: "execution_blocked",
+    safe_summary:
+      "Mock delegated runtime event preview keeps direct payload rendering blocked.",
+  }),
+];
+
+const runtimeSlashCommandRegistryBlockedRefs = [
+  "blocked-authority:slash-command-registry-no-chat-execution",
+  "blocked-authority:slash-command-registry-no-runtime-invocation",
+  "blocked-authority:slash-command-registry-no-state-mutation",
+  "blocked-authority:slash-command-registry-no-shell-execution",
+  "blocked-authority:slash-command-registry-no-provider-call",
+  "blocked-authority:slash-command-registry-no-browser-automation",
+  "blocked-authority:slash-command-registry-no-connector-write",
+  "blocked-authority:slash-command-registry-no-control-center-authority-mint",
+  "blocked-authority:slash-command-registry-no-raw-prompt-persistence",
+  "blocked-authority:slash-command-registry-no-raw-response-persistence",
+];
+
+function runtimeSlashCommandRegistryEntry(
+  slug: string,
+  overrides: Pick<
+    RuntimeSlashCommandRegistryEntry,
+    | "display_label"
+    | "trigger_label"
+    | "command_status"
+    | "authority_class"
+    | "side_effect_class"
+    | "safe_summary"
+  >,
+): RuntimeSlashCommandRegistryEntry {
+  return {
+    command_ref: `slash-command-ref:${slug}`,
+    display_label: overrides.display_label,
+    trigger_label: overrides.trigger_label,
+    command_status: overrides.command_status,
+    authority_class: overrides.authority_class,
+    side_effect_class: overrides.side_effect_class,
+    docs_ref: `docs-ref:runtime-slash-command-registry:${slug}`,
+    approval_policy_ref: `approval-policy-ref:slash-command:${slug}`,
+    idempotency_policy_ref: `idempotency-policy-ref:slash-command:${slug}`,
+    receipt_plan_ref: `receipt-plan-ref:slash-command:${slug}`,
+    proof_ref: "proof-ref:hermes-runtime-adoption:phase-36:slash-command-registry",
+    safe_summary: overrides.safe_summary,
+    blocked_authority_refs: runtimeSlashCommandRegistryBlockedRefs,
+    promotion_path_refs: [`promotion-path-ref:slash-command:${slug}:contract`],
+    next_safe_action_refs: [`next-safe-action-ref:slash-command:${slug}:review`],
+    visible_in_control_center: true,
+    registered_metadata_only: true,
+    chat_trigger_enabled: false,
+    runtime_invocation_enabled: false,
+    state_mutation_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    control_center_mints_authority: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+  };
+}
+
+const runtimeSlashCommandRegistryEntries = [
+  runtimeSlashCommandRegistryEntry("explain-repo", {
+    display_label: "Explain repo",
+    trigger_label: "/explain",
+    command_status: "metadata_ready",
+    authority_class: "read_only_metadata",
+    side_effect_class: "none",
+    safe_summary:
+      "Mock explain command is registered metadata only and cannot execute.",
+  }),
+  runtimeSlashCommandRegistryEntry("plan-task", {
+    display_label: "Plan task",
+    trigger_label: "/plan",
+    command_status: "metadata_ready",
+    authority_class: "proposal_only",
+    side_effect_class: "proposal_only",
+    safe_summary:
+      "Mock plan command is proposal metadata only and cannot invoke runtimes.",
+  }),
+  runtimeSlashCommandRegistryEntry("open-proof", {
+    display_label: "Open proof",
+    trigger_label: "/proof",
+    command_status: "metadata_ready",
+    authority_class: "read_only_metadata",
+    side_effect_class: "none",
+    safe_summary:
+      "Mock proof command records navigation metadata without opening records.",
+  }),
+  runtimeSlashCommandRegistryEntry("run-tests", {
+    display_label: "Run tests",
+    trigger_label: "/run-tests",
+    command_status: "disabled_requires_exact_lane",
+    authority_class: "approval_required_future_lane",
+    side_effect_class: "command_execution",
+    safe_summary:
+      "Mock test command stays disabled until an exact allowlisted lane exists.",
+  }),
+  runtimeSlashCommandRegistryEntry("ask-agent", {
+    display_label: "Ask agent",
+    trigger_label: "/ask-agent",
+    command_status: "disabled_requires_exact_lane",
+    authority_class: "approval_required_future_lane",
+    side_effect_class: "model_call",
+    safe_summary:
+      "Mock agent command stays disabled until runtime/provider boundaries exist.",
+  }),
+  runtimeSlashCommandRegistryEntry("apply-patch", {
+    display_label: "Apply patch",
+    trigger_label: "/apply-patch",
+    command_status: "blocked_high_authority",
+    authority_class: "blocked_high_authority",
+    side_effect_class: "local_mutation",
+    safe_summary:
+      "Mock patch command remains blocked without exact approval and rollback.",
+  }),
+];
+
+const runtimeInterruptRedirectBlockedRefs = [
+  "blocked-authority:interrupt-redirect-no-live-stop-post",
+  "blocked-authority:interrupt-redirect-no-process-kill",
+  "blocked-authority:interrupt-redirect-no-runtime-mutation",
+  "blocked-authority:interrupt-redirect-no-background-autonomy",
+  "blocked-authority:interrupt-redirect-no-unscoped-approval-reuse",
+  "blocked-authority:interrupt-redirect-no-shell-execution",
+  "blocked-authority:interrupt-redirect-no-provider-call",
+  "blocked-authority:interrupt-redirect-no-browser-automation",
+  "blocked-authority:interrupt-redirect-no-connector-write",
+  "blocked-authority:interrupt-redirect-no-control-center-authority-mint",
+  "blocked-authority:interrupt-redirect-no-raw-runtime-payload-persistence",
+  "blocked-authority:interrupt-redirect-no-raw-log-persistence",
+];
+
+function runtimeInterruptRedirectProposal(
+  slug: string,
+  overrides: Pick<
+    RuntimeRunControlProposal,
+    | "action_kind"
+    | "display_label"
+    | "action_status"
+    | "side_effect_class"
+    | "safe_summary"
+  >,
+): RuntimeRunControlProposal {
+  return {
+    action_ref: `run-control-action-ref:runtime:${slug}`,
+    action_kind: overrides.action_kind,
+    display_label: overrides.display_label,
+    action_status: overrides.action_status,
+    side_effect_class: overrides.side_effect_class,
+    approval_scope_ref: `approval-scope-ref:runtime-run-control:${slug}`,
+    idempotency_ref: `idempotency-ref:runtime-run-control:${slug}`,
+    receipt_plan_ref: `receipt-plan-ref:runtime-run-control:${slug}`,
+    recovery_state_ref: `recovery-state-ref:runtime-run-control:${slug}`,
+    proof_ref: `proof-ref:runtime-run-control:${slug}`,
+    safe_summary: overrides.safe_summary,
+    blocked_authority_refs: runtimeInterruptRedirectBlockedRefs,
+    promotion_path_refs: [
+      `promotion-path-ref:runtime-run-control:${slug}:approval-binding`,
+      `promotion-path-ref:runtime-run-control:${slug}:cancellation-receipt`,
+    ],
+    next_safe_action_refs: [
+      `next-safe-action-ref:runtime-run-control:${slug}:exact-lane-design`,
+    ],
+    visible_in_control_center: true,
+    proposal_only: true,
+    live_stop_post_enabled: false,
+    process_kill_enabled: false,
+    runtime_mutation_enabled: false,
+    background_autonomy_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    control_center_mints_authority: false,
+    raw_runtime_payload_persisted: false,
+    raw_log_persisted: false,
+  };
+}
+
+const runtimeInterruptRedirectProposals = [
+  runtimeInterruptRedirectProposal("pause", {
+    action_kind: "pause",
+    display_label: "Pause current work",
+    action_status: "approval_required_future_lane",
+    side_effect_class: "runtime_control_mutation",
+    safe_summary:
+      "Mock pause posture is visible as a future approval lane only; no runtime is paused.",
+  }),
+  runtimeInterruptRedirectProposal("stop", {
+    action_kind: "stop",
+    display_label: "Stop current work",
+    action_status: "blocked_until_exact_lane",
+    side_effect_class: "runtime_control_mutation",
+    safe_summary:
+      "Mock stop posture remains blocked until run ownership and cancellation receipts are proven.",
+  }),
+  runtimeInterruptRedirectProposal("redirect", {
+    action_kind: "redirect",
+    display_label: "Redirect work",
+    action_status: "read_only_proposal",
+    side_effect_class: "operator_instruction_update",
+    safe_summary:
+      "Mock redirect posture is a proposal artifact and sends no instruction to any runtime.",
+  }),
+  runtimeInterruptRedirectProposal("revise", {
+    action_kind: "revise",
+    display_label: "Revise task",
+    action_status: "read_only_proposal",
+    side_effect_class: "operator_instruction_update",
+    safe_summary:
+      "Mock revise posture omits raw operator instruction text and mutates no state.",
+  }),
+  runtimeInterruptRedirectProposal("recover", {
+    action_kind: "recover",
+    display_label: "Recover safely",
+    action_status: "approval_required_future_lane",
+    side_effect_class: "recovery_state_transition",
+    safe_summary:
+      "Mock recovery posture is future approval-bound and does not resume work.",
+  }),
+];
+
+const runtimeLoggingProfileBlockedRefs = [
+  "blocked-authority:logging-profile-no-raw-log-persistence",
+  "blocked-authority:logging-profile-no-raw-prompt-persistence",
+  "blocked-authority:logging-profile-no-raw-response-persistence",
+  "blocked-authority:logging-profile-no-provider-payload-persistence",
+  "blocked-authority:logging-profile-no-local-path-persistence",
+  "blocked-authority:logging-profile-no-credential-persistence",
+  "blocked-authority:logging-profile-no-remote-telemetry-export",
+  "blocked-authority:logging-profile-no-background-log-stream",
+  "blocked-authority:logging-profile-no-control-center-authority-mint",
+];
+
+function runtimeLoggingProfileRecord(
+  slug: string,
+  overrides: Pick<
+    RuntimeLoggingProfileRecord,
+    | "profile_kind"
+    | "display_label"
+    | "profile_status"
+    | "retention_class"
+    | "safe_summary"
+  >,
+): RuntimeLoggingProfileRecord {
+  return {
+    profile_ref: `logging-profile-ref:runtime:${slug}`,
+    profile_kind: overrides.profile_kind,
+    display_label: overrides.display_label,
+    profile_status: overrides.profile_status,
+    retention_class: overrides.retention_class,
+    flag_scope_ref: `logging-flag-scope-ref:runtime:${slug}`,
+    ttl_policy_ref: `ttl-policy-ref:runtime-logging:${slug}`,
+    retention_policy_ref: `retention-policy-ref:runtime-logging:${slug}`,
+    redaction_policy_ref: `redaction-policy-ref:runtime-logging:${slug}`,
+    redaction_verifier_ref: `redaction-verifier-ref:runtime-logging:${slug}`,
+    proof_ref: `proof-ref:runtime-logging:${slug}`,
+    safe_summary: overrides.safe_summary,
+    blocked_authority_refs: runtimeLoggingProfileBlockedRefs,
+    promotion_path_refs: [
+      `promotion-path-ref:runtime-logging:${slug}:flag-scope`,
+      `promotion-path-ref:runtime-logging:${slug}:ttl`,
+      `promotion-path-ref:runtime-logging:${slug}:redaction-verifier`,
+    ],
+    next_safe_action_refs: [
+      `next-safe-action-ref:runtime-logging:${slug}:operator-proof`,
+    ],
+    visible_in_control_center: true,
+    operator_flag_required: true,
+    safe_disable_available: true,
+    raw_logs_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    provider_payload_persisted: false,
+    local_path_persisted: false,
+    credential_material_persisted: false,
+    remote_telemetry_export_enabled: false,
+    background_log_stream_enabled: false,
+    control_center_mints_authority: false,
+  };
+}
+
+const runtimeLoggingProfileRecords = [
+  runtimeLoggingProfileRecord("quiet-normal", {
+    profile_kind: "quiet_normal",
+    display_label: "Quiet normal",
+    profile_status: "active_default",
+    retention_class: "no_persistence",
+    safe_summary:
+      "Mock quiet profile keeps verbose troubleshooting disabled by default.",
+  }),
+  runtimeLoggingProfileRecord("redacted-troubleshooting", {
+    profile_kind: "redacted_troubleshooting",
+    display_label: "Redacted troubleshooting",
+    profile_status: "disabled_until_flagged",
+    retention_class: "session_only",
+    safe_summary:
+      "Mock troubleshooting profile is flag/TTL posture only and stores no raw logs.",
+  }),
+  runtimeLoggingProfileRecord("forensic-safe-refs", {
+    profile_kind: "forensic_safe_refs",
+    display_label: "Forensic safe refs",
+    profile_status: "blocked_raw_detail",
+    retention_class: "bounded_local_receipt",
+    safe_summary:
+      "Mock forensic profile can show safe refs only; raw detail remains blocked.",
+  }),
+];
+
+const runtimeResultClassificationBlockedRefs = [
+  "blocked-authority:result-classification-no-tool-output-as-truth",
+  "blocked-authority:result-classification-no-action-authority",
+  "blocked-authority:result-classification-no-mutation-without-receipt",
+  "blocked-authority:result-classification-no-unverified-evidence-promotion",
+  "blocked-authority:result-classification-no-raw-output-persistence",
+  "blocked-authority:result-classification-no-provider-payload-persistence",
+  "blocked-authority:result-classification-no-control-center-authority-mint",
+];
+
+function runtimeResultClassificationRecord(
+  kind: RuntimeResultClassificationRecord["result_kind"],
+  verificationStatus: RuntimeResultClassificationRecord["verification_status"],
+  safeSummary: string,
+): RuntimeResultClassificationRecord {
+  const slug = kind.replace("_", "-");
+  return {
+    classification_ref: `result-classification-ref:runtime:${slug}`,
+    result_kind: kind,
+    display_label: kind.replace("_", " ").replace(/\b\w/g, (char) =>
+      char.toUpperCase(),
+    ),
+    verification_status: verificationStatus,
+    provenance_policy_ref: `provenance-policy-ref:runtime-result:${slug}`,
+    redaction_policy_ref: `redaction-policy-ref:runtime-result:${slug}`,
+    receipt_requirement_ref: `receipt-requirement-ref:runtime-result:${slug}`,
+    proof_binding_ref: `proof-binding-ref:runtime-result:${slug}`,
+    safe_summary: safeSummary,
+    blocked_authority_refs: runtimeResultClassificationBlockedRefs,
+    promotion_path_refs: [
+      `promotion-path-ref:runtime-result:${slug}:envelope`,
+      `promotion-path-ref:runtime-result:${slug}:proof-binding`,
+    ],
+    next_safe_action_refs: [
+      `next-safe-action-ref:runtime-result:${slug}:classification-tests`,
+    ],
+    visible_in_control_center: true,
+    result_label_required: true,
+    provenance_required: true,
+    redaction_required: true,
+    proof_binding_required: true,
+    tool_output_as_truth_enabled: false,
+    action_authority_enabled: false,
+    mutation_without_receipt_enabled: false,
+    unverified_evidence_promotion_enabled: false,
+    raw_output_persisted: false,
+    provider_payload_persisted: false,
+    control_center_mints_authority: false,
+  };
+}
+
+const runtimeResultClassifications = [
+  runtimeResultClassificationRecord(
+    "evidence",
+    "verified_safe_ref",
+    "Mock evidence results require safe source refs and proof binding.",
+  ),
+  runtimeResultClassificationRecord(
+    "mutation",
+    "receipt_required",
+    "Mock mutation results require receipt refs before any claim.",
+  ),
+  runtimeResultClassificationRecord(
+    "warning",
+    "review_required",
+    "Mock warning results stay operator-reviewable.",
+  ),
+  runtimeResultClassificationRecord(
+    "blocked",
+    "blocked_authority",
+    "Mock blocked results explain missing authority.",
+  ),
+  runtimeResultClassificationRecord(
+    "proposal",
+    "review_required",
+    "Mock proposal results remain untrusted drafts.",
+  ),
+  runtimeResultClassificationRecord(
+    "diagnostic",
+    "review_required",
+    "Mock diagnostic results are troubleshooting evidence only.",
+  ),
+  runtimeResultClassificationRecord(
+    "untrusted_data",
+    "untrusted_until_verified",
+    "Mock untrusted data cannot become instructions or truth.",
+  ),
+];
 
 const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-hard-delete",
@@ -58,6 +2215,145 @@ const memoryLifecycleBlockedRefs = [
   "blocked-state:memory-lifecycle-no-model-provider-call",
   "blocked-state:memory-lifecycle-no-production-authority",
 ];
+
+const memoryBoundedBlockedRefs = [
+  "blocked-state:bounded-memory-no-autonomous-memory-write",
+  "blocked-state:bounded-memory-no-hidden-prompt-injection",
+  "blocked-state:bounded-memory-no-external-memory-provider-write",
+  "blocked-state:bounded-memory-no-hidden-context-injection",
+  "blocked-state:bounded-memory-no-memory-as-truth-authority",
+  "blocked-state:bounded-memory-no-semantic-provider",
+  "blocked-state:bounded-memory-no-vector-db",
+  "blocked-state:bounded-memory-no-embeddings",
+  "blocked-state:bounded-memory-no-model-provider-call",
+  "blocked-state:bounded-memory-no-live-web-fetch",
+  "blocked-state:bounded-memory-no-connector-write",
+  "blocked-state:bounded-memory-no-delete-export-execution",
+  "blocked-state:bounded-memory-no-background-autonomy",
+  "blocked-state:bounded-memory-no-production-authority",
+];
+
+const founderMemoryBoundedPosture: FounderLoopMemoryBoundedPosture = {
+  schema_version: "hermes_runtime_adoption_bounded_memory_posture.v1",
+  contract_ref: "contract-ref:hermes-runtime-adoption-bounded-memory-posture:v1",
+  route_ref: "GET /control-center/memory/workbench",
+  cli_ref: "repo-local-command:founder-loop-memory-bounded-posture",
+  proof_ref: "proof-ref:hermes-runtime-adoption:phase-11:bounded-memory",
+  status: "mock_fallback_bounded_memory_posture_non_authoritative",
+  source: "python_core_memory_workbench_bounded_memory_posture",
+  backend_owned: true,
+  control_center_presentation_only: true,
+  safe_refs_only: true,
+  raw_content_included: false,
+  target_posture: {
+    supported_target_kinds: ["user", "profile", "project"],
+    target_refs: [
+      "business-memory-entity:preference:memory-review-founder-loop-preferences",
+      "tag-ref:founder-loop",
+    ],
+    target_ref_count: 2,
+    operator_selected_context_required: true,
+    automatic_context_injection_authorized: false,
+    hidden_context_injection_authorized: false,
+  },
+  capacity_posture: {
+    visible_item_count: 1,
+    candidate_count: 1,
+    context_pack_count: 1,
+    max_visible_items: 80,
+    max_provenance_refs: 80,
+    token_estimate: 64,
+    token_budget_state: "bounded_safe_summary_refs_only",
+    search_index_status: {
+      status: "mock_fallback_safe_summary_refs_only",
+      provider_kind: "local_sqlite",
+      fts5_enabled: true,
+      indexed_record_count: 1,
+      safe_summary_refs_only: true,
+      raw_content_indexed: false,
+      embedding_index_enabled: false,
+      vector_db_enabled: false,
+      semantic_search_enabled: false,
+      hrr_enabled: false,
+      algebraic_retrieval_enabled: false,
+    },
+  },
+  source_posture: {
+    source_refs: ["source-ref:manual-note:founder-loop-storage"],
+    source_ref_count: 1,
+    provenance_refs: ["provenance-ref:manual-note:mock-preferences"],
+    provenance_ref_count: 1,
+    evidence_refs: ["evidence-ref:founder-loop:mock-memory"],
+    evidence_ref_count: 1,
+    receipt_refs: [],
+    receipt_ref_count: 0,
+    safe_summary_only: true,
+    source_refs_required: true,
+  },
+  staleness_posture: {
+    stale_count: 1,
+    stale_item_refs: [
+      "business-memory-candidate:preference:memory-review-founder-loop-preferences",
+    ],
+    stale_state_refs: [
+      "memory-bounded-stale-state:recheck-source-refs-before-memory-use",
+    ],
+    recheck_required_before_recall: true,
+  },
+  why_shown_posture: {
+    why_shown_required: true,
+    why_shown_refs: [
+      "why-shown:review-state:review-needed",
+      "why-shown:evidence-present",
+      "why-shown:loop-relevance:founder-loop",
+    ],
+    included_reason_refs: [
+      "rank-include-ref:operator-review-read-model",
+      "rank-include-ref:visible-but-recall-use-blocked",
+    ],
+    quality_state_refs: ["quality-state:needs-review", "quality-state:stale"],
+  },
+  quality_review_posture: {
+    review_required_before_recall: true,
+    correction_supported: true,
+    rejection_supported: true,
+    correction_receipt_refs: [],
+    rejection_receipt_refs: [],
+    accepted_receipt_refs: [],
+    receipt_backed_decision_kinds: [],
+    reviewed_recall_write_scope_ref:
+      "exact-scope-ref:memory-review:accept-correct-reviewed-recall-write",
+    memory_write_requires_review_receipt: true,
+    rollback_posture:
+      "supersede_or_reject_receipts_can_update_recall_posture_no_broad_delete",
+  },
+  context_pack_posture: {
+    context_pack_refs: ["context-pack:mock-founder-loop-preferences"],
+    proposal_count: 1,
+    context_pack_preview_only: true,
+    prompt_context_written: false,
+    context_injection_authorized: false,
+    hidden_prompt_context_authorized: false,
+  },
+  automatic_memory_write_authorized: false,
+  autonomous_memory_write_authorized: false,
+  hidden_prompt_injection_authorized: false,
+  external_memory_provider_write_authorized: false,
+  context_injection_authorized: false,
+  memory_truth_authority: false,
+  semantic_provider_enabled: false,
+  vector_db_enabled: false,
+  embedding_search_enabled: false,
+  model_provider_call_authorized: false,
+  live_web_fetch_authorized: false,
+  connector_write_authorized: false,
+  delete_export_execution_authorized: false,
+  background_autonomy_authorized: false,
+  production_authority_enabled: false,
+  blocked_state_refs: memoryBoundedBlockedRefs,
+  next_safe_action:
+    "Review bounded memory source, staleness, why-shown, and correction/rejection receipt refs before selecting recall or context-pack proposal refs.",
+};
 
 const providerCatalogBlockers = [
   "PROVIDER_AUTOMATIC_PRICING_REFRESH_BLOCKED",
@@ -173,6 +2469,7 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
   ],
   cli_inspection_refs: [
     "scripts/dev/uaa_coding.py inspect-session",
+    "scripts/dev/uaa_coding.py inspect-project-model",
     "scripts/dev/uaa_coding.py inspect-context",
     "scripts/dev/uaa_coding.py inspect-patch-proposal",
     "scripts/dev/uaa_coding.py inspect-patch-apply-readiness",
@@ -253,6 +2550,152 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
       promotion_path_refs: ["promotion-path:external-production-gate"],
     },
   ],
+  project_model: {
+    schema_version: "uaa-coding-project-model.v1",
+    project_model_ref: "coding-project-model:mock-fallback",
+    session_ref: "coding-session:mock-fallback",
+    workspace_ref: "workspace-ref:coding:mock-fallback",
+    repo_scope_ref: "repo-scope:coding:mock-fallback",
+    branch_ref: "branch-ref:coding:mock-fallback",
+    worktree_ref: "worktree-ref:coding:mock-fallback",
+    lane_ref: "coding-lane:mock-fallback-readonly",
+    route_ref: "route-ref:control-center-coding-session",
+    backend_route_refs: ["GET /control-center/coding/session"],
+    frontend_route_refs: ["/coding"],
+    cli_inspection_refs: ["scripts/dev/uaa_coding.py inspect-project-model"],
+    docs_refs: [
+      "docs-ref:hermes-runtime-coding-project-model",
+      "docs-ref:control-center-coding-cockpit",
+    ],
+    status: "read_only_project_posture",
+    project_label: "Mock coding project",
+    repo_label: "Mock repository safe ref",
+    branch_label: "Mock branch safe ref",
+    worktree_label: "Mock worktree safe ref",
+    full_strength_goal:
+      "Coding Cockpit project posture connects repo, lane, branch, worktree, files, diffs, tests, preview, terminal, Git, and proof.",
+    repo_safe_current_state:
+      "Fallback project posture is display-only and non-authoritative until backend data returns.",
+    safe_summary:
+      "Mock project posture preserves safe refs and blocked runtime authority labels.",
+    capabilities: [
+      {
+        capability_ref: "coding-project-capability:mock-workspace",
+        label: "Workspace ref spine",
+        capability_kind: "workspace",
+        state: "read_only",
+        safe_summary: "Fallback workspace posture is display-only.",
+        source_refs: ["coding-session:mock-fallback"],
+        evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+        proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+        blocked_authority_refs: [],
+        promotion_path_refs: ["promotion-path:coding-context-pack-preview"],
+        file_write_enabled: false,
+        shell_subprocess_execution_enabled: false,
+        git_mutation_enabled: false,
+        browser_automation_enabled: false,
+        provider_model_call_enabled: false,
+        background_autonomy_enabled: false,
+      },
+      {
+        capability_ref: "coding-project-capability:mock-diff",
+        label: "Diff refs",
+        capability_kind: "diffs",
+        state: "proposal_only",
+        safe_summary: "Fallback diff posture has no raw diff body or apply control.",
+        source_refs: ["patch-proposal:coding-mock-preview"],
+        evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+        proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+        blocked_authority_refs: ["blocked-state:coding-no-file-write"],
+        promotion_path_refs: ["promotion-path:coding-patch-proposal-lane"],
+        file_write_enabled: false,
+        shell_subprocess_execution_enabled: false,
+        git_mutation_enabled: false,
+        browser_automation_enabled: false,
+        provider_model_call_enabled: false,
+        background_autonomy_enabled: false,
+      },
+      {
+        capability_ref: "coding-project-capability:mock-terminal",
+        label: "Terminal lane",
+        capability_kind: "terminal",
+        state: "blocked",
+        safe_summary: "Fallback terminal posture cannot run commands.",
+        source_refs: ["test-command-readiness:coding-mock-blocked"],
+        evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+        proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+        blocked_authority_refs: ["blocked-state:coding-no-shell-subprocess"],
+        promotion_path_refs: ["promotion-path:coding-allowlisted-test-command"],
+        file_write_enabled: false,
+        shell_subprocess_execution_enabled: false,
+        git_mutation_enabled: false,
+        browser_automation_enabled: false,
+        provider_model_call_enabled: false,
+        background_autonomy_enabled: false,
+      },
+      {
+        capability_ref: "coding-project-capability:mock-git",
+        label: "Git lane",
+        capability_kind: "git",
+        state: "blocked",
+        safe_summary: "Fallback Git posture cannot read status or mutate Git.",
+        source_refs: ["git-review:coding-mock-blocked"],
+        evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+        proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+        blocked_authority_refs: ["blocked-state:coding-no-git-mutation"],
+        promotion_path_refs: ["promotion-path:coding-git-review-lane"],
+        file_write_enabled: false,
+        shell_subprocess_execution_enabled: false,
+        git_mutation_enabled: false,
+        browser_automation_enabled: false,
+        provider_model_call_enabled: false,
+        background_autonomy_enabled: false,
+      },
+    ],
+    capability_refs: [
+      "coding-project-capability:mock-workspace",
+      "coding-project-capability:mock-diff",
+      "coding-project-capability:mock-terminal",
+      "coding-project-capability:mock-git",
+    ],
+    proof_refs: ["proof-ref:coding-cockpit:mock-fallback"],
+    evidence_refs: ["evidence-ref:coding-cockpit:mock-fallback"],
+    blocked_authority_refs: codingCockpitBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path:coding-context-pack-preview",
+      "promotion-path:coding-patch-proposal-lane",
+      "promotion-path:coding-approved-apply-lane",
+      "promotion-path:coding-allowlisted-test-command",
+      "promotion-path:coding-git-review-lane",
+      "promotion-path:coding-live-preview-status",
+      "promotion-path:coding-multi-agent-review",
+    ],
+    redactions_applied: [
+      "redaction-ref:safe-refs-only",
+      "redaction-ref:raw-paths-omitted",
+      "redaction-ref:raw-content-omitted",
+      "redaction-ref:bounded-summaries-only",
+    ],
+    next_safe_action:
+      "Inspect backend-owned project posture before relying on coding lane state.",
+    backend_owned: false,
+    read_only: true,
+    safe_refs_only: true,
+    raw_paths_included: false,
+    raw_content_included: false,
+    repo_file_read_performed: false,
+    project_scan_performed: false,
+    file_write_enabled: false,
+    shell_subprocess_execution_enabled: false,
+    git_status_execution_enabled: false,
+    git_mutation_enabled: false,
+    dev_server_control_enabled: false,
+    browser_preview_enabled: false,
+    browser_automation_enabled: false,
+    provider_model_call_enabled: false,
+    background_autonomy_enabled: false,
+    production_authority_enabled: false,
+  },
   workspace_context: mockCodingPanel(
     "coding-panel:workspace-context",
     "Workspace Context",
@@ -457,6 +2900,7 @@ const mockCodingSession: CodingCockpitSessionReadModel = {
   ),
   same_ref_spine: [
     "coding-session:mock-fallback",
+    "coding-project-model:mock-fallback",
     "coding-task:cockpit-shell-mock",
     "context-pack:coding-cockpit-mock",
     "patch-proposal:coding-mock-preview",
@@ -3845,6 +6289,534 @@ const modelProviderControlPlane: ModelProviderControlPlaneReadModel = {
         "Router trace is metadata-only and performs no model or provider execution.",
     },
   ],
+  delegated_runtime_model_catalog: {
+    schema_version: "delegated_runtime_model_catalog.v1",
+    contract_ref: "contract-ref:hermes-runtime-model-provider-catalog:mock-fallback",
+    status: "read_only_runtime_model_availability",
+    route_ref: "GET /control-center/providers/runtime-control-plane",
+    cli_ref: "scripts/inspect_model_provider_control_plane.py",
+    runtime_profiles_route_ref: "GET /api/runtime/profiles",
+    provider_catalog_ref: "provider-catalog:cost-literacy:mock-fallback",
+    model_count: 4,
+    runtime_profile_count: 5,
+    runtime_reported_available_count: 3,
+    uaa_authorized_model_count: 0,
+    records: [
+      {
+        runtime_ref: "runtime-ref:hermes:delegated-coding",
+        runtime_profile_ref: "runtime-profile-ref:uaa:coding",
+        delegated_runtime_profile_ref: "delegated-profile-ref:hermes:coding",
+        provider_ref: "provider-ref:delegated-runtime:hermes",
+        model_ref: "model-ref:delegated-runtime:hermes:coding-primary",
+        display_label: "Hermes coding primary model ref",
+        runtime_availability_status: "runtime_reports_available",
+        uaa_invocation_posture: "blocked_no_exact_invocation_lane",
+        cost_metadata_status: "cost_unknown_blocks_use",
+        latency_metadata_status: "latency_unknown_blocks_use",
+        source_ref: "runtime-capability-ref:hermes:coding:model-catalog",
+        cost_posture_ref: "cost-posture-ref:delegated-runtime:unknown-paid-cost",
+        latency_posture_ref: "latency-posture-ref:delegated-runtime:not-measured",
+        runtime_reported_available: true,
+        uaa_invocation_allowed: false,
+        provider_sdk_call_enabled: false,
+        live_provider_discovery_performed: false,
+        live_provider_network_call_performed: false,
+        credential_collection_enabled: false,
+        credential_material_visible: false,
+        billing_authority_granted: false,
+        model_output_authority_enabled: false,
+        raw_provider_payload_persisted: false,
+        safe_summary:
+          "Hermes coding profile reports a model ref, but UAA has not authorized invocation from this catalog.",
+        blocked_authority_refs: [
+          "blocked-state:model-provider:runtime-availability-is-not-invocation",
+          "blocked-state:model-provider:delegated-runtime-invocation",
+          "blocked-state:model-provider:cost-unknown",
+        ],
+      },
+      {
+        runtime_ref: "runtime-ref:hermes:delegated-review",
+        runtime_profile_ref: "runtime-profile-ref:uaa:review",
+        delegated_runtime_profile_ref: "delegated-profile-ref:hermes:review",
+        provider_ref: "provider-ref:delegated-runtime:hermes",
+        model_ref: "model-ref:delegated-runtime:hermes:review-primary",
+        display_label: "Hermes review primary model ref",
+        runtime_availability_status: "runtime_reports_available",
+        uaa_invocation_posture: "blocked_no_exact_invocation_lane",
+        cost_metadata_status: "cost_unknown_blocks_use",
+        latency_metadata_status: "latency_unknown_blocks_use",
+        source_ref: "runtime-capability-ref:hermes:review:model-catalog",
+        cost_posture_ref: "cost-posture-ref:delegated-runtime:unknown-paid-cost",
+        latency_posture_ref: "latency-posture-ref:delegated-runtime:not-measured",
+        runtime_reported_available: true,
+        uaa_invocation_allowed: false,
+        provider_sdk_call_enabled: false,
+        live_provider_discovery_performed: false,
+        live_provider_network_call_performed: false,
+        credential_collection_enabled: false,
+        credential_material_visible: false,
+        billing_authority_granted: false,
+        model_output_authority_enabled: false,
+        raw_provider_payload_persisted: false,
+        safe_summary:
+          "Hermes review profile reports a model ref, but UAA treats it as proposal metadata until an exact invocation lane exists.",
+        blocked_authority_refs: [
+          "blocked-state:model-provider:runtime-availability-is-not-invocation",
+          "blocked-state:model-provider:delegated-runtime-invocation",
+          "blocked-state:model-provider:cost-unknown",
+        ],
+      },
+      {
+        runtime_ref: "runtime-ref:uaa-native:local-llama-cpp",
+        runtime_profile_ref: "runtime-profile-ref:uaa:sealed-default",
+        delegated_runtime_profile_ref:
+          "delegated-profile-ref:uaa-native:local-llama-cpp",
+        provider_ref: "provider-ref:uaa-native:local-runtime",
+        model_ref: "model-ref:local:uaa-llama-cpp-local",
+        display_label: "UAA local llama.cpp model ref",
+        runtime_availability_status: "local_gateway_metadata_available",
+        uaa_invocation_posture: "metadata_only_existing_lane_separate",
+        cost_metadata_status: "local_hardware_cost_posture_only",
+        latency_metadata_status: "local_gateway_readiness_only",
+        source_ref: "local-model-inventory-ref:llama-cpp:metadata",
+        cost_posture_ref: "cost-posture-ref:local-runtime:hardware-only",
+        latency_posture_ref: "latency-posture-ref:local-gateway:readiness-only",
+        runtime_reported_available: true,
+        uaa_invocation_allowed: false,
+        provider_sdk_call_enabled: false,
+        live_provider_discovery_performed: false,
+        live_provider_network_call_performed: false,
+        credential_collection_enabled: false,
+        credential_material_visible: false,
+        billing_authority_granted: false,
+        model_output_authority_enabled: false,
+        raw_provider_payload_persisted: false,
+        safe_summary:
+          "Local llama.cpp metadata is visible here, while any existing exact local invocation lane remains separate from catalog visibility.",
+        blocked_authority_refs: [
+          "blocked-state:model-provider:catalog-visibility-is-not-invocation",
+          "blocked-state:model-provider:lifecycle-start-from-catalog",
+          "blocked-state:model-provider:model-output-as-authority",
+        ],
+      },
+      {
+        runtime_ref: "runtime-ref:hermes:delegated-research",
+        runtime_profile_ref: "runtime-profile-ref:uaa:research",
+        delegated_runtime_profile_ref: "delegated-profile-ref:hermes:research",
+        provider_ref: "provider-ref:delegated-runtime:hermes",
+        model_ref: "model-ref:delegated-runtime:hermes:research-planned",
+        display_label: "Hermes research planned model ref",
+        runtime_availability_status: "runtime_reports_planned",
+        uaa_invocation_posture: "blocked_profile_not_configured",
+        cost_metadata_status: "cost_unknown_blocks_use",
+        latency_metadata_status: "latency_unknown_blocks_use",
+        source_ref: "runtime-capability-ref:hermes:research:model-catalog",
+        cost_posture_ref: "cost-posture-ref:delegated-runtime:unknown-paid-cost",
+        latency_posture_ref: "latency-posture-ref:delegated-runtime:not-measured",
+        runtime_reported_available: false,
+        uaa_invocation_allowed: false,
+        provider_sdk_call_enabled: false,
+        live_provider_discovery_performed: false,
+        live_provider_network_call_performed: false,
+        credential_collection_enabled: false,
+        credential_material_visible: false,
+        billing_authority_granted: false,
+        model_output_authority_enabled: false,
+        raw_provider_payload_persisted: false,
+        safe_summary:
+          "Hermes research profile is planned and remains blocked for UAA model invocation.",
+        blocked_authority_refs: [
+          "blocked-state:model-provider:runtime-profile-not-configured",
+          "blocked-state:model-provider:delegated-runtime-invocation",
+          "blocked-state:web-access:live-fetch-by-control-plane",
+        ],
+      },
+    ],
+    runtime_says_available_is_not_authority: true,
+    uaa_may_invoke_any_listed_model: false,
+    static_cost_metadata_only: true,
+    static_latency_metadata_only: true,
+    live_provider_discovery_enabled: false,
+    provider_sdk_call_enabled: false,
+    remote_model_call_enabled: false,
+    credential_collection_enabled: false,
+    billing_authority_granted: false,
+    model_output_authority_enabled: false,
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-07:model-provider-catalog",
+      "proof-ref:model-provider-control-plane:read-model",
+    ],
+    docs_refs: [
+      "docs/runtime/UAA_HERMES_RUNTIME_MODEL_PROVIDER_CATALOG.md",
+      "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
+    ],
+    verifier_refs: ["scripts/verify_hermes_runtime_adoption_phase_07.py"],
+    blocked_authority_refs: [
+      "blocked-state:model-provider:runtime-availability-is-not-invocation",
+      "blocked-state:model-provider:provider-sdk-calls",
+      "blocked-state:model-provider:remote-model-calls-by-control-plane",
+      "blocked-state:model-provider:credential-collection",
+      "blocked-state:model-provider:billing-authority",
+      "blocked-state:model-provider:model-output-as-authority",
+      "blocked-state:model-provider:live-provider-discovery",
+    ],
+    safe_summary:
+      "Delegated runtime model availability is displayed as read-only metadata. Runtime-reported availability is separated from UAA invocation authority, which remains blocked by this catalog.",
+  },
+  model_slot_posture: {
+    schema_version: "hermes_runtime_model_slot_posture.v1",
+    contract_ref: "contract-ref:hermes-runtime-model-slot-posture:v1",
+    status: "read_only_model_slot_intent",
+    route_ref: "GET /control-center/providers/runtime-control-plane",
+    cli_ref: "scripts/inspect_model_provider_control_plane.py",
+    trust_lane_ref: "trust-lane:model-slot-posture",
+    provider_readiness_ref:
+      "control-center-dashboard-field:provider_credential_readiness",
+    delegated_model_catalog_ref:
+      "contract-ref:hermes-runtime-model-provider-catalog:v1",
+    slot_count: 8,
+    warning_count: 4,
+    records: [
+      {
+        slot_ref: "model-slot-ref:uaa:main-thinking",
+        slot_role: "main_thinking",
+        display_label: "Main thinking",
+        intended_provider_ref: "provider-ref:uaa-governed:main",
+        intended_model_ref: "model-ref:uaa:intended-main-thinking",
+        source_profile_ref: "runtime-profile-ref:uaa:sealed-default",
+        delegated_runtime_profile_ref: "delegated-profile-ref:uaa-native:main",
+        configured_status: "configured_metadata_only",
+        uaa_execution_posture: "blocked_no_exact_model_authority",
+        provider_readiness_ref:
+          "control-center-dashboard-field:provider_credential_readiness",
+        cost_posture_ref: "cost-posture-ref:model-slot:main-cost-policy-required",
+        latency_posture_ref: "latency-posture-ref:model-slot:main-not-measured",
+        route_decision_trace_ref: "model-route-trace-ref:model-slot:main-thinking",
+        model_output_truth_ref: "truth-boundary-ref:model-output:not-authority",
+        warning_refs: ["warning-ref:model-slot:main-thinking-cost-policy-required"],
+        blocked_authority_refs: [
+          "blocked-state:model-slot:live-auxiliary-model-calls",
+          "blocked-state:model-slot:provider-sdk-use",
+          "blocked-state:model-slot:hidden-model-routing",
+          "blocked-state:model-slot:runtime-selection-mutation",
+        ],
+        live_auxiliary_call_enabled: false,
+        provider_sdk_call_enabled: false,
+        runtime_selection_mutation_enabled: false,
+        hidden_model_routing_enabled: false,
+        route_decision_trace_required: true,
+        cost_estimate_required: true,
+        approval_profile_mapping_required: true,
+        model_output_truth_envelope_required: true,
+        receipt_required_before_execution: true,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+        safe_summary:
+          "Main reasoning slot is visible as intended routing metadata only; UAA does not call or switch a model from this posture.",
+      },
+      {
+        slot_ref: "model-slot-ref:uaa:summarization",
+        slot_role: "summarization",
+        display_label: "Summarization",
+        intended_provider_ref: "provider-ref:uaa-governed:auxiliary",
+        intended_model_ref: "model-ref:uaa:intended-summarization-small",
+        source_profile_ref: "runtime-profile-ref:uaa:sealed-default",
+        delegated_runtime_profile_ref:
+          "delegated-profile-ref:uaa-native:summarization",
+        configured_status: "configured_metadata_only",
+        uaa_execution_posture: "blocked_no_exact_model_authority",
+        provider_readiness_ref:
+          "control-center-dashboard-field:provider_credential_readiness",
+        cost_posture_ref: "cost-posture-ref:model-slot:cheap-model-required",
+        latency_posture_ref: "latency-posture-ref:model-slot:fast-path-required",
+        route_decision_trace_ref: "model-route-trace-ref:model-slot:summarization",
+        model_output_truth_ref: "truth-boundary-ref:model-output:not-authority",
+        warning_refs: [],
+        blocked_authority_refs: [
+          "blocked-state:model-slot:live-auxiliary-model-calls",
+          "blocked-state:model-slot:provider-sdk-use",
+          "blocked-state:model-slot:hidden-model-routing",
+        ],
+        live_auxiliary_call_enabled: false,
+        provider_sdk_call_enabled: false,
+        runtime_selection_mutation_enabled: false,
+        hidden_model_routing_enabled: false,
+        route_decision_trace_required: true,
+        cost_estimate_required: true,
+        approval_profile_mapping_required: true,
+        model_output_truth_envelope_required: true,
+        receipt_required_before_execution: true,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+        safe_summary:
+          "Summarization slot is intended to use a cheap/fast model later, but no auxiliary call is enabled by this read model.",
+      },
+      {
+        slot_ref: "model-slot-ref:uaa:title",
+        slot_role: "title",
+        display_label: "Title generation",
+        intended_provider_ref: "provider-ref:uaa-governed:auxiliary",
+        intended_model_ref: "model-ref:uaa:intended-title-small",
+        source_profile_ref: "runtime-profile-ref:uaa:sealed-default",
+        delegated_runtime_profile_ref: "delegated-profile-ref:uaa-native:title",
+        configured_status: "configured_metadata_only",
+        uaa_execution_posture: "blocked_no_exact_model_authority",
+        provider_readiness_ref:
+          "control-center-dashboard-field:provider_credential_readiness",
+        cost_posture_ref: "cost-posture-ref:model-slot:cheap-model-required",
+        latency_posture_ref: "latency-posture-ref:model-slot:fast-path-required",
+        route_decision_trace_ref: "model-route-trace-ref:model-slot:title",
+        model_output_truth_ref: "truth-boundary-ref:model-output:not-authority",
+        warning_refs: [],
+        blocked_authority_refs: [
+          "blocked-state:model-slot:live-auxiliary-model-calls",
+          "blocked-state:model-slot:provider-sdk-use",
+          "blocked-state:model-slot:hidden-model-routing",
+        ],
+        live_auxiliary_call_enabled: false,
+        provider_sdk_call_enabled: false,
+        runtime_selection_mutation_enabled: false,
+        hidden_model_routing_enabled: false,
+        route_decision_trace_required: true,
+        cost_estimate_required: true,
+        approval_profile_mapping_required: true,
+        model_output_truth_envelope_required: true,
+        receipt_required_before_execution: true,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+        safe_summary:
+          "Title slot is visible for future cheap auxiliary routing; it does not create hidden title model calls.",
+      },
+      {
+        slot_ref: "model-slot-ref:uaa:approval-scoring",
+        slot_role: "approval_scoring",
+        display_label: "Approval scoring",
+        intended_provider_ref: "provider-ref:uaa-governed:policy",
+        intended_model_ref: "model-ref:uaa:intended-approval-scoring",
+        source_profile_ref: "runtime-profile-ref:uaa:sealed-default",
+        delegated_runtime_profile_ref: "delegated-profile-ref:uaa-native:approval",
+        configured_status: "planned_not_configured",
+        uaa_execution_posture: "blocked_no_exact_model_authority",
+        provider_readiness_ref:
+          "control-center-dashboard-field:provider_credential_readiness",
+        cost_posture_ref: "cost-posture-ref:model-slot:approval-cost-review",
+        latency_posture_ref: "latency-posture-ref:model-slot:policy-not-measured",
+        route_decision_trace_ref:
+          "model-route-trace-ref:model-slot:approval-scoring",
+        model_output_truth_ref: "truth-boundary-ref:model-output:not-authority",
+        warning_refs: ["warning-ref:model-slot:approval-scoring-no-hidden-routing"],
+        blocked_authority_refs: [
+          "blocked-state:model-slot:live-auxiliary-model-calls",
+          "blocked-state:model-slot:provider-sdk-use",
+          "blocked-state:model-slot:hidden-model-routing",
+          "blocked-state:model-slot:approval-decision-by-model",
+        ],
+        live_auxiliary_call_enabled: false,
+        provider_sdk_call_enabled: false,
+        runtime_selection_mutation_enabled: false,
+        hidden_model_routing_enabled: false,
+        route_decision_trace_required: true,
+        cost_estimate_required: true,
+        approval_profile_mapping_required: true,
+        model_output_truth_envelope_required: true,
+        receipt_required_before_execution: true,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+        safe_summary:
+          "Approval scoring remains planned metadata; approval decisions are not delegated to a hidden model.",
+      },
+      {
+        slot_ref: "model-slot-ref:uaa:compression",
+        slot_role: "compression",
+        display_label: "Context compression",
+        intended_provider_ref: "provider-ref:uaa-governed:auxiliary",
+        intended_model_ref: "model-ref:uaa:intended-compression-small",
+        source_profile_ref: "runtime-profile-ref:uaa:sealed-default",
+        delegated_runtime_profile_ref:
+          "delegated-profile-ref:uaa-native:compression",
+        configured_status: "planned_not_configured",
+        uaa_execution_posture: "blocked_no_exact_model_authority",
+        provider_readiness_ref:
+          "control-center-dashboard-field:provider_credential_readiness",
+        cost_posture_ref: "cost-posture-ref:model-slot:cheap-model-required",
+        latency_posture_ref: "latency-posture-ref:model-slot:fast-path-required",
+        route_decision_trace_ref: "model-route-trace-ref:model-slot:compression",
+        model_output_truth_ref: "truth-boundary-ref:model-output:not-authority",
+        warning_refs: [],
+        blocked_authority_refs: [
+          "blocked-state:model-slot:live-auxiliary-model-calls",
+          "blocked-state:model-slot:provider-sdk-use",
+          "blocked-state:model-slot:hidden-model-routing",
+          "blocked-state:model-slot:raw-prompt-persistence",
+        ],
+        live_auxiliary_call_enabled: false,
+        provider_sdk_call_enabled: false,
+        runtime_selection_mutation_enabled: false,
+        hidden_model_routing_enabled: false,
+        route_decision_trace_required: true,
+        cost_estimate_required: true,
+        approval_profile_mapping_required: true,
+        model_output_truth_envelope_required: true,
+        receipt_required_before_execution: true,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+        safe_summary:
+          "Compression slot is a future auxiliary intent and does not persist operator input or context bodies.",
+      },
+      {
+        slot_ref: "model-slot-ref:uaa:retrieval",
+        slot_role: "retrieval",
+        display_label: "Retrieval helper",
+        intended_provider_ref: "provider-ref:uaa-native:retrieval",
+        intended_model_ref: "model-ref:uaa:intended-retrieval-local-metadata",
+        source_profile_ref: "runtime-profile-ref:uaa:sealed-default",
+        delegated_runtime_profile_ref: "delegated-profile-ref:uaa-native:retrieval",
+        configured_status: "configured_metadata_only",
+        uaa_execution_posture: "metadata_only_existing_lane_separate",
+        provider_readiness_ref: "memory-context-pack-posture-ref:reviewed-refs-only",
+        cost_posture_ref: "cost-posture-ref:model-slot:local-metadata-only",
+        latency_posture_ref: "latency-posture-ref:model-slot:local-readiness-only",
+        route_decision_trace_ref: "model-route-trace-ref:model-slot:retrieval",
+        model_output_truth_ref: "truth-boundary-ref:retrieval-output:not-authority",
+        warning_refs: [],
+        blocked_authority_refs: [
+          "blocked-state:model-slot:live-auxiliary-model-calls",
+          "blocked-state:model-slot:provider-sdk-use",
+          "blocked-state:model-slot:hidden-model-routing",
+          "blocked-state:model-slot:hidden-context-injection",
+        ],
+        live_auxiliary_call_enabled: false,
+        provider_sdk_call_enabled: false,
+        runtime_selection_mutation_enabled: false,
+        hidden_model_routing_enabled: false,
+        route_decision_trace_required: true,
+        cost_estimate_required: true,
+        approval_profile_mapping_required: true,
+        model_output_truth_envelope_required: true,
+        receipt_required_before_execution: true,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+        safe_summary:
+          "Retrieval slot points at reviewed local metadata and context refs; it does not inject hidden context or call a retrieval model.",
+      },
+      {
+        slot_ref: "model-slot-ref:uaa:vision",
+        slot_role: "vision",
+        display_label: "Vision",
+        intended_provider_ref: "provider-ref:uaa-governed:vision",
+        intended_model_ref: "model-ref:uaa:intended-vision-planned",
+        source_profile_ref: "runtime-profile-ref:uaa:sealed-default",
+        delegated_runtime_profile_ref: "delegated-profile-ref:hermes:vision-planned",
+        configured_status: "planned_not_configured",
+        uaa_execution_posture: "blocked_missing_runtime_profile",
+        provider_readiness_ref:
+          "control-center-dashboard-field:provider_credential_readiness",
+        cost_posture_ref: "cost-posture-ref:model-slot:vision-cost-unknown",
+        latency_posture_ref: "latency-posture-ref:model-slot:vision-not-measured",
+        route_decision_trace_ref: "model-route-trace-ref:model-slot:vision",
+        model_output_truth_ref: "truth-boundary-ref:model-output:not-authority",
+        warning_refs: ["warning-ref:model-slot:vision-unavailable"],
+        blocked_authority_refs: [
+          "blocked-state:model-slot:live-auxiliary-model-calls",
+          "blocked-state:model-slot:provider-sdk-use",
+          "blocked-state:model-slot:hidden-model-routing",
+          "blocked-state:model-slot:vision-provider-not-configured",
+        ],
+        live_auxiliary_call_enabled: false,
+        provider_sdk_call_enabled: false,
+        runtime_selection_mutation_enabled: false,
+        hidden_model_routing_enabled: false,
+        route_decision_trace_required: true,
+        cost_estimate_required: true,
+        approval_profile_mapping_required: true,
+        model_output_truth_envelope_required: true,
+        receipt_required_before_execution: true,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+        safe_summary:
+          "Vision slot is planned and unavailable; no image/model provider call is enabled.",
+      },
+      {
+        slot_ref: "model-slot-ref:uaa:review",
+        slot_role: "review",
+        display_label: "Review",
+        intended_provider_ref: "provider-ref:delegated-runtime:hermes",
+        intended_model_ref: "model-ref:delegated-runtime:hermes:review-primary",
+        source_profile_ref: "runtime-profile-ref:uaa:review",
+        delegated_runtime_profile_ref: "delegated-profile-ref:hermes:review",
+        configured_status: "runtime_reported_available_not_authorized",
+        uaa_execution_posture: "blocked_no_exact_model_authority",
+        provider_readiness_ref:
+          "contract-ref:hermes-runtime-model-provider-catalog:v1",
+        cost_posture_ref: "cost-posture-ref:delegated-runtime:unknown-paid-cost",
+        latency_posture_ref: "latency-posture-ref:delegated-runtime:not-measured",
+        route_decision_trace_ref: "model-route-trace-ref:model-slot:review",
+        model_output_truth_ref: "truth-boundary-ref:model-output:not-authority",
+        warning_refs: [
+          "warning-ref:model-slot:review-runtime-availability-not-authority",
+        ],
+        blocked_authority_refs: [
+          "blocked-state:model-slot:live-auxiliary-model-calls",
+          "blocked-state:model-slot:provider-sdk-use",
+          "blocked-state:model-slot:hidden-model-routing",
+          "blocked-state:model-provider:runtime-availability-is-not-invocation",
+        ],
+        live_auxiliary_call_enabled: false,
+        provider_sdk_call_enabled: false,
+        runtime_selection_mutation_enabled: false,
+        hidden_model_routing_enabled: false,
+        route_decision_trace_required: true,
+        cost_estimate_required: true,
+        approval_profile_mapping_required: true,
+        model_output_truth_envelope_required: true,
+        receipt_required_before_execution: true,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+        safe_summary:
+          "Review slot can reference Hermes review availability metadata, but UAA cannot invoke it from this posture.",
+      },
+    ],
+    main_slot_ref: "model-slot-ref:uaa:main-thinking",
+    auxiliary_slot_refs: [
+      "model-slot-ref:uaa:summarization",
+      "model-slot-ref:uaa:title",
+      "model-slot-ref:uaa:approval-scoring",
+      "model-slot-ref:uaa:compression",
+      "model-slot-ref:uaa:retrieval",
+      "model-slot-ref:uaa:vision",
+      "model-slot-ref:uaa:review",
+    ],
+    live_auxiliary_calls_enabled: false,
+    provider_sdk_use_enabled: false,
+    runtime_selection_mutation_enabled: false,
+    hidden_model_routing_enabled: false,
+    raw_prompt_persistence_enabled: false,
+    raw_response_persistence_enabled: false,
+    route_decision_trace_required: true,
+    cost_estimate_required: true,
+    approval_profile_mapping_required: true,
+    model_output_truth_envelope_required: true,
+    receipts_required_before_execution: true,
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-08:model-slot-posture",
+      "proof-ref:model-provider-control-plane:model-slot-posture",
+    ],
+    docs_refs: [
+      "docs/runtime/UAA_HERMES_RUNTIME_MODEL_SLOT_POSTURE.md",
+      "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
+    ],
+    verifier_refs: ["scripts/verify_hermes_runtime_adoption_phase_08.py"],
+    blocked_authority_refs: [
+      "blocked-state:model-slot:live-auxiliary-model-calls",
+      "blocked-state:model-slot:provider-sdk-use",
+      "blocked-state:model-slot:runtime-selection-mutation",
+      "blocked-state:model-slot:hidden-model-routing",
+      "blocked-state:model-slot:raw-prompt-persistence",
+      "blocked-state:model-slot:raw-response-persistence",
+    ],
+    safe_summary:
+      "Main and auxiliary model slots are visible as backend-owned intent metadata only. Slot routing does not call providers, mutate runtime selection, or hide model routing.",
+  },
   model_provider_research_posture: {
     schema_version: "model_provider_research_posture.v1",
     contract_ref:
@@ -8469,6 +11441,11 @@ export const mockControlCenterData: ControlCenterData = {
       status: "planned_disabled",
       plugin_enablement_allowed: false,
       native_build_tools_enabled: false,
+      skill_bundle_proposal_status: "proposal_only",
+      skill_bundle_proposal_count: 1,
+      skill_bundle_proposal_refs: ["skill-bundle-proposal:founder-loop-review"],
+      skill_bundle_activation_enabled: false,
+      skill_bundle_tool_execution_enabled: false,
     },
     provider_credential_readiness: {
       status: "reference_readiness_only",
@@ -9333,6 +12310,2611 @@ export const mockControlCenterData: ControlCenterData = {
         secrets_allowed: false,
         summary: "Cloud provider runtime is blocked.",
       },
+    ],
+  },
+  runtimeDelegationAdapter: {
+    schema_version: "runtime_delegation_adapter.v1",
+    contract_ref: "contract-ref:runtime-delegation-adapter:v1",
+    adapter_ref: "runtime-delegation-adapter:hermes-agent",
+    runtime_identity_ref: "runtime-identity-ref:hermes-agent:optional-target",
+    runtime_label: "Hermes Agent optional delegated runtime",
+    runtime_kind: "hermes_agent",
+    authority_mode: "read_only_readiness",
+    status: "readiness_only",
+    endpoint_posture: {
+      endpoint_ref: "endpoint-ref:runtime-delegation:operator-config-required",
+      endpoint_configured: false,
+      endpoint_loopback_or_approved_network_required: true,
+      live_transport_enabled: false,
+      credential_ref: "credential-ref:runtime-delegation:not-configured",
+      credential_material_exposed: false,
+      network_policy_ref:
+        "network-policy-ref:runtime-delegation:blocked-by-default",
+      safe_summary:
+        "Runtime endpoint posture is metadata only until an exact approved transport lane exists.",
+    },
+    capability_refs: [
+      "capability-ref:runtime-delegation:run-supervision",
+      "capability-ref:runtime-delegation:event-ingest",
+      "capability-ref:runtime-delegation:approval-bridge",
+      "capability-ref:runtime-delegation:stop-posture",
+    ],
+    health_refs: [
+      "health-ref:runtime-delegation:hermes-config-missing",
+      "health-ref:runtime-delegation:live-transport-disabled",
+    ],
+    proof_refs: [
+      "proof-ref:runtime-delegation:adapter-contract",
+      "proof-ref:runtime-delegation:uaa-authority-owner",
+    ],
+    blocked_reason_refs: [
+      "blocked-authority:runtime-unrestricted-command-execution",
+      "blocked-authority:runtime-command-execution-without-gateway-allowlist",
+      "blocked-authority:runtime-browser-automation",
+      "blocked-authority:runtime-connector-write",
+      "blocked-authority:runtime-plugin-import",
+      "blocked-authority:runtime-remote-execution",
+      "blocked-authority:runtime-remote-provider-model-call",
+      "blocked-authority:runtime-production-authority",
+      "blocked-authority:runtime-delegation-live-run-submission",
+      "blocked-authority:runtime-delegation-direct-control-center-runtime-access",
+      "blocked-authority:runtime-delegation-credential-material-exposure",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-delegation:configure-endpoint-metadata",
+      "next-safe-action-ref:runtime-delegation:add-capability-snapshot",
+      "next-safe-action-ref:runtime-delegation:bind-approval-envelope",
+      "next-safe-action-ref:runtime-delegation:add-redacted-run-receipts",
+    ],
+    route_ref: "GET /api/runtime/delegation-adapter",
+    cli_ref: "uaa runtime inspect-delegation-adapter",
+    control_center_ref: "control-center-route:runtime",
+    uaa_controls_authority: true,
+    runtime_provides_capability_only: true,
+    control_center_talks_directly_to_runtime: false,
+    live_run_submission_enabled: false,
+    runtime_model_calls_enabled: false,
+    provider_sdk_calls_enabled: false,
+    tool_execution_enabled: false,
+    shell_execution_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    background_autonomy_enabled: false,
+    production_authority_enabled: false,
+    safe_refs_only: true,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    raw_provider_payload_persisted: false,
+    raw_log_persisted: false,
+    raw_local_path_persisted: false,
+    credential_material_persisted: false,
+    safe_summary:
+      "UAA owns authority and receipts; delegated runtimes provide optional capability metadata until exact approved lanes graduate.",
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "command_output_omitted",
+      "local_paths_omitted",
+      "environment_omitted",
+      "sensitive_material_omitted",
+    ],
+  },
+  runtimeCapabilityDiscovery: {
+    schema_version: "runtime_capability_discovery.v1",
+    contract_ref: "contract-ref:runtime-capability-discovery:v1",
+    snapshot_ref:
+      "capability-snapshot-ref:runtime-discovery:hermes-agent:static-readiness",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-capability-discovery:mock",
+    runtime_identity_ref: "runtime-identity-ref:hermes-agent:optional-target",
+    adapter_ref: "runtime-delegation-adapter:hermes-agent",
+    runtime_label: "Hermes Agent optional delegated runtime",
+    status: "static_readiness_only",
+    freshness_status: "static_snapshot_unverified",
+    runtime_reachable: false,
+    live_discovery_performed: false,
+    stale: true,
+    stale_or_unreachable_degrades_to_blocked: true,
+    runtime_supported_cannot_grant_uaa_permission: true,
+    uaa_controls_authority: true,
+    control_center_talks_directly_to_runtime: false,
+    route_ref: "GET /api/runtime/capability-discovery",
+    cli_ref: "uaa runtime inspect-capability-discovery",
+    control_center_ref: "control-center-route:runtime",
+    freshness_policy_ref:
+      "freshness-policy-ref:runtime-capability-discovery:live-snapshot-required",
+    policy_evaluation_ref:
+      "policy-evaluation-ref:runtime-capability-discovery:blocked-by-default",
+    capability_groups: [
+      "models",
+      "runs",
+      "events",
+      "approvals",
+      "sessions",
+      "skills",
+      "toolsets",
+      "jobs",
+      "blocked_actions",
+    ].map((kind) => ({
+      group_ref: `capability-group-ref:runtime-discovery:${kind.replaceAll("_", "-")}`,
+      group_kind: kind as
+        | "models"
+        | "runs"
+        | "events"
+        | "approvals"
+        | "sessions"
+        | "skills"
+        | "toolsets"
+        | "jobs"
+        | "blocked_actions",
+      runtime_support_status:
+        kind === "blocked_actions"
+          ? "blocked_by_uaa"
+          : "reference_only_unverified",
+      uaa_authorization_status: "blocked",
+      runtime_supported_by_reference: kind !== "blocked_actions",
+      uaa_authorized_for_execution: false,
+      stale_or_unreachable_degrades_to_blocked: true,
+      trust_label: "runtime capability is unverified metadata",
+      safe_summary:
+        "Mock fallback capability metadata is non-authoritative and grants no UAA execution authority.",
+      capability_refs: [
+        `capability-ref:runtime-discovery:${kind.replaceAll("_", "-")}`,
+      ],
+      blocked_authority_refs: [
+        "blocked-authority:runtime-capability-cannot-grant-permission",
+      ],
+      next_safe_action_refs: [
+        "next-safe-action-ref:runtime-capability-discovery:evaluate-policy-before-controls",
+      ],
+    })),
+    toolset_posture: {
+      schema_version: "runtime_toolset_capability_posture.v1",
+      contract_ref: "contract-ref:hermes-runtime-toolset-capability-posture:v1",
+      status: "read_only_toolset_capability_posture",
+      route_ref: "GET /api/runtime/capability-discovery",
+      cli_ref: "uaa runtime inspect-capability-discovery",
+      control_center_ref: "control-center-route:runtime",
+      authority_profile_ref:
+        "authority-profile-ref:runtime-toolsets:read-only-posture",
+      safe_summary:
+        "Mock fallback toolset posture is non-authoritative; UAA execution remains blocked.",
+      records: [
+        {
+          toolset_ref: "toolset-ref:runtime:core-readonly-metadata",
+          display_label: "Core read-only metadata",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:shared-readiness",
+          runtime_support_status: "runtime_configured_metadata_only",
+          uaa_allowance_status: "enabled_read_only",
+          side_effect_class: "read_only_metadata",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:core-readonly-metadata:future",
+          safe_disable_ref:
+            "safe-disable-ref:runtime-toolset:core-readonly-metadata:disabled",
+          receipt_ref:
+            "receipt-ref:runtime-toolset:core-readonly-metadata:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Safe runtime metadata may be displayed, but no tool is invoked.",
+          runtime_supports_toolset: true,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: [
+            "blocked-authority:runtime-toolset-invocation",
+            "blocked-authority:runtime-toolset-config-mutation",
+          ],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:keep-metadata-read-only",
+          ],
+        },
+        {
+          toolset_ref: "toolset-ref:runtime:profile-session-metadata",
+          display_label: "Profile and session metadata",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:shared-readiness",
+          runtime_support_status: "runtime_configured_metadata_only",
+          uaa_allowance_status: "configured_metadata_only",
+          side_effect_class: "read_only_metadata",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:profile-session-metadata:future",
+          safe_disable_ref:
+            "safe-disable-ref:runtime-toolset:profile-session-metadata:disabled",
+          receipt_ref:
+            "receipt-ref:runtime-toolset:profile-session-metadata:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Profile and session posture is displayed as safe metadata only.",
+          runtime_supports_toolset: true,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: [
+            "blocked-authority:runtime-session-open-without-transport",
+            "blocked-authority:runtime-profile-config-mutation",
+          ],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:add-signed-profile-snapshot",
+          ],
+        },
+        {
+          toolset_ref: "toolset-ref:runtime:coding-workspace",
+          display_label: "Coding workspace tools",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:coding",
+          runtime_support_status: "runtime_supported_by_reference",
+          uaa_allowance_status: "approval_required_future_lane",
+          side_effect_class: "local_workspace",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:coding-workspace:future",
+          safe_disable_ref:
+            "safe-disable-ref:runtime-toolset:coding-workspace:disabled",
+          receipt_ref: "receipt-ref:runtime-toolset:coding-workspace:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Coding workspace tools need exact grant, receipts, and rollback posture.",
+          runtime_supports_toolset: true,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: [
+            "blocked-authority:runtime-toolset-invocation",
+            "blocked-authority:runtime-file-mutation-without-patch-lane",
+          ],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:define-coding-tool-grant",
+          ],
+        },
+        {
+          toolset_ref: "toolset-ref:runtime:command-execution",
+          display_label: "Command execution tools",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:coding",
+          runtime_support_status: "runtime_supported_by_reference",
+          uaa_allowance_status: "approval_required_future_lane",
+          side_effect_class: "high_authority",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:command-execution:future",
+          safe_disable_ref:
+            "safe-disable-ref:runtime-toolset:command-execution:disabled",
+          receipt_ref:
+            "receipt-ref:runtime-toolset:command-execution:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Command tools require RuntimeGateway allowlists, redaction, and receipts.",
+          runtime_supports_toolset: true,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: [
+            "blocked-authority:runtime-high-authority-toolset",
+            "blocked-authority:runtime-command-execution-without-gateway-allowlist",
+            "blocked-authority:runtime-unrestricted-command-execution",
+          ],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:bind-command-tool-approval",
+          ],
+        },
+        {
+          toolset_ref: "toolset-ref:runtime:web-browser",
+          display_label: "Browser and web tools",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:research",
+          runtime_support_status: "runtime_planned_disabled",
+          uaa_allowance_status: "blocked",
+          side_effect_class: "high_authority",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:web-browser:future",
+          safe_disable_ref: "safe-disable-ref:runtime-toolset:web-browser:disabled",
+          receipt_ref: "receipt-ref:runtime-toolset:web-browser:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Browser and web tools remain blocked until an exact gateway lane exists.",
+          runtime_supports_toolset: false,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: [
+            "blocked-authority:runtime-high-authority-toolset",
+            "blocked-authority:runtime-browser-automation",
+            "blocked-authority:runtime-web-fetch-without-gateway",
+          ],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:define-webaccess-readonly-lane",
+          ],
+        },
+        {
+          toolset_ref: "toolset-ref:runtime:connector-write",
+          display_label: "Connector write tools",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:operations",
+          runtime_support_status: "runtime_planned_disabled",
+          uaa_allowance_status: "blocked",
+          side_effect_class: "external_mutation",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:connector-write:future",
+          safe_disable_ref:
+            "safe-disable-ref:runtime-toolset:connector-write:disabled",
+          receipt_ref: "receipt-ref:runtime-toolset:connector-write:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Connector write tools remain blocked until exact connector lanes exist.",
+          runtime_supports_toolset: false,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: [
+            "blocked-authority:runtime-connector-write",
+            "blocked-authority:connector-write-without-exact-lane",
+          ],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:create-connector-draft-only-review",
+          ],
+        },
+        {
+          toolset_ref: "toolset-ref:runtime:plugin-runtime-import",
+          display_label: "Plugin runtime import tools",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:extensions",
+          runtime_support_status: "runtime_unsupported",
+          uaa_allowance_status: "unsupported",
+          side_effect_class: "unsupported",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:plugin-runtime-import:future",
+          safe_disable_ref:
+            "safe-disable-ref:runtime-toolset:plugin-runtime-import:disabled",
+          receipt_ref:
+            "receipt-ref:runtime-toolset:plugin-runtime-import:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Runtime plugin import tools are unsupported in this posture.",
+          runtime_supports_toolset: false,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: ["blocked-authority:runtime-plugin-import"],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:add-plugin-adaptation-contract",
+          ],
+        },
+        {
+          toolset_ref: "toolset-ref:runtime:production-ops",
+          display_label: "Production operations tools",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:operations",
+          runtime_support_status: "runtime_blocked_by_uaa",
+          uaa_allowance_status: "blocked",
+          side_effect_class: "high_authority",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:production-ops:future",
+          safe_disable_ref:
+            "safe-disable-ref:runtime-toolset:production-ops:disabled",
+          receipt_ref: "receipt-ref:runtime-toolset:production-ops:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Production operations authority remains blocked.",
+          runtime_supports_toolset: false,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: [
+            "blocked-authority:runtime-high-authority-toolset",
+            "blocked-authority:runtime-production-authority",
+          ],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:keep-production-authority-blocked",
+          ],
+        },
+      ],
+      toolset_count: 8,
+      runtime_supported_count: 4,
+      uaa_allowed_execution_count: 0,
+      enabled_read_only_count: 1,
+      configured_metadata_only_count: 1,
+      approval_required_future_count: 2,
+      blocked_count: 3,
+      unsupported_count: 1,
+      live_tool_invocation_enabled: false,
+      toolset_config_mutation_enabled: false,
+      hermes_toolset_enablement_enabled: false,
+      raw_tool_payload_persisted: false,
+      production_authority_enabled: false,
+      blocked_authority_refs: [
+        "blocked-authority:runtime-toolset-invocation",
+        "blocked-authority:runtime-toolset-config-mutation",
+        "blocked-authority:runtime-toolset-enablement",
+        "blocked-authority:runtime-command-execution-without-gateway-allowlist",
+        "blocked-authority:runtime-unrestricted-command-execution",
+        "blocked-authority:runtime-browser-automation",
+        "blocked-authority:runtime-connector-write",
+        "blocked-authority:runtime-plugin-import",
+        "blocked-authority:runtime-production-authority",
+      ],
+      proof_refs: [
+        "proof-ref:runtime-capability-discovery:mock-fallback",
+        "proof-ref:hermes-runtime-adoption:phase-09:toolsets",
+      ],
+      verifier_refs: ["verifier-ref:hermes-runtime-adoption:phase-09"],
+      next_safe_action_refs: [
+        "next-safe-action-ref:runtime-toolsets:define-exact-toolset-grant",
+        "next-safe-action-ref:runtime-toolsets:add-per-tool-side-effect-policy",
+        "next-safe-action-ref:runtime-toolsets:bind-approval-receipt-safe-disable",
+      ],
+    },
+    runtime_supported_capability_count: 8,
+    uaa_authorized_capability_count: 0,
+    blocked_authority_refs: [
+      "blocked-authority:runtime-unrestricted-command-execution",
+      "blocked-authority:runtime-command-execution-without-gateway-allowlist",
+      "blocked-authority:runtime-browser-automation",
+      "blocked-authority:runtime-connector-write",
+      "blocked-authority:runtime-plugin-import",
+      "blocked-authority:runtime-remote-execution",
+      "blocked-authority:runtime-remote-provider-model-call",
+      "blocked-authority:runtime-production-authority",
+      "blocked-authority:runtime-capability-cannot-grant-permission",
+      "blocked-authority:runtime-capability-stale-or-unreachable",
+    ],
+    proof_refs: [
+      "proof-ref:runtime-capability-discovery:mock-fallback",
+      "proof-ref:runtime-capability-discovery:uaa-authority-owner",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-capability-discovery:add-signed-live-snapshot",
+      "next-safe-action-ref:runtime-capability-discovery:add-freshness-policy",
+      "next-safe-action-ref:runtime-capability-discovery:evaluate-policy-before-controls",
+    ],
+    safe_refs_only: true,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    raw_provider_payload_persisted: false,
+    raw_runtime_payload_persisted: false,
+    raw_log_persisted: false,
+    raw_local_path_persisted: false,
+    credential_material_persisted: false,
+    safe_summary:
+      "Runtime capability discovery mock fallback is static and non-authoritative.",
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "command_output_omitted",
+      "local_paths_omitted",
+      "environment_omitted",
+      "sensitive_material_omitted",
+      "runtime_payload_omitted",
+    ],
+  },
+  runtimeRunEvents: {
+    schema_version: "runtime_run_events.v1",
+    contract_ref: "contract-ref:runtime-run-events:v1",
+    route_ref: "GET /api/runtime/run-events",
+    cli_ref: "uaa runtime inspect-run-events",
+    control_center_ref: "control-center-route:runtime",
+    runtime_identity_ref: "runtime-identity-ref:hermes-agent:optional-target",
+    adapter_ref: "runtime-delegation-adapter:hermes-agent",
+    status: "proposal_read_model_only",
+    lifecycle_mappings: [
+      {
+        runtime_state: "proposed",
+        uaa_durable_run_state: "proposed",
+        operator_label: "Proposed",
+        safe_summary:
+          "Mock fallback keeps delegated run creation in proposal state.",
+        receipt_required_before_claim: true,
+      },
+      {
+        runtime_state: "approval_wait",
+        uaa_durable_run_state: "approval_wait",
+        operator_label: "Approval wait",
+        safe_summary:
+          "Mock fallback can show an approval-wait posture without resolving it.",
+        receipt_required_before_claim: true,
+      },
+      {
+        runtime_state: "completed",
+        uaa_durable_run_state: "completed",
+        operator_label: "Completed",
+        safe_summary:
+          "Completion cannot be claimed without a backend receipt and proof ref.",
+        receipt_required_before_claim: true,
+      },
+      {
+        runtime_state: "unknown_stale",
+        uaa_durable_run_state: "stale_unknown",
+        operator_label: "Unknown stale",
+        safe_summary: "Stale runtime state degrades to blocked inspection.",
+        receipt_required_before_claim: true,
+      },
+    ],
+    event_ref_grammar: {
+      grammar_ref: "event-grammar-ref:runtime-run-events:v1",
+      event_ref_prefix: "runtime-run-event-ref:",
+      required_bindings: [
+        "runtime_run_ref",
+        "uaa_durable_run_ref",
+        "proof_ref",
+        "redaction_status",
+      ],
+      safe_summary:
+        "Mock event refs bind run, durable run, proof, and redaction status only.",
+    },
+    run_proposals: [
+      {
+        proposal_ref:
+          "runtime-run-proposal-ref:hermes-agent:mock-approval-wait",
+        runtime_run_ref: "runtime-run-ref:hermes-agent:mock-approval-wait",
+        uaa_durable_run_ref:
+          "durable-run-ref:runtime-delegation:mock-approval-wait",
+        runtime_state: "approval_wait",
+        uaa_durable_run_state: "approval_wait",
+        create_posture: "blocked",
+        stop_posture: "blocked",
+        approval_resolution_posture: "approval_required_future_lane",
+        event_stream_posture: "read_model_only",
+        create_run_enabled: false,
+        stop_run_enabled: false,
+        approval_resolution_enabled: false,
+        live_event_stream_enabled: false,
+        retry_recovery_enabled: false,
+        cancellation_proof_required: true,
+        event_refs: [
+          "runtime-run-event-ref:hermes-agent:mock-approval-wait",
+        ],
+        proof_refs: ["proof-ref:runtime-run-events:mock-fallback"],
+        receipt_refs: [
+          "receipt-plan-ref:runtime-run-events:create-run-future",
+        ],
+        blocked_authority_refs: [
+          "blocked-authority:runtime-run-create-route",
+          "blocked-authority:runtime-run-stop-execution",
+          "blocked-authority:runtime-run-approval-resolution",
+        ],
+        next_safe_action_refs: [
+          "next-safe-action-ref:runtime-run-events:bind-action-inbox-approval",
+        ],
+        safe_summary:
+          "Mock fallback shows an approval-wait delegated run proposal only.",
+      },
+    ],
+    event_previews: [
+      {
+        event_ref: "runtime-run-event-ref:hermes-agent:mock-approval-wait",
+        event_kind: "approval_wait_entered",
+        runtime_run_ref: "runtime-run-ref:hermes-agent:mock-approval-wait",
+        uaa_durable_run_ref:
+          "durable-run-ref:runtime-delegation:mock-approval-wait",
+        proof_ref: "proof-ref:runtime-run-events:mock-fallback",
+        redaction_status: "redacted_safe_ref_only",
+        safe_summary:
+          "Mock fallback event preview is non-authoritative and redacted.",
+        runtime_payload_persisted: false,
+        raw_log_persisted: false,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+      },
+    ],
+    proposal_count: 1,
+    approval_wait_count: 1,
+    completed_run_count: 0,
+    create_run_route_enabled: false,
+    stop_run_route_enabled: false,
+    approval_resolution_route_enabled: false,
+    live_event_stream_enabled: false,
+    uaa_controls_authority: true,
+    control_center_talks_directly_to_runtime: false,
+    no_mutation_routes_registered: true,
+    safe_refs_only: true,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    raw_provider_payload_persisted: false,
+    raw_runtime_payload_persisted: false,
+    raw_log_persisted: false,
+    raw_local_path_persisted: false,
+    credential_material_persisted: false,
+    blocked_authority_refs: [
+      "blocked-authority:runtime-run-create-route",
+      "blocked-authority:runtime-run-stop-execution",
+      "blocked-authority:runtime-run-approval-resolution",
+      "blocked-authority:runtime-run-live-event-stream",
+    ],
+    proof_refs: ["proof-ref:runtime-run-events:mock-fallback"],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-run-events:bind-action-inbox-approval",
+    ],
+    safe_summary:
+      "Runtime run/events mock fallback is non-authoritative and cannot create, stop, approve, or stream delegated runs.",
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "runtime_event_payload_omitted",
+    ],
+  },
+  runtimeStreamingProgress: {
+    schema_version: "runtime_streaming_progress.v1",
+    contract_ref: "contract-ref:runtime-streaming-progress:v1",
+    route_ref: "GET /api/runtime/streaming-progress",
+    cli_ref: "uaa runtime inspect-streaming-progress",
+    control_center_ref: "control-center-route:runtime",
+    runtime_identity_ref: "runtime-identity-ref:hermes-agent:optional-target",
+    runtime_run_ref: "runtime-run-ref:hermes-agent:mock-approval-wait",
+    uaa_durable_run_ref:
+      "durable-run-ref:runtime-delegation:mock-approval-wait",
+    status: "read_model_event_preview_only",
+    stream_state: "stale_disconnected",
+    event_previews: [
+      {
+        event_ref: "runtime-run-event-ref:hermes-agent:mock-fragment-preview",
+        sequence: 0,
+        event_kind: "token",
+        runtime_run_ref: "runtime-run-ref:hermes-agent:mock-approval-wait",
+        uaa_durable_run_ref:
+          "durable-run-ref:runtime-delegation:mock-approval-wait",
+        proof_ref: "proof-ref:runtime-streaming-progress:mock-fragment",
+        event_hash_ref: "event-hash-ref:runtime-streaming-progress:mock-fragment",
+        redaction_status: "redacted_summary_only",
+        preview_limit_bytes: 512,
+        safe_summary:
+          "Mock fallback stream fragment preview omits generated content.",
+        runtime_payload_persisted: false,
+        raw_tool_payload_persisted: false,
+        raw_token_persisted: false,
+        raw_log_persisted: false,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+      },
+      {
+        event_ref: "runtime-run-event-ref:hermes-agent:mock-tool-started",
+        sequence: 1,
+        event_kind: "tool_started",
+        runtime_run_ref: "runtime-run-ref:hermes-agent:mock-approval-wait",
+        uaa_durable_run_ref:
+          "durable-run-ref:runtime-delegation:mock-approval-wait",
+        tool_call_ref: "tool-call-ref:runtime-streaming-progress:mock",
+        proof_ref: "proof-ref:runtime-streaming-progress:mock-tool-started",
+        event_hash_ref:
+          "event-hash-ref:runtime-streaming-progress:mock-tool-started",
+        redaction_status: "redacted_summary_only",
+        preview_limit_bytes: 512,
+        safe_summary:
+          "Mock fallback tool-start event uses a tool call ref only.",
+        runtime_payload_persisted: false,
+        raw_tool_payload_persisted: false,
+        raw_token_persisted: false,
+        raw_log_persisted: false,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+      },
+      {
+        event_ref: "runtime-run-event-ref:hermes-agent:mock-tool-completed",
+        sequence: 2,
+        event_kind: "tool_completed",
+        runtime_run_ref: "runtime-run-ref:hermes-agent:mock-approval-wait",
+        uaa_durable_run_ref:
+          "durable-run-ref:runtime-delegation:mock-approval-wait",
+        tool_call_ref: "tool-call-ref:runtime-streaming-progress:mock",
+        proof_ref: "proof-ref:runtime-streaming-progress:mock-tool-completed",
+        event_hash_ref:
+          "event-hash-ref:runtime-streaming-progress:mock-tool-completed",
+        redaction_status: "redacted_summary_only",
+        preview_limit_bytes: 512,
+        safe_summary:
+          "Mock fallback tool-complete event omits raw tool output.",
+        runtime_payload_persisted: false,
+        raw_tool_payload_persisted: false,
+        raw_token_persisted: false,
+        raw_log_persisted: false,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+      },
+      {
+        event_ref: "runtime-run-event-ref:hermes-agent:mock-approval-wait",
+        sequence: 3,
+        event_kind: "approval_wait",
+        runtime_run_ref: "runtime-run-ref:hermes-agent:mock-approval-wait",
+        uaa_durable_run_ref:
+          "durable-run-ref:runtime-delegation:mock-approval-wait",
+        proof_ref: "proof-ref:runtime-streaming-progress:mock-approval-wait",
+        event_hash_ref:
+          "event-hash-ref:runtime-streaming-progress:mock-approval-wait",
+        redaction_status: "redacted_summary_only",
+        preview_limit_bytes: 512,
+        safe_summary:
+          "Mock fallback approval-wait event links back to UAA review refs.",
+        runtime_payload_persisted: false,
+        raw_tool_payload_persisted: false,
+        raw_token_persisted: false,
+        raw_log_persisted: false,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+      },
+      {
+        event_ref: "runtime-run-event-ref:hermes-agent:mock-warning-stale",
+        sequence: 4,
+        event_kind: "warning",
+        runtime_run_ref: "runtime-run-ref:hermes-agent:mock-approval-wait",
+        uaa_durable_run_ref:
+          "durable-run-ref:runtime-delegation:mock-approval-wait",
+        proof_ref: "proof-ref:runtime-streaming-progress:mock-stale",
+        event_hash_ref: "event-hash-ref:runtime-streaming-progress:mock-stale",
+        redaction_status: "redacted_summary_only",
+        preview_limit_bytes: 512,
+        safe_summary:
+          "Mock fallback stream is stale; live reconnect remains blocked.",
+        runtime_payload_persisted: false,
+        raw_tool_payload_persisted: false,
+        raw_token_persisted: false,
+        raw_log_persisted: false,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+      },
+    ],
+    event_count: 5,
+    stale_stream: true,
+    live_subscription_enabled: false,
+    sse_transport_enabled: false,
+    websocket_transport_enabled: false,
+    reconnect_enabled: false,
+    event_ingest_enabled: false,
+    bounded_retention_required: true,
+    event_hashes_required: true,
+    uaa_controls_authority: true,
+    control_center_talks_directly_to_runtime: false,
+    safe_refs_only: true,
+    raw_runtime_payload_persisted: false,
+    raw_tool_payload_persisted: false,
+    raw_token_persisted: false,
+    raw_log_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    blocked_authority_refs: [
+      "blocked-authority:runtime-streaming-progress-live-sse",
+      "blocked-authority:runtime-streaming-progress-websocket",
+      "blocked-authority:runtime-streaming-progress-direct-runtime-subscription",
+      "blocked-authority:runtime-streaming-progress-raw-tool-payload",
+    ],
+    proof_refs: [
+      "proof-ref:runtime-streaming-progress:mock-fallback",
+      "proof-ref:runtime-streaming-progress:mock-fragment",
+      "proof-ref:runtime-streaming-progress:mock-tool-started",
+      "proof-ref:runtime-streaming-progress:mock-tool-completed",
+      "proof-ref:runtime-streaming-progress:mock-approval-wait",
+      "proof-ref:runtime-streaming-progress:mock-stale",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-streaming-progress:add-approved-loopback-transport",
+      "next-safe-action-ref:runtime-streaming-progress:define-bounded-retention",
+      "next-safe-action-ref:runtime-streaming-progress:add-event-hash-verifier",
+    ],
+    safe_summary:
+      "Runtime streaming progress mock fallback is stale, redacted, and non-authoritative.",
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "runtime_stream_payload_omitted",
+      "tool_payload_omitted",
+    ],
+  },
+  runtimeProfiles: {
+    schema_version: "runtime_profile_isolation.v1",
+    contract_ref: "contract-ref:runtime-profile-isolation:v1",
+    route_ref: "GET /api/runtime/profiles",
+    cli_ref: "uaa runtime inspect-profiles",
+    control_center_ref: "control-center-route:runtime",
+    status: "profile_metadata_read_model_only",
+    default_uaa_profile_ref: "runtime-profile-ref:uaa:sealed-default",
+    profiles: [
+      {
+        profile_ref: "runtime-profile-ref:uaa:coding",
+        delegated_runtime_profile_ref: "delegated-profile-ref:hermes:coding",
+        display_label: "Coding profile",
+        role: "coding",
+        configured_status: "metadata_configured",
+        authority_profile: "read_only_proposal",
+        authority_profile_ref:
+          "authority-profile-ref:runtime:coding:read-only-proposal",
+        workspace_scope_ref:
+          "workspace-scope-ref:runtime-profile:coding:safe-refs-only",
+        memory_scope_ref: "memory-scope-ref:runtime-profile:coding:review-only",
+        toolset_posture: "coding tools metadata only; execution blocked",
+        profile_health: "healthy_metadata_only",
+        isolated_from_profile_refs: [],
+        configured_for_live_runtime: false,
+        can_create_runtime_profile: false,
+        can_delete_runtime_profile: false,
+        can_write_runtime_config: false,
+        can_copy_sensitive_material: false,
+        can_change_runtime_defaults: false,
+        can_execute_tools: false,
+        can_call_models: false,
+        can_write_memory: false,
+        can_access_workspace_paths: false,
+        cross_profile_authority_bleed_allowed: false,
+        safe_summary:
+          "Mock coding profile is metadata-only and cannot edit files or run tools.",
+        blocked_reason_refs: [
+          "blocked-authority:runtime-profile-coding-config-write",
+        ],
+        proof_refs: ["proof-ref:runtime-profile-isolation:coding"],
+        next_safe_action_refs: [
+          "next-safe-action-ref:runtime-profile-isolation:coding:bind-operator-approval",
+        ],
+      },
+      {
+        profile_ref: "runtime-profile-ref:uaa:research",
+        delegated_runtime_profile_ref: "delegated-profile-ref:hermes:research",
+        display_label: "Research profile",
+        role: "research",
+        configured_status: "planned_disabled",
+        authority_profile: "sealed",
+        authority_profile_ref: "authority-profile-ref:runtime:research:sealed",
+        workspace_scope_ref:
+          "workspace-scope-ref:runtime-profile:research:safe-refs-only",
+        memory_scope_ref:
+          "memory-scope-ref:runtime-profile:research:review-only",
+        toolset_posture: "research tools planned; web fetch blocked",
+        profile_health: "planned_blocked",
+        isolated_from_profile_refs: [],
+        configured_for_live_runtime: false,
+        can_create_runtime_profile: false,
+        can_delete_runtime_profile: false,
+        can_write_runtime_config: false,
+        can_copy_sensitive_material: false,
+        can_change_runtime_defaults: false,
+        can_execute_tools: false,
+        can_call_models: false,
+        can_write_memory: false,
+        can_access_workspace_paths: false,
+        cross_profile_authority_bleed_allowed: false,
+        safe_summary:
+          "Mock research profile is planned and cannot fetch web or call providers.",
+        blocked_reason_refs: [
+          "blocked-authority:runtime-profile-research-config-write",
+        ],
+        proof_refs: ["proof-ref:runtime-profile-isolation:research"],
+        next_safe_action_refs: [
+          "next-safe-action-ref:runtime-profile-isolation:research:bind-operator-approval",
+        ],
+      },
+      {
+        profile_ref: "runtime-profile-ref:uaa:operations",
+        delegated_runtime_profile_ref: "delegated-profile-ref:hermes:operations",
+        display_label: "Operations profile",
+        role: "operations",
+        configured_status: "not_configured",
+        authority_profile: "sealed",
+        authority_profile_ref:
+          "authority-profile-ref:runtime:operations:sealed",
+        workspace_scope_ref:
+          "workspace-scope-ref:runtime-profile:operations:safe-refs-only",
+        memory_scope_ref:
+          "memory-scope-ref:runtime-profile:operations:review-only",
+        toolset_posture: "operations tools unconfigured; execution blocked",
+        profile_health: "unconfigured_blocked",
+        isolated_from_profile_refs: [],
+        configured_for_live_runtime: false,
+        can_create_runtime_profile: false,
+        can_delete_runtime_profile: false,
+        can_write_runtime_config: false,
+        can_copy_sensitive_material: false,
+        can_change_runtime_defaults: false,
+        can_execute_tools: false,
+        can_call_models: false,
+        can_write_memory: false,
+        can_access_workspace_paths: false,
+        cross_profile_authority_bleed_allowed: false,
+        safe_summary:
+          "Mock operations profile is unconfigured and cannot run local commands.",
+        blocked_reason_refs: [
+          "blocked-authority:runtime-profile-operations-config-write",
+        ],
+        proof_refs: ["proof-ref:runtime-profile-isolation:operations"],
+        next_safe_action_refs: [
+          "next-safe-action-ref:runtime-profile-isolation:operations:bind-operator-approval",
+        ],
+      },
+      {
+        profile_ref: "runtime-profile-ref:uaa:crm",
+        delegated_runtime_profile_ref: "delegated-profile-ref:hermes:crm",
+        display_label: "CRM profile",
+        role: "crm",
+        configured_status: "not_configured",
+        authority_profile: "sealed",
+        authority_profile_ref: "authority-profile-ref:runtime:crm:sealed",
+        workspace_scope_ref:
+          "workspace-scope-ref:runtime-profile:crm:safe-refs-only",
+        memory_scope_ref: "memory-scope-ref:runtime-profile:crm:review-only",
+        toolset_posture: "CRM connector tools unconfigured; writes blocked",
+        profile_health: "unconfigured_blocked",
+        isolated_from_profile_refs: [],
+        configured_for_live_runtime: false,
+        can_create_runtime_profile: false,
+        can_delete_runtime_profile: false,
+        can_write_runtime_config: false,
+        can_copy_sensitive_material: false,
+        can_change_runtime_defaults: false,
+        can_execute_tools: false,
+        can_call_models: false,
+        can_write_memory: false,
+        can_access_workspace_paths: false,
+        cross_profile_authority_bleed_allowed: false,
+        safe_summary:
+          "Mock CRM profile is unconfigured and cannot sync accounts or write connectors.",
+        blocked_reason_refs: [
+          "blocked-authority:runtime-profile-crm-config-write",
+        ],
+        proof_refs: ["proof-ref:runtime-profile-isolation:crm"],
+        next_safe_action_refs: [
+          "next-safe-action-ref:runtime-profile-isolation:crm:bind-operator-approval",
+        ],
+      },
+      {
+        profile_ref: "runtime-profile-ref:uaa:review",
+        delegated_runtime_profile_ref: "delegated-profile-ref:hermes:review",
+        display_label: "Review profile",
+        role: "review",
+        configured_status: "metadata_configured",
+        authority_profile: "read_only_proposal",
+        authority_profile_ref:
+          "authority-profile-ref:runtime:review:read-only-proposal",
+        workspace_scope_ref:
+          "workspace-scope-ref:runtime-profile:review:safe-refs-only",
+        memory_scope_ref: "memory-scope-ref:runtime-profile:review:review-only",
+        toolset_posture: "review tools metadata only; execution blocked",
+        profile_health: "healthy_metadata_only",
+        isolated_from_profile_refs: [],
+        configured_for_live_runtime: false,
+        can_create_runtime_profile: false,
+        can_delete_runtime_profile: false,
+        can_write_runtime_config: false,
+        can_copy_sensitive_material: false,
+        can_change_runtime_defaults: false,
+        can_execute_tools: false,
+        can_call_models: false,
+        can_write_memory: false,
+        can_access_workspace_paths: false,
+        cross_profile_authority_bleed_allowed: false,
+        safe_summary:
+          "Mock review profile can be displayed as proposal metadata only.",
+        blocked_reason_refs: [
+          "blocked-authority:runtime-profile-review-config-write",
+        ],
+        proof_refs: ["proof-ref:runtime-profile-isolation:review"],
+        next_safe_action_refs: [
+          "next-safe-action-ref:runtime-profile-isolation:review:bind-operator-approval",
+        ],
+      },
+    ],
+    profile_count: 5,
+    configured_profile_count: 2,
+    blocked_profile_count: 3,
+    uaa_profile_refs_separate_from_delegated_runtime_refs: true,
+    profile_creation_enabled: false,
+    profile_deletion_enabled: false,
+    runtime_config_write_enabled: false,
+    sensitive_material_copy_enabled: false,
+    runtime_default_change_enabled: false,
+    cross_profile_authority_bleed_allowed: false,
+    control_center_mints_profiles: false,
+    safe_refs_only: true,
+    raw_profile_names_persisted: false,
+    raw_workspace_paths_persisted: false,
+    raw_sensitive_material_persisted: false,
+    blocked_authority_refs: [
+      "blocked-authority:runtime-profile-create-delete",
+      "blocked-authority:runtime-profile-config-write",
+      "blocked-authority:runtime-profile-sensitive-material-copy",
+      "blocked-authority:runtime-profile-default-change",
+      "blocked-authority:runtime-profile-cross-profile-authority",
+    ],
+    proof_refs: [
+      "proof-ref:runtime-profile-isolation:mock-fallback",
+      "proof-ref:runtime-profile-isolation:coding",
+      "proof-ref:runtime-profile-isolation:research",
+      "proof-ref:runtime-profile-isolation:operations",
+      "proof-ref:runtime-profile-isolation:crm",
+      "proof-ref:runtime-profile-isolation:review",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-profile-isolation:add-profile-storage-contract",
+      "next-safe-action-ref:runtime-profile-isolation:add-operator-approval",
+      "next-safe-action-ref:runtime-profile-isolation:add-safe-disable-receipts",
+    ],
+    safe_summary:
+      "Runtime profile isolation mock fallback is metadata-only and grants no profile mutation authority.",
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "runtime_profile_names_omitted",
+      "workspace_paths_omitted",
+      "sensitive_material_omitted",
+    ],
+  },
+  runtimeToolRegistry: {
+    schema_version: "runtime_tool_registry_availability.v1",
+    contract_ref: "contract-ref:runtime-tool-registry-availability:v1",
+    status: "read_only_tool_registry_availability",
+    snapshot_ref: "tool-registry-snapshot-ref:runtime:mock-availability",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-tool-registry:mock",
+    route_ref: "GET /api/runtime/tool-registry",
+    cli_ref: "uaa runtime inspect-tool-registry",
+    control_center_ref: "control-center-route:runtime",
+    capability_discovery_route_ref: "GET /api/runtime/capability-discovery",
+    safe_summary:
+      "Runtime tool registry mock fallback is static metadata; tool invocation remains blocked.",
+    entries: runtimeToolRegistryEntries,
+    tool_count: runtimeToolRegistryEntries.length,
+    uaa_native_count: runtimeToolRegistryEntries.filter(
+      (entry) => entry.origin === "uaa_native",
+    ).length,
+    delegated_reference_count: runtimeToolRegistryEntries.filter(
+      (entry) => entry.origin !== "uaa_native",
+    ).length,
+    available_metadata_only_count: runtimeToolRegistryEntries.filter(
+      (entry) => entry.availability_status === "available_metadata_only",
+    ).length,
+    configured_disabled_count: runtimeToolRegistryEntries.filter(
+      (entry) => entry.availability_status === "configured_disabled",
+    ).length,
+    approval_required_future_count: runtimeToolRegistryEntries.filter(
+      (entry) => entry.availability_status === "approval_required_future_lane",
+    ).length,
+    blocked_count: runtimeToolRegistryEntries.filter(
+      (entry) => entry.availability_status === "blocked",
+    ).length,
+    unsupported_count: runtimeToolRegistryEntries.filter(
+      (entry) => entry.availability_status === "unsupported",
+    ).length,
+    invocation_enabled_count: 0,
+    preview_available_count: runtimeToolRegistryEntries.filter(
+      (entry) => entry.uaa_available_for_preview,
+    ).length,
+    tool_invocation_enabled: false,
+    remote_discovery_enabled: false,
+    live_web_fetch_enabled: false,
+    provider_model_call_enabled: false,
+    plugin_import_enabled: false,
+    connector_write_activation_enabled: false,
+    raw_tool_payload_persisted: false,
+    production_authority_enabled: false,
+    blocked_authority_refs: [
+      "blocked-authority:runtime-tool-registry-invocation",
+      "blocked-authority:runtime-tool-registry-execution",
+      "blocked-authority:runtime-tool-registry-remote-discovery",
+      "blocked-authority:runtime-browser-automation",
+      "blocked-authority:runtime-connector-write",
+      "blocked-authority:runtime-plugin-import",
+      "blocked-authority:runtime-production-authority",
+    ],
+    proof_refs: [
+      "proof-ref:runtime-tool-registry:mock-fallback",
+      "proof-ref:hermes-runtime-adoption:phase-10:tool-registry",
+    ],
+    verifier_refs: ["verifier-ref:hermes-runtime-adoption:phase-10"],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-tool-registry:bind-per-tool-approval",
+      "next-safe-action-ref:runtime-tool-registry:add-idempotent-receipts",
+      "next-safe-action-ref:runtime-tool-registry:add-safe-disable-and-rollback",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "tool_payload_omitted",
+    ],
+  },
+  runtimeVirtualProviderMoa: {
+    schema_version: "runtime_virtual_provider_moa.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-virtual-provider-moa:v1",
+    status: "read_only_virtual_provider_preset_posture",
+    snapshot_ref: "virtual-provider-moa-snapshot-ref:runtime:mock-presets",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-virtual-provider-moa:mock",
+    route_ref: "GET /api/runtime/virtual-provider-moa",
+    cli_ref: "uaa runtime inspect-virtual-provider-moa",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime virtual provider mock fallback shows multi-agent preset metadata only; model fan-out remains blocked.",
+    presets: runtimeVirtualProviderMoaPresets,
+    preset_count: runtimeVirtualProviderMoaPresets.length,
+    agent_slot_count: runtimeVirtualProviderMoaPresets.reduce(
+      (count, preset) => count + preset.slot_count,
+      0,
+    ),
+    ready_preset_count: runtimeVirtualProviderMoaPresets.filter(
+      (preset) => preset.status === "readiness_only",
+    ).length,
+    blocked_preset_count: runtimeVirtualProviderMoaPresets.filter(
+      (preset) => preset.status === "blocked_requires_authority",
+    ).length,
+    live_model_fanout_enabled: false,
+    provider_sdk_enabled: false,
+    external_runtime_dispatch_enabled: false,
+    hidden_advisor_prompts_enabled: false,
+    raw_prompt_persistence_enabled: false,
+    raw_response_persistence_enabled: false,
+    output_authority_enabled: false,
+    production_authority_enabled: false,
+    blocked_authority_refs: virtualProviderMoaBlockedRefs,
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-20:virtual-provider-moa"],
+    verifier_refs: ["verifier-ref:hermes-runtime-adoption:phase-20"],
+    next_safe_action_refs: [
+      "next-safe-action-ref:virtual-provider-moa:inspect-presets",
+      "next-safe-action-ref:virtual-provider-moa:bind-route-decision-trace",
+      "next-safe-action-ref:virtual-provider-moa:keep-live-fanout-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "provider_payloads_omitted",
+      "advisor_prompts_omitted",
+      "agent_outputs_omitted",
+    ],
+  },
+  runtimeUsageCostAnalytics: {
+    schema_version: "runtime_usage_cost_analytics.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-usage-cost-analytics:v1",
+    status: "read_only_redacted_accounting_posture",
+    snapshot_ref: "usage-cost-analytics-snapshot-ref:runtime:mock-accounting",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-usage-cost-analytics:mock",
+    route_ref: "GET /api/runtime/usage-cost-analytics",
+    cli_ref: "uaa runtime inspect-usage-cost-analytics",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime usage and cost mock fallback shows redacted accounting posture only; provider calls and billing remain blocked.",
+    records: runtimeUsageCostAnalyticsRecords,
+    record_count: runtimeUsageCostAnalyticsRecords.length,
+    manual_diagnostic_receipt_count: runtimeUsageCostAnalyticsRecords.filter(
+      (record) => record.source_kind === "manual_diagnostic_receipt",
+    ).length,
+    runtime_receipt_record_count: runtimeUsageCostAnalyticsRecords.filter(
+      (record) => record.source_kind === "runtime_receipt_metadata",
+    ).length,
+    provider_catalog_reference_count: runtimeUsageCostAnalyticsRecords.filter(
+      (record) => record.source_kind === "provider_catalog_reference",
+    ).length,
+    blocked_record_count: runtimeUsageCostAnalyticsRecords.filter(
+      (record) => record.status === "blocked_missing_authority",
+    ).length,
+    total_estimated_input_tokens: runtimeUsageCostAnalyticsRecords.reduce(
+      (sum, record) => sum + record.estimated_input_tokens,
+      0,
+    ),
+    total_estimated_output_tokens: runtimeUsageCostAnalyticsRecords.reduce(
+      (sum, record) => sum + record.estimated_output_tokens,
+      0,
+    ),
+    total_estimated_tokens: runtimeUsageCostAnalyticsRecords.reduce(
+      (sum, record) => sum + record.estimated_total_tokens,
+      0,
+    ),
+    total_latency_ms: runtimeUsageCostAnalyticsRecords.reduce(
+      (sum, record) => sum + record.latency_ms,
+      0,
+    ),
+    total_estimated_cost_minor_units: runtimeUsageCostAnalyticsRecords.reduce(
+      (sum, record) => sum + record.estimated_cost_minor_units,
+      0,
+    ),
+    currency_ref: "currency-ref:usd",
+    operator_export_available: false,
+    billing_action_enabled: false,
+    provider_call_enabled: false,
+    provider_sdk_enabled: false,
+    live_price_fetch_enabled: false,
+    raw_prompt_persistence_enabled: false,
+    raw_response_persistence_enabled: false,
+    provider_payload_persistence_enabled: false,
+    output_authority_enabled: false,
+    production_authority_enabled: false,
+    blocked_authority_refs: runtimeUsageCostAnalyticsBlockedRefs,
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-22:usage-cost-analytics",
+    ],
+    verifier_refs: ["verifier-ref:hermes-runtime-adoption:phase-22"],
+    next_safe_action_refs: [
+      "next-safe-action-ref:usage-cost-analytics:bind-provider-result-envelope",
+      "next-safe-action-ref:usage-cost-analytics:add-cost-attribution",
+      "next-safe-action-ref:usage-cost-analytics:keep-billing-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "provider_payloads_omitted",
+      "billing_payloads_omitted",
+      "operator_export_payloads_omitted",
+      "usage_samples_bounded",
+    ],
+  },
+  runtimePromptStabilityTiers: {
+    schema_version: "runtime_prompt_stability_tiers.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-prompt-stability-tiers:v1",
+    status: "read_only_prompt_contract_posture",
+    snapshot_ref: "prompt-stability-snapshot-ref:runtime:mock-tiers",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-prompt-stability:mock",
+    route_ref: "GET /api/runtime/prompt-stability-tiers",
+    cli_ref: "uaa runtime inspect-prompt-stability-tiers",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime prompt stability mock fallback separates prompt tiers as safe refs only; raw prompt material remains omitted.",
+    tiers: runtimePromptStabilityTiers,
+    tier_count: runtimePromptStabilityTiers.length,
+    stable_cache_candidate_count: runtimePromptStabilityTiers.filter(
+      (tier) => tier.stability_class === "stable_cache_candidate",
+    ).length,
+    semi_stable_ref_set_count: runtimePromptStabilityTiers.filter(
+      (tier) => tier.stability_class === "semi_stable_ref_set",
+    ).length,
+    volatile_no_cache_count: runtimePromptStabilityTiers.filter(
+      (tier) => tier.stability_class === "volatile_no_cache",
+    ).length,
+    operator_scoped_no_cache_count: runtimePromptStabilityTiers.filter(
+      (tier) => tier.stability_class === "operator_scoped_no_cache",
+    ).length,
+    safe_prompt_manifest_required: true,
+    prompt_hashes_required: true,
+    redacted_receipt_required: true,
+    proof_link_required: true,
+    raw_prompt_persistence_enabled: false,
+    raw_response_persistence_enabled: false,
+    provider_payload_persistence_enabled: false,
+    hidden_prompt_injection_enabled: false,
+    context_injection_enabled: false,
+    model_call_enabled: false,
+    provider_sdk_enabled: false,
+    model_output_authority_enabled: false,
+    cache_write_enabled: false,
+    production_authority_enabled: false,
+    blocked_authority_refs: runtimePromptStabilityBlockedRefs,
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-23:prompt-stability-tiers",
+    ],
+    verifier_refs: ["verifier-ref:hermes-runtime-adoption:phase-23"],
+    next_safe_action_refs: [
+      "next-safe-action-ref:prompt-stability:add-safe-prompt-manifest",
+      "next-safe-action-ref:prompt-stability:add-redacted-receipt",
+      "next-safe-action-ref:prompt-stability:keep-raw-prompts-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "provider_payloads_omitted",
+      "prompt_material_omitted",
+      "operator_turn_text_omitted",
+    ],
+  },
+  runtimeContextBudgetPressure: {
+    schema_version: "runtime_context_budget_pressure.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-context-budget-pressure:v1",
+    status: "read_only_context_budget_pressure_posture",
+    snapshot_ref: "context-budget-pressure-snapshot-ref:runtime:mock",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-context-budget:mock",
+    route_ref: "GET /api/runtime/context-budget-pressure",
+    cli_ref: "uaa runtime inspect-context-budget-pressure",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime context budget mock fallback shows safe budget pressure refs only; hidden compression remains blocked.",
+    pressure_level: "warning",
+    token_budget_limit: 16000,
+    estimated_token_count: runtimeContextBudgetSegments.reduce(
+      (sum, segment) => sum + segment.token_estimate,
+      0,
+    ),
+    token_budget_remaining:
+      16000 -
+      runtimeContextBudgetSegments.reduce(
+        (sum, segment) => sum + segment.token_estimate,
+        0,
+      ),
+    pressure_ratio:
+      runtimeContextBudgetSegments.reduce(
+        (sum, segment) => sum + segment.token_estimate,
+        0,
+      ) / 16000,
+    segments: runtimeContextBudgetSegments,
+    proposals: runtimeContextBudgetProposals,
+    segment_count: runtimeContextBudgetSegments.length,
+    proposal_count: runtimeContextBudgetProposals.length,
+    warning_count: runtimeContextBudgetSegments.filter(
+      (segment) => segment.pressure_level === "warning",
+    ).length,
+    critical_count: runtimeContextBudgetSegments.filter(
+      (segment) => segment.pressure_level === "critical",
+    ).length,
+    trimming_proposal_count: runtimeContextBudgetProposals.filter(
+      (proposal) => proposal.proposal_kind === "trim_context_refs",
+    ).length,
+    summarization_proposal_count: runtimeContextBudgetProposals.filter(
+      (proposal) => proposal.proposal_kind === "summarize_with_approval",
+    ).length,
+    ask_operator_proposal_count: runtimeContextBudgetProposals.filter(
+      (proposal) => proposal.proposal_kind === "request_operator_choice",
+    ).length,
+    blocked_hidden_compression_label: "blocked",
+    compression_proposal_required: true,
+    operator_approval_required: true,
+    source_coverage_required: true,
+    retrieval_log_required: true,
+    summary_receipt_required: true,
+    hidden_compression_enabled: false,
+    automatic_context_mutation_enabled: false,
+    model_summarization_enabled: false,
+    raw_context_persistence_enabled: false,
+    raw_prompt_persistence_enabled: false,
+    raw_response_persistence_enabled: false,
+    provider_payload_persistence_enabled: false,
+    context_injection_enabled: false,
+    provider_sdk_enabled: false,
+    cache_write_enabled: false,
+    production_authority_enabled: false,
+    blocked_authority_refs: runtimeContextBudgetBlockedRefs,
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-24:context-budget-pressure",
+    ],
+    verifier_refs: ["verifier-ref:hermes-runtime-adoption:phase-24"],
+    next_safe_action_refs: [
+      "next-safe-action-ref:context-budget:review-trim-proposal",
+      "next-safe-action-ref:context-budget:add-approved-summary-receipt-lane",
+      "next-safe-action-ref:context-budget:keep-hidden-compression-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_context_omitted",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "provider_payloads_omitted",
+      "summaries_omitted_until_approved",
+    ],
+  },
+  runtimeHardlineCommandBlocklist: {
+    schema_version: "runtime_hardline_command_blocklist.v1",
+    contract_ref:
+      "contract-ref:hermes-runtime-adoption-hardline-command-blocklist:v1",
+    snapshot_ref: "hardline-command-blocklist-snapshot-ref:runtime:mock",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-hardline-command-blocklist:mock",
+    route_ref: "GET /api/runtime/hardline-command-blocklist",
+    cli_ref: "uaa runtime inspect-hardline-command-blocklist",
+    proof_ref:
+      "proof-ref:hermes-runtime-adoption:phase-25:hardline-command-blocklist",
+    verifier_ref:
+      "verifier-ref:hermes-runtime-adoption:phase-25:hardline-command-blocklist",
+    status: "read_only_hardline_command_blocklist_floor",
+    non_overridable_floor: true,
+    override_bypass_permitted: false,
+    command_execution_performed: false,
+    raw_command_text_persisted: false,
+    raw_command_output_persisted: false,
+    route_classification_ref:
+      "route-classification-ref:runtime-hardline-command-blocklist-readonly",
+    foundation_gate_ref:
+      "foundation-gate-ref:runtime-hardline-command-blocklist-floor",
+    safe_disable_ref: "safe-disable-ref:runtime-command-floor-always-on",
+    classification_count: runtimeHardlineCommandClassifications.length,
+    denied_classification_count: runtimeHardlineCommandClassifications.filter(
+      (classification) => classification.denied,
+    ).length,
+    allowed_classification_count: runtimeHardlineCommandClassifications.filter(
+      (classification) => !classification.denied,
+    ).length,
+    classifications: runtimeHardlineCommandClassifications,
+    hardline_rule_refs: [
+      "hardline-command-rule-ref:no-shell-metachar",
+      "hardline-command-rule-ref:no-shell-interpreter",
+      "hardline-command-rule-ref:no-inline-code",
+      "hardline-command-rule-ref:no-destructive-filesystem",
+      "hardline-command-rule-ref:no-network-transfer",
+      "hardline-command-rule-ref:no-git-mutation",
+      "hardline-command-rule-ref:no-package-install",
+      "hardline-command-rule-ref:no-production-orchestration",
+    ],
+    blocked_authority_refs: runtimeHardlineCommandBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:runtime-command-floor-security-review",
+      "promotion-path-ref:runtime-command-floor-test-corpus",
+      "promotion-path-ref:runtime-command-floor-route-classification",
+      "promotion-path-ref:runtime-command-floor-foundation-gate",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-command-floor-expand-static-corpus",
+      "next-safe-action-ref:runtime-command-floor-bind-foundation-gate",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_command_text_omitted",
+      "raw_command_output_omitted",
+      "argv_examples_omitted",
+    ],
+    safe_summary:
+      "Runtime hardline command blocklist mock fallback shows safe category refs only; floor override remains blocked.",
+  },
+  runtimeManagedScopePolicy: {
+    schema_version: "runtime_managed_scope_policy.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-managed-scope-policy:v1",
+    status: "read_only_local_policy_profile_posture",
+    snapshot_ref: "managed-scope-policy-snapshot-ref:runtime:mock",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-managed-scope:mock",
+    route_ref: "GET /api/runtime/managed-scope-policy",
+    cli_ref: "uaa runtime inspect-managed-scope-policy",
+    control_center_ref: "control-center-route:runtime",
+    policy_profile_ref: "managed-policy-profile-ref:runtime:local-operator",
+    profile_label: "Local Operator Governed Runtime",
+    safe_summary:
+      "Runtime managed scope mock fallback shows pinned local policy refs only; config writes remain blocked.",
+    pinned_sources: runtimeManagedScopePinnedSources,
+    drift_warnings: runtimeManagedScopeDriftWarnings,
+    pinned_source_count: runtimeManagedScopePinnedSources.length,
+    active_pinned_source_count: runtimeManagedScopePinnedSources.filter(
+      (source) => source.active,
+    ).length,
+    drift_warning_count: runtimeManagedScopeDriftWarnings.length,
+    blocked_drift_warning_count: runtimeManagedScopeDriftWarnings.filter(
+      (warning) => warning.status === "blocked",
+    ).length,
+    local_config_source_visible: true,
+    precedence_visible: true,
+    verification_visible: true,
+    rollback_ref: "rollback-ref:managed-scope-policy:restore-local-profile",
+    admin_operator_proof_ref:
+      "proof-ref:hermes-runtime-adoption:phase-27:managed-scope-policy",
+    system_config_write_enabled: false,
+    privileged_write_enabled: false,
+    mdm_delivery_enabled: false,
+    managed_secrets_enabled: false,
+    unsigned_runtime_config_override_enabled: false,
+    production_enforcement_claimed: false,
+    control_center_mints_authority: false,
+    runtime_config_mutation_performed: false,
+    raw_config_persisted: false,
+    raw_local_path_persisted: false,
+    account_material_persisted: false,
+    credential_material_persisted: false,
+    blocked_authority_refs: runtimeManagedScopeBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:managed-scope:local-config-source",
+      "promotion-path-ref:managed-scope:precedence-verification",
+      "promotion-path-ref:managed-scope:redacted-protected-material-refs",
+      "promotion-path-ref:managed-scope:rollback-proof",
+      "promotion-path-ref:managed-scope:admin-operator-proof",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-27:managed-scope-policy",
+      "proof-ref:managed-scope-policy:pinned-source-precedence",
+      "proof-ref:managed-scope-policy:drift-warning-review",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-27:managed-scope-policy",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:managed-scope:add-local-config-source",
+      "next-safe-action-ref:managed-scope:verify-source-precedence",
+      "next-safe-action-ref:managed-scope:add-rollback-proof",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_config_omitted",
+      "raw_path_omitted",
+      "protected_material_omitted",
+      "account_material_omitted",
+    ],
+  },
+  runtimeDoctorDiagnostics: {
+    schema_version: "runtime_doctor_diagnostics.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-doctor-diagnostics:v1",
+    status: "read_only_diagnostics_posture",
+    snapshot_ref: "doctor-diagnostics-snapshot-ref:runtime:mock",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-doctor:mock",
+    route_ref: "GET /api/runtime/doctor-diagnostics",
+    cli_ref: "uaa runtime inspect-doctor-diagnostics",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime doctor diagnostics mock fallback explains local setup and readiness with redacted status refs only.",
+    diagnostics: runtimeDoctorDiagnosticsItems,
+    diagnostic_count: runtimeDoctorDiagnosticsItems.length,
+    ok_count: runtimeDoctorDiagnosticsItems.filter((item) => item.status === "ok")
+      .length,
+    review_count: runtimeDoctorDiagnosticsItems.filter(
+      (item) => item.status === "review",
+    ).length,
+    blocked_count: runtimeDoctorDiagnosticsItems.filter(
+      (item) => item.status === "blocked",
+    ).length,
+    unavailable_count: runtimeDoctorDiagnosticsItems.filter(
+      (item) => item.status === "unavailable",
+    ).length,
+    setup_visible: true,
+    runtime_readiness_visible: true,
+    provider_posture_visible: true,
+    tool_posture_visible: true,
+    protected_material_posture_visible: true,
+    service_posture_visible: true,
+    authority_posture_visible: true,
+    next_safe_actions_visible: true,
+    install_enabled: false,
+    service_start_enabled: false,
+    credential_write_enabled: false,
+    runtime_config_mutation_enabled: false,
+    control_center_mints_authority: false,
+    raw_log_persisted: false,
+    raw_local_path_persisted: false,
+    provider_payload_persisted: false,
+    blocked_authority_refs: runtimeDoctorBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:runtime-doctor:setup-action-proposals",
+      "promotion-path-ref:runtime-doctor:approval-envelope",
+      "promotion-path-ref:runtime-doctor:receipt",
+      "promotion-path-ref:runtime-doctor:rollback-safe-disable",
+      "promotion-path-ref:runtime-doctor:proof",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-28:doctor-diagnostics",
+      "proof-ref:runtime-doctor:redacted-diagnostics",
+      "proof-ref:runtime-doctor:blocked-mutation-posture",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-28:doctor-diagnostics",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-doctor:review-diagnostics",
+      "next-safe-action-ref:runtime-doctor:create-setup-proposal-lane",
+      "next-safe-action-ref:runtime-doctor:bind-approval-and-receipt",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_logs_omitted",
+      "raw_paths_omitted",
+      "provider_payloads_omitted",
+      "protected_material_omitted",
+    ],
+  },
+  runtimeSessionContinuity: {
+    schema_version: "runtime_session_continuity.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-session-continuity:v1",
+    status: "read_only_multi_surface_session_continuity_posture",
+    snapshot_ref: "session-continuity-snapshot-ref:runtime:mock",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-session-continuity:mock",
+    route_ref: "GET /api/runtime/session-continuity",
+    cli_ref: "uaa runtime inspect-session-continuity",
+    control_center_ref: "control-center-route:runtime",
+    primary_session_ref: "session-ref:runtime-continuity:operator-loop",
+    safe_summary:
+      "Runtime session continuity mock fallback shows safe refs, source labels, staleness states, and conflict states only.",
+    surfaces: runtimeSessionContinuitySurfaces,
+    surface_count: runtimeSessionContinuitySurfaces.length,
+    current_count: runtimeSessionContinuitySurfaces.filter(
+      (surface) => surface.continuity_state === "current",
+    ).length,
+    stale_count: runtimeSessionContinuitySurfaces.filter(
+      (surface) => surface.continuity_state === "stale",
+    ).length,
+    conflict_count: runtimeSessionContinuitySurfaces.filter(
+      (surface) => surface.continuity_state === "conflict_review",
+    ).length,
+    blocked_count: runtimeSessionContinuitySurfaces.filter(
+      (surface) => surface.continuity_state === "blocked",
+    ).length,
+    source_labels_visible: true,
+    staleness_states_visible: true,
+    conflict_states_visible: true,
+    delivery_receipts_required_for_promotion: true,
+    revoke_required_for_promotion: true,
+    audit_required_for_promotion: true,
+    external_message_gateway_enabled: false,
+    account_sync_enabled: false,
+    connector_write_enabled: false,
+    remote_session_enabled: false,
+    raw_transcript_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    raw_provider_payload_persisted: false,
+    control_center_mints_authority: false,
+    blocked_authority_refs: runtimeSessionContinuityBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:session-continuity:channel-identity",
+      "promotion-path-ref:session-continuity:approval-binding",
+      "promotion-path-ref:session-continuity:redaction",
+      "promotion-path-ref:session-continuity:delivery-receipt",
+      "promotion-path-ref:session-continuity:revoke",
+      "promotion-path-ref:session-continuity:audit",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-29:session-continuity",
+      "proof-ref:session-continuity:source-labels",
+      "proof-ref:session-continuity:staleness-conflict-states",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-29:session-continuity",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:session-continuity:review-source-labels",
+      "next-safe-action-ref:session-continuity:resolve-conflict-ref",
+      "next-safe-action-ref:session-continuity:design-delivery-receipts",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_transcripts_omitted",
+      "raw_prompts_omitted",
+      "raw_responses_omitted",
+      "provider_payloads_omitted",
+      "account_material_omitted",
+    ],
+  },
+  runtimeMcpCatalogFiltering: {
+    schema_version: "runtime_mcp_catalog_filtering.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-mcp-catalog-filtering:v1",
+    status: "metadata_catalog_filtering_posture",
+    snapshot_ref: "mcp-catalog-snapshot-ref:runtime:mock-filtered-metadata",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-mcp-catalog:mock",
+    route_ref: "GET /api/runtime/mcp-catalog-filtering",
+    cli_ref: "uaa runtime inspect-mcp-catalog-filtering",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime MCP catalog mock fallback exposes metadata filters and blocked activation states only.",
+    servers: runtimeMcpCatalogServers,
+    server_count: runtimeMcpCatalogServers.length,
+    reviewed_metadata_count: runtimeMcpCatalogServers.filter(
+      (server) => server.catalog_state === "reviewed_metadata",
+    ).length,
+    review_required_count: runtimeMcpCatalogServers.filter(
+      (server) => server.catalog_state === "review_required",
+    ).length,
+    activation_blocked_count: runtimeMcpCatalogServers.filter(
+      (server) => server.catalog_state === "activation_blocked",
+    ).length,
+    tool_slice_count: runtimeMcpCatalogServers.reduce(
+      (sum, server) => sum + server.tool_count,
+      0,
+    ),
+    metadata_visible_tool_count: runtimeMcpCatalogServers.reduce(
+      (sum, server) => sum + server.metadata_visible_tool_count,
+      0,
+    ),
+    filtered_blocked_tool_count: runtimeMcpCatalogServers.reduce(
+      (sum, server) => sum + server.filtered_blocked_tool_count,
+      0,
+    ),
+    grant_required_tool_count: runtimeMcpCatalogServers.reduce(
+      (sum, server) => sum + server.grant_required_tool_count,
+      0,
+    ),
+    metadata_catalog_visible: true,
+    tool_filter_contracts_visible: true,
+    blocked_activation_states_visible: true,
+    install_enabled: false,
+    subprocess_runtime_enabled: false,
+    oauth_login_enabled: false,
+    tool_invocation_enabled: false,
+    connector_write_enabled: false,
+    raw_manifest_persisted: false,
+    control_center_mints_authority: false,
+    blocked_authority_refs: runtimeMcpCatalogBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:mcp-catalog:reviewed-server-manifest",
+      "promotion-path-ref:mcp-catalog:command-allowlist",
+      "promotion-path-ref:mcp-catalog:credential-refs",
+      "promotion-path-ref:mcp-catalog:tool-grants",
+      "promotion-path-ref:mcp-catalog:receipts",
+      "promotion-path-ref:mcp-catalog:safe-disable",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-30:mcp-catalog-filtering",
+      "proof-ref:mcp-catalog:metadata-only",
+      "proof-ref:mcp-catalog:filtered-tool-slices",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-30:mcp-catalog-filtering",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:mcp-catalog:review-server-manifests",
+      "next-safe-action-ref:mcp-catalog:define-tool-grants",
+      "next-safe-action-ref:mcp-catalog:bind-receipts",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_mcp_manifests_omitted",
+      "raw_tool_schemas_omitted",
+      "login_material_omitted",
+      "connector_payloads_omitted",
+    ],
+  },
+  runtimeBackgroundJobs: {
+    schema_version: "runtime_background_jobs.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-background-jobs:v1",
+    status: "durable_job_proposal_posture",
+    snapshot_ref: "background-jobs-snapshot-ref:runtime:mock-proposals",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-background-jobs:mock",
+    route_ref: "GET /api/runtime/background-jobs",
+    cli_ref: "uaa runtime inspect-background-jobs",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime background jobs mock fallback shows durable proposals and blocked scheduler labels only.",
+    jobs: runtimeBackgroundJobs,
+    job_count: runtimeBackgroundJobs.length,
+    proposal_count: runtimeBackgroundJobs.filter(
+      (job) => job.status === "proposal",
+    ).length,
+    paused_count: runtimeBackgroundJobs.filter((job) => job.status === "paused")
+      .length,
+    approval_required_count: runtimeBackgroundJobs.filter(
+      (job) => job.status === "approval_required",
+    ).length,
+    execution_blocked_count: runtimeBackgroundJobs.filter(
+      (job) => job.status === "execution_blocked",
+    ).length,
+    reviewable_job_count: runtimeBackgroundJobs.filter((job) =>
+      ["proposal", "paused", "approval_required"].includes(job.status),
+    ).length,
+    durable_job_refs_visible: true,
+    schedule_policy_visible: true,
+    approval_scope_visible: true,
+    idempotency_visible: true,
+    safe_disable_visible: true,
+    receipt_plan_visible: true,
+    failure_handling_visible: true,
+    pause_enabled: false,
+    resume_enabled: false,
+    run_now_enabled: false,
+    scheduler_enabled: false,
+    background_worker_enabled: false,
+    autonomous_background_execution_enabled: false,
+    autonomous_retry_enabled: false,
+    external_delivery_enabled: false,
+    provider_call_enabled: false,
+    shell_execution_enabled: false,
+    connector_write_enabled: false,
+    control_center_mints_authority: false,
+    raw_job_payload_persisted: false,
+    blocked_authority_refs: runtimeBackgroundJobsBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:background-jobs:exact-job-type",
+      "promotion-path-ref:background-jobs:schedule-policy",
+      "promotion-path-ref:background-jobs:approval-binding",
+      "promotion-path-ref:background-jobs:idempotency",
+      "promotion-path-ref:background-jobs:safe-disable",
+      "promotion-path-ref:background-jobs:receipt",
+      "promotion-path-ref:background-jobs:failure-handling",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-31:background-jobs",
+      "proof-ref:background-jobs:durable-proposals",
+      "proof-ref:background-jobs:blocked-execution-labels",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-31:background-jobs",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:background-jobs:review-job-types",
+      "next-safe-action-ref:background-jobs:bind-schedule-policy",
+      "next-safe-action-ref:background-jobs:keep-workers-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_job_payloads_omitted",
+      "raw_schedule_material_omitted",
+      "worker_logs_omitted",
+    ],
+  },
+  runtimeSubagentIsolation: {
+    schema_version: "runtime_subagent_isolation.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-subagent-isolation:v1",
+    status: "identity_isolation_readiness",
+    snapshot_ref: "subagent-isolation-snapshot-ref:runtime:mock-roles",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-subagent-isolation:mock",
+    route_ref: "GET /api/runtime/subagent-isolation",
+    cli_ref: "uaa runtime inspect-subagent-isolation",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime subagent isolation mock fallback shows role contracts and blocked dispatch labels only.",
+    roles: runtimeSubagentIsolationRoles,
+    review_artifacts: runtimeSubagentReviewArtifacts,
+    role_count: runtimeSubagentIsolationRoles.length,
+    review_artifact_count: runtimeSubagentReviewArtifacts.length,
+    contract_ready_count: runtimeSubagentIsolationRoles.filter(
+      (role) => role.readiness_status === "contract_ready",
+    ).length,
+    review_ready_count: runtimeSubagentIsolationRoles.filter(
+      (role) => role.readiness_status === "review_ready",
+    ).length,
+    blocked_dispatch_count: runtimeSubagentIsolationRoles.filter(
+      (role) => role.readiness_status === "blocked_dispatch",
+    ).length,
+    identity_registry_visible: true,
+    scope_envelopes_visible: true,
+    context_pack_grants_visible: true,
+    tool_grants_visible: true,
+    memory_grants_visible: true,
+    budget_visible: true,
+    kill_switch_visible: true,
+    receipt_plan_visible: true,
+    proof_visible: true,
+    live_dispatch_enabled: false,
+    background_fanout_enabled: false,
+    cross_agent_memory_transfer_enabled: false,
+    tool_sharing_enabled: false,
+    autonomous_delegation_enabled: false,
+    provider_call_enabled: false,
+    shell_execution_enabled: false,
+    connector_write_enabled: false,
+    control_center_mints_authority: false,
+    raw_transcript_persisted: false,
+    blocked_authority_refs: runtimeSubagentIsolationBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:subagent-isolation:role-contract",
+      "promotion-path-ref:subagent-isolation:context-pack",
+      "promotion-path-ref:subagent-isolation:toolset-grant",
+      "promotion-path-ref:subagent-isolation:approval",
+      "promotion-path-ref:subagent-isolation:budget",
+      "promotion-path-ref:subagent-isolation:kill-switch",
+      "promotion-path-ref:subagent-isolation:receipt",
+      "promotion-path-ref:subagent-isolation:proof",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-32:subagent-isolation",
+      "proof-ref:subagent-isolation:role-contracts",
+      "proof-ref:subagent-isolation:blocked-dispatch",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-32:subagent-isolation",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:subagent-isolation:review-role-contracts",
+      "next-safe-action-ref:subagent-isolation:define-context-pack-grants",
+      "next-safe-action-ref:subagent-isolation:keep-dispatch-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_agent_outputs_omitted",
+      "raw_transcripts_omitted",
+      "provider_payloads_omitted",
+    ],
+  },
+  runtimeWorktreePerAgent: {
+    schema_version: "runtime_worktree_per_agent.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-worktree-per-agent:v1",
+    status: "read_only_worktree_lane_posture",
+    snapshot_ref: "worktree-per-agent-snapshot-ref:runtime:mock-proposals",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-worktree-per-agent:mock",
+    route_ref: "GET /api/runtime/worktree-per-agent",
+    cli_ref: "uaa runtime inspect-worktree-per-agent",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime worktree-per-agent mock fallback shows branch/worktree lane proposals and blocked Git mutation labels only.",
+    lanes: runtimeWorktreePerAgentLanes,
+    lane_count: runtimeWorktreePerAgentLanes.length,
+    proposal_count: runtimeWorktreePerAgentLanes.filter(
+      (lane) => lane.lane_status === "proposal",
+    ).length,
+    review_ready_count: runtimeWorktreePerAgentLanes.filter(
+      (lane) => lane.lane_status === "review_ready",
+    ).length,
+    mutation_blocked_count: runtimeWorktreePerAgentLanes.filter(
+      (lane) => lane.lane_status === "mutation_blocked",
+    ).length,
+    workspace_grants_visible: true,
+    branch_name_policy_visible: true,
+    checkpoint_plan_visible: true,
+    git_receipt_plan_visible: true,
+    rollback_plan_visible: true,
+    cli_parity_visible: true,
+    git_worktree_create_enabled: false,
+    git_worktree_delete_enabled: false,
+    branch_mutation_enabled: false,
+    file_write_enabled: false,
+    commit_enabled: false,
+    push_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    control_center_mints_authority: false,
+    raw_path_persisted: false,
+    blocked_authority_refs: runtimeWorktreePerAgentBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:worktree-per-agent:exact-workspace-grant",
+      "promotion-path-ref:worktree-per-agent:branch-naming",
+      "promotion-path-ref:worktree-per-agent:checkpoint",
+      "promotion-path-ref:worktree-per-agent:git-receipt",
+      "promotion-path-ref:worktree-per-agent:rollback",
+      "promotion-path-ref:worktree-per-agent:cli-parity",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-33:worktree-per-agent",
+      "proof-ref:worktree-per-agent:branch-lane-proposals",
+      "proof-ref:worktree-per-agent:git-mutation-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-33:worktree-per-agent",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:worktree-per-agent:review-branch-policy",
+      "next-safe-action-ref:worktree-per-agent:bind-checkpoint-plan",
+      "next-safe-action-ref:worktree-per-agent:keep-git-mutation-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_paths_omitted",
+      "raw_file_content_omitted",
+      "raw_git_output_omitted",
+    ],
+  },
+  runtimeLspDiagnostics: {
+    schema_version: "runtime_lsp_diagnostics.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-lsp-diagnostics:v1",
+    status: "diagnostic_evidence_placeholder_posture",
+    snapshot_ref: "lsp-diagnostics-snapshot-ref:runtime:evidence",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-lsp-diagnostics:mock",
+    route_ref: "GET /api/runtime/lsp-diagnostics",
+    cli_ref: "uaa runtime inspect-lsp-diagnostics",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime LSP diagnostics mock fallback shows safe evidence contracts only; no language server or shell command is launched.",
+    diagnostics: runtimeLspDiagnostics,
+    diagnostic_count: runtimeLspDiagnostics.length,
+    evidence_placeholder_count: runtimeLspDiagnostics.filter(
+      (diagnostic) => diagnostic.status === "evidence_placeholder",
+    ).length,
+    proof_ready_count: runtimeLspDiagnostics.filter(
+      (diagnostic) => diagnostic.status === "proof_ready",
+    ).length,
+    execution_blocked_count: runtimeLspDiagnostics.filter(
+      (diagnostic) => diagnostic.status === "execution_blocked",
+    ).length,
+    diagnostic_evidence_contract_visible: true,
+    receipt_plan_visible: true,
+    proof_link_visible: true,
+    redaction_policy_visible: true,
+    allowlisted_server_required_for_promotion: true,
+    cwd_jail_required_for_promotion: true,
+    timeout_required_for_promotion: true,
+    language_server_started: false,
+    dependency_install_enabled: false,
+    shell_execution_enabled: false,
+    file_read_enabled: false,
+    file_write_enabled: false,
+    provider_call_enabled: false,
+    control_center_mints_authority: false,
+    raw_path_persisted: false,
+    raw_diagnostic_payload_persisted: false,
+    blocked_authority_refs: runtimeLspDiagnosticsBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:lsp-diagnostics:allowlisted-server",
+      "promotion-path-ref:lsp-diagnostics:cwd-jail",
+      "promotion-path-ref:lsp-diagnostics:timeout",
+      "promotion-path-ref:lsp-diagnostics:redaction",
+      "promotion-path-ref:lsp-diagnostics:diagnostic-receipt",
+      "promotion-path-ref:lsp-diagnostics:proof-link",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-34:lsp-diagnostics",
+      "proof-ref:lsp-diagnostics:evidence-contracts",
+      "proof-ref:lsp-diagnostics:server-launch-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-34:lsp-diagnostics",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:lsp-diagnostics:define-allowlisted-server",
+      "next-safe-action-ref:lsp-diagnostics:bind-diagnostic-receipt",
+      "next-safe-action-ref:lsp-diagnostics:keep-launch-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_paths_omitted",
+      "raw_file_content_omitted",
+      "raw_diagnostic_payloads_omitted",
+      "language_server_logs_omitted",
+    ],
+  },
+  runtimePreviewRail: {
+    schema_version: "runtime_preview_rail.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-preview-rail:v1",
+    status: "safe_ref_preview_rail_posture",
+    snapshot_ref: "preview-rail-snapshot-ref:runtime:safe-refs",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-preview-rail:mock",
+    route_ref: "GET /api/runtime/preview-rail",
+    cli_ref: "uaa runtime inspect-preview-rail",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime preview rail mock fallback shows safe refs and bounded preview plans only; browser automation, raw files, screenshot capture, and direct runtime payload rendering stay blocked.",
+    slots: runtimePreviewRailSlots,
+    slot_count: runtimePreviewRailSlots.length,
+    safe_ref_ready_count: runtimePreviewRailSlots.filter(
+      (slot) => slot.slot_status === "safe_ref_ready",
+    ).length,
+    bounded_preview_placeholder_count: runtimePreviewRailSlots.filter(
+      (slot) => slot.slot_status === "bounded_preview_placeholder",
+    ).length,
+    execution_blocked_count: runtimePreviewRailSlots.filter(
+      (slot) => slot.slot_status === "execution_blocked",
+    ).length,
+    source_classification_visible: true,
+    redaction_policy_visible: true,
+    bounded_preview_visible: true,
+    operator_attach_visible: true,
+    receipt_plan_visible: true,
+    proof_link_visible: true,
+    browser_automation_enabled: false,
+    raw_sensitive_file_display_enabled: false,
+    direct_runtime_payload_rendering_enabled: false,
+    screenshot_capture_enabled: false,
+    file_read_enabled: false,
+    file_write_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    control_center_mints_authority: false,
+    raw_path_persisted: false,
+    raw_file_content_persisted: false,
+    raw_runtime_payload_persisted: false,
+    blocked_authority_refs: runtimePreviewRailBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:preview-rail:source-classification",
+      "promotion-path-ref:preview-rail:redaction",
+      "promotion-path-ref:preview-rail:bounded-preview",
+      "promotion-path-ref:preview-rail:operator-attach",
+      "promotion-path-ref:preview-rail:receipt",
+      "promotion-path-ref:preview-rail:visual-tests",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-35:preview-rail",
+      "proof-ref:preview-rail:safe-ref-contracts",
+      "proof-ref:preview-rail:raw-payload-rendering-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-35:preview-rail",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:preview-rail:bind-source-classification",
+      "next-safe-action-ref:preview-rail:define-bounded-preview",
+      "next-safe-action-ref:preview-rail:keep-live-browser-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_paths_omitted",
+      "raw_file_content_omitted",
+      "raw_runtime_payloads_omitted",
+      "raw_browser_state_omitted",
+      "screenshot_pixels_omitted",
+    ],
+  },
+  runtimeSlashCommandRegistry: {
+    schema_version: "runtime_slash_command_registry.v1",
+    contract_ref:
+      "contract-ref:hermes-runtime-adoption-slash-command-registry:v1",
+    status: "metadata_registry_all_commands_disabled",
+    snapshot_ref: "slash-command-registry-snapshot-ref:runtime:metadata",
+    snapshot_hash_ref: "snapshot-hash-ref:slash-command-registry:mock",
+    route_ref: "GET /api/runtime/slash-command-registry",
+    cli_ref: "uaa runtime inspect-slash-command-registry",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime slash command registry mock fallback shows command metadata and authority labels only; command execution and runtime invocation stay blocked.",
+    commands: runtimeSlashCommandRegistryEntries,
+    command_count: runtimeSlashCommandRegistryEntries.length,
+    metadata_ready_count: runtimeSlashCommandRegistryEntries.filter(
+      (command) => command.command_status === "metadata_ready",
+    ).length,
+    disabled_count: runtimeSlashCommandRegistryEntries.filter(
+      (command) => command.command_status === "disabled_requires_exact_lane",
+    ).length,
+    blocked_count: runtimeSlashCommandRegistryEntries.filter(
+      (command) => command.command_status === "blocked_high_authority",
+    ).length,
+    command_contract_visible: true,
+    side_effect_class_visible: true,
+    approval_policy_visible: true,
+    idempotency_policy_visible: true,
+    receipt_plan_visible: true,
+    cli_api_alignment_visible: true,
+    chat_trigger_enabled: false,
+    runtime_invocation_enabled: false,
+    state_mutation_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    control_center_mints_authority: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    blocked_authority_refs: runtimeSlashCommandRegistryBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:slash-command-registry:command-contract",
+      "promotion-path-ref:slash-command-registry:side-effect-class",
+      "promotion-path-ref:slash-command-registry:approval-policy",
+      "promotion-path-ref:slash-command-registry:idempotency",
+      "promotion-path-ref:slash-command-registry:receipt",
+      "promotion-path-ref:slash-command-registry:tests",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-36:slash-command-registry",
+      "proof-ref:slash-command-registry:metadata-only",
+      "proof-ref:slash-command-registry:execution-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-36:slash-command-registry",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:slash-command-registry:bind-command-contract",
+      "next-safe-action-ref:slash-command-registry:define-chat-parser",
+      "next-safe-action-ref:slash-command-registry:keep-execution-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_prompts_omitted",
+      "raw_responses_omitted",
+      "provider_payloads_omitted",
+      "runtime_payloads_omitted",
+      "command_execution_outputs_omitted",
+    ],
+  },
+  runtimeInterruptRedirect: {
+    schema_version: "runtime_interrupt_redirect.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-interrupt-redirect:v1",
+    status: "run_control_proposal_only",
+    snapshot_ref: "interrupt-redirect-snapshot-ref:runtime:control-posture",
+    snapshot_hash_ref: "snapshot-hash-ref:interrupt-redirect:mock",
+    route_ref: "GET /api/runtime/interrupt-redirect",
+    cli_ref: "uaa runtime inspect-interrupt-redirect",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime interrupt and redirect mock fallback shows proposal-only run-control posture; live stop, process kill, and runtime mutation stay blocked.",
+    proposals: runtimeInterruptRedirectProposals,
+    proposal_count: runtimeInterruptRedirectProposals.length,
+    read_only_proposal_count: runtimeInterruptRedirectProposals.filter(
+      (proposal) => proposal.action_status === "read_only_proposal",
+    ).length,
+    approval_required_future_lane_count: runtimeInterruptRedirectProposals.filter(
+      (proposal) => proposal.action_status === "approval_required_future_lane",
+    ).length,
+    blocked_count: runtimeInterruptRedirectProposals.filter(
+      (proposal) => proposal.action_status === "blocked_until_exact_lane",
+    ).length,
+    run_ownership_visible: true,
+    stop_scope_visible: true,
+    idempotency_visible: true,
+    cancellation_receipt_visible: true,
+    recovery_state_visible: true,
+    proof_link_visible: true,
+    live_stop_post_enabled: false,
+    process_kill_enabled: false,
+    runtime_mutation_enabled: false,
+    background_autonomy_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    control_center_mints_authority: false,
+    raw_runtime_payload_persisted: false,
+    raw_log_persisted: false,
+    blocked_authority_refs: runtimeInterruptRedirectBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:interrupt-redirect:run-ownership",
+      "promotion-path-ref:interrupt-redirect:stop-scope",
+      "promotion-path-ref:interrupt-redirect:idempotency",
+      "promotion-path-ref:interrupt-redirect:cancellation-receipt",
+      "promotion-path-ref:interrupt-redirect:event-proof",
+      "promotion-path-ref:interrupt-redirect:recovery-state",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-37:interrupt-redirect",
+      "proof-ref:interrupt-redirect:proposal-only",
+      "proof-ref:interrupt-redirect:live-mutation-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-37:interrupt-redirect",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:interrupt-redirect:approval-bound-stop-contract",
+      "next-safe-action-ref:interrupt-redirect:recovery-state-machine",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_runtime_payloads_omitted",
+      "raw_logs_omitted",
+      "process_identifiers_omitted",
+      "operator_instruction_text_omitted",
+    ],
+  },
+  runtimeLoggingProfile: {
+    schema_version: "runtime_logging_profile.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-logging-profile:v1",
+    status: "quiet_default_redacted_troubleshooting_available",
+    snapshot_ref: "logging-profile-snapshot-ref:runtime:redacted",
+    snapshot_hash_ref: "snapshot-hash-ref:logging-profile:mock",
+    route_ref: "GET /api/runtime/logging-profile",
+    cli_ref: "uaa runtime inspect-logging-profile",
+    control_center_ref: "control-center-route:runtime",
+    active_profile_ref: "logging-profile-ref:runtime:quiet-normal",
+    safe_summary:
+      "Runtime logging profile mock fallback keeps quiet mode active and exposes only redacted troubleshooting posture.",
+    profiles: runtimeLoggingProfileRecords,
+    profile_count: runtimeLoggingProfileRecords.length,
+    quiet_default_count: runtimeLoggingProfileRecords.filter(
+      (profile) => profile.profile_status === "active_default",
+    ).length,
+    disabled_until_flagged_count: runtimeLoggingProfileRecords.filter(
+      (profile) => profile.profile_status === "disabled_until_flagged",
+    ).length,
+    blocked_raw_detail_count: runtimeLoggingProfileRecords.filter(
+      (profile) => profile.profile_status === "blocked_raw_detail",
+    ).length,
+    flag_scope_visible: true,
+    ttl_policy_visible: true,
+    redaction_rules_visible: true,
+    retention_policy_visible: true,
+    operator_proof_visible: true,
+    safe_disable_visible: true,
+    verbose_logging_enabled: false,
+    raw_logs_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    provider_payload_persisted: false,
+    local_path_persisted: false,
+    credential_material_persisted: false,
+    remote_telemetry_export_enabled: false,
+    background_log_stream_enabled: false,
+    control_center_mints_authority: false,
+    blocked_authority_refs: runtimeLoggingProfileBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:logging-profile:flag-scope",
+      "promotion-path-ref:logging-profile:ttl",
+      "promotion-path-ref:logging-profile:redaction-verifier",
+      "promotion-path-ref:logging-profile:retention-policy",
+      "promotion-path-ref:logging-profile:operator-proof",
+      "promotion-path-ref:logging-profile:safe-disable",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-38:logging-profile",
+      "proof-ref:logging-profile:quiet-default",
+      "proof-ref:logging-profile:raw-logs-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-38:logging-profile",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:logging-profile:operator-flag-contract",
+      "next-safe-action-ref:logging-profile:redaction-regression-fixtures",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_logs_omitted",
+      "raw_prompts_omitted",
+      "raw_responses_omitted",
+      "provider_payloads_omitted",
+      "local_paths_omitted",
+      "credential_material_omitted",
+    ],
+  },
+  runtimeResultClassification: {
+    schema_version: "runtime_result_classification.v1",
+    contract_ref:
+      "contract-ref:hermes-runtime-adoption-result-classification:v1",
+    status: "taxonomy_read_model_only",
+    snapshot_ref: "result-classification-snapshot-ref:runtime:taxonomy",
+    snapshot_hash_ref: "snapshot-hash-ref:result-classification:mock",
+    route_ref: "GET /api/runtime/result-classification",
+    cli_ref: "uaa runtime inspect-result-classification",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime result classification mock fallback labels outputs without granting truth or action authority.",
+    classifications: runtimeResultClassifications,
+    classification_count: runtimeResultClassifications.length,
+    evidence_count: runtimeResultClassifications.filter(
+      (item) => item.result_kind === "evidence",
+    ).length,
+    mutation_count: runtimeResultClassifications.filter(
+      (item) => item.result_kind === "mutation",
+    ).length,
+    warning_count: runtimeResultClassifications.filter(
+      (item) => item.result_kind === "warning",
+    ).length,
+    blocked_count: runtimeResultClassifications.filter(
+      (item) => item.result_kind === "blocked",
+    ).length,
+    proposal_count: runtimeResultClassifications.filter(
+      (item) => item.result_kind === "proposal",
+    ).length,
+    diagnostic_count: runtimeResultClassifications.filter(
+      (item) => item.result_kind === "diagnostic",
+    ).length,
+    untrusted_data_count: runtimeResultClassifications.filter(
+      (item) => item.result_kind === "untrusted_data",
+    ).length,
+    labels_visible: true,
+    provenance_visible: true,
+    redaction_visible: true,
+    verification_status_visible: true,
+    proof_binding_visible: true,
+    receipt_requirement_visible: true,
+    tool_output_as_truth_enabled: false,
+    action_authority_enabled: false,
+    mutation_without_receipt_enabled: false,
+    unverified_evidence_promotion_enabled: false,
+    raw_output_persisted: false,
+    provider_payload_persisted: false,
+    control_center_mints_authority: false,
+    blocked_authority_refs: runtimeResultClassificationBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:result-classification:result-envelope",
+      "promotion-path-ref:result-classification:provenance",
+      "promotion-path-ref:result-classification:redaction",
+      "promotion-path-ref:result-classification:verification-status",
+      "promotion-path-ref:result-classification:proof-binding",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-39:result-classification",
+      "proof-ref:result-classification:taxonomy-only",
+      "proof-ref:result-classification:truth-authority-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-39:result-classification",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:result-classification:envelope-contract",
+      "next-safe-action-ref:result-classification:ui-label-regression",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_outputs_omitted",
+      "provider_payloads_omitted",
+      "untrusted_data_bounded",
+    ],
+  },
+  runtimeApprovalBridge: {
+    schema_version: "runtime_approval_bridge.v1",
+    contract_ref: "contract-ref:runtime-approval-bridge:v1",
+    route_ref: "GET /api/runtime/approval-bridge",
+    cli_ref: "uaa runtime inspect-approval-bridge",
+    control_center_ref: "control-center-route:runtime",
+    status: "read_model_resolution_blocked",
+    action_inbox_projection: {
+      action_inbox_item_ref:
+        "action-inbox-ref:runtime-approval-bridge:mock-approval-wait",
+      source: "runtime_approval_bridge_mock_fallback",
+      lane: "runtime_approval_review",
+      status: "review_required_resolution_blocked",
+      proof_ref: "proof-ref:runtime-approval-bridge:mock-fallback",
+      approval_controls_visible: false,
+      runtime_resolution_controls_visible: false,
+      safe_summary:
+        "Mock fallback projects runtime approval review metadata only; no approval or runtime resolution control is available.",
+    },
+    fail_closed_timeout_posture: {
+      policy_ref: "timeout-policy-ref:runtime-approval-bridge:fail-closed-v1",
+      status: "fail_closed_default_deny",
+      timeout_denial_receipt_ref:
+        "receipt-plan-ref:runtime-approval-bridge:timeout-deny",
+      ambiguous_denial_receipt_ref:
+        "receipt-plan-ref:runtime-approval-bridge:ambiguous-deny",
+      expired_waits_default_to_deny: true,
+      ambiguous_waits_default_to_deny: true,
+      explicit_expiration_required: true,
+      revoke_required: true,
+      safe_disable_required: true,
+      auto_approve_enabled: false,
+      approve_all_enabled: false,
+      standing_broad_authority_enabled: false,
+      expired_grant_reuse_enabled: false,
+      ambiguous_grant_enabled: false,
+      approval_resolution_sent: false,
+      control_center_mints_authority: false,
+      blocked_authority_refs: [
+        "blocked-authority:runtime-approval-auto-approve",
+        "blocked-authority:runtime-approval-approve-all",
+        "blocked-authority:runtime-approval-standing-broad-authority",
+        "blocked-authority:runtime-approval-expired-grant-reuse",
+        "blocked-authority:runtime-approval-ambiguous-grant",
+      ],
+      promotion_path_refs: [
+        "promotion-path-ref:runtime-approval:session-scoped-grant",
+        "promotion-path-ref:runtime-approval:explicit-expiration",
+        "promotion-path-ref:runtime-approval:receipt-and-revoke",
+        "promotion-path-ref:runtime-approval:safe-disable",
+      ],
+      next_safe_action_refs: [
+        "next-safe-action-ref:runtime-approval:record-timeout-denial-receipt",
+        "next-safe-action-ref:runtime-approval:prove-ambiguous-wait-denial",
+        "next-safe-action-ref:runtime-approval:bind-explicit-revoke",
+      ],
+      safe_summary:
+        "Expired or ambiguous approval waits deny by default; approve-all and standing authority remain blocked.",
+    },
+    envelopes: [
+      {
+        envelope_ref: "runtime-approval-envelope-ref:hermes-agent:mock",
+        runtime_approval_ref: "runtime-approval-ref:hermes-agent:mock",
+        runtime_run_ref: "runtime-run-ref:hermes-agent:mock-approval-wait",
+        uaa_durable_run_ref:
+          "durable-run-ref:runtime-delegation:mock-approval-wait",
+        action_inbox_item_ref:
+          "action-inbox-ref:runtime-approval-bridge:mock-approval-wait",
+        proof_ref: "proof-ref:runtime-approval-bridge:mock-fallback",
+        requested_scope_ref: "runtime-approval-scope-ref:hermes-agent:mock",
+        idempotency_key_ref: "idempotency-ref:runtime-approval-bridge:mock",
+        side_effect_class: "runtime_approval_resolution",
+        risk_class: "medium",
+        state: "runtime_requested",
+        resolution_posture: "blocked_no_runtime_send",
+        timeout_policy_ref:
+          "timeout-policy-ref:runtime-approval-bridge:fail-closed-v1",
+        deny_receipt_ref: "receipt-plan-ref:runtime-approval-bridge:deny",
+        approval_refs_are_identifiers_only: true,
+        runtime_requested: true,
+        uaa_approval_recorded: false,
+        runtime_resolution_sent: false,
+        approval_resolution_enabled: false,
+        denial_resolution_enabled: false,
+        timeout_defaults_to_deny: true,
+        raw_runtime_payload_persisted: false,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+        safe_summary:
+          "Mock fallback shows a runtime approval request as review metadata only.",
+        blocked_authority_refs: [
+          "blocked-authority:runtime-approval-resolution-send",
+          "blocked-authority:runtime-approval-approval-as-authority",
+          "blocked-authority:runtime-approval-timeout-send",
+        ],
+        next_safe_action_refs: [
+          "next-safe-action-ref:runtime-approval-bridge:bind-local-approval-authority",
+          "next-safe-action-ref:runtime-approval-bridge:add-denial-receipt",
+        ],
+      },
+    ],
+    decision_previews: [
+      {
+        decision_ref: "decision-ref:runtime-approval-bridge:mock-deny",
+        decision_kind: "deny",
+        envelope_ref: "runtime-approval-envelope-ref:hermes-agent:mock",
+        action_inbox_item_ref:
+          "action-inbox-ref:runtime-approval-bridge:mock-approval-wait",
+        receipt_ref: "receipt-plan-ref:runtime-approval-bridge:deny",
+        runtime_resolution_sent: false,
+        safe_summary:
+          "Denial can be previewed locally, but the runtime is not sent a denial.",
+        blocked_authority_refs: [
+          "blocked-authority:runtime-approval-resolution-send",
+        ],
+      },
+      {
+        decision_ref: "decision-ref:runtime-approval-bridge:mock-timeout",
+        decision_kind: "timeout",
+        envelope_ref: "runtime-approval-envelope-ref:hermes-agent:mock",
+        action_inbox_item_ref:
+          "action-inbox-ref:runtime-approval-bridge:mock-approval-wait",
+        receipt_ref: "receipt-plan-ref:runtime-approval-bridge:timeout-deny",
+        runtime_resolution_sent: false,
+        safe_summary:
+          "Timeout defaults to deny locally; runtime send remains blocked.",
+        blocked_authority_refs: [
+          "blocked-authority:runtime-approval-timeout-send",
+        ],
+      },
+      {
+        decision_ref:
+          "decision-ref:runtime-approval-bridge:mock-scope-mismatch",
+        decision_kind: "scope_mismatch",
+        envelope_ref: "runtime-approval-envelope-ref:hermes-agent:mock",
+        action_inbox_item_ref:
+          "action-inbox-ref:runtime-approval-bridge:mock-approval-wait",
+        receipt_ref:
+          "receipt-plan-ref:runtime-approval-bridge:scope-mismatch",
+        runtime_resolution_sent: false,
+        safe_summary:
+          "Scope mismatch blocks any future resolution attempt.",
+        blocked_authority_refs: [
+          "blocked-authority:runtime-approval-resolution-send",
+        ],
+      },
+    ],
+    scope_validation: {
+      validation_ref: "validation-ref:runtime-approval-bridge:scope",
+      requested_scope_ref: "runtime-approval-scope-ref:hermes-agent:mock",
+      provided_scope_ref: "runtime-approval-scope-ref:hermes-agent:other",
+      scope_matches: false,
+      status: "scope_mismatch_blocked",
+      safe_summary:
+        "Mock fallback scope mismatch blocks any future runtime resolution.",
+    },
+    pending_runtime_approval_count: 1,
+    denied_preview_count: 1,
+    timeout_preview_count: 1,
+    scope_mismatch_count: 1,
+    runtime_resolution_sent_count: 0,
+    approval_resolution_route_enabled: false,
+    deny_resolution_route_enabled: false,
+    timeout_resolution_route_enabled: false,
+    uaa_controls_authority: true,
+    control_center_talks_directly_to_runtime: false,
+    safe_refs_only: true,
+    raw_runtime_payload_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    blocked_authority_refs: [
+      "blocked-authority:runtime-approval-resolution-send",
+      "blocked-authority:runtime-approval-approval-as-authority",
+      "blocked-authority:runtime-approval-timeout-send",
+      "blocked-authority:runtime-approval-auto-approve",
+      "blocked-authority:runtime-approval-approve-all",
+      "blocked-authority:runtime-approval-standing-broad-authority",
+      "blocked-authority:runtime-approval-expired-grant-reuse",
+      "blocked-authority:runtime-approval-ambiguous-grant",
+    ],
+    proof_refs: [
+      "proof-ref:runtime-approval-bridge:mock-fallback",
+      "proof-ref:runtime-approval-bridge:action-inbox-projection",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-approval-bridge:validate-exact-scope",
+      "next-safe-action-ref:runtime-approval-bridge:bind-idempotency",
+      "next-safe-action-ref:runtime-approval-bridge:add-runtime-resolution-receipt",
+    ],
+    safe_summary:
+      "Runtime approval bridge mock fallback is non-authoritative and keeps approval resolution blocked.",
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "runtime_approval_payload_omitted",
     ],
   },
   m15Review: {
@@ -12935,6 +18517,9 @@ export const mockControlCenterData: ControlCenterData = {
       "contract-ref:fcc-v1-005-memory-review-decisions:v1",
     workbench_route_ref: "GET /control-center/memory/workbench",
     workbench_contract_ref: "contract-ref:fcc-mem-001-memory-workbench:v1",
+    bounded_memory_posture_contract_ref:
+      "contract-ref:hermes-runtime-adoption-bounded-memory-posture:v1",
+    bounded_memory_posture: founderMemoryBoundedPosture,
     decision_route_refs: [
       "POST /control-center/memory/review/{candidate_ref}/accept",
       "POST /control-center/memory/review/{candidate_ref}/correct",
@@ -13170,6 +18755,7 @@ export const mockControlCenterData: ControlCenterData = {
         "business-memory-candidate:preference:memory-review-founder-loop-preferences",
       ],
     },
+    bounded_memory_posture: founderMemoryBoundedPosture,
     lifecycle_posture: {
       schema_version: "product-loop-002-memory-merge-supersede-posture.v1",
       contract_ref: "contract-ref:memory-merge-supersede-posture:v1",

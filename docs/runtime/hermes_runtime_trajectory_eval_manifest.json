@@ -1,0 +1,104 @@
+{
+  "schema_version": "hermes_runtime_trajectory_eval_manifest.v1",
+  "phase": "40",
+  "status": "repo_safe_manifest_only",
+  "doc_ref": "docs/runtime/UAA_HERMES_RUNTIME_TRAJECTORY_EVAL_CAPTURE.md",
+  "trajectory_schema_ref": "docs/schemas/hermes_runtime_trajectory_eval.schema.json",
+  "report_template_ref": "reports/hermes_runtime_adoption/trajectory_eval_report_template.md",
+  "cadence": "planned_weekly_manual_local_only",
+  "summary": "Defines redacted local trajectory eval posture for comparing UAA-native, Hermes, Codex, Claude, local, and future runtimes without granting runtime invocation or data export authority.",
+  "runtime_refs": [
+    {
+      "runtime_ref": "runtime-ref:uaa-native-supervisor",
+      "label": "UAA native supervisor",
+      "status": "planned_eval_subject",
+      "execution_authority": "not_granted_by_manifest"
+    },
+    {
+      "runtime_ref": "runtime-ref:hermes-agent",
+      "label": "Hermes Agent delegated runtime",
+      "status": "planned_eval_subject",
+      "execution_authority": "not_granted_by_manifest"
+    },
+    {
+      "runtime_ref": "runtime-ref:codex",
+      "label": "Codex runtime",
+      "status": "planned_eval_subject",
+      "execution_authority": "not_granted_by_manifest"
+    },
+    {
+      "runtime_ref": "runtime-ref:claude",
+      "label": "Claude runtime",
+      "status": "planned_eval_subject",
+      "execution_authority": "not_granted_by_manifest"
+    },
+    {
+      "runtime_ref": "runtime-ref:local-model",
+      "label": "Local runtime",
+      "status": "planned_eval_subject",
+      "execution_authority": "not_granted_by_manifest"
+    }
+  ],
+  "benchmark_dimensions": [
+    {
+      "dimension_ref": "eval-dimension:task_completion",
+      "label": "Task completion",
+      "evidence_policy_ref": "evidence-policy-ref:safe-ref-only"
+    },
+    {
+      "dimension_ref": "eval-dimension:cost",
+      "label": "Cost",
+      "evidence_policy_ref": "evidence-policy-ref:bounded-estimate-only"
+    },
+    {
+      "dimension_ref": "eval-dimension:safety",
+      "label": "Safety",
+      "evidence_policy_ref": "evidence-policy-ref:authority-boundary-only"
+    },
+    {
+      "dimension_ref": "eval-dimension:proof",
+      "label": "Proof coverage",
+      "evidence_policy_ref": "evidence-policy-ref:proof-ref-only"
+    },
+    {
+      "dimension_ref": "eval-dimension:usefulness",
+      "label": "Operator usefulness",
+      "evidence_policy_ref": "evidence-policy-ref:review-summary-only"
+    }
+  ],
+  "trajectory_record_policy": {
+    "safe_refs_only": true,
+    "redacted_summaries_only": true,
+    "bounded_previews_only": true,
+    "raw_transcript_export_enabled": false,
+    "raw_prompt_persistence_enabled": false,
+    "raw_response_persistence_enabled": false,
+    "raw_provider_payload_persistence_enabled": false,
+    "raw_log_persistence_enabled": false,
+    "raw_local_path_persistence_enabled": false,
+    "model_calls_enabled": false,
+    "provider_sdk_calls_enabled": false,
+    "external_upload_enabled": false,
+    "automated_background_evals_enabled": false,
+    "remote_benchmark_execution_enabled": false,
+    "control_center_mints_authority": false
+  },
+  "blocked_authority_refs": [
+    "blocked-authority-ref:trajectory-raw-transcript-export",
+    "blocked-authority-ref:trajectory-model-call",
+    "blocked-authority-ref:trajectory-provider-sdk-call",
+    "blocked-authority-ref:trajectory-external-upload",
+    "blocked-authority-ref:trajectory-background-eval",
+    "blocked-authority-ref:trajectory-remote-benchmark",
+    "blocked-authority-ref:trajectory-score-action-authority"
+  ],
+  "promotion_path_refs": [
+    "promotion-path-ref:operator-consent",
+    "promotion-path-ref:safe-trajectory-refs",
+    "promotion-path-ref:redacted-local-only-capture",
+    "promotion-path-ref:receipt-envelope",
+    "promotion-path-ref:report-verifier",
+    "promotion-path-ref:safe-disable-retention"
+  ],
+  "verifier_ref": "scripts/verify_hermes_runtime_adoption_phase_40.py"
+}

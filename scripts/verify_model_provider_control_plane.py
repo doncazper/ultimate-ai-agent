@@ -37,6 +37,24 @@ def _assert_no_authority(payload: dict[str, object]) -> None:
         '"model_router_execution_enabled": true',
         '"local_llama_cpp_process_started_by_control_plane": true',
         '"remote_model_call_enabled": true',
+        '"uaa_may_invoke_any_listed_model": true',
+        '"uaa_invocation_allowed": true',
+        '"live_provider_discovery_enabled": true',
+        '"live_provider_network_call_performed": true',
+        '"credential_collection_enabled": true',
+        '"credential_material_visible": true',
+        '"billing_authority_granted": true',
+        '"model_output_authority_enabled": true',
+        '"raw_provider_payload_persisted": true',
+        '"live_auxiliary_calls_enabled": true',
+        '"live_auxiliary_call_enabled": true',
+        '"provider_sdk_use_enabled": true',
+        '"runtime_selection_mutation_enabled": true',
+        '"hidden_model_routing_enabled": true',
+        '"raw_prompt_persistence_enabled": true',
+        '"raw_response_persistence_enabled": true',
+        '"raw_prompt_persisted": true',
+        '"raw_response_persisted": true',
         '"local_model_call_performed": true',
         '"model_invocation_performed": true',
         '"process_start_performed_by_read_model": true',
@@ -74,6 +92,90 @@ def main() -> int:
         read_model.role_provider_evidence.role_count == 7,
         "role provider evidence missing roles",
     )
+    delegated_catalog = read_model.delegated_runtime_model_catalog
+    _assert(
+        delegated_catalog.schema_version == "delegated_runtime_model_catalog.v1",
+        "delegated runtime model catalog schema drifted",
+    )
+    _assert(
+        delegated_catalog.runtime_says_available_is_not_authority,
+        "runtime availability must remain separate from UAA invocation authority",
+    )
+    _assert(
+        delegated_catalog.uaa_authorized_model_count == 0,
+        "delegated catalog must not authorize model invocation",
+    )
+    _assert(
+        not delegated_catalog.uaa_may_invoke_any_listed_model,
+        "delegated catalog must not grant model invocation",
+    )
+    _assert(
+        delegated_catalog.runtime_profile_count >= 1,
+        "delegated catalog must bind to UAA runtime profiles",
+    )
+    _assert(
+        delegated_catalog.model_count == len(delegated_catalog.records),
+        "delegated catalog count drifted",
+    )
+    for record in delegated_catalog.records:
+        _assert(
+            not record.uaa_invocation_allowed,
+            "delegated model record must not authorize invocation",
+        )
+        _assert(
+            not record.provider_sdk_call_enabled,
+            "delegated model record must not enable provider SDK calls",
+        )
+        _assert(
+            not record.live_provider_network_call_performed,
+            "delegated model record must not perform provider network calls",
+        )
+        _assert(
+            record.blocked_authority_refs,
+            "delegated model record must explain blocked authority",
+        )
+    model_slot_posture = read_model.model_slot_posture
+    _assert(
+        model_slot_posture.schema_version == "hermes_runtime_model_slot_posture.v1",
+        "model slot posture schema drifted",
+    )
+    _assert(
+        model_slot_posture.slot_count == 8,
+        "model slot posture must expose all configured/intended slots",
+    )
+    _assert(
+        model_slot_posture.warning_count >= 3,
+        "model slot posture warnings missing",
+    )
+    _assert(
+        not model_slot_posture.hidden_model_routing_enabled,
+        "model slot posture must not enable hidden routing",
+    )
+    _assert(
+        not model_slot_posture.live_auxiliary_calls_enabled,
+        "model slot posture must not enable auxiliary calls",
+    )
+    _assert(
+        not model_slot_posture.provider_sdk_use_enabled,
+        "model slot posture must not enable provider SDK use",
+    )
+    for record in model_slot_posture.records:
+        _assert(
+            not record.live_auxiliary_call_enabled,
+            "model slot record must not enable auxiliary calls",
+        )
+        _assert(
+            not record.hidden_model_routing_enabled,
+            "model slot record must not enable hidden routing",
+        )
+        _assert(
+            not record.raw_prompt_persisted,
+            "model slot record must not persist raw prompts",
+        )
+        _assert(
+            record.blocked_authority_refs,
+            "model slot record blockers missing",
+        )
     _assert_no_authority(payload)
 
     client = TestClient(app)
@@ -92,6 +194,24 @@ def main() -> int:
         == "role_based_model_provider_evidence.v1",
         "API role provider evidence missing",
     )
+    _assert(
+        api_payload["delegated_runtime_model_catalog"]["schema_version"]
+        == "delegated_runtime_model_catalog.v1",
+        "API delegated runtime model catalog missing",
+    )
+    _assert(
+        api_payload["delegated_runtime_model_catalog"]["uaa_authorized_model_count"] == 0,
+        "API delegated runtime model catalog authorized a model",
+    )
+    _assert(
+        api_payload["model_slot_posture"]["schema_version"]
+        == "hermes_runtime_model_slot_posture.v1",
+        "API model slot posture missing",
+    )
+    _assert(
+        api_payload["model_slot_posture"]["slot_count"] == 8,
+        "API model slot posture count drifted",
+    )
     _assert_no_authority(api_payload)
 
     cli = subprocess.run(
@@ -109,6 +229,24 @@ def main() -> int:
     _assert(
         cli_payload["role_provider_evidence"]["role_count"] == 7,
         "CLI role provider evidence missing",
+    )
+    _assert(
+        cli_payload["delegated_runtime_model_catalog"]["schema_version"]
+        == "delegated_runtime_model_catalog.v1",
+        "CLI delegated runtime model catalog missing",
+    )
+    _assert(
+        cli_payload["delegated_runtime_model_catalog"]["uaa_authorized_model_count"] == 0,
+        "CLI delegated runtime model catalog authorized a model",
+    )
+    _assert(
+        cli_payload["model_slot_posture"]["schema_version"]
+        == "hermes_runtime_model_slot_posture.v1",
+        "CLI model slot posture missing",
+    )
+    _assert(
+        cli_payload["model_slot_posture"]["slot_count"] == 8,
+        "CLI model slot posture count drifted",
     )
     _assert_no_authority(cli_payload)
     print("model_provider_control_plane: ok")

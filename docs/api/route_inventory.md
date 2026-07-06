@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `202`.
+Current OpenAPI path count: `231`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 127 |
+| `local_sensitive` | 157 |
 | `mutating_requires_authority` | 42 |
 
 Allowed current side-effect classes are:
@@ -102,7 +102,7 @@ authority, or a public beta claim.
 Governed Runtime Pilot Phase 07 keeps `/api/runtime/*` governed by contract and
 storage metadata while promoting configured local loopback model calls, one exact
 allowlisted read-only command status lane, and exact Action Inbox approved
-focused pytest command execution through `RuntimeGateway`, with CLI/Control
+focused pytest, repo verifier, and frontend check command execution through `RuntimeGateway`, with CLI/Control
 Center/evidence timeline parity for status, capabilities, invocation, receipt,
 safe-disable, approval decision inspection, command root pinning, configured
 endpoint matching, receipt-detail execution truth, and approval preflight.
@@ -123,11 +123,216 @@ runtime parity-loop read model over prepared turn, route decision, durable run,
 staged orchestration, provider evidence, Action Inbox approval, receipt, signed
 evidence, and blocked-state refs without executing work or granting runtime
 authority.
+`GET /api/runtime/delegation-adapter` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 01 delegation adapter readiness model. It shows
+runtime identity refs, endpoint posture, authority mode, capability refs,
+health refs, proof refs, blocked reasons, next safe actions, CLI parity, and
+Control Center binding while keeping live run submission, runtime model calls,
+provider SDK calls, tool execution, shell/subprocess execution, browser
+automation, connector writes, background autonomy, production authority, and
+raw prompt/response/provider payload/log/local-path persistence blocked.
+`GET /api/runtime/capability-discovery` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 02 capability discovery posture for models,
+runs, events, approvals, sessions, skills, toolsets, jobs, and blocked actions.
+It is a static snapshot with safe refs and a snapshot hash ref only; runtime
+support metadata cannot grant UAA permission, and stale or unreachable runtime
+state degrades to blocked. The same route now carries Phase 09 runtime toolset
+capability posture for runtime support versus UAA allowance states while
+keeping runtime tool invocation, Hermes toolset enablement, toolset config
+mutation, raw tool payload persistence, and production authority disabled.
+`GET /api/runtime/tool-registry` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 10 tool registry availability posture for
+UAA-native preview tools and delegated Hermes/Codex/Claude/MCP/future runtime
+tool references. It records availability, configured status, authority class,
+side-effect class, risk, blocker refs, proof refs, and next safe actions while
+keeping tool invocation, remote discovery, live web fetch, provider/model call,
+plugin import, connector write activation, raw tool payload persistence, and
+production authority disabled.
+`GET /api/runtime/session-search` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 12 session/run search posture. It returns safe
+refs, bounded summaries, proof refs, attachable context refs, and memory
+separation posture only. Raw transcript persistence, raw prompt/response
+exposure, semantic provider calls, embedding/vector indexing, hidden context
+injection, memory writes, action execution, and production authority remain
+blocked.
+`GET /api/runtime/session-lineage` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 19 session lineage and fork posture. It returns
+safe parent/child, user request, task, run, proof, branch, reason, redacted
+fork-envelope, retrieval-log, compare-view, verifier, and blocked authority refs
+only. Raw transcript cloning, raw prompt/response persistence, hidden context
+injection, runtime dispatch, provider/model calls, connector writes,
+shell/subprocess execution, browser automation, and production authority remain
+blocked.
+`GET /api/runtime/virtual-provider-moa` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 20 virtual provider Mixture-of-Agents
+posture. It returns preset, agent-slot, route-decision trace, cost-estimate,
+approval-mode, output-envelope, comparison-proof, safe-disable, verifier, and
+blocked authority refs only. Live model fan-out, provider SDK calls, external
+runtime dispatch, hidden advisor prompts, model-output authority, connector
+writes, shell/subprocess execution, browser automation, and production
+authority remain blocked.
+`GET /api/runtime/usage-cost-analytics` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 22 usage and cost analytics posture. It
+returns redacted accounting record refs, runtime/provider/model refs,
+task-value refs, receipt refs, estimate refs, bounded usage estimates, latency
+estimates, cost minor units, proof refs, verifier refs, and blocked authority
+refs only. Billing actions, provider calls, provider SDK calls, live pricing
+fetches, operator export, raw prompt/response/provider-payload persistence,
+model-output authority, and production authority remain blocked.
+`GET /api/runtime/prompt-stability-tiers` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 23 prompt stability tier posture. It returns
+prompt tier refs, manifest refs, redacted hash refs, cache policy refs, safe
+source refs, proof refs, verifier refs, next-safe-action refs, and blocked
+authority refs only. Raw prompt/response persistence, hidden prompt/context
+injection, model calls, provider SDK calls, cache writes, model-output
+authority, and production authority remain blocked.
+`GET /api/runtime/context-budget-pressure` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 24 context budget pressure posture. It
+returns context budget segment refs, pressure levels, warning refs, review-only
+trimming and summary proposal refs, source refs, retrieval log refs, proof refs,
+verifier refs, next-safe-action refs, and blocked authority refs only. Hidden
+compression, automatic context mutation, model summarization calls, context
+injection, provider SDK calls, cache writes, raw
+context/prompt/response/provider-payload persistence, and production authority
+remain blocked.
+`GET /api/runtime/hardline-command-blocklist` exposes a protected read-only
+Python Core Hermes Runtime Adoption Phase 25 hardline command blocklist
+posture. It returns command-shape classification refs, denied category refs,
+allowed shape counts, hardline rule refs, proof refs, verifier refs,
+next-safe-action refs, and blocked authority refs only. Command execution, raw
+command strings, raw command text/output persistence, hardline floor override,
+and production authority remain blocked.
+`GET /api/runtime/managed-scope-policy` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 27 managed scope policy posture. It returns
+pinned local policy source refs, source kinds, precedence, checksum refs, drift
+warning refs, rollback refs, admin/operator proof refs, verifier refs,
+next-safe-action refs, and blocked authority refs only. System config writes,
+privileged writes, MDM delivery, managed secrets, unsigned runtime config
+overrides, raw config/local path/account/credential material persistence,
+production enforcement, and production authority remain blocked.
+`GET /api/runtime/doctor-diagnostics` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 28 runtime doctor diagnostics posture. It returns
+diagnostic refs, setup/runtime/provider/tool/protected-material/service/
+authority status refs, CLI refs, proof refs, next-safe-action refs, and blocked
+authority refs only. Installs, service starts, credential writes, runtime config
+mutation, raw log/local path persistence, provider payload persistence, Control
+Center authority minting, and production authority remain blocked.
+`GET /api/runtime/session-continuity` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 29 multi-surface session continuity posture. It
+returns session refs, source labels, staleness refs, conflict refs, proof refs,
+verifier refs, and blocked authority refs only. External messaging gateways,
+account sync, connector writes, remote sessions, raw transcript/provider payload
+persistence, Control Center authority minting, and production authority remain
+blocked.
+`GET /api/runtime/mcp-catalog-filtering` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 30 MCP catalog filtering posture. It returns
+metadata catalog refs, tool filter contracts, blocked activation states, proof
+refs, verifier refs, and blocked authority refs only. MCP install, subprocess
+runtime, OAuth login, tool invocation, connector writes, raw manifest
+persistence, and Control Center authority minting remain blocked.
+`GET /api/runtime/background-jobs` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 31 background job posture. It returns durable job
+proposal refs, schedule policies, approval scope refs, idempotency refs,
+safe-disable refs, receipt plans, failure handling refs, proof refs, verifier
+refs, and blocked authority refs only. Schedulers, workers, run-now,
+pause/resume mutation, autonomous retries, external delivery, provider calls,
+shell execution, and connector writes remain blocked.
+`GET /api/runtime/subagent-isolation` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 32 subagent isolation posture. It returns role
+refs, scope envelopes, context/tool/memory grant refs, budget refs,
+kill-switch refs, review artifacts, proof refs, verifier refs, and blocked
+authority refs only. Live dispatch, background fan-out, cross-agent memory
+transfer, tool sharing, autonomous delegation, raw transcript persistence, and
+raw agent-output persistence remain blocked.
+`GET /api/runtime/worktree-per-agent` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 33 worktree-per-agent posture. It returns lane
+refs, workspace scope refs, branch proposal refs, worktree refs, checkpoint
+plans, Git receipt plans, rollback plans, proof refs, verifier refs, and
+blocked authority refs only. Git worktree create/delete, branch mutation, file
+writes, commits, pushes, raw path persistence, shell execution, and provider
+calls remain blocked.
+`GET /api/runtime/lsp-diagnostics` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 34 semantic diagnostics proof posture. It returns
+diagnostic refs, safe source scope refs, evidence refs, receipt-plan refs,
+proof refs, verifier refs, promotion refs, redaction refs, and blocked
+authority refs only. Language-server launch, dependency install, shell
+execution, file reads/writes, provider calls, raw path persistence, and raw
+diagnostic payload persistence remain blocked.
+`GET /api/runtime/preview-rail` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 35 right preview rail posture. It returns safe
+source refs, source-classification refs, bounded preview refs, redaction policy
+refs, attach-plan refs, receipt-plan refs, proof refs, verifier refs,
+promotion refs, and blocked authority refs only. Browser automation, screenshot
+capture, raw sensitive file display, direct runtime payload rendering, file
+reads/writes, shell execution, provider calls, Control Center authority
+minting, raw path persistence, raw file-content persistence, and raw runtime
+payload persistence remain blocked.
+`GET /api/runtime/slash-command-registry` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 36 slash command registry posture. It
+returns command refs, trigger labels, command status, authority class,
+side-effect class, docs refs, approval policy refs, idempotency policy refs,
+receipt-plan refs, proof refs, verifier refs, promotion refs, and blocked
+authority refs only. Chat slash-command execution, runtime invocation, state
+mutation, shell execution, provider calls, browser automation, connector
+writes, Control Center authority minting, raw prompt persistence, and raw
+response persistence remain blocked.
+`GET /api/runtime/interrupt-redirect` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 37 interrupt/redirect run-control posture.
+It returns pause, stop, redirect, revise, and recovery proposal refs, approval
+scope refs, idempotency refs, receipt-plan refs, recovery-state refs, proof
+refs, verifier refs, promotion refs, and blocked authority refs only. Live
+stop POST, process kill, runtime mutation, background autonomy, shell
+execution, provider calls, browser automation, connector writes, Control
+Center authority minting, raw runtime payload persistence, and raw log
+persistence remain blocked.
+`GET /api/runtime/logging-profile` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 38 logging profile posture. It returns quiet,
+redacted troubleshooting, and forensic safe-ref profile refs, flag scope refs,
+TTL policy refs, retention policy refs, redaction policy/verifier refs, proof
+refs, verifier refs, promotion refs, and blocked authority refs only. Verbose
+toggling, raw log persistence, raw prompt/response/provider payload/path
+persistence, credential persistence, remote telemetry export, and background
+log streaming remain blocked.
+`GET /api/runtime/result-classification` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 39 result taxonomy posture. It returns
+evidence, mutation, warning, blocked, proposal, diagnostic, and untrusted-data
+class refs, provenance policy refs, redaction policy refs, receipt requirement
+refs, proof binding refs, verifier refs, promotion refs, and blocked authority
+refs only. Treating tool output as truth, treating output as action authority,
+mutation without receipt, unverified evidence promotion, raw output
+persistence, and provider payload persistence remain blocked.
+`GET /api/runtime/context-references` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 16 context-reference posture. It returns
+safe-ref grammar, preview refs, budget estimates, why-included refs, and
+blocked URL/live-fetch posture for file, folder, diff, URL evidence, run,
+proof, task, memory, CRM object, and issue refs. Live URL fetch, raw path
+persistence, raw file-content persistence, protected config reads, automatic
+context injection, provider/model calls, connector writes, shell/subprocess
+execution, browser automation, and production authority remain blocked.
+`GET /api/runtime/checkpoint-rollback` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 18 checkpoint/rollback posture. It returns safe
+checkpoint, receipt, rollback-plan, proof, verifier, and blocked authority refs
+only; rollback execution, broad filesystem snapshots, Git mutation, raw
+path/content persistence, and production authority remain blocked.
+`GET /api/runtime/run-events` exposes a protected read-only Python Core Hermes
+Runtime Adoption Phase 03 run/event posture for external runtime lifecycle
+state, UAA durable run state mapping, event-ref grammar, proof binding, blocked
+stop posture, and approval-wait proposals. It does not create delegated runs,
+stop delegated runs, resolve runtime approvals, or stream live events.
+`GET /api/runtime/profiles` exposes a protected read-only Python Core Hermes
+Runtime Adoption Phase 06 profile isolation posture for UAA-owned profile refs
+that stay separate from delegated runtime profile refs, safe display labels,
+role, configured status, authority posture, workspace and memory scope refs,
+toolset posture, profile health, blocked reasons, and proof refs. It does not
+create profiles, delete profiles, write runtime config, copy sensitive
+material, change runtime defaults, allow cross-profile authority bleed, expose
+raw delegated profile names, or expose workspace paths.
 Capability, invocation, policy, approval-ref, receipt, and safe-disable records
 store safe refs and redacted metadata only; model output is untrusted proposal
 text, and command output is redacted and bounded. Remote provider/model calls,
-arbitrary shell/subprocess execution, focused tests outside the exact pytest
-lane, repo verifiers, frontend-check, arbitrary adapter execution, browser
+arbitrary shell/subprocess execution outside named exact command lanes,
+arbitrary focused tests outside the exact pytest lane, repo verifier/frontend
+check execution outside named exact lanes, arbitrary adapter execution, browser
 automation, connector writes, plugin runtime import, remote execution, raw
 prompt/response/command output/local path/env persistence, production authority,
 and public release claims remain blocked.

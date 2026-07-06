@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.memory import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
+    MEMORY_BOUNDED_POSTURE_CONTRACT_REF,
     MEMORY_LIFECYCLE_POSTURE_CONTRACT_REF,
     MEMORY_WORKBENCH_CONTRACT_REF,
     ManualMemoryCandidateRequest,
@@ -35,10 +36,14 @@ def _decision_request(**overrides: object) -> MemoryReviewDecisionRequest:
 
 
 def _first_candidate_ref(repo: FounderLoopRepository) -> str:
-    return str(repo.list_memory_review_queue(limit=1)[0]["business_memory_candidate_ref"])
+    return str(
+        repo.list_memory_review_queue(limit=1)[0]["business_memory_candidate_ref"]
+    )
 
 
-def _manual_memory_candidate(repo: FounderLoopRepository, slug: str) -> dict[str, object]:
+def _manual_memory_candidate(
+    repo: FounderLoopRepository, slug: str
+) -> dict[str, object]:
     return repo.record_manual_memory_candidate(
         request=ManualMemoryCandidateRequest(
             candidate_kind="preference",
@@ -52,7 +57,9 @@ def _manual_memory_candidate(repo: FounderLoopRepository, slug: str) -> dict[str
     )
 
 
-def test_memory_workbench_read_model_groups_and_blocks_authority(tmp_path: Path) -> None:
+def test_memory_workbench_read_model_groups_and_blocks_authority(
+    tmp_path: Path,
+) -> None:
     repo = FounderLoopRepository(tmp_path / "founder_loop")
 
     workbench = repo.memory_workbench()
@@ -82,6 +89,56 @@ def test_memory_workbench_read_model_groups_and_blocks_authority(tmp_path: Path)
     assert lifecycle_posture["production_authority_enabled"] is False
     assert lifecycle_posture["receipt_truncation_posture"] == (
         "bounded_by_workbench_limit_safe_refs_only"
+    )
+    bounded_posture = workbench["bounded_memory_posture"]
+    assert bounded_posture["contract_ref"] == MEMORY_BOUNDED_POSTURE_CONTRACT_REF
+    assert bounded_posture["backend_owned"] is True
+    assert bounded_posture["control_center_presentation_only"] is True
+    assert bounded_posture["safe_refs_only"] is True
+    assert bounded_posture["raw_content_included"] is False
+    assert bounded_posture["target_posture"]["supported_target_kinds"] == [
+        "user",
+        "profile",
+        "project",
+    ]
+    assert (
+        bounded_posture["target_posture"]["operator_selected_context_required"] is True
+    )
+    assert bounded_posture["capacity_posture"]["visible_item_count"] == len(
+        workbench["items"]
+    )
+    assert bounded_posture["capacity_posture"]["max_visible_items"] == 80
+    assert bounded_posture["capacity_posture"]["token_estimate"] >= 1
+    assert bounded_posture["source_posture"]["safe_summary_only"] is True
+    assert bounded_posture["source_posture"]["source_refs_required"] is True
+    assert bounded_posture["source_posture"]["source_refs"]
+    assert bounded_posture["staleness_posture"]["stale_count"] >= 1
+    assert bounded_posture["staleness_posture"]["stale_item_refs"]
+    assert bounded_posture["why_shown_posture"]["why_shown_required"] is True
+    assert bounded_posture["why_shown_posture"]["why_shown_refs"]
+    assert (
+        bounded_posture["quality_review_posture"]["review_required_before_recall"]
+        is True
+    )
+    assert bounded_posture["quality_review_posture"]["correction_supported"] is True
+    assert bounded_posture["quality_review_posture"]["rejection_supported"] is True
+    assert (
+        bounded_posture["quality_review_posture"][
+            "memory_write_requires_review_receipt"
+        ]
+        is True
+    )
+    assert bounded_posture["automatic_memory_write_authorized"] is False
+    assert bounded_posture["autonomous_memory_write_authorized"] is False
+    assert bounded_posture["hidden_prompt_injection_authorized"] is False
+    assert bounded_posture["external_memory_provider_write_authorized"] is False
+    assert bounded_posture["context_injection_authorized"] is False
+    assert bounded_posture["memory_truth_authority"] is False
+    assert bounded_posture["model_provider_call_authorized"] is False
+    assert bounded_posture["production_authority_enabled"] is False
+    assert (
+        "blocked-state:bounded-memory-no-autonomous-memory-write"
+        in (bounded_posture["blocked_state_refs"])
     )
     assert {lane["lane_id"] for lane in lifecycle_posture["lanes"]} == {
         "duplicate_review",
@@ -334,24 +391,28 @@ def test_merge_and_supersede_mark_local_peer_posture_without_deletion(
     lanes = {lane["lane_id"]: lane for lane in lifecycle_posture["lanes"]}
     assert lanes["merged"]["receipt_backed"] is True
     items_by_ref = {item["review_ref"]: item for item in workbench["items"]}
-    assert items_by_ref[second["review_ref"]]["memory_ref"] in lanes["merged"][
-        "item_refs"
-    ]
+    assert (
+        items_by_ref[second["review_ref"]]["memory_ref"] in lanes["merged"]["item_refs"]
+    )
     assert lanes["superseded"]["receipt_backed"] is True
-    assert items_by_ref[third["review_ref"]]["memory_ref"] in lanes["superseded"][
-        "item_refs"
-    ]
+    assert (
+        items_by_ref[third["review_ref"]]["memory_ref"]
+        in lanes["superseded"]["item_refs"]
+    )
     for lane in lanes.values():
         assert lane["review_only"] is True
-        assert "blocked-state:memory-lifecycle-no-hard-delete" in lane[
-            "blocked_state_refs"
-        ]
-    assert merge_receipt["receipt_ref"] in items_by_ref[second["review_ref"]][
-        "lifecycle_receipt_refs"
-    ]
-    assert supersede_receipt["receipt_ref"] in items_by_ref[third["review_ref"]][
-        "lifecycle_receipt_refs"
-    ]
+        assert (
+            "blocked-state:memory-lifecycle-no-hard-delete"
+            in lane["blocked_state_refs"]
+        )
+    assert (
+        merge_receipt["receipt_ref"]
+        in items_by_ref[second["review_ref"]]["lifecycle_receipt_refs"]
+    )
+    assert (
+        supersede_receipt["receipt_ref"]
+        in items_by_ref[third["review_ref"]]["lifecycle_receipt_refs"]
+    )
 
 
 def test_merge_suppresses_primary_and_peer_recall_projections(tmp_path: Path) -> None:
@@ -390,7 +451,9 @@ def test_merge_suppresses_primary_and_peer_recall_projections(tmp_path: Path) ->
     for record_ref in merge_receipt["suppressed_recall_record_refs"]:
         assert records_by_ref[record_ref]["status"] == "superseded"
         assert records_by_ref[record_ref]["retention_state"] == "blocked"
-        assert merge_receipt["receipt_ref"] in records_by_ref[record_ref]["receipt_refs"]
+        assert (
+            merge_receipt["receipt_ref"] in records_by_ref[record_ref]["receipt_refs"]
+        )
     assert repo.memory_l1_hot_index()["preview_count"] == 0
 
 
@@ -445,9 +508,10 @@ def test_memory_merge_supersede_cli_inspection_is_read_only_and_redacted(
     assert payload["automatic_merge_authorized"] is False
     assert payload["hidden_memory_write_authorized"] is False
     lifecycle_posture = payload["lifecycle_posture"]
-    assert receipt["receipt_ref"] in lifecycle_posture[
-        "decision_receipt_refs_by_kind"
-    ]["merge"]
+    assert (
+        receipt["receipt_ref"]
+        in lifecycle_posture["decision_receipt_refs_by_kind"]["merge"]
+    )
     assert "merge" in lifecycle_posture["receipt_backed_decision_kinds"]
     serialized = json.dumps(payload).lower()
     assert "raw_prompt" not in serialized
@@ -534,7 +598,9 @@ def test_memory_merge_supersede_cli_inspection_is_read_only_and_redacted(
     assert str(broken_state_dir) not in broken.stdout
 
 
-def test_memory_search_filters_safe_refs_without_semantic_search(tmp_path: Path) -> None:
+def test_memory_search_filters_safe_refs_without_semantic_search(
+    tmp_path: Path,
+) -> None:
     repo = FounderLoopRepository(tmp_path / "founder_loop")
 
     result = repo.memory_search(
@@ -554,7 +620,9 @@ def test_memory_search_filters_safe_refs_without_semantic_search(tmp_path: Path)
     assert all(item["candidate_kind"] == "preference" for item in result["items"])
 
 
-def test_memory_workbench_api_routes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_memory_workbench_api_routes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
     client = TestClient(app)
 
@@ -562,6 +630,9 @@ def test_memory_workbench_api_routes(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     assert workbench_response.status_code == 200
     workbench = workbench_response.json()["data"]
     assert workbench["schema_version"] == "fcc_mem_001_memory_workbench.v1"
+    assert workbench["bounded_memory_posture"]["contract_ref"] == (
+        MEMORY_BOUNDED_POSTURE_CONTRACT_REF
+    )
 
     search_response = client.get("/control-center/memory/search?kind=preference")
     assert search_response.status_code == 200
@@ -622,7 +693,41 @@ def test_memory_cli_parity_uses_safe_ref_outputs(tmp_path: Path) -> None:
     assert payload["raw_content_omitted"] is True
     assert payload["raw_paths_omitted"] is True
     assert payload["workbench"]["schema_version"] == "fcc_mem_001_memory_workbench.v1"
+    assert payload["workbench"]["bounded_memory_posture"]["contract_ref"] == (
+        MEMORY_BOUNDED_POSTURE_CONTRACT_REF
+    )
     assert str(state_dir) not in result.stdout
+
+    bounded_command = [
+        sys.executable,
+        "scripts/dev/uaa_founder_loop.py",
+        "--state-dir",
+        str(state_dir),
+        "memory-bounded-posture",
+        "--limit",
+        "3",
+    ]
+    bounded_result = subprocess.run(
+        bounded_command,
+        check=True,
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+    )
+    bounded_payload = json.loads(bounded_result.stdout)
+    posture = bounded_payload["bounded_memory_posture"]
+    assert bounded_payload["command_ref"] == (
+        "repo-local-command:founder-loop-memory-bounded-posture"
+    )
+    assert posture["contract_ref"] == MEMORY_BOUNDED_POSTURE_CONTRACT_REF
+    assert posture["safe_refs_only"] is True
+    assert posture["automatic_memory_write_authorized"] is False
+    assert posture["hidden_prompt_injection_authorized"] is False
+    assert posture["external_memory_provider_write_authorized"] is False
+    assert bounded_payload["raw_prompt_omitted"] is True
+    assert bounded_payload["raw_response_omitted"] is True
+    assert bounded_payload["raw_provider_payload_omitted"] is True
+    assert str(state_dir) not in bounded_result.stdout
 
 
 def test_memory_cli_rejects_unsafe_inputs_without_traceback(tmp_path: Path) -> None:

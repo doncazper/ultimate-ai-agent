@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from scripts.verification.api_routes import (  # noqa: E402
+    EXPECTED_OPENAPI_PATH_COUNT,
     EXPECTED_ROUTE_COUNT,
     append_expected_route_count,
     append_route_fixture_mismatches,
@@ -36,7 +37,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 74,
     "none": 4,
-    "local_dev_workspace_only": 122,
+    "local_dev_workspace_only": 128,
     "governed_network_read_only": 3,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
@@ -92,8 +93,8 @@ REQUIRED_DOC_SNIPPETS = {
         "Status: Implemented",
         str(EXPECTED_ROUTE_COUNT),
         "| `mutating_requires_authority` | 42 |",
-        "The current OpenAPI path count is `202`",
-        "`203` route operations",
+        f"The current OpenAPI path count is `{EXPECTED_OPENAPI_PATH_COUNT}`",
+        f"`{EXPECTED_ROUTE_COUNT}` route operations",
         "public_metadata",
         "local_readonly",
         "local_sensitive",

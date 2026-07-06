@@ -630,7 +630,14 @@ CONTROL_CENTER_LOCAL_STATE_PREFIXES = (
     "/control-center/work-board",
     "/control-center/crm",
 )
-VALIDATION_HINTS = ("/validate", "/preview", "/evaluate", "/route", "/freshness/check", "/dry-run")
+VALIDATION_HINTS = (
+    "/validate",
+    "/preview",
+    "/evaluate",
+    "/route",
+    "/freshness/check",
+    "/dry-run",
+)
 PUBLIC_METADATA_PATHS = {"/api/manifest", "/health", "/version"}
 CONTROL_CENTER_ACTION_DECISION_SUFFIXES = ("/approve", "/edit", "/reject", "/defer")
 CONTROL_CENTER_MEMORY_DECISION_SUFFIXES = (
@@ -674,7 +681,23 @@ CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
 }
 GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/capabilities",
+    "/api/runtime/approval-bridge",
+    "/api/runtime/capability-discovery",
+    "/api/runtime/checkpoint-rollback",
+    "/api/runtime/context-budget-pressure",
+    "/api/runtime/context-references",
+    "/api/runtime/delegation-adapter",
     "/api/runtime/governed-product-pilot-profile",
+    "/api/runtime/hardline-command-blocklist",
+    "/api/runtime/prompt-stability-tiers",
+    "/api/runtime/profiles",
+    "/api/runtime/run-events",
+    "/api/runtime/session-lineage",
+    "/api/runtime/session-search",
+    "/api/runtime/streaming-progress",
+    "/api/runtime/tool-registry",
+    "/api/runtime/usage-cost-analytics",
+    "/api/runtime/virtual-provider-moa",
     "/api/runtime/staged-orchestration",
     "/api/runtime/prepared-turn",
     "/api/runtime/parity-loop",
@@ -839,7 +862,13 @@ def route_group_for_path(path: str) -> str:
 
 
 def stable_operation_id(method: str, path: str) -> str:
-    stem = path.strip("/").replace("-", "_").replace("/", "_").replace("{", "").replace("}", "")
+    stem = (
+        path.strip("/")
+        .replace("-", "_")
+        .replace("/", "_")
+        .replace("{", "")
+        .replace("}", "")
+    )
     return f"{method.lower()}_{stem or 'root'}"
 
 
@@ -849,7 +878,11 @@ def route_summary(method: str, path: str) -> str:
 
 
 def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
-    if path == "/api/manifest" or path in {"/health", "/version", "/web-evidence/status"}:
+    if path == "/api/manifest" or path in {
+        "/health",
+        "/version",
+        "/web-evidence/status",
+    }:
         return ApiRouteSideEffectClass.none
     if path == "/api/runtime/capabilities":
         return ApiRouteSideEffectClass.validation_only
@@ -882,7 +915,9 @@ def route_classification_for_path(
     side_effect_class: ApiRouteSideEffectClass,
 ) -> tuple[ApiRouteClassification, str]:
     normalized_method = method.upper()
-    unknown_route_group = route_group_for_path(path) == "api-boundary" and path != "/api/manifest"
+    unknown_route_group = (
+        route_group_for_path(path) == "api-boundary" and path != "/api/manifest"
+    )
     explicit_non_mutating_posture = (
         side_effect_class == ApiRouteSideEffectClass.governed_network_read_only
         or any(hint in path for hint in NON_MUTATING_LOCAL_POSTURE_HINTS)
@@ -914,18 +949,12 @@ def route_classification_for_path(
             ApiRouteClassification.mutating_requires_authority,
             "Governed runtime command authority route permits only exact RuntimeGateway-derived argv for a Phase 04 read-only status intent; arbitrary command text, shell execution, networked commands, raw output persistence, and unvalidated approval refs remain blocked.",
         )
-    if (
-        normalized_method == "POST"
-        and path == "/api/runtime/invocations/{id}/approve"
-    ):
+    if normalized_method == "POST" and path == "/api/runtime/invocations/{id}/approve":
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Governed runtime approval-binding route records exact Action Inbox runtime envelopes only when backend-derived approval, envelope, scope, payload, policy, adapter, rollback, and safe-disable refs match; arbitrary approval refs and broad runtime authority remain blocked.",
         )
-    if (
-        normalized_method == "POST"
-        and path == "/api/runtime/invocations/{id}/execute"
-    ):
+    if normalized_method == "POST" and path == "/api/runtime/invocations/{id}/execute":
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Governed runtime execute route can run only the Phase 05 exact Action Inbox approved focused pytest RuntimeGateway command lane with top-level approval/envelope/payload/policy refs, idempotency, redacted receipts, and safe-disable posture; arbitrary shell, Makefile/frontend commands, browser, connector, provider, plugin, remote, and production authority remain blocked.",
@@ -1024,12 +1053,18 @@ def route_classification_for_path(
             ApiRouteClassification.mutating_requires_authority,
             "Memory Review decision route; exact authority, idempotent backend receipt, and context-injection block posture required",
         )
-    if path.endswith("/run") or any(hint in path for hint in MUTATING_LOCAL_POSTURE_HINTS):
+    if path.endswith("/run") or any(
+        hint in path for hint in MUTATING_LOCAL_POSTURE_HINTS
+    ):
         return (
             ApiRouteClassification.mutating_requires_authority,
             "mutation-like local route; exact authority, idempotency, audit, and rollback posture required",
         )
-    if normalized_method not in {"GET", "HEAD", "OPTIONS"} and unknown_route_group and not explicit_non_mutating_posture:
+    if (
+        normalized_method not in {"GET", "HEAD", "OPTIONS"}
+        and unknown_route_group
+        and not explicit_non_mutating_posture
+    ):
         return (
             ApiRouteClassification.mutating_requires_authority,
             "unknown non-read route without an explicit preview/validation posture; authority required by default",
@@ -1086,7 +1121,9 @@ def iter_api_routes(routes: list[Any]) -> list[APIRoute]:
 def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
     items: list[ApiRouteInventoryItem] = []
     for route in iter_api_routes(app.routes):
-        methods = sorted(method for method in route.methods if method not in {"HEAD", "OPTIONS"})
+        methods = sorted(
+            method for method in route.methods if method not in {"HEAD", "OPTIONS"}
+        )
         for method in methods:
             operation_id = route.operation_id or stable_operation_id(method, route.path)
             tags = list(route.tags or [route_group_for_path(route.path)])
@@ -1132,10 +1169,12 @@ def iter_api_route_items(app: FastAPI) -> list[ApiRouteInventoryItem]:
                     operation_id=operation_id,
                     tags=tags,
                     summary=route.summary or route_summary(method, route.path),
-                    validation_only=side_effect_class == ApiRouteSideEffectClass.validation_only,
+                    validation_only=side_effect_class
+                    == ApiRouteSideEffectClass.validation_only,
                     side_effect_class=side_effect_class,
                     route_classification=route_classification,
-                    protected_route=route_classification != ApiRouteClassification.public_metadata,
+                    protected_route=route_classification
+                    != ApiRouteClassification.public_metadata,
                     auth_posture=auth_posture,
                     approval_posture=approval_posture,
                     classification_reason=classification_reason,
@@ -1181,7 +1220,11 @@ def _api_manifest_static_fingerprint(app: FastAPI) -> tuple[Any, ...]:
     for route in app.routes:
         if not isinstance(route, APIRoute):
             continue
-        methods = tuple(sorted(method for method in route.methods if method not in {"HEAD", "OPTIONS"}))
+        methods = tuple(
+            sorted(
+                method for method in route.methods if method not in {"HEAD", "OPTIONS"}
+            )
+        )
         route_fingerprints.append(
             (
                 route.path,
@@ -1236,16 +1279,18 @@ def _get_api_manifest_static_cache_entry(app: FastAPI) -> _ApiManifestStaticCach
         return refreshed
 
 
-def build_api_manifest(app: FastAPI, foundation_gate_status: str | None = None) -> ApiManifest:
+def build_api_manifest(
+    app: FastAPI, foundation_gate_status: str | None = None
+) -> ApiManifest:
     from ultimate_ai_agent.api.local_auth import local_api_auth_policy_payload
 
     static = _get_api_manifest_static_cache_entry(app)
-    classification_summary = {classification.value: 0 for classification in ROUTE_CLASSIFICATION_VOCABULARY}
+    classification_summary = {
+        classification.value: 0 for classification in ROUTE_CLASSIFICATION_VOCABULARY
+    }
     auth_posture_summary = {posture.value: 0 for posture in ApiRouteAuthPosture}
     approval_posture_summary = {posture.value: 0 for posture in ApiRouteApprovalPosture}
-    idempotency_summary = {
-        posture.value: 0 for posture in ApiRouteIdempotencyPosture
-    }
+    idempotency_summary = {posture.value: 0 for posture in ApiRouteIdempotencyPosture}
     rate_limit_summary = {posture.value: 0 for posture in ApiRouteRateLimitPosture}
     for route in static.routes:
         classification_summary[str(route.route_classification)] += 1

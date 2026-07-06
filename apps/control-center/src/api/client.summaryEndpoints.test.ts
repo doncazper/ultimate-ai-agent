@@ -266,6 +266,150 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.connection.warnings).toContain("WORK_BOARD_MOCK_FALLBACK");
   });
 
+  it("marks missing runtime capability discovery as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.runtimeCapabilityDiscovery];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.runtimeCapabilityDiscovery.live_discovery_performed).toBe(false);
+    expect(data.runtimeCapabilityDiscovery.uaa_authorized_capability_count).toBe(0);
+    expect(
+      data.runtimeCapabilityDiscovery.toolset_posture.uaa_allowed_execution_count,
+    ).toBe(0);
+    expect(
+      data.runtimeCapabilityDiscovery.toolset_posture.live_tool_invocation_enabled,
+    ).toBe(false);
+    expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
+    expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
+      "GET /api/runtime/capability-discovery",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain(
+      "RUNTIME_CAPABILITY_DISCOVERY_MOCK_FALLBACK",
+    );
+  });
+
+  it("marks missing runtime run events as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.runtimeRunEvents];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.runtimeRunEvents.create_run_route_enabled).toBe(false);
+    expect(data.runtimeRunEvents.stop_run_route_enabled).toBe(false);
+    expect(data.runtimeRunEvents.approval_resolution_route_enabled).toBe(false);
+    expect(data.runtimeRunEvents.completed_run_count).toBe(0);
+    expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
+    expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
+      "GET /api/runtime/run-events",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain("RUNTIME_RUN_EVENTS_MOCK_FALLBACK");
+  });
+
+  it("marks missing runtime approval bridge as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.runtimeApprovalBridge];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.runtimeApprovalBridge.approval_resolution_route_enabled).toBe(
+      false,
+    );
+    expect(data.runtimeApprovalBridge.deny_resolution_route_enabled).toBe(false);
+    expect(data.runtimeApprovalBridge.timeout_resolution_route_enabled).toBe(
+      false,
+    );
+    expect(data.runtimeApprovalBridge.runtime_resolution_sent_count).toBe(0);
+    expect(
+      data.runtimeApprovalBridge.action_inbox_projection
+        .approval_controls_visible,
+    ).toBe(false);
+    expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
+    expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
+      "GET /api/runtime/approval-bridge",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain(
+      "RUNTIME_APPROVAL_BRIDGE_MOCK_FALLBACK",
+    );
+  });
+
+  it("marks missing runtime streaming progress as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.runtimeStreamingProgress];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.runtimeStreamingProgress.live_subscription_enabled).toBe(false);
+    expect(data.runtimeStreamingProgress.sse_transport_enabled).toBe(false);
+    expect(data.runtimeStreamingProgress.websocket_transport_enabled).toBe(false);
+    expect(data.runtimeStreamingProgress.event_ingest_enabled).toBe(false);
+    expect(data.runtimeStreamingProgress.stale_stream).toBe(true);
+    expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
+    expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
+      "GET /api/runtime/streaming-progress",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain(
+      "RUNTIME_STREAMING_PROGRESS_MOCK_FALLBACK",
+    );
+  });
+
+  it("marks missing runtime profiles as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.runtimeProfiles];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.runtimeProfiles.profile_creation_enabled).toBe(false);
+    expect(data.runtimeProfiles.profile_deletion_enabled).toBe(false);
+    expect(data.runtimeProfiles.runtime_config_write_enabled).toBe(false);
+    expect(data.runtimeProfiles.sensitive_material_copy_enabled).toBe(false);
+    expect(data.runtimeProfiles.cross_profile_authority_bleed_allowed).toBe(false);
+    expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
+    expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
+      "GET /api/runtime/profiles",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain("RUNTIME_PROFILES_MOCK_FALLBACK");
+  });
+
+  it("marks missing runtime tool registry as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.runtimeToolRegistry];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.runtimeToolRegistry.tool_invocation_enabled).toBe(false);
+    expect(data.runtimeToolRegistry.remote_discovery_enabled).toBe(false);
+    expect(data.runtimeToolRegistry.plugin_import_enabled).toBe(false);
+    expect(data.runtimeToolRegistry.connector_write_activation_enabled).toBe(false);
+    expect(data.runtimeToolRegistry.invocation_enabled_count).toBe(0);
+    expect(data.runtimeToolRegistry.preview_available_count).toBeGreaterThan(0);
+    expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
+    expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
+      "GET /api/runtime/tool-registry",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain(
+      "RUNTIME_TOOL_REGISTRY_MOCK_FALLBACK",
+    );
+  });
+
   it("marks missing CRM route as non-authoritative fallback", async () => {
     const routeData = baseRouteData();
     delete routeData[API_ENDPOINTS.crmSummary];
@@ -639,6 +783,53 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.runtimeReadiness]: mockControlCenterData.runtimeReadiness,
     [API_ENDPOINTS.runtimeCapabilityMatrix]:
       mockControlCenterData.capabilityMatrix,
+    [API_ENDPOINTS.runtimeDelegationAdapter]:
+      mockControlCenterData.runtimeDelegationAdapter,
+    [API_ENDPOINTS.runtimeCapabilityDiscovery]:
+      mockControlCenterData.runtimeCapabilityDiscovery,
+    [API_ENDPOINTS.runtimeRunEvents]: mockControlCenterData.runtimeRunEvents,
+    [API_ENDPOINTS.runtimeApprovalBridge]:
+      mockControlCenterData.runtimeApprovalBridge,
+    [API_ENDPOINTS.runtimeStreamingProgress]:
+      mockControlCenterData.runtimeStreamingProgress,
+    [API_ENDPOINTS.runtimeProfiles]: mockControlCenterData.runtimeProfiles,
+    [API_ENDPOINTS.runtimeToolRegistry]: mockControlCenterData.runtimeToolRegistry,
+    [API_ENDPOINTS.runtimeVirtualProviderMoa]:
+      mockControlCenterData.runtimeVirtualProviderMoa,
+    [API_ENDPOINTS.runtimeUsageCostAnalytics]:
+      mockControlCenterData.runtimeUsageCostAnalytics,
+    [API_ENDPOINTS.runtimePromptStabilityTiers]:
+      mockControlCenterData.runtimePromptStabilityTiers,
+    [API_ENDPOINTS.runtimeContextBudgetPressure]:
+      mockControlCenterData.runtimeContextBudgetPressure,
+    [API_ENDPOINTS.runtimeHardlineCommandBlocklist]:
+      mockControlCenterData.runtimeHardlineCommandBlocklist,
+    [API_ENDPOINTS.runtimeManagedScopePolicy]:
+      mockControlCenterData.runtimeManagedScopePolicy,
+    [API_ENDPOINTS.runtimeDoctorDiagnostics]:
+      mockControlCenterData.runtimeDoctorDiagnostics,
+    [API_ENDPOINTS.runtimeSessionContinuity]:
+      mockControlCenterData.runtimeSessionContinuity,
+    [API_ENDPOINTS.runtimeMcpCatalogFiltering]:
+      mockControlCenterData.runtimeMcpCatalogFiltering,
+    [API_ENDPOINTS.runtimeBackgroundJobs]:
+      mockControlCenterData.runtimeBackgroundJobs,
+    [API_ENDPOINTS.runtimeSubagentIsolation]:
+      mockControlCenterData.runtimeSubagentIsolation,
+    [API_ENDPOINTS.runtimeWorktreePerAgent]:
+      mockControlCenterData.runtimeWorktreePerAgent,
+    [API_ENDPOINTS.runtimeLspDiagnostics]:
+      mockControlCenterData.runtimeLspDiagnostics,
+    [API_ENDPOINTS.runtimePreviewRail]:
+      mockControlCenterData.runtimePreviewRail,
+    [API_ENDPOINTS.runtimeSlashCommandRegistry]:
+      mockControlCenterData.runtimeSlashCommandRegistry,
+    [API_ENDPOINTS.runtimeInterruptRedirect]:
+      mockControlCenterData.runtimeInterruptRedirect,
+    [API_ENDPOINTS.runtimeLoggingProfile]:
+      mockControlCenterData.runtimeLoggingProfile,
+    [API_ENDPOINTS.runtimeResultClassification]:
+      mockControlCenterData.runtimeResultClassification,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,

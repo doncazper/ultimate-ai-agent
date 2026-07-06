@@ -89,9 +89,7 @@ def _safe_action_projection(action: dict[str, Any]) -> dict[str, Any]:
         "state_change_readiness": action.get("state_change_readiness"),
         "action_kind": action.get("action_kind"),
         "local_task_ref": action.get("local_task_ref"),
-        "local_task_commit_approval_ref": action.get(
-            "local_task_commit_approval_ref"
-        ),
+        "local_task_commit_approval_ref": action.get("local_task_commit_approval_ref"),
         "local_task_commit_eligible": action.get("local_task_commit_eligible"),
         "local_task_commit_approval_status": action.get(
             "local_task_commit_approval_status"
@@ -150,9 +148,7 @@ def _safe_action_projection(action: dict[str, Any]) -> dict[str, Any]:
         "task_decomposition_blocked_authority_refs": list(
             action.get("task_decomposition_blocked_authority_refs") or []
         ),
-        "task_decomposition_review_only": action.get(
-            "task_decomposition_review_only"
-        ),
+        "task_decomposition_review_only": action.get("task_decomposition_review_only"),
         "task_decomposition_proposal_only": action.get(
             "task_decomposition_proposal_only"
         ),
@@ -167,18 +163,12 @@ def _safe_plan_projection(plan: dict[str, Any]) -> dict[str, Any]:
         "plan_ref": plan.get("plan_ref"),
         "title": plan.get("title"),
         "status": plan.get("status"),
-        "task_decomposition_contract_ref": plan.get(
-            "task_decomposition_contract_ref"
-        ),
-        "task_decomposition_request_ref": plan.get(
-            "task_decomposition_request_ref"
-        ),
+        "task_decomposition_contract_ref": plan.get("task_decomposition_contract_ref"),
+        "task_decomposition_request_ref": plan.get("task_decomposition_request_ref"),
         "task_decomposition_review_envelope_ref": plan.get(
             "task_decomposition_review_envelope_ref"
         ),
-        "task_decomposition_proposal_ref": plan.get(
-            "task_decomposition_proposal_ref"
-        ),
+        "task_decomposition_proposal_ref": plan.get("task_decomposition_proposal_ref"),
         "task_decomposition_status": plan.get("task_decomposition_status"),
         "task_decomposition_step_refs": list(
             plan.get("task_decomposition_step_refs") or []
@@ -193,8 +183,7 @@ def _safe_plan_projection(plan: dict[str, Any]) -> dict[str, Any]:
             plan.get("task_decomposition_missing_evidence_refs") or []
         ),
         "task_decomposition_suggested_action_inbox_proposal_refs": list(
-            plan.get("task_decomposition_suggested_action_inbox_proposal_refs")
-            or []
+            plan.get("task_decomposition_suggested_action_inbox_proposal_refs") or []
         ),
         "task_decomposition_required_approvals": list(
             plan.get("task_decomposition_required_approvals") or []
@@ -202,9 +191,7 @@ def _safe_plan_projection(plan: dict[str, Any]) -> dict[str, Any]:
         "task_decomposition_blocked_authority_refs": list(
             plan.get("task_decomposition_blocked_authority_refs") or []
         ),
-        "task_decomposition_review_only": plan.get(
-            "task_decomposition_review_only"
-        ),
+        "task_decomposition_review_only": plan.get("task_decomposition_review_only"),
         "task_decomposition_proposal_only": plan.get(
             "task_decomposition_proposal_only"
         ),
@@ -357,9 +344,7 @@ def _inspect_evidence_audit_spine(args: argparse.Namespace) -> int:
         "evidence_audit_receipt_spine_contract_ref": timeline.get(
             "evidence_audit_receipt_spine_contract_ref"
         ),
-        "evidence_audit_receipt_spine": timeline.get(
-            "evidence_audit_receipt_spine"
-        ),
+        "evidence_audit_receipt_spine": timeline.get("evidence_audit_receipt_spine"),
         "receipt_refs": list(timeline.get("receipt_refs") or []),
         "approval_refs": list(timeline.get("approval_refs") or []),
         "idempotency_refs": list(timeline.get("idempotency_refs") or []),
@@ -702,9 +687,7 @@ def _inspect_loop_spine(args: argparse.Namespace) -> int:
             for binding in read_model.get("productized_surface_bindings", [])
             if isinstance(binding, dict)
         ],
-        "productized_route_refs": list(
-            read_model.get("productized_route_refs") or []
-        ),
+        "productized_route_refs": list(read_model.get("productized_route_refs") or []),
         "productized_backend_route_refs": list(
             read_model.get("productized_backend_route_refs") or []
         ),
@@ -721,9 +704,7 @@ def _inspect_loop_spine(args: argparse.Namespace) -> int:
         "today_refs": list(read_model.get("today_refs") or []),
         "action_inbox_refs": list(read_model.get("action_inbox_refs") or []),
         "receipt_refs": list(read_model.get("receipt_refs") or []),
-        "evidence_timeline_refs": list(
-            read_model.get("evidence_timeline_refs") or []
-        ),
+        "evidence_timeline_refs": list(read_model.get("evidence_timeline_refs") or []),
         "memory_review_candidate_refs": list(
             read_model.get("memory_review_candidate_refs") or []
         ),
@@ -731,9 +712,7 @@ def _inspect_loop_spine(args: argparse.Namespace) -> int:
             read_model.get("memory_review_receipt_refs") or []
         ),
         "weekly_review_refs": list(read_model.get("weekly_review_refs") or []),
-        "blocked_authority_refs": list(
-            read_model.get("blocked_authority_refs") or []
-        ),
+        "blocked_authority_refs": list(read_model.get("blocked_authority_refs") or []),
         "safe_refs_only": True,
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
@@ -893,9 +872,7 @@ def _inspect_work_thread(args: argparse.Namespace) -> int:
             for step in read_model.get("steps", [])[: args.limit]
             if isinstance(step, dict)
         ],
-        "chat_turn_receipt_refs": list(
-            read_model.get("chat_turn_receipt_refs") or []
-        ),
+        "chat_turn_receipt_refs": list(read_model.get("chat_turn_receipt_refs") or []),
         "chat_handoff_receipt_refs": list(
             read_model.get("chat_handoff_receipt_refs") or []
         ),
@@ -905,9 +882,7 @@ def _inspect_work_thread(args: argparse.Namespace) -> int:
         "action_decision_receipt_refs": list(
             read_model.get("action_decision_receipt_refs") or []
         ),
-        "evidence_timeline_refs": list(
-            read_model.get("evidence_timeline_refs") or []
-        ),
+        "evidence_timeline_refs": list(read_model.get("evidence_timeline_refs") or []),
         "evidence_event_refs": list(read_model.get("evidence_event_refs") or []),
         "memory_review_candidate_refs": list(
             read_model.get("memory_review_candidate_refs") or []
@@ -918,9 +893,7 @@ def _inspect_work_thread(args: argparse.Namespace) -> int:
         "weekly_review_refs": list(read_model.get("weekly_review_refs") or []),
         "receipt_refs": list(read_model.get("receipt_refs") or []),
         "evidence_refs": list(read_model.get("evidence_refs") or []),
-        "blocked_authority_refs": list(
-            read_model.get("blocked_authority_refs") or []
-        ),
+        "blocked_authority_refs": list(read_model.get("blocked_authority_refs") or []),
         "safe_refs_only": True,
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
@@ -1465,6 +1438,36 @@ def _inspect_memory_learning_posture(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_memory_bounded_posture(args: argparse.Namespace) -> int:
+    repo = _repository(args)
+    try:
+        workbench = repo.memory_workbench(
+            query_ref=args.query_ref,
+            limit=args.limit,
+        )
+    except ValueError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref="repo-local-command:founder-loop-memory-bounded-posture",
+                error_ref="FOUNDER_LOOP_MEMORY_BOUNDED_POSTURE_REF_DENIED",
+            )
+        )
+        return 1
+    output = {
+        "schema_version": "founder-loop-cli:v1",
+        "command_ref": "repo-local-command:founder-loop-memory-bounded-posture",
+        "bounded_memory_posture": workbench.get("bounded_memory_posture"),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_prompt_omitted": True,
+        "raw_response_omitted": True,
+        "raw_provider_payload_omitted": True,
+    }
+    _print_json(output)
+    return 0
+
+
 def _inspect_memory_receipts(args: argparse.Namespace) -> int:
     repo = _repository(args)
     review = repo.memory_review(limit=args.limit)
@@ -1637,8 +1640,7 @@ def _record_manual_memory_candidate(args: argparse.Namespace) -> int:
             tag_refs=args.tag_ref,
             metadata_refs=args.metadata_ref,
             blocked_state_refs=(
-                args.blocked_state_ref
-                or list(MEMORY_MANUAL_INTAKE_BLOCKED_STATE_REFS)
+                args.blocked_state_ref or list(MEMORY_MANUAL_INTAKE_BLOCKED_STATE_REFS)
             ),
         )
         receipt = repo.record_manual_memory_candidate(
@@ -1725,9 +1727,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     start_here_parser = subparsers.add_parser(
         "inspect-start-here",
-        help=(
-            "Print the backend-owned Start Here loop contract with safe refs only."
-        ),
+        help=("Print the backend-owned Start Here loop contract with safe refs only."),
     )
     start_here_parser.add_argument("--limit", type=int, default=12)
     start_here_parser.set_defaults(func=_inspect_start_here)
@@ -1754,9 +1754,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the backend-owned Evidence/Memory loop binding summary.",
     )
     evidence_memory_binding_parser.add_argument("--limit", type=int, default=50)
-    evidence_memory_binding_parser.set_defaults(
-        func=_inspect_evidence_memory_binding
-    )
+    evidence_memory_binding_parser.set_defaults(func=_inspect_evidence_memory_binding)
 
     evidence_audit_spine_parser = subparsers.add_parser(
         "inspect-evidence-audit-spine",
@@ -1830,8 +1828,12 @@ def build_parser() -> argparse.ArgumentParser:
             "Attach one allowlisted read-only web evidence preview to the local loop."
         ),
     )
-    attach_web_evidence_parser.add_argument("--evidence-ref", action="append", default=[])
-    attach_web_evidence_parser.add_argument("--metadata-ref", action="append", default=[])
+    attach_web_evidence_parser.add_argument(
+        "--evidence-ref", action="append", default=[]
+    )
+    attach_web_evidence_parser.add_argument(
+        "--metadata-ref", action="append", default=[]
+    )
     attach_web_evidence_parser.set_defaults(func=_attach_web_evidence)
 
     loop_spine_parser = subparsers.add_parser(
@@ -2061,9 +2063,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     memory_learning_posture_parser.add_argument("--query-ref", default=None)
     memory_learning_posture_parser.add_argument("--limit", type=int, default=20)
-    memory_learning_posture_parser.set_defaults(
-        func=_inspect_memory_learning_posture
+    memory_learning_posture_parser.set_defaults(func=_inspect_memory_learning_posture)
+
+    memory_bounded_posture_parser = subparsers.add_parser(
+        "memory-bounded-posture",
+        help="Inspect bounded governed memory capacity, target, and review posture.",
     )
+    memory_bounded_posture_parser.add_argument("--query-ref", default=None)
+    memory_bounded_posture_parser.add_argument("--limit", type=int, default=20)
+    memory_bounded_posture_parser.set_defaults(func=_inspect_memory_bounded_posture)
 
     memory_receipts_parser = subparsers.add_parser(
         "memory-receipts",

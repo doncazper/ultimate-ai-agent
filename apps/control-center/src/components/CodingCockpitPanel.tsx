@@ -8,6 +8,7 @@ import type {
   CodingMultiAgentReviewReadModel,
   CodingPatchApplyReadinessReadModel,
   CodingPatchProposalReadModel,
+  CodingProjectModelReadModel,
   CodingTestCommandReadinessReadModel,
   CodingWorkspaceContextReadModel,
 } from "../api/types";
@@ -42,6 +43,15 @@ export function CodingCockpitPanel({
     !session.mock_fallback &&
     session.local_read_model_only &&
     session.safe_refs_only &&
+    session.project_model.backend_owned &&
+    session.project_model.read_only &&
+    session.project_model.safe_refs_only &&
+    session.project_model.repo_file_read_performed === false &&
+    session.project_model.file_write_enabled === false &&
+    session.project_model.shell_subprocess_execution_enabled === false &&
+    session.project_model.git_mutation_enabled === false &&
+    session.project_model.browser_automation_enabled === false &&
+    session.project_model.provider_model_call_enabled === false &&
     context.backend_owned &&
     context.read_only &&
     context.preview_only &&
@@ -130,6 +140,10 @@ export function CodingCockpitPanel({
             state={session.workspace_context.state}
           />
           <PanelBody panel={session.workspace_context} />
+          <ProjectModelPreview
+            authoritative={backendOwned}
+            projectModel={session.project_model}
+          />
           <ContextPackPreview context={context} authoritative={backendOwned} />
           <RefStack title="Context refs" refs={session.same_ref_spine.slice(0, 5)} />
         </aside>
@@ -213,6 +227,47 @@ export function CodingCockpitPanel({
         <RefStack title="Blocked refs" refs={session.blocked_authority_refs} />
       </div>
     </section>
+  );
+}
+
+function ProjectModelPreview({
+  authoritative,
+  projectModel,
+}: {
+  authoritative: boolean;
+  projectModel: CodingProjectModelReadModel;
+}) {
+  return (
+    <div className="coding-context-pack" aria-label="Coding project model posture">
+      <div className="coding-context-budget">
+        <DetailTile label="Project" value={projectModel.project_model_ref} />
+        <DetailTile label="Lane" value={projectModel.lane_ref} />
+        <DetailTile
+          label="Status"
+          value={projectModel.status.replaceAll("_", " ")}
+        />
+      </div>
+      <p className="safe-copy">
+        {authoritative
+          ? "Project posture is backend-owned, read-only, and safe-ref only."
+          : "Project posture is non-authoritative fallback data only."}
+      </p>
+      <div className="coding-item-stack">
+        {projectModel.capabilities.slice(0, 6).map((item) => (
+          <article className="coding-item-row" key={item.capability_ref}>
+            <div>
+              <strong>{item.label}</strong>
+              <p>{item.safe_summary}</p>
+            </div>
+            <span className="status-pill compact">
+              {item.state.replaceAll("_", " ")}
+            </span>
+          </article>
+        ))}
+      </div>
+      <RefStack refs={projectModel.blocked_authority_refs} title="Blocked refs" />
+      <p className="safe-copy">{projectModel.next_safe_action}</p>
+    </div>
   );
 }
 

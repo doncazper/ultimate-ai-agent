@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -40,6 +40,7 @@ CODING_COCKPIT_MULTI_AGENT_REVIEW_REF = "multi-agent-review:coding-blocked-v1"
 CODING_COCKPIT_MULTI_AGENT_REVIEW_ROUTE_REF = (
     "route-ref:control-center-coding-multi-agent-review"
 )
+CODING_COCKPIT_PROJECT_MODEL_REF = "coding-project-model:local-uaa-posture-v1"
 CODING_COCKPIT_BACKEND_ROUTE_REF = "GET /control-center/coding/session"
 CODING_COCKPIT_CONTEXT_BACKEND_ROUTE_REF = "GET /control-center/coding/context"
 CODING_COCKPIT_PATCH_BACKEND_ROUTE_REF = (
@@ -124,6 +125,26 @@ AgentReviewSlotKind = Literal[
     "ux_reviewer",
     "test_fixer",
     "merge_captain",
+]
+CodingProjectCapabilityKind = Literal[
+    "workspace",
+    "repo",
+    "lane",
+    "branch",
+    "worktree",
+    "files",
+    "diffs",
+    "tests",
+    "preview",
+    "terminal",
+    "git",
+    "proof",
+]
+CodingProjectCapabilityState = Literal[
+    "read_only",
+    "proposal_only",
+    "blocked",
+    "planned",
 ]
 
 
@@ -212,6 +233,210 @@ class CodingCockpitPreviewPanel(BaseModel):
             raise ValueError("coding cockpit panel cannot enable mutation")
         if self.runtime_authority_enabled:
             raise ValueError("coding cockpit panel cannot enable runtime authority")
+        return self
+
+
+class CodingProjectCapabilityReadModel(BaseModel):
+    capability_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1, max_length=120)
+    capability_kind: CodingProjectCapabilityKind
+    state: CodingProjectCapabilityState
+    safe_summary: str = Field(..., min_length=1, max_length=420)
+    source_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    promotion_path_refs: list[str] = Field(default_factory=list)
+    file_write_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    git_mutation_enabled: bool = False
+    browser_automation_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    background_autonomy_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_capability(self) -> "CodingProjectCapabilityReadModel":
+        for ref in [
+            self.capability_ref,
+            *self.source_refs,
+            *self.evidence_refs,
+            *self.proof_refs,
+            *self.blocked_authority_refs,
+            *self.promotion_path_refs,
+        ]:
+            validate_task_ref(ref, "coding_project_capability_ref")
+        for value in [
+            self.label,
+            self.capability_kind,
+            self.state,
+            self.safe_summary,
+        ]:
+            validate_safe_task_text(value, "coding_project_capability_text")
+        required_false_flags = {
+            "file_write_enabled": self.file_write_enabled,
+            "shell_subprocess_execution_enabled": (
+                self.shell_subprocess_execution_enabled
+            ),
+            "git_mutation_enabled": self.git_mutation_enabled,
+            "browser_automation_enabled": self.browser_automation_enabled,
+            "provider_model_call_enabled": self.provider_model_call_enabled,
+            "background_autonomy_enabled": self.background_autonomy_enabled,
+        }
+        enabled = [name for name, value in required_false_flags.items() if value]
+        if enabled:
+            raise ValueError(f"coding project capability enabled {enabled[0]}")
+        if self.state == "blocked" and not self.blocked_authority_refs:
+            raise ValueError("blocked project capability needs blocker refs")
+        return self
+
+
+class CodingProjectModelReadModel(BaseModel):
+    schema_version: Literal["uaa-coding-project-model.v1"] = (
+        "uaa-coding-project-model.v1"
+    )
+    project_model_ref: str = CODING_COCKPIT_PROJECT_MODEL_REF
+    session_ref: str = CODING_COCKPIT_SESSION_REF
+    workspace_ref: str = "workspace-ref:coding:local-uaa"
+    repo_scope_ref: str = "repo-scope:coding:local-uaa"
+    branch_ref: str = "branch-ref:coding:current-local"
+    worktree_ref: str = "worktree-ref:coding:current-local-readonly"
+    lane_ref: str = "coding-lane:project-model-readonly"
+    route_ref: str = CODING_COCKPIT_ROUTE_REF
+    backend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_BACKEND_ROUTE_REF]
+    )
+    frontend_route_refs: list[str] = Field(
+        default_factory=lambda: [CODING_COCKPIT_FRONTEND_ROUTE_REF]
+    )
+    cli_inspection_refs: list[str] = Field(
+        default_factory=lambda: ["scripts/dev/uaa_coding.py inspect-project-model"]
+    )
+    docs_refs: list[str] = Field(
+        default_factory=lambda: [
+            "docs-ref:hermes-runtime-coding-project-model",
+            "docs-ref:control-center-coding-cockpit",
+        ]
+    )
+    status: Literal["read_only_project_posture"] = "read_only_project_posture"
+    project_label: str = Field(..., min_length=1, max_length=120)
+    repo_label: str = Field(..., min_length=1, max_length=120)
+    branch_label: str = Field(..., min_length=1, max_length=120)
+    worktree_label: str = Field(..., min_length=1, max_length=120)
+    full_strength_goal: str = Field(..., min_length=1, max_length=520)
+    repo_safe_current_state: str = Field(..., min_length=1, max_length=520)
+    safe_summary: str = Field(..., min_length=1, max_length=520)
+    capabilities: list[CodingProjectCapabilityReadModel] = Field(
+        default_factory=list
+    )
+    capability_refs: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    promotion_path_refs: list[str] = Field(default_factory=list)
+    redactions_applied: list[str] = Field(default_factory=list)
+    next_safe_action: str = Field(..., min_length=1, max_length=420)
+    backend_owned: bool = True
+    read_only: bool = True
+    safe_refs_only: bool = True
+    raw_paths_included: bool = False
+    raw_content_included: bool = False
+    repo_file_read_performed: bool = False
+    project_scan_performed: bool = False
+    file_write_enabled: bool = False
+    shell_subprocess_execution_enabled: bool = False
+    git_status_execution_enabled: bool = False
+    git_mutation_enabled: bool = False
+    dev_server_control_enabled: bool = False
+    browser_preview_enabled: bool = False
+    browser_automation_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    background_autonomy_enabled: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_project_model(self) -> "CodingProjectModelReadModel":
+        for ref in [
+            self.project_model_ref,
+            self.session_ref,
+            self.workspace_ref,
+            self.repo_scope_ref,
+            self.branch_ref,
+            self.worktree_ref,
+            self.lane_ref,
+            self.route_ref,
+            *self.capability_refs,
+            *self.proof_refs,
+            *self.evidence_refs,
+            *self.blocked_authority_refs,
+            *self.promotion_path_refs,
+            *self.redactions_applied,
+            *self.docs_refs,
+        ]:
+            validate_task_ref(ref, "coding_project_model_ref")
+        for value in (
+            self.backend_route_refs
+            + self.frontend_route_refs
+            + self.cli_inspection_refs
+            + [
+                self.status,
+                self.project_label,
+                self.repo_label,
+                self.branch_label,
+                self.worktree_label,
+                self.full_strength_goal,
+                self.repo_safe_current_state,
+                self.safe_summary,
+                self.next_safe_action,
+            ]
+        ):
+            validate_safe_task_text(value, "coding_project_model_text")
+        if not self.capabilities:
+            raise ValueError("coding project model needs capability refs")
+        capability_refs = {item.capability_ref for item in self.capabilities}
+        if len(capability_refs) != len(self.capabilities):
+            raise ValueError("coding project model capability refs must be unique")
+        if set(self.capability_refs) != capability_refs:
+            raise ValueError("capability refs must match capabilities")
+        kinds = {item.capability_kind for item in self.capabilities}
+        required_kinds = set(get_args(CodingProjectCapabilityKind))
+        missing_kinds = required_kinds - kinds
+        if missing_kinds:
+            raise ValueError("coding project model missing capability kinds")
+        required_false_flags = {
+            "raw_paths_included": self.raw_paths_included,
+            "raw_content_included": self.raw_content_included,
+            "repo_file_read_performed": self.repo_file_read_performed,
+            "project_scan_performed": self.project_scan_performed,
+            "file_write_enabled": self.file_write_enabled,
+            "shell_subprocess_execution_enabled": (
+                self.shell_subprocess_execution_enabled
+            ),
+            "git_status_execution_enabled": self.git_status_execution_enabled,
+            "git_mutation_enabled": self.git_mutation_enabled,
+            "dev_server_control_enabled": self.dev_server_control_enabled,
+            "browser_preview_enabled": self.browser_preview_enabled,
+            "browser_automation_enabled": self.browser_automation_enabled,
+            "provider_model_call_enabled": self.provider_model_call_enabled,
+            "background_autonomy_enabled": self.background_autonomy_enabled,
+            "production_authority_enabled": self.production_authority_enabled,
+        }
+        enabled = [name for name, value in required_false_flags.items() if value]
+        if enabled:
+            raise ValueError(f"coding project model enabled {enabled[0]}")
+        required_true_flags = {
+            "backend_owned": self.backend_owned,
+            "read_only": self.read_only,
+            "safe_refs_only": self.safe_refs_only,
+        }
+        disabled = [name for name, value in required_true_flags.items() if not value]
+        if disabled:
+            raise ValueError(f"coding project model disabled {disabled[0]}")
+        payload = self.model_dump(mode="json")
+        validate_safe_task_payload(payload, "coding_project_model")
         return self
 
 
@@ -1623,6 +1848,7 @@ class CodingCockpitSessionReadModel(BaseModel):
     cli_inspection_refs: list[str] = Field(
         default_factory=lambda: [
             "scripts/dev/uaa_coding.py inspect-session",
+            "scripts/dev/uaa_coding.py inspect-project-model",
             "scripts/dev/uaa_coding.py inspect-context",
             "scripts/dev/uaa_coding.py inspect-patch-proposal",
             "scripts/dev/uaa_coding.py inspect-patch-apply-readiness",
@@ -1660,6 +1886,7 @@ class CodingCockpitSessionReadModel(BaseModel):
         max_length=300,
     )
     authority_modes: list[CodingCockpitAuthorityMode] = Field(default_factory=list)
+    project_model: CodingProjectModelReadModel
     workspace_context: CodingCockpitPreviewPanel
     task_thread: CodingCockpitPreviewPanel
     task_timeline: CodingCockpitPreviewPanel
@@ -1735,6 +1962,10 @@ class CodingCockpitSessionReadModel(BaseModel):
         )
         if missing:
             raise ValueError("coding cockpit session missing blocked refs")
+        if self.project_model.project_model_ref not in self.same_ref_spine:
+            raise ValueError("coding cockpit session missing project model ref spine")
+        if self.project_model.session_ref != self.session_ref:
+            raise ValueError("coding cockpit session project model ref mismatch")
         required_false_flags = {
             "raw_content_included": self.raw_content_included,
             "control_center_grants_authority": self.control_center_grants_authority,
@@ -1763,6 +1994,255 @@ class CodingCockpitSessionReadModel(BaseModel):
         payload = self.model_dump(mode="json")
         validate_safe_task_payload(payload, "coding_cockpit_session")
         return self
+
+
+def build_coding_project_model_read_model() -> CodingProjectModelReadModel:
+    evidence_refs = ["evidence-ref:coding-project-model-read-model"]
+    proof_refs = ["proof-ref:coding-project-model"]
+    blocked_refs = [
+        "blocked-state:coding-no-file-write",
+        "blocked-state:coding-no-shell-subprocess",
+        "blocked-state:coding-no-git-mutation",
+        "blocked-state:coding-no-browser-automation",
+        "blocked-state:coding-no-provider-model-call",
+        "blocked-state:coding-no-background-autonomy",
+        "blocked-state:coding-no-production-authority",
+    ]
+    capabilities = [
+        CodingProjectCapabilityReadModel(
+            capability_ref="coding-project-capability:workspace-ref-spine",
+            label="Workspace ref spine",
+            capability_kind="workspace",
+            state="read_only",
+            safe_summary=(
+                "Workspace identity is shown as safe refs and does not reveal a "
+                "local path."
+            ),
+            source_refs=[CODING_COCKPIT_SESSION_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            promotion_path_refs=["promotion-path:coding-workspace-safe-refs"],
+        ),
+        CodingProjectCapabilityReadModel(
+            capability_ref="coding-project-capability:repo-scope",
+            label="Repository scope",
+            capability_kind="repo",
+            state="read_only",
+            safe_summary=(
+                "Repo scope is visible as a local project ref without scanning files."
+            ),
+            source_refs=[CODING_COCKPIT_SESSION_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            promotion_path_refs=["promotion-path:coding-context-pack-preview"],
+        ),
+        CodingProjectCapabilityReadModel(
+            capability_ref="coding-project-capability:project-lane",
+            label="Coding lane posture",
+            capability_kind="lane",
+            state="read_only",
+            safe_summary=(
+                "Coding lane binds context, patch, tests, preview, Git, and proof "
+                "refs into one project posture."
+            ),
+            source_refs=[CODING_COCKPIT_SESSION_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            promotion_path_refs=["promotion-path:coding-project-lane-proof"],
+        ),
+        CodingProjectCapabilityReadModel(
+            capability_ref="coding-project-capability:branch-posture",
+            label="Branch posture",
+            capability_kind="branch",
+            state="read_only",
+            safe_summary=(
+                "Branch posture is display-only and does not run Git status."
+            ),
+            source_refs=[CODING_COCKPIT_SESSION_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            blocked_authority_refs=["blocked-state:coding-no-git-status-reader"],
+            promotion_path_refs=["promotion-path:coding-git-review-lane"],
+        ),
+        CodingProjectCapabilityReadModel(
+            capability_ref="coding-project-capability:worktree-posture",
+            label="Worktree posture",
+            capability_kind="worktree",
+            state="read_only",
+            safe_summary=(
+                "Worktree posture is a safe ref only; no local path or file scan "
+                "is included."
+            ),
+            source_refs=[CODING_COCKPIT_SESSION_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            blocked_authority_refs=["blocked-state:coding-no-project-scan"],
+            promotion_path_refs=["promotion-path:coding-worktree-safe-reader"],
+        ),
+        CodingProjectCapabilityReadModel(
+            capability_ref="coding-project-capability:file-refs",
+            label="File refs",
+            capability_kind="files",
+            state="proposal_only",
+            safe_summary=(
+                "Files are represented by context and patch refs without raw paths "
+                "or raw content."
+            ),
+            source_refs=[CODING_COCKPIT_CONTEXT_PACK_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            blocked_authority_refs=["blocked-state:coding-no-file-write"],
+            promotion_path_refs=["promotion-path:coding-context-pack-preview"],
+        ),
+        CodingProjectCapabilityReadModel(
+            capability_ref="coding-project-capability:diff-refs",
+            label="Diff refs",
+            capability_kind="diffs",
+            state="proposal_only",
+            safe_summary=(
+                "Diff posture uses patch and hunk refs only; no raw diff body or "
+                "apply authority is available."
+            ),
+            source_refs=[CODING_COCKPIT_PATCH_PROPOSAL_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-patch-apply",
+                "blocked-state:coding-no-file-write",
+            ],
+            promotion_path_refs=["promotion-path:coding-patch-proposal-lane"],
+        ),
+        CodingProjectCapabilityReadModel(
+            capability_ref="coding-project-capability:test-lane",
+            label="Test lane",
+            capability_kind="tests",
+            state="blocked",
+            safe_summary=(
+                "Test posture shows suggested test refs only; command execution "
+                "and output receipts are unavailable."
+            ),
+            source_refs=[CODING_COCKPIT_TEST_COMMAND_READINESS_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-shell-subprocess",
+                "blocked-state:coding-no-command-execution",
+            ],
+            promotion_path_refs=["promotion-path:coding-allowlisted-test-command"],
+        ),
+        CodingProjectCapabilityReadModel(
+            capability_ref="coding-project-capability:preview-lane",
+            label="Live preview lane",
+            capability_kind="preview",
+            state="blocked",
+            safe_summary=(
+                "Preview posture is status-only; dev server control and browser "
+                "preview remain unavailable."
+            ),
+            source_refs=[CODING_COCKPIT_LIVE_PREVIEW_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-browser-automation",
+                "blocked-state:coding-no-dev-server-control",
+            ],
+            promotion_path_refs=["promotion-path:coding-live-preview-status"],
+        ),
+        CodingProjectCapabilityReadModel(
+            capability_ref="coding-project-capability:terminal-lane",
+            label="Terminal lane",
+            capability_kind="terminal",
+            state="blocked",
+            safe_summary=(
+                "Terminal posture is read-only readiness; no subprocess or "
+                "interactive terminal is enabled."
+            ),
+            source_refs=[CODING_COCKPIT_TEST_COMMAND_READINESS_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-shell-subprocess",
+                "blocked-state:coding-no-command-execution",
+            ],
+            promotion_path_refs=["promotion-path:coding-allowlisted-test-command"],
+        ),
+        CodingProjectCapabilityReadModel(
+            capability_ref="coding-project-capability:git-lane",
+            label="Git lane",
+            capability_kind="git",
+            state="blocked",
+            safe_summary=(
+                "Git posture shows review refs only; status execution, stage, "
+                "commit, push, and PR actions are unavailable."
+            ),
+            source_refs=[CODING_COCKPIT_GIT_REVIEW_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            blocked_authority_refs=[
+                "blocked-state:coding-no-git-status-reader",
+                "blocked-state:coding-no-git-mutation",
+            ],
+            promotion_path_refs=["promotion-path:coding-git-review-lane"],
+        ),
+        CodingProjectCapabilityReadModel(
+            capability_ref="coding-project-capability:proof-spine",
+            label="Proof spine",
+            capability_kind="proof",
+            state="read_only",
+            safe_summary=(
+                "Proof posture binds project, task, context, patch, command, Git, "
+                "preview, and multi-agent refs."
+            ),
+            source_refs=[CODING_COCKPIT_SESSION_REF],
+            evidence_refs=evidence_refs,
+            proof_refs=proof_refs,
+            promotion_path_refs=["promotion-path:coding-proof-detail"],
+        ),
+    ]
+    return CodingProjectModelReadModel(
+        project_label="Local UAA coding project",
+        repo_label="Local repository safe ref",
+        branch_label="Current branch safe ref",
+        worktree_label="Current worktree safe ref",
+        full_strength_goal=(
+            "UAA Coding Cockpit supports projects, repos, lanes, branches, "
+            "worktrees, files, diffs, tests, preview, terminal, Git, and proof "
+            "as one governed coding command center."
+        ),
+        repo_safe_current_state=(
+            "Phase 21 adds backend-owned project posture only. It does not read "
+            "repo files, scan local paths, run commands, run Git, open browsers, "
+            "call providers, or dispatch coding agents."
+        ),
+        safe_summary=(
+            "Project posture ties the coding cockpit lanes together through safe "
+            "refs while keeping all runtime and mutation authority blocked."
+        ),
+        capabilities=capabilities,
+        capability_refs=[item.capability_ref for item in capabilities],
+        proof_refs=proof_refs,
+        evidence_refs=evidence_refs,
+        blocked_authority_refs=blocked_refs,
+        promotion_path_refs=[
+            "promotion-path:coding-context-pack-preview",
+            "promotion-path:coding-patch-proposal-lane",
+            "promotion-path:coding-approved-apply-lane",
+            "promotion-path:coding-allowlisted-test-command",
+            "promotion-path:coding-git-review-lane",
+            "promotion-path:coding-live-preview-status",
+            "promotion-path:coding-multi-agent-review",
+        ],
+        redactions_applied=[
+            "redaction-ref:safe-refs-only",
+            "redaction-ref:raw-paths-omitted",
+            "redaction-ref:raw-content-omitted",
+            "redaction-ref:bounded-summaries-only",
+        ],
+        next_safe_action=(
+            "Use this project posture to review coding lanes before promoting "
+            "exact context, patch, test, Git, preview, or agent authority."
+        ),
+    )
 
 
 def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
@@ -1854,6 +2334,7 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
                 promotion_path_refs=["promotion-path:external-production-gate"],
             ),
         ],
+        project_model=build_coding_project_model_read_model(),
         workspace_context=CodingCockpitPreviewPanel(
             panel_ref="coding-panel:workspace-context",
             title="Workspace Context",
@@ -2256,6 +2737,7 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
         ),
         same_ref_spine=[
             "coding-session:local-readonly-cockpit",
+            CODING_COCKPIT_PROJECT_MODEL_REF,
             "coding-task:cockpit-shell-seed",
             CODING_COCKPIT_CONTEXT_PACK_REF,
             CODING_COCKPIT_PATCH_PROPOSAL_REF,
