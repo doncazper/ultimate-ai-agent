@@ -378,6 +378,21 @@ from ultimate_ai_agent.core.runtime_gateway.slash_command_registry import (
     RuntimeSlashCommandStatus,
     build_runtime_slash_command_registry_read_model,
 )
+from ultimate_ai_agent.core.runtime_gateway.interrupt_redirect import (
+    RUNTIME_INTERRUPT_REDIRECT_BLOCKED_AUTHORITY_REFS,
+    RUNTIME_INTERRUPT_REDIRECT_CLI_REF,
+    RUNTIME_INTERRUPT_REDIRECT_CONTRACT_REF,
+    RUNTIME_INTERRUPT_REDIRECT_PROOF_REF,
+    RUNTIME_INTERRUPT_REDIRECT_ROUTE_REF,
+    RUNTIME_INTERRUPT_REDIRECT_SNAPSHOT_REF,
+    RUNTIME_INTERRUPT_REDIRECT_VERIFIER_REF,
+    RuntimeInterruptRedirectReadModel,
+    RuntimeRunControlActionKind,
+    RuntimeRunControlActionStatus,
+    RuntimeRunControlProposal,
+    RuntimeRunControlSideEffectClass,
+    build_runtime_interrupt_redirect_read_model,
+)
 from ultimate_ai_agent.core.runtime_gateway.context_references import (
     RUNTIME_CONTEXT_REFERENCES_BLOCKED_AUTHORITY_REFS,
     RUNTIME_CONTEXT_REFERENCES_CLI_REF,
@@ -820,6 +835,7 @@ __all__ = [
     "build_runtime_lsp_diagnostics_read_model",
     "build_runtime_preview_rail_read_model",
     "build_runtime_slash_command_registry_read_model",
+    "build_runtime_interrupt_redirect_read_model",
     "build_runtime_context_references_read_model",
     "build_runtime_checkpoint_rollback_read_model",
     "classify_sensitive_context_candidate",

@@ -47,6 +47,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_lsp_diagnostics_read_model,
     build_runtime_preview_rail_read_model,
     build_runtime_slash_command_registry_read_model,
+    build_runtime_interrupt_redirect_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -901,6 +902,44 @@ def _print_slash_command_registry(read_model: dict[str, Any]) -> None:
         print(f"  approval={command['approval_policy_ref']}")
         print(f"  receipt={command['receipt_plan_ref']}")
         print(f"  proof={command['proof_ref']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_interrupt_redirect(read_model: dict[str, Any]) -> None:
+    print("Runtime interrupt / redirect posture")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Actions: "
+        f"total={read_model['proposal_count']} "
+        f"proposal={read_model['read_only_proposal_count']} "
+        f"approval_future={read_model['approval_required_future_lane_count']} "
+        f"blocked={read_model['blocked_count']}"
+    )
+    print(
+        "Live controls: "
+        f"stop_post={read_model['live_stop_post_enabled']} "
+        f"process_kill={read_model['process_kill_enabled']} "
+        f"runtime_mutation={read_model['runtime_mutation_enabled']} "
+        f"background={read_model['background_autonomy_enabled']}"
+    )
+    print("Run-control proposals:")
+    for proposal in read_model["proposals"]:
+        print(
+            f"- {proposal['display_label']}: "
+            f"kind={proposal['action_kind']} status={proposal['action_status']} "
+            f"side_effect={proposal['side_effect_class']}"
+        )
+        print(f"  approval={proposal['approval_scope_ref']}")
+        print(f"  idempotency={proposal['idempotency_ref']}")
+        print(f"  receipt={proposal['receipt_plan_ref']}")
+        print(f"  recovery={proposal['recovery_state_ref']}")
+        print(f"  proof={proposal['proof_ref']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1791,6 +1830,33 @@ def _inspect_slash_command_registry(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_slash_command_registry(read_model)
+    return 0
+
+
+def _inspect_interrupt_redirect(args: argparse.Namespace) -> int:
+    read_model = build_runtime_interrupt_redirect_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-interrupt-redirect",
+        "runtime_interrupt_redirect": read_model,
+        "proposal_only": True,
+        "safe_refs_only": True,
+        "raw_runtime_payloads_omitted": True,
+        "raw_logs_omitted": True,
+        "operator_instruction_text_omitted": True,
+        "live_stop_post_performed": False,
+        "process_kill_performed": False,
+        "runtime_mutation_performed": False,
+        "background_autonomy_performed": False,
+        "shell_execution_performed": False,
+        "provider_call_performed": False,
+        "browser_automation_performed": False,
+        "connector_write_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_interrupt_redirect(read_model)
     return 0
 
 
@@ -2885,6 +2951,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the governed slash command registry as JSON.",
     )
     slash_command_registry.set_defaults(func=_inspect_slash_command_registry)
+
+    interrupt_redirect = subparsers.add_parser(
+        "inspect-interrupt-redirect",
+        help="Inspect run-control interrupt and redirect posture without mutation.",
+    )
+    interrupt_redirect.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the interrupt/redirect run-control posture as JSON.",
+    )
+    interrupt_redirect.set_defaults(func=_inspect_interrupt_redirect)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",

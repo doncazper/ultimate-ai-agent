@@ -43,6 +43,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_lsp_diagnostics_read_model,
     build_runtime_preview_rail_read_model,
     build_runtime_slash_command_registry_read_model,
+    build_runtime_interrupt_redirect_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -470,6 +471,20 @@ def get_api_runtime_slash_command_registry() -> ResultEnvelope:
         evidence=[
             {"evidence_ref": "evidence-ref:runtime-slash-command-registry:phase-36"}
         ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/interrupt-redirect", response_model=ResultEnvelope)
+def get_api_runtime_interrupt_redirect() -> ResultEnvelope:
+    read_model = build_runtime_interrupt_redirect_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_interrupt_redirect",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-interrupt-redirect:phase-37"}],
         redactions_applied=read_model.redactions_applied,
     )
 

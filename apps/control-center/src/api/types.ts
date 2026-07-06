@@ -10548,6 +10548,94 @@ export interface RuntimeSlashCommandRegistryReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeRunControlActionKind =
+  | "pause"
+  | "stop"
+  | "redirect"
+  | "revise"
+  | "recover";
+
+export type RuntimeRunControlActionStatus =
+  | "read_only_proposal"
+  | "blocked_until_exact_lane"
+  | "approval_required_future_lane";
+
+export type RuntimeRunControlSideEffectClass =
+  | "none"
+  | "runtime_control_mutation"
+  | "operator_instruction_update"
+  | "recovery_state_transition";
+
+export interface RuntimeRunControlProposal {
+  action_ref: string;
+  action_kind: RuntimeRunControlActionKind;
+  display_label: string;
+  action_status: RuntimeRunControlActionStatus;
+  side_effect_class: RuntimeRunControlSideEffectClass;
+  approval_scope_ref: string;
+  idempotency_ref: string;
+  receipt_plan_ref: string;
+  recovery_state_ref: string;
+  proof_ref: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  visible_in_control_center: boolean;
+  proposal_only: boolean;
+  live_stop_post_enabled: boolean;
+  process_kill_enabled: boolean;
+  runtime_mutation_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_runtime_payload_persisted: boolean;
+  raw_log_persisted: boolean;
+}
+
+export interface RuntimeInterruptRedirectReadModel {
+  schema_version: "runtime_interrupt_redirect.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  proposals: RuntimeRunControlProposal[];
+  proposal_count: number;
+  read_only_proposal_count: number;
+  approval_required_future_lane_count: number;
+  blocked_count: number;
+  run_ownership_visible: boolean;
+  stop_scope_visible: boolean;
+  idempotency_visible: boolean;
+  cancellation_receipt_visible: boolean;
+  recovery_state_visible: boolean;
+  proof_link_visible: boolean;
+  live_stop_post_enabled: boolean;
+  process_kill_enabled: boolean;
+  runtime_mutation_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_runtime_payload_persisted: boolean;
+  raw_log_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -11733,6 +11821,7 @@ export interface ControlCenterData {
   runtimeLspDiagnostics: RuntimeLspDiagnosticsReadModel;
   runtimePreviewRail: RuntimePreviewRailReadModel;
   runtimeSlashCommandRegistry: RuntimeSlashCommandRegistryReadModel;
+  runtimeInterruptRedirect: RuntimeInterruptRedirectReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;
