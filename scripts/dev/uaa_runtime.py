@@ -35,6 +35,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_governed_product_pilot_authority_profile,
     build_runtime_approval_bridge_read_model,
     build_runtime_capability_discovery_read_model,
+    build_runtime_context_budget_pressure_read_model,
     build_runtime_delegation_adapter_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
@@ -445,6 +446,47 @@ def _print_prompt_stability_tiers(read_model: dict[str, Any]) -> None:
         print(f"  hash={tier['tier_hash_ref']}")
         print(f"  cache_candidate={tier['cache_candidate']}")
         print(f"  summary: {tier['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_context_budget_pressure(read_model: dict[str, Any]) -> None:
+    print("Runtime context budget pressure posture")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Pressure: {read_model['pressure_level']}")
+    print(
+        "Budget: "
+        f"{read_model['estimated_token_count']}/"
+        f"{read_model['token_budget_limit']} "
+        f"remaining={read_model['token_budget_remaining']}"
+    )
+    print(f"Segments: {read_model['segment_count']}")
+    print(f"Proposals: {read_model['proposal_count']}")
+    print(f"Hidden compression: {read_model['hidden_compression_enabled']}")
+    print(f"Automatic mutation: {read_model['automatic_context_mutation_enabled']}")
+    print(f"Model summarization: {read_model['model_summarization_enabled']}")
+    print("Segments:")
+    for segment in read_model["segments"]:
+        print(
+            f"- {segment['display_label']}: "
+            f"pressure={segment['pressure_level']} "
+            f"tokens={segment['token_estimate']}/"
+            f"{segment['token_budget_limit']}"
+        )
+        print(f"  summary: {segment['safe_summary']}")
+    print("Proposals:")
+    for proposal in read_model["proposals"]:
+        print(
+            f"- {proposal['display_label']}: "
+            f"kind={proposal['proposal_kind']} "
+            f"delta={proposal['expected_token_delta']}"
+        )
+        print(f"  summary: {proposal['safe_summary']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1000,6 +1042,35 @@ def _inspect_prompt_stability_tiers(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_prompt_stability_tiers(read_model)
+    return 0
+
+
+def _inspect_context_budget_pressure(args: argparse.Namespace) -> int:
+    read_model = build_runtime_context_budget_pressure_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-context-budget-pressure",
+        "runtime_context_budget_pressure": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_context_omitted": True,
+        "raw_prompts_omitted": True,
+        "raw_responses_omitted": True,
+        "provider_payloads_omitted": True,
+        "summary_material_omitted": True,
+        "hidden_compression_performed": False,
+        "automatic_context_mutation_performed": False,
+        "model_summarization_call_performed": False,
+        "context_injection_performed": False,
+        "cache_write_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_context_budget_pressure(read_model)
     return 0
 
 
@@ -1950,6 +2021,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref prompt stability tier read model as JSON.",
     )
     prompt_stability_tiers.set_defaults(func=_inspect_prompt_stability_tiers)
+
+    context_budget_pressure = subparsers.add_parser(
+        "inspect-context-budget-pressure",
+        help="Inspect read-only context budget pressure and compression posture.",
+    )
+    context_budget_pressure.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref context budget pressure read model as JSON.",
+    )
+    context_budget_pressure.set_defaults(func=_inspect_context_budget_pressure)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",

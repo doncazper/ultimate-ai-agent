@@ -9517,6 +9517,126 @@ export interface RuntimePromptStabilityTiersReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeContextBudgetPressureLevel =
+  | "within_budget"
+  | "warning"
+  | "critical"
+  | "blocked";
+
+export type RuntimeContextBudgetProposalKind =
+  | "trim_context_refs"
+  | "request_operator_choice"
+  | "summarize_with_approval"
+  | "defer_context";
+
+export interface RuntimeContextBudgetSegment {
+  segment_ref: string;
+  display_label: string;
+  source_ref: string;
+  source_route_ref: string;
+  budget_bucket_ref: string;
+  pressure_level: RuntimeContextBudgetPressureLevel;
+  safe_summary: string;
+  token_estimate: number;
+  token_budget_limit: number;
+  token_budget_remaining: number;
+  warning_refs: string[];
+  proposal_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  hidden_compression_enabled: boolean;
+  automatic_context_mutation_enabled: boolean;
+  model_summarization_call_performed: boolean;
+  summary_receipt_created: boolean;
+  raw_context_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  provider_payload_persisted: boolean;
+  context_injection_performed: boolean;
+  provider_sdk_call_performed: boolean;
+  cache_write_performed: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface RuntimeContextBudgetProposal {
+  proposal_ref: string;
+  proposal_kind: RuntimeContextBudgetProposalKind;
+  target_segment_ref: string;
+  display_label: string;
+  safe_summary: string;
+  expected_token_delta: number;
+  approval_required: boolean;
+  source_coverage_required: boolean;
+  retrieval_log_required: boolean;
+  summary_receipt_required: boolean;
+  source_refs: string[];
+  retrieval_log_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  auto_applied: boolean;
+  hidden_compression_performed: boolean;
+  automatic_context_mutation_performed: boolean;
+  model_summarization_call_performed: boolean;
+  summary_receipt_created: boolean;
+  raw_context_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  provider_payload_persisted: boolean;
+  context_injection_performed: boolean;
+  provider_sdk_call_performed: boolean;
+  cache_write_performed: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface RuntimeContextBudgetPressureReadModel {
+  schema_version: "runtime_context_budget_pressure.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  pressure_level: RuntimeContextBudgetPressureLevel;
+  token_budget_limit: number;
+  estimated_token_count: number;
+  token_budget_remaining: number;
+  pressure_ratio: number;
+  segments: RuntimeContextBudgetSegment[];
+  proposals: RuntimeContextBudgetProposal[];
+  segment_count: number;
+  proposal_count: number;
+  warning_count: number;
+  critical_count: number;
+  trimming_proposal_count: number;
+  summarization_proposal_count: number;
+  ask_operator_proposal_count: number;
+  blocked_hidden_compression_label: string;
+  compression_proposal_required: boolean;
+  operator_approval_required: boolean;
+  source_coverage_required: boolean;
+  retrieval_log_required: boolean;
+  summary_receipt_required: boolean;
+  hidden_compression_enabled: boolean;
+  automatic_context_mutation_enabled: boolean;
+  model_summarization_enabled: boolean;
+  raw_context_persistence_enabled: boolean;
+  raw_prompt_persistence_enabled: boolean;
+  raw_response_persistence_enabled: boolean;
+  provider_payload_persistence_enabled: boolean;
+  context_injection_enabled: boolean;
+  provider_sdk_enabled: boolean;
+  cache_write_enabled: boolean;
+  production_authority_enabled: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -10666,6 +10786,7 @@ export interface ControlCenterData {
   runtimeVirtualProviderMoa: RuntimeVirtualProviderMoaReadModel;
   runtimeUsageCostAnalytics: RuntimeUsageCostAnalyticsReadModel;
   runtimePromptStabilityTiers: RuntimePromptStabilityTiersReadModel;
+  runtimeContextBudgetPressure: RuntimeContextBudgetPressureReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

@@ -2,6 +2,7 @@ import type {
   RuntimeCapabilityMatrix,
   RuntimeApprovalBridgeReadModel,
   RuntimeCapabilityDiscoveryReadModel,
+  RuntimeContextBudgetPressureReadModel,
   RuntimeDelegationAdapterReadModel,
   RuntimeToolRegistryAvailabilityReadModel,
   RuntimeRunEventsReadModel,
@@ -28,6 +29,7 @@ export function RuntimeReadinessPanel({
   virtualProviderMoa,
   usageCostAnalytics,
   promptStabilityTiers,
+  contextBudgetPressure,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -41,6 +43,7 @@ export function RuntimeReadinessPanel({
   virtualProviderMoa: RuntimeVirtualProviderMoaReadModel;
   usageCostAnalytics: RuntimeUsageCostAnalyticsReadModel;
   promptStabilityTiers: RuntimePromptStabilityTiersReadModel;
+  contextBudgetPressure: RuntimeContextBudgetPressureReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -387,6 +390,125 @@ export function RuntimeReadinessPanel({
             <dd>
               <ul className="compact-list">
                 {promptStabilityTiers.blocked_authority_refs
+                  .slice(0, 4)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+        </dl>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Context budget</p>
+            <h3>Pressure posture</h3>
+          </div>
+          <span className="status-pill compact">
+            {contextBudgetPressure.pressure_level}
+          </span>
+        </div>
+        <p>{contextBudgetPressure.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{contextBudgetPressure.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{contextBudgetPressure.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Budget units</dt>
+            <dd>
+              {contextBudgetPressure.estimated_token_count} /{" "}
+              {contextBudgetPressure.token_budget_limit}
+            </dd>
+          </div>
+          <div>
+            <dt>Remaining</dt>
+            <dd>{contextBudgetPressure.token_budget_remaining}</dd>
+          </div>
+          <div>
+            <dt>Warnings</dt>
+            <dd>{contextBudgetPressure.warning_count}</dd>
+          </div>
+          <div>
+            <dt>Critical</dt>
+            <dd>{contextBudgetPressure.critical_count}</dd>
+          </div>
+          <div>
+            <dt>Proposals</dt>
+            <dd>{contextBudgetPressure.proposal_count}</dd>
+          </div>
+          <div>
+            <dt>Hidden compression</dt>
+            <dd>{contextBudgetPressure.blocked_hidden_compression_label}</dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Segment</th>
+                <th>Pressure</th>
+                <th>Units</th>
+                <th>Proposal refs</th>
+              </tr>
+            </thead>
+            <tbody>
+              {contextBudgetPressure.segments.map((segment) => (
+                <tr key={segment.segment_ref}>
+                  <td>{segment.display_label}</td>
+                  <td>{segment.pressure_level}</td>
+                  <td>
+                    {segment.token_estimate} / {segment.token_budget_limit}
+                  </td>
+                  <td>{segment.proposal_refs.length}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Proposal</th>
+                <th>Kind</th>
+                <th>Delta</th>
+                <th>Approval</th>
+              </tr>
+            </thead>
+            <tbody>
+              {contextBudgetPressure.proposals.map((proposal) => (
+                <tr key={proposal.proposal_ref}>
+                  <td>{proposal.display_label}</td>
+                  <td>{proposal.proposal_kind}</td>
+                  <td>{proposal.expected_token_delta}</td>
+                  <td>{proposal.approval_required ? "required" : "blocked"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>Proof</dt>
+            <dd>
+              <ul className="compact-list">
+                {contextBudgetPressure.proof_refs.slice(0, 3).map((ref) => (
+                  <li key={ref}>{ref}</li>
+                ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Blocked authority</dt>
+            <dd>
+              <ul className="compact-list">
+                {contextBudgetPressure.blocked_authority_refs
                   .slice(0, 4)
                   .map((ref) => (
                     <li key={ref}>{ref}</li>

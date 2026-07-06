@@ -38,6 +38,8 @@ import type {
   ConnectorDeliveryReviewQueue,
   RunAttachedApprovalQueue,
   RunObservabilityReadModel,
+  RuntimeContextBudgetProposal,
+  RuntimeContextBudgetSegment,
   RuntimeVirtualAgentSlot,
   RuntimeVirtualProviderPreset,
   RuntimeUsageCostRecord,
@@ -633,6 +635,184 @@ const runtimePromptStabilityTiers: RuntimePromptStabilityTier[] = [
       "turn-ref:prepared-turn:ephemeral",
       "content-fingerprint-ref:prepared-turn-content:required",
     ],
+  }),
+];
+
+const runtimeContextBudgetBlockedRefs = [
+  "blocked-authority:context-budget-no-hidden-compression",
+  "blocked-authority:context-budget-no-automatic-context-mutation",
+  "blocked-authority:context-budget-no-model-summarization-call",
+  "blocked-authority:context-budget-no-raw-context-persistence",
+  "blocked-authority:context-budget-no-raw-prompt-persistence",
+  "blocked-authority:context-budget-no-raw-response-persistence",
+  "blocked-authority:context-budget-no-provider-payload-persistence",
+  "blocked-authority:context-budget-no-context-injection",
+  "blocked-authority:context-budget-no-provider-sdk-call",
+  "blocked-authority:context-budget-no-cache-write",
+  "blocked-authority:context-budget-no-production-authority",
+];
+
+function runtimeContextBudgetSegment(
+  slug: string,
+  overrides: Partial<RuntimeContextBudgetSegment>,
+): RuntimeContextBudgetSegment {
+  const tokenEstimate = overrides.token_estimate ?? 0;
+  const tokenBudgetLimit = overrides.token_budget_limit ?? 1;
+  return {
+    segment_ref: `context-budget-segment-ref:${slug}`,
+    display_label: overrides.display_label ?? "Context budget segment",
+    source_ref: overrides.source_ref ?? `context-source-ref:runtime:${slug}`,
+    source_route_ref: overrides.source_route_ref ?? "GET /api/runtime/context-references",
+    budget_bucket_ref:
+      overrides.budget_bucket_ref ?? `context-budget-bucket-ref:${slug}`,
+    pressure_level: overrides.pressure_level ?? "within_budget",
+    safe_summary:
+      overrides.safe_summary ??
+      "Mock context budget segment is safe-ref posture only.",
+    token_estimate: tokenEstimate,
+    token_budget_limit: tokenBudgetLimit,
+    token_budget_remaining:
+      overrides.token_budget_remaining ?? tokenBudgetLimit - tokenEstimate,
+    warning_refs: overrides.warning_refs ?? [],
+    proposal_refs: overrides.proposal_refs ?? [],
+    evidence_refs: overrides.evidence_refs ?? [
+      `evidence-ref:context-budget:${slug}`,
+    ],
+    proof_refs: overrides.proof_refs ?? [
+      "proof-ref:hermes-runtime-adoption:phase-24:context-budget-pressure",
+    ],
+    blocked_authority_refs:
+      overrides.blocked_authority_refs ?? runtimeContextBudgetBlockedRefs,
+    hidden_compression_enabled: false,
+    automatic_context_mutation_enabled: false,
+    model_summarization_call_performed: false,
+    summary_receipt_created: false,
+    raw_context_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    provider_payload_persisted: false,
+    context_injection_performed: false,
+    provider_sdk_call_performed: false,
+    cache_write_performed: false,
+    production_authority_enabled: false,
+  };
+}
+
+function runtimeContextBudgetProposal(
+  slug: string,
+  overrides: Partial<RuntimeContextBudgetProposal>,
+): RuntimeContextBudgetProposal {
+  return {
+    proposal_ref: `context-budget-proposal-ref:${slug}`,
+    proposal_kind: overrides.proposal_kind ?? "trim_context_refs",
+    target_segment_ref:
+      overrides.target_segment_ref ?? "context-budget-segment-ref:retrieval-context",
+    display_label: overrides.display_label ?? "Context budget proposal",
+    safe_summary:
+      overrides.safe_summary ??
+      "Mock context budget proposal requires operator review before any work.",
+    expected_token_delta: overrides.expected_token_delta ?? 0,
+    approval_required: true,
+    source_coverage_required: true,
+    retrieval_log_required: true,
+    summary_receipt_required: true,
+    source_refs: overrides.source_refs ?? [
+      `context-budget-source-ref:${slug}:safe-ref-only`,
+    ],
+    retrieval_log_refs: overrides.retrieval_log_refs ?? [
+      `retrieval-log-ref:context-budget:${slug}`,
+    ],
+    proof_refs: overrides.proof_refs ?? [
+      "proof-ref:hermes-runtime-adoption:phase-24:context-budget-pressure",
+    ],
+    blocked_authority_refs:
+      overrides.blocked_authority_refs ?? runtimeContextBudgetBlockedRefs,
+    auto_applied: false,
+    hidden_compression_performed: false,
+    automatic_context_mutation_performed: false,
+    model_summarization_call_performed: false,
+    summary_receipt_created: false,
+    raw_context_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    provider_payload_persisted: false,
+    context_injection_performed: false,
+    provider_sdk_call_performed: false,
+    cache_write_performed: false,
+    production_authority_enabled: false,
+  };
+}
+
+const runtimeContextBudgetProposals: RuntimeContextBudgetProposal[] = [
+  runtimeContextBudgetProposal("trim-low-signal-context-refs", {
+    proposal_kind: "trim_context_refs",
+    target_segment_ref: "context-budget-segment-ref:retrieval-context",
+    display_label: "Trim low-signal context refs",
+    safe_summary:
+      "Mock trim proposal is review-only and cannot mutate context.",
+    expected_token_delta: -1800,
+  }),
+  runtimeContextBudgetProposal("ask-operator-context-priority", {
+    proposal_kind: "request_operator_choice",
+    target_segment_ref: "context-budget-segment-ref:operator-turn",
+    display_label: "Ask operator for context priority",
+    safe_summary:
+      "Mock operator-choice proposal asks for priority instead of compressing text.",
+  }),
+  runtimeContextBudgetProposal("summarize-with-approval", {
+    proposal_kind: "summarize_with_approval",
+    target_segment_ref: "context-budget-segment-ref:durable-context",
+    display_label: "Summarize only with approval",
+    safe_summary:
+      "Mock summary proposal remains blocked until approval and receipt lanes exist.",
+    expected_token_delta: -2400,
+  }),
+];
+
+const runtimeContextBudgetSegments: RuntimeContextBudgetSegment[] = [
+  runtimeContextBudgetSegment("stable-policy", {
+    display_label: "Stable policy refs",
+    source_ref: "policy-ref:uaa:non-negotiable-invariants",
+    source_route_ref: "GET /api/runtime/prompt-stability-tiers",
+    token_estimate: 1500,
+    token_budget_limit: 4000,
+    safe_summary: "Mock stable policy refs are within budget.",
+  }),
+  runtimeContextBudgetSegment("durable-context", {
+    display_label: "Durable context refs",
+    source_ref: "context-pack-ref:prepared-turn:review-required",
+    token_estimate: 5200,
+    token_budget_limit: 6000,
+    pressure_level: "warning",
+    warning_refs: ["warning-ref:context-budget:durable-context:warning"],
+    proposal_refs: ["context-budget-proposal-ref:summarize-with-approval"],
+    safe_summary:
+      "Mock durable context refs are near budget and remain review-only.",
+  }),
+  runtimeContextBudgetSegment("retrieval-context", {
+    display_label: "Retrieval context refs",
+    source_ref: "search-ref:runtime-session-search:sample",
+    source_route_ref: "GET /api/runtime/session-search",
+    token_estimate: 6100,
+    token_budget_limit: 6000,
+    token_budget_remaining: -100,
+    pressure_level: "critical",
+    warning_refs: ["warning-ref:context-budget:retrieval-context:critical"],
+    proposal_refs: ["context-budget-proposal-ref:trim-low-signal-context-refs"],
+    safe_summary:
+      "Mock retrieval context exceeds its segment budget and can only propose trims.",
+  }),
+  runtimeContextBudgetSegment("operator-turn", {
+    display_label: "Operator turn ref",
+    source_ref: "turn-ref:prepared-turn:ephemeral",
+    source_route_ref: "GET /api/turn-router/prepared-turn",
+    token_estimate: 2100,
+    token_budget_limit: 4000,
+    pressure_level: "warning",
+    warning_refs: ["warning-ref:context-budget:operator-turn:warning"],
+    proposal_refs: ["context-budget-proposal-ref:ask-operator-context-priority"],
+    safe_summary:
+      "Mock operator turn material remains omitted; UAA can ask for priority.",
   }),
 ];
 
@@ -12061,6 +12241,90 @@ export const mockControlCenterData: ControlCenterData = {
       "provider_payloads_omitted",
       "prompt_material_omitted",
       "operator_turn_text_omitted",
+    ],
+  },
+  runtimeContextBudgetPressure: {
+    schema_version: "runtime_context_budget_pressure.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-context-budget-pressure:v1",
+    status: "read_only_context_budget_pressure_posture",
+    snapshot_ref: "context-budget-pressure-snapshot-ref:runtime:mock",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-context-budget:mock",
+    route_ref: "GET /api/runtime/context-budget-pressure",
+    cli_ref: "uaa runtime inspect-context-budget-pressure",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime context budget mock fallback shows safe budget pressure refs only; hidden compression remains blocked.",
+    pressure_level: "warning",
+    token_budget_limit: 16000,
+    estimated_token_count: runtimeContextBudgetSegments.reduce(
+      (sum, segment) => sum + segment.token_estimate,
+      0,
+    ),
+    token_budget_remaining:
+      16000 -
+      runtimeContextBudgetSegments.reduce(
+        (sum, segment) => sum + segment.token_estimate,
+        0,
+      ),
+    pressure_ratio:
+      runtimeContextBudgetSegments.reduce(
+        (sum, segment) => sum + segment.token_estimate,
+        0,
+      ) / 16000,
+    segments: runtimeContextBudgetSegments,
+    proposals: runtimeContextBudgetProposals,
+    segment_count: runtimeContextBudgetSegments.length,
+    proposal_count: runtimeContextBudgetProposals.length,
+    warning_count: runtimeContextBudgetSegments.filter(
+      (segment) => segment.pressure_level === "warning",
+    ).length,
+    critical_count: runtimeContextBudgetSegments.filter(
+      (segment) => segment.pressure_level === "critical",
+    ).length,
+    trimming_proposal_count: runtimeContextBudgetProposals.filter(
+      (proposal) => proposal.proposal_kind === "trim_context_refs",
+    ).length,
+    summarization_proposal_count: runtimeContextBudgetProposals.filter(
+      (proposal) => proposal.proposal_kind === "summarize_with_approval",
+    ).length,
+    ask_operator_proposal_count: runtimeContextBudgetProposals.filter(
+      (proposal) => proposal.proposal_kind === "request_operator_choice",
+    ).length,
+    blocked_hidden_compression_label: "blocked",
+    compression_proposal_required: true,
+    operator_approval_required: true,
+    source_coverage_required: true,
+    retrieval_log_required: true,
+    summary_receipt_required: true,
+    hidden_compression_enabled: false,
+    automatic_context_mutation_enabled: false,
+    model_summarization_enabled: false,
+    raw_context_persistence_enabled: false,
+    raw_prompt_persistence_enabled: false,
+    raw_response_persistence_enabled: false,
+    provider_payload_persistence_enabled: false,
+    context_injection_enabled: false,
+    provider_sdk_enabled: false,
+    cache_write_enabled: false,
+    production_authority_enabled: false,
+    blocked_authority_refs: runtimeContextBudgetBlockedRefs,
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-24:context-budget-pressure",
+    ],
+    verifier_refs: ["verifier-ref:hermes-runtime-adoption:phase-24"],
+    next_safe_action_refs: [
+      "next-safe-action-ref:context-budget:review-trim-proposal",
+      "next-safe-action-ref:context-budget:add-approved-summary-receipt-lane",
+      "next-safe-action-ref:context-budget:keep-hidden-compression-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_context_omitted",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "provider_payloads_omitted",
+      "summaries_omitted_until_approved",
     ],
   },
   runtimeApprovalBridge: {

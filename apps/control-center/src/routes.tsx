@@ -530,6 +530,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           virtualProviderMoa={data.runtimeVirtualProviderMoa}
           usageCostAnalytics={data.runtimeUsageCostAnalytics}
           promptStabilityTiers={data.runtimePromptStabilityTiers}
+          contextBudgetPressure={data.runtimeContextBudgetPressure}
         />
       );
     case "/operator-loop":

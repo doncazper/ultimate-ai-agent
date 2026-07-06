@@ -36,6 +36,7 @@ import type {
   RuntimeApprovalBridgeReadModel,
   RuntimeCapabilityMatrix,
   RuntimeCapabilityDiscoveryReadModel,
+  RuntimeContextBudgetPressureReadModel,
   RuntimeDelegationAdapterReadModel,
   RuntimePromptStabilityTiersReadModel,
   RuntimeToolsetCapabilityPosture,
@@ -351,6 +352,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimePromptStabilityTiers,
     ),
   ] as const);
+  const runtimeContextBudgetPressureSettledPromise = Promise.allSettled([
+    read<RuntimeContextBudgetPressureReadModel>(
+      API_ENDPOINTS.runtimeContextBudgetPressure,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -469,6 +475,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeUsageCostAnalyticsSettledPromise;
   const runtimePromptStabilityTiersResult =
     await runtimePromptStabilityTiersSettledPromise;
+  const runtimeContextBudgetPressureResult =
+    await runtimeContextBudgetPressureSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -496,6 +504,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const runtimePromptStabilityTiers = fulfilledValue(
     runtimePromptStabilityTiersResult[0],
+  );
+  const runtimeContextBudgetPressure = fulfilledValue(
+    runtimeContextBudgetPressureResult[0],
   );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
@@ -593,6 +604,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimePromptStabilityTiers,
   )
     ? runtimePromptStabilityTiers
+    : undefined;
+  const safeRuntimeContextBudgetPressure = isSafeRuntimeContextBudgetPressure(
+    runtimeContextBudgetPressure,
+  )
+    ? runtimeContextBudgetPressure
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -739,6 +755,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeUsageCostAnalytics === undefined;
   const runtimePromptStabilityTiersFallbackUsed =
     safeRuntimePromptStabilityTiers === undefined;
+  const runtimeContextBudgetPressureFallbackUsed =
+    safeRuntimeContextBudgetPressure === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -886,6 +904,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/virtual-provider-moa",
         "GET /api/runtime/usage-cost-analytics",
         "GET /api/runtime/prompt-stability-tiers",
+        "GET /api/runtime/context-budget-pressure",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -899,7 +918,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeToolRegistry !== undefined &&
         runtimeVirtualProviderMoa !== undefined &&
         runtimeUsageCostAnalytics !== undefined &&
-        runtimePromptStabilityTiers !== undefined,
+        runtimePromptStabilityTiers !== undefined &&
+        runtimeContextBudgetPressure !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -931,6 +951,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimePromptStabilityTiersFallbackUsed
           ? ["RUNTIME_PROMPT_STABILITY_TIERS_MOCK_FALLBACK"]
           : []),
+        ...(runtimeContextBudgetPressureFallbackUsed
+          ? ["RUNTIME_CONTEXT_BUDGET_PRESSURE_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -944,7 +967,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeToolRegistryFallbackUsed ||
         runtimeVirtualProviderMoaFallbackUsed ||
         runtimeUsageCostAnalyticsFallbackUsed ||
-        runtimePromptStabilityTiersFallbackUsed,
+        runtimePromptStabilityTiersFallbackUsed ||
+        runtimeContextBudgetPressureFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1042,6 +1066,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeVirtualProviderMoa === undefined ||
     runtimeUsageCostAnalytics === undefined ||
     runtimePromptStabilityTiers === undefined ||
+    runtimeContextBudgetPressure === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1073,8 +1098,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeToolRegistryResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeVirtualProviderMoaResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeUsageCostAnalyticsResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimePromptStabilityTiersResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 11;
+    (runtimePromptStabilityTiersResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeContextBudgetPressureResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 12;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1157,6 +1183,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimePromptStabilityTiers:
       safeRuntimePromptStabilityTiers ??
       mockControlCenterData.runtimePromptStabilityTiers,
+    runtimeContextBudgetPressure:
+      safeRuntimeContextBudgetPressure ??
+      mockControlCenterData.runtimeContextBudgetPressure,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1243,6 +1272,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeVirtualProviderMoaFallbackUsed &&
     !runtimeUsageCostAnalyticsFallbackUsed &&
     !runtimePromptStabilityTiersFallbackUsed &&
+    !runtimeContextBudgetPressureFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1277,6 +1307,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeVirtualProviderMoaFallbackUsed ||
     runtimeUsageCostAnalyticsFallbackUsed ||
     runtimePromptStabilityTiersFallbackUsed ||
+    runtimeContextBudgetPressureFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1326,6 +1357,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimePromptStabilityTiersFallbackUsed) {
     degradedSafeMessage =
       "Runtime prompt stability posture was unavailable or unsafe; non-authoritative mock fallback kept raw prompts, hidden injection, and model-output authority blocked.";
+  } else if (runtimeContextBudgetPressureFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime context budget posture was unavailable or unsafe; non-authoritative mock fallback kept hidden compression, automatic context mutation, and model summarization blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1411,6 +1445,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         : []),
       ...(runtimePromptStabilityTiersFallbackUsed
         ? ["RUNTIME_PROMPT_STABILITY_TIERS_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeContextBudgetPressureFallbackUsed
+        ? ["RUNTIME_CONTEXT_BUDGET_PRESSURE_MOCK_FALLBACK"]
         : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
@@ -3598,6 +3635,131 @@ function isSafeRuntimePromptStabilityTiers(
         tier.production_authority_enabled === false &&
         isNonEmptyStringArray(tier.source_refs) &&
         isNonEmptyStringArray(tier.blocked_authority_refs),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeContextBudgetPressure(
+  value: RuntimeContextBudgetPressureReadModel | undefined,
+): value is RuntimeContextBudgetPressureReadModel {
+  if (
+    value === undefined ||
+    !Array.isArray(value.segments) ||
+    !Array.isArray(value.proposals)
+  ) {
+    return false;
+  }
+  const allowedPressureLevels = new Set([
+    "within_budget",
+    "warning",
+    "critical",
+    "blocked",
+  ]);
+  const allowedProposalKinds = new Set([
+    "trim_context_refs",
+    "request_operator_choice",
+    "summarize_with_approval",
+    "defer_context",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeContextBudgetPressureReadModel> =
+    [
+      "hidden_compression_enabled",
+      "automatic_context_mutation_enabled",
+      "model_summarization_enabled",
+      "raw_context_persistence_enabled",
+      "raw_prompt_persistence_enabled",
+      "raw_response_persistence_enabled",
+      "provider_payload_persistence_enabled",
+      "context_injection_enabled",
+      "provider_sdk_enabled",
+      "cache_write_enabled",
+      "production_authority_enabled",
+    ];
+  return (
+    value.schema_version === "runtime_context_budget_pressure.v1" &&
+    value.status === "read_only_context_budget_pressure_posture" &&
+    value.route_ref === "GET /api/runtime/context-budget-pressure" &&
+    value.cli_ref === "uaa runtime inspect-context-budget-pressure" &&
+    allowedPressureLevels.has(value.pressure_level) &&
+    value.segment_count === value.segments.length &&
+    value.proposal_count === value.proposals.length &&
+    value.warning_count ===
+      value.segments.filter((segment) => segment.pressure_level === "warning")
+        .length &&
+    value.critical_count ===
+      value.segments.filter((segment) => segment.pressure_level === "critical")
+        .length &&
+    value.trimming_proposal_count ===
+      value.proposals.filter(
+        (proposal) => proposal.proposal_kind === "trim_context_refs",
+      ).length &&
+    value.summarization_proposal_count ===
+      value.proposals.filter(
+        (proposal) => proposal.proposal_kind === "summarize_with_approval",
+      ).length &&
+    value.ask_operator_proposal_count ===
+      value.proposals.filter(
+        (proposal) => proposal.proposal_kind === "request_operator_choice",
+      ).length &&
+    value.compression_proposal_required === true &&
+    value.operator_approval_required === true &&
+    value.source_coverage_required === true &&
+    value.retrieval_log_required === true &&
+    value.summary_receipt_required === true &&
+    value.blocked_hidden_compression_label === "blocked" &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:context-budget-no-hidden-compression",
+    ) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.segments.every(
+      (segment) =>
+        allowedPressureLevels.has(segment.pressure_level) &&
+        segment.token_budget_remaining ===
+          segment.token_budget_limit - segment.token_estimate &&
+        isNonEmptyStringArray(segment.evidence_refs) &&
+        isNonEmptyStringArray(segment.proof_refs) &&
+        isNonEmptyStringArray(segment.blocked_authority_refs) &&
+        segment.hidden_compression_enabled === false &&
+        segment.automatic_context_mutation_enabled === false &&
+        segment.model_summarization_call_performed === false &&
+        segment.summary_receipt_created === false &&
+        segment.raw_context_persisted === false &&
+        segment.raw_prompt_persisted === false &&
+        segment.raw_response_persisted === false &&
+        segment.provider_payload_persisted === false &&
+        segment.context_injection_performed === false &&
+        segment.provider_sdk_call_performed === false &&
+        segment.cache_write_performed === false &&
+        segment.production_authority_enabled === false,
+    ) &&
+    value.proposals.every(
+      (proposal) =>
+        allowedProposalKinds.has(proposal.proposal_kind) &&
+        proposal.approval_required === true &&
+        proposal.source_coverage_required === true &&
+        proposal.retrieval_log_required === true &&
+        proposal.summary_receipt_required === true &&
+        isNonEmptyStringArray(proposal.source_refs) &&
+        isNonEmptyStringArray(proposal.retrieval_log_refs) &&
+        isNonEmptyStringArray(proposal.proof_refs) &&
+        isNonEmptyStringArray(proposal.blocked_authority_refs) &&
+        proposal.auto_applied === false &&
+        proposal.hidden_compression_performed === false &&
+        proposal.automatic_context_mutation_performed === false &&
+        proposal.model_summarization_call_performed === false &&
+        proposal.summary_receipt_created === false &&
+        proposal.raw_context_persisted === false &&
+        proposal.raw_prompt_persisted === false &&
+        proposal.raw_response_persisted === false &&
+        proposal.provider_payload_persisted === false &&
+        proposal.context_injection_performed === false &&
+        proposal.provider_sdk_call_performed === false &&
+        proposal.cache_write_performed === false &&
+        proposal.production_authority_enabled === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

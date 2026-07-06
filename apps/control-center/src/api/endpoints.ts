@@ -75,6 +75,7 @@ export const API_ENDPOINTS = {
   runtimeVirtualProviderMoa: "/api/runtime/virtual-provider-moa",
   runtimeUsageCostAnalytics: "/api/runtime/usage-cost-analytics",
   runtimePromptStabilityTiers: "/api/runtime/prompt-stability-tiers",
+  runtimeContextBudgetPressure: "/api/runtime/context-budget-pressure",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
   localModels: "/v1/models",
   localChatCompletions: "/v1/chat/completions",
@@ -223,6 +224,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.runtimeVirtualProviderMoa,
   API_ENDPOINTS.runtimeUsageCostAnalytics,
   API_ENDPOINTS.runtimePromptStabilityTiers,
+  API_ENDPOINTS.runtimeContextBudgetPressure,
 ] as const;
 
 export function isAllowedReadEndpoint(
