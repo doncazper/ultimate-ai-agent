@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `203`.
+Current OpenAPI path count: `204`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -83,9 +83,15 @@ Contract rules:
   execution, shell/subprocess execution, browser automation, connector writes,
   background autonomy, production authority, and raw prompt/response/provider
   payload/log/local-path persistence remain blocked.
+  `GET /api/runtime/capability-discovery` exposes the Hermes Runtime Adoption
+  Phase 02 backend-owned runtime capability discovery posture for models, runs,
+  events, approvals, sessions, skills, toolsets, jobs, and blocked actions. It
+  distinguishes runtime-supported reference metadata from UAA-authorized
+  execution, treats stale or unreachable runtime state as blocked, includes a
+  snapshot hash ref, and performs no live runtime call.
   Phase 07
   preserves configured local loopback model calls and the exact read-only status
-  command while adding exact Action Inbox approved focused pytest command execution
+  command while adding exact Action Inbox approved focused pytest, repo verifier, and frontend check command execution
   through `RuntimeGateway`, plus CLI/Control Center/evidence timeline parity
   over the same backend-owned records. It also records command root pinning,
   configured endpoint matching, receipt-detail execution truth, and CLI approval
@@ -99,7 +105,7 @@ Contract rules:
   `uaa actions approve|deny` are local inspection/exact-envelope decision
   surfaces over those records; approval refs remain identifiers, not authority.
   It does not run arbitrary shell/subprocess commands, execute focused tests
-  outside the exact pytest lane, run repo verifiers or frontend checks, invoke
+  outside the exact pytest lane, run repo verifier/frontend check work outside named exact lanes, invoke
   remote providers, read
   or persist raw prompts/responses/command output/local paths/env, automate
   browsers, write connectors, import plugins, dispatch remote work, grant

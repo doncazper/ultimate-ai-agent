@@ -1284,6 +1284,20 @@
           "operation_id": "get_runtime_capability_matrix",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/delegation-adapter",
+          "operation_id": "get_api_runtime_delegation_adapter",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/capability-discovery",
+          "operation_id": "get_api_runtime_capability_discovery",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "side_effect_class": "validation_only",

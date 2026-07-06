@@ -33,6 +33,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_portable_evidence_envelope,
     build_default_runtime_capabilities,
     build_governed_product_pilot_authority_profile,
+    build_runtime_capability_discovery_read_model,
     build_runtime_delegation_adapter_read_model,
     build_runtime_action_signed_evidence,
     verify_portable_evidence_envelope,
@@ -271,6 +272,35 @@ def _print_delegation_adapter(read_model: dict[str, Any]) -> None:
         print(f"- {ref}")
 
 
+def _print_capability_discovery(read_model: dict[str, Any]) -> None:
+    print("Runtime capability discovery")
+    print(f"Status: {read_model['status']}")
+    print(f"Runtime: {read_model['runtime_label']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Runtime reachable: {read_model['runtime_reachable']}")
+    print(f"Live discovery performed: {read_model['live_discovery_performed']}")
+    print(f"Freshness: {read_model['freshness_status']}")
+    print(
+        "Runtime supported capabilities: "
+        f"{read_model['runtime_supported_capability_count']}"
+    )
+    print(
+        "UAA authorized execution capabilities: "
+        f"{read_model['uaa_authorized_capability_count']}"
+    )
+    print("Capability groups:")
+    for group in read_model["capability_groups"]:
+        print(f"- {group['group_kind']} runtime={group['runtime_support_status']}")
+        print(f"  uaa={group['uaa_authorization_status']}")
+        print(f"  summary: {group['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
 def _print_invocation(record: Any) -> None:
     print("Governed runtime invocation")
     print(f"Invocation: {record.invocation_ref}")
@@ -444,6 +474,29 @@ def _inspect_delegation_adapter(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_delegation_adapter(read_model)
+    return 0
+
+
+def _inspect_capability_discovery(args: argparse.Namespace) -> int:
+    read_model = build_runtime_capability_discovery_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-capability-discovery",
+        "runtime_capability_discovery": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_provider_payload_omitted": True,
+        "raw_runtime_payload_omitted": True,
+        "raw_logs_omitted": True,
+        "execution_performed": False,
+        "live_discovery_performed": False,
+        "runtime_permission_granted": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_capability_discovery(read_model)
     return 0
 
 
@@ -1093,6 +1146,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref delegation adapter read model as JSON.",
     )
     delegation.set_defaults(func=_inspect_delegation_adapter)
+
+    capability_discovery = subparsers.add_parser(
+        "inspect-capability-discovery",
+        help="Inspect runtime capability discovery posture without live runtime calls.",
+    )
+    capability_discovery.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref capability discovery read model as JSON.",
+    )
+    capability_discovery.set_defaults(func=_inspect_capability_discovery)
 
     bridge = subparsers.add_parser(
         "inspect-action-inbox-bridge",

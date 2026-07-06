@@ -674,6 +674,7 @@ CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
 }
 GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/capabilities",
+    "/api/runtime/capability-discovery",
     "/api/runtime/delegation-adapter",
     "/api/runtime/governed-product-pilot-profile",
     "/api/runtime/staged-orchestration",

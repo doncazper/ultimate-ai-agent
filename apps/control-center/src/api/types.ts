@@ -8731,6 +8731,77 @@ export interface RuntimeDelegationAdapterReadModel {
   redactions_applied: string[];
 }
 
+export interface RuntimeDiscoveredCapabilityGroup {
+  group_ref: string;
+  group_kind:
+    | "models"
+    | "runs"
+    | "events"
+    | "approvals"
+    | "sessions"
+    | "skills"
+    | "toolsets"
+    | "jobs"
+    | "blocked_actions";
+  runtime_support_status:
+    | "reference_only_unverified"
+    | "unknown_unreachable"
+    | "planned_disabled"
+    | "blocked_by_uaa";
+  uaa_authorization_status:
+    | "read_model_only"
+    | "blocked"
+    | "approval_required_future_lane";
+  runtime_supported_by_reference: boolean;
+  uaa_authorized_for_execution: boolean;
+  stale_or_unreachable_degrades_to_blocked: boolean;
+  trust_label: string;
+  safe_summary: string;
+  capability_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+}
+
+export interface RuntimeCapabilityDiscoveryReadModel {
+  schema_version: "runtime_capability_discovery.v1";
+  contract_ref: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  runtime_identity_ref: string;
+  adapter_ref: string;
+  runtime_label: string;
+  status: string;
+  freshness_status: string;
+  runtime_reachable: boolean;
+  live_discovery_performed: boolean;
+  stale: boolean;
+  stale_or_unreachable_degrades_to_blocked: boolean;
+  runtime_supported_cannot_grant_uaa_permission: boolean;
+  uaa_controls_authority: boolean;
+  control_center_talks_directly_to_runtime: boolean;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  freshness_policy_ref: string;
+  policy_evaluation_ref: string;
+  capability_groups: RuntimeDiscoveredCapabilityGroup[];
+  runtime_supported_capability_count: number;
+  uaa_authorized_capability_count: number;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  next_safe_action_refs: string[];
+  safe_refs_only: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  raw_provider_payload_persisted: boolean;
+  raw_runtime_payload_persisted: boolean;
+  raw_log_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  credential_material_persisted: boolean;
+  safe_summary: string;
+  redactions_applied: string[];
+}
+
 export type OperatorRouteInspectionState =
   "checking" | "ready" | "blocked" | "denied" | "degraded" | "unavailable";
 
@@ -9480,6 +9551,7 @@ export interface ControlCenterData {
   runtimeReadiness: RuntimeReadinessReport;
   capabilityMatrix: RuntimeCapabilityMatrix;
   runtimeDelegationAdapter: RuntimeDelegationAdapterReadModel;
+  runtimeCapabilityDiscovery: RuntimeCapabilityDiscoveryReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

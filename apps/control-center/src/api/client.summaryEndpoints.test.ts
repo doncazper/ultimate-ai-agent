@@ -266,6 +266,26 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.connection.warnings).toContain("WORK_BOARD_MOCK_FALLBACK");
   });
 
+  it("marks missing runtime capability discovery as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.runtimeCapabilityDiscovery];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.runtimeCapabilityDiscovery.live_discovery_performed).toBe(false);
+    expect(data.runtimeCapabilityDiscovery.uaa_authorized_capability_count).toBe(0);
+    expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
+    expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
+      "GET /api/runtime/capability-discovery",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain(
+      "RUNTIME_CAPABILITY_DISCOVERY_MOCK_FALLBACK",
+    );
+  });
+
   it("marks missing CRM route as non-authoritative fallback", async () => {
     const routeData = baseRouteData();
     delete routeData[API_ENDPOINTS.crmSummary];
@@ -641,6 +661,8 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.capabilityMatrix,
     [API_ENDPOINTS.runtimeDelegationAdapter]:
       mockControlCenterData.runtimeDelegationAdapter,
+    [API_ENDPOINTS.runtimeCapabilityDiscovery]:
+      mockControlCenterData.runtimeCapabilityDiscovery,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
