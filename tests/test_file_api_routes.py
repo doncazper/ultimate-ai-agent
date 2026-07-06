@@ -5,6 +5,8 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
+from tests.authority_helpers import issue_files_read_prepare_authority_lease
 
 client = TestClient(app)
 
@@ -15,6 +17,20 @@ def actor_payload() -> dict[str, Any]:
         "actor_id": "user_123",
         "authority_source": "explicit_user_request",
     }
+
+
+@pytest.fixture(autouse=True)
+def file_api_authority_state_dir(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> Path:
+    state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(state_dir))
+    return state_dir
+
+
+def grant_files_read_prepare(state_dir: Path) -> None:
+    issue_files_read_prepare_authority_lease(state_dir)
 
 
 def test_file_ref_validate_endpoint_blocks_env_file() -> None:
@@ -32,7 +48,41 @@ def test_file_ref_validate_endpoint_blocks_env_file() -> None:
     assert response.json()["success"] is False
 
 
-def test_file_read_preview_endpoint_returns_metadata_only(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_file_read_preview_endpoint_denies_without_files_read_authority(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
+    (tmp_path / "note.txt").write_text("hello", encoding="utf-8")
+
+    response = client.post(
+        "/files/read/preview",
+        json={
+            "safe_root_ref": "local_dev_workspace",
+            "request": {
+                "request_id": "frr_api_denied",
+                "run_id": "run_123",
+                "actor_context": actor_payload(),
+                "path": "note.txt",
+                "purpose": "preview",
+                "max_bytes": 100,
+            },
+        },
+    )
+
+    data = response.json()
+    assert response.status_code == 200
+    assert data["success"] is False
+    assert data["data"]["authority_decision_outcome"] == "deny"
+    assert "hello" not in response.text
+
+
+def test_file_read_preview_endpoint_returns_metadata_only(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    file_api_authority_state_dir: Path,
+) -> None:
+    grant_files_read_prepare(file_api_authority_state_dir)
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     (tmp_path / "note.txt").write_text("hello", encoding="utf-8")
     response = client.post(
@@ -56,6 +106,8 @@ def test_file_read_preview_endpoint_returns_metadata_only(monkeypatch: pytest.Mo
     assert data["data"]["text_preview"] == ""
     assert data["data"]["size_bytes"] == 5
     assert data["data"]["content_hash"] == "redacted"
+    assert data["data"]["authority_decision_outcome"] == "allow"
+    assert data["data"]["authority_lease_ref"]
     assert "raw_content_omitted" in data["data"]["redactions_applied"]
     assert "hello" not in response.text
 
@@ -102,7 +154,9 @@ def test_file_read_preview_endpoint_requires_explicit_safe_root_ref(tmp_path: Pa
 
 def test_file_read_preview_endpoint_requires_configured_safe_root_env(
     monkeypatch: pytest.MonkeyPatch,
+    file_api_authority_state_dir: Path,
 ) -> None:
+    grant_files_read_prepare(file_api_authority_state_dir)
     monkeypatch.delenv("UAA_FILE_API_SAFE_ROOT", raising=False)
     response = client.post(
         "/files/read/preview",
@@ -125,7 +179,12 @@ def test_file_read_preview_endpoint_requires_configured_safe_root_env(
     assert "note.txt" not in response.text
 
 
-def test_file_read_preview_endpoint_does_not_echo_hostile_path_or_secret(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_file_read_preview_endpoint_does_not_echo_hostile_path_or_secret(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    file_api_authority_state_dir: Path,
+) -> None:
+    grant_files_read_prepare(file_api_authority_state_dir)
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     hostile_path = "notes/api_key=supersecretvalue123.txt"
     response = client.post(
@@ -149,7 +208,12 @@ def test_file_read_preview_endpoint_does_not_echo_hostile_path_or_secret(monkeyp
     assert hostile_path not in response.text
 
 
-def test_file_tree_preview_endpoint_returns_safe_refs_only(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_file_tree_preview_endpoint_returns_safe_refs_only(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    file_api_authority_state_dir: Path,
+) -> None:
+    grant_files_read_prepare(file_api_authority_state_dir)
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "visible.txt").write_text("hello", encoding="utf-8")
@@ -175,6 +239,7 @@ def test_file_tree_preview_endpoint_returns_safe_refs_only(monkeypatch: pytest.M
     assert body["success"] is True
     assert body["data"]["root_ref"].startswith("file_tree_")
     assert body["data"]["entries"][0]["entry_ref"].startswith("file_tree_")
+    assert body["data"]["authority_decision_outcome"] == "allow"
     assert "raw_paths_omitted" in body["data"]["redactions_applied"]
     assert "safe_refs_only" in body["data"]["redactions_applied"]
     assert "docs" not in response.text
@@ -182,7 +247,12 @@ def test_file_tree_preview_endpoint_returns_safe_refs_only(monkeypatch: pytest.M
     assert "hello" not in response.text
 
 
-def test_file_tree_preview_endpoint_does_not_echo_hostile_root_or_secret(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_file_tree_preview_endpoint_does_not_echo_hostile_root_or_secret(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    file_api_authority_state_dir: Path,
+) -> None:
+    grant_files_read_prepare(file_api_authority_state_dir)
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     hostile_root = "notes/api_key=supersecretvalue123"
 
@@ -208,7 +278,12 @@ def test_file_tree_preview_endpoint_does_not_echo_hostile_root_or_secret(monkeyp
     assert hostile_root not in response.text
 
 
-def test_file_write_propose_and_diff_preview_endpoints_are_safe(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_file_write_propose_and_diff_preview_endpoints_are_safe(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    file_api_authority_state_dir: Path,
+) -> None:
+    grant_files_read_prepare(file_api_authority_state_dir)
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     payload = {
         "safe_root_ref": "local_dev_workspace",
@@ -231,13 +306,20 @@ def test_file_write_propose_and_diff_preview_endpoints_are_safe(monkeypatch: pyt
     assert propose_response.status_code == 200
     assert propose_response.json()["success"] is True
     assert propose_response.json()["data"]["allowed"] is True
+    assert propose_response.json()["data"]["authority_decision_outcome"] == "allow"
     assert diff_response.status_code == 200
     assert diff_response.json()["data"]["raw_diff_omitted"] is True
+    assert diff_response.json()["data"]["authority_decision_outcome"] == "allow"
     assert "content_ref_only=True" in diff_response.json()["data"]["diff_summary"]
     assert "hello" not in diff_response.text
 
 
-def test_file_write_propose_endpoint_reports_failure_when_blocked(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_file_write_propose_endpoint_reports_failure_when_blocked(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    file_api_authority_state_dir: Path,
+) -> None:
+    grant_files_read_prepare(file_api_authority_state_dir)
     monkeypatch.setenv("UAA_FILE_API_SAFE_ROOT", str(tmp_path))
     payload = {
         "safe_root_ref": "local_dev_workspace",

@@ -1317,6 +1317,41 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:file-safe-preview",
+            "Safe file preview",
+            AuthorityDomain.files,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_exact_lease_required_metadata_only",
+            ["POST /files/read/preview", "POST /files/tree/preview"],
+            ["repo-local-command:uaa-runtime-inspect-authority-state"],
+            (
+                "Requires Files read authority before safe-root file metadata or "
+                "tree previews; raw content and raw paths remain omitted."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:file-raw-content:not-implemented",
+            ],
+        ),
+        _mapping(
+            "lane-ref:file-write-proposal-diff-preview",
+            "File write proposal and diff preview",
+            AuthorityDomain.files,
+            AuthorityCapability.prepare,
+            TrustMode.read_only,
+            "implemented_exact_lease_required_proposal_only",
+            ["POST /files/write/propose", "POST /files/diff/preview"],
+            ["repo-local-command:uaa-runtime-inspect-authority-state"],
+            (
+                "Requires Files prepare authority before write proposal or "
+                "redacted diff preview; patch apply and rollback execution remain "
+                "unsupported."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:file-patch-apply:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:source-readiness-email-calendar",
             "Email and calendar metadata readiness",
             AuthorityDomain.email,

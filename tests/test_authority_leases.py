@@ -91,6 +91,22 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert file_review_capture.capability == "write"
     assert file_review_capture.required_mode == "ask_before_changes"
     assert file_review_capture.status == "implemented_exact_lease_required_review_only"
+    file_safe_preview = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /files/read/preview" in mapping.route_refs
+    )
+    assert file_safe_preview.domain == "files"
+    assert file_safe_preview.capability == "read"
+    assert file_safe_preview.required_mode == "read_only"
+    file_write_proposal = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /files/write/propose" in mapping.route_refs
+    )
+    assert file_write_proposal.domain == "files"
+    assert file_write_proposal.capability == "prepare"
+    assert file_write_proposal.status == "implemented_exact_lease_required_proposal_only"
     assert {decision.outcome for decision in read_model.sample_decisions} >= {
         "allow",
         "deny",

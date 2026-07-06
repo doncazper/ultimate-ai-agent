@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError
 from datetime import datetime
+import hashlib
 import os
 from pathlib import Path
 import time
@@ -62,6 +63,17 @@ from ultimate_ai_agent.core.approvals import (
     ApprovalRequest,
     ApprovalValidationRequest,
     LocalApprovalAuthority,
+)
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityCapability,
+    AuthorityDecisionOutcome,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityLeaseStore,
+    TrustMode,
+    build_default_authority_leases,
+    evaluate_authority_request,
 )
 
 # Import M2.5 contracts for API boundary
@@ -391,6 +403,99 @@ def _file_manager_for_safe_root(safe_root_ref: str) -> LocalFileManager:
     if safe_root_ref not in safe_roots:
         raise ValueError("FILE_SAFE_ROOT_REF_UNKNOWN")
     return LocalFileManager(safe_roots[safe_root_ref])
+
+
+FILE_API_READ_AUTHORITY_ACTION_REF = "authority-action-ref:file-api-read-preview"
+FILE_API_TREE_AUTHORITY_ACTION_REF = "authority-action-ref:file-api-tree-preview"
+FILE_API_WRITE_PROPOSAL_AUTHORITY_ACTION_REF = (
+    "authority-action-ref:file-api-write-proposal"
+)
+FILE_API_DIFF_PREVIEW_AUTHORITY_ACTION_REF = (
+    "authority-action-ref:file-api-diff-preview"
+)
+FILE_API_READ_SAFE_DISABLE_REF = "safe-disable-ref:file-api:read-preview"
+FILE_API_PREPARE_SAFE_DISABLE_REF = "safe-disable-ref:file-api:prepare-preview"
+FILE_API_ROLLBACK_REF = "rollback-ref:file-api:no-mutation-performed"
+
+
+def _active_file_api_authority_leases() -> list[AuthorityLease]:
+    active = AuthorityLeaseStore().list_leases(active_only=True)
+    return active or build_default_authority_leases()
+
+
+def _file_api_resource_ref(label: str, value: Any) -> str:
+    safe_label = "".join(ch if ch.isalnum() or ch in "-_." else "-" for ch in label)
+    digest = hashlib.sha256(str(value or "not-provided").encode("utf-8")).hexdigest()
+    return f"file-api-resource-ref:{safe_label}:sha256:{digest[:24]}"
+
+
+def _file_api_authority_decision(
+    *,
+    action_ref: str,
+    capability: AuthorityCapability,
+    route_ref: str,
+    resource_refs: list[str],
+    safe_summary: str,
+    requested_mode: TrustMode,
+) -> Any:
+    return evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref=action_ref,
+            domain=AuthorityDomain.files,
+            capability=capability,
+            safe_summary=safe_summary,
+            resource_refs=list(dict.fromkeys(resource_refs)),
+            route_ref=route_ref,
+            requested_mode=requested_mode,
+            rollback_ref=FILE_API_ROLLBACK_REF,
+            safe_disable_ref=(
+                FILE_API_READ_SAFE_DISABLE_REF
+                if capability == AuthorityCapability.read
+                else FILE_API_PREPARE_SAFE_DISABLE_REF
+            ),
+        ),
+        _active_file_api_authority_leases(),
+    )
+
+
+def _authority_decision_payload(decision: Any) -> dict[str, Any]:
+    return {
+        "authority_decision_ref": decision.decision_ref,
+        "authority_decision_outcome": decision.outcome,
+        "authority_lease_ref": decision.lease_ref,
+        "authority_reason_refs": list(decision.reason_refs),
+        "authority_required_domain_refs": list(decision.required_domain_refs),
+        "authority_required_capability_refs": list(decision.required_capability_refs),
+        "authority_safe_disable_ref": decision.safe_disable_ref,
+        "authority_rollback_ref": decision.rollback_ref,
+    }
+
+
+def _file_api_authority_denied_envelope(
+    *,
+    operation: str,
+    trace_id: str,
+    decision: Any,
+    required: str,
+) -> ResultEnvelope:
+    return ResultEnvelope(
+        success=False,
+        operation=operation,
+        service="FileManagerAPI",
+        trace_id=trace_id,
+        data=_authority_decision_payload(decision),
+        error=ErrorEnvelope(
+            code="FILE_API_AUTHORITY_DENIED",
+            category=ErrorCategory.policy_denied,
+            safe_message=f"Requires active Files {required} AuthorityLease scope.",
+            severity=Severity.medium,
+            retryable=False,
+            details_redacted=True,
+            source="FileManagerAPI",
+            metadata={"reason_refs": list(decision.reason_refs)},
+        ),
+        redactions_applied=["safe_refs_only", "raw_paths_omitted"],
+    )
 
 
 def _review_file_write_api_proposal(safe_root_ref: str, proposal: "FileWriteAPIProposal") -> FileWriteDecision:
@@ -2472,6 +2577,27 @@ def post_files_review_approvals_capture(request: FileReviewApprovalCaptureReques
 
 @app.post("/files/read/preview", response_model=ResultEnvelope)
 def post_preview_file_read(req: FileReadPreviewAPIRequest) -> Any:
+    authority_decision = _file_api_authority_decision(
+        action_ref=FILE_API_READ_AUTHORITY_ACTION_REF,
+        capability=AuthorityCapability.read,
+        route_ref="POST /files/read/preview",
+        resource_refs=[
+            _file_api_resource_ref("safe-root", req.safe_root_ref),
+            _file_api_resource_ref("request", req.request.request_id),
+            _file_api_resource_ref("run", req.request.run_id),
+            _file_api_resource_ref("file-ref", req.request.file_ref),
+            _file_api_resource_ref("path", req.request.path),
+        ],
+        safe_summary="Evaluate Files read authority before redacted file preview.",
+        requested_mode=TrustMode.read_only,
+    )
+    if authority_decision.outcome != AuthorityDecisionOutcome.allow.value:
+        return _file_api_authority_denied_envelope(
+            operation="preview_file_read",
+            trace_id=req.request.run_id,
+            decision=authority_decision,
+            required="read",
+        )
     try:
         requested_ref = req.request.path or req.request.file_ref or ""
         if contains_secret_like(requested_ref):
@@ -2486,12 +2612,14 @@ def post_preview_file_read(req: FileReadPreviewAPIRequest) -> Any:
                 "truncated": False,
             }
         )
+        data = preview.model_dump()
+        data.update(_authority_decision_payload(authority_decision))
         return ResultEnvelope(
             success=True,
             operation="preview_file_read",
             service="FileManagerAPI",
             trace_id=req.request.run_id,
-            data=preview.model_dump(),
+            data=data,
         )
     except Exception:
         err = ErrorEnvelope(
@@ -2513,17 +2641,39 @@ def post_preview_file_read(req: FileReadPreviewAPIRequest) -> Any:
 
 @app.post("/files/tree/preview", response_model=ResultEnvelope)
 def post_preview_file_tree(req: FileTreePreviewAPIRequest) -> Any:
+    authority_decision = _file_api_authority_decision(
+        action_ref=FILE_API_TREE_AUTHORITY_ACTION_REF,
+        capability=AuthorityCapability.read,
+        route_ref="POST /files/tree/preview",
+        resource_refs=[
+            _file_api_resource_ref("safe-root", req.safe_root_ref),
+            _file_api_resource_ref("request", req.request.request_id),
+            _file_api_resource_ref("run", req.request.run_id),
+            _file_api_resource_ref("root", req.request.root_path),
+        ],
+        safe_summary="Evaluate Files read authority before redacted tree preview.",
+        requested_mode=TrustMode.read_only,
+    )
+    if authority_decision.outcome != AuthorityDecisionOutcome.allow.value:
+        return _file_api_authority_denied_envelope(
+            operation="preview_file_tree",
+            trace_id=req.request.run_id,
+            decision=authority_decision,
+            required="read",
+        )
     try:
         requested_ref = req.request.root_path or ""
         if contains_secret_like(requested_ref):
             raise ValueError("FILE_TREE_REF_UNSAFE")
         preview = _file_manager_for_safe_root(req.safe_root_ref).preview_tree(req.request)
+        data = preview.model_dump(mode="json")
+        data.update(_authority_decision_payload(authority_decision))
         return ResultEnvelope(
             success=True,
             operation="preview_file_tree",
             service="FileManagerAPI",
             trace_id=req.request.run_id,
-            data=preview.model_dump(mode="json"),
+            data=data,
             redactions_applied=["raw_paths_omitted", "safe_refs_only"],
         )
     except Exception:
@@ -2547,29 +2697,102 @@ def post_preview_file_tree(req: FileTreePreviewAPIRequest) -> Any:
 
 @app.post("/files/write/propose", response_model=ResultEnvelope)
 def post_propose_file_write(req: FileWriteAPIRequest) -> Any:
+    authority_decision = _file_api_authority_decision(
+        action_ref=FILE_API_WRITE_PROPOSAL_AUTHORITY_ACTION_REF,
+        capability=AuthorityCapability.prepare,
+        route_ref="POST /files/write/propose",
+        resource_refs=[
+            _file_api_resource_ref("safe-root", req.safe_root_ref),
+            _file_api_resource_ref("proposal", req.proposal.proposal_id),
+            _file_api_resource_ref("run", req.proposal.run_id),
+            _file_api_resource_ref("target", req.proposal.target_path),
+            _file_api_resource_ref("content-ref", req.proposal.new_content_ref),
+            _file_api_resource_ref("idempotency", req.proposal.idempotency_key),
+        ],
+        safe_summary="Evaluate Files prepare authority before write proposal review.",
+        requested_mode=TrustMode.read_only,
+    )
+    if authority_decision.outcome != AuthorityDecisionOutcome.allow.value:
+        decision = FileWriteDecision(
+            decision_id=f"fwd_api_{req.proposal.proposal_id}",
+            proposal_id=req.proposal.proposal_id,
+            allowed=False,
+            status=FileOperationStatus.blocked,
+            reason_codes=[
+                *authority_decision.reason_refs,
+                "FILE_WRITE_PROPOSAL_AUTHORITY_DENIED",
+            ],
+            safe_message="Requires active Files prepare AuthorityLease scope.",
+            redactions_applied=["raw_content_omitted", "content_ref_only"],
+            event_ref=req.proposal.event_ref,
+        )
+        data = decision.model_dump(mode="json")
+        data.update(_authority_decision_payload(authority_decision))
+        return ResultEnvelope(
+            success=False,
+            operation="propose_file_write",
+            service="FileManagerAPI",
+            trace_id=req.proposal.run_id,
+            data=data,
+            redactions_applied=["safe_refs_only", "raw_content_omitted"],
+        )
     decision = _review_file_write_api_proposal(req.safe_root_ref, req.proposal)
+    data = decision.model_dump()
+    data.update(_authority_decision_payload(authority_decision))
     return ResultEnvelope(
         success=decision.allowed,
         operation="propose_file_write",
         service="FileManagerAPI",
         trace_id=req.proposal.run_id,
-        data=decision.model_dump(),
+        data=data,
     )
 
 @app.post("/files/diff/preview", response_model=ResultEnvelope)
 def post_preview_file_diff(req: FileWriteAPIRequest) -> Any:
+    authority_decision = _file_api_authority_decision(
+        action_ref=FILE_API_DIFF_PREVIEW_AUTHORITY_ACTION_REF,
+        capability=AuthorityCapability.prepare,
+        route_ref="POST /files/diff/preview",
+        resource_refs=[
+            _file_api_resource_ref("safe-root", req.safe_root_ref),
+            _file_api_resource_ref("proposal", req.proposal.proposal_id),
+            _file_api_resource_ref("run", req.proposal.run_id),
+            _file_api_resource_ref("target", req.proposal.target_path),
+            _file_api_resource_ref("content-ref", req.proposal.new_content_ref),
+            _file_api_resource_ref("idempotency", req.proposal.idempotency_key),
+        ],
+        safe_summary="Evaluate Files prepare authority before redacted diff preview.",
+        requested_mode=TrustMode.read_only,
+    )
+    if authority_decision.outcome != AuthorityDecisionOutcome.allow.value:
+        data = {
+            "diff_ref": None,
+            "diff_summary": "Redacted file diff preview blocked before filesystem access.",
+            "raw_diff_omitted": True,
+            **_authority_decision_payload(authority_decision),
+        }
+        return ResultEnvelope(
+            success=False,
+            operation="preview_file_diff",
+            service="FileManagerAPI",
+            trace_id=req.proposal.run_id,
+            data=data,
+            redactions_applied=["safe_refs_only", "raw_diff_omitted"],
+        )
     try:
         decision = _review_file_write_api_proposal(req.safe_root_ref, req.proposal)
+        data = {
+            "diff_ref": decision.diff_ref,
+            "diff_summary": "Redacted file diff preview: raw_diff_omitted=True, content_ref_only=True.",
+            "raw_diff_omitted": True,
+            **_authority_decision_payload(authority_decision),
+        }
         return ResultEnvelope(
             success=decision.allowed,
             operation="preview_file_diff",
             service="FileManagerAPI",
             trace_id=req.proposal.run_id,
-            data={
-                "diff_ref": decision.diff_ref,
-                "diff_summary": "Redacted file diff preview: raw_diff_omitted=True, content_ref_only=True.",
-                "raw_diff_omitted": True,
-            },
+            data=data,
         )
     except Exception:
         err = ErrorEnvelope(

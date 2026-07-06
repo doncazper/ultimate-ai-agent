@@ -71,6 +71,42 @@ def files_write_authority_lease() -> AuthorityLease:
     )
 
 
+def files_read_prepare_authority_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:test-files-read-prepare",
+        mode=TrustMode.read_only,
+        domains={
+            AuthorityDomain.files: [
+                AuthorityCapability.read,
+                AuthorityCapability.prepare,
+            ]
+        },
+        safe_summary=(
+            "Test lease grants Files read and prepare for safe preview routes."
+        ),
+    )
+
+
+def issue_files_read_prepare_authority_lease(state_dir: Path) -> None:
+    AuthorityLeaseStore(state_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.read_only,
+            requested_domains={
+                AuthorityDomain.files: [
+                    AuthorityCapability.read,
+                    AuthorityCapability.prepare,
+                ]
+            },
+            decision_reason_ref="decision-reason-ref:test-file-preview-authority",
+            safe_summary=(
+                "Test session lease grants Files read and prepare for safe "
+                "preview routes."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:test-file-preview-authority",
+    )
+
+
 def issue_files_write_authority_lease(state_dir: Path) -> None:
     AuthorityLeaseStore(state_dir).issue_lease(
         AuthorityLeaseIssueRequest(
