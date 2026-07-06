@@ -51,6 +51,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_logging_profile_read_model,
     build_runtime_result_classification_read_model,
     build_runtime_voice_media_posture_read_model,
+    build_runtime_messaging_gateway_posture_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -1058,6 +1059,43 @@ def _print_voice_media_posture(read_model: dict[str, Any]) -> None:
         print(f"- {ref}")
 
 
+def _print_messaging_gateway_posture(read_model: dict[str, Any]) -> None:
+    print("Runtime messaging gateway posture")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Doc: {read_model['doc_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Platforms: "
+        f"total={read_model['platform_count']} "
+        f"blocked={read_model['blocked_platform_count']}"
+    )
+    print(
+        "Authority flags: "
+        f"connector_runtime={read_model['connector_runtime_enabled']} "
+        f"connector_read={read_model['connector_read_enabled']} "
+        f"sends={read_model['send_enabled']} "
+        f"oauth={read_model['oauth_enabled']} "
+        f"webhooks={read_model['webhook_exposure_enabled']} "
+        f"sync={read_model['account_sync_enabled']} "
+        f"writes={read_model['external_write_enabled']}"
+    )
+    print("Messaging platforms:")
+    for platform in read_model["platforms"]:
+        print(
+            f"- {platform['display_label']}: "
+            f"kind={platform['platform_kind']} status={platform['status']}"
+        )
+        print(f"  connector={platform['connector_label_ref']}")
+        print(f"  inbound={platform['inbound_readiness_ref']}")
+        print(f"  outbound={platform['outbound_write_label_ref']}")
+        print(f"  redaction={platform['redaction_policy_ref']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
 def _print_session_search(read_model: dict[str, Any]) -> None:
     print("Runtime session/run search")
     print(f"Status: {read_model['status']}")
@@ -2047,6 +2085,37 @@ def _inspect_voice_media_posture(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_voice_media_posture(read_model)
+    return 0
+
+
+def _inspect_messaging_gateway_posture(args: argparse.Namespace) -> int:
+    read_model = build_runtime_messaging_gateway_posture_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": (
+            "repo-local-command:uaa-runtime-inspect-messaging-gateway-posture"
+        ),
+        "runtime_messaging_gateway_posture": read_model,
+        "metadata_only": True,
+        "safe_refs_only": True,
+        "messaging_gateway_posture_only": True,
+        "connector_runtime_performed": False,
+        "connector_read_performed": False,
+        "send_performed": False,
+        "oauth_performed": False,
+        "webhook_exposure_performed": False,
+        "account_sync_performed": False,
+        "external_write_performed": False,
+        "raw_messages_omitted": True,
+        "connector_payloads_omitted": True,
+        "account_material_omitted": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_messaging_gateway_posture(read_model)
     return 0
 
 
@@ -3185,6 +3254,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the runtime voice/media posture as JSON.",
     )
     voice_media_posture.set_defaults(func=_inspect_voice_media_posture)
+
+    messaging_gateway_posture = subparsers.add_parser(
+        "inspect-messaging-gateway-posture",
+        help="Inspect messaging gateway readiness without connector runtime.",
+    )
+    messaging_gateway_posture.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the messaging gateway posture as JSON.",
+    )
+    messaging_gateway_posture.set_defaults(func=_inspect_messaging_gateway_posture)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",
