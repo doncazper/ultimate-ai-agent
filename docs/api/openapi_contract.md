@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `213`.
+Current OpenAPI path count: `214`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -116,6 +116,14 @@ Contract rules:
   responses, inject hidden context, dispatch runtimes, call providers/models,
   write connectors, run shell/subprocess commands, automate browsers, or grant
   production authority.
+  `GET /api/runtime/virtual-provider-moa` exposes the Hermes Runtime Adoption
+  Phase 20 backend-owned virtual provider Mixture-of-Agents posture. It returns
+  preset, agent-slot, route-decision trace, cost-estimate, approval-mode,
+  output-envelope, comparison-proof, safe-disable, verifier, and blocked
+  authority refs only. It does not perform live model fan-out, call provider
+  SDKs, dispatch external runtimes, use hidden advisor prompts, treat agent
+  output as authority, write connectors, run shell/subprocess commands,
+  automate browsers, or grant production authority.
   `GET /api/runtime/context-references` exposes the Hermes Runtime Adoption
   Phase 16 backend-owned context-reference posture. It returns safe-ref grammar,
   preview refs, budget estimates, why-included refs, and blocked URL/live-fetch

@@ -7473,6 +7473,23 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Tool registry")).toBeInTheDocument();
     expect(screen.getByText("Availability and authority")).toBeInTheDocument();
+    expect(screen.getByText("Virtual provider")).toBeInTheDocument();
+    expect(screen.getByText("Multi-agent preset posture")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/virtual-provider-moa").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-virtual-provider-moa").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Codex implementer plus Claude reviewer"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Claude reviewer: claude_reviewer/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:virtual-provider-moa-no-live-model-fanout",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
     expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
@@ -14509,6 +14526,12 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeProfiles)).toBe(true);
     expect(API_ENDPOINTS.runtimeToolRegistry).toBe("/api/runtime/tool-registry");
     expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeToolRegistry)).toBe(true);
+    expect(API_ENDPOINTS.runtimeVirtualProviderMoa).toBe(
+      "/api/runtime/virtual-provider-moa",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeVirtualProviderMoa),
+    ).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15548,6 +15571,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeStreamingProgress,
     [API_ENDPOINTS.runtimeProfiles]: mockControlCenterData.runtimeProfiles,
     [API_ENDPOINTS.runtimeToolRegistry]: mockControlCenterData.runtimeToolRegistry,
+    [API_ENDPOINTS.runtimeVirtualProviderMoa]:
+      mockControlCenterData.runtimeVirtualProviderMoa,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:

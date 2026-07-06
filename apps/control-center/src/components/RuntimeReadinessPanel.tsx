@@ -8,6 +8,7 @@ import type {
   RuntimeStreamingProgressReadModel,
   RuntimeProfileIsolationReadModel,
   RuntimeReadinessReport,
+  RuntimeVirtualProviderMoaReadModel,
 } from "../api/types";
 import { EmptyState } from "./DataState";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
@@ -22,6 +23,7 @@ export function RuntimeReadinessPanel({
   streamingProgress,
   profiles,
   toolRegistry,
+  virtualProviderMoa,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -32,6 +34,7 @@ export function RuntimeReadinessPanel({
   streamingProgress: RuntimeStreamingProgressReadModel;
   profiles: RuntimeProfileIsolationReadModel;
   toolRegistry: RuntimeToolRegistryAvailabilityReadModel;
+  virtualProviderMoa: RuntimeVirtualProviderMoaReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -269,6 +272,109 @@ export function RuntimeReadinessPanel({
               <ul className="compact-list">
                 {capabilityDiscovery.toolset_posture.blocked_authority_refs
                   .slice(0, 3)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+        </dl>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Virtual provider</p>
+            <h3>Multi-agent preset posture</h3>
+          </div>
+          <span className="status-pill compact">
+            {virtualProviderMoa.status}
+          </span>
+        </div>
+        <p>{virtualProviderMoa.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{virtualProviderMoa.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{virtualProviderMoa.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Presets</dt>
+            <dd>{virtualProviderMoa.preset_count}</dd>
+          </div>
+          <div>
+            <dt>Agent slots</dt>
+            <dd>{virtualProviderMoa.agent_slot_count}</dd>
+          </div>
+          <div>
+            <dt>Live fan-out</dt>
+            <dd>
+              {virtualProviderMoa.live_model_fanout_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Provider SDK</dt>
+            <dd>
+              {virtualProviderMoa.provider_sdk_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Preset</th>
+                <th>Status</th>
+                <th>Slots</th>
+                <th>Trace</th>
+                <th>Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              {virtualProviderMoa.presets.map((preset) => (
+                <tr key={preset.preset_ref}>
+                  <td>{preset.display_label}</td>
+                  <td>{preset.status}</td>
+                  <td>{preset.slot_count}</td>
+                  <td>{preset.route_decision_trace_ref}</td>
+                  <td>{preset.cost_estimate_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h4>Agent slots</h4>
+        <ul className="compact-list">
+          {virtualProviderMoa.presets.flatMap((preset) =>
+            preset.slots.map((slot) => (
+              <li key={slot.slot_ref}>
+                {slot.display_label}: {slot.role}; output{" "}
+                {slot.output_authoritative ? "authoritative" : "proposal only"}
+              </li>
+            )),
+          )}
+        </ul>
+        <dl className="detail-grid">
+          <div>
+            <dt>Proof</dt>
+            <dd>
+              <ul className="compact-list">
+                {virtualProviderMoa.proof_refs.slice(0, 3).map((ref) => (
+                  <li key={ref}>{ref}</li>
+                ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Blocked authority</dt>
+            <dd>
+              <ul className="compact-list">
+                {virtualProviderMoa.blocked_authority_refs
+                  .slice(0, 4)
                   .map((ref) => (
                     <li key={ref}>{ref}</li>
                   ))}

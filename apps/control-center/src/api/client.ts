@@ -39,6 +39,7 @@ import type {
   RuntimeDelegationAdapterReadModel,
   RuntimeToolsetCapabilityPosture,
   RuntimeToolRegistryAvailabilityReadModel,
+  RuntimeVirtualProviderMoaReadModel,
   RuntimeRunEventsReadModel,
   RuntimeStreamingProgressReadModel,
   RuntimeProfileIsolationReadModel,
@@ -333,6 +334,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeToolRegistry,
     ),
   ] as const);
+  const runtimeVirtualProviderMoaSettledPromise = Promise.allSettled([
+    read<RuntimeVirtualProviderMoaReadModel>(
+      API_ENDPOINTS.runtimeVirtualProviderMoa,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -445,6 +451,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeStreamingProgressSettledPromise;
   const runtimeProfilesResult = await runtimeProfilesSettledPromise;
   const runtimeToolRegistryResult = await runtimeToolRegistrySettledPromise;
+  const runtimeVirtualProviderMoaResult =
+    await runtimeVirtualProviderMoaSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -464,6 +472,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const runtimeProfiles = fulfilledValue(runtimeProfilesResult[0]);
   const runtimeToolRegistry = fulfilledValue(runtimeToolRegistryResult[0]);
+  const runtimeVirtualProviderMoa = fulfilledValue(
+    runtimeVirtualProviderMoaResult[0],
+  );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
@@ -545,6 +556,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     : undefined;
   const safeRuntimeToolRegistry = isSafeRuntimeToolRegistry(runtimeToolRegistry)
     ? runtimeToolRegistry
+    : undefined;
+  const safeRuntimeVirtualProviderMoa = isSafeRuntimeVirtualProviderMoa(
+    runtimeVirtualProviderMoa,
+  )
+    ? runtimeVirtualProviderMoa
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -685,6 +701,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeProfilesFallbackUsed = safeRuntimeProfiles === undefined;
   const runtimeToolRegistryFallbackUsed =
     safeRuntimeToolRegistry === undefined;
+  const runtimeVirtualProviderMoaFallbackUsed =
+    safeRuntimeVirtualProviderMoa === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -829,6 +847,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/streaming-progress",
         "GET /api/runtime/profiles",
         "GET /api/runtime/tool-registry",
+        "GET /api/runtime/virtual-provider-moa",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -839,7 +858,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeApprovalBridge !== undefined &&
         runtimeStreamingProgress !== undefined &&
         runtimeProfiles !== undefined &&
-        runtimeToolRegistry !== undefined,
+        runtimeToolRegistry !== undefined &&
+        runtimeVirtualProviderMoa !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -862,6 +882,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeToolRegistryFallbackUsed
           ? ["RUNTIME_TOOL_REGISTRY_MOCK_FALLBACK"]
           : []),
+        ...(runtimeVirtualProviderMoaFallbackUsed
+          ? ["RUNTIME_VIRTUAL_PROVIDER_MOA_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -872,7 +895,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeApprovalBridgeFallbackUsed ||
         runtimeStreamingProgressFallbackUsed ||
         runtimeProfilesFallbackUsed ||
-        runtimeToolRegistryFallbackUsed,
+        runtimeToolRegistryFallbackUsed ||
+        runtimeVirtualProviderMoaFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -967,6 +991,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeStreamingProgress === undefined ||
     runtimeProfiles === undefined ||
     runtimeToolRegistry === undefined ||
+    runtimeVirtualProviderMoa === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -995,8 +1020,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeApprovalBridgeResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeStreamingProgressResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeProfilesResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeToolRegistryResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 8;
+    (runtimeToolRegistryResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeVirtualProviderMoaResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 9;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1070,6 +1096,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       safeRuntimeProfiles ?? mockControlCenterData.runtimeProfiles,
     runtimeToolRegistry:
       safeRuntimeToolRegistry ?? mockControlCenterData.runtimeToolRegistry,
+    runtimeVirtualProviderMoa:
+      safeRuntimeVirtualProviderMoa ??
+      mockControlCenterData.runtimeVirtualProviderMoa,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1153,6 +1182,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeStreamingProgressFallbackUsed &&
     !runtimeProfilesFallbackUsed &&
     !runtimeToolRegistryFallbackUsed &&
+    !runtimeVirtualProviderMoaFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1184,6 +1214,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeStreamingProgressFallbackUsed ||
     runtimeProfilesFallbackUsed ||
     runtimeToolRegistryFallbackUsed ||
+    runtimeVirtualProviderMoaFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1224,6 +1255,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeToolRegistryFallbackUsed) {
     degradedSafeMessage =
       "Runtime tool registry posture was unavailable or unsafe; non-authoritative mock fallback kept tool invocation blocked.";
+  } else if (runtimeVirtualProviderMoaFallbackUsed) {
+    degradedSafeMessage =
+      "Virtual multi-agent provider posture was unavailable or unsafe; non-authoritative mock fallback kept provider fan-out blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1300,6 +1334,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ...(runtimeProfilesFallbackUsed ? ["RUNTIME_PROFILES_MOCK_FALLBACK"] : []),
       ...(runtimeToolRegistryFallbackUsed
         ? ["RUNTIME_TOOL_REGISTRY_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeVirtualProviderMoaFallbackUsed
+        ? ["RUNTIME_VIRTUAL_PROVIDER_MOA_MOCK_FALLBACK"]
         : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
@@ -3215,6 +3252,86 @@ function isSafeRuntimeToolRegistry(
         isNonEmptyStringArray(entry.proof_refs) &&
         isNonEmptyStringArray(entry.blocked_authority_refs) &&
         isNonEmptyStringArray(entry.next_safe_action_refs),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeVirtualProviderMoa(
+  value: RuntimeVirtualProviderMoaReadModel | undefined,
+): value is RuntimeVirtualProviderMoaReadModel {
+  if (value === undefined || !Array.isArray(value.presets)) {
+    return false;
+  }
+  const allowedStatuses = new Set([
+    "metadata_only",
+    "readiness_only",
+    "blocked_requires_authority",
+  ]);
+  const presetCount = value.presets.length;
+  const agentSlotCount = value.presets.reduce(
+    (count, preset) => count + preset.slots.length,
+    0,
+  );
+  const readyPresetCount = value.presets.filter(
+    (preset) => preset.status === "readiness_only",
+  ).length;
+  const blockedPresetCount = value.presets.filter(
+    (preset) => preset.status === "blocked_requires_authority",
+  ).length;
+  const deniedTopLevelFlags: Array<keyof RuntimeVirtualProviderMoaReadModel> = [
+    "live_model_fanout_enabled",
+    "provider_sdk_enabled",
+    "external_runtime_dispatch_enabled",
+    "hidden_advisor_prompts_enabled",
+    "raw_prompt_persistence_enabled",
+    "raw_response_persistence_enabled",
+    "output_authority_enabled",
+    "production_authority_enabled",
+  ];
+  return (
+    value.schema_version === "runtime_virtual_provider_moa.v1" &&
+    value.status === "read_only_virtual_provider_preset_posture" &&
+    value.route_ref === "GET /api/runtime/virtual-provider-moa" &&
+    value.cli_ref === "uaa runtime inspect-virtual-provider-moa" &&
+    value.preset_count === presetCount &&
+    value.agent_slot_count === agentSlotCount &&
+    value.ready_preset_count === readyPresetCount &&
+    value.blocked_preset_count === blockedPresetCount &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:virtual-provider-moa-no-live-model-fanout",
+    ) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.presets.every(
+      (preset) =>
+        allowedStatuses.has(preset.status) &&
+        preset.slot_count === preset.slots.length &&
+        preset.per_agent_output_envelopes_required === true &&
+        preset.comparison_proof_required === true &&
+        preset.live_model_fanout_enabled === false &&
+        preset.provider_sdk_enabled === false &&
+        preset.external_runtime_dispatch_enabled === false &&
+        preset.hidden_advisor_prompts_enabled === false &&
+        preset.raw_prompt_persistence_enabled === false &&
+        preset.raw_response_persistence_enabled === false &&
+        preset.output_authority_enabled === false &&
+        preset.production_authority_enabled === false &&
+        isNonEmptyStringArray(preset.blocked_authority_refs) &&
+        preset.slots.every(
+          (slot) =>
+            slot.configured_for_live_call === false &&
+            slot.provider_sdk_call_enabled === false &&
+            slot.external_runtime_dispatch_enabled === false &&
+            slot.hidden_advisor_prompt_enabled === false &&
+            slot.raw_prompt_persisted === false &&
+            slot.raw_response_persisted === false &&
+            slot.output_authoritative === false &&
+            slot.production_authority_enabled === false &&
+            isNonEmptyStringArray(slot.blocked_authority_refs),
+        ),
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );
