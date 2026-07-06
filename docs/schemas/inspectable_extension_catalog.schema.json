@@ -31,6 +31,7 @@
     "blocked_capabilities",
     "compact_skill_index_refs",
     "progressive_disclosure_refs",
+    "skill_write_approval_gate",
     "docs_refs",
     "schema_refs",
     "developer_guidance_refs",
@@ -130,6 +131,9 @@
       "items": {
         "$ref": "#/$defs/safe_ref"
       }
+    },
+    "skill_write_approval_gate": {
+      "$ref": "#/$defs/skill_write_approval_gate"
     },
     "docs_refs": {
       "type": "array",
@@ -341,6 +345,242 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 500
+        }
+      }
+    },
+    "skill_write_approval_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "gate_ref",
+        "status",
+        "proposal_count",
+        "proposals",
+        "review_queue_ref",
+        "required_authority_ref",
+        "blocked_authority_refs",
+        "verifier_refs",
+        "next_safe_action_refs",
+        "safe_summary",
+        "file_write_enabled",
+        "direct_skill_write_enabled",
+        "skill_enablement_enabled",
+        "runtime_import_enabled",
+        "execution_enabled",
+        "connector_writes_enabled",
+        "shell_execution_enabled",
+        "provider_model_call_enabled",
+        "browser_automation_enabled",
+        "production_authority_enabled"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "uaa_skill_write_approval_gate.v1"
+        },
+        "gate_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "status": {
+          "const": "staged_review_only"
+        },
+        "proposal_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "proposals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/skill_write_proposal"
+          }
+        },
+        "review_queue_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "required_authority_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "blocked_authority_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "verifier_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "next_safe_action_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "file_write_enabled": {
+          "const": false
+        },
+        "direct_skill_write_enabled": {
+          "const": false
+        },
+        "skill_enablement_enabled": {
+          "const": false
+        },
+        "runtime_import_enabled": {
+          "const": false
+        },
+        "execution_enabled": {
+          "const": false
+        },
+        "connector_writes_enabled": {
+          "const": false
+        },
+        "shell_execution_enabled": {
+          "const": false
+        },
+        "provider_model_call_enabled": {
+          "const": false
+        },
+        "browser_automation_enabled": {
+          "const": false
+        },
+        "production_authority_enabled": {
+          "const": false
+        }
+      }
+    },
+    "skill_write_proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposal_ref",
+        "proposal_kind",
+        "skill_ref",
+        "target_skill_ref",
+        "staged_artifact_ref",
+        "review_decision_ref",
+        "review_status",
+        "diff_previews",
+        "blocked_execution_labels",
+        "proof_refs",
+        "receipt_refs",
+        "safe_summary",
+        "file_write_performed",
+        "skill_enablement_performed",
+        "runtime_import_performed",
+        "execution_performed",
+        "raw_instruction_body_persisted"
+      ],
+      "properties": {
+        "proposal_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "proposal_kind": {
+          "enum": ["create_skill", "update_skill"]
+        },
+        "skill_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "target_skill_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "staged_artifact_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "review_decision_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "review_status": {
+          "enum": [
+            "awaiting_operator_review",
+            "revision_requested",
+            "rejected",
+            "blocked"
+          ]
+        },
+        "diff_previews": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/skill_write_diff_preview"
+          }
+        },
+        "blocked_execution_labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "proof_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "receipt_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "file_write_performed": {
+          "const": false
+        },
+        "skill_enablement_performed": {
+          "const": false
+        },
+        "runtime_import_performed": {
+          "const": false
+        },
+        "execution_performed": {
+          "const": false
+        },
+        "raw_instruction_body_persisted": {
+          "const": false
+        }
+      }
+    },
+    "skill_write_diff_preview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "diff_preview_ref",
+        "target_ref",
+        "change_summary_ref",
+        "safe_summary",
+        "raw_diff_persisted",
+        "raw_file_content_persisted"
+      ],
+      "properties": {
+        "diff_preview_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "target_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "change_summary_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "raw_diff_persisted": {
+          "const": false
+        },
+        "raw_file_content_persisted": {
+          "const": false
         }
       }
     },

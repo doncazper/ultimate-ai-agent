@@ -53,6 +53,8 @@ def test_default_inspectable_extension_catalog_is_read_only_and_non_callable() -
         "progressive-disclosure:metadata-first-index"
         in payload["progressive_disclosure_refs"]
     )
+    assert payload["skill_write_approval_gate"]["status"] == "staged_review_only"
+    assert payload["skill_write_approval_gate"]["file_write_enabled"] is False
     assert "doc:goatcitadel-catchup-extensibility-final" in payload["docs_refs"]
     assert "doc:hermes-runtime-progressive-skill-disclosure" in payload["docs_refs"]
     assert (
@@ -237,3 +239,8 @@ def test_inspectable_extension_catalog_schema_pins_disabled_runtime_fields() -> 
     ]:
         assert field in entry["required"]
         assert field in entry["properties"]
+    assert "skill_write_approval_gate" in schema["required"]
+    gate = schema["$defs"]["skill_write_approval_gate"]
+    assert gate["properties"]["status"]["const"] == "staged_review_only"
+    assert gate["properties"]["file_write_enabled"]["const"] is False
+    assert gate["properties"]["runtime_import_enabled"]["const"] is False
