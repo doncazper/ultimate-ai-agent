@@ -93,6 +93,8 @@ export const API_ENDPOINTS = {
   runtimeInterruptRedirect: "/api/runtime/interrupt-redirect",
   runtimeLoggingProfile: "/api/runtime/logging-profile",
   runtimeResultClassification: "/api/runtime/result-classification",
+  runtimeAuthorityLeases: "/api/runtime/authority-leases",
+  runtimeAuthorityLeaseRevoke: "/api/runtime/authority-leases/revoke",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
   localModels: "/v1/models",
   localChatCompletions: "/v1/chat/completions",

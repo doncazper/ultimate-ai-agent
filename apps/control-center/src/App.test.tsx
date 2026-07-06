@@ -33,6 +33,7 @@ import {
   resetControlCenterReadLimiterForTests,
   setLocalApiBearerForSession,
 } from "./api/client";
+import type { AuthorityLease, AuthorityLeaseReceipt } from "./api/types";
 import { EmptyState, ErrorState, LoadingState } from "./components/DataState";
 import {
   MOCK_CONTROL_CENTER_ROUTE_COUNT,
@@ -10742,12 +10743,111 @@ describe("Web Control Center shell", () => {
   });
 
   it("renders Settings and Local Models backend-owned status routes", async () => {
+    const issuedLease: AuthorityLease = {
+      ...mockControlCenterData.settingsStatus.authority_lease_state.active_leases[0],
+      lease_ref: "authority-lease-ref:app-test-safe-local",
+      mode: "approved_safe_local_work_session",
+      domains: {
+        workspace: ["read", "write", "execute"],
+      },
+      safe_summary: "App test safe local workspace lease.",
+    };
+    const issuedReceipt: AuthorityLeaseReceipt = {
+      ...mockControlCenterData.settingsStatus.authority_lease_state.recent_receipts[0],
+      receipt_ref: "receipt-ref:authority-lease:app-test-issued",
+      lease_ref: issuedLease.lease_ref,
+      mode: "approved_safe_local_work_session",
+      granted_domains: {
+        workspace: ["read", "write", "execute"],
+      },
+      safe_summary: "Authority lease issued for app test.",
+    };
+    const revokedReceipt: AuthorityLeaseReceipt = {
+      ...issuedReceipt,
+      operation: "revoke",
+      status: "revoked",
+      receipt_ref: "receipt-ref:authority-lease:app-test-revoked",
+      safe_summary: "Authority lease revoked for app test.",
+    };
+    let settingsStatus = mockControlCenterData.settingsStatus;
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.runtimeAuthorityLeases)
+      ) {
+        settingsStatus = {
+          ...mockControlCenterData.settingsStatus,
+          authority_lease_state: {
+            ...mockControlCenterData.settingsStatus.authority_lease_state,
+            active_mode: "approved_safe_local_work_session",
+            active_leases: [issuedLease],
+            recent_receipts: [issuedReceipt],
+          },
+        };
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            success: true,
+            data: {
+              lease: issuedLease,
+              receipt: issuedReceipt,
+              execution_performed: false,
+              unsupported_adapters_claimed_execution: false,
+              unknown_authority_default: "deny",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.runtimeAuthorityLeaseRevoke)
+      ) {
+        settingsStatus = {
+          ...mockControlCenterData.settingsStatus,
+          authority_lease_state: {
+            ...mockControlCenterData.settingsStatus.authority_lease_state,
+            active_mode: "read_only",
+            active_leases:
+              mockControlCenterData.settingsStatus.authority_lease_state.active_leases,
+            recent_receipts: [revokedReceipt],
+          },
+        };
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            success: true,
+            data: {
+              lease: {
+                ...issuedLease,
+                status: "revoked",
+              },
+              receipt: revokedReceipt,
+              execution_performed: false,
+              unsupported_adapters_claimed_execution: false,
+              unknown_authority_default: "deny",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
       if (
         !options?.method &&
         READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))
       ) {
+        if (urlText.endsWith(API_ENDPOINTS.controlCenterSettingsStatus)) {
+          return new Response(JSON.stringify({ ok: true, data: settingsStatus }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
         return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -10832,6 +10932,48 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("status", { name: /Authority lease receipt issued/i }),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("Authority mode controls")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Full machine" }),
+    ).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Safe local work" }));
+    const issueResult = await screen.findByLabelText(
+      "Authority lease action result",
+    );
+    expect(issueResult).toHaveTextContent("issued");
+    expect(issueResult).toHaveTextContent(
+      "receipt-ref:authority-lease:app-test-issued",
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(API_ENDPOINTS.runtimeAuthorityLeases),
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "X-UAA-Idempotency-Key": expect.stringContaining(
+            "idempotency-ref:control-center-authority-lease",
+          ),
+        }),
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Revoke active lease" }));
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText("Authority lease action result"),
+      ).toHaveTextContent("revoked"),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(API_ENDPOINTS.runtimeAuthorityLeaseRevoke),
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          "X-UAA-Idempotency-Key": expect.stringContaining(
+            "idempotency-ref:control-center-authority-revoke",
+          ),
+        }),
+      }),
+    );
     expect(
       screen.getByRole("status", {
         name: /Kill switch: Global runtime authority/i,

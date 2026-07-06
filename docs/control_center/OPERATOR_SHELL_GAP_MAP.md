@@ -31,7 +31,8 @@ safe-disable, and kill-switch visibility. The current inspection surfaces are
 session leases are recorded through `POST /api/runtime/authority-leases`,
 `POST /api/runtime/authority-leases/revoke`,
 `scripts/dev/uaa_runtime.py select-authority-mode`, and
-`scripts/dev/uaa_runtime.py revoke-authority-lease`. Unsupported
+`scripts/dev/uaa_runtime.py revoke-authority-lease`. Control Center `/settings`
+can request and revoke implemented local lease subsets with receipts. Unsupported
 browser, app, payment, calendar, messages, email, contacts, Home Assistant,
 and production/cloud adapters remain blocked or draft-only until implemented
 and tested, but the operator-facing explanation should name the required mode

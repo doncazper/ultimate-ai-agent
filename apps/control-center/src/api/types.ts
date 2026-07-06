@@ -11746,6 +11746,31 @@ export interface AuthorityLeaseReceipt {
   redactions_applied: string[];
 }
 
+export interface AuthorityLeaseIssueRequest {
+  mode: AuthorityTrustMode;
+  scope?: "session" | "mission";
+  mission_ref?: string | null;
+  requested_domains?: Record<string, string[]>;
+  constraints?: Record<string, unknown>;
+  decision_reason_ref: string;
+  duration_minutes?: number;
+  safe_summary: string;
+}
+
+export interface AuthorityLeaseRevokeRequest {
+  lease_ref: string;
+  decision_reason_ref: string;
+  safe_summary: string;
+}
+
+export interface AuthorityLeaseMutationResult {
+  lease: AuthorityLease | null;
+  receipt: AuthorityLeaseReceipt;
+  execution_performed: false;
+  unsupported_adapters_claimed_execution: false;
+  unknown_authority_default: "deny";
+}
+
 export interface AuthorityCapabilityMapping {
   lane_ref: string;
   label: string;

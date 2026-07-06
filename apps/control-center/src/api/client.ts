@@ -2,6 +2,9 @@ import { mockControlCenterData } from "../mocks/controlCenterData";
 import type {
   ActionPreviewDecision,
   ActionPreviewRequest,
+  AuthorityLeaseIssueRequest,
+  AuthorityLeaseMutationResult,
+  AuthorityLeaseRevokeRequest,
   BackendConnectionSummary,
   CodingCockpitSessionReadModel,
   CodingWorkspaceContextReadModel,
@@ -2718,6 +2721,82 @@ export async function createWorkBoardCard(
   return receipt;
 }
 
+export async function fetchControlCenterSettingsStatus(): Promise<ControlCenterSettingsStatus> {
+  return readEnvelope<ControlCenterSettingsStatus>(
+    API_ENDPOINTS.controlCenterSettingsStatus,
+  );
+}
+
+export async function issueAuthorityLease(
+  request: AuthorityLeaseIssueRequest,
+): Promise<AuthorityLeaseMutationResult> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.runtimeAuthorityLeases}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": authorityLeaseIssueIdempotencyRef(request),
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<AuthorityLeaseMutationResult>;
+  const result = data.result ?? data.data;
+  if (!response.ok || !result) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "Authority lease receipt was not recorded safely.",
+        ),
+      ),
+    );
+  }
+  return result;
+}
+
+export async function revokeAuthorityLease(
+  request: AuthorityLeaseRevokeRequest,
+): Promise<AuthorityLeaseMutationResult> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.runtimeAuthorityLeaseRevoke}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": authorityLeaseRevokeIdempotencyRef(request),
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<AuthorityLeaseMutationResult>;
+  const result = data.result ?? data.data;
+  if (!response.ok || !result) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "Authority lease revoke receipt was not recorded safely.",
+        ),
+      ),
+    );
+  }
+  return result;
+}
+
 export async function fetchFounderActionsInbox(): Promise<FounderLoopActionsInbox> {
   if (!API_BASE_POLICY.allowed) {
     throw new Error(API_BASE_POLICY.safeMessage);
@@ -3365,6 +3444,20 @@ function memoryFeedbackIdempotencyRef(request: MemoryFeedbackRequest): string {
     ...request.blocked_state_refs,
   ].join("|");
   return `idempotency-ref:control-center-memory-feedback:${safeChatSuffix(request.feedback_kind)}:${safeHashSuffix(refMaterial)}`;
+}
+
+function authorityLeaseIssueIdempotencyRef(
+  request: AuthorityLeaseIssueRequest,
+): string {
+  const refMaterial = stableStringifyForIdempotency(request);
+  return `idempotency-ref:control-center-authority-lease:${safeChatSuffix(request.mode)}:${safeHashSuffix(refMaterial)}`;
+}
+
+function authorityLeaseRevokeIdempotencyRef(
+  request: AuthorityLeaseRevokeRequest,
+): string {
+  const refMaterial = stableStringifyForIdempotency(request);
+  return `idempotency-ref:control-center-authority-revoke:${safeChatSuffix(request.lease_ref)}:${safeHashSuffix(refMaterial)}`;
 }
 
 export async function inspectLocalModelsRoute(): Promise<LocalModelsInspectionStatus> {

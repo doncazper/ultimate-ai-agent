@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  fetchControlCenterSettingsStatus,
   fetchChatTurnReceipt,
   inspectLocalModelsRoute,
+  issueAuthorityLease,
   recordChatHandoff,
   recordChatTurnReceipt,
   requestRedactedLocalChatProbe,
+  revokeAuthorityLease,
 } from "../api/client";
 import { API_ENDPOINTS } from "../api/endpoints";
 import type {
@@ -13,9 +16,12 @@ import type {
   ChatTurnReceipt,
   ChatTurnReceiptRequest,
   ControlCenterData,
+  ControlCenterSettingsStatus,
   ControlCenterSettingsAuthorityPosture,
   ControlCenterSettingsFeatureFlagPosture,
   ControlCenterSettingsKillSwitchPosture,
+  AuthorityLeaseMutationResult,
+  AuthorityTrustMode,
   LocalModelsInspectionStatus,
   ModelProviderControlPlaneReadModel,
   OperatorLoopStepSummary,
@@ -41,6 +47,66 @@ const SETTINGS_AUTHORITY_KEYS = [
   "local_model_lifecycle",
   "platform_capabilities",
 ] as const;
+const DEFAULT_READ_ONLY_LEASE_REF = "authority-lease-ref:default-read-only-session";
+const AUTHORITY_MODE_OPTIONS: Array<{
+  mode: AuthorityTrustMode;
+  label: string;
+  summary: string;
+  requestedDomains: Record<string, string[]>;
+  disabled?: boolean;
+}> = [
+  {
+    mode: "read_only",
+    label: "Read-only",
+    summary: "Workspace and memory inspection, drafts, and prepare-only posture.",
+    requestedDomains: {
+      workspace: ["observe", "read", "draft", "prepare"],
+      memory: ["observe", "read", "draft"],
+    },
+  },
+  {
+    mode: "ask_before_changes",
+    label: "Ask before changes",
+    summary: "Workspace, files, and memory write posture with ask-before-mutation.",
+    requestedDomains: {
+      workspace: ["read", "write", "execute"],
+      files: ["read", "write"],
+      memory: ["read", "write"],
+    },
+  },
+  {
+    mode: "approved_safe_local_work_session",
+    label: "Safe local work",
+    summary: "Exact local workspace read, write, and command execution authority.",
+    requestedDomains: {
+      workspace: ["read", "write", "execute"],
+    },
+  },
+  {
+    mode: "full_local_workspace_session",
+    label: "Full workspace",
+    summary: "Local workspace/files/memory authority; external adapters remain blocked.",
+    requestedDomains: {
+      workspace: ["read", "write", "execute", "commit"],
+      files: ["read", "write", "mutate"],
+      memory: ["read", "write", "mutate"],
+    },
+  },
+  {
+    mode: "full_machine_access_session",
+    label: "Full machine",
+    summary: "Planned until shell, apps, browser, and settings adapters are implemented.",
+    requestedDomains: {},
+    disabled: true,
+  },
+  {
+    mode: "delegated_mission_autonomous_window",
+    label: "Delegated mission",
+    summary: "Planned until browser, payments, apps, and external adapters are implemented.",
+    requestedDomains: {},
+    disabled: true,
+  },
+];
 const TASK_DECOMPOSITION_ROUTE_REFS = [
   "/task-decomposition/status",
   "/task-decomposition/catalog",
@@ -1389,8 +1455,78 @@ export function EvidenceOperatorPanel({ data }: { data: ControlCenterData }) {
 export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   const localModelStep = useOperatorStep(data, "local_model_readiness");
   const taskStep = useOperatorStep(data, "task_decomposition_plan");
-  const settingsStatus = data.settingsStatus;
+  const [settingsSnapshot, setSettingsSnapshot] =
+    useState<ControlCenterSettingsStatus>(data.settingsStatus);
+  const [authorityMutation, setAuthorityMutation] =
+    useState<AuthorityLeaseMutationResult>();
+  const [authorityPendingMode, setAuthorityPendingMode] =
+    useState<AuthorityTrustMode>();
+  const [authorityRevoking, setAuthorityRevoking] = useState(false);
+  const [authorityError, setAuthorityError] = useState<string>();
+  useEffect(() => {
+    setSettingsSnapshot(data.settingsStatus);
+  }, [data.settingsStatus]);
+  const settingsStatus = settingsSnapshot;
   const authorityLeaseState = settingsStatus.authority_lease_state;
+  const revokableLease = authorityLeaseState.active_leases.find(
+    (lease) =>
+      lease.status === "active" && lease.lease_ref !== DEFAULT_READ_ONLY_LEASE_REF,
+  );
+  async function refreshSettingsSnapshot() {
+    const refreshed = await fetchControlCenterSettingsStatus();
+    setSettingsSnapshot(refreshed);
+  }
+  async function handleAuthorityMode(option: (typeof AUTHORITY_MODE_OPTIONS)[number]) {
+    if (option.disabled) {
+      return;
+    }
+    setAuthorityPendingMode(option.mode);
+    setAuthorityError(undefined);
+    try {
+      const result = await issueAuthorityLease({
+        mode: option.mode,
+        scope: "session",
+        requested_domains: option.requestedDomains,
+        decision_reason_ref: `reason-ref:control-center-authority-${option.mode}`,
+        duration_minutes: 120,
+        safe_summary: `Control Center selected ${option.label} authority mode for implemented local domains.`,
+      });
+      setAuthorityMutation(result);
+      await refreshSettingsSnapshot();
+    } catch (error) {
+      setAuthorityError(
+        error instanceof Error
+          ? error.message
+          : "Authority lease receipt was not recorded.",
+      );
+    } finally {
+      setAuthorityPendingMode(undefined);
+    }
+  }
+  async function handleAuthorityRevoke() {
+    if (!revokableLease) {
+      return;
+    }
+    setAuthorityRevoking(true);
+    setAuthorityError(undefined);
+    try {
+      const result = await revokeAuthorityLease({
+        lease_ref: revokableLease.lease_ref,
+        decision_reason_ref: "reason-ref:control-center-authority-revoke",
+        safe_summary: "Control Center revoked the active session authority lease.",
+      });
+      setAuthorityMutation(result);
+      await refreshSettingsSnapshot();
+    } catch (error) {
+      setAuthorityError(
+        error instanceof Error
+          ? error.message
+          : "Authority lease revoke receipt was not recorded.",
+      );
+    } finally {
+      setAuthorityRevoking(false);
+    }
+  }
   const settingsStatusRecord = settingsStatus as unknown as Record<
     string,
     unknown
@@ -1561,6 +1697,64 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
             {authorityLeaseState.policy_outcomes.map((outcome) => (
               <span key={outcome}>{outcome.replaceAll("_", " ")}</span>
             ))}
+          </div>
+          <div
+            className="operator-action-panel"
+            aria-label="Authority mode controls"
+          >
+            <div className="action-button-row">
+              {AUTHORITY_MODE_OPTIONS.map((option) => (
+                <button
+                  className="secondary-button"
+                  disabled={Boolean(option.disabled) || authorityPendingMode !== undefined}
+                  key={option.mode}
+                  onClick={() => void handleAuthorityMode(option)}
+                  type="button"
+                >
+                  {authorityPendingMode === option.mode
+                    ? `Recording ${option.label}`
+                    : option.label}
+                </button>
+              ))}
+            </div>
+            <ul className="compact-list">
+              {AUTHORITY_MODE_OPTIONS.map((option) => (
+                <li key={`${option.mode}-summary`}>
+                  <strong>{option.label}</strong>
+                  <small>{option.summary}</small>
+                </li>
+              ))}
+            </ul>
+            <div className="action-button-row">
+              <button
+                className="secondary-button"
+                disabled={!revokableLease || authorityRevoking}
+                onClick={() => void handleAuthorityRevoke()}
+                type="button"
+              >
+                {authorityRevoking ? "Recording revoke" : "Revoke active lease"}
+              </button>
+            </div>
+            {authorityMutation ? (
+              <div
+                className="note-list"
+                aria-label="Authority lease action result"
+                role="status"
+              >
+                <span>{authorityMutation.receipt.operation}</span>
+                <span>{authorityMutation.receipt.status}</span>
+                <span>{authorityMutation.receipt.receipt_ref}</span>
+                <span>{authorityMutation.receipt.lease_ref}</span>
+                {authorityMutation.receipt.unsupported_adapter_refs.map((ref) => (
+                  <span key={ref}>{ref}</span>
+                ))}
+              </div>
+            ) : null}
+            {authorityError ? (
+              <p className="safe-copy" role="alert">
+                {authorityError}
+              </p>
+            ) : null}
           </div>
         </article>
         <article className="panel">

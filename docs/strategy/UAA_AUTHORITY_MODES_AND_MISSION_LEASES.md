@@ -23,6 +23,8 @@ surfaces are:
 - `POST /api/runtime/authority-leases/revoke`
 - `scripts/dev/uaa_runtime.py select-authority-mode`
 - `scripts/dev/uaa_runtime.py revoke-authority-lease`
+- Control Center `/settings` authority mode controls for implemented local
+  domain subsets and revoke receipts
 
 The first implementation is deliberately conservative: the default active
 lease is read-only; operator-selected session leases persist safe receipts for

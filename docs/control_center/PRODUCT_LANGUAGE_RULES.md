@@ -70,14 +70,15 @@ and kill-switch visibility. Use `POST /api/runtime/authority-leases`,
 `POST /api/runtime/authority-leases/revoke`,
 `scripts/dev/uaa_runtime.py select-authority-mode`, and
 `scripts/dev/uaa_runtime.py revoke-authority-lease` for operator-selected
-session lease receipts. These routes may grant only implemented local domain
-capability subsets; unsupported adapter domains must remain denied or recorded
-as unsupported refs. Governed Runtime command decisions must describe the active
-lease requirement: read-only command status uses `workspace/read`, while
-execution-capable command lanes require `workspace/execute` and an exact
-approval envelope. Provider/model transport must not be described as executable
-from an active lease until a supported provider/model execution lease exists and
-is tested.
+session lease receipts. Control Center `/settings` may issue and revoke only
+implemented local AuthorityLease subsets. These routes and controls may grant
+only implemented local domain capability subsets; unsupported adapter domains
+must remain denied or recorded as unsupported refs. Governed Runtime command
+decisions must describe the active lease requirement: read-only command status
+uses `workspace/read`, while execution-capable command lanes require
+`workspace/execute` and an exact approval envelope. Provider/model transport
+must not be described as executable from an active lease until a supported
+provider/model execution lease exists and is tested.
 
 Required copy distinctions:
 
