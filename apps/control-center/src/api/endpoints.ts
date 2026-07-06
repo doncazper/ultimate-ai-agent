@@ -72,6 +72,7 @@ export const API_ENDPOINTS = {
   runtimeStreamingProgress: "/api/runtime/streaming-progress",
   runtimeProfiles: "/api/runtime/profiles",
   runtimeToolRegistry: "/api/runtime/tool-registry",
+  runtimeVirtualProviderMoa: "/api/runtime/virtual-provider-moa",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
   localModels: "/v1/models",
   localChatCompletions: "/v1/chat/completions",
@@ -217,6 +218,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.runtimeStreamingProgress,
   API_ENDPOINTS.runtimeProfiles,
   API_ENDPOINTS.runtimeToolRegistry,
+  API_ENDPOINTS.runtimeVirtualProviderMoa,
 ] as const;
 
 export function isAllowedReadEndpoint(

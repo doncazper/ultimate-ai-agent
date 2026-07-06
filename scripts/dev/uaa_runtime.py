@@ -42,6 +42,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_session_lineage_read_model,
     build_runtime_streaming_progress_read_model,
     build_runtime_tool_registry_availability_read_model,
+    build_runtime_virtual_provider_moa_read_model,
     build_runtime_action_signed_evidence,
     build_runtime_checkpoint_rollback_read_model,
     build_runtime_context_references_read_model,
@@ -349,6 +350,36 @@ def _print_tool_registry(read_model: dict[str, Any]) -> None:
         )
         print(f"  side_effect={entry['side_effect_class']}")
         print(f"  summary: {entry['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_virtual_provider_moa(read_model: dict[str, Any]) -> None:
+    print("Runtime virtual provider multi-agent posture")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Presets: {read_model['preset_count']}")
+    print(f"Agent slots: {read_model['agent_slot_count']}")
+    print(f"Live fan-out: {read_model['live_model_fanout_enabled']}")
+    print(f"Provider SDK: {read_model['provider_sdk_enabled']}")
+    print("Presets:")
+    for preset in read_model["presets"]:
+        print(
+            f"- {preset['display_label']}: "
+            f"status={preset['status']} slots={preset['slot_count']}"
+        )
+        print(f"  approval={preset['approval_mode_ref']}")
+        print(f"  trace={preset['route_decision_trace_ref']}")
+        print(f"  summary: {preset['safe_summary']}")
+        for slot in preset["slots"]:
+            print(
+                f"  - {slot['display_label']}: role={slot['role']} "
+                f"runtime={slot['runtime_ref']}"
+            )
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -819,6 +850,34 @@ def _inspect_tool_registry(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_tool_registry(read_model)
+    return 0
+
+
+def _inspect_virtual_provider_moa(args: argparse.Namespace) -> int:
+    read_model = build_runtime_virtual_provider_moa_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-virtual-provider-moa",
+        "runtime_virtual_provider_moa": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_prompts_omitted": True,
+        "raw_responses_omitted": True,
+        "provider_payloads_omitted": True,
+        "advisor_prompts_omitted": True,
+        "agent_outputs_omitted": True,
+        "live_model_fanout_performed": False,
+        "provider_sdk_call_performed": False,
+        "external_runtime_dispatch_performed": False,
+        "hidden_advisor_prompt_used": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_virtual_provider_moa(read_model)
     return 0
 
 
@@ -1736,6 +1795,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref runtime tool registry read model as JSON.",
     )
     tool_registry.set_defaults(func=_inspect_tool_registry)
+
+    virtual_provider_moa = subparsers.add_parser(
+        "inspect-virtual-provider-moa",
+        help="Inspect virtual multi-agent provider presets without fan-out.",
+    )
+    virtual_provider_moa.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref virtual provider preset read model as JSON.",
+    )
+    virtual_provider_moa.set_defaults(func=_inspect_virtual_provider_moa)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",

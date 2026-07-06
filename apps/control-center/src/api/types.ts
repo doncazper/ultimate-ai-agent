@@ -9172,6 +9172,104 @@ export interface RuntimeToolRegistryAvailabilityReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeVirtualAgentRole =
+  | "codex_implementer"
+  | "claude_reviewer"
+  | "hermes_researcher"
+  | "local_verifier"
+  | "uaa_supervisor"
+  | "security_reviewer";
+
+export type RuntimeVirtualProviderPresetStatus =
+  | "metadata_only"
+  | "readiness_only"
+  | "blocked_requires_authority";
+
+export interface RuntimeVirtualAgentSlot {
+  slot_ref: string;
+  display_label: string;
+  role: RuntimeVirtualAgentRole;
+  runtime_ref: string;
+  provider_ref: string;
+  model_ref: string;
+  authority_profile_ref: string;
+  route_decision_trace_ref: string;
+  cost_estimate_ref: string;
+  output_envelope_ref: string;
+  comparison_proof_ref: string;
+  safe_disable_ref: string;
+  safe_summary: string;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  configured_for_live_call: boolean;
+  provider_sdk_call_enabled: boolean;
+  external_runtime_dispatch_enabled: boolean;
+  hidden_advisor_prompt_enabled: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  output_authoritative: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface RuntimeVirtualProviderPreset {
+  preset_ref: string;
+  display_label: string;
+  status: RuntimeVirtualProviderPresetStatus;
+  safe_summary: string;
+  approval_mode_ref: string;
+  route_decision_trace_ref: string;
+  cost_estimate_ref: string;
+  comparison_proof_ref: string;
+  safe_disable_ref: string;
+  slots: RuntimeVirtualAgentSlot[];
+  slot_count: number;
+  proof_refs: string[];
+  evidence_refs: string[];
+  verifier_refs: string[];
+  blocked_authority_refs: string[];
+  per_agent_output_envelopes_required: boolean;
+  comparison_proof_required: boolean;
+  live_model_fanout_enabled: boolean;
+  provider_sdk_enabled: boolean;
+  external_runtime_dispatch_enabled: boolean;
+  hidden_advisor_prompts_enabled: boolean;
+  raw_prompt_persistence_enabled: boolean;
+  raw_response_persistence_enabled: boolean;
+  output_authority_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface RuntimeVirtualProviderMoaReadModel {
+  schema_version: "runtime_virtual_provider_moa.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  presets: RuntimeVirtualProviderPreset[];
+  preset_count: number;
+  agent_slot_count: number;
+  ready_preset_count: number;
+  blocked_preset_count: number;
+  live_model_fanout_enabled: boolean;
+  provider_sdk_enabled: boolean;
+  external_runtime_dispatch_enabled: boolean;
+  hidden_advisor_prompts_enabled: boolean;
+  raw_prompt_persistence_enabled: boolean;
+  raw_response_persistence_enabled: boolean;
+  output_authority_enabled: boolean;
+  production_authority_enabled: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -10318,6 +10416,7 @@ export interface ControlCenterData {
   runtimeStreamingProgress: RuntimeStreamingProgressReadModel;
   runtimeProfiles: RuntimeProfileIsolationReadModel;
   runtimeToolRegistry: RuntimeToolRegistryAvailabilityReadModel;
+  runtimeVirtualProviderMoa: RuntimeVirtualProviderMoaReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

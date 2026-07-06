@@ -38,6 +38,8 @@ import type {
   ConnectorDeliveryReviewQueue,
   RunAttachedApprovalQueue,
   RunObservabilityReadModel,
+  RuntimeVirtualAgentSlot,
+  RuntimeVirtualProviderPreset,
   RuntimeToolRegistryEntry,
   TrustAuthorityMatrix,
   WorkBoardReadModel,
@@ -266,6 +268,162 @@ const runtimeToolRegistryEntries: RuntimeToolRegistryEntry[] = [
     blocked_authority_refs: [
       "blocked-authority:runtime-production-authority",
       "blocked-authority:runtime-remote-execution",
+    ],
+  }),
+];
+
+const virtualProviderMoaBlockedRefs = [
+  "blocked-authority:virtual-provider-moa-no-live-model-fanout",
+  "blocked-authority:virtual-provider-moa-no-provider-sdk-call",
+  "blocked-authority:virtual-provider-moa-no-external-runtime-dispatch",
+  "blocked-authority:virtual-provider-moa-no-hidden-advisor-prompts",
+  "blocked-authority:virtual-provider-moa-no-output-authority",
+  "blocked-authority:virtual-provider-moa-no-production-authority",
+];
+
+function virtualProviderSlot(
+  slug: string,
+  overrides: Partial<RuntimeVirtualAgentSlot>,
+): RuntimeVirtualAgentSlot {
+  return {
+    slot_ref: `virtual-agent-slot-ref:mock:${slug}`,
+    display_label: slug
+      .split("-")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" "),
+    role: "uaa_supervisor",
+    runtime_ref: `runtime-ref:mock:${slug}`,
+    provider_ref: `provider-ref:mock:${slug}`,
+    model_ref: `model-ref:mock:${slug}`,
+    authority_profile_ref: `authority-profile-ref:virtual-agent-slot:${slug}:blocked`,
+    route_decision_trace_ref: `route-decision-trace-ref:virtual-provider-moa:${slug}`,
+    cost_estimate_ref: `cost-estimate-ref:virtual-provider-moa:${slug}:not-executed`,
+    output_envelope_ref: `agent-output-envelope-ref:virtual-provider-moa:${slug}:required`,
+    comparison_proof_ref: `comparison-proof-ref:virtual-provider-moa:${slug}:required`,
+    safe_disable_ref: `safe-disable-ref:virtual-provider-moa:${slug}`,
+    safe_summary:
+      "Mock virtual agent slot is non-authoritative metadata and cannot call models.",
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-20:virtual-provider-moa"],
+    evidence_refs: [`evidence-ref:virtual-provider-moa:${slug}`],
+    blocked_authority_refs: virtualProviderMoaBlockedRefs,
+    configured_for_live_call: false,
+    provider_sdk_call_enabled: false,
+    external_runtime_dispatch_enabled: false,
+    hidden_advisor_prompt_enabled: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    output_authoritative: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+function virtualProviderPreset(
+  slug: string,
+  overrides: Partial<RuntimeVirtualProviderPreset>,
+): RuntimeVirtualProviderPreset {
+  const slots = overrides.slots ?? [];
+  return {
+    preset_ref: `virtual-provider-preset-ref:mock:${slug}`,
+    display_label: slug
+      .split("-")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" "),
+    status: "metadata_only",
+    safe_summary:
+      "Mock virtual provider preset is non-authoritative; model fan-out remains blocked.",
+    approval_mode_ref: `approval-mode-ref:virtual-provider-moa:${slug}:future`,
+    route_decision_trace_ref: `route-decision-trace-ref:virtual-provider-moa:${slug}`,
+    cost_estimate_ref: `cost-estimate-ref:virtual-provider-moa:${slug}:aggregate`,
+    comparison_proof_ref: `comparison-proof-ref:virtual-provider-moa:${slug}`,
+    safe_disable_ref: `safe-disable-ref:virtual-provider-moa:${slug}`,
+    slots,
+    slot_count: slots.length,
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-20:virtual-provider-moa"],
+    evidence_refs: [`evidence-ref:virtual-provider-moa:${slug}`],
+    verifier_refs: ["verifier-ref:hermes-runtime-adoption:phase-20"],
+    blocked_authority_refs: virtualProviderMoaBlockedRefs,
+    per_agent_output_envelopes_required: true,
+    comparison_proof_required: true,
+    live_model_fanout_enabled: false,
+    provider_sdk_enabled: false,
+    external_runtime_dispatch_enabled: false,
+    hidden_advisor_prompts_enabled: false,
+    raw_prompt_persistence_enabled: false,
+    raw_response_persistence_enabled: false,
+    output_authority_enabled: false,
+    production_authority_enabled: false,
+    ...overrides,
+  };
+}
+
+const runtimeVirtualProviderMoaPresets: RuntimeVirtualProviderPreset[] = [
+  virtualProviderPreset("codex-implement-claude-review", {
+    display_label: "Codex implementer plus Claude reviewer",
+    status: "readiness_only",
+    safe_summary:
+      "Mock fallback models a future Codex implementation branch with Claude review and UAA supervision; no calls are made.",
+    slots: [
+      virtualProviderSlot("codex-implementer", {
+        display_label: "Codex implementer",
+        role: "codex_implementer",
+        runtime_ref: "runtime-ref:codex:future-governed-adapter",
+        provider_ref: "provider-ref:codex:external-future",
+        model_ref: "model-ref:codex:implementation-role",
+      }),
+      virtualProviderSlot("claude-reviewer", {
+        display_label: "Claude reviewer",
+        role: "claude_reviewer",
+        runtime_ref: "runtime-ref:claude:future-governed-adapter",
+        provider_ref: "provider-ref:anthropic:external-future",
+        model_ref: "model-ref:claude:review-role",
+      }),
+      virtualProviderSlot("uaa-supervisor-coding", {
+        display_label: "UAA supervisor",
+        role: "uaa_supervisor",
+        runtime_ref: "runtime-ref:uaa:local-supervisor",
+        provider_ref: "provider-ref:uaa:python-core",
+        model_ref: "model-ref:uaa:policy-supervisor",
+      }),
+    ],
+  }),
+  virtualProviderPreset("hermes-research-local-verify", {
+    display_label: "Hermes researcher plus local verifier",
+    slots: [
+      virtualProviderSlot("hermes-researcher", {
+        display_label: "Hermes researcher",
+        role: "hermes_researcher",
+        runtime_ref: "runtime-ref:hermes-agent:optional-target",
+        provider_ref: "provider-ref:hermes:delegated-runtime",
+        model_ref: "model-ref:hermes:research-role",
+      }),
+      virtualProviderSlot("local-verifier", {
+        display_label: "Local verifier",
+        role: "local_verifier",
+        runtime_ref: "runtime-ref:uaa:local-verifier",
+        provider_ref: "provider-ref:uaa:python-core",
+        model_ref: "model-ref:uaa:verifier-role",
+      }),
+    ],
+  }),
+  virtualProviderPreset("security-review-board", {
+    display_label: "Security review board",
+    status: "blocked_requires_authority",
+    slots: [
+      virtualProviderSlot("security-reviewer", {
+        display_label: "Security reviewer",
+        role: "security_reviewer",
+        runtime_ref: "runtime-ref:security-reviewer:future",
+        provider_ref: "provider-ref:security-reviewer:future",
+        model_ref: "model-ref:security-reviewer:future",
+      }),
+      virtualProviderSlot("uaa-safety-supervisor", {
+        display_label: "UAA safety supervisor",
+        role: "uaa_supervisor",
+        runtime_ref: "runtime-ref:uaa:safety-supervisor",
+        provider_ref: "provider-ref:uaa:python-core",
+        model_ref: "model-ref:uaa:safety-supervisor",
+      }),
     ],
   }),
 ];
@@ -11362,6 +11520,55 @@ export const mockControlCenterData: ControlCenterData = {
       "prompt_content_omitted",
       "response_content_omitted",
       "tool_payload_omitted",
+    ],
+  },
+  runtimeVirtualProviderMoa: {
+    schema_version: "runtime_virtual_provider_moa.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-virtual-provider-moa:v1",
+    status: "read_only_virtual_provider_preset_posture",
+    snapshot_ref: "virtual-provider-moa-snapshot-ref:runtime:mock-presets",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-virtual-provider-moa:mock",
+    route_ref: "GET /api/runtime/virtual-provider-moa",
+    cli_ref: "uaa runtime inspect-virtual-provider-moa",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime virtual provider mock fallback shows multi-agent preset metadata only; model fan-out remains blocked.",
+    presets: runtimeVirtualProviderMoaPresets,
+    preset_count: runtimeVirtualProviderMoaPresets.length,
+    agent_slot_count: runtimeVirtualProviderMoaPresets.reduce(
+      (count, preset) => count + preset.slot_count,
+      0,
+    ),
+    ready_preset_count: runtimeVirtualProviderMoaPresets.filter(
+      (preset) => preset.status === "readiness_only",
+    ).length,
+    blocked_preset_count: runtimeVirtualProviderMoaPresets.filter(
+      (preset) => preset.status === "blocked_requires_authority",
+    ).length,
+    live_model_fanout_enabled: false,
+    provider_sdk_enabled: false,
+    external_runtime_dispatch_enabled: false,
+    hidden_advisor_prompts_enabled: false,
+    raw_prompt_persistence_enabled: false,
+    raw_response_persistence_enabled: false,
+    output_authority_enabled: false,
+    production_authority_enabled: false,
+    blocked_authority_refs: virtualProviderMoaBlockedRefs,
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-20:virtual-provider-moa"],
+    verifier_refs: ["verifier-ref:hermes-runtime-adoption:phase-20"],
+    next_safe_action_refs: [
+      "next-safe-action-ref:virtual-provider-moa:inspect-presets",
+      "next-safe-action-ref:virtual-provider-moa:bind-route-decision-trace",
+      "next-safe-action-ref:virtual-provider-moa:keep-live-fanout-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "provider_payloads_omitted",
+      "advisor_prompts_omitted",
+      "agent_outputs_omitted",
     ],
   },
   runtimeApprovalBridge: {
