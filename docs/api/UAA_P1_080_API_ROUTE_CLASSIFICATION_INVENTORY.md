@@ -26,11 +26,11 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 133 |
+| `local_sensitive` | 134 |
 | `mutating_requires_authority` | 42 |
 
-The current OpenAPI path count is `204` and `/api/manifest` currently reports
-`205` route operations after later scoped FCC-V1-003 through
+The current OpenAPI path count is `205` and `/api/manifest` currently reports
+`206` route operations after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
@@ -57,7 +57,8 @@ loopback model receipt, exact read-only command status receipt, exact Action
 Inbox approved focused pytest command receipt, blocked receipt, and safe-disable
 routes, plus the no-effect Turn Contract Router preview diagnostic route, plus
 the CRM Local Command Center M2 read routes and exact local mutation receipt
-route, plus the governed runtime capability-discovery inspection route.
+route, plus the governed runtime capability-discovery and run-events
+inspection routes.
 Governed runtime pilot Phase 08 includes backend-owned parity-loop inspection
 over prepared-turn, route-binding, durable-run, staged orchestration,
 role-provider, Action Inbox, receipt, signed-evidence, and blocked-state refs.

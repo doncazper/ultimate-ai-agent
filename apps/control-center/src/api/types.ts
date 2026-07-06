@@ -8802,6 +8802,122 @@ export interface RuntimeCapabilityDiscoveryReadModel {
   redactions_applied: string[];
 }
 
+export interface RuntimeRunLifecycleMapping {
+  runtime_state:
+    | "proposed"
+    | "approval_wait"
+    | "queued"
+    | "running"
+    | "stopping"
+    | "cancelled"
+    | "failed"
+    | "completed"
+    | "blocked"
+    | "unknown_stale";
+  uaa_durable_run_state:
+    | "proposed"
+    | "approval_wait"
+    | "queued"
+    | "running"
+    | "cancellation_requested"
+    | "cancelled"
+    | "failed"
+    | "completed"
+    | "blocked"
+    | "stale_unknown";
+  operator_label: string;
+  safe_summary: string;
+  receipt_required_before_claim: boolean;
+}
+
+export interface RuntimeRunEventRefGrammar {
+  grammar_ref: string;
+  event_ref_prefix: string;
+  required_bindings: string[];
+  safe_summary: string;
+}
+
+export interface RuntimeRunEventPreview {
+  event_ref: string;
+  event_kind:
+    | "run_proposed"
+    | "approval_wait_entered"
+    | "event_stream_preview"
+    | "stop_requested_preview"
+    | "proof_bound";
+  runtime_run_ref: string;
+  uaa_durable_run_ref: string;
+  proof_ref: string;
+  redaction_status: string;
+  safe_summary: string;
+  runtime_payload_persisted: boolean;
+  raw_log_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+}
+
+export interface RuntimeRunProposalReadModel {
+  proposal_ref: string;
+  runtime_run_ref: string;
+  uaa_durable_run_ref: string;
+  runtime_state: string;
+  uaa_durable_run_state: string;
+  create_posture: string;
+  stop_posture: string;
+  approval_resolution_posture: string;
+  event_stream_posture: string;
+  create_run_enabled: boolean;
+  stop_run_enabled: boolean;
+  approval_resolution_enabled: boolean;
+  live_event_stream_enabled: boolean;
+  retry_recovery_enabled: boolean;
+  cancellation_proof_required: boolean;
+  event_refs: string[];
+  proof_refs: string[];
+  receipt_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  safe_summary: string;
+}
+
+export interface RuntimeRunEventsReadModel {
+  schema_version: "runtime_run_events.v1";
+  contract_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  runtime_identity_ref: string;
+  adapter_ref: string;
+  status: string;
+  lifecycle_mappings: RuntimeRunLifecycleMapping[];
+  event_ref_grammar: RuntimeRunEventRefGrammar;
+  run_proposals: RuntimeRunProposalReadModel[];
+  event_previews: RuntimeRunEventPreview[];
+  proposal_count: number;
+  approval_wait_count: number;
+  completed_run_count: number;
+  create_run_route_enabled: boolean;
+  stop_run_route_enabled: boolean;
+  approval_resolution_route_enabled: boolean;
+  live_event_stream_enabled: boolean;
+  uaa_controls_authority: boolean;
+  control_center_talks_directly_to_runtime: boolean;
+  no_mutation_routes_registered: boolean;
+  safe_refs_only: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  raw_provider_payload_persisted: boolean;
+  raw_runtime_payload_persisted: boolean;
+  raw_log_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  credential_material_persisted: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  next_safe_action_refs: string[];
+  safe_summary: string;
+  redactions_applied: string[];
+}
+
 export type OperatorRouteInspectionState =
   "checking" | "ready" | "blocked" | "denied" | "degraded" | "unavailable";
 
@@ -9552,6 +9668,7 @@ export interface ControlCenterData {
   capabilityMatrix: RuntimeCapabilityMatrix;
   runtimeDelegationAdapter: RuntimeDelegationAdapterReadModel;
   runtimeCapabilityDiscovery: RuntimeCapabilityDiscoveryReadModel;
+  runtimeRunEvents: RuntimeRunEventsReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

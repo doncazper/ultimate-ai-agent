@@ -1,0 +1,511 @@
+from __future__ import annotations
+
+from enum import Enum
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from ultimate_ai_agent.core.execution.validation import (
+    validate_execution_ref,
+    validate_safe_execution_text,
+)
+from ultimate_ai_agent.core.runtime_gateway.contracts import (
+    GOVERNED_RUNTIME_REDACTIONS,
+    GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS,
+)
+from ultimate_ai_agent.core.runtime_gateway.delegation import (
+    RUNTIME_DELEGATION_CONTROL_CENTER_REF,
+)
+
+
+RUNTIME_RUN_EVENTS_CONTRACT_REF = "contract-ref:runtime-run-events:v1"
+RUNTIME_RUN_EVENTS_ROUTE_REF = "GET /api/runtime/run-events"
+RUNTIME_RUN_EVENTS_CLI_REF = "uaa runtime inspect-run-events"
+RUNTIME_RUN_EVENTS_SAMPLE_RUN_REF = (
+    "runtime-run-ref:hermes-agent:proposal:approval-wait-sample"
+)
+RUNTIME_RUN_EVENTS_SAMPLE_DURABLE_RUN_REF = (
+    "durable-run-ref:runtime-delegation:approval-wait-sample"
+)
+
+
+class RuntimeExternalRunLifecycleState(str, Enum):
+    proposed = "proposed"
+    approval_wait = "approval_wait"
+    queued = "queued"
+    running = "running"
+    stopping = "stopping"
+    cancelled = "cancelled"
+    failed = "failed"
+    completed = "completed"
+    blocked = "blocked"
+    unknown_stale = "unknown_stale"
+
+
+class RuntimeUaaDurableRunState(str, Enum):
+    proposed = "proposed"
+    approval_wait = "approval_wait"
+    queued = "queued"
+    running = "running"
+    cancellation_requested = "cancellation_requested"
+    cancelled = "cancelled"
+    failed = "failed"
+    completed = "completed"
+    blocked = "blocked"
+    stale_unknown = "stale_unknown"
+
+
+class RuntimeRunControlPosture(str, Enum):
+    read_model_only = "read_model_only"
+    blocked = "blocked"
+    approval_required_future_lane = "approval_required_future_lane"
+
+
+class RuntimeRunEventKind(str, Enum):
+    run_proposed = "run_proposed"
+    approval_wait_entered = "approval_wait_entered"
+    event_stream_preview = "event_stream_preview"
+    stop_requested_preview = "stop_requested_preview"
+    proof_bound = "proof_bound"
+
+
+class RuntimeRunLifecycleMapping(BaseModel):
+    runtime_state: RuntimeExternalRunLifecycleState
+    uaa_durable_run_state: RuntimeUaaDurableRunState
+    operator_label: str
+    safe_summary: str
+    receipt_required_before_claim: bool = True
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_mapping(self) -> "RuntimeRunLifecycleMapping":
+        validate_safe_execution_text(self.operator_label, "operator_label")
+        validate_safe_execution_text(self.safe_summary, "safe_summary")
+        if not self.receipt_required_before_claim:
+            raise ValueError("RUNTIME_RUN_EVENT_RECEIPT_REQUIRED_BEFORE_CLAIM")
+        return self
+
+
+class RuntimeRunEventRefGrammar(BaseModel):
+    grammar_ref: str = "event-grammar-ref:runtime-run-events:v1"
+    event_ref_prefix: str = "runtime-run-event-ref:"
+    required_bindings: list[str] = Field(
+        default_factory=lambda: [
+            "runtime_run_ref",
+            "uaa_durable_run_ref",
+            "proof_ref",
+            "redaction_status",
+        ]
+    )
+    safe_summary: str = (
+        "Runtime event refs bind a delegated runtime run to a UAA durable run, "
+        "proof ref, and redaction status without storing runtime payloads."
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_grammar(self) -> "RuntimeRunEventRefGrammar":
+        validate_execution_ref(self.grammar_ref, "grammar_ref")
+        validate_safe_execution_text(self.event_ref_prefix, "event_ref_prefix")
+        validate_safe_execution_text(self.safe_summary, "safe_summary")
+        for binding in self.required_bindings:
+            validate_safe_execution_text(binding, "required_bindings")
+        return self
+
+
+class RuntimeRunEventPreview(BaseModel):
+    event_ref: str
+    event_kind: RuntimeRunEventKind
+    runtime_run_ref: str
+    uaa_durable_run_ref: str
+    proof_ref: str
+    redaction_status: str = "redacted_safe_ref_only"
+    safe_summary: str
+    runtime_payload_persisted: bool = False
+    raw_log_persisted: bool = False
+    raw_prompt_persisted: bool = False
+    raw_response_persisted: bool = False
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_event(self) -> "RuntimeRunEventPreview":
+        for value, field_name in [
+            (self.event_ref, "event_ref"),
+            (self.runtime_run_ref, "runtime_run_ref"),
+            (self.uaa_durable_run_ref, "uaa_durable_run_ref"),
+            (self.proof_ref, "proof_ref"),
+        ]:
+            validate_execution_ref(value, field_name)
+        validate_safe_execution_text(self.redaction_status, "redaction_status")
+        validate_safe_execution_text(self.safe_summary, "safe_summary")
+        if any(
+            (
+                self.runtime_payload_persisted,
+                self.raw_log_persisted,
+                self.raw_prompt_persisted,
+                self.raw_response_persisted,
+            )
+        ):
+            raise ValueError("RUNTIME_RUN_EVENT_RAW_PERSISTENCE_DENIED")
+        return self
+
+
+class RuntimeRunProposalReadModel(BaseModel):
+    proposal_ref: str
+    runtime_run_ref: str
+    uaa_durable_run_ref: str
+    runtime_state: RuntimeExternalRunLifecycleState
+    uaa_durable_run_state: RuntimeUaaDurableRunState
+    create_posture: RuntimeRunControlPosture = RuntimeRunControlPosture.blocked
+    stop_posture: RuntimeRunControlPosture = RuntimeRunControlPosture.blocked
+    approval_resolution_posture: RuntimeRunControlPosture = (
+        RuntimeRunControlPosture.approval_required_future_lane
+    )
+    event_stream_posture: RuntimeRunControlPosture = (
+        RuntimeRunControlPosture.read_model_only
+    )
+    create_run_enabled: bool = False
+    stop_run_enabled: bool = False
+    approval_resolution_enabled: bool = False
+    live_event_stream_enabled: bool = False
+    retry_recovery_enabled: bool = False
+    cancellation_proof_required: bool = True
+    event_refs: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    receipt_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    next_safe_action_refs: list[str] = Field(default_factory=list)
+    safe_summary: str
+
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_proposal(self) -> "RuntimeRunProposalReadModel":
+        for value, field_name in [
+            (self.proposal_ref, "proposal_ref"),
+            (self.runtime_run_ref, "runtime_run_ref"),
+            (self.uaa_durable_run_ref, "uaa_durable_run_ref"),
+        ]:
+            validate_execution_ref(value, field_name)
+        for field_name in (
+            "event_refs",
+            "proof_refs",
+            "receipt_refs",
+            "blocked_authority_refs",
+            "next_safe_action_refs",
+        ):
+            for ref in getattr(self, field_name):
+                validate_execution_ref(ref, field_name)
+        validate_safe_execution_text(self.safe_summary, "safe_summary")
+        if self.uaa_durable_run_state == RuntimeUaaDurableRunState.completed.value:
+            raise ValueError("RUNTIME_RUN_EVENT_FAKE_COMPLETION_DENIED")
+        denied_flags = {
+            "create_run_enabled": self.create_run_enabled,
+            "stop_run_enabled": self.stop_run_enabled,
+            "approval_resolution_enabled": self.approval_resolution_enabled,
+            "live_event_stream_enabled": self.live_event_stream_enabled,
+            "retry_recovery_enabled": self.retry_recovery_enabled,
+        }
+        enabled = [name for name, value in denied_flags.items() if value]
+        if enabled:
+            raise ValueError(
+                "RUNTIME_RUN_EVENT_MUTATION_AUTHORITY_DENIED: " + ", ".join(enabled)
+            )
+        if not self.cancellation_proof_required:
+            raise ValueError("RUNTIME_RUN_EVENT_CANCELLATION_PROOF_REQUIRED")
+        return self
+
+
+class RuntimeRunEventsReadModel(BaseModel):
+    schema_version: str = "runtime_run_events.v1"
+    contract_ref: str = RUNTIME_RUN_EVENTS_CONTRACT_REF
+    route_ref: str = RUNTIME_RUN_EVENTS_ROUTE_REF
+    cli_ref: str = RUNTIME_RUN_EVENTS_CLI_REF
+    control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
+    runtime_identity_ref: str = "runtime-identity-ref:hermes-agent:optional-target"
+    adapter_ref: str = "runtime-delegation-adapter:hermes-agent"
+    status: str = "proposal_read_model_only"
+    lifecycle_mappings: list[RuntimeRunLifecycleMapping]
+    event_ref_grammar: RuntimeRunEventRefGrammar = Field(
+        default_factory=RuntimeRunEventRefGrammar
+    )
+    run_proposals: list[RuntimeRunProposalReadModel]
+    event_previews: list[RuntimeRunEventPreview]
+    proposal_count: int
+    approval_wait_count: int
+    completed_run_count: int = 0
+    create_run_route_enabled: bool = False
+    stop_run_route_enabled: bool = False
+    approval_resolution_route_enabled: bool = False
+    live_event_stream_enabled: bool = False
+    uaa_controls_authority: bool = True
+    control_center_talks_directly_to_runtime: bool = False
+    no_mutation_routes_registered: bool = True
+    safe_refs_only: bool = True
+    raw_prompt_persisted: bool = False
+    raw_response_persisted: bool = False
+    raw_provider_payload_persisted: bool = False
+    raw_runtime_payload_persisted: bool = False
+    raw_log_persisted: bool = False
+    raw_local_path_persisted: bool = False
+    credential_material_persisted: bool = False
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    next_safe_action_refs: list[str] = Field(default_factory=list)
+    safe_summary: str = (
+        "Runtime runs, events, stop posture, and approval waits are UAA-owned "
+        "proposal/read models only; no delegated runtime run is created or stopped."
+    )
+    redactions_applied: list[str] = Field(
+        default_factory=lambda: list(GOVERNED_RUNTIME_REDACTIONS)
+        + ["runtime_event_payload_omitted"]
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_read_model(self) -> "RuntimeRunEventsReadModel":
+        for value, field_name in [
+            (self.contract_ref, "contract_ref"),
+            (self.control_center_ref, "control_center_ref"),
+            (self.runtime_identity_ref, "runtime_identity_ref"),
+            (self.adapter_ref, "adapter_ref"),
+        ]:
+            validate_execution_ref(value, field_name)
+        for value, field_name in [
+            (self.schema_version, "schema_version"),
+            (self.route_ref, "route_ref"),
+            (self.cli_ref, "cli_ref"),
+            (self.status, "status"),
+            (self.safe_summary, "safe_summary"),
+        ]:
+            validate_safe_execution_text(value, field_name)
+        for field_name in (
+            "blocked_authority_refs",
+            "proof_refs",
+            "next_safe_action_refs",
+        ):
+            for ref in getattr(self, field_name):
+                validate_execution_ref(ref, field_name)
+        if self.proposal_count != len(self.run_proposals):
+            raise ValueError("RUNTIME_RUN_EVENT_PROPOSAL_COUNT_DRIFT")
+        expected_approval_wait = sum(
+            1
+            for proposal in self.run_proposals
+            if proposal.uaa_durable_run_state
+            == RuntimeUaaDurableRunState.approval_wait.value
+        )
+        if self.approval_wait_count != expected_approval_wait:
+            raise ValueError("RUNTIME_RUN_EVENT_APPROVAL_WAIT_COUNT_DRIFT")
+        if self.completed_run_count != 0:
+            raise ValueError("RUNTIME_RUN_EVENT_FAKE_COMPLETION_DENIED")
+        denied_flags = {
+            "create_run_route_enabled": self.create_run_route_enabled,
+            "stop_run_route_enabled": self.stop_run_route_enabled,
+            "approval_resolution_route_enabled": self.approval_resolution_route_enabled,
+            "live_event_stream_enabled": self.live_event_stream_enabled,
+            "control_center_talks_directly_to_runtime": (
+                self.control_center_talks_directly_to_runtime
+            ),
+            "raw_prompt_persisted": self.raw_prompt_persisted,
+            "raw_response_persisted": self.raw_response_persisted,
+            "raw_provider_payload_persisted": self.raw_provider_payload_persisted,
+            "raw_runtime_payload_persisted": self.raw_runtime_payload_persisted,
+            "raw_log_persisted": self.raw_log_persisted,
+            "raw_local_path_persisted": self.raw_local_path_persisted,
+            "credential_material_persisted": self.credential_material_persisted,
+        }
+        enabled = [name for name, value in denied_flags.items() if value]
+        if enabled:
+            raise ValueError(
+                "RUNTIME_RUN_EVENT_UNSAFE_AUTHORITY_DENIED: " + ", ".join(enabled)
+            )
+        if not self.uaa_controls_authority:
+            raise ValueError("RUNTIME_RUN_EVENT_UAA_AUTHORITY_REQUIRED")
+        if not self.no_mutation_routes_registered:
+            raise ValueError("RUNTIME_RUN_EVENT_MUTATION_ROUTE_DENIED")
+        if not self.safe_refs_only:
+            raise ValueError("RUNTIME_RUN_EVENT_SAFE_REFS_REQUIRED")
+        return self
+
+
+def _mapping(
+    runtime_state: RuntimeExternalRunLifecycleState,
+    uaa_state: RuntimeUaaDurableRunState,
+    label: str,
+    summary: str,
+) -> RuntimeRunLifecycleMapping:
+    return RuntimeRunLifecycleMapping(
+        runtime_state=runtime_state,
+        uaa_durable_run_state=uaa_state,
+        operator_label=label,
+        safe_summary=summary,
+    )
+
+
+def _sample_events() -> list[RuntimeRunEventPreview]:
+    run_ref = RUNTIME_RUN_EVENTS_SAMPLE_RUN_REF
+    durable_ref = RUNTIME_RUN_EVENTS_SAMPLE_DURABLE_RUN_REF
+    return [
+        RuntimeRunEventPreview(
+            event_ref="runtime-run-event-ref:hermes-agent:proposal-created",
+            event_kind=RuntimeRunEventKind.run_proposed,
+            runtime_run_ref=run_ref,
+            uaa_durable_run_ref=durable_ref,
+            proof_ref="proof-ref:runtime-run-events:proposal-created",
+            safe_summary=(
+                "UAA can represent a delegated runtime run proposal without "
+                "submitting it to the runtime."
+            ),
+        ),
+        RuntimeRunEventPreview(
+            event_ref="runtime-run-event-ref:hermes-agent:approval-wait-entered",
+            event_kind=RuntimeRunEventKind.approval_wait_entered,
+            runtime_run_ref=run_ref,
+            uaa_durable_run_ref=durable_ref,
+            proof_ref="proof-ref:runtime-run-events:approval-wait",
+            safe_summary=(
+                "Approval-wait state is visible as proposal metadata; resolving "
+                "the wait remains blocked until an exact approval lane exists."
+            ),
+        ),
+        RuntimeRunEventPreview(
+            event_ref="runtime-run-event-ref:hermes-agent:stop-preview-blocked",
+            event_kind=RuntimeRunEventKind.stop_requested_preview,
+            runtime_run_ref=run_ref,
+            uaa_durable_run_ref=durable_ref,
+            proof_ref="proof-ref:runtime-run-events:stop-posture",
+            safe_summary=(
+                "Stop posture is represented as a blocked/proof-required preview, "
+                "not an executable runtime stop."
+            ),
+        ),
+    ]
+
+
+def build_runtime_run_events_read_model() -> RuntimeRunEventsReadModel:
+    events = _sample_events()
+    proposal = RuntimeRunProposalReadModel(
+        proposal_ref="runtime-run-proposal-ref:hermes-agent:approval-wait-sample",
+        runtime_run_ref=RUNTIME_RUN_EVENTS_SAMPLE_RUN_REF,
+        uaa_durable_run_ref=RUNTIME_RUN_EVENTS_SAMPLE_DURABLE_RUN_REF,
+        runtime_state=RuntimeExternalRunLifecycleState.approval_wait,
+        uaa_durable_run_state=RuntimeUaaDurableRunState.approval_wait,
+        event_refs=[event.event_ref for event in events],
+        proof_refs=[
+            "proof-ref:runtime-run-events:lifecycle-mapping",
+            "proof-ref:runtime-run-events:approval-wait",
+            "proof-ref:runtime-run-events:stop-posture",
+        ],
+        receipt_refs=[
+            "receipt-plan-ref:runtime-run-events:create-run-future",
+            "receipt-plan-ref:runtime-run-events:stop-future",
+            "receipt-plan-ref:runtime-run-events:approval-resolution-future",
+        ],
+        blocked_authority_refs=[
+            *GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS,
+            "blocked-authority:runtime-run-create-route",
+            "blocked-authority:runtime-run-stop-execution",
+            "blocked-authority:runtime-run-approval-resolution",
+            "blocked-authority:runtime-run-live-event-stream",
+        ],
+        next_safe_action_refs=[
+            "next-safe-action-ref:runtime-run-events:bind-idempotent-create-approval",
+            "next-safe-action-ref:runtime-run-events:add-redacted-event-stream",
+            "next-safe-action-ref:runtime-run-events:prove-cancellation-receipt",
+            "next-safe-action-ref:runtime-run-events:bind-action-inbox-approval",
+        ],
+        safe_summary=(
+            "Sample delegated runtime run is held in approval-wait proposal state; "
+            "no runtime run exists and no stop or approval resolution was sent."
+        ),
+    )
+    mappings = [
+        _mapping(
+            RuntimeExternalRunLifecycleState.proposed,
+            RuntimeUaaDurableRunState.proposed,
+            "Proposed",
+            "Runtime proposal is not submitted until exact approval and idempotency exist.",
+        ),
+        _mapping(
+            RuntimeExternalRunLifecycleState.approval_wait,
+            RuntimeUaaDurableRunState.approval_wait,
+            "Approval wait",
+            "Runtime wait state maps to a UAA durable approval wait without resolving it.",
+        ),
+        _mapping(
+            RuntimeExternalRunLifecycleState.queued,
+            RuntimeUaaDurableRunState.queued,
+            "Queued",
+            "Queued delegated work requires a receipt before UAA can claim it.",
+        ),
+        _mapping(
+            RuntimeExternalRunLifecycleState.running,
+            RuntimeUaaDurableRunState.running,
+            "Running",
+            "Running delegated work requires redacted event receipts before display.",
+        ),
+        _mapping(
+            RuntimeExternalRunLifecycleState.stopping,
+            RuntimeUaaDurableRunState.cancellation_requested,
+            "Cancellation requested",
+            "Stop posture requires cancellation proof before UAA can display a stopped result.",
+        ),
+        _mapping(
+            RuntimeExternalRunLifecycleState.cancelled,
+            RuntimeUaaDurableRunState.cancelled,
+            "Cancelled",
+            "Cancelled state requires cancellation receipt proof.",
+        ),
+        _mapping(
+            RuntimeExternalRunLifecycleState.failed,
+            RuntimeUaaDurableRunState.failed,
+            "Failed",
+            "Failed state requires redacted error refs and proof refs.",
+        ),
+        _mapping(
+            RuntimeExternalRunLifecycleState.completed,
+            RuntimeUaaDurableRunState.completed,
+            "Completed",
+            "Completed state cannot be claimed without run receipt and proof binding.",
+        ),
+        _mapping(
+            RuntimeExternalRunLifecycleState.blocked,
+            RuntimeUaaDurableRunState.blocked,
+            "Blocked",
+            "Blocked runtime state remains visible as proof-bound metadata.",
+        ),
+        _mapping(
+            RuntimeExternalRunLifecycleState.unknown_stale,
+            RuntimeUaaDurableRunState.stale_unknown,
+            "Unknown stale",
+            "Stale or unreachable runtime state degrades to blocked inspection.",
+        ),
+    ]
+    return RuntimeRunEventsReadModel(
+        lifecycle_mappings=mappings,
+        run_proposals=[proposal],
+        event_previews=events,
+        proposal_count=1,
+        approval_wait_count=1,
+        blocked_authority_refs=[
+            *GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS,
+            "blocked-authority:runtime-run-create-route",
+            "blocked-authority:runtime-run-stop-execution",
+            "blocked-authority:runtime-run-approval-resolution",
+            "blocked-authority:runtime-run-live-event-stream",
+        ],
+        proof_refs=[
+            "proof-ref:runtime-run-events:lifecycle-mapping",
+            "proof-ref:runtime-run-events:event-ref-grammar",
+            "proof-ref:runtime-run-events:no-mutation-routes",
+        ],
+        next_safe_action_refs=[
+            "next-safe-action-ref:runtime-run-events:bind-idempotent-create-approval",
+            "next-safe-action-ref:runtime-run-events:add-redacted-event-stream",
+            "next-safe-action-ref:runtime-run-events:prove-cancellation-receipt",
+            "next-safe-action-ref:runtime-run-events:bind-action-inbox-approval",
+        ],
+    )
