@@ -47,6 +47,8 @@ import type {
   RuntimeManagedScopePolicyPinSource,
   RuntimeMcpServerCatalogEntry,
   RuntimeMcpToolSlice,
+  RuntimeSubagentIsolationRole,
+  RuntimeSubagentReviewArtifact,
   RuntimeSessionContinuitySurface,
   RuntimeVirtualAgentSlot,
   RuntimeVirtualProviderPreset,
@@ -1449,6 +1451,117 @@ const runtimeBackgroundJobs: RuntimeBackgroundJobProposalReadModel[] = [
     safe_summary:
       "Mock connector delivery job remains blocked because external delivery and connector writes are not promoted.",
   }),
+];
+
+const runtimeSubagentIsolationBlockedRefs = [
+  "blocked-authority:subagent-isolation-no-live-dispatch",
+  "blocked-authority:subagent-isolation-no-background-fanout",
+  "blocked-authority:subagent-isolation-no-cross-agent-memory-transfer",
+  "blocked-authority:subagent-isolation-no-tool-sharing",
+  "blocked-authority:subagent-isolation-no-autonomous-delegation",
+  "blocked-authority:subagent-isolation-no-provider-call",
+  "blocked-authority:subagent-isolation-no-shell-execution",
+  "blocked-authority:subagent-isolation-no-connector-write",
+  "blocked-authority:subagent-isolation-no-control-center-authority-mint",
+  "blocked-authority:subagent-isolation-no-raw-transcript-persistence",
+];
+
+function runtimeSubagentIsolationRole(
+  slug: string,
+  overrides: Pick<
+    RuntimeSubagentIsolationRole,
+    "display_label" | "role_kind" | "readiness_status" | "safe_summary"
+  >,
+): RuntimeSubagentIsolationRole {
+  return {
+    role_ref: `subagent-role-ref:${slug}`,
+    display_label: overrides.display_label,
+    role_kind: overrides.role_kind,
+    readiness_status: overrides.readiness_status,
+    scope_envelope_ref: `scope-envelope-ref:subagent:${slug}`,
+    context_pack_ref: `context-pack-ref:subagent:${slug}:safe-summary`,
+    tool_grant_ref: `tool-grant-ref:subagent:${slug}:none-active`,
+    memory_grant_ref: `memory-grant-ref:subagent:${slug}:read-none`,
+    budget_ref: `budget-ref:subagent:${slug}:review-only`,
+    kill_switch_ref: `kill-switch-ref:subagent:${slug}:required-before-dispatch`,
+    receipt_plan_ref: `receipt-plan-ref:subagent:${slug}`,
+    proof_ref: "proof-ref:hermes-runtime-adoption:phase-32:subagent-isolation",
+    safe_summary: overrides.safe_summary,
+    blocked_authority_refs: runtimeSubagentIsolationBlockedRefs,
+    next_safe_action_refs: [`next-safe-action-ref:subagent:${slug}:review`],
+    live_dispatch_enabled: false,
+    background_fanout_enabled: false,
+    cross_agent_memory_transfer_enabled: false,
+    tool_sharing_enabled: false,
+    autonomous_delegation_enabled: false,
+    provider_call_enabled: false,
+    shell_execution_enabled: false,
+    connector_write_enabled: false,
+    raw_transcript_persisted: false,
+  };
+}
+
+const runtimeSubagentIsolationRoles: RuntimeSubagentIsolationRole[] = [
+  runtimeSubagentIsolationRole("implementer", {
+    display_label: "Implementer",
+    role_kind: "implementer",
+    readiness_status: "contract_ready",
+    safe_summary:
+      "Mock implementer contract is ready for review; live dispatch and tool grants remain blocked.",
+  }),
+  runtimeSubagentIsolationRole("reviewer", {
+    display_label: "Reviewer",
+    role_kind: "reviewer",
+    readiness_status: "review_ready",
+    safe_summary:
+      "Mock reviewer role is proposal metadata; memory transfer and tool sharing remain blocked.",
+  }),
+  runtimeSubagentIsolationRole("verifier", {
+    display_label: "Verifier",
+    role_kind: "verifier",
+    readiness_status: "blocked_dispatch",
+    safe_summary:
+      "Mock verifier role documents proof duties; background fan-out is not enabled.",
+  }),
+];
+
+const runtimeSubagentReviewArtifacts: RuntimeSubagentReviewArtifact[] = [
+  {
+    artifact_ref: "subagent-artifact-ref:plan-comparison",
+    artifact_kind: "plan_comparison",
+    display_label: "Plan comparison",
+    source_role_refs: runtimeSubagentIsolationRoles.slice(0, 2).map(
+      (role) => role.role_ref,
+    ),
+    safe_summary:
+      "Mock plan comparison uses safe refs only and omits raw agent output.",
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-32:subagent-isolation"],
+    raw_agent_output_persisted: false,
+    executable_authority: false,
+  },
+  {
+    artifact_ref: "subagent-artifact-ref:review-packet",
+    artifact_kind: "review_packet",
+    display_label: "Review packet",
+    source_role_refs: runtimeSubagentIsolationRoles.map((role) => role.role_ref),
+    safe_summary:
+      "Mock review packet groups role refs, proof refs, and blockers only.",
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-32:subagent-isolation"],
+    raw_agent_output_persisted: false,
+    executable_authority: false,
+  },
+  {
+    artifact_ref: "subagent-artifact-ref:disagreement-summary",
+    artifact_kind: "disagreement_summary",
+    display_label: "Disagreement summary",
+    source_role_refs: runtimeSubagentIsolationRoles.slice(0, 2).map(
+      (role) => role.role_ref,
+    ),
+    safe_summary: "Mock disagreement summary is safe metadata only.",
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-32:subagent-isolation"],
+    raw_agent_output_persisted: false,
+    executable_authority: false,
+  },
 ];
 
 const memoryLifecycleBlockedRefs = [
@@ -13393,6 +13506,81 @@ export const mockControlCenterData: ControlCenterData = {
       "raw_job_payloads_omitted",
       "raw_schedule_material_omitted",
       "worker_logs_omitted",
+    ],
+  },
+  runtimeSubagentIsolation: {
+    schema_version: "runtime_subagent_isolation.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-subagent-isolation:v1",
+    status: "identity_isolation_readiness",
+    snapshot_ref: "subagent-isolation-snapshot-ref:runtime:mock-roles",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-subagent-isolation:mock",
+    route_ref: "GET /api/runtime/subagent-isolation",
+    cli_ref: "uaa runtime inspect-subagent-isolation",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime subagent isolation mock fallback shows role contracts and blocked dispatch labels only.",
+    roles: runtimeSubagentIsolationRoles,
+    review_artifacts: runtimeSubagentReviewArtifacts,
+    role_count: runtimeSubagentIsolationRoles.length,
+    review_artifact_count: runtimeSubagentReviewArtifacts.length,
+    contract_ready_count: runtimeSubagentIsolationRoles.filter(
+      (role) => role.readiness_status === "contract_ready",
+    ).length,
+    review_ready_count: runtimeSubagentIsolationRoles.filter(
+      (role) => role.readiness_status === "review_ready",
+    ).length,
+    blocked_dispatch_count: runtimeSubagentIsolationRoles.filter(
+      (role) => role.readiness_status === "blocked_dispatch",
+    ).length,
+    identity_registry_visible: true,
+    scope_envelopes_visible: true,
+    context_pack_grants_visible: true,
+    tool_grants_visible: true,
+    memory_grants_visible: true,
+    budget_visible: true,
+    kill_switch_visible: true,
+    receipt_plan_visible: true,
+    proof_visible: true,
+    live_dispatch_enabled: false,
+    background_fanout_enabled: false,
+    cross_agent_memory_transfer_enabled: false,
+    tool_sharing_enabled: false,
+    autonomous_delegation_enabled: false,
+    provider_call_enabled: false,
+    shell_execution_enabled: false,
+    connector_write_enabled: false,
+    control_center_mints_authority: false,
+    raw_transcript_persisted: false,
+    blocked_authority_refs: runtimeSubagentIsolationBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:subagent-isolation:role-contract",
+      "promotion-path-ref:subagent-isolation:context-pack",
+      "promotion-path-ref:subagent-isolation:toolset-grant",
+      "promotion-path-ref:subagent-isolation:approval",
+      "promotion-path-ref:subagent-isolation:budget",
+      "promotion-path-ref:subagent-isolation:kill-switch",
+      "promotion-path-ref:subagent-isolation:receipt",
+      "promotion-path-ref:subagent-isolation:proof",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-32:subagent-isolation",
+      "proof-ref:subagent-isolation:role-contracts",
+      "proof-ref:subagent-isolation:blocked-dispatch",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-32:subagent-isolation",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:subagent-isolation:review-role-contracts",
+      "next-safe-action-ref:subagent-isolation:define-context-pack-grants",
+      "next-safe-action-ref:subagent-isolation:keep-dispatch-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_agent_outputs_omitted",
+      "raw_transcripts_omitted",
+      "provider_payloads_omitted",
     ],
   },
   runtimeApprovalBridge: {

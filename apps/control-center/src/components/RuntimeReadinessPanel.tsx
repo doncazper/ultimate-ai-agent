@@ -9,6 +9,7 @@ import type {
   RuntimeHardlineCommandBlocklistReadModel,
   RuntimeManagedScopePolicyReadModel,
   RuntimeMcpCatalogFilteringReadModel,
+  RuntimeSubagentIsolationReadModel,
   RuntimeSessionContinuityReadModel,
   RuntimeToolRegistryAvailabilityReadModel,
   RuntimeRunEventsReadModel,
@@ -42,6 +43,7 @@ export function RuntimeReadinessPanel({
   sessionContinuity,
   mcpCatalogFiltering,
   backgroundJobs,
+  subagentIsolation,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -62,6 +64,7 @@ export function RuntimeReadinessPanel({
   sessionContinuity: RuntimeSessionContinuityReadModel;
   mcpCatalogFiltering: RuntimeMcpCatalogFilteringReadModel;
   backgroundJobs: RuntimeBackgroundJobsReadModel;
+  subagentIsolation: RuntimeSubagentIsolationReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -742,6 +745,134 @@ export function RuntimeReadinessPanel({
         <h4>Blocked authority</h4>
         <ul className="compact-list">
           {backgroundJobs.blocked_authority_refs.slice(0, 6).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Subagents</p>
+            <h3>Isolation model</h3>
+          </div>
+          <span className="status-pill compact">{subagentIsolation.status}</span>
+        </div>
+        <p>{subagentIsolation.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{subagentIsolation.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{subagentIsolation.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Roles</dt>
+            <dd>{subagentIsolation.role_count}</dd>
+          </div>
+          <div>
+            <dt>Review artifacts</dt>
+            <dd>{subagentIsolation.review_artifact_count}</dd>
+          </div>
+          <div>
+            <dt>Contract ready</dt>
+            <dd>{subagentIsolation.contract_ready_count}</dd>
+          </div>
+          <div>
+            <dt>Dispatch blocked</dt>
+            <dd>{subagentIsolation.blocked_dispatch_count}</dd>
+          </div>
+          <div>
+            <dt>Live dispatch</dt>
+            <dd>
+              {subagentIsolation.live_dispatch_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Fan-out</dt>
+            <dd>
+              {subagentIsolation.background_fanout_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Context</th>
+                <th>Receipt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {subagentIsolation.roles.map((role) => (
+                <tr key={role.role_ref}>
+                  <td>{role.display_label}</td>
+                  <td>{role.readiness_status}</td>
+                  <td>{role.context_pack_ref}</td>
+                  <td>{role.receipt_plan_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Artifact</th>
+                <th>Kind</th>
+                <th>Executable</th>
+              </tr>
+            </thead>
+            <tbody>
+              {subagentIsolation.review_artifacts.map((artifact) => (
+                <tr key={artifact.artifact_ref}>
+                  <td>{artifact.display_label}</td>
+                  <td>{artifact.artifact_kind}</td>
+                  <td>
+                    {artifact.executable_authority ? "enabled" : "blocked"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>Tool sharing</dt>
+            <dd>
+              {subagentIsolation.tool_sharing_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Memory transfer</dt>
+            <dd>
+              {subagentIsolation.cross_agent_memory_transfer_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Provider call</dt>
+            <dd>
+              {subagentIsolation.provider_call_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Connector write</dt>
+            <dd>
+              {subagentIsolation.connector_write_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {subagentIsolation.blocked_authority_refs.slice(0, 6).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>
