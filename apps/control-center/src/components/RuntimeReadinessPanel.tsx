@@ -1182,13 +1182,52 @@ export function RuntimeReadinessPanel({
           </div>
           <div>
             <dt>Timeout posture</dt>
-            <dd>{approvalBridge.timeout_preview_count} default-deny preview</dd>
+            <dd>
+              {approvalBridge.timeout_preview_count} default-deny preview;{" "}
+              {approvalBridge.fail_closed_timeout_posture.status}
+            </dd>
+          </div>
+          <div>
+            <dt>Ambiguous waits</dt>
+            <dd>
+              {approvalBridge.fail_closed_timeout_posture
+                .ambiguous_waits_default_to_deny
+                ? "default deny"
+                : "unsafe"}
+            </dd>
+          </div>
+          <div>
+            <dt>Approve all</dt>
+            <dd>
+              {approvalBridge.fail_closed_timeout_posture.approve_all_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Standing authority</dt>
+            <dd>
+              {approvalBridge.fail_closed_timeout_posture
+                .standing_broad_authority_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Expired grants</dt>
+            <dd>
+              {approvalBridge.fail_closed_timeout_posture
+                .expired_grant_reuse_enabled
+                ? "reused"
+                : "not reused"}
+            </dd>
           </div>
           <div>
             <dt>Scope validation</dt>
             <dd>{approvalBridge.scope_validation.status}</dd>
           </div>
         </dl>
+        <p>{approvalBridge.fail_closed_timeout_posture.safe_summary}</p>
         <div className="table-wrap">
           <table>
             <thead>

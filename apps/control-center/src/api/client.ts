@@ -4078,6 +4078,7 @@ function isSafeRuntimeApprovalBridge(
   if (
     value === undefined ||
     !isPlainRecord(value.action_inbox_projection) ||
+    !isPlainRecord(value.fail_closed_timeout_posture) ||
     !isPlainRecord(value.scope_validation) ||
     !Array.isArray(value.envelopes) ||
     !Array.isArray(value.decision_previews)
@@ -4094,6 +4095,7 @@ function isSafeRuntimeApprovalBridge(
     "raw_response_persisted",
   ];
   const projection = value.action_inbox_projection;
+  const failClosedPosture = value.fail_closed_timeout_posture;
   const denyCount = value.decision_previews.filter(
     (preview) => preview.decision_kind === "deny",
   ).length;
@@ -4118,7 +4120,25 @@ function isSafeRuntimeApprovalBridge(
     value.scope_validation.scope_matches === false &&
     projection.approval_controls_visible === false &&
     projection.runtime_resolution_controls_visible === false &&
+    failClosedPosture.expired_waits_default_to_deny === true &&
+    failClosedPosture.ambiguous_waits_default_to_deny === true &&
+    failClosedPosture.explicit_expiration_required === true &&
+    failClosedPosture.revoke_required === true &&
+    failClosedPosture.safe_disable_required === true &&
+    failClosedPosture.auto_approve_enabled === false &&
+    failClosedPosture.approve_all_enabled === false &&
+    failClosedPosture.standing_broad_authority_enabled === false &&
+    failClosedPosture.expired_grant_reuse_enabled === false &&
+    failClosedPosture.ambiguous_grant_enabled === false &&
+    failClosedPosture.approval_resolution_sent === false &&
+    failClosedPosture.control_center_mints_authority === false &&
+    isNonEmptyStringArray(failClosedPosture.blocked_authority_refs) &&
+    isNonEmptyStringArray(failClosedPosture.promotion_path_refs) &&
+    isNonEmptyStringArray(failClosedPosture.next_safe_action_refs) &&
     isNonEmptyStringArray(value.blocked_authority_refs) &&
+    failClosedPosture.blocked_authority_refs.every((ref) =>
+      value.blocked_authority_refs.includes(ref),
+    ) &&
     isNonEmptyStringArray(value.proof_refs) &&
     isNonEmptyStringArray(value.next_safe_action_refs) &&
     value.envelopes.length > 0 &&

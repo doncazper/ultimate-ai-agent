@@ -649,12 +649,15 @@ def _approved_command_block_reason(
     envelope = record.action_inbox_envelope
     if envelope is None:
         return "RUNTIME_COMMAND_ACTION_INBOX_ENVELOPE_MISSING"
+    if (
+        envelope.expires_at <= utc_now()
+        or record.status == RuntimeInvocationStatus.approval_expired.value
+    ):
+        return "RUNTIME_COMMAND_ACTION_INBOX_APPROVAL_EXPIRED"
     if record.status != RuntimeInvocationStatus.approved_pending_execution.value:
         return "RUNTIME_COMMAND_ACTION_INBOX_ENVELOPE_NOT_APPROVED"
     if not envelope.approval_validated:
         return "RUNTIME_COMMAND_ACTION_INBOX_APPROVAL_NOT_VALIDATED"
-    if envelope.expires_at <= utc_now():
-        return "RUNTIME_COMMAND_ACTION_INBOX_APPROVAL_EXPIRED"
     if envelope.safe_disable_active or record.safe_disable.active:
         return "RUNTIME_COMMAND_SAFE_DISABLED"
     if request.requested_profile != RuntimeProfile.operator_approved.value:

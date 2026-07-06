@@ -12500,6 +12500,46 @@ export const mockControlCenterData: ControlCenterData = {
       safe_summary:
         "Mock fallback projects runtime approval review metadata only; no approval or runtime resolution control is available.",
     },
+    fail_closed_timeout_posture: {
+      policy_ref: "timeout-policy-ref:runtime-approval-bridge:fail-closed-v1",
+      status: "fail_closed_default_deny",
+      timeout_denial_receipt_ref:
+        "receipt-plan-ref:runtime-approval-bridge:timeout-deny",
+      ambiguous_denial_receipt_ref:
+        "receipt-plan-ref:runtime-approval-bridge:ambiguous-deny",
+      expired_waits_default_to_deny: true,
+      ambiguous_waits_default_to_deny: true,
+      explicit_expiration_required: true,
+      revoke_required: true,
+      safe_disable_required: true,
+      auto_approve_enabled: false,
+      approve_all_enabled: false,
+      standing_broad_authority_enabled: false,
+      expired_grant_reuse_enabled: false,
+      ambiguous_grant_enabled: false,
+      approval_resolution_sent: false,
+      control_center_mints_authority: false,
+      blocked_authority_refs: [
+        "blocked-authority:runtime-approval-auto-approve",
+        "blocked-authority:runtime-approval-approve-all",
+        "blocked-authority:runtime-approval-standing-broad-authority",
+        "blocked-authority:runtime-approval-expired-grant-reuse",
+        "blocked-authority:runtime-approval-ambiguous-grant",
+      ],
+      promotion_path_refs: [
+        "promotion-path-ref:runtime-approval:session-scoped-grant",
+        "promotion-path-ref:runtime-approval:explicit-expiration",
+        "promotion-path-ref:runtime-approval:receipt-and-revoke",
+        "promotion-path-ref:runtime-approval:safe-disable",
+      ],
+      next_safe_action_refs: [
+        "next-safe-action-ref:runtime-approval:record-timeout-denial-receipt",
+        "next-safe-action-ref:runtime-approval:prove-ambiguous-wait-denial",
+        "next-safe-action-ref:runtime-approval:bind-explicit-revoke",
+      ],
+      safe_summary:
+        "Expired or ambiguous approval waits deny by default; approve-all and standing authority remain blocked.",
+    },
     envelopes: [
       {
         envelope_ref: "runtime-approval-envelope-ref:hermes-agent:mock",
@@ -12517,7 +12557,7 @@ export const mockControlCenterData: ControlCenterData = {
         state: "runtime_requested",
         resolution_posture: "blocked_no_runtime_send",
         timeout_policy_ref:
-          "timeout-policy-ref:runtime-approval-bridge:default-deny",
+          "timeout-policy-ref:runtime-approval-bridge:fail-closed-v1",
         deny_receipt_ref: "receipt-plan-ref:runtime-approval-bridge:deny",
         approval_refs_are_identifiers_only: true,
         runtime_requested: true,
@@ -12615,6 +12655,11 @@ export const mockControlCenterData: ControlCenterData = {
       "blocked-authority:runtime-approval-resolution-send",
       "blocked-authority:runtime-approval-approval-as-authority",
       "blocked-authority:runtime-approval-timeout-send",
+      "blocked-authority:runtime-approval-auto-approve",
+      "blocked-authority:runtime-approval-approve-all",
+      "blocked-authority:runtime-approval-standing-broad-authority",
+      "blocked-authority:runtime-approval-expired-grant-reuse",
+      "blocked-authority:runtime-approval-ambiguous-grant",
     ],
     proof_refs: [
       "proof-ref:runtime-approval-bridge:mock-fallback",

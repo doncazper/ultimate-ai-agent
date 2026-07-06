@@ -28,6 +28,22 @@ RUNTIME_APPROVAL_BRIDGE_ACTION_INBOX_REF = (
     "action-inbox-ref:runtime-approval-bridge:approval-wait-sample"
 )
 RUNTIME_APPROVAL_BRIDGE_PROOF_REF = "proof-ref:runtime-approval-bridge:phase-04"
+RUNTIME_APPROVAL_FAIL_CLOSED_POLICY_REF = (
+    "timeout-policy-ref:runtime-approval-bridge:fail-closed-v1"
+)
+RUNTIME_APPROVAL_TIMEOUT_DENIAL_RECEIPT_REF = (
+    "receipt-plan-ref:runtime-approval-bridge:timeout-deny"
+)
+RUNTIME_APPROVAL_AMBIGUOUS_DENIAL_RECEIPT_REF = (
+    "receipt-plan-ref:runtime-approval-bridge:ambiguous-deny"
+)
+RUNTIME_APPROVAL_FAIL_CLOSED_BLOCKED_AUTHORITY_REFS = (
+    "blocked-authority:runtime-approval-auto-approve",
+    "blocked-authority:runtime-approval-approve-all",
+    "blocked-authority:runtime-approval-standing-broad-authority",
+    "blocked-authority:runtime-approval-expired-grant-reuse",
+    "blocked-authority:runtime-approval-ambiguous-grant",
+)
 
 
 class RuntimeApprovalBridgeState(str, Enum):
@@ -94,7 +110,7 @@ class RuntimeApprovalBridgeEnvelope(BaseModel):
     resolution_posture: RuntimeApprovalBridgeResolutionPosture = (
         RuntimeApprovalBridgeResolutionPosture.blocked_no_runtime_send
     )
-    timeout_policy_ref: str = "timeout-policy-ref:runtime-approval-bridge:default-deny"
+    timeout_policy_ref: str = RUNTIME_APPROVAL_FAIL_CLOSED_POLICY_REF
     deny_receipt_ref: str = "receipt-plan-ref:runtime-approval-bridge:deny"
     approval_refs_are_identifiers_only: bool = True
     runtime_requested: bool = True
@@ -219,6 +235,98 @@ class RuntimeApprovalActionInboxProjection(BaseModel):
         return self
 
 
+class RuntimeApprovalFailClosedTimeoutPosture(BaseModel):
+    policy_ref: str = RUNTIME_APPROVAL_FAIL_CLOSED_POLICY_REF
+    status: str = "fail_closed_default_deny"
+    timeout_denial_receipt_ref: str = RUNTIME_APPROVAL_TIMEOUT_DENIAL_RECEIPT_REF
+    ambiguous_denial_receipt_ref: str = RUNTIME_APPROVAL_AMBIGUOUS_DENIAL_RECEIPT_REF
+    expired_waits_default_to_deny: bool = True
+    ambiguous_waits_default_to_deny: bool = True
+    explicit_expiration_required: bool = True
+    revoke_required: bool = True
+    safe_disable_required: bool = True
+    auto_approve_enabled: bool = False
+    approve_all_enabled: bool = False
+    standing_broad_authority_enabled: bool = False
+    expired_grant_reuse_enabled: bool = False
+    ambiguous_grant_enabled: bool = False
+    approval_resolution_sent: bool = False
+    control_center_mints_authority: bool = False
+    blocked_authority_refs: list[str] = Field(
+        default_factory=lambda: list(RUNTIME_APPROVAL_FAIL_CLOSED_BLOCKED_AUTHORITY_REFS)
+    )
+    promotion_path_refs: list[str] = Field(
+        default_factory=lambda: [
+            "promotion-path-ref:runtime-approval:session-scoped-grant",
+            "promotion-path-ref:runtime-approval:explicit-expiration",
+            "promotion-path-ref:runtime-approval:receipt-and-revoke",
+            "promotion-path-ref:runtime-approval:safe-disable",
+        ]
+    )
+    next_safe_action_refs: list[str] = Field(
+        default_factory=lambda: [
+            "next-safe-action-ref:runtime-approval:record-timeout-denial-receipt",
+            "next-safe-action-ref:runtime-approval:prove-ambiguous-wait-denial",
+            "next-safe-action-ref:runtime-approval:bind-explicit-revoke",
+        ]
+    )
+    safe_summary: str = (
+        "Expired or ambiguous approval waits deny by default; approve-all and "
+        "standing authority remain blocked."
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_posture(self) -> "RuntimeApprovalFailClosedTimeoutPosture":
+        for value, field_name in [
+            (self.policy_ref, "policy_ref"),
+            (self.timeout_denial_receipt_ref, "timeout_denial_receipt_ref"),
+            (self.ambiguous_denial_receipt_ref, "ambiguous_denial_receipt_ref"),
+        ]:
+            validate_execution_ref(value, field_name)
+        validate_safe_execution_text(self.status, "status")
+        validate_safe_execution_text(self.safe_summary, "safe_summary")
+        for field_name in (
+            "blocked_authority_refs",
+            "promotion_path_refs",
+            "next_safe_action_refs",
+        ):
+            for ref in getattr(self, field_name):
+                validate_execution_ref(ref, field_name)
+        required_true = {
+            "expired_waits_default_to_deny": self.expired_waits_default_to_deny,
+            "ambiguous_waits_default_to_deny": self.ambiguous_waits_default_to_deny,
+            "explicit_expiration_required": self.explicit_expiration_required,
+            "revoke_required": self.revoke_required,
+            "safe_disable_required": self.safe_disable_required,
+        }
+        missing = [name for name, value in required_true.items() if not value]
+        if missing:
+            raise ValueError(
+                "RUNTIME_APPROVAL_FAIL_CLOSED_REQUIRED: " + ", ".join(missing)
+            )
+        denied_flags = {
+            "auto_approve_enabled": self.auto_approve_enabled,
+            "approve_all_enabled": self.approve_all_enabled,
+            "standing_broad_authority_enabled": self.standing_broad_authority_enabled,
+            "expired_grant_reuse_enabled": self.expired_grant_reuse_enabled,
+            "ambiguous_grant_enabled": self.ambiguous_grant_enabled,
+            "approval_resolution_sent": self.approval_resolution_sent,
+            "control_center_mints_authority": self.control_center_mints_authority,
+        }
+        enabled = [name for name, value in denied_flags.items() if value]
+        if enabled:
+            raise ValueError(
+                "RUNTIME_APPROVAL_FAIL_CLOSED_UNSAFE_AUTHORITY_DENIED: "
+                + ", ".join(enabled)
+            )
+        for ref in RUNTIME_APPROVAL_FAIL_CLOSED_BLOCKED_AUTHORITY_REFS:
+            if ref not in self.blocked_authority_refs:
+                raise ValueError("RUNTIME_APPROVAL_FAIL_CLOSED_BLOCKER_MISSING")
+        return self
+
+
 class RuntimeApprovalBridgeReadModel(BaseModel):
     schema_version: str = "runtime_approval_bridge.v1"
     contract_ref: str = RUNTIME_APPROVAL_BRIDGE_CONTRACT_REF
@@ -228,6 +336,9 @@ class RuntimeApprovalBridgeReadModel(BaseModel):
     status: str = "read_model_resolution_blocked"
     action_inbox_projection: RuntimeApprovalActionInboxProjection = Field(
         default_factory=RuntimeApprovalActionInboxProjection
+    )
+    fail_closed_timeout_posture: RuntimeApprovalFailClosedTimeoutPosture = Field(
+        default_factory=RuntimeApprovalFailClosedTimeoutPosture
     )
     envelopes: list[RuntimeApprovalBridgeEnvelope]
     decision_previews: list[RuntimeApprovalBridgeDecisionPreview]
@@ -331,6 +442,9 @@ class RuntimeApprovalBridgeReadModel(BaseModel):
             raise ValueError("RUNTIME_APPROVAL_BRIDGE_UAA_AUTHORITY_REQUIRED")
         if not self.safe_refs_only:
             raise ValueError("RUNTIME_APPROVAL_BRIDGE_SAFE_REFS_REQUIRED")
+        for ref in self.fail_closed_timeout_posture.blocked_authority_refs:
+            if ref not in self.blocked_authority_refs:
+                raise ValueError("RUNTIME_APPROVAL_BRIDGE_FAIL_CLOSED_BLOCKER_DRIFT")
         return self
 
 
@@ -361,6 +475,7 @@ def build_runtime_approval_bridge_read_model() -> RuntimeApprovalBridgeReadModel
         "blocked-authority:runtime-approval-resolution-send",
         "blocked-authority:runtime-approval-approval-as-authority",
         "blocked-authority:runtime-approval-timeout-send",
+        *RUNTIME_APPROVAL_FAIL_CLOSED_BLOCKED_AUTHORITY_REFS,
     ]
     envelope = RuntimeApprovalBridgeEnvelope(
         envelope_ref=envelope_ref,
@@ -401,7 +516,7 @@ def build_runtime_approval_bridge_read_model() -> RuntimeApprovalBridgeReadModel
             decision_kind=RuntimeApprovalBridgeDecisionKind.timeout,
             envelope_ref=envelope_ref,
             action_inbox_item_ref=RUNTIME_APPROVAL_BRIDGE_ACTION_INBOX_REF,
-            receipt_ref="receipt-plan-ref:runtime-approval-bridge:timeout-deny",
+            receipt_ref=RUNTIME_APPROVAL_TIMEOUT_DENIAL_RECEIPT_REF,
             safe_summary=(
                 "Timeout defaults to deny posture locally; runtime send remains blocked."
             ),

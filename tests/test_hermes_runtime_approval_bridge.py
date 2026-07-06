@@ -9,6 +9,7 @@ from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeApprovalBridgeEnvelope,
     RuntimeApprovalBridgeReadModel,
+    RuntimeApprovalFailClosedTimeoutPosture,
     build_runtime_approval_bridge_read_model,
     validate_runtime_approval_scope,
 )
@@ -34,7 +35,20 @@ def test_runtime_approval_bridge_is_read_model_resolution_blocked() -> None:
     assert read_model.deny_resolution_route_enabled is False
     assert read_model.timeout_resolution_route_enabled is False
     assert read_model.raw_runtime_payload_persisted is False
+    assert read_model.fail_closed_timeout_posture.expired_waits_default_to_deny is True
+    assert (
+        read_model.fail_closed_timeout_posture.ambiguous_waits_default_to_deny is True
+    )
+    assert read_model.fail_closed_timeout_posture.auto_approve_enabled is False
+    assert read_model.fail_closed_timeout_posture.approve_all_enabled is False
+    assert (
+        read_model.fail_closed_timeout_posture.standing_broad_authority_enabled
+        is False
+    )
     assert "blocked-authority:runtime-approval-resolution-send" in (
+        read_model.blocked_authority_refs
+    )
+    assert "blocked-authority:runtime-approval-approve-all" in (
         read_model.blocked_authority_refs
     )
 
@@ -75,6 +89,34 @@ def test_runtime_approval_bridge_scope_denial_and_timeout_paths_are_blocked() ->
     assert decisions["scope_mismatch"].runtime_resolution_sent is False
 
 
+def test_runtime_approval_bridge_fail_closed_posture_rejects_broad_grants() -> None:
+    posture_payload = (
+        build_runtime_approval_bridge_read_model()
+        .fail_closed_timeout_posture.model_dump()
+    )
+    posture_payload["approve_all_enabled"] = True
+
+    with pytest.raises(ValueError, match="UNSAFE_AUTHORITY_DENIED"):
+        RuntimeApprovalFailClosedTimeoutPosture(**posture_payload)
+
+    posture_payload = (
+        build_runtime_approval_bridge_read_model()
+        .fail_closed_timeout_posture.model_dump()
+    )
+    posture_payload["expired_waits_default_to_deny"] = False
+
+    with pytest.raises(ValueError, match="FAIL_CLOSED_REQUIRED"):
+        RuntimeApprovalFailClosedTimeoutPosture(**posture_payload)
+
+    model_payload = build_runtime_approval_bridge_read_model().model_dump()
+    model_payload["blocked_authority_refs"].remove(
+        "blocked-authority:runtime-approval-auto-approve"
+    )
+
+    with pytest.raises(ValueError, match="FAIL_CLOSED_BLOCKER_DRIFT"):
+        RuntimeApprovalBridgeReadModel(**model_payload)
+
+
 def test_runtime_approval_bridge_rejects_resolution_or_approval_ref_authority() -> None:
     model_payload = build_runtime_approval_bridge_read_model().model_dump()
     model_payload["approval_resolution_route_enabled"] = True
@@ -106,6 +148,11 @@ def test_api_runtime_approval_bridge_route_returns_safe_refs() -> None:
     assert data["route_ref"] == "GET /api/runtime/approval-bridge"
     assert data["runtime_resolution_sent_count"] == 0
     assert data["approval_resolution_route_enabled"] is False
+    assert data["fail_closed_timeout_posture"]["approve_all_enabled"] is False
+    assert (
+        data["fail_closed_timeout_posture"]["ambiguous_waits_default_to_deny"]
+        is True
+    )
     assert data["raw_runtime_payload_persisted"] is False
     assert body["evidence"][0]["evidence_ref"] == (
         "evidence-ref:runtime-approval-bridge:phase-04"
@@ -131,6 +178,12 @@ def test_cli_runtime_approval_bridge_uses_same_read_model() -> None:
     assert payload["approval_resolution_sent"] is False
     assert payload["denial_resolution_sent"] is False
     assert payload["timeout_resolution_sent"] is False
+    assert payload["auto_approve_enabled"] is False
+    assert payload["approve_all_enabled"] is False
+    assert payload["standing_broad_authority_enabled"] is False
     assert read_model["route_ref"] == "GET /api/runtime/approval-bridge"
     assert read_model["cli_ref"] == "uaa runtime inspect-approval-bridge"
     assert read_model["runtime_resolution_sent_count"] == 0
+    assert read_model["fail_closed_timeout_posture"]["policy_ref"] == (
+        "timeout-policy-ref:runtime-approval-bridge:fail-closed-v1"
+    )

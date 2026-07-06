@@ -10064,6 +10064,29 @@ export interface RuntimeApprovalActionInboxProjection {
   safe_summary: string;
 }
 
+export interface RuntimeApprovalFailClosedTimeoutPosture {
+  policy_ref: string;
+  status: string;
+  timeout_denial_receipt_ref: string;
+  ambiguous_denial_receipt_ref: string;
+  expired_waits_default_to_deny: boolean;
+  ambiguous_waits_default_to_deny: boolean;
+  explicit_expiration_required: boolean;
+  revoke_required: boolean;
+  safe_disable_required: boolean;
+  auto_approve_enabled: boolean;
+  approve_all_enabled: boolean;
+  standing_broad_authority_enabled: boolean;
+  expired_grant_reuse_enabled: boolean;
+  ambiguous_grant_enabled: boolean;
+  approval_resolution_sent: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  safe_summary: string;
+}
+
 export interface RuntimeApprovalBridgeReadModel {
   schema_version: "runtime_approval_bridge.v1";
   contract_ref: string;
@@ -10072,6 +10095,7 @@ export interface RuntimeApprovalBridgeReadModel {
   control_center_ref: string;
   status: string;
   action_inbox_projection: RuntimeApprovalActionInboxProjection;
+  fail_closed_timeout_posture: RuntimeApprovalFailClosedTimeoutPosture;
   envelopes: RuntimeApprovalBridgeEnvelope[];
   decision_previews: RuntimeApprovalBridgeDecisionPreview[];
   scope_validation: RuntimeApprovalScopeValidationResult;
