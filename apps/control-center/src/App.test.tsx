@@ -7678,6 +7678,21 @@ describe("Web Control Center shell", () => {
         "blocked-authority:worktree-per-agent-no-git-worktree-create",
       ),
     ).toBeInTheDocument();
+    expect(screen.getAllByText("Diagnostics").length).toBeGreaterThan(0);
+    expect(screen.getByText("Semantic proof posture")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/lsp-diagnostics").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-lsp-diagnostics").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Python semantic proof")).toBeInTheDocument();
+    expect(screen.getByText("Docs diagnostic blocked lane")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:lsp-diagnostics-no-language-server-launch",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
     expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
@@ -14792,6 +14807,12 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeWorktreePerAgent)).toBe(
       true,
     );
+    expect(API_ENDPOINTS.runtimeLspDiagnostics).toBe(
+      "/api/runtime/lsp-diagnostics",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeLspDiagnostics)).toBe(
+      true,
+    );
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15855,6 +15876,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeSubagentIsolation,
     [API_ENDPOINTS.runtimeWorktreePerAgent]:
       mockControlCenterData.runtimeWorktreePerAgent,
+    [API_ENDPOINTS.runtimeLspDiagnostics]:
+      mockControlCenterData.runtimeLspDiagnostics,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:

@@ -84,6 +84,7 @@ export const API_ENDPOINTS = {
   runtimeBackgroundJobs: "/api/runtime/background-jobs",
   runtimeSubagentIsolation: "/api/runtime/subagent-isolation",
   runtimeWorktreePerAgent: "/api/runtime/worktree-per-agent",
+  runtimeLspDiagnostics: "/api/runtime/lsp-diagnostics",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
   localModels: "/v1/models",
   localChatCompletions: "/v1/chat/completions",
@@ -241,6 +242,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.runtimeBackgroundJobs,
   API_ENDPOINTS.runtimeSubagentIsolation,
   API_ENDPOINTS.runtimeWorktreePerAgent,
+  API_ENDPOINTS.runtimeLspDiagnostics,
 ] as const;
 
 export function isAllowedReadEndpoint(

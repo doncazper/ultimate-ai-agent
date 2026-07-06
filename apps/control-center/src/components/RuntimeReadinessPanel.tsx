@@ -7,6 +7,7 @@ import type {
   RuntimeDelegationAdapterReadModel,
   RuntimeDoctorDiagnosticsReadModel,
   RuntimeHardlineCommandBlocklistReadModel,
+  RuntimeLspDiagnosticsReadModel,
   RuntimeManagedScopePolicyReadModel,
   RuntimeMcpCatalogFilteringReadModel,
   RuntimeSubagentIsolationReadModel,
@@ -46,6 +47,7 @@ export function RuntimeReadinessPanel({
   backgroundJobs,
   subagentIsolation,
   worktreePerAgent,
+  lspDiagnostics,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -68,6 +70,7 @@ export function RuntimeReadinessPanel({
   backgroundJobs: RuntimeBackgroundJobsReadModel;
   subagentIsolation: RuntimeSubagentIsolationReadModel;
   worktreePerAgent: RuntimeWorktreePerAgentReadModel;
+  lspDiagnostics: RuntimeLspDiagnosticsReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -982,6 +985,114 @@ export function RuntimeReadinessPanel({
         <h4>Blocked authority</h4>
         <ul className="compact-list">
           {worktreePerAgent.blocked_authority_refs.slice(0, 6).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Diagnostics</p>
+            <h3>Semantic proof posture</h3>
+          </div>
+          <span className="status-pill compact">{lspDiagnostics.status}</span>
+        </div>
+        <p>{lspDiagnostics.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{lspDiagnostics.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{lspDiagnostics.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Diagnostics</dt>
+            <dd>{lspDiagnostics.diagnostic_count}</dd>
+          </div>
+          <div>
+            <dt>Proof ready</dt>
+            <dd>{lspDiagnostics.proof_ready_count}</dd>
+          </div>
+          <div>
+            <dt>Server launch</dt>
+            <dd>
+              {lspDiagnostics.language_server_started ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Install</dt>
+            <dd>
+              {lspDiagnostics.dependency_install_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Shell</dt>
+            <dd>
+              {lspDiagnostics.shell_execution_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>File read</dt>
+            <dd>{lspDiagnostics.file_read_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Diagnostic</th>
+                <th>Status</th>
+                <th>Evidence</th>
+                <th>Receipt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lspDiagnostics.diagnostics.map((diagnostic) => (
+                <tr key={diagnostic.diagnostic_ref}>
+                  <td>{diagnostic.display_label}</td>
+                  <td>{diagnostic.status}</td>
+                  <td>{diagnostic.evidence_ref}</td>
+                  <td>{diagnostic.receipt_plan_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>Raw payload</dt>
+            <dd>
+              {lspDiagnostics.raw_diagnostic_payload_persisted
+                ? "stored"
+                : "omitted"}
+            </dd>
+          </div>
+          <div>
+            <dt>Raw path</dt>
+            <dd>{lspDiagnostics.raw_path_persisted ? "stored" : "omitted"}</dd>
+          </div>
+          <div>
+            <dt>Provider call</dt>
+            <dd>
+              {lspDiagnostics.provider_call_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Promotion</dt>
+            <dd>
+              {lspDiagnostics.allowlisted_server_required_for_promotion
+                ? "allowlisted server required"
+                : "not ready"}
+            </dd>
+          </div>
+        </dl>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {lspDiagnostics.blocked_authority_refs.slice(0, 6).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>
