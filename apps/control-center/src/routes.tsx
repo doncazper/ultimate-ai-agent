@@ -540,6 +540,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           subagentIsolation={data.runtimeSubagentIsolation}
           worktreePerAgent={data.runtimeWorktreePerAgent}
           lspDiagnostics={data.runtimeLspDiagnostics}
+          previewRail={data.runtimePreviewRail}
         />
       );
     case "/operator-loop":

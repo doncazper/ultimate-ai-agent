@@ -10378,6 +10378,88 @@ export interface RuntimeLspDiagnosticsReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimePreviewRailSlotKind =
+  | "file_ref"
+  | "diff_ref"
+  | "artifact_ref"
+  | "run_output_ref"
+  | "proof_ref"
+  | "runtime_event_ref";
+
+export type RuntimePreviewRailSlotStatus =
+  | "safe_ref_ready"
+  | "bounded_preview_placeholder"
+  | "execution_blocked";
+
+export interface RuntimePreviewRailSlot {
+  slot_ref: string;
+  display_label: string;
+  slot_kind: RuntimePreviewRailSlotKind;
+  slot_status: RuntimePreviewRailSlotStatus;
+  source_ref: string;
+  source_classification_ref: string;
+  bounded_preview_ref: string;
+  redaction_policy_ref: string;
+  attach_plan_ref: string;
+  receipt_plan_ref: string;
+  proof_ref: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  browser_automation_enabled: boolean;
+  raw_sensitive_file_display_enabled: boolean;
+  direct_runtime_payload_rendering_enabled: boolean;
+  screenshot_capture_enabled: boolean;
+  file_read_enabled: boolean;
+  file_write_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  raw_path_persisted: boolean;
+  raw_file_content_persisted: boolean;
+  raw_runtime_payload_persisted: boolean;
+}
+
+export interface RuntimePreviewRailReadModel {
+  schema_version: "runtime_preview_rail.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  slots: RuntimePreviewRailSlot[];
+  slot_count: number;
+  safe_ref_ready_count: number;
+  bounded_preview_placeholder_count: number;
+  execution_blocked_count: number;
+  source_classification_visible: boolean;
+  redaction_policy_visible: boolean;
+  bounded_preview_visible: boolean;
+  operator_attach_visible: boolean;
+  receipt_plan_visible: boolean;
+  proof_link_visible: boolean;
+  browser_automation_enabled: boolean;
+  raw_sensitive_file_display_enabled: boolean;
+  direct_runtime_payload_rendering_enabled: boolean;
+  screenshot_capture_enabled: boolean;
+  file_read_enabled: boolean;
+  file_write_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_path_persisted: boolean;
+  raw_file_content_persisted: boolean;
+  raw_runtime_payload_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -11561,6 +11643,7 @@ export interface ControlCenterData {
   runtimeSubagentIsolation: RuntimeSubagentIsolationReadModel;
   runtimeWorktreePerAgent: RuntimeWorktreePerAgentReadModel;
   runtimeLspDiagnostics: RuntimeLspDiagnosticsReadModel;
+  runtimePreviewRail: RuntimePreviewRailReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

@@ -46,6 +46,7 @@ import type {
   RuntimeManagedScopePolicyReadModel,
   RuntimeMcpCatalogFilteringReadModel,
   RuntimePromptStabilityTiersReadModel,
+  RuntimePreviewRailReadModel,
   RuntimeSessionContinuityReadModel,
   RuntimeToolsetCapabilityPosture,
   RuntimeToolRegistryAvailabilityReadModel,
@@ -409,6 +410,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeLspDiagnostics,
     ),
   ] as const);
+  const runtimePreviewRailSettledPromise = Promise.allSettled([
+    read<RuntimePreviewRailReadModel>(API_ENDPOINTS.runtimePreviewRail),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -545,6 +549,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeWorktreePerAgentResult =
     await runtimeWorktreePerAgentSettledPromise;
   const runtimeLspDiagnosticsResult = await runtimeLspDiagnosticsSettledPromise;
+  const runtimePreviewRailResult = await runtimePreviewRailSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -597,6 +602,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const runtimeWorktreePerAgent = fulfilledValue(runtimeWorktreePerAgentResult[0]);
   const runtimeLspDiagnostics = fulfilledValue(runtimeLspDiagnosticsResult[0]);
+  const runtimePreviewRail = fulfilledValue(runtimePreviewRailResult[0]);
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
@@ -742,6 +748,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeLspDiagnostics,
   )
     ? runtimeLspDiagnostics
+    : undefined;
+  const safeRuntimePreviewRail = isSafeRuntimePreviewRail(runtimePreviewRail)
+    ? runtimePreviewRail
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -908,6 +917,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeWorktreePerAgent === undefined;
   const runtimeLspDiagnosticsFallbackUsed =
     safeRuntimeLspDiagnostics === undefined;
+  const runtimePreviewRailFallbackUsed = safeRuntimePreviewRail === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -1065,6 +1075,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/subagent-isolation",
         "GET /api/runtime/worktree-per-agent",
         "GET /api/runtime/lsp-diagnostics",
+        "GET /api/runtime/preview-rail",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -1088,7 +1099,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeBackgroundJobs !== undefined &&
         runtimeSubagentIsolation !== undefined &&
         runtimeWorktreePerAgent !== undefined &&
-        runtimeLspDiagnostics !== undefined,
+        runtimeLspDiagnostics !== undefined &&
+        runtimePreviewRail !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -1150,6 +1162,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeLspDiagnosticsFallbackUsed
           ? ["RUNTIME_LSP_DIAGNOSTICS_MOCK_FALLBACK"]
           : []),
+        ...(runtimePreviewRailFallbackUsed
+          ? ["RUNTIME_PREVIEW_RAIL_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1173,7 +1188,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeBackgroundJobsFallbackUsed ||
         runtimeSubagentIsolationFallbackUsed ||
         runtimeWorktreePerAgentFallbackUsed ||
-        runtimeLspDiagnosticsFallbackUsed,
+        runtimeLspDiagnosticsFallbackUsed ||
+        runtimePreviewRailFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1281,6 +1297,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeSubagentIsolation === undefined ||
     runtimeWorktreePerAgent === undefined ||
     runtimeLspDiagnostics === undefined ||
+    runtimePreviewRail === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1322,8 +1339,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeBackgroundJobsResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeSubagentIsolationResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeWorktreePerAgentResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeLspDiagnosticsResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 21;
+    (runtimeLspDiagnosticsResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimePreviewRailResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 22;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1435,6 +1453,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeLspDiagnostics:
       safeRuntimeLspDiagnostics ??
       mockControlCenterData.runtimeLspDiagnostics,
+    runtimePreviewRail:
+      safeRuntimePreviewRail ?? mockControlCenterData.runtimePreviewRail,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1531,6 +1551,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeSubagentIsolationFallbackUsed &&
     !runtimeWorktreePerAgentFallbackUsed &&
     !runtimeLspDiagnosticsFallbackUsed &&
+    !runtimePreviewRailFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1575,6 +1596,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeSubagentIsolationFallbackUsed ||
     runtimeWorktreePerAgentFallbackUsed ||
     runtimeLspDiagnosticsFallbackUsed ||
+    runtimePreviewRailFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1654,6 +1676,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeLspDiagnosticsFallbackUsed) {
     degradedSafeMessage =
       "Runtime LSP diagnostics posture was unavailable or unsafe; non-authoritative mock fallback kept language-server launch, installs, shell execution, and raw diagnostic persistence blocked.";
+  } else if (runtimePreviewRailFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime preview rail posture was unavailable or unsafe; non-authoritative mock fallback kept browser automation, raw sensitive file display, screenshot capture, and direct runtime payload rendering blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -4817,6 +4842,90 @@ function isSafeRuntimeLspDiagnostics(
         diagnostic.provider_call_enabled === false &&
         diagnostic.raw_path_persisted === false &&
         diagnostic.raw_diagnostic_payload_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimePreviewRail(
+  value: RuntimePreviewRailReadModel | undefined,
+): value is RuntimePreviewRailReadModel {
+  if (value === undefined || !Array.isArray(value.slots)) {
+    return false;
+  }
+  const allowedKinds = new Set([
+    "file_ref",
+    "diff_ref",
+    "artifact_ref",
+    "run_output_ref",
+    "proof_ref",
+    "runtime_event_ref",
+  ]);
+  const allowedStatuses = new Set([
+    "safe_ref_ready",
+    "bounded_preview_placeholder",
+    "execution_blocked",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimePreviewRailReadModel> = [
+    "browser_automation_enabled",
+    "raw_sensitive_file_display_enabled",
+    "direct_runtime_payload_rendering_enabled",
+    "screenshot_capture_enabled",
+    "file_read_enabled",
+    "file_write_enabled",
+    "shell_execution_enabled",
+    "provider_call_enabled",
+    "control_center_mints_authority",
+    "raw_path_persisted",
+    "raw_file_content_persisted",
+    "raw_runtime_payload_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_preview_rail.v1" &&
+    value.status === "safe_ref_preview_rail_posture" &&
+    value.route_ref === "GET /api/runtime/preview-rail" &&
+    value.cli_ref === "uaa runtime inspect-preview-rail" &&
+    value.slot_count === value.slots.length &&
+    value.safe_ref_ready_count ===
+      value.slots.filter((slot) => slot.slot_status === "safe_ref_ready").length &&
+    value.bounded_preview_placeholder_count ===
+      value.slots.filter(
+        (slot) => slot.slot_status === "bounded_preview_placeholder",
+      ).length &&
+    value.execution_blocked_count ===
+      value.slots.filter((slot) => slot.slot_status === "execution_blocked")
+        .length &&
+    value.source_classification_visible === true &&
+    value.redaction_policy_visible === true &&
+    value.bounded_preview_visible === true &&
+    value.operator_attach_visible === true &&
+    value.receipt_plan_visible === true &&
+    value.proof_link_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:preview-rail-no-browser-automation",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.slots.every(
+      (slot) =>
+        allowedKinds.has(slot.slot_kind) &&
+        allowedStatuses.has(slot.slot_status) &&
+        isNonEmptyStringArray(slot.blocked_authority_refs) &&
+        isNonEmptyStringArray(slot.next_safe_action_refs) &&
+        slot.browser_automation_enabled === false &&
+        slot.raw_sensitive_file_display_enabled === false &&
+        slot.direct_runtime_payload_rendering_enabled === false &&
+        slot.screenshot_capture_enabled === false &&
+        slot.file_read_enabled === false &&
+        slot.file_write_enabled === false &&
+        slot.shell_execution_enabled === false &&
+        slot.provider_call_enabled === false &&
+        slot.raw_path_persisted === false &&
+        slot.raw_file_content_persisted === false &&
+        slot.raw_runtime_payload_persisted === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

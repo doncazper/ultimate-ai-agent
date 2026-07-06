@@ -7693,6 +7693,21 @@ describe("Web Control Center shell", () => {
         "blocked-authority:lsp-diagnostics-no-language-server-launch",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText("Preview rail")).toBeInTheDocument();
+    expect(screen.getByText("Right rail posture")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/preview-rail").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-preview-rail").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Safe file ref preview")).toBeInTheDocument();
+    expect(
+      screen.getByText("Delegated runtime event preview"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-authority:preview-rail-no-browser-automation"),
+    ).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
     expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
@@ -14813,6 +14828,10 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeLspDiagnostics)).toBe(
       true,
     );
+    expect(API_ENDPOINTS.runtimePreviewRail).toBe(
+      "/api/runtime/preview-rail",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimePreviewRail)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15878,6 +15897,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeWorktreePerAgent,
     [API_ENDPOINTS.runtimeLspDiagnostics]:
       mockControlCenterData.runtimeLspDiagnostics,
+    [API_ENDPOINTS.runtimePreviewRail]:
+      mockControlCenterData.runtimePreviewRail,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
