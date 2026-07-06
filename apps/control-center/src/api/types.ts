@@ -10131,6 +10131,103 @@ export interface RuntimeBackgroundJobsReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeSubagentRoleKind =
+  | "implementer"
+  | "reviewer"
+  | "verifier";
+
+export type RuntimeSubagentReadinessStatus =
+  | "contract_ready"
+  | "review_ready"
+  | "blocked_dispatch";
+
+export type RuntimeSubagentArtifactKind =
+  | "plan_comparison"
+  | "review_packet"
+  | "disagreement_summary";
+
+export interface RuntimeSubagentIsolationRole {
+  role_ref: string;
+  display_label: string;
+  role_kind: RuntimeSubagentRoleKind;
+  readiness_status: RuntimeSubagentReadinessStatus;
+  scope_envelope_ref: string;
+  context_pack_ref: string;
+  tool_grant_ref: string;
+  memory_grant_ref: string;
+  budget_ref: string;
+  kill_switch_ref: string;
+  receipt_plan_ref: string;
+  proof_ref: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  live_dispatch_enabled: boolean;
+  background_fanout_enabled: boolean;
+  cross_agent_memory_transfer_enabled: boolean;
+  tool_sharing_enabled: boolean;
+  autonomous_delegation_enabled: boolean;
+  provider_call_enabled: boolean;
+  shell_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  raw_transcript_persisted: boolean;
+}
+
+export interface RuntimeSubagentReviewArtifact {
+  artifact_ref: string;
+  artifact_kind: RuntimeSubagentArtifactKind;
+  display_label: string;
+  source_role_refs: string[];
+  safe_summary: string;
+  proof_refs: string[];
+  raw_agent_output_persisted: boolean;
+  executable_authority: boolean;
+}
+
+export interface RuntimeSubagentIsolationReadModel {
+  schema_version: "runtime_subagent_isolation.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  roles: RuntimeSubagentIsolationRole[];
+  review_artifacts: RuntimeSubagentReviewArtifact[];
+  role_count: number;
+  review_artifact_count: number;
+  contract_ready_count: number;
+  review_ready_count: number;
+  blocked_dispatch_count: number;
+  identity_registry_visible: boolean;
+  scope_envelopes_visible: boolean;
+  context_pack_grants_visible: boolean;
+  tool_grants_visible: boolean;
+  memory_grants_visible: boolean;
+  budget_visible: boolean;
+  kill_switch_visible: boolean;
+  receipt_plan_visible: boolean;
+  proof_visible: boolean;
+  live_dispatch_enabled: boolean;
+  background_fanout_enabled: boolean;
+  cross_agent_memory_transfer_enabled: boolean;
+  tool_sharing_enabled: boolean;
+  autonomous_delegation_enabled: boolean;
+  provider_call_enabled: boolean;
+  shell_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_transcript_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -11311,6 +11408,7 @@ export interface ControlCenterData {
   runtimeSessionContinuity: RuntimeSessionContinuityReadModel;
   runtimeMcpCatalogFiltering: RuntimeMcpCatalogFilteringReadModel;
   runtimeBackgroundJobs: RuntimeBackgroundJobsReadModel;
+  runtimeSubagentIsolation: RuntimeSubagentIsolationReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

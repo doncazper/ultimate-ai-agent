@@ -42,6 +42,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_hardline_command_blocklist_read_model,
     build_runtime_managed_scope_policy_read_model,
     build_runtime_mcp_catalog_filtering_read_model,
+    build_runtime_subagent_isolation_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -707,6 +708,49 @@ def _print_background_jobs(read_model: dict[str, Any]) -> None:
         print(f"  approval={job['approval_scope_ref']}")
         print(f"  receipt={job['receipt_plan_ref']}")
         print(f"  summary: {job['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_subagent_isolation(read_model: dict[str, Any]) -> None:
+    print("Runtime subagent isolation")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Roles: "
+        f"total={read_model['role_count']} "
+        f"contract_ready={read_model['contract_ready_count']} "
+        f"review_ready={read_model['review_ready_count']} "
+        f"blocked_dispatch={read_model['blocked_dispatch_count']}"
+    )
+    print(f"Review artifacts: {read_model['review_artifact_count']}")
+    print(
+        "Blocked controls: "
+        f"dispatch={read_model['live_dispatch_enabled']} "
+        f"fanout={read_model['background_fanout_enabled']} "
+        f"tool_sharing={read_model['tool_sharing_enabled']} "
+        f"memory_transfer={read_model['cross_agent_memory_transfer_enabled']}"
+    )
+    print("Roles:")
+    for role in read_model["roles"]:
+        print(
+            f"- {role['display_label']}: "
+            f"status={role['readiness_status']} scope={role['scope_envelope_ref']}"
+        )
+        print(f"  context={role['context_pack_ref']}")
+        print(f"  tools={role['tool_grant_ref']}")
+        print(f"  memory={role['memory_grant_ref']}")
+        print(f"  receipt={role['receipt_plan_ref']}")
+    print("Artifacts:")
+    for artifact in read_model["review_artifacts"]:
+        print(
+            f"- {artifact['display_label']}: "
+            f"kind={artifact['artifact_kind']}"
+        )
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1466,6 +1510,33 @@ def _inspect_background_jobs(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_background_jobs(read_model)
+    return 0
+
+
+def _inspect_subagent_isolation(args: argparse.Namespace) -> int:
+    read_model = build_runtime_subagent_isolation_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-subagent-isolation",
+        "runtime_subagent_isolation": read_model,
+        "safe_refs_only": True,
+        "readiness_only": True,
+        "raw_agent_outputs_omitted": True,
+        "raw_transcripts_omitted": True,
+        "provider_payloads_omitted": True,
+        "live_dispatch_performed": False,
+        "background_fanout_performed": False,
+        "cross_agent_memory_transfer_performed": False,
+        "tool_sharing_performed": False,
+        "autonomous_delegation_performed": False,
+        "provider_call_performed": False,
+        "shell_execution_performed": False,
+        "connector_write_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_subagent_isolation(read_model)
     return 0
 
 
@@ -2505,6 +2576,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref background job posture as JSON.",
     )
     background_jobs.set_defaults(func=_inspect_background_jobs)
+
+    subagent_isolation = subparsers.add_parser(
+        "inspect-subagent-isolation",
+        help="Inspect subagent role isolation posture without live dispatch.",
+    )
+    subagent_isolation.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref subagent isolation posture as JSON.",
+    )
+    subagent_isolation.set_defaults(func=_inspect_subagent_isolation)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",
