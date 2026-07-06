@@ -63,20 +63,24 @@ documentation guardrails.
 
 Use `GET /api/runtime/authority-state`,
 `POST /api/runtime/authority-decisions/preview`,
+`POST /api/runtime/authority-missions/plan`,
 `GET /control-center/settings/status#authority_lease_state`, and
 `scripts/dev/uaa_runtime.py inspect-authority-state --json` plus
-`scripts/dev/uaa_runtime.py preview-authority-decision --json` as the current
+`scripts/dev/uaa_runtime.py preview-authority-decision --json` and
+`scripts/dev/uaa_runtime.py plan-authority-mission --json` as the current
 inspection source of truth for active mode, domain grants, existing lane
 mappings, policy decisions, receipts, audit refs, rollback/safe-disable posture,
-and kill-switch visibility. Use `POST /api/runtime/authority-leases`,
+kill-switch visibility, and mission-scoped lease requirements. Use
+`POST /api/runtime/authority-leases`,
 `POST /api/runtime/authority-leases/revoke`,
 `scripts/dev/uaa_runtime.py select-authority-mode`, and
 `scripts/dev/uaa_runtime.py revoke-authority-lease` for operator-selected
 session lease receipts. Control Center `/settings` may issue and revoke only
 implemented local AuthorityLease subsets and may preview concrete
-mode/domain/capability decisions through the validation-only preview route.
-Preview copy must show required mode, required domain/capability refs,
-blocked/degraded reasons, receipt/audit refs, and no-execution/no-mutation
+mode/domain/capability decisions or delegated mission plans through
+validation-only preview routes. Preview copy must show required mode, required
+domain/capability refs, blocked/degraded reasons, receipt/audit refs,
+unsupported adapter refs, lease-issue readiness, and no-execution/no-mutation
 posture instead of raw JSON. These routes and controls may grant only
 implemented local domain capability subsets; unsupported adapter domains must
 remain denied or recorded as unsupported refs. Governed Runtime command

@@ -11778,6 +11778,57 @@ export interface AuthorityDecisionPreview {
   redactions_applied: string[];
 }
 
+export interface AuthorityMissionPlanRequest {
+  schema_version?: "uaa-authority-mission-plan-request.v1";
+  mission_ref: string;
+  safe_goal_summary: string;
+  requested_mode?: AuthorityTrustMode;
+  requested_domains?: Record<string, string[]>;
+  action_requests?: AuthorityActionRequest[];
+  constraints?: Record<string, unknown>;
+  decision_reason_ref?: string;
+  operator_ref?: string;
+  duration_minutes?: number;
+  draft_fallback_available?: boolean;
+}
+
+export interface AuthorityMissionPlan {
+  schema_version: "uaa-authority-mission-plan.v1";
+  plan_ref: string;
+  mission_ref: string;
+  requested_mode: AuthorityTrustMode;
+  requested_domains: Record<string, string[]>;
+  granted_domains: Record<string, string[]>;
+  denied_domain_refs: string[];
+  unsupported_adapter_refs: string[];
+  action_previews: AuthorityDecisionPreview[];
+  active_lease_refs: string[];
+  lease_issue_request_ref: string;
+  lease_issue_request: AuthorityLeaseIssueRequest;
+  lease_issue_ready: boolean;
+  required_domain_refs: string[];
+  required_capability_refs: string[];
+  blocked_reason_refs: string[];
+  route_ref: "POST /api/runtime/authority-missions/plan";
+  cli_ref: "repo-local-command:uaa-runtime-plan-authority-mission";
+  operator_summary: string;
+  next_safe_action: string;
+  execution_performed: false;
+  mutation_performed: false;
+  safe_refs_only: true;
+  raw_paths_included: false;
+  raw_prompt_included: false;
+  raw_response_included: false;
+  raw_provider_payload_included: false;
+  unknown_authority_default: "deny";
+  unsupported_adapters_claimed_execution: false;
+  receipts_required: boolean;
+  audit_required: boolean;
+  redaction_required: boolean;
+  kill_switch_visible: boolean;
+  redactions_applied: string[];
+}
+
 export interface AuthorityLeaseReceipt {
   operation: "issue" | "revoke";
   status: "issued" | "revoked" | "replayed" | "denied";

@@ -20,10 +20,13 @@ from ultimate_ai_agent.core.time import utc_now
 
 AUTHORITY_LEASE_SCHEMA_VERSION = "uaa-authority-lease.v1"
 AUTHORITY_STATE_SCHEMA_VERSION = "uaa-authority-state.v1"
+AUTHORITY_MISSION_PLAN_SCHEMA_VERSION = "uaa-authority-mission-plan.v1"
 AUTHORITY_STATE_CONTRACT_REF = "contract-ref:authority-modes-mission-leases:v1"
 AUTHORITY_STATE_API_REF = "GET /api/runtime/authority-state"
 AUTHORITY_STATE_SETTINGS_ROUTE_REF = "GET /control-center/settings/status#authority_lease_state"
 AUTHORITY_STATE_CLI_REF = "repo-local-command:uaa-runtime-inspect-authority-state"
+AUTHORITY_MISSION_PLAN_ROUTE_REF = "POST /api/runtime/authority-missions/plan"
+AUTHORITY_MISSION_PLAN_CLI_REF = "repo-local-command:uaa-runtime-plan-authority-mission"
 AUTHORITY_STATE_DIR_ENV = "UAA_AUTHORITY_STATE_DIR"
 AUTHORITY_LEASES_FILE = "authority_leases.json"
 AUTHORITY_LEASE_RECEIPTS_FILE = "authority_lease_receipts.jsonl"
@@ -379,6 +382,141 @@ class AuthorityDecisionPreview(_AuthorityModel):
             or self.unknown_authority_default != AuthorityDecisionOutcome.deny.value
         ):
             raise ValueError("AUTHORITY_DECISION_PREVIEW_GOVERNANCE_REQUIRED")
+        return self
+
+
+class AuthorityMissionPlanRequest(_AuthorityModel):
+    schema_version: Literal["uaa-authority-mission-plan-request.v1"] = (
+        "uaa-authority-mission-plan-request.v1"
+    )
+    mission_ref: str = Field(..., min_length=1)
+    safe_goal_summary: str = Field(..., min_length=1, max_length=640)
+    requested_mode: TrustMode = TrustMode.delegated_mission_autonomous_window
+    requested_domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
+        default_factory=dict
+    )
+    action_requests: list[AuthorityActionRequest] = Field(default_factory=list)
+    constraints: dict[str, Any] = Field(default_factory=dict)
+    decision_reason_ref: str = "reason-ref:authority-mission-plan"
+    operator_ref: str = "operator-ref:local-user"
+    duration_minutes: int = Field(default=120, ge=5, le=480)
+    draft_fallback_available: bool = True
+
+    @model_validator(mode="after")
+    def validate_mission_plan_request(self) -> "AuthorityMissionPlanRequest":
+        for value, field_name in [
+            (self.mission_ref, "authority_mission_ref"),
+            (self.decision_reason_ref, "authority_mission_decision_reason_ref"),
+            (self.operator_ref, "authority_mission_operator_ref"),
+        ]:
+            validate_task_ref(value, field_name)
+        validate_safe_task_text(self.safe_goal_summary, "authority_mission_goal_summary")
+        validate_safe_task_text(_enum_value(self.requested_mode), "authority_mission_mode")
+        validate_safe_task_payload(self.constraints, "authority_mission_constraints")
+        if not self.requested_domains and not self.action_requests:
+            raise ValueError("AUTHORITY_MISSION_PLAN_REQUIRES_DOMAIN_OR_ACTION")
+        for domain, capabilities in self.requested_domains.items():
+            validate_safe_task_text(_enum_value(domain), "authority_mission_domain")
+            if not capabilities:
+                raise ValueError("AUTHORITY_MISSION_DOMAIN_CAPABILITIES_REQUIRED")
+            for capability in capabilities:
+                validate_safe_task_text(
+                    _enum_value(capability),
+                    "authority_mission_capability",
+                )
+        return self
+
+
+class AuthorityMissionPlan(_AuthorityModel):
+    schema_version: Literal["uaa-authority-mission-plan.v1"] = (
+        "uaa-authority-mission-plan.v1"
+    )
+    plan_ref: str = Field(..., min_length=1)
+    mission_ref: str = Field(..., min_length=1)
+    requested_mode: TrustMode
+    requested_domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
+        default_factory=dict
+    )
+    granted_domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
+        default_factory=dict
+    )
+    denied_domain_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
+    action_previews: list[AuthorityDecisionPreview] = Field(default_factory=list)
+    active_lease_refs: list[str] = Field(default_factory=list)
+    lease_issue_request_ref: str = Field(..., min_length=1)
+    lease_issue_request: AuthorityLeaseIssueRequest
+    lease_issue_ready: bool = False
+    required_domain_refs: list[str] = Field(default_factory=list)
+    required_capability_refs: list[str] = Field(default_factory=list)
+    blocked_reason_refs: list[str] = Field(default_factory=list)
+    route_ref: str = AUTHORITY_MISSION_PLAN_ROUTE_REF
+    cli_ref: str = AUTHORITY_MISSION_PLAN_CLI_REF
+    operator_summary: str = Field(..., min_length=1, max_length=720)
+    next_safe_action: str = Field(..., min_length=1, max_length=520)
+    execution_performed: bool = False
+    mutation_performed: bool = False
+    safe_refs_only: bool = True
+    raw_paths_included: bool = False
+    raw_prompt_included: bool = False
+    raw_response_included: bool = False
+    raw_provider_payload_included: bool = False
+    unknown_authority_default: AuthorityDecisionOutcome = AuthorityDecisionOutcome.deny
+    unsupported_adapters_claimed_execution: bool = False
+    receipts_required: bool = True
+    audit_required: bool = True
+    redaction_required: bool = True
+    kill_switch_visible: bool = True
+    redactions_applied: list[str] = Field(
+        default_factory=lambda: list(AUTHORITY_STATE_REDACTIONS)
+    )
+
+    @model_validator(mode="after")
+    def validate_mission_plan(self) -> "AuthorityMissionPlan":
+        for value, field_name in [
+            (self.plan_ref, "authority_mission_plan_ref"),
+            (self.mission_ref, "authority_mission_ref"),
+            (self.lease_issue_request_ref, "authority_mission_lease_request_ref"),
+        ]:
+            validate_task_ref(value, field_name)
+        for refs, field_name in [
+            (self.denied_domain_refs, "authority_mission_denied_domain_ref"),
+            (self.unsupported_adapter_refs, "authority_mission_unsupported_ref"),
+            (self.active_lease_refs, "authority_mission_active_lease_ref"),
+            (self.required_domain_refs, "authority_mission_required_domain_ref"),
+            (self.required_capability_refs, "authority_mission_required_capability_ref"),
+            (self.blocked_reason_refs, "authority_mission_blocked_reason_ref"),
+        ]:
+            _validate_ref_list(refs, field_name)
+        for text in [self.route_ref, self.cli_ref]:
+            validate_safe_task_text(text, "authority_mission_route_or_cli")
+        validate_safe_task_text(self.operator_summary, "authority_mission_summary")
+        validate_safe_task_text(self.next_safe_action, "authority_mission_next_action")
+        for redaction in self.redactions_applied:
+            validate_safe_task_text(redaction, "authority_mission_redaction")
+        if (
+            self.execution_performed
+            or self.mutation_performed
+            or not self.safe_refs_only
+            or self.raw_paths_included
+            or self.raw_prompt_included
+            or self.raw_response_included
+            or self.raw_provider_payload_included
+            or self.unsupported_adapters_claimed_execution
+        ):
+            raise ValueError("AUTHORITY_MISSION_PLAN_MUST_NOT_EXECUTE")
+        if (
+            not self.receipts_required
+            or not self.audit_required
+            or not self.redaction_required
+            or not self.kill_switch_visible
+            or self.unknown_authority_default != AuthorityDecisionOutcome.deny.value
+        ):
+            raise ValueError("AUTHORITY_MISSION_PLAN_GOVERNANCE_REQUIRED")
+        if self.lease_issue_ready and (
+            self.denied_domain_refs or self.unsupported_adapter_refs
+        ):
+            raise ValueError("AUTHORITY_MISSION_PLAN_UNSUPPORTED_NOT_ISSUE_READY")
         return self
 
 
@@ -1034,6 +1172,180 @@ def _filter_requested_domains(
     return granted, list(dict.fromkeys(denied_refs)), list(dict.fromkeys(unsupported_refs))
 
 
+def _mission_requested_domains(
+    request: AuthorityMissionPlanRequest,
+) -> dict[AuthorityDomain, list[AuthorityCapability]]:
+    domains: dict[AuthorityDomain, list[AuthorityCapability]] = {
+        AuthorityDomain(domain): [
+            AuthorityCapability(capability) for capability in capabilities
+        ]
+        for domain, capabilities in request.requested_domains.items()
+    }
+    for action in request.action_requests:
+        domain = AuthorityDomain(action.domain)
+        capability = AuthorityCapability(action.capability)
+        current = domains.setdefault(domain, [])
+        if capability not in current:
+            current.append(capability)
+    return domains
+
+
+def _mission_action_requests(
+    request: AuthorityMissionPlanRequest,
+    requested_domains: dict[AuthorityDomain, list[AuthorityCapability]],
+) -> list[AuthorityActionRequest]:
+    if request.action_requests:
+        return request.action_requests
+    allowed = _allowed_domain_capabilities(TrustMode(request.requested_mode))
+    actions: list[AuthorityActionRequest] = []
+    for domain, capabilities in requested_domains.items():
+        for capability in capabilities:
+            unsupported = capability not in allowed.get(domain, set())
+            actions.append(
+                AuthorityActionRequest(
+                    action_ref=_stable_ref(
+                        "authority-action-ref",
+                        {
+                            "mission_ref": request.mission_ref,
+                            "domain": domain,
+                            "capability": capability,
+                        },
+                    ),
+                    domain=domain,
+                    capability=capability,
+                    safe_summary=(
+                        f"Preview mission authority for {domain.value} "
+                        f"{capability.value}."
+                    ),
+                    resource_refs=[request.mission_ref],
+                    route_ref=f"mission-action-ref:{domain.value}:{capability.value}",
+                    requested_mode=TrustMode(request.requested_mode),
+                    draft_fallback_available=request.draft_fallback_available,
+                    unsupported_adapter=unsupported,
+                )
+            )
+    return actions
+
+
+def build_authority_mission_plan(
+    request: AuthorityMissionPlanRequest,
+    leases: list[AuthorityLease],
+    *,
+    now: datetime | None = None,
+) -> AuthorityMissionPlan:
+    requested_domains = _mission_requested_domains(request)
+    issue_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode(request.requested_mode),
+        scope=AuthorityLeaseScope.mission,
+        mission_ref=request.mission_ref,
+        operator_ref=request.operator_ref,
+        requested_domains=requested_domains,
+        constraints={
+            **request.constraints,
+            "authority_mission_plan_preview": True,
+            "execution_performed": False,
+        },
+        decision_reason_ref=request.decision_reason_ref,
+        duration_minutes=request.duration_minutes,
+        safe_summary=(
+            "Mission-scoped AuthorityLease issue draft for implemented "
+            "domain capabilities only."
+        ),
+    )
+    granted, denied_refs, unsupported_refs = _filter_requested_domains(issue_request)
+    active_leases = [lease for lease in leases if lease.is_active(now=now)]
+    action_previews = [
+        build_authority_decision_preview(
+            action,
+            active_leases or build_default_authority_leases(),
+            now=now,
+        )
+        for action in _mission_action_requests(request, requested_domains)
+    ]
+    required_domain_refs = sorted(
+        {
+            ref
+            for preview in action_previews
+            for ref in preview.decision.required_domain_refs
+        }
+    )
+    required_capability_refs = sorted(
+        {
+            ref
+            for preview in action_previews
+            for ref in preview.decision.required_capability_refs
+        }
+    )
+    blocked_reason_refs = sorted(
+        {
+            ref
+            for preview in action_previews
+            for ref in preview.decision.reason_refs
+            if preview.decision.outcome
+            in {
+                AuthorityDecisionOutcome.deny.value,
+                AuthorityDecisionOutcome.degrade_to_draft.value,
+            }
+        }
+    )
+    issue_ready = bool(granted) and not denied_refs and not unsupported_refs
+    plan_ref = _stable_ref(
+        "authority-mission-plan-ref",
+        {
+            "mission_ref": request.mission_ref,
+            "requested_mode": request.requested_mode,
+            "requested_domains": {
+                domain.value: [capability.value for capability in capabilities]
+                for domain, capabilities in requested_domains.items()
+            },
+        },
+    )
+    if issue_ready:
+        operator_summary = (
+            "Mission lease plan is issue-ready for currently implemented "
+            "domain capabilities; action previews still require the lease to be issued."
+        )
+        next_safe_action = (
+            "Issue the mission-scoped AuthorityLease with the displayed domain "
+            "scope, then re-preview or execute only implemented lanes."
+        )
+    else:
+        operator_summary = (
+            "Mission lease plan is draft-only because at least one requested "
+            "domain capability is unsupported or denied by current authority policy."
+        )
+        next_safe_action = (
+            "Keep the mission as a draft, remove unsupported domains, or implement "
+            "the named adapters with tests before issuing authority."
+        )
+    return AuthorityMissionPlan(
+        plan_ref=plan_ref,
+        mission_ref=request.mission_ref,
+        requested_mode=TrustMode(request.requested_mode),
+        requested_domains=requested_domains,
+        granted_domains=granted,
+        denied_domain_refs=denied_refs,
+        unsupported_adapter_refs=unsupported_refs,
+        action_previews=action_previews,
+        active_lease_refs=[lease.lease_ref for lease in active_leases],
+        lease_issue_request_ref=_stable_ref(
+            "authority-lease-issue-request-ref",
+            {
+                "mission_ref": request.mission_ref,
+                "plan_ref": plan_ref,
+                "requested_mode": request.requested_mode,
+            },
+        ),
+        lease_issue_request=issue_request,
+        lease_issue_ready=issue_ready,
+        required_domain_refs=required_domain_refs,
+        required_capability_refs=required_capability_refs,
+        blocked_reason_refs=blocked_reason_refs,
+        operator_summary=operator_summary,
+        next_safe_action=next_safe_action,
+    )
+
+
 class AuthorityLeaseStore:
     def __init__(self, state_dir: Path | None = None) -> None:
         self.state_dir = state_dir or authority_state_dir()
@@ -1069,6 +1381,16 @@ class AuthorityLeaseStore:
     ) -> AuthorityDecisionPreview:
         active = self.list_leases(active_only=True)
         return build_authority_decision_preview(
+            request,
+            active or build_default_authority_leases(),
+        )
+
+    def plan_mission(
+        self,
+        request: AuthorityMissionPlanRequest,
+    ) -> AuthorityMissionPlan:
+        active = self.list_leases(active_only=True)
+        return build_authority_mission_plan(
             request,
             active or build_default_authority_leases(),
         )

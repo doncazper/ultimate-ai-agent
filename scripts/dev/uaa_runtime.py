@@ -24,6 +24,7 @@ from ultimate_ai_agent.core.authority import (  # noqa: E402
     AuthorityLeaseIssueRequest,
     AuthorityLeaseRevokeRequest,
     AuthorityLeaseStore,
+    AuthorityMissionPlanRequest,
     TrustMode,
 )
 from ultimate_ai_agent.core.control_center.runtime_parity_loop import (  # noqa: E402
@@ -1840,6 +1841,43 @@ def _preview_authority_decision(args: argparse.Namespace) -> int:
     return 0
 
 
+def _plan_authority_mission(args: argparse.Namespace) -> int:
+    request = AuthorityMissionPlanRequest(
+        mission_ref=args.mission_ref,
+        safe_goal_summary=args.summary,
+        requested_mode=TrustMode(args.mode),
+        requested_domains=_parse_authority_domains(args.domain),
+        decision_reason_ref=args.reason_ref,
+        duration_minutes=args.duration_minutes,
+        draft_fallback_available=True,
+    )
+    plan = AuthorityLeaseStore().plan_mission(request)
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-plan-authority-mission",
+        "authority_mission_plan": plan.model_dump(mode="json"),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_provider_payload_omitted": True,
+        "execution_performed": False,
+        "mutation_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        print("Authority mission plan")
+        print(f"Mission: {plan.mission_ref}")
+        print(f"Mode: {plan.requested_mode}")
+        print(f"Issue ready: {'yes' if plan.lease_issue_ready else 'no'}")
+        print(f"Granted domains: {len(plan.granted_domains)}")
+        print(f"Unsupported adapters: {len(plan.unsupported_adapter_refs)}")
+        print(f"Action previews: {len(plan.action_previews)}")
+        print(f"Plan: {plan.plan_ref}")
+        print(f"Next: {plan.next_safe_action}")
+    return 0
+
+
 def _inspect_role_provider_evidence(args: argparse.Namespace) -> int:
     evidence = build_model_provider_control_plane_read_model().role_provider_evidence
     read_model = evidence.model_dump(mode="json")
@@ -3471,6 +3509,42 @@ def build_parser() -> argparse.ArgumentParser:
     )
     authority_preview.add_argument("--json", action="store_true", help="Emit safe JSON.")
     authority_preview.set_defaults(func=_preview_authority_decision)
+
+    mission_plan = subparsers.add_parser(
+        "plan-authority-mission",
+        help="Plan a mission-scoped AuthorityLease without execution.",
+    )
+    mission_plan.add_argument("--mission-ref", required=True, help="Safe mission ref.")
+    mission_plan.add_argument(
+        "--mode",
+        default=TrustMode.delegated_mission_autonomous_window.value,
+        choices=[mode.value for mode in TrustMode],
+        help="Requested trust mode for the mission lease.",
+    )
+    mission_plan.add_argument(
+        "--domain",
+        action="append",
+        required=True,
+        help="Domain capabilities in domain:capability,capability form.",
+    )
+    mission_plan.add_argument(
+        "--reason-ref",
+        default="reason-ref:authority-mission-plan-cli",
+        help="Safe decision reason ref for the issue draft.",
+    )
+    mission_plan.add_argument(
+        "--duration-minutes",
+        type=int,
+        default=120,
+        help="Mission lease duration in minutes.",
+    )
+    mission_plan.add_argument(
+        "--summary",
+        required=True,
+        help="Safe bounded mission summary.",
+    )
+    mission_plan.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    mission_plan.set_defaults(func=_plan_authority_mission)
 
     select_authority = subparsers.add_parser(
         "select-authority-mode",

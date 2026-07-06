@@ -37,6 +37,7 @@ import type {
   AuthorityDecisionPreview,
   AuthorityLease,
   AuthorityLeaseReceipt,
+  AuthorityMissionPlan,
 } from "./api/types";
 import { EmptyState, ErrorState, LoadingState } from "./components/DataState";
 import {
@@ -10830,6 +10831,76 @@ describe("Web Control Center shell", () => {
       redaction_required: true,
       redactions_applied: ["safe_refs_only", "credentials_omitted"],
     };
+    const authorityMissionPlan: AuthorityMissionPlan = {
+      schema_version: "uaa-authority-mission-plan.v1",
+      plan_ref: "authority-mission-plan-ref:app-test-ticket",
+      mission_ref: "mission-ref:control-center-ticket-purchase-preview",
+      requested_mode: "delegated_mission_autonomous_window",
+      requested_domains: {
+        browser: ["observe", "click", "form_fill"],
+        shopping_payments: ["purchase_under_budget"],
+      },
+      granted_domains: {},
+      denied_domain_refs: [
+        "authority-domain-ref:browser",
+        "authority-domain-ref:shopping_payments",
+      ],
+      unsupported_adapter_refs: [
+        "adapter-ref:browser:click-not-implemented-for-authority-lease-v1",
+        "adapter-ref:shopping_payments:purchase_under_budget-not-implemented-for-authority-lease-v1",
+      ],
+      action_previews: [authorityPreview],
+      active_lease_refs: ["authority-lease-ref:default-read-only-session"],
+      lease_issue_request_ref:
+        "authority-lease-issue-request-ref:app-test-ticket",
+      lease_issue_request: {
+        mode: "delegated_mission_autonomous_window",
+        scope: "mission",
+        mission_ref: "mission-ref:control-center-ticket-purchase-preview",
+        requested_domains: {
+          browser: ["observe", "click", "form_fill"],
+          shopping_payments: ["purchase_under_budget"],
+        },
+        constraints: {
+          merchant_ref: "merchant-ref:ticket-site-review-required",
+          budget_ref: "budget-ref:max-total-review-required",
+        },
+        decision_reason_ref: "reason-ref:control-center-ticket-mission-plan",
+        duration_minutes: 120,
+        safe_summary:
+          "Mission-scoped AuthorityLease issue draft for implemented domain capabilities only.",
+      },
+      lease_issue_ready: false,
+      required_domain_refs: [
+        "authority-domain-ref:browser",
+        "authority-domain-ref:shopping_payments",
+      ],
+      required_capability_refs: [
+        "authority-capability-ref:click",
+        "authority-capability-ref:purchase_under_budget",
+      ],
+      blocked_reason_refs: ["reason-ref:authority:adapter-unsupported"],
+      route_ref: "POST /api/runtime/authority-missions/plan",
+      cli_ref: "repo-local-command:uaa-runtime-plan-authority-mission",
+      operator_summary:
+        "Mission lease plan is draft-only because browser and payment adapters are unsupported.",
+      next_safe_action:
+        "Keep the mission as a draft or implement the named adapters before issuing authority.",
+      execution_performed: false,
+      mutation_performed: false,
+      safe_refs_only: true,
+      raw_paths_included: false,
+      raw_prompt_included: false,
+      raw_response_included: false,
+      raw_provider_payload_included: false,
+      unknown_authority_default: "deny",
+      unsupported_adapters_claimed_execution: false,
+      receipts_required: true,
+      audit_required: true,
+      redaction_required: true,
+      kill_switch_visible: true,
+      redactions_applied: ["safe_refs_only", "credentials_omitted"],
+    };
     let settingsStatus = mockControlCenterData.settingsStatus;
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
@@ -10842,6 +10913,22 @@ describe("Web Control Center shell", () => {
             ok: true,
             success: true,
             data: authorityPreview,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.runtimeAuthorityMissionPlan)
+      ) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            success: true,
+            data: authorityMissionPlan,
           }),
           {
             status: 200,
@@ -11014,6 +11101,9 @@ describe("Web Control Center shell", () => {
       screen.getByLabelText("Authority decision preview controls"),
     ).toBeInTheDocument();
     expect(
+      screen.getByLabelText("Authority mission planner controls"),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("button", { name: "Full machine" }),
     ).toBeDisabled();
 
@@ -11043,6 +11133,44 @@ describe("Web Control Center shell", () => {
       "authority-action-ref:control-center-preview-workspace-execute",
     );
     expect(JSON.stringify(previewRequest.headers)).not.toContain(
+      "X-UAA-Idempotency-Key",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Ticket mission" }));
+    const missionPlanResult = await screen.findByRole("status", {
+      name: /Authority mission plan draft only/i,
+    });
+    expect(missionPlanResult).toHaveTextContent("Draft only");
+    expect(missionPlanResult).toHaveTextContent(
+      "delegated mission autonomous window",
+    );
+    expect(missionPlanResult).toHaveTextContent(
+      "mission-ref:control-center-ticket-purchase-preview",
+    );
+    expect(missionPlanResult).toHaveTextContent("not performed");
+    expect(missionPlanResult).toHaveTextContent(
+      "POST /api/runtime/authority-missions/plan",
+    );
+    expect(missionPlanResult).toHaveTextContent(
+      "repo-local-command:uaa-runtime-plan-authority-mission",
+    );
+    expect(missionPlanResult).toHaveTextContent(
+      "authority-domain-ref:shopping_payments",
+    );
+    expect(missionPlanResult).toHaveTextContent(
+      "adapter-ref:shopping_payments:purchase_under_budget-not-implemented-for-authority-lease-v1",
+    );
+    const missionPlanCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).includes(API_ENDPOINTS.runtimeAuthorityMissionPlan) &&
+        init?.method === "POST",
+    );
+    expect(missionPlanCall).toBeDefined();
+    const missionPlanRequest = missionPlanCall?.[1] as RequestInit;
+    expect(String(missionPlanRequest.body)).toContain(
+      "mission-ref:control-center-ticket-purchase-preview",
+    );
+    expect(JSON.stringify(missionPlanRequest.headers)).not.toContain(
       "X-UAA-Idempotency-Key",
     );
 

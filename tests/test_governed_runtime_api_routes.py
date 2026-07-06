@@ -364,6 +364,15 @@ def test_governed_runtime_routes_are_manifest_visible_with_safe_posture() -> Non
     assert preview_route.route_classification == "local_sensitive"
     assert preview_route.idempotency_required is False
     assert preview_route.approval_posture == "not_required_for_route_classification"
+    mission_plan_route = routes[("POST", "/api/runtime/authority-missions/plan")]
+    assert "governed-runtime" in mission_plan_route.tags
+    assert mission_plan_route.side_effect_class == "validation_only"
+    assert mission_plan_route.route_classification == "local_sensitive"
+    assert mission_plan_route.idempotency_required is False
+    assert (
+        mission_plan_route.approval_posture
+        == "not_required_for_route_classification"
+    )
 
     for path in [
         "/api/runtime/invocations",
@@ -413,6 +422,7 @@ def test_governed_runtime_openapi_contains_exact_contract_routes() -> None:
         "/api/runtime/capabilities",
         "/api/runtime/parity-loop",
         "/api/runtime/authority-decisions/preview",
+        "/api/runtime/authority-missions/plan",
         "/api/runtime/invocations",
         "/api/runtime/command/run",
         "/api/runtime/local-model/call",

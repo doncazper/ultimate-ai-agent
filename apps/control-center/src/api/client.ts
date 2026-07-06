@@ -7,6 +7,8 @@ import type {
   AuthorityLeaseIssueRequest,
   AuthorityLeaseMutationResult,
   AuthorityLeaseRevokeRequest,
+  AuthorityMissionPlan,
+  AuthorityMissionPlanRequest,
   BackendConnectionSummary,
   CodingCockpitSessionReadModel,
   CodingWorkspaceContextReadModel,
@@ -2756,6 +2758,40 @@ export async function previewAuthorityDecision(
         extractErrorMessage(
           data,
           "Authority decision preview was not available.",
+        ),
+      ),
+    );
+  }
+  return result;
+}
+
+export async function planAuthorityMission(
+  request: AuthorityMissionPlanRequest,
+): Promise<AuthorityMissionPlan> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.runtimeAuthorityMissionPlan}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<AuthorityMissionPlan>;
+  const result = data.result ?? data.data;
+  if (!response.ok || !result) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "Authority mission plan was not available.",
         ),
       ),
     );

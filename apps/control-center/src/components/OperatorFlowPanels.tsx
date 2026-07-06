@@ -4,6 +4,7 @@ import {
   fetchChatTurnReceipt,
   inspectLocalModelsRoute,
   issueAuthorityLease,
+  planAuthorityMission,
   previewAuthorityDecision,
   recordChatHandoff,
   recordChatTurnReceipt,
@@ -24,6 +25,8 @@ import type {
   AuthorityActionRequest,
   AuthorityDecisionPreview,
   AuthorityLeaseMutationResult,
+  AuthorityMissionPlan,
+  AuthorityMissionPlanRequest,
   AuthorityTrustMode,
   LocalModelsInspectionStatus,
   ModelProviderControlPlaneReadModel,
@@ -178,6 +181,60 @@ const AUTHORITY_DECISION_PREVIEW_OPTIONS: Array<{
       requested_mode: "delegated_mission_autonomous_window",
       draft_fallback_available: true,
       unsupported_adapter: true,
+    },
+  },
+];
+const AUTHORITY_MISSION_PLAN_OPTIONS: Array<{
+  key: string;
+  label: string;
+  summary: string;
+  request: AuthorityMissionPlanRequest;
+}> = [
+  {
+    key: "ticket-purchase",
+    label: "Ticket mission",
+    summary:
+      "Plan a delegated browser and payment mission without opening a browser or charging anything.",
+    request: {
+      mission_ref: "mission-ref:control-center-ticket-purchase-preview",
+      safe_goal_summary:
+        "Preview a delegated ticket purchase mission under explicit browser and budget constraints.",
+      requested_mode: "delegated_mission_autonomous_window",
+      requested_domains: {
+        browser: ["observe", "click", "form_fill"],
+        shopping_payments: ["purchase_under_budget"],
+      },
+      constraints: {
+        merchant_ref: "merchant-ref:ticket-site-review-required",
+        budget_ref: "budget-ref:max-total-review-required",
+        quantity_ref: "quantity-ref:two",
+      },
+      decision_reason_ref: "reason-ref:control-center-ticket-mission-plan",
+      duration_minutes: 120,
+      draft_fallback_available: true,
+    },
+  },
+  {
+    key: "workspace-maintenance",
+    label: "Workspace mission",
+    summary:
+      "Plan an implemented local workspace maintenance mission before issuing a lease.",
+    request: {
+      mission_ref: "mission-ref:control-center-workspace-maintenance-preview",
+      safe_goal_summary:
+        "Preview a local workspace maintenance mission with command and file proposal authority.",
+      requested_mode: "approved_safe_local_work_session",
+      requested_domains: {
+        workspace: ["read", "execute"],
+        files: ["read", "prepare"],
+      },
+      constraints: {
+        workspace_ref: "workspace-ref:current",
+        external_side_effects_allowed: false,
+      },
+      decision_reason_ref: "reason-ref:control-center-workspace-mission-plan",
+      duration_minutes: 120,
+      draft_fallback_available: true,
     },
   },
 ];
@@ -1542,6 +1599,11 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   const [authorityPreviewPendingKey, setAuthorityPreviewPendingKey] =
     useState<string>();
   const [authorityPreviewError, setAuthorityPreviewError] = useState<string>();
+  const [authorityMissionPlan, setAuthorityMissionPlan] =
+    useState<AuthorityMissionPlan>();
+  const [authorityMissionPendingKey, setAuthorityMissionPendingKey] =
+    useState<string>();
+  const [authorityMissionError, setAuthorityMissionError] = useState<string>();
   useEffect(() => {
     setSettingsSnapshot(data.settingsStatus);
   }, [data.settingsStatus]);
@@ -1622,6 +1684,24 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
       );
     } finally {
       setAuthorityPreviewPendingKey(undefined);
+    }
+  }
+  async function handleAuthorityMissionPlan(
+    option: (typeof AUTHORITY_MISSION_PLAN_OPTIONS)[number],
+  ) {
+    setAuthorityMissionPendingKey(option.key);
+    setAuthorityMissionError(undefined);
+    try {
+      const result = await planAuthorityMission(option.request);
+      setAuthorityMissionPlan(result);
+    } catch (error) {
+      setAuthorityMissionError(
+        error instanceof Error
+          ? error.message
+          : "Authority mission plan was not available.",
+      );
+    } finally {
+      setAuthorityMissionPendingKey(undefined);
     }
   }
   const settingsStatusRecord = settingsStatus as unknown as Record<
@@ -1973,6 +2053,127 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
             {authorityPreviewError ? (
               <p className="safe-copy" role="alert">
                 {authorityPreviewError}
+              </p>
+            ) : null}
+          </div>
+        </article>
+        <article className="panel">
+          <div className="panel-heading">
+            <h3>Mission planner</h3>
+            <span>
+              {authorityMissionPlan
+                ? authorityMissionPlan.lease_issue_ready
+                  ? "issue ready"
+                  : "draft only"
+                : "ready"}
+            </span>
+          </div>
+          <p>
+            Plan a mission-scoped AuthorityLease before issuing it. The planner
+            evaluates required domains, unsupported adapters, and action
+            previews without starting a mission.
+          </p>
+          <div
+            className="operator-action-panel"
+            aria-label="Authority mission planner controls"
+          >
+            <div className="action-button-row">
+              {AUTHORITY_MISSION_PLAN_OPTIONS.map((option) => (
+                <button
+                  className="secondary-button"
+                  disabled={authorityMissionPendingKey !== undefined}
+                  key={option.key}
+                  onClick={() => void handleAuthorityMissionPlan(option)}
+                  type="button"
+                >
+                  {authorityMissionPendingKey === option.key
+                    ? `Planning ${option.label}`
+                    : option.label}
+                </button>
+              ))}
+            </div>
+            <ul className="compact-list">
+              {AUTHORITY_MISSION_PLAN_OPTIONS.map((option) => (
+                <li key={`${option.key}-summary`}>
+                  <strong>{option.label}</strong>
+                  <small>{option.summary}</small>
+                </li>
+              ))}
+            </ul>
+            {authorityMissionPlan ? (
+              <div
+                className={`surface-state-card ${settingsPostureClass(
+                  authorityMissionPlan.lease_issue_ready ? "Partial" : "Blocked",
+                )}`}
+                aria-label={`Authority mission plan ${
+                  authorityMissionPlan.lease_issue_ready
+                    ? "issue ready"
+                    : "draft only"
+                }`}
+                role="status"
+              >
+                <span className="surface-state-kind">
+                  {authorityMissionPlan.lease_issue_ready
+                    ? "Issue ready"
+                    : "Draft only"}
+                </span>
+                <strong>
+                  {authorityMissionPlan.requested_mode.replaceAll("_", " ")}
+                </strong>
+                <p>{authorityMissionPlan.operator_summary}</p>
+                <dl className="metadata-list">
+                  <div>
+                    <dt>Mission</dt>
+                    <dd>{authorityMissionPlan.mission_ref}</dd>
+                  </div>
+                  <div>
+                    <dt>Action previews</dt>
+                    <dd>{authorityMissionPlan.action_previews.length}</dd>
+                  </div>
+                  <div>
+                    <dt>Execution</dt>
+                    <dd>
+                      {authorityMissionPlan.execution_performed
+                        ? "performed"
+                        : "not performed"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Mutation</dt>
+                    <dd>
+                      {authorityMissionPlan.mutation_performed
+                        ? "performed"
+                        : "not performed"}
+                    </dd>
+                  </div>
+                </dl>
+                <div
+                  className="note-list"
+                  aria-label="Authority mission plan refs"
+                >
+                  <span>{authorityMissionPlan.plan_ref}</span>
+                  <span>{authorityMissionPlan.lease_issue_request_ref}</span>
+                  <span>{authorityMissionPlan.route_ref}</span>
+                  <span>{authorityMissionPlan.cli_ref}</span>
+                  {authorityMissionPlan.required_domain_refs.map((ref) => (
+                    <span key={ref}>{ref}</span>
+                  ))}
+                  {authorityMissionPlan.required_capability_refs.map((ref) => (
+                    <span key={ref}>{ref}</span>
+                  ))}
+                  {authorityMissionPlan.unsupported_adapter_refs.map((ref) => (
+                    <span key={ref}>{ref}</span>
+                  ))}
+                  {authorityMissionPlan.blocked_reason_refs.map((ref) => (
+                    <span key={ref}>{ref}</span>
+                  ))}
+                </div>
+                <small>{authorityMissionPlan.next_safe_action}</small>
+              </div>
+            ) : null}
+            {authorityMissionError ? (
+              <p className="safe-copy" role="alert">
+                {authorityMissionError}
               </p>
             ) : null}
           </div>

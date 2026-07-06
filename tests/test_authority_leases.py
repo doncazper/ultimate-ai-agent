@@ -13,7 +13,9 @@ from ultimate_ai_agent.core.authority import (
     AuthorityDecisionOutcome,
     AuthorityDomain,
     AuthorityLease,
+    AuthorityMissionPlanRequest,
     TrustMode,
+    build_authority_mission_plan,
     build_authority_state_read_model,
     build_default_authority_leases,
     evaluate_authority_request,
@@ -375,6 +377,99 @@ def test_authority_decision_preview_api_and_cli_are_read_only(
     cli_payload = capsys.readouterr().out
     assert "uaa-runtime-preview-authority-decision" in cli_payload
     assert "adapter-unsupported" in cli_payload
+    assert "execution_performed" in cli_payload
+
+
+def test_authority_mission_plan_api_cli_and_core_are_read_only(capsys) -> None:
+    draft_plan = build_authority_mission_plan(
+        AuthorityMissionPlanRequest(
+            mission_ref="mission-ref:test-ticket-purchase",
+            safe_goal_summary=(
+                "Preview a delegated ticket purchase mission without opening a browser."
+            ),
+            requested_mode=TrustMode.delegated_mission_autonomous_window,
+            requested_domains={
+                AuthorityDomain.browser: [
+                    AuthorityCapability.observe,
+                    AuthorityCapability.click,
+                    AuthorityCapability.form_fill,
+                ],
+                AuthorityDomain.shopping_payments: [
+                    AuthorityCapability.purchase_under_budget
+                ],
+            },
+            constraints={
+                "merchant_ref": "merchant-ref:test-ticket-site",
+                "budget_ref": "budget-ref:test-max-total",
+            },
+            decision_reason_ref="reason-ref:test-ticket-mission-plan",
+        ),
+        build_default_authority_leases(),
+    )
+    assert draft_plan.execution_performed is False
+    assert draft_plan.mutation_performed is False
+    assert draft_plan.lease_issue_ready is False
+    assert "authority-domain-ref:browser" in draft_plan.denied_domain_refs
+    assert "authority-domain-ref:shopping_payments" in draft_plan.denied_domain_refs
+    assert any(
+        ref.startswith("adapter-ref:browser:")
+        for ref in draft_plan.unsupported_adapter_refs
+    )
+    assert any(
+        ref.startswith("adapter-ref:shopping_payments:")
+        for ref in draft_plan.unsupported_adapter_refs
+    )
+    assert {
+        preview.decision.outcome for preview in draft_plan.action_previews
+    } == {"degrade_to_draft"}
+    assert "reason-ref:authority:adapter-unsupported" in draft_plan.blocked_reason_refs
+
+    response = client.post(
+        "/api/runtime/authority-missions/plan",
+        json={
+            "mission_ref": "mission-ref:test-workspace-maintenance",
+            "safe_goal_summary": "Preview a local workspace maintenance mission.",
+            "requested_mode": "approved_safe_local_work_session",
+            "requested_domains": {
+                "workspace": ["read", "execute"],
+            },
+            "decision_reason_ref": "reason-ref:test-workspace-mission-plan",
+            "duration_minutes": 120,
+        },
+    )
+    assert response.status_code == 200
+    plan = response.json()["data"]
+    assert plan["lease_issue_ready"] is True
+    assert plan["execution_performed"] is False
+    assert plan["mutation_performed"] is False
+    assert plan["lease_issue_request"]["scope"] == "mission"
+    assert plan["lease_issue_request"]["mission_ref"] == (
+        "mission-ref:test-workspace-maintenance"
+    )
+    assert plan["granted_domains"]["workspace"] == ["read", "execute"]
+    assert plan["unsupported_adapter_refs"] == []
+    assert plan["route_ref"] == "POST /api/runtime/authority-missions/plan"
+    assert plan["cli_ref"] == "repo-local-command:uaa-runtime-plan-authority-mission"
+
+    cli_exit = uaa_runtime.main(
+        [
+            "plan-authority-mission",
+            "--mission-ref",
+            "mission-ref:test-cli-ticket-mission",
+            "--domain",
+            "browser:observe,click,form_fill",
+            "--domain",
+            "shopping_payments:purchase_under_budget",
+            "--summary",
+            "Preview a delegated ticket purchase mission from the CLI.",
+            "--json",
+        ]
+    )
+    assert cli_exit == 0
+    cli_payload = capsys.readouterr().out
+    assert "uaa-runtime-plan-authority-mission" in cli_payload
+    assert "authority_mission_plan" in cli_payload
+    assert "adapter-ref:shopping_payments" in cli_payload
     assert "execution_performed" in cli_payload
 
 

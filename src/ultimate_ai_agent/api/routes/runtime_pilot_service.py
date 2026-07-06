@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityLeaseIssueRequest,
     AuthorityLeaseRevokeRequest,
     AuthorityLeaseStore,
+    AuthorityMissionPlanRequest,
 )
 from ultimate_ai_agent.core.decision_router import prepare_turn
 from ultimate_ai_agent.core.control_center.runtime_parity_loop import (
@@ -721,6 +722,22 @@ def post_api_runtime_authority_decision_preview(
         data=preview.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:authority-decision-preview:v1"}],
         redactions_applied=list(preview.redactions_applied),
+    )
+
+
+@router.post("/authority-missions/plan", response_model=ResultEnvelope)
+def post_api_runtime_authority_mission_plan(
+    request: AuthorityMissionPlanRequest,
+) -> ResultEnvelope:
+    plan = _authority_store().plan_mission(request)
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_authority_mission_plan",
+        service="GovernedRuntimeAPI",
+        trace_id=plan.plan_ref,
+        data=plan.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:authority-mission-plan:v1"}],
+        redactions_applied=list(plan.redactions_applied),
     )
 
 

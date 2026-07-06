@@ -18,16 +18,19 @@ surfaces are:
 
 - `GET /api/runtime/authority-state`
 - `POST /api/runtime/authority-decisions/preview`
+- `POST /api/runtime/authority-missions/plan`
 - `GET /control-center/settings/status#authority_lease_state`
 - `scripts/dev/uaa_runtime.py inspect-authority-state --json`
 - `scripts/dev/uaa_runtime.py preview-authority-decision --json`
+- `scripts/dev/uaa_runtime.py plan-authority-mission --json`
 - `POST /api/runtime/authority-leases`
 - `POST /api/runtime/authority-leases/revoke`
 - `scripts/dev/uaa_runtime.py select-authority-mode`
 - `scripts/dev/uaa_runtime.py revoke-authority-lease`
 - Control Center `/settings` authority mode controls for implemented local
-  domain subsets, revoke receipts, and decision previews for concrete
-  mode/domain/capability requests
+  domain subsets, revoke receipts, decision previews for concrete
+  mode/domain/capability requests, and mission-plan previews for delegated
+  AuthorityLease issue requirements
 
 The first implementation is deliberately conservative: the default active
 lease is read-only; operator-selected session leases persist safe receipts for
@@ -35,9 +38,10 @@ implemented local domain/capability subsets; existing exact lanes are mapped
 into domains and required trust modes; RuntimeGateway API/CLI decisions consume
 the active lease store for command invocation, approval, and execution policy;
 Control Center `/settings` can preview workspace command, file proposal,
-browser-click, and budgeted-purchase decisions against the active lease without
-executing or mutating anything; preview results show required modes, domain and
-capability refs, receipt/audit refs, and unsupported-adapter reasons;
+browser-click, and budgeted-purchase decisions against the active lease, and can
+plan a delegated mission lease envelope without issuing a lease, executing work,
+or mutating anything; preview results show required modes, domain and capability
+refs, receipt/audit refs, and unsupported-adapter reasons;
 unsupported browser/app/payment/calendar/messages/Home Assistant adapters remain
 denied or draft-degraded instead of being presented as live execution. Read-only
 command status may run under `workspace/read`; execution-capable command lanes

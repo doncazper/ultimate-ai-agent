@@ -75,6 +75,7 @@ CAPABILITIES_DECLARED = [
     "governed_runtime_prepared_turn_read_model",
     "governed_product_pilot_authority_profile",
     "authority_decision_preview",
+    "authority_mission_plan_preview",
     "governed_product_pilot_portable_evidence_envelope",
     "governed_product_pilot_durable_orchestration_profile",
     "control_center_coding_cockpit_session_read_model",
@@ -688,6 +689,7 @@ CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
 }
 GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/authority-decisions/preview",
+    "/api/runtime/authority-missions/plan",
     "/api/runtime/authority-state",
     "/api/runtime/capabilities",
     "/api/runtime/approval-bridge",
@@ -900,6 +902,7 @@ def route_side_effect_class(path: str) -> ApiRouteSideEffectClass:
         return ApiRouteSideEffectClass.none
     if path in {
         "/api/runtime/authority-decisions/preview",
+        "/api/runtime/authority-missions/plan",
         "/api/runtime/capabilities",
     }:
         return ApiRouteSideEffectClass.validation_only
@@ -955,6 +958,11 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.local_sensitive,
             "Authority decision preview evaluates active lease scope and returns redacted allow/ask/deny/degrade refs without mutation or execution.",
+        )
+    if normalized_method == "POST" and path == "/api/runtime/authority-missions/plan":
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Authority mission plan previews mission-scoped lease requirements, unsupported adapters, and redacted decision refs without mutation or execution.",
         )
     if normalized_method == "GET" and path in GOVERNED_RUNTIME_READONLY_PATHS:
         return (

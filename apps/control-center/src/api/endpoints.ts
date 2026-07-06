@@ -94,6 +94,7 @@ export const API_ENDPOINTS = {
   runtimeLoggingProfile: "/api/runtime/logging-profile",
   runtimeResultClassification: "/api/runtime/result-classification",
   runtimeAuthorityDecisionPreview: "/api/runtime/authority-decisions/preview",
+  runtimeAuthorityMissionPlan: "/api/runtime/authority-missions/plan",
   runtimeAuthorityLeases: "/api/runtime/authority-leases",
   runtimeAuthorityLeaseRevoke: "/api/runtime/authority-leases/revoke",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
