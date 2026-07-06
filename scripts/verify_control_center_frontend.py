@@ -942,7 +942,7 @@ def verify(root: Path = ROOT) -> list[str]:
     if client.exists():
         text = client.read_text(encoding="utf-8")
         post_count = text.count('method: "POST"')
-        if post_count not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}:
+        if post_count not in set(range(1, 15)):
             failures.append("frontend client must declare only scoped POST calls")
         if "API_ENDPOINTS.actionPreview" not in text:
             failures.append("frontend client must post through API_ENDPOINTS.actionPreview")
@@ -1023,6 +1023,19 @@ def verify(root: Path = ROOT) -> list[str]:
                 if fragment not in text:
                     failures.append(
                         f"frontend Chat durable receipt post missing safety fragment: {fragment}"
+                    )
+        if post_count >= 6:
+            required_work_board_reorder_fragments = [
+                "persistWorkBoardOrder",
+                "API_ENDPOINTS.controlCenterWorkBoardReorder",
+                "WorkBoardReorderReceipt",
+                "\"X-UAA-Idempotency-Key\"",
+                "Work Board reorder was not persisted; inspect blocked refs.",
+            ]
+            for fragment in required_work_board_reorder_fragments:
+                if fragment not in text:
+                    failures.append(
+                        f"frontend Work Board reorder post missing safety fragment: {fragment}"
                     )
         if post_count >= 6:
             required_memory_review_fragments = [

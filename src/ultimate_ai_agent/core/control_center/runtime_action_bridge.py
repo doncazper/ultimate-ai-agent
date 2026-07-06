@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any
+from typing import Any, Callable
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -219,7 +219,7 @@ class RuntimeActionInboxBridgeReadModel(BaseModel):
     default_profile: str = "sealed"
     runtime_profile_status: str = "sealed_default"
     local_model_readiness: str = "configured_loopback_available_when_enabled"
-    command_runtime_readiness: str = "focused_pytest_requires_action_inbox_approval"
+    command_runtime_readiness: str = "exact_runtime_command_requires_action_inbox_approval"
     safe_disable_ref: str = GOVERNED_RUNTIME_SAFE_DISABLE_REF
     safe_disable_posture_ref: str = GOVERNED_RUNTIME_SAFE_DISABLE_POSTURE_REF
     safe_disable_active: bool = True
@@ -516,13 +516,35 @@ def _local_model_readiness(records: list[RuntimeInvocationRecord]) -> str:
 
 
 def _command_runtime_readiness(items: list[RuntimeActionInboxBridgeItem]) -> str:
-    if any(item.execution_performed for item in items):
-        return "focused_pytest_receipt_recorded"
-    if any(item.approval_validated for item in items):
-        return "focused_pytest_approved_pending_execution"
-    if items:
-        return "focused_pytest_approval_envelopes_visible"
-    return "focused_pytest_requires_action_inbox_approval"
+    def _intents_for_state(
+        predicate: Callable[[RuntimeActionInboxBridgeItem], bool],
+    ) -> list[str]:
+        return sorted(
+            {
+                item.command_intent
+                for item in items
+                if predicate(item) and item.command_intent
+            }
+        )
+
+    executed_intents = _intents_for_state(lambda item: item.execution_performed)
+    if len(executed_intents) == 1:
+        return f"{executed_intents[0]}_receipt_recorded"
+    if len(executed_intents) > 1:
+        return "multiple_exact_runtime_commands_receipt_recorded"
+
+    approved_intents = _intents_for_state(lambda item: item.approval_validated)
+    if len(approved_intents) == 1:
+        return f"{approved_intents[0]}_approved_pending_execution"
+    if len(approved_intents) > 1:
+        return "multiple_exact_runtime_commands_approved_pending_execution"
+
+    visible_intents = _intents_for_state(lambda item: True)
+    if len(visible_intents) == 1:
+        return f"{visible_intents[0]}_approval_envelopes_visible"
+    if len(visible_intents) > 1:
+        return "multiple_exact_runtime_commands_approval_envelopes_visible"
+    return "exact_runtime_command_requires_action_inbox_approval"
 
 
 def _evidence_timeline_for_entries(

@@ -23,6 +23,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeLocalModelCallRequest,
     RuntimeLocalModelMessage,
     build_default_runtime_capabilities,
+    promoted_approval_bridge_command_intents,
     runtime_command_invocation_request,
 )
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
@@ -664,6 +665,9 @@ def _runtime_action_inbox_refs(
     *,
     decision: str = "approve",
 ) -> dict[str, str]:
+    command_intent = record.request.action_ref.removeprefix(
+        "action-ref:runtime-command-"
+    )
     exact_scope_ref = _test_hash_ref(
         "runtime-approval-scope-ref",
         {
@@ -680,7 +684,7 @@ def _runtime_action_inbox_refs(
             "requested_authority": record.request.requested_authority,
             "requested_profile": record.request.requested_profile,
             "adapter_id": "governed-command-runtime-adapter",
-            "command_intent": "focused_pytest",
+            "command_intent": command_intent,
             "decision": decision,
             "exact_scope_ref": exact_scope_ref,
             "payload_fingerprint_ref": record.payload_fingerprint_ref,
@@ -699,6 +703,7 @@ def _runtime_action_inbox_refs(
     return {
         "approval_ref": approval_ref,
         "action_envelope_ref": action_envelope_ref,
+        "command_intent": command_intent,
         "exact_scope_ref": exact_scope_ref,
     }
 
@@ -736,7 +741,9 @@ def _bind_runtime_action_inbox_approval(
     command_request = command_request or _approved_runtime_command_request()
     created = store.create_invocation(
         runtime_command_invocation_request(command_request),
-        idempotency_ref="idempotency-ref:runtime-action-inbox-create",
+        idempotency_ref=(
+            f"idempotency-ref:runtime-action-inbox-create-{command_request.intent}"
+        ),
     )
     refs = _runtime_action_inbox_refs(created.record, decision=decision)
     return store.bind_approval(
@@ -754,12 +761,16 @@ def _bind_runtime_action_inbox_approval(
                 or created.record.policy_decision.policy_decision_ref
             ),
             adapter_id="governed-command-runtime-adapter",
-            command_intent="focused_pytest",
+            command_intent=refs["command_intent"],
             risk_class="medium",
             expires_at=utc_now() + expires_delta,
-            safe_summary="Action Inbox approved exact focused pytest runtime lane.",
+            safe_summary=(
+                f"Action Inbox approved exact {refs['command_intent']} runtime lane."
+            ),
         ),
-        idempotency_ref=f"idempotency-ref:runtime-action-inbox-{decision}",
+        idempotency_ref=(
+            f"idempotency-ref:runtime-action-inbox-{refs['command_intent']}-{decision}"
+        ),
     )
 
 
@@ -985,6 +996,85 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
     assert "safe pytest output" not in persisted
     assert "stdout" not in persisted
     assert "stderr" not in persisted
+
+
+def test_runtime_gateway_promotes_repo_verifier_and_frontend_check_exact_lanes(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=4,
+            output_bytes=b"safe verifier output",
+        )
+
+    assert sorted(
+        intent.value for intent in promoted_approval_bridge_command_intents()
+    ) == ["focused_pytest", "frontend_check", "repo_verifier"]
+
+    store = RuntimeInvocationStore(tmp_path)
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+
+    receipt_refs: list[str] = []
+    for intent in ["repo_verifier", "frontend_check"]:
+        command_request = RuntimeCommandExecutionRequest(
+            intent=intent,
+            requested_profile="operator-approved",
+            target_refs=[f"test-ref:governed-runtime-{intent.replace('_', '-')}"],
+            approval_ref=None,
+            safe_summary=f"Run the exact {intent} governed runtime command lane.",
+        )
+        approved = _bind_runtime_action_inbox_approval(
+            store,
+            command_request=command_request,
+        )
+        execute_command_request = _command_request_for_approved_record(
+            command_request,
+            approved,
+        )
+        result = gateway.execute_approved_command(
+            approved.invocation_ref,
+            execute_command_request,
+            _runtime_execute_request(approved),
+            idempotency_ref=f"idempotency-ref:runtime-action-inbox-execute-{intent}",
+        )
+        assert result.record.status == "receipt_recorded"
+        assert result.record.receipt is not None
+        receipt_refs.append(result.record.receipt.receipt_ref)
+
+    assert len(calls) == 2
+    assert calls[0]["argv"] == (
+        str(ROOT / ".venv/bin/python"),
+        "scripts/verify_documentation_integrity.py",
+    )
+    frontend_argv = calls[1]["argv"]
+    assert isinstance(frontend_argv, tuple)
+    assert Path(frontend_argv[0]).name == "make"
+    assert frontend_argv[1:] == ("frontend-check",)
+
+    read_model = build_runtime_action_inbox_bridge_read_model(
+        store.list_invocations(),
+        entries=store.list_entries(),
+    )
+    assert read_model["command_runtime_readiness"] == (
+        "multiple_exact_runtime_commands_receipt_recorded"
+    )
+    assert set(receipt_refs).issubset(set(read_model["receipt_refs"]))
+    assert {item["command_intent"] for item in read_model["items"]} == {
+        "repo_verifier",
+        "frontend_check",
+    }
+    assert "safe verifier output" not in json.dumps(read_model, sort_keys=True)
 
 
 def test_runtime_launcher_actions_approve_and_deny_by_safe_selector_ref(
