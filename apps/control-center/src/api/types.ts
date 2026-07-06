@@ -10460,6 +10460,94 @@ export interface RuntimePreviewRailReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeSlashCommandStatus =
+  | "metadata_ready"
+  | "disabled_requires_exact_lane"
+  | "blocked_high_authority";
+
+export type RuntimeSlashCommandAuthorityClass =
+  | "read_only_metadata"
+  | "proposal_only"
+  | "approval_required_future_lane"
+  | "blocked_high_authority";
+
+export type RuntimeSlashCommandSideEffectClass =
+  | "none"
+  | "proposal_only"
+  | "command_execution"
+  | "model_call"
+  | "local_mutation"
+  | "runtime_invocation";
+
+export interface RuntimeSlashCommandRegistryEntry {
+  command_ref: string;
+  display_label: string;
+  trigger_label: string;
+  command_status: RuntimeSlashCommandStatus;
+  authority_class: RuntimeSlashCommandAuthorityClass;
+  side_effect_class: RuntimeSlashCommandSideEffectClass;
+  docs_ref: string;
+  approval_policy_ref: string;
+  idempotency_policy_ref: string;
+  receipt_plan_ref: string;
+  proof_ref: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  visible_in_control_center: boolean;
+  registered_metadata_only: boolean;
+  chat_trigger_enabled: boolean;
+  runtime_invocation_enabled: boolean;
+  state_mutation_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+}
+
+export interface RuntimeSlashCommandRegistryReadModel {
+  schema_version: "runtime_slash_command_registry.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  commands: RuntimeSlashCommandRegistryEntry[];
+  command_count: number;
+  metadata_ready_count: number;
+  disabled_count: number;
+  blocked_count: number;
+  command_contract_visible: boolean;
+  side_effect_class_visible: boolean;
+  approval_policy_visible: boolean;
+  idempotency_policy_visible: boolean;
+  receipt_plan_visible: boolean;
+  cli_api_alignment_visible: boolean;
+  chat_trigger_enabled: boolean;
+  runtime_invocation_enabled: boolean;
+  state_mutation_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -11644,6 +11732,7 @@ export interface ControlCenterData {
   runtimeWorktreePerAgent: RuntimeWorktreePerAgentReadModel;
   runtimeLspDiagnostics: RuntimeLspDiagnosticsReadModel;
   runtimePreviewRail: RuntimePreviewRailReadModel;
+  runtimeSlashCommandRegistry: RuntimeSlashCommandRegistryReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

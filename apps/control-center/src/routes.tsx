@@ -541,6 +541,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           worktreePerAgent={data.runtimeWorktreePerAgent}
           lspDiagnostics={data.runtimeLspDiagnostics}
           previewRail={data.runtimePreviewRail}
+          slashCommandRegistry={data.runtimeSlashCommandRegistry}
         />
       );
     case "/operator-loop":

@@ -7708,6 +7708,21 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("blocked-authority:preview-rail-no-browser-automation"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Slash commands")).toBeInTheDocument();
+    expect(screen.getByText("Governed registry")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/slash-command-registry").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-slash-command-registry").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("/explain Explain repo")).toBeInTheDocument();
+    expect(screen.getByText("/apply-patch Apply patch")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:slash-command-registry-no-chat-execution",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
     expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
@@ -14832,6 +14847,12 @@ describe("Web Control Center shell", () => {
       "/api/runtime/preview-rail",
     );
     expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimePreviewRail)).toBe(true);
+    expect(API_ENDPOINTS.runtimeSlashCommandRegistry).toBe(
+      "/api/runtime/slash-command-registry",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeSlashCommandRegistry),
+    ).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15899,6 +15920,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeLspDiagnostics,
     [API_ENDPOINTS.runtimePreviewRail]:
       mockControlCenterData.runtimePreviewRail,
+    [API_ENDPOINTS.runtimeSlashCommandRegistry]:
+      mockControlCenterData.runtimeSlashCommandRegistry,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
