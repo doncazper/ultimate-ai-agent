@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `212`.
+Current OpenAPI path count: `213`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -107,6 +107,14 @@ Contract rules:
   attach refs before any future context use, and grants no raw transcript
   persistence, prompt/response exposure, semantic provider call, embedding or
   vector index, hidden context injection, memory write, action execution, or
+  production authority.
+  `GET /api/runtime/session-lineage` exposes the Hermes Runtime Adoption Phase
+  19 backend-owned session lineage and fork posture. It returns safe
+  parent/child, user request, task, run, proof, branch, reason, redacted
+  fork-envelope, retrieval-log, compare-view, verifier, and blocked authority
+  refs only. It does not clone raw transcripts, persist raw prompts or
+  responses, inject hidden context, dispatch runtimes, call providers/models,
+  write connectors, run shell/subprocess commands, automate browsers, or grant
   production authority.
   `GET /api/runtime/context-references` exposes the Hermes Runtime Adoption
   Phase 16 backend-owned context-reference posture. It returns safe-ref grammar,
