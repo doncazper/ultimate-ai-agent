@@ -15,6 +15,11 @@ def test_phase09_extension_catalog_has_operator_posture_without_callability() ->
     assert payload["read_only"] is True
     assert payload["inspectable_catalog_enabled"] is True
     assert payload["callable_catalog_enabled"] is False
+    assert payload["automatic_instruction_loading_enabled"] is False
+    assert payload["full_instruction_auto_load_enabled"] is False
+    assert payload["hidden_skill_activation_enabled"] is False
+    assert payload["skill_runtime_import_enabled"] is False
+    assert payload["external_marketplace_fetch_enabled"] is False
     assert payload["runtime_import_enabled"] is False
     assert payload["execution_enabled"] is False
     assert payload["connector_writes_enabled"] is False
