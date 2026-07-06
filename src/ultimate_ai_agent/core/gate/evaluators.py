@@ -12835,6 +12835,9 @@ class FoundationGateEvaluator:
                 status=FileReviewApprovalCaptureDecisionStatus.approved_for_review_only,
                 idempotency_key="file-review-approval-idempotency:m38-gate",
                 receipt_plan_ref="file-review-approval-capture-receipt:m38-gate",
+                authority_decision_ref="authority-policy-decision-ref:m38-gate",
+                authority_decision_outcome="ask",
+                authority_lease_ref="authority-lease-ref:m38-gate-files-write",
             )
             allowed = evaluate_safe_context_proposal_request(
                 packet=packet, approval_record=record
@@ -13362,6 +13365,9 @@ class FoundationGateEvaluator:
                 idempotency_key="file-review-approval-idempotency:m40-gate",
                 safe_reason="User approved the redacted review packet for review-only follow-up.",
                 receipt_plan_ref="file-review-approval-capture-receipt:m40-gate",
+                authority_decision_ref="authority-policy-decision-ref:m40-gate",
+                authority_decision_outcome="ask",
+                authority_lease_ref="authority-lease-ref:m40-gate-files-write",
             )
             proposal = build_safe_context_proposal(
                 packet=packet, approval_record=approval_record

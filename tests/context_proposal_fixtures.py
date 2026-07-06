@@ -48,6 +48,9 @@ def approved_context_proposal_record(packet: Any | None = None, **overrides: Any
         "idempotency_key": "file-review-approval-idempotency:context-proposal",
         "safe_reason": "User approved the redacted review packet for review-only follow-up.",
         "receipt_plan_ref": "file-review-approval-capture-receipt:context-proposal",
+        "authority_decision_ref": "authority-policy-decision-ref:context-proposal",
+        "authority_decision_outcome": "ask",
+        "authority_lease_ref": "authority-lease-ref:test-files-review-write",
     }
     data.update(overrides)
     return FileReviewApprovalRecord(**data)

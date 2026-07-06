@@ -1298,6 +1298,25 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             "Requires Contacts write authority plus exact approval, idempotency, receipts, and rollback refs for local CRM state only.",
         ),
         _mapping(
+            "lane-ref:file-review-approval-capture",
+            "File Review approval capture",
+            AuthorityDomain.files,
+            AuthorityCapability.write,
+            TrustMode.ask_before_changes,
+            "implemented_exact_lease_required_review_only",
+            ["POST /files/review/approvals/capture"],
+            ["repo-local-command:uaa-runtime-inspect-authority-state"],
+            (
+                "Requires Files write authority to persist review-only safe refs; "
+                "raw file access, context injection, memory writes, export, "
+                "execution, patch apply, and rollback execution remain unsupported."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:file-raw-content:not-implemented",
+                "adapter-ref:file-patch-apply:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:source-readiness-email-calendar",
             "Email and calendar metadata readiness",
             AuthorityDomain.email,

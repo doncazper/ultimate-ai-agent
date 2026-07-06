@@ -60,6 +60,32 @@ def issue_contacts_write_authority_lease(state_dir: Path) -> None:
     )
 
 
+def files_write_authority_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:test-files-review-write",
+        mode=TrustMode.ask_before_changes,
+        domains={AuthorityDomain.files: [AuthorityCapability.write]},
+        safe_summary=(
+            "Test lease grants Files write for review-only file approval capture."
+        ),
+    )
+
+
+def issue_files_write_authority_lease(state_dir: Path) -> None:
+    AuthorityLeaseStore(state_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.ask_before_changes,
+            requested_domains={AuthorityDomain.files: [AuthorityCapability.write]},
+            decision_reason_ref="decision-reason-ref:test-file-review-authority",
+            safe_summary=(
+                "Test session lease grants Files write for review-only file "
+                "approval capture."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:test-file-review-authority",
+    )
+
+
 def workspace_execute_authority_lease() -> AuthorityLease:
     return AuthorityLease(
         lease_ref="authority-lease-ref:test-workspace-execute",

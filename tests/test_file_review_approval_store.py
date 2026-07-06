@@ -24,6 +24,9 @@ def _record(**overrides: Any) -> Any:
         "status": FileReviewApprovalCaptureDecisionStatus.approved_for_review_only,
         "idempotency_key": "file-review-approval-idempotency:store",
         "created_at": utc_now(),
+        "authority_decision_ref": "authority-policy-decision-ref:store",
+        "authority_decision_outcome": "ask",
+        "authority_lease_ref": "authority-lease-ref:test-files-review-write",
     }
     data.update(overrides)
     return FileReviewApprovalRecord(**data)

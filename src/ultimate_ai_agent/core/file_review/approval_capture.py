@@ -12,6 +12,17 @@ from ultimate_ai_agent.core.approvals.v2.validation import (
     validate_safe_action_payload,
     validate_safe_action_text,
 )
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityCapability,
+    AuthorityDecisionOutcome,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityLeaseStore,
+    TrustMode,
+    build_default_authority_leases,
+    evaluate_authority_request,
+)
 from ultimate_ai_agent.core.file_review.contracts import FileReviewPacket, file_review_suffix
 from ultimate_ai_agent.core.file_review.enums import (
     FileReviewApprovalCaptureDecisionStatus,
@@ -19,6 +30,31 @@ from ultimate_ai_agent.core.file_review.enums import (
 )
 from ultimate_ai_agent.core.file_review.workflow import evaluate_file_review_packet
 from ultimate_ai_agent.core.time import utc_now
+
+
+FILE_REVIEW_APPROVAL_CAPTURE_ROUTE_REF = "/files/review/approvals/capture"
+FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_ACTION_REF = (
+    "authority-action-ref:file-review-approval-capture"
+)
+FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_LANE_REF = (
+    "lane-ref:file-review-approval-capture"
+)
+FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_DOMAIN_REF = "authority-domain-ref:files"
+FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_CAPABILITY_REF = (
+    "authority-capability-ref:write"
+)
+FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_REQUIRED_MODE_REF = (
+    "authority-mode-ref:ask-before-changes"
+)
+FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_REQUIRED_BLOCKED_REF = (
+    "blocked-state:file-review-approval-capture-authority-lease-required"
+)
+FILE_REVIEW_APPROVAL_CAPTURE_SAFE_DISABLE_REF = (
+    "safe-disable-ref:file-review-approval-capture:safe-ref-store"
+)
+FILE_REVIEW_APPROVAL_CAPTURE_ROLLBACK_REF = (
+    "rollback-ref:file-review-approval-capture:remove-safe-ref-record"
+)
 
 
 class FileReviewApprovalCaptureRequest(BaseModel):
@@ -93,6 +129,9 @@ class FileReviewApprovalRecord(BaseModel):
     created_at: datetime = Field(default_factory=utc_now)
     safe_reason: str | None = None
     receipt_plan_ref: str | None = None
+    authority_decision_ref: str
+    authority_decision_outcome: str
+    authority_lease_ref: str
     metadata_refs: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -113,6 +152,20 @@ class FileReviewApprovalRecord(BaseModel):
             validate_action_ref(value, field_name)
         if self.receipt_plan_ref:
             validate_action_ref(self.receipt_plan_ref, "receipt_plan_ref")
+        for value, field_name in [
+            (self.authority_decision_ref, "authority_decision_ref"),
+            (self.authority_lease_ref, "authority_lease_ref"),
+        ]:
+            validate_action_ref(value, field_name)
+        validate_safe_action_text(
+            self.authority_decision_outcome,
+            "authority_decision_outcome",
+        )
+        if self.authority_decision_outcome not in {
+            AuthorityDecisionOutcome.allow.value,
+            AuthorityDecisionOutcome.ask.value,
+        }:
+            raise ValueError("FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_REQUIRED")
         if self.safe_reason:
             validate_safe_action_text(self.safe_reason, "safe_reason")
         for ref in self.metadata_refs:
@@ -127,6 +180,9 @@ class FileReviewApprovalCaptureReceiptPlan(BaseModel):
     preview_result_ref: str
     redaction_summary_ref: str
     approval_ref: str
+    authority_decision_ref: str
+    authority_decision_outcome: str
+    authority_lease_ref: str
     raw_content_stored: bool = False
     full_file_content_stored: bool = False
     unredacted_preview_stored: bool = False
@@ -153,6 +209,9 @@ class FileReviewApprovalCaptureDecision(BaseModel):
     safe_message: str
     record: FileReviewApprovalRecord | None = None
     receipt_plan: FileReviewApprovalCaptureReceiptPlan | None = None
+    authority_decision_ref: str | None = None
+    authority_decision_outcome: str | None = None
+    authority_lease_ref: str | None = None
     raw_file_access_authorized: bool = False
     context_proposal_authorized: bool = False
     context_injection_authorized: bool = False
@@ -169,6 +228,33 @@ class FileReviewApprovalCaptureDecision(BaseModel):
         validate_action_ref(self.review_packet_ref, "review_packet_ref")
         if self.approval_ref:
             validate_action_ref(self.approval_ref, "approval_ref")
+        for value, field_name in [
+            (self.authority_decision_ref, "authority_decision_ref"),
+            (self.authority_lease_ref, "authority_lease_ref"),
+        ]:
+            if value:
+                validate_action_ref(value, field_name)
+        if self.authority_decision_outcome is not None:
+            validate_safe_action_text(
+                self.authority_decision_outcome,
+                "authority_decision_outcome",
+            )
+            if self.authority_decision_outcome not in {
+                AuthorityDecisionOutcome.allow.value,
+                AuthorityDecisionOutcome.ask.value,
+                AuthorityDecisionOutcome.deny.value,
+                AuthorityDecisionOutcome.degrade_to_draft.value,
+            }:
+                raise ValueError("FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_OUTCOME_INVALID")
+        if self.captured and (
+            self.authority_decision_ref is None
+            or self.authority_decision_outcome not in {
+                AuthorityDecisionOutcome.allow.value,
+                AuthorityDecisionOutcome.ask.value,
+            }
+            or self.authority_lease_ref is None
+        ):
+            raise ValueError("FILE_REVIEW_APPROVAL_CAPTURE_REQUIRES_AUTHORITY_PROOF")
         validate_safe_action_text(self.safe_message, "safe_message")
         if not self.review_only:
             raise ValueError("FILE_REVIEW_APPROVAL_CAPTURE_MUST_BE_REVIEW_ONLY")
@@ -184,6 +270,11 @@ class FileReviewApprovalCaptureDecision(BaseModel):
             if getattr(self, field_name):
                 raise ValueError(f"{field_name} must be False in M37")
         return self
+
+
+def active_file_review_authority_leases() -> list[AuthorityLease]:
+    active = AuthorityLeaseStore().list_leases(active_only=True)
+    return active or build_default_authority_leases()
 
 
 class FileReviewApprovalStore:
@@ -233,6 +324,7 @@ def capture_file_review_approval(
     *,
     store: FileReviewApprovalStore | None = None,
     current_time: datetime | None = None,
+    active_authority_leases: list[AuthorityLease] | None = None,
 ) -> FileReviewApprovalCaptureDecision:
     reasons = []
     packet_decision = evaluate_file_review_packet(packet)
@@ -247,7 +339,11 @@ def capture_file_review_approval(
             approval_ref=getattr(request, "approval_ref", None),
             reasons=reasons,
         )
-    return capture_file_review_approval_request(request, store=store)
+    return capture_file_review_approval_request(
+        request,
+        store=store,
+        active_authority_leases=active_authority_leases,
+    )
 
 
 def capture_file_review_approval_request(
@@ -255,11 +351,30 @@ def capture_file_review_approval_request(
     *,
     store: FileReviewApprovalStore | None = None,
     current_time: datetime | None = None,
+    active_authority_leases: list[AuthorityLease] | None = None,
 ) -> FileReviewApprovalCaptureDecision:
     reasons = _revalidate_capture_request(request, current_time=current_time)
     reasons = _dedupe(reasons)
     if reasons:
         return _capture_rejected(request.review_packet_ref, request.approval_ref, reasons)
+    authority_decision = _file_review_capture_authority_decision(
+        request,
+        active_authority_leases=active_authority_leases,
+    )
+    if authority_decision.outcome not in {
+        AuthorityDecisionOutcome.allow.value,
+        AuthorityDecisionOutcome.ask.value,
+    }:
+        return _capture_rejected(
+            request.review_packet_ref,
+            request.approval_ref,
+            [
+                *authority_decision.reason_refs,
+                FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_REQUIRED_BLOCKED_REF,
+                "FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_DENIED",
+            ],
+            authority_decision=authority_decision,
+        )
 
     record = FileReviewApprovalRecord(
         approval_ref=request.approval_ref,
@@ -274,6 +389,9 @@ def capture_file_review_approval_request(
         idempotency_key=request.idempotency_key,
         safe_reason=request.safe_reason,
         receipt_plan_ref=f"file-review-approval-capture-receipt:{file_review_suffix(request.review_packet_ref)}",
+        authority_decision_ref=authority_decision.decision_ref,
+        authority_decision_outcome=authority_decision.outcome,
+        authority_lease_ref=str(authority_decision.lease_ref),
         metadata_refs=request.metadata_refs,
         metadata=request.metadata,
     )
@@ -299,6 +417,14 @@ def _capture_decision(
         preview_result_ref=record.preview_result_ref,
         redaction_summary_ref=record.redaction_summary_ref,
         approval_ref=record.approval_ref,
+        authority_decision_ref=record.authority_decision_ref,
+        authority_decision_outcome=record.authority_decision_outcome,
+        authority_lease_ref=record.authority_lease_ref,
+        safe_summary=(
+            "AuthorityLease-governed review-only approval capture stores safe "
+            "refs only; it grants no raw file, context, memory, export, or "
+            "execution authority."
+        ),
     )
     return FileReviewApprovalCaptureDecision(
         decision_ref=f"file-review-approval-capture-decision:{file_review_suffix(record.review_packet_ref)}",
@@ -308,9 +434,15 @@ def _capture_decision(
         captured=True,
         persisted=persisted,
         reason_codes=reason_codes,
-        safe_message="Review-only file approval capture persisted safe refs only. No authority was granted.",
+        safe_message=(
+            "Review-only file approval capture persisted safe refs only. No raw "
+            "file, context, memory, export, or execution authority was granted."
+        ),
         record=record,
         receipt_plan=receipt_plan,
+        authority_decision_ref=record.authority_decision_ref,
+        authority_decision_outcome=record.authority_decision_outcome,
+        authority_lease_ref=record.authority_lease_ref,
     )
 
 
@@ -318,6 +450,8 @@ def _capture_rejected(
     review_packet_ref: str,
     approval_ref: str | None,
     reasons: list[str],
+    *,
+    authority_decision: Any | None = None,
 ) -> FileReviewApprovalCaptureDecision:
     safe_approval_ref = approval_ref
     if safe_approval_ref is not None:
@@ -334,6 +468,64 @@ def _capture_rejected(
         persisted=False,
         reason_codes=_dedupe(reasons),
         safe_message="File review approval capture was rejected safely. No raw access, context, memory, export, or execution authority was granted.",
+        authority_decision_ref=(
+            getattr(authority_decision, "decision_ref", None)
+            if authority_decision is not None
+            else None
+        ),
+        authority_decision_outcome=(
+            getattr(authority_decision, "outcome", None)
+            if authority_decision is not None
+            else None
+        ),
+        authority_lease_ref=(
+            getattr(authority_decision, "lease_ref", None)
+            if getattr(authority_decision, "lease_ref", None)
+            else None
+        ),
+    )
+
+
+def _file_review_capture_authority_decision(
+    request: FileReviewApprovalCaptureRequest,
+    *,
+    active_authority_leases: list[AuthorityLease] | None,
+):
+    leases = (
+        active_authority_leases
+        if active_authority_leases is not None
+        else active_file_review_authority_leases()
+    )
+    return evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref=FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_ACTION_REF,
+            domain=AuthorityDomain.files,
+            capability=AuthorityCapability.write,
+            safe_summary=(
+                "Evaluate Files write authority for review-only file approval "
+                "capture safe-ref persistence."
+            ),
+            resource_refs=list(
+                dict.fromkeys(
+                    [
+                        request.review_packet_ref,
+                        request.preview_result_ref,
+                        request.redaction_summary_ref,
+                        request.file_ref,
+                        request.safe_path_ref,
+                        request.approval_ref,
+                        request.idempotency_key,
+                        f"file-review-decision-kind:{request.decision.value}",
+                    ]
+                )
+            ),
+            route_ref=FILE_REVIEW_APPROVAL_CAPTURE_ROUTE_REF,
+            lane_ref=FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_LANE_REF,
+            requested_mode=TrustMode.ask_before_changes,
+            rollback_ref=FILE_REVIEW_APPROVAL_CAPTURE_ROLLBACK_REF,
+            safe_disable_ref=FILE_REVIEW_APPROVAL_CAPTURE_SAFE_DISABLE_REF,
+        ),
+        leases,
     )
 
 
@@ -386,6 +578,26 @@ def _revalidate_capture_request(
 
 def _revalidate_record_for_persistence(record: FileReviewApprovalRecord) -> list[str]:
     reasons = []
+    for value, field_name in [
+        (getattr(record, "authority_decision_ref", None), "authority_decision_ref"),
+        (getattr(record, "authority_lease_ref", None), "authority_lease_ref"),
+    ]:
+        if value is None:
+            reasons.append("FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_REQUIRED")
+        else:
+            reasons.extend(
+                _validate_ref_reason(
+                    value,
+                    field_name,
+                    "FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_REQUIRED",
+                )
+            )
+    authority_outcome = getattr(record, "authority_decision_outcome", None)
+    if authority_outcome not in {
+        AuthorityDecisionOutcome.allow.value,
+        AuthorityDecisionOutcome.ask.value,
+    }:
+        reasons.append("FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_REQUIRED")
     for field_name, reason in _EXTRA_CAPTURE_FIELD_REASONS.items():
         if field_name in _extra_keys(record) or getattr(record, field_name, None) is not None:
             reasons.append(reason)

@@ -82,6 +82,15 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert crm_local_mutation.domain == "contacts"
     assert crm_local_mutation.capability == "write"
     assert crm_local_mutation.required_mode == "ask_before_changes"
+    file_review_capture = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /files/review/approvals/capture" in mapping.route_refs
+    )
+    assert file_review_capture.domain == "files"
+    assert file_review_capture.capability == "write"
+    assert file_review_capture.required_mode == "ask_before_changes"
+    assert file_review_capture.status == "implemented_exact_lease_required_review_only"
     assert {decision.outcome for decision in read_model.sample_decisions} >= {
         "allow",
         "deny",

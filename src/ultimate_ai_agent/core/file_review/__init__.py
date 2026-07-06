@@ -15,6 +15,7 @@ from ultimate_ai_agent.core.file_review.approval_capture import (
     FileReviewApprovalCaptureRequest,
     FileReviewApprovalRecord,
     FileReviewApprovalStore,
+    active_file_review_authority_leases,
     capture_file_review_approval,
     capture_file_review_approval_request,
 )
@@ -50,6 +51,7 @@ __all__ = [
     "FileReviewRequest",
     "FileReviewWorkflowPolicy",
     "UserFileReviewApproval",
+    "active_file_review_authority_leases",
     "build_file_review_packet",
     "build_file_review_receipt_plan",
     "capture_file_review_approval",

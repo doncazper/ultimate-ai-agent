@@ -47,6 +47,10 @@ write authority. CRM local mutations require exact approval plus active
 `contacts/write` authority before local CRM state is changed; connector reads,
 connector writes, sends, calendar writes, account sync, and external CRM writes
 remain unsupported unless later adapters are implemented and tested.
+File Review approval capture requires active `files/write` authority before
+the review-only safe-ref record is persisted; raw file access, context
+injection, memory writes, export, execution, patch apply, and rollback
+execution remain unsupported until separately implemented and tested.
 Provider/model transport remains blocked by authority policy unless a later
 supported provider/model execution lease is implemented and tested.
 

@@ -4,6 +4,8 @@ from fastapi.testclient import TestClient
 from scripts.verification.api_routes import EXPECTED_OPENAPI_PATH_COUNT
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
+from tests.authority_helpers import issue_files_write_authority_lease
 
 
 client = TestClient(app)
@@ -27,11 +29,32 @@ def _payload(**overrides: Any) -> Any:
     return data
 
 
-def test_file_review_approval_capture_route_persists_review_only_record() -> None:
+def test_file_review_approval_capture_route_requires_authority_lease(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority-denied"))
+
     response = client.post(
         "/files/review/approvals/capture",
         headers=IDEMPOTENCY_HEADERS,
-        json=_payload(),
+        json=_payload(idempotency_key="file-review-approval-idempotency:api-denied"),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is False
+    assert body["data"]["status"] == "rejected"
+    assert "FILE_REVIEW_APPROVAL_CAPTURE_AUTHORITY_DENIED" in body["data"]["reason_codes"]
+    assert body["data"]["authority_decision_outcome"] == "deny"
+
+
+def test_file_review_approval_capture_route_persists_review_only_record(monkeypatch, tmp_path) -> None:
+    state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(state_dir))
+    issue_files_write_authority_lease(state_dir)
+
+    response = client.post(
+        "/files/review/approvals/capture",
+        headers=IDEMPOTENCY_HEADERS,
+        json=_payload(idempotency_key="file-review-approval-idempotency:api-allowed"),
     )
 
     assert response.status_code == 200
@@ -40,6 +63,8 @@ def test_file_review_approval_capture_route_persists_review_only_record() -> Non
     assert body["data"]["status"] == "approved_for_review_only"
     assert body["data"]["captured"] is True
     assert body["data"]["persisted"] is True
+    assert body["data"]["authority_decision_outcome"] == "ask"
+    assert body["data"]["authority_lease_ref"]
     assert body["data"]["raw_file_access_authorized"] is False
     assert body["data"]["context_proposal_authorized"] is False
     assert body["data"]["context_injection_authorized"] is False
