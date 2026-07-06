@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `216`.
+Current OpenAPI path count: `217`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -139,6 +139,15 @@ Contract rules:
   authority refs only. It does not persist raw prompts or responses, inject
   hidden prompt/context material, call models or provider SDKs, write caches,
   treat model output as authority, or grant production authority.
+  `GET /api/runtime/context-budget-pressure` exposes the Hermes Runtime
+  Adoption Phase 24 backend-owned context budget pressure posture. It returns
+  context budget segment refs, pressure levels, warning refs, review-only
+  trimming and summary proposal refs, source refs, retrieval log refs, proof
+  refs, verifier refs, next-safe-action refs, and blocked authority refs only.
+  It does not perform hidden compression, automatic context mutation, model
+  summarization calls, context injection, provider SDK calls, cache writes, raw
+  context/prompt/response/provider-payload persistence, or production
+  authority.
   `GET /api/runtime/context-references` exposes the Hermes Runtime Adoption
   Phase 16 backend-owned context-reference posture. It returns safe-ref grammar,
   preview refs, budget estimates, why-included refs, and blocked URL/live-fetch

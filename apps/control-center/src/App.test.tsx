@@ -7552,6 +7552,18 @@ describe("Web Control Center shell", () => {
         "blocked-authority:prompt-stability-no-hidden-prompt-injection",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText("Context budget")).toBeInTheDocument();
+    expect(screen.getByText("Pressure posture")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/context-budget-pressure").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-context-budget-pressure").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Trim low-signal context refs")).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-authority:context-budget-no-hidden-compression"),
+    ).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
     expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
@@ -14606,6 +14618,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.runtimePromptStabilityTiers),
     ).toBe(true);
+    expect(API_ENDPOINTS.runtimeContextBudgetPressure).toBe(
+      "/api/runtime/context-budget-pressure",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeContextBudgetPressure),
+    ).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15651,6 +15669,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeUsageCostAnalytics,
     [API_ENDPOINTS.runtimePromptStabilityTiers]:
       mockControlCenterData.runtimePromptStabilityTiers,
+    [API_ENDPOINTS.runtimeContextBudgetPressure]:
+      mockControlCenterData.runtimeContextBudgetPressure,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:

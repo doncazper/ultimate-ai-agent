@@ -684,6 +684,7 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/approval-bridge",
     "/api/runtime/capability-discovery",
     "/api/runtime/checkpoint-rollback",
+    "/api/runtime/context-budget-pressure",
     "/api/runtime/context-references",
     "/api/runtime/delegation-adapter",
     "/api/runtime/governed-product-pilot-profile",
