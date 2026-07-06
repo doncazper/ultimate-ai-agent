@@ -74,9 +74,12 @@ def _approve_runtime_command(
     store: RuntimeInvocationStore,
     request: RuntimeCommandExecutionRequest,
 ):
+    command_intent = str(getattr(request.intent, "value", request.intent))
     created = store.create_invocation(
         runtime_command_invocation_request(request),
-        idempotency_ref="idempotency-ref:staged-orchestration-runtime-create",
+        idempotency_ref=(
+            f"idempotency-ref:staged-orchestration-runtime-create-{command_intent}"
+        ),
     )
     exact_scope_ref = _hash_ref(
         "runtime-approval-scope-ref",
@@ -94,7 +97,7 @@ def _approve_runtime_command(
             "requested_authority": created.record.request.requested_authority,
             "requested_profile": created.record.request.requested_profile,
             "adapter_id": "governed-command-runtime-adapter",
-            "command_intent": request.intent,
+            "command_intent": command_intent,
             "decision": "approve",
             "exact_scope_ref": exact_scope_ref,
             "payload_fingerprint_ref": created.record.payload_fingerprint_ref,
@@ -119,12 +122,14 @@ def _approve_runtime_command(
             expected_payload_fingerprint_ref=created.record.payload_fingerprint_ref,
             expected_policy_decision_ref=created.record.policy_decision.policy_decision_ref,
             adapter_id="governed-command-runtime-adapter",
-            command_intent=request.intent,
+            command_intent=command_intent,
             risk_class="medium",
             expires_at=utc_now() + timedelta(minutes=30),
             safe_summary="Action Inbox approved exact staged orchestration runtime lane.",
         ),
-        idempotency_ref="idempotency-ref:staged-orchestration-runtime-approve",
+        idempotency_ref=(
+            f"idempotency-ref:staged-orchestration-runtime-approve-{command_intent}"
+        ),
     )
 
 
@@ -157,7 +162,7 @@ def _runtime_command_plan(record) -> StagedOrchestrationPlan:
         expected_payload_fingerprint_ref=record.payload_fingerprint_ref,
         expected_policy_decision_ref=record.policy_decision.policy_decision_ref,
         command_intent=command_intent,
-        safe_summary="Bind one approved focused pytest runtime command to one orchestration step.",
+        safe_summary="Bind one approved utility runtime command to one orchestration step.",
     )
     stage = StagedOrchestrationStage(
         stage_ref="stage-ref:staged-orchestration:runtime-command",
@@ -170,7 +175,7 @@ def _runtime_command_plan(record) -> StagedOrchestrationPlan:
     step = StagedOrchestrationStep(
         step_ref="step-ref:staged-orchestration:runtime-command",
         stage_ref=stage.stage_ref,
-        safe_summary="Execute the approved focused pytest runtime command through RuntimeGateway.",
+        safe_summary="Execute the approved utility runtime command through RuntimeGateway.",
         status=StagedOrchestrationStatus.waiting,
         mode=ExecutionStepMode.approved_runtime_command,
         policy_ref="policy-ref:staged-orchestration:approved-runtime-command",
@@ -282,8 +287,21 @@ def test_checkpoint_replay_is_idempotent_and_conflict_bound() -> None:
     assert "reason-ref:staged-orchestration:checkpoint-replay-conflict" in conflict.reason_codes
 
 
+@pytest.mark.parametrize(
+    ("intent", "expected_argv_suffix"),
+    [
+        (
+            "focused_pytest",
+            ("-m", "pytest", "tests/test_governed_runtime_contracts.py", "-q"),
+        ),
+        ("repo_verifier", ("scripts/verify_documentation_integrity.py",)),
+        ("frontend_check", ("frontend-check",)),
+    ],
+)
 def test_approved_runtime_command_step_executes_through_runtime_gateway(
     tmp_path: Path,
+    intent: str,
+    expected_argv_suffix: tuple[str, ...],
 ) -> None:
     calls: list[dict[str, object]] = []
 
@@ -297,7 +315,7 @@ def test_approved_runtime_command_step_executes_through_runtime_gateway(
         )
 
     store = RuntimeInvocationStore(tmp_path)
-    request = _approved_runtime_command_request()
+    request = _approved_runtime_command_request(intent=intent)
     approved = _approve_runtime_command(store, request)
     approved_request = request.model_copy(
         update={"approval_ref": approved.action_inbox_envelope.approval_ref}
@@ -317,12 +335,12 @@ def test_approved_runtime_command_step_executes_through_runtime_gateway(
         gateway=gateway,
         command_request=approved_request,
         execute_request=_execute_request_for(approved),
-        idempotency_ref="idempotency-ref:staged-orchestration-runtime-execute",
+        idempotency_ref=f"idempotency-ref:staged-orchestration-runtime-execute-{intent}",
     )
     read_model = build_staged_orchestration_read_model(plan)
 
     assert result.status == StagedOrchestrationStatus.completed.value
-    assert result.command_intent == "focused_pytest"
+    assert result.command_intent == intent
     assert result.execution_performed is True
     assert result.command_execution_performed is True
     assert result.output_summary_returned is True
@@ -330,6 +348,9 @@ def test_approved_runtime_command_step_executes_through_runtime_gateway(
     assert result.raw_payloads_persisted is False
     assert result.receipt_ref is not None
     assert len(calls) == 1
+    observed_argv = calls[0]["argv"]
+    assert isinstance(observed_argv, tuple)
+    assert observed_argv[-len(expected_argv_suffix) :] == expected_argv_suffix
     assert read_model.approved_runtime_command_execution_enabled is True
     assert read_model.execution_performed is False
     assert read_model.runtime_execution_performed_by_read_model is False
@@ -347,7 +368,7 @@ def test_runtime_command_step_rejects_unpromoted_intent(
     request = _approved_runtime_command_request()
     approved = _approve_runtime_command(store, request)
     payload = _runtime_command_plan(approved).model_dump(mode="json")
-    payload["steps"][0]["runtime_command_binding"]["command_intent"] = "repo_verifier"
+    payload["steps"][0]["runtime_command_binding"]["command_intent"] = "git_status"
 
     with pytest.raises(ValidationError):
         StagedOrchestrationPlan(**payload)

@@ -6,9 +6,8 @@ This lane adapts GoatCitadel's staged orchestration shape into a UAA-native
 Python Agent Core orchestration contract. It does not copy GoatCitadel code or
 import GoatCitadel packages. The base read model remains non-mutating, and the
 first execution-capable slice is limited to one approved-runtime-command step
-that can consume the existing exact Action Inbox approved focused pytest
-RuntimeGateway lane. The runtime approval bridge also promotes the exact
-`repo_verifier` and `frontend_check` utility command lanes.
+that can consume existing exact Action Inbox approved RuntimeGateway utility
+command lanes: `focused_pytest`, `repo_verifier`, and `frontend_check`.
 
 ## Implemented Repo-Safe Slice
 
@@ -22,8 +21,8 @@ Python Agent Core owns `StagedOrchestrationReadModel` and related contracts for:
 - checkpoint
 - degraded handoff
 - blocked authority
-- approved runtime command binding/result refs for the exact promoted
-  `focused_pytest` utility lane
+- approved runtime command binding/result refs for the exact promoted utility
+  command lanes: `focused_pytest`, `repo_verifier`, and `frontend_check`
 
 The staged progress statuses are:
 
@@ -44,7 +43,7 @@ refs. Effectful modes remain blocked except the exact
 `approved_runtime_command` mode, which requires a runtime invocation ref, Action
 Inbox approval envelope ref, exact scope ref, expected payload fingerprint ref,
 expected policy decision ref, safe-disable ref, rollback ref, and the promoted
-`focused_pytest` command intent.
+`focused_pytest`, `repo_verifier`, or `frontend_check` command intent.
 
 Checkpoint replay is safe-ref and fingerprint based. Replays are inspectable as
 idempotent matches or conflicts; replay does not perform execution.
@@ -78,10 +77,11 @@ output or raw payloads and does not enable unrestricted command execution.
 
 Control Center cannot mint authority. The read model remains inspection-only.
 The execution-capable path is backend-owned, exact-scope, approval-bound, and
-limited to the existing promoted focused pytest RuntimeGateway lane. It does not
-add runtime authority outside exact approved utility lanes, and it adds no
-autonomous worker, hidden model call, unrestricted command execution, browser
-automation, connector write, production authority, or raw payload persistence.
+limited to the existing promoted focused pytest, repo-verifier, and
+frontend-check RuntimeGateway lanes. It does not add runtime authority outside
+exact approved utility lanes, and it adds no autonomous worker, hidden model call,
+unrestricted command execution, browser automation, connector write, production authority,
+or raw payload persistence.
 This does not add runtime authority beyond exact approved utility lanes;
 browser automation remains blocked.
 

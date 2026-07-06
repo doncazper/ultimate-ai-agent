@@ -102,8 +102,10 @@ now lives in
 `docs/runtime/UAA_GOATCITADEL_RUNTIME_TURN_RUN_APPROVAL_CHAIN.md` and
 `src/ultimate_ai_agent/core/execution/turn_run_approval_chain.py`.
 
-Phase 04 Prompt is implemented as staged orchestration visibility and
-dependency validation as no-effect planning/read-model truth only. Implemented evidence now lives in
+Phase 04 Prompt is implemented as staged orchestration visibility, dependency
+validation, checkpoint replay posture, and exact approved runtime utility
+command step execution for `focused_pytest`, `repo_verifier`, and
+`frontend_check`. Implemented evidence now lives in
 `docs/runtime/UAA_GOATCITADEL_RUNTIME_STAGED_ORCHESTRATION_ENGINE.md`,
 `src/ultimate_ai_agent/core/execution/staged_orchestration.py`, and
 `GET /api/runtime/staged-orchestration`.
