@@ -22,6 +22,7 @@ Phase 16 adds a Python Agent Core read model for governed context references:
 - per-ref safe summaries and why-included refs
 - preview availability and blocked ref posture
 - token budget limit, estimate, remaining budget, and budget-state ref
+- sensitive context guard posture for protected context refs
 - blocked live URL fetch, raw path persistence, raw file content persistence,
   secret/config reads, and automatic context injection
 

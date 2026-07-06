@@ -360,6 +360,11 @@ def _print_session_search(read_model: dict[str, Any]) -> None:
     print(f"Route: {read_model['route_ref']}")
     print(f"CLI: {read_model['cli_ref']}")
     print(f"Query ref: {read_model['query_ref']}")
+    print(f"Sensitive context guard: {read_model['sensitive_context_guard_ref']}")
+    print(
+        "Sensitive context bypass enabled: "
+        f"{read_model['sensitive_context_bypass_enabled']}"
+    )
     print(f"Results: {read_model['result_count']}")
     print(f"Session refs: {read_model['session_ref_count']}")
     print(f"Run refs: {read_model['run_ref_count']}")
@@ -388,6 +393,11 @@ def _print_context_references(read_model: dict[str, Any]) -> None:
     print(f"Included: {read_model['included_count']}")
     print(f"Candidates: {read_model['candidate_count']}")
     print(f"Blocked: {read_model['blocked_count']}")
+    print(f"Sensitive context guard: {read_model['sensitive_context_guard_ref']}")
+    print(
+        "Sensitive context bypass enabled: "
+        f"{read_model['sensitive_context_bypass_enabled']}"
+    )
     print(
         "Token budget: "
         f"{read_model['estimated_token_count']}/"

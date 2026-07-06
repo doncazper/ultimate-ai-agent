@@ -154,6 +154,14 @@ from ultimate_ai_agent.core.runtime_gateway.context_references import (
     RuntimeContextReferenceStatus,
     build_runtime_context_references_read_model,
 )
+from ultimate_ai_agent.core.runtime_gateway.sensitive_context import (
+    SENSITIVE_CONTEXT_BLOCKED_AUTHORITY_REFS,
+    SENSITIVE_CONTEXT_CLASSIFIER_REF,
+    SENSITIVE_CONTEXT_GUARD_REF,
+    SensitiveContextClassification,
+    classify_sensitive_context_candidate,
+    validate_sensitive_context_candidate_allowed,
+)
 from ultimate_ai_agent.core.runtime_gateway.action_evidence import (
     RUNTIME_ACTION_EVIDENCE_CONTRACT_REF,
     RUNTIME_ACTION_EVIDENCE_VERIFIER_REF,
@@ -349,6 +357,10 @@ __all__ = [
     "RuntimeContextReferenceKind",
     "RuntimeContextReferencePostureReadModel",
     "RuntimeContextReferenceStatus",
+    "SENSITIVE_CONTEXT_BLOCKED_AUTHORITY_REFS",
+    "SENSITIVE_CONTEXT_CLASSIFIER_REF",
+    "SENSITIVE_CONTEXT_GUARD_REF",
+    "SensitiveContextClassification",
     "HermesRuntimeDelegationAdapter",
     "build_hermes_runtime_delegation_read_model",
     "build_runtime_capability_discovery_read_model",
@@ -358,6 +370,7 @@ __all__ = [
     "build_runtime_tool_registry_availability_read_model",
     "build_runtime_session_search_read_model",
     "build_runtime_context_references_read_model",
+    "classify_sensitive_context_candidate",
     "build_runtime_run_events_read_model",
     "validate_runtime_approval_scope",
     "build_default_runtime_capabilities",
@@ -371,5 +384,6 @@ __all__ = [
     "build_portable_evidence_envelope",
     "verify_portable_evidence_envelope",
     "verify_runtime_action_signed_evidence",
+    "validate_sensitive_context_candidate_allowed",
     "command_allowlist_catalog",
 ]
