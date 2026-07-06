@@ -798,6 +798,8 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.runtimeVirtualProviderMoa,
     [API_ENDPOINTS.runtimeUsageCostAnalytics]:
       mockControlCenterData.runtimeUsageCostAnalytics,
+    [API_ENDPOINTS.runtimePromptStabilityTiers]:
+      mockControlCenterData.runtimePromptStabilityTiers,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,

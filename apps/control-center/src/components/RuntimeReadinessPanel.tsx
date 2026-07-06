@@ -7,6 +7,7 @@ import type {
   RuntimeRunEventsReadModel,
   RuntimeStreamingProgressReadModel,
   RuntimeProfileIsolationReadModel,
+  RuntimePromptStabilityTiersReadModel,
   RuntimeReadinessReport,
   RuntimeUsageCostAnalyticsReadModel,
   RuntimeVirtualProviderMoaReadModel,
@@ -26,6 +27,7 @@ export function RuntimeReadinessPanel({
   toolRegistry,
   virtualProviderMoa,
   usageCostAnalytics,
+  promptStabilityTiers,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -38,6 +40,7 @@ export function RuntimeReadinessPanel({
   toolRegistry: RuntimeToolRegistryAvailabilityReadModel;
   virtualProviderMoa: RuntimeVirtualProviderMoaReadModel;
   usageCostAnalytics: RuntimeUsageCostAnalyticsReadModel;
+  promptStabilityTiers: RuntimePromptStabilityTiersReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -275,6 +278,116 @@ export function RuntimeReadinessPanel({
               <ul className="compact-list">
                 {capabilityDiscovery.toolset_posture.blocked_authority_refs
                   .slice(0, 3)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+        </dl>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Prompt stability</p>
+            <h3>Tier contract posture</h3>
+          </div>
+          <span className="status-pill compact">
+            {promptStabilityTiers.status}
+          </span>
+        </div>
+        <p>{promptStabilityTiers.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{promptStabilityTiers.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{promptStabilityTiers.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Tiers</dt>
+            <dd>{promptStabilityTiers.tier_count}</dd>
+          </div>
+          <div>
+            <dt>Cache candidates</dt>
+            <dd>{promptStabilityTiers.stable_cache_candidate_count}</dd>
+          </div>
+          <div>
+            <dt>Raw prompts</dt>
+            <dd>
+              {promptStabilityTiers.raw_prompt_persistence_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Hidden injection</dt>
+            <dd>
+              {promptStabilityTiers.hidden_prompt_injection_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Model calls</dt>
+            <dd>
+              {promptStabilityTiers.model_call_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Cache writes</dt>
+            <dd>
+              {promptStabilityTiers.cache_write_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tier</th>
+                <th>Kind</th>
+                <th>Stability</th>
+                <th>Manifest</th>
+                <th>Hash</th>
+              </tr>
+            </thead>
+            <tbody>
+              {promptStabilityTiers.tiers.map((tier) => (
+                <tr key={tier.tier_ref}>
+                  <td>{tier.display_label}</td>
+                  <td>{tier.tier_kind}</td>
+                  <td>{tier.stability_class}</td>
+                  <td>{tier.manifest_ref}</td>
+                  <td>{tier.tier_hash_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>Proof</dt>
+            <dd>
+              <ul className="compact-list">
+                {promptStabilityTiers.proof_refs.slice(0, 3).map((ref) => (
+                  <li key={ref}>{ref}</li>
+                ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Blocked authority</dt>
+            <dd>
+              <ul className="compact-list">
+                {promptStabilityTiers.blocked_authority_refs
+                  .slice(0, 4)
                   .map((ref) => (
                     <li key={ref}>{ref}</li>
                   ))}

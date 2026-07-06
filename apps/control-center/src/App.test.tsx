@@ -7538,6 +7538,20 @@ describe("Web Control Center shell", () => {
         "blocked-authority:usage-cost-analytics-no-billing-action",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText("Prompt stability")).toBeInTheDocument();
+    expect(screen.getByText("Tier contract posture")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/prompt-stability-tiers").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-prompt-stability-tiers").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Stable identity and policy")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:prompt-stability-no-hidden-prompt-injection",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
     expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
@@ -14586,6 +14600,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.runtimeUsageCostAnalytics),
     ).toBe(true);
+    expect(API_ENDPOINTS.runtimePromptStabilityTiers).toBe(
+      "/api/runtime/prompt-stability-tiers",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimePromptStabilityTiers),
+    ).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15629,6 +15649,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeVirtualProviderMoa,
     [API_ENDPOINTS.runtimeUsageCostAnalytics]:
       mockControlCenterData.runtimeUsageCostAnalytics,
+    [API_ENDPOINTS.runtimePromptStabilityTiers]:
+      mockControlCenterData.runtimePromptStabilityTiers,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:

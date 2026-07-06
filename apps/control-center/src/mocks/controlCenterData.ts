@@ -41,6 +41,7 @@ import type {
   RuntimeVirtualAgentSlot,
   RuntimeVirtualProviderPreset,
   RuntimeUsageCostRecord,
+  RuntimePromptStabilityTier,
   RuntimeToolRegistryEntry,
   TrustAuthorityMatrix,
   WorkBoardReadModel,
@@ -524,6 +525,114 @@ const runtimeUsageCostAnalyticsRecords: RuntimeUsageCostRecord[] = [
     model_ref: "model-ref:delegated-runtime:future",
     safe_summary:
       "Mock delegated runtime accounting remains blocked until receipts exist.",
+  }),
+];
+
+const runtimePromptStabilityBlockedRefs = [
+  "blocked-authority:prompt-stability-no-hidden-prompt-injection",
+  "blocked-authority:prompt-stability-no-raw-prompt-persistence",
+  "blocked-authority:prompt-stability-no-raw-response-persistence",
+  "blocked-authority:prompt-stability-no-provider-payload-persistence",
+  "blocked-authority:prompt-stability-no-model-output-authority",
+  "blocked-authority:prompt-stability-no-model-call",
+  "blocked-authority:prompt-stability-no-context-injection",
+  "blocked-authority:prompt-stability-no-provider-sdk-call",
+  "blocked-authority:prompt-stability-no-cache-write",
+  "blocked-authority:prompt-stability-no-production-authority",
+];
+
+function runtimePromptStabilityTier(
+  slug: string,
+  overrides: Partial<RuntimePromptStabilityTier>,
+): RuntimePromptStabilityTier {
+  return {
+    tier_ref: `prompt-stability-tier-ref:${slug}`,
+    display_label: overrides.display_label ?? "Prompt stability tier",
+    tier_kind: overrides.tier_kind ?? "durable_context_refs",
+    stability_class: overrides.stability_class ?? "semi_stable_ref_set",
+    manifest_ref: overrides.manifest_ref ?? `prompt-manifest-ref:runtime:${slug}`,
+    tier_hash_ref:
+      overrides.tier_hash_ref ?? `prompt-tier-hash-ref:runtime:${slug}:redacted`,
+    cache_policy_ref:
+      overrides.cache_policy_ref ?? `cache-policy-ref:prompt-stability:${slug}`,
+    proof_ref:
+      overrides.proof_ref ??
+      "proof-ref:hermes-runtime-adoption:phase-23:prompt-stability-tiers",
+    safe_summary:
+      overrides.safe_summary ??
+      "Mock prompt tier stores safe refs only and no prompt material.",
+    source_refs: overrides.source_refs ?? [
+      `prompt-source-ref:runtime:${slug}:safe-ref-only`,
+    ],
+    evidence_refs: overrides.evidence_refs ?? [
+      `evidence-ref:prompt-stability:${slug}`,
+    ],
+    blocked_authority_refs:
+      overrides.blocked_authority_refs ?? runtimePromptStabilityBlockedRefs,
+    cache_candidate: overrides.cache_candidate ?? false,
+    cache_write_enabled: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    provider_payload_persisted: false,
+    hidden_prompt_injection_enabled: false,
+    context_injection_enabled: false,
+    model_call_performed: false,
+    provider_sdk_call_performed: false,
+    model_output_authoritative: false,
+    production_authority_enabled: false,
+  };
+}
+
+const runtimePromptStabilityTiers: RuntimePromptStabilityTier[] = [
+  runtimePromptStabilityTier("stable-identity-policy", {
+    display_label: "Stable identity and policy",
+    tier_kind: "stable_identity_policy",
+    stability_class: "stable_cache_candidate",
+    cache_candidate: true,
+    source_refs: [
+      "policy-ref:uaa:non-negotiable-invariants",
+      "authority-profile-ref:runtime:sealed-default",
+    ],
+    safe_summary:
+      "Mock stable policy tier is hash-addressable posture only; no prompt text is stored.",
+  }),
+  runtimePromptStabilityTier("durable-context-refs", {
+    display_label: "Durable context refs",
+    tier_kind: "durable_context_refs",
+    stability_class: "semi_stable_ref_set",
+    cache_candidate: true,
+    source_refs: [
+      "context-pack-ref:prepared-turn:review-required",
+      "proof-ref:runtime-context-references:phase-16",
+    ],
+  }),
+  runtimePromptStabilityTier("retrieval-refs", {
+    display_label: "Retrieval refs",
+    tier_kind: "retrieval_refs",
+    stability_class: "semi_stable_ref_set",
+    cache_candidate: true,
+    source_refs: [
+      "search-ref:runtime-session-search:sample",
+      "memory-ref:reviewed:operator-context",
+    ],
+  }),
+  runtimePromptStabilityTier("volatile-runtime-state", {
+    display_label: "Volatile runtime state",
+    tier_kind: "volatile_runtime_state",
+    stability_class: "volatile_no_cache",
+    source_refs: [
+      "run-state-ref:runtime:approval-wait",
+      "event-preview-ref:runtime-streaming-progress:stale",
+    ],
+  }),
+  runtimePromptStabilityTier("operator-turn-ref", {
+    display_label: "Operator turn ref",
+    tier_kind: "operator_turn_ref",
+    stability_class: "operator_scoped_no_cache",
+    source_refs: [
+      "turn-ref:prepared-turn:ephemeral",
+      "content-fingerprint-ref:prepared-turn-content:required",
+    ],
   }),
 ];
 
@@ -11893,6 +12002,65 @@ export const mockControlCenterData: ControlCenterData = {
       "billing_payloads_omitted",
       "operator_export_payloads_omitted",
       "usage_samples_bounded",
+    ],
+  },
+  runtimePromptStabilityTiers: {
+    schema_version: "runtime_prompt_stability_tiers.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-prompt-stability-tiers:v1",
+    status: "read_only_prompt_contract_posture",
+    snapshot_ref: "prompt-stability-snapshot-ref:runtime:mock-tiers",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-prompt-stability:mock",
+    route_ref: "GET /api/runtime/prompt-stability-tiers",
+    cli_ref: "uaa runtime inspect-prompt-stability-tiers",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime prompt stability mock fallback separates prompt tiers as safe refs only; raw prompt material remains omitted.",
+    tiers: runtimePromptStabilityTiers,
+    tier_count: runtimePromptStabilityTiers.length,
+    stable_cache_candidate_count: runtimePromptStabilityTiers.filter(
+      (tier) => tier.stability_class === "stable_cache_candidate",
+    ).length,
+    semi_stable_ref_set_count: runtimePromptStabilityTiers.filter(
+      (tier) => tier.stability_class === "semi_stable_ref_set",
+    ).length,
+    volatile_no_cache_count: runtimePromptStabilityTiers.filter(
+      (tier) => tier.stability_class === "volatile_no_cache",
+    ).length,
+    operator_scoped_no_cache_count: runtimePromptStabilityTiers.filter(
+      (tier) => tier.stability_class === "operator_scoped_no_cache",
+    ).length,
+    safe_prompt_manifest_required: true,
+    prompt_hashes_required: true,
+    redacted_receipt_required: true,
+    proof_link_required: true,
+    raw_prompt_persistence_enabled: false,
+    raw_response_persistence_enabled: false,
+    provider_payload_persistence_enabled: false,
+    hidden_prompt_injection_enabled: false,
+    context_injection_enabled: false,
+    model_call_enabled: false,
+    provider_sdk_enabled: false,
+    model_output_authority_enabled: false,
+    cache_write_enabled: false,
+    production_authority_enabled: false,
+    blocked_authority_refs: runtimePromptStabilityBlockedRefs,
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-23:prompt-stability-tiers",
+    ],
+    verifier_refs: ["verifier-ref:hermes-runtime-adoption:phase-23"],
+    next_safe_action_refs: [
+      "next-safe-action-ref:prompt-stability:add-safe-prompt-manifest",
+      "next-safe-action-ref:prompt-stability:add-redacted-receipt",
+      "next-safe-action-ref:prompt-stability:keep-raw-prompts-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "provider_payloads_omitted",
+      "prompt_material_omitted",
+      "operator_turn_text_omitted",
     ],
   },
   runtimeApprovalBridge: {

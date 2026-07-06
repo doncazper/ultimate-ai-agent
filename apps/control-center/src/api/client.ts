@@ -37,6 +37,7 @@ import type {
   RuntimeCapabilityMatrix,
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeDelegationAdapterReadModel,
+  RuntimePromptStabilityTiersReadModel,
   RuntimeToolsetCapabilityPosture,
   RuntimeToolRegistryAvailabilityReadModel,
   RuntimeUsageCostAnalyticsReadModel,
@@ -345,6 +346,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeUsageCostAnalytics,
     ),
   ] as const);
+  const runtimePromptStabilityTiersSettledPromise = Promise.allSettled([
+    read<RuntimePromptStabilityTiersReadModel>(
+      API_ENDPOINTS.runtimePromptStabilityTiers,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -461,6 +467,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeVirtualProviderMoaSettledPromise;
   const runtimeUsageCostAnalyticsResult =
     await runtimeUsageCostAnalyticsSettledPromise;
+  const runtimePromptStabilityTiersResult =
+    await runtimePromptStabilityTiersSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -485,6 +493,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const runtimeUsageCostAnalytics = fulfilledValue(
     runtimeUsageCostAnalyticsResult[0],
+  );
+  const runtimePromptStabilityTiers = fulfilledValue(
+    runtimePromptStabilityTiersResult[0],
   );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
@@ -577,6 +588,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeUsageCostAnalytics,
   )
     ? runtimeUsageCostAnalytics
+    : undefined;
+  const safeRuntimePromptStabilityTiers = isSafeRuntimePromptStabilityTiers(
+    runtimePromptStabilityTiers,
+  )
+    ? runtimePromptStabilityTiers
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -721,6 +737,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeVirtualProviderMoa === undefined;
   const runtimeUsageCostAnalyticsFallbackUsed =
     safeRuntimeUsageCostAnalytics === undefined;
+  const runtimePromptStabilityTiersFallbackUsed =
+    safeRuntimePromptStabilityTiers === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -867,6 +885,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/tool-registry",
         "GET /api/runtime/virtual-provider-moa",
         "GET /api/runtime/usage-cost-analytics",
+        "GET /api/runtime/prompt-stability-tiers",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -879,7 +898,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeProfiles !== undefined &&
         runtimeToolRegistry !== undefined &&
         runtimeVirtualProviderMoa !== undefined &&
-        runtimeUsageCostAnalytics !== undefined,
+        runtimeUsageCostAnalytics !== undefined &&
+        runtimePromptStabilityTiers !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -908,6 +928,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeUsageCostAnalyticsFallbackUsed
           ? ["RUNTIME_USAGE_COST_ANALYTICS_MOCK_FALLBACK"]
           : []),
+        ...(runtimePromptStabilityTiersFallbackUsed
+          ? ["RUNTIME_PROMPT_STABILITY_TIERS_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -920,7 +943,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeProfilesFallbackUsed ||
         runtimeToolRegistryFallbackUsed ||
         runtimeVirtualProviderMoaFallbackUsed ||
-        runtimeUsageCostAnalyticsFallbackUsed,
+        runtimeUsageCostAnalyticsFallbackUsed ||
+        runtimePromptStabilityTiersFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1017,6 +1041,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeToolRegistry === undefined ||
     runtimeVirtualProviderMoa === undefined ||
     runtimeUsageCostAnalytics === undefined ||
+    runtimePromptStabilityTiers === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1047,8 +1072,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeProfilesResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeToolRegistryResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeVirtualProviderMoaResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeUsageCostAnalyticsResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 10;
+    (runtimeUsageCostAnalyticsResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimePromptStabilityTiersResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 11;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1128,6 +1154,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeUsageCostAnalytics:
       safeRuntimeUsageCostAnalytics ??
       mockControlCenterData.runtimeUsageCostAnalytics,
+    runtimePromptStabilityTiers:
+      safeRuntimePromptStabilityTiers ??
+      mockControlCenterData.runtimePromptStabilityTiers,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1213,6 +1242,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeToolRegistryFallbackUsed &&
     !runtimeVirtualProviderMoaFallbackUsed &&
     !runtimeUsageCostAnalyticsFallbackUsed &&
+    !runtimePromptStabilityTiersFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1246,6 +1276,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeToolRegistryFallbackUsed ||
     runtimeVirtualProviderMoaFallbackUsed ||
     runtimeUsageCostAnalyticsFallbackUsed ||
+    runtimePromptStabilityTiersFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1292,6 +1323,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeUsageCostAnalyticsFallbackUsed) {
     degradedSafeMessage =
       "Runtime usage and cost posture was unavailable or unsafe; non-authoritative mock fallback kept billing and provider execution blocked.";
+  } else if (runtimePromptStabilityTiersFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime prompt stability posture was unavailable or unsafe; non-authoritative mock fallback kept raw prompts, hidden injection, and model-output authority blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1374,6 +1408,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         : []),
       ...(runtimeUsageCostAnalyticsFallbackUsed
         ? ["RUNTIME_USAGE_COST_ANALYTICS_MOCK_FALLBACK"]
+        : []),
+      ...(runtimePromptStabilityTiersFallbackUsed
+        ? ["RUNTIME_PROMPT_STABILITY_TIERS_MOCK_FALLBACK"]
         : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
@@ -3478,6 +3515,89 @@ function isSafeRuntimeUsageCostAnalytics(
         record.output_authoritative === false &&
         record.production_authority_enabled === false &&
         isNonEmptyStringArray(record.blocked_authority_refs),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimePromptStabilityTiers(
+  value: RuntimePromptStabilityTiersReadModel | undefined,
+): value is RuntimePromptStabilityTiersReadModel {
+  if (value === undefined || !Array.isArray(value.tiers)) {
+    return false;
+  }
+  const allowedKinds = new Set([
+    "stable_identity_policy",
+    "durable_context_refs",
+    "retrieval_refs",
+    "volatile_runtime_state",
+    "operator_turn_ref",
+  ]);
+  const allowedClasses = new Set([
+    "stable_cache_candidate",
+    "semi_stable_ref_set",
+    "volatile_no_cache",
+    "operator_scoped_no_cache",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimePromptStabilityTiersReadModel> = [
+    "raw_prompt_persistence_enabled",
+    "raw_response_persistence_enabled",
+    "provider_payload_persistence_enabled",
+    "hidden_prompt_injection_enabled",
+    "context_injection_enabled",
+    "model_call_enabled",
+    "provider_sdk_enabled",
+    "model_output_authority_enabled",
+    "cache_write_enabled",
+    "production_authority_enabled",
+  ];
+  return (
+    value.schema_version === "runtime_prompt_stability_tiers.v1" &&
+    value.status === "read_only_prompt_contract_posture" &&
+    value.route_ref === "GET /api/runtime/prompt-stability-tiers" &&
+    value.cli_ref === "uaa runtime inspect-prompt-stability-tiers" &&
+    value.tier_count === value.tiers.length &&
+    value.stable_cache_candidate_count ===
+      value.tiers.filter(
+        (tier) => tier.stability_class === "stable_cache_candidate",
+      ).length &&
+    value.semi_stable_ref_set_count ===
+      value.tiers.filter((tier) => tier.stability_class === "semi_stable_ref_set")
+        .length &&
+    value.volatile_no_cache_count ===
+      value.tiers.filter((tier) => tier.stability_class === "volatile_no_cache")
+        .length &&
+    value.operator_scoped_no_cache_count ===
+      value.tiers.filter(
+        (tier) => tier.stability_class === "operator_scoped_no_cache",
+      ).length &&
+    value.safe_prompt_manifest_required === true &&
+    value.prompt_hashes_required === true &&
+    value.redacted_receipt_required === true &&
+    value.proof_link_required === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:prompt-stability-no-hidden-prompt-injection",
+    ) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.tiers.every(
+      (tier) =>
+        allowedKinds.has(tier.tier_kind) &&
+        allowedClasses.has(tier.stability_class) &&
+        tier.cache_write_enabled === false &&
+        tier.raw_prompt_persisted === false &&
+        tier.raw_response_persisted === false &&
+        tier.provider_payload_persisted === false &&
+        tier.hidden_prompt_injection_enabled === false &&
+        tier.context_injection_enabled === false &&
+        tier.model_call_performed === false &&
+        tier.provider_sdk_call_performed === false &&
+        tier.model_output_authoritative === false &&
+        tier.production_authority_enabled === false &&
+        isNonEmptyStringArray(tier.source_refs) &&
+        isNonEmptyStringArray(tier.blocked_authority_refs),
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

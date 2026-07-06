@@ -37,6 +37,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_capability_discovery_read_model,
     build_runtime_delegation_adapter_read_model,
     build_runtime_profile_isolation_read_model,
+    build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
     build_runtime_session_search_read_model,
     build_runtime_session_lineage_read_model,
@@ -416,6 +417,34 @@ def _print_usage_cost_analytics(read_model: dict[str, Any]) -> None:
             f"latency_ms={record['latency_ms']}"
         )
         print(f"  summary: {record['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_prompt_stability_tiers(read_model: dict[str, Any]) -> None:
+    print("Runtime prompt stability tier posture")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Tiers: {read_model['tier_count']}")
+    print(f"Safe manifest required: {read_model['safe_prompt_manifest_required']}")
+    print(f"Hashes required: {read_model['prompt_hashes_required']}")
+    print(f"Raw prompt persistence: {read_model['raw_prompt_persistence_enabled']}")
+    print(f"Hidden injection: {read_model['hidden_prompt_injection_enabled']}")
+    print(f"Model output authority: {read_model['model_output_authority_enabled']}")
+    print("Tiers:")
+    for tier in read_model["tiers"]:
+        print(
+            f"- {tier['display_label']}: "
+            f"kind={tier['tier_kind']} stability={tier['stability_class']}"
+        )
+        print(f"  manifest={tier['manifest_ref']}")
+        print(f"  hash={tier['tier_hash_ref']}")
+        print(f"  cache_candidate={tier['cache_candidate']}")
+        print(f"  summary: {tier['safe_summary']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -943,6 +972,34 @@ def _inspect_usage_cost_analytics(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_usage_cost_analytics(read_model)
+    return 0
+
+
+def _inspect_prompt_stability_tiers(args: argparse.Namespace) -> int:
+    read_model = build_runtime_prompt_stability_tiers_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-prompt-stability-tiers",
+        "runtime_prompt_stability_tiers": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_prompts_omitted": True,
+        "raw_responses_omitted": True,
+        "provider_payloads_omitted": True,
+        "prompt_material_omitted": True,
+        "operator_turn_text_omitted": True,
+        "hidden_prompt_injection_performed": False,
+        "context_injection_performed": False,
+        "model_call_performed": False,
+        "cache_write_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_prompt_stability_tiers(read_model)
     return 0
 
 
@@ -1882,6 +1939,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref runtime usage and cost read model as JSON.",
     )
     usage_cost_analytics.set_defaults(func=_inspect_usage_cost_analytics)
+
+    prompt_stability_tiers = subparsers.add_parser(
+        "inspect-prompt-stability-tiers",
+        help="Inspect read-only prompt/input stability tier posture.",
+    )
+    prompt_stability_tiers.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref prompt stability tier read model as JSON.",
+    )
+    prompt_stability_tiers.set_defaults(func=_inspect_prompt_stability_tiers)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",
