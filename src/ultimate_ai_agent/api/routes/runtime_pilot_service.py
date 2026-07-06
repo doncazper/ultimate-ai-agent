@@ -13,6 +13,7 @@ from ultimate_ai_agent.core.hygiene.envelopes import (
     Severity,
 )
 from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
     AuthorityLeaseConflictError,
     AuthorityLeaseIssueRequest,
     AuthorityLeaseRevokeRequest,
@@ -704,6 +705,22 @@ def get_api_runtime_authority_state() -> ResultEnvelope:
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:authority-state:v1"}],
         redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.post("/authority-decisions/preview", response_model=ResultEnvelope)
+def post_api_runtime_authority_decision_preview(
+    request: AuthorityActionRequest,
+) -> ResultEnvelope:
+    preview = _authority_store().preview_decision(request)
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_authority_decision_preview",
+        service="GovernedRuntimeAPI",
+        trace_id=preview.preview_ref,
+        data=preview.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:authority-decision-preview:v1"}],
+        redactions_applied=list(preview.redactions_applied),
     )
 
 

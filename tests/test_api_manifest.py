@@ -603,6 +603,24 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         == "not_required_for_route_classification"
     )
     assert (
+        routes_by_path["/api/runtime/authority-decisions/preview"][
+            "route_classification"
+        ]
+        == "local_sensitive"
+    )
+    assert (
+        routes_by_path["/api/runtime/authority-decisions/preview"][
+            "side_effect_class"
+        ]
+        == "validation_only"
+    )
+    assert (
+        routes_by_path["/api/runtime/authority-decisions/preview"][
+            "idempotency_posture"
+        ]
+        == "not_required_for_route_classification"
+    )
+    assert (
         routes_by_path["/api/runtime/authority-leases"]["route_classification"]
         == "mutating_requires_authority"
     )

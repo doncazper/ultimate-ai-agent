@@ -2,6 +2,8 @@ import { mockControlCenterData } from "../mocks/controlCenterData";
 import type {
   ActionPreviewDecision,
   ActionPreviewRequest,
+  AuthorityActionRequest,
+  AuthorityDecisionPreview,
   AuthorityLeaseIssueRequest,
   AuthorityLeaseMutationResult,
   AuthorityLeaseRevokeRequest,
@@ -2725,6 +2727,40 @@ export async function fetchControlCenterSettingsStatus(): Promise<ControlCenterS
   return readEnvelope<ControlCenterSettingsStatus>(
     API_ENDPOINTS.controlCenterSettingsStatus,
   );
+}
+
+export async function previewAuthorityDecision(
+  request: AuthorityActionRequest,
+): Promise<AuthorityDecisionPreview> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.runtimeAuthorityDecisionPreview}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<AuthorityDecisionPreview>;
+  const result = data.result ?? data.data;
+  if (!response.ok || !result) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "Authority decision preview was not available.",
+        ),
+      ),
+    );
+  }
+  return result;
 }
 
 export async function issueAuthorityLease(

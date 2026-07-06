@@ -323,6 +323,65 @@ class AuthorityPolicyDecision(_AuthorityModel):
         return self
 
 
+class AuthorityDecisionPreview(_AuthorityModel):
+    schema_version: Literal["uaa-authority-decision-preview.v1"] = (
+        "uaa-authority-decision-preview.v1"
+    )
+    preview_ref: str = Field(..., min_length=1)
+    decision: AuthorityPolicyDecision
+    active_lease_refs: list[str] = Field(default_factory=list)
+    preview_receipt_ref: str = Field(..., min_length=1)
+    audit_record_ref: str = Field(..., min_length=1)
+    operator_summary: str = Field(..., min_length=1, max_length=640)
+    execution_performed: bool = False
+    mutation_performed: bool = False
+    safe_refs_only: bool = True
+    raw_paths_included: bool = False
+    raw_prompt_included: bool = False
+    raw_response_included: bool = False
+    raw_provider_payload_included: bool = False
+    unknown_authority_default: AuthorityDecisionOutcome = AuthorityDecisionOutcome.deny
+    unsupported_adapters_claimed_execution: bool = False
+    receipts_required: bool = True
+    audit_required: bool = True
+    redaction_required: bool = True
+    redactions_applied: list[str] = Field(
+        default_factory=lambda: list(AUTHORITY_STATE_REDACTIONS)
+    )
+
+    @model_validator(mode="after")
+    def validate_preview(self) -> "AuthorityDecisionPreview":
+        for value, field_name in [
+            (self.preview_ref, "authority_decision_preview_ref"),
+            (self.preview_receipt_ref, "authority_decision_preview_receipt_ref"),
+            (self.audit_record_ref, "authority_decision_preview_audit_ref"),
+        ]:
+            validate_task_ref(value, field_name)
+        _validate_ref_list(self.active_lease_refs, "authority_decision_preview_lease_ref")
+        validate_safe_task_text(self.operator_summary, "authority_decision_preview_summary")
+        for redaction in self.redactions_applied:
+            validate_safe_task_text(redaction, "authority_decision_preview_redaction")
+        if (
+            self.execution_performed
+            or self.mutation_performed
+            or not self.safe_refs_only
+            or self.raw_paths_included
+            or self.raw_prompt_included
+            or self.raw_response_included
+            or self.raw_provider_payload_included
+            or self.unsupported_adapters_claimed_execution
+        ):
+            raise ValueError("AUTHORITY_DECISION_PREVIEW_MUST_NOT_EXECUTE")
+        if (
+            not self.receipts_required
+            or not self.audit_required
+            or not self.redaction_required
+            or self.unknown_authority_default != AuthorityDecisionOutcome.deny.value
+        ):
+            raise ValueError("AUTHORITY_DECISION_PREVIEW_GOVERNANCE_REQUIRED")
+        return self
+
+
 class AuthorityCapabilityMapping(_AuthorityModel):
     lane_ref: str = Field(..., min_length=1)
     label: str = Field(..., min_length=1, max_length=120)
@@ -706,6 +765,51 @@ def _decision(
     )
 
 
+def build_authority_decision_preview(
+    request: AuthorityActionRequest,
+    leases: list[AuthorityLease],
+    *,
+    now: datetime | None = None,
+) -> AuthorityDecisionPreview:
+    effective_leases = leases or build_default_authority_leases()
+    active_leases = [lease for lease in effective_leases if lease.is_active(now=now)]
+    decision = evaluate_authority_request(request, effective_leases, now=now)
+    preview_ref = _stable_ref(
+        "authority-decision-preview-ref",
+        {
+            "action_ref": request.action_ref,
+            "domain": request.domain,
+            "capability": request.capability,
+            "decision_ref": decision.decision_ref,
+        },
+    )
+    return AuthorityDecisionPreview(
+        preview_ref=preview_ref,
+        decision=decision,
+        active_lease_refs=[lease.lease_ref for lease in active_leases],
+        preview_receipt_ref=_stable_ref(
+            "receipt-ref:authority-decision-preview",
+            {
+                "preview_ref": preview_ref,
+                "decision_ref": decision.decision_ref,
+                "outcome": decision.outcome,
+            },
+        ),
+        audit_record_ref=_stable_ref(
+            "audit-ref:authority-decision-preview",
+            {
+                "preview_ref": preview_ref,
+                "decision_ref": decision.decision_ref,
+                "outcome": decision.outcome,
+            },
+        ),
+        operator_summary=(
+            "Authority decision preview evaluated active lease scope without "
+            "executing or mutating anything."
+        ),
+    )
+
+
 def build_default_authority_leases() -> list[AuthorityLease]:
     return [
         AuthorityLease(
@@ -957,6 +1061,16 @@ class AuthorityLeaseStore:
         return build_authority_state_read_model(
             active_leases=active or build_default_authority_leases(),
             recent_receipts=self.list_receipts(limit=8),
+        )
+
+    def preview_decision(
+        self,
+        request: AuthorityActionRequest,
+    ) -> AuthorityDecisionPreview:
+        active = self.list_leases(active_only=True)
+        return build_authority_decision_preview(
+            request,
+            active or build_default_authority_leases(),
         )
 
     def issue_lease(

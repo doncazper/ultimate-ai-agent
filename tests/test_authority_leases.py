@@ -283,6 +283,101 @@ def test_authority_state_api_cli_and_settings_surface(capsys) -> None:
     assert "raw_paths_omitted" in cli_payload
 
 
+def test_authority_decision_preview_api_and_cli_are_read_only(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+
+    denied = client.post(
+        "/api/runtime/authority-decisions/preview",
+        json={
+            "action_ref": "authority-action-ref:test-preview-workspace-execute-denied",
+            "domain": "workspace",
+            "capability": "execute",
+            "safe_summary": "Preview workspace execution authority without running anything.",
+            "route_ref": "POST /api/runtime/command/run",
+            "requested_mode": "approved_safe_local_work_session",
+            "draft_fallback_available": True,
+        },
+    )
+    assert denied.status_code == 200
+    denied_preview = denied.json()["data"]
+    assert denied_preview["execution_performed"] is False
+    assert denied_preview["mutation_performed"] is False
+    assert denied_preview["safe_refs_only"] is True
+    assert denied_preview["preview_receipt_ref"].startswith(
+        "receipt-ref:authority-decision-preview:"
+    )
+    assert denied_preview["decision"]["outcome"] == "degrade_to_draft"
+    assert denied_preview["decision"]["lease_ref"] is None
+    assert denied_preview["decision"]["required_domain_refs"] == [
+        "authority-domain-ref:workspace"
+    ]
+    assert denied_preview["decision"]["required_capability_refs"] == [
+        "authority-capability-ref:execute"
+    ]
+
+    issue = client.post(
+        "/api/runtime/authority-leases",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:authority-preview-issue"},
+        json={
+            "mode": "approved_safe_local_work_session",
+            "requested_domains": {"workspace": ["read", "execute"]},
+            "decision_reason_ref": "reason-ref:authority-preview-issue",
+            "safe_summary": "Select workspace execute authority for preview testing.",
+        },
+    )
+    assert issue.status_code == 200
+    lease_ref = issue.json()["data"]["lease"]["lease_ref"]
+
+    allowed = client.post(
+        "/api/runtime/authority-decisions/preview",
+        json={
+            "action_ref": "authority-action-ref:test-preview-workspace-execute-allowed",
+            "domain": "workspace",
+            "capability": "execute",
+            "safe_summary": "Preview workspace execution authority without running anything.",
+            "route_ref": "POST /api/runtime/command/run",
+            "requested_mode": "approved_safe_local_work_session",
+        },
+    )
+    assert allowed.status_code == 200
+    allowed_preview = allowed.json()["data"]
+    assert allowed_preview["execution_performed"] is False
+    assert allowed_preview["decision"]["outcome"] == "allow"
+    assert allowed_preview["decision"]["lease_ref"] == lease_ref
+    assert allowed_preview["decision"]["receipt_ref"].startswith(
+        "receipt-ref:authority-policy:"
+    )
+    assert lease_ref in allowed_preview["active_lease_refs"]
+
+    cli_exit = uaa_runtime.main(
+        [
+            "preview-authority-decision",
+            "--action-ref",
+            "authority-action-ref:test-preview-cli",
+            "--domain",
+            "browser",
+            "--capability",
+            "click",
+            "--summary",
+            "Preview browser click authority without running browser automation.",
+            "--requested-mode",
+            "delegated_mission_autonomous_window",
+            "--unsupported-adapter",
+            "--draft-fallback-available",
+            "--json",
+        ]
+    )
+    assert cli_exit == 0
+    cli_payload = capsys.readouterr().out
+    assert "uaa-runtime-preview-authority-decision" in cli_payload
+    assert "adapter-unsupported" in cli_payload
+    assert "execution_performed" in cli_payload
+
+
 def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     tmp_path,
     monkeypatch,

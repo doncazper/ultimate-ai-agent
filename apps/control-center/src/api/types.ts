@@ -11707,6 +11707,7 @@ export interface AuthorityLease {
 }
 
 export interface AuthorityPolicyDecision {
+  schema_version: "uaa-authority-state.v1";
   decision_ref: string;
   action_ref: string;
   outcome: AuthorityDecisionOutcome;
@@ -11715,12 +11716,66 @@ export interface AuthorityPolicyDecision {
   lease_ref: string | null;
   matched_mode: AuthorityTrustMode | null;
   required_mode: AuthorityTrustMode | null;
+  required_domain_refs: string[];
+  required_capability_refs: string[];
   reason_refs: string[];
   operator_message: string;
   known_authority: boolean;
   unsupported_adapter: boolean;
+  receipts_required: boolean;
+  audit_required: boolean;
+  redaction_required: boolean;
+  rollback_ref: string;
+  safe_disable_ref: string;
+  kill_switch_ref: string;
   receipt_ref: string | null;
   audit_record_ref: string;
+  redactions_applied: string[];
+  decided_at: string;
+}
+
+export interface AuthorityActionRequest {
+  action_ref: string;
+  domain: AuthorityDomain;
+  capability: string;
+  safe_summary: string;
+  resource_refs?: string[];
+  route_ref?: string | null;
+  lane_ref?: string | null;
+  adapter_ref?: string | null;
+  requested_mode?: AuthorityTrustMode | null;
+  constraints?: Record<string, unknown>;
+  draft_fallback_available?: boolean;
+  unsupported_adapter?: boolean;
+  kill_switch_engaged?: boolean;
+  receipts_required?: boolean;
+  audit_required?: boolean;
+  redaction_required?: boolean;
+  rollback_ref?: string;
+  safe_disable_ref?: string;
+}
+
+export interface AuthorityDecisionPreview {
+  schema_version: "uaa-authority-decision-preview.v1";
+  preview_ref: string;
+  decision: AuthorityPolicyDecision;
+  active_lease_refs: string[];
+  preview_receipt_ref: string;
+  audit_record_ref: string;
+  operator_summary: string;
+  execution_performed: false;
+  mutation_performed: false;
+  safe_refs_only: true;
+  raw_paths_included: false;
+  raw_prompt_included: false;
+  raw_response_included: false;
+  raw_provider_payload_included: false;
+  unknown_authority_default: "deny";
+  unsupported_adapters_claimed_execution: false;
+  receipts_required: boolean;
+  audit_required: boolean;
+  redaction_required: boolean;
+  redactions_applied: string[];
 }
 
 export interface AuthorityLeaseReceipt {

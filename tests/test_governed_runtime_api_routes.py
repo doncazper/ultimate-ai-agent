@@ -358,6 +358,12 @@ def test_governed_runtime_routes_are_manifest_visible_with_safe_posture() -> Non
     assert routes[("GET", "/api/runtime/parity-loop")].side_effect_class == (
         "local_dev_workspace_only"
     )
+    preview_route = routes[("POST", "/api/runtime/authority-decisions/preview")]
+    assert "governed-runtime" in preview_route.tags
+    assert preview_route.side_effect_class == "validation_only"
+    assert preview_route.route_classification == "local_sensitive"
+    assert preview_route.idempotency_required is False
+    assert preview_route.approval_posture == "not_required_for_route_classification"
 
     for path in [
         "/api/runtime/invocations",
@@ -406,6 +412,7 @@ def test_governed_runtime_openapi_contains_exact_contract_routes() -> None:
     for path in [
         "/api/runtime/capabilities",
         "/api/runtime/parity-loop",
+        "/api/runtime/authority-decisions/preview",
         "/api/runtime/invocations",
         "/api/runtime/command/run",
         "/api/runtime/local-model/call",

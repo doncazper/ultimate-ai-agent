@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `208`.
+Current OpenAPI path count: `239`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `209`
-- OpenAPI paths: `208`
+- Manifest route operations: `240`
+- OpenAPI paths: `239`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -23,12 +23,12 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `consent` | 2 | `consent` | `approval_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `context-budget` | 1 | `context` | `contracts_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `contracts` | 2 | `contracts` | `contracts_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
-| `control-center` | 88 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:2, `local_dev_workspace_only`:69, `validation_only`:17 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
+| `control-center` | 89 | `control-center` | `control_center_service` | local status or future auth per route | `governed_network_read_only`:2, `local_dev_workspace_only`:70, `validation_only`:17 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `cost-governor` | 3 | `cost-governor` | `cost_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `extension-catalog` | 1 | `extension-catalog` | `extension_catalog_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `foundation-gate` | 2 | `foundation-gate` | `verification_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | status_available_not_completion |
-| `governed-runtime` | 20 | `governed-runtime` | `runtime_pilot_service` | future auth required and exact approval before broader execution | `local_dev_workspace_only`:19, `validation_only`:1 | high | stable/generated from path; unique | partial_backend_not_product_ready |
+| `governed-runtime` | 50 | `governed-runtime` | `runtime_pilot_service` | future auth required and exact approval before broader execution | `local_dev_workspace_only`:48, `validation_only`:2 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `kernel` | 1 | `kernel` | `kernel_service` | future auth required | `local_dev_workspace_only`:1 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `ledger` | 3 | `ledger` | `evidence_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `mattermost` | 8 | `mattermost` | `integrations_service` | disabled by default and future auth required | `local_dev_workspace_only`:8 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -55,12 +55,26 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 |---|---|---|---|---|---|---|
 | POST | `/adapter-manifest/validate` | `post_adapter_manifest_validate` | `validation_only` | yes | future | yes |
 | GET | `/api/manifest` | `get_api_manifest` | `none` | no | future | yes |
+| GET | `/api/runtime/approval-bridge` | `get_api_runtime_approval_bridge` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/authority-decisions/preview` | `post_api_runtime_authority_decisions_preview` | `validation_only` | yes | future | yes |
+| POST | `/api/runtime/authority-leases` | `post_api_runtime_authority_leases` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/authority-leases/revoke` | `post_api_runtime_authority_leases_revoke` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/authority-state` | `get_api_runtime_authority_state` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/background-jobs` | `get_api_runtime_background_jobs` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/capabilities` | `get_api_runtime_capabilities` | `validation_only` | yes | future | yes |
+| GET | `/api/runtime/capability-discovery` | `get_api_runtime_capability_discovery` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/checkpoint-rollback` | `get_api_runtime_checkpoint_rollback` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/command/run` | `post_api_runtime_command_run` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/context-budget-pressure` | `get_api_runtime_context_budget_pressure` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/context-references` | `get_api_runtime_context_references` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/delegation-adapter` | `get_api_runtime_delegation_adapter` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/doctor-diagnostics` | `get_api_runtime_doctor_diagnostics` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/governed-product-pilot-profile` | `get_api_runtime_governed_product_pilot_profile` | `local_dev_workspace_only` | no | future | yes |
-| GET | `/api/runtime/parity-loop` | `get_api_runtime_parity_loop` | `local_dev_workspace_only` | no | future | yes |
-| GET | `/api/runtime/prepared-turn` | `get_api_runtime_prepared_turn` | `local_dev_workspace_only` | no | future | yes |
-| GET | `/api/runtime/staged-orchestration` | `get_api_runtime_staged_orchestration` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/hardline-command-blocklist` | `get_api_runtime_hardline_command_blocklist` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/api/runtime/hermes/chat` | `post_api_runtime_hermes_chat` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/hermes/context-pack` | `get_api_runtime_hermes_context_pack` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/interface-mode` | `get_api_runtime_interface_mode` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/interrupt-redirect` | `get_api_runtime_interrupt_redirect` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/invocations` | `get_api_runtime_invocations` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/invocations` | `post_api_runtime_invocations` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/invocations/{id}` | `get_api_runtime_invocations_id` | `local_dev_workspace_only` | no | future | yes |
@@ -68,7 +82,29 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | POST | `/api/runtime/invocations/{id}/execute` | `post_api_runtime_invocations_id_execute` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/invocations/{id}/receipt` | `get_api_runtime_invocations_id_receipt` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/local-model/call` | `post_api_runtime_local_model_call` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/logging-profile` | `get_api_runtime_logging_profile` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/lsp-diagnostics` | `get_api_runtime_lsp_diagnostics` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/managed-scope-policy` | `get_api_runtime_managed_scope_policy` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/mcp-catalog-filtering` | `get_api_runtime_mcp_catalog_filtering` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/parity-loop` | `get_api_runtime_parity_loop` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/prepared-turn` | `get_api_runtime_prepared_turn` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/preview-rail` | `get_api_runtime_preview_rail` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/profiles` | `get_api_runtime_profiles` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/prompt-stability-tiers` | `get_api_runtime_prompt_stability_tiers` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/result-classification` | `get_api_runtime_result_classification` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/run-events` | `get_api_runtime_run_events` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/safe-disable` | `post_api_runtime_safe_disable` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/session-continuity` | `get_api_runtime_session_continuity` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/session-lineage` | `get_api_runtime_session_lineage` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/session-search` | `get_api_runtime_session_search` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/slash-command-registry` | `get_api_runtime_slash_command_registry` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/staged-orchestration` | `get_api_runtime_staged_orchestration` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/streaming-progress` | `get_api_runtime_streaming_progress` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/subagent-isolation` | `get_api_runtime_subagent_isolation` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/tool-registry` | `get_api_runtime_tool_registry` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/usage-cost-analytics` | `get_api_runtime_usage_cost_analytics` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/virtual-provider-moa` | `get_api_runtime_virtual_provider_moa` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/worktree-per-agent` | `get_api_runtime_worktree_per_agent` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/approvals/grants/validate` | `post_approvals_grants_validate` | `validation_only` | yes | future | yes |
 | POST | `/approvals/receipts/validate` | `post_approvals_receipts_validate` | `validation_only` | yes | future | yes |
 | POST | `/approvals/requests/validate` | `post_approvals_requests_validate` | `validation_only` | yes | future | yes |
@@ -165,6 +201,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | POST | `/control-center/turn-router/preview` | `post_control_center_turn_router_preview` | `validation_only` | yes | future | yes |
 | POST | `/control-center/web-evidence/attach` | `post_control_center_web_evidence_attach` | `governed_network_read_only` | no | future | yes |
 | GET | `/control-center/work-board` | `get_control_center_work_board` | `local_dev_workspace_only` | no | future | yes |
+| POST | `/control-center/work-board/cards` | `post_control_center_work_board_cards` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/control-center/work-board/reorder` | `post_control_center_work_board_reorder` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/costs/budgets/validate` | `post_costs_budgets_validate` | `validation_only` | yes | future | yes |
 | POST | `/costs/estimate/preview` | `post_costs_estimate_preview` | `validation_only` | yes | future | yes |

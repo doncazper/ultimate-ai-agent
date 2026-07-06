@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.control_center.runtime_action_bridge import (  # noq
     build_runtime_action_inbox_bridge_read_model,
 )
 from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AuthorityActionRequest,
     AuthorityDomain,
     AuthorityCapability,
     AuthorityLeaseIssueRequest,
@@ -1797,6 +1798,48 @@ def _revoke_authority_lease(args: argparse.Namespace) -> int:
     return 0 if receipt.status in {"revoked", "replayed"} else 1
 
 
+def _preview_authority_decision(args: argparse.Namespace) -> int:
+    request = AuthorityActionRequest(
+        action_ref=args.action_ref,
+        domain=AuthorityDomain(args.domain),
+        capability=AuthorityCapability(args.capability),
+        safe_summary=args.summary,
+        resource_refs=args.resource_ref or [],
+        route_ref=args.route_ref,
+        lane_ref=args.lane_ref,
+        adapter_ref=args.adapter_ref,
+        requested_mode=TrustMode(args.requested_mode) if args.requested_mode else None,
+        draft_fallback_available=args.draft_fallback_available,
+        unsupported_adapter=args.unsupported_adapter,
+        kill_switch_engaged=args.kill_switch_engaged,
+    )
+    preview = AuthorityLeaseStore().preview_decision(request)
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-preview-authority-decision",
+        "authority_decision_preview": preview.model_dump(mode="json"),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_provider_payload_omitted": True,
+        "execution_performed": False,
+        "mutation_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        decision = preview.decision
+        print("Authority decision preview")
+        print(f"Outcome: {decision.outcome}")
+        print(f"Domain: {decision.domain}")
+        print(f"Capability: {decision.capability}")
+        print(f"Lease: {decision.lease_ref or 'none'}")
+        print(f"Decision: {decision.decision_ref}")
+        print(f"Preview receipt: {preview.preview_receipt_ref}")
+        print(f"Message: {decision.operator_message}")
+    return 0
+
+
 def _inspect_role_provider_evidence(args: argparse.Namespace) -> int:
     evidence = build_model_provider_control_plane_read_model().role_provider_evidence
     read_model = evidence.model_dump(mode="json")
@@ -3378,6 +3421,56 @@ def build_parser() -> argparse.ArgumentParser:
     )
     authority_state.add_argument("--json", action="store_true", help="Emit safe JSON.")
     authority_state.set_defaults(func=_inspect_authority_state)
+
+    authority_preview = subparsers.add_parser(
+        "preview-authority-decision",
+        help="Preview an AuthorityLease policy decision without execution.",
+    )
+    authority_preview.add_argument("--action-ref", required=True, help="Safe action ref.")
+    authority_preview.add_argument(
+        "--domain",
+        required=True,
+        choices=[domain.value for domain in AuthorityDomain],
+        help="Authority domain to evaluate.",
+    )
+    authority_preview.add_argument(
+        "--capability",
+        required=True,
+        choices=[capability.value for capability in AuthorityCapability],
+        help="Authority capability to evaluate.",
+    )
+    authority_preview.add_argument(
+        "--summary",
+        required=True,
+        help="Safe bounded action summary.",
+    )
+    authority_preview.add_argument("--resource-ref", action="append", help="Safe resource ref.")
+    authority_preview.add_argument("--route-ref", default=None, help="Route ref.")
+    authority_preview.add_argument("--lane-ref", default=None, help="Lane ref.")
+    authority_preview.add_argument("--adapter-ref", default=None, help="Adapter ref.")
+    authority_preview.add_argument(
+        "--requested-mode",
+        default=None,
+        choices=[mode.value for mode in TrustMode],
+        help="Requested trust mode for operator copy.",
+    )
+    authority_preview.add_argument(
+        "--draft-fallback-available",
+        action="store_true",
+        help="Return degrade_to_draft when authority is absent.",
+    )
+    authority_preview.add_argument(
+        "--unsupported-adapter",
+        action="store_true",
+        help="Mark the requested adapter as unsupported.",
+    )
+    authority_preview.add_argument(
+        "--kill-switch-engaged",
+        action="store_true",
+        help="Simulate an engaged kill switch.",
+    )
+    authority_preview.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    authority_preview.set_defaults(func=_preview_authority_decision)
 
     select_authority = subparsers.add_parser(
         "select-authority-mode",
