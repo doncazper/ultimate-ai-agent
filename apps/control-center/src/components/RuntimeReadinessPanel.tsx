@@ -3,6 +3,7 @@ import type {
   RuntimeApprovalBridgeReadModel,
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeDelegationAdapterReadModel,
+  RuntimeToolRegistryAvailabilityReadModel,
   RuntimeRunEventsReadModel,
   RuntimeStreamingProgressReadModel,
   RuntimeProfileIsolationReadModel,
@@ -20,6 +21,7 @@ export function RuntimeReadinessPanel({
   approvalBridge,
   streamingProgress,
   profiles,
+  toolRegistry,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -29,6 +31,7 @@ export function RuntimeReadinessPanel({
   approvalBridge: RuntimeApprovalBridgeReadModel;
   streamingProgress: RuntimeStreamingProgressReadModel;
   profiles: RuntimeProfileIsolationReadModel;
+  toolRegistry: RuntimeToolRegistryAvailabilityReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -269,6 +272,88 @@ export function RuntimeReadinessPanel({
                   .map((ref) => (
                     <li key={ref}>{ref}</li>
                   ))}
+              </ul>
+            </dd>
+          </div>
+        </dl>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Tool registry</p>
+            <h3>Availability and authority</h3>
+          </div>
+          <span className="status-pill compact">{toolRegistry.status}</span>
+        </div>
+        <p>{toolRegistry.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{toolRegistry.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{toolRegistry.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Tools</dt>
+            <dd>{toolRegistry.tool_count}</dd>
+          </div>
+          <div>
+            <dt>Preview available</dt>
+            <dd>{toolRegistry.preview_available_count}</dd>
+          </div>
+          <div>
+            <dt>Invocation enabled</dt>
+            <dd>{toolRegistry.tool_invocation_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+          <div>
+            <dt>Remote discovery</dt>
+            <dd>{toolRegistry.remote_discovery_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tool</th>
+                <th>Origin</th>
+                <th>Availability</th>
+                <th>Authority</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              {toolRegistry.entries.map((entry) => (
+                <tr key={entry.tool_ref}>
+                  <td>{entry.display_label}</td>
+                  <td>{entry.origin}</td>
+                  <td>{entry.availability_status}</td>
+                  <td>{entry.authority_class}</td>
+                  <td>{entry.risk_class}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>Proof</dt>
+            <dd>
+              <ul className="compact-list">
+                {toolRegistry.proof_refs.slice(0, 3).map((ref) => (
+                  <li key={ref}>{ref}</li>
+                ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Blocked authority</dt>
+            <dd>
+              <ul className="compact-list">
+                {toolRegistry.blocked_authority_refs.slice(0, 3).map((ref) => (
+                  <li key={ref}>{ref}</li>
+                ))}
               </ul>
             </dd>
           </div>

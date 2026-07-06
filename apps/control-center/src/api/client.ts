@@ -38,6 +38,7 @@ import type {
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeDelegationAdapterReadModel,
   RuntimeToolsetCapabilityPosture,
+  RuntimeToolRegistryAvailabilityReadModel,
   RuntimeRunEventsReadModel,
   RuntimeStreamingProgressReadModel,
   RuntimeProfileIsolationReadModel,
@@ -327,6 +328,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeProfilesSettledPromise = Promise.allSettled([
     read<RuntimeProfileIsolationReadModel>(API_ENDPOINTS.runtimeProfiles),
   ] as const);
+  const runtimeToolRegistrySettledPromise = Promise.allSettled([
+    read<RuntimeToolRegistryAvailabilityReadModel>(
+      API_ENDPOINTS.runtimeToolRegistry,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -438,6 +444,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeStreamingProgressResult =
     await runtimeStreamingProgressSettledPromise;
   const runtimeProfilesResult = await runtimeProfilesSettledPromise;
+  const runtimeToolRegistryResult = await runtimeToolRegistrySettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -456,6 +463,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeStreamingProgressResult[0],
   );
   const runtimeProfiles = fulfilledValue(runtimeProfilesResult[0]);
+  const runtimeToolRegistry = fulfilledValue(runtimeToolRegistryResult[0]);
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
@@ -534,6 +542,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     : undefined;
   const safeRuntimeProfiles = isSafeRuntimeProfileIsolation(runtimeProfiles)
     ? runtimeProfiles
+    : undefined;
+  const safeRuntimeToolRegistry = isSafeRuntimeToolRegistry(runtimeToolRegistry)
+    ? runtimeToolRegistry
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -672,6 +683,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeStreamingProgressFallbackUsed =
     safeRuntimeStreamingProgress === undefined;
   const runtimeProfilesFallbackUsed = safeRuntimeProfiles === undefined;
+  const runtimeToolRegistryFallbackUsed =
+    safeRuntimeToolRegistry === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -815,6 +828,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/approval-bridge",
         "GET /api/runtime/streaming-progress",
         "GET /api/runtime/profiles",
+        "GET /api/runtime/tool-registry",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -824,7 +838,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeRunEvents !== undefined &&
         runtimeApprovalBridge !== undefined &&
         runtimeStreamingProgress !== undefined &&
-        runtimeProfiles !== undefined,
+        runtimeProfiles !== undefined &&
+        runtimeToolRegistry !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -844,6 +859,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeProfilesFallbackUsed
           ? ["RUNTIME_PROFILES_MOCK_FALLBACK"]
           : []),
+        ...(runtimeToolRegistryFallbackUsed
+          ? ["RUNTIME_TOOL_REGISTRY_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -853,7 +871,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeRunEventsFallbackUsed ||
         runtimeApprovalBridgeFallbackUsed ||
         runtimeStreamingProgressFallbackUsed ||
-        runtimeProfilesFallbackUsed,
+        runtimeProfilesFallbackUsed ||
+        runtimeToolRegistryFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -947,6 +966,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeApprovalBridge === undefined ||
     runtimeStreamingProgress === undefined ||
     runtimeProfiles === undefined ||
+    runtimeToolRegistry === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -974,8 +994,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeRunEventsResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeApprovalBridgeResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeStreamingProgressResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeProfilesResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 7;
+    (runtimeProfilesResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeToolRegistryResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 8;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1047,6 +1068,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       mockControlCenterData.runtimeStreamingProgress,
     runtimeProfiles:
       safeRuntimeProfiles ?? mockControlCenterData.runtimeProfiles,
+    runtimeToolRegistry:
+      safeRuntimeToolRegistry ?? mockControlCenterData.runtimeToolRegistry,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1129,6 +1152,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeApprovalBridgeFallbackUsed &&
     !runtimeStreamingProgressFallbackUsed &&
     !runtimeProfilesFallbackUsed &&
+    !runtimeToolRegistryFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1159,6 +1183,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeApprovalBridgeFallbackUsed ||
     runtimeStreamingProgressFallbackUsed ||
     runtimeProfilesFallbackUsed ||
+    runtimeToolRegistryFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1196,6 +1221,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeProfilesFallbackUsed) {
     degradedSafeMessage =
       "Runtime profile isolation posture was unavailable or unsafe; non-authoritative mock fallback kept profile mutation blocked.";
+  } else if (runtimeToolRegistryFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime tool registry posture was unavailable or unsafe; non-authoritative mock fallback kept tool invocation blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1270,6 +1298,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ? ["RUNTIME_STREAMING_PROGRESS_MOCK_FALLBACK"]
         : []),
       ...(runtimeProfilesFallbackUsed ? ["RUNTIME_PROFILES_MOCK_FALLBACK"] : []),
+      ...(runtimeToolRegistryFallbackUsed
+        ? ["RUNTIME_TOOL_REGISTRY_MOCK_FALLBACK"]
+        : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
         : []),
@@ -3077,6 +3108,113 @@ function isSafeRuntimeToolsetCapabilityPosture(
         record.raw_tool_payload_persisted === false &&
         isNonEmptyStringArray(record.blocked_authority_refs) &&
         isNonEmptyStringArray(record.next_safe_action_refs),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeToolRegistry(
+  value: RuntimeToolRegistryAvailabilityReadModel | undefined,
+): value is RuntimeToolRegistryAvailabilityReadModel {
+  if (value === undefined || !Array.isArray(value.entries)) {
+    return false;
+  }
+  const allowedAvailabilityStatuses = new Set([
+    "available_metadata_only",
+    "configured_disabled",
+    "approval_required_future_lane",
+    "blocked",
+    "unsupported",
+  ]);
+  const allowedConfiguredStatuses = new Set([
+    "configured_metadata_only",
+    "configured_disabled",
+    "unconfigured",
+    "blocked_by_policy",
+    "unsupported",
+  ]);
+  const allowedAuthorityClasses = new Set([
+    "validation_only",
+    "preview_only",
+    "approval_required_future_lane",
+    "blocked_high_authority",
+    "unsupported",
+  ]);
+  const entryCount = value.entries.length;
+  const uaaNativeCount = value.entries.filter(
+    (entry) => entry.origin === "uaa_native",
+  ).length;
+  const delegatedReferenceCount = value.entries.filter(
+    (entry) => entry.origin !== "uaa_native",
+  ).length;
+  const previewAvailableCount = value.entries.filter(
+    (entry) => entry.uaa_available_for_preview,
+  ).length;
+  const availabilityCounts: Record<string, number> = {
+    available_metadata_only: 0,
+    configured_disabled: 0,
+    approval_required_future_lane: 0,
+    blocked: 0,
+    unsupported: 0,
+  };
+  for (const entry of value.entries) {
+    if (
+      !allowedAvailabilityStatuses.has(entry.availability_status) ||
+      !allowedConfiguredStatuses.has(entry.configured_status) ||
+      !allowedAuthorityClasses.has(entry.authority_class)
+    ) {
+      return false;
+    }
+    availabilityCounts[entry.availability_status] += 1;
+  }
+  const deniedTopLevelFlags: Array<
+    keyof RuntimeToolRegistryAvailabilityReadModel
+  > = [
+    "tool_invocation_enabled",
+    "remote_discovery_enabled",
+    "live_web_fetch_enabled",
+    "provider_model_call_enabled",
+    "plugin_import_enabled",
+    "connector_write_activation_enabled",
+    "raw_tool_payload_persisted",
+    "production_authority_enabled",
+  ];
+  return (
+    value.schema_version === "runtime_tool_registry_availability.v1" &&
+    value.status === "read_only_tool_registry_availability" &&
+    value.tool_count === entryCount &&
+    value.uaa_native_count === uaaNativeCount &&
+    value.delegated_reference_count === delegatedReferenceCount &&
+    value.invocation_enabled_count === 0 &&
+    value.preview_available_count === previewAvailableCount &&
+    value.available_metadata_only_count ===
+      availabilityCounts.available_metadata_only &&
+    value.configured_disabled_count ===
+      availabilityCounts.configured_disabled &&
+    value.approval_required_future_count ===
+      availabilityCounts.approval_required_future_lane &&
+    value.blocked_count === availabilityCounts.blocked &&
+    value.unsupported_count === availabilityCounts.unsupported &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:runtime-tool-registry-invocation",
+    ) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.entries.every(
+      (entry) =>
+        entry.uaa_allows_invocation === false &&
+        entry.execution_enabled === false &&
+        entry.remote_discovery_performed === false &&
+        entry.live_web_fetch_performed === false &&
+        entry.provider_model_call_performed === false &&
+        entry.plugin_import_enabled === false &&
+        entry.connector_write_activation_enabled === false &&
+        entry.raw_tool_payload_persisted === false &&
+        isNonEmptyStringArray(entry.proof_refs) &&
+        isNonEmptyStringArray(entry.blocked_authority_refs) &&
+        isNonEmptyStringArray(entry.next_safe_action_refs),
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );
