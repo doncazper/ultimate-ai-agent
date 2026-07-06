@@ -50,6 +50,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_interrupt_redirect_read_model,
     build_runtime_logging_profile_read_model,
     build_runtime_result_classification_read_model,
+    build_runtime_voice_media_posture_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -1020,6 +1021,43 @@ def _print_result_classification(read_model: dict[str, Any]) -> None:
         print(f"- {ref}")
 
 
+def _print_voice_media_posture(read_model: dict[str, Any]) -> None:
+    print("Runtime voice/media posture")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Doc: {read_model['doc_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Lanes: "
+        f"total={read_model['lane_count']} "
+        f"blocked={read_model['blocked_lane_count']}"
+    )
+    print(
+        "Authority flags: "
+        f"microphone={read_model['microphone_access_enabled']} "
+        f"camera={read_model['camera_access_enabled']} "
+        f"upload={read_model['file_upload_enabled']} "
+        f"transcription={read_model['transcription_enabled']} "
+        f"generation={read_model['media_generation_enabled']} "
+        f"provider={read_model['provider_calls_enabled']} "
+        f"delivery={read_model['external_delivery_enabled']}"
+    )
+    print("Voice/media lanes:")
+    for lane in read_model["lanes"]:
+        print(
+            f"- {lane['display_label']}: "
+            f"kind={lane['lane_kind']} status={lane['status']}"
+        )
+        print(f"  consent={lane['consent_ref']}")
+        print(f"  redaction={lane['redaction_policy_ref']}")
+        print(f"  receipt={lane['receipt_plan_ref']}")
+        print(f"  safe-disable={lane['safe_disable_ref']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
 def _print_session_search(read_model: dict[str, Any]) -> None:
     print("Runtime session/run search")
     print(f"Status: {read_model['status']}")
@@ -1981,6 +2019,34 @@ def _inspect_result_classification(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_result_classification(read_model)
+    return 0
+
+
+def _inspect_voice_media_posture(args: argparse.Namespace) -> int:
+    read_model = build_runtime_voice_media_posture_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-voice-media-posture",
+        "runtime_voice_media_posture": read_model,
+        "metadata_only": True,
+        "safe_refs_only": True,
+        "voice_media_posture_only": True,
+        "microphone_access_performed": False,
+        "camera_access_performed": False,
+        "file_upload_performed": False,
+        "transcription_performed": False,
+        "media_generation_performed": False,
+        "provider_call_performed": False,
+        "external_delivery_performed": False,
+        "raw_media_omitted": True,
+        "provider_payloads_omitted": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_voice_media_posture(read_model)
     return 0
 
 
@@ -3108,6 +3174,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the runtime result taxonomy as JSON.",
     )
     result_classification.set_defaults(func=_inspect_result_classification)
+
+    voice_media_posture = subparsers.add_parser(
+        "inspect-voice-media-posture",
+        help="Inspect voice/media runtime posture without media access or generation.",
+    )
+    voice_media_posture.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the runtime voice/media posture as JSON.",
+    )
+    voice_media_posture.set_defaults(func=_inspect_voice_media_posture)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",
