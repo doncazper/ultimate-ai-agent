@@ -39,6 +39,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
+    build_runtime_session_continuity_read_model,
     build_runtime_session_search_read_model,
     build_runtime_session_lineage_read_model,
     build_runtime_streaming_progress_read_model,
@@ -339,6 +340,22 @@ def get_api_runtime_doctor_diagnostics() -> ResultEnvelope:
         data=read_model.model_dump(mode="json"),
         evidence=[
             {"evidence_ref": "evidence-ref:runtime-doctor-diagnostics:phase-28"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/session-continuity", response_model=ResultEnvelope)
+def get_api_runtime_session_continuity() -> ResultEnvelope:
+    read_model = build_runtime_session_continuity_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_session_continuity",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-session-continuity:phase-29"}
         ],
         redactions_applied=read_model.redactions_applied,
     )

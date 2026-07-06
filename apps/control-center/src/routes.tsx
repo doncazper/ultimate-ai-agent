@@ -534,6 +534,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           hardlineCommandBlocklist={data.runtimeHardlineCommandBlocklist}
           managedScopePolicy={data.runtimeManagedScopePolicy}
           doctorDiagnostics={data.runtimeDoctorDiagnostics}
+          sessionContinuity={data.runtimeSessionContinuity}
         />
       );
     case "/operator-loop":

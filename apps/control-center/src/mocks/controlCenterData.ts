@@ -44,6 +44,7 @@ import type {
   RuntimeHardlineCommandClassification,
   RuntimeManagedScopePolicyDriftWarning,
   RuntimeManagedScopePolicyPinSource,
+  RuntimeSessionContinuitySurface,
   RuntimeVirtualAgentSlot,
   RuntimeVirtualProviderPreset,
   RuntimeUsageCostRecord,
@@ -1106,6 +1107,120 @@ const runtimeDoctorDiagnosticsItems: RuntimeDoctorDiagnosticItem[] = [
     display_label: "Next safe actions",
     safe_summary:
       "Mock next actions are proposal refs until approval and receipt lanes exist.",
+  }),
+];
+
+const runtimeSessionContinuityBlockedRefs = [
+  "blocked-authority:session-continuity-no-external-message-gateway",
+  "blocked-authority:session-continuity-no-account-sync",
+  "blocked-authority:session-continuity-no-connector-write",
+  "blocked-authority:session-continuity-no-remote-session",
+  "blocked-authority:session-continuity-no-raw-transcript-persistence",
+  "blocked-authority:session-continuity-no-raw-prompt-response-persistence",
+  "blocked-authority:session-continuity-no-provider-payload-persistence",
+  "blocked-authority:session-continuity-no-control-center-authority-mint",
+];
+
+function runtimeSessionContinuitySurface(
+  slug: string,
+  {
+    source,
+    source_label,
+    continuity_state,
+    session_ref,
+    route_ref,
+    safe_summary,
+    run_ref = null,
+    cli_ref = null,
+  }: Pick<
+    RuntimeSessionContinuitySurface,
+    | "source"
+    | "source_label"
+    | "continuity_state"
+    | "session_ref"
+    | "route_ref"
+    | "safe_summary"
+  > &
+    Partial<Pick<RuntimeSessionContinuitySurface, "run_ref" | "cli_ref">>,
+): RuntimeSessionContinuitySurface {
+  return {
+    surface_ref: `session-continuity-surface-ref:${slug}`,
+    source,
+    source_label,
+    continuity_state,
+    session_ref,
+    run_ref,
+    route_ref,
+    cli_ref,
+    last_seen_ref: `last-seen-ref:session-continuity:${slug}`,
+    staleness_state_ref: `staleness-state-ref:session-continuity:${slug}`,
+    conflict_state_ref: `conflict-state-ref:session-continuity:${slug}`,
+    safe_summary,
+    evidence_refs: [`evidence-ref:session-continuity:${slug}`],
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-29:session-continuity"],
+    receipt_refs: [],
+    blocked_authority_refs: runtimeSessionContinuityBlockedRefs,
+    next_safe_action_refs: [`next-safe-action-ref:session-continuity:${slug}`],
+    external_message_gateway_enabled: false,
+    account_sync_enabled: false,
+    connector_write_enabled: false,
+    remote_session_enabled: false,
+    raw_transcript_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    raw_provider_payload_persisted: false,
+    control_center_mints_authority: false,
+  };
+}
+
+const runtimeSessionContinuitySurfaces: RuntimeSessionContinuitySurface[] = [
+  runtimeSessionContinuitySurface("control-center-desktop", {
+    source: "control_center_desktop",
+    source_label: "Control Center desktop",
+    continuity_state: "current",
+    session_ref: "session-ref:runtime-continuity:operator-loop",
+    run_ref: "run-ref:runtime-continuity:operator-loop",
+    route_ref: "GET /runtime/readiness",
+    safe_summary:
+      "Mock desktop Control Center points at the current operator session refs.",
+  }),
+  runtimeSessionContinuitySurface("cli", {
+    source: "cli",
+    source_label: "CLI",
+    continuity_state: "current",
+    session_ref: "session-ref:runtime-continuity:operator-loop",
+    run_ref: "run-ref:runtime-continuity:operator-loop",
+    route_ref: "repo-local-cli",
+    cli_ref: "uaa runtime inspect-session-continuity",
+    safe_summary: "Mock CLI inspection uses the same safe session refs.",
+  }),
+  runtimeSessionContinuitySurface("delegated-runtime", {
+    source: "delegated_runtime",
+    source_label: "Delegated runtime",
+    continuity_state: "stale",
+    session_ref: "session-ref:runtime-continuity:delegated-runtime",
+    run_ref: "run-ref:runtime-continuity:delegated-runtime",
+    route_ref: "GET /api/runtime/delegation-adapter",
+    safe_summary:
+      "Mock delegated runtime continuity is stale until receipt binding exists.",
+  }),
+  runtimeSessionContinuitySurface("coding-cockpit", {
+    source: "coding_cockpit",
+    source_label: "Coding cockpit",
+    continuity_state: "conflict_review",
+    session_ref: "session-ref:runtime-continuity:coding-cockpit",
+    route_ref: "GET /control-center/coding/session",
+    safe_summary:
+      "Mock Coding Cockpit continuity requires operator conflict review.",
+  }),
+  runtimeSessionContinuitySurface("future-mobile", {
+    source: "future_mobile",
+    source_label: "Future mobile",
+    continuity_state: "blocked",
+    session_ref: "session-ref:runtime-continuity:future-mobile",
+    route_ref: "planned-route-ref:future-mobile-session-continuity",
+    safe_summary:
+      "Mock future mobile continuity is blocked; no account sync or remote session is active.",
   }),
 ];
 
@@ -12821,6 +12936,79 @@ export const mockControlCenterData: ControlCenterData = {
       "raw_paths_omitted",
       "provider_payloads_omitted",
       "protected_material_omitted",
+    ],
+  },
+  runtimeSessionContinuity: {
+    schema_version: "runtime_session_continuity.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-session-continuity:v1",
+    status: "read_only_multi_surface_session_continuity_posture",
+    snapshot_ref: "session-continuity-snapshot-ref:runtime:mock",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-session-continuity:mock",
+    route_ref: "GET /api/runtime/session-continuity",
+    cli_ref: "uaa runtime inspect-session-continuity",
+    control_center_ref: "control-center-route:runtime",
+    primary_session_ref: "session-ref:runtime-continuity:operator-loop",
+    safe_summary:
+      "Runtime session continuity mock fallback shows safe refs, source labels, staleness states, and conflict states only.",
+    surfaces: runtimeSessionContinuitySurfaces,
+    surface_count: runtimeSessionContinuitySurfaces.length,
+    current_count: runtimeSessionContinuitySurfaces.filter(
+      (surface) => surface.continuity_state === "current",
+    ).length,
+    stale_count: runtimeSessionContinuitySurfaces.filter(
+      (surface) => surface.continuity_state === "stale",
+    ).length,
+    conflict_count: runtimeSessionContinuitySurfaces.filter(
+      (surface) => surface.continuity_state === "conflict_review",
+    ).length,
+    blocked_count: runtimeSessionContinuitySurfaces.filter(
+      (surface) => surface.continuity_state === "blocked",
+    ).length,
+    source_labels_visible: true,
+    staleness_states_visible: true,
+    conflict_states_visible: true,
+    delivery_receipts_required_for_promotion: true,
+    revoke_required_for_promotion: true,
+    audit_required_for_promotion: true,
+    external_message_gateway_enabled: false,
+    account_sync_enabled: false,
+    connector_write_enabled: false,
+    remote_session_enabled: false,
+    raw_transcript_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    raw_provider_payload_persisted: false,
+    control_center_mints_authority: false,
+    blocked_authority_refs: runtimeSessionContinuityBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:session-continuity:channel-identity",
+      "promotion-path-ref:session-continuity:approval-binding",
+      "promotion-path-ref:session-continuity:redaction",
+      "promotion-path-ref:session-continuity:delivery-receipt",
+      "promotion-path-ref:session-continuity:revoke",
+      "promotion-path-ref:session-continuity:audit",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-29:session-continuity",
+      "proof-ref:session-continuity:source-labels",
+      "proof-ref:session-continuity:staleness-conflict-states",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-29:session-continuity",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:session-continuity:review-source-labels",
+      "next-safe-action-ref:session-continuity:resolve-conflict-ref",
+      "next-safe-action-ref:session-continuity:design-delivery-receipts",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_transcripts_omitted",
+      "raw_prompts_omitted",
+      "raw_responses_omitted",
+      "provider_payloads_omitted",
+      "account_material_omitted",
     ],
   },
   runtimeApprovalBridge: {

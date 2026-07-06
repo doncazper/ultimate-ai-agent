@@ -42,6 +42,7 @@ import type {
   RuntimeHardlineCommandBlocklistReadModel,
   RuntimeManagedScopePolicyReadModel,
   RuntimePromptStabilityTiersReadModel,
+  RuntimeSessionContinuityReadModel,
   RuntimeToolsetCapabilityPosture,
   RuntimeToolRegistryAvailabilityReadModel,
   RuntimeUsageCostAnalyticsReadModel,
@@ -375,6 +376,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeDoctorDiagnostics,
     ),
   ] as const);
+  const runtimeSessionContinuitySettledPromise = Promise.allSettled([
+    read<RuntimeSessionContinuityReadModel>(
+      API_ENDPOINTS.runtimeSessionContinuity,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -501,6 +507,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeManagedScopePolicySettledPromise;
   const runtimeDoctorDiagnosticsResult =
     await runtimeDoctorDiagnosticsSettledPromise;
+  const runtimeSessionContinuityResult =
+    await runtimeSessionContinuitySettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -540,6 +548,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const runtimeDoctorDiagnostics = fulfilledValue(
     runtimeDoctorDiagnosticsResult[0],
+  );
+  const runtimeSessionContinuity = fulfilledValue(
+    runtimeSessionContinuityResult[0],
   );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
@@ -656,6 +667,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeDoctorDiagnostics,
   )
     ? runtimeDoctorDiagnostics
+    : undefined;
+  const safeRuntimeSessionContinuity = isSafeRuntimeSessionContinuity(
+    runtimeSessionContinuity,
+  )
+    ? runtimeSessionContinuity
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -810,6 +826,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeManagedScopePolicy === undefined;
   const runtimeDoctorDiagnosticsFallbackUsed =
     safeRuntimeDoctorDiagnostics === undefined;
+  const runtimeSessionContinuityFallbackUsed =
+    safeRuntimeSessionContinuity === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -961,6 +979,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/hardline-command-blocklist",
         "GET /api/runtime/managed-scope-policy",
         "GET /api/runtime/doctor-diagnostics",
+        "GET /api/runtime/session-continuity",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -978,7 +997,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeContextBudgetPressure !== undefined &&
         runtimeHardlineCommandBlocklist !== undefined &&
         runtimeManagedScopePolicy !== undefined &&
-        runtimeDoctorDiagnostics !== undefined,
+        runtimeDoctorDiagnostics !== undefined &&
+        runtimeSessionContinuity !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -1022,6 +1042,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeDoctorDiagnosticsFallbackUsed
           ? ["RUNTIME_DOCTOR_DIAGNOSTICS_MOCK_FALLBACK"]
           : []),
+        ...(runtimeSessionContinuityFallbackUsed
+          ? ["RUNTIME_SESSION_CONTINUITY_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1039,7 +1062,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeContextBudgetPressureFallbackUsed ||
         runtimeHardlineCommandBlocklistFallbackUsed ||
         runtimeManagedScopePolicyFallbackUsed ||
-        runtimeDoctorDiagnosticsFallbackUsed,
+        runtimeDoctorDiagnosticsFallbackUsed ||
+        runtimeSessionContinuityFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1141,6 +1165,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeHardlineCommandBlocklist === undefined ||
     runtimeManagedScopePolicy === undefined ||
     runtimeDoctorDiagnostics === undefined ||
+    runtimeSessionContinuity === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1176,8 +1201,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeContextBudgetPressureResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeHardlineCommandBlocklistResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeManagedScopePolicyResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeDoctorDiagnosticsResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 15;
+    (runtimeDoctorDiagnosticsResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeSessionContinuityResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 16;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1272,6 +1298,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeDoctorDiagnostics:
       safeRuntimeDoctorDiagnostics ??
       mockControlCenterData.runtimeDoctorDiagnostics,
+    runtimeSessionContinuity:
+      safeRuntimeSessionContinuity ??
+      mockControlCenterData.runtimeSessionContinuity,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1362,6 +1391,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeHardlineCommandBlocklistFallbackUsed &&
     !runtimeManagedScopePolicyFallbackUsed &&
     !runtimeDoctorDiagnosticsFallbackUsed &&
+    !runtimeSessionContinuityFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1400,6 +1430,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeHardlineCommandBlocklistFallbackUsed ||
     runtimeManagedScopePolicyFallbackUsed ||
     runtimeDoctorDiagnosticsFallbackUsed ||
+    runtimeSessionContinuityFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1461,6 +1492,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeDoctorDiagnosticsFallbackUsed) {
     degradedSafeMessage =
       "Runtime doctor diagnostics were unavailable or unsafe; non-authoritative mock fallback kept installs, service starts, credential writes, and runtime config mutation blocked.";
+  } else if (runtimeSessionContinuityFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime session continuity was unavailable or unsafe; non-authoritative mock fallback kept external gateways, account sync, connector writes, and remote sessions blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1558,6 +1592,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         : []),
       ...(runtimeDoctorDiagnosticsFallbackUsed
         ? ["RUNTIME_DOCTOR_DIAGNOSTICS_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeSessionContinuityFallbackUsed
+        ? ["RUNTIME_SESSION_CONTINUITY_MOCK_FALLBACK"]
         : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
@@ -4096,6 +4133,89 @@ function isSafeRuntimeDoctorDiagnostics(
         item.raw_log_persisted === false &&
         item.raw_local_path_persisted === false &&
         item.provider_payload_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeSessionContinuity(
+  value: RuntimeSessionContinuityReadModel | undefined,
+): value is RuntimeSessionContinuityReadModel {
+  if (value === undefined || !Array.isArray(value.surfaces)) {
+    return false;
+  }
+  const allowedSources = new Set([
+    "control_center_desktop",
+    "cli",
+    "delegated_runtime",
+    "future_mobile",
+    "coding_cockpit",
+  ]);
+  const allowedStates = new Set([
+    "current",
+    "stale",
+    "conflict_review",
+    "blocked",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeSessionContinuityReadModel> = [
+    "external_message_gateway_enabled",
+    "account_sync_enabled",
+    "connector_write_enabled",
+    "remote_session_enabled",
+    "raw_transcript_persisted",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+    "raw_provider_payload_persisted",
+    "control_center_mints_authority",
+  ];
+  return (
+    value.schema_version === "runtime_session_continuity.v1" &&
+    value.status === "read_only_multi_surface_session_continuity_posture" &&
+    value.route_ref === "GET /api/runtime/session-continuity" &&
+    value.cli_ref === "uaa runtime inspect-session-continuity" &&
+    value.surface_count === value.surfaces.length &&
+    value.current_count ===
+      value.surfaces.filter((surface) => surface.continuity_state === "current")
+        .length &&
+    value.stale_count ===
+      value.surfaces.filter((surface) => surface.continuity_state === "stale")
+        .length &&
+    value.conflict_count ===
+      value.surfaces.filter(
+        (surface) => surface.continuity_state === "conflict_review",
+      ).length &&
+    value.blocked_count ===
+      value.surfaces.filter((surface) => surface.continuity_state === "blocked")
+        .length &&
+    value.source_labels_visible === true &&
+    value.staleness_states_visible === true &&
+    value.conflict_states_visible === true &&
+    value.delivery_receipts_required_for_promotion === true &&
+    value.revoke_required_for_promotion === true &&
+    value.audit_required_for_promotion === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:session-continuity-no-remote-session",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.surfaces.every(
+      (surface) =>
+        allowedSources.has(surface.source) &&
+        allowedStates.has(surface.continuity_state) &&
+        isNonEmptyStringArray(surface.blocked_authority_refs) &&
+        isNonEmptyStringArray(surface.proof_refs) &&
+        surface.external_message_gateway_enabled === false &&
+        surface.account_sync_enabled === false &&
+        surface.connector_write_enabled === false &&
+        surface.remote_session_enabled === false &&
+        surface.raw_transcript_persisted === false &&
+        surface.raw_prompt_persisted === false &&
+        surface.raw_response_persisted === false &&
+        surface.raw_provider_payload_persisted === false &&
+        surface.control_center_mints_authority === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

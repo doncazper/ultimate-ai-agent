@@ -808,6 +808,8 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.runtimeManagedScopePolicy,
     [API_ENDPOINTS.runtimeDoctorDiagnostics]:
       mockControlCenterData.runtimeDoctorDiagnostics,
+    [API_ENDPOINTS.runtimeSessionContinuity]:
+      mockControlCenterData.runtimeSessionContinuity,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
