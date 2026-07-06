@@ -10040,6 +10040,97 @@ export interface RuntimeMcpCatalogFilteringReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeBackgroundJobKind =
+  | "runtime_doctor_check"
+  | "proof_pack_export"
+  | "context_budget_review"
+  | "connector_delivery_followup";
+
+export type RuntimeBackgroundJobStatus =
+  | "proposal"
+  | "paused"
+  | "approval_required"
+  | "execution_blocked";
+
+export type RuntimeBackgroundJobSchedulePolicy =
+  | "manual_review_only"
+  | "operator_window_required"
+  | "blocked_scheduler";
+
+export interface RuntimeBackgroundJobProposalReadModel {
+  job_ref: string;
+  display_label: string;
+  job_kind: RuntimeBackgroundJobKind;
+  status: RuntimeBackgroundJobStatus;
+  schedule_policy: RuntimeBackgroundJobSchedulePolicy;
+  cadence_ref: string;
+  approval_scope_ref: string;
+  idempotency_ref: string;
+  safe_disable_ref: string;
+  receipt_plan_ref: string;
+  failure_handling_ref: string;
+  safe_summary: string;
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  pause_enabled: boolean;
+  resume_enabled: boolean;
+  run_now_enabled: boolean;
+  scheduler_enabled: boolean;
+  background_worker_enabled: boolean;
+  autonomous_retry_enabled: boolean;
+  external_delivery_enabled: boolean;
+  provider_call_enabled: boolean;
+  shell_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  raw_job_payload_persisted: boolean;
+}
+
+export interface RuntimeBackgroundJobsReadModel {
+  schema_version: "runtime_background_jobs.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  jobs: RuntimeBackgroundJobProposalReadModel[];
+  job_count: number;
+  proposal_count: number;
+  paused_count: number;
+  approval_required_count: number;
+  execution_blocked_count: number;
+  reviewable_job_count: number;
+  durable_job_refs_visible: boolean;
+  schedule_policy_visible: boolean;
+  approval_scope_visible: boolean;
+  idempotency_visible: boolean;
+  safe_disable_visible: boolean;
+  receipt_plan_visible: boolean;
+  failure_handling_visible: boolean;
+  pause_enabled: boolean;
+  resume_enabled: boolean;
+  run_now_enabled: boolean;
+  scheduler_enabled: boolean;
+  background_worker_enabled: boolean;
+  autonomous_background_execution_enabled: boolean;
+  autonomous_retry_enabled: boolean;
+  external_delivery_enabled: boolean;
+  provider_call_enabled: boolean;
+  shell_execution_enabled: boolean;
+  connector_write_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_job_payload_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -11219,6 +11310,7 @@ export interface ControlCenterData {
   runtimeDoctorDiagnostics: RuntimeDoctorDiagnosticsReadModel;
   runtimeSessionContinuity: RuntimeSessionContinuityReadModel;
   runtimeMcpCatalogFiltering: RuntimeMcpCatalogFilteringReadModel;
+  runtimeBackgroundJobs: RuntimeBackgroundJobsReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

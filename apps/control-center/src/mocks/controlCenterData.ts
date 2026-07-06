@@ -38,6 +38,7 @@ import type {
   ConnectorDeliveryReviewQueue,
   RunAttachedApprovalQueue,
   RunObservabilityReadModel,
+  RuntimeBackgroundJobProposalReadModel,
   RuntimeContextBudgetProposal,
   RuntimeContextBudgetSegment,
   RuntimeDoctorDiagnosticItem,
@@ -1362,6 +1363,91 @@ const runtimeMcpCatalogServers: RuntimeMcpServerCatalogEntry[] = [
         safe_summary: "Connector write tool slice is filtered out.",
       }),
     ],
+  }),
+];
+
+const runtimeBackgroundJobsBlockedRefs = [
+  "blocked-authority:background-jobs-no-autonomous-background-execution",
+  "blocked-authority:background-jobs-no-background-worker",
+  "blocked-authority:background-jobs-no-scheduler",
+  "blocked-authority:background-jobs-no-autonomous-retry",
+  "blocked-authority:background-jobs-no-external-delivery",
+  "blocked-authority:background-jobs-no-provider-call",
+  "blocked-authority:background-jobs-no-shell-execution",
+  "blocked-authority:background-jobs-no-connector-write",
+  "blocked-authority:background-jobs-no-control-center-authority-mint",
+  "blocked-authority:background-jobs-no-raw-job-payload-persistence",
+];
+
+function runtimeBackgroundJob(
+  slug: string,
+  overrides: Pick<
+    RuntimeBackgroundJobProposalReadModel,
+    "display_label" | "job_kind" | "status" | "schedule_policy" | "safe_summary"
+  >,
+): RuntimeBackgroundJobProposalReadModel {
+  return {
+    job_ref: `background-job-ref:${slug}`,
+    display_label: overrides.display_label,
+    job_kind: overrides.job_kind,
+    status: overrides.status,
+    schedule_policy: overrides.schedule_policy,
+    cadence_ref: `cadence-ref:background-job:${slug}:review-only`,
+    approval_scope_ref: `approval-scope-ref:background-job:${slug}`,
+    idempotency_ref: `idempotency-ref:background-job:${slug}`,
+    safe_disable_ref: `safe-disable-ref:background-job:${slug}`,
+    receipt_plan_ref: `receipt-plan-ref:background-job:${slug}`,
+    failure_handling_ref: `failure-handling-ref:background-job:${slug}`,
+    safe_summary: overrides.safe_summary,
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-31:background-jobs"],
+    blocked_authority_refs: runtimeBackgroundJobsBlockedRefs,
+    next_safe_action_refs: [`next-safe-action-ref:background-job:${slug}:review`],
+    pause_enabled: false,
+    resume_enabled: false,
+    run_now_enabled: false,
+    scheduler_enabled: false,
+    background_worker_enabled: false,
+    autonomous_retry_enabled: false,
+    external_delivery_enabled: false,
+    provider_call_enabled: false,
+    shell_execution_enabled: false,
+    connector_write_enabled: false,
+    raw_job_payload_persisted: false,
+  };
+}
+
+const runtimeBackgroundJobs: RuntimeBackgroundJobProposalReadModel[] = [
+  runtimeBackgroundJob("runtime-doctor-check", {
+    display_label: "Runtime doctor check",
+    job_kind: "runtime_doctor_check",
+    status: "approval_required",
+    schedule_policy: "manual_review_only",
+    safe_summary:
+      "Mock runtime doctor job is a reviewable proposal; scheduler and worker execution remain blocked.",
+  }),
+  runtimeBackgroundJob("proof-pack-export", {
+    display_label: "Proof pack export",
+    job_kind: "proof_pack_export",
+    status: "proposal",
+    schedule_policy: "operator_window_required",
+    safe_summary:
+      "Mock proof pack export needs an operator window before any future run lane.",
+  }),
+  runtimeBackgroundJob("context-budget-review", {
+    display_label: "Context budget review",
+    job_kind: "context_budget_review",
+    status: "paused",
+    schedule_policy: "manual_review_only",
+    safe_summary:
+      "Mock context budget review is paused metadata; resume and run-now stay blocked.",
+  }),
+  runtimeBackgroundJob("connector-delivery-followup", {
+    display_label: "Connector delivery follow-up",
+    job_kind: "connector_delivery_followup",
+    status: "execution_blocked",
+    schedule_policy: "blocked_scheduler",
+    safe_summary:
+      "Mock connector delivery job remains blocked because external delivery and connector writes are not promoted.",
   }),
 ];
 
@@ -13229,6 +13315,84 @@ export const mockControlCenterData: ControlCenterData = {
       "raw_tool_schemas_omitted",
       "login_material_omitted",
       "connector_payloads_omitted",
+    ],
+  },
+  runtimeBackgroundJobs: {
+    schema_version: "runtime_background_jobs.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-background-jobs:v1",
+    status: "durable_job_proposal_posture",
+    snapshot_ref: "background-jobs-snapshot-ref:runtime:mock-proposals",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-background-jobs:mock",
+    route_ref: "GET /api/runtime/background-jobs",
+    cli_ref: "uaa runtime inspect-background-jobs",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime background jobs mock fallback shows durable proposals and blocked scheduler labels only.",
+    jobs: runtimeBackgroundJobs,
+    job_count: runtimeBackgroundJobs.length,
+    proposal_count: runtimeBackgroundJobs.filter(
+      (job) => job.status === "proposal",
+    ).length,
+    paused_count: runtimeBackgroundJobs.filter((job) => job.status === "paused")
+      .length,
+    approval_required_count: runtimeBackgroundJobs.filter(
+      (job) => job.status === "approval_required",
+    ).length,
+    execution_blocked_count: runtimeBackgroundJobs.filter(
+      (job) => job.status === "execution_blocked",
+    ).length,
+    reviewable_job_count: runtimeBackgroundJobs.filter((job) =>
+      ["proposal", "paused", "approval_required"].includes(job.status),
+    ).length,
+    durable_job_refs_visible: true,
+    schedule_policy_visible: true,
+    approval_scope_visible: true,
+    idempotency_visible: true,
+    safe_disable_visible: true,
+    receipt_plan_visible: true,
+    failure_handling_visible: true,
+    pause_enabled: false,
+    resume_enabled: false,
+    run_now_enabled: false,
+    scheduler_enabled: false,
+    background_worker_enabled: false,
+    autonomous_background_execution_enabled: false,
+    autonomous_retry_enabled: false,
+    external_delivery_enabled: false,
+    provider_call_enabled: false,
+    shell_execution_enabled: false,
+    connector_write_enabled: false,
+    control_center_mints_authority: false,
+    raw_job_payload_persisted: false,
+    blocked_authority_refs: runtimeBackgroundJobsBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:background-jobs:exact-job-type",
+      "promotion-path-ref:background-jobs:schedule-policy",
+      "promotion-path-ref:background-jobs:approval-binding",
+      "promotion-path-ref:background-jobs:idempotency",
+      "promotion-path-ref:background-jobs:safe-disable",
+      "promotion-path-ref:background-jobs:receipt",
+      "promotion-path-ref:background-jobs:failure-handling",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-31:background-jobs",
+      "proof-ref:background-jobs:durable-proposals",
+      "proof-ref:background-jobs:blocked-execution-labels",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-31:background-jobs",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:background-jobs:review-job-types",
+      "next-safe-action-ref:background-jobs:bind-schedule-policy",
+      "next-safe-action-ref:background-jobs:keep-workers-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_job_payloads_omitted",
+      "raw_schedule_material_omitted",
+      "worker_logs_omitted",
     ],
   },
   runtimeApprovalBridge: {

@@ -1,6 +1,7 @@
 import type {
   RuntimeCapabilityMatrix,
   RuntimeApprovalBridgeReadModel,
+  RuntimeBackgroundJobsReadModel,
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeContextBudgetPressureReadModel,
   RuntimeDelegationAdapterReadModel,
@@ -40,6 +41,7 @@ export function RuntimeReadinessPanel({
   doctorDiagnostics,
   sessionContinuity,
   mcpCatalogFiltering,
+  backgroundJobs,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -59,6 +61,7 @@ export function RuntimeReadinessPanel({
   doctorDiagnostics: RuntimeDoctorDiagnosticsReadModel;
   sessionContinuity: RuntimeSessionContinuityReadModel;
   mcpCatalogFiltering: RuntimeMcpCatalogFilteringReadModel;
+  backgroundJobs: RuntimeBackgroundJobsReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -641,6 +644,104 @@ export function RuntimeReadinessPanel({
         <h4>Blocked authority</h4>
         <ul className="compact-list">
           {mcpCatalogFiltering.blocked_authority_refs.slice(0, 6).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Background</p>
+            <h3>Background job model</h3>
+          </div>
+          <span className="status-pill compact">{backgroundJobs.status}</span>
+        </div>
+        <p>{backgroundJobs.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{backgroundJobs.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{backgroundJobs.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Jobs</dt>
+            <dd>{backgroundJobs.job_count}</dd>
+          </div>
+          <div>
+            <dt>Reviewable</dt>
+            <dd>{backgroundJobs.reviewable_job_count}</dd>
+          </div>
+          <div>
+            <dt>Paused</dt>
+            <dd>{backgroundJobs.paused_count}</dd>
+          </div>
+          <div>
+            <dt>Execution blocked</dt>
+            <dd>{backgroundJobs.execution_blocked_count}</dd>
+          </div>
+          <div>
+            <dt>Scheduler</dt>
+            <dd>{backgroundJobs.scheduler_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+          <div>
+            <dt>Worker</dt>
+            <dd>
+              {backgroundJobs.background_worker_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Job</th>
+                <th>Status</th>
+                <th>Schedule</th>
+                <th>Receipt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {backgroundJobs.jobs.map((job) => (
+                <tr key={job.job_ref}>
+                  <td>{job.display_label}</td>
+                  <td>{job.status}</td>
+                  <td>{job.schedule_policy}</td>
+                  <td>{job.receipt_plan_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>Run now</dt>
+            <dd>{backgroundJobs.run_now_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+          <div>
+            <dt>Autonomous retry</dt>
+            <dd>
+              {backgroundJobs.autonomous_retry_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>External delivery</dt>
+            <dd>
+              {backgroundJobs.external_delivery_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Connector write</dt>
+            <dd>
+              {backgroundJobs.connector_write_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {backgroundJobs.blocked_authority_refs.slice(0, 6).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>

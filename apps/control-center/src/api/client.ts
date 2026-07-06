@@ -34,6 +34,7 @@ import type {
   RunAttachedApprovalQueue,
   RunObservabilityReadModel,
   RuntimeApprovalBridgeReadModel,
+  RuntimeBackgroundJobsReadModel,
   RuntimeCapabilityMatrix,
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeContextBudgetPressureReadModel,
@@ -387,6 +388,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeMcpCatalogFiltering,
     ),
   ] as const);
+  const runtimeBackgroundJobsSettledPromise = Promise.allSettled([
+    read<RuntimeBackgroundJobsReadModel>(API_ENDPOINTS.runtimeBackgroundJobs),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -517,6 +521,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeSessionContinuitySettledPromise;
   const runtimeMcpCatalogFilteringResult =
     await runtimeMcpCatalogFilteringSettledPromise;
+  const runtimeBackgroundJobsResult = await runtimeBackgroundJobsSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -563,6 +568,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeMcpCatalogFiltering = fulfilledValue(
     runtimeMcpCatalogFilteringResult[0],
   );
+  const runtimeBackgroundJobs = fulfilledValue(runtimeBackgroundJobsResult[0]);
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
@@ -688,6 +694,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeMcpCatalogFiltering,
   )
     ? runtimeMcpCatalogFiltering
+    : undefined;
+  const safeRuntimeBackgroundJobs = isSafeRuntimeBackgroundJobs(
+    runtimeBackgroundJobs,
+  )
+    ? runtimeBackgroundJobs
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -846,6 +857,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeSessionContinuity === undefined;
   const runtimeMcpCatalogFilteringFallbackUsed =
     safeRuntimeMcpCatalogFiltering === undefined;
+  const runtimeBackgroundJobsFallbackUsed =
+    safeRuntimeBackgroundJobs === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -999,6 +1012,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/doctor-diagnostics",
         "GET /api/runtime/session-continuity",
         "GET /api/runtime/mcp-catalog-filtering",
+        "GET /api/runtime/background-jobs",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -1018,7 +1032,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeManagedScopePolicy !== undefined &&
         runtimeDoctorDiagnostics !== undefined &&
         runtimeSessionContinuity !== undefined &&
-        runtimeMcpCatalogFiltering !== undefined,
+        runtimeMcpCatalogFiltering !== undefined &&
+        runtimeBackgroundJobs !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -1068,6 +1083,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeMcpCatalogFilteringFallbackUsed
           ? ["RUNTIME_MCP_CATALOG_FILTERING_MOCK_FALLBACK"]
           : []),
+        ...(runtimeBackgroundJobsFallbackUsed
+          ? ["RUNTIME_BACKGROUND_JOBS_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1087,7 +1105,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeManagedScopePolicyFallbackUsed ||
         runtimeDoctorDiagnosticsFallbackUsed ||
         runtimeSessionContinuityFallbackUsed ||
-        runtimeMcpCatalogFilteringFallbackUsed,
+        runtimeMcpCatalogFilteringFallbackUsed ||
+        runtimeBackgroundJobsFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1191,6 +1210,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeDoctorDiagnostics === undefined ||
     runtimeSessionContinuity === undefined ||
     runtimeMcpCatalogFiltering === undefined ||
+    runtimeBackgroundJobs === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1228,8 +1248,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeManagedScopePolicyResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeDoctorDiagnosticsResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeSessionContinuityResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeMcpCatalogFilteringResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 17;
+    (runtimeMcpCatalogFilteringResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeBackgroundJobsResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 18;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1330,6 +1351,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeMcpCatalogFiltering:
       safeRuntimeMcpCatalogFiltering ??
       mockControlCenterData.runtimeMcpCatalogFiltering,
+    runtimeBackgroundJobs:
+      safeRuntimeBackgroundJobs ?? mockControlCenterData.runtimeBackgroundJobs,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1422,6 +1445,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeDoctorDiagnosticsFallbackUsed &&
     !runtimeSessionContinuityFallbackUsed &&
     !runtimeMcpCatalogFilteringFallbackUsed &&
+    !runtimeBackgroundJobsFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1462,6 +1486,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeDoctorDiagnosticsFallbackUsed ||
     runtimeSessionContinuityFallbackUsed ||
     runtimeMcpCatalogFilteringFallbackUsed ||
+    runtimeBackgroundJobsFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1529,6 +1554,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeMcpCatalogFilteringFallbackUsed) {
     degradedSafeMessage =
       "Runtime MCP catalog filtering was unavailable or unsafe; non-authoritative mock fallback kept server install, tool invocation, and connector writes blocked.";
+  } else if (runtimeBackgroundJobsFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime background job posture was unavailable or unsafe; non-authoritative mock fallback kept schedulers, workers, run-now, and connector writes blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -4352,6 +4380,100 @@ function isSafeRuntimeMcpCatalogFiltering(
             tool.runtime_dispatch_enabled === false &&
             isNonEmptyStringArray(tool.blocked_authority_refs),
         ),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeBackgroundJobs(
+  value: RuntimeBackgroundJobsReadModel | undefined,
+): value is RuntimeBackgroundJobsReadModel {
+  if (value === undefined || !Array.isArray(value.jobs)) {
+    return false;
+  }
+  const allowedKinds = new Set([
+    "runtime_doctor_check",
+    "proof_pack_export",
+    "context_budget_review",
+    "connector_delivery_followup",
+  ]);
+  const allowedStatuses = new Set([
+    "proposal",
+    "paused",
+    "approval_required",
+    "execution_blocked",
+  ]);
+  const allowedSchedulePolicies = new Set([
+    "manual_review_only",
+    "operator_window_required",
+    "blocked_scheduler",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeBackgroundJobsReadModel> = [
+    "pause_enabled",
+    "resume_enabled",
+    "run_now_enabled",
+    "scheduler_enabled",
+    "background_worker_enabled",
+    "autonomous_background_execution_enabled",
+    "autonomous_retry_enabled",
+    "external_delivery_enabled",
+    "provider_call_enabled",
+    "shell_execution_enabled",
+    "connector_write_enabled",
+    "control_center_mints_authority",
+    "raw_job_payload_persisted",
+  ];
+  const reviewableCount = value.jobs.filter((job) =>
+    ["proposal", "paused", "approval_required"].includes(job.status),
+  ).length;
+  return (
+    value.schema_version === "runtime_background_jobs.v1" &&
+    value.status === "durable_job_proposal_posture" &&
+    value.route_ref === "GET /api/runtime/background-jobs" &&
+    value.cli_ref === "uaa runtime inspect-background-jobs" &&
+    value.job_count === value.jobs.length &&
+    value.proposal_count ===
+      value.jobs.filter((job) => job.status === "proposal").length &&
+    value.paused_count ===
+      value.jobs.filter((job) => job.status === "paused").length &&
+    value.approval_required_count ===
+      value.jobs.filter((job) => job.status === "approval_required").length &&
+    value.execution_blocked_count ===
+      value.jobs.filter((job) => job.status === "execution_blocked").length &&
+    value.reviewable_job_count === reviewableCount &&
+    value.durable_job_refs_visible === true &&
+    value.schedule_policy_visible === true &&
+    value.approval_scope_visible === true &&
+    value.idempotency_visible === true &&
+    value.safe_disable_visible === true &&
+    value.receipt_plan_visible === true &&
+    value.failure_handling_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:background-jobs-no-background-worker",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.jobs.every(
+      (job) =>
+        allowedKinds.has(job.job_kind) &&
+        allowedStatuses.has(job.status) &&
+        allowedSchedulePolicies.has(job.schedule_policy) &&
+        isNonEmptyStringArray(job.proof_refs) &&
+        isNonEmptyStringArray(job.blocked_authority_refs) &&
+        job.pause_enabled === false &&
+        job.resume_enabled === false &&
+        job.run_now_enabled === false &&
+        job.scheduler_enabled === false &&
+        job.background_worker_enabled === false &&
+        job.autonomous_retry_enabled === false &&
+        job.external_delivery_enabled === false &&
+        job.provider_call_enabled === false &&
+        job.shell_execution_enabled === false &&
+        job.connector_write_enabled === false &&
+        job.raw_job_payload_persisted === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

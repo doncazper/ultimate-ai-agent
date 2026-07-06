@@ -7635,6 +7635,19 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("blocked-authority:mcp-catalog-no-tool-invocation"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Background")).toBeInTheDocument();
+    expect(screen.getByText("Background job model")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/background-jobs").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-background-jobs").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Runtime doctor check")).toBeInTheDocument();
+    expect(screen.getByText("Connector delivery follow-up")).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-authority:background-jobs-no-background-worker"),
+    ).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
     expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
@@ -14731,6 +14744,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.runtimeMcpCatalogFiltering),
     ).toBe(true);
+    expect(API_ENDPOINTS.runtimeBackgroundJobs).toBe(
+      "/api/runtime/background-jobs",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeBackgroundJobs)).toBe(
+      true,
+    );
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15788,6 +15807,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeSessionContinuity,
     [API_ENDPOINTS.runtimeMcpCatalogFiltering]:
       mockControlCenterData.runtimeMcpCatalogFiltering,
+    [API_ENDPOINTS.runtimeBackgroundJobs]:
+      mockControlCenterData.runtimeBackgroundJobs,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
