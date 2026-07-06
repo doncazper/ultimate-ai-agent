@@ -235,7 +235,6 @@ def test_dependency_validation_rejects_missing_same_stage_future_and_cycle() -> 
 
 
 def test_degraded_step_requires_handoff() -> None:
-    base = build_sample_staged_orchestration_plan()
     plan = _plan_with(degraded_handoffs=[])
 
     decision = validate_staged_orchestration_plan(plan)

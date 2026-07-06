@@ -6,7 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.control_center.local_tasks import (
     FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS,
-    FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTE_REF,
     FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND,
     FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
