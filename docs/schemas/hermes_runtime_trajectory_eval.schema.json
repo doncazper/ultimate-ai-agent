@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/hermes_runtime_trajectory_eval.schema.json",
+  "title": "Hermes Runtime Trajectory Eval Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "trajectory_ref",
+    "task_ref",
+    "runtime_ref",
+    "run_ref",
+    "captured_at",
+    "redacted_input_summary_ref",
+    "redacted_output_summary_ref",
+    "decision_trace_refs",
+    "proof_refs",
+    "receipt_refs",
+    "evidence_refs",
+    "scores",
+    "safety_findings",
+    "blocked_authority_refs",
+    "redaction"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "hermes_runtime_trajectory_eval_record.v1"
+    },
+    "trajectory_ref": {
+      "type": "string",
+      "pattern": "^trajectory-eval-ref:[a-z0-9._:-]+$"
+    },
+    "task_ref": {
+      "type": "string",
+      "pattern": "^task-ref:[a-z0-9._:-]+$"
+    },
+    "runtime_ref": {
+      "type": "string",
+      "pattern": "^runtime-ref:[a-z0-9._:-]+$"
+    },
+    "run_ref": {
+      "type": "string",
+      "pattern": "^run-ref:[a-z0-9._:-]+$"
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "redacted_input_summary_ref": {
+      "type": "string",
+      "pattern": "^summary-ref:[a-z0-9._:-]+$"
+    },
+    "redacted_output_summary_ref": {
+      "type": "string",
+      "pattern": "^summary-ref:[a-z0-9._:-]+$"
+    },
+    "decision_trace_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^trace-ref:[a-z0-9._:-]+$"
+      },
+      "maxItems": 16
+    },
+    "proof_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^proof-ref:[a-z0-9._:-]+$"
+      },
+      "maxItems": 16
+    },
+    "receipt_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^receipt-ref:[a-z0-9._:-]+$"
+      },
+      "maxItems": 16
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^evidence-ref:[a-z0-9._:-]+$"
+      },
+      "maxItems": 16
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_completion",
+        "cost",
+        "safety",
+        "proof",
+        "usefulness"
+      ],
+      "properties": {
+        "task_completion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "cost": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "safety": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "proof": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "usefulness": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        }
+      }
+    },
+    "safety_findings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^finding-ref:[a-z0-9._:-]+$"
+      },
+      "maxItems": 16
+    },
+    "blocked_authority_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^blocked-authority-ref:[a-z0-9._:-]+$"
+      },
+      "minItems": 1,
+      "maxItems": 32
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "safe_refs_only",
+        "redacted_summaries_only",
+        "raw_material_persisted"
+      ],
+      "properties": {
+        "safe_refs_only": {
+          "const": true
+        },
+        "redacted_summaries_only": {
+          "const": true
+        },
+        "raw_material_persisted": {
+          "const": false
+        }
+      }
+    }
+  }
+}
