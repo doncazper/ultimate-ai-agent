@@ -871,7 +871,7 @@
       "risk_class": "medium",
       "release_status": "status_available_not_completion",
       "approval_requirement": "No approval for read-only status; lifecycle actions require a later scoped milestone.",
-      "evidence_audit_output": "Runtime readiness refs, capability matrix refs, runtime delegation refs, capability discovery snapshot refs, runtime run/event posture refs, runtime approval bridge refs, runtime streaming progress refs, runtime profile isolation refs, Foundation Gate refs, and latency refs. Profile isolation is metadata-only and does not create profiles, delete profiles, write runtime config, copy sensitive material, change runtime defaults, or allow cross-profile authority bleed.",
+      "evidence_audit_output": "Runtime readiness refs, capability matrix refs, runtime delegation refs, capability discovery snapshot refs, runtime toolset posture refs, runtime run/event posture refs, runtime approval bridge refs, runtime streaming progress refs, runtime profile isolation refs, Foundation Gate refs, and latency refs. Toolset posture is read-only metadata and does not invoke tools, enable Hermes toolsets, mutate toolset config, execute commands, automate browsers, write connectors, import plugins, or grant production authority. Profile isolation is metadata-only and does not create profiles, delete profiles, write runtime config, copy sensitive material, change runtime defaults, or allow cross-profile authority bleed.",
       "current_backend_routes": [
         {
           "method": "GET",

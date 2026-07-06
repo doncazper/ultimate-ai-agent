@@ -1,6 +1,6 @@
 # UAA Hermes Runtime Capability Discovery
 
-Status: Phase 02 repo-safe read model.
+Status: Phase 02 repo-safe read model, extended by Phase 09 toolset posture.
 
 UAA now exposes a backend-owned runtime capability discovery posture for the
 optional Hermes Agent runtime target. This is not live discovery and does not
@@ -11,6 +11,8 @@ Implemented:
 - Python Core `RuntimeCapabilityDiscoveryReadModel`.
 - Capability taxonomy for models, runs, events, approvals, sessions, skills,
   toolsets, jobs, and blocked actions.
+- Phase 09 `RuntimeToolsetCapabilityPosture` with per-toolset runtime support
+  versus UAA allowance state.
 - `GET /api/runtime/capability-discovery`.
 - `scripts/dev/uaa_runtime.py inspect-capability-discovery`.
 - Control Center `/runtime` display of runtime support versus UAA
@@ -33,6 +35,20 @@ Blocked:
 - Production authority.
 - Raw prompt, response, provider payload, runtime payload, log, local path, or
   credential persistence.
+
+Phase 09 toolset posture:
+
+- Defines UAA-native toolset categories that can map delegated runtime tool
+  groups without copying Hermes code or importing Hermes packages.
+- Shows `enabled_read_only`, `configured_metadata_only`,
+  `approval_required_future_lane`, `blocked`, and `unsupported` allowance
+  states.
+- Separates `runtime_support_status` from `uaa_allowance_status` for every
+  toolset record.
+- Keeps `uaa_allowed_execution_count` at `0`.
+- Keeps live tool invocation, toolset configuration mutation, Hermes toolset
+  enablement, raw tool payload persistence, and production authority disabled.
+- Binds proof to `proof-ref:hermes-runtime-adoption:phase-09:toolsets`.
 
 Promotion path:
 

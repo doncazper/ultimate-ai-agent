@@ -7460,6 +7460,17 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("uaa runtime inspect-capability-discovery"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Toolset posture")).toBeInTheDocument();
+    expect(screen.getByText("Runtime support vs UAA allowance")).toBeInTheDocument();
+    expect(screen.getByText("Coding workspace tools")).toBeInTheDocument();
+    expect(screen.getByText("Browser and web tools")).toBeInTheDocument();
+    expect(screen.getByText("UAA execution allowed")).toBeInTheDocument();
+    expect(
+      screen.getByText("proof-ref:hermes-runtime-adoption:phase-09:toolsets"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-authority:runtime-toolset-invocation"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Runs and events")).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/run-events")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-run-events")).toBeInTheDocument();

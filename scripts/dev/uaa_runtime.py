@@ -114,10 +114,7 @@ def _print_bridge_summary(read_model: dict[str, Any]) -> None:
         f"blocked={read_model['blocked_count']}"
     )
     print("Authority: exact focused pytest bridge only; broad runtime remains blocked")
-    print(
-        "Blocked: "
-        + ", ".join(read_model["blocked_authority_refs"] or ["none"])
-    )
+    print("Blocked: " + ", ".join(read_model["blocked_authority_refs"] or ["none"]))
     print("Items:")
     if not read_model["items"]:
         print("- none")
@@ -214,9 +211,13 @@ def _print_authority_profile(read_model: dict[str, Any]) -> None:
     print(f"Status: {read_model['status']}")
     print(f"Profile: {read_model['profile_ref']}")
     print(f"Default profile: {read_model['default_runtime_profile']}")
-    print(f"Sealed default preserved: {read_model['sealed_default_hard_rules_preserved']}")
+    print(
+        f"Sealed default preserved: {read_model['sealed_default_hard_rules_preserved']}"
+    )
     print(f"RuntimeGateway required: {read_model['runtime_gateway_required']}")
-    print(f"Control Center mints authority: {read_model['control_center_mints_authority']}")
+    print(
+        f"Control Center mints authority: {read_model['control_center_mints_authority']}"
+    )
     print("Promoted exact authority:")
     for ref in read_model["promoted_authority_refs"]:
         print(f"- {ref}")
@@ -295,6 +296,20 @@ def _print_capability_discovery(read_model: dict[str, Any]) -> None:
         "UAA authorized execution capabilities: "
         f"{read_model['uaa_authorized_capability_count']}"
     )
+    toolset_posture = read_model["toolset_posture"]
+    print("Toolset posture:")
+    print(f"- status: {toolset_posture['status']}")
+    print(f"- toolsets: {toolset_posture['toolset_count']}")
+    print(f"- runtime supported: {toolset_posture['runtime_supported_count']}")
+    print(f"- UAA execution allowed: {toolset_posture['uaa_allowed_execution_count']}")
+    print(f"- invocation enabled: {toolset_posture['live_tool_invocation_enabled']}")
+    for record in toolset_posture["records"]:
+        print(
+            f"- {record['display_label']}: "
+            f"runtime={record['runtime_support_status']} "
+            f"uaa={record['uaa_allowance_status']} "
+            f"side_effect={record['side_effect_class']}"
+        )
     print("Capability groups:")
     for group in read_model["capability_groups"]:
         print(f"- {group['group_kind']} runtime={group['runtime_support_status']}")
@@ -459,11 +474,16 @@ def _print_receipt(record: Any) -> None:
     print(f"Command performed: {receipt.command_execution_performed}")
     print(f"Model call performed: {receipt.model_call_performed}")
     print("Evidence refs: " + ", ".join(receipt.evidence_refs or ["none"]))
-    print("Blocked authority refs: " + ", ".join(receipt.blocked_authority_refs or ["none"]))
+    print(
+        "Blocked authority refs: "
+        + ", ".join(receipt.blocked_authority_refs or ["none"])
+    )
     if receipt.command_receipt_metadata is not None:
         metadata = receipt.command_receipt_metadata
         print(f"Command status: {metadata.status_category}")
-        print(f"Exit code: {metadata.exit_code if metadata.exit_code is not None else 'none'}")
+        print(
+            f"Exit code: {metadata.exit_code if metadata.exit_code is not None else 'none'}"
+        )
         print(f"Timed out: {metadata.timed_out}")
         print(f"Output summary: {metadata.output_summary}")
     try:
@@ -507,7 +527,9 @@ def _inspect_parity_loop(args: argparse.Namespace) -> int:
 def _status(args: argparse.Namespace) -> int:
     read_model = _read_model(_runtime_store(args))
     if args.json:
-        _print_json(_runtime_payload(read_model, "repo-local-command:governed-runtime-status"))
+        _print_json(
+            _runtime_payload(read_model, "repo-local-command:governed-runtime-status")
+        )
     else:
         _print_status(read_model)
     return 0
@@ -718,7 +740,9 @@ def _inspect_profiles(args: argparse.Namespace) -> int:
     return 0
 
 
-def _portable_evidence_payload(command_ref: str, envelope: dict[str, Any]) -> dict[str, Any]:
+def _portable_evidence_payload(
+    command_ref: str, envelope: dict[str, Any]
+) -> dict[str, Any]:
     return {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": command_ref,
@@ -763,8 +787,8 @@ def _verification_payload(result: Any) -> dict[str, Any]:
 
 def _verify_evidence_envelope(args: argparse.Namespace) -> int:
     if args.profile:
-        envelope_payload: dict[str, Any] = build_portable_evidence_envelope().model_dump(
-            mode="json"
+        envelope_payload: dict[str, Any] = (
+            build_portable_evidence_envelope().model_dump(mode="json")
         )
     else:
         envelope_payload = json.loads(Path(args.input).read_text(encoding="utf-8"))
@@ -824,7 +848,9 @@ def _invocations_show(args: argparse.Namespace) -> int:
     return 0
 
 
-def _receipt_record_for_ref(store: RuntimeInvocationStore, receipt_ref: str) -> Any | None:
+def _receipt_record_for_ref(
+    store: RuntimeInvocationStore, receipt_ref: str
+) -> Any | None:
     for record in store.list_invocations():
         if record.receipt is not None and record.receipt.receipt_ref == receipt_ref:
             return record
@@ -917,8 +943,7 @@ def _print_action_decision_preflight(payload: dict[str, Any]) -> None:
     print("Approval records a decision only; it does not execute the command.")
     print("Execution still requires a later exact RuntimeGateway execute request.")
     print(
-        "Blocked broad authority: "
-        + ", ".join(payload["blocked_broad_authority_refs"])
+        "Blocked broad authority: " + ", ".join(payload["blocked_broad_authority_refs"])
     )
 
 
@@ -957,7 +982,9 @@ def _receipts_show(args: argparse.Namespace) -> int:
             {
                 "schema_version": "governed-runtime-cli:v1",
                 "command_ref": "repo-local-command:governed-runtime-receipt-show",
-                "receipt": record.receipt.model_dump(mode="json") if record.receipt else None,
+                "receipt": record.receipt.model_dump(mode="json")
+                if record.receipt
+                else None,
                 "invocation_ref": record.invocation_ref,
                 "safe_refs_only": True,
                 "raw_content_omitted": True,
@@ -1142,9 +1169,13 @@ def _inspect_turn_run_approval_chain(args: argparse.Namespace) -> int:
         print("Turn -> Durable Run -> Approval chain")
         print(f"Chain: {chain.chain_ref}")
         print(f"State: {chain.current_state}")
-        print(f"Turn: {chain.linkage.turn_ref.ref if chain.linkage.turn_ref else 'not_available'}")
+        print(
+            f"Turn: {chain.linkage.turn_ref.ref if chain.linkage.turn_ref else 'not_available'}"
+        )
         print(f"Run: {chain.linkage.durable_run_ref.ref}")
-        print(f"Approval: {chain.linkage.approval_ref.ref if chain.linkage.approval_ref else 'not_available'}")
+        print(
+            f"Approval: {chain.linkage.approval_ref.ref if chain.linkage.approval_ref else 'not_available'}"
+        )
         print(f"Transitions: {len(chain.transitions)}")
         print("Approval refs are identifiers only; no execution was performed.")
     return 0
@@ -1203,7 +1234,9 @@ def build_parser() -> argparse.ArgumentParser:
         "authority-profile",
         help="Inspect the Governed Product Pilot authority profile.",
     )
-    authority_profile.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    authority_profile.add_argument(
+        "--json", action="store_true", help="Emit safe JSON."
+    )
     authority_profile.set_defaults(func=_authority_profile)
 
     export_evidence = subparsers.add_parser(
@@ -1238,7 +1271,9 @@ def build_parser() -> argparse.ArgumentParser:
         dest="invocations_command",
         required=True,
     )
-    invocations_list = invocation_subparsers.add_parser("list", help="List invocations.")
+    invocations_list = invocation_subparsers.add_parser(
+        "list", help="List invocations."
+    )
     invocations_list.add_argument("--json", action="store_true", help="Emit safe JSON.")
     invocations_list.set_defaults(func=_invocations_list)
     invocations_show = invocation_subparsers.add_parser("show", help="Show invocation.")
@@ -1267,7 +1302,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Verify a runtime receipt signed evidence envelope without echoing paths.",
     )
     receipt_verify_evidence.add_argument("--input", required=True)
-    receipt_verify_evidence.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    receipt_verify_evidence.add_argument(
+        "--json", action="store_true", help="Emit safe JSON."
+    )
     receipt_verify_evidence.set_defaults(func=_receipts_verify_evidence)
 
     actions = subparsers.add_parser(
@@ -1301,7 +1338,9 @@ def build_parser() -> argparse.ArgumentParser:
                 "requires a later exact RuntimeGateway execute request."
             ),
         )
-        decision_parser.add_argument("--json", action="store_true", help="Emit safe JSON.")
+        decision_parser.add_argument(
+            "--json", action="store_true", help="Emit safe JSON."
+        )
         decision_parser.set_defaults(func=_action_decision)
 
     safe_disable = subparsers.add_parser(

@@ -50,6 +50,11 @@ from ultimate_ai_agent.core.runtime_gateway.capability_discovery import (
     RuntimeCapabilityGroupKind,
     RuntimeCapabilitySupportStatus,
     RuntimeDiscoveredCapabilityGroup,
+    RuntimeToolsetCapabilityPosture,
+    RuntimeToolsetCapabilityRecord,
+    RuntimeToolsetSideEffectClass,
+    RuntimeToolsetSupportStatus,
+    RuntimeToolsetUaaAllowanceStatus,
     build_runtime_capability_discovery_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway.run_events import (
@@ -214,6 +219,11 @@ __all__ = [
     "RuntimeCapabilityGroupKind",
     "RuntimeCapabilitySupportStatus",
     "RuntimeDiscoveredCapabilityGroup",
+    "RuntimeToolsetCapabilityPosture",
+    "RuntimeToolsetCapabilityRecord",
+    "RuntimeToolsetSideEffectClass",
+    "RuntimeToolsetSupportStatus",
+    "RuntimeToolsetUaaAllowanceStatus",
     "RuntimeExternalRunLifecycleState",
     "RuntimeRunControlPosture",
     "RuntimeRunEventKind",

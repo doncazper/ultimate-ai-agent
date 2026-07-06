@@ -275,6 +275,12 @@ describe("loadControlCenterData summary endpoint wiring", () => {
 
     expect(data.runtimeCapabilityDiscovery.live_discovery_performed).toBe(false);
     expect(data.runtimeCapabilityDiscovery.uaa_authorized_capability_count).toBe(0);
+    expect(
+      data.runtimeCapabilityDiscovery.toolset_posture.uaa_allowed_execution_count,
+    ).toBe(0);
+    expect(
+      data.runtimeCapabilityDiscovery.toolset_posture.live_tool_invocation_enabled,
+    ).toBe(false);
     expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
     expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
       "GET /api/runtime/capability-discovery",

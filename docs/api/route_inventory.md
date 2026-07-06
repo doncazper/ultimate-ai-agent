@@ -136,7 +136,10 @@ Core Hermes Runtime Adoption Phase 02 capability discovery posture for models,
 runs, events, approvals, sessions, skills, toolsets, jobs, and blocked actions.
 It is a static snapshot with safe refs and a snapshot hash ref only; runtime
 support metadata cannot grant UAA permission, and stale or unreachable runtime
-state degrades to blocked.
+state degrades to blocked. The same route now carries Phase 09 runtime toolset
+capability posture for runtime support versus UAA allowance states while
+keeping runtime tool invocation, Hermes toolset enablement, toolset config
+mutation, raw tool payload persistence, and production authority disabled.
 `GET /api/runtime/run-events` exposes a protected read-only Python Core Hermes
 Runtime Adoption Phase 03 run/event posture for external runtime lifecycle
 state, UAA durable run state mapping, event-ref grammar, proof binding, blocked

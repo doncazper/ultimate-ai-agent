@@ -10020,6 +10020,312 @@ export const mockControlCenterData: ControlCenterData = {
         "next-safe-action-ref:runtime-capability-discovery:evaluate-policy-before-controls",
       ],
     })),
+    toolset_posture: {
+      schema_version: "runtime_toolset_capability_posture.v1",
+      contract_ref: "contract-ref:hermes-runtime-toolset-capability-posture:v1",
+      status: "read_only_toolset_capability_posture",
+      route_ref: "GET /api/runtime/capability-discovery",
+      cli_ref: "uaa runtime inspect-capability-discovery",
+      control_center_ref: "control-center-route:runtime",
+      authority_profile_ref:
+        "authority-profile-ref:runtime-toolsets:read-only-posture",
+      safe_summary:
+        "Mock fallback toolset posture is non-authoritative; UAA execution remains blocked.",
+      records: [
+        {
+          toolset_ref: "toolset-ref:runtime:core-readonly-metadata",
+          display_label: "Core read-only metadata",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:shared-readiness",
+          runtime_support_status: "runtime_configured_metadata_only",
+          uaa_allowance_status: "enabled_read_only",
+          side_effect_class: "read_only_metadata",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:core-readonly-metadata:future",
+          safe_disable_ref:
+            "safe-disable-ref:runtime-toolset:core-readonly-metadata:disabled",
+          receipt_ref:
+            "receipt-ref:runtime-toolset:core-readonly-metadata:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Safe runtime metadata may be displayed, but no tool is invoked.",
+          runtime_supports_toolset: true,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: [
+            "blocked-authority:runtime-toolset-invocation",
+            "blocked-authority:runtime-toolset-config-mutation",
+          ],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:keep-metadata-read-only",
+          ],
+        },
+        {
+          toolset_ref: "toolset-ref:runtime:profile-session-metadata",
+          display_label: "Profile and session metadata",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:shared-readiness",
+          runtime_support_status: "runtime_configured_metadata_only",
+          uaa_allowance_status: "configured_metadata_only",
+          side_effect_class: "read_only_metadata",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:profile-session-metadata:future",
+          safe_disable_ref:
+            "safe-disable-ref:runtime-toolset:profile-session-metadata:disabled",
+          receipt_ref:
+            "receipt-ref:runtime-toolset:profile-session-metadata:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Profile and session posture is displayed as safe metadata only.",
+          runtime_supports_toolset: true,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: [
+            "blocked-authority:runtime-session-open-without-transport",
+            "blocked-authority:runtime-profile-config-mutation",
+          ],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:add-signed-profile-snapshot",
+          ],
+        },
+        {
+          toolset_ref: "toolset-ref:runtime:coding-workspace",
+          display_label: "Coding workspace tools",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:coding",
+          runtime_support_status: "runtime_supported_by_reference",
+          uaa_allowance_status: "approval_required_future_lane",
+          side_effect_class: "local_workspace",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:coding-workspace:future",
+          safe_disable_ref:
+            "safe-disable-ref:runtime-toolset:coding-workspace:disabled",
+          receipt_ref: "receipt-ref:runtime-toolset:coding-workspace:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Coding workspace tools need exact grant, receipts, and rollback posture.",
+          runtime_supports_toolset: true,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: [
+            "blocked-authority:runtime-toolset-invocation",
+            "blocked-authority:runtime-file-mutation-without-patch-lane",
+          ],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:define-coding-tool-grant",
+          ],
+        },
+        {
+          toolset_ref: "toolset-ref:runtime:command-execution",
+          display_label: "Command execution tools",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:coding",
+          runtime_support_status: "runtime_supported_by_reference",
+          uaa_allowance_status: "approval_required_future_lane",
+          side_effect_class: "high_authority",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:command-execution:future",
+          safe_disable_ref:
+            "safe-disable-ref:runtime-toolset:command-execution:disabled",
+          receipt_ref:
+            "receipt-ref:runtime-toolset:command-execution:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Command tools require RuntimeGateway allowlists, redaction, and receipts.",
+          runtime_supports_toolset: true,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: [
+            "blocked-authority:runtime-high-authority-toolset",
+            "blocked-authority:runtime-command-execution-without-gateway-allowlist",
+            "blocked-authority:runtime-unrestricted-command-execution",
+          ],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:bind-command-tool-approval",
+          ],
+        },
+        {
+          toolset_ref: "toolset-ref:runtime:web-browser",
+          display_label: "Browser and web tools",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:research",
+          runtime_support_status: "runtime_planned_disabled",
+          uaa_allowance_status: "blocked",
+          side_effect_class: "high_authority",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:web-browser:future",
+          safe_disable_ref: "safe-disable-ref:runtime-toolset:web-browser:disabled",
+          receipt_ref: "receipt-ref:runtime-toolset:web-browser:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Browser and web tools remain blocked until an exact gateway lane exists.",
+          runtime_supports_toolset: false,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: [
+            "blocked-authority:runtime-high-authority-toolset",
+            "blocked-authority:runtime-browser-automation",
+            "blocked-authority:runtime-web-fetch-without-gateway",
+          ],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:define-webaccess-readonly-lane",
+          ],
+        },
+        {
+          toolset_ref: "toolset-ref:runtime:connector-write",
+          display_label: "Connector write tools",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:operations",
+          runtime_support_status: "runtime_planned_disabled",
+          uaa_allowance_status: "blocked",
+          side_effect_class: "external_mutation",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:connector-write:future",
+          safe_disable_ref:
+            "safe-disable-ref:runtime-toolset:connector-write:disabled",
+          receipt_ref: "receipt-ref:runtime-toolset:connector-write:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Connector write tools remain blocked until exact connector lanes exist.",
+          runtime_supports_toolset: false,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: [
+            "blocked-authority:runtime-connector-write",
+            "blocked-authority:connector-write-without-exact-lane",
+          ],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:create-connector-draft-only-review",
+          ],
+        },
+        {
+          toolset_ref: "toolset-ref:runtime:plugin-runtime-import",
+          display_label: "Plugin runtime import tools",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:extensions",
+          runtime_support_status: "runtime_unsupported",
+          uaa_allowance_status: "unsupported",
+          side_effect_class: "unsupported",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:plugin-runtime-import:future",
+          safe_disable_ref:
+            "safe-disable-ref:runtime-toolset:plugin-runtime-import:disabled",
+          receipt_ref:
+            "receipt-ref:runtime-toolset:plugin-runtime-import:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Runtime plugin import tools are unsupported in this posture.",
+          runtime_supports_toolset: false,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: ["blocked-authority:runtime-plugin-import"],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:add-plugin-adaptation-contract",
+          ],
+        },
+        {
+          toolset_ref: "toolset-ref:runtime:production-ops",
+          display_label: "Production operations tools",
+          runtime_ref: "runtime-identity-ref:hermes-agent:optional-target",
+          profile_ref: "runtime-profile-ref:hermes:operations",
+          runtime_support_status: "runtime_blocked_by_uaa",
+          uaa_allowance_status: "blocked",
+          side_effect_class: "high_authority",
+          authority_mode_ref:
+            "authority-mode-ref:runtime-toolsets:read-only-posture",
+          approval_scope_ref:
+            "approval-scope-ref:runtime-toolset:production-ops:future",
+          safe_disable_ref:
+            "safe-disable-ref:runtime-toolset:production-ops:disabled",
+          receipt_ref: "receipt-ref:runtime-toolset:production-ops:not-executed",
+          verifier_ref: "verifier-ref:hermes-runtime-adoption:phase-09",
+          safe_summary:
+            "Production operations authority remains blocked.",
+          runtime_supports_toolset: false,
+          uaa_allows_execution: false,
+          tool_invocation_enabled: false,
+          toolset_config_mutation_enabled: false,
+          hermes_toolset_enablement_enabled: false,
+          raw_tool_payload_persisted: false,
+          blocked_authority_refs: [
+            "blocked-authority:runtime-high-authority-toolset",
+            "blocked-authority:runtime-production-authority",
+          ],
+          next_safe_action_refs: [
+            "next-safe-action-ref:runtime-toolsets:keep-production-authority-blocked",
+          ],
+        },
+      ],
+      toolset_count: 8,
+      runtime_supported_count: 4,
+      uaa_allowed_execution_count: 0,
+      enabled_read_only_count: 1,
+      configured_metadata_only_count: 1,
+      approval_required_future_count: 2,
+      blocked_count: 3,
+      unsupported_count: 1,
+      live_tool_invocation_enabled: false,
+      toolset_config_mutation_enabled: false,
+      hermes_toolset_enablement_enabled: false,
+      raw_tool_payload_persisted: false,
+      production_authority_enabled: false,
+      blocked_authority_refs: [
+        "blocked-authority:runtime-toolset-invocation",
+        "blocked-authority:runtime-toolset-config-mutation",
+        "blocked-authority:runtime-toolset-enablement",
+        "blocked-authority:runtime-command-execution-without-gateway-allowlist",
+        "blocked-authority:runtime-unrestricted-command-execution",
+        "blocked-authority:runtime-browser-automation",
+        "blocked-authority:runtime-connector-write",
+        "blocked-authority:runtime-plugin-import",
+        "blocked-authority:runtime-production-authority",
+      ],
+      proof_refs: [
+        "proof-ref:runtime-capability-discovery:mock-fallback",
+        "proof-ref:hermes-runtime-adoption:phase-09:toolsets",
+      ],
+      verifier_refs: ["verifier-ref:hermes-runtime-adoption:phase-09"],
+      next_safe_action_refs: [
+        "next-safe-action-ref:runtime-toolsets:define-exact-toolset-grant",
+        "next-safe-action-ref:runtime-toolsets:add-per-tool-side-effect-policy",
+        "next-safe-action-ref:runtime-toolsets:bind-approval-receipt-safe-disable",
+      ],
+    },
     runtime_supported_capability_count: 8,
     uaa_authorized_capability_count: 0,
     blocked_authority_refs: [
