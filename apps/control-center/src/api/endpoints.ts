@@ -83,6 +83,7 @@ export const API_ENDPOINTS = {
   runtimeMcpCatalogFiltering: "/api/runtime/mcp-catalog-filtering",
   runtimeBackgroundJobs: "/api/runtime/background-jobs",
   runtimeSubagentIsolation: "/api/runtime/subagent-isolation",
+  runtimeWorktreePerAgent: "/api/runtime/worktree-per-agent",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
   localModels: "/v1/models",
   localChatCompletions: "/v1/chat/completions",
@@ -239,6 +240,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.runtimeMcpCatalogFiltering,
   API_ENDPOINTS.runtimeBackgroundJobs,
   API_ENDPOINTS.runtimeSubagentIsolation,
+  API_ENDPOINTS.runtimeWorktreePerAgent,
 ] as const;
 
 export function isAllowedReadEndpoint(

@@ -10228,6 +10228,88 @@ export interface RuntimeSubagentIsolationReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeWorktreeAgentRole =
+  | "implementer"
+  | "reviewer"
+  | "verifier";
+
+export type RuntimeWorktreeLaneStatus =
+  | "proposal"
+  | "review_ready"
+  | "mutation_blocked";
+
+export type RuntimeWorktreeIsolationMode =
+  | "branch_proposal_only"
+  | "existing_worktree_ref_only"
+  | "blocked_worktree_mutation";
+
+export interface RuntimeWorktreePerAgentLane {
+  lane_ref: string;
+  display_label: string;
+  agent_role: RuntimeWorktreeAgentRole;
+  lane_status: RuntimeWorktreeLaneStatus;
+  isolation_mode: RuntimeWorktreeIsolationMode;
+  workspace_scope_ref: string;
+  branch_proposal_ref: string;
+  branch_name_ref: string;
+  worktree_ref: string;
+  checkpoint_plan_ref: string;
+  git_receipt_plan_ref: string;
+  rollback_plan_ref: string;
+  safe_summary: string;
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  git_worktree_create_enabled: boolean;
+  git_worktree_delete_enabled: boolean;
+  branch_mutation_enabled: boolean;
+  file_write_enabled: boolean;
+  commit_enabled: boolean;
+  push_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  raw_path_persisted: boolean;
+}
+
+export interface RuntimeWorktreePerAgentReadModel {
+  schema_version: "runtime_worktree_per_agent.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  lanes: RuntimeWorktreePerAgentLane[];
+  lane_count: number;
+  proposal_count: number;
+  review_ready_count: number;
+  mutation_blocked_count: number;
+  workspace_grants_visible: boolean;
+  branch_name_policy_visible: boolean;
+  checkpoint_plan_visible: boolean;
+  git_receipt_plan_visible: boolean;
+  rollback_plan_visible: boolean;
+  cli_parity_visible: boolean;
+  git_worktree_create_enabled: boolean;
+  git_worktree_delete_enabled: boolean;
+  branch_mutation_enabled: boolean;
+  file_write_enabled: boolean;
+  commit_enabled: boolean;
+  push_enabled: boolean;
+  shell_execution_enabled: boolean;
+  provider_call_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_path_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -11409,6 +11491,7 @@ export interface ControlCenterData {
   runtimeMcpCatalogFiltering: RuntimeMcpCatalogFilteringReadModel;
   runtimeBackgroundJobs: RuntimeBackgroundJobsReadModel;
   runtimeSubagentIsolation: RuntimeSubagentIsolationReadModel;
+  runtimeWorktreePerAgent: RuntimeWorktreePerAgentReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

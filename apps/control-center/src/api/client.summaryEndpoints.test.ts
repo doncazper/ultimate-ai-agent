@@ -816,6 +816,8 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.runtimeBackgroundJobs,
     [API_ENDPOINTS.runtimeSubagentIsolation]:
       mockControlCenterData.runtimeSubagentIsolation,
+    [API_ENDPOINTS.runtimeWorktreePerAgent]:
+      mockControlCenterData.runtimeWorktreePerAgent,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,

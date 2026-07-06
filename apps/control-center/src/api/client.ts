@@ -54,6 +54,7 @@ import type {
   RuntimeStreamingProgressReadModel,
   RuntimeProfileIsolationReadModel,
   RuntimeReadinessReport,
+  RuntimeWorktreePerAgentReadModel,
   ApiRouteInventory,
   FounderLoopActionDecisionKind,
   FounderLoopActionDecisionReceipt,
@@ -397,6 +398,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeSubagentIsolation,
     ),
   ] as const);
+  const runtimeWorktreePerAgentSettledPromise = Promise.allSettled([
+    read<RuntimeWorktreePerAgentReadModel>(
+      API_ENDPOINTS.runtimeWorktreePerAgent,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -530,6 +536,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeBackgroundJobsResult = await runtimeBackgroundJobsSettledPromise;
   const runtimeSubagentIsolationResult =
     await runtimeSubagentIsolationSettledPromise;
+  const runtimeWorktreePerAgentResult =
+    await runtimeWorktreePerAgentSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -580,6 +588,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeSubagentIsolation = fulfilledValue(
     runtimeSubagentIsolationResult[0],
   );
+  const runtimeWorktreePerAgent = fulfilledValue(runtimeWorktreePerAgentResult[0]);
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
@@ -715,6 +724,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeSubagentIsolation,
   )
     ? runtimeSubagentIsolation
+    : undefined;
+  const safeRuntimeWorktreePerAgent = isSafeRuntimeWorktreePerAgent(
+    runtimeWorktreePerAgent,
+  )
+    ? runtimeWorktreePerAgent
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -877,6 +891,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeBackgroundJobs === undefined;
   const runtimeSubagentIsolationFallbackUsed =
     safeRuntimeSubagentIsolation === undefined;
+  const runtimeWorktreePerAgentFallbackUsed =
+    safeRuntimeWorktreePerAgent === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -1032,6 +1048,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/mcp-catalog-filtering",
         "GET /api/runtime/background-jobs",
         "GET /api/runtime/subagent-isolation",
+        "GET /api/runtime/worktree-per-agent",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -1053,7 +1070,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeSessionContinuity !== undefined &&
         runtimeMcpCatalogFiltering !== undefined &&
         runtimeBackgroundJobs !== undefined &&
-        runtimeSubagentIsolation !== undefined,
+        runtimeSubagentIsolation !== undefined &&
+        runtimeWorktreePerAgent !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -1109,6 +1127,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeSubagentIsolationFallbackUsed
           ? ["RUNTIME_SUBAGENT_ISOLATION_MOCK_FALLBACK"]
           : []),
+        ...(runtimeWorktreePerAgentFallbackUsed
+          ? ["RUNTIME_WORKTREE_PER_AGENT_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1130,7 +1151,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeSessionContinuityFallbackUsed ||
         runtimeMcpCatalogFilteringFallbackUsed ||
         runtimeBackgroundJobsFallbackUsed ||
-        runtimeSubagentIsolationFallbackUsed,
+        runtimeSubagentIsolationFallbackUsed ||
+        runtimeWorktreePerAgentFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1236,6 +1258,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeMcpCatalogFiltering === undefined ||
     runtimeBackgroundJobs === undefined ||
     runtimeSubagentIsolation === undefined ||
+    runtimeWorktreePerAgent === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1275,8 +1298,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeSessionContinuityResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeMcpCatalogFilteringResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeBackgroundJobsResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeSubagentIsolationResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 19;
+    (runtimeSubagentIsolationResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeWorktreePerAgentResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 20;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1382,6 +1406,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeSubagentIsolation:
       safeRuntimeSubagentIsolation ??
       mockControlCenterData.runtimeSubagentIsolation,
+    runtimeWorktreePerAgent:
+      safeRuntimeWorktreePerAgent ??
+      mockControlCenterData.runtimeWorktreePerAgent,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1476,6 +1503,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeMcpCatalogFilteringFallbackUsed &&
     !runtimeBackgroundJobsFallbackUsed &&
     !runtimeSubagentIsolationFallbackUsed &&
+    !runtimeWorktreePerAgentFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1518,6 +1546,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeMcpCatalogFilteringFallbackUsed ||
     runtimeBackgroundJobsFallbackUsed ||
     runtimeSubagentIsolationFallbackUsed ||
+    runtimeWorktreePerAgentFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1591,6 +1620,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeSubagentIsolationFallbackUsed) {
     degradedSafeMessage =
       "Runtime subagent isolation posture was unavailable or unsafe; non-authoritative mock fallback kept live dispatch, fan-out, tool sharing, and memory transfer blocked.";
+  } else if (runtimeWorktreePerAgentFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime worktree-per-agent posture was unavailable or unsafe; non-authoritative mock fallback kept Git worktree, branch, file, commit, and push mutation blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -4602,6 +4634,84 @@ function isSafeRuntimeSubagentIsolation(
         isNonEmptyStringArray(artifact.proof_refs) &&
         artifact.raw_agent_output_persisted === false &&
         artifact.executable_authority === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeWorktreePerAgent(
+  value: RuntimeWorktreePerAgentReadModel | undefined,
+): value is RuntimeWorktreePerAgentReadModel {
+  if (value === undefined || !Array.isArray(value.lanes)) {
+    return false;
+  }
+  const allowedRoles = new Set(["implementer", "reviewer", "verifier"]);
+  const allowedStatuses = new Set([
+    "proposal",
+    "review_ready",
+    "mutation_blocked",
+  ]);
+  const allowedIsolationModes = new Set([
+    "branch_proposal_only",
+    "existing_worktree_ref_only",
+    "blocked_worktree_mutation",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeWorktreePerAgentReadModel> = [
+    "git_worktree_create_enabled",
+    "git_worktree_delete_enabled",
+    "branch_mutation_enabled",
+    "file_write_enabled",
+    "commit_enabled",
+    "push_enabled",
+    "shell_execution_enabled",
+    "provider_call_enabled",
+    "control_center_mints_authority",
+    "raw_path_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_worktree_per_agent.v1" &&
+    value.status === "read_only_worktree_lane_posture" &&
+    value.route_ref === "GET /api/runtime/worktree-per-agent" &&
+    value.cli_ref === "uaa runtime inspect-worktree-per-agent" &&
+    value.lane_count === value.lanes.length &&
+    value.proposal_count ===
+      value.lanes.filter((lane) => lane.lane_status === "proposal").length &&
+    value.review_ready_count ===
+      value.lanes.filter((lane) => lane.lane_status === "review_ready").length &&
+    value.mutation_blocked_count ===
+      value.lanes.filter((lane) => lane.lane_status === "mutation_blocked")
+        .length &&
+    value.workspace_grants_visible === true &&
+    value.branch_name_policy_visible === true &&
+    value.checkpoint_plan_visible === true &&
+    value.git_receipt_plan_visible === true &&
+    value.rollback_plan_visible === true &&
+    value.cli_parity_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:worktree-per-agent-no-git-worktree-create",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.lanes.every(
+      (lane) =>
+        allowedRoles.has(lane.agent_role) &&
+        allowedStatuses.has(lane.lane_status) &&
+        allowedIsolationModes.has(lane.isolation_mode) &&
+        isNonEmptyStringArray(lane.proof_refs) &&
+        isNonEmptyStringArray(lane.blocked_authority_refs) &&
+        isNonEmptyStringArray(lane.next_safe_action_refs) &&
+        lane.git_worktree_create_enabled === false &&
+        lane.git_worktree_delete_enabled === false &&
+        lane.branch_mutation_enabled === false &&
+        lane.file_write_enabled === false &&
+        lane.commit_enabled === false &&
+        lane.push_enabled === false &&
+        lane.shell_execution_enabled === false &&
+        lane.provider_call_enabled === false &&
+        lane.raw_path_persisted === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

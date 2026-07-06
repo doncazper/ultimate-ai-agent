@@ -19,6 +19,7 @@ import type {
   RuntimeReadinessReport,
   RuntimeUsageCostAnalyticsReadModel,
   RuntimeVirtualProviderMoaReadModel,
+  RuntimeWorktreePerAgentReadModel,
 } from "../api/types";
 import { EmptyState } from "./DataState";
 import { OperatorSurfaceStates } from "./OperatorSurfaceStates";
@@ -44,6 +45,7 @@ export function RuntimeReadinessPanel({
   mcpCatalogFiltering,
   backgroundJobs,
   subagentIsolation,
+  worktreePerAgent,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -65,6 +67,7 @@ export function RuntimeReadinessPanel({
   mcpCatalogFiltering: RuntimeMcpCatalogFilteringReadModel;
   backgroundJobs: RuntimeBackgroundJobsReadModel;
   subagentIsolation: RuntimeSubagentIsolationReadModel;
+  worktreePerAgent: RuntimeWorktreePerAgentReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -873,6 +876,112 @@ export function RuntimeReadinessPanel({
         <h4>Blocked authority</h4>
         <ul className="compact-list">
           {subagentIsolation.blocked_authority_refs.slice(0, 6).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Worktrees</p>
+            <h3>Per-agent posture</h3>
+          </div>
+          <span className="status-pill compact">{worktreePerAgent.status}</span>
+        </div>
+        <p>{worktreePerAgent.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{worktreePerAgent.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{worktreePerAgent.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Lanes</dt>
+            <dd>{worktreePerAgent.lane_count}</dd>
+          </div>
+          <div>
+            <dt>Mutation blocked</dt>
+            <dd>{worktreePerAgent.mutation_blocked_count}</dd>
+          </div>
+          <div>
+            <dt>Worktree create</dt>
+            <dd>
+              {worktreePerAgent.git_worktree_create_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Branch mutation</dt>
+            <dd>
+              {worktreePerAgent.branch_mutation_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Commit</dt>
+            <dd>{worktreePerAgent.commit_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+          <div>
+            <dt>Push</dt>
+            <dd>{worktreePerAgent.push_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Lane</th>
+                <th>Status</th>
+                <th>Branch</th>
+                <th>Rollback</th>
+              </tr>
+            </thead>
+            <tbody>
+              {worktreePerAgent.lanes.map((lane) => (
+                <tr key={lane.lane_ref}>
+                  <td>{lane.display_label}</td>
+                  <td>{lane.lane_status}</td>
+                  <td>{lane.branch_proposal_ref}</td>
+                  <td>{lane.rollback_plan_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>File write</dt>
+            <dd>
+              {worktreePerAgent.file_write_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Shell</dt>
+            <dd>
+              {worktreePerAgent.shell_execution_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Provider call</dt>
+            <dd>
+              {worktreePerAgent.provider_call_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Raw path</dt>
+            <dd>{worktreePerAgent.raw_path_persisted ? "stored" : "omitted"}</dd>
+          </div>
+        </dl>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {worktreePerAgent.blocked_authority_refs.slice(0, 6).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>
