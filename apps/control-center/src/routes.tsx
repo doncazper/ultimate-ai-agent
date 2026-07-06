@@ -522,6 +522,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           matrix={data.capabilityMatrix}
           delegationAdapter={data.runtimeDelegationAdapter}
           capabilityDiscovery={data.runtimeCapabilityDiscovery}
+          runEvents={data.runtimeRunEvents}
         />
       );
     case "/operator-loop":

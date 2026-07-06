@@ -70,6 +70,7 @@ FORBIDDEN_ROUTE_FRAGMENTS = [
 ]
 FORBIDDEN_ROUTE_FRAGMENT_EXEMPTIONS = {
     "/control-center/local-models/status",
+    "/api/runtime/run-events",
 }
 
 FORBIDDEN_RAW_SECRET_SCHEMA_FIELDS = {

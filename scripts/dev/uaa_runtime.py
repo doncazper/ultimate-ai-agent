@@ -35,6 +35,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_governed_product_pilot_authority_profile,
     build_runtime_capability_discovery_read_model,
     build_runtime_delegation_adapter_read_model,
+    build_runtime_run_events_read_model,
     build_runtime_action_signed_evidence,
     verify_portable_evidence_envelope,
     verify_runtime_action_signed_evidence,
@@ -301,6 +302,37 @@ def _print_capability_discovery(read_model: dict[str, Any]) -> None:
         print(f"- {ref}")
 
 
+def _print_run_events(read_model: dict[str, Any]) -> None:
+    print("Runtime run events")
+    print(f"Status: {read_model['status']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Proposals: {read_model['proposal_count']}")
+    print(f"Approval waits: {read_model['approval_wait_count']}")
+    print(f"Completed runs: {read_model['completed_run_count']}")
+    print(f"Create route enabled: {read_model['create_run_route_enabled']}")
+    print(f"Stop route enabled: {read_model['stop_run_route_enabled']}")
+    print(
+        "Approval resolution route enabled: "
+        f"{read_model['approval_resolution_route_enabled']}"
+    )
+    print("Lifecycle mappings:")
+    for mapping in read_model["lifecycle_mappings"]:
+        print(
+            f"- {mapping['runtime_state']} -> "
+            f"{mapping['uaa_durable_run_state']}: {mapping['operator_label']}"
+        )
+    print("Run proposals:")
+    for proposal in read_model["run_proposals"]:
+        print(f"- {proposal['runtime_run_ref']} state={proposal['runtime_state']}")
+        print(f"  durable={proposal['uaa_durable_run_ref']}")
+        print(f"  stop={proposal['stop_posture']}")
+        print(f"  approval={proposal['approval_resolution_posture']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
 def _print_invocation(record: Any) -> None:
     print("Governed runtime invocation")
     print(f"Invocation: {record.invocation_ref}")
@@ -497,6 +529,30 @@ def _inspect_capability_discovery(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_capability_discovery(read_model)
+    return 0
+
+
+def _inspect_run_events(args: argparse.Namespace) -> int:
+    read_model = build_runtime_run_events_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-run-events",
+        "runtime_run_events": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_provider_payload_omitted": True,
+        "raw_runtime_payload_omitted": True,
+        "raw_logs_omitted": True,
+        "execution_performed": False,
+        "run_creation_performed": False,
+        "stop_performed": False,
+        "approval_resolution_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_run_events(read_model)
     return 0
 
 
@@ -1157,6 +1213,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref capability discovery read model as JSON.",
     )
     capability_discovery.set_defaults(func=_inspect_capability_discovery)
+
+    run_events = subparsers.add_parser(
+        "inspect-run-events",
+        help="Inspect runtime run/event/approval-wait posture without mutation.",
+    )
+    run_events.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref runtime run events read model as JSON.",
+    )
+    run_events.set_defaults(func=_inspect_run_events)
 
     bridge = subparsers.add_parser(
         "inspect-action-inbox-bridge",

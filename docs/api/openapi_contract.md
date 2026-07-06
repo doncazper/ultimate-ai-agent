@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `204`.
+Current OpenAPI path count: `205`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -89,6 +89,10 @@ Contract rules:
   distinguishes runtime-supported reference metadata from UAA-authorized
   execution, treats stale or unreachable runtime state as blocked, includes a
   snapshot hash ref, and performs no live runtime call.
+  `GET /api/runtime/run-events` exposes the Hermes Runtime Adoption Phase 03
+  backend-owned runtime run/event posture for lifecycle mappings, event refs,
+  stop posture, and approval-wait proposals. It is read/proposal only and does
+  not create runs, stop runs, resolve approvals, or stream live events.
   Phase 07
   preserves configured local loopback model calls and the exact read-only status
   command while adding exact Action Inbox approved focused pytest, repo verifier, and frontend check command execution

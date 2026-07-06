@@ -2,6 +2,7 @@ import type {
   RuntimeCapabilityMatrix,
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeDelegationAdapterReadModel,
+  RuntimeRunEventsReadModel,
   RuntimeReadinessReport,
 } from "../api/types";
 import { EmptyState } from "./DataState";
@@ -12,11 +13,13 @@ export function RuntimeReadinessPanel({
   matrix,
   delegationAdapter,
   capabilityDiscovery,
+  runEvents,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
   delegationAdapter: RuntimeDelegationAdapterReadModel;
   capabilityDiscovery: RuntimeCapabilityDiscoveryReadModel;
+  runEvents: RuntimeRunEventsReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -157,6 +160,94 @@ export function RuntimeReadinessPanel({
             </tbody>
           </table>
         </div>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Runs and events</p>
+            <h3>Approval-wait proposal lane</h3>
+          </div>
+          <span className="status-pill compact">{runEvents.status}</span>
+        </div>
+        <p>{runEvents.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{runEvents.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{runEvents.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Approval waits</dt>
+            <dd>{runEvents.approval_wait_count}</dd>
+          </div>
+          <div>
+            <dt>Completed runs</dt>
+            <dd>{runEvents.completed_run_count}</dd>
+          </div>
+          <div>
+            <dt>Create route</dt>
+            <dd>{runEvents.create_run_route_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+          <div>
+            <dt>Stop route</dt>
+            <dd>{runEvents.stop_run_route_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+          <div>
+            <dt>Approval resolution</dt>
+            <dd>
+              {runEvents.approval_resolution_route_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Live event stream</dt>
+            <dd>{runEvents.live_event_stream_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Runtime state</th>
+                <th>UAA run state</th>
+                <th>Receipt required</th>
+                <th>Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              {runEvents.lifecycle_mappings.slice(0, 6).map((mapping) => (
+                <tr key={`${mapping.runtime_state}-${mapping.uaa_durable_run_state}`}>
+                  <td>{mapping.runtime_state}</td>
+                  <td>{mapping.uaa_durable_run_state}</td>
+                  <td>{mapping.receipt_required_before_claim ? "yes" : "no"}</td>
+                  <td>{mapping.safe_summary}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h4>Run proposals</h4>
+        <ul className="compact-list">
+          {runEvents.run_proposals.map((proposal) => (
+            <li key={proposal.proposal_ref}>
+              {proposal.runtime_run_ref}: {proposal.uaa_durable_run_state}; stop{" "}
+              {proposal.stop_posture}; approval{" "}
+              {proposal.approval_resolution_posture}
+            </li>
+          ))}
+        </ul>
+        <h4>Event previews</h4>
+        <ul className="compact-list">
+          {runEvents.event_previews.map((event) => (
+            <li key={event.event_ref}>
+              {event.event_kind}: {event.event_ref} {" -> "} {event.proof_ref}
+            </li>
+          ))}
+        </ul>
       </article>
       <h3>Capability Matrix</h3>
       {matrix.entries.length > 0 ? (

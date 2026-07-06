@@ -36,6 +36,7 @@ import type {
   RuntimeCapabilityMatrix,
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeDelegationAdapterReadModel,
+  RuntimeRunEventsReadModel,
   RuntimeReadinessReport,
   ApiRouteInventory,
   FounderLoopActionDecisionKind,
@@ -308,6 +309,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeCapabilityDiscovery,
     ),
   ] as const);
+  const runtimeRunEventsSettledPromise = Promise.allSettled([
+    read<RuntimeRunEventsReadModel>(API_ENDPOINTS.runtimeRunEvents),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -413,6 +417,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const agentLoopResult = await agentLoopSettledPromise;
   const runtimeCapabilityDiscoveryResult =
     await runtimeCapabilityDiscoverySettledPromise;
+  const runtimeRunEventsResult = await runtimeRunEventsSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -425,6 +430,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeCapabilityDiscovery = fulfilledValue(
     runtimeCapabilityDiscoveryResult[0],
   );
+  const runtimeRunEvents = fulfilledValue(runtimeRunEventsResult[0]);
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
@@ -487,6 +493,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeCapabilityDiscovery,
   )
     ? runtimeCapabilityDiscovery
+    : undefined;
+  const safeRuntimeRunEvents = isSafeRuntimeRunEvents(runtimeRunEvents)
+    ? runtimeRunEvents
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -619,6 +628,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeDelegationAdapter === undefined;
   const runtimeCapabilityDiscoveryFallbackUsed =
     safeRuntimeCapabilityDiscovery === undefined;
+  const runtimeRunEventsFallbackUsed = safeRuntimeRunEvents === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -758,12 +768,14 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /runtime/capability-matrix",
         "GET /api/runtime/delegation-adapter",
         "GET /api/runtime/capability-discovery",
+        "GET /api/runtime/run-events",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
         capabilityMatrix !== undefined &&
         runtimeDelegationAdapter !== undefined &&
-        runtimeCapabilityDiscovery !== undefined,
+        runtimeCapabilityDiscovery !== undefined &&
+        runtimeRunEvents !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -771,12 +783,16 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeCapabilityDiscoveryFallbackUsed
           ? ["RUNTIME_CAPABILITY_DISCOVERY_MOCK_FALLBACK"]
           : []),
+        ...(runtimeRunEventsFallbackUsed
+          ? ["RUNTIME_RUN_EVENTS_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
         capabilityMatrix === undefined ||
         runtimeDelegationAdapterFallbackUsed ||
-        runtimeCapabilityDiscoveryFallbackUsed,
+        runtimeCapabilityDiscoveryFallbackUsed ||
+        runtimeRunEventsFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -866,6 +882,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     capabilityMatrix === undefined ||
     runtimeDelegationAdapter === undefined ||
     runtimeCapabilityDiscovery === undefined ||
+    runtimeRunEvents === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -889,8 +906,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     coreFulfilledCount +
     (workBoardResult[0].status === "fulfilled" ? 1 : 0) +
     (agentLoopResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeCapabilityDiscoveryResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 3;
+    (runtimeCapabilityDiscoveryResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeRunEventsResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 4;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -953,6 +971,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeCapabilityDiscovery:
       safeRuntimeCapabilityDiscovery ??
       mockControlCenterData.runtimeCapabilityDiscovery,
+    runtimeRunEvents:
+      safeRuntimeRunEvents ?? mockControlCenterData.runtimeRunEvents,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1031,6 +1051,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !agentLoopThreadFallbackUsed &&
     !runtimeDelegationAdapterFallbackUsed &&
     !runtimeCapabilityDiscoveryFallbackUsed &&
+    !runtimeRunEventsFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1057,6 +1078,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     agentLoopThreadFallbackUsed ||
     runtimeDelegationAdapterFallbackUsed ||
     runtimeCapabilityDiscoveryFallbackUsed ||
+    runtimeRunEventsFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1082,6 +1104,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeCapabilityDiscoveryFallbackUsed) {
     degradedSafeMessage =
       "Runtime capability discovery posture was unavailable or unsafe; non-authoritative mock fallback kept runtime controls blocked.";
+  } else if (runtimeRunEventsFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime run/event posture was unavailable or unsafe; non-authoritative mock fallback kept delegated run controls blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1145,6 +1170,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         : []),
       ...(runtimeCapabilityDiscoveryFallbackUsed
         ? ["RUNTIME_CAPABILITY_DISCOVERY_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeRunEventsFallbackUsed
+        ? ["RUNTIME_RUN_EVENTS_MOCK_FALLBACK"]
         : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
@@ -2859,6 +2887,74 @@ function isSafeRuntimeCapabilityDiscovery(
         isNonEmptyStringArray(group.capability_refs) &&
         isNonEmptyStringArray(group.blocked_authority_refs) &&
         isNonEmptyStringArray(group.next_safe_action_refs),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeRunEvents(
+  value: RuntimeRunEventsReadModel | undefined,
+): value is RuntimeRunEventsReadModel {
+  if (
+    value === undefined ||
+    !Array.isArray(value.lifecycle_mappings) ||
+    !Array.isArray(value.run_proposals) ||
+    !Array.isArray(value.event_previews)
+  ) {
+    return false;
+  }
+  const deniedTopLevelFlags: Array<keyof RuntimeRunEventsReadModel> = [
+    "create_run_route_enabled",
+    "stop_run_route_enabled",
+    "approval_resolution_route_enabled",
+    "live_event_stream_enabled",
+    "control_center_talks_directly_to_runtime",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+    "raw_provider_payload_persisted",
+    "raw_runtime_payload_persisted",
+    "raw_log_persisted",
+    "raw_local_path_persisted",
+    "credential_material_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_run_events.v1" &&
+    value.status === "proposal_read_model_only" &&
+    value.uaa_controls_authority === true &&
+    value.no_mutation_routes_registered === true &&
+    value.safe_refs_only === true &&
+    value.proposal_count === value.run_proposals.length &&
+    value.approval_wait_count ===
+      value.run_proposals.filter(
+        (proposal) => proposal.uaa_durable_run_state === "approval_wait",
+      ).length &&
+    value.completed_run_count === 0 &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.lifecycle_mappings.length > 0 &&
+    value.lifecycle_mappings.every(
+      (mapping) => mapping.receipt_required_before_claim === true,
+    ) &&
+    value.run_proposals.every(
+      (proposal) =>
+        proposal.uaa_durable_run_state !== "completed" &&
+        proposal.create_run_enabled === false &&
+        proposal.stop_run_enabled === false &&
+        proposal.approval_resolution_enabled === false &&
+        proposal.live_event_stream_enabled === false &&
+        proposal.retry_recovery_enabled === false &&
+        proposal.cancellation_proof_required === true &&
+        isNonEmptyStringArray(proposal.event_refs) &&
+        isNonEmptyStringArray(proposal.proof_refs) &&
+        isNonEmptyStringArray(proposal.blocked_authority_refs),
+    ) &&
+    value.event_previews.every(
+      (event) =>
+        event.runtime_payload_persisted === false &&
+        event.raw_log_persisted === false &&
+        event.raw_prompt_persisted === false &&
+        event.raw_response_persisted === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

@@ -1298,6 +1298,13 @@
           "operation_id": "get_api_runtime_capability_discovery",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/run-events",
+          "operation_id": "get_api_runtime_run_events",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "side_effect_class": "validation_only",

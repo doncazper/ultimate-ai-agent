@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `204`.
+Current OpenAPI path count: `205`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 133 |
+| `local_sensitive` | 134 |
 | `mutating_requires_authority` | 42 |
 
 Allowed current side-effect classes are:
@@ -137,6 +137,11 @@ runs, events, approvals, sessions, skills, toolsets, jobs, and blocked actions.
 It is a static snapshot with safe refs and a snapshot hash ref only; runtime
 support metadata cannot grant UAA permission, and stale or unreachable runtime
 state degrades to blocked.
+`GET /api/runtime/run-events` exposes a protected read-only Python Core Hermes
+Runtime Adoption Phase 03 run/event posture for external runtime lifecycle
+state, UAA durable run state mapping, event-ref grammar, proof binding, blocked
+stop posture, and approval-wait proposals. It does not create delegated runs,
+stop delegated runs, resolve runtime approvals, or stream live events.
 Capability, invocation, policy, approval-ref, receipt, and safe-disable records
 store safe refs and redacted metadata only; model output is untrusted proposal
 text, and command output is redacted and bounded. Remote provider/model calls,

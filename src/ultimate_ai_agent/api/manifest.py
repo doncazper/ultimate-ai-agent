@@ -677,6 +677,7 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/capability-discovery",
     "/api/runtime/delegation-adapter",
     "/api/runtime/governed-product-pilot-profile",
+    "/api/runtime/run-events",
     "/api/runtime/staged-orchestration",
     "/api/runtime/prepared-turn",
     "/api/runtime/parity-loop",

@@ -67,6 +67,7 @@ export const API_ENDPOINTS = {
   runtimeCapabilityMatrix: "/runtime/capability-matrix",
   runtimeDelegationAdapter: "/api/runtime/delegation-adapter",
   runtimeCapabilityDiscovery: "/api/runtime/capability-discovery",
+  runtimeRunEvents: "/api/runtime/run-events",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
   localModels: "/v1/models",
   localChatCompletions: "/v1/chat/completions",
@@ -207,6 +208,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.runtimeCapabilityMatrix,
   API_ENDPOINTS.runtimeDelegationAdapter,
   API_ENDPOINTS.runtimeCapabilityDiscovery,
+  API_ENDPOINTS.runtimeRunEvents,
 ] as const;
 
 export function isAllowedReadEndpoint(

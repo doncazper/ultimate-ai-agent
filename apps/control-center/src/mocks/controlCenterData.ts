@@ -9537,6 +9537,153 @@ export const mockControlCenterData: ControlCenterData = {
       "runtime_payload_omitted",
     ],
   },
+  runtimeRunEvents: {
+    schema_version: "runtime_run_events.v1",
+    contract_ref: "contract-ref:runtime-run-events:v1",
+    route_ref: "GET /api/runtime/run-events",
+    cli_ref: "uaa runtime inspect-run-events",
+    control_center_ref: "control-center-route:runtime",
+    runtime_identity_ref: "runtime-identity-ref:hermes-agent:optional-target",
+    adapter_ref: "runtime-delegation-adapter:hermes-agent",
+    status: "proposal_read_model_only",
+    lifecycle_mappings: [
+      {
+        runtime_state: "proposed",
+        uaa_durable_run_state: "proposed",
+        operator_label: "Proposed",
+        safe_summary:
+          "Mock fallback keeps delegated run creation in proposal state.",
+        receipt_required_before_claim: true,
+      },
+      {
+        runtime_state: "approval_wait",
+        uaa_durable_run_state: "approval_wait",
+        operator_label: "Approval wait",
+        safe_summary:
+          "Mock fallback can show an approval-wait posture without resolving it.",
+        receipt_required_before_claim: true,
+      },
+      {
+        runtime_state: "completed",
+        uaa_durable_run_state: "completed",
+        operator_label: "Completed",
+        safe_summary:
+          "Completion cannot be claimed without a backend receipt and proof ref.",
+        receipt_required_before_claim: true,
+      },
+      {
+        runtime_state: "unknown_stale",
+        uaa_durable_run_state: "stale_unknown",
+        operator_label: "Unknown stale",
+        safe_summary: "Stale runtime state degrades to blocked inspection.",
+        receipt_required_before_claim: true,
+      },
+    ],
+    event_ref_grammar: {
+      grammar_ref: "event-grammar-ref:runtime-run-events:v1",
+      event_ref_prefix: "runtime-run-event-ref:",
+      required_bindings: [
+        "runtime_run_ref",
+        "uaa_durable_run_ref",
+        "proof_ref",
+        "redaction_status",
+      ],
+      safe_summary:
+        "Mock event refs bind run, durable run, proof, and redaction status only.",
+    },
+    run_proposals: [
+      {
+        proposal_ref:
+          "runtime-run-proposal-ref:hermes-agent:mock-approval-wait",
+        runtime_run_ref: "runtime-run-ref:hermes-agent:mock-approval-wait",
+        uaa_durable_run_ref:
+          "durable-run-ref:runtime-delegation:mock-approval-wait",
+        runtime_state: "approval_wait",
+        uaa_durable_run_state: "approval_wait",
+        create_posture: "blocked",
+        stop_posture: "blocked",
+        approval_resolution_posture: "approval_required_future_lane",
+        event_stream_posture: "read_model_only",
+        create_run_enabled: false,
+        stop_run_enabled: false,
+        approval_resolution_enabled: false,
+        live_event_stream_enabled: false,
+        retry_recovery_enabled: false,
+        cancellation_proof_required: true,
+        event_refs: [
+          "runtime-run-event-ref:hermes-agent:mock-approval-wait",
+        ],
+        proof_refs: ["proof-ref:runtime-run-events:mock-fallback"],
+        receipt_refs: [
+          "receipt-plan-ref:runtime-run-events:create-run-future",
+        ],
+        blocked_authority_refs: [
+          "blocked-authority:runtime-run-create-route",
+          "blocked-authority:runtime-run-stop-execution",
+          "blocked-authority:runtime-run-approval-resolution",
+        ],
+        next_safe_action_refs: [
+          "next-safe-action-ref:runtime-run-events:bind-action-inbox-approval",
+        ],
+        safe_summary:
+          "Mock fallback shows an approval-wait delegated run proposal only.",
+      },
+    ],
+    event_previews: [
+      {
+        event_ref: "runtime-run-event-ref:hermes-agent:mock-approval-wait",
+        event_kind: "approval_wait_entered",
+        runtime_run_ref: "runtime-run-ref:hermes-agent:mock-approval-wait",
+        uaa_durable_run_ref:
+          "durable-run-ref:runtime-delegation:mock-approval-wait",
+        proof_ref: "proof-ref:runtime-run-events:mock-fallback",
+        redaction_status: "redacted_safe_ref_only",
+        safe_summary:
+          "Mock fallback event preview is non-authoritative and redacted.",
+        runtime_payload_persisted: false,
+        raw_log_persisted: false,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+      },
+    ],
+    proposal_count: 1,
+    approval_wait_count: 1,
+    completed_run_count: 0,
+    create_run_route_enabled: false,
+    stop_run_route_enabled: false,
+    approval_resolution_route_enabled: false,
+    live_event_stream_enabled: false,
+    uaa_controls_authority: true,
+    control_center_talks_directly_to_runtime: false,
+    no_mutation_routes_registered: true,
+    safe_refs_only: true,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    raw_provider_payload_persisted: false,
+    raw_runtime_payload_persisted: false,
+    raw_log_persisted: false,
+    raw_local_path_persisted: false,
+    credential_material_persisted: false,
+    blocked_authority_refs: [
+      "blocked-authority:runtime-run-create-route",
+      "blocked-authority:runtime-run-stop-execution",
+      "blocked-authority:runtime-run-approval-resolution",
+      "blocked-authority:runtime-run-live-event-stream",
+    ],
+    proof_refs: ["proof-ref:runtime-run-events:mock-fallback"],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-run-events:bind-action-inbox-approval",
+    ],
+    safe_summary:
+      "Runtime run/events mock fallback is non-authoritative and cannot create, stop, approve, or stream delegated runs.",
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "runtime_event_payload_omitted",
+    ],
+  },
   m15Review: {
     status: "mock_preview_only",
     readOnly: true,
