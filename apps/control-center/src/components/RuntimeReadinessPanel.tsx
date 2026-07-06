@@ -169,6 +169,110 @@ export function RuntimeReadinessPanel({
             </tbody>
           </table>
         </div>
+        <div className="panel-heading compact-heading subsection-heading">
+          <div>
+            <p className="eyebrow">Toolset posture</p>
+            <h3>Runtime support vs UAA allowance</h3>
+          </div>
+          <span className="status-pill compact">
+            {capabilityDiscovery.toolset_posture.status}
+          </span>
+        </div>
+        <p>{capabilityDiscovery.toolset_posture.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Toolsets</dt>
+            <dd>{capabilityDiscovery.toolset_posture.toolset_count}</dd>
+          </div>
+          <div>
+            <dt>Runtime supported</dt>
+            <dd>{capabilityDiscovery.toolset_posture.runtime_supported_count}</dd>
+          </div>
+          <div>
+            <dt>UAA execution allowed</dt>
+            <dd>
+              {capabilityDiscovery.toolset_posture.uaa_allowed_execution_count}
+            </dd>
+          </div>
+          <div>
+            <dt>Approval-required future</dt>
+            <dd>
+              {capabilityDiscovery.toolset_posture.approval_required_future_count}
+            </dd>
+          </div>
+          <div>
+            <dt>Blocked</dt>
+            <dd>{capabilityDiscovery.toolset_posture.blocked_count}</dd>
+          </div>
+          <div>
+            <dt>Unsupported</dt>
+            <dd>{capabilityDiscovery.toolset_posture.unsupported_count}</dd>
+          </div>
+          <div>
+            <dt>Tool invocation</dt>
+            <dd>
+              {capabilityDiscovery.toolset_posture.live_tool_invocation_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Config mutation</dt>
+            <dd>
+              {capabilityDiscovery.toolset_posture.toolset_config_mutation_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Toolset</th>
+                <th>Runtime support</th>
+                <th>UAA allowance</th>
+                <th>Side effect</th>
+              </tr>
+            </thead>
+            <tbody>
+              {capabilityDiscovery.toolset_posture.records.map((record) => (
+                <tr key={record.toolset_ref}>
+                  <td>{record.display_label}</td>
+                  <td>{record.runtime_support_status}</td>
+                  <td>{record.uaa_allowance_status}</td>
+                  <td>{record.side_effect_class}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>Proof</dt>
+            <dd>
+              <ul className="compact-list">
+                {capabilityDiscovery.toolset_posture.proof_refs
+                  .slice(0, 3)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Blocked authority</dt>
+            <dd>
+              <ul className="compact-list">
+                {capabilityDiscovery.toolset_posture.blocked_authority_refs
+                  .slice(0, 3)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+        </dl>
       </article>
       <article className="info-card">
         <div className="panel-heading compact-heading">

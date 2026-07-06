@@ -88,7 +88,11 @@ Contract rules:
   events, approvals, sessions, skills, toolsets, jobs, and blocked actions. It
   distinguishes runtime-supported reference metadata from UAA-authorized
   execution, treats stale or unreachable runtime state as blocked, includes a
-  snapshot hash ref, and performs no live runtime call.
+  snapshot hash ref, and performs no live runtime call. It also includes the
+  Phase 09 runtime toolset capability posture, which maps runtime support to
+  UAA allowance states while keeping runtime tool invocation, Hermes toolset
+  enablement, toolset config mutation, raw tool payload persistence, and
+  production authority disabled.
   `GET /api/runtime/run-events` exposes the Hermes Runtime Adoption Phase 03
   backend-owned runtime run/event posture for lifecycle mappings, event refs,
   stop posture, and approval-wait proposals. It is read/proposal only and does

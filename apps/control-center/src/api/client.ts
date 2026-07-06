@@ -37,6 +37,7 @@ import type {
   RuntimeCapabilityMatrix,
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeDelegationAdapterReadModel,
+  RuntimeToolsetCapabilityPosture,
   RuntimeRunEventsReadModel,
   RuntimeStreamingProgressReadModel,
   RuntimeProfileIsolationReadModel,
@@ -2933,7 +2934,11 @@ function isSafeRuntimeDelegationAdapter(
 function isSafeRuntimeCapabilityDiscovery(
   value: RuntimeCapabilityDiscoveryReadModel | undefined,
 ): value is RuntimeCapabilityDiscoveryReadModel {
-  if (value === undefined || !Array.isArray(value.capability_groups)) {
+  if (
+    value === undefined ||
+    !Array.isArray(value.capability_groups) ||
+    !isSafeRuntimeToolsetCapabilityPosture(value.toolset_posture)
+  ) {
     return false;
   }
   const requiredGroupKinds = [
@@ -2971,6 +2976,7 @@ function isSafeRuntimeCapabilityDiscovery(
     value.stale_or_unreachable_degrades_to_blocked === true &&
     value.runtime_supported_cannot_grant_uaa_permission === true &&
     value.uaa_authorized_capability_count === 0 &&
+    value.toolset_posture.uaa_allowed_execution_count === 0 &&
     isNonEmptyStringArray(value.blocked_authority_refs) &&
     isNonEmptyStringArray(value.proof_refs) &&
     isNonEmptyStringArray(value.next_safe_action_refs) &&
@@ -2982,6 +2988,95 @@ function isSafeRuntimeCapabilityDiscovery(
         isNonEmptyStringArray(group.capability_refs) &&
         isNonEmptyStringArray(group.blocked_authority_refs) &&
         isNonEmptyStringArray(group.next_safe_action_refs),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeToolsetCapabilityPosture(
+  value: RuntimeToolsetCapabilityPosture | undefined,
+): value is RuntimeToolsetCapabilityPosture {
+  if (value === undefined || !Array.isArray(value.records)) {
+    return false;
+  }
+  const allowedSupportStatuses = new Set([
+    "runtime_supported_by_reference",
+    "runtime_configured_metadata_only",
+    "runtime_planned_disabled",
+    "runtime_unsupported",
+    "runtime_blocked_by_uaa",
+  ]);
+  const allowedAllowanceStatuses = new Set([
+    "enabled_read_only",
+    "configured_metadata_only",
+    "approval_required_future_lane",
+    "blocked",
+    "unsupported",
+  ]);
+  const allowedSideEffectClasses = new Set([
+    "read_only_metadata",
+    "local_workspace",
+    "external_mutation",
+    "high_authority",
+    "unsupported",
+  ]);
+  const recordCount = value.records.length;
+  const runtimeSupportedCount = value.records.filter(
+    (record) => record.runtime_supports_toolset,
+  ).length;
+  const allowanceCounts: Record<string, number> = {
+    enabled_read_only: 0,
+    configured_metadata_only: 0,
+    approval_required_future_lane: 0,
+    blocked: 0,
+    unsupported: 0,
+  };
+  for (const record of value.records) {
+    if (
+      !allowedSupportStatuses.has(record.runtime_support_status) ||
+      !allowedAllowanceStatuses.has(record.uaa_allowance_status) ||
+      !allowedSideEffectClasses.has(record.side_effect_class)
+    ) {
+      return false;
+    }
+    allowanceCounts[record.uaa_allowance_status] += 1;
+  }
+  const deniedTopLevelFlags: Array<keyof RuntimeToolsetCapabilityPosture> = [
+    "live_tool_invocation_enabled",
+    "toolset_config_mutation_enabled",
+    "hermes_toolset_enablement_enabled",
+    "raw_tool_payload_persisted",
+    "production_authority_enabled",
+  ];
+  return (
+    value.schema_version === "runtime_toolset_capability_posture.v1" &&
+    value.status === "read_only_toolset_capability_posture" &&
+    value.toolset_count === recordCount &&
+    value.runtime_supported_count === runtimeSupportedCount &&
+    value.uaa_allowed_execution_count === 0 &&
+    value.enabled_read_only_count === allowanceCounts.enabled_read_only &&
+    value.configured_metadata_only_count ===
+      allowanceCounts.configured_metadata_only &&
+    value.approval_required_future_count ===
+      allowanceCounts.approval_required_future_lane &&
+    value.blocked_count === allowanceCounts.blocked &&
+    value.unsupported_count === allowanceCounts.unsupported &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:runtime-toolset-invocation",
+    ) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.records.every(
+      (record) =>
+        record.uaa_allows_execution === false &&
+        record.tool_invocation_enabled === false &&
+        record.toolset_config_mutation_enabled === false &&
+        record.hermes_toolset_enablement_enabled === false &&
+        record.raw_tool_payload_persisted === false &&
+        isNonEmptyStringArray(record.blocked_authority_refs) &&
+        isNonEmptyStringArray(record.next_safe_action_refs),
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

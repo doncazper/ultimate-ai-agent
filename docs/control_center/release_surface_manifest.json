@@ -1971,6 +1971,7 @@
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
         "docs/runtime/UAA_HERMES_RUNTIME_DELEGATION_ADAPTER.md",
         "docs/runtime/UAA_HERMES_RUNTIME_CAPABILITY_DISCOVERY.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_TOOLSET_CAPABILITY_POSTURE.md",
         "docs/runtime/UAA_HERMES_RUNTIME_RUN_EVENTS.md",
         "docs/runtime/UAA_HERMES_RUNTIME_APPROVAL_BRIDGE.md",
         "docs/runtime/UAA_HERMES_RUNTIME_STREAMING_PROGRESS.md",

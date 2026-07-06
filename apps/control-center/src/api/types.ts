@@ -8911,6 +8911,74 @@ export interface RuntimeDiscoveredCapabilityGroup {
   next_safe_action_refs: string[];
 }
 
+export interface RuntimeToolsetCapabilityRecord {
+  toolset_ref: string;
+  display_label: string;
+  runtime_ref: string;
+  profile_ref: string;
+  runtime_support_status:
+    | "runtime_supported_by_reference"
+    | "runtime_configured_metadata_only"
+    | "runtime_planned_disabled"
+    | "runtime_unsupported"
+    | "runtime_blocked_by_uaa";
+  uaa_allowance_status:
+    | "enabled_read_only"
+    | "configured_metadata_only"
+    | "approval_required_future_lane"
+    | "blocked"
+    | "unsupported";
+  side_effect_class:
+    | "read_only_metadata"
+    | "local_workspace"
+    | "external_mutation"
+    | "high_authority"
+    | "unsupported";
+  authority_mode_ref: string;
+  approval_scope_ref: string;
+  safe_disable_ref: string;
+  receipt_ref: string;
+  verifier_ref: string;
+  safe_summary: string;
+  runtime_supports_toolset: boolean;
+  uaa_allows_execution: boolean;
+  tool_invocation_enabled: boolean;
+  toolset_config_mutation_enabled: boolean;
+  hermes_toolset_enablement_enabled: boolean;
+  raw_tool_payload_persisted: boolean;
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+}
+
+export interface RuntimeToolsetCapabilityPosture {
+  schema_version: "runtime_toolset_capability_posture.v1";
+  contract_ref: string;
+  status: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  authority_profile_ref: string;
+  safe_summary: string;
+  records: RuntimeToolsetCapabilityRecord[];
+  toolset_count: number;
+  runtime_supported_count: number;
+  uaa_allowed_execution_count: number;
+  enabled_read_only_count: number;
+  configured_metadata_only_count: number;
+  approval_required_future_count: number;
+  blocked_count: number;
+  unsupported_count: number;
+  live_tool_invocation_enabled: boolean;
+  toolset_config_mutation_enabled: boolean;
+  hermes_toolset_enablement_enabled: boolean;
+  raw_tool_payload_persisted: boolean;
+  production_authority_enabled: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -8934,6 +9002,7 @@ export interface RuntimeCapabilityDiscoveryReadModel {
   freshness_policy_ref: string;
   policy_evaluation_ref: string;
   capability_groups: RuntimeDiscoveredCapabilityGroup[];
+  toolset_posture: RuntimeToolsetCapabilityPosture;
   runtime_supported_capability_count: number;
   uaa_authorized_capability_count: number;
   blocked_authority_refs: string[];
