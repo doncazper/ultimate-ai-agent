@@ -52,6 +52,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_result_classification_read_model,
     build_runtime_voice_media_posture_read_model,
     build_runtime_messaging_gateway_posture_read_model,
+    build_runtime_remote_execution_posture_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -1096,6 +1097,43 @@ def _print_messaging_gateway_posture(read_model: dict[str, Any]) -> None:
         print(f"- {ref}")
 
 
+def _print_remote_execution_posture(read_model: dict[str, Any]) -> None:
+    print("Runtime remote execution backend posture")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Doc: {read_model['doc_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Backends: "
+        f"total={read_model['backend_count']} "
+        f"blocked={read_model['blocked_backend_count']}"
+    )
+    print(
+        "Authority flags: "
+        f"remote={read_model['remote_execution_enabled']} "
+        f"ssh={read_model['ssh_enabled']} "
+        f"cloud={read_model['cloud_sandbox_enabled']} "
+        f"shell={read_model['remote_shell_enabled']} "
+        f"sync={read_model['file_sync_enabled']} "
+        f"secrets={read_model['remote_secret_access_enabled']} "
+        f"process={read_model['remote_process_control_enabled']}"
+    )
+    print("Execution backends:")
+    for backend in read_model["backends"]:
+        print(
+            f"- {backend['display_label']}: "
+            f"kind={backend['backend_kind']} status={backend['status']}"
+        )
+        print(f"  workspace={backend['workspace_boundary_ref']}")
+        print(f"  credentials={backend['credential_policy_ref']}")
+        print(f"  network={backend['network_policy_ref']}")
+        print(f"  receipt={backend['receipt_plan_ref']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
 def _print_session_search(read_model: dict[str, Any]) -> None:
     print("Runtime session/run search")
     print(f"Status: {read_model['status']}")
@@ -2116,6 +2154,35 @@ def _inspect_messaging_gateway_posture(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_messaging_gateway_posture(read_model)
+    return 0
+
+
+def _inspect_remote_execution_posture(args: argparse.Namespace) -> int:
+    read_model = build_runtime_remote_execution_posture_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-remote-execution-posture",
+        "runtime_remote_execution_posture": read_model,
+        "metadata_only": True,
+        "safe_refs_only": True,
+        "remote_execution_posture_only": True,
+        "remote_execution_performed": False,
+        "ssh_performed": False,
+        "cloud_sandbox_performed": False,
+        "remote_shell_performed": False,
+        "file_sync_performed": False,
+        "remote_secret_access_performed": False,
+        "remote_process_control_performed": False,
+        "credential_material_omitted": True,
+        "remote_paths_omitted": True,
+        "remote_logs_omitted": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_remote_execution_posture(read_model)
     return 0
 
 
@@ -3265,6 +3332,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the messaging gateway posture as JSON.",
     )
     messaging_gateway_posture.set_defaults(func=_inspect_messaging_gateway_posture)
+
+    remote_execution_posture = subparsers.add_parser(
+        "inspect-remote-execution-posture",
+        help="Inspect execution backend posture without remote execution.",
+    )
+    remote_execution_posture.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the remote execution backend posture as JSON.",
+    )
+    remote_execution_posture.set_defaults(func=_inspect_remote_execution_posture)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",
