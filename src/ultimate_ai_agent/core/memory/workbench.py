@@ -19,28 +19,25 @@ from ultimate_ai_agent.core.memory.feature_mine import (
 
 
 MEMORY_WORKBENCH_CONTRACT_REF = "contract-ref:fcc-mem-001-memory-workbench:v1"
-MEMORY_LIFECYCLE_POSTURE_CONTRACT_REF = (
-    "contract-ref:memory-merge-supersede-posture:v1"
-)
+MEMORY_LIFECYCLE_POSTURE_CONTRACT_REF = "contract-ref:memory-merge-supersede-posture:v1"
 MEMORY_LEARNING_POSTURE_CONTRACT_REF = (
     "contract-ref:goatcitadel-catchup-memory-learning-posture:v1"
+)
+MEMORY_BOUNDED_POSTURE_CONTRACT_REF = (
+    "contract-ref:hermes-runtime-adoption-bounded-memory-posture:v1"
 )
 MEMORY_RANKING_CONTRACT_REF = (
     "contract-ref:fcc-mem-022-ranked-retrieval-recall-tuning:v1"
 )
 MEMORY_WORKBENCH_ROUTE_REF = "GET /control-center/memory/workbench"
 MEMORY_SEARCH_ROUTE_REF = "GET /control-center/memory/search"
-MEMORY_IMPACT_GRAPH_CONTRACT_REF = (
-    "contract-ref:fcc-mem-015-memory-impact-graph:v1"
-)
+MEMORY_IMPACT_GRAPH_CONTRACT_REF = "contract-ref:fcc-mem-015-memory-impact-graph:v1"
 MEMORY_IMPACT_GRAPH_ROUTE_REF = "GET /control-center/memory/impact-graph"
 MEMORY_FOLLOW_UP_QUEUE_CONTRACT_REF = (
     "contract-ref:fcc-mem-015-memory-follow-up-queue:v1"
 )
 MEMORY_FOLLOW_UP_QUEUE_ROUTE_REF = "GET /control-center/memory/follow-ups"
-MEMORY_MANUAL_INTAKE_ROUTE_REF = (
-    "POST /control-center/memory/review/manual-candidate"
-)
+MEMORY_MANUAL_INTAKE_ROUTE_REF = "POST /control-center/memory/review/manual-candidate"
 MEMORY_MANUAL_INTAKE_CONTRACT_REF = "contract-ref:fcc-mem-001-manual-intake:v1"
 MEMORY_WORKBENCH_GROUPS = [
     "needs_review",
@@ -88,6 +85,22 @@ MEMORY_LEARNING_POSTURE_BLOCKED_STATE_REFS = [
     "blocked-state:memory-learning-no-hard-delete",
     "blocked-state:memory-learning-no-export-execution",
     "blocked-state:memory-learning-no-production-authority",
+]
+MEMORY_BOUNDED_POSTURE_BLOCKED_STATE_REFS = [
+    "blocked-state:bounded-memory-no-autonomous-memory-write",
+    "blocked-state:bounded-memory-no-hidden-prompt-injection",
+    "blocked-state:bounded-memory-no-external-memory-provider-write",
+    "blocked-state:bounded-memory-no-hidden-context-injection",
+    "blocked-state:bounded-memory-no-memory-as-truth-authority",
+    "blocked-state:bounded-memory-no-semantic-provider",
+    "blocked-state:bounded-memory-no-vector-db",
+    "blocked-state:bounded-memory-no-embeddings",
+    "blocked-state:bounded-memory-no-model-provider-call",
+    "blocked-state:bounded-memory-no-live-web-fetch",
+    "blocked-state:bounded-memory-no-connector-write",
+    "blocked-state:bounded-memory-no-delete-export-execution",
+    "blocked-state:bounded-memory-no-background-autonomy",
+    "blocked-state:bounded-memory-no-production-authority",
 ]
 MEMORY_RANKING_BLOCKED_STATE_REFS = [
     "blocked-state:memory-ranking-no-embeddings",
@@ -259,9 +272,7 @@ def _state_ref(prefix: str, value: str) -> str:
 
 
 def _short_digest(value: str, *, length: int = 16) -> str:
-    return hashlib.sha256(value.encode("utf-8", errors="replace")).hexdigest()[
-        :length
-    ]
+    return hashlib.sha256(value.encode("utf-8", errors="replace")).hexdigest()[:length]
 
 
 def _payload_fingerprint(payload: dict[str, Any], *, prefix: str) -> str:
@@ -276,7 +287,9 @@ def _iso_recency(created_at: Any) -> int:
         created = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
     except ValueError:
         return 1
-    age_seconds = (datetime.now(timezone.utc) - created.astimezone(timezone.utc)).total_seconds()
+    age_seconds = (
+        datetime.now(timezone.utc) - created.astimezone(timezone.utc)
+    ).total_seconds()
     if age_seconds < 60 * 60 * 24:
         return 20
     if age_seconds < 60 * 60 * 24 * 7:
@@ -366,7 +379,9 @@ def manual_memory_candidate_payload_for_fingerprint(
 def manual_memory_candidate_payload_fingerprint_ref(
     payload: dict[str, Any],
 ) -> str:
-    return _payload_fingerprint(payload, prefix="payload-fingerprint:manual-memory-candidate")
+    return _payload_fingerprint(
+        payload, prefix="payload-fingerprint:manual-memory-candidate"
+    )
 
 
 def manual_memory_candidate_ref(idempotency_key_ref: str) -> str:
@@ -413,7 +428,9 @@ def build_memory_workbench(
         )
 
     for preview in l1_index.get("previews", []) or []:
-        workbench_items.append(_l1_workbench_item(dict(preview), loop_refs=loop_ref_set))
+        workbench_items.append(
+            _l1_workbench_item(dict(preview), loop_refs=loop_ref_set)
+        )
 
     duplicate_keys: dict[str, list[str]] = {}
     conflict_keys: dict[str, list[str]] = {}
@@ -525,6 +542,15 @@ def build_memory_workbench(
             ranking=ranking,
             search_index_status=search_index_status,
         ),
+        "bounded_memory_posture": _memory_bounded_posture(
+            ranked_items,
+            decision_receipts=decision_receipts,
+            context_packs=context_packs,
+            health=health,
+            lifecycle_posture=lifecycle_posture,
+            ranking=ranking,
+            search_index_status=search_index_status,
+        ),
         "decision_receipts": decision_receipts,
         "l1_preview_refs": [
             str(item.get("memory_record_ref")) for item in l1_index.get("previews", [])
@@ -554,6 +580,196 @@ def build_memory_workbench(
         "production_authority_enabled": False,
     }
     return read_model
+
+
+def _memory_bounded_posture(
+    items: list[dict[str, Any]],
+    *,
+    decision_receipts: list[dict[str, Any]],
+    context_packs: dict[str, Any],
+    health: dict[str, Any],
+    lifecycle_posture: dict[str, Any],
+    ranking: dict[str, Any],
+    search_index_status: dict[str, Any] | None,
+) -> dict[str, Any]:
+    accepted_receipts = _receipt_refs_for_decisions(decision_receipts, ["accept"])
+    corrected_receipts = _receipt_refs_for_decisions(decision_receipts, ["correct"])
+    rejected_receipts = _receipt_refs_for_decisions(decision_receipts, ["reject"])
+    source_refs = _safe_refs(
+        [ref for item in items for ref in item.get("source_refs", []) or []],
+        "memory_bounded_source_refs",
+    )
+    provenance_refs = _safe_refs(
+        [ref for item in items for ref in item.get("provenance_refs", []) or []],
+        "memory_bounded_provenance_refs",
+    )
+    evidence_refs = _safe_refs(
+        [ref for item in items for ref in item.get("evidence_refs", []) or []],
+        "memory_bounded_evidence_refs",
+    )
+    receipt_refs = _safe_refs(
+        [
+            ref
+            for item in items
+            for ref in [
+                *list(item.get("receipt_refs") or []),
+                *list(item.get("lifecycle_receipt_refs") or []),
+            ]
+        ],
+        "memory_bounded_receipt_refs",
+    )
+    related_entity_refs = _safe_refs(
+        [ref for item in items for ref in item.get("related_entity_refs", []) or []],
+        "memory_bounded_related_entity_refs",
+    )
+    tag_refs = _safe_refs(
+        [ref for item in items for ref in item.get("tag_refs", []) or []],
+        "memory_bounded_tag_refs",
+    )
+    why_shown_refs = _safe_refs(
+        [ref for item in items for ref in item.get("why_shown_refs", []) or []],
+        "memory_bounded_why_shown_refs",
+    )
+    included_reason_refs = _safe_refs(
+        [ref for item in items for ref in item.get("included_reason_refs", []) or []],
+        "memory_bounded_included_reason_refs",
+    )
+    stale_item_refs = _safe_refs(
+        [
+            item.get("memory_ref")
+            for item in items
+            if "stale" in item.get("group_ids", [])
+            or int(item.get("stale_pressure") or 0) > 0
+        ],
+        "memory_bounded_stale_item_refs",
+    )
+    stale_state_refs = _safe_refs(
+        [
+            _state_ref("memory-bounded-stale-state", str(item.get("stale_state")))
+            for item in items
+            if item.get("stale_state") and str(item.get("stale_state")) != "fresh"
+        ],
+        "memory_bounded_stale_state_refs",
+    )
+    quality_state_refs = _safe_refs(
+        [ref for item in items for ref in item.get("quality_state_refs", []) or []],
+        "memory_bounded_quality_state_refs",
+    )
+    context_pack_refs = _safe_refs(
+        [
+            proposal.get("context_pack_ref")
+            for proposal in context_packs.get("proposals", []) or []
+        ],
+        "memory_bounded_context_pack_refs",
+    )
+    target_refs = _safe_refs(
+        [*related_entity_refs, *tag_refs],
+        "memory_bounded_target_refs",
+    )
+    token_estimate = sum(int(item.get("token_estimate") or 0) for item in items)
+    search_status = _search_index_status(search_index_status)
+    return {
+        "schema_version": "hermes_runtime_adoption_bounded_memory_posture.v1",
+        "contract_ref": MEMORY_BOUNDED_POSTURE_CONTRACT_REF,
+        "route_ref": MEMORY_WORKBENCH_ROUTE_REF,
+        "cli_ref": "repo-local-command:founder-loop-memory-bounded-posture",
+        "proof_ref": "proof-ref:hermes-runtime-adoption:phase-11:bounded-memory",
+        "status": "implemented_backend_owned_bounded_memory_posture",
+        "source": "python_core_memory_workbench_bounded_memory_posture",
+        "backend_owned": True,
+        "control_center_presentation_only": True,
+        "safe_refs_only": True,
+        "raw_content_included": False,
+        "target_posture": {
+            "supported_target_kinds": ["user", "profile", "project"],
+            "target_refs": target_refs[:80],
+            "target_ref_count": len(target_refs),
+            "operator_selected_context_required": True,
+            "automatic_context_injection_authorized": False,
+            "hidden_context_injection_authorized": False,
+        },
+        "capacity_posture": {
+            "visible_item_count": len(items),
+            "candidate_count": int(ranking.get("candidate_count") or len(items)),
+            "context_pack_count": int(context_packs.get("context_pack_count") or 0),
+            "max_visible_items": 80,
+            "max_provenance_refs": 80,
+            "token_estimate": token_estimate,
+            "token_budget_state": "bounded_safe_summary_refs_only",
+            "search_index_status": search_status,
+        },
+        "source_posture": {
+            "source_refs": source_refs[:80],
+            "source_ref_count": len(source_refs),
+            "provenance_refs": provenance_refs[:80],
+            "provenance_ref_count": len(provenance_refs),
+            "evidence_refs": evidence_refs[:80],
+            "evidence_ref_count": len(evidence_refs),
+            "receipt_refs": receipt_refs[:80],
+            "receipt_ref_count": len(receipt_refs),
+            "safe_summary_only": True,
+            "source_refs_required": True,
+        },
+        "staleness_posture": {
+            "stale_count": int(health.get("stale_count") or 0),
+            "stale_item_refs": stale_item_refs[:80],
+            "stale_state_refs": stale_state_refs[:80],
+            "recheck_required_before_recall": bool(stale_item_refs),
+        },
+        "why_shown_posture": {
+            "why_shown_required": True,
+            "why_shown_refs": why_shown_refs[:80],
+            "included_reason_refs": included_reason_refs[:80],
+            "quality_state_refs": quality_state_refs[:80],
+        },
+        "quality_review_posture": {
+            "review_required_before_recall": True,
+            "correction_supported": True,
+            "rejection_supported": True,
+            "correction_receipt_refs": corrected_receipts,
+            "rejection_receipt_refs": rejected_receipts,
+            "accepted_receipt_refs": accepted_receipts,
+            "receipt_backed_decision_kinds": list(
+                lifecycle_posture.get("receipt_backed_decision_kinds") or []
+            ),
+            "reviewed_recall_write_scope_ref": (
+                "exact-scope-ref:memory-review:accept-correct-reviewed-recall-write"
+            ),
+            "memory_write_requires_review_receipt": True,
+            "rollback_posture": (
+                "supersede_or_reject_receipts_can_update_recall_posture_no_broad_delete"
+            ),
+        },
+        "context_pack_posture": {
+            "context_pack_refs": context_pack_refs[:80],
+            "proposal_count": int(context_packs.get("context_pack_count") or 0),
+            "context_pack_preview_only": True,
+            "prompt_context_written": False,
+            "context_injection_authorized": False,
+            "hidden_prompt_context_authorized": False,
+        },
+        "automatic_memory_write_authorized": False,
+        "autonomous_memory_write_authorized": False,
+        "hidden_prompt_injection_authorized": False,
+        "external_memory_provider_write_authorized": False,
+        "context_injection_authorized": False,
+        "memory_truth_authority": False,
+        "semantic_provider_enabled": False,
+        "vector_db_enabled": False,
+        "embedding_search_enabled": False,
+        "model_provider_call_authorized": False,
+        "live_web_fetch_authorized": False,
+        "connector_write_authorized": False,
+        "delete_export_execution_authorized": False,
+        "background_autonomy_authorized": False,
+        "production_authority_enabled": False,
+        "blocked_state_refs": list(MEMORY_BOUNDED_POSTURE_BLOCKED_STATE_REFS),
+        "next_safe_action": (
+            "Review bounded memory source, staleness, why-shown, and "
+            "correction/rejection receipt refs before selecting recall or "
+            "context-pack proposal refs."
+        ),
+    }
 
 
 def _memory_learning_posture(
@@ -617,11 +833,7 @@ def _memory_learning_posture(
         "memory_learning_attention_refs",
     )
     quality_issue_refs = _safe_refs(
-        [
-            ref
-            for item in items
-            for ref in item.get("quality_state_refs", []) or []
-        ],
+        [ref for item in items for ref in item.get("quality_state_refs", []) or []],
         "memory_learning_quality_issue_refs",
     )
     provenance_refs = _safe_refs(
@@ -730,9 +942,7 @@ def _memory_learning_posture(
             "attention_refs": attention_refs,
             "quality_issue_refs": quality_issue_refs,
             "ranking_contract_ref": ranking.get("contract_ref"),
-            "ranking_strategy_refs": list(
-                ranking.get("retrieval_strategy_refs") or []
-            ),
+            "ranking_strategy_refs": list(ranking.get("retrieval_strategy_refs") or []),
             "search_index_status": search_status,
             "semantic_search_enabled": False,
             "vector_db_enabled": False,
@@ -784,7 +994,10 @@ def _memory_learning_lifecycle_counts(
             "corrected",
         }:
             counts["active"] += 1
-        if "needs_review" in groups or review_state in {"review_needed", "needs_review"}:
+        if "needs_review" in groups or review_state in {
+            "review_needed",
+            "needs_review",
+        }:
             counts["needs_review"] += 1
         if review_state == "corrected":
             counts["corrected"] += 1
@@ -819,8 +1032,7 @@ def _memory_learning_lifecycle_counts(
             ),
         )
     if any(
-        receipt.get("decision") == "forget_request"
-        for receipt in decision_receipts
+        receipt.get("decision") == "forget_request" for receipt in decision_receipts
     ):
         counts["forgotten"] = max(
             counts["forgotten"],
@@ -910,15 +1122,11 @@ def _memory_lifecycle_posture(
         item for item in items if "duplicate" in item.get("group_ids", [])
     ]
     stale_items = [item for item in items if "stale" in item.get("group_ids", [])]
-    conflict_items = [
-        item for item in items if "conflict" in item.get("group_ids", [])
-    ]
+    conflict_items = [item for item in items if "conflict" in item.get("group_ids", [])]
     corrected_items = [
         item for item in items if item.get("review_state") == "corrected"
     ]
-    merged_items = [
-        item for item in items if item.get("review_state") == "merged"
-    ]
+    merged_items = [item for item in items if item.get("review_state") == "merged"]
     superseded_items = [
         item for item in items if item.get("review_state") == "superseded"
     ]
@@ -1012,9 +1220,7 @@ def _memory_lifecycle_posture(
         "decision_receipt_refs_by_kind": receipt_refs_by_decision,
         "receipt_truncation_posture": "bounded_by_workbench_limit_safe_refs_only",
         "receipt_backed_decision_kinds": [
-            decision
-            for decision, refs in receipt_refs_by_decision.items()
-            if refs
+            decision for decision, refs in receipt_refs_by_decision.items() if refs
         ],
         "review_only": True,
         "safe_refs_only": True,
@@ -1144,9 +1350,7 @@ def filter_memory_workbench(
         "person_ref": _safe_ref(person_ref, "person_ref", allow_empty=True)
         if person_ref
         else None,
-        "org_ref": _safe_ref(org_ref, "org_ref", allow_empty=True)
-        if org_ref
-        else None,
+        "org_ref": _safe_ref(org_ref, "org_ref", allow_empty=True) if org_ref else None,
         "deal_ref": _safe_ref(deal_ref, "deal_ref", allow_empty=True)
         if deal_ref
         else None,
@@ -1164,11 +1368,9 @@ def filter_memory_workbench(
         else None,
     }
     items = list(workbench.get("items", []) or [])
-    filtered = [
-        item
-        for item in items
-        if _matches_filters(item, filters)
-    ][: max(1, min(int(limit), 50))]
+    filtered = [item for item in items if _matches_filters(item, filters)][
+        : max(1, min(int(limit), 50))
+    ]
     return {
         "schema_version": "fcc_mem_001_memory_search.v1",
         "contract_ref": MEMORY_WORKBENCH_CONTRACT_REF,
@@ -1239,16 +1441,22 @@ def build_memory_impact_graph(
 
     nodes: list[dict[str, Any]] = []
     for item in workbench_items:
-        memory_ref = _safe_ref(
-            item.get("memory_ref") or item.get("review_ref"),
-            "memory_ref",
-            allow_empty=True,
-        ) or ""
-        review_ref = _safe_ref(
-            item.get("review_ref") or memory_ref,
-            "review_ref",
-            allow_empty=True,
-        ) or memory_ref
+        memory_ref = (
+            _safe_ref(
+                item.get("memory_ref") or item.get("review_ref"),
+                "memory_ref",
+                allow_empty=True,
+            )
+            or ""
+        )
+        review_ref = (
+            _safe_ref(
+                item.get("review_ref") or memory_ref,
+                "review_ref",
+                allow_empty=True,
+            )
+            or memory_ref
+        )
         if not memory_ref:
             continue
         match_refs = _safe_refs(
@@ -1282,7 +1490,9 @@ def build_memory_impact_graph(
             if _payload_mentions_any(memory_item, match_refs)
         ]
         event_matches = [
-            event for event in evidence_events if _payload_mentions_any(event, match_refs)
+            event
+            for event in evidence_events
+            if _payload_mentions_any(event, match_refs)
         ]
         context_pack_matches = [
             proposal
@@ -1487,9 +1697,7 @@ def build_recall_health_v2(
     )
     relationship_refs = list(
         dict.fromkeys(
-            ref
-            for node in top_nodes
-            for ref in node.get("relationship_refs", []) or []
+            ref for node in top_nodes for ref in node.get("relationship_refs", []) or []
         )
     )
     commitment_refs = list(
@@ -1624,7 +1832,10 @@ def build_memory_follow_up_queue(
         ),
     )
     groups = [
-        {"group_id": group, "count": sum(group in item["group_ids"] for item in candidates)}
+        {
+            "group_id": group,
+            "count": sum(group in item["group_ids"] for item in candidates),
+        }
         for group in [
             "relationship",
             "commitment",
@@ -1734,7 +1945,9 @@ def _decision_answer_refs(
             "suppressed_refs",
             "stayed_blocked_refs",
         ]:
-            refs.extend(str(ref) for ref in event.get(key, []) or [] if marker in str(ref))
+            refs.extend(
+                str(ref) for ref in event.get(key, []) or [] if marker in str(ref)
+            )
         event_ref = str(event.get("event_ref") or "")
         if event_ref and marker in event_ref:
             refs.append(event_ref)
@@ -1751,11 +1964,14 @@ def _suppressed_refs_for_memory(
 ) -> list[str]:
     refs: list[str] = []
     for receipt in decision_receipts:
-        if str(receipt.get("candidate_ref") or "") not in {memory_ref, review_ref} and str(
-            receipt.get("review_ref") or ""
-        ) not in {memory_ref, review_ref}:
+        if str(receipt.get("candidate_ref") or "") not in {
+            memory_ref,
+            review_ref,
+        } and str(receipt.get("review_ref") or "") not in {memory_ref, review_ref}:
             continue
-        refs.extend(str(ref) for ref in receipt.get("suppressed_recall_record_refs", []) or [])
+        refs.extend(
+            str(ref) for ref in receipt.get("suppressed_recall_record_refs", []) or []
+        )
         for key in [
             "merged_from_candidate_refs",
             "superseded_candidate_refs",
@@ -1795,18 +2011,26 @@ def _context_pack_preview_cards(
 ) -> list[dict[str, Any]]:
     cards: list[dict[str, Any]] = []
     for proposal in context_pack_proposals:
-        context_pack_ref = _safe_ref(
-            proposal.get("context_pack_ref"),
-            "context_pack_ref",
-            allow_empty=True,
-        ) or ""
-        proposal_ref = _safe_ref(
-            proposal.get("proposal_ref"),
-            "proposal_ref",
-            allow_empty=True,
-        ) or ""
+        context_pack_ref = (
+            _safe_ref(
+                proposal.get("context_pack_ref"),
+                "context_pack_ref",
+                allow_empty=True,
+            )
+            or ""
+        )
+        proposal_ref = (
+            _safe_ref(
+                proposal.get("proposal_ref"),
+                "proposal_ref",
+                allow_empty=True,
+            )
+            or ""
+        )
         matching_memory_refs = [
-            ref for ref in all_memory_refs if ref and _payload_mentions_any(proposal, [ref])
+            ref
+            for ref in all_memory_refs
+            if ref and _payload_mentions_any(proposal, [ref])
         ]
         cards.append(
             {
@@ -1875,10 +2099,13 @@ def _candidate_workbench_item(
     loop_refs: set[str],
 ) -> dict[str, Any]:
     review_ref = _safe_ref(candidate.get("review_ref"), "review_ref") or ""
-    memory_ref = _safe_ref(
-        candidate.get("business_memory_candidate_ref") or review_ref,
-        "business_memory_candidate_ref",
-    ) or review_ref
+    memory_ref = (
+        _safe_ref(
+            candidate.get("business_memory_candidate_ref") or review_ref,
+            "business_memory_candidate_ref",
+        )
+        or review_ref
+    )
     candidate_kind = _safe_text(candidate.get("candidate_kind"), "candidate_kind")
     source_refs = _safe_refs(candidate.get("source_refs"), "source_refs")
     provenance_refs = _safe_refs(candidate.get("provenance_refs"), "provenance_refs")
@@ -1989,10 +2216,13 @@ def _l1_workbench_item(
     *,
     loop_refs: set[str],
 ) -> dict[str, Any]:
-    memory_ref = _safe_ref(
-        preview.get("memory_record_ref") or preview.get("memory_ref"),
-        "memory_record_ref",
-    ) or "memory-record-ref:missing"
+    memory_ref = (
+        _safe_ref(
+            preview.get("memory_record_ref") or preview.get("memory_ref"),
+            "memory_record_ref",
+        )
+        or "memory-record-ref:missing"
+    )
     source_refs = _safe_refs(preview.get("source_refs"), "source_refs")
     evidence_refs = _safe_refs(preview.get("evidence_refs"), "evidence_refs")
     receipt_refs = _safe_refs(preview.get("receipt_refs"), "receipt_refs")
@@ -2035,7 +2265,9 @@ def _l1_workbench_item(
             "Reviewed recall projection is not truth, approval, execution, or context injection."
         ),
         "source_refs": source_refs,
-        "provenance_refs": _safe_refs(preview.get("provenance_refs"), "provenance_refs"),
+        "provenance_refs": _safe_refs(
+            preview.get("provenance_refs"), "provenance_refs"
+        ),
         "evidence_refs": evidence_refs,
         "missing_contract_refs": [],
         "related_entity_refs": related_entity_refs,
@@ -2094,7 +2326,9 @@ def _normalize_blocked_refs(values: Any) -> list[str]:
     refs: list[str] = []
     for value in values or []:
         text = str(value)
-        refs.append(text if text.startswith("blocked-state:") else f"blocked-state:{text}")
+        refs.append(
+            text if text.startswith("blocked-state:") else f"blocked-state:{text}"
+        )
     return _safe_refs(refs, "blocked_state_refs")
 
 
@@ -2199,7 +2433,9 @@ def _ranked_memory_payload(
         safe_query=safe_query,
         loop_refs=loop_refs,
     )
-    rank_score = min(sum(components.values()), sum(MEMORY_RANKING_COMPONENT_BOUNDS.values()))
+    rank_score = min(
+        sum(components.values()), sum(MEMORY_RANKING_COMPONENT_BOUNDS.values())
+    )
     excluded_reason_refs = _excluded_reason_refs(item)
     return {
         "rank_score": rank_score,
@@ -2290,7 +2526,8 @@ def _rank_components(
         if value
     }.intersection(loop_refs)
     component_values = {
-        "lexical_safe_summary_title_match": len(query_tokens & title_summary_tokens) * 5,
+        "lexical_safe_summary_title_match": len(query_tokens & title_summary_tokens)
+        * 5,
         "tag_ref_match": len(query_tokens & tag_tokens) * 5,
         "entity_ref_match": len(query_tokens & entity_tokens) * 5,
         "relationship_ref_match": len(item.get("related_entity_refs") or []) * 2,
@@ -2302,7 +2539,9 @@ def _rank_components(
         if evidence_refs
         else 0,
         "citation_integrity": 15
-        if evidence_refs and source_refs and (receipt_refs or review_state in _REVIEWED_STATES)
+        if evidence_refs
+        and source_refs
+        and (receipt_refs or review_state in _REVIEWED_STATES)
         else 8
         if evidence_refs and source_refs
         else 0,
@@ -2373,8 +2612,12 @@ def _ranking_read_model(
         "source_mix": _aggregate_source_mix(ranked_items),
         "pressure_counts": {
             "stale": sum(1 for item in ranked_items if item.get("stale_pressure")),
-            "conflict": sum(1 for item in ranked_items if item.get("conflict_pressure")),
-            "duplicate": sum(1 for item in ranked_items if item.get("duplicate_pressure")),
+            "conflict": sum(
+                1 for item in ranked_items if item.get("conflict_pressure")
+            ),
+            "duplicate": sum(
+                1 for item in ranked_items if item.get("duplicate_pressure")
+            ),
             "missing_evidence": sum(
                 1 for item in ranked_items if item.get("missing_evidence_pressure")
             ),
@@ -2384,7 +2627,9 @@ def _ranking_read_model(
             prefix="cache-key:fcc-mem-022-ranking",
         ),
         "cache_hit": False,
-        "token_estimate": sum(int(item.get("token_estimate", 0)) for item in ranked_items),
+        "token_estimate": sum(
+            int(item.get("token_estimate", 0)) for item in ranked_items
+        ),
         "rank_signal_refs": _rank_signal_refs(ranked_items),
         "blocked_authority_refs": list(MEMORY_RANKING_BLOCKED_STATE_REFS),
         "safe_query_blocked_authority_refs": list(MEMORY_SAFE_QUERY_BLOCKED_STATE_REFS),
@@ -2461,7 +2706,10 @@ def _why_ranked_refs(
     why = list(item.get("why_shown_refs") or [])
     why.append("why-ranked-ref:fcc-mem-022-lexical-tag-ref-only")
     top_components = [
-        key for key, value in sorted(components.items(), key=lambda pair: (-pair[1], pair[0]))
+        key
+        for key, value in sorted(
+            components.items(), key=lambda pair: (-pair[1], pair[0])
+        )
         if value > 0
     ][:5]
     why.extend(f"why-ranked-ref:{key.replace('_', '-')}" for key in top_components)
@@ -2483,8 +2731,7 @@ def _source_mix(item: dict[str, Any]) -> list[dict[str, Any]]:
         key = ":".join(source_kind) if source_kind else "source-ref:unknown"
         counts[key] = counts.get(key, 0) + 1
     return [
-        {"source_ref": key, "count": count}
-        for key, count in sorted(counts.items())
+        {"source_ref": key, "count": count} for key, count in sorted(counts.items())
     ]
 
 
@@ -2625,7 +2872,9 @@ def _matches_filters(item: dict[str, Any], filters: dict[str, str | None]) -> bo
             return False
     if filters["kind"] and item.get("candidate_kind") != filters["kind"]:
         return False
-    if filters["source_ref"] and filters["source_ref"] not in item.get("source_refs", []):
+    if filters["source_ref"] and filters["source_ref"] not in item.get(
+        "source_refs", []
+    ):
         return False
     for key in ["project_ref", "person_ref", "org_ref", "deal_ref"]:
         value = filters.get(key)

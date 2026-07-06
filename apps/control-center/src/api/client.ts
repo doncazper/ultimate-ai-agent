@@ -6172,10 +6172,145 @@ function normalizeFounderMemoryReview(
     ...(merged.value as unknown as Record<string, unknown>),
   };
   normalizeEvidenceMemoryLoopBinding(normalized, valueRecord);
+  normalizeBoundedMemoryPosture(normalized, valueRecord);
   return {
     value: normalized as unknown as FounderLoopMemoryReview,
     usedFallback: merged.usedFallback,
   };
+}
+
+const MEMORY_BOUNDED_POSTURE_DENIED_FLAGS = [
+  "automatic_memory_write_authorized",
+  "autonomous_memory_write_authorized",
+  "hidden_prompt_injection_authorized",
+  "external_memory_provider_write_authorized",
+  "context_injection_authorized",
+  "memory_truth_authority",
+  "semantic_provider_enabled",
+  "vector_db_enabled",
+  "embedding_search_enabled",
+  "model_provider_call_authorized",
+  "live_web_fetch_authorized",
+  "connector_write_authorized",
+  "delete_export_execution_authorized",
+  "background_autonomy_authorized",
+  "production_authority_enabled",
+] as const;
+
+function normalizeBoundedMemoryPosture(
+  normalized: Record<string, unknown>,
+  valueRecord: Record<string, unknown>,
+): void {
+  const posture = valueRecord.bounded_memory_posture;
+  if (isSafeBoundedMemoryPosture(posture)) {
+    normalized.bounded_memory_posture = posture;
+    normalized.bounded_memory_posture_contract_ref = (
+      posture as Record<string, unknown>
+    ).contract_ref;
+  } else {
+    delete normalized.bounded_memory_posture;
+    delete normalized.bounded_memory_posture_contract_ref;
+  }
+}
+
+function isSafeBoundedMemoryPosture(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const nestedRecords = [
+    value.target_posture,
+    value.capacity_posture,
+    value.source_posture,
+    value.staleness_posture,
+    value.why_shown_posture,
+    value.quality_review_posture,
+    value.context_pack_posture,
+  ];
+  if (!nestedRecords.every(isPlainRecord)) {
+    return false;
+  }
+  const targetPosture = value.target_posture as Record<string, unknown>;
+  const capacityPosture = value.capacity_posture as Record<string, unknown>;
+  const sourcePosture = value.source_posture as Record<string, unknown>;
+  const stalenessPosture = value.staleness_posture as Record<string, unknown>;
+  const whyShownPosture = value.why_shown_posture as Record<string, unknown>;
+  const qualityPosture = value.quality_review_posture as Record<string, unknown>;
+  const contextPackPosture = value.context_pack_posture as Record<string, unknown>;
+  const blockedStateRefs = value.blocked_state_refs;
+  return (
+    value.schema_version ===
+      "hermes_runtime_adoption_bounded_memory_posture.v1" &&
+    value.contract_ref ===
+      "contract-ref:hermes-runtime-adoption-bounded-memory-posture:v1" &&
+    value.source === "python_core_memory_workbench_bounded_memory_posture" &&
+    hasStringFields(value, [
+      "route_ref",
+      "cli_ref",
+      "proof_ref",
+      "status",
+      "next_safe_action",
+    ]) &&
+    value.backend_owned === true &&
+    value.control_center_presentation_only === true &&
+    value.safe_refs_only === true &&
+    value.raw_content_included === false &&
+    hasDeniedFlagsFalse(value, MEMORY_BOUNDED_POSTURE_DENIED_FLAGS) &&
+    Array.isArray(blockedStateRefs) &&
+    blockedStateRefs.every((item) => typeof item === "string") &&
+    blockedStateRefs.length > 0 &&
+    hasStringArrays(targetPosture, ["supported_target_kinds", "target_refs"]) &&
+    targetPosture.operator_selected_context_required === true &&
+    targetPosture.automatic_context_injection_authorized === false &&
+    targetPosture.hidden_context_injection_authorized === false &&
+    hasNumberFields(capacityPosture, [
+      "visible_item_count",
+      "candidate_count",
+      "context_pack_count",
+      "max_visible_items",
+      "max_provenance_refs",
+      "token_estimate",
+    ]) &&
+    typeof capacityPosture.token_budget_state === "string" &&
+    isPlainRecord(capacityPosture.search_index_status) &&
+    hasStringArrays(sourcePosture, [
+      "source_refs",
+      "provenance_refs",
+      "evidence_refs",
+      "receipt_refs",
+    ]) &&
+    sourcePosture.safe_summary_only === true &&
+    sourcePosture.source_refs_required === true &&
+    hasStringArrays(stalenessPosture, [
+      "stale_item_refs",
+      "stale_state_refs",
+    ]) &&
+    typeof stalenessPosture.stale_count === "number" &&
+    typeof stalenessPosture.recheck_required_before_recall === "boolean" &&
+    hasStringArrays(whyShownPosture, [
+      "why_shown_refs",
+      "included_reason_refs",
+      "quality_state_refs",
+    ]) &&
+    whyShownPosture.why_shown_required === true &&
+    hasStringArrays(qualityPosture, [
+      "correction_receipt_refs",
+      "rejection_receipt_refs",
+      "accepted_receipt_refs",
+      "receipt_backed_decision_kinds",
+    ]) &&
+    qualityPosture.review_required_before_recall === true &&
+    qualityPosture.correction_supported === true &&
+    qualityPosture.rejection_supported === true &&
+    qualityPosture.memory_write_requires_review_receipt === true &&
+    typeof qualityPosture.reviewed_recall_write_scope_ref === "string" &&
+    typeof qualityPosture.rollback_posture === "string" &&
+    hasStringArrays(contextPackPosture, ["context_pack_refs"]) &&
+    typeof contextPackPosture.proposal_count === "number" &&
+    contextPackPosture.context_pack_preview_only === true &&
+    contextPackPosture.prompt_context_written === false &&
+    contextPackPosture.context_injection_authorized === false &&
+    contextPackPosture.hidden_prompt_context_authorized === false
+  );
 }
 
 function normalizeEvidenceMemoryLoopBinding(
@@ -9035,6 +9170,10 @@ function normalizeFounderMemoryWorkbench(
     } else {
       delete workbenchWithoutMockPosture.learning_posture;
     }
+    normalizeBoundedMemoryPosture(
+      workbenchWithoutMockPosture,
+      value as unknown as Record<string, unknown>,
+    );
     return {
       value:
         workbenchWithoutMockPosture as unknown as FounderLoopMemoryWorkbench,
