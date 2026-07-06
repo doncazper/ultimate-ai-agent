@@ -536,6 +536,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           doctorDiagnostics={data.runtimeDoctorDiagnostics}
           sessionContinuity={data.runtimeSessionContinuity}
           mcpCatalogFiltering={data.runtimeMcpCatalogFiltering}
+          backgroundJobs={data.runtimeBackgroundJobs}
         />
       );
     case "/operator-loop":

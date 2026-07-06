@@ -38,6 +38,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_context_budget_pressure_read_model,
     build_runtime_delegation_adapter_read_model,
     build_runtime_doctor_diagnostics_read_model,
+    build_runtime_background_jobs_read_model,
     build_runtime_hardline_command_blocklist_read_model,
     build_runtime_managed_scope_policy_read_model,
     build_runtime_mcp_catalog_filtering_read_model,
@@ -668,6 +669,44 @@ def _print_mcp_catalog_filtering(read_model: dict[str, Any]) -> None:
         )
         print(f"  filter={server['filter_contract_ref']}")
         print(f"  summary: {server['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_background_jobs(read_model: dict[str, Any]) -> None:
+    print("Runtime background jobs")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Jobs: "
+        f"total={read_model['job_count']} "
+        f"proposal={read_model['proposal_count']} "
+        f"paused={read_model['paused_count']} "
+        f"approval_required={read_model['approval_required_count']} "
+        f"execution_blocked={read_model['execution_blocked_count']}"
+    )
+    print(
+        "Blocked controls: "
+        f"pause={read_model['pause_enabled']} "
+        f"resume={read_model['resume_enabled']} "
+        f"run_now={read_model['run_now_enabled']} "
+        f"scheduler={read_model['scheduler_enabled']} "
+        f"worker={read_model['background_worker_enabled']}"
+    )
+    print("Job proposals:")
+    for job in read_model["jobs"]:
+        print(
+            f"- {job['display_label']}: "
+            f"status={job['status']} schedule={job['schedule_policy']}"
+        )
+        print(f"  job={job['job_ref']}")
+        print(f"  approval={job['approval_scope_ref']}")
+        print(f"  receipt={job['receipt_plan_ref']}")
+        print(f"  summary: {job['safe_summary']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1398,6 +1437,35 @@ def _inspect_mcp_catalog_filtering(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_mcp_catalog_filtering(read_model)
+    return 0
+
+
+def _inspect_background_jobs(args: argparse.Namespace) -> int:
+    read_model = build_runtime_background_jobs_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-background-jobs",
+        "runtime_background_jobs": read_model,
+        "safe_refs_only": True,
+        "proposal_only": True,
+        "raw_job_payloads_omitted": True,
+        "raw_schedule_material_omitted": True,
+        "worker_logs_omitted": True,
+        "pause_performed": False,
+        "resume_performed": False,
+        "run_now_performed": False,
+        "scheduler_started": False,
+        "background_worker_started": False,
+        "autonomous_retry_performed": False,
+        "external_delivery_performed": False,
+        "provider_call_performed": False,
+        "shell_execution_performed": False,
+        "connector_write_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_background_jobs(read_model)
     return 0
 
 
@@ -2426,6 +2494,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref MCP catalog filtering read model as JSON.",
     )
     mcp_catalog_filtering.set_defaults(func=_inspect_mcp_catalog_filtering)
+
+    background_jobs = subparsers.add_parser(
+        "inspect-background-jobs",
+        help="Inspect durable background job proposals without scheduler execution.",
+    )
+    background_jobs.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref background job posture as JSON.",
+    )
+    background_jobs.set_defaults(func=_inspect_background_jobs)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",
