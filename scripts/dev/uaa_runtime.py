@@ -49,6 +49,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_slash_command_registry_read_model,
     build_runtime_interrupt_redirect_read_model,
     build_runtime_logging_profile_read_model,
+    build_runtime_result_classification_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -979,6 +980,41 @@ def _print_logging_profile(read_model: dict[str, Any]) -> None:
         print(f"  ttl={profile['ttl_policy_ref']}")
         print(f"  redaction={profile['redaction_verifier_ref']}")
         print(f"  proof={profile['proof_ref']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_result_classification(read_model: dict[str, Any]) -> None:
+    print("Runtime result classification posture")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Classes: "
+        f"total={read_model['classification_count']} "
+        f"evidence={read_model['evidence_count']} "
+        f"mutation={read_model['mutation_count']} "
+        f"blocked={read_model['blocked_count']} "
+        f"untrusted={read_model['untrusted_data_count']}"
+    )
+    print(
+        "Authority flags: "
+        f"truth={read_model['tool_output_as_truth_enabled']} "
+        f"action={read_model['action_authority_enabled']} "
+        f"raw_output={read_model['raw_output_persisted']}"
+    )
+    print("Result classes:")
+    for item in read_model["classifications"]:
+        print(
+            f"- {item['display_label']}: "
+            f"kind={item['result_kind']} status={item['verification_status']}"
+        )
+        print(f"  provenance={item['provenance_policy_ref']}")
+        print(f"  receipt={item['receipt_requirement_ref']}")
+        print(f"  proof={item['proof_binding_ref']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1921,6 +1957,30 @@ def _inspect_logging_profile(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_logging_profile(read_model)
+    return 0
+
+
+def _inspect_result_classification(args: argparse.Namespace) -> int:
+    read_model = build_runtime_result_classification_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-result-classification",
+        "runtime_result_classification": read_model,
+        "metadata_only": True,
+        "safe_refs_only": True,
+        "classification_only": True,
+        "tool_output_as_truth": False,
+        "action_authority_granted": False,
+        "mutation_without_receipt_allowed": False,
+        "raw_outputs_omitted": True,
+        "provider_payloads_omitted": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_result_classification(read_model)
     return 0
 
 
@@ -3037,6 +3097,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the governed logging profile posture as JSON.",
     )
     logging_profile.set_defaults(func=_inspect_logging_profile)
+
+    result_classification = subparsers.add_parser(
+        "inspect-result-classification",
+        help="Inspect runtime result taxonomy without promoting output authority.",
+    )
+    result_classification.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the runtime result taxonomy as JSON.",
+    )
+    result_classification.set_defaults(func=_inspect_result_classification)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",

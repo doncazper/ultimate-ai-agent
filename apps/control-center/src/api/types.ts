@@ -10721,6 +10721,89 @@ export interface RuntimeLoggingProfileReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeResultClassKind =
+  | "evidence"
+  | "mutation"
+  | "warning"
+  | "blocked"
+  | "proposal"
+  | "diagnostic"
+  | "untrusted_data";
+
+export type RuntimeResultVerificationStatus =
+  | "verified_safe_ref"
+  | "receipt_required"
+  | "review_required"
+  | "blocked_authority"
+  | "untrusted_until_verified";
+
+export interface RuntimeResultClassificationRecord {
+  classification_ref: string;
+  result_kind: RuntimeResultClassKind;
+  display_label: string;
+  verification_status: RuntimeResultVerificationStatus;
+  provenance_policy_ref: string;
+  redaction_policy_ref: string;
+  receipt_requirement_ref: string;
+  proof_binding_ref: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  visible_in_control_center: boolean;
+  result_label_required: boolean;
+  provenance_required: boolean;
+  redaction_required: boolean;
+  proof_binding_required: boolean;
+  tool_output_as_truth_enabled: boolean;
+  action_authority_enabled: boolean;
+  mutation_without_receipt_enabled: boolean;
+  unverified_evidence_promotion_enabled: boolean;
+  raw_output_persisted: boolean;
+  provider_payload_persisted: boolean;
+  control_center_mints_authority: boolean;
+}
+
+export interface RuntimeResultClassificationReadModel {
+  schema_version: "runtime_result_classification.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  classifications: RuntimeResultClassificationRecord[];
+  classification_count: number;
+  evidence_count: number;
+  mutation_count: number;
+  warning_count: number;
+  blocked_count: number;
+  proposal_count: number;
+  diagnostic_count: number;
+  untrusted_data_count: number;
+  labels_visible: boolean;
+  provenance_visible: boolean;
+  redaction_visible: boolean;
+  verification_status_visible: boolean;
+  proof_binding_visible: boolean;
+  receipt_requirement_visible: boolean;
+  tool_output_as_truth_enabled: boolean;
+  action_authority_enabled: boolean;
+  mutation_without_receipt_enabled: boolean;
+  unverified_evidence_promotion_enabled: boolean;
+  raw_output_persisted: boolean;
+  provider_payload_persisted: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -11908,6 +11991,7 @@ export interface ControlCenterData {
   runtimeSlashCommandRegistry: RuntimeSlashCommandRegistryReadModel;
   runtimeInterruptRedirect: RuntimeInterruptRedirectReadModel;
   runtimeLoggingProfile: RuntimeLoggingProfileReadModel;
+  runtimeResultClassification: RuntimeResultClassificationReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;
