@@ -20,7 +20,10 @@ REQUIRED_FILES = [
 DOC_REQUIRED = [
     "UAA GoatCitadel Runtime Action Signed Evidence",
     "does not copy GoatCitadel code",
-    "exact focused pytest Action Inbox lane",
+    "exact Action Inbox approved utility command lanes",
+    "focused_pytest",
+    "repo_verifier",
+    "frontend_check",
     "signed evidence is local hash verification",
     "Control Center cannot mint authority",
     "broad runtime authority remains blocked",
@@ -56,6 +59,8 @@ SURFACE_REQUIRED = [
 
 TEST_REQUIRED = [
     "test_runtime_action_signed_evidence_pass_path_is_verifiable",
+    "repo_verifier",
+    "frontend_check",
     "test_runtime_action_signed_evidence_requires_receipt_and_action_envelope",
     "test_runtime_action_signed_evidence_detects_scope_drift_and_tamper",
     "test_runtime_action_signed_evidence_idempotent_replay_is_stable",

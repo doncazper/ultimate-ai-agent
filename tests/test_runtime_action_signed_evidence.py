@@ -40,17 +40,22 @@ def _test_hash_ref(prefix: str, value: object) -> str:
     return f"{prefix}:sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:24]}"
 
 
-def _command_request() -> RuntimeCommandExecutionRequest:
+def _command_request(intent: str = "focused_pytest") -> RuntimeCommandExecutionRequest:
     return RuntimeCommandExecutionRequest(
-        intent="focused_pytest",
+        intent=intent,
         requested_profile="operator-approved",
-        target_refs=["test-ref:runtime-action-signed-evidence"],
+        target_refs=[
+            f"test-ref:runtime-action-signed-evidence-{intent.replace('_', '-')}"
+        ],
         approval_ref=None,
-        safe_summary="Run the exact focused runtime signed evidence test lane.",
+        safe_summary=f"Run the exact {intent} runtime signed evidence test lane.",
     )
 
 
 def _runtime_action_inbox_refs(record, *, decision: str = "approve") -> dict[str, str]:
+    command_intent = str(record.request.action_ref).removeprefix(
+        "action-ref:runtime-command-"
+    )
     exact_scope_ref = _test_hash_ref(
         "runtime-approval-scope-ref",
         {
@@ -67,7 +72,7 @@ def _runtime_action_inbox_refs(record, *, decision: str = "approve") -> dict[str
             "requested_authority": record.request.requested_authority,
             "requested_profile": record.request.requested_profile,
             "adapter_id": "governed-command-runtime-adapter",
-            "command_intent": "focused_pytest",
+            "command_intent": command_intent,
             "decision": decision,
             "exact_scope_ref": exact_scope_ref,
             "payload_fingerprint_ref": record.payload_fingerprint_ref,
@@ -91,9 +96,12 @@ def _runtime_action_inbox_refs(record, *, decision: str = "approve") -> dict[str
 
 
 def _approve(store: RuntimeInvocationStore, request: RuntimeCommandExecutionRequest):
+    command_intent = str(getattr(request.intent, "value", request.intent))
     created = store.create_invocation(
         runtime_command_invocation_request(request),
-        idempotency_ref="idempotency-ref:runtime-action-evidence-create",
+        idempotency_ref=(
+            f"idempotency-ref:runtime-action-evidence-create-{command_intent}"
+        ),
     )
     refs = _runtime_action_inbox_refs(created.record)
     return store.bind_approval(
@@ -105,12 +113,14 @@ def _approve(store: RuntimeInvocationStore, request: RuntimeCommandExecutionRequ
             expected_payload_fingerprint_ref=created.record.payload_fingerprint_ref,
             expected_policy_decision_ref=created.record.policy_decision.policy_decision_ref,
             adapter_id="governed-command-runtime-adapter",
-            command_intent="focused_pytest",
+            command_intent=command_intent,
             risk_class="medium",
             expires_at=utc_now() + timedelta(minutes=30),
-            safe_summary="Action Inbox approved exact focused pytest runtime lane.",
+            safe_summary=f"Action Inbox approved exact {command_intent} runtime lane.",
         ),
-        idempotency_ref="idempotency-ref:runtime-action-evidence-approve",
+        idempotency_ref=(
+            f"idempotency-ref:runtime-action-evidence-approve-{command_intent}"
+        ),
     )
 
 
@@ -153,15 +163,22 @@ def _gateway_with_runner(store: RuntimeInvocationStore) -> RuntimeGateway:
     )
 
 
-def test_runtime_action_signed_evidence_pass_path_is_verifiable(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "intent",
+    ["focused_pytest", "repo_verifier", "frontend_check"],
+)
+def test_runtime_action_signed_evidence_pass_path_is_verifiable(
+    tmp_path: Path,
+    intent: str,
+) -> None:
     store = RuntimeInvocationStore(tmp_path)
-    request = _command_request()
+    request = _command_request(intent)
     approved = _approve(store, request)
     result = _gateway_with_runner(store).execute_approved_command(
         approved.invocation_ref,
         _approved_command_request(request, approved),
         _execute_request(approved),
-        idempotency_ref="idempotency-ref:runtime-action-evidence-execute",
+        idempotency_ref=f"idempotency-ref:runtime-action-evidence-execute-{intent}",
     )
 
     envelope = build_runtime_action_signed_evidence(result.record)
@@ -171,6 +188,7 @@ def test_runtime_action_signed_evidence_pass_path_is_verifiable(tmp_path: Path) 
     assert envelope.receipt_ref == result.record.receipt.receipt_ref
     assert envelope.action_envelope_ref == approved.action_inbox_envelope.action_envelope_ref
     assert envelope.approval_validated is True
+    assert envelope.command_intent == intent
     assert envelope.execution_performed is True
     assert envelope.command_execution_performed is True
     assert envelope.route_decision_binding_ref.startswith("route-decision-binding-ref:")

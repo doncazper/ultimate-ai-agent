@@ -1,6 +1,7 @@
 # UAA GoatCitadel Runtime Action Signed Evidence
 
-Status: implemented for the exact focused pytest Action Inbox lane.
+Status: implemented for the exact Action Inbox approved utility command lanes:
+`focused_pytest`, `repo_verifier`, and `frontend_check`.
 
 This phase borrows GoatCitadel's operator-visible execution spine without
 copying GoatCitadel code or importing GoatCitadel packages. UAA keeps Python
@@ -16,8 +17,9 @@ remains blocked, and no unrestricted shell is added.
 
 ## What Is Implemented
 
-- Exact focused pytest Action Inbox lane evidence through
-  `RuntimeGateway`.
+- Exact Action Inbox approved utility command lane evidence through
+  `RuntimeGateway` for `focused_pytest`, `repo_verifier`, and
+  `frontend_check`.
 - `RuntimeActionSignedEvidenceEnvelope` with approval ref, exact scope ref,
   policy decision ref, route-decision binding ref, payload fingerprint ref,
   receipt ref, rollback ref, safe-disable ref, artifact hash refs, and evidence
@@ -56,7 +58,7 @@ and verifier refs only.
 
 ## Promotion Path
 
-Future lanes may add signed evidence for other exact approved actions only when
-each lane proves approval binding, idempotency, replay conflict detection,
-rollback or safe-disable posture, receipt refs, proof refs, redaction, CLI/API
-parity, route classification, and focused verifier coverage.
+Future non-utility actions may add signed evidence only when each lane proves
+approval binding, idempotency, replay conflict detection, rollback or
+safe-disable posture, receipt refs, proof refs, redaction, CLI/API parity, route
+classification, and focused verifier coverage.
