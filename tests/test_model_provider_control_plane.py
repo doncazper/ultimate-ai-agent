@@ -10,6 +10,7 @@ from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.providers.control_plane import (
+    DelegatedRuntimeModelCatalogPosture,
     MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF,
     build_model_provider_control_plane_read_model,
 )
@@ -46,6 +47,26 @@ def test_model_provider_control_plane_unifies_governed_runtime_posture() -> None
     assert read_model.router_traces[0].model_execution_performed is False
     assert read_model.router_traces[0].provider_execution_performed is False
     assert read_model.router_traces[0].reason_codes
+    delegated_catalog = read_model.delegated_runtime_model_catalog
+    assert delegated_catalog.schema_version == "delegated_runtime_model_catalog.v1"
+    assert delegated_catalog.status == "read_only_runtime_model_availability"
+    assert delegated_catalog.runtime_profiles_route_ref == "GET /api/runtime/profiles"
+    assert delegated_catalog.model_count == len(delegated_catalog.records)
+    assert delegated_catalog.runtime_reported_available_count >= 1
+    assert delegated_catalog.uaa_authorized_model_count == 0
+    assert delegated_catalog.runtime_says_available_is_not_authority is True
+    assert delegated_catalog.uaa_may_invoke_any_listed_model is False
+    assert delegated_catalog.provider_sdk_call_enabled is False
+    assert delegated_catalog.remote_model_call_enabled is False
+    assert delegated_catalog.credential_collection_enabled is False
+    assert delegated_catalog.billing_authority_granted is False
+    assert all(
+        record.uaa_invocation_allowed is False
+        and record.provider_sdk_call_enabled is False
+        and record.live_provider_network_call_performed is False
+        and record.raw_provider_payload_persisted is False
+        for record in delegated_catalog.records
+    )
     assert read_model.role_provider_evidence.schema_version == (
         "role_based_model_provider_evidence.v1"
     )
@@ -96,6 +117,17 @@ def test_model_provider_control_plane_route_is_protected_read_only_and_safe(
     assert data["network_allowlists"]["endpoint_refs"]
     assert data["local_llama_cpp_lifecycle"]["process_start_performed_by_read_model"] is False
     assert data["router_traces"][0]["model_execution_performed"] is False
+    assert data["delegated_runtime_model_catalog"]["schema_version"] == (
+        "delegated_runtime_model_catalog.v1"
+    )
+    assert data["delegated_runtime_model_catalog"]["uaa_authorized_model_count"] == 0
+    assert (
+        data["delegated_runtime_model_catalog"][
+            "runtime_says_available_is_not_authority"
+        ]
+        is True
+    )
+    assert data["delegated_runtime_model_catalog"]["remote_model_call_enabled"] is False
     assert (
         data["role_provider_evidence"]["schema_version"]
         == "role_based_model_provider_evidence.v1"
@@ -132,6 +164,29 @@ def test_model_provider_control_plane_route_manifest_posture() -> None:
     )
 
 
+def test_delegated_runtime_model_catalog_rejects_invocation_authority() -> None:
+    catalog = build_model_provider_control_plane_read_model().delegated_runtime_model_catalog
+    payload = catalog.model_dump(mode="python")
+    payload["uaa_may_invoke_any_listed_model"] = True
+
+    try:
+        DelegatedRuntimeModelCatalogPosture(**payload)
+    except ValueError as exc:
+        assert "AUTHORITY_DRIFT" in str(exc)
+    else:
+        raise AssertionError("delegated runtime catalog accepted invocation authority")
+
+    payload = catalog.model_dump(mode="python")
+    payload["records"][0]["uaa_invocation_allowed"] = True
+
+    try:
+        DelegatedRuntimeModelCatalogPosture(**payload)
+    except ValueError as exc:
+        assert "AUTHORITY_DRIFT" in str(exc)
+    else:
+        raise AssertionError("delegated runtime model accepted invocation authority")
+
+
 def test_model_provider_control_plane_cli_uses_same_safe_schema() -> None:
     result = subprocess.run(
         [sys.executable, "scripts/inspect_model_provider_control_plane.py"],
@@ -148,6 +203,13 @@ def test_model_provider_control_plane_cli_uses_same_safe_schema() -> None:
     assert payload["authority"]["local_llama_cpp_lifecycle_contract_available"] is True
     assert len(payload["provider_adapters"]) >= 2
     assert payload["router_traces"][0]["status"] == "trace_only_no_execution"
+    assert payload["delegated_runtime_model_catalog"]["model_count"] >= 1
+    assert (
+        payload["delegated_runtime_model_catalog"][
+            "uaa_may_invoke_any_listed_model"
+        ]
+        is False
+    )
     assert payload["role_provider_evidence"]["role_count"] == 7
     assert payload["role_provider_evidence"]["model_invocation_performed"] is False
     assert payload["model_provider_research_posture"]["provider_count"] >= 1

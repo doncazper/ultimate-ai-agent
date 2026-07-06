@@ -3809,6 +3809,13 @@ function isSafeModelProviderControlPlane(
   ) {
     return false;
   }
+  if (
+    !isSafeDelegatedRuntimeModelCatalogPosture(
+      value.delegated_runtime_model_catalog,
+    )
+  ) {
+    return false;
+  }
   if (!isSafeModelProviderResearchPosture(value.model_provider_research_posture)) {
     return false;
   }
@@ -3821,6 +3828,79 @@ function isSafeModelProviderControlPlane(
     value.exact_lane_route_refs.includes(
       "POST /control-center/providers/exact-approved-lanes/tiny",
     )
+  );
+}
+
+function isSafeDelegatedRuntimeModelCatalogPosture(value: unknown): boolean {
+  if (!isPlainRecord(value) || !Array.isArray(value.records)) {
+    return false;
+  }
+  const falseFlags = [
+    "uaa_may_invoke_any_listed_model",
+    "live_provider_discovery_enabled",
+    "provider_sdk_call_enabled",
+    "remote_model_call_enabled",
+    "credential_collection_enabled",
+    "billing_authority_granted",
+    "model_output_authority_enabled",
+  ];
+  const availableCount = value.records.filter(
+    (record) =>
+      isPlainRecord(record) && record.runtime_reported_available === true,
+  ).length;
+  return (
+    value.schema_version === "delegated_runtime_model_catalog.v1" &&
+    value.status === "read_only_runtime_model_availability" &&
+    value.route_ref === "GET /control-center/providers/runtime-control-plane" &&
+    value.runtime_says_available_is_not_authority === true &&
+    value.static_cost_metadata_only === true &&
+    value.static_latency_metadata_only === true &&
+    value.uaa_authorized_model_count === 0 &&
+    value.model_count === value.records.length &&
+    value.runtime_reported_available_count === availableCount &&
+    falseFlags.every((field) => value[field] === false) &&
+    value.records.every(isSafeDelegatedRuntimeModelAvailabilityRecord) &&
+    Array.isArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-state:model-provider:runtime-availability-is-not-invocation",
+    )
+  );
+}
+
+function isSafeDelegatedRuntimeModelAvailabilityRecord(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "uaa_invocation_allowed",
+    "provider_sdk_call_enabled",
+    "live_provider_discovery_performed",
+    "live_provider_network_call_performed",
+    "credential_collection_enabled",
+    "credential_material_visible",
+    "billing_authority_granted",
+    "model_output_authority_enabled",
+    "raw_provider_payload_persisted",
+  ];
+  return (
+    typeof value.runtime_ref === "string" &&
+    typeof value.runtime_profile_ref === "string" &&
+    typeof value.delegated_runtime_profile_ref === "string" &&
+    value.runtime_profile_ref !== value.delegated_runtime_profile_ref &&
+    typeof value.model_ref === "string" &&
+    typeof value.provider_ref === "string" &&
+    typeof value.safe_summary === "string" &&
+    ["runtime_reports_available", "runtime_reports_planned", "local_gateway_metadata_available"].includes(
+      String(value.runtime_availability_status),
+    ) &&
+    [
+      "blocked_no_exact_invocation_lane",
+      "blocked_profile_not_configured",
+      "metadata_only_existing_lane_separate",
+    ].includes(String(value.uaa_invocation_posture)) &&
+    falseFlags.every((field) => value[field] === false) &&
+    Array.isArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.length > 0
   );
 }
 

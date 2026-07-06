@@ -10462,6 +10462,21 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText(/Secret status/i)).toBeInTheDocument();
     expect(screen.getByText(/Network allowlists/i)).toBeInTheDocument();
     expect(screen.getByText(/Model metadata discovery/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Delegated runtime model catalog/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "proof-ref:hermes-runtime-adoption:phase-07:model-provider-catalog",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-state:model-provider:runtime-availability-is-not-invocation",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Runtime says available/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/not authority/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Local llama\.cpp lifecycle/i)).toBeInTheDocument();
     expect(screen.getByText(/ModelRouter traces/i)).toBeInTheDocument();
     expect(
@@ -10541,6 +10556,18 @@ describe("Web Control Center shell", () => {
     unsafeResearchPosture.provider_sdk_call_enabled = true;
     unsafeResearchPosture.live_web_fetch_enabled = true;
     unsafeResearchPosture.safe_summary = "unsafe research posture enabled";
+    const unsafeDelegatedCatalog = unsafeControlPlane.delegated_runtime_model_catalog as Record<
+      string,
+      unknown
+    >;
+    unsafeDelegatedCatalog.uaa_may_invoke_any_listed_model = true;
+    unsafeDelegatedCatalog.remote_model_call_enabled = true;
+    unsafeDelegatedCatalog.safe_summary = "unsafe delegated runtime catalog enabled";
+    const unsafeDelegatedRecord = (
+      unsafeDelegatedCatalog.records as Array<Record<string, unknown>>
+    )[0];
+    unsafeDelegatedRecord.uaa_invocation_allowed = true;
+    unsafeDelegatedRecord.provider_sdk_call_enabled = true;
 
     stubReadEndpointOverrides({
       [API_ENDPOINTS.modelProviderControlPlane]: unsafeControlPlane,
@@ -10560,7 +10587,15 @@ describe("Web Control Center shell", () => {
       screen.queryByText(/unsafe research posture enabled/i),
     ).not.toBeInTheDocument();
     expect(
+      screen.queryByText(/unsafe delegated runtime catalog enabled/i),
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByText("blocked-state:model-provider:broad-provider-runtime"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-state:model-provider:runtime-availability-is-not-invocation",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
