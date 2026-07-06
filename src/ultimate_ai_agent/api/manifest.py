@@ -687,6 +687,7 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/governed-product-pilot-profile",
     "/api/runtime/profiles",
     "/api/runtime/run-events",
+    "/api/runtime/session-search",
     "/api/runtime/streaming-progress",
     "/api/runtime/tool-registry",
     "/api/runtime/staged-orchestration",

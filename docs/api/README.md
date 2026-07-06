@@ -2,13 +2,13 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `209`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `210` route
+Current OpenAPI path count: `210`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `211` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview adds one no-effect diagnostic route. The Hermes Runtime
 Adoption delegation adapter, capability discovery, run-events, approval bridge,
-streaming progress, and profile isolation routes,
+streaming progress, profile isolation, tool registry, and session-search routes,
 Governed Product Pilot authority profile, and runtime parity loop add protected
 read-only `/api/runtime/*` inspection routes.
 
