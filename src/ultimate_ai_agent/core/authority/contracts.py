@@ -734,6 +734,27 @@ READ_PREPARE_CAPABILITIES = {
 }
 
 
+def _lease_scope_matches_action(
+    lease: AuthorityLease,
+    request: AuthorityActionRequest,
+) -> bool:
+    if lease.scope == AuthorityLeaseScope.session.value:
+        return True
+    if lease.scope != AuthorityLeaseScope.mission.value:
+        return False
+    if not lease.mission_ref:
+        return False
+    constraint_mission_ref = request.constraints.get(
+        "mission_ref"
+    ) or request.constraints.get(
+        "authority_mission_ref"
+    )
+    return lease.mission_ref in set(request.resource_refs) or (
+        isinstance(constraint_mission_ref, str)
+        and constraint_mission_ref == lease.mission_ref
+    )
+
+
 def evaluate_authority_request(
     request: AuthorityActionRequest,
     leases: list[AuthorityLease],
@@ -741,10 +762,15 @@ def evaluate_authority_request(
     now: datetime | None = None,
 ) -> AuthorityPolicyDecision:
     active_leases = [lease for lease in leases if lease.is_active(now=now)]
-    matching = [
+    matching_domain_capability = [
         lease
         for lease in active_leases
         if lease.grants(AuthorityDomain(request.domain), AuthorityCapability(request.capability))
+    ]
+    matching = [
+        lease
+        for lease in matching_domain_capability
+        if _lease_scope_matches_action(lease, request)
     ]
     reason_refs: list[str] = []
     if request.kill_switch_engaged:
@@ -775,21 +801,33 @@ def evaluate_authority_request(
             unsupported_adapter=True,
         )
     if not matching:
-        reason_refs.append("reason-ref:authority:no-active-lease-for-domain-capability")
+        reason_ref = (
+            "reason-ref:authority:mission-scope-mismatch"
+            if matching_domain_capability
+            else "reason-ref:authority:no-active-lease-for-domain-capability"
+        )
+        reason_refs.append(reason_ref)
+        operator_message = (
+            "Requires a mission-scoped authority lease that matches the action mission ref."
+            if reason_ref == "reason-ref:authority:mission-scope-mismatch"
+            else "Requires an active authority lease; degraded to a draft proposal."
+        )
         if request.draft_fallback_available:
             return _decision(
                 request,
                 AuthorityDecisionOutcome.degrade_to_draft,
                 reason_refs=reason_refs,
-                operator_message=(
-                    "Requires an active authority lease; degraded to a draft proposal."
-                ),
+                operator_message=operator_message,
             )
         return _decision(
             request,
             AuthorityDecisionOutcome.deny,
             reason_refs=reason_refs,
-            operator_message="Denied because no active lease grants this domain and capability.",
+            operator_message=(
+                "Denied because no active lease grants this action mission scope."
+                if reason_ref == "reason-ref:authority:mission-scope-mismatch"
+                else "Denied because no active lease grants this domain and capability."
+            ),
         )
     lease = matching[0]
     mode = TrustMode(lease.mode)

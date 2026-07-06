@@ -297,9 +297,11 @@ release, production authority, or broad autonomy is added.
 Settings mission-planner note: issue-ready mission plans may call
 `POST /api/runtime/authority-leases` with the backend-generated
 `lease_issue_request` to issue a mission-scoped lease for implemented local
-domains only. Draft-only mission plans with denied domains or unsupported
-adapters must keep the issue control disabled and must not claim browser,
-payment, connector, provider, shell, or production execution.
+domains only. Mission-scoped leases apply only to later action requests carrying
+the matching safe mission ref in resource refs or constraints. Draft-only mission
+plans with denied domains or unsupported adapters must keep the issue control
+disabled and must not claim browser, payment, connector, provider, shell, or
+production execution.
 
 Patch Workbench Phase A remains contract/readiness work only. Phase B apply
 authority is blocked until an exact apply route, CLI/API/core parity,

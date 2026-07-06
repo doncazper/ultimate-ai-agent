@@ -92,6 +92,9 @@ command status uses `workspace/read`, while execution-capable command lanes
 require `workspace/execute` and an exact approval envelope. Provider/model
 transport must not be described as executable from an active lease until a
 supported provider/model execution lease exists and is tested.
+Mission-scoped leases must be described as bounded to actions carrying the
+matching safe mission ref; a mission lease is not a standing session grant for
+the same domain/capability outside that mission.
 
 Work Board persisted reorder and local-card-create copy must say the action
 requires `Ask before changes` or stronger with the `workspace/write` domain

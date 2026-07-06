@@ -198,6 +198,118 @@ def test_authority_evaluator_ask_and_allow_modes() -> None:
     assert allow_decision.receipt_ref is not None
 
 
+def test_authority_evaluator_bounds_mission_scoped_leases_to_mission_ref() -> None:
+    mission_lease = AuthorityLease(
+        lease_ref="authority-lease-ref:test-workspace-mission",
+        mode=TrustMode.approved_safe_local_work_session,
+        scope="mission",
+        mission_ref="mission-ref:test-workspace-maintenance",
+        domains={AuthorityDomain.workspace: [AuthorityCapability.execute]},
+        safe_summary="Test mission lease grants workspace execute for one mission.",
+    )
+
+    unrelated_decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-mission-unrelated",
+            domain=AuthorityDomain.workspace,
+            capability=AuthorityCapability.execute,
+            safe_summary="Execute workspace command outside the mission.",
+            requested_mode=TrustMode.approved_safe_local_work_session,
+            draft_fallback_available=True,
+        ),
+        [mission_lease],
+    )
+    matched_decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-mission-matched",
+            domain=AuthorityDomain.workspace,
+            capability=AuthorityCapability.execute,
+            safe_summary="Execute workspace command inside the mission.",
+            resource_refs=["mission-ref:test-workspace-maintenance"],
+            requested_mode=TrustMode.approved_safe_local_work_session,
+        ),
+        [mission_lease],
+    )
+    constrained_decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-mission-constrained",
+            domain=AuthorityDomain.workspace,
+            capability=AuthorityCapability.execute,
+            safe_summary="Execute workspace command inside the constrained mission.",
+            constraints={"mission_ref": "mission-ref:test-workspace-maintenance"},
+            requested_mode=TrustMode.approved_safe_local_work_session,
+        ),
+        [mission_lease],
+    )
+
+    assert unrelated_decision.outcome == AuthorityDecisionOutcome.degrade_to_draft.value
+    assert unrelated_decision.lease_ref is None
+    assert "reason-ref:authority:mission-scope-mismatch" in (
+        unrelated_decision.reason_refs
+    )
+    assert matched_decision.outcome == AuthorityDecisionOutcome.allow.value
+    assert matched_decision.lease_ref == mission_lease.lease_ref
+    assert constrained_decision.outcome == AuthorityDecisionOutcome.allow.value
+    assert constrained_decision.lease_ref == mission_lease.lease_ref
+
+
+def test_authority_api_preview_enforces_mission_lease_scope(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+    issue = client.post(
+        "/api/runtime/authority-leases",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:authority-api-mission"},
+        json={
+            "mode": "approved_safe_local_work_session",
+            "scope": "mission",
+            "mission_ref": "mission-ref:test-api-workspace-maintenance",
+            "requested_domains": {
+                "workspace": ["execute"],
+            },
+            "decision_reason_ref": "reason-ref:authority-api-mission",
+            "safe_summary": "Select mission workspace authority.",
+        },
+    )
+    assert issue.status_code == 200
+    assert issue.json()["data"]["receipt"]["status"] == "issued"
+
+    unrelated = client.post(
+        "/api/runtime/authority-decisions/preview",
+        json={
+            "action_ref": "authority-action-ref:test-api-mission-unrelated",
+            "domain": "workspace",
+            "capability": "execute",
+            "safe_summary": "Preview unrelated workspace execution.",
+            "requested_mode": "approved_safe_local_work_session",
+            "draft_fallback_available": True,
+        },
+    )
+    matched = client.post(
+        "/api/runtime/authority-decisions/preview",
+        json={
+            "action_ref": "authority-action-ref:test-api-mission-matched",
+            "domain": "workspace",
+            "capability": "execute",
+            "safe_summary": "Preview mission-scoped workspace execution.",
+            "resource_refs": ["mission-ref:test-api-workspace-maintenance"],
+            "requested_mode": "approved_safe_local_work_session",
+        },
+    )
+
+    assert unrelated.status_code == 200
+    assert unrelated.json()["data"]["decision"]["outcome"] == "degrade_to_draft"
+    assert "reason-ref:authority:mission-scope-mismatch" in (
+        unrelated.json()["data"]["decision"]["reason_refs"]
+    )
+    assert matched.status_code == 200
+    assert matched.json()["data"]["decision"]["outcome"] == "allow"
+    assert matched.json()["data"]["decision"]["lease_ref"] == (
+        issue.json()["data"]["lease"]["lease_ref"]
+    )
+
+
 def test_unsupported_adapter_denies_without_execution_claim() -> None:
     decision = evaluate_authority_request(
         AuthorityActionRequest(

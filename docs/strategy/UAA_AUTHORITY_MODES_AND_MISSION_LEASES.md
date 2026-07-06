@@ -39,6 +39,9 @@ lease is read-only; operator-selected session leases persist safe receipts for
 implemented local domain/capability subsets; existing exact lanes are mapped
 into domains and required trust modes; RuntimeGateway API/CLI decisions consume
 the active lease store for command invocation, approval, and execution policy;
+mission-scoped leases grant only actions carrying the matching mission ref in
+safe action refs or constraints, so a delegated mission cannot become a broad
+standing grant;
 Control Center `/settings` can preview workspace command, file proposal,
 browser-click, and budgeted-purchase decisions against the active lease, and can
 plan a delegated mission lease envelope without issuing a lease, executing work,
