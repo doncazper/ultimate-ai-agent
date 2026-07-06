@@ -1390,6 +1390,7 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   const localModelStep = useOperatorStep(data, "local_model_readiness");
   const taskStep = useOperatorStep(data, "task_decomposition_plan");
   const settingsStatus = data.settingsStatus;
+  const authorityLeaseState = settingsStatus.authority_lease_state;
   const settingsStatusRecord = settingsStatus as unknown as Record<
     string,
     unknown
@@ -1526,6 +1527,44 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
         </article>
         <article className="panel">
           <div className="panel-heading">
+            <h3>Authority mode</h3>
+            <span>{authorityLeaseState.active_mode.replaceAll("_", " ")}</span>
+          </div>
+          <p>{authorityLeaseState.operator_summary}</p>
+          <dl className="metadata-list">
+            <div>
+              <dt>API</dt>
+              <dd>{authorityLeaseState.api_ref}</dd>
+            </div>
+            <div>
+              <dt>CLI</dt>
+              <dd>{authorityLeaseState.cli_ref}</dd>
+            </div>
+            <div>
+              <dt>Active leases</dt>
+              <dd>{authorityLeaseState.active_leases.length}</dd>
+            </div>
+            <div>
+              <dt>Domains</dt>
+              <dd>{authorityLeaseState.target_domains.length}</dd>
+            </div>
+            <div>
+              <dt>Unknown authority</dt>
+              <dd>{authorityLeaseState.unknown_authority_default}</dd>
+            </div>
+            <div>
+              <dt>Receipts</dt>
+              <dd>{authorityLeaseState.receipts_required ? "required" : "missing"}</dd>
+            </div>
+          </dl>
+          <div className="note-list" aria-label="Authority mode outcomes">
+            {authorityLeaseState.policy_outcomes.map((outcome) => (
+              <span key={outcome}>{outcome.replaceAll("_", " ")}</span>
+            ))}
+          </div>
+        </article>
+        <article className="panel">
+          <div className="panel-heading">
             <h3>Non-secret setup guidance</h3>
             <span>local only</span>
           </div>
@@ -1556,6 +1595,41 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
         <ProviderCredentialReadinessPanel
           readiness={data.dashboard.provider_credential_readiness}
         />
+      </div>
+
+      <div
+        className="operator-boundary-list"
+        aria-label="Authority lease decisions"
+      >
+        {authorityLeaseState.sample_decisions.map((decision) => (
+          <article
+            className={`surface-state-card ${settingsPostureClass(
+              decision.outcome === "allow"
+                ? "Partial"
+                : decision.outcome === "ask"
+                  ? "Degraded"
+                  : "Blocked",
+            )}`}
+            aria-label={`Authority decision ${decision.outcome}`}
+            key={decision.decision_ref}
+            role="status"
+          >
+            <span className="surface-state-kind">
+              {decision.outcome.replaceAll("_", " ")}
+            </span>
+            <strong>
+              {decision.domain.replaceAll("_", " ")} /{" "}
+              {decision.capability.replaceAll("_", " ")}
+            </strong>
+            <p>{decision.operator_message}</p>
+            <div className="note-list" aria-label={`${decision.action_ref} refs`}>
+              <span>{decision.action_ref}</span>
+              <span>{decision.lease_ref ?? "authority-lease-ref:required"}</span>
+              <span>{decision.audit_record_ref}</span>
+              {decision.receipt_ref ? <span>{decision.receipt_ref}</span> : null}
+            </div>
+          </article>
+        ))}
       </div>
 
       <div

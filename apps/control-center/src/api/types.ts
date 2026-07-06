@@ -11654,6 +11654,113 @@ export interface LocalModelsInspectionStatus {
   reasonCodes: string[];
 }
 
+export type AuthorityTrustMode =
+  | "read_only"
+  | "ask_before_changes"
+  | "approved_safe_local_work_session"
+  | "full_local_workspace_session"
+  | "full_machine_access_session"
+  | "delegated_mission_autonomous_window";
+
+export type AuthorityDomain =
+  | "workspace"
+  | "files"
+  | "shell"
+  | "apps"
+  | "browser"
+  | "system_settings"
+  | "calendar"
+  | "messages"
+  | "email"
+  | "contacts"
+  | "home_assistant"
+  | "shopping_payments"
+  | "provider_model_calls"
+  | "memory"
+  | "cloud_production";
+
+export type AuthorityDecisionOutcome = "allow" | "ask" | "deny" | "degrade_to_draft";
+
+export interface AuthorityLease {
+  lease_ref: string;
+  mode: AuthorityTrustMode;
+  scope: "session" | "mission";
+  status: "active" | "expired" | "revoked" | "planned";
+  mission_ref: string | null;
+  domains: Record<string, string[]>;
+  constraints: Record<string, unknown>;
+  ask_if: string[];
+  hard_deny: string[];
+  unsupported_adapter_refs: string[];
+  receipts_required: boolean;
+  audit_required: boolean;
+  redaction_required: boolean;
+  rollback_required: boolean;
+  safe_disable_required: boolean;
+  kill_switch_required: boolean;
+  safe_disable_ref: string;
+  rollback_ref: string;
+  kill_switch_ref: string;
+  audit_ref: string;
+  receipt_sink_ref: string;
+  safe_summary: string;
+}
+
+export interface AuthorityPolicyDecision {
+  decision_ref: string;
+  action_ref: string;
+  outcome: AuthorityDecisionOutcome;
+  domain: AuthorityDomain;
+  capability: string;
+  lease_ref: string | null;
+  matched_mode: AuthorityTrustMode | null;
+  required_mode: AuthorityTrustMode | null;
+  reason_refs: string[];
+  operator_message: string;
+  known_authority: boolean;
+  unsupported_adapter: boolean;
+  receipt_ref: string | null;
+  audit_record_ref: string;
+}
+
+export interface AuthorityCapabilityMapping {
+  lane_ref: string;
+  label: string;
+  domain: AuthorityDomain;
+  capability: string;
+  required_mode: AuthorityTrustMode;
+  status: string;
+  route_refs: string[];
+  cli_refs: string[];
+  evidence_refs: string[];
+  unsupported_adapter_refs: string[];
+  operator_copy: string;
+}
+
+export interface AuthorityStateReadModel {
+  schema_version: "uaa-authority-state.v1";
+  contract_ref: string;
+  backend_owned: boolean;
+  active_mode: AuthorityTrustMode;
+  operator_summary: string;
+  api_ref: string;
+  settings_route_ref: string;
+  cli_ref: string;
+  target_modes: AuthorityTrustMode[];
+  target_domains: AuthorityDomain[];
+  policy_outcomes: AuthorityDecisionOutcome[];
+  active_leases: AuthorityLease[];
+  capability_mappings: AuthorityCapabilityMapping[];
+  sample_decisions: AuthorityPolicyDecision[];
+  kill_switch_visible: boolean;
+  receipts_required: boolean;
+  audit_required: boolean;
+  redaction_required: boolean;
+  unknown_authority_default: "deny";
+  unsupported_adapters_claimed_execution: boolean;
+  redactions_applied: string[];
+}
+
 export interface ControlCenterSettingsStatus {
   schema_version: "uaa-control-center-settings-status.v1";
   module_id: "settings";
@@ -11689,6 +11796,7 @@ export interface ControlCenterSettingsStatus {
   authority_postures: ControlCenterSettingsAuthorityPosture[];
   kill_switch_postures: ControlCenterSettingsKillSwitchPosture[];
   feature_flag_postures: ControlCenterSettingsFeatureFlagPosture[];
+  authority_lease_state: AuthorityStateReadModel;
   blocked_authorities: string[];
   missing_contracts: string[];
   redactions_applied: string[];

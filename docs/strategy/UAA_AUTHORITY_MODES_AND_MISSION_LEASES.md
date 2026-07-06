@@ -1,13 +1,30 @@
 # UAA Authority Modes And Mission Leases
 
-Status: side-conversation strategy capture
+Status: active authority foundation canon for AuthorityLease V1
 Date: 2026-07-06
 Purpose: preserve the product/architecture direction for moving UAA from
 permanent blocked-lane posture to governed, operator-selected autonomy.
 
-This document records a strategic correction discussed in side conversation.
-It is not itself runtime authority. It is a canon-change proposal and
-implementation guide for future scoped work.
+This document records the active strategic correction from tiny-lane-first
+graduation toward mode/domain/lease authority. It is not itself runtime
+authority and does not claim unsupported adapters are implemented. It is the
+canon and implementation guide for AuthorityLease V1.
+
+## Current Implementation Hook
+
+AuthorityLease V1 is represented in Python Core by
+`ultimate_ai_agent.core.authority`. The current operator-visible inspection
+surfaces are:
+
+- `GET /api/runtime/authority-state`
+- `GET /control-center/settings/status#authority_lease_state`
+- `scripts/dev/uaa_runtime.py inspect-authority-state --json`
+
+The first implementation is deliberately conservative: the default active
+lease is read-only; existing exact lanes are mapped into domains and required
+trust modes; runtime policy can evaluate supplied active leases; unsupported
+browser/app/payment/calendar/messages/Home Assistant adapters remain denied or
+draft-degraded instead of being presented as live execution.
 
 ## Core Problem
 

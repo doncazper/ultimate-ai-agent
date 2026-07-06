@@ -2,6 +2,14 @@
   "schema_version": "uaa-control-center-authority-candidate-scorecard.v1",
   "status": "active authority candidate scorecard",
   "baseline": "v0.104.0 / 0.104.0",
+  "authority_model": {
+    "status": "migrating_to_authority_lease_v1",
+    "canon_ref": "docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md",
+    "api_ref": "GET /api/runtime/authority-state",
+    "settings_ref": "GET /control-center/settings/status#authority_lease_state",
+    "cli_ref": "scripts/dev/uaa_runtime.py inspect-authority-state --json",
+    "safe_summary": "Authority candidates are no longer the user-facing authority model. Existing lanes are mapped into AuthorityLease domains and capabilities; unknown authority denies by default, and unsupported adapters remain planned or blocked until implemented and tested."
+  },
   "conveyor_doc_ref": "docs/control_center/AUTHORITY_RAMP_CONVEYOR.md",
   "verifier_ref": "scripts/verify_operational_maturity.py",
   "operational_maturity_manifest_ref": "docs/control_center/operational_maturity_manifest.json",

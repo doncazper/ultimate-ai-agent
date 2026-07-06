@@ -8,6 +8,15 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityCapability,
+    AuthorityDecisionOutcome,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+    evaluate_authority_request,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_payload,
@@ -273,6 +282,13 @@ class RuntimePolicyDecision(BaseModel):
             "RUNTIME_ADAPTER_EXECUTION_BLOCKED",
         ]
     )
+    authority_decision_ref: str | None = None
+    authority_decision_outcome: str | None = None
+    authority_lease_ref: str | None = None
+    authority_domain: str | None = None
+    authority_capability: str | None = None
+    authority_required_mode: str | None = None
+    authority_operator_message: str | None = None
     safe_summary: str = "RuntimeGateway policy recorded a governed runtime decision."
     redactions_applied: list[str] = Field(
         default_factory=lambda: list(GOVERNED_RUNTIME_REDACTIONS)
@@ -289,6 +305,21 @@ class RuntimePolicyDecision(BaseModel):
             validate_execution_ref(ref, "blocked_authority_ref")
         for reason in self.reason_codes:
             validate_safe_execution_text(reason, "reason_code")
+        for value, field_name in [
+            (self.authority_decision_ref, "authority_decision_ref"),
+            (self.authority_lease_ref, "authority_lease_ref"),
+        ]:
+            if value:
+                validate_execution_ref(value, field_name)
+        for value, field_name in [
+            (self.authority_decision_outcome, "authority_decision_outcome"),
+            (self.authority_domain, "authority_domain"),
+            (self.authority_capability, "authority_capability"),
+            (self.authority_required_mode, "authority_required_mode"),
+            (self.authority_operator_message, "authority_operator_message"),
+        ]:
+            if value:
+                validate_safe_execution_text(value, field_name)
         for redaction in self.redactions_applied:
             validate_safe_execution_text(redaction, "redaction")
         if self.allowed_to_execute:
@@ -832,11 +863,43 @@ def build_policy_decision(
     status: RuntimeInvocationStatus = RuntimeInvocationStatus.blocked,
     local_model_gateway_validated: bool = False,
     command_gateway_validated: bool = False,
+    active_authority_leases: list[AuthorityLease] | None = None,
 ) -> RuntimePolicyDecision:
     profile = RuntimeProfile(request.requested_profile)
+    authority_decision = None
+    if active_authority_leases is not None:
+        if request.requested_authority == RuntimeAuthority.local_model.value:
+            authority_request = AuthorityActionRequest(
+                action_ref=request.action_ref or invocation_ref,
+                domain=AuthorityDomain.provider_model_calls,
+                capability=AuthorityCapability.execute,
+                safe_summary="Evaluate provider model call authority for governed runtime.",
+                route_ref="POST /api/runtime/local-model/call",
+                requested_mode=TrustMode.approved_safe_local_work_session,
+                draft_fallback_available=True,
+            )
+        else:
+            authority_request = AuthorityActionRequest(
+                action_ref=request.action_ref or invocation_ref,
+                domain=AuthorityDomain.workspace,
+                capability=AuthorityCapability.execute,
+                safe_summary="Evaluate workspace command authority for governed runtime.",
+                route_ref="POST /api/runtime/command/run",
+                requested_mode=TrustMode.approved_safe_local_work_session,
+                draft_fallback_available=True,
+            )
+        authority_decision = evaluate_authority_request(
+            authority_request,
+            active_authority_leases,
+        )
+    authority_allows_execution = (
+        authority_decision is None
+        or authority_decision.outcome == AuthorityDecisionOutcome.allow.value
+    )
     local_model_enabled = (
         request.requested_authority == RuntimeAuthority.local_model.value
         and local_model_gateway_validated
+        and authority_allows_execution
         and profile
         in {
             RuntimeProfile.local_runtime,
@@ -846,6 +909,7 @@ def build_policy_decision(
     command_enabled = (
         request.requested_authority == RuntimeAuthority.allowlisted_command.value
         and command_gateway_validated
+        and authority_allows_execution
         and profile
         in {
             RuntimeProfile.local_runtime,
@@ -898,6 +962,15 @@ def build_policy_decision(
         ]
     if approval_ref or request.approval_ref:
         reason_codes.append("APPROVAL_REF_IDENTIFIER_ONLY")
+    if authority_decision is not None:
+        reason_codes.append(
+            f"AUTHORITY_LEASE_DECISION_{str(authority_decision.outcome).upper()}"
+        )
+        if (
+            authority_decision.outcome != AuthorityDecisionOutcome.allow.value
+            and (local_model_gateway_validated or command_gateway_validated)
+        ):
+            reason_codes.append("AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION")
     return RuntimePolicyDecision(
         policy_decision_ref=runtime_policy_decision_ref(invocation_ref),
         profile=profile if local_model_enabled or command_enabled else RuntimeProfile.sealed,
@@ -909,6 +982,31 @@ def build_policy_decision(
         command_execution_enabled=command_enabled,
         approval_requirement=approval_requirement,
         reason_codes=reason_codes,
+        authority_decision_ref=(
+            authority_decision.decision_ref if authority_decision is not None else None
+        ),
+        authority_decision_outcome=(
+            authority_decision.outcome if authority_decision is not None else None
+        ),
+        authority_lease_ref=(
+            authority_decision.lease_ref if authority_decision is not None else None
+        ),
+        authority_domain=(
+            authority_decision.domain if authority_decision is not None else None
+        ),
+        authority_capability=(
+            authority_decision.capability if authority_decision is not None else None
+        ),
+        authority_required_mode=(
+            authority_decision.required_mode
+            if authority_decision is not None
+            else None
+        ),
+        authority_operator_message=(
+            authority_decision.operator_message
+            if authority_decision is not None
+            else None
+        ),
         safe_summary=(
             "RuntimeGateway policy allows loopback local model calls as untrusted proposals."
             if local_model_enabled

@@ -13,7 +13,9 @@ from ultimate_ai_agent.core.approvals.enums import (
 from ultimate_ai_agent.core.approvals.grants import ApprovalGrant
 from ultimate_ai_agent.core.approvals.requests import ApprovalRequest
 from ultimate_ai_agent.core.approvals.validation import refs_subset, risk_value
+from ultimate_ai_agent.core.authority import AuthorityLease, AuthorityLeaseStatus
 from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
+from ultimate_ai_agent.core.planning.validation import validate_task_ref
 from ultimate_ai_agent.core.time import utc_now
 
 
@@ -22,6 +24,7 @@ class LocalApprovalAuthority:
         self.mode = mode
         self._requests: dict[str, ApprovalRequest] = {}
         self._grants: dict[str, ApprovalGrant] = {}
+        self._authority_leases: dict[str, AuthorityLease] = {}
 
     def create_request(self, request: ApprovalRequest) -> ApprovalRequest:
         self._requests[request.approval_request_id] = request
@@ -121,6 +124,31 @@ class LocalApprovalAuthority:
         if run_id is not None:
             grants = [grant for grant in grants if grant.run_id == run_id]
         return grants
+
+    def issue_authority_lease(self, lease: AuthorityLease) -> AuthorityLease:
+        self._authority_leases[lease.lease_ref] = lease
+        return lease
+
+    def revoke_authority_lease(self, lease_ref: str, reason_ref: str) -> AuthorityLease:
+        validate_task_ref(reason_ref, "authority_lease_revocation_reason_ref")
+        lease = self._authority_leases[lease_ref]
+        revoked = lease.model_copy(
+            update={
+                "status": AuthorityLeaseStatus.revoked,
+                "constraints": {
+                    **lease.constraints,
+                    "revocation_reason_ref": reason_ref,
+                },
+            }
+        )
+        self._authority_leases[lease_ref] = revoked
+        return revoked
+
+    def list_authority_leases(self, *, active_only: bool = False) -> list[AuthorityLease]:
+        leases = list(self._authority_leases.values())
+        if active_only:
+            leases = [lease for lease in leases if lease.is_active()]
+        return leases
 
     def _scope_failures(self, request: ApprovalValidationRequest, grant: ApprovalGrant) -> list[str]:
         failures: list[str] = []

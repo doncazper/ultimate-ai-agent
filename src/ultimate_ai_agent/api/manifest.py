@@ -686,6 +686,7 @@ CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
     "/control-center/web-evidence/attach",
 }
 GOVERNED_RUNTIME_READONLY_PATHS = {
+    "/api/runtime/authority-state",
     "/api/runtime/capabilities",
     "/api/runtime/approval-bridge",
     "/api/runtime/capability-discovery",

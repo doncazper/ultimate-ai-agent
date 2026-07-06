@@ -10811,6 +10811,24 @@ describe("Web Control Center shell", () => {
       screen.getByLabelText("Settings kill-switch and feature-flag posture"),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole("heading", { name: /Authority mode/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/GET \/api\/runtime\/authority-state/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText(/repo-local-command:uaa-runtime-inspect-authority-state/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText(/Unknown authority/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Degraded/i).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Authority lease decisions")).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: /Authority decision allow/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: /Authority decision deny/i }),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("status", {
         name: /Kill switch: Global runtime authority/i,
       }),

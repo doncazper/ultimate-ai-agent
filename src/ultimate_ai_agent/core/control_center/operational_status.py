@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import build_authority_state_read_model
 from ultimate_ai_agent.core.local_model_management.inventory import (
     inspect_local_model_inventory,
 )
@@ -277,6 +278,7 @@ class ControlCenterSettingsStatus(BaseModel):
     authority_postures: list[ControlCenterSettingsAuthorityPosture]
     kill_switch_postures: list[ControlCenterSettingsKillSwitchPosture]
     feature_flag_postures: list[ControlCenterSettingsFeatureFlagPosture]
+    authority_lease_state: dict[str, Any]
     blocked_authorities: list[str] = Field(
         default_factory=lambda: list(SETTINGS_BLOCKED_AUTHORITIES)
     )
@@ -434,6 +436,7 @@ def build_control_center_settings_status() -> ControlCenterSettingsStatus:
         authority_postures=_settings_authority_postures(platform_snapshot.snapshot_ref),
         kill_switch_postures=_settings_kill_switch_postures(),
         feature_flag_postures=_settings_feature_flag_postures(),
+        authority_lease_state=build_authority_state_read_model().model_dump(mode="json"),
     )
 
 

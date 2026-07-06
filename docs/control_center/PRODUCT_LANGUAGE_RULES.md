@@ -16,6 +16,16 @@ Control Center and OpenWebUI remain shells. Python Agent Core, PolicyEngine,
 LocalApprovalAuthority, route side-effect classification, OpenAPI checks, and
 Foundation Gate checks remain the authority boundaries.
 
+Authority copy should now prefer the AuthorityLease V1 vocabulary from
+`docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md`: trust mode, domain,
+capability, lease, constraints, receipts, audit, redaction, rollback,
+safe-disable, and kill switch. Do not describe the product as needing a new
+"graduation" for every meaningful action. Say what is required, for example
+"requires Full Machine Access with Browser domain" or "requires Delegated
+mission with Shopping and Browser domains plus budget constraints." Exact
+lanes may remain implementation details, but they are not the operator-facing
+authority model.
+
 Control Center is the first-party product UI for Start Here, Today, Action
 Inbox, Proof, Evidence, Memory, Trust, Settings, Plans, Models, and future
 first-party Chat. Founder Loop is the bounded operator workflow inside that
@@ -48,6 +58,26 @@ sending connector data, calling providers, or completing blocked work.
 The inherited founder-loop wording still applies to Today, Inbox, Plans,
 Actions, Memory, Evidence, and Settings when checking older shell and
 documentation guardrails.
+
+## Authority Modes And Leases
+
+Use `GET /api/runtime/authority-state`,
+`GET /control-center/settings/status#authority_lease_state`, and
+`scripts/dev/uaa_runtime.py inspect-authority-state --json` as the current
+source of truth for active mode, domain grants, existing lane mappings,
+policy decisions, receipts, audit refs, rollback/safe-disable posture, and
+kill-switch visibility.
+
+Required copy distinctions:
+
+- Unknown authority is denied.
+- Known authority inside an active lease may be allowed.
+- Known authority under Ask before changes asks before mutation.
+- Unsupported adapters are planned, blocked, or draft-only; never claim live
+  app/browser/payment/calendar/messages/Home Assistant execution until an
+  adapter exists and is tested.
+- Degraded-to-draft is not execution.
+- Visibility of a mode/domain/lease is not itself authority.
 
 ## Usable Authority Tiers
 

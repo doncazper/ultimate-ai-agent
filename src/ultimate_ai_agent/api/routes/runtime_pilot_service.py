@@ -12,6 +12,7 @@ from ultimate_ai_agent.core.hygiene.envelopes import (
     ResultEnvelope,
     Severity,
 )
+from ultimate_ai_agent.core.authority import build_authority_state_read_model
 from ultimate_ai_agent.core.decision_router import prepare_turn
 from ultimate_ai_agent.core.control_center.runtime_parity_loop import (
     build_runtime_parity_loop_read_model,
@@ -676,6 +677,20 @@ def get_api_runtime_run_events() -> ResultEnvelope:
         trace_id=read_model.contract_ref,
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:runtime-run-events:phase-03"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/authority-state", response_model=ResultEnvelope)
+def get_api_runtime_authority_state() -> ResultEnvelope:
+    read_model = build_authority_state_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_authority_state",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.contract_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:authority-state:v1"}],
         redactions_applied=read_model.redactions_applied,
     )
 

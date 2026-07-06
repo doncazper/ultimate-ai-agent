@@ -3,7 +3,7 @@
 Status: active UAA-P0-007 operator-shell gap map
 Baseline: v0.104.0 / 0.104.0
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` M172
-API boundary: current FastAPI manifest has 235 OpenAPI paths
+API boundary: current FastAPI manifest has 236 OpenAPI paths
 Lineage: carries forward the UAA-P1-065 `FCC-P0-002` Control Center
 organization cleanup as historical product-surface context.
 
@@ -20,6 +20,18 @@ broad provider router toggle, or new API runtime route for that lane.
 Control Center and OpenWebUI remain shells. Python Agent Core, PolicyEngine,
 LocalApprovalAuthority, route side-effect classification, OpenAPI checks, and
 Foundation Gate checks remain the authority boundaries.
+
+Authority posture is migrating from permanent tiny-lane graduation language to
+AuthorityLease V1: operator-selected trust modes, explicit domains,
+session/mission scope, constraints, receipts, audit, redaction, rollback,
+safe-disable, and kill-switch visibility. The current inspection surfaces are
+`GET /api/runtime/authority-state`,
+`GET /control-center/settings/status#authority_lease_state`, and
+`scripts/dev/uaa_runtime.py inspect-authority-state --json`. Unsupported
+browser, app, payment, calendar, messages, email, contacts, Home Assistant,
+and production/cloud adapters remain blocked or draft-only until implemented
+and tested, but the operator-facing explanation should name the required mode
+and domains instead of saying "blocked until another tiny lane graduates."
 
 The `context_injection` prerequisite contract is planned-only and
 contract-ready for future gate review. It adds no runtime prompt/context

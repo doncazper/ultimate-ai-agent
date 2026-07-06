@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.core.control_center.runtime_action_bridge import (  # noqa: E402
     build_runtime_action_inbox_bridge_read_model,
 )
+from ultimate_ai_agent.core.authority import build_authority_state_read_model  # noqa: E402
 from ultimate_ai_agent.core.control_center.runtime_parity_loop import (  # noqa: E402
     build_runtime_parity_loop_read_model,
 )
@@ -108,6 +109,19 @@ def _runtime_payload(read_model: dict[str, Any], command_ref: str) -> dict[str, 
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
         "raw_command_output_omitted": True,
+    }
+
+
+def _authority_payload(read_model: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-authority-state",
+        "authority_state_read_model": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_command_output_omitted": True,
+        "execution_performed": False,
     }
 
 
@@ -1667,6 +1681,21 @@ def _authority_profile(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_authority_profile(read_model)
+    return 0
+
+
+def _inspect_authority_state(args: argparse.Namespace) -> int:
+    read_model = build_authority_state_read_model().model_dump(mode="json")
+    if args.json:
+        _print_json(_authority_payload(read_model))
+    else:
+        print("Authority modes and mission leases")
+        print(f"Active mode: {read_model['active_mode']}")
+        print(f"Contract: {read_model['contract_ref']}")
+        print(f"API: {read_model['api_ref']}")
+        print(f"Summary: {read_model['operator_summary']}")
+        print(f"Active leases: {len(read_model['active_leases'])}")
+        print(f"Capability mappings: {len(read_model['capability_mappings'])}")
     return 0
 
 
@@ -3244,6 +3273,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="Emit safe JSON."
     )
     authority_profile.set_defaults(func=_authority_profile)
+
+    authority_state = subparsers.add_parser(
+        "inspect-authority-state",
+        help="Inspect AuthorityLease V1 modes, domains, leases, and decisions.",
+    )
+    authority_state.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    authority_state.set_defaults(func=_inspect_authority_state)
 
     export_evidence = subparsers.add_parser(
         "export-evidence-envelope",
