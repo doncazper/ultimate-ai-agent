@@ -39,6 +39,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_profile_isolation_read_model,
     build_runtime_run_events_read_model,
     build_runtime_session_search_read_model,
+    build_runtime_session_lineage_read_model,
     build_runtime_streaming_progress_read_model,
     build_runtime_tool_registry_availability_read_model,
     build_runtime_action_signed_evidence,
@@ -378,6 +379,41 @@ def _print_session_search(read_model: dict[str, Any]) -> None:
         print(f"  run={result.get('run_ref') or 'none'}")
         print(f"  context={result['attachable_context_ref']}")
         print(f"  summary: {result['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_session_lineage(read_model: dict[str, Any]) -> None:
+    print("Runtime session lineage and forks")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Nodes: {read_model['node_count']}")
+    print(f"Forks: {read_model['fork_count']}")
+    print(f"Max depth: {read_model['max_lineage_depth']}")
+    print(f"Raw transcript clone enabled: {read_model['raw_transcript_clone_enabled']}")
+    print(f"Runtime dispatch enabled: {read_model['runtime_dispatch_enabled']}")
+    print("Lineage nodes:")
+    for node in read_model["nodes"]:
+        print(
+            f"- {node['node_ref']}: kind={node['node_kind']} "
+            f"session={node['session_ref']}"
+        )
+        print(f"  parent={node.get('parent_node_ref') or 'none'}")
+        print(f"  children={len(node['child_node_refs'])}")
+        print(f"  summary: {node['safe_summary']}")
+    print("Forks:")
+    for fork in read_model["forks"]:
+        print(
+            f"- {fork['fork_ref']}: status={fork['status']} "
+            f"branch={fork['branch_ref']}"
+        )
+        print(f"  parent={fork['parent_session_ref']}")
+        print(f"  child={fork['child_session_ref']}")
+        print(f"  envelope={fork['redacted_fork_envelope_ref']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -828,6 +864,33 @@ def _inspect_session_search(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_session_search(read_model)
+    return 0
+
+
+def _inspect_session_lineage(args: argparse.Namespace) -> int:
+    read_model = build_runtime_session_lineage_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-session-lineage",
+        "runtime_session_lineage": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_transcripts_omitted": True,
+        "raw_prompts_omitted": True,
+        "raw_responses_omitted": True,
+        "fork_context_payloads_omitted": True,
+        "hidden_context_injection_performed": False,
+        "runtime_dispatch_performed": False,
+        "provider_model_call_performed": False,
+        "shell_execution_performed": False,
+        "browser_automation_performed": False,
+        "connector_write_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_session_lineage(read_model)
     return 0
 
 
@@ -1686,6 +1749,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref session search read model as JSON.",
     )
     session_search.set_defaults(func=_inspect_session_search)
+
+    session_lineage = subparsers.add_parser(
+        "inspect-session-lineage",
+        help="Inspect safe-ref session lineage and fork posture without dispatch.",
+    )
+    session_lineage.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref session lineage read model as JSON.",
+    )
+    session_lineage.set_defaults(func=_inspect_session_lineage)
 
     context_references = subparsers.add_parser(
         "inspect-context-references",
