@@ -17,6 +17,7 @@ import type {
   RuntimeStreamingProgressReadModel,
   RuntimeProfileIsolationReadModel,
   RuntimePromptStabilityTiersReadModel,
+  RuntimePreviewRailReadModel,
   RuntimeReadinessReport,
   RuntimeUsageCostAnalyticsReadModel,
   RuntimeVirtualProviderMoaReadModel,
@@ -48,6 +49,7 @@ export function RuntimeReadinessPanel({
   subagentIsolation,
   worktreePerAgent,
   lspDiagnostics,
+  previewRail,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -71,6 +73,7 @@ export function RuntimeReadinessPanel({
   subagentIsolation: RuntimeSubagentIsolationReadModel;
   worktreePerAgent: RuntimeWorktreePerAgentReadModel;
   lspDiagnostics: RuntimeLspDiagnosticsReadModel;
+  previewRail: RuntimePreviewRailReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -1093,6 +1096,106 @@ export function RuntimeReadinessPanel({
         <h4>Blocked authority</h4>
         <ul className="compact-list">
           {lspDiagnostics.blocked_authority_refs.slice(0, 6).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Preview rail</p>
+            <h3>Right rail posture</h3>
+          </div>
+          <span className="status-pill compact">{previewRail.status}</span>
+        </div>
+        <p>{previewRail.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{previewRail.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{previewRail.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Slots</dt>
+            <dd>{previewRail.slot_count}</dd>
+          </div>
+          <div>
+            <dt>Safe refs</dt>
+            <dd>{previewRail.safe_ref_ready_count}</dd>
+          </div>
+          <div>
+            <dt>Bounded placeholders</dt>
+            <dd>{previewRail.bounded_preview_placeholder_count}</dd>
+          </div>
+          <div>
+            <dt>Execution blocked</dt>
+            <dd>{previewRail.execution_blocked_count}</dd>
+          </div>
+          <div>
+            <dt>Browser automation</dt>
+            <dd>
+              {previewRail.browser_automation_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Screenshot capture</dt>
+            <dd>
+              {previewRail.screenshot_capture_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Slot</th>
+                <th>Status</th>
+                <th>Source</th>
+                <th>Preview</th>
+                <th>Proof</th>
+              </tr>
+            </thead>
+            <tbody>
+              {previewRail.slots.map((slot) => (
+                <tr key={slot.slot_ref}>
+                  <td>{slot.display_label}</td>
+                  <td>{slot.slot_status}</td>
+                  <td>{slot.source_classification_ref}</td>
+                  <td>{slot.bounded_preview_ref}</td>
+                  <td>{slot.proof_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>Operator attach</dt>
+            <dd>{previewRail.operator_attach_visible ? "planned" : "hidden"}</dd>
+          </div>
+          <div>
+            <dt>Redaction</dt>
+            <dd>
+              {previewRail.redaction_policy_visible ? "visible" : "missing"}
+            </dd>
+          </div>
+          <div>
+            <dt>File read</dt>
+            <dd>{previewRail.file_read_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+          <div>
+            <dt>Raw runtime payload</dt>
+            <dd>
+              {previewRail.raw_runtime_payload_persisted ? "stored" : "omitted"}
+            </dd>
+          </div>
+        </dl>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {previewRail.blocked_authority_refs.slice(0, 6).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>

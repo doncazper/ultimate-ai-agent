@@ -45,6 +45,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_subagent_isolation_read_model,
     build_runtime_worktree_per_agent_read_model,
     build_runtime_lsp_diagnostics_read_model,
+    build_runtime_preview_rail_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -826,6 +827,42 @@ def _print_lsp_diagnostics(read_model: dict[str, Any]) -> None:
         print(f"  evidence={item['evidence_ref']}")
         print(f"  receipt={item['receipt_plan_ref']}")
         print(f"  proof={item['proof_ref']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_preview_rail(read_model: dict[str, Any]) -> None:
+    print("Runtime preview rail")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Slots: "
+        f"total={read_model['slot_count']} "
+        f"safe_ref_ready={read_model['safe_ref_ready_count']} "
+        f"placeholder={read_model['bounded_preview_placeholder_count']} "
+        f"execution_blocked={read_model['execution_blocked_count']}"
+    )
+    print(
+        "Blocked controls: "
+        f"browser={read_model['browser_automation_enabled']} "
+        f"raw_file={read_model['raw_sensitive_file_display_enabled']} "
+        f"runtime_payload={read_model['direct_runtime_payload_rendering_enabled']} "
+        f"screenshot={read_model['screenshot_capture_enabled']}"
+    )
+    print("Preview slots:")
+    for slot in read_model["slots"]:
+        print(
+            f"- {slot['display_label']}: "
+            f"kind={slot['slot_kind']} status={slot['slot_status']}"
+        )
+        print(f"  source={slot['source_ref']}")
+        print(f"  preview={slot['bounded_preview_ref']}")
+        print(f"  receipt={slot['receipt_plan_ref']}")
+        print(f"  proof={slot['proof_ref']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1664,6 +1701,31 @@ def _inspect_lsp_diagnostics(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_lsp_diagnostics(read_model)
+    return 0
+
+
+def _inspect_preview_rail(args: argparse.Namespace) -> int:
+    read_model = build_runtime_preview_rail_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-preview-rail",
+        "runtime_preview_rail": read_model,
+        "safe_refs_only": True,
+        "bounded_preview_only": True,
+        "raw_paths_omitted": True,
+        "raw_file_content_omitted": True,
+        "raw_runtime_payloads_omitted": True,
+        "browser_automation_performed": False,
+        "screenshot_capture_performed": False,
+        "file_read_performed": False,
+        "file_write_performed": False,
+        "shell_execution_performed": False,
+        "provider_call_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_preview_rail(read_model)
     return 0
 
 
@@ -2736,6 +2798,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref LSP diagnostics posture as JSON.",
     )
     lsp_diagnostics.set_defaults(func=_inspect_lsp_diagnostics)
+
+    preview_rail = subparsers.add_parser(
+        "inspect-preview-rail",
+        help="Inspect safe-ref preview rail posture without rendering raw payloads.",
+    )
+    preview_rail.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref preview rail posture as JSON.",
+    )
+    preview_rail.set_defaults(func=_inspect_preview_rail)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",

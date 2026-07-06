@@ -820,6 +820,8 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.runtimeWorktreePerAgent,
     [API_ENDPOINTS.runtimeLspDiagnostics]:
       mockControlCenterData.runtimeLspDiagnostics,
+    [API_ENDPOINTS.runtimePreviewRail]:
+      mockControlCenterData.runtimePreviewRail,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,

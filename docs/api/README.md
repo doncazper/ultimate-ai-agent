@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `226`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `227` route
+Current OpenAPI path count: `227`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `228` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview adds one no-effect diagnostic route. The Hermes Runtime
@@ -19,6 +19,9 @@ checkpoint-rollback routes,
 Governed Product
 Pilot authority profile, and
 runtime parity loop add protected read-only `/api/runtime/*` inspection routes.
+Hermes Runtime Adoption Phase 35 adds `GET /api/runtime/preview-rail` as a
+protected read-only preview-rail posture route with safe refs and bounded
+preview plans only.
 
 The API boundary is metadata-first, validation-first, approval-aware for
 local/dev policy checks, simulated/fallback-first for model runtime behavior,

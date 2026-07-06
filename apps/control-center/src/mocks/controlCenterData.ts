@@ -50,6 +50,7 @@ import type {
   RuntimeSubagentIsolationRole,
   RuntimeSubagentReviewArtifact,
   RuntimeLspDiagnosticEvidenceContract,
+  RuntimePreviewRailSlot,
   RuntimeSessionContinuitySurface,
   RuntimeWorktreePerAgentLane,
   RuntimeVirtualAgentSlot,
@@ -1707,6 +1708,100 @@ const runtimeLspDiagnostics = [
     status: "execution_blocked",
     safe_summary:
       "Mock docs diagnostic lane keeps shell execution and file reads blocked.",
+  }),
+];
+
+const runtimePreviewRailBlockedRefs = [
+  "blocked-authority:preview-rail-no-browser-automation",
+  "blocked-authority:preview-rail-no-raw-sensitive-file-display",
+  "blocked-authority:preview-rail-no-direct-runtime-payload-rendering",
+  "blocked-authority:preview-rail-no-screenshot-capture",
+  "blocked-authority:preview-rail-no-file-read",
+  "blocked-authority:preview-rail-no-file-write",
+  "blocked-authority:preview-rail-no-shell-execution",
+  "blocked-authority:preview-rail-no-provider-call",
+  "blocked-authority:preview-rail-no-control-center-authority-mint",
+  "blocked-authority:preview-rail-no-raw-path-persistence",
+  "blocked-authority:preview-rail-no-raw-file-content-persistence",
+  "blocked-authority:preview-rail-no-raw-runtime-payload-persistence",
+];
+
+function runtimePreviewRailSlot(
+  slug: string,
+  overrides: Pick<
+    RuntimePreviewRailSlot,
+    "display_label" | "slot_kind" | "slot_status" | "safe_summary"
+  >,
+): RuntimePreviewRailSlot {
+  return {
+    slot_ref: `preview-rail-slot-ref:${slug}`,
+    display_label: overrides.display_label,
+    slot_kind: overrides.slot_kind,
+    slot_status: overrides.slot_status,
+    source_ref: `preview-source-ref:${slug}:safe-ref-only`,
+    source_classification_ref: `source-classification-ref:preview-rail:${slug}`,
+    bounded_preview_ref: `bounded-preview-ref:preview-rail:${slug}`,
+    redaction_policy_ref: `redaction-policy-ref:preview-rail:${slug}`,
+    attach_plan_ref: `attach-plan-ref:preview-rail:${slug}`,
+    receipt_plan_ref: `receipt-plan-ref:preview-rail:${slug}`,
+    proof_ref: "proof-ref:hermes-runtime-adoption:phase-35:preview-rail",
+    safe_summary: overrides.safe_summary,
+    blocked_authority_refs: runtimePreviewRailBlockedRefs,
+    next_safe_action_refs: [`next-safe-action-ref:preview-rail:${slug}:review`],
+    browser_automation_enabled: false,
+    raw_sensitive_file_display_enabled: false,
+    direct_runtime_payload_rendering_enabled: false,
+    screenshot_capture_enabled: false,
+    file_read_enabled: false,
+    file_write_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    raw_path_persisted: false,
+    raw_file_content_persisted: false,
+    raw_runtime_payload_persisted: false,
+  };
+}
+
+const runtimePreviewRailSlots = [
+  runtimePreviewRailSlot("safe-file-ref", {
+    display_label: "Safe file ref preview",
+    slot_kind: "file_ref",
+    slot_status: "safe_ref_ready",
+    safe_summary:
+      "Mock file preview exposes a safe ref and bounded summary plan only.",
+  }),
+  runtimePreviewRailSlot("diff-ref", {
+    display_label: "Diff ref preview",
+    slot_kind: "diff_ref",
+    slot_status: "safe_ref_ready",
+    safe_summary:
+      "Mock diff preview exposes safe diff refs without applying patches.",
+  }),
+  runtimePreviewRailSlot("artifact-ref", {
+    display_label: "Artifact ref preview",
+    slot_kind: "artifact_ref",
+    slot_status: "bounded_preview_placeholder",
+    safe_summary:
+      "Mock artifact preview stays bounded until source classification is promoted.",
+  }),
+  runtimePreviewRailSlot("run-output-ref", {
+    display_label: "Run output summary preview",
+    slot_kind: "run_output_ref",
+    slot_status: "bounded_preview_placeholder",
+    safe_summary: "Mock run output preview omits raw logs and command output.",
+  }),
+  runtimePreviewRailSlot("proof-ref", {
+    display_label: "Proof detail preview",
+    slot_kind: "proof_ref",
+    slot_status: "bounded_preview_placeholder",
+    safe_summary: "Mock proof preview links proof refs without raw payloads.",
+  }),
+  runtimePreviewRailSlot("runtime-event-ref", {
+    display_label: "Delegated runtime event preview",
+    slot_kind: "runtime_event_ref",
+    slot_status: "execution_blocked",
+    safe_summary:
+      "Mock delegated runtime event preview keeps direct payload rendering blocked.",
   }),
 ];
 
@@ -13864,6 +13959,78 @@ export const mockControlCenterData: ControlCenterData = {
       "raw_file_content_omitted",
       "raw_diagnostic_payloads_omitted",
       "language_server_logs_omitted",
+    ],
+  },
+  runtimePreviewRail: {
+    schema_version: "runtime_preview_rail.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-preview-rail:v1",
+    status: "safe_ref_preview_rail_posture",
+    snapshot_ref: "preview-rail-snapshot-ref:runtime:safe-refs",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-preview-rail:mock",
+    route_ref: "GET /api/runtime/preview-rail",
+    cli_ref: "uaa runtime inspect-preview-rail",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime preview rail mock fallback shows safe refs and bounded preview plans only; browser automation, raw files, screenshot capture, and direct runtime payload rendering stay blocked.",
+    slots: runtimePreviewRailSlots,
+    slot_count: runtimePreviewRailSlots.length,
+    safe_ref_ready_count: runtimePreviewRailSlots.filter(
+      (slot) => slot.slot_status === "safe_ref_ready",
+    ).length,
+    bounded_preview_placeholder_count: runtimePreviewRailSlots.filter(
+      (slot) => slot.slot_status === "bounded_preview_placeholder",
+    ).length,
+    execution_blocked_count: runtimePreviewRailSlots.filter(
+      (slot) => slot.slot_status === "execution_blocked",
+    ).length,
+    source_classification_visible: true,
+    redaction_policy_visible: true,
+    bounded_preview_visible: true,
+    operator_attach_visible: true,
+    receipt_plan_visible: true,
+    proof_link_visible: true,
+    browser_automation_enabled: false,
+    raw_sensitive_file_display_enabled: false,
+    direct_runtime_payload_rendering_enabled: false,
+    screenshot_capture_enabled: false,
+    file_read_enabled: false,
+    file_write_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    control_center_mints_authority: false,
+    raw_path_persisted: false,
+    raw_file_content_persisted: false,
+    raw_runtime_payload_persisted: false,
+    blocked_authority_refs: runtimePreviewRailBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:preview-rail:source-classification",
+      "promotion-path-ref:preview-rail:redaction",
+      "promotion-path-ref:preview-rail:bounded-preview",
+      "promotion-path-ref:preview-rail:operator-attach",
+      "promotion-path-ref:preview-rail:receipt",
+      "promotion-path-ref:preview-rail:visual-tests",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-35:preview-rail",
+      "proof-ref:preview-rail:safe-ref-contracts",
+      "proof-ref:preview-rail:raw-payload-rendering-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-35:preview-rail",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:preview-rail:bind-source-classification",
+      "next-safe-action-ref:preview-rail:define-bounded-preview",
+      "next-safe-action-ref:preview-rail:keep-live-browser-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_paths_omitted",
+      "raw_file_content_omitted",
+      "raw_runtime_payloads_omitted",
+      "raw_browser_state_omitted",
+      "screenshot_pixels_omitted",
     ],
   },
   runtimeApprovalBridge: {

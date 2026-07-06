@@ -41,6 +41,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_subagent_isolation_read_model,
     build_runtime_worktree_per_agent_read_model,
     build_runtime_lsp_diagnostics_read_model,
+    build_runtime_preview_rail_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -438,6 +439,20 @@ def get_api_runtime_lsp_diagnostics() -> ResultEnvelope:
         trace_id=read_model.snapshot_ref,
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:runtime-lsp-diagnostics:phase-34"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/preview-rail", response_model=ResultEnvelope)
+def get_api_runtime_preview_rail() -> ResultEnvelope:
+    read_model = build_runtime_preview_rail_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_preview_rail",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-preview-rail:phase-35"}],
         redactions_applied=read_model.redactions_applied,
     )
 
