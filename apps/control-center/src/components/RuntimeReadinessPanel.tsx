@@ -7,6 +7,7 @@ import type {
   RuntimeDoctorDiagnosticsReadModel,
   RuntimeHardlineCommandBlocklistReadModel,
   RuntimeManagedScopePolicyReadModel,
+  RuntimeSessionContinuityReadModel,
   RuntimeToolRegistryAvailabilityReadModel,
   RuntimeRunEventsReadModel,
   RuntimeStreamingProgressReadModel,
@@ -36,6 +37,7 @@ export function RuntimeReadinessPanel({
   hardlineCommandBlocklist,
   managedScopePolicy,
   doctorDiagnostics,
+  sessionContinuity,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -53,6 +55,7 @@ export function RuntimeReadinessPanel({
   hardlineCommandBlocklist: RuntimeHardlineCommandBlocklistReadModel;
   managedScopePolicy: RuntimeManagedScopePolicyReadModel;
   doctorDiagnostics: RuntimeDoctorDiagnosticsReadModel;
+  sessionContinuity: RuntimeSessionContinuityReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -461,6 +464,78 @@ export function RuntimeReadinessPanel({
         <h4>Blocked authority</h4>
         <ul className="compact-list">
           {doctorDiagnostics.blocked_authority_refs.slice(0, 5).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Continuity</p>
+            <h3>Session continuity</h3>
+          </div>
+          <span className="status-pill compact">{sessionContinuity.status}</span>
+        </div>
+        <p>{sessionContinuity.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{sessionContinuity.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{sessionContinuity.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Primary session</dt>
+            <dd>{sessionContinuity.primary_session_ref}</dd>
+          </div>
+          <div>
+            <dt>Surfaces</dt>
+            <dd>{sessionContinuity.surface_count}</dd>
+          </div>
+          <div>
+            <dt>Stale</dt>
+            <dd>{sessionContinuity.stale_count}</dd>
+          </div>
+          <div>
+            <dt>Conflict</dt>
+            <dd>{sessionContinuity.conflict_count}</dd>
+          </div>
+          <div>
+            <dt>Account sync</dt>
+            <dd>{sessionContinuity.account_sync_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+          <div>
+            <dt>Remote session</dt>
+            <dd>
+              {sessionContinuity.remote_session_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Surface</th>
+                <th>State</th>
+                <th>Summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sessionContinuity.surfaces.map((surface) => (
+                <tr key={surface.surface_ref}>
+                  <td>{surface.source_label}</td>
+                  <td>{surface.continuity_state}</td>
+                  <td>{surface.safe_summary}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {sessionContinuity.blocked_authority_refs.slice(0, 5).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>

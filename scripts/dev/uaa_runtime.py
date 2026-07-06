@@ -43,6 +43,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
+    build_runtime_session_continuity_read_model,
     build_runtime_session_search_read_model,
     build_runtime_session_lineage_read_model,
     build_runtime_streaming_progress_read_model,
@@ -587,6 +588,43 @@ def _print_doctor_diagnostics(read_model: dict[str, Any]) -> None:
             f"domain={item['domain']} status={item['status']}"
         )
         print(f"  summary: {item['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_session_continuity(read_model: dict[str, Any]) -> None:
+    print("Runtime session continuity")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Primary session: {read_model['primary_session_ref']}")
+    print(
+        "Surfaces: "
+        f"total={read_model['surface_count']} "
+        f"current={read_model['current_count']} "
+        f"stale={read_model['stale_count']} "
+        f"conflict={read_model['conflict_count']} "
+        f"blocked={read_model['blocked_count']}"
+    )
+    print(
+        "Blocked transports: "
+        f"external_message_gateway={read_model['external_message_gateway_enabled']} "
+        f"account_sync={read_model['account_sync_enabled']} "
+        f"connector_write={read_model['connector_write_enabled']} "
+        f"remote_session={read_model['remote_session_enabled']}"
+    )
+    print("Surfaces:")
+    for surface in read_model["surfaces"]:
+        print(
+            f"- {surface['source_label']}: "
+            f"source={surface['source']} state={surface['continuity_state']}"
+        )
+        print(f"  session={surface['session_ref']}")
+        print(f"  route={surface['route_ref']}")
+        print(f"  summary: {surface['safe_summary']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1263,6 +1301,33 @@ def _inspect_doctor_diagnostics(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_doctor_diagnostics(read_model)
+    return 0
+
+
+def _inspect_session_continuity(args: argparse.Namespace) -> int:
+    read_model = build_runtime_session_continuity_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-session-continuity",
+        "runtime_session_continuity": read_model,
+        "safe_refs_only": True,
+        "redacted_status_only": True,
+        "raw_transcripts_omitted": True,
+        "raw_prompts_omitted": True,
+        "raw_responses_omitted": True,
+        "provider_payloads_omitted": True,
+        "account_material_omitted": True,
+        "external_message_gateway_performed": False,
+        "account_sync_performed": False,
+        "connector_write_performed": False,
+        "remote_session_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_session_continuity(read_model)
     return 0
 
 
@@ -2269,6 +2334,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref runtime doctor diagnostics read model as JSON.",
     )
     doctor_diagnostics.set_defaults(func=_inspect_doctor_diagnostics)
+
+    session_continuity = subparsers.add_parser(
+        "inspect-session-continuity",
+        help="Inspect read-only multi-surface runtime session continuity posture.",
+    )
+    session_continuity.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref session continuity read model as JSON.",
+    )
+    session_continuity.set_defaults(func=_inspect_session_continuity)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",

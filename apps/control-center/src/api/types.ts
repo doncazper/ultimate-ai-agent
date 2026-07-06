@@ -9871,6 +9871,88 @@ export interface RuntimeDoctorDiagnosticsReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeSessionContinuitySource =
+  | "control_center_desktop"
+  | "cli"
+  | "delegated_runtime"
+  | "future_mobile"
+  | "coding_cockpit";
+
+export type RuntimeSessionContinuityState =
+  | "current"
+  | "stale"
+  | "conflict_review"
+  | "blocked";
+
+export interface RuntimeSessionContinuitySurface {
+  surface_ref: string;
+  source: RuntimeSessionContinuitySource;
+  source_label: string;
+  continuity_state: RuntimeSessionContinuityState;
+  session_ref: string;
+  run_ref: string | null;
+  route_ref: string;
+  cli_ref: string | null;
+  last_seen_ref: string;
+  staleness_state_ref: string;
+  conflict_state_ref: string;
+  safe_summary: string;
+  evidence_refs: string[];
+  proof_refs: string[];
+  receipt_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  external_message_gateway_enabled: boolean;
+  account_sync_enabled: boolean;
+  connector_write_enabled: boolean;
+  remote_session_enabled: boolean;
+  raw_transcript_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  raw_provider_payload_persisted: boolean;
+  control_center_mints_authority: boolean;
+}
+
+export interface RuntimeSessionContinuityReadModel {
+  schema_version: "runtime_session_continuity.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  primary_session_ref: string;
+  safe_summary: string;
+  surfaces: RuntimeSessionContinuitySurface[];
+  surface_count: number;
+  current_count: number;
+  stale_count: number;
+  conflict_count: number;
+  blocked_count: number;
+  source_labels_visible: boolean;
+  staleness_states_visible: boolean;
+  conflict_states_visible: boolean;
+  delivery_receipts_required_for_promotion: boolean;
+  revoke_required_for_promotion: boolean;
+  audit_required_for_promotion: boolean;
+  external_message_gateway_enabled: boolean;
+  account_sync_enabled: boolean;
+  connector_write_enabled: boolean;
+  remote_session_enabled: boolean;
+  raw_transcript_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  raw_provider_payload_persisted: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -11048,6 +11130,7 @@ export interface ControlCenterData {
   runtimeHardlineCommandBlocklist: RuntimeHardlineCommandBlocklistReadModel;
   runtimeManagedScopePolicy: RuntimeManagedScopePolicyReadModel;
   runtimeDoctorDiagnostics: RuntimeDoctorDiagnosticsReadModel;
+  runtimeSessionContinuity: RuntimeSessionContinuityReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;
