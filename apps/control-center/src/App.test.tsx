@@ -1119,6 +1119,7 @@ function backendOwnedCodingMultiAgentReviewFixture(
   const review = scrubCodingFallbackText(
     JSON.parse(JSON.stringify(mockControlCenterData.codingMultiAgentReview)),
   ) as typeof mockControlCenterData.codingMultiAgentReview;
+  const pairAgentRelay = review.pair_agent_relay;
   return {
     ...review,
     review_ref: "multi-agent-review:coding-app-test",
@@ -1128,6 +1129,23 @@ function backendOwnedCodingMultiAgentReviewFixture(
     test_command_readiness_ref: "test-command-readiness:coding-app-test",
     git_review_ref: "git-review:coding-app-test",
     live_preview_ref: "live-preview:coding-app-test",
+    pair_agent_relay: {
+      ...pairAgentRelay,
+      readiness_ref: "coding-pair-agent-relay-readiness:app-test",
+      run_contract: {
+        ...pairAgentRelay.run_contract,
+        run_ref: "coding-pair-run:app-test",
+        task_ref: "coding-task:pair-agent-app-test",
+        idempotency_ref: "idempotency-ref:coding-pair:app-test",
+      },
+      repo_safe_current_state:
+        "Backend-owned Pair Agents readiness cannot start foreground adapters.",
+      safe_summary:
+        "Pair Agents is backend-owned preview/readiness only; foreground adapter execution is blocked.",
+      next_safe_action:
+        "Review the exact unblock prompt before any future foreground adapter execution lane.",
+      backend_owned: true,
+    },
     backend_owned: true,
     read_only: true,
     proposal_only: true,
@@ -2340,6 +2358,13 @@ describe("Web Control Center shell", () => {
           "Multi-agent review is backend-owned, proposal-only, and blocked until exact agent authority exists.",
         ),
       ).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "Pair Agents is backend-owned preview/readiness. Foreground adapter execution is blocked until the exact lane is approved and proven.",
+        ),
+      ).toBeInTheDocument();
+      expect(within(cockpit).getByText("Agent A implementer slot")).toBeInTheDocument();
+      expect(within(cockpit).getByText("Agent B reviewer slot")).toBeInTheDocument();
       expect(within(cockpit).getByText("Codex implementer")).toBeInTheDocument();
       expect(within(cockpit).getByText("UX reviewer")).toBeInTheDocument();
       expect(within(cockpit).getByText("Test fixer")).toBeInTheDocument();
@@ -2360,6 +2385,14 @@ describe("Web Control Center shell", () => {
       ).toBeGreaterThan(0);
       expect(
         within(cockpit).getByText("prompt-ref:unblock-coding-multi-agent-review"),
+      ).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "prompt-ref:unblock-coding-pair-agent-foreground-relay-runner",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText("receipt-ref:coding-pair:adapter-started"),
       ).toBeInTheDocument();
       expect(within(cockpit).getByText("Workflow Timeline")).toBeInTheDocument();
       expect(within(cockpit).getByText("Diff Preview")).toBeInTheDocument();

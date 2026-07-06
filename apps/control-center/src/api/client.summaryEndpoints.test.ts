@@ -689,6 +689,24 @@ function baseRouteData(): Record<string, unknown> {
       "test-command-readiness:coding-summary-endpoint-test",
     git_review_ref: "git-review:coding-summary-endpoint-test",
     live_preview_ref: "live-preview:coding-summary-endpoint-test",
+    pair_agent_relay: {
+      ...mockControlCenterData.codingMultiAgentReview.pair_agent_relay,
+      readiness_ref: "coding-pair-agent-relay-readiness:summary-endpoint-test",
+      run_contract: {
+        ...mockControlCenterData.codingMultiAgentReview.pair_agent_relay
+          .run_contract,
+        run_ref: "coding-pair-run:summary-endpoint-test",
+        task_ref: "coding-task:pair-agent-summary-endpoint-test",
+        idempotency_ref: "idempotency-ref:coding-pair:summary-endpoint-test",
+      },
+      repo_safe_current_state:
+        "Backend-owned Pair Agents readiness cannot start foreground adapters.",
+      safe_summary:
+        "Pair Agents is backend-owned preview/readiness only; foreground adapter execution is blocked.",
+      next_safe_action:
+        "Review the exact unblock prompt before any future foreground adapter execution lane.",
+      backend_owned: true,
+    },
     backend_owned: true,
     read_only: true,
     proposal_only: true,

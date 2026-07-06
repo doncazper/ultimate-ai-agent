@@ -405,8 +405,11 @@ Contract rules:
   unblock-prompt refs only.
   `GET /control-center/coding/multi-agent-review` exposes the blocked Prompt
   08 multi-agent review model with agent slot, plan, review, diff-comparison,
-  disagreement, handoff, blocker, promotion-path, proof, and unblock-prompt
-  refs only.
+  disagreement, handoff, Pair Agents preview/readiness, blocker,
+  promotion-path, proof, and unblock-prompt refs only. The nested Pair Agents
+  model is not a foreground runner and grants no generic agent bus, adapter
+  process execution, provider/model call, shell/subprocess execution, Git
+  mutation, raw transcript persistence, or background autonomy.
   `GET /control-center/work-board` exposes the backend-owned Work Board Kanban
   read model with safe card, column, proof, evidence, blocker, promotion-path,
   drag/drop posture, exact approved reorder posture, and CLI inspection refs.

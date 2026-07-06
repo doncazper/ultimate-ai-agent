@@ -9,6 +9,10 @@ from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_text,
     validate_task_ref,
 )
+from ultimate_ai_agent.core.code.pair_agent_relay import (
+    CodingPairAgentRelayReadModel,
+    build_coding_pair_agent_relay_read_model,
+)
 
 
 CODING_COCKPIT_CONTRACT_REF = "contract-ref:coding-cockpit-shell:v1"
@@ -1702,6 +1706,7 @@ class CodingMultiAgentReviewReadModel(BaseModel):
     diff_comparison_refs: list[str] = Field(default_factory=list)
     disagreement_summary_refs: list[str] = Field(default_factory=list)
     handoff_refs: list[str] = Field(default_factory=list)
+    pair_agent_relay: CodingPairAgentRelayReadModel
     proof_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list)
@@ -1776,6 +1781,13 @@ class CodingMultiAgentReviewReadModel(BaseModel):
         slot_refs = {item.agent_slot_ref for item in self.agent_slots}
         if len(slot_refs) != len(self.agent_slots):
             raise ValueError("multi-agent slot refs must be unique")
+        if (
+            self.pair_agent_relay.lane_ref
+            != "coding-pair-agent-lane:coding_pair_agent_foreground_relay_runner"
+        ):
+            raise ValueError("multi-agent review needs pair relay lane ref")
+        if self.pair_agent_relay.execution_promoted:
+            raise ValueError("pair relay execution cannot be promoted here")
         required_true_flags = {
             "backend_owned": self.backend_owned,
             "read_only": self.read_only,
@@ -3808,6 +3820,7 @@ def build_coding_multi_agent_review() -> CodingMultiAgentReviewReadModel:
             "agent-artifact:coding-disagreement-summary-required"
         ],
         handoff_refs=["agent-handoff:coding-review-required"],
+        pair_agent_relay=build_coding_pair_agent_relay_read_model(),
         proof_refs=proof_refs,
         evidence_refs=evidence_refs,
         blocked_authority_refs=blocked_refs,

@@ -5781,6 +5781,7 @@ function isSafeCodingMultiAgentReview(
     value.read_only === true &&
     value.proposal_only === true &&
     value.safe_refs_only === true &&
+    isSafeCodingPairAgentRelay(value.pair_agent_relay) &&
     hasRequiredSlots &&
     hasRequiredRefGroups &&
     deniedTopLevelFlags.every((flag) => value[flag] === false);
@@ -5798,6 +5799,119 @@ function isSafeCodingMultiAgentReview(
       slot.raw_response_included === false,
   );
   return safeTopLevel && safeSlots;
+}
+
+function isSafeCodingPairAgentRelay(
+  value: CodingMultiAgentReviewReadModel["pair_agent_relay"] | undefined,
+): boolean {
+  if (value === undefined) {
+    return false;
+  }
+  const deniedFlags: Array<
+    keyof CodingMultiAgentReviewReadModel["pair_agent_relay"]
+  > = [
+    "execution_promoted",
+    "foreground_adapter_execution_enabled",
+    "local_agent_process_execution_enabled",
+    "provider_sdk_call_enabled",
+    "provider_model_call_enabled",
+    "background_dispatch_enabled",
+    "generic_agent_bus_enabled",
+    "arbitrary_command_text_allowed",
+    "shell_subprocess_execution_enabled",
+    "plugin_runtime_import_enabled",
+    "browser_automation_enabled",
+    "connector_write_enabled",
+    "git_mutation_enabled",
+    "automatic_patch_apply_enabled",
+    "raw_transcript_durable",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+    "provider_payload_persisted",
+    "raw_log_persisted",
+    "raw_local_path_persisted",
+    "production_authority_enabled",
+    "broad_autonomy_enabled",
+  ];
+  const refGroups = [
+    value.backend_route_refs,
+    value.frontend_route_refs,
+    value.cli_inspection_refs,
+    value.docs_refs,
+    value.verifier_refs,
+    value.unblock_prompt_refs,
+    value.artifact_refs,
+    value.receipt_refs,
+    value.evidence_refs,
+    value.proof_refs,
+    value.blocked_authority_refs,
+    value.promotion_path_refs,
+    value.redactions_applied,
+    value.run_contract?.workspace_scope_refs,
+    value.run_contract?.stop_condition_refs,
+    value.run_contract?.approval_binding_refs,
+  ];
+  const safeSlots =
+    Array.isArray(value.run_contract?.agent_slots) &&
+    value.run_contract.agent_slots.length === 2 &&
+    value.run_contract.agent_slots.every(
+      (slot) =>
+        isNonEmptyStringArray(slot.argv_template_refs) &&
+        isNonEmptyStringArray(slot.allowed_workspace_refs) &&
+        isNonEmptyStringArray(slot.blocked_authority_refs) &&
+        slot.arbitrary_command_text_allowed === false &&
+        slot.local_agent_process_execution_enabled === false &&
+        slot.provider_sdk_call_enabled === false &&
+        slot.provider_model_call_enabled === false &&
+        slot.background_dispatch_enabled === false &&
+        slot.raw_env_persisted === false &&
+        slot.raw_prompt_persisted === false &&
+        slot.raw_response_persisted === false,
+    );
+  const safeArtifacts =
+    Array.isArray(value.artifacts) &&
+    value.artifacts.length >= 7 &&
+    value.artifacts.every(
+      (artifact) =>
+        artifact.raw_content_omitted === true &&
+        artifact.raw_prompt_omitted === true &&
+        artifact.raw_response_omitted === true &&
+        artifact.provider_payload_omitted === true &&
+        artifact.raw_log_omitted === true &&
+        artifact.raw_local_path_omitted === true &&
+        artifact.durable_evidence === false,
+    );
+  const safeReceipts =
+    Array.isArray(value.receipts) &&
+    value.receipts.length >= 9 &&
+    value.receipts.every(
+      (receipt) =>
+        receipt.raw_content_included === false &&
+        receipt.portable_receipt_ready === true,
+    );
+  return (
+    value.schema_version === "uaa-coding-pair-agent-relay-runner.v1" &&
+    value.canonical_lane_name === "coding_pair_agent_foreground_relay_runner" &&
+    value.status === "preview_readiness_execution_blocked" &&
+    value.backend_owned === true &&
+    value.preview_only === true &&
+    value.readiness_only === true &&
+    value.safe_refs_only === true &&
+    value.run_contract?.state === "blocked" &&
+    value.run_contract.max_turns <= 12 &&
+    value.run_contract.wall_clock_timeout_seconds <= 3600 &&
+    value.run_contract.per_turn_output_limit_bytes <= 20000 &&
+    value.run_contract.background_dispatch_enabled === false &&
+    value.run_contract.unbounded_turns_enabled === false &&
+    value.run_contract.unbounded_timeout_enabled === false &&
+    value.run_contract.unbounded_output_enabled === false &&
+    value.run_contract.arbitrary_command_text_allowed === false &&
+    refGroups.every(isNonEmptyStringArray) &&
+    deniedFlags.every((flag) => value[flag] === false) &&
+    safeSlots &&
+    safeArtifacts &&
+    safeReceipts
+  );
 }
 
 function isSafeFounderAgentLoopThread(

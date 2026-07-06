@@ -4663,6 +4663,7 @@ th {
 }
 
 .coding-context-pack,
+.coding-pair-relay,
 .coding-patch-proposal {
   display: grid;
   gap: 8px;

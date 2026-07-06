@@ -1005,6 +1005,195 @@ export interface CodingAgentReviewSlotReadModel {
   raw_response_included: boolean;
 }
 
+export interface CodingPairAgentSlotReadModel {
+  slot_ref: string;
+  slot_id: "agent_a" | "agent_b";
+  adapter_ref: string;
+  display_label: string;
+  status: "configured_preview" | "blocked_execution";
+  argv_template_refs: string[];
+  allowed_workspace_refs: string[];
+  allowed_mode_refs: string[];
+  max_runtime_seconds: number;
+  max_output_bytes: number;
+  env_policy_ref: string;
+  disabled_reason_ref: string;
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  arbitrary_command_text_allowed: boolean;
+  local_agent_process_execution_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  background_dispatch_enabled: boolean;
+  raw_env_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+}
+
+export type CodingPairAgentRunState =
+  | "created"
+  | "pending_approval"
+  | "approved"
+  | "agent_a_running"
+  | "waiting_agent_a"
+  | "agent_b_running"
+  | "waiting_agent_b"
+  | "approval_required"
+  | "user_stopped"
+  | "max_turns_reached"
+  | "timed_out"
+  | "blocked"
+  | "failed"
+  | "completed";
+
+export interface CodingPairAgentTurnPacketReadModel {
+  turn_packet_ref: string;
+  turn_index: number;
+  sender_slot_ref: string;
+  receiver_slot_ref: string;
+  outbound_artifact_ref: string;
+  inbound_artifact_ref: string;
+  state_before: CodingPairAgentRunState;
+  state_after: CodingPairAgentRunState;
+  output_limit_bytes: number;
+  timeout_seconds: number;
+  proof_refs: string[];
+  evidence_refs: string[];
+  raw_payload_persisted: boolean;
+}
+
+export interface CodingPairAgentArtifactReadModel {
+  artifact_ref: string;
+  artifact_kind:
+    | "outbound_turn_packet"
+    | "inbound_agent_response"
+    | "disagreement_summary"
+    | "candidate_action_list"
+    | "validation_plan"
+    | "final_synthesis"
+    | "blocked_state_report";
+  status: "preview_ref" | "blocked_ref";
+  safe_summary: string;
+  digest_ref: string;
+  bounded_preview_ref: string;
+  evidence_refs: string[];
+  proof_refs: string[];
+  redactions_applied: string[];
+  raw_content_omitted: boolean;
+  raw_prompt_omitted: boolean;
+  raw_response_omitted: boolean;
+  provider_payload_omitted: boolean;
+  raw_log_omitted: boolean;
+  raw_local_path_omitted: boolean;
+  durable_evidence: boolean;
+}
+
+export interface CodingPairAgentReceiptReadModel {
+  receipt_ref: string;
+  receipt_kind:
+    | "run_created"
+    | "approval_bound"
+    | "adapter_started"
+    | "turn_completed"
+    | "output_redacted"
+    | "stop_condition_reached"
+    | "run_completed"
+    | "run_blocked"
+    | "run_failed";
+  status: "planned_ref" | "blocked_ref" | "preview_ref";
+  safe_summary: string;
+  canonical_json_ref: string;
+  digest_ref: string;
+  verifier_ref: string;
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  raw_content_included: boolean;
+  portable_receipt_ready: boolean;
+}
+
+export interface CodingPairAgentRunContractReadModel {
+  run_ref: string;
+  task_ref: string;
+  state: CodingPairAgentRunState;
+  allowed_state_refs: string[];
+  state_transition_refs: string[];
+  agent_slots: CodingPairAgentSlotReadModel[];
+  workspace_scope_refs: string[];
+  repo_scope_ref: string;
+  max_turns: number;
+  wall_clock_timeout_seconds: number;
+  per_turn_output_limit_bytes: number;
+  stop_condition_refs: string[];
+  approval_binding_refs: string[];
+  idempotency_ref: string;
+  turn_packets: CodingPairAgentTurnPacketReadModel[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  background_dispatch_enabled: boolean;
+  unbounded_turns_enabled: boolean;
+  unbounded_timeout_enabled: boolean;
+  unbounded_output_enabled: boolean;
+  arbitrary_command_text_allowed: boolean;
+}
+
+export interface CodingPairAgentRelayReadModel {
+  schema_version: "uaa-coding-pair-agent-relay-runner.v1";
+  readiness_ref: string;
+  lane_ref: string;
+  canonical_lane_name: "coding_pair_agent_foreground_relay_runner";
+  status: "preview_readiness_execution_blocked";
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  verifier_refs: string[];
+  unblock_prompt_refs: string[];
+  full_strength_goal: string;
+  repo_safe_current_state: string;
+  safe_summary: string;
+  run_contract: CodingPairAgentRunContractReadModel;
+  artifacts: CodingPairAgentArtifactReadModel[];
+  receipts: CodingPairAgentReceiptReadModel[];
+  artifact_refs: string[];
+  receipt_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  preview_only: boolean;
+  readiness_only: boolean;
+  safe_refs_only: boolean;
+  execution_promoted: boolean;
+  foreground_adapter_execution_enabled: boolean;
+  local_agent_process_execution_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  background_dispatch_enabled: boolean;
+  generic_agent_bus_enabled: boolean;
+  arbitrary_command_text_allowed: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  plugin_runtime_import_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  git_mutation_enabled: boolean;
+  automatic_patch_apply_enabled: boolean;
+  raw_transcript_durable: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  provider_payload_persisted: boolean;
+  raw_log_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  production_authority_enabled: boolean;
+  broad_autonomy_enabled: boolean;
+}
+
 export interface CodingMultiAgentReviewReadModel {
   schema_version: "uaa-coding-multi-agent-review.v1";
   review_ref: string;
@@ -1031,6 +1220,7 @@ export interface CodingMultiAgentReviewReadModel {
   diff_comparison_refs: string[];
   disagreement_summary_refs: string[];
   handoff_refs: string[];
+  pair_agent_relay: CodingPairAgentRelayReadModel;
   proof_refs: string[];
   evidence_refs: string[];
   blocked_authority_refs: string[];

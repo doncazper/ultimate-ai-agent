@@ -539,6 +539,10 @@ function MultiAgentReviewPreview({
           ? "Multi-agent review is backend-owned, proposal-only, and blocked until exact agent authority exists."
           : "Multi-agent review is non-authoritative fallback data only."}
       </p>
+      <PairAgentRelayPreview
+        authoritative={authoritative}
+        relay={review.pair_agent_relay}
+      />
       <div className="coding-item-stack">
         {review.agent_slots.map((slot) => (
           <article className="coding-item-row" key={slot.agent_slot_ref}>
@@ -572,6 +576,58 @@ function MultiAgentReviewPreview({
       <RefStack refs={review.redactions_applied} title="Redaction refs" />
       <p className="safe-copy">{review.next_safe_action}</p>
     </div>
+  );
+}
+
+function PairAgentRelayPreview({
+  authoritative,
+  relay,
+}: {
+  authoritative: boolean;
+  relay: CodingMultiAgentReviewReadModel["pair_agent_relay"];
+}) {
+  return (
+    <section className="coding-pair-relay" aria-label="Coding pair agents">
+      <div className="coding-context-budget">
+        <DetailTile label="Pair run" value={relay.run_contract.run_ref} />
+        <DetailTile label="State" value={relay.run_contract.state} />
+        <DetailTile label="Turns" value={`${relay.run_contract.max_turns} max`} />
+        <DetailTile
+          label="Output"
+          value={`${relay.run_contract.per_turn_output_limit_bytes} bytes`}
+        />
+      </div>
+      <p className="safe-copy">
+        {authoritative
+          ? "Pair Agents is backend-owned preview/readiness. Foreground adapter execution is blocked until the exact lane is approved and proven."
+          : "Pair Agents is non-authoritative fallback data only."}
+      </p>
+      <div className="coding-item-stack">
+        {relay.run_contract.agent_slots.map((slot) => (
+          <article className="coding-item-row" key={slot.slot_ref}>
+            <div>
+              <strong>{slot.display_label}</strong>
+              <p>{slot.disabled_reason_ref}</p>
+              <RefStack refs={slot.argv_template_refs} title="Adapter argv refs" />
+              <RefStack refs={slot.allowed_workspace_refs} title="Workspace refs" />
+            </div>
+            <span className="status-pill compact">
+              {slot.status.replaceAll("_", " ")}
+            </span>
+          </article>
+        ))}
+      </div>
+      <RefStack refs={relay.run_contract.stop_condition_refs} title="Stop refs" />
+      <RefStack refs={relay.run_contract.approval_binding_refs} title="Approval refs" />
+      <RefStack refs={relay.artifact_refs} title="Artifact refs" />
+      <RefStack refs={relay.receipt_refs} title="Receipt refs" />
+      <RefStack refs={relay.proof_refs} title="Pair proof refs" />
+      <RefStack refs={relay.evidence_refs} title="Pair evidence refs" />
+      <RefStack refs={relay.blocked_authority_refs} title="Pair blocked refs" />
+      <RefStack refs={relay.promotion_path_refs} title="Pair promotion refs" />
+      <RefStack refs={relay.unblock_prompt_refs} title="Pair unblock refs" />
+      <p className="safe-copy">{relay.next_safe_action}</p>
+    </section>
   );
 }
 
@@ -636,6 +692,7 @@ function isSafeMultiAgentReview(
     review.read_only &&
     review.proposal_only &&
     review.safe_refs_only &&
+    isSafePairAgentRelay(review.pair_agent_relay) &&
     hasRequiredSlots &&
     hasRequiredRefGroups &&
     deniedTopLevelFlags.every((flag) => review[flag] === false) &&
@@ -652,6 +709,81 @@ function isSafeMultiAgentReview(
         slot.raw_prompt_included === false &&
         slot.raw_response_included === false,
     )
+  );
+}
+
+function isSafePairAgentRelay(
+  relay: CodingMultiAgentReviewReadModel["pair_agent_relay"] | undefined,
+): boolean {
+  if (relay === undefined) {
+    return false;
+  }
+  const deniedFlags: Array<
+    keyof CodingMultiAgentReviewReadModel["pair_agent_relay"]
+  > = [
+    "execution_promoted",
+    "foreground_adapter_execution_enabled",
+    "local_agent_process_execution_enabled",
+    "provider_sdk_call_enabled",
+    "provider_model_call_enabled",
+    "background_dispatch_enabled",
+    "generic_agent_bus_enabled",
+    "arbitrary_command_text_allowed",
+    "shell_subprocess_execution_enabled",
+    "plugin_runtime_import_enabled",
+    "browser_automation_enabled",
+    "connector_write_enabled",
+    "git_mutation_enabled",
+    "automatic_patch_apply_enabled",
+    "raw_transcript_durable",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+    "provider_payload_persisted",
+    "raw_log_persisted",
+    "raw_local_path_persisted",
+    "production_authority_enabled",
+    "broad_autonomy_enabled",
+  ];
+  return (
+    relay.schema_version === "uaa-coding-pair-agent-relay-runner.v1" &&
+    relay.canonical_lane_name === "coding_pair_agent_foreground_relay_runner" &&
+    relay.status === "preview_readiness_execution_blocked" &&
+    relay.backend_owned &&
+    relay.preview_only &&
+    relay.readiness_only &&
+    relay.safe_refs_only &&
+    relay.run_contract.state === "blocked" &&
+    relay.run_contract.max_turns <= 12 &&
+    relay.run_contract.wall_clock_timeout_seconds <= 3600 &&
+    relay.run_contract.per_turn_output_limit_bytes <= 20000 &&
+    relay.run_contract.agent_slots.length === 2 &&
+    relay.run_contract.agent_slots.every(
+      (slot) =>
+        slot.arbitrary_command_text_allowed === false &&
+        slot.local_agent_process_execution_enabled === false &&
+        slot.provider_sdk_call_enabled === false &&
+        slot.provider_model_call_enabled === false &&
+        slot.background_dispatch_enabled === false &&
+        slot.raw_env_persisted === false &&
+        slot.raw_prompt_persisted === false &&
+        slot.raw_response_persisted === false,
+    ) &&
+    relay.artifacts.every(
+      (artifact) =>
+        artifact.raw_content_omitted &&
+        artifact.raw_prompt_omitted &&
+        artifact.raw_response_omitted &&
+        artifact.provider_payload_omitted &&
+        artifact.raw_log_omitted &&
+        artifact.raw_local_path_omitted &&
+        artifact.durable_evidence === false,
+    ) &&
+    relay.receipts.every(
+      (receipt) =>
+        receipt.raw_content_included === false &&
+        receipt.portable_receipt_ready === true,
+    ) &&
+    deniedFlags.every((flag) => relay[flag] === false)
   );
 }
 
