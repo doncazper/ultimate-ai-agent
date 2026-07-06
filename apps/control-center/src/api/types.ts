@@ -429,6 +429,7 @@ export interface CodingCockpitSessionReadModel {
   full_strength_goal: string;
   repo_safe_scope: string;
   authority_modes: CodingCockpitAuthorityMode[];
+  project_model: CodingProjectModelReadModel;
   workspace_context: CodingCockpitPreviewPanel;
   task_thread: CodingCockpitPreviewPanel;
   task_timeline: CodingCockpitPreviewPanel;
@@ -450,6 +451,94 @@ export interface CodingCockpitSessionReadModel {
   provider_model_call_enabled: boolean;
   browser_automation_enabled: boolean;
   connector_write_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
+export type CodingProjectCapabilityKind =
+  | "workspace"
+  | "repo"
+  | "lane"
+  | "branch"
+  | "worktree"
+  | "files"
+  | "diffs"
+  | "tests"
+  | "preview"
+  | "terminal"
+  | "git"
+  | "proof";
+
+export type CodingProjectCapabilityState =
+  | "read_only"
+  | "proposal_only"
+  | "blocked"
+  | "planned";
+
+export interface CodingProjectCapabilityReadModel {
+  capability_ref: string;
+  label: string;
+  capability_kind: CodingProjectCapabilityKind;
+  state: CodingProjectCapabilityState;
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  file_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  git_mutation_enabled: boolean;
+  browser_automation_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  background_autonomy_enabled: boolean;
+}
+
+export interface CodingProjectModelReadModel {
+  schema_version: "uaa-coding-project-model.v1";
+  project_model_ref: string;
+  session_ref: string;
+  workspace_ref: string;
+  repo_scope_ref: string;
+  branch_ref: string;
+  worktree_ref: string;
+  lane_ref: string;
+  route_ref: string;
+  backend_route_refs: string[];
+  frontend_route_refs: string[];
+  cli_inspection_refs: string[];
+  docs_refs: string[];
+  status: "read_only_project_posture";
+  project_label: string;
+  repo_label: string;
+  branch_label: string;
+  worktree_label: string;
+  full_strength_goal: string;
+  repo_safe_current_state: string;
+  safe_summary: string;
+  capabilities: CodingProjectCapabilityReadModel[];
+  capability_refs: string[];
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  redactions_applied: string[];
+  next_safe_action: string;
+  backend_owned: boolean;
+  read_only: boolean;
+  safe_refs_only: boolean;
+  raw_paths_included: boolean;
+  raw_content_included: boolean;
+  repo_file_read_performed: boolean;
+  project_scan_performed: boolean;
+  file_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  git_status_execution_enabled: boolean;
+  git_mutation_enabled: boolean;
+  dev_server_control_enabled: boolean;
+  browser_preview_enabled: boolean;
+  browser_automation_enabled: boolean;
+  provider_model_call_enabled: boolean;
   background_autonomy_enabled: boolean;
   production_authority_enabled: boolean;
 }

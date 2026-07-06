@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.code import (  # noqa: E402
     build_coding_multi_agent_review,
     build_coding_patch_apply_readiness,
     build_coding_patch_proposal_preview,
+    build_coding_project_model_read_model,
     build_coding_test_command_readiness,
     build_coding_workspace_context_preview,
 )
@@ -33,6 +34,13 @@ def inspect_session(args: argparse.Namespace) -> int:
 def inspect_context(args: argparse.Namespace) -> int:
     context = build_coding_workspace_context_preview()
     payload = context.model_dump(mode="json")
+    print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
+    return 0
+
+
+def inspect_project_model(args: argparse.Namespace) -> int:
+    project_model = build_coding_project_model_read_model()
+    payload = project_model.model_dump(mode="json")
     print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
     return 0
 
@@ -104,6 +112,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pretty-print the safe JSON read model.",
     )
     context.set_defaults(func=inspect_context)
+    project_model = subparsers.add_parser(
+        "inspect-project-model",
+        help="Print the backend-owned read-only Coding Cockpit project posture.",
+    )
+    project_model.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print the safe JSON read model.",
+    )
+    project_model.set_defaults(func=inspect_project_model)
     patch_proposal = subparsers.add_parser(
         "inspect-patch-proposal",
         help="Print the backend-owned proposal-only Coding Cockpit patch preview.",
