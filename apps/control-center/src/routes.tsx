@@ -523,6 +523,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           delegationAdapter={data.runtimeDelegationAdapter}
           capabilityDiscovery={data.runtimeCapabilityDiscovery}
           runEvents={data.runtimeRunEvents}
+          approvalBridge={data.runtimeApprovalBridge}
         />
       );
     case "/operator-loop":

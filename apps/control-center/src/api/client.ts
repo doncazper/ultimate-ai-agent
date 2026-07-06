@@ -33,6 +33,7 @@ import type {
   ResultEnvelope,
   RunAttachedApprovalQueue,
   RunObservabilityReadModel,
+  RuntimeApprovalBridgeReadModel,
   RuntimeCapabilityMatrix,
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeDelegationAdapterReadModel,
@@ -312,6 +313,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeRunEventsSettledPromise = Promise.allSettled([
     read<RuntimeRunEventsReadModel>(API_ENDPOINTS.runtimeRunEvents),
   ] as const);
+  const runtimeApprovalBridgeSettledPromise = Promise.allSettled([
+    read<RuntimeApprovalBridgeReadModel>(API_ENDPOINTS.runtimeApprovalBridge),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -418,6 +422,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeCapabilityDiscoveryResult =
     await runtimeCapabilityDiscoverySettledPromise;
   const runtimeRunEventsResult = await runtimeRunEventsSettledPromise;
+  const runtimeApprovalBridgeResult =
+    await runtimeApprovalBridgeSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -431,6 +437,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeCapabilityDiscoveryResult[0],
   );
   const runtimeRunEvents = fulfilledValue(runtimeRunEventsResult[0]);
+  const runtimeApprovalBridge = fulfilledValue(runtimeApprovalBridgeResult[0]);
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
@@ -496,6 +503,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     : undefined;
   const safeRuntimeRunEvents = isSafeRuntimeRunEvents(runtimeRunEvents)
     ? runtimeRunEvents
+    : undefined;
+  const safeRuntimeApprovalBridge = isSafeRuntimeApprovalBridge(
+    runtimeApprovalBridge,
+  )
+    ? runtimeApprovalBridge
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -629,6 +641,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeCapabilityDiscoveryFallbackUsed =
     safeRuntimeCapabilityDiscovery === undefined;
   const runtimeRunEventsFallbackUsed = safeRuntimeRunEvents === undefined;
+  const runtimeApprovalBridgeFallbackUsed =
+    safeRuntimeApprovalBridge === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -769,13 +783,15 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/delegation-adapter",
         "GET /api/runtime/capability-discovery",
         "GET /api/runtime/run-events",
+        "GET /api/runtime/approval-bridge",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
         capabilityMatrix !== undefined &&
         runtimeDelegationAdapter !== undefined &&
         runtimeCapabilityDiscovery !== undefined &&
-        runtimeRunEvents !== undefined,
+        runtimeRunEvents !== undefined &&
+        runtimeApprovalBridge !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -786,13 +802,17 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeRunEventsFallbackUsed
           ? ["RUNTIME_RUN_EVENTS_MOCK_FALLBACK"]
           : []),
+        ...(runtimeApprovalBridgeFallbackUsed
+          ? ["RUNTIME_APPROVAL_BRIDGE_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
         capabilityMatrix === undefined ||
         runtimeDelegationAdapterFallbackUsed ||
         runtimeCapabilityDiscoveryFallbackUsed ||
-        runtimeRunEventsFallbackUsed,
+        runtimeRunEventsFallbackUsed ||
+        runtimeApprovalBridgeFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -883,6 +903,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeDelegationAdapter === undefined ||
     runtimeCapabilityDiscovery === undefined ||
     runtimeRunEvents === undefined ||
+    runtimeApprovalBridge === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -907,8 +928,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (workBoardResult[0].status === "fulfilled" ? 1 : 0) +
     (agentLoopResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeCapabilityDiscoveryResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeRunEventsResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 4;
+    (runtimeRunEventsResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeApprovalBridgeResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 5;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -973,6 +995,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       mockControlCenterData.runtimeCapabilityDiscovery,
     runtimeRunEvents:
       safeRuntimeRunEvents ?? mockControlCenterData.runtimeRunEvents,
+    runtimeApprovalBridge:
+      safeRuntimeApprovalBridge ?? mockControlCenterData.runtimeApprovalBridge,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1052,6 +1076,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeDelegationAdapterFallbackUsed &&
     !runtimeCapabilityDiscoveryFallbackUsed &&
     !runtimeRunEventsFallbackUsed &&
+    !runtimeApprovalBridgeFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1079,6 +1104,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeDelegationAdapterFallbackUsed ||
     runtimeCapabilityDiscoveryFallbackUsed ||
     runtimeRunEventsFallbackUsed ||
+    runtimeApprovalBridgeFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1107,6 +1133,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeRunEventsFallbackUsed) {
     degradedSafeMessage =
       "Runtime run/event posture was unavailable or unsafe; non-authoritative mock fallback kept delegated run controls blocked.";
+  } else if (runtimeApprovalBridgeFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime approval bridge posture was unavailable or unsafe; non-authoritative mock fallback kept runtime approval resolution blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1173,6 +1202,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         : []),
       ...(runtimeRunEventsFallbackUsed
         ? ["RUNTIME_RUN_EVENTS_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeApprovalBridgeFallbackUsed
+        ? ["RUNTIME_APPROVAL_BRIDGE_MOCK_FALLBACK"]
         : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
@@ -2955,6 +2987,83 @@ function isSafeRuntimeRunEvents(
         event.raw_log_persisted === false &&
         event.raw_prompt_persisted === false &&
         event.raw_response_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeApprovalBridge(
+  value: RuntimeApprovalBridgeReadModel | undefined,
+): value is RuntimeApprovalBridgeReadModel {
+  if (
+    value === undefined ||
+    !isPlainRecord(value.action_inbox_projection) ||
+    !isPlainRecord(value.scope_validation) ||
+    !Array.isArray(value.envelopes) ||
+    !Array.isArray(value.decision_previews)
+  ) {
+    return false;
+  }
+  const deniedTopLevelFlags: Array<keyof RuntimeApprovalBridgeReadModel> = [
+    "approval_resolution_route_enabled",
+    "deny_resolution_route_enabled",
+    "timeout_resolution_route_enabled",
+    "control_center_talks_directly_to_runtime",
+    "raw_runtime_payload_persisted",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+  ];
+  const projection = value.action_inbox_projection;
+  const denyCount = value.decision_previews.filter(
+    (preview) => preview.decision_kind === "deny",
+  ).length;
+  const timeoutCount = value.decision_previews.filter(
+    (preview) => preview.decision_kind === "timeout",
+  ).length;
+  const scopeMismatchCount = value.decision_previews.filter(
+    (preview) => preview.decision_kind === "scope_mismatch",
+  ).length;
+  return (
+    value.schema_version === "runtime_approval_bridge.v1" &&
+    value.status === "read_model_resolution_blocked" &&
+    value.uaa_controls_authority === true &&
+    value.safe_refs_only === true &&
+    value.runtime_resolution_sent_count === 0 &&
+    value.pending_runtime_approval_count ===
+      value.envelopes.filter((envelope) => envelope.state === "runtime_requested")
+        .length &&
+    value.denied_preview_count === denyCount &&
+    value.timeout_preview_count === timeoutCount &&
+    value.scope_mismatch_count === scopeMismatchCount &&
+    value.scope_validation.scope_matches === false &&
+    projection.approval_controls_visible === false &&
+    projection.runtime_resolution_controls_visible === false &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.envelopes.length > 0 &&
+    value.envelopes.every(
+      (envelope) =>
+        envelope.runtime_requested === true &&
+        envelope.uaa_approval_recorded === false &&
+        envelope.runtime_resolution_sent === false &&
+        envelope.approval_resolution_enabled === false &&
+        envelope.denial_resolution_enabled === false &&
+        envelope.timeout_defaults_to_deny === true &&
+        envelope.approval_refs_are_identifiers_only === true &&
+        envelope.raw_runtime_payload_persisted === false &&
+        envelope.raw_prompt_persisted === false &&
+        envelope.raw_response_persisted === false &&
+        value.proof_refs.includes(envelope.proof_ref) &&
+        projection.action_inbox_item_ref === envelope.action_inbox_item_ref &&
+        isNonEmptyStringArray(envelope.blocked_authority_refs) &&
+        isNonEmptyStringArray(envelope.next_safe_action_refs),
+    ) &&
+    value.decision_previews.every(
+      (preview) =>
+        preview.runtime_resolution_sent === false &&
+        projection.action_inbox_item_ref === preview.action_inbox_item_ref &&
+        isNonEmptyStringArray(preview.blocked_authority_refs),
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

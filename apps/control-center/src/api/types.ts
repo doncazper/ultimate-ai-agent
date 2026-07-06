@@ -8918,6 +8918,99 @@ export interface RuntimeRunEventsReadModel {
   redactions_applied: string[];
 }
 
+export interface RuntimeApprovalScopeValidationResult {
+  validation_ref: string;
+  requested_scope_ref: string;
+  provided_scope_ref: string;
+  scope_matches: boolean;
+  status: string;
+  safe_summary: string;
+}
+
+export interface RuntimeApprovalBridgeEnvelope {
+  envelope_ref: string;
+  runtime_approval_ref: string;
+  runtime_run_ref: string;
+  uaa_durable_run_ref: string;
+  action_inbox_item_ref: string;
+  proof_ref: string;
+  requested_scope_ref: string;
+  idempotency_key_ref: string;
+  side_effect_class: string;
+  risk_class: string;
+  state: string;
+  resolution_posture: string;
+  timeout_policy_ref: string;
+  deny_receipt_ref: string;
+  approval_refs_are_identifiers_only: boolean;
+  runtime_requested: boolean;
+  uaa_approval_recorded: boolean;
+  runtime_resolution_sent: boolean;
+  approval_resolution_enabled: boolean;
+  denial_resolution_enabled: boolean;
+  timeout_defaults_to_deny: boolean;
+  raw_runtime_payload_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+}
+
+export interface RuntimeApprovalBridgeDecisionPreview {
+  decision_ref: string;
+  decision_kind: "approve" | "deny" | "timeout" | "scope_mismatch";
+  envelope_ref: string;
+  action_inbox_item_ref: string;
+  receipt_ref: string;
+  runtime_resolution_sent: boolean;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+}
+
+export interface RuntimeApprovalActionInboxProjection {
+  action_inbox_item_ref: string;
+  source: string;
+  lane: string;
+  status: string;
+  proof_ref: string;
+  approval_controls_visible: boolean;
+  runtime_resolution_controls_visible: boolean;
+  safe_summary: string;
+}
+
+export interface RuntimeApprovalBridgeReadModel {
+  schema_version: "runtime_approval_bridge.v1";
+  contract_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  status: string;
+  action_inbox_projection: RuntimeApprovalActionInboxProjection;
+  envelopes: RuntimeApprovalBridgeEnvelope[];
+  decision_previews: RuntimeApprovalBridgeDecisionPreview[];
+  scope_validation: RuntimeApprovalScopeValidationResult;
+  pending_runtime_approval_count: number;
+  denied_preview_count: number;
+  timeout_preview_count: number;
+  scope_mismatch_count: number;
+  runtime_resolution_sent_count: number;
+  approval_resolution_route_enabled: boolean;
+  deny_resolution_route_enabled: boolean;
+  timeout_resolution_route_enabled: boolean;
+  uaa_controls_authority: boolean;
+  control_center_talks_directly_to_runtime: boolean;
+  safe_refs_only: boolean;
+  raw_runtime_payload_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  next_safe_action_refs: string[];
+  safe_summary: string;
+  redactions_applied: string[];
+}
+
 export type OperatorRouteInspectionState =
   "checking" | "ready" | "blocked" | "denied" | "degraded" | "unavailable";
 
@@ -9669,6 +9762,7 @@ export interface ControlCenterData {
   runtimeDelegationAdapter: RuntimeDelegationAdapterReadModel;
   runtimeCapabilityDiscovery: RuntimeCapabilityDiscoveryReadModel;
   runtimeRunEvents: RuntimeRunEventsReadModel;
+  runtimeApprovalBridge: RuntimeApprovalBridgeReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

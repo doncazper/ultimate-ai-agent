@@ -1,5 +1,6 @@
 import type {
   RuntimeCapabilityMatrix,
+  RuntimeApprovalBridgeReadModel,
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeDelegationAdapterReadModel,
   RuntimeRunEventsReadModel,
@@ -14,12 +15,14 @@ export function RuntimeReadinessPanel({
   delegationAdapter,
   capabilityDiscovery,
   runEvents,
+  approvalBridge,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
   delegationAdapter: RuntimeDelegationAdapterReadModel;
   capabilityDiscovery: RuntimeCapabilityDiscoveryReadModel;
   runEvents: RuntimeRunEventsReadModel;
+  approvalBridge: RuntimeApprovalBridgeReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -245,6 +248,98 @@ export function RuntimeReadinessPanel({
           {runEvents.event_previews.map((event) => (
             <li key={event.event_ref}>
               {event.event_kind}: {event.event_ref} {" -> "} {event.proof_ref}
+            </li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Approval bridge</p>
+            <h3>Runtime request, UAA review</h3>
+          </div>
+          <span className="status-pill compact">{approvalBridge.status}</span>
+        </div>
+        <p>{approvalBridge.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{approvalBridge.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{approvalBridge.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Runtime requested</dt>
+            <dd>{approvalBridge.pending_runtime_approval_count}</dd>
+          </div>
+          <div>
+            <dt>UAA approved</dt>
+            <dd>
+              {approvalBridge.envelopes.some(
+                (envelope) => envelope.uaa_approval_recorded,
+              )
+                ? "yes"
+                : "no"}
+            </dd>
+          </div>
+          <div>
+            <dt>Runtime resolutions sent</dt>
+            <dd>{approvalBridge.runtime_resolution_sent_count}</dd>
+          </div>
+          <div>
+            <dt>Approval route</dt>
+            <dd>
+              {approvalBridge.approval_resolution_route_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Timeout posture</dt>
+            <dd>{approvalBridge.timeout_preview_count} default-deny preview</dd>
+          </div>
+          <div>
+            <dt>Scope validation</dt>
+            <dd>{approvalBridge.scope_validation.status}</dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Action Inbox item</th>
+                <th>Status</th>
+                <th>Approval controls</th>
+                <th>Runtime controls</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{approvalBridge.action_inbox_projection.action_inbox_item_ref}</td>
+                <td>{approvalBridge.action_inbox_projection.status}</td>
+                <td>
+                  {approvalBridge.action_inbox_projection.approval_controls_visible
+                    ? "visible"
+                    : "blocked"}
+                </td>
+                <td>
+                  {approvalBridge.action_inbox_projection
+                    .runtime_resolution_controls_visible
+                    ? "visible"
+                    : "blocked"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <h4>Decision previews</h4>
+        <ul className="compact-list">
+          {approvalBridge.decision_previews.map((preview) => (
+            <li key={preview.decision_ref}>
+              {preview.decision_kind}: {preview.receipt_ref}; runtime send{" "}
+              {preview.runtime_resolution_sent ? "sent" : "blocked"}
             </li>
           ))}
         </ul>
