@@ -6388,7 +6388,7 @@ function buildRouteReadState(
     backend_owned: `${input.surfaceLabel} read model returned from the local backend contract.`,
     degraded: `${input.surfaceLabel} returned with missing fields or fallback sections; treat it as partial route evidence.`,
     mock_fallback: `${input.surfaceLabel} backend read model did not return; non-authoritative fallback data is visible.`,
-    blocked: `${input.surfaceLabel} runtime authority is blocked until an exact scoped lane graduates.`,
+    blocked: `${input.surfaceLabel} runtime authority requires an active mode/domain AuthorityLease before execution.`,
     planned: `${input.surfaceLabel} is planned and does not claim release-ready workflow state.`,
   };
   const fallbackWarningRefs =

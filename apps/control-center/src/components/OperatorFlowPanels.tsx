@@ -24,6 +24,7 @@ import type {
   ControlCenterSettingsKillSwitchPosture,
   AuthorityActionRequest,
   AuthorityDecisionPreview,
+  AuthorityLease,
   AuthorityLeaseMutationResult,
   AuthorityMissionPlan,
   AuthorityMissionPlanRequest,
@@ -53,7 +54,6 @@ const SETTINGS_AUTHORITY_KEYS = [
   "local_model_lifecycle",
   "platform_capabilities",
 ] as const;
-const DEFAULT_READ_ONLY_LEASE_REF = "authority-lease-ref:default-read-only-session";
 const AUTHORITY_MODE_OPTIONS: Array<{
   mode: AuthorityTrustMode;
   label: string;
@@ -1611,8 +1611,7 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   const settingsStatus = settingsSnapshot;
   const authorityLeaseState = settingsStatus.authority_lease_state;
   const revokableLease = authorityLeaseState.active_leases.find(
-    (lease) =>
-      lease.status === "active" && lease.lease_ref !== DEFAULT_READ_ONLY_LEASE_REF,
+    (lease) => lease.status === "active" && lease.mode !== "read_only",
   );
   async function refreshSettingsSnapshot() {
     const refreshed = await fetchControlCenterSettingsStatus();
@@ -2252,6 +2251,105 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
 
       <div
         className="operator-boundary-list"
+        aria-label="Active AuthorityLease scopes"
+      >
+        {authorityLeaseState.active_leases.length > 0 ? (
+          authorityLeaseState.active_leases.map((lease) => (
+            <article
+              className={`surface-state-card ${settingsPostureClass(
+                lease.status === "active" ? "Partial" : "Blocked",
+              )}`}
+              aria-label={`Active AuthorityLease ${lease.scope} ${lease.status}`}
+              key={lease.lease_ref}
+              role="status"
+            >
+              <span className="surface-state-kind">
+                {lease.scope} / {lease.status}
+              </span>
+              <strong>{lease.mode.replaceAll("_", " ")}</strong>
+              <p>{lease.safe_summary}</p>
+              <dl className="metadata-list">
+                <div>
+                  <dt>Mission</dt>
+                  <dd>{lease.mission_ref ?? "session-wide"}</dd>
+                </div>
+                <div>
+                  <dt>Receipts</dt>
+                  <dd>{lease.receipts_required ? "required" : "missing"}</dd>
+                </div>
+                <div>
+                  <dt>Audit</dt>
+                  <dd>{lease.audit_required ? "required" : "missing"}</dd>
+                </div>
+                <div>
+                  <dt>Redaction</dt>
+                  <dd>{lease.redaction_required ? "required" : "missing"}</dd>
+                </div>
+                <div>
+                  <dt>Rollback</dt>
+                  <dd>{lease.rollback_required ? "required" : "missing"}</dd>
+                </div>
+                <div>
+                  <dt>Kill switch</dt>
+                  <dd>{lease.kill_switch_required ? "visible" : "missing"}</dd>
+                </div>
+              </dl>
+              <div
+                className="note-list"
+                aria-label={`${lease.lease_ref} domain scope`}
+              >
+                {authorityDomainLabels(lease).map((label) => (
+                  <span key={label}>{label}</span>
+                ))}
+              </div>
+              <div
+                className="note-list"
+                aria-label={`${lease.lease_ref} constraints`}
+              >
+                {authorityConstraintLabels(lease).map((label) => (
+                  <span key={label}>{label}</span>
+                ))}
+              </div>
+              <div
+                className="note-list"
+                aria-label={`${lease.lease_ref} authority refs`}
+              >
+                <span>{lease.lease_ref}</span>
+                <span>{lease.audit_ref}</span>
+                <span>{lease.receipt_sink_ref}</span>
+                <span>{lease.rollback_ref}</span>
+                <span>{lease.safe_disable_ref}</span>
+                <span>{lease.kill_switch_ref}</span>
+                {lease.unsupported_adapter_refs.map((ref) => (
+                  <span key={ref}>{ref}</span>
+                ))}
+                {lease.ask_if.map((ref) => (
+                  <span key={ref}>{ref}</span>
+                ))}
+                {lease.hard_deny.map((ref) => (
+                  <span key={ref}>{ref}</span>
+                ))}
+              </div>
+            </article>
+          ))
+        ) : (
+          <article
+            aria-label="Active AuthorityLease unavailable"
+            className="surface-state-card blocked"
+            role="status"
+          >
+            <span className="surface-state-kind">Blocked</span>
+            <strong>No active AuthorityLease</strong>
+            <p>
+              Unknown authority defaults to deny until an operator selects a
+              mode and explicit domain scope.
+            </p>
+          </article>
+        )}
+      </div>
+
+      <div
+        className="operator-boundary-list"
         aria-label="Authority lease decisions"
       >
         {authorityLeaseState.sample_decisions.map((decision) => (
@@ -2303,11 +2401,22 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
             </span>
             <strong>{receipt.mode.replaceAll("_", " ")}</strong>
             <p>{receipt.safe_summary}</p>
+            <div
+              className="note-list"
+              aria-label={`${receipt.receipt_ref} granted domains`}
+            >
+              {authorityDomainRecordLabels(receipt.granted_domains).map((label) => (
+                <span key={label}>{label}</span>
+              ))}
+            </div>
             <div className="note-list" aria-label={`${receipt.receipt_ref} refs`}>
               <span>{receipt.receipt_ref}</span>
               <span>{receipt.lease_ref}</span>
               <span>{receipt.audit_ref}</span>
               <span>{receipt.safe_disable_ref}</span>
+              <span>{receipt.rollback_ref}</span>
+              <span>{receipt.kill_switch_ref}</span>
+              <span>{receipt.receipt_sink_ref}</span>
             </div>
           </article>
         ))}
@@ -2445,6 +2554,63 @@ function settingsPostureClass(stateLabel: string) {
     return "partial";
   }
   return "blocked";
+}
+
+function authorityDomainLabels(lease: AuthorityLease) {
+  return authorityDomainRecordLabels(lease.domains);
+}
+
+function authorityDomainRecordLabels(domains: Record<string, string[]>) {
+  const entries = Object.entries(domains).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  if (entries.length === 0) {
+    return ["domain scope: none"];
+  }
+  return entries.map(
+    ([domain, capabilities]) =>
+      `${domain.replaceAll("_", " ")}: ${capabilities
+        .map((capability) => capability.replaceAll("_", " "))
+        .join(", ")}`,
+  );
+}
+
+function authorityConstraintLabels(lease: AuthorityLease) {
+  const entries = Object.entries(lease.constraints).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  if (entries.length === 0) {
+    return ["constraints: default local guardrails"];
+  }
+  return entries.map(
+    ([key, value]) =>
+      `${key.replaceAll("_", " ")}: ${authorityConstraintValue(value)}`,
+  );
+}
+
+function authorityConstraintValue(value: unknown): string {
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    const safeValues = value
+      .filter(
+        (item): item is string | number | boolean =>
+          typeof item === "string" ||
+          typeof item === "number" ||
+          typeof item === "boolean",
+      )
+      .map(String);
+    return safeValues.length > 0 ? safeValues.join(", ") : "structured";
+  }
+  if (value === null || value === undefined) {
+    return "not set";
+  }
+  return "structured";
 }
 
 function isSafeSettingsAuthorityPosture(

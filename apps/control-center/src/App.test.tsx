@@ -10757,6 +10757,9 @@ describe("Web Control Center shell", () => {
       domains: {
         workspace: ["read", "write", "execute"],
       },
+      constraints: {
+        workspace_ref: "workspace-ref:current",
+      },
       safe_summary: "App test safe local workspace lease.",
     };
     const issuedReceipt: AuthorityLeaseReceipt = {
@@ -10777,6 +10780,10 @@ describe("Web Control Center shell", () => {
       domains: {
         workspace: ["read", "execute"],
         files: ["read", "prepare"],
+      },
+      constraints: {
+        workspace_ref: "workspace-ref:current",
+        external_side_effects_allowed: false,
       },
       safe_summary: "App test mission-scoped workspace lease.",
     };
@@ -11184,6 +11191,13 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("status", { name: /Authority lease receipt issued/i }),
     ).toBeInTheDocument();
+    const activeLeaseScopes = screen.getByLabelText("Active AuthorityLease scopes");
+    expect(activeLeaseScopes).toHaveTextContent(
+      "authority-lease-ref:mock-read-only-session",
+    );
+    expect(activeLeaseScopes).toHaveTextContent("read only");
+    expect(activeLeaseScopes).toHaveTextContent(/Receipts\s*required/);
+    expect(activeLeaseScopes).toHaveTextContent(/Kill switch\s*visible/);
     expect(screen.getByLabelText("Authority mode controls")).toBeInTheDocument();
     expect(
       screen.getByLabelText("Authority decision preview controls"),
@@ -11287,6 +11301,32 @@ describe("Web Control Center shell", () => {
         screen.getByLabelText("Authority lease action result"),
       ).toHaveTextContent("receipt-ref:authority-lease:app-test-mission-issued"),
     );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Active AuthorityLease scopes")).toHaveTextContent(
+        "authority-lease-ref:app-test-workspace-mission",
+      ),
+    );
+    expect(screen.getByLabelText("Active AuthorityLease scopes")).toHaveTextContent(
+      "mission-ref:control-center-workspace-maintenance-preview",
+    );
+    expect(screen.getByLabelText("Active AuthorityLease scopes")).toHaveTextContent(
+      "workspace: read, execute",
+    );
+    expect(screen.getByLabelText("Active AuthorityLease scopes")).toHaveTextContent(
+      "files: read, prepare",
+    );
+    expect(screen.getByLabelText("Active AuthorityLease scopes")).toHaveTextContent(
+      "external side effects allowed: false",
+    );
+    expect(screen.getByLabelText("Active AuthorityLease scopes")).toHaveTextContent(
+      "workspace ref: workspace-ref:current",
+    );
+    expect(screen.getByLabelText("Authority lease receipts")).toHaveTextContent(
+      "workspace: read, execute",
+    );
+    expect(screen.getByLabelText("Authority lease receipts")).toHaveTextContent(
+      "files: read, prepare",
+    );
     const missionIssueCall = fetchMock.mock.calls.find(
       ([url, init]) =>
         String(url).includes(API_ENDPOINTS.runtimeAuthorityLeases) &&
@@ -11312,6 +11352,17 @@ describe("Web Control Center shell", () => {
     expect(issueResult).toHaveTextContent("issued");
     expect(issueResult).toHaveTextContent(
       "receipt-ref:authority-lease:app-test-issued",
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Active AuthorityLease scopes")).toHaveTextContent(
+        "authority-lease-ref:app-test-safe-local",
+      ),
+    );
+    expect(screen.getByLabelText("Active AuthorityLease scopes")).toHaveTextContent(
+      "workspace: read, write, execute",
+    );
+    expect(screen.getByLabelText("Active AuthorityLease scopes")).toHaveTextContent(
+      "workspace ref: workspace-ref:current",
     );
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining(API_ENDPOINTS.runtimeAuthorityLeases),

@@ -251,11 +251,11 @@ export function getRouteStateDescriptor(
       surfaceLabel,
       title: `${item.label} is partially usable`,
       message:
-        "This route renders backend-owned read models where they exist and keeps missing or ungraduated authority visibly blocked." +
+        "This route renders backend-owned read models where they exist and keeps authority without an active mode/domain lease visibly blocked." +
         routeProofCopy +
         fallbackCopy,
       nextSafeAction:
-        "Use safe refs and proof links as review aids; promote missing authority through a scoped verifier-backed lane.",
+        "Use safe refs and proof links as review aids; inspect the required AuthorityLease mode, domain, and verifier-backed constraints.",
       sourceLabel,
     };
   }
