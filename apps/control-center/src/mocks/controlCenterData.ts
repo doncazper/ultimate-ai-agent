@@ -68,8 +68,8 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 200;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 88;
+export const MOCK_OPENAPI_ROUTE_COUNT = 236;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 89;
 
 function runtimeToolRegistryEntry(
   slug: string,
@@ -10964,7 +10964,7 @@ export const mockWorkBoard: WorkBoardReadModel = {
         "This fallback is non-authoritative and cannot persist reorder, create, archive, or assignment state.",
       blocked_authority_refs: [
         "blocked-state:work-board-mock-fallback-no-persistence",
-        "blocked-state:work-board-no-card-create-archive-assignment",
+        "blocked-state:work-board-no-card-archive-assignment",
       ],
       promotion_path_refs: ["prompt-ref:unblock-work-board-durable-edits"],
     },
@@ -10987,7 +10987,7 @@ export const mockWorkBoard: WorkBoardReadModel = {
     rollback_refs: ["rollback-ref:work-board:restore-previous-order"],
     blocked_authority_refs: [
       "blocked-state:work-board-mock-fallback-no-persistence",
-      "blocked-state:work-board-no-card-create-archive-assignment",
+      "blocked-state:work-board-no-card-archive-assignment",
     ],
     promotion_path_refs: ["prompt-ref:unblock-work-board-durable-edits"],
   },
@@ -10995,7 +10995,7 @@ export const mockWorkBoard: WorkBoardReadModel = {
   evidence_refs: ["evidence-ref:work-board-mock-fallback"],
   blocked_authority_refs: [
     "blocked-state:work-board-mock-fallback-no-persistence",
-    "blocked-state:work-board-no-card-create-archive-assignment",
+    "blocked-state:work-board-no-card-archive-assignment",
     "blocked-state:work-board-no-issue-tracker-write",
     "blocked-state:work-board-no-connector-write",
     "blocked-state:work-board-no-provider-model-call",
@@ -11024,6 +11024,12 @@ export const mockWorkBoard: WorkBoardReadModel = {
   approval_required_for_reorder: true,
   reorder_route_ref: "POST /control-center/work-board/reorder",
   latest_reorder_receipt_ref: null,
+  local_card_create_enabled: false,
+  local_card_create_contract_available: false,
+  approval_required_for_card_create: true,
+  card_create_route_available: false,
+  card_create_route_ref: "POST /control-center/work-board/cards",
+  latest_card_create_receipt_ref: null,
   issue_tracker_write_enabled: false,
   connector_write_enabled: false,
   shell_subprocess_execution_enabled: false,

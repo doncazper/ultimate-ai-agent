@@ -14,6 +14,7 @@ from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.control_center import (
     WORK_BOARD_BACKEND_ROUTE_REF,
     WORK_BOARD_BOARD_REF,
+    WORK_BOARD_CARD_CREATE_ROUTE_REF,
     WORK_BOARD_CLI_REF,
     WORK_BOARD_CONTRACT_REF,
     WORK_BOARD_FRONTEND_ROUTE_REF,
@@ -24,9 +25,11 @@ from ultimate_ai_agent.core.control_center import (
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.control_center.work_board import (
     WORK_BOARD_STATE_DIR_ENV,
+    WorkBoardCardCreateRequest,
     WorkBoardReorderRequest,
     WorkBoardStateStore,
     WorkBoardStorageConflictError,
+    prepare_work_board_card_create_approval,
     prepare_work_board_reorder_approval,
 )
 
@@ -61,6 +64,12 @@ def test_work_board_read_model_is_backend_owned_safe_refs_only() -> None:
     assert board.durable_reorder_persistence_enabled is True
     assert board.approval_required_for_reorder is True
     assert board.latest_reorder_receipt_ref is None
+    assert board.local_card_create_enabled is True
+    assert board.card_create_route_ref == WORK_BOARD_CARD_CREATE_ROUTE_REF
+    assert board.local_card_create_contract_available is True
+    assert board.approval_required_for_card_create is True
+    assert board.card_create_route_available is True
+    assert board.latest_card_create_receipt_ref is None
     assert board.drag_drop_posture.local_preview_enabled is True
     assert board.drag_drop_posture.keyboard_reorder_preview_enabled is True
     assert board.drag_drop_posture.durable_reorder_enabled is True
@@ -122,6 +131,16 @@ def test_work_board_rejects_raw_paths_and_card_mutation() -> None:
     with pytest.raises(ValidationError, match="receipt"):
         WorkBoardReadModel(**payload)
 
+    payload = build_work_board_read_model().model_dump(mode="json")
+    payload["card_create_route_ref"] = "POST /control-center/work-board/cardz"
+    with pytest.raises(ValidationError, match="route ref"):
+        WorkBoardReadModel(**payload)
+
+    payload = build_work_board_read_model().model_dump(mode="json")
+    payload["card_create_route_available"] = False
+    with pytest.raises(ValidationError, match="card create route"):
+        WorkBoardReadModel(**payload)
+
 
 def test_control_center_work_board_route_returns_safe_read_model() -> None:
     client = TestClient(app)
@@ -146,6 +165,11 @@ def test_control_center_work_board_route_returns_safe_read_model() -> None:
     assert data["durable_drag_drop_enabled"] is False
     assert data["durable_reorder_persistence_enabled"] is True
     assert data["approval_required_for_reorder"] is True
+    assert data["local_card_create_enabled"] is True
+    assert data["card_create_route_ref"] == WORK_BOARD_CARD_CREATE_ROUTE_REF
+    assert data["local_card_create_contract_available"] is True
+    assert data["approval_required_for_card_create"] is True
+    assert data["card_create_route_available"] is True
     assert data["drag_drop_posture"]["local_preview_enabled"] is True
     assert data["drag_drop_posture"]["durable_reorder_enabled"] is True
     assert data["drag_drop_posture"]["backend_mutation_route_available"] is True
@@ -190,6 +214,39 @@ def test_control_center_work_board_reorder_route_requires_exact_approval(
     )
     assert detail["required_refs"]["approval_ref"].startswith(
         "work-board-approval-ref:sha256:"
+    )
+    assert not (tmp_path / "work_board" / "work_board_state.json").exists()
+
+
+def test_control_center_work_board_card_create_route_requires_exact_approval(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(WORK_BOARD_STATE_DIR_ENV, str(tmp_path / "work_board"))
+    client = TestClient(app)
+    payload = {
+        "decision_reason_ref": "decision-reason-ref:work-board-test-card-create",
+        "column_ref": "work-board-column:triage",
+        "title": "Local approved board item",
+        "safe_summary": "Safe local board item created through the exact card-create lane.",
+        "priority": "medium",
+        "tags": ["local", "approved"],
+    }
+    headers = {"X-UAA-Idempotency-Key": "idempotency-ref:work-board-test-card-create"}
+
+    response = client.post("/control-center/work-board/cards", json=payload, headers=headers)
+
+    assert response.status_code == 403
+    detail = response.json()["detail"]
+    assert detail["code"] == "WORK_BOARD_CARD_CREATE_APPROVAL_DENIED"
+    assert "blocked-state:work-board-card-create-approval-required" in (
+        detail["reason_refs"]
+    )
+    assert detail["required_refs"]["approval_ref"].startswith(
+        "work-board-card-create-approval-ref:sha256:"
+    )
+    assert detail["required_refs"]["card_ref"].startswith(
+        "work-board-card:local:sha256:"
     )
     assert not (tmp_path / "work_board" / "work_board_state.json").exists()
 
@@ -291,6 +348,94 @@ def test_work_board_state_store_persists_with_external_exact_approval(
         )
 
 
+def test_work_board_state_store_persists_card_create_with_external_exact_approval(
+    tmp_path: Path,
+) -> None:
+    base_board = build_work_board_read_model(apply_persisted_state=False)
+    request = WorkBoardCardCreateRequest(
+        decision_reason_ref="decision-reason-ref:work-board-test-card-create",
+        column_ref="work-board-column:triage",
+        title="Local approved board item",
+        safe_summary="Safe local board item created through the exact card-create lane.",
+        priority="medium",
+        tags=["local", "approved"],
+    )
+    idempotency_ref = "idempotency-ref:work-board-test-card-create"
+    store = WorkBoardStateStore(tmp_path / "work_board")
+    approval_preview = prepare_work_board_card_create_approval(
+        request,
+        columns=base_board.columns,
+        cards=base_board.cards,
+        idempotency_ref=idempotency_ref,
+    )
+    authority = LocalApprovalAuthority()
+    authority.create_request(approval_preview.approval_request)
+    authority.grant(
+        approval_preview.approval_request.approval_request_id,
+        approved_by_actor_id=approval_preview.approval_request.actor_context.actor_id,
+        approval_ref=approval_preview.expected_approval_ref,
+    )
+    approved_request = request.model_copy(
+        update={
+            "approval_ref": approval_preview.expected_approval_ref,
+            "exact_scope_ref": approval_preview.exact_scope_ref,
+            "action_envelope_ref": approval_preview.action_envelope_ref,
+        }
+    )
+    receipt = store.persist_card_create(
+        approved_request,
+        columns=base_board.columns,
+        cards=base_board.cards,
+        idempotency_ref=idempotency_ref,
+        approval_authority=authority,
+    )
+
+    assert receipt.status == "applied"
+    assert receipt.replayed is False
+    assert receipt.card_ref == approval_preview.card_ref
+    assert receipt.raw_paths_included is False
+    assert receipt.raw_content_included is False
+    assert receipt.connector_write_performed is False
+    assert receipt.provider_model_call_performed is False
+    assert receipt.production_authority_enabled is False
+    receipt_ref = receipt.receipt_ref
+
+    replay = store.persist_card_create(
+        approved_request,
+        columns=base_board.columns,
+        cards=base_board.cards,
+        idempotency_ref=idempotency_ref,
+        approval_authority=authority,
+    )
+    assert replay.status == "replayed"
+    assert replay.receipt_ref == receipt_ref
+
+    board = build_work_board_read_model(store=store).model_dump(mode="json")
+    assert board["latest_card_create_receipt_ref"] == receipt_ref
+    assert receipt.card_ref in {card["card_ref"] for card in board["cards"]}
+    triage = next(
+        column
+        for column in board["columns"]
+        if column["column_ref"] == "work-board-column:triage"
+    )
+    assert receipt.card_ref in triage["card_refs"]
+
+    changed_request = approved_request.model_copy(
+        update={"safe_summary": "Different safe local board item payload."}
+    )
+    with pytest.raises(
+        WorkBoardStorageConflictError,
+        match="WORK_BOARD_CARD_CREATE_IDEMPOTENCY_CONFLICT",
+    ):
+        store.persist_card_create(
+            changed_request,
+            columns=base_board.columns,
+            cards=base_board.cards,
+            idempotency_ref=idempotency_ref,
+            approval_authority=authority,
+        )
+
+
 def test_work_board_route_is_local_sensitive_and_side_effect_bounded() -> None:
     manifest = build_api_manifest(app)
     route = next(
@@ -306,6 +451,17 @@ def test_work_board_route_is_local_sensitive_and_side_effect_bounded() -> None:
     assert route.approval_posture == "not_required_for_route_classification"
     assert route.idempotency_posture == "not_required_for_route_classification"
     assert route.rate_limit_posture == "not_targeted_for_route"
+
+    card_create_route = next(
+        item
+        for item in manifest.routes
+        if item.path == "/control-center/work-board/cards" and item.method == "POST"
+    )
+    assert card_create_route.route_classification == "mutating_requires_authority"
+    assert card_create_route.side_effect_class == "local_dev_workspace_only"
+    assert card_create_route.protected_route is True
+    assert card_create_route.approval_posture == "required_before_mutation_authority"
+    assert card_create_route.idempotency_posture == "required_before_mutation_authority"
 
 
 def test_work_board_cli_inspection_prints_safe_json() -> None:
@@ -325,4 +481,29 @@ def test_work_board_cli_inspection_prints_safe_json() -> None:
     assert payload["backend_owned"] is True
     assert payload["board_mutation_enabled"] is False
     assert payload["durable_reorder_persistence_enabled"] is True
+    assert "/Users/" not in result.stdout
+
+
+def test_work_board_cli_card_create_receipt_inspection_prints_safe_json(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(WORK_BOARD_STATE_DIR_ENV, str(tmp_path / "work_board"))
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_work_board.py"),
+            "inspect-card-create-receipt",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "missing"
+    assert payload["receipt_ref"] is None
+    assert payload["card_ref"] is None
+    assert payload["raw_paths_included"] is False
+    assert payload["raw_content_included"] is False
     assert "/Users/" not in result.stdout

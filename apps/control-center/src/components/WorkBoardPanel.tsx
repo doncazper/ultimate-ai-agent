@@ -6,7 +6,7 @@ import type {
   WorkBoardColumnReadModel,
   WorkBoardReadModel,
 } from "../api/types";
-import { persistWorkBoardOrder } from "../api/client";
+import { createWorkBoardCard, persistWorkBoardOrder } from "../api/client";
 import { SafeAlert } from "./SafeAlert";
 import { NorthStarIcon } from "./NorthStarIcon";
 
@@ -39,8 +39,12 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
     initialLayout(board.columns),
   );
   const [isPersisting, setIsPersisting] = useState(false);
+  const [isCreatingCard, setIsCreatingCard] = useState(false);
   const [lastReceiptRef, setLastReceiptRef] = useState(
     board.latest_reorder_receipt_ref ?? "",
+  );
+  const [lastCardCreateReceiptRef, setLastCardCreateReceiptRef] = useState(
+    board.latest_card_create_receipt_ref ?? "",
   );
   const [selectedCardRef, setSelectedCardRef] = useState(
     board.cards[0]?.card_ref ?? "",
@@ -57,6 +61,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
     setBackendLayout(nextLayout);
     setLayout(nextLayout);
     setLastReceiptRef(board.latest_reorder_receipt_ref ?? "");
+    setLastCardCreateReceiptRef(board.latest_card_create_receipt_ref ?? "");
     setSelectedCardRef(board.cards[0]?.card_ref ?? "");
     setNotice(board.drag_drop_posture.safe_summary);
     setSelectedBlockedLaneRef(board.blocked_lanes[0]?.lane_ref ?? "");
@@ -66,6 +71,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
     board.cards,
     board.columns,
     board.drag_drop_posture.safe_summary,
+    board.latest_card_create_receipt_ref,
     board.latest_reorder_receipt_ref,
   ]);
 
@@ -134,6 +140,13 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
     board.approval_required_for_reorder &&
     board.drag_drop_posture.durable_reorder_enabled &&
     board.drag_drop_posture.backend_mutation_route_available;
+  const canCreateCard =
+    backendOwned &&
+    board.local_card_create_enabled &&
+    board.local_card_create_contract_available &&
+    board.approval_required_for_card_create &&
+    board.card_create_route_available &&
+    board.card_create_route_ref.length > 0;
 
   function moveCard(
     cardRef: string,
@@ -239,7 +252,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
       progress_label: "Preview only",
       proof_refs: ["proof-ref:work-board-local-preview"],
       evidence_refs: ["evidence-ref:work-board-local-preview"],
-      blocker_refs: ["blocked-state:work-board-no-card-create-archive-assignment"],
+      blocker_refs: ["blocked-state:work-board-no-card-archive-assignment"],
       surface_refs: [board.route_ref],
       cli_inspection_refs: board.cli_inspection_refs,
       tags: ["local-preview", "draft"],
@@ -255,6 +268,42 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
     }));
     setSelectedCardRef(draft.card_ref);
     setNotice("Local draft added as UI-only preview. It is not backend truth.");
+  }
+
+  async function createLocalCard() {
+    if (!canCreateCard) {
+      openBlockedLane();
+      return;
+    }
+    setIsCreatingCard(true);
+    try {
+      const cardNumber = cards.length + 1;
+      const idempotencyRef = `idempotency-ref:work-board-card-create-${Date.now()}`;
+      const receipt = await createWorkBoardCard(
+        {
+          decision_reason_ref: "decision-reason-ref:work-board-ui-card-create",
+          column_ref: board.columns[0]?.column_ref ?? "work-board-column:triage",
+          title: `Local board item ${cardNumber}`,
+          safe_summary:
+            "Safe local Work Board card requested from the exact card-create lane.",
+          priority: "medium",
+          tags: ["local-card", "work-board"],
+        },
+        idempotencyRef,
+      );
+      setLastCardCreateReceiptRef(receipt.receipt_ref);
+      setNotice(
+        `Exact approved card create persisted with receipt ${receipt.receipt_ref}. Refresh the board to load ${receipt.card_ref}.`,
+      );
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Work Board card create could not reach the local backend route.",
+      );
+    } finally {
+      setIsCreatingCard(false);
+    }
   }
 
   function openBlockedLane(laneRef?: string) {
@@ -406,6 +455,15 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
             <NorthStarIcon name="edit" />
             Add local draft
           </button>
+          <button
+            className="icon-text-button"
+            disabled={isCreatingCard}
+            onClick={createLocalCard}
+            type="button"
+          >
+            <NorthStarIcon name="edit" />
+            {isCreatingCard ? "Creating" : "Create card"}
+          </button>
           <button className="icon-text-button" onClick={resetPreview} type="button">
             <NorthStarIcon name="archive" />
             Reset preview
@@ -490,6 +548,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
             backendOwned={backendOwned}
             board={board}
             card={selectedCard}
+            lastCardCreateReceiptRef={lastCardCreateReceiptRef}
             lastReceiptRef={lastReceiptRef}
             openBlockedLane={openBlockedLane}
             selectedBlockedLane={selectedBlockedLane}
@@ -509,6 +568,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
           board={board}
           card={selectedCard}
           lastReceiptRef={lastReceiptRef}
+          lastCardCreateReceiptRef={lastCardCreateReceiptRef}
           openBlockedLane={openBlockedLane}
           selectedBlockedLane={selectedBlockedLane}
         />
@@ -743,6 +803,7 @@ function WorkBoardInspector({
   backendOwned,
   board,
   card,
+  lastCardCreateReceiptRef,
   lastReceiptRef,
   openBlockedLane,
   selectedBlockedLane,
@@ -751,6 +812,7 @@ function WorkBoardInspector({
   backendOwned: boolean;
   board: WorkBoardReadModel;
   card?: WorkBoardCardReadModel;
+  lastCardCreateReceiptRef: string;
   lastReceiptRef: string;
   openBlockedLane: (laneRef?: string) => void;
   selectedBlockedLane?: WorkBoardReadModel["blocked_lanes"][number];
@@ -778,6 +840,11 @@ function WorkBoardInspector({
         <div className="inspector-ref-list">
           <span>{board.reorder_route_ref}</span>
           <span>{lastReceiptRef || "receipt-ref:work-board-reorder:not-yet-recorded"}</span>
+          <span>{board.card_create_route_ref}</span>
+          <span>
+            {lastCardCreateReceiptRef ||
+              "receipt-ref:work-board-card-create:not-yet-recorded"}
+          </span>
         </div>
         <button onClick={() => openBlockedLane()} type="button">
           <NorthStarIcon name="lock" />
@@ -871,12 +938,14 @@ function WorkBoardList({
 function WorkBoardProof({
   board,
   card,
+  lastCardCreateReceiptRef,
   lastReceiptRef,
   openBlockedLane,
   selectedBlockedLane,
 }: {
   board: WorkBoardReadModel;
   card?: WorkBoardCardReadModel;
+  lastCardCreateReceiptRef: string;
   lastReceiptRef: string;
   openBlockedLane: (laneRef?: string) => void;
   selectedBlockedLane?: WorkBoardReadModel["blocked_lanes"][number];
@@ -911,6 +980,9 @@ function WorkBoardProof({
           {[
             board.reorder_route_ref,
             lastReceiptRef || "receipt-ref:work-board-reorder:not-yet-recorded",
+            board.card_create_route_ref,
+            lastCardCreateReceiptRef ||
+              "receipt-ref:work-board-card-create:not-yet-recorded",
             ...new Set([
               ...board.blocked_authority_refs,
               ...(selectedBlockedLane?.blocked_authority_refs ?? []),

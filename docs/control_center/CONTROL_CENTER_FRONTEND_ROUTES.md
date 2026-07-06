@@ -68,13 +68,14 @@ it adds no generic execute button, connector write, shell/subprocess execution,
 provider/model authority, memory write, context injection, or production
 authority.
 `/work-board` renders the backend-owned Work Board Kanban read model from
-`GET /control-center/work-board` and persists exact approved local reorder
-through `POST /control-center/work-board/reorder`. It shows card, column,
-proof, evidence, blocker, promotion-path, drag/drop posture, reorder receipt
-posture, and CLI inspection refs with local drag/drop and keyboard preview.
-It does not create tasks, sync issue trackers, call providers, run
-shell/browser work, write connectors, launch background autonomy, or grant
-production authority.
+`GET /control-center/work-board`, persists exact approved local reorder through
+`POST /control-center/work-board/reorder`, and exposes exact approved local
+card create through `POST /control-center/work-board/cards`. It shows card,
+column, proof, evidence, blocker, promotion-path, drag/drop posture, reorder
+and local-card-create receipt posture, and CLI inspection refs with local
+drag/drop and keyboard preview. It does not archive or assign cards, create
+tasks, sync issue trackers, call providers, run shell/browser work, write
+connectors, launch background autonomy, or grant production authority.
 `/crm` renders the backend-owned CRM Local Command Center M2 read model from
 `GET /control-center/crm/summary` and companion CRM read routes. It shows
 relationship refs, follow-up refs, timeline refs, pipeline refs, smart-list
@@ -262,8 +263,8 @@ provider/model calls, connector writes, coworker dispatch, background autonomy,
 raw path/log persistence, public release, or production authority.
 Verification: `scripts/verify_beta_11_operator_workspace_spine.py`.
 
-OpenAPI remains a backend contract. The current backend path count is `234`
-with `235` manifest route operations; earlier milestone counts in the
+OpenAPI remains a backend contract. The current backend path count is `235`
+with `236` manifest route operations; earlier milestone counts in the
 historical sections below are audit context, not current route inventory.
 
 ## v0.18.0 M14 Connection Stabilization

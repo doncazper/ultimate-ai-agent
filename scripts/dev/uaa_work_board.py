@@ -41,6 +41,24 @@ def inspect_reorder_receipt(args: argparse.Namespace) -> int:
     return 0
 
 
+def inspect_card_create_receipt(args: argparse.Namespace) -> int:
+    receipt = WorkBoardStateStore().latest_card_create_receipt()
+    payload = (
+        receipt.model_dump(mode="json")
+        if receipt is not None
+        else {
+            "status": "missing",
+            "receipt_ref": None,
+            "card_ref": None,
+            "safe_summary": "No Work Board card-create receipt has been recorded.",
+            "raw_paths_included": False,
+            "raw_content_included": False,
+        }
+    )
+    print(json.dumps(payload, indent=2 if args.pretty else None, sort_keys=True))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Inspect UAA Work Board read-only Kanban state."
@@ -66,6 +84,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pretty-print the safe JSON receipt.",
     )
     receipt.set_defaults(func=inspect_reorder_receipt)
+    card_receipt = subparsers.add_parser(
+        "inspect-card-create-receipt",
+        help="Print the latest Work Board local card-create receipt if present.",
+    )
+    card_receipt.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print the safe JSON receipt.",
+    )
+    card_receipt.set_defaults(func=inspect_card_create_receipt)
     return parser
 
 

@@ -109,6 +109,7 @@ def test_control_center_release_surface_manifest_covers_visible_routes() -> None
         route["path"] for route in by_path["/work-board"]["backend_routes"]
     }
     assert "/control-center/work-board" in work_board_route_paths
+    assert "/control-center/work-board/cards" in work_board_route_paths
     assert "/control-center/work-board/reorder" in work_board_route_paths
     assert by_path["/work-board"]["approval_required"] is True
     assert by_path["/work-board"]["visual_proof_status"] == "blocked_no_baseline"

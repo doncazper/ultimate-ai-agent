@@ -30,10 +30,11 @@ Global rules:
   unrestricted shell/subprocess execution, plugin runtime import, remote
   execution, public beta/release claims, production authority, or broad
   autonomy.
-- Durable reorder, card create/archive, assignment, issue tracker sync, receipt,
-  rollback, and external agent dispatch remain blocked until a later exact
-  authority lane adds approval binding, idempotency, receipts, rollback,
-  redaction, CLI parity, route classification, and verifier coverage.
+- Durable reorder and local card create are exact approval-bound lanes.
+  Archive, assignment, issue tracker sync, rollback execution, and external
+  agent dispatch remain blocked until later exact authority lanes add approval
+  binding, idempotency, receipts, rollback, redaction, CLI parity, route
+  classification, and verifier coverage.
 
 Execution loop:
 1. Read `AGENTS.md`, this README, and every prompt in the sequence.

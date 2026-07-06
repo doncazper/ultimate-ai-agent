@@ -106,6 +106,8 @@ import type {
   CodingTestCommandReadinessReadModel,
   WebEvidenceProductSliceReceipt,
   WebEvidenceProductSliceRequest,
+  WorkBoardCardCreateReceipt,
+  WorkBoardCardCreateRequest,
   WorkBoardReadModel,
   WorkBoardReorderReceipt,
   WorkBoardReorderRequest,
@@ -939,6 +941,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     workBoard.durable_drag_drop_enabled !== false ||
     workBoard.durable_reorder_persistence_enabled !== true ||
     workBoard.approval_required_for_reorder !== true ||
+    workBoard.local_card_create_enabled !== true ||
+    workBoard.local_card_create_contract_available !== true ||
+    workBoard.approval_required_for_card_create !== true ||
+    workBoard.card_create_route_available !== true ||
+    typeof workBoard.card_create_route_ref !== "string" ||
     workBoard.drag_drop_posture?.durable_reorder_enabled !== true ||
     workBoard.drag_drop_posture?.backend_mutation_route_available !== true ||
     workBoard.drag_drop_posture?.approval_required !== true;
@@ -2668,6 +2675,42 @@ export async function persistWorkBoardOrder(
         extractErrorMessage(
           data,
           "Work Board reorder was not persisted; inspect blocked refs.",
+        ),
+      ),
+    );
+  }
+  return receipt;
+}
+
+export async function createWorkBoardCard(
+  request: WorkBoardCardCreateRequest,
+  idempotencyRef: string,
+): Promise<WorkBoardCardCreateReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.controlCenterWorkBoardCards}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": idempotencyRef,
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<WorkBoardCardCreateReceipt>;
+  const receipt = data.result ?? data.data;
+  if (!response.ok || !receipt) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "Work Board card create was not persisted; inspect blocked refs.",
         ),
       ),
     );

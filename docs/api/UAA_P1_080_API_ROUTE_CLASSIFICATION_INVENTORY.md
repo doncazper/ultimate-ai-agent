@@ -26,11 +26,11 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 139 |
-| `mutating_requires_authority` | 42 |
+| `local_sensitive` | 162 |
+| `mutating_requires_authority` | 44 |
 
-The current OpenAPI path count is `210` and `/api/manifest` currently reports
-`211` route operations after later scoped FCC-V1-003 through
+The current OpenAPI path count is `235` and `/api/manifest` currently reports
+`236` route operations after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
@@ -48,7 +48,8 @@ context-pack preview route, proposal-only patch proposal route, and blocked
 patch apply readiness route, blocked test-command readiness route, blocked Git
 review route, blocked live-preview readiness route, and blocked multi-agent
 review readiness route, plus the backend-owned Work Board Kanban read-model
-route and exact approved persisted reorder route, plus the governed runtime
+route, exact approved persisted reorder route, and exact approved local
+card-create route, plus the governed runtime
 pilot Phase 08 parity-loop read-only inspection route, Hermes Runtime Adoption
 Phase 01 delegation adapter readiness route, Phase 02 capability discovery
 posture route, Governed Product Pilot profile route, invocation metadata,
@@ -70,7 +71,7 @@ The runtime pilot includes one exact local loopback model-call route, one exact
 allowlisted read-only command status route, and exact Action Inbox approved
 focused pytest, repo verifier, and frontend check command bridges through `RuntimeGateway`;
 it stores safe refs and metadata-only/redacted receipts and keeps repo
-verifier/frontend-check/repo-doctor execution outside named exact lanes, remote provider/model authority, arbitrary
+remote provider/model authority, arbitrary
 shell/subprocess execution, browser automation, connector writes, plugin
 runtime import, public release, and production authority blocked.
 UAA-P1-080 itself added no routes; stable

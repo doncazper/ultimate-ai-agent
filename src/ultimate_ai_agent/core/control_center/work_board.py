@@ -36,18 +36,29 @@ WORK_BOARD_BOARD_REF = "work-board:founder-command-center-kanban"
 WORK_BOARD_ROUTE_REF = "route-ref:control-center-work-board"
 WORK_BOARD_BACKEND_ROUTE_REF = "GET /control-center/work-board"
 WORK_BOARD_REORDER_ROUTE_REF = "POST /control-center/work-board/reorder"
+WORK_BOARD_CARD_CREATE_ROUTE_REF = "POST /control-center/work-board/cards"
 WORK_BOARD_FRONTEND_ROUTE_REF = "/work-board"
 WORK_BOARD_CLI_REF = "scripts/dev/uaa_work_board.py inspect-board"
+WORK_BOARD_CARD_CREATE_CLI_REF = "scripts/dev/uaa_work_board.py inspect-card-create-receipt"
 WORK_BOARD_STATE_DIR_ENV = "UAA_WORK_BOARD_STATE_DIR"
 WORK_BOARD_STATE_FILE = "work_board_state.json"
 WORK_BOARD_RECEIPTS_FILE = "work_board_receipts.jsonl"
+WORK_BOARD_CARD_CREATE_RECEIPTS_FILE = "work_board_card_create_receipts.jsonl"
 WORK_BOARD_REORDER_REQUESTED_ACTION = "persist_work_board_reorder"
+WORK_BOARD_CARD_CREATE_REQUESTED_ACTION = "persist_work_board_card_create"
 WORK_BOARD_REORDER_SAFE_DISABLE_REF = "safe-disable-ref:work-board:durable-reorder"
 WORK_BOARD_REORDER_ROLLBACK_REF = "rollback-ref:work-board:restore-previous-order"
 WORK_BOARD_REORDER_PROOF_REF = "proof-ref:work-board-durable-reorder"
 WORK_BOARD_REORDER_EVIDENCE_REF = "evidence-ref:work-board-durable-reorder"
+WORK_BOARD_CARD_CREATE_SAFE_DISABLE_REF = "safe-disable-ref:work-board:local-card-create"
+WORK_BOARD_CARD_CREATE_ROLLBACK_REF = "rollback-ref:work-board:remove-local-created-card"
+WORK_BOARD_CARD_CREATE_PROOF_REF = "proof-ref:work-board-local-card-create"
+WORK_BOARD_CARD_CREATE_EVIDENCE_REF = "evidence-ref:work-board-local-card-create"
+WORK_BOARD_BLOCKED_CARD_ARCHIVE_ASSIGNMENT_REF = (
+    "blocked-state:work-board-no-card-archive-assignment"
+)
 WORK_BOARD_REQUIRED_BLOCKED_REFS = [
-    "blocked-state:work-board-no-card-create-archive-assignment",
+    WORK_BOARD_BLOCKED_CARD_ARCHIVE_ASSIGNMENT_REF,
     "blocked-state:work-board-no-issue-tracker-write",
     "blocked-state:work-board-no-connector-write",
     "blocked-state:work-board-no-provider-model-call",
@@ -161,6 +172,43 @@ class WorkBoardReorderRequest(BaseModel):
         return self
 
 
+class WorkBoardCardCreateRequest(BaseModel):
+    board_ref: str = WORK_BOARD_BOARD_REF
+    decision: Literal["approve"] = "approve"
+    approval_ref: str | None = None
+    exact_scope_ref: str | None = None
+    action_envelope_ref: str | None = None
+    decision_reason_ref: str = Field(..., min_length=1)
+    column_ref: str = "work-board-column:triage"
+    title: str = Field(..., min_length=1, max_length=120)
+    safe_summary: str = Field(..., min_length=1, max_length=360)
+    priority: CardPriority = "medium"
+    tags: list[str] = Field(default_factory=list)
+    metadata_refs: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_card_create_request(self) -> "WorkBoardCardCreateRequest":
+        for value, field_name in [
+            (self.board_ref, "work_board_card_create_board_ref"),
+            (self.decision_reason_ref, "work_board_card_create_decision_reason_ref"),
+            (self.column_ref, "work_board_card_create_column_ref"),
+            (self.approval_ref, "work_board_card_create_approval_ref"),
+            (self.exact_scope_ref, "work_board_card_create_exact_scope_ref"),
+            (self.action_envelope_ref, "work_board_card_create_action_envelope_ref"),
+        ]:
+            if value is not None:
+                validate_task_ref(value, field_name)
+        for value in [self.title, self.safe_summary, self.priority, *self.tags]:
+            validate_safe_task_text(value, "work_board_card_create_text")
+        for ref in self.metadata_refs:
+            validate_task_ref(ref, "work_board_card_create_metadata_ref")
+        if self.board_ref != WORK_BOARD_BOARD_REF:
+            raise ValueError("work board card create board ref mismatch")
+        return self
+
+
 class WorkBoardReorderReceipt(BaseModel):
     schema_version: Literal["uaa-work-board-reorder-receipt.v1"] = (
         "uaa-work-board-reorder-receipt.v1"
@@ -245,6 +293,92 @@ class WorkBoardReorderReceipt(BaseModel):
         return self
 
 
+class WorkBoardCardCreateReceipt(BaseModel):
+    schema_version: Literal["uaa-work-board-card-create-receipt.v1"] = (
+        "uaa-work-board-card-create-receipt.v1"
+    )
+    contract_ref: str = "contract-ref:work-board-local-card-create:v1"
+    board_ref: str
+    card_ref: str
+    receipt_ref: str
+    status: Literal["applied", "replayed"]
+    approval_ref: str
+    approval_decision_ref: str
+    approval_validation_ref: str
+    exact_scope_ref: str
+    action_envelope_ref: str
+    idempotency_ref: str
+    payload_fingerprint_ref: str
+    previous_order_ref: str
+    new_order_ref: str
+    safe_disable_ref: str = WORK_BOARD_CARD_CREATE_SAFE_DISABLE_REF
+    rollback_ref: str = WORK_BOARD_CARD_CREATE_ROLLBACK_REF
+    proof_ref: str = WORK_BOARD_CARD_CREATE_PROOF_REF
+    evidence_ref: str = WORK_BOARD_CARD_CREATE_EVIDENCE_REF
+    route_ref: str = WORK_BOARD_CARD_CREATE_ROUTE_REF
+    applied_at_ref: str
+    safe_summary: str
+    replayed: bool = False
+    raw_paths_included: bool = False
+    raw_content_included: bool = False
+    issue_tracker_write_performed: bool = False
+    connector_write_performed: bool = False
+    provider_model_call_performed: bool = False
+    shell_subprocess_execution_performed: bool = False
+    browser_automation_performed: bool = False
+    background_autonomy_performed: bool = False
+    production_authority_enabled: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_card_create_receipt(self) -> "WorkBoardCardCreateReceipt":
+        for ref in [
+            self.contract_ref,
+            self.board_ref,
+            self.card_ref,
+            self.receipt_ref,
+            self.approval_ref,
+            self.approval_decision_ref,
+            self.approval_validation_ref,
+            self.exact_scope_ref,
+            self.action_envelope_ref,
+            self.idempotency_ref,
+            self.payload_fingerprint_ref,
+            self.previous_order_ref,
+            self.new_order_ref,
+            self.safe_disable_ref,
+            self.rollback_ref,
+            self.proof_ref,
+            self.evidence_ref,
+            self.applied_at_ref,
+        ]:
+            validate_task_ref(ref, "work_board_card_create_receipt_ref")
+        validate_safe_task_text(self.route_ref, "work_board_card_create_route_ref")
+        validate_safe_task_text(self.safe_summary, "work_board_card_create_summary")
+        forbidden_flags = {
+            "raw_paths_included": self.raw_paths_included,
+            "raw_content_included": self.raw_content_included,
+            "issue_tracker_write_performed": self.issue_tracker_write_performed,
+            "connector_write_performed": self.connector_write_performed,
+            "provider_model_call_performed": self.provider_model_call_performed,
+            "shell_subprocess_execution_performed": (
+                self.shell_subprocess_execution_performed
+            ),
+            "browser_automation_performed": self.browser_automation_performed,
+            "background_autonomy_performed": self.background_autonomy_performed,
+            "production_authority_enabled": self.production_authority_enabled,
+        }
+        enabled = [name for name, value in forbidden_flags.items() if value]
+        if enabled:
+            raise ValueError(f"work board card create receipt enabled {enabled[0]}")
+        validate_safe_task_payload(
+            self.model_dump(mode="json"),
+            "work_board_card_create_receipt",
+        )
+        return self
+
+
 class WorkBoardReorderApprovalPreview(BaseModel):
     approval_request: ApprovalRequest
     expected_approval_ref: str
@@ -270,6 +404,37 @@ class WorkBoardReorderApprovalPreview(BaseModel):
         validate_safe_task_payload(
             self.model_dump(mode="json"),
             "work_board_reorder_approval_preview",
+        )
+        return self
+
+
+class WorkBoardCardCreateApprovalPreview(BaseModel):
+    approval_request: ApprovalRequest
+    expected_approval_ref: str
+    exact_scope_ref: str
+    action_envelope_ref: str
+    payload_fingerprint_ref: str
+    previous_order_ref: str
+    new_order_ref: str
+    card_ref: str
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_card_create_preview(self) -> "WorkBoardCardCreateApprovalPreview":
+        for ref in [
+            self.expected_approval_ref,
+            self.exact_scope_ref,
+            self.action_envelope_ref,
+            self.payload_fingerprint_ref,
+            self.previous_order_ref,
+            self.new_order_ref,
+            self.card_ref,
+        ]:
+            validate_task_ref(ref, "work_board_card_create_approval_preview_ref")
+        validate_safe_task_payload(
+            self.model_dump(mode="json"),
+            "work_board_card_create_approval_preview",
         )
         return self
 
@@ -463,6 +628,12 @@ class WorkBoardReadModel(BaseModel):
     approval_required_for_reorder: bool = True
     reorder_route_ref: str = WORK_BOARD_REORDER_ROUTE_REF
     latest_reorder_receipt_ref: str | None = None
+    local_card_create_enabled: bool = True
+    local_card_create_contract_available: bool = True
+    approval_required_for_card_create: bool = True
+    card_create_route_available: bool = True
+    card_create_route_ref: str = WORK_BOARD_CARD_CREATE_ROUTE_REF
+    latest_card_create_receipt_ref: str | None = None
     issue_tracker_write_enabled: bool = False
     connector_write_enabled: bool = False
     shell_subprocess_execution_enabled: bool = False
@@ -482,6 +653,11 @@ class WorkBoardReadModel(BaseModel):
             *(
                 [self.latest_reorder_receipt_ref]
                 if self.latest_reorder_receipt_ref
+                else []
+            ),
+            *(
+                [self.latest_card_create_receipt_ref]
+                if self.latest_card_create_receipt_ref
                 else []
             ),
             *self.docs_refs,
@@ -508,6 +684,10 @@ class WorkBoardReadModel(BaseModel):
         ):
             validate_safe_task_text(value, "work_board_text")
         validate_safe_task_text(self.reorder_route_ref, "work_board_reorder_route_ref")
+        validate_safe_task_text(
+            self.card_create_route_ref,
+            "work_board_card_create_route_ref",
+        )
         column_refs = {column.column_ref for column in self.columns}
         card_refs = {card.card_ref for card in self.cards}
         if not column_refs:
@@ -560,6 +740,16 @@ class WorkBoardReadModel(BaseModel):
             raise ValueError("work board durable reorder persistence lane missing")
         if not self.approval_required_for_reorder:
             raise ValueError("work board reorder must require approval")
+        if not self.local_card_create_enabled:
+            raise ValueError("work board exact local card create lane missing")
+        if not self.local_card_create_contract_available:
+            raise ValueError("work board exact local card create contract missing")
+        if not self.approval_required_for_card_create:
+            raise ValueError("work board card create must require approval")
+        if not self.card_create_route_available:
+            raise ValueError("work board card create route must remain visible")
+        if self.card_create_route_ref != WORK_BOARD_CARD_CREATE_ROUTE_REF:
+            raise ValueError("work board card create route ref mismatch")
         validate_safe_task_payload(self.model_dump(mode="json"), "work_board")
         return self
 
@@ -618,6 +808,51 @@ def _order_ref(layout: dict[str, list[str]]) -> str:
     return _hash_ref("work-board-order-ref", layout)
 
 
+def _local_card_ref(
+    request: WorkBoardCardCreateRequest,
+    *,
+    idempotency_ref: str,
+) -> str:
+    return _hash_ref(
+        "work-board-card:local",
+        {
+            "board_ref": request.board_ref,
+            "column_ref": request.column_ref,
+            "idempotency_ref": idempotency_ref,
+            "safe_summary": request.safe_summary,
+            "title": request.title,
+        },
+    )
+
+
+def _card_create_payload_ref(
+    request: WorkBoardCardCreateRequest,
+    *,
+    card_ref: str,
+    idempotency_ref: str,
+    new_order_ref: str,
+    previous_order_ref: str,
+) -> str:
+    return _hash_ref(
+        "work-board-card-create-payload-ref",
+        {
+            "board_ref": request.board_ref,
+            "card_ref": card_ref,
+            "column_ref": request.column_ref,
+            "decision": request.decision,
+            "decision_reason_ref": request.decision_reason_ref,
+            "idempotency_ref": idempotency_ref,
+            "metadata_refs": request.metadata_refs,
+            "new_order_ref": new_order_ref,
+            "previous_order_ref": previous_order_ref,
+            "priority": request.priority,
+            "safe_summary": request.safe_summary,
+            "tags": request.tags,
+            "title": request.title,
+        },
+    )
+
+
 def _normalized_layout_from_request(
     request: WorkBoardReorderRequest,
     *,
@@ -642,6 +877,33 @@ def _normalized_layout_from_request(
     if set(seen_cards) != card_refs:
         raise ValueError("work board reorder must include every backend card exactly once")
     return {column.column_ref: layout_by_ref[column.column_ref] for column in columns}
+
+
+def _local_card_from_request(
+    request: WorkBoardCardCreateRequest,
+    *,
+    card_ref: str,
+) -> WorkBoardCardReadModel:
+    return WorkBoardCardReadModel(
+        card_ref=card_ref,
+        title=request.title,
+        safe_summary=request.safe_summary,
+        column_ref=request.column_ref,
+        priority=request.priority,
+        authority_state="proposal_only",
+        owner_ref="owner-ref:local-operator",
+        progress_label="Created",
+        proof_refs=[WORK_BOARD_CARD_CREATE_PROOF_REF],
+        evidence_refs=[WORK_BOARD_CARD_CREATE_EVIDENCE_REF],
+        blocker_refs=[WORK_BOARD_BLOCKED_CARD_ARCHIVE_ASSIGNMENT_REF],
+        surface_refs=[WORK_BOARD_ROUTE_REF],
+        cli_inspection_refs=[WORK_BOARD_CARD_CREATE_CLI_REF],
+        tags=list(dict.fromkeys([*request.tags, "local-card"])),
+        raw_path_included=False,
+        raw_content_included=False,
+        mutation_enabled=False,
+        drag_persistence_enabled=False,
+    )
 
 
 def _apply_layout(
@@ -686,6 +948,26 @@ def _work_board_exact_scope_ref(
     )
 
 
+def _work_board_card_create_exact_scope_ref(
+    *,
+    card_ref: str,
+    new_order_ref: str,
+    payload_fingerprint_ref: str,
+    previous_order_ref: str,
+) -> str:
+    return _hash_ref(
+        "work-board-card-create-scope-ref",
+        {
+            "board_ref": WORK_BOARD_BOARD_REF,
+            "card_ref": card_ref,
+            "new_order_ref": new_order_ref,
+            "payload_fingerprint_ref": payload_fingerprint_ref,
+            "previous_order_ref": previous_order_ref,
+            "route_ref": WORK_BOARD_CARD_CREATE_ROUTE_REF,
+        },
+    )
+
+
 def _expected_work_board_approval_ref(
     *,
     exact_scope_ref: str,
@@ -703,6 +985,23 @@ def _expected_work_board_approval_ref(
     )
 
 
+def _expected_work_board_card_create_approval_ref(
+    *,
+    exact_scope_ref: str,
+    payload_fingerprint_ref: str,
+) -> str:
+    return _hash_ref(
+        "work-board-card-create-approval-ref",
+        {
+            "board_ref": WORK_BOARD_BOARD_REF,
+            "decision": "approve",
+            "exact_scope_ref": exact_scope_ref,
+            "payload_fingerprint_ref": payload_fingerprint_ref,
+            "requested_action": WORK_BOARD_CARD_CREATE_REQUESTED_ACTION,
+        },
+    )
+
+
 def _expected_work_board_action_envelope_ref(
     *,
     approval_ref: str,
@@ -711,6 +1010,24 @@ def _expected_work_board_action_envelope_ref(
 ) -> str:
     return _hash_ref(
         "work-board-action-envelope-ref",
+        {
+            "approval_ref": approval_ref,
+            "board_ref": WORK_BOARD_BOARD_REF,
+            "decision": "approve",
+            "exact_scope_ref": exact_scope_ref,
+            "payload_fingerprint_ref": payload_fingerprint_ref,
+        },
+    )
+
+
+def _expected_work_board_card_create_action_envelope_ref(
+    *,
+    approval_ref: str,
+    exact_scope_ref: str,
+    payload_fingerprint_ref: str,
+) -> str:
+    return _hash_ref(
+        "work-board-card-create-action-envelope-ref",
         {
             "approval_ref": approval_ref,
             "board_ref": WORK_BOARD_BOARD_REF,
@@ -782,6 +1099,74 @@ def _work_board_approval_request(
     )
 
 
+def _work_board_card_create_approval_request(
+    *,
+    action_envelope_ref: str,
+    card_ref: str,
+    exact_scope_ref: str,
+    idempotency_ref: str,
+    new_order_ref: str,
+    payload_fingerprint_ref: str,
+    previous_order_ref: str,
+) -> ApprovalRequest:
+    request_ref = _hash_ref(
+        "approval-request-ref",
+        {
+            "action_envelope_ref": action_envelope_ref,
+            "card_ref": card_ref,
+            "exact_scope_ref": exact_scope_ref,
+            "idempotency_ref": idempotency_ref,
+        },
+    )
+    run_ref = _hash_ref(
+        "run-ref",
+        {
+            "operation": WORK_BOARD_CARD_CREATE_REQUESTED_ACTION,
+            "board_ref": WORK_BOARD_BOARD_REF,
+            "card_ref": card_ref,
+        },
+    )
+    return ApprovalRequest(
+        approval_request_id=request_ref,
+        run_id=run_ref,
+        subject_type=ApprovalSubjectType.external_action,
+        subject_id=WORK_BOARD_BOARD_REF,
+        actor_context=_work_board_actor_context(),
+        requested_action=WORK_BOARD_CARD_CREATE_REQUESTED_ACTION,
+        purpose="Approve one exact local Work Board card create.",
+        risk_level=ApprovalRiskLevel.low,
+        data_classification=DataClassification(
+            classification=ClassificationValue.project_private,
+            source="work_board_card_create",
+            requires_redaction=True,
+        ),
+        resource_refs=[
+            WORK_BOARD_BOARD_REF,
+            WORK_BOARD_CARD_CREATE_ROUTE_REF,
+            card_ref,
+            action_envelope_ref,
+            exact_scope_ref,
+            payload_fingerprint_ref,
+            previous_order_ref,
+            new_order_ref,
+            WORK_BOARD_CARD_CREATE_SAFE_DISABLE_REF,
+            WORK_BOARD_CARD_CREATE_ROLLBACK_REF,
+            idempotency_ref,
+        ],
+        event_ref=_hash_ref(
+            "event-ref",
+            {
+                "operation": "work-board-card-create-approval",
+                "idempotency_ref": idempotency_ref,
+            },
+        ),
+        trace_id=_hash_ref(
+            "trace-ref",
+            {"operation": "work-board-card-create", "card_ref": card_ref},
+        ),
+    )
+
+
 def prepare_work_board_reorder_approval(
     request: WorkBoardReorderRequest,
     *,
@@ -838,6 +1223,72 @@ def prepare_work_board_reorder_approval(
         payload_fingerprint_ref=payload_fingerprint_ref,
         previous_order_ref=previous_order_ref,
         new_order_ref=new_order_ref,
+    )
+
+
+def prepare_work_board_card_create_approval(
+    request: WorkBoardCardCreateRequest,
+    *,
+    columns: list[WorkBoardColumnReadModel],
+    cards: list[WorkBoardCardReadModel],
+    idempotency_ref: str,
+    current_layout: dict[str, list[str]] | None = None,
+) -> WorkBoardCardCreateApprovalPreview:
+    validate_task_ref(idempotency_ref, "work_board_card_create_idempotency_ref")
+    column_by_ref = {column.column_ref: column for column in columns}
+    if request.column_ref not in column_by_ref:
+        raise ValueError("work board card create column ref missing")
+    layout = current_layout or _layout_from_columns(columns)
+    card_ref = _local_card_ref(request, idempotency_ref=idempotency_ref)
+    if card_ref in {card.card_ref for card in cards}:
+        raise WorkBoardStorageConflictError("WORK_BOARD_CARD_CREATE_REF_CONFLICT")
+    next_refs = [*layout.get(request.column_ref, []), card_ref]
+    if len(next_refs) > column_by_ref[request.column_ref].wip_limit:
+        raise ValueError("work board card create exceeds column wip limit")
+    new_layout = {column.column_ref: list(layout.get(column.column_ref, [])) for column in columns}
+    new_layout[request.column_ref] = next_refs
+    previous_order_ref = _order_ref(layout)
+    new_order_ref = _order_ref(new_layout)
+    payload_fingerprint_ref = _card_create_payload_ref(
+        request,
+        card_ref=card_ref,
+        idempotency_ref=idempotency_ref,
+        new_order_ref=new_order_ref,
+        previous_order_ref=previous_order_ref,
+    )
+    exact_scope_ref = _work_board_card_create_exact_scope_ref(
+        card_ref=card_ref,
+        new_order_ref=new_order_ref,
+        payload_fingerprint_ref=payload_fingerprint_ref,
+        previous_order_ref=previous_order_ref,
+    )
+    expected_approval_ref = _expected_work_board_card_create_approval_ref(
+        exact_scope_ref=exact_scope_ref,
+        payload_fingerprint_ref=payload_fingerprint_ref,
+    )
+    action_envelope_ref = _expected_work_board_card_create_action_envelope_ref(
+        approval_ref=expected_approval_ref,
+        exact_scope_ref=exact_scope_ref,
+        payload_fingerprint_ref=payload_fingerprint_ref,
+    )
+    approval_request = _work_board_card_create_approval_request(
+        action_envelope_ref=action_envelope_ref,
+        card_ref=card_ref,
+        exact_scope_ref=exact_scope_ref,
+        idempotency_ref=idempotency_ref,
+        new_order_ref=new_order_ref,
+        payload_fingerprint_ref=payload_fingerprint_ref,
+        previous_order_ref=previous_order_ref,
+    )
+    return WorkBoardCardCreateApprovalPreview(
+        approval_request=approval_request,
+        expected_approval_ref=expected_approval_ref,
+        exact_scope_ref=exact_scope_ref,
+        action_envelope_ref=action_envelope_ref,
+        payload_fingerprint_ref=payload_fingerprint_ref,
+        previous_order_ref=previous_order_ref,
+        new_order_ref=new_order_ref,
+        card_ref=card_ref,
     )
 
 
@@ -913,11 +1364,92 @@ def _validate_work_board_approval(
     return approval_ref, approval_decision_ref, approval_validation_ref
 
 
+def _validate_work_board_card_create_approval(
+    *,
+    request: WorkBoardCardCreateRequest,
+    action_envelope_ref: str,
+    card_ref: str,
+    exact_scope_ref: str,
+    expected_approval_ref: str,
+    approval_request: ApprovalRequest,
+    approval_authority: LocalApprovalAuthority | None,
+    idempotency_ref: str,
+) -> tuple[str, str, str]:
+    reason_refs: list[str] = []
+    if request.exact_scope_ref is None:
+        reason_refs.append("blocked-state:work-board-card-create-exact-scope-required")
+    elif request.exact_scope_ref != exact_scope_ref:
+        reason_refs.append("blocked-state:work-board-card-create-exact-scope-mismatch")
+    if request.action_envelope_ref is None:
+        reason_refs.append(
+            "blocked-state:work-board-card-create-action-envelope-required"
+        )
+    elif request.action_envelope_ref != action_envelope_ref:
+        reason_refs.append(
+            "blocked-state:work-board-card-create-action-envelope-mismatch"
+        )
+    if request.approval_ref is None:
+        reason_refs.append("blocked-state:work-board-card-create-approval-required")
+    elif request.approval_ref != expected_approval_ref:
+        reason_refs.append("blocked-state:work-board-card-create-approval-ref-mismatch")
+    if reason_refs:
+        raise WorkBoardApprovalError(
+            list(dict.fromkeys(reason_refs)),
+            required_refs={
+                "approval_ref": expected_approval_ref,
+                "exact_scope_ref": exact_scope_ref,
+                "action_envelope_ref": action_envelope_ref,
+                "card_ref": card_ref,
+            },
+        )
+    approval_ref = request.approval_ref
+    authority = approval_authority or LocalApprovalAuthority()
+    authority.create_request(approval_request)
+    decision = authority.validate_for_request(approval_request, approval_ref)
+    approval_decision_ref = _hash_ref(
+        "approval-decision-ref",
+        {
+            "approval_ref": approval_ref,
+            "idempotency_ref": idempotency_ref,
+            "operation": "work-board-card-create-approval",
+        },
+    )
+    approval_validation_ref = _hash_ref(
+        "approval-validation-ref",
+        {
+            "approval_ref": approval_ref,
+            "idempotency_ref": idempotency_ref,
+            "operation": "work-board-card-create-approval",
+        },
+    )
+    if not decision.allowed:
+        reason_refs.append(
+            "blocked-state:work-board-card-create-backend-approval-missing"
+        )
+        reason_refs.extend(
+            f"approval-reason-ref:{reason}" for reason in decision.reason_codes
+        )
+    if reason_refs:
+        raise WorkBoardApprovalError(
+            list(dict.fromkeys(reason_refs)),
+            required_refs={
+                "approval_ref": expected_approval_ref,
+                "exact_scope_ref": exact_scope_ref,
+                "action_envelope_ref": action_envelope_ref,
+                "card_ref": card_ref,
+            },
+        )
+    return approval_ref, approval_decision_ref, approval_validation_ref
+
+
 class WorkBoardStateStore:
     def __init__(self, state_dir: Path | None = None) -> None:
         self.state_dir = state_dir or work_board_state_dir()
         self.state_path = self.state_dir / WORK_BOARD_STATE_FILE
         self.receipts_path = self.state_dir / WORK_BOARD_RECEIPTS_FILE
+        self.card_create_receipts_path = (
+            self.state_dir / WORK_BOARD_CARD_CREATE_RECEIPTS_FILE
+        )
 
     def load_layout(self) -> dict[str, list[str]] | None:
         if not self.state_path.exists():
@@ -941,6 +1473,29 @@ class WorkBoardStateStore:
         if not isinstance(receipt, dict):
             return None
         return WorkBoardReorderReceipt(**receipt)
+
+    def load_local_cards(self) -> list[WorkBoardCardReadModel]:
+        if not self.state_path.exists():
+            return []
+        payload = json.loads(self.state_path.read_text(encoding="utf-8"))
+        validate_safe_task_payload(payload, "work_board_state")
+        local_cards = payload.get("local_cards", [])
+        if not isinstance(local_cards, list):
+            raise WorkBoardStorageError("WORK_BOARD_STATE_LOCAL_CARDS_INVALID")
+        return [
+            WorkBoardCardReadModel(**card)
+            for card in local_cards
+            if isinstance(card, dict)
+        ]
+
+    def latest_card_create_receipt(self) -> WorkBoardCardCreateReceipt | None:
+        if not self.state_path.exists():
+            return None
+        payload = json.loads(self.state_path.read_text(encoding="utf-8"))
+        receipt = payload.get("latest_card_create_receipt")
+        if not isinstance(receipt, dict):
+            return None
+        return WorkBoardCardCreateReceipt(**receipt)
 
     def persist_reorder(
         self,
@@ -1010,8 +1565,105 @@ class WorkBoardStateStore:
                 "Exact approved local Work Board reorder persisted safe card refs only."
             ),
         )
-        self._write_state(new_layout, receipt)
+        self._write_state(
+            new_layout,
+            latest_reorder_receipt=receipt,
+            latest_card_create_receipt=self.latest_card_create_receipt(),
+            local_cards=self.load_local_cards(),
+        )
         self._append_receipt(receipt)
+        return receipt
+
+    def persist_card_create(
+        self,
+        request: WorkBoardCardCreateRequest,
+        *,
+        columns: list[WorkBoardColumnReadModel],
+        cards: list[WorkBoardCardReadModel],
+        idempotency_ref: str,
+        approval_authority: LocalApprovalAuthority | None = None,
+    ) -> WorkBoardCardCreateReceipt:
+        validate_task_ref(idempotency_ref, "work_board_card_create_idempotency_ref")
+        replay = self._idempotent_card_create_replay_for_request(
+            request=request,
+            idempotency_ref=idempotency_ref,
+        )
+        if replay is not None:
+            return replay.model_copy(update={"status": "replayed", "replayed": True})
+        current_layout = self.load_layout() or _layout_from_columns(columns)
+        existing_local_cards = self.load_local_cards()
+        existing_card_refs = {card.card_ref for card in cards}
+        for local_card in existing_local_cards:
+            existing_card_refs.add(local_card.card_ref)
+        card_ref = _local_card_ref(request, idempotency_ref=idempotency_ref)
+        if card_ref in existing_card_refs:
+            raise WorkBoardStorageConflictError("WORK_BOARD_CARD_CREATE_REF_CONFLICT")
+        approval_preview = prepare_work_board_card_create_approval(
+            request,
+            columns=columns,
+            cards=[*cards, *existing_local_cards],
+            idempotency_ref=idempotency_ref,
+            current_layout=current_layout,
+        )
+        replay = self._idempotent_card_create_replay(
+            idempotency_ref=idempotency_ref,
+            payload_fingerprint_ref=approval_preview.payload_fingerprint_ref,
+        )
+        if replay is not None:
+            return replay.model_copy(update={"status": "replayed", "replayed": True})
+        approval_ref, approval_decision_ref, approval_validation_ref = (
+            _validate_work_board_card_create_approval(
+                request=request,
+                action_envelope_ref=approval_preview.action_envelope_ref,
+                card_ref=approval_preview.card_ref,
+                exact_scope_ref=approval_preview.exact_scope_ref,
+                expected_approval_ref=approval_preview.expected_approval_ref,
+                approval_request=approval_preview.approval_request,
+                approval_authority=approval_authority,
+                idempotency_ref=idempotency_ref,
+            )
+        )
+        new_card = _local_card_from_request(request, card_ref=approval_preview.card_ref)
+        new_layout = {
+            column.column_ref: list(current_layout.get(column.column_ref, []))
+            for column in columns
+        }
+        new_layout[request.column_ref] = [
+            *new_layout.get(request.column_ref, []),
+            approval_preview.card_ref,
+        ]
+        receipt = WorkBoardCardCreateReceipt(
+            board_ref=WORK_BOARD_BOARD_REF,
+            card_ref=approval_preview.card_ref,
+            receipt_ref=_hash_ref(
+                "receipt:work-board-card-create",
+                {
+                    "approval_ref": approval_ref,
+                    "card_ref": approval_preview.card_ref,
+                    "idempotency_ref": idempotency_ref,
+                    "payload_fingerprint_ref": approval_preview.payload_fingerprint_ref,
+                },
+            ),
+            status="applied",
+            approval_ref=approval_ref,
+            approval_decision_ref=approval_decision_ref,
+            approval_validation_ref=approval_validation_ref,
+            exact_scope_ref=approval_preview.exact_scope_ref,
+            action_envelope_ref=approval_preview.action_envelope_ref,
+            idempotency_ref=idempotency_ref,
+            payload_fingerprint_ref=approval_preview.payload_fingerprint_ref,
+            previous_order_ref=approval_preview.previous_order_ref,
+            new_order_ref=approval_preview.new_order_ref,
+            applied_at_ref=_hash_ref("time-ref", utc_now().isoformat()),
+            safe_summary="Exact approved local Work Board card create persisted safe refs only.",
+        )
+        self._write_state(
+            new_layout,
+            latest_reorder_receipt=self.latest_receipt(),
+            latest_card_create_receipt=receipt,
+            local_cards=[*existing_local_cards, new_card],
+        )
+        self._append_card_create_receipt(receipt)
         return receipt
 
     def _idempotent_replay(
@@ -1036,19 +1688,82 @@ class WorkBoardStateStore:
             return receipt
         return None
 
+    def _idempotent_card_create_replay_for_request(
+        self,
+        *,
+        request: WorkBoardCardCreateRequest,
+        idempotency_ref: str,
+    ) -> WorkBoardCardCreateReceipt | None:
+        receipt = self._card_create_receipt_for_idempotency(idempotency_ref)
+        if receipt is None:
+            return None
+        expected_payload_ref = _card_create_payload_ref(
+            request,
+            card_ref=receipt.card_ref,
+            idempotency_ref=idempotency_ref,
+            new_order_ref=receipt.new_order_ref,
+            previous_order_ref=receipt.previous_order_ref,
+        )
+        if receipt.payload_fingerprint_ref != expected_payload_ref:
+            raise WorkBoardStorageConflictError(
+                "WORK_BOARD_CARD_CREATE_IDEMPOTENCY_CONFLICT"
+            )
+        return receipt
+
+    def _idempotent_card_create_replay(
+        self,
+        *,
+        idempotency_ref: str,
+        payload_fingerprint_ref: str,
+    ) -> WorkBoardCardCreateReceipt | None:
+        receipt = self._card_create_receipt_for_idempotency(idempotency_ref)
+        if receipt is None:
+            return None
+        if receipt.payload_fingerprint_ref != payload_fingerprint_ref:
+            raise WorkBoardStorageConflictError(
+                "WORK_BOARD_CARD_CREATE_IDEMPOTENCY_CONFLICT"
+            )
+        return receipt
+
+    def _card_create_receipt_for_idempotency(
+        self,
+        idempotency_ref: str,
+    ) -> WorkBoardCardCreateReceipt | None:
+        if not self.card_create_receipts_path.exists():
+            return None
+        for line in self.card_create_receipts_path.read_text(
+            encoding="utf-8"
+        ).splitlines():
+            if not line.strip():
+                continue
+            payload = json.loads(line)
+            receipt = WorkBoardCardCreateReceipt(**payload)
+            if receipt.idempotency_ref == idempotency_ref:
+                return receipt
+        return None
+
     def _write_state(
         self,
         layout: dict[str, list[str]],
-        receipt: WorkBoardReorderReceipt,
+        *,
+        latest_reorder_receipt: WorkBoardReorderReceipt | None,
+        latest_card_create_receipt: WorkBoardCardCreateReceipt | None,
+        local_cards: list[WorkBoardCardReadModel],
     ) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
         payload: dict[str, Any] = {
             "schema_version": "uaa-work-board-state.v1",
             "board_ref": WORK_BOARD_BOARD_REF,
             "layout": layout,
-            "layout_order_ref": receipt.new_order_ref,
-            "latest_receipt": receipt.model_dump(mode="json"),
+            "layout_order_ref": _order_ref(layout),
+            "local_cards": [card.model_dump(mode="json") for card in local_cards],
         }
+        if latest_reorder_receipt is not None:
+            payload["latest_receipt"] = latest_reorder_receipt.model_dump(mode="json")
+        if latest_card_create_receipt is not None:
+            payload["latest_card_create_receipt"] = (
+                latest_card_create_receipt.model_dump(mode="json")
+            )
         validate_safe_task_payload(payload, "work_board_state")
         tmp_path = self.state_path.with_suffix(".json.tmp")
         tmp_path.write_text(
@@ -1060,6 +1775,18 @@ class WorkBoardStateStore:
     def _append_receipt(self, receipt: WorkBoardReorderReceipt) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
         with self.receipts_path.open("a", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps(
+                    receipt.model_dump(mode="json"),
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            )
+            handle.write("\n")
+
+    def _append_card_create_receipt(self, receipt: WorkBoardCardCreateReceipt) -> None:
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        with self.card_create_receipts_path.open("a", encoding="utf-8") as handle:
             handle.write(
                 json.dumps(
                     receipt.model_dump(mode="json"),
@@ -1270,32 +1997,40 @@ def build_work_board_read_model(
     store: WorkBoardStateStore | None = None,
 ) -> WorkBoardReadModel:
     columns, cards = _base_work_board()
-    latest_receipt = None
+    latest_reorder_receipt = None
+    latest_card_create_receipt = None
     if apply_persisted_state:
         active_store = store or WorkBoardStateStore()
         try:
+            local_cards = active_store.load_local_cards()
+            if local_cards:
+                cards = [*cards, *local_cards]
             layout = active_store.load_layout()
             if layout is not None:
                 _validate_layout_against_board(layout, columns=columns, cards=cards)
-                latest_receipt = active_store.latest_receipt()
+                latest_reorder_receipt = active_store.latest_receipt()
+                latest_card_create_receipt = active_store.latest_card_create_receipt()
                 columns, cards = _apply_layout(
                     columns=columns,
                     cards=cards,
                     layout=layout,
                 )
         except (OSError, ValueError, json.JSONDecodeError, WorkBoardStorageError):
-            latest_receipt = None
+            latest_reorder_receipt = None
+            latest_card_create_receipt = None
     return WorkBoardReadModel(
         title="Work Board",
         safe_summary=(
             "Backend-owned Kanban read model for the Founder Command Center. "
             "Control Center may filter, select, preview drag/drop order locally, "
-            "and persist exact approved reorder receipts through Python Core."
+            "persist exact approved reorder receipts, and create exact approved "
+            "local cards through Python Core."
         ),
         repo_safe_scope=(
             "Render a polished Kanban cockpit, safe refs, exact approved reorder "
-            "persistence, blocked external authority, and receipt posture. No issue "
-            "tracker, connector, shell, browser, or background work is invoked."
+            "and local-card-create persistence, blocked external authority, and "
+            "receipt posture. No issue tracker, connector, shell, browser, or "
+            "background work is invoked."
         ),
         full_strength_goal=(
             "A real operator Work Board where plans, actions, receipts, proof, "
@@ -1324,7 +2059,7 @@ def build_work_board_read_model(
                 "safe-disable, rollback posture, and receipt refs."
             ),
             blocked_authority_refs=[
-                "blocked-state:work-board-no-card-create-archive-assignment",
+                WORK_BOARD_BLOCKED_CARD_ARCHIVE_ASSIGNMENT_REF,
                 "blocked-state:work-board-no-issue-tracker-write",
             ],
             promotion_path_refs=["prompt-ref:work-board-card-mutation-lane"],
@@ -1332,10 +2067,12 @@ def build_work_board_read_model(
         proof_refs=[
             "proof-ref:work-board-kanban-shell",
             WORK_BOARD_REORDER_PROOF_REF,
+            WORK_BOARD_CARD_CREATE_PROOF_REF,
         ],
         evidence_refs=[
             "evidence-ref:work-board-read-model",
             WORK_BOARD_REORDER_EVIDENCE_REF,
+            WORK_BOARD_CARD_CREATE_EVIDENCE_REF,
         ],
         blocked_authority_refs=WORK_BOARD_REQUIRED_BLOCKED_REFS,
         promotion_path_refs=[
@@ -1349,11 +2086,18 @@ def build_work_board_read_model(
         ],
         next_safe_action=(
             "Use the board for local planning, preview drag/drop, and exact approved "
-            "persisted reorder. Promote card create/archive and external sync as "
+            "persisted reorder or card create. Promote archive, assignment, and external sync as "
             "separate lanes."
         ),
         latest_reorder_receipt_ref=(
-            latest_receipt.receipt_ref if latest_receipt is not None else None
+            latest_reorder_receipt.receipt_ref
+            if latest_reorder_receipt is not None
+            else None
+        ),
+        latest_card_create_receipt_ref=(
+            latest_card_create_receipt.receipt_ref
+            if latest_card_create_receipt is not None
+            else None
         ),
     )
 

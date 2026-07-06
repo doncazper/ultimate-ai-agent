@@ -1319,24 +1319,84 @@ export interface WorkBoardReorderRequest {
   metadata_refs?: string[];
 }
 
+export interface WorkBoardCardCreateRequest {
+  board_ref?: string;
+  decision?: "approve";
+  approval_ref?: string;
+  exact_scope_ref?: string;
+  action_envelope_ref?: string;
+  decision_reason_ref: string;
+  column_ref?: string;
+  title: string;
+  safe_summary: string;
+  priority?: WorkBoardCardPriority;
+  tags?: string[];
+  metadata_refs?: string[];
+}
+
 export interface WorkBoardReorderReceipt {
+  schema_version: "uaa-work-board-reorder-receipt.v1";
+  contract_ref: string;
+  board_ref: string;
   receipt_ref: string;
   status: "applied" | "replayed";
   approval_ref: string;
+  approval_decision_ref: string;
+  approval_validation_ref: string;
   exact_scope_ref: string;
   action_envelope_ref: string;
   idempotency_ref: string;
+  payload_fingerprint_ref: string;
   previous_order_ref: string;
   new_order_ref: string;
+  safe_disable_ref: string;
+  rollback_ref: string;
   proof_ref: string;
   evidence_ref: string;
   route_ref: string;
+  applied_at_ref: string;
   safe_summary: string;
   replayed: boolean;
   raw_paths_included: boolean;
   raw_content_included: boolean;
+  issue_tracker_write_performed: boolean;
   connector_write_performed: boolean;
-  provider_model_call_performed?: boolean;
+  provider_model_call_performed: boolean;
+  shell_subprocess_execution_performed: boolean;
+  browser_automation_performed: boolean;
+  background_autonomy_performed: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface WorkBoardCardCreateReceipt {
+  schema_version: "uaa-work-board-card-create-receipt.v1";
+  contract_ref: string;
+  board_ref: string;
+  receipt_ref: string;
+  status: "applied" | "replayed";
+  card_ref: string;
+  approval_ref: string;
+  approval_decision_ref: string;
+  approval_validation_ref: string;
+  exact_scope_ref: string;
+  action_envelope_ref: string;
+  idempotency_ref: string;
+  payload_fingerprint_ref: string;
+  previous_order_ref: string;
+  new_order_ref: string;
+  safe_disable_ref: string;
+  rollback_ref: string;
+  proof_ref: string;
+  evidence_ref: string;
+  route_ref: string;
+  applied_at_ref: string;
+  safe_summary: string;
+  replayed: boolean;
+  raw_paths_included: boolean;
+  raw_content_included: boolean;
+  issue_tracker_write_performed: boolean;
+  connector_write_performed: boolean;
+  provider_model_call_performed: boolean;
   shell_subprocess_execution_performed: boolean;
   browser_automation_performed: boolean;
   background_autonomy_performed: boolean;
@@ -1400,6 +1460,12 @@ export interface WorkBoardReadModel {
   approval_required_for_reorder: boolean;
   reorder_route_ref: string;
   latest_reorder_receipt_ref: string | null;
+  local_card_create_enabled: boolean;
+  local_card_create_contract_available: boolean;
+  approval_required_for_card_create: boolean;
+  card_create_route_available: boolean;
+  card_create_route_ref: string;
+  latest_card_create_receipt_ref: string | null;
   issue_tracker_write_enabled: boolean;
   connector_write_enabled: boolean;
   shell_subprocess_execution_enabled: boolean;

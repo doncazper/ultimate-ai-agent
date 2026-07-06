@@ -1253,12 +1253,12 @@
     {
       "surface": "Work Board",
       "owner": "founder-loop",
-      "auth_posture": "protected_local_work_board_read_plus_exact_reorder",
+      "auth_posture": "protected_local_work_board_read_plus_exact_reorder_and_card_create",
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only Work Board inspection or local preview drag/drop. Persisted reorder requires exact local approval, idempotency, receipts, rollback/safe-disable posture, and CLI inspection. Create, archive, assign, issue-tracker sync, connector writes, provider/model calls, shell/browser execution, background autonomy, public release, and production authority require later exact-scoped lanes.",
-      "evidence_audit_output": "Backend-owned Work Board card, column, proof, evidence, blocker, drag/drop posture, promotion-path, CLI inspection refs, and exact approved reorder receipt refs only. Local drag/drop and keyboard moves are presentation preview until persisted through the approval-bound reorder route.",
+      "approval_requirement": "None for read-only Work Board inspection or local preview drag/drop. Persisted reorder and local card create require exact local approval, idempotency, receipts, rollback/safe-disable posture, and CLI inspection. Archive, assign, issue-tracker sync, connector writes, provider/model calls, shell/browser execution, background autonomy, public release, and production authority require later exact-scoped lanes.",
+      "evidence_audit_output": "Backend-owned Work Board card, column, proof, evidence, blocker, drag/drop posture, promotion-path, CLI inspection refs, exact approved reorder receipt refs, and exact approved local-card-create receipt refs only. Local drag/drop and keyboard moves are presentation preview until persisted through approval-bound routes.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -1273,10 +1273,17 @@
           "operation_id": "post_control_center_work_board_reorder",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/cards",
+          "operation_id": "post_control_center_work_board_cards",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         }
       ],
       "missing_backend_routes": [
-        "work-board-card-create-archive-route",
+        "work-board-card-archive-assignment-route",
         "work-board-task-create-route",
         "work-board-issue-tracker-sync-route",
         "work-board-rollback-route"
@@ -1982,12 +1989,12 @@
       "ui_surface": "Work Board",
       "frontend_route": "/work-board",
       "owner": "founder-loop",
-      "auth_posture": "protected_local_work_board_read_plus_exact_reorder",
+      "auth_posture": "protected_local_work_board_read_plus_exact_reorder_and_card_create",
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only Work Board navigation or local preview drag/drop; persisted reorder requires exact local approval, idempotency, receipts, rollback/safe-disable posture, and CLI inspection. Task creation, card create/archive, issue-tracker sync, connector writes, provider/model calls, shell/browser execution, background autonomy, public release, and production authority remain blocked until later exact-scoped lanes.",
-      "evidence_audit_output": "Work Board navigation renders backend-owned safe refs, proof refs, local preview posture, and exact approved reorder receipt refs when persisted; no task creation, issue tracker write, connector write, or external side effect is recorded.",
+      "approval_requirement": "None for read-only Work Board navigation or local preview drag/drop; persisted reorder and local card create require exact local approval, idempotency, receipts, rollback/safe-disable posture, and CLI inspection. Task creation, card archive/assignment, issue-tracker sync, connector writes, provider/model calls, shell/browser execution, background autonomy, public release, and production authority remain blocked until later exact-scoped lanes.",
+      "evidence_audit_output": "Work Board navigation renders backend-owned safe refs, proof refs, local preview posture, exact approved reorder receipt refs, and exact approved local-card-create receipt refs when persisted; no task creation, archive/assignment, issue tracker write, connector write, or external side effect is recorded.",
       "backend_routes": [
         {
           "method": "GET",
@@ -2002,10 +2009,17 @@
           "operation_id": "post_control_center_work_board_reorder",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/cards",
+          "operation_id": "post_control_center_work_board_cards",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         }
       ],
       "missing_backend_routes": [
-        "work-board-card-create-archive-route",
+        "work-board-card-archive-assignment-route",
         "work-board-task-create-route",
         "work-board-issue-tracker-sync-route"
       ]

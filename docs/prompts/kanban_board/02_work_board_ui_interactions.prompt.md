@@ -19,7 +19,9 @@ Required scope:
 - Keep text contained and responsive across desktop and mobile-ish widths.
 
 Non-goals:
-- No durable reorder or card create/archive.
+- No card archive/assignment, issue tracker sync, connector write, or external
+  authority; durable reorder and local card create must stay exact
+  approval-bound lanes.
 - No mutation controls that appear executable.
 - No fake success paths.
 - No UI-only durable workflow truth.
