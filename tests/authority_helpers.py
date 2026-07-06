@@ -139,6 +139,25 @@ def workspace_execute_authority_lease() -> AuthorityLease:
     )
 
 
+def workspace_execute_mission_authority_lease(mission_ref: str) -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:test-workspace-execute-mission",
+        mode=TrustMode.approved_safe_local_work_session,
+        scope="mission",
+        mission_ref=mission_ref,
+        domains={
+            AuthorityDomain.workspace: [
+                AuthorityCapability.read,
+                AuthorityCapability.execute,
+            ]
+        },
+        safe_summary=(
+            "Test mission lease grants Workspace read and execute for exact "
+            "mission-bound runtime commands."
+        ),
+    )
+
+
 def issue_workspace_execute_authority_lease(state_dir: Path) -> None:
     AuthorityLeaseStore(state_dir).issue_lease(
         AuthorityLeaseIssueRequest(

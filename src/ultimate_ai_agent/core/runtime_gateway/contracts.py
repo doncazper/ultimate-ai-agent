@@ -369,6 +369,7 @@ class RuntimeInvocationRequest(BaseModel):
     requested_authority: RuntimeAuthority
     requested_profile: RuntimeProfile = RuntimeProfile.sealed
     input_ref: str = Field(..., min_length=1)
+    mission_ref: str | None = None
     action_ref: str | None = None
     approval_ref: str | None = None
     idempotency_ref: str | None = None
@@ -390,6 +391,7 @@ class RuntimeInvocationRequest(BaseModel):
     def validate_request(self) -> "RuntimeInvocationRequest":
         validate_execution_ref(self.input_ref, "input_ref")
         for value, field_name in [
+            (self.mission_ref, "mission_ref"),
             (self.action_ref, "action_ref"),
             (self.approval_ref, "approval_ref"),
             (self.idempotency_ref, "idempotency_ref"),
@@ -828,7 +830,10 @@ def _stable_ref(prefix: str, payload: Any) -> str:
 
 
 def runtime_payload_fingerprint_ref(request: RuntimeInvocationRequest) -> str:
-    payload = request.model_dump(mode="json", exclude={"idempotency_ref"})
+    excluded_fields = {"idempotency_ref"}
+    if request.mission_ref is None:
+        excluded_fields.add("mission_ref")
+    payload = request.model_dump(mode="json", exclude=excluded_fields)
     validate_safe_execution_payload(payload, "runtime_invocation_request")
     return _stable_ref("runtime-payload-fingerprint-ref", payload)
 
@@ -868,14 +873,20 @@ def build_policy_decision(
     profile = RuntimeProfile(request.requested_profile)
     authority_decision = None
     if active_authority_leases is not None:
+        resource_refs = [request.mission_ref] if request.mission_ref else []
+        authority_constraints = (
+            {"mission_ref": request.mission_ref} if request.mission_ref else {}
+        )
         if request.requested_authority == RuntimeAuthority.local_model.value:
             authority_request = AuthorityActionRequest(
                 action_ref=request.action_ref or invocation_ref,
                 domain=AuthorityDomain.provider_model_calls,
                 capability=AuthorityCapability.execute,
                 safe_summary="Evaluate provider model call authority for governed runtime.",
+                resource_refs=resource_refs,
                 route_ref="POST /api/runtime/local-model/call",
                 requested_mode=TrustMode.approved_safe_local_work_session,
+                constraints=authority_constraints,
                 draft_fallback_available=True,
             )
         else:
@@ -890,12 +901,14 @@ def build_policy_decision(
                 domain=AuthorityDomain.workspace,
                 capability=command_capability,
                 safe_summary="Evaluate workspace command authority for governed runtime.",
+                resource_refs=resource_refs,
                 route_ref="POST /api/runtime/command/run",
                 requested_mode=(
                     TrustMode.read_only
                     if command_capability == AuthorityCapability.read
                     else TrustMode.approved_safe_local_work_session
                 ),
+                constraints=authority_constraints,
                 draft_fallback_available=True,
             )
         authority_decision = evaluate_authority_request(

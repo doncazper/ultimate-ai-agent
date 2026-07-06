@@ -103,19 +103,24 @@ def _activate_workspace_execute_authority(
     monkeypatch,
     *,
     suffix: str,
+    mission_ref: str | None = None,
 ) -> None:
     monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+    payload = {
+        "mode": "approved_safe_local_work_session",
+        "requested_domains": {"workspace": ["read", "execute"]},
+        "decision_reason_ref": f"reason-ref:authority-runtime-{suffix}",
+        "safe_summary": "Authorize exact governed runtime workspace command execution.",
+    }
+    if mission_ref is not None:
+        payload["scope"] = "mission"
+        payload["mission_ref"] = mission_ref
     response = client.post(
         "/api/runtime/authority-leases",
         headers={
             "x-uaa-idempotency-key": f"idempotency-ref:authority-runtime-{suffix}"
         },
-        json={
-            "mode": "approved_safe_local_work_session",
-            "requested_domains": {"workspace": ["read", "execute"]},
-            "decision_reason_ref": f"reason-ref:authority-runtime-{suffix}",
-            "safe_summary": "Authorize exact governed runtime workspace command execution.",
-        },
+        json=payload,
     )
     assert response.status_code == 200
     assert response.json()["success"] is True
@@ -564,6 +569,65 @@ def test_governed_runtime_command_run_records_redacted_receipt(
     assert "/Users/" not in persisted
     assert "stdout" not in persisted
     assert "stderr" not in persisted
+
+
+def test_governed_runtime_command_run_evaluates_matching_mission_lease(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    mission_ref = "mission-ref:test-runtime-command-api"
+    monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    reset_api_rate_limit_state()
+    _activate_workspace_execute_authority(
+        tmp_path,
+        monkeypatch,
+        suffix="mission-command-api",
+        mission_ref=mission_ref,
+    )
+
+    matching = client.post(
+        "/api/runtime/command/run",
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:runtime-command-mission-api"
+        },
+        json={
+            "intent": "git_status",
+            "mission_ref": mission_ref,
+            "safe_summary": "Inspect repo status under a matching mission lease.",
+        },
+    )
+
+    assert matching.status_code == 200
+    matching_body = matching.json()
+    assert matching_body["success"] is True
+    assert matching_body["data"]["command_execution_performed"] is True
+    matching_record = matching_body["data"]["record"]
+    assert matching_record["request"]["mission_ref"] == mission_ref
+    assert matching_record["policy_decision"]["authority_decision_outcome"] == "allow"
+    assert matching_record["policy_decision"]["authority_lease_ref"]
+
+    missing = client.post(
+        "/api/runtime/command/run",
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:runtime-command-mission-missing-api"
+            )
+        },
+        json={
+            "intent": "git_status",
+            "safe_summary": "Inspect repo status without the active mission ref.",
+        },
+    )
+
+    assert missing.status_code == 200
+    missing_body = missing.json()
+    assert missing_body["success"] is False
+    assert missing_body["data"]["command_execution_performed"] is False
+    missing_policy = missing_body["data"]["record"]["policy_decision"]
+    assert missing_policy["authority_decision_outcome"] == "degrade_to_draft"
+    assert "AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION" in (
+        missing_policy["reason_codes"]
+    )
 
 
 def test_governed_runtime_action_inbox_execute_receipt_detail_reports_execution(

@@ -89,9 +89,11 @@ implemented local domain capability subsets; unsupported adapter domains must
 remain denied, disabled for issue, or recorded as unsupported refs. Governed
 Runtime command decisions must describe the active lease requirement: read-only
 command status uses `workspace/read`, while execution-capable command lanes
-require `workspace/execute` and an exact approval envelope. Provider/model
-transport must not be described as executable from an active lease until a
-supported provider/model execution lease exists and is tested.
+require `workspace/execute` and an exact approval envelope. Mission-bound
+RuntimeGateway requests must show the safe `mission_ref` constraint when a
+mission-scoped lease is required or used. Provider/model transport must not be
+described as executable from an active lease until a supported provider/model
+execution lease exists and is tested.
 Mission-scoped leases must be described as bounded to actions carrying the
 matching safe mission ref; a mission lease is not a standing session grant for
 the same domain/capability outside that mission.

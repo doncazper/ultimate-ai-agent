@@ -37,11 +37,13 @@ surfaces are:
 The first implementation is deliberately conservative: the default active
 lease is read-only; operator-selected session leases persist safe receipts for
 implemented local domain/capability subsets; existing exact lanes are mapped
-into domains and required trust modes; RuntimeGateway API/CLI decisions consume
-the active lease store for command invocation, approval, and execution policy;
-mission-scoped leases grant only actions carrying the matching mission ref in
-safe action refs or constraints, so a delegated mission cannot become a broad
-standing grant;
+into domains and required trust modes; RuntimeGateway decisions consume the
+active lease store for command invocation, approval, and execution policy;
+mission-bound RuntimeGateway requests carry a safe `mission_ref` through
+`RuntimeInvocationRequest`, payload fingerprinting, policy decisions, redacted
+storage, and receipt surfaces; mission-scoped leases grant only actions carrying
+the matching mission ref in safe action refs, resource refs, or constraints, so a
+delegated mission cannot become a broad standing grant;
 Control Center `/settings` can preview workspace command, file proposal,
 browser-click, and budgeted-purchase decisions against the active lease, and can
 plan a delegated mission lease envelope without issuing a lease, executing work,
@@ -81,7 +83,10 @@ decision with authority decision refs, required domain/capability refs, audit
 refs, receipt posture, and rollback/safe-disable refs instead of silently
 executing or claiming broad shell/tool authority.
 Provider/model transport remains blocked by authority policy unless a later
-supported provider/model execution lease is implemented and tested.
+supported provider/model execution lease is implemented and tested. Existing
+local loopback model requests may carry `mission_ref` for policy evaluation, but
+that does not grant remote provider SDK calls, web fetching, tools/functions,
+streaming, or provider payload persistence.
 
 ## Core Problem
 

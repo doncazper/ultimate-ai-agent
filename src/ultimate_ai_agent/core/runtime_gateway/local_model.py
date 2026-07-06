@@ -70,6 +70,7 @@ class RuntimeLocalModelCallRequest(BaseModel):
         max_length=LOCAL_MODEL_RUNTIME_MAX_MESSAGES,
     )
     requested_profile: RuntimeProfile = RuntimeProfile.local_runtime
+    mission_ref: str | None = None
     safe_summary: str = Field(..., min_length=1, max_length=500)
     allow_bounded_preview: bool = False
     max_preview_chars: int = Field(default=0, ge=0, le=LOCAL_MODEL_RUNTIME_MAX_PREVIEW_CHARS)
@@ -94,6 +95,8 @@ class RuntimeLocalModelCallRequest(BaseModel):
     def validate_request_shape(self) -> "RuntimeLocalModelCallRequest":
         validate_safe_execution_text(self.safe_summary, "safe_summary")
         validate_safe_execution_text(self.model_ref, "model_ref")
+        if self.mission_ref:
+            validate_execution_ref(self.mission_ref, "mission_ref")
         for ref in self.metadata_refs:
             validate_execution_ref(ref, "metadata_ref")
         if self.requested_profile not in {
@@ -543,11 +546,13 @@ def _runtime_invocation_request(
         requested_authority=RuntimeAuthority.local_model,
         requested_profile=RuntimeProfile.sealed if force_sealed else request.requested_profile,
         input_ref=prompt_ref,
+        mission_ref=request.mission_ref,
         safe_summary=request.safe_summary,
         metadata_refs=[
             _endpoint_ref(request.base_url),
             _model_ref(request.model_ref),
             prompt_ref,
+            *([request.mission_ref] if request.mission_ref else []),
             *request.metadata_refs,
         ],
     )

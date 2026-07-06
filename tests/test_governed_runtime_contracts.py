@@ -39,7 +39,10 @@ from ultimate_ai_agent.core.control_center.runtime_action_bridge import (
     build_runtime_action_inbox_bridge_read_model,
 )
 from ultimate_ai_agent.core.time import utc_now
-from tests.authority_helpers import workspace_execute_authority_lease
+from tests.authority_helpers import (
+    workspace_execute_authority_lease,
+    workspace_execute_mission_authority_lease,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -658,10 +661,12 @@ def test_runtime_gateway_command_disabled_intent_records_blocked_receipt(
 
 def _approved_runtime_command_request(
     intent: str = "focused_pytest",
+    mission_ref: str | None = None,
 ) -> RuntimeCommandExecutionRequest:
     return RuntimeCommandExecutionRequest(
         intent=intent,
         requested_profile="operator-approved",
+        mission_ref=mission_ref,
         target_refs=[f"test-ref:governed-runtime-{intent.replace('_', '-')}"],
         approval_ref=None,
         safe_summary="Run one exact approved governed runtime command lane.",
@@ -1050,6 +1055,115 @@ def test_runtime_gateway_action_inbox_execute_requires_workspace_execute_lease(
     assert calls == []
     assert approved.policy_decision.allowed_to_execute is False
     assert approved.policy_decision.authority_decision_outcome == "degrade_to_draft"
+    assert result.record.status == "execution_blocked"
+    assert result.error_category == "RUNTIME_COMMAND_POLICY_EXECUTION_BLOCKED"
+    assert result.record.receipt is not None
+    assert result.record.receipt.command_execution_performed is False
+
+
+def test_runtime_gateway_action_inbox_execute_allows_matching_mission_lease(
+    tmp_path: Path,
+) -> None:
+    mission_ref = "mission-ref:test-runtime-workspace-maintenance"
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=4,
+            output_bytes=b"raw mission output should be redacted",
+        )
+
+    store = RuntimeInvocationStore(
+        tmp_path,
+        active_authority_leases=[
+            workspace_execute_mission_authority_lease(mission_ref),
+        ],
+    )
+    command_request = _approved_runtime_command_request(mission_ref=mission_ref)
+    invocation_request = runtime_command_invocation_request(command_request)
+    assert invocation_request.mission_ref == mission_ref
+    assert mission_ref in invocation_request.metadata_refs
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+
+    result = gateway.execute_approved_command(
+        approved.invocation_ref,
+        _command_request_for_approved_record(command_request, approved),
+        _runtime_execute_request(approved),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-mission-lease-execute",
+    )
+
+    assert approved.policy_decision.allowed_to_execute is True
+    assert approved.policy_decision.authority_decision_outcome == "allow"
+    assert approved.policy_decision.authority_lease_ref == (
+        "authority-lease-ref:test-workspace-execute-mission"
+    )
+    assert result.record.status == "receipt_recorded"
+    assert result.record.receipt is not None
+    assert result.record.receipt.command_execution_performed is True
+    assert len(calls) == 1
+
+
+def test_runtime_gateway_action_inbox_execute_blocks_mission_lease_without_mission_ref(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=4,
+            output_bytes=b"should not execute",
+        )
+
+    store = RuntimeInvocationStore(
+        tmp_path,
+        active_authority_leases=[
+            workspace_execute_mission_authority_lease(
+                "mission-ref:test-runtime-workspace-maintenance"
+            ),
+        ],
+    )
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+
+    result = gateway.execute_approved_command(
+        approved.invocation_ref,
+        _command_request_for_approved_record(command_request, approved),
+        _runtime_execute_request(approved),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-mission-lease-missing-ref",
+    )
+
+    assert calls == []
+    assert approved.policy_decision.allowed_to_execute is False
+    assert approved.policy_decision.authority_decision_outcome == "degrade_to_draft"
+    assert "AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION" in (
+        approved.policy_decision.reason_codes
+    )
     assert result.record.status == "execution_blocked"
     assert result.error_category == "RUNTIME_COMMAND_POLICY_EXECUTION_BLOCKED"
     assert result.record.receipt is not None

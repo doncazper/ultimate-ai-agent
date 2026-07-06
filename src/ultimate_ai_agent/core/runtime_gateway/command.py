@@ -54,6 +54,7 @@ class RuntimeCommandExecutionRequest(BaseModel):
     intent: RuntimeCommandIntent
     requested_profile: RuntimeProfile = RuntimeProfile.local_runtime
     workspace_ref: str = COMMAND_RUNTIME_WORKSPACE_REF
+    mission_ref: str | None = None
     target_refs: list[str] = Field(default_factory=list, max_length=COMMAND_RUNTIME_MAX_TARGET_REFS)
     approval_ref: str | None = None
     safe_summary: str = Field(..., min_length=1, max_length=500)
@@ -77,6 +78,8 @@ class RuntimeCommandExecutionRequest(BaseModel):
             RuntimeProfile.operator_approved.value,
         }:
             raise ValueError("RUNTIME_COMMAND_PROFILE_REQUIRED")
+        if self.mission_ref:
+            validate_execution_ref(self.mission_ref, "mission_ref")
         if self.approval_ref:
             validate_execution_ref(self.approval_ref, "approval_ref")
         for ref in self.target_refs:
@@ -480,28 +483,31 @@ def invoke_approved_governed_command(
     validate_execution_ref(idempotency_ref, "idempotency_ref")
     envelope = record.action_inbox_envelope
     entry = command_allowlist_entry(request.intent)
+    execution_payload = {
+        "operation": "approved_command_execute",
+        "intent": request.intent,
+        "workspace_ref": request.workspace_ref,
+        "target_refs": request.target_refs,
+        "approval_ref": request.approval_ref,
+        "execute_approval_ref": execute_request.approval_ref,
+        "execute_action_envelope_ref": execute_request.action_envelope_ref,
+        "execute_expected_payload_fingerprint_ref": (
+            execute_request.expected_payload_fingerprint_ref
+        ),
+        "execute_expected_policy_decision_ref": (
+            execute_request.expected_policy_decision_ref
+        ),
+        "envelope_ref": (
+            envelope.action_envelope_ref
+            if envelope
+            else "runtime-action-envelope-ref:missing"
+        ),
+    }
+    if request.mission_ref:
+        execution_payload["mission_ref"] = request.mission_ref
     execution_fingerprint_ref = _operation_fingerprint_ref(
         record.invocation_ref,
-        {
-            "operation": "approved_command_execute",
-            "intent": request.intent,
-            "workspace_ref": request.workspace_ref,
-            "target_refs": request.target_refs,
-            "approval_ref": request.approval_ref,
-            "execute_approval_ref": execute_request.approval_ref,
-            "execute_action_envelope_ref": execute_request.action_envelope_ref,
-            "execute_expected_payload_fingerprint_ref": (
-                execute_request.expected_payload_fingerprint_ref
-            ),
-            "execute_expected_policy_decision_ref": (
-                execute_request.expected_policy_decision_ref
-            ),
-            "envelope_ref": (
-                envelope.action_envelope_ref
-                if envelope
-                else "runtime-action-envelope-ref:missing"
-            ),
-        },
+        execution_payload,
     )
     replayed = store.replay_idempotent_operation(
         idempotency_ref=idempotency_ref,
@@ -803,6 +809,7 @@ def _runtime_invocation_request(
         requested_authority="allowlisted_command",
         requested_profile=RuntimeProfile.sealed if force_sealed else request.requested_profile,
         input_ref=input_ref,
+        mission_ref=request.mission_ref,
         action_ref=f"action-ref:runtime-command-{request.intent}",
         approval_ref=None,
         safe_summary=request.safe_summary,
@@ -810,6 +817,7 @@ def _runtime_invocation_request(
             request.workspace_ref,
             entry.command_shape_ref,
             input_ref,
+            *([request.mission_ref] if request.mission_ref else []),
             *request.target_refs,
             *request.metadata_refs,
         ],
@@ -978,15 +986,15 @@ def _command_input_ref(
     request: RuntimeCommandExecutionRequest,
     entry: RuntimeCommandAllowlistEntry,
 ) -> str:
-    return _hash_ref(
-        "runtime-command-input-ref",
-        {
-            "intent": request.intent,
-            "workspace_ref": request.workspace_ref,
-            "target_refs": request.target_refs,
-            "command_shape_ref": entry.command_shape_ref,
-        },
-    )
+    payload = {
+        "intent": request.intent,
+        "workspace_ref": request.workspace_ref,
+        "target_refs": request.target_refs,
+        "command_shape_ref": entry.command_shape_ref,
+    }
+    if request.mission_ref:
+        payload["mission_ref"] = request.mission_ref
+    return _hash_ref("runtime-command-input-ref", payload)
 
 
 def _argv_ref(entry: RuntimeCommandAllowlistEntry) -> str:
