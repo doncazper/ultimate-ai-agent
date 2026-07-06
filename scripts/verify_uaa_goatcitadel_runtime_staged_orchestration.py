@@ -41,6 +41,10 @@ CORE_REQUIRED = [
     "StagedOrchestrationCallbackRef",
     "StagedOrchestrationCheckpoint",
     "StagedOrchestrationDegradedHandoff",
+    "StagedOrchestrationRuntimeCommandStepResult",
+    "execute_approved_runtime_command_step",
+    "approved_runtime_command_execution_enabled",
+    "focused_pytest",
     "validate_staged_orchestration_plan",
     "replay_staged_orchestration_checkpoint",
     "reason-ref:staged-orchestration:missing-dependency",
@@ -49,7 +53,7 @@ CORE_REQUIRED = [
     "reason-ref:staged-orchestration:dependency-cycle",
     "reason-ref:staged-orchestration:degraded-handoff-missing",
     "reason-ref:staged-orchestration:downstream-not-skipped",
-    "STAGED_ORCHESTRATION_RUNTIME_AUTHORITY_DENIED",
+    "reason-ref:staged-orchestration:runtime-authority-not-promoted",
 ]
 
 CLI_API_REQUIRED = [
@@ -65,6 +69,9 @@ TEST_REQUIRED = [
     "test_degraded_step_requires_handoff",
     "test_downstream_of_failed_dependency_must_skip_block_or_degrade",
     "test_checkpoint_replay_is_idempotent_and_conflict_bound",
+    "test_approved_runtime_command_step_executes_through_runtime_gateway",
+    "test_runtime_command_step_rejects_unpromoted_intent",
+    "test_runtime_command_step_without_plan_enablement_is_rejected",
     "test_effectful_callback_and_raw_metadata_are_rejected",
     "test_runtime_cli_inspects_staged_orchestration_safe_json",
     "test_runtime_api_exposes_staged_orchestration_read_model",

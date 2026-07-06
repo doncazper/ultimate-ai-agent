@@ -53,6 +53,7 @@ class ExecutionStepMode(str, Enum):
     no_effect = "no_effect"
     validation_only = "validation_only"
     receipt_plan_only = "receipt_plan_only"
+    approved_runtime_command = "approved_runtime_command"
     task_execution_blocked = "task_execution_blocked"
     action_execution_blocked = "action_execution_blocked"
     tool_execution_blocked = "tool_execution_blocked"
@@ -113,4 +114,3 @@ class ExecutionPauseReason(str, Enum):
     user_review_required = "USER_REVIEW_REQUIRED"
     dependency_wait = "DEPENDENCY_WAIT"
     policy_review_required = "POLICY_REVIEW_REQUIRED"
-

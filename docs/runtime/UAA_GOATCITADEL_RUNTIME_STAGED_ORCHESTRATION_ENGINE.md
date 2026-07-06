@@ -3,8 +3,11 @@
 Status: implemented as Phase 04 of the UAA GoatCitadel runtime parity pack.
 
 This lane adapts GoatCitadel's staged orchestration shape into a UAA-native
-Python Agent Core read model. It does not copy GoatCitadel code or import
-GoatCitadel packages. It does not add runtime authority.
+Python Agent Core orchestration contract. It does not copy GoatCitadel code or
+import GoatCitadel packages. The base read model remains non-mutating, and the
+first execution-capable slice is limited to one approved-runtime-command step
+that can consume the existing exact Action Inbox approved focused pytest
+RuntimeGateway lane.
 
 ## Implemented Repo-Safe Slice
 
@@ -18,6 +21,8 @@ Python Agent Core owns `StagedOrchestrationReadModel` and related contracts for:
 - checkpoint
 - degraded handoff
 - blocked authority
+- approved runtime command binding/result refs for the exact promoted
+  `focused_pytest` utility lane
 
 The staged progress statuses are:
 
@@ -34,7 +39,11 @@ Dependency validation rejects missing dependencies, cycles, same-stage
 dependencies, future-stage dependencies, degraded steps without handoff refs,
 and downstream work that is not skipped, blocked, or degraded after a failed or
 blocked dependency. Execution-ready steps require policy and approval posture
-refs, and effectful modes remain blocked.
+refs. Effectful modes remain blocked except the exact
+`approved_runtime_command` mode, which requires a runtime invocation ref, Action
+Inbox approval envelope ref, exact scope ref, expected payload fingerprint ref,
+expected policy decision ref, safe-disable ref, rollback ref, and the promoted
+`focused_pytest` command intent.
 
 Checkpoint replay is safe-ref and fingerprint based. Replays are inspectable as
 idempotent matches or conflicts; replay does not perform execution.
@@ -51,12 +60,29 @@ The API inspection path is:
 GET /api/runtime/staged-orchestration
 ```
 
+## Approved Runtime Command Step
+
+`execute_approved_runtime_command_step(...)` runs only after
+`validate_staged_orchestration_plan(...)` accepts a plan with
+`approved_runtime_command_execution_enabled=True`. It then delegates execution to
+`RuntimeGateway.execute_approved_command(...)`, so the same idempotency,
+approval binding, allowlist, redaction, receipt, and safe-disable rules apply.
+
+The result contract records step/ref status, command intent, receipt ref,
+evidence refs, redacted output-summary availability, replay posture, and whether
+RuntimeGateway performed command execution. It does not persist raw command
+output or raw payloads and does not enable unrestricted command execution.
+
 ## Boundaries Preserved
 
-Control Center cannot mint authority. This lane is a backend-owned read model
-and validation surface only. It adds no autonomous worker, hidden model call,
-unrestricted command execution, browser automation, connector write,
-production authority, or raw payload persistence.
+Control Center cannot mint authority. The read model remains inspection-only.
+The execution-capable path is backend-owned, exact-scope, approval-bound, and
+limited to the existing promoted focused pytest RuntimeGateway lane. It does not
+add runtime authority outside that exact approved lane, and it adds no autonomous worker, hidden model call,
+unrestricted command execution, browser automation, connector write, production
+authority, or raw payload persistence.
+This does not add runtime authority beyond the exact focused pytest lane, and
+production authority remains blocked.
 
 All durable output uses safe refs, redacted summaries, bounded status fields,
 checkpoint refs, receipt refs, evidence refs, rollback refs, and blocked
@@ -64,7 +90,7 @@ authority refs.
 
 ## Promotion Path
 
-Future execution-capable orchestration requires a separate exact lane for each
-step class, including approval binding, idempotency, audit receipt, rollback or
-safe-disable posture, redaction, route side-effect classification, CLI/API/Core
-parity, and focused verifier coverage.
+Future execution-capable orchestration still requires a separate exact lane for
+each additional step class, including approval binding, idempotency, audit
+receipt, rollback or safe-disable posture, redaction, route side-effect
+classification, CLI/API/Core parity, and focused verifier coverage.

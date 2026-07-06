@@ -1,6 +1,8 @@
 # UAA GoatCitadel Catch-Up Durable Orchestration
 
-Status: Phase 03 implemented as backend-owned read-model hardening only.
+Status: Phase 03 implemented as backend-owned read-model hardening, plus the
+first exact approved-runtime-command step bound to the existing approved focused
+pytest RuntimeGateway lane.
 
 ## Full-Strength Version
 
@@ -29,6 +31,16 @@ All fields are derived from existing append-first durable run state, progress
 events, run-attached approvals, coworker metadata, connector delivery metadata,
 receipts, and evidence refs. The route remains read-only and safe-ref-only.
 
+The first execution-capable orchestration slice is deliberately narrower than
+generic run control: `StagedOrchestrationPlan` may include an
+`approved_runtime_command` step only when it carries exact RuntimeGateway
+invocation, Action Inbox approval envelope, approval, payload fingerprint,
+policy decision, safe-disable, and rollback refs for the promoted
+`focused_pytest` command intent. Execution delegates to
+`RuntimeGateway.execute_approved_command(...)` and records a redacted runtime
+receipt result; the staged orchestration read model still does not execute work
+by itself.
+
 ## Blocked / Needs Authority
 
 These remain blocked:
@@ -38,6 +50,7 @@ These remain blocked:
 - background workers or schedulers
 - provider/model calls
 - tool execution
+- unapproved or unpromoted runtime command steps
 - connector writes or sends
 - browser automation
 - unrestricted shell/subprocess execution

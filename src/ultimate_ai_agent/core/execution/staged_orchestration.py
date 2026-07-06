@@ -31,6 +31,12 @@ STAGED_ORCHESTRATION_BLOCKED_AUTHORITY_REFS = (
     "blocked-state:staged-orchestration:no-production-authority",
     "blocked-state:staged-orchestration:no-raw-payload-persistence",
 )
+STAGED_ORCHESTRATION_APPROVED_RUNTIME_STEP_AUTHORITY_REF = (
+    "authority-ref:staged-orchestration:approved-runtime-command-step"
+)
+STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_PROMOTED_INTENTS = (
+    "focused_pytest",
+)
 STAGED_ORCHESTRATION_REDACTIONS = (
     "raw_prompt_omitted",
     "raw_response_omitted",
@@ -105,6 +111,10 @@ def _validate_refs(refs: list[str], field_name: str) -> None:
 
 def _validate_ref(value: str, field_name: str) -> None:
     validate_execution_ref(value, field_name)
+
+
+def _runtime_value(value: Any) -> Any:
+    return getattr(value, "value", value)
 
 
 class StagedOrchestrationCallbackRef(_StagedOrchestrationModel):
@@ -216,6 +226,50 @@ class StagedOrchestrationDegradedHandoff(_StagedOrchestrationModel):
         return self
 
 
+class StagedOrchestrationApprovedRuntimeCommandBinding(_StagedOrchestrationModel):
+    binding_ref: str = Field(..., min_length=1)
+    authority_ref: str = STAGED_ORCHESTRATION_APPROVED_RUNTIME_STEP_AUTHORITY_REF
+    runtime_invocation_ref: str = Field(..., min_length=1)
+    runtime_action_envelope_ref: str = Field(..., min_length=1)
+    runtime_approval_ref: str = Field(..., min_length=1)
+    runtime_exact_scope_ref: str = Field(..., min_length=1)
+    expected_payload_fingerprint_ref: str = Field(..., min_length=1)
+    expected_policy_decision_ref: str = Field(..., min_length=1)
+    command_intent: str = Field(default="focused_pytest", min_length=1)
+    safe_disable_ref: str = "safe-disable-ref:governed-runtime-pilot"
+    rollback_ref: str = "rollback-ref:governed-runtime-pilot:disable-profile"
+    receipt_ref: str | None = None
+    safe_summary: str = Field(..., min_length=1, max_length=420)
+
+    @model_validator(mode="after")
+    def validate_binding(self) -> "StagedOrchestrationApprovedRuntimeCommandBinding":
+        for value, field_name in [
+            (self.binding_ref, "runtime_binding_ref"),
+            (self.authority_ref, "runtime_binding_authority_ref"),
+            (self.runtime_invocation_ref, "runtime_binding_invocation_ref"),
+            (self.runtime_action_envelope_ref, "runtime_binding_action_envelope_ref"),
+            (self.runtime_approval_ref, "runtime_binding_approval_ref"),
+            (self.runtime_exact_scope_ref, "runtime_binding_exact_scope_ref"),
+            (
+                self.expected_payload_fingerprint_ref,
+                "runtime_binding_payload_fingerprint_ref",
+            ),
+            (self.expected_policy_decision_ref, "runtime_binding_policy_decision_ref"),
+            (self.safe_disable_ref, "runtime_binding_safe_disable_ref"),
+            (self.rollback_ref, "runtime_binding_rollback_ref"),
+            (self.receipt_ref, "runtime_binding_receipt_ref"),
+        ]:
+            if value is not None:
+                _validate_ref(value, field_name)
+        _validate_safe_text(self.safe_summary, "runtime_binding_safe_summary")
+        _validate_safe_text(str(self.command_intent), "runtime_binding_command_intent")
+        if self.authority_ref != STAGED_ORCHESTRATION_APPROVED_RUNTIME_STEP_AUTHORITY_REF:
+            raise ValueError("STAGED_ORCHESTRATION_RUNTIME_BINDING_AUTHORITY_REF_REQUIRED")
+        if str(self.command_intent) not in STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_PROMOTED_INTENTS:
+            raise ValueError("STAGED_ORCHESTRATION_RUNTIME_COMMAND_INTENT_NOT_PROMOTED")
+        return self
+
+
 class StagedOrchestrationStep(_StagedOrchestrationModel):
     step_ref: str = Field(..., min_length=1)
     stage_ref: str = Field(..., min_length=1)
@@ -232,6 +286,7 @@ class StagedOrchestrationStep(_StagedOrchestrationModel):
     blocked_authority_refs: list[str] = Field(default_factory=list)
     reason_refs: list[str] = Field(default_factory=list)
     safe_metadata: dict[str, Any] = Field(default_factory=dict)
+    runtime_command_binding: StagedOrchestrationApprovedRuntimeCommandBinding | None = None
     execution_ready: bool = False
     execution_performed: bool = False
     raw_payload_persisted: bool = False
@@ -261,9 +316,18 @@ class StagedOrchestrationStep(_StagedOrchestrationModel):
             raise ValueError(";".join(side_effect_reasons))
         if self.execution_performed or self.raw_payload_persisted:
             raise ValueError("STAGED_ORCHESTRATION_STEP_AUTHORITY_DENIED")
+        mode = ExecutionStepMode(self.mode)
         if self.execution_ready and not (self.policy_ref and self.approval_posture_ref):
             raise ValueError("STAGED_ORCHESTRATION_EXECUTION_READY_SCOPE_REQUIRED")
-        reason = step_mode_reason(ExecutionStepMode(self.mode))
+        if mode == ExecutionStepMode.approved_runtime_command:
+            if self.runtime_command_binding is None:
+                raise ValueError("STAGED_ORCHESTRATION_RUNTIME_BINDING_REQUIRED")
+            if not self.execution_ready:
+                raise ValueError("STAGED_ORCHESTRATION_RUNTIME_STEP_NOT_READY")
+            return self
+        if self.runtime_command_binding is not None:
+            raise ValueError("STAGED_ORCHESTRATION_RUNTIME_BINDING_MODE_REQUIRED")
+        reason = step_mode_reason(mode)
         if reason is not None and self.execution_ready:
             raise ValueError("STAGED_ORCHESTRATION_EFFECTFUL_STEP_BLOCKED")
         return self
@@ -308,6 +372,7 @@ class StagedOrchestrationPlan(_StagedOrchestrationModel):
         default_factory=lambda: list(STAGED_ORCHESTRATION_BLOCKED_AUTHORITY_REFS)
     )
     no_effect: bool = True
+    approved_runtime_command_execution_enabled: bool = False
     background_autonomy_enabled: bool = False
     provider_model_call_enabled: bool = False
     unrestricted_command_execution_enabled: bool = False
@@ -325,8 +390,20 @@ class StagedOrchestrationPlan(_StagedOrchestrationModel):
         _validate_refs(self.evidence_refs, "plan_evidence_ref")
         _validate_refs(self.receipt_refs, "plan_receipt_ref")
         _validate_refs(self.blocked_authority_refs, "plan_blocked_authority_ref")
+        runtime_steps = [
+            step
+            for step in self.steps
+            if step.mode == ExecutionStepMode.approved_runtime_command.value
+        ]
+        if runtime_steps and not self.approved_runtime_command_execution_enabled:
+            raise ValueError("STAGED_ORCHESTRATION_RUNTIME_PLAN_ENABLEMENT_REQUIRED")
+        if self.approved_runtime_command_execution_enabled:
+            if self.no_effect:
+                raise ValueError("STAGED_ORCHESTRATION_RUNTIME_PLAN_NO_EFFECT_DRIFT")
+            if not runtime_steps:
+                raise ValueError("STAGED_ORCHESTRATION_RUNTIME_STEP_REQUIRED")
         if (
-            not self.no_effect
+            (not self.no_effect and not self.approved_runtime_command_execution_enabled)
             or self.background_autonomy_enabled
             or self.provider_model_call_enabled
             or self.unrestricted_command_execution_enabled
@@ -356,6 +433,7 @@ class StagedOrchestrationValidationDecision(_StagedOrchestrationModel):
     safe_summary: str = Field(..., min_length=1)
     blocked_authority_refs: list[str] = Field(default_factory=list)
     no_effect: bool = True
+    approved_runtime_command_execution_enabled: bool = False
     execution_performed: bool = False
 
     @model_validator(mode="after")
@@ -364,7 +442,10 @@ class StagedOrchestrationValidationDecision(_StagedOrchestrationModel):
         _validate_safe_text(self.safe_summary, "validation_safe_summary")
         _validate_refs(self.reason_codes, "validation_reason_ref")
         _validate_refs(self.blocked_authority_refs, "validation_blocked_authority_ref")
-        if not self.no_effect or self.execution_performed:
+        if (
+            (not self.no_effect and not self.approved_runtime_command_execution_enabled)
+            or self.execution_performed
+        ):
             raise ValueError("STAGED_ORCHESTRATION_VALIDATION_AUTHORITY_DENIED")
         return self
 
@@ -410,6 +491,8 @@ class StagedOrchestrationReadModel(_StagedOrchestrationModel):
     safe_refs_only: bool = True
     raw_payloads_persisted: bool = False
     execution_performed: bool = False
+    approved_runtime_command_execution_enabled: bool = False
+    runtime_execution_performed_by_read_model: bool = False
     control_center_can_mint_authority: bool = False
 
     @model_validator(mode="after")
@@ -423,32 +506,99 @@ class StagedOrchestrationReadModel(_StagedOrchestrationModel):
             or not self.safe_refs_only
             or self.raw_payloads_persisted
             or self.execution_performed
+            or self.runtime_execution_performed_by_read_model
             or self.control_center_can_mint_authority
         ):
             raise ValueError("STAGED_ORCHESTRATION_READ_MODEL_AUTHORITY_DENIED")
         return self
 
 
+class StagedOrchestrationRuntimeCommandStepResult(_StagedOrchestrationModel):
+    schema_version: str = STAGED_ORCHESTRATION_SCHEMA_VERSION
+    step_ref: str = Field(..., min_length=1)
+    status: StagedOrchestrationStatus
+    runtime_invocation_ref: str = Field(..., min_length=1)
+    runtime_action_envelope_ref: str = Field(..., min_length=1)
+    runtime_approval_ref: str = Field(..., min_length=1)
+    command_intent: str = Field(default="focused_pytest", min_length=1)
+    execution_result_ref: str = Field(..., min_length=1)
+    receipt_ref: str | None = None
+    evidence_refs: list[str] = Field(default_factory=list)
+    reason_refs: list[str] = Field(default_factory=list)
+    output_summary_returned: bool = False
+    output_persisted: bool = False
+    raw_payloads_persisted: bool = False
+    replayed: bool = False
+    execution_performed: bool = False
+    command_execution_performed: bool = False
+    unrestricted_command_execution_enabled: bool = False
+    provider_model_call_enabled: bool = False
+    browser_execution_enabled: bool = False
+    connector_write_enabled: bool = False
+    production_authority_enabled: bool = False
+    safe_summary: str = Field(..., min_length=1, max_length=420)
+
+    @model_validator(mode="after")
+    def validate_result(self) -> "StagedOrchestrationRuntimeCommandStepResult":
+        for value, field_name in [
+            (self.step_ref, "runtime_step_ref"),
+            (self.runtime_invocation_ref, "runtime_result_invocation_ref"),
+            (self.runtime_action_envelope_ref, "runtime_result_action_envelope_ref"),
+            (self.runtime_approval_ref, "runtime_result_approval_ref"),
+            (self.execution_result_ref, "runtime_result_ref"),
+            (self.receipt_ref, "runtime_result_receipt_ref"),
+        ]:
+            if value is not None:
+                _validate_ref(value, field_name)
+        _validate_safe_text(self.safe_summary, "runtime_result_safe_summary")
+        _validate_safe_text(str(self.command_intent), "runtime_result_command_intent")
+        for field_name in ("evidence_refs", "reason_refs"):
+            _validate_refs(getattr(self, field_name), field_name)
+        if str(self.command_intent) not in STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_PROMOTED_INTENTS:
+            raise ValueError("STAGED_ORCHESTRATION_RUNTIME_RESULT_INTENT_NOT_PROMOTED")
+        if self.output_persisted or self.raw_payloads_persisted:
+            raise ValueError("STAGED_ORCHESTRATION_RUNTIME_RESULT_PERSISTENCE_DENIED")
+        if (
+            self.unrestricted_command_execution_enabled
+            or self.provider_model_call_enabled
+            or self.browser_execution_enabled
+            or self.connector_write_enabled
+            or self.production_authority_enabled
+        ):
+            raise ValueError("STAGED_ORCHESTRATION_RUNTIME_RESULT_BROAD_AUTHORITY_DENIED")
+        if self.command_execution_performed and not self.execution_performed:
+            raise ValueError("STAGED_ORCHESTRATION_RUNTIME_RESULT_EXECUTION_FLAG_DRIFT")
+        return self
+
+
 def validate_staged_orchestration_plan(
     plan: StagedOrchestrationPlan,
 ) -> StagedOrchestrationValidationDecision:
-    reason_codes = _dependency_reason_codes(plan)
+    reason_codes = [
+        *_dependency_reason_codes(plan),
+        *_authority_reason_codes(plan),
+    ]
     status = (
         StagedOrchestrationValidationStatus.denied
         if reason_codes
         else StagedOrchestrationValidationStatus.accepted
     )
-    summary = (
-        "Staged orchestration plan is blocked by dependency or authority posture."
-        if reason_codes
-        else "Staged orchestration plan validated as a no-effect read model."
-    )
+    if reason_codes:
+        summary = "Staged orchestration plan remains visible with guardrail reason codes."
+    elif plan.approved_runtime_command_execution_enabled:
+        summary = "Staged orchestration plan validated with exact approved runtime command guardrails."
+    else:
+        summary = "Staged orchestration plan validated as a no-effect read model."
     return StagedOrchestrationValidationDecision(
         plan_ref=plan.plan_ref,
         status=status,
         reason_codes=reason_codes,
         safe_summary=summary,
         blocked_authority_refs=list(STAGED_ORCHESTRATION_BLOCKED_AUTHORITY_REFS),
+        no_effect=plan.no_effect,
+        approved_runtime_command_execution_enabled=(
+            plan.approved_runtime_command_execution_enabled
+        ),
     )
 
 
@@ -505,7 +655,124 @@ def build_staged_orchestration_read_model(
         latest_checkpoint_ref=plan.checkpoints[-1].checkpoint_ref
         if plan.checkpoints
         else None,
+        approved_runtime_command_execution_enabled=(
+            plan.approved_runtime_command_execution_enabled
+        ),
     )
+
+
+def execute_approved_runtime_command_step(
+    plan: StagedOrchestrationPlan,
+    *,
+    step_ref: str,
+    gateway: Any,
+    command_request: Any,
+    execute_request: Any,
+    idempotency_ref: str,
+) -> StagedOrchestrationRuntimeCommandStepResult:
+    _validate_ref(step_ref, "runtime_step_ref")
+    _validate_ref(idempotency_ref, "runtime_step_idempotency_ref")
+    validation = validate_staged_orchestration_plan(plan)
+    if validation.status != StagedOrchestrationValidationStatus.accepted.value:
+        raise ValueError("STAGED_ORCHESTRATION_RUNTIME_PLAN_NOT_ACCEPTED")
+    step = next((candidate for candidate in plan.steps if candidate.step_ref == step_ref), None)
+    if step is None:
+        raise ValueError("STAGED_ORCHESTRATION_RUNTIME_STEP_NOT_FOUND")
+    if step.mode != ExecutionStepMode.approved_runtime_command.value:
+        raise ValueError("STAGED_ORCHESTRATION_RUNTIME_STEP_MODE_REQUIRED")
+    binding = step.runtime_command_binding
+    if binding is None:
+        raise ValueError("STAGED_ORCHESTRATION_RUNTIME_BINDING_REQUIRED")
+    _validate_runtime_command_binding(
+        binding,
+        command_request=command_request,
+        execute_request=execute_request,
+    )
+    result = gateway.execute_approved_command(
+        binding.runtime_invocation_ref,
+        command_request,
+        execute_request,
+        idempotency_ref=idempotency_ref,
+    )
+    receipt = result.record.receipt
+    command_performed = bool(receipt and receipt.command_execution_performed)
+    execution_performed = bool(receipt and receipt.execution_performed)
+    status = (
+        StagedOrchestrationStatus.completed
+        if command_performed and result.error_category is None
+        else (
+            StagedOrchestrationStatus.failed
+            if command_performed
+            else StagedOrchestrationStatus.blocked
+        )
+    )
+    reason_refs = []
+    if result.error_category:
+        reason_refs.append(f"reason-ref:staged-orchestration:{result.error_category.lower()}")
+    if not command_performed:
+        reason_refs.append("reason-ref:staged-orchestration:runtime-command-not-performed")
+    receipt_refs = [receipt.receipt_ref] if receipt else []
+    execution_result_ref = _stable_ref(
+        "runtime-step-result-ref",
+        {
+            "step_ref": step_ref,
+            "invocation_ref": result.record.invocation_ref,
+            "receipt_refs": receipt_refs,
+            "status": status.value,
+            "error_category": result.error_category,
+            "replayed": result.replayed,
+        },
+    )
+    return StagedOrchestrationRuntimeCommandStepResult(
+        step_ref=step_ref,
+        status=status,
+        runtime_invocation_ref=result.record.invocation_ref,
+        runtime_action_envelope_ref=binding.runtime_action_envelope_ref,
+        runtime_approval_ref=binding.runtime_approval_ref,
+        command_intent=str(_runtime_value(command_request.intent)),
+        execution_result_ref=execution_result_ref,
+        receipt_ref=receipt.receipt_ref if receipt else None,
+        evidence_refs=list(receipt.evidence_refs) if receipt else [],
+        reason_refs=reason_refs,
+        output_summary_returned=result.output_summary_returned,
+        replayed=result.replayed,
+        execution_performed=execution_performed,
+        command_execution_performed=command_performed,
+        safe_summary=(
+            "Approved staged orchestration runtime command step completed with "
+            "a redacted RuntimeGateway receipt."
+            if command_performed and result.error_category is None
+            else "Approved staged orchestration runtime command step did not complete cleanly."
+        ),
+    )
+
+
+def _validate_runtime_command_binding(
+    binding: StagedOrchestrationApprovedRuntimeCommandBinding,
+    *,
+    command_request: Any,
+    execute_request: Any,
+) -> None:
+    command_intent = str(_runtime_value(command_request.intent))
+    requested_profile = str(_runtime_value(command_request.requested_profile))
+    if command_intent != str(binding.command_intent):
+        raise ValueError("STAGED_ORCHESTRATION_RUNTIME_COMMAND_INTENT_CHANGED")
+    if binding.authority_ref != STAGED_ORCHESTRATION_APPROVED_RUNTIME_STEP_AUTHORITY_REF:
+        raise ValueError("STAGED_ORCHESTRATION_RUNTIME_BINDING_AUTHORITY_REF_REQUIRED")
+    if command_intent not in STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_PROMOTED_INTENTS:
+        raise ValueError("STAGED_ORCHESTRATION_RUNTIME_COMMAND_INTENT_NOT_PROMOTED")
+    if requested_profile != "operator-approved":
+        raise ValueError("STAGED_ORCHESTRATION_RUNTIME_OPERATOR_APPROVED_PROFILE_REQUIRED")
+    if command_request.approval_ref != binding.runtime_approval_ref:
+        raise ValueError("STAGED_ORCHESTRATION_RUNTIME_APPROVAL_REF_CHANGED")
+    if execute_request.approval_ref != binding.runtime_approval_ref:
+        raise ValueError("STAGED_ORCHESTRATION_RUNTIME_EXECUTE_APPROVAL_REF_CHANGED")
+    if execute_request.action_envelope_ref != binding.runtime_action_envelope_ref:
+        raise ValueError("STAGED_ORCHESTRATION_RUNTIME_ACTION_ENVELOPE_CHANGED")
+    if execute_request.expected_payload_fingerprint_ref != binding.expected_payload_fingerprint_ref:
+        raise ValueError("STAGED_ORCHESTRATION_RUNTIME_PAYLOAD_FINGERPRINT_CHANGED")
+    if execute_request.expected_policy_decision_ref != binding.expected_policy_decision_ref:
+        raise ValueError("STAGED_ORCHESTRATION_RUNTIME_POLICY_DECISION_CHANGED")
 
 
 def build_sample_staged_orchestration_plan() -> StagedOrchestrationPlan:
@@ -718,7 +985,12 @@ def _dependency_reason_codes(plan: StagedOrchestrationPlan) -> list[str]:
             reasons.append("reason-ref:staged-orchestration:degraded-handoff-missing")
         if step.execution_ready and not (step.policy_ref and step.approval_posture_ref):
             reasons.append("reason-ref:staged-orchestration:execution-ready-scope-missing")
-        blocked_reason = step_mode_reason(ExecutionStepMode(step.mode))
+        step_mode = ExecutionStepMode(step.mode)
+        blocked_reason = (
+            None
+            if step_mode == ExecutionStepMode.approved_runtime_command
+            else step_mode_reason(step_mode)
+        )
         if blocked_reason is not None and step.execution_ready:
             reasons.append("reason-ref:staged-orchestration:effectful-step-blocked")
         for dependency_ref in step.depends_on_step_refs:
@@ -752,6 +1024,58 @@ def _dependency_reason_codes(plan: StagedOrchestrationPlan) -> list[str]:
             reasons.append("reason-ref:staged-orchestration:handoff-stage-missing")
         if handoff.checkpoint_ref not in checkpoint_refs:
             reasons.append("reason-ref:staged-orchestration:handoff-checkpoint-missing")
+    return list(dict.fromkeys(reasons))
+
+
+def _authority_reason_codes(plan: StagedOrchestrationPlan) -> list[str]:
+    reasons: list[str] = []
+    runtime_steps = [
+        step
+        for step in plan.steps
+        if step.mode == ExecutionStepMode.approved_runtime_command.value
+    ]
+    if runtime_steps and not plan.approved_runtime_command_execution_enabled:
+        reasons.append("reason-ref:staged-orchestration:runtime-plan-enable-required")
+    if plan.approved_runtime_command_execution_enabled:
+        if plan.no_effect:
+            reasons.append("reason-ref:staged-orchestration:runtime-plan-no-effect-drift")
+        if not runtime_steps:
+            reasons.append("reason-ref:staged-orchestration:runtime-step-required")
+    if not plan.no_effect and not plan.approved_runtime_command_execution_enabled:
+        reasons.append("reason-ref:staged-orchestration:runtime-authority-not-promoted")
+    if plan.background_autonomy_enabled:
+        reasons.append("reason-ref:staged-orchestration:background-autonomy-denied")
+    if plan.provider_model_call_enabled:
+        reasons.append("reason-ref:staged-orchestration:provider-model-call-denied")
+    if plan.unrestricted_command_execution_enabled:
+        reasons.append("reason-ref:staged-orchestration:unrestricted-command-denied")
+
+    for step in plan.steps:
+        mode = ExecutionStepMode(step.mode)
+        binding = step.runtime_command_binding
+        if mode == ExecutionStepMode.approved_runtime_command:
+            if binding is None:
+                reasons.append("reason-ref:staged-orchestration:runtime-binding-required")
+            if not step.execution_ready:
+                reasons.append("reason-ref:staged-orchestration:runtime-step-not-ready")
+            if binding is not None:
+                if (
+                    binding.authority_ref
+                    != STAGED_ORCHESTRATION_APPROVED_RUNTIME_STEP_AUTHORITY_REF
+                ):
+                    reasons.append(
+                        "reason-ref:staged-orchestration:runtime-binding-authority-required"
+                    )
+                if (
+                    str(binding.command_intent)
+                    not in STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_PROMOTED_INTENTS
+                ):
+                    reasons.append(
+                        "reason-ref:staged-orchestration:runtime-command-intent-not-promoted"
+                    )
+            continue
+        if binding is not None:
+            reasons.append("reason-ref:staged-orchestration:runtime-binding-mode-required")
     return list(dict.fromkeys(reasons))
 
 
