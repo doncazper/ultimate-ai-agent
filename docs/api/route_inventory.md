@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `208`.
+Current OpenAPI path count: `209`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -140,6 +140,14 @@ state degrades to blocked. The same route now carries Phase 09 runtime toolset
 capability posture for runtime support versus UAA allowance states while
 keeping runtime tool invocation, Hermes toolset enablement, toolset config
 mutation, raw tool payload persistence, and production authority disabled.
+`GET /api/runtime/tool-registry` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 10 tool registry availability posture for
+UAA-native preview tools and delegated Hermes/Codex/Claude/MCP/future runtime
+tool references. It records availability, configured status, authority class,
+side-effect class, risk, blocker refs, proof refs, and next safe actions while
+keeping tool invocation, remote discovery, live web fetch, provider/model call,
+plugin import, connector write activation, raw tool payload persistence, and
+production authority disabled.
 `GET /api/runtime/run-events` exposes a protected read-only Python Core Hermes
 Runtime Adoption Phase 03 run/event posture for external runtime lifecycle
 state, UAA durable run state mapping, event-ref grammar, proof binding, blocked

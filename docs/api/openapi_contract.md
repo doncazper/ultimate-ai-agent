@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `208`.
+Current OpenAPI path count: `209`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -93,6 +93,14 @@ Contract rules:
   UAA allowance states while keeping runtime tool invocation, Hermes toolset
   enablement, toolset config mutation, raw tool payload persistence, and
   production authority disabled.
+  `GET /api/runtime/tool-registry` exposes the Hermes Runtime Adoption Phase
+  10 backend-owned runtime tool registry availability posture. It lists
+  UAA-native preview tools and delegated Hermes/Codex/Claude/MCP/future runtime
+  tool references with availability, configured status, authority class,
+  side-effect class, risk, blocker refs, proof refs, and next safe actions. It
+  is read-only metadata only and does not invoke tools, perform remote
+  discovery, fetch the web, call providers/models, import plugins, activate
+  connector writes, persist raw tool payloads, or grant production authority.
   `GET /api/runtime/run-events` exposes the Hermes Runtime Adoption Phase 03
   backend-owned runtime run/event posture for lifecycle mappings, event refs,
   stop posture, and approval-wait proposals. It is read/proposal only and does

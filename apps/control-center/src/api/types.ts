@@ -8979,6 +8979,98 @@ export interface RuntimeToolsetCapabilityPosture {
   next_safe_action_refs: string[];
 }
 
+export interface RuntimeToolRegistryEntry {
+  tool_ref: string;
+  tool_id: string;
+  display_label: string;
+  origin:
+    | "uaa_native"
+    | "hermes_reference"
+    | "codex_reference"
+    | "claude_reference"
+    | "mcp_reference"
+    | "future_runtime_reference";
+  runtime_ref: string;
+  toolset_ref: string;
+  availability_status:
+    | "available_metadata_only"
+    | "configured_disabled"
+    | "approval_required_future_lane"
+    | "blocked"
+    | "unsupported";
+  configured_status:
+    | "configured_metadata_only"
+    | "configured_disabled"
+    | "unconfigured"
+    | "blocked_by_policy"
+    | "unsupported";
+  authority_class:
+    | "validation_only"
+    | "preview_only"
+    | "approval_required_future_lane"
+    | "blocked_high_authority"
+    | "unsupported";
+  target_kind: string;
+  side_effect_class: string;
+  risk_class: string;
+  approval_requirement: string;
+  safe_summary: string;
+  uaa_native_catalog_entry: boolean;
+  runtime_supported_by_reference: boolean;
+  uaa_available_for_preview: boolean;
+  uaa_allows_invocation: boolean;
+  execution_enabled: boolean;
+  remote_discovery_performed: boolean;
+  live_web_fetch_performed: boolean;
+  provider_model_call_performed: boolean;
+  plugin_import_enabled: boolean;
+  connector_write_activation_enabled: boolean;
+  raw_tool_payload_persisted: boolean;
+  approval_scope_ref: string;
+  safe_disable_ref: string;
+  receipt_plan_ref: string;
+  proof_refs: string[];
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+}
+
+export interface RuntimeToolRegistryAvailabilityReadModel {
+  schema_version: "runtime_tool_registry_availability.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  capability_discovery_route_ref: string;
+  safe_summary: string;
+  entries: RuntimeToolRegistryEntry[];
+  tool_count: number;
+  uaa_native_count: number;
+  delegated_reference_count: number;
+  available_metadata_only_count: number;
+  configured_disabled_count: number;
+  approval_required_future_count: number;
+  blocked_count: number;
+  unsupported_count: number;
+  invocation_enabled_count: number;
+  preview_available_count: number;
+  tool_invocation_enabled: boolean;
+  remote_discovery_enabled: boolean;
+  live_web_fetch_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  plugin_import_enabled: boolean;
+  connector_write_activation_enabled: boolean;
+  raw_tool_payload_persisted: boolean;
+  production_authority_enabled: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -10124,6 +10216,7 @@ export interface ControlCenterData {
   runtimeApprovalBridge: RuntimeApprovalBridgeReadModel;
   runtimeStreamingProgress: RuntimeStreamingProgressReadModel;
   runtimeProfiles: RuntimeProfileIsolationReadModel;
+  runtimeToolRegistry: RuntimeToolRegistryAvailabilityReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

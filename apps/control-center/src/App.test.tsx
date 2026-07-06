@@ -7471,6 +7471,19 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("blocked-authority:runtime-toolset-invocation"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Tool registry")).toBeInTheDocument();
+    expect(screen.getByText("Availability and authority")).toBeInTheDocument();
+    expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
+    expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
+    expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
+    expect(screen.getByText("Hermes command execution")).toBeInTheDocument();
+    expect(
+      screen.getByText("proof-ref:hermes-runtime-adoption:phase-10:tool-registry"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("blocked-authority:runtime-tool-registry-invocation")
+        .length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("Runs and events")).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/run-events")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-run-events")).toBeInTheDocument();
@@ -14381,6 +14394,8 @@ describe("Web Control Center shell", () => {
     );
     expect(API_ENDPOINTS.runtimeProfiles).toBe("/api/runtime/profiles");
     expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeProfiles)).toBe(true);
+    expect(API_ENDPOINTS.runtimeToolRegistry).toBe("/api/runtime/tool-registry");
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeToolRegistry)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15419,6 +15434,7 @@ function envelopeForReadEndpoint(url: string) {
     [API_ENDPOINTS.runtimeStreamingProgress]:
       mockControlCenterData.runtimeStreamingProgress,
     [API_ENDPOINTS.runtimeProfiles]: mockControlCenterData.runtimeProfiles,
+    [API_ENDPOINTS.runtimeToolRegistry]: mockControlCenterData.runtimeToolRegistry,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:

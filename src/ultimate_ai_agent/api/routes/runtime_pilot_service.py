@@ -16,7 +16,9 @@ from ultimate_ai_agent.core.decision_router import prepare_turn
 from ultimate_ai_agent.core.control_center.runtime_parity_loop import (
     build_runtime_parity_loop_read_model,
 )
-from ultimate_ai_agent.core.execution import build_sample_staged_orchestration_read_model
+from ultimate_ai_agent.core.execution import (
+    build_sample_staged_orchestration_read_model,
+)
 from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeGateway,
     RuntimeInvocationConflictError,
@@ -33,6 +35,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_profile_isolation_read_model,
     build_runtime_run_events_read_model,
     build_runtime_streaming_progress_read_model,
+    build_runtime_tool_registry_availability_read_model,
     build_runtime_action_signed_evidence,
     command_allowlist_catalog,
     verify_runtime_action_signed_evidence,
@@ -183,9 +186,7 @@ def get_api_runtime_delegation_adapter() -> ResultEnvelope:
         service="GovernedRuntimeAPI",
         trace_id=read_model.adapter_ref,
         data=read_model.model_dump(mode="json"),
-        evidence=[
-            {"evidence_ref": "evidence-ref:runtime-delegation-adapter:phase-01"}
-        ],
+        evidence=[{"evidence_ref": "evidence-ref:runtime-delegation-adapter:phase-01"}],
         redactions_applied=read_model.redactions_applied,
     )
 
@@ -202,6 +203,20 @@ def get_api_runtime_capability_discovery() -> ResultEnvelope:
         evidence=[
             {"evidence_ref": "evidence-ref:runtime-capability-discovery:phase-02"}
         ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/tool-registry", response_model=ResultEnvelope)
+def get_api_runtime_tool_registry() -> ResultEnvelope:
+    read_model = build_runtime_tool_registry_availability_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_tool_registry",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-tool-registry:phase-10"}],
         redactions_applied=read_model.redactions_applied,
     )
 
@@ -243,9 +258,7 @@ def get_api_runtime_streaming_progress() -> ResultEnvelope:
         service="GovernedRuntimeAPI",
         trace_id=read_model.contract_ref,
         data=read_model.model_dump(mode="json"),
-        evidence=[
-            {"evidence_ref": "evidence-ref:runtime-streaming-progress:phase-05"}
-        ],
+        evidence=[{"evidence_ref": "evidence-ref:runtime-streaming-progress:phase-05"}],
         redactions_applied=read_model.redactions_applied,
     )
 
@@ -364,8 +377,12 @@ def get_api_runtime_invocations() -> ResultEnvelope:
 @router.post("/local-model/call", response_model=ResultEnvelope)
 def post_api_runtime_local_model_call(
     request: RuntimeLocalModelCallRequest,
-    x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
-    x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
     try:
@@ -393,7 +410,8 @@ def post_api_runtime_local_model_call(
     receipt = result.record.receipt
     metadata = receipt.model_receipt_metadata if receipt else None
     return ResultEnvelope(
-        success=result.error_category is None and result.record.status == "receipt_recorded",
+        success=result.error_category is None
+        and result.record.status == "receipt_recorded",
         operation="api_runtime_local_model_call",
         service="GovernedRuntimeAPI",
         trace_id=result.record.invocation_ref,
@@ -442,8 +460,12 @@ def post_api_runtime_local_model_call(
 @router.post("/command/run", response_model=ResultEnvelope)
 def post_api_runtime_command_run(
     request: RuntimeCommandExecutionRequest,
-    x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
-    x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
     try:
@@ -528,14 +550,20 @@ def post_api_runtime_command_run(
 @router.post("/invocations", response_model=ResultEnvelope)
 def post_api_runtime_invocations(
     request: RuntimeInvocationRequest,
-    x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
-    x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
 ) -> ResultEnvelope:
     store = _runtime_store()
     try:
         result = store.create_invocation(
             request,
-            idempotency_ref=_idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref),
+            idempotency_ref=_idempotency_ref(
+                x_uaa_idempotency_key, x_uaa_idempotency_ref
+            ),
         )
     except RuntimeInvocationConflictError:
         return ResultEnvelope(
@@ -565,7 +593,9 @@ def post_api_runtime_invocations(
             "execution_performed": False,
             "adapter_execution_enabled": False,
         },
-        evidence=[{"evidence_ref": "evidence-ref:governed-runtime-invocation-recorded"}],
+        evidence=[
+            {"evidence_ref": "evidence-ref:governed-runtime-invocation-recorded"}
+        ],
         redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
     )
 
@@ -598,7 +628,9 @@ def get_api_runtime_invocations_id_receipt(id: str) -> ResultEnvelope:
         service="GovernedRuntimeAPI",
         trace_id=record.invocation_ref,
         data={
-            "receipt": record.receipt.model_dump(mode="json") if record.receipt else None,
+            "receipt": record.receipt.model_dump(mode="json")
+            if record.receipt
+            else None,
             "receipt_available": record.receipt is not None,
             **_runtime_action_signed_evidence_payload(record),
             "execution_performed": bool(
@@ -620,14 +652,20 @@ def get_api_runtime_invocations_id_receipt(id: str) -> ResultEnvelope:
 def post_api_runtime_invocations_id_approve(
     id: str,
     request: RuntimeApprovalBindingRequest,
-    x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
-    x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
 ) -> ResultEnvelope:
     try:
         record = _runtime_store().bind_approval(
             id,
             request,
-            idempotency_ref=_idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref),
+            idempotency_ref=_idempotency_ref(
+                x_uaa_idempotency_key, x_uaa_idempotency_ref
+            ),
         )
     except RuntimeInvocationNotFoundError:
         return _not_found("api_runtime_invocation_approve", id)
@@ -690,8 +728,12 @@ def post_api_runtime_invocations_id_approve(
 def post_api_runtime_invocations_id_execute(
     id: str,
     request: RuntimeExecuteRequest,
-    x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
-    x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
     if request.command_request is not None:
@@ -793,7 +835,9 @@ def post_api_runtime_invocations_id_execute(
                     "production_authority",
                 ],
             },
-            evidence=[{"evidence_ref": "evidence-ref:governed-runtime-action-inbox-execute"}],
+            evidence=[
+                {"evidence_ref": "evidence-ref:governed-runtime-action-inbox-execute"}
+            ],
             redactions_applied=[
                 *GOVERNED_RUNTIME_REDACTIONS,
                 "raw_command_output_not_persisted",
@@ -845,13 +889,19 @@ def post_api_runtime_invocations_id_execute(
 @router.post("/safe-disable", response_model=ResultEnvelope)
 def post_api_runtime_safe_disable(
     request: RuntimeSafeDisableRequest,
-    x_uaa_idempotency_key: str | None = Header(default=None, alias="x-uaa-idempotency-key"),
-    x_uaa_idempotency_ref: str | None = Header(default=None, alias="x-uaa-idempotency-ref"),
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
 ) -> ResultEnvelope:
     try:
         state = _runtime_store().safe_disable(
             request,
-            idempotency_ref=_idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref),
+            idempotency_ref=_idempotency_ref(
+                x_uaa_idempotency_key, x_uaa_idempotency_ref
+            ),
         )
     except RuntimeInvocationConflictError:
         return ResultEnvelope(

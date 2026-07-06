@@ -39,6 +39,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_profile_isolation_read_model,
     build_runtime_run_events_read_model,
     build_runtime_streaming_progress_read_model,
+    build_runtime_tool_registry_availability_read_model,
     build_runtime_action_signed_evidence,
     verify_portable_evidence_envelope,
     verify_runtime_action_signed_evidence,
@@ -315,6 +316,35 @@ def _print_capability_discovery(read_model: dict[str, Any]) -> None:
         print(f"- {group['group_kind']} runtime={group['runtime_support_status']}")
         print(f"  uaa={group['uaa_authorization_status']}")
         print(f"  summary: {group['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_tool_registry(read_model: dict[str, Any]) -> None:
+    print("Runtime tool registry availability")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Tools: {read_model['tool_count']}")
+    print(f"UAA-native tools: {read_model['uaa_native_count']}")
+    print(f"Delegated references: {read_model['delegated_reference_count']}")
+    print(f"Preview available: {read_model['preview_available_count']}")
+    print(f"Invocation enabled: {read_model['tool_invocation_enabled']}")
+    print(f"Remote discovery enabled: {read_model['remote_discovery_enabled']}")
+    print("Registry entries:")
+    for entry in read_model["entries"]:
+        print(
+            f"- {entry['display_label']}: "
+            f"origin={entry['origin']} "
+            f"availability={entry['availability_status']} "
+            f"authority={entry['authority_class']} "
+            f"risk={entry['risk_class']}"
+        )
+        print(f"  side_effect={entry['side_effect_class']}")
+        print(f"  summary: {entry['safe_summary']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -633,6 +663,34 @@ def _inspect_capability_discovery(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_capability_discovery(read_model)
+    return 0
+
+
+def _inspect_tool_registry(args: argparse.Namespace) -> int:
+    read_model = build_runtime_tool_registry_availability_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-tool-registry",
+        "runtime_tool_registry": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_provider_payload_omitted": True,
+        "raw_runtime_payload_omitted": True,
+        "raw_tool_payload_omitted": True,
+        "raw_logs_omitted": True,
+        "execution_performed": False,
+        "tool_invocation_performed": False,
+        "remote_discovery_performed": False,
+        "plugin_import_performed": False,
+        "connector_write_activation_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_tool_registry(read_model)
     return 0
 
 
@@ -1414,6 +1472,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref capability discovery read model as JSON.",
     )
     capability_discovery.set_defaults(func=_inspect_capability_discovery)
+
+    tool_registry = subparsers.add_parser(
+        "inspect-tool-registry",
+        help="Inspect runtime tool registry availability without invocation.",
+    )
+    tool_registry.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref runtime tool registry read model as JSON.",
+    )
+    tool_registry.set_defaults(func=_inspect_tool_registry)
 
     run_events = subparsers.add_parser(
         "inspect-run-events",

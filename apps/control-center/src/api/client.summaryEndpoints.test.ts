@@ -386,6 +386,30 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.connection.warnings).toContain("RUNTIME_PROFILES_MOCK_FALLBACK");
   });
 
+  it("marks missing runtime tool registry as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.runtimeToolRegistry];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.runtimeToolRegistry.tool_invocation_enabled).toBe(false);
+    expect(data.runtimeToolRegistry.remote_discovery_enabled).toBe(false);
+    expect(data.runtimeToolRegistry.plugin_import_enabled).toBe(false);
+    expect(data.runtimeToolRegistry.connector_write_activation_enabled).toBe(false);
+    expect(data.runtimeToolRegistry.invocation_enabled_count).toBe(0);
+    expect(data.runtimeToolRegistry.preview_available_count).toBeGreaterThan(0);
+    expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
+    expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
+      "GET /api/runtime/tool-registry",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain(
+      "RUNTIME_TOOL_REGISTRY_MOCK_FALLBACK",
+    );
+  });
+
   it("marks missing CRM route as non-authoritative fallback", async () => {
     const routeData = baseRouteData();
     delete routeData[API_ENDPOINTS.crmSummary];
@@ -769,6 +793,7 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.runtimeStreamingProgress]:
       mockControlCenterData.runtimeStreamingProgress,
     [API_ENDPOINTS.runtimeProfiles]: mockControlCenterData.runtimeProfiles,
+    [API_ENDPOINTS.runtimeToolRegistry]: mockControlCenterData.runtimeToolRegistry,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
