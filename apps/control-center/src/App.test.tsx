@@ -8637,6 +8637,9 @@ describe("Web Control Center shell", () => {
         screen.getAllByRole("heading", { name: /^Receipt Visibility$/i })
           .length,
       ).toBeGreaterThan(0);
+      expect(screen.getAllByText("Exact scope").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Idempotency").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Expiry posture").length).toBeGreaterThan(0);
       expect(
         screen.queryByRole("button", { name: /^execute$/i }),
       ).not.toBeInTheDocument();
@@ -15882,6 +15885,9 @@ function dogfoodLiveLoopEndpointData() {
           fake_mutation_control_exposed: false,
           approval_envelope_ref:
             "approval-envelope:founder-loop:local-task-create-scorecard",
+          exact_scope_ref: "scope-ref:founder-loop:local-task-create-scorecard",
+          idempotency_ref: "idempotency-ref:dogfood-live-loop:local-task-commit",
+          expiry_or_staleness: "unknown; recheck_required_before_mutation",
           local_task_commit_route_ref:
             "POST /control-center/actions/{action_id}/local-task/commit",
           proof_ref: dogfoodRefs.localTaskProofRef,

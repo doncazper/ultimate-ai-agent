@@ -283,7 +283,10 @@ Evidence Timeline refs, replay posture, and conflict posture. It does not
 change operational maturity rank or add authority. Mock/degraded `/actions`
 fallback data stays non-authoritative. Milestone truth is recorded in
 `docs/control_center/FCC_INBOX_001_APPROVAL_ENVELOPE_UX.md`.
-fallback data is explicitly non-authoritative: it may render unavailable
+The backend-owned Action Inbox work queue now also carries exact-scope refs,
+idempotency refs, and expiry/staleness posture into the Control Center queue
+cards so reviewability does not depend on raw envelope inspection.
+Fallback data is explicitly non-authoritative: it may render unavailable
 envelope/receipt cards for shape, but it cannot claim Python-core read-model
 ownership, backend eligibility, or local task commit readiness.
 FCC-ACTION-002 keeps the active `/actions` lane filters/drilldowns as

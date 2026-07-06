@@ -2758,6 +2758,9 @@ export interface FounderLoopActionInboxWorkQueueNextItem {
   next_safe_action: string;
   approval_required: boolean;
   approval_envelope_ref?: string | null;
+  exact_scope_ref?: string | null;
+  idempotency_ref?: string | null;
+  expiry_or_staleness: string;
   expected_receipt_refs: string[];
   receipt_refs: string[];
   evidence_refs: string[];
@@ -2789,6 +2792,9 @@ export interface FounderLoopActionInboxWorkQueueWorkItem {
   local_task_commit_eligible: boolean;
   fake_mutation_control_exposed: boolean;
   approval_envelope_ref?: string | null;
+  exact_scope_ref?: string | null;
+  idempotency_ref?: string | null;
+  expiry_or_staleness: string;
   local_task_commit_route_ref?: string | null;
   proof_ref: string;
   expected_receipt_refs: string[];

@@ -49,6 +49,9 @@ def _assert_work_queue(read_model: dict[str, Any]) -> None:
     for item in read_model["work_items"]:
         assert item["item_ref"]
         assert item["proof_ref"].startswith("proof-ref:action-decision:")
+        assert "exact_scope_ref" in item
+        assert "idempotency_ref" in item
+        assert item["expiry_or_staleness"]
         assert item["approval_posture"]
         assert item["receipt_posture"]
         assert item["mutation_control_posture"] in {
@@ -99,6 +102,9 @@ def test_action_inbox_work_queue_summarizes_backend_queue(tmp_path: Path) -> Non
     assert read_model["blocked_count"] >= 1
     assert read_model["tier_3_exact_local_task_commit_available"] is False
     assert read_model["next_item"]["proof_ref"].startswith("proof-ref:action-decision:")
+    assert read_model["next_item"]["exact_scope_ref"]
+    assert read_model["next_item"]["idempotency_ref"]
+    assert read_model["next_item"]["expiry_or_staleness"]
     assert read_model["next_item"]["local_task_commit_eligible"] is False
     assert read_model["unsafe_ref_omitted_count"] == 0
     ready_item = next(
@@ -153,6 +159,9 @@ def test_action_inbox_work_queue_promotes_exact_local_task_lane_after_approval(
         == "exact_local_task_commit_route_only"
     )
     assert local_task_item["approval_posture"] == "backend_owned_approval_ready"
+    assert local_task_item["exact_scope_ref"]
+    assert local_task_item["idempotency_ref"]
+    assert local_task_item["expiry_or_staleness"]
     assert local_task_item["proof_ref"].startswith("proof-ref:action-decision:")
 
 

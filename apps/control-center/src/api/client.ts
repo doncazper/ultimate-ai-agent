@@ -11452,6 +11452,7 @@ function isSafeActionInboxWorkQueueNextItem(value: unknown): boolean {
       "available_action",
       "next_safe_action",
       "proof_ref",
+      "expiry_or_staleness",
     ]) &&
     isSafeActionWorkQueueRef(value.item_ref) &&
     isSafeActionWorkQueueRef(value.proof_ref) &&
@@ -11467,6 +11468,8 @@ function isSafeActionInboxWorkQueueNextItem(value: unknown): boolean {
     value.blocked_authority_refs.every(isSafeActionWorkQueueRef) &&
     isOptionalSafeActionWorkQueueRoute(value.local_task_commit_route_ref) &&
     isOptionalSafeActionWorkQueueRef(value.approval_envelope_ref) &&
+    isOptionalSafeActionWorkQueueRef(value.exact_scope_ref) &&
+    isOptionalSafeActionWorkQueueRef(value.idempotency_ref) &&
     isOptionalSafeActionWorkQueueRef(value.rollback_ref) &&
     isOptionalSafeActionWorkQueueRef(value.safe_disable_ref)
   );
@@ -11510,6 +11513,7 @@ function isSafeActionInboxWorkQueueWorkItem(value: unknown): boolean {
       "mutation_control_posture",
       "next_safe_action",
       "proof_ref",
+      "expiry_or_staleness",
     ]) &&
     isSafeActionWorkQueueRef(value.item_ref) &&
     isSafeActionWorkQueueRef(value.proof_ref) &&
@@ -11518,6 +11522,8 @@ function isSafeActionInboxWorkQueueWorkItem(value: unknown): boolean {
     typeof value.local_task_commit_eligible === "boolean" &&
     value.fake_mutation_control_exposed === false &&
     isOptionalSafeActionWorkQueueRef(value.approval_envelope_ref) &&
+    isOptionalSafeActionWorkQueueRef(value.exact_scope_ref) &&
+    isOptionalSafeActionWorkQueueRef(value.idempotency_ref) &&
     isOptionalSafeActionWorkQueueRoute(value.local_task_commit_route_ref) &&
     isOptionalSafeActionWorkQueueRef(value.rollback_ref) &&
     isOptionalSafeActionWorkQueueRef(value.safe_disable_ref) &&

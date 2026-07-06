@@ -1665,6 +1665,18 @@ function ActionInboxWorkQueuePanel({
             <DetailTerm label="Item" value={nextItem.item_ref} />
             <DetailTerm label="Lane" value={nextItem.lane_label} />
             <DetailTerm label="Status" value={nextItem.status} />
+            <DetailTerm
+              label="Exact scope"
+              value={nextItem.exact_scope_ref ?? "not available"}
+            />
+            <DetailTerm
+              label="Idempotency"
+              value={nextItem.idempotency_ref ?? "not available"}
+            />
+            <DetailTerm
+              label="Expiry / stale"
+              value={nextItem.expiry_or_staleness}
+            />
             <DetailTerm label="Can do now" value={nextItem.available_action} />
             <DetailTerm
               label="Approval"
@@ -1758,6 +1770,15 @@ function ActionInboxWorkQueueWorkItemCard({
         <DetailTerm label="Status" value={item.status} />
         <DetailTerm label="Kind" value={item.action_kind} />
         <DetailTerm label="Side effect" value={item.side_effect_class} />
+        <DetailTerm
+          label="Exact scope"
+          value={item.exact_scope_ref ?? "not available"}
+        />
+        <DetailTerm
+          label="Idempotency"
+          value={item.idempotency_ref ?? "not available"}
+        />
+        <DetailTerm label="Expiry / stale" value={item.expiry_or_staleness} />
         <DetailTerm label="Approval posture" value={item.approval_posture} />
         <DetailTerm label="Receipt posture" value={item.receipt_posture} />
         <DetailTerm

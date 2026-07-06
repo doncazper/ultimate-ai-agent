@@ -20108,6 +20108,9 @@ export const mockControlCenterData: ControlCenterData = {
           fake_mutation_control_exposed: false,
           approval_envelope_ref:
             "approval-envelope:founder-loop:mock-local-task-review",
+          exact_scope_ref: "scope-ref:founder-loop:mock-local-task-review",
+          idempotency_ref: "idempotency-ref:founder-loop:mock-local-task-review",
+          expiry_or_staleness: "unknown; recheck_required_before_mutation",
           local_task_commit_route_ref:
             "POST /control-center/actions/{action_id}/local-task/commit",
           proof_ref:
@@ -20147,6 +20150,9 @@ export const mockControlCenterData: ControlCenterData = {
           fake_mutation_control_exposed: false,
           approval_envelope_ref:
             "approval-envelope:founder-loop:mock-approved-local-task",
+          exact_scope_ref: "scope-ref:founder-loop:mock-approved-local-task",
+          idempotency_ref: "idempotency-ref:founder-loop:mock-approved-local-task",
+          expiry_or_staleness: "unknown; recheck_required_before_mutation",
           local_task_commit_route_ref:
             "POST /control-center/actions/{action_id}/local-task/commit",
           proof_ref:
@@ -20179,6 +20185,9 @@ export const mockControlCenterData: ControlCenterData = {
         approval_required: true,
         approval_envelope_ref:
           "approval-envelope:founder-loop:mock-local-task-review",
+        exact_scope_ref: "scope-ref:founder-loop:mock-local-task-review",
+        idempotency_ref: "idempotency-ref:founder-loop:mock-local-task-review",
+        expiry_or_staleness: "unknown; recheck_required_before_mutation",
         expected_receipt_refs: [
           "receipt-plan:founder-loop:mock-local-task-review",
         ],

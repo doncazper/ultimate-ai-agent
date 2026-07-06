@@ -96,6 +96,9 @@ class ActionInboxWorkQueueNextItem(BaseModel):
     next_safe_action: str = Field(..., min_length=1, max_length=500)
     approval_required: bool
     approval_envelope_ref: str | None = None
+    exact_scope_ref: str | None = None
+    idempotency_ref: str | None = None
+    expiry_or_staleness: str = "unknown; recheck_required_before_mutation"
     expected_receipt_refs: list[str] = Field(default_factory=list)
     receipt_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
@@ -126,12 +129,15 @@ class ActionInboxWorkQueueNextItem(BaseModel):
             validate_safe_execution_text(str(getattr(self, field_name)), field_name)
         for field_name in (
             "approval_envelope_ref",
+            "exact_scope_ref",
+            "idempotency_ref",
             "rollback_ref",
             "safe_disable_ref",
         ):
             value = getattr(self, field_name)
             if value:
                 validate_execution_ref(value, field_name)
+        validate_safe_execution_text(self.expiry_or_staleness, "expiry_or_staleness")
         if self.local_task_commit_route_ref:
             validate_safe_execution_text(
                 self.local_task_commit_route_ref, "local_task_commit_route_ref"
@@ -166,6 +172,9 @@ class ActionInboxWorkQueueWorkItem(BaseModel):
     local_task_commit_eligible: bool = False
     fake_mutation_control_exposed: bool = False
     approval_envelope_ref: str | None = None
+    exact_scope_ref: str | None = None
+    idempotency_ref: str | None = None
+    expiry_or_staleness: str = "unknown; recheck_required_before_mutation"
     local_task_commit_route_ref: str | None = None
     proof_ref: str = Field(..., min_length=1)
     expected_receipt_refs: list[str] = Field(default_factory=list)
@@ -199,12 +208,15 @@ class ActionInboxWorkQueueWorkItem(BaseModel):
             validate_safe_execution_text(str(getattr(self, field_name)), field_name)
         for field_name in (
             "approval_envelope_ref",
+            "exact_scope_ref",
+            "idempotency_ref",
             "rollback_ref",
             "safe_disable_ref",
         ):
             value = getattr(self, field_name)
             if value:
                 validate_execution_ref(value, field_name)
+        validate_safe_execution_text(self.expiry_or_staleness, "expiry_or_staleness")
         if self.local_task_commit_route_ref:
             validate_safe_execution_text(
                 self.local_task_commit_route_ref, "local_task_commit_route_ref"
@@ -436,6 +448,9 @@ def _next_item_model(
         ),
         approval_required=bool(action.get("approval_required", True)),
         approval_envelope_ref=_optional_ref(action.get("approval_envelope_ref")),
+        exact_scope_ref=_optional_ref(action.get("action_scope_ref")),
+        idempotency_ref=_optional_ref(_idempotency_ref(action)),
+        expiry_or_staleness=_expiry_or_staleness(action),
         expected_receipt_refs=expected_receipts,
         receipt_refs=receipt_refs,
         evidence_refs=_refs(action.get("evidence_refs")),
@@ -505,6 +520,9 @@ def _work_item_model(action: dict[str, Any]) -> ActionInboxWorkQueueWorkItem:
         operator_actionable=operator_actionable,
         local_task_commit_eligible=local_task_commit_eligible,
         approval_envelope_ref=_optional_ref(action.get("approval_envelope_ref")),
+        exact_scope_ref=_optional_ref(action.get("action_scope_ref")),
+        idempotency_ref=_optional_ref(_idempotency_ref(action)),
+        expiry_or_staleness=_expiry_or_staleness(action),
         local_task_commit_route_ref=_optional_safe_text(
             action.get("local_task_commit_route_ref")
         ),
@@ -604,6 +622,23 @@ def _mutation_control_posture(
     return "no_mutation_control_exposed"
 
 
+def _idempotency_ref(action: dict[str, Any]) -> Any:
+    return action.get("idempotency_key_ref") or action.get("action_idempotency_key_ref")
+
+
+def _expiry_or_staleness(action: dict[str, Any]) -> str:
+    expires_at = _optional_safe_text(
+        action.get("expires_at") or action.get("action_expires_at")
+    )
+    stale_state = _optional_safe_text(
+        action.get("stale_state") or action.get("action_stale_state")
+    )
+    return (
+        f"{expires_at or 'unknown'}; "
+        f"{stale_state or 'recheck_required_before_mutation'}"
+    )
+
+
 def _unsafe_ref_omitted_count(actions: list[dict[str, Any]]) -> int:
     count = 0
     list_fields = (
@@ -619,6 +654,9 @@ def _unsafe_ref_omitted_count(actions: list[dict[str, Any]]) -> int:
         "item_ref",
         "action_envelope_ref",
         "approval_envelope_ref",
+        "action_scope_ref",
+        "idempotency_key_ref",
+        "action_idempotency_key_ref",
         "rollback_ref",
         "safe_disable_ref",
     )
