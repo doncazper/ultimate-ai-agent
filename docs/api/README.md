@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `221`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `222` route
+Current OpenAPI path count: `222`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `223` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview adds one no-effect diagnostic route. The Hermes Runtime

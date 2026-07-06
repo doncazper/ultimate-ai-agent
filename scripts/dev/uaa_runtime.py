@@ -40,6 +40,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_doctor_diagnostics_read_model,
     build_runtime_hardline_command_blocklist_read_model,
     build_runtime_managed_scope_policy_read_model,
+    build_runtime_mcp_catalog_filtering_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -625,6 +626,48 @@ def _print_session_continuity(read_model: dict[str, Any]) -> None:
         print(f"  session={surface['session_ref']}")
         print(f"  route={surface['route_ref']}")
         print(f"  summary: {surface['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_mcp_catalog_filtering(read_model: dict[str, Any]) -> None:
+    print("Runtime MCP catalog filtering")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Servers: "
+        f"total={read_model['server_count']} "
+        f"reviewed={read_model['reviewed_metadata_count']} "
+        f"review_required={read_model['review_required_count']} "
+        f"activation_blocked={read_model['activation_blocked_count']}"
+    )
+    print(
+        "Tools: "
+        f"total={read_model['tool_slice_count']} "
+        f"metadata={read_model['metadata_visible_tool_count']} "
+        f"filtered={read_model['filtered_blocked_tool_count']} "
+        f"grant_required={read_model['grant_required_tool_count']}"
+    )
+    print(
+        "Blocked activation: "
+        f"install={read_model['install_enabled']} "
+        f"subprocess={read_model['subprocess_runtime_enabled']} "
+        f"oauth={read_model['oauth_login_enabled']} "
+        f"tool_invocation={read_model['tool_invocation_enabled']} "
+        f"connector_write={read_model['connector_write_enabled']}"
+    )
+    print("Servers:")
+    for server in read_model["servers"]:
+        print(
+            f"- {server['display_label']}: "
+            f"state={server['catalog_state']} tools={server['tool_count']}"
+        )
+        print(f"  filter={server['filter_contract_ref']}")
+        print(f"  summary: {server['safe_summary']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1328,6 +1371,33 @@ def _inspect_session_continuity(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_session_continuity(read_model)
+    return 0
+
+
+def _inspect_mcp_catalog_filtering(args: argparse.Namespace) -> int:
+    read_model = build_runtime_mcp_catalog_filtering_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-mcp-catalog-filtering",
+        "runtime_mcp_catalog_filtering": read_model,
+        "safe_refs_only": True,
+        "metadata_only": True,
+        "raw_mcp_manifests_omitted": True,
+        "raw_tool_schemas_omitted": True,
+        "login_material_omitted": True,
+        "connector_payloads_omitted": True,
+        "install_performed": False,
+        "subprocess_runtime_performed": False,
+        "oauth_login_performed": False,
+        "tool_invocation_performed": False,
+        "connector_write_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_mcp_catalog_filtering(read_model)
     return 0
 
 
@@ -2345,6 +2415,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref session continuity read model as JSON.",
     )
     session_continuity.set_defaults(func=_inspect_session_continuity)
+
+    mcp_catalog_filtering = subparsers.add_parser(
+        "inspect-mcp-catalog-filtering",
+        help="Inspect MCP catalog metadata filters without installing or invoking tools.",
+    )
+    mcp_catalog_filtering.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref MCP catalog filtering read model as JSON.",
+    )
+    mcp_catalog_filtering.set_defaults(func=_inspect_mcp_catalog_filtering)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",

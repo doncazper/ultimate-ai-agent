@@ -44,6 +44,8 @@ import type {
   RuntimeHardlineCommandClassification,
   RuntimeManagedScopePolicyDriftWarning,
   RuntimeManagedScopePolicyPinSource,
+  RuntimeMcpServerCatalogEntry,
+  RuntimeMcpToolSlice,
   RuntimeSessionContinuitySurface,
   RuntimeVirtualAgentSlot,
   RuntimeVirtualProviderPreset,
@@ -1221,6 +1223,145 @@ const runtimeSessionContinuitySurfaces: RuntimeSessionContinuitySurface[] = [
     route_ref: "planned-route-ref:future-mobile-session-continuity",
     safe_summary:
       "Mock future mobile continuity is blocked; no account sync or remote session is active.",
+  }),
+];
+
+const runtimeMcpCatalogBlockedRefs = [
+  "blocked-authority:mcp-catalog-no-server-install",
+  "blocked-authority:mcp-catalog-no-subprocess-runtime",
+  "blocked-authority:mcp-catalog-no-oauth-login",
+  "blocked-authority:mcp-catalog-no-tool-invocation",
+  "blocked-authority:mcp-catalog-no-connector-write",
+  "blocked-authority:mcp-catalog-no-raw-manifest-persistence",
+  "blocked-authority:mcp-catalog-no-control-center-authority-mint",
+];
+
+function runtimeMcpToolSlice(
+  slug: string,
+  overrides: Pick<
+    RuntimeMcpToolSlice,
+    "display_label" | "filter_state" | "risk_label" | "safe_summary"
+  >,
+): RuntimeMcpToolSlice {
+  return {
+    tool_ref: `mcp-tool-slice-ref:${slug}`,
+    display_label: overrides.display_label,
+    filter_state: overrides.filter_state,
+    risk_label: overrides.risk_label,
+    safe_summary: overrides.safe_summary,
+    filter_reason_refs: [`mcp-filter-reason-ref:${slug}`],
+    grant_requirement_refs: [`mcp-grant-requirement-ref:${slug}`],
+    receipt_requirement_refs: [`mcp-receipt-requirement-ref:${slug}`],
+    blocked_authority_refs: runtimeMcpCatalogBlockedRefs,
+    metadata_visible: true,
+    invocation_enabled: false,
+    connector_write_enabled: false,
+    raw_schema_persisted: false,
+    runtime_dispatch_enabled: false,
+  };
+}
+
+function runtimeMcpServerCatalogEntry(
+  slug: string,
+  overrides: Pick<
+    RuntimeMcpServerCatalogEntry,
+    "display_label" | "catalog_state" | "safe_summary" | "tool_slices"
+  >,
+): RuntimeMcpServerCatalogEntry {
+  return {
+    server_ref: `mcp-server-ref:${slug}`,
+    display_label: overrides.display_label,
+    catalog_state: overrides.catalog_state,
+    manifest_ref: `mcp-manifest-ref:${slug}:redacted`,
+    filter_contract_ref: `mcp-filter-contract-ref:${slug}:reviewed-slices`,
+    safe_summary: overrides.safe_summary,
+    tool_slices: overrides.tool_slices,
+    tool_count: overrides.tool_slices.length,
+    metadata_visible_tool_count: overrides.tool_slices.filter(
+      (tool) => tool.filter_state === "metadata_visible",
+    ).length,
+    filtered_blocked_tool_count: overrides.tool_slices.filter(
+      (tool) => tool.filter_state === "filtered_blocked",
+    ).length,
+    grant_required_tool_count: overrides.tool_slices.filter(
+      (tool) => tool.filter_state === "grant_required",
+    ).length,
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-30:mcp-catalog-filtering",
+    ],
+    blocked_authority_refs: runtimeMcpCatalogBlockedRefs,
+    next_safe_action_refs: [
+      `next-safe-action-ref:mcp-catalog:${slug}:review-filter`,
+    ],
+    install_enabled: false,
+    subprocess_runtime_enabled: false,
+    oauth_login_enabled: false,
+    tool_invocation_enabled: false,
+    connector_write_enabled: false,
+    raw_manifest_persisted: false,
+  };
+}
+
+const runtimeMcpCatalogServers: RuntimeMcpServerCatalogEntry[] = [
+  runtimeMcpServerCatalogEntry("filesystem-metadata", {
+    display_label: "Filesystem metadata server",
+    catalog_state: "reviewed_metadata",
+    safe_summary:
+      "Mock filesystem MCP server is metadata only; subprocess runtime remains blocked.",
+    tool_slices: [
+      runtimeMcpToolSlice("filesystem-list-metadata", {
+        display_label: "List file metadata",
+        filter_state: "metadata_visible",
+        risk_label: "read_metadata_only",
+        safe_summary: "Tool metadata is visible; invocation is blocked.",
+      }),
+      runtimeMcpToolSlice("filesystem-write-file", {
+        display_label: "Write file",
+        filter_state: "filtered_blocked",
+        risk_label: "file_mutation_blocked",
+        safe_summary: "File mutation tool slice is filtered out.",
+      }),
+    ],
+  }),
+  runtimeMcpServerCatalogEntry("browser-research", {
+    display_label: "Browser research server",
+    catalog_state: "activation_blocked",
+    safe_summary:
+      "Mock browser MCP server is catalog metadata only; browser runtime and web fetching remain blocked.",
+    tool_slices: [
+      runtimeMcpToolSlice("browser-fetch-page", {
+        display_label: "Fetch page",
+        filter_state: "filtered_blocked",
+        risk_label: "web_fetch_blocked",
+        safe_summary: "Web fetch tool slice is blocked.",
+      }),
+      runtimeMcpToolSlice("browser-click", {
+        display_label: "Browser click",
+        filter_state: "filtered_blocked",
+        risk_label: "browser_action_blocked",
+        safe_summary: "Browser action tool slice is blocked.",
+      }),
+    ],
+  }),
+  runtimeMcpServerCatalogEntry("crm-draft", {
+    display_label: "CRM draft server",
+    catalog_state: "review_required",
+    safe_summary:
+      "Mock CRM draft MCP server needs reviewed grants before any helper can become more than metadata.",
+    tool_slices: [
+      runtimeMcpToolSlice("crm-draft-summary", {
+        display_label: "Draft CRM summary",
+        filter_state: "grant_required",
+        risk_label: "draft_review_required",
+        safe_summary: "Draft helper metadata needs exact grants and receipts.",
+      }),
+      runtimeMcpToolSlice("crm-send-message", {
+        display_label: "Send CRM message",
+        filter_state: "filtered_blocked",
+        risk_label: "connector_write_blocked",
+        safe_summary: "Connector write tool slice is filtered out.",
+      }),
+    ],
   }),
 ];
 
@@ -13009,6 +13150,85 @@ export const mockControlCenterData: ControlCenterData = {
       "raw_responses_omitted",
       "provider_payloads_omitted",
       "account_material_omitted",
+    ],
+  },
+  runtimeMcpCatalogFiltering: {
+    schema_version: "runtime_mcp_catalog_filtering.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-mcp-catalog-filtering:v1",
+    status: "metadata_catalog_filtering_posture",
+    snapshot_ref: "mcp-catalog-snapshot-ref:runtime:mock-filtered-metadata",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-mcp-catalog:mock",
+    route_ref: "GET /api/runtime/mcp-catalog-filtering",
+    cli_ref: "uaa runtime inspect-mcp-catalog-filtering",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime MCP catalog mock fallback exposes metadata filters and blocked activation states only.",
+    servers: runtimeMcpCatalogServers,
+    server_count: runtimeMcpCatalogServers.length,
+    reviewed_metadata_count: runtimeMcpCatalogServers.filter(
+      (server) => server.catalog_state === "reviewed_metadata",
+    ).length,
+    review_required_count: runtimeMcpCatalogServers.filter(
+      (server) => server.catalog_state === "review_required",
+    ).length,
+    activation_blocked_count: runtimeMcpCatalogServers.filter(
+      (server) => server.catalog_state === "activation_blocked",
+    ).length,
+    tool_slice_count: runtimeMcpCatalogServers.reduce(
+      (sum, server) => sum + server.tool_count,
+      0,
+    ),
+    metadata_visible_tool_count: runtimeMcpCatalogServers.reduce(
+      (sum, server) => sum + server.metadata_visible_tool_count,
+      0,
+    ),
+    filtered_blocked_tool_count: runtimeMcpCatalogServers.reduce(
+      (sum, server) => sum + server.filtered_blocked_tool_count,
+      0,
+    ),
+    grant_required_tool_count: runtimeMcpCatalogServers.reduce(
+      (sum, server) => sum + server.grant_required_tool_count,
+      0,
+    ),
+    metadata_catalog_visible: true,
+    tool_filter_contracts_visible: true,
+    blocked_activation_states_visible: true,
+    install_enabled: false,
+    subprocess_runtime_enabled: false,
+    oauth_login_enabled: false,
+    tool_invocation_enabled: false,
+    connector_write_enabled: false,
+    raw_manifest_persisted: false,
+    control_center_mints_authority: false,
+    blocked_authority_refs: runtimeMcpCatalogBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:mcp-catalog:reviewed-server-manifest",
+      "promotion-path-ref:mcp-catalog:command-allowlist",
+      "promotion-path-ref:mcp-catalog:credential-refs",
+      "promotion-path-ref:mcp-catalog:tool-grants",
+      "promotion-path-ref:mcp-catalog:receipts",
+      "promotion-path-ref:mcp-catalog:safe-disable",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-30:mcp-catalog-filtering",
+      "proof-ref:mcp-catalog:metadata-only",
+      "proof-ref:mcp-catalog:filtered-tool-slices",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-30:mcp-catalog-filtering",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:mcp-catalog:review-server-manifests",
+      "next-safe-action-ref:mcp-catalog:define-tool-grants",
+      "next-safe-action-ref:mcp-catalog:bind-receipts",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_mcp_manifests_omitted",
+      "raw_tool_schemas_omitted",
+      "login_material_omitted",
+      "connector_payloads_omitted",
     ],
   },
   runtimeApprovalBridge: {
