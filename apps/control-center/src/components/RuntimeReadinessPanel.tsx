@@ -7,6 +7,7 @@ import type {
   RuntimeDelegationAdapterReadModel,
   RuntimeDoctorDiagnosticsReadModel,
   RuntimeHardlineCommandBlocklistReadModel,
+  RuntimeInterruptRedirectReadModel,
   RuntimeLspDiagnosticsReadModel,
   RuntimeManagedScopePolicyReadModel,
   RuntimeMcpCatalogFilteringReadModel,
@@ -52,6 +53,7 @@ export function RuntimeReadinessPanel({
   lspDiagnostics,
   previewRail,
   slashCommandRegistry,
+  interruptRedirect,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -77,6 +79,7 @@ export function RuntimeReadinessPanel({
   lspDiagnostics: RuntimeLspDiagnosticsReadModel;
   previewRail: RuntimePreviewRailReadModel;
   slashCommandRegistry: RuntimeSlashCommandRegistryReadModel;
+  interruptRedirect: RuntimeInterruptRedirectReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -1321,6 +1324,118 @@ export function RuntimeReadinessPanel({
             .map((ref) => (
               <li key={ref}>{ref}</li>
             ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Run control</p>
+            <h3>Interrupt and redirect</h3>
+          </div>
+          <span className="status-pill compact">
+            {interruptRedirect.status}
+          </span>
+        </div>
+        <p>{interruptRedirect.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{interruptRedirect.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{interruptRedirect.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Actions</dt>
+            <dd>{interruptRedirect.proposal_count}</dd>
+          </div>
+          <div>
+            <dt>Proposal only</dt>
+            <dd>{interruptRedirect.read_only_proposal_count}</dd>
+          </div>
+          <div>
+            <dt>Future approval</dt>
+            <dd>{interruptRedirect.approval_required_future_lane_count}</dd>
+          </div>
+          <div>
+            <dt>Blocked</dt>
+            <dd>{interruptRedirect.blocked_count}</dd>
+          </div>
+          <div>
+            <dt>Live stop</dt>
+            <dd>
+              {interruptRedirect.live_stop_post_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Process kill</dt>
+            <dd>
+              {interruptRedirect.process_kill_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>Status</th>
+                <th>Side effect</th>
+                <th>Receipt</th>
+                <th>Recovery</th>
+              </tr>
+            </thead>
+            <tbody>
+              {interruptRedirect.proposals.map((proposal) => (
+                <tr key={proposal.action_ref}>
+                  <td>{proposal.display_label}</td>
+                  <td>{proposal.action_status}</td>
+                  <td>{proposal.side_effect_class}</td>
+                  <td>{proposal.receipt_plan_ref}</td>
+                  <td>{proposal.recovery_state_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>Run ownership</dt>
+            <dd>
+              {interruptRedirect.run_ownership_visible ? "visible" : "missing"}
+            </dd>
+          </div>
+          <div>
+            <dt>Cancellation receipt</dt>
+            <dd>
+              {interruptRedirect.cancellation_receipt_visible
+                ? "visible"
+                : "missing"}
+            </dd>
+          </div>
+          <div>
+            <dt>Runtime mutation</dt>
+            <dd>
+              {interruptRedirect.runtime_mutation_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Raw runtime payload</dt>
+            <dd>
+              {interruptRedirect.raw_runtime_payload_persisted
+                ? "stored"
+                : "omitted"}
+            </dd>
+          </div>
+        </dl>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {interruptRedirect.blocked_authority_refs.slice(0, 6).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
         </ul>
       </article>
       <article className="info-card">

@@ -51,6 +51,7 @@ import type {
   RuntimeSubagentReviewArtifact,
   RuntimeLspDiagnosticEvidenceContract,
   RuntimePreviewRailSlot,
+  RuntimeRunControlProposal,
   RuntimeSlashCommandRegistryEntry,
   RuntimeSessionContinuitySurface,
   RuntimeWorktreePerAgentLane,
@@ -1916,6 +1917,111 @@ const runtimeSlashCommandRegistryEntries = [
     side_effect_class: "local_mutation",
     safe_summary:
       "Mock patch command remains blocked without exact approval and rollback.",
+  }),
+];
+
+const runtimeInterruptRedirectBlockedRefs = [
+  "blocked-authority:interrupt-redirect-no-live-stop-post",
+  "blocked-authority:interrupt-redirect-no-process-kill",
+  "blocked-authority:interrupt-redirect-no-runtime-mutation",
+  "blocked-authority:interrupt-redirect-no-background-autonomy",
+  "blocked-authority:interrupt-redirect-no-unscoped-approval-reuse",
+  "blocked-authority:interrupt-redirect-no-shell-execution",
+  "blocked-authority:interrupt-redirect-no-provider-call",
+  "blocked-authority:interrupt-redirect-no-browser-automation",
+  "blocked-authority:interrupt-redirect-no-connector-write",
+  "blocked-authority:interrupt-redirect-no-control-center-authority-mint",
+  "blocked-authority:interrupt-redirect-no-raw-runtime-payload-persistence",
+  "blocked-authority:interrupt-redirect-no-raw-log-persistence",
+];
+
+function runtimeInterruptRedirectProposal(
+  slug: string,
+  overrides: Pick<
+    RuntimeRunControlProposal,
+    | "action_kind"
+    | "display_label"
+    | "action_status"
+    | "side_effect_class"
+    | "safe_summary"
+  >,
+): RuntimeRunControlProposal {
+  return {
+    action_ref: `run-control-action-ref:runtime:${slug}`,
+    action_kind: overrides.action_kind,
+    display_label: overrides.display_label,
+    action_status: overrides.action_status,
+    side_effect_class: overrides.side_effect_class,
+    approval_scope_ref: `approval-scope-ref:runtime-run-control:${slug}`,
+    idempotency_ref: `idempotency-ref:runtime-run-control:${slug}`,
+    receipt_plan_ref: `receipt-plan-ref:runtime-run-control:${slug}`,
+    recovery_state_ref: `recovery-state-ref:runtime-run-control:${slug}`,
+    proof_ref: `proof-ref:runtime-run-control:${slug}`,
+    safe_summary: overrides.safe_summary,
+    blocked_authority_refs: runtimeInterruptRedirectBlockedRefs,
+    promotion_path_refs: [
+      `promotion-path-ref:runtime-run-control:${slug}:approval-binding`,
+      `promotion-path-ref:runtime-run-control:${slug}:cancellation-receipt`,
+    ],
+    next_safe_action_refs: [
+      `next-safe-action-ref:runtime-run-control:${slug}:exact-lane-design`,
+    ],
+    visible_in_control_center: true,
+    proposal_only: true,
+    live_stop_post_enabled: false,
+    process_kill_enabled: false,
+    runtime_mutation_enabled: false,
+    background_autonomy_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    control_center_mints_authority: false,
+    raw_runtime_payload_persisted: false,
+    raw_log_persisted: false,
+  };
+}
+
+const runtimeInterruptRedirectProposals = [
+  runtimeInterruptRedirectProposal("pause", {
+    action_kind: "pause",
+    display_label: "Pause current work",
+    action_status: "approval_required_future_lane",
+    side_effect_class: "runtime_control_mutation",
+    safe_summary:
+      "Mock pause posture is visible as a future approval lane only; no runtime is paused.",
+  }),
+  runtimeInterruptRedirectProposal("stop", {
+    action_kind: "stop",
+    display_label: "Stop current work",
+    action_status: "blocked_until_exact_lane",
+    side_effect_class: "runtime_control_mutation",
+    safe_summary:
+      "Mock stop posture remains blocked until run ownership and cancellation receipts are proven.",
+  }),
+  runtimeInterruptRedirectProposal("redirect", {
+    action_kind: "redirect",
+    display_label: "Redirect work",
+    action_status: "read_only_proposal",
+    side_effect_class: "operator_instruction_update",
+    safe_summary:
+      "Mock redirect posture is a proposal artifact and sends no instruction to any runtime.",
+  }),
+  runtimeInterruptRedirectProposal("revise", {
+    action_kind: "revise",
+    display_label: "Revise task",
+    action_status: "read_only_proposal",
+    side_effect_class: "operator_instruction_update",
+    safe_summary:
+      "Mock revise posture omits raw operator instruction text and mutates no state.",
+  }),
+  runtimeInterruptRedirectProposal("recover", {
+    action_kind: "recover",
+    display_label: "Recover safely",
+    action_status: "approval_required_future_lane",
+    side_effect_class: "recovery_state_transition",
+    safe_summary:
+      "Mock recovery posture is future approval-bound and does not resume work.",
   }),
 ];
 
@@ -14216,6 +14322,75 @@ export const mockControlCenterData: ControlCenterData = {
       "provider_payloads_omitted",
       "runtime_payloads_omitted",
       "command_execution_outputs_omitted",
+    ],
+  },
+  runtimeInterruptRedirect: {
+    schema_version: "runtime_interrupt_redirect.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-interrupt-redirect:v1",
+    status: "run_control_proposal_only",
+    snapshot_ref: "interrupt-redirect-snapshot-ref:runtime:control-posture",
+    snapshot_hash_ref: "snapshot-hash-ref:interrupt-redirect:mock",
+    route_ref: "GET /api/runtime/interrupt-redirect",
+    cli_ref: "uaa runtime inspect-interrupt-redirect",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime interrupt and redirect mock fallback shows proposal-only run-control posture; live stop, process kill, and runtime mutation stay blocked.",
+    proposals: runtimeInterruptRedirectProposals,
+    proposal_count: runtimeInterruptRedirectProposals.length,
+    read_only_proposal_count: runtimeInterruptRedirectProposals.filter(
+      (proposal) => proposal.action_status === "read_only_proposal",
+    ).length,
+    approval_required_future_lane_count: runtimeInterruptRedirectProposals.filter(
+      (proposal) => proposal.action_status === "approval_required_future_lane",
+    ).length,
+    blocked_count: runtimeInterruptRedirectProposals.filter(
+      (proposal) => proposal.action_status === "blocked_until_exact_lane",
+    ).length,
+    run_ownership_visible: true,
+    stop_scope_visible: true,
+    idempotency_visible: true,
+    cancellation_receipt_visible: true,
+    recovery_state_visible: true,
+    proof_link_visible: true,
+    live_stop_post_enabled: false,
+    process_kill_enabled: false,
+    runtime_mutation_enabled: false,
+    background_autonomy_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    control_center_mints_authority: false,
+    raw_runtime_payload_persisted: false,
+    raw_log_persisted: false,
+    blocked_authority_refs: runtimeInterruptRedirectBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:interrupt-redirect:run-ownership",
+      "promotion-path-ref:interrupt-redirect:stop-scope",
+      "promotion-path-ref:interrupt-redirect:idempotency",
+      "promotion-path-ref:interrupt-redirect:cancellation-receipt",
+      "promotion-path-ref:interrupt-redirect:event-proof",
+      "promotion-path-ref:interrupt-redirect:recovery-state",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-37:interrupt-redirect",
+      "proof-ref:interrupt-redirect:proposal-only",
+      "proof-ref:interrupt-redirect:live-mutation-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-37:interrupt-redirect",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:interrupt-redirect:approval-bound-stop-contract",
+      "next-safe-action-ref:interrupt-redirect:recovery-state-machine",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_runtime_payloads_omitted",
+      "raw_logs_omitted",
+      "process_identifiers_omitted",
+      "operator_instruction_text_omitted",
     ],
   },
   runtimeApprovalBridge: {

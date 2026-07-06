@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `228`.
+Current OpenAPI path count: `229`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -276,6 +276,15 @@ authority refs only. Chat slash-command execution, runtime invocation, state
 mutation, shell execution, provider calls, browser automation, connector
 writes, Control Center authority minting, raw prompt persistence, and raw
 response persistence remain blocked.
+`GET /api/runtime/interrupt-redirect` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 37 interrupt/redirect run-control posture.
+It returns pause, stop, redirect, revise, and recovery proposal refs, approval
+scope refs, idempotency refs, receipt-plan refs, recovery-state refs, proof
+refs, verifier refs, promotion refs, and blocked authority refs only. Live
+stop POST, process kill, runtime mutation, background autonomy, shell
+execution, provider calls, browser automation, connector writes, Control
+Center authority minting, raw runtime payload persistence, and raw log
+persistence remain blocked.
 `GET /api/runtime/context-references` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 16 context-reference posture. It returns
 safe-ref grammar, preview refs, budget estimates, why-included refs, and

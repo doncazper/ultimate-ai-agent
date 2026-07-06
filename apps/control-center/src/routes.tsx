@@ -542,6 +542,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           lspDiagnostics={data.runtimeLspDiagnostics}
           previewRail={data.runtimePreviewRail}
           slashCommandRegistry={data.runtimeSlashCommandRegistry}
+          interruptRedirect={data.runtimeInterruptRedirect}
         />
       );
     case "/operator-loop":

@@ -47,6 +47,7 @@ import type {
   RuntimeMcpCatalogFilteringReadModel,
   RuntimePromptStabilityTiersReadModel,
   RuntimePreviewRailReadModel,
+  RuntimeInterruptRedirectReadModel,
   RuntimeSessionContinuityReadModel,
   RuntimeToolsetCapabilityPosture,
   RuntimeToolRegistryAvailabilityReadModel,
@@ -419,6 +420,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeSlashCommandRegistry,
     ),
   ] as const);
+  const runtimeInterruptRedirectSettledPromise = Promise.allSettled([
+    read<RuntimeInterruptRedirectReadModel>(
+      API_ENDPOINTS.runtimeInterruptRedirect,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -558,6 +564,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimePreviewRailResult = await runtimePreviewRailSettledPromise;
   const runtimeSlashCommandRegistryResult =
     await runtimeSlashCommandRegistrySettledPromise;
+  const runtimeInterruptRedirectResult =
+    await runtimeInterruptRedirectSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -613,6 +621,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimePreviewRail = fulfilledValue(runtimePreviewRailResult[0]);
   const runtimeSlashCommandRegistry = fulfilledValue(
     runtimeSlashCommandRegistryResult[0],
+  );
+  const runtimeInterruptRedirect = fulfilledValue(
+    runtimeInterruptRedirectResult[0],
   );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
@@ -767,6 +778,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeSlashCommandRegistry,
   )
     ? runtimeSlashCommandRegistry
+    : undefined;
+  const safeRuntimeInterruptRedirect = isSafeRuntimeInterruptRedirect(
+    runtimeInterruptRedirect,
+  )
+    ? runtimeInterruptRedirect
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -936,6 +952,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimePreviewRailFallbackUsed = safeRuntimePreviewRail === undefined;
   const runtimeSlashCommandRegistryFallbackUsed =
     safeRuntimeSlashCommandRegistry === undefined;
+  const runtimeInterruptRedirectFallbackUsed =
+    safeRuntimeInterruptRedirect === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -1120,7 +1138,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeWorktreePerAgent !== undefined &&
         runtimeLspDiagnostics !== undefined &&
         runtimePreviewRail !== undefined &&
-        runtimeSlashCommandRegistry !== undefined,
+        runtimeSlashCommandRegistry !== undefined &&
+        runtimeInterruptRedirect !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -1188,6 +1207,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeSlashCommandRegistryFallbackUsed
           ? ["RUNTIME_SLASH_COMMAND_REGISTRY_MOCK_FALLBACK"]
           : []),
+        ...(runtimeInterruptRedirectFallbackUsed
+          ? ["RUNTIME_INTERRUPT_REDIRECT_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1213,7 +1235,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeWorktreePerAgentFallbackUsed ||
         runtimeLspDiagnosticsFallbackUsed ||
         runtimePreviewRailFallbackUsed ||
-        runtimeSlashCommandRegistryFallbackUsed,
+        runtimeSlashCommandRegistryFallbackUsed ||
+        runtimeInterruptRedirectFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1323,6 +1346,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeLspDiagnostics === undefined ||
     runtimePreviewRail === undefined ||
     runtimeSlashCommandRegistry === undefined ||
+    runtimeInterruptRedirect === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1366,8 +1390,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeWorktreePerAgentResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeLspDiagnosticsResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimePreviewRailResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeSlashCommandRegistryResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 23;
+    (runtimeSlashCommandRegistryResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeInterruptRedirectResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 24;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1484,6 +1509,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeSlashCommandRegistry:
       safeRuntimeSlashCommandRegistry ??
       mockControlCenterData.runtimeSlashCommandRegistry,
+    runtimeInterruptRedirect:
+      safeRuntimeInterruptRedirect ??
+      mockControlCenterData.runtimeInterruptRedirect,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1582,6 +1610,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeLspDiagnosticsFallbackUsed &&
     !runtimePreviewRailFallbackUsed &&
     !runtimeSlashCommandRegistryFallbackUsed &&
+    !runtimeInterruptRedirectFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1628,6 +1657,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeLspDiagnosticsFallbackUsed ||
     runtimePreviewRailFallbackUsed ||
     runtimeSlashCommandRegistryFallbackUsed ||
+    runtimeInterruptRedirectFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1713,6 +1743,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeSlashCommandRegistryFallbackUsed) {
     degradedSafeMessage =
       "Runtime slash command registry posture was unavailable or unsafe; non-authoritative mock fallback kept command execution, runtime invocation, state mutation, and raw prompt/response persistence blocked.";
+  } else if (runtimeInterruptRedirectFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime interrupt and redirect posture was unavailable or unsafe; non-authoritative mock fallback kept live stop, process kill, runtime mutation, and raw runtime payload persistence blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -5053,6 +5086,94 @@ function isSafeRuntimeSlashCommandRegistry(
         command.control_center_mints_authority === false &&
         command.raw_prompt_persisted === false &&
         command.raw_response_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeInterruptRedirect(
+  value: RuntimeInterruptRedirectReadModel | undefined,
+): value is RuntimeInterruptRedirectReadModel {
+  if (value === undefined || !Array.isArray(value.proposals)) {
+    return false;
+  }
+  const allowedStatuses = new Set([
+    "read_only_proposal",
+    "blocked_until_exact_lane",
+    "approval_required_future_lane",
+  ]);
+  const allowedSideEffects = new Set([
+    "none",
+    "runtime_control_mutation",
+    "operator_instruction_update",
+    "recovery_state_transition",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeInterruptRedirectReadModel> = [
+    "live_stop_post_enabled",
+    "process_kill_enabled",
+    "runtime_mutation_enabled",
+    "background_autonomy_enabled",
+    "shell_execution_enabled",
+    "provider_call_enabled",
+    "browser_automation_enabled",
+    "connector_write_enabled",
+    "control_center_mints_authority",
+    "raw_runtime_payload_persisted",
+    "raw_log_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_interrupt_redirect.v1" &&
+    value.status === "run_control_proposal_only" &&
+    value.route_ref === "GET /api/runtime/interrupt-redirect" &&
+    value.cli_ref === "uaa runtime inspect-interrupt-redirect" &&
+    value.proposal_count === value.proposals.length &&
+    value.read_only_proposal_count ===
+      value.proposals.filter(
+        (proposal) => proposal.action_status === "read_only_proposal",
+      ).length &&
+    value.approval_required_future_lane_count ===
+      value.proposals.filter(
+        (proposal) =>
+          proposal.action_status === "approval_required_future_lane",
+      ).length &&
+    value.blocked_count ===
+      value.proposals.filter(
+        (proposal) => proposal.action_status === "blocked_until_exact_lane",
+      ).length &&
+    value.run_ownership_visible === true &&
+    value.stop_scope_visible === true &&
+    value.idempotency_visible === true &&
+    value.cancellation_receipt_visible === true &&
+    value.recovery_state_visible === true &&
+    value.proof_link_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:interrupt-redirect-no-live-stop-post",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.proposals.every(
+      (proposal) =>
+        allowedStatuses.has(proposal.action_status) &&
+        allowedSideEffects.has(proposal.side_effect_class) &&
+        proposal.visible_in_control_center === true &&
+        proposal.proposal_only === true &&
+        isNonEmptyStringArray(proposal.blocked_authority_refs) &&
+        isNonEmptyStringArray(proposal.promotion_path_refs) &&
+        isNonEmptyStringArray(proposal.next_safe_action_refs) &&
+        proposal.live_stop_post_enabled === false &&
+        proposal.process_kill_enabled === false &&
+        proposal.runtime_mutation_enabled === false &&
+        proposal.background_autonomy_enabled === false &&
+        proposal.shell_execution_enabled === false &&
+        proposal.provider_call_enabled === false &&
+        proposal.browser_automation_enabled === false &&
+        proposal.connector_write_enabled === false &&
+        proposal.control_center_mints_authority === false &&
+        proposal.raw_runtime_payload_persisted === false &&
+        proposal.raw_log_persisted === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

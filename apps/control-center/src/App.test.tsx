@@ -7723,6 +7723,22 @@ describe("Web Control Center shell", () => {
         "blocked-authority:slash-command-registry-no-chat-execution",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText("Run control")).toBeInTheDocument();
+    expect(screen.getByText("Interrupt and redirect")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/interrupt-redirect").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-interrupt-redirect").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Pause current work")).toBeInTheDocument();
+    expect(screen.getByText("Stop current work")).toBeInTheDocument();
+    expect(screen.getByText("Redirect work")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:interrupt-redirect-no-live-stop-post",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
     expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
@@ -14853,6 +14869,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.runtimeSlashCommandRegistry),
     ).toBe(true);
+    expect(API_ENDPOINTS.runtimeInterruptRedirect).toBe(
+      "/api/runtime/interrupt-redirect",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeInterruptRedirect)).toBe(
+      true,
+    );
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15922,6 +15944,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimePreviewRail,
     [API_ENDPOINTS.runtimeSlashCommandRegistry]:
       mockControlCenterData.runtimeSlashCommandRegistry,
+    [API_ENDPOINTS.runtimeInterruptRedirect]:
+      mockControlCenterData.runtimeInterruptRedirect,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
