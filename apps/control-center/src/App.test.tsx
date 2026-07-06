@@ -857,6 +857,32 @@ function backendOwnedCodingSessionFixture(overrides: Record<string, unknown> = {
     safe_refs_only: true,
     raw_content_included: false,
     control_center_grants_authority: false,
+    project_model: {
+      ...session.project_model,
+      project_model_ref: "coding-project-model:app-test",
+      session_ref: "coding-session:app-test-backend",
+      workspace_ref: "workspace-ref:coding:app-test",
+      repo_scope_ref: "repo-scope:coding:app-test",
+      branch_ref: "branch-ref:coding:app-test",
+      worktree_ref: "worktree-ref:coding:app-test",
+      backend_owned: true,
+      read_only: true,
+      safe_refs_only: true,
+      raw_paths_included: false,
+      raw_content_included: false,
+      repo_file_read_performed: false,
+      project_scan_performed: false,
+      file_write_enabled: false,
+      shell_subprocess_execution_enabled: false,
+      git_status_execution_enabled: false,
+      git_mutation_enabled: false,
+      dev_server_control_enabled: false,
+      browser_preview_enabled: false,
+      browser_automation_enabled: false,
+      provider_model_call_enabled: false,
+      background_autonomy_enabled: false,
+      production_authority_enabled: false,
+    },
     file_write_enabled: false,
     shell_subprocess_execution_enabled: false,
     git_mutation_enabled: false,
@@ -2265,6 +2291,14 @@ describe("Web Control Center shell", () => {
         0,
       );
       expect(within(cockpit).getByText("Context")).toBeInTheDocument();
+      expect(
+        within(cockpit).getByText(
+          "Project posture is backend-owned, read-only, and safe-ref only.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(cockpit).getAllByText("coding-project-model:app-test").length,
+      ).toBeGreaterThan(0);
       expect(
         within(cockpit).getByText("Context preview is backend-owned, read-only, and safe-ref only."),
       ).toBeInTheDocument();
