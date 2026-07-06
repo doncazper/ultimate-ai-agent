@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import threading
 import subprocess
 import sys
@@ -567,6 +568,113 @@ def test_runtime_gateway_allowlisted_command_records_redacted_receipt(
 def test_governed_command_runtime_rejects_unapproved_workspace_root(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="RUNTIME_COMMAND_WORKSPACE_ROOT_NOT_ALLOWLISTED"):
         GovernedCommandRuntimeAdapter(workspace_root=tmp_path)
+
+
+def test_runtime_launcher_command_run_cli_records_receipts_and_mission_scope(
+    tmp_path: Path,
+) -> None:
+    mission_ref = "mission-ref:test-runtime-cli-command"
+    env = os.environ.copy()
+    env["UAA_AUTHORITY_STATE_DIR"] = str(tmp_path / "authority")
+    runtime_state_dir = tmp_path / "runtime"
+
+    issue = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_runtime.py"),
+            "select-authority-mode",
+            "--mode",
+            "approved_safe_local_work_session",
+            "--scope",
+            "mission",
+            "--mission-ref",
+            mission_ref,
+            "--domain",
+            "workspace:read,execute",
+            "--reason-ref",
+            "reason-ref:runtime-cli-command-mission",
+            "--idempotency-ref",
+            "idempotency-ref:runtime-cli-command-mission",
+            "--summary",
+            "Authorize mission-bound runtime command inspection.",
+            "--json",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    issue_body = json.loads(issue.stdout)
+    assert issue_body["receipt"]["status"] == "issued"
+    assert issue_body["lease"]["scope"] == "mission"
+    assert issue_body["lease"]["mission_ref"] == mission_ref
+
+    matching = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_runtime.py"),
+            "--state-dir",
+            str(runtime_state_dir),
+            "command",
+            "run",
+            "git_status",
+            "--mission-ref",
+            mission_ref,
+            "--idempotency-ref",
+            "idempotency-ref:runtime-cli-command-matching",
+            "--summary",
+            "Inspect repo status under the matching mission lease.",
+            "--json",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    matching_body = json.loads(matching.stdout)
+    assert matching_body["success"] is True
+    assert matching_body["execution_performed"] is True
+    assert matching_body["command_execution_performed"] is True
+    assert matching_body["mission_ref"] == mission_ref
+    assert matching_body["record"]["request"]["mission_ref"] == mission_ref
+    assert matching_body["record"]["policy_decision"]["authority_decision_outcome"] == "allow"
+    assert str(tmp_path) not in matching.stdout
+    assert "stdout" not in matching.stdout
+    assert "stderr" not in matching.stdout
+
+    missing = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_runtime.py"),
+            "--state-dir",
+            str(runtime_state_dir),
+            "command",
+            "run",
+            "git_status",
+            "--idempotency-ref",
+            "idempotency-ref:runtime-cli-command-missing-mission",
+            "--summary",
+            "Inspect repo status without the active mission ref.",
+            "--json",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert missing.returncode == 1
+    missing_body = json.loads(missing.stdout)
+    assert missing_body["success"] is False
+    assert missing_body["execution_performed"] is False
+    assert missing_body["command_execution_performed"] is False
+    missing_policy = missing_body["record"]["policy_decision"]
+    assert missing_policy["authority_decision_outcome"] == "degrade_to_draft"
+    assert "AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION" in (
+        missing_policy["reason_codes"]
+    )
+    assert str(tmp_path) not in missing.stdout
+    assert "stdout" not in missing.stdout
+    assert "stderr" not in missing.stdout
 
 
 def test_runtime_gateway_command_replay_after_safe_disable_keeps_idempotency_shape(

@@ -41,6 +41,9 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     RuntimeInvocationConflictError,
     RuntimeInvocationNotFoundError,
     RuntimeInvocationStore,
+    RuntimeCommandExecutionRequest,
+    RuntimeCommandIntent,
+    RuntimeGateway,
     active_runtime_authority_leases,
     HermesChatRequest,
     HermesCliAdapter,
@@ -1677,6 +1680,152 @@ def _capabilities(args: argparse.Namespace) -> int:
     else:
         _print_capabilities()
     return 0
+
+
+def _command_run(args: argparse.Namespace) -> int:
+    try:
+        request = RuntimeCommandExecutionRequest(
+            intent=args.intent,
+            requested_profile=args.profile,
+            mission_ref=args.mission_ref,
+            target_refs=args.target_ref or [],
+            safe_summary=args.summary,
+            timeout_seconds=args.timeout_seconds,
+            output_byte_limit=args.output_byte_limit,
+            metadata_refs=args.metadata_ref or [],
+        )
+        result = RuntimeGateway(store=_runtime_store(args)).invoke_command(
+            request,
+            idempotency_ref=args.idempotency_ref,
+        )
+    except RuntimeInvocationConflictError:
+        payload = {
+            "schema_version": "governed-runtime-cli:v1",
+            "command_ref": "repo-local-command:uaa-runtime-command-run",
+            "success": False,
+            "trace_id": args.idempotency_ref,
+            "error_category": "RUNTIME_INVOCATION_IDEMPOTENCY_CONFLICT",
+            "safe_message": (
+                "The governed runtime idempotency ref already has a different "
+                "payload fingerprint."
+            ),
+            "safe_refs_only": True,
+            "raw_content_omitted": True,
+            "raw_paths_omitted": True,
+            "raw_command_output_omitted": True,
+            "execution_performed": False,
+        }
+        if args.json:
+            _print_json(payload)
+        else:
+            print("Governed runtime command run")
+            print("Status: conflict")
+            print(f"Trace: {args.idempotency_ref}")
+            print(f"Error: {payload['error_category']}")
+            print(payload["safe_message"])
+        return 1
+    except ValidationError:
+        payload = {
+            "schema_version": "governed-runtime-cli:v1",
+            "command_ref": "repo-local-command:uaa-runtime-command-run",
+            "success": False,
+            "trace_id": args.idempotency_ref,
+            "error_category": "RUNTIME_COMMAND_REQUEST_INVALID",
+            "safe_message": "The governed runtime command request failed safe validation.",
+            "safe_refs_only": True,
+            "raw_content_omitted": True,
+            "raw_paths_omitted": True,
+            "raw_command_output_omitted": True,
+            "execution_performed": False,
+        }
+        if args.json:
+            _print_json(payload)
+        else:
+            print("Governed runtime command run")
+            print("Status: invalid")
+            print(f"Trace: {args.idempotency_ref}")
+            print(f"Error: {payload['error_category']}")
+            print(payload["safe_message"])
+        return 2
+
+    receipt = result.record.receipt
+    metadata = receipt.command_receipt_metadata if receipt else None
+    success = (
+        result.error_category is None
+        and result.record.status == "receipt_recorded"
+        and result.exit_code == 0
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-command-run",
+        "success": success,
+        "trace_id": result.record.invocation_ref,
+        "record": result.record.model_dump(mode="json"),
+        "replayed": result.replayed,
+        "execution_performed": bool(receipt and receipt.execution_performed),
+        "adapter_execution_enabled": result.record.policy_decision.adapter_execution_enabled,
+        "command_execution_enabled": result.command_execution_enabled,
+        "command_execution_performed": bool(
+            receipt and receipt.command_execution_performed
+        ),
+        "mission_ref": request.mission_ref,
+        "shell_strings_accepted": False,
+        "raw_output_persisted": False,
+        "output_summary": result.output_summary,
+        "output_summary_returned": result.output_summary_returned,
+        "output_persisted": False,
+        "exit_code": result.exit_code,
+        "timed_out": result.timed_out,
+        "error_category": result.error_category,
+        "receipt_ref": receipt.receipt_ref if receipt else None,
+        "metadata_ref": metadata.redacted_output_ref if metadata else None,
+        "blocked_authority_refs": (
+            receipt.blocked_authority_refs
+            if receipt
+            else result.record.policy_decision.blocked_authority_refs
+        ),
+        "blocked_runtime_authority": [
+            "arbitrary_command_text",
+            "shell_execution",
+            "networked_commands",
+            "raw_command_output_persistence",
+            "browser_automation",
+            "connector_write",
+            "plugin_runtime_import",
+            "remote_provider_model_call",
+            "production_authority",
+        ],
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_command_output_omitted": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        print("Governed runtime command run")
+        print(f"Status: {result.record.status}")
+        print(f"Invocation: {result.record.invocation_ref}")
+        print(f"Intent: {request.intent}")
+        print(f"Mission: {request.mission_ref or 'none'}")
+        print(f"Policy: {result.record.policy_decision.policy_decision_ref}")
+        print(
+            f"Authority decision: "
+            f"{result.record.policy_decision.authority_decision_outcome or 'not_evaluated'}"
+        )
+        print(
+            f"Authority lease: "
+            f"{result.record.policy_decision.authority_lease_ref or 'none'}"
+        )
+        print(f"Receipt: {payload['receipt_ref'] or 'none'}")
+        print(f"Command enabled: {result.command_execution_enabled}")
+        print(f"Command performed: {payload['command_execution_performed']}")
+        print(f"Exit code: {result.exit_code if result.exit_code is not None else 'none'}")
+        print(f"Timed out: {result.timed_out}")
+        print(f"Error: {result.error_category or 'none'}")
+        if result.output_summary:
+            print(f"Output summary: {result.output_summary}")
+    return 0 if success else 1
 
 
 def _authority_profile(args: argparse.Namespace) -> int:
@@ -3443,6 +3592,66 @@ def build_parser() -> argparse.ArgumentParser:
     )
     capabilities.add_argument("--json", action="store_true", help="Emit safe JSON.")
     capabilities.set_defaults(func=_capabilities)
+
+    command = subparsers.add_parser(
+        "command",
+        help="Run exact governed RuntimeGateway command lanes.",
+    )
+    command_subparsers = command.add_subparsers(dest="runtime_command", required=True)
+    command_run = command_subparsers.add_parser(
+        "run",
+        help="Run an exact allowlisted RuntimeGateway command with receipts.",
+    )
+    command_run.add_argument(
+        "intent",
+        choices=[intent.value for intent in RuntimeCommandIntent],
+        help="Allowlisted RuntimeGateway command intent.",
+    )
+    command_run.add_argument(
+        "--profile",
+        default="local-runtime",
+        choices=["local-runtime", "operator-approved"],
+        help="Requested runtime profile.",
+    )
+    command_run.add_argument(
+        "--mission-ref",
+        default=None,
+        help="Safe mission ref for mission-scoped authority evaluation.",
+    )
+    command_run.add_argument(
+        "--target-ref",
+        action="append",
+        help="Safe target ref included in the command request scope.",
+    )
+    command_run.add_argument(
+        "--metadata-ref",
+        action="append",
+        help="Safe metadata ref included in the command request.",
+    )
+    command_run.add_argument(
+        "--idempotency-ref",
+        required=True,
+        help="Safe idempotency ref for the command run.",
+    )
+    command_run.add_argument(
+        "--summary",
+        required=True,
+        help="Safe bounded command summary.",
+    )
+    command_run.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=5.0,
+        help="Bounded command timeout.",
+    )
+    command_run.add_argument(
+        "--output-byte-limit",
+        type=int,
+        default=4096,
+        help="Bounded output byte limit for redacted summary generation.",
+    )
+    command_run.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    command_run.set_defaults(func=_command_run)
 
     authority_profile = subparsers.add_parser(
         "authority-profile",

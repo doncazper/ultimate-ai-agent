@@ -27,6 +27,7 @@ surfaces are:
 - `POST /api/runtime/authority-leases/revoke`
 - `scripts/dev/uaa_runtime.py select-authority-mode`
 - `scripts/dev/uaa_runtime.py revoke-authority-lease`
+- `scripts/dev/uaa_runtime.py command run ... --mission-ref ...`
 - Control Center `/settings` authority mode controls for implemented local
   domain subsets, revoke receipts, decision previews for concrete
   mode/domain/capability requests, and mission-plan previews for delegated

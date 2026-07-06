@@ -186,8 +186,8 @@ only when copy preserves the current truth:
   receipts. Phase 05 permits focused pytest, repo-verifier, frontend-check,
   and repo-doctor command execution only after an exact validated `operator-approved` Action
   Inbox approval envelope; arbitrary commands remain blocked. Phase 06 may
-  describe `uaa runtime ...`, `uaa actions approve|deny ...`, Control Center
-  readiness/status cards, and runtime evidence timeline refs only as
+  describe `uaa runtime command run ...`, `uaa actions approve|deny ...`,
+  Control Center readiness/status cards, and runtime evidence timeline refs only as
   backend-owned inspection and exact-envelope decision surfaces. Phase 07 may
   describe command root pinning, configured endpoint matching, receipt-detail
   execution truth, approval preflight, blocked retry replay hardening, and
