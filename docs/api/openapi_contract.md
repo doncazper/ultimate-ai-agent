@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `230`.
+Current OpenAPI path count: `231`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -246,6 +246,15 @@ Contract rules:
   toggling, raw log persistence, raw prompt/response/provider payload/path
   persistence, credential persistence, remote telemetry export, background log
   streaming, production authority, and public release claims remain blocked.
+  `GET /api/runtime/result-classification` exposes the Hermes Runtime Adoption
+  Phase 39 backend-owned result taxonomy posture. It returns evidence,
+  mutation, warning, blocked, proposal, diagnostic, and untrusted-data class
+  refs, provenance policy refs, redaction policy refs, receipt requirement
+  refs, proof binding refs, verifier refs, promotion refs, and blocked authority
+  refs only. Treating tool output as truth, treating output as action
+  authority, mutation without receipt, unverified evidence promotion, raw output
+  persistence, provider payload persistence, production authority, and public
+  release claims remain blocked.
   `GET /api/runtime/context-references` exposes the Hermes Runtime Adoption
   Phase 16 backend-owned context-reference posture. It returns safe-ref grammar,
   preview refs, budget estimates, why-included refs, and blocked URL/live-fetch

@@ -21,6 +21,7 @@ import type {
   RuntimePromptStabilityTiersReadModel,
   RuntimePreviewRailReadModel,
   RuntimeReadinessReport,
+  RuntimeResultClassificationReadModel,
   RuntimeSlashCommandRegistryReadModel,
   RuntimeUsageCostAnalyticsReadModel,
   RuntimeVirtualProviderMoaReadModel,
@@ -56,6 +57,7 @@ export function RuntimeReadinessPanel({
   slashCommandRegistry,
   interruptRedirect,
   loggingProfile,
+  resultClassification,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -83,6 +85,7 @@ export function RuntimeReadinessPanel({
   slashCommandRegistry: RuntimeSlashCommandRegistryReadModel;
   interruptRedirect: RuntimeInterruptRedirectReadModel;
   loggingProfile: RuntimeLoggingProfileReadModel;
+  resultClassification: RuntimeResultClassificationReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -1537,6 +1540,120 @@ export function RuntimeReadinessPanel({
           {loggingProfile.blocked_authority_refs.slice(0, 6).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Result labels</p>
+            <h3>Tool result classification</h3>
+          </div>
+          <span className="status-pill compact">
+            {resultClassification.status}
+          </span>
+        </div>
+        <p>{resultClassification.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{resultClassification.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{resultClassification.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Classes</dt>
+            <dd>{resultClassification.classification_count}</dd>
+          </div>
+          <div>
+            <dt>Evidence</dt>
+            <dd>{resultClassification.evidence_count}</dd>
+          </div>
+          <div>
+            <dt>Mutation</dt>
+            <dd>{resultClassification.mutation_count}</dd>
+          </div>
+          <div>
+            <dt>Untrusted</dt>
+            <dd>{resultClassification.untrusted_data_count}</dd>
+          </div>
+          <div>
+            <dt>Output as truth</dt>
+            <dd>
+              {resultClassification.tool_output_as_truth_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Action authority</dt>
+            <dd>
+              {resultClassification.action_authority_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Class</th>
+                <th>Status</th>
+                <th>Provenance</th>
+                <th>Receipt</th>
+                <th>Proof</th>
+              </tr>
+            </thead>
+            <tbody>
+              {resultClassification.classifications.map((item) => (
+                <tr key={item.classification_ref}>
+                  <td>{item.display_label}</td>
+                  <td>{item.verification_status}</td>
+                  <td>{item.provenance_policy_ref}</td>
+                  <td>{item.receipt_requirement_ref}</td>
+                  <td>{item.proof_binding_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>Labels</dt>
+            <dd>{resultClassification.labels_visible ? "visible" : "missing"}</dd>
+          </div>
+          <div>
+            <dt>Proof binding</dt>
+            <dd>
+              {resultClassification.proof_binding_visible
+                ? "visible"
+                : "missing"}
+            </dd>
+          </div>
+          <div>
+            <dt>Raw output</dt>
+            <dd>
+              {resultClassification.raw_output_persisted ? "stored" : "omitted"}
+            </dd>
+          </div>
+          <div>
+            <dt>Provider payload</dt>
+            <dd>
+              {resultClassification.provider_payload_persisted
+                ? "stored"
+                : "omitted"}
+            </dd>
+          </div>
+        </dl>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {resultClassification.blocked_authority_refs
+            .slice(0, 6)
+            .map((ref) => (
+              <li key={ref}>{ref}</li>
+            ))}
         </ul>
       </article>
       <article className="info-card">

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `230`.
+Current OpenAPI path count: `231`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -293,6 +293,14 @@ refs, verifier refs, promotion refs, and blocked authority refs only. Verbose
 toggling, raw log persistence, raw prompt/response/provider payload/path
 persistence, credential persistence, remote telemetry export, and background
 log streaming remain blocked.
+`GET /api/runtime/result-classification` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 39 result taxonomy posture. It returns
+evidence, mutation, warning, blocked, proposal, diagnostic, and untrusted-data
+class refs, provenance policy refs, redaction policy refs, receipt requirement
+refs, proof binding refs, verifier refs, promotion refs, and blocked authority
+refs only. Treating tool output as truth, treating output as action authority,
+mutation without receipt, unverified evidence promotion, raw output
+persistence, and provider payload persistence remain blocked.
 `GET /api/runtime/context-references` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 16 context-reference posture. It returns
 safe-ref grammar, preview refs, budget estimates, why-included refs, and

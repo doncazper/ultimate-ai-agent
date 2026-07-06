@@ -45,6 +45,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_slash_command_registry_read_model,
     build_runtime_interrupt_redirect_read_model,
     build_runtime_logging_profile_read_model,
+    build_runtime_result_classification_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -500,6 +501,22 @@ def get_api_runtime_logging_profile() -> ResultEnvelope:
         trace_id=read_model.snapshot_ref,
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:runtime-logging-profile:phase-38"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/result-classification", response_model=ResultEnvelope)
+def get_api_runtime_result_classification() -> ResultEnvelope:
+    read_model = build_runtime_result_classification_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_result_classification",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-result-classification:phase-39"}
+        ],
         redactions_applied=read_model.redactions_applied,
     )
 

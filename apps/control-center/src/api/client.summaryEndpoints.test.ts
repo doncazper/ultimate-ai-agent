@@ -828,6 +828,8 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.runtimeInterruptRedirect,
     [API_ENDPOINTS.runtimeLoggingProfile]:
       mockControlCenterData.runtimeLoggingProfile,
+    [API_ENDPOINTS.runtimeResultClassification]:
+      mockControlCenterData.runtimeResultClassification,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,

@@ -49,6 +49,7 @@ import type {
   RuntimePreviewRailReadModel,
   RuntimeInterruptRedirectReadModel,
   RuntimeLoggingProfileReadModel,
+  RuntimeResultClassificationReadModel,
   RuntimeSessionContinuityReadModel,
   RuntimeToolsetCapabilityPosture,
   RuntimeToolRegistryAvailabilityReadModel,
@@ -429,6 +430,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeLoggingProfileSettledPromise = Promise.allSettled([
     read<RuntimeLoggingProfileReadModel>(API_ENDPOINTS.runtimeLoggingProfile),
   ] as const);
+  const runtimeResultClassificationSettledPromise = Promise.allSettled([
+    read<RuntimeResultClassificationReadModel>(
+      API_ENDPOINTS.runtimeResultClassification,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -571,6 +577,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeInterruptRedirectResult =
     await runtimeInterruptRedirectSettledPromise;
   const runtimeLoggingProfileResult = await runtimeLoggingProfileSettledPromise;
+  const runtimeResultClassificationResult =
+    await runtimeResultClassificationSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -631,6 +639,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeInterruptRedirectResult[0],
   );
   const runtimeLoggingProfile = fulfilledValue(runtimeLoggingProfileResult[0]);
+  const runtimeResultClassification = fulfilledValue(
+    runtimeResultClassificationResult[0],
+  );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
@@ -794,6 +805,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeLoggingProfile,
   )
     ? runtimeLoggingProfile
+    : undefined;
+  const safeRuntimeResultClassification = isSafeRuntimeResultClassification(
+    runtimeResultClassification,
+  )
+    ? runtimeResultClassification
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -967,6 +983,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeInterruptRedirect === undefined;
   const runtimeLoggingProfileFallbackUsed =
     safeRuntimeLoggingProfile === undefined;
+  const runtimeResultClassificationFallbackUsed =
+    safeRuntimeResultClassification === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -1153,7 +1171,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimePreviewRail !== undefined &&
         runtimeSlashCommandRegistry !== undefined &&
         runtimeInterruptRedirect !== undefined &&
-        runtimeLoggingProfile !== undefined,
+        runtimeLoggingProfile !== undefined &&
+        runtimeResultClassification !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -1227,6 +1246,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeLoggingProfileFallbackUsed
           ? ["RUNTIME_LOGGING_PROFILE_MOCK_FALLBACK"]
           : []),
+        ...(runtimeResultClassificationFallbackUsed
+          ? ["RUNTIME_RESULT_CLASSIFICATION_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1254,7 +1276,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimePreviewRailFallbackUsed ||
         runtimeSlashCommandRegistryFallbackUsed ||
         runtimeInterruptRedirectFallbackUsed ||
-        runtimeLoggingProfileFallbackUsed,
+        runtimeLoggingProfileFallbackUsed ||
+        runtimeResultClassificationFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1366,6 +1389,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeSlashCommandRegistry === undefined ||
     runtimeInterruptRedirect === undefined ||
     runtimeLoggingProfile === undefined ||
+    runtimeResultClassification === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1411,8 +1435,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimePreviewRailResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeSlashCommandRegistryResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeInterruptRedirectResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeLoggingProfileResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 25;
+    (runtimeLoggingProfileResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeResultClassificationResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 26;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1534,6 +1559,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       mockControlCenterData.runtimeInterruptRedirect,
     runtimeLoggingProfile:
       safeRuntimeLoggingProfile ?? mockControlCenterData.runtimeLoggingProfile,
+    runtimeResultClassification:
+      safeRuntimeResultClassification ??
+      mockControlCenterData.runtimeResultClassification,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1634,6 +1662,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeSlashCommandRegistryFallbackUsed &&
     !runtimeInterruptRedirectFallbackUsed &&
     !runtimeLoggingProfileFallbackUsed &&
+    !runtimeResultClassificationFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1682,6 +1711,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeSlashCommandRegistryFallbackUsed ||
     runtimeInterruptRedirectFallbackUsed ||
     runtimeLoggingProfileFallbackUsed ||
+    runtimeResultClassificationFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1773,6 +1803,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeLoggingProfileFallbackUsed) {
     degradedSafeMessage =
       "Runtime logging profile posture was unavailable or unsafe; non-authoritative mock fallback kept verbose logging, raw log persistence, and remote telemetry export blocked.";
+  } else if (runtimeResultClassificationFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime result classification posture was unavailable or unsafe; non-authoritative mock fallback kept tool output from becoming truth or action authority.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -5286,6 +5319,102 @@ function isSafeRuntimeLoggingProfile(
         profile.remote_telemetry_export_enabled === false &&
         profile.background_log_stream_enabled === false &&
         profile.control_center_mints_authority === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeResultClassification(
+  value: RuntimeResultClassificationReadModel | undefined,
+): value is RuntimeResultClassificationReadModel {
+  if (value === undefined || !Array.isArray(value.classifications)) {
+    return false;
+  }
+  const allowedKinds = new Set([
+    "evidence",
+    "mutation",
+    "warning",
+    "blocked",
+    "proposal",
+    "diagnostic",
+    "untrusted_data",
+  ]);
+  const allowedVerification = new Set([
+    "verified_safe_ref",
+    "receipt_required",
+    "review_required",
+    "blocked_authority",
+    "untrusted_until_verified",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeResultClassificationReadModel> = [
+    "tool_output_as_truth_enabled",
+    "action_authority_enabled",
+    "mutation_without_receipt_enabled",
+    "unverified_evidence_promotion_enabled",
+    "raw_output_persisted",
+    "provider_payload_persisted",
+    "control_center_mints_authority",
+  ];
+  return (
+    value.schema_version === "runtime_result_classification.v1" &&
+    value.status === "taxonomy_read_model_only" &&
+    value.route_ref === "GET /api/runtime/result-classification" &&
+    value.cli_ref === "uaa runtime inspect-result-classification" &&
+    value.classification_count === value.classifications.length &&
+    value.evidence_count ===
+      value.classifications.filter((item) => item.result_kind === "evidence")
+        .length &&
+    value.mutation_count ===
+      value.classifications.filter((item) => item.result_kind === "mutation")
+        .length &&
+    value.warning_count ===
+      value.classifications.filter((item) => item.result_kind === "warning")
+        .length &&
+    value.blocked_count ===
+      value.classifications.filter((item) => item.result_kind === "blocked")
+        .length &&
+    value.proposal_count ===
+      value.classifications.filter((item) => item.result_kind === "proposal")
+        .length &&
+    value.diagnostic_count ===
+      value.classifications.filter((item) => item.result_kind === "diagnostic")
+        .length &&
+    value.untrusted_data_count ===
+      value.classifications.filter((item) => item.result_kind === "untrusted_data")
+        .length &&
+    value.labels_visible === true &&
+    value.provenance_visible === true &&
+    value.redaction_visible === true &&
+    value.verification_status_visible === true &&
+    value.proof_binding_visible === true &&
+    value.receipt_requirement_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:result-classification-no-tool-output-as-truth",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.classifications.every(
+      (item) =>
+        allowedKinds.has(item.result_kind) &&
+        allowedVerification.has(item.verification_status) &&
+        item.visible_in_control_center === true &&
+        item.result_label_required === true &&
+        item.provenance_required === true &&
+        item.redaction_required === true &&
+        item.proof_binding_required === true &&
+        isNonEmptyStringArray(item.blocked_authority_refs) &&
+        isNonEmptyStringArray(item.promotion_path_refs) &&
+        isNonEmptyStringArray(item.next_safe_action_refs) &&
+        item.tool_output_as_truth_enabled === false &&
+        item.action_authority_enabled === false &&
+        item.mutation_without_receipt_enabled === false &&
+        item.unverified_evidence_promotion_enabled === false &&
+        item.raw_output_persisted === false &&
+        item.provider_payload_persisted === false &&
+        item.control_center_mints_authority === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

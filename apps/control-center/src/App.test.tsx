@@ -7754,6 +7754,20 @@ describe("Web Control Center shell", () => {
         "blocked-authority:logging-profile-no-raw-log-persistence",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText("Result labels")).toBeInTheDocument();
+    expect(screen.getByText("Tool result classification")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/result-classification").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-result-classification").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Untrusted Data")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:result-classification-no-tool-output-as-truth",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
     expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
@@ -14896,6 +14910,12 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeLoggingProfile)).toBe(
       true,
     );
+    expect(API_ENDPOINTS.runtimeResultClassification).toBe(
+      "/api/runtime/result-classification",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeResultClassification),
+    ).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15969,6 +15989,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeInterruptRedirect,
     [API_ENDPOINTS.runtimeLoggingProfile]:
       mockControlCenterData.runtimeLoggingProfile,
+    [API_ENDPOINTS.runtimeResultClassification]:
+      mockControlCenterData.runtimeResultClassification,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:

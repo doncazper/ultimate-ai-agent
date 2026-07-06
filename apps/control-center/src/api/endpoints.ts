@@ -89,6 +89,7 @@ export const API_ENDPOINTS = {
   runtimeSlashCommandRegistry: "/api/runtime/slash-command-registry",
   runtimeInterruptRedirect: "/api/runtime/interrupt-redirect",
   runtimeLoggingProfile: "/api/runtime/logging-profile",
+  runtimeResultClassification: "/api/runtime/result-classification",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
   localModels: "/v1/models",
   localChatCompletions: "/v1/chat/completions",
@@ -251,6 +252,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.runtimeSlashCommandRegistry,
   API_ENDPOINTS.runtimeInterruptRedirect,
   API_ENDPOINTS.runtimeLoggingProfile,
+  API_ENDPOINTS.runtimeResultClassification,
 ] as const;
 
 export function isAllowedReadEndpoint(

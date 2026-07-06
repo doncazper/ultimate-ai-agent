@@ -52,6 +52,7 @@ import type {
   RuntimeLspDiagnosticEvidenceContract,
   RuntimeLoggingProfileRecord,
   RuntimePreviewRailSlot,
+  RuntimeResultClassificationRecord,
   RuntimeRunControlProposal,
   RuntimeSlashCommandRegistryEntry,
   RuntimeSessionContinuitySurface,
@@ -2111,6 +2112,95 @@ const runtimeLoggingProfileRecords = [
     safe_summary:
       "Mock forensic profile can show safe refs only; raw detail remains blocked.",
   }),
+];
+
+const runtimeResultClassificationBlockedRefs = [
+  "blocked-authority:result-classification-no-tool-output-as-truth",
+  "blocked-authority:result-classification-no-action-authority",
+  "blocked-authority:result-classification-no-mutation-without-receipt",
+  "blocked-authority:result-classification-no-unverified-evidence-promotion",
+  "blocked-authority:result-classification-no-raw-output-persistence",
+  "blocked-authority:result-classification-no-provider-payload-persistence",
+  "blocked-authority:result-classification-no-control-center-authority-mint",
+];
+
+function runtimeResultClassificationRecord(
+  kind: RuntimeResultClassificationRecord["result_kind"],
+  verificationStatus: RuntimeResultClassificationRecord["verification_status"],
+  safeSummary: string,
+): RuntimeResultClassificationRecord {
+  const slug = kind.replace("_", "-");
+  return {
+    classification_ref: `result-classification-ref:runtime:${slug}`,
+    result_kind: kind,
+    display_label: kind.replace("_", " ").replace(/\b\w/g, (char) =>
+      char.toUpperCase(),
+    ),
+    verification_status: verificationStatus,
+    provenance_policy_ref: `provenance-policy-ref:runtime-result:${slug}`,
+    redaction_policy_ref: `redaction-policy-ref:runtime-result:${slug}`,
+    receipt_requirement_ref: `receipt-requirement-ref:runtime-result:${slug}`,
+    proof_binding_ref: `proof-binding-ref:runtime-result:${slug}`,
+    safe_summary: safeSummary,
+    blocked_authority_refs: runtimeResultClassificationBlockedRefs,
+    promotion_path_refs: [
+      `promotion-path-ref:runtime-result:${slug}:envelope`,
+      `promotion-path-ref:runtime-result:${slug}:proof-binding`,
+    ],
+    next_safe_action_refs: [
+      `next-safe-action-ref:runtime-result:${slug}:classification-tests`,
+    ],
+    visible_in_control_center: true,
+    result_label_required: true,
+    provenance_required: true,
+    redaction_required: true,
+    proof_binding_required: true,
+    tool_output_as_truth_enabled: false,
+    action_authority_enabled: false,
+    mutation_without_receipt_enabled: false,
+    unverified_evidence_promotion_enabled: false,
+    raw_output_persisted: false,
+    provider_payload_persisted: false,
+    control_center_mints_authority: false,
+  };
+}
+
+const runtimeResultClassifications = [
+  runtimeResultClassificationRecord(
+    "evidence",
+    "verified_safe_ref",
+    "Mock evidence results require safe source refs and proof binding.",
+  ),
+  runtimeResultClassificationRecord(
+    "mutation",
+    "receipt_required",
+    "Mock mutation results require receipt refs before any claim.",
+  ),
+  runtimeResultClassificationRecord(
+    "warning",
+    "review_required",
+    "Mock warning results stay operator-reviewable.",
+  ),
+  runtimeResultClassificationRecord(
+    "blocked",
+    "blocked_authority",
+    "Mock blocked results explain missing authority.",
+  ),
+  runtimeResultClassificationRecord(
+    "proposal",
+    "review_required",
+    "Mock proposal results remain untrusted drafts.",
+  ),
+  runtimeResultClassificationRecord(
+    "diagnostic",
+    "review_required",
+    "Mock diagnostic results are troubleshooting evidence only.",
+  ),
+  runtimeResultClassificationRecord(
+    "untrusted_data",
+    "untrusted_until_verified",
+    "Mock untrusted data cannot become instructions or truth.",
+  ),
 ];
 
 const memoryLifecycleBlockedRefs = [
@@ -14550,6 +14640,82 @@ export const mockControlCenterData: ControlCenterData = {
       "provider_payloads_omitted",
       "local_paths_omitted",
       "credential_material_omitted",
+    ],
+  },
+  runtimeResultClassification: {
+    schema_version: "runtime_result_classification.v1",
+    contract_ref:
+      "contract-ref:hermes-runtime-adoption-result-classification:v1",
+    status: "taxonomy_read_model_only",
+    snapshot_ref: "result-classification-snapshot-ref:runtime:taxonomy",
+    snapshot_hash_ref: "snapshot-hash-ref:result-classification:mock",
+    route_ref: "GET /api/runtime/result-classification",
+    cli_ref: "uaa runtime inspect-result-classification",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime result classification mock fallback labels outputs without granting truth or action authority.",
+    classifications: runtimeResultClassifications,
+    classification_count: runtimeResultClassifications.length,
+    evidence_count: runtimeResultClassifications.filter(
+      (item) => item.result_kind === "evidence",
+    ).length,
+    mutation_count: runtimeResultClassifications.filter(
+      (item) => item.result_kind === "mutation",
+    ).length,
+    warning_count: runtimeResultClassifications.filter(
+      (item) => item.result_kind === "warning",
+    ).length,
+    blocked_count: runtimeResultClassifications.filter(
+      (item) => item.result_kind === "blocked",
+    ).length,
+    proposal_count: runtimeResultClassifications.filter(
+      (item) => item.result_kind === "proposal",
+    ).length,
+    diagnostic_count: runtimeResultClassifications.filter(
+      (item) => item.result_kind === "diagnostic",
+    ).length,
+    untrusted_data_count: runtimeResultClassifications.filter(
+      (item) => item.result_kind === "untrusted_data",
+    ).length,
+    labels_visible: true,
+    provenance_visible: true,
+    redaction_visible: true,
+    verification_status_visible: true,
+    proof_binding_visible: true,
+    receipt_requirement_visible: true,
+    tool_output_as_truth_enabled: false,
+    action_authority_enabled: false,
+    mutation_without_receipt_enabled: false,
+    unverified_evidence_promotion_enabled: false,
+    raw_output_persisted: false,
+    provider_payload_persisted: false,
+    control_center_mints_authority: false,
+    blocked_authority_refs: runtimeResultClassificationBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:result-classification:result-envelope",
+      "promotion-path-ref:result-classification:provenance",
+      "promotion-path-ref:result-classification:redaction",
+      "promotion-path-ref:result-classification:verification-status",
+      "promotion-path-ref:result-classification:proof-binding",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-39:result-classification",
+      "proof-ref:result-classification:taxonomy-only",
+      "proof-ref:result-classification:truth-authority-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-39:result-classification",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:result-classification:envelope-contract",
+      "next-safe-action-ref:result-classification:ui-label-regression",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_outputs_omitted",
+      "provider_payloads_omitted",
+      "untrusted_data_bounded",
     ],
   },
   runtimeApprovalBridge: {

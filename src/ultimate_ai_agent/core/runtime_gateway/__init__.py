@@ -408,6 +408,20 @@ from ultimate_ai_agent.core.runtime_gateway.logging_profile import (
     RuntimeLoggingRetentionClass,
     build_runtime_logging_profile_read_model,
 )
+from ultimate_ai_agent.core.runtime_gateway.result_classification import (
+    RUNTIME_RESULT_CLASSIFICATION_BLOCKED_AUTHORITY_REFS,
+    RUNTIME_RESULT_CLASSIFICATION_CLI_REF,
+    RUNTIME_RESULT_CLASSIFICATION_CONTRACT_REF,
+    RUNTIME_RESULT_CLASSIFICATION_PROOF_REF,
+    RUNTIME_RESULT_CLASSIFICATION_ROUTE_REF,
+    RUNTIME_RESULT_CLASSIFICATION_SNAPSHOT_REF,
+    RUNTIME_RESULT_CLASSIFICATION_VERIFIER_REF,
+    RuntimeResultClassificationReadModel,
+    RuntimeResultClassificationRecord,
+    RuntimeResultClassKind,
+    RuntimeResultVerificationStatus,
+    build_runtime_result_classification_read_model,
+)
 from ultimate_ai_agent.core.runtime_gateway.context_references import (
     RUNTIME_CONTEXT_REFERENCES_BLOCKED_AUTHORITY_REFS,
     RUNTIME_CONTEXT_REFERENCES_CLI_REF,
@@ -852,6 +866,7 @@ __all__ = [
     "build_runtime_slash_command_registry_read_model",
     "build_runtime_interrupt_redirect_read_model",
     "build_runtime_logging_profile_read_model",
+    "build_runtime_result_classification_read_model",
     "build_runtime_context_references_read_model",
     "build_runtime_checkpoint_rollback_read_model",
     "classify_sensitive_context_candidate",
