@@ -53,6 +53,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_voice_media_posture_read_model,
     build_runtime_messaging_gateway_posture_read_model,
     build_runtime_remote_execution_posture_read_model,
+    build_runtime_plugin_metadata_posture_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -1134,6 +1135,44 @@ def _print_remote_execution_posture(read_model: dict[str, Any]) -> None:
         print(f"- {ref}")
 
 
+def _print_plugin_metadata_posture(read_model: dict[str, Any]) -> None:
+    print("Runtime plugin metadata posture")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Doc: {read_model['doc_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Surfaces: "
+        f"total={read_model['surface_count']} "
+        f"blocked={read_model['blocked_surface_count']}"
+    )
+    print(
+        "Authority flags: "
+        f"runtime_import={read_model['runtime_import_enabled']} "
+        f"hooks={read_model['hook_execution_enabled']} "
+        f"install={read_model['package_install_enabled']} "
+        f"marketplace={read_model['marketplace_content_execution_enabled']} "
+        f"code={read_model['plugin_code_execution_enabled']} "
+        f"connector_write={read_model['connector_write_enabled']} "
+        f"provider={read_model['provider_call_enabled']} "
+        f"shell={read_model['shell_execution_enabled']}"
+    )
+    print("Plugin surfaces:")
+    for surface in read_model["surfaces"]:
+        print(
+            f"- {surface['display_label']}: "
+            f"kind={surface['surface_kind']} status={surface['status']}"
+        )
+        print(f"  manifest={surface['reviewed_manifest_ref']}")
+        print(f"  scan={surface['static_scan_ref']}")
+        print(f"  grant={surface['activation_grant_ref']}")
+        print(f"  receipt={surface['receipt_plan_ref']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
 def _print_session_search(read_model: dict[str, Any]) -> None:
     print("Runtime session/run search")
     print(f"Status: {read_model['status']}")
@@ -2183,6 +2222,36 @@ def _inspect_remote_execution_posture(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_remote_execution_posture(read_model)
+    return 0
+
+
+def _inspect_plugin_metadata_posture(args: argparse.Namespace) -> int:
+    read_model = build_runtime_plugin_metadata_posture_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-plugin-metadata-posture",
+        "runtime_plugin_metadata_posture": read_model,
+        "metadata_only": True,
+        "safe_refs_only": True,
+        "plugin_metadata_posture_only": True,
+        "runtime_import_performed": False,
+        "hook_execution_performed": False,
+        "package_install_performed": False,
+        "marketplace_content_execution_performed": False,
+        "plugin_code_execution_performed": False,
+        "connector_write_performed": False,
+        "provider_call_performed": False,
+        "shell_execution_performed": False,
+        "raw_manifests_omitted": True,
+        "package_payloads_omitted": True,
+        "external_code_omitted": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_plugin_metadata_posture(read_model)
     return 0
 
 
@@ -3343,6 +3412,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the remote execution backend posture as JSON.",
     )
     remote_execution_posture.set_defaults(func=_inspect_remote_execution_posture)
+
+    plugin_metadata_posture = subparsers.add_parser(
+        "inspect-plugin-metadata-posture",
+        help="Inspect plugin architecture metadata without runtime import.",
+    )
+    plugin_metadata_posture.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the plugin metadata posture as JSON.",
+    )
+    plugin_metadata_posture.set_defaults(func=_inspect_plugin_metadata_posture)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",
