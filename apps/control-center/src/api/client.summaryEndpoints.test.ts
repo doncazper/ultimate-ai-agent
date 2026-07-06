@@ -336,6 +336,29 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     );
   });
 
+  it("marks missing runtime streaming progress as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.runtimeStreamingProgress];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.runtimeStreamingProgress.live_subscription_enabled).toBe(false);
+    expect(data.runtimeStreamingProgress.sse_transport_enabled).toBe(false);
+    expect(data.runtimeStreamingProgress.websocket_transport_enabled).toBe(false);
+    expect(data.runtimeStreamingProgress.event_ingest_enabled).toBe(false);
+    expect(data.runtimeStreamingProgress.stale_stream).toBe(true);
+    expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
+    expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
+      "GET /api/runtime/streaming-progress",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain(
+      "RUNTIME_STREAMING_PROGRESS_MOCK_FALLBACK",
+    );
+  });
+
   it("marks missing CRM route as non-authoritative fallback", async () => {
     const routeData = baseRouteData();
     delete routeData[API_ENDPOINTS.crmSummary];
@@ -716,6 +739,8 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.runtimeRunEvents]: mockControlCenterData.runtimeRunEvents,
     [API_ENDPOINTS.runtimeApprovalBridge]:
       mockControlCenterData.runtimeApprovalBridge,
+    [API_ENDPOINTS.runtimeStreamingProgress]:
+      mockControlCenterData.runtimeStreamingProgress,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,

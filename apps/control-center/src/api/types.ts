@@ -8918,6 +8918,75 @@ export interface RuntimeRunEventsReadModel {
   redactions_applied: string[];
 }
 
+export interface RuntimeStreamingProgressEventPreview {
+  event_ref: string;
+  sequence: number;
+  event_kind:
+    | "token"
+    | "tool_started"
+    | "tool_completed"
+    | "warning"
+    | "approval_wait"
+    | "stopped"
+    | "failed"
+    | "completed";
+  runtime_run_ref: string;
+  uaa_durable_run_ref: string;
+  tool_call_ref?: string | null;
+  proof_ref: string;
+  event_hash_ref: string;
+  redaction_status: string;
+  preview_limit_bytes: number;
+  safe_summary: string;
+  runtime_payload_persisted: boolean;
+  raw_tool_payload_persisted: boolean;
+  raw_token_persisted: boolean;
+  raw_log_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+}
+
+export interface RuntimeStreamingProgressReadModel {
+  schema_version: "runtime_streaming_progress.v1";
+  contract_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  runtime_identity_ref: string;
+  runtime_run_ref: string;
+  uaa_durable_run_ref: string;
+  status: string;
+  stream_state:
+    | "fixture_preview"
+    | "locally_stored_preview"
+    | "stale_disconnected"
+    | "live_transport_blocked";
+  event_previews: RuntimeStreamingProgressEventPreview[];
+  event_count: number;
+  stale_stream: boolean;
+  live_subscription_enabled: boolean;
+  sse_transport_enabled: boolean;
+  websocket_transport_enabled: boolean;
+  reconnect_enabled: boolean;
+  event_ingest_enabled: boolean;
+  bounded_retention_required: boolean;
+  event_hashes_required: boolean;
+  uaa_controls_authority: boolean;
+  control_center_talks_directly_to_runtime: boolean;
+  safe_refs_only: boolean;
+  raw_runtime_payload_persisted: boolean;
+  raw_tool_payload_persisted: boolean;
+  raw_token_persisted: boolean;
+  raw_log_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  next_safe_action_refs: string[];
+  safe_summary: string;
+  redactions_applied: string[];
+}
+
 export interface RuntimeApprovalScopeValidationResult {
   validation_ref: string;
   requested_scope_ref: string;
@@ -9763,6 +9832,7 @@ export interface ControlCenterData {
   runtimeCapabilityDiscovery: RuntimeCapabilityDiscoveryReadModel;
   runtimeRunEvents: RuntimeRunEventsReadModel;
   runtimeApprovalBridge: RuntimeApprovalBridgeReadModel;
+  runtimeStreamingProgress: RuntimeStreamingProgressReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;
