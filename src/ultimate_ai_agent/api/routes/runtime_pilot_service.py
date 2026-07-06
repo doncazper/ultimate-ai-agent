@@ -31,6 +31,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_capability_discovery_read_model,
     build_runtime_delegation_adapter_read_model,
     build_runtime_run_events_read_model,
+    build_runtime_streaming_progress_read_model,
     build_runtime_action_signed_evidence,
     command_allowlist_catalog,
     verify_runtime_action_signed_evidence,
@@ -228,6 +229,22 @@ def get_api_runtime_approval_bridge() -> ResultEnvelope:
         trace_id=read_model.contract_ref,
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:runtime-approval-bridge:phase-04"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/streaming-progress", response_model=ResultEnvelope)
+def get_api_runtime_streaming_progress() -> ResultEnvelope:
+    read_model = build_runtime_streaming_progress_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_streaming_progress",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.contract_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-streaming-progress:phase-05"}
+        ],
         redactions_applied=read_model.redactions_applied,
     )
 

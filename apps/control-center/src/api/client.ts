@@ -38,6 +38,7 @@ import type {
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeDelegationAdapterReadModel,
   RuntimeRunEventsReadModel,
+  RuntimeStreamingProgressReadModel,
   RuntimeReadinessReport,
   ApiRouteInventory,
   FounderLoopActionDecisionKind,
@@ -316,6 +317,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeApprovalBridgeSettledPromise = Promise.allSettled([
     read<RuntimeApprovalBridgeReadModel>(API_ENDPOINTS.runtimeApprovalBridge),
   ] as const);
+  const runtimeStreamingProgressSettledPromise = Promise.allSettled([
+    read<RuntimeStreamingProgressReadModel>(
+      API_ENDPOINTS.runtimeStreamingProgress,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -424,6 +430,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeRunEventsResult = await runtimeRunEventsSettledPromise;
   const runtimeApprovalBridgeResult =
     await runtimeApprovalBridgeSettledPromise;
+  const runtimeStreamingProgressResult =
+    await runtimeStreamingProgressSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -438,6 +446,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const runtimeRunEvents = fulfilledValue(runtimeRunEventsResult[0]);
   const runtimeApprovalBridge = fulfilledValue(runtimeApprovalBridgeResult[0]);
+  const runtimeStreamingProgress = fulfilledValue(
+    runtimeStreamingProgressResult[0],
+  );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
@@ -508,6 +519,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeApprovalBridge,
   )
     ? runtimeApprovalBridge
+    : undefined;
+  const safeRuntimeStreamingProgress = isSafeRuntimeStreamingProgress(
+    runtimeStreamingProgress,
+  )
+    ? runtimeStreamingProgress
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -643,6 +659,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeRunEventsFallbackUsed = safeRuntimeRunEvents === undefined;
   const runtimeApprovalBridgeFallbackUsed =
     safeRuntimeApprovalBridge === undefined;
+  const runtimeStreamingProgressFallbackUsed =
+    safeRuntimeStreamingProgress === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -784,6 +802,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/capability-discovery",
         "GET /api/runtime/run-events",
         "GET /api/runtime/approval-bridge",
+        "GET /api/runtime/streaming-progress",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -791,7 +810,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeDelegationAdapter !== undefined &&
         runtimeCapabilityDiscovery !== undefined &&
         runtimeRunEvents !== undefined &&
-        runtimeApprovalBridge !== undefined,
+        runtimeApprovalBridge !== undefined &&
+        runtimeStreamingProgress !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -805,6 +825,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeApprovalBridgeFallbackUsed
           ? ["RUNTIME_APPROVAL_BRIDGE_MOCK_FALLBACK"]
           : []),
+        ...(runtimeStreamingProgressFallbackUsed
+          ? ["RUNTIME_STREAMING_PROGRESS_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -812,7 +835,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeDelegationAdapterFallbackUsed ||
         runtimeCapabilityDiscoveryFallbackUsed ||
         runtimeRunEventsFallbackUsed ||
-        runtimeApprovalBridgeFallbackUsed,
+        runtimeApprovalBridgeFallbackUsed ||
+        runtimeStreamingProgressFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -904,6 +928,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeCapabilityDiscovery === undefined ||
     runtimeRunEvents === undefined ||
     runtimeApprovalBridge === undefined ||
+    runtimeStreamingProgress === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -929,8 +954,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (agentLoopResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeCapabilityDiscoveryResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeRunEventsResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeApprovalBridgeResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 5;
+    (runtimeApprovalBridgeResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeStreamingProgressResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 6;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -997,6 +1023,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       safeRuntimeRunEvents ?? mockControlCenterData.runtimeRunEvents,
     runtimeApprovalBridge:
       safeRuntimeApprovalBridge ?? mockControlCenterData.runtimeApprovalBridge,
+    runtimeStreamingProgress:
+      safeRuntimeStreamingProgress ??
+      mockControlCenterData.runtimeStreamingProgress,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1077,6 +1106,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeCapabilityDiscoveryFallbackUsed &&
     !runtimeRunEventsFallbackUsed &&
     !runtimeApprovalBridgeFallbackUsed &&
+    !runtimeStreamingProgressFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1105,6 +1135,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeCapabilityDiscoveryFallbackUsed ||
     runtimeRunEventsFallbackUsed ||
     runtimeApprovalBridgeFallbackUsed ||
+    runtimeStreamingProgressFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1136,6 +1167,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeApprovalBridgeFallbackUsed) {
     degradedSafeMessage =
       "Runtime approval bridge posture was unavailable or unsafe; non-authoritative mock fallback kept runtime approval resolution blocked.";
+  } else if (runtimeStreamingProgressFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime streaming progress posture was unavailable or unsafe; non-authoritative mock fallback kept live runtime transport blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1205,6 +1239,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         : []),
       ...(runtimeApprovalBridgeFallbackUsed
         ? ["RUNTIME_APPROVAL_BRIDGE_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeStreamingProgressFallbackUsed
+        ? ["RUNTIME_STREAMING_PROGRESS_MOCK_FALLBACK"]
         : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
@@ -2984,6 +3021,72 @@ function isSafeRuntimeRunEvents(
     value.event_previews.every(
       (event) =>
         event.runtime_payload_persisted === false &&
+        event.raw_log_persisted === false &&
+        event.raw_prompt_persisted === false &&
+        event.raw_response_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeStreamingProgress(
+  value: RuntimeStreamingProgressReadModel | undefined,
+): value is RuntimeStreamingProgressReadModel {
+  if (value === undefined || !Array.isArray(value.event_previews)) {
+    return false;
+  }
+  const deniedTopLevelFlags: Array<keyof RuntimeStreamingProgressReadModel> = [
+    "live_subscription_enabled",
+    "sse_transport_enabled",
+    "websocket_transport_enabled",
+    "reconnect_enabled",
+    "event_ingest_enabled",
+    "control_center_talks_directly_to_runtime",
+    "raw_runtime_payload_persisted",
+    "raw_tool_payload_persisted",
+    "raw_token_persisted",
+    "raw_log_persisted",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+  ];
+  const eventSequences = value.event_previews.map((event) => event.sequence);
+  const sortedSequences = [...eventSequences].sort((left, right) => left - right);
+  const uniqueSequences = new Set(eventSequences);
+  const eventKinds = new Set(
+    value.event_previews.map((event) => event.event_kind),
+  );
+  return (
+    value.schema_version === "runtime_streaming_progress.v1" &&
+    value.status === "read_model_event_preview_only" &&
+    value.stream_state === "stale_disconnected" &&
+    value.stale_stream === true &&
+    value.uaa_controls_authority === true &&
+    value.safe_refs_only === true &&
+    value.bounded_retention_required === true &&
+    value.event_hashes_required === true &&
+    value.event_count === value.event_previews.length &&
+    eventSequences.length === uniqueSequences.size &&
+    eventSequences.every((sequence, index) => sequence === sortedSequences[index]) &&
+    eventKinds.has("token") &&
+    eventKinds.has("tool_started") &&
+    eventKinds.has("tool_completed") &&
+    eventKinds.has("approval_wait") &&
+    eventKinds.has("warning") &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.event_previews.every(
+      (event) =>
+        typeof event.event_ref === "string" &&
+        typeof event.proof_ref === "string" &&
+        typeof event.event_hash_ref === "string" &&
+        value.proof_refs.includes(event.proof_ref) &&
+        event.event_hash_ref.startsWith("event-hash-ref:") &&
+        event.preview_limit_bytes > 0 &&
+        event.preview_limit_bytes <= 2048 &&
+        event.runtime_payload_persisted === false &&
+        event.raw_tool_payload_persisted === false &&
+        event.raw_token_persisted === false &&
         event.raw_log_persisted === false &&
         event.raw_prompt_persisted === false &&
         event.raw_response_persisted === false,

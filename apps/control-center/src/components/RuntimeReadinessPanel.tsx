@@ -4,6 +4,7 @@ import type {
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeDelegationAdapterReadModel,
   RuntimeRunEventsReadModel,
+  RuntimeStreamingProgressReadModel,
   RuntimeReadinessReport,
 } from "../api/types";
 import { EmptyState } from "./DataState";
@@ -16,6 +17,7 @@ export function RuntimeReadinessPanel({
   capabilityDiscovery,
   runEvents,
   approvalBridge,
+  streamingProgress,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -23,6 +25,7 @@ export function RuntimeReadinessPanel({
   capabilityDiscovery: RuntimeCapabilityDiscoveryReadModel;
   runEvents: RuntimeRunEventsReadModel;
   approvalBridge: RuntimeApprovalBridgeReadModel;
+  streamingProgress: RuntimeStreamingProgressReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -249,6 +252,81 @@ export function RuntimeReadinessPanel({
             <li key={event.event_ref}>
               {event.event_kind}: {event.event_ref} {" -> "} {event.proof_ref}
             </li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Streaming progress</p>
+            <h3>Redacted event previews</h3>
+          </div>
+          <span className="status-pill compact">
+            {streamingProgress.stream_state}
+          </span>
+        </div>
+        <p>{streamingProgress.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{streamingProgress.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{streamingProgress.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Events</dt>
+            <dd>{streamingProgress.event_count}</dd>
+          </div>
+          <div>
+            <dt>Stale stream</dt>
+            <dd>{streamingProgress.stale_stream ? "yes" : "no"}</dd>
+          </div>
+          <div>
+            <dt>Live subscription</dt>
+            <dd>
+              {streamingProgress.live_subscription_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>SSE/WebSocket</dt>
+            <dd>
+              {streamingProgress.sse_transport_enabled ||
+              streamingProgress.websocket_transport_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Seq</th>
+                <th>Event</th>
+                <th>Proof</th>
+                <th>Hash</th>
+              </tr>
+            </thead>
+            <tbody>
+              {streamingProgress.event_previews.map((event) => (
+                <tr key={event.event_ref}>
+                  <td>{event.sequence}</td>
+                  <td>{event.event_kind}</td>
+                  <td>{event.proof_ref}</td>
+                  <td>{event.event_hash_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h4>Blocked transport</h4>
+        <ul className="compact-list">
+          {streamingProgress.blocked_authority_refs.slice(0, 5).map((ref) => (
+            <li key={ref}>{ref}</li>
           ))}
         </ul>
       </article>

@@ -69,6 +69,7 @@ export const API_ENDPOINTS = {
   runtimeCapabilityDiscovery: "/api/runtime/capability-discovery",
   runtimeRunEvents: "/api/runtime/run-events",
   runtimeApprovalBridge: "/api/runtime/approval-bridge",
+  runtimeStreamingProgress: "/api/runtime/streaming-progress",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
   localModels: "/v1/models",
   localChatCompletions: "/v1/chat/completions",
@@ -211,6 +212,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.runtimeCapabilityDiscovery,
   API_ENDPOINTS.runtimeRunEvents,
   API_ENDPOINTS.runtimeApprovalBridge,
+  API_ENDPOINTS.runtimeStreamingProgress,
 ] as const;
 
 export function isAllowedReadEndpoint(

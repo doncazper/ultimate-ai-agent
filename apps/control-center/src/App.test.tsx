@@ -7464,6 +7464,14 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("GET /api/runtime/run-events")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-run-events")).toBeInTheDocument();
     expect(screen.getByText("Approval-wait proposal lane")).toBeInTheDocument();
+    expect(screen.getByText("Streaming progress")).toBeInTheDocument();
+    expect(
+      screen.getByText("GET /api/runtime/streaming-progress"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("uaa runtime inspect-streaming-progress"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("stale_disconnected")).toBeInTheDocument();
     expect(screen.getByText("Approval bridge")).toBeInTheDocument();
     expect(
       screen.getByText("GET /api/runtime/approval-bridge"),
@@ -14283,6 +14291,12 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeApprovalBridge)).toBe(
       true,
     );
+    expect(API_ENDPOINTS.runtimeStreamingProgress).toBe(
+      "/api/runtime/streaming-progress",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeStreamingProgress)).toBe(
+      true,
+    );
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15318,6 +15332,8 @@ function envelopeForReadEndpoint(url: string) {
     [API_ENDPOINTS.runtimeRunEvents]: mockControlCenterData.runtimeRunEvents,
     [API_ENDPOINTS.runtimeApprovalBridge]:
       mockControlCenterData.runtimeApprovalBridge,
+    [API_ENDPOINTS.runtimeStreamingProgress]:
+      mockControlCenterData.runtimeStreamingProgress,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
