@@ -3816,6 +3816,9 @@ function isSafeModelProviderControlPlane(
   ) {
     return false;
   }
+  if (!isSafeModelSlotPosture(value.model_slot_posture)) {
+    return false;
+  }
   if (!isSafeModelProviderResearchPosture(value.model_provider_research_posture)) {
     return false;
   }
@@ -3899,6 +3902,104 @@ function isSafeDelegatedRuntimeModelAvailabilityRecord(value: unknown): boolean 
       "metadata_only_existing_lane_separate",
     ].includes(String(value.uaa_invocation_posture)) &&
     falseFlags.every((field) => value[field] === false) &&
+    Array.isArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.length > 0
+  );
+}
+
+function isSafeModelSlotPosture(value: unknown): boolean {
+  if (!isPlainRecord(value) || !Array.isArray(value.records)) {
+    return false;
+  }
+  const falseFlags = [
+    "live_auxiliary_calls_enabled",
+    "provider_sdk_use_enabled",
+    "runtime_selection_mutation_enabled",
+    "hidden_model_routing_enabled",
+    "raw_prompt_persistence_enabled",
+    "raw_response_persistence_enabled",
+  ];
+  const trueFlags = [
+    "route_decision_trace_required",
+    "cost_estimate_required",
+    "approval_profile_mapping_required",
+    "model_output_truth_envelope_required",
+    "receipts_required_before_execution",
+  ];
+  const warningCount = value.records.filter(
+    (record) =>
+      isPlainRecord(record) &&
+      Array.isArray(record.warning_refs) &&
+      record.warning_refs.length > 0,
+  ).length;
+  return (
+    value.schema_version === "hermes_runtime_model_slot_posture.v1" &&
+    value.status === "read_only_model_slot_intent" &&
+    value.route_ref === "GET /control-center/providers/runtime-control-plane" &&
+    value.trust_lane_ref === "trust-lane:model-slot-posture" &&
+    value.slot_count === value.records.length &&
+    value.warning_count === warningCount &&
+    value.main_slot_ref === "model-slot-ref:uaa:main-thinking" &&
+    Array.isArray(value.auxiliary_slot_refs) &&
+    value.auxiliary_slot_refs.length === value.records.length - 1 &&
+    falseFlags.every((field) => value[field] === false) &&
+    trueFlags.every((field) => value[field] === true) &&
+    value.records.every(isSafeModelSlotPostureRecord) &&
+    Array.isArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-state:model-slot:hidden-model-routing",
+    )
+  );
+}
+
+function isSafeModelSlotPostureRecord(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const falseFlags = [
+    "live_auxiliary_call_enabled",
+    "provider_sdk_call_enabled",
+    "runtime_selection_mutation_enabled",
+    "hidden_model_routing_enabled",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+  ];
+  const trueFlags = [
+    "route_decision_trace_required",
+    "cost_estimate_required",
+    "approval_profile_mapping_required",
+    "model_output_truth_envelope_required",
+    "receipt_required_before_execution",
+  ];
+  return (
+    typeof value.slot_ref === "string" &&
+    typeof value.display_label === "string" &&
+    typeof value.intended_provider_ref === "string" &&
+    typeof value.intended_model_ref === "string" &&
+    typeof value.route_decision_trace_ref === "string" &&
+    typeof value.model_output_truth_ref === "string" &&
+    [
+      "main_thinking",
+      "summarization",
+      "title",
+      "approval_scoring",
+      "compression",
+      "retrieval",
+      "vision",
+      "review",
+    ].includes(String(value.slot_role)) &&
+    [
+      "configured_metadata_only",
+      "planned_not_configured",
+      "runtime_reported_available_not_authorized",
+    ].includes(String(value.configured_status)) &&
+    [
+      "blocked_no_exact_model_authority",
+      "blocked_missing_runtime_profile",
+      "metadata_only_existing_lane_separate",
+    ].includes(String(value.uaa_execution_posture)) &&
+    falseFlags.every((field) => value[field] === false) &&
+    trueFlags.every((field) => value[field] === true) &&
     Array.isArray(value.blocked_authority_refs) &&
     value.blocked_authority_refs.length > 0
   );

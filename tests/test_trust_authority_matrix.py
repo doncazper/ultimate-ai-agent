@@ -84,6 +84,7 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
         assert blocked_lane_ref in parsed.blocked_lane_refs
     assert "trust-lane:local-draft-proposal" in parsed.available_now_lane_refs
     assert "trust-lane:web-evidence-product-slice" in parsed.available_now_lane_refs
+    assert "trust-lane:model-slot-posture" in parsed.available_now_lane_refs
     assert "trust-lane:provider-draft-summarize" in parsed.available_now_lane_refs
     assert "trust-lane:connector-draft-only" in parsed.available_now_lane_refs
     assert any(

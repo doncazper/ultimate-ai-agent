@@ -1589,7 +1589,8 @@
         "docs/control_center/route_status_manifest.json",
         "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
         "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
-        "docs/runtime/UAA_HERMES_RUNTIME_MODEL_PROVIDER_CATALOG.md"
+        "docs/runtime/UAA_HERMES_RUNTIME_MODEL_PROVIDER_CATALOG.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_MODEL_SLOT_POSTURE.md"
       ],
       "owner": "local-model-management",
       "backend_contract_rationale": "backend-route-refs-present",

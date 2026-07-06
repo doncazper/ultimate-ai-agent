@@ -70,6 +70,7 @@ TRUST_AUTHORITY_ALLOWED_CLI_INSPECTION_REFS: tuple[str, ...] = (
     "python scripts/dev/uaa_work_board.py inspect-reorder-receipt",
     "python scripts/dev/uaa_runtime.py capabilities --json",
     "python scripts/dev/uaa_runtime.py status --json",
+    "python scripts/inspect_model_provider_control_plane.py",
     "python scripts/inspect_tiny_provider_invocation_lane.py",
     PROVIDER_DRAFT_SUMMARIZE_CLI_REF,
     CONNECTOR_DRAFT_PROPOSAL_CLI_REF,
@@ -793,6 +794,48 @@ def _trust_authority_lanes(
                 "promotion-path-ref:trust:web-evidence:browser-action-separate-contract",
             ],
             blocked_authority_refs=list(WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS),
+        ),
+        _lane(
+            lane_ref="trust-lane:model-slot-posture",
+            label="Main and auxiliary model slot posture",
+            tier=1,
+            lane_kind="read_preview",
+            authority_state="available_now",
+            current_posture=(
+                "Model slots for main thinking, summarization, title, approval "
+                "scoring, compression, retrieval, vision, and review are "
+                "visible as backend-owned routing intent only."
+            ),
+            approval_posture=(
+                "No approval is required to inspect slot posture; any live "
+                "model call, provider SDK use, runtime default mutation, or "
+                "hidden model routing remains separately blocked."
+            ),
+            operator_can_do_now=(
+                "Inspect which slots are intended, planned, unavailable, or "
+                "runtime-reported without invoking or switching models."
+            ),
+            next_safe_action=(
+                "Use the model/provider control plane to review slot warnings; "
+                "promote exact model invocation separately with traces, cost, "
+                "truth envelopes, and receipts."
+            ),
+            route_refs=["GET /control-center/providers/runtime-control-plane"],
+            proof_refs=[
+                "proof-ref:hermes-runtime-adoption:phase-08:model-slot-posture"
+            ],
+            verifier_refs=["scripts/verify_hermes_runtime_adoption_phase_08.py"],
+            docs_refs=["docs/runtime/UAA_HERMES_RUNTIME_MODEL_SLOT_POSTURE.md"],
+            cli_inspection_refs=[
+                TRUST_AUTHORITY_MATRIX_CLI_REF,
+                "python scripts/inspect_model_provider_control_plane.py",
+            ],
+            blocked_authority_refs=[
+                "blocked-state:model-slot:live-auxiliary-model-calls",
+                "blocked-state:model-slot:provider-sdk-use",
+                "blocked-state:model-slot:runtime-selection-mutation",
+                "blocked-state:model-slot:hidden-model-routing",
+            ],
         ),
         _lane(
             lane_ref="trust-lane:provider-draft-summarize",

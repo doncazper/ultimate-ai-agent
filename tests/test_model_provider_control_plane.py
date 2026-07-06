@@ -12,6 +12,7 @@ from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.providers.control_plane import (
     DelegatedRuntimeModelCatalogPosture,
     MODEL_PROVIDER_CONTROL_PLANE_ROUTE_REF,
+    ModelSlotPostureReadModel,
     build_model_provider_control_plane_read_model,
 )
 
@@ -66,6 +67,48 @@ def test_model_provider_control_plane_unifies_governed_runtime_posture() -> None
         and record.live_provider_network_call_performed is False
         and record.raw_provider_payload_persisted is False
         for record in delegated_catalog.records
+    )
+    model_slot_posture = read_model.model_slot_posture
+    assert model_slot_posture.schema_version == "hermes_runtime_model_slot_posture.v1"
+    assert model_slot_posture.status == "read_only_model_slot_intent"
+    assert model_slot_posture.trust_lane_ref == "trust-lane:model-slot-posture"
+    assert model_slot_posture.slot_count == 8
+    assert model_slot_posture.slot_count == len(model_slot_posture.records)
+    assert model_slot_posture.warning_count >= 3
+    assert model_slot_posture.main_slot_ref == "model-slot-ref:uaa:main-thinking"
+    assert len(model_slot_posture.auxiliary_slot_refs) == 7
+    assert model_slot_posture.live_auxiliary_calls_enabled is False
+    assert model_slot_posture.provider_sdk_use_enabled is False
+    assert model_slot_posture.runtime_selection_mutation_enabled is False
+    assert model_slot_posture.hidden_model_routing_enabled is False
+    assert model_slot_posture.raw_prompt_persistence_enabled is False
+    assert model_slot_posture.raw_response_persistence_enabled is False
+    assert model_slot_posture.route_decision_trace_required is True
+    assert model_slot_posture.cost_estimate_required is True
+    assert model_slot_posture.approval_profile_mapping_required is True
+    assert model_slot_posture.model_output_truth_envelope_required is True
+    assert model_slot_posture.receipts_required_before_execution is True
+    assert {record.slot_role for record in model_slot_posture.records} == {
+        "main_thinking",
+        "summarization",
+        "title",
+        "approval_scoring",
+        "compression",
+        "retrieval",
+        "vision",
+        "review",
+    }
+    assert all(
+        record.live_auxiliary_call_enabled is False
+        and record.provider_sdk_call_enabled is False
+        and record.hidden_model_routing_enabled is False
+        and record.runtime_selection_mutation_enabled is False
+        and record.raw_prompt_persisted is False
+        and record.raw_response_persisted is False
+        and record.route_decision_trace_required is True
+        and record.cost_estimate_required is True
+        and record.receipt_required_before_execution is True
+        for record in model_slot_posture.records
     )
     assert read_model.role_provider_evidence.schema_version == (
         "role_based_model_provider_evidence.v1"
@@ -128,6 +171,13 @@ def test_model_provider_control_plane_route_is_protected_read_only_and_safe(
         is True
     )
     assert data["delegated_runtime_model_catalog"]["remote_model_call_enabled"] is False
+    assert data["model_slot_posture"]["schema_version"] == (
+        "hermes_runtime_model_slot_posture.v1"
+    )
+    assert data["model_slot_posture"]["slot_count"] == 8
+    assert data["model_slot_posture"]["hidden_model_routing_enabled"] is False
+    assert data["model_slot_posture"]["live_auxiliary_calls_enabled"] is False
+    assert data["model_slot_posture"]["records"][0]["raw_prompt_persisted"] is False
     assert (
         data["role_provider_evidence"]["schema_version"]
         == "role_based_model_provider_evidence.v1"
@@ -187,6 +237,39 @@ def test_delegated_runtime_model_catalog_rejects_invocation_authority() -> None:
         raise AssertionError("delegated runtime model accepted invocation authority")
 
 
+def test_model_slot_posture_rejects_hidden_routing_and_raw_prompt_persistence() -> None:
+    posture = build_model_provider_control_plane_read_model().model_slot_posture
+    payload = posture.model_dump(mode="python")
+    payload["hidden_model_routing_enabled"] = True
+
+    try:
+        ModelSlotPostureReadModel(**payload)
+    except ValueError as exc:
+        assert "AUTHORITY_DRIFT" in str(exc)
+    else:
+        raise AssertionError("model slot posture accepted hidden routing")
+
+    payload = posture.model_dump(mode="python")
+    payload["records"][0]["live_auxiliary_call_enabled"] = True
+
+    try:
+        ModelSlotPostureReadModel(**payload)
+    except ValueError as exc:
+        assert "AUTHORITY_DRIFT" in str(exc)
+    else:
+        raise AssertionError("model slot posture accepted auxiliary model call")
+
+    payload = posture.model_dump(mode="python")
+    payload["records"][0]["raw_prompt_persisted"] = True
+
+    try:
+        ModelSlotPostureReadModel(**payload)
+    except ValueError as exc:
+        assert "AUTHORITY_DRIFT" in str(exc)
+    else:
+        raise AssertionError("model slot posture accepted raw prompt persistence")
+
+
 def test_model_provider_control_plane_cli_uses_same_safe_schema() -> None:
     result = subprocess.run(
         [sys.executable, "scripts/inspect_model_provider_control_plane.py"],
@@ -210,6 +293,10 @@ def test_model_provider_control_plane_cli_uses_same_safe_schema() -> None:
         ]
         is False
     )
+    assert payload["model_slot_posture"]["slot_count"] == 8
+    assert payload["model_slot_posture"]["warning_count"] >= 3
+    assert payload["model_slot_posture"]["hidden_model_routing_enabled"] is False
+    assert payload["model_slot_posture"]["records"][0]["live_auxiliary_call_enabled"] is False
     assert payload["role_provider_evidence"]["role_count"] == 7
     assert payload["role_provider_evidence"]["model_invocation_performed"] is False
     assert payload["model_provider_research_posture"]["provider_count"] >= 1

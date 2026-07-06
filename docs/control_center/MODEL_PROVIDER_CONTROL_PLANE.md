@@ -43,6 +43,9 @@ The read model unifies existing UAA contracts:
   catalog, which separates "runtime reports model availability" from "UAA may
   invoke this model" and keeps delegated Hermes/local runtime model rows
   read-only.
+- Hermes Runtime Adoption Phase 08 main/auxiliary model slot posture for main
+  thinking, summarization, title, approval scoring, compression, retrieval,
+  vision, and review slots without hidden routing or live auxiliary calls.
 
 The Control Center `/models` surface renders this read model alongside Provider
 Catalog, provider credential readiness, and local model readiness.
@@ -61,6 +64,7 @@ Verifier:
 .venv/bin/python scripts/verify_uaa_goatcitadel_catchup_model_provider_research.py
 .venv/bin/python scripts/verify_uaa_goatcitadel_runtime_role_provider_evidence.py
 .venv/bin/python scripts/verify_hermes_runtime_adoption_phase_07.py
+.venv/bin/python scripts/verify_hermes_runtime_adoption_phase_08.py
 ```
 
 ## Still Blocked
@@ -78,6 +82,7 @@ The control plane does not grant:
 - model calls from the read model;
 - delegated runtime model availability as UAA invocation permission;
 - runtime default/model selection mutation;
+- hidden model routing or live auxiliary model calls;
 - billing actions or spend authority;
 - role-based provider evidence as execution permission;
 - shell execution;
