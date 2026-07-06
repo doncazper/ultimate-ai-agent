@@ -10477,6 +10477,21 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Runtime says available/i)).toBeInTheDocument();
     expect(screen.getAllByText(/not authority/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Main and auxiliary model slots/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "proof-ref:hermes-runtime-adoption:phase-08:model-slot-posture",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("trust-lane:model-slot-posture")).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-state:model-slot:hidden-model-routing"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("model-slot-ref:uaa:main-thinking")).toBeInTheDocument();
+    expect(screen.getByText(/Approval scoring/i)).toBeInTheDocument();
+    expect(screen.getByText(/Vision/i)).toBeInTheDocument();
     expect(screen.getByText(/Local llama\.cpp lifecycle/i)).toBeInTheDocument();
     expect(screen.getByText(/ModelRouter traces/i)).toBeInTheDocument();
     expect(
@@ -10568,6 +10583,17 @@ describe("Web Control Center shell", () => {
     )[0];
     unsafeDelegatedRecord.uaa_invocation_allowed = true;
     unsafeDelegatedRecord.provider_sdk_call_enabled = true;
+    const unsafeModelSlotPosture = unsafeControlPlane.model_slot_posture as Record<
+      string,
+      unknown
+    >;
+    unsafeModelSlotPosture.hidden_model_routing_enabled = true;
+    unsafeModelSlotPosture.safe_summary = "unsafe model slot routing enabled";
+    const unsafeModelSlot = (
+      unsafeModelSlotPosture.records as Array<Record<string, unknown>>
+    )[0];
+    unsafeModelSlot.live_auxiliary_call_enabled = true;
+    unsafeModelSlot.raw_prompt_persisted = true;
 
     stubReadEndpointOverrides({
       [API_ENDPOINTS.modelProviderControlPlane]: unsafeControlPlane,
@@ -10590,12 +10616,18 @@ describe("Web Control Center shell", () => {
       screen.queryByText(/unsafe delegated runtime catalog enabled/i),
     ).not.toBeInTheDocument();
     expect(
+      screen.queryByText(/unsafe model slot routing enabled/i),
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByText("blocked-state:model-provider:broad-provider-runtime"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
         "blocked-state:model-provider:runtime-availability-is-not-invocation",
       ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-state:model-slot:hidden-model-routing"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(

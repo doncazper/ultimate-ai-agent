@@ -8570,6 +8570,83 @@ export interface DelegatedRuntimeModelCatalogPosture {
   safe_summary: string;
 }
 
+export interface ModelSlotPostureRecord {
+  slot_ref: string;
+  slot_role:
+    | "main_thinking"
+    | "summarization"
+    | "title"
+    | "approval_scoring"
+    | "compression"
+    | "retrieval"
+    | "vision"
+    | "review";
+  display_label: string;
+  intended_provider_ref: string;
+  intended_model_ref: string;
+  source_profile_ref: string;
+  delegated_runtime_profile_ref: string;
+  configured_status:
+    | "configured_metadata_only"
+    | "planned_not_configured"
+    | "runtime_reported_available_not_authorized";
+  uaa_execution_posture:
+    | "blocked_no_exact_model_authority"
+    | "blocked_missing_runtime_profile"
+    | "metadata_only_existing_lane_separate";
+  provider_readiness_ref: string;
+  cost_posture_ref: string;
+  latency_posture_ref: string;
+  route_decision_trace_ref: string;
+  model_output_truth_ref: string;
+  warning_refs: string[];
+  blocked_authority_refs: string[];
+  live_auxiliary_call_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  runtime_selection_mutation_enabled: boolean;
+  hidden_model_routing_enabled: boolean;
+  route_decision_trace_required: boolean;
+  cost_estimate_required: boolean;
+  approval_profile_mapping_required: boolean;
+  model_output_truth_envelope_required: boolean;
+  receipt_required_before_execution: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  safe_summary: string;
+}
+
+export interface ModelSlotPostureReadModel {
+  schema_version: "hermes_runtime_model_slot_posture.v1";
+  contract_ref: string;
+  status: "read_only_model_slot_intent";
+  route_ref: "GET /control-center/providers/runtime-control-plane";
+  cli_ref: string;
+  trust_lane_ref: string;
+  provider_readiness_ref: string;
+  delegated_model_catalog_ref: string;
+  slot_count: number;
+  warning_count: number;
+  records: ModelSlotPostureRecord[];
+  main_slot_ref: string;
+  auxiliary_slot_refs: string[];
+  live_auxiliary_calls_enabled: boolean;
+  provider_sdk_use_enabled: boolean;
+  runtime_selection_mutation_enabled: boolean;
+  hidden_model_routing_enabled: boolean;
+  raw_prompt_persistence_enabled: boolean;
+  raw_response_persistence_enabled: boolean;
+  route_decision_trace_required: boolean;
+  cost_estimate_required: boolean;
+  approval_profile_mapping_required: boolean;
+  model_output_truth_envelope_required: boolean;
+  receipts_required_before_execution: boolean;
+  proof_refs: string[];
+  docs_refs: string[];
+  verifier_refs: string[];
+  blocked_authority_refs: string[];
+  safe_summary: string;
+}
+
 export interface ModelProviderControlPlaneReadModel {
   schema_version: "model_provider_control_plane.v1";
   contract_ref: string;
@@ -8588,6 +8665,7 @@ export interface ModelProviderControlPlaneReadModel {
   local_llama_cpp_lifecycle: LocalLlamaCppLifecyclePosture;
   router_traces: ModelRouterTracePosture[];
   delegated_runtime_model_catalog: DelegatedRuntimeModelCatalogPosture;
+  model_slot_posture: ModelSlotPostureReadModel;
   model_provider_research_posture: ModelProviderResearchPosture;
   credential_readiness_ref: string;
   provider_catalog_ref: string;

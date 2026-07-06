@@ -694,7 +694,7 @@
       "risk_class": "high",
       "release_status": "partial_backend_not_product_ready",
       "approval_requirement": "Approved GGUF/model refs and reviewed local runtime settings are required before live local use.",
-      "evidence_audit_output": "M167 matrix refs, route preview decisions, runtime validation refs, latency refs, backend-owned read-only local model status refs, and delegated runtime model availability catalog refs that separate runtime-reported availability from UAA invocation authority.",
+      "evidence_audit_output": "M167 matrix refs, route preview decisions, runtime validation refs, latency refs, backend-owned read-only local model status refs, delegated runtime model availability catalog refs that separate runtime-reported availability from UAA invocation authority, and main/auxiliary model-slot intent refs with hidden routing and live auxiliary calls blocked.",
       "current_backend_routes": [
         {
           "method": "GET",
