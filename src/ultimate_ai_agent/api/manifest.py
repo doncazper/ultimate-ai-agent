@@ -687,6 +687,7 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/context-references",
     "/api/runtime/delegation-adapter",
     "/api/runtime/governed-product-pilot-profile",
+    "/api/runtime/prompt-stability-tiers",
     "/api/runtime/profiles",
     "/api/runtime/run-events",
     "/api/runtime/session-lineage",

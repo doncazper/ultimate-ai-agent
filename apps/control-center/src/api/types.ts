@@ -9441,6 +9441,82 @@ export interface RuntimeUsageCostAnalyticsReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimePromptStabilityTierKind =
+  | "stable_identity_policy"
+  | "durable_context_refs"
+  | "retrieval_refs"
+  | "volatile_runtime_state"
+  | "operator_turn_ref";
+
+export type RuntimePromptStabilityClass =
+  | "stable_cache_candidate"
+  | "semi_stable_ref_set"
+  | "volatile_no_cache"
+  | "operator_scoped_no_cache";
+
+export interface RuntimePromptStabilityTier {
+  tier_ref: string;
+  display_label: string;
+  tier_kind: RuntimePromptStabilityTierKind;
+  stability_class: RuntimePromptStabilityClass;
+  manifest_ref: string;
+  tier_hash_ref: string;
+  cache_policy_ref: string;
+  proof_ref: string;
+  safe_summary: string;
+  source_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  cache_candidate: boolean;
+  cache_write_enabled: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  provider_payload_persisted: boolean;
+  hidden_prompt_injection_enabled: boolean;
+  context_injection_enabled: boolean;
+  model_call_performed: boolean;
+  provider_sdk_call_performed: boolean;
+  model_output_authoritative: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface RuntimePromptStabilityTiersReadModel {
+  schema_version: "runtime_prompt_stability_tiers.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  tiers: RuntimePromptStabilityTier[];
+  tier_count: number;
+  stable_cache_candidate_count: number;
+  semi_stable_ref_set_count: number;
+  volatile_no_cache_count: number;
+  operator_scoped_no_cache_count: number;
+  safe_prompt_manifest_required: boolean;
+  prompt_hashes_required: boolean;
+  redacted_receipt_required: boolean;
+  proof_link_required: boolean;
+  raw_prompt_persistence_enabled: boolean;
+  raw_response_persistence_enabled: boolean;
+  provider_payload_persistence_enabled: boolean;
+  hidden_prompt_injection_enabled: boolean;
+  context_injection_enabled: boolean;
+  model_call_enabled: boolean;
+  provider_sdk_enabled: boolean;
+  model_output_authority_enabled: boolean;
+  cache_write_enabled: boolean;
+  production_authority_enabled: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -10589,6 +10665,7 @@ export interface ControlCenterData {
   runtimeToolRegistry: RuntimeToolRegistryAvailabilityReadModel;
   runtimeVirtualProviderMoa: RuntimeVirtualProviderMoaReadModel;
   runtimeUsageCostAnalytics: RuntimeUsageCostAnalyticsReadModel;
+  runtimePromptStabilityTiers: RuntimePromptStabilityTiersReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

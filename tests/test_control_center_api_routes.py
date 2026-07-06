@@ -709,6 +709,7 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/control-center/actions/{action_id}/local-task/commit" in paths
     assert "/control-center/sources/readiness" in paths
     assert "/api/runtime/usage-cost-analytics" in paths
+    assert "/api/runtime/prompt-stability-tiers" in paths
     assert len(paths) == EXPECTED_OPENAPI_PATH_COUNT
     assert len(operation_ids) == len(set(operation_ids)) == EXPECTED_ROUTE_COUNT
 

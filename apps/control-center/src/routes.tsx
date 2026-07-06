@@ -529,6 +529,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           toolRegistry={data.runtimeToolRegistry}
           virtualProviderMoa={data.runtimeVirtualProviderMoa}
           usageCostAnalytics={data.runtimeUsageCostAnalytics}
+          promptStabilityTiers={data.runtimePromptStabilityTiers}
         />
       );
     case "/operator-loop":
