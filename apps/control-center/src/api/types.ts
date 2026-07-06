@@ -2614,6 +2614,10 @@ export interface FounderLoopRuntimeActionInboxBridgeReadModel {
   raw_content_included: boolean;
   route_ref: string;
   cli_ref: string;
+  runtime_parity_loop_api_ref: string;
+  runtime_parity_loop_cli_ref: string;
+  runtime_parity_loop_status: string;
+  runtime_parity_loop_stage_refs: string[];
   status_cli_ref: string;
   capabilities_cli_ref: string;
   invocations_cli_ref: string;

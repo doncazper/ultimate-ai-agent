@@ -25,12 +25,12 @@ Current route classification summary:
 | Classification | Count |
 |---|---:|
 | `public_metadata` | 3 |
-| `local_readonly` | 26 |
-| `local_sensitive` | 126 |
+| `local_readonly` | 27 |
+| `local_sensitive` | 131 |
 | `mutating_requires_authority` | 42 |
 
-The current OpenAPI path count is `196` and `/api/manifest` currently reports
-`197` route operations after later scoped FCC-V1-003 through
+The current OpenAPI path count is `202` and `/api/manifest` currently reports
+`203` route operations after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
@@ -49,15 +49,19 @@ patch apply readiness route, blocked test-command readiness route, blocked Git
 review route, blocked live-preview readiness route, and blocked multi-agent
 review readiness route, plus the backend-owned Work Board Kanban read-model
 route and exact approved persisted reorder route, plus the governed runtime
-pilot Phase 05 contract,
-invocation metadata, approval-ref binding, metadata-only local loopback model
-receipt, exact read-only command status receipt, exact Action Inbox approved
-focused pytest command receipt, blocked receipt, and safe-disable routes, plus
-the no-effect Turn Contract Router preview diagnostic route, plus the CRM Local
-Command Center M2 read routes and exact local mutation receipt route.
-Governed runtime pilot Phase 05 includes one exact local loopback model-call
-route, one exact allowlisted read-only command status route, and one exact
-Action Inbox approved focused pytest command bridge through `RuntimeGateway`;
+pilot Phase 08 parity-loop read-only inspection route, Governed Product Pilot
+profile route, invocation metadata, approval-ref binding, metadata-only local
+loopback model receipt, exact read-only command status receipt, exact Action
+Inbox approved focused pytest command receipt, blocked receipt, and safe-disable
+routes, plus the no-effect Turn Contract Router preview diagnostic route, plus
+the CRM Local Command Center M2 read routes and exact local mutation receipt
+route.
+Governed runtime pilot Phase 08 includes backend-owned parity-loop inspection
+over prepared-turn, route-binding, durable-run, staged orchestration,
+role-provider, Action Inbox, receipt, signed-evidence, and blocked-state refs.
+The runtime pilot includes one exact local loopback model-call route, one exact
+allowlisted read-only command status route, and one exact Action Inbox approved
+focused pytest command bridge through `RuntimeGateway`;
 it stores safe refs and metadata-only/redacted receipts and keeps repo
 verifier/frontend-check execution, remote provider/model authority, arbitrary
 shell/subprocess execution, browser automation, connector writes, plugin

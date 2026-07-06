@@ -16,6 +16,9 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.core.control_center.runtime_action_bridge import (  # noqa: E402
     build_runtime_action_inbox_bridge_read_model,
 )
+from ultimate_ai_agent.core.control_center.runtime_parity_loop import (  # noqa: E402
+    build_runtime_parity_loop_read_model,
+)
 from ultimate_ai_agent.core.execution import (  # noqa: E402
     build_sample_staged_orchestration_read_model,
     build_sample_turn_run_approval_chain,
@@ -69,6 +72,19 @@ def _runtime_payload(read_model: dict[str, Any], command_ref: str) -> dict[str, 
     }
 
 
+def _parity_loop_payload(read_model: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-parity-loop",
+        "runtime_parity_loop_read_model": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_command_output_omitted": True,
+        "execution_performed": False,
+    }
+
+
 def _read_model(store: RuntimeInvocationStore) -> dict[str, Any]:
     return build_runtime_action_inbox_bridge_read_model(
         store.list_invocations(),
@@ -116,6 +132,36 @@ def _print_bridge_summary(read_model: dict[str, Any]) -> None:
             "  blocked reason refs: "
             + ", ".join(item["blocked_reason_refs"] or ["none"])
         )
+
+
+def _print_parity_loop(read_model: dict[str, Any]) -> None:
+    print("UAA GoatCitadel runtime parity loop")
+    print(f"Status: {read_model['status']}")
+    print(f"Parity: {read_model['parity_status']}")
+    print(f"Contract: {read_model['contract_ref']}")
+    print(f"API: {read_model['api_route_ref']}")
+    print(f"Control Center: {read_model['control_center_route_ref']}")
+    print(f"Summary: {read_model['operator_summary']}")
+    print(
+        "Counts: "
+        f"invocations={read_model['runtime_invocation_count']} "
+        f"receipts={read_model['runtime_receipt_count']} "
+        f"signed_evidence={read_model['runtime_signed_evidence_count']} "
+        f"timeline={read_model['runtime_timeline_event_count']}"
+    )
+    print(
+        "Stages: "
+        f"implemented={read_model['implemented_stage_count']} "
+        f"partial={read_model['partial_stage_count']} "
+        f"blocked={read_model['blocked_stage_count']}"
+    )
+    for stage in read_model["stages"]:
+        print(f"- {stage['label']} status={stage['status']}")
+        print(f"  stage: {stage['stage_ref']}")
+        print(f"  cli: {stage['cli_ref']}")
+        print(f"  api: {stage['api_route_ref']}")
+        print(f"  summary: {stage['safe_summary']}")
+    print("Still blocked: " + ", ".join(read_model["blocked_authority_refs"]))
 
 
 def _print_status(read_model: dict[str, Any]) -> None:
@@ -272,6 +318,19 @@ def _inspect_action_inbox_bridge(args: argparse.Namespace) -> int:
         _print_json(_bridge_payload(read_model))
     else:
         _print_bridge_summary(read_model)
+    return 0
+
+
+def _inspect_parity_loop(args: argparse.Namespace) -> int:
+    store = _runtime_store(args)
+    read_model = build_runtime_parity_loop_read_model(
+        store.list_invocations(),
+        entries=store.list_entries(),
+    )
+    if args.json:
+        _print_json(_parity_loop_payload(read_model))
+    else:
+        _print_parity_loop(read_model)
     return 0
 
 
@@ -987,6 +1046,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref read model as JSON for automation.",
     )
     bridge.set_defaults(func=_inspect_action_inbox_bridge)
+
+    parity_loop = subparsers.add_parser(
+        "inspect-parity-loop",
+        help="Inspect the complete runtime parity loop across cockpit, CLI, and API refs.",
+    )
+    parity_loop.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref parity loop read model as JSON.",
+    )
+    parity_loop.set_defaults(func=_inspect_parity_loop)
     return parser
 
 

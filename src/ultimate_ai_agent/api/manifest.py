@@ -677,6 +677,7 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/governed-product-pilot-profile",
     "/api/runtime/staged-orchestration",
     "/api/runtime/prepared-turn",
+    "/api/runtime/parity-loop",
     "/api/runtime/invocations",
     "/api/runtime/invocations/{id}",
     "/api/runtime/invocations/{id}/receipt",

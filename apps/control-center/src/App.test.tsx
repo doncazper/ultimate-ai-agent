@@ -1455,6 +1455,20 @@ function runtimeActionInboxBridgeFixture(
     raw_content_included: false,
     route_ref: "GET /control-center/actions/inbox",
     cli_ref: "uaa runtime inspect-action-inbox-bridge",
+    runtime_parity_loop_api_ref: "GET /api/runtime/parity-loop",
+    runtime_parity_loop_cli_ref: "uaa runtime inspect-parity-loop",
+    runtime_parity_loop_status: "backend_owned_runtime_parity_loop_available",
+    runtime_parity_loop_stage_refs: [
+      "runtime-loop-stage-ref:prepared-turn",
+      "runtime-loop-stage-ref:route-decision-binding",
+      "runtime-loop-stage-ref:durable-run-approval",
+      "runtime-loop-stage-ref:staged-orchestration",
+      "runtime-loop-stage-ref:role-provider-evidence",
+      "runtime-loop-stage-ref:action-inbox-approval",
+      "runtime-loop-stage-ref:exact-action-receipt",
+      "runtime-loop-stage-ref:signed-evidence",
+      "runtime-loop-stage-ref:blocked-retry-state",
+    ],
     status_cli_ref: "uaa runtime status",
     capabilities_cli_ref: "uaa runtime capabilities",
     invocations_cli_ref: "uaa runtime invocations list",
@@ -6242,6 +6256,9 @@ describe("Web Control Center shell", () => {
     expect(bridge).toHaveTextContent("uaa runtime receipts show");
     expect(bridge).toHaveTextContent("uaa runtime receipts evidence");
     expect(bridge).toHaveTextContent("uaa runtime receipts verify-evidence");
+    expect(bridge).toHaveTextContent("GET /api/runtime/parity-loop");
+    expect(bridge).toHaveTextContent("uaa runtime inspect-parity-loop");
+    expect(bridge).toHaveTextContent("runtime-loop-stage-ref:signed-evidence");
     expect(bridge).toHaveTextContent("focused_pytest");
     expect(bridge).toHaveTextContent("runtime-invocation:app-test");
     expect(bridge).toHaveTextContent("receipt:runtime-command:app-test");

@@ -32,6 +32,19 @@ RUNTIME_ACTION_INBOX_BRIDGE_CLI_REF = (
     "uaa runtime inspect-action-inbox-bridge"
 )
 RUNTIME_ACTION_INBOX_BRIDGE_ROUTE_REF = "GET /control-center/actions/inbox"
+RUNTIME_PARITY_LOOP_API_ROUTE_REF = "GET /api/runtime/parity-loop"
+RUNTIME_PARITY_LOOP_CLI_REF = "uaa runtime inspect-parity-loop"
+RUNTIME_PARITY_LOOP_STAGE_REFS = (
+    "runtime-loop-stage-ref:prepared-turn",
+    "runtime-loop-stage-ref:route-decision-binding",
+    "runtime-loop-stage-ref:durable-run-approval",
+    "runtime-loop-stage-ref:staged-orchestration",
+    "runtime-loop-stage-ref:role-provider-evidence",
+    "runtime-loop-stage-ref:action-inbox-approval",
+    "runtime-loop-stage-ref:exact-action-receipt",
+    "runtime-loop-stage-ref:signed-evidence",
+    "runtime-loop-stage-ref:blocked-retry-state",
+)
 RUNTIME_ACTION_INBOX_BRIDGE_BLOCKED_AUTHORITY_REFS = (
     "blocked-authority:runtime-unrestricted-command-execution",
     "blocked-authority:runtime-command-execution-without-gateway-allowlist",
@@ -186,6 +199,14 @@ class RuntimeActionInboxBridgeReadModel(BaseModel):
     raw_content_included: bool = False
     route_ref: str = RUNTIME_ACTION_INBOX_BRIDGE_ROUTE_REF
     cli_ref: str = RUNTIME_ACTION_INBOX_BRIDGE_CLI_REF
+    runtime_parity_loop_api_ref: str = RUNTIME_PARITY_LOOP_API_ROUTE_REF
+    runtime_parity_loop_cli_ref: str = RUNTIME_PARITY_LOOP_CLI_REF
+    runtime_parity_loop_status: str = (
+        "backend_owned_runtime_parity_loop_available"
+    )
+    runtime_parity_loop_stage_refs: list[str] = Field(
+        default_factory=lambda: list(RUNTIME_PARITY_LOOP_STAGE_REFS)
+    )
     status_cli_ref: str = "uaa runtime status"
     capabilities_cli_ref: str = "uaa runtime capabilities"
     invocations_cli_ref: str = "uaa runtime invocations list"
@@ -248,6 +269,9 @@ class RuntimeActionInboxBridgeReadModel(BaseModel):
         for field_name in (
             "route_ref",
             "cli_ref",
+            "runtime_parity_loop_api_ref",
+            "runtime_parity_loop_cli_ref",
+            "runtime_parity_loop_status",
             "status_cli_ref",
             "capabilities_cli_ref",
             "invocations_cli_ref",
@@ -279,6 +303,7 @@ class RuntimeActionInboxBridgeReadModel(BaseModel):
             "receipt_refs",
             "signed_evidence_refs",
             "evidence_refs",
+            "runtime_parity_loop_stage_refs",
             "blocked_authority_refs",
         ):
             for ref in getattr(self, field_name):
@@ -360,6 +385,7 @@ def build_runtime_action_inbox_bridge_read_model(
         receipt_refs=receipt_refs,
         signed_evidence_refs=signed_evidence_refs,
         evidence_refs=evidence_refs,
+        runtime_parity_loop_stage_refs=list(RUNTIME_PARITY_LOOP_STAGE_REFS),
         items=items,
         evidence_timeline=evidence_timeline,
         blocked_authority_refs=list(RUNTIME_ACTION_INBOX_BRIDGE_BLOCKED_AUTHORITY_REFS),

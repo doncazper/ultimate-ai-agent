@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `201`.
+Current OpenAPI path count: `202`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -70,6 +70,10 @@ Contract rules:
   prepared-turn read model over turn contract, route binding, readiness,
   durable run, and evidence refs without persisting raw prompt text or granting
   runtime authority.
+  `GET /api/runtime/parity-loop` exposes the Phase 08 backend-owned runtime
+  parity-loop inspection model that ties prepared turn, route decision, durable
+  run, staged orchestration, provider evidence, Action Inbox approval, receipt,
+  signed evidence, and blocked-state refs together without executing work.
   Phase 07
   preserves configured local loopback model calls and the exact read-only status
   command while adding exact Action Inbox approved focused pytest command execution

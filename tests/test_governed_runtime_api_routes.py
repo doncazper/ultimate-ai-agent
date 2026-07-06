@@ -300,6 +300,7 @@ def test_governed_runtime_routes_are_manifest_visible_with_safe_posture() -> Non
 
     for path in [
         "/api/runtime/capabilities",
+        "/api/runtime/parity-loop",
         "/api/runtime/invocations",
         "/api/runtime/invocations/{id}",
         "/api/runtime/invocations/{id}/receipt",
@@ -315,6 +316,12 @@ def test_governed_runtime_routes_are_manifest_visible_with_safe_posture() -> Non
     )
     assert routes[("GET", "/api/runtime/capabilities")].side_effect_class == (
         "validation_only"
+    )
+    assert routes[("GET", "/api/runtime/parity-loop")].route_classification == (
+        "local_sensitive"
+    )
+    assert routes[("GET", "/api/runtime/parity-loop")].side_effect_class == (
+        "local_dev_workspace_only"
     )
 
     for path in [
@@ -355,6 +362,7 @@ def test_governed_runtime_openapi_contains_exact_contract_routes() -> None:
 
     for path in [
         "/api/runtime/capabilities",
+        "/api/runtime/parity-loop",
         "/api/runtime/invocations",
         "/api/runtime/command/run",
         "/api/runtime/local-model/call",
@@ -367,6 +375,26 @@ def test_governed_runtime_openapi_contains_exact_contract_routes() -> None:
         assert path in paths
     assert "post" in paths["/api/runtime/invocations"]
     assert "get" in paths["/api/runtime/invocations"]
+
+
+def test_governed_runtime_parity_loop_exposes_cockpit_cli_api_refs() -> None:
+    response = client.get("/api/runtime/parity-loop")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    data = body["data"]
+    assert data["schema_version"] == "uaa_goatcitadel_runtime_parity_loop.v1"
+    assert data["source"] == "python_core_runtime_parity_loop_read_model"
+    assert data["backend_owned"] is True
+    assert data["safe_refs_only"] is True
+    assert data["raw_content_included"] is False
+    assert data["api_route_ref"] == "GET /api/runtime/parity-loop"
+    assert data["cli_ref"] == "uaa runtime inspect-parity-loop"
+    assert "runtime-loop-stage-ref:signed-evidence" in data["stage_refs"]
+    assert data["execution_performed_by_read_model"] is False
+    assert data["control_center_mints_authority"] is False
+    assert data["broad_runtime_authority_enabled"] is False
 
 
 def test_governed_runtime_local_model_call_records_safe_failure_receipt(
