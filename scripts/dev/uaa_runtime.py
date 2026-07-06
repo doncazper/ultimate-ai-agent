@@ -54,6 +54,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_messaging_gateway_posture_read_model,
     build_runtime_remote_execution_posture_read_model,
     build_runtime_plugin_metadata_posture_read_model,
+    build_runtime_skill_marketplace_posture_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -1173,6 +1174,45 @@ def _print_plugin_metadata_posture(read_model: dict[str, Any]) -> None:
         print(f"- {ref}")
 
 
+def _print_skill_marketplace_posture(read_model: dict[str, Any]) -> None:
+    print("Runtime skill marketplace posture")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Doc: {read_model['doc_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Stages: "
+        f"total={read_model['stage_count']} "
+        f"review_required={read_model['review_required_count']} "
+        f"execution_blocks={read_model['blocked_execution_count']}"
+    )
+    print(
+        "Authority flags: "
+        f"popularity_is_trust={read_model['external_popularity_is_trust']} "
+        f"external_code={read_model['external_code_execution_enabled']} "
+        f"direct_install={read_model['direct_marketplace_install_enabled']} "
+        f"runtime_import={read_model['runtime_import_enabled']} "
+        f"skill_write={read_model['automatic_skill_write_enabled']} "
+        f"provider={read_model['provider_call_enabled']} "
+        f"browser={read_model['browser_automation_enabled']} "
+        f"connector_write={read_model['connector_write_enabled']}"
+    )
+    print("Skill marketplace stages:")
+    for stage in read_model["stages"]:
+        print(
+            f"- {stage['display_label']}: "
+            f"kind={stage['stage_kind']} status={stage['status']}"
+        )
+        print(f"  signal={stage['signal_policy_ref']}")
+        print(f"  quarantine={stage['quarantine_ref']}")
+        print(f"  adaptation={stage['adaptation_ref']}")
+        print(f"  grant={stage['activation_grant_ref']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
 def _print_session_search(read_model: dict[str, Any]) -> None:
     print("Runtime session/run search")
     print(f"Status: {read_model['status']}")
@@ -2252,6 +2292,36 @@ def _inspect_plugin_metadata_posture(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_plugin_metadata_posture(read_model)
+    return 0
+
+
+def _inspect_skill_marketplace_posture(args: argparse.Namespace) -> int:
+    read_model = build_runtime_skill_marketplace_posture_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-skill-marketplace-posture",
+        "runtime_skill_marketplace_posture": read_model,
+        "metadata_only": True,
+        "safe_refs_only": True,
+        "skill_marketplace_posture_only": True,
+        "external_popularity_trusted": False,
+        "external_code_execution_performed": False,
+        "direct_marketplace_install_performed": False,
+        "runtime_import_performed": False,
+        "automatic_skill_write_performed": False,
+        "provider_call_performed": False,
+        "browser_automation_performed": False,
+        "connector_write_performed": False,
+        "raw_marketplace_payloads_omitted": True,
+        "external_code_omitted": True,
+        "publisher_material_omitted": True,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_skill_marketplace_posture(read_model)
     return 0
 
 
@@ -3423,6 +3493,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the plugin metadata posture as JSON.",
     )
     plugin_metadata_posture.set_defaults(func=_inspect_plugin_metadata_posture)
+
+    skill_marketplace_posture = subparsers.add_parser(
+        "inspect-skill-marketplace-posture",
+        help="Inspect external skill marketplace adoption posture without execution.",
+    )
+    skill_marketplace_posture.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the skill marketplace posture as JSON.",
+    )
+    skill_marketplace_posture.set_defaults(func=_inspect_skill_marketplace_posture)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",
