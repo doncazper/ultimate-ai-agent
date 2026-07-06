@@ -594,7 +594,7 @@
       "primary_surface": "Inbox / Sources",
       "current_rank": 2,
       "current_rank_label": "proposal_review",
-      "honest_status": "backend_owned_source_readiness_proposal_candidates_connector_runtime_blocked",
+      "honest_status": "backend_owned_source_readiness_contract_refs_and_proposal_candidates_connector_runtime_blocked",
       "next_target_rank": 3,
       "smallest_next_operational_action": "receipt-backed source readiness proposal handoff decision",
       "backend_routes": [
@@ -602,13 +602,15 @@
         "GET /control-center/today/summary",
         "GET /control-center/morning-briefing/summary"
       ],
-      "cli_or_script_refs": [],
+      "cli_or_script_refs": ["scripts/inspect_source_readiness_metadata_contracts.py"],
       "receipt_refs": [],
       "evidence_refs": [
         "docs/control_center/FCC_SOURCES_001_SOURCE_READINESS_DRAFT_ONLY_INPUTS.md",
         "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
         "evidence-ref:source-readiness:inbox",
-        "evidence-ref:source-readiness:calendar"
+        "evidence-ref:source-readiness:calendar",
+        "fcc-email-metadata-read-only-contract:fcc-p1-008",
+        "fcc-calendar-read-only-contract:fcc-p1-007"
       ],
       "test_refs": [
         "tests/test_control_center_api_routes.py",
@@ -625,7 +627,7 @@
       ],
       "route_metadata_refs": ["docs/control_center/route_status_manifest.json"],
       "blocked_authorities": ["account_auth", "background_polling", "email_send", "calendar_write", "connector_write"],
-      "missing_contracts": ["receipt_backed_proposal_handoff", "connector_read_metadata_contract", "live_source_ingestion_contract"],
+      "missing_contracts": ["receipt_backed_proposal_handoff", "live_connector_metadata_fetch_route", "account_binding_contract", "test_account_source_proof", "live_source_ingestion_contract"],
       "backend_owned_receipts": false,
       "exact_scope_required": true,
       "idempotency_required": false,

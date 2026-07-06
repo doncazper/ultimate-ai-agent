@@ -9184,6 +9184,112 @@ const sourceReadinessPosture: FounderLoopSourceReadinessPosture = {
     "Reconnect the local backend before treating source readiness as Python-core read-model truth.",
 };
 
+const sourceReadOnlyMetadataContracts: FounderLoopSourceReadiness["read_only_metadata_contracts"] =
+  [
+    {
+      schema_version: "founder_loop_read_only_metadata_contract.v1",
+      source: "mock_fallback_non_authoritative",
+      backend_owned: false,
+      source_kind: "email",
+      contract_ref: "fcc-email-metadata-read-only-contract:mock-fallback",
+      product_loop_ref: "founder-command-center-product-loop:mock-read-only-sources",
+      status: "email_metadata_contract",
+      route_ref:
+        "GET /control-center/sources/readiness#read_only_metadata_contracts",
+      safe_summary:
+        "Mock email metadata contract shape only; backend source readiness read model is unavailable.",
+      metadata_refs: [
+        "sender-summary-ref:mock-email-metadata",
+        "thread-ref:mock-email-metadata",
+        "time-window-ref:mock-email-metadata",
+      ],
+      source_readiness_refs: [
+        "source-readiness-ref:mock-email-metadata-contract",
+      ],
+      evidence_refs: ["evidence-ref:mock-email-metadata-contract"],
+      audit_ref: "audit-ref:mock-email-metadata-contract",
+      replay_ref: "replay-ref:mock-email-metadata-contract",
+      missing_runtime_ref: "missing-runtime-ref:mock-email-connector",
+      blocked_runtime_refs: [
+        "blocked-runtime-ref:mock-email:no-account-auth",
+        "blocked-runtime-ref:mock-email:no-email-fetch",
+        "blocked-runtime-ref:mock-email:no-email-write",
+      ],
+      reason_codes: ["MOCK_EMAIL_METADATA_CONTRACT_SHAPE_ONLY"],
+      contract_only: true,
+      read_only: true,
+      metadata_only: true,
+      safe_refs_only: true,
+      connector_runtime_missing: true,
+      account_auth_enabled: false,
+      runtime_read_enabled: false,
+      runtime_search_enabled: false,
+      raw_content_enabled: false,
+      write_enabled: false,
+      background_collection_enabled: false,
+      connector_runtime_enabled: false,
+      model_call_enabled: false,
+      memory_write_enabled: false,
+      context_injection_enabled: false,
+      production_authority_enabled: false,
+      next_safe_action:
+        "Reconnect the local backend before treating this email contract as Python-core truth.",
+      authority_boundary:
+        "Mock email metadata contract shape only; no account auth, fetch, send, write, connector runtime, or production authority.",
+    },
+    {
+      schema_version: "founder_loop_read_only_metadata_contract.v1",
+      source: "mock_fallback_non_authoritative",
+      backend_owned: false,
+      source_kind: "calendar",
+      contract_ref: "fcc-calendar-read-only-contract:mock-fallback",
+      product_loop_ref: "founder-command-center-product-loop:mock-read-only-sources",
+      status: "calendar_event_metadata_contract",
+      route_ref:
+        "GET /control-center/sources/readiness#read_only_metadata_contracts",
+      safe_summary:
+        "Mock calendar metadata contract shape only; backend source readiness read model is unavailable.",
+      metadata_refs: [
+        "calendar-event-ref:mock-calendar-metadata",
+        "time-window-ref:mock-calendar-metadata",
+        "meeting-prep-summary-ref:mock-calendar-metadata",
+      ],
+      source_readiness_refs: [
+        "source-readiness-ref:mock-calendar-metadata-contract",
+      ],
+      evidence_refs: ["evidence-ref:mock-calendar-metadata-contract"],
+      audit_ref: "audit-ref:mock-calendar-metadata-contract",
+      replay_ref: "replay-ref:mock-calendar-metadata-contract",
+      missing_runtime_ref: "missing-runtime-ref:mock-calendar-connector",
+      blocked_runtime_refs: [
+        "blocked-runtime-ref:mock-calendar:no-account-auth",
+        "blocked-runtime-ref:mock-calendar:no-calendar-fetch",
+        "blocked-runtime-ref:mock-calendar:no-calendar-write",
+      ],
+      reason_codes: ["MOCK_CALENDAR_METADATA_CONTRACT_SHAPE_ONLY"],
+      contract_only: true,
+      read_only: true,
+      metadata_only: true,
+      safe_refs_only: true,
+      connector_runtime_missing: true,
+      account_auth_enabled: false,
+      runtime_read_enabled: false,
+      runtime_search_enabled: false,
+      raw_content_enabled: false,
+      write_enabled: false,
+      background_collection_enabled: false,
+      connector_runtime_enabled: false,
+      model_call_enabled: false,
+      memory_write_enabled: false,
+      context_injection_enabled: false,
+      production_authority_enabled: false,
+      next_safe_action:
+        "Reconnect the local backend before treating this calendar contract as Python-core truth.",
+      authority_boundary:
+        "Mock calendar metadata contract shape only; no account auth, fetch, write, invite send, connector runtime, or production authority.",
+    },
+  ];
+
 const sourceReadinessProposalCandidates: FounderLoopSourceReadinessProposalCandidate[] =
   [
     {
@@ -9437,6 +9543,8 @@ const sourceReadiness: FounderLoopSourceReadiness = {
   source_readiness_items: sourceReadinessItems,
   source_readiness_posture: sourceReadinessPosture,
   source_readiness_proposal_candidates: sourceReadinessProposalCandidates,
+  read_only_metadata_contracts: sourceReadOnlyMetadataContracts,
+  read_only_metadata_contract_count: sourceReadOnlyMetadataContracts.length,
   connector_draft_proposals: connectorDraftProposals,
   supported_statuses: sourceReadinessPosture.supported_statuses,
   missing_contract_refs: sourceReadinessPosture.missing_contract_refs,

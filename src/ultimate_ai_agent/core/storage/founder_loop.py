@@ -185,6 +185,9 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
 from ultimate_ai_agent.core.connectors.connector_draft_proposals import (
     build_connector_draft_proposal_read_model,
 )
+from ultimate_ai_agent.core.connectors.founder_loop_read_only_integration_contracts import (
+    build_fcc_read_only_integration_contract_pair,
+)
 from ultimate_ai_agent.core.control_center.health_recommendations import (
     FCC_HEALTH_RECOMMENDATION_ACTION_KIND,
     FCC_HEALTH_RECOMMENDATION_BINDING_CONTRACT_REF,
@@ -587,6 +590,12 @@ SOURCE_READINESS_PROPOSAL_BINDING_CONTRACT_REF = (
     "contract-ref:founder-loop-source-readiness-draft-proposals:v1"
 )
 SOURCE_READINESS_PROPOSAL_ACTION_KIND = "source_readiness_contract_proposal"
+SOURCE_READINESS_EMAIL_METADATA_CONTRACT_REF = (
+    "fcc-email-metadata-read-only-contract:fcc-p1-008"
+)
+SOURCE_READINESS_CALENDAR_METADATA_CONTRACT_REF = (
+    "fcc-calendar-read-only-contract:fcc-p1-007"
+)
 TODAY_PRODUCT_SPINE_LOOP_SURFACES = ["Today", "Actions", "Evidence", "Memory"]
 EVIDENCE_HISTORY_GRAMMAR_KEYS = (
     "proposed",
@@ -3449,6 +3458,7 @@ def _source_readiness_read_model(
 ) -> dict[str, Any]:
     source_readiness_items = _source_readiness_items(briefing_items=briefing_items)
     source_readiness_posture = _source_readiness_posture(source_readiness_items)
+    read_only_metadata_contracts = _source_readiness_metadata_contracts()
     connector_draft_proposals = (
         build_connector_draft_proposal_read_model().storage_record()
     )
@@ -3468,7 +3478,18 @@ def _source_readiness_read_model(
         ]
     )
     evidence_refs = _unique_sorted_refs(
-        ref for item in source_readiness_items for ref in item.get("evidence_refs", [])
+        [
+            *[
+                ref
+                for item in source_readiness_items
+                for ref in item.get("evidence_refs", [])
+            ],
+            *[
+                ref
+                for contract in read_only_metadata_contracts
+                for ref in contract.get("evidence_refs", [])
+            ],
+        ]
     )
     proposal_candidates = _source_readiness_proposal_candidates(
         source_readiness_items=source_readiness_items,
@@ -3478,6 +3499,7 @@ def _source_readiness_read_model(
     )
     route_refs = [
         "GET /control-center/sources/readiness",
+        "GET /control-center/sources/readiness#read_only_metadata_contracts",
         "GET /control-center/today/summary",
         "GET /control-center/morning-briefing/summary",
     ]
@@ -3493,6 +3515,8 @@ def _source_readiness_read_model(
         "source_readiness_items": source_readiness_items,
         "source_readiness_posture": source_readiness_posture,
         "source_readiness_proposal_candidates": proposal_candidates,
+        "read_only_metadata_contracts": read_only_metadata_contracts,
+        "read_only_metadata_contract_count": len(read_only_metadata_contracts),
         "connector_draft_proposals": connector_draft_proposals,
         "supported_statuses": source_readiness_posture["supported_statuses"],
         "missing_contract_refs": source_readiness_posture["missing_contract_refs"],
@@ -3521,6 +3545,152 @@ def _source_readiness_read_model(
     }
     _validate_safe_payload(read_model, "source_readiness_read_model")
     return read_model
+
+
+def _source_readiness_metadata_contracts() -> list[dict[str, Any]]:
+    pair = build_fcc_read_only_integration_contract_pair()
+    contracts = [
+        _source_readiness_calendar_metadata_contract(pair.calendar),
+        _source_readiness_email_metadata_contract(pair.email),
+    ]
+    for contract in contracts:
+        _validate_safe_payload(contract, "source_readiness_metadata_contract")
+    return contracts
+
+
+def _source_readiness_calendar_metadata_contract(record: Any) -> dict[str, Any]:
+    return {
+        "schema_version": "founder_loop_read_only_metadata_contract.v1",
+        "source": "python_core_source_readiness_read_model",
+        "backend_owned": True,
+        "source_kind": "calendar",
+        "contract_ref": str(record.calendar_contract_ref),
+        "product_loop_ref": str(record.product_loop_ref),
+        "status": _enum_value(record.status),
+        "route_ref": (
+            "GET /control-center/sources/readiness#read_only_metadata_contracts"
+        ),
+        "safe_summary": str(record.redacted_meeting_prep_summary),
+        "metadata_refs": [
+            str(record.event_ref),
+            str(record.time_window_ref),
+            str(record.account_identity_ref),
+            str(record.meeting_prep_summary_ref),
+            *[str(ref) for ref in record.attendee_identity_refs],
+        ],
+        "source_readiness_refs": [str(ref) for ref in record.source_readiness_refs],
+        "evidence_refs": [str(ref) for ref in record.evidence_refs],
+        "audit_ref": str(record.audit_ref),
+        "replay_ref": str(record.replay_ref),
+        "missing_runtime_ref": str(record.missing_runtime_ref),
+        "blocked_runtime_refs": [str(ref) for ref in record.blocked_runtime_refs],
+        "reason_codes": [str(code) for code in record.reason_codes],
+        "contract_only": bool(record.contract_only),
+        "read_only": bool(record.read_only),
+        "metadata_only": bool(record.metadata_only),
+        "safe_refs_only": bool(record.safe_refs_required),
+        "connector_runtime_missing": bool(record.connector_runtime_missing),
+        "account_auth_enabled": bool(record.account_auth_enabled),
+        "runtime_read_enabled": bool(record.calendar_read_runtime_enabled),
+        "runtime_search_enabled": bool(record.calendar_search_runtime_enabled),
+        "raw_content_enabled": bool(
+            record.event_title_body_storage_enabled or record.raw_invite_body_enabled
+        ),
+        "write_enabled": bool(
+            record.event_create_enabled
+            or record.event_update_enabled
+            or record.event_delete_enabled
+            or record.invite_send_enabled
+        ),
+        "background_collection_enabled": bool(record.background_collection_enabled),
+        "connector_runtime_enabled": bool(record.connector_runtime_enabled),
+        "model_call_enabled": bool(record.model_call_enabled),
+        "memory_write_enabled": bool(record.memory_write_enabled),
+        "context_injection_enabled": bool(record.context_injection_enabled),
+        "production_authority_enabled": bool(record.production_authority_enabled),
+        "next_safe_action": (
+            "Use this calendar metadata contract as source-readiness evidence only; "
+            "live calendar fetch, writes, invite sends, and account auth remain blocked."
+        ),
+        "authority_boundary": (
+            "Calendar metadata contracts expose safe refs and redacted summaries "
+            "only. They do not authorize account auth, runtime fetch, event body "
+            "storage, calendar writes, invite sends, connector runtime, or "
+            "production authority."
+        ),
+    }
+
+
+def _source_readiness_email_metadata_contract(record: Any) -> dict[str, Any]:
+    return {
+        "schema_version": "founder_loop_read_only_metadata_contract.v1",
+        "source": "python_core_source_readiness_read_model",
+        "backend_owned": True,
+        "source_kind": "email",
+        "contract_ref": str(record.email_contract_ref),
+        "product_loop_ref": str(record.product_loop_ref),
+        "status": _enum_value(record.status),
+        "route_ref": (
+            "GET /control-center/sources/readiness#read_only_metadata_contracts"
+        ),
+        "safe_summary": str(record.redacted_inbox_summary),
+        "metadata_refs": [
+            str(record.sender_summary_ref),
+            str(record.thread_ref),
+            str(record.time_window_ref),
+            str(record.inbox_summary_ref),
+            str(record.follow_up_summary_ref),
+            *[str(ref) for ref in record.label_summary_refs],
+        ],
+        "source_readiness_refs": [str(ref) for ref in record.source_readiness_refs],
+        "evidence_refs": [str(ref) for ref in record.evidence_refs],
+        "audit_ref": str(record.audit_ref),
+        "replay_ref": str(record.replay_ref),
+        "missing_runtime_ref": str(record.missing_runtime_ref),
+        "blocked_runtime_refs": [str(ref) for ref in record.blocked_runtime_refs],
+        "reason_codes": [str(code) for code in record.reason_codes],
+        "contract_only": bool(record.contract_only),
+        "read_only": bool(record.read_only),
+        "metadata_only": bool(record.metadata_only),
+        "safe_refs_only": bool(record.safe_refs_required),
+        "connector_runtime_missing": bool(record.connector_runtime_missing),
+        "account_auth_enabled": bool(record.account_auth_enabled),
+        "runtime_read_enabled": bool(record.email_fetch_runtime_enabled),
+        "runtime_search_enabled": bool(record.email_search_runtime_enabled),
+        "raw_content_enabled": bool(
+            record.raw_body_enabled
+            or record.subject_text_enabled
+            or record.participant_identifiers_enabled
+            or record.attachment_names_enabled
+        ),
+        "write_enabled": bool(
+            record.send_enabled
+            or record.delete_enabled
+            or record.archive_enabled
+            or record.label_write_enabled
+        ),
+        "background_collection_enabled": False,
+        "connector_runtime_enabled": bool(record.connector_runtime_enabled),
+        "model_call_enabled": bool(record.model_call_enabled),
+        "memory_write_enabled": bool(record.memory_write_enabled),
+        "context_injection_enabled": bool(record.context_injection_enabled),
+        "production_authority_enabled": bool(record.production_authority_enabled),
+        "next_safe_action": (
+            "Use this email metadata contract as source-readiness evidence only; "
+            "live inbox fetch, sends, archive/delete/label moves, and account auth "
+            "remain blocked."
+        ),
+        "authority_boundary": (
+            "Email metadata contracts expose safe refs and redacted summaries only. "
+            "They do not authorize account auth, runtime fetch, message body or "
+            "participant display, sends, archive/delete/label/move writes, connector "
+            "runtime, or production authority."
+        ),
+    }
+
+
+def _enum_value(value: Any) -> str:
+    return str(getattr(value, "value", value))
 
 
 def _source_readiness_proposal_candidates(

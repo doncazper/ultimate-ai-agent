@@ -1109,6 +1109,63 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_frontend_check_com
     assert "stderr" not in persisted
 
 
+def test_runtime_gateway_action_inbox_approval_executes_exact_repo_doctor_command(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=2,
+            output_bytes=b"raw doctor output should be redacted",
+        )
+
+    store = RuntimeInvocationStore(tmp_path)
+    command_request = _approved_runtime_command_request(intent="repo_doctor")
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+
+    result = gateway.execute_approved_command(
+        approved.invocation_ref,
+        _command_request_for_approved_record(command_request, approved),
+        _runtime_execute_request(approved),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-repo-doctor-execute",
+    )
+
+    assert result.record.status == "receipt_recorded"
+    assert result.record.receipt is not None
+    assert result.record.receipt.command_execution_performed is True
+    assert result.record.receipt.command_receipt_metadata is not None
+    assert result.record.receipt.command_receipt_metadata.intent == "repo_doctor"
+    assert result.output_persisted is False
+    assert len(calls) == 1
+    argv = calls[0]["argv"]
+    assert isinstance(argv, tuple)
+    assert argv in {
+        ("/usr/bin/make", "doctor"),
+        ("/bin/make", "doctor"),
+    }
+
+    persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "raw doctor output" not in persisted
+    assert "stdout" not in persisted
+    assert "stderr" not in persisted
+
+
 def test_runtime_launcher_actions_approve_and_deny_by_safe_selector_ref(
     tmp_path: Path,
 ) -> None:

@@ -95,19 +95,22 @@
     },
     {
       "foundation_id": "read_only_connector_metadata",
-      "status": "partial",
-      "safe_summary": "Source-readiness metadata is visible in Today, Morning Briefing, and Action Inbox, but live connector metadata routes and account binding remain unscoped.",
+      "status": "implemented",
+      "safe_summary": "Source-readiness metadata is visible in Today, Morning Briefing, and Action Inbox, and the backend-owned Source Readiness route now exposes email/calendar read-only metadata contract refs. Live connector metadata fetch routes, account binding, polling, raw source reads, and writes remain unscoped.",
       "route_refs": [
+        "GET /control-center/sources/readiness",
         "GET /control-center/today/summary",
         "GET /control-center/morning-briefing/summary",
         "GET /control-center/actions/inbox"
       ],
       "surface_refs": [
-        "apps/control-center/src/components/FounderLoopPanels.tsx::SourceReadinessCards"
+        "apps/control-center/src/components/FounderLoopPanels.tsx::SourceReadinessCards",
+        "apps/control-center/src/components/SourceInboxSurfacePanel.tsx::ReadOnlyMetadataContractCards"
       ],
       "test_refs": [
         "tests/test_founder_loop_storage_briefing.py::test_founder_loop_briefing_defaults_are_blocked_and_read_only",
-        "tests/test_control_center_api_routes.py"
+        "tests/test_control_center_api_routes.py",
+        "tests/test_fcc_sources_001_source_readiness_draft_only_inputs.py::test_source_readiness_read_model_is_backend_owned_and_draft_only"
       ],
       "blocked_authorities": [
         "account_auth",
@@ -119,11 +122,11 @@
         "connector_runtime"
       ],
       "missing_contracts": [
-        "email_read_only_metadata_route",
-        "calendar_read_only_metadata_route",
-        "draft_only_proposal_ui_binding"
+        "live_connector_metadata_fetch_route",
+        "account_binding_contract",
+        "test_account_source_proof"
       ],
-      "next_safe_action": "Implement source-readiness metadata contracts and UI binding without account auth, polling, raw body reads, or connector writes."
+      "next_safe_action": "Keep contract refs visible through Source Readiness; implement live metadata fetch only through a later exact lane with account posture, test-account proof, redaction, idempotency, and no send/write authority."
     },
     {
       "foundation_id": "memory_to_loop_proposal_ux",

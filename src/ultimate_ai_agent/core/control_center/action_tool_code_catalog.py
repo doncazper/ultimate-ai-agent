@@ -77,6 +77,16 @@ RUNTIME_EXACT_COMMAND_LANE_SPECS = (
         "evidence_ref": "evidence-ref:runtime-action-inbox:frontend-check",
         "proof_ref": "proof-ref:runtime-action-inbox:frontend-check",
     },
+    {
+        "command_intent": "repo_doctor",
+        "capability_id": "runtime.repo_doctor_action_inbox",
+        "capability_ref": "capability-ref:runtime-gateway:repo-doctor-action-inbox",
+        "lane_ref": "lane-ref:runtime-gateway:repo-doctor-action-inbox",
+        "label": "RuntimeGateway repo doctor command",
+        "receipt_ref": "receipt-plan:runtime-action-inbox:repo-doctor",
+        "evidence_ref": "evidence-ref:runtime-action-inbox:repo-doctor",
+        "proof_ref": "proof-ref:runtime-action-inbox:repo-doctor",
+    },
 )
 
 

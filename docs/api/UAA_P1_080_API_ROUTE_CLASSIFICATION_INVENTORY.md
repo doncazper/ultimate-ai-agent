@@ -54,7 +54,7 @@ Phase 01 delegation adapter readiness route, Phase 02 capability discovery
 posture route, Governed Product Pilot profile route, invocation metadata,
 approval-ref binding, metadata-only local
 loopback model receipt, exact read-only command status receipt, exact Action
-Inbox approved focused pytest, repo-verifier, and frontend-check command
+Inbox approved focused pytest, repo-verifier, frontend-check, and repo-doctor command
 receipts, blocked receipt, and safe-disable
 routes, plus the no-effect Turn Contract Router preview diagnostic route, plus
 the CRM Local Command Center M2 read routes and exact local mutation receipt
@@ -70,7 +70,7 @@ The runtime pilot includes one exact local loopback model-call route, one exact
 allowlisted read-only command status route, and exact Action Inbox approved
 focused pytest, repo verifier, and frontend check command bridges through `RuntimeGateway`;
 it stores safe refs and metadata-only/redacted receipts and keeps repo
-verifier/frontend-check execution outside named exact lanes, remote provider/model authority, arbitrary
+verifier/frontend-check/repo-doctor execution outside named exact lanes, remote provider/model authority, arbitrary
 shell/subprocess execution, browser automation, connector writes, plugin
 runtime import, public release, and production authority blocked.
 UAA-P1-080 itself added no routes; stable

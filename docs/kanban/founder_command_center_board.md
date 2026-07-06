@@ -38,8 +38,8 @@ UAA-P1-091 v0.105.0 Governed Runtime Pilot is the active scoped internal
 runtime-authority lane on the Operator Runtime Excellence board. It is relevant
 to the Founder Command Center only as backend-owned Action Inbox/runtime receipt
 truth: configured loopback local-model receipts, one exact read-only status
-command, and exact Action Inbox approved focused pytest, repo-verifier, and
-frontend-check execution through
+command, and exact Action Inbox approved focused pytest, repo-verifier,
+frontend-check, and repo-doctor execution through
 RuntimeGateway. It does not grant browser automation, connector writes, plugin
 import, remote execution, arbitrary shell/subprocess work outside exact
 approved lanes, public beta, public release,
@@ -355,9 +355,11 @@ to a dedicated backend-owned Source Readiness route,
 CRM-lite/manual notes, repo, and local files. The read model exposes draft-only
 proposal candidates for email metadata contract, calendar metadata contract,
 and account-auth boundary work, and Action Inbox classifies those candidates as
-`proposal_only_no_execution_path`. This moves the unit to rank-2 proposal
-review in the operational maturity manifest without granting connector
-runtime, account auth, source ingestion, or writes. Milestone truth is
+`proposal_only_no_execution_path`. The same route now carries backend-owned
+email/calendar read-only metadata contract refs under
+`read_only_metadata_contracts`. This moves the unit to rank-2 proposal review
+in the operational maturity manifest without granting connector runtime,
+account auth, source ingestion, or writes. Milestone truth is
 recorded in
 `docs/control_center/FCC_SOURCES_001_SOURCE_READINESS_DRAFT_ONLY_INPUTS.md`.
 

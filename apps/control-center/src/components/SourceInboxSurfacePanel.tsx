@@ -195,6 +195,9 @@ function SourceReadinessCards({
           <SourceReadinessProposalCards
             proposals={sourceReadiness.source_readiness_proposal_candidates ?? []}
           />
+          <ReadOnlyMetadataContractCards
+            contracts={sourceReadiness.read_only_metadata_contracts ?? []}
+          />
         </>
       ) : null}
       <ul className="ref-list">
@@ -213,6 +216,95 @@ function SourceReadinessCards({
         refs={items.flatMap((item) => item.blocked_state_refs)}
       />
     </article>
+  );
+}
+
+function ReadOnlyMetadataContractCards({
+  contracts,
+}: {
+  contracts: FounderLoopSourceReadiness["read_only_metadata_contracts"];
+}) {
+  if (contracts.length === 0) {
+    return (
+      <p className="muted">
+        Read-only metadata contracts are unavailable until the backend Source
+        Readiness read model supplies contract refs.
+      </p>
+    );
+  }
+  return (
+    <>
+      <p className="eyebrow">Read-only metadata contracts</p>
+      <div className="review-grid" aria-label="Read-only metadata contracts">
+        {contracts.map((contract) => (
+          <article className="review-card" key={contract.contract_ref}>
+            <div className="review-card-heading">
+              <h3>{contract.source_kind} metadata contract</h3>
+              <span>{contract.status}</span>
+            </div>
+            <p>{contract.safe_summary}</p>
+            <dl className="detail-list">
+              <DetailTerm label="Contract" value={contract.contract_ref} />
+              <DetailTerm label="Route" value={contract.route_ref} />
+              <DetailTerm
+                label="Backend owned"
+                value={contract.backend_owned ? "yes" : "no"}
+              />
+              <DetailTerm
+                label="Contract only"
+                value={contract.contract_only ? "yes" : "no"}
+              />
+              <DetailTerm
+                label="Read only"
+                value={contract.read_only ? "yes" : "no"}
+              />
+              <DetailTerm
+                label="Metadata only"
+                value={contract.metadata_only ? "yes" : "no"}
+              />
+              <DetailTerm
+                label="Account auth"
+                value={contract.account_auth_enabled ? "enabled" : "blocked"}
+              />
+              <DetailTerm
+                label="Runtime read"
+                value={contract.runtime_read_enabled ? "enabled" : "blocked"}
+              />
+              <DetailTerm
+                label="Raw content"
+                value={contract.raw_content_enabled ? "enabled" : "blocked"}
+              />
+              <DetailTerm
+                label="Write"
+                value={contract.write_enabled ? "enabled" : "blocked"}
+              />
+              <DetailTerm
+                label="Background"
+                value={
+                  contract.background_collection_enabled ? "enabled" : "blocked"
+                }
+              />
+              <DetailTerm
+                label="Next safe action"
+                value={contract.next_safe_action}
+              />
+            </dl>
+            <RefListWithFallback
+              emptyLabel="Metadata refs: none"
+              refs={contract.metadata_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Blocked runtime refs: none"
+              refs={contract.blocked_runtime_refs}
+            />
+            <RefListWithFallback
+              emptyLabel="Contract evidence refs: none"
+              refs={contract.evidence_refs}
+            />
+          </article>
+        ))}
+      </div>
+    </>
   );
 }
 

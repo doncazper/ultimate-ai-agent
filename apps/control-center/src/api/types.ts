@@ -6093,6 +6093,44 @@ export interface FounderLoopSourceReadinessProposalCandidate {
   authority_boundary: string;
 }
 
+export interface FounderLoopReadOnlyMetadataContract {
+  schema_version: "founder_loop_read_only_metadata_contract.v1";
+  source: string;
+  backend_owned: boolean;
+  source_kind: "email" | "calendar";
+  contract_ref: string;
+  product_loop_ref: string;
+  status: string;
+  route_ref: string;
+  safe_summary: string;
+  metadata_refs: string[];
+  source_readiness_refs: string[];
+  evidence_refs: string[];
+  audit_ref: string;
+  replay_ref: string;
+  missing_runtime_ref: string;
+  blocked_runtime_refs: string[];
+  reason_codes: string[];
+  contract_only: boolean;
+  read_only: boolean;
+  metadata_only: boolean;
+  safe_refs_only: boolean;
+  connector_runtime_missing: boolean;
+  account_auth_enabled: boolean;
+  runtime_read_enabled: boolean;
+  runtime_search_enabled: boolean;
+  raw_content_enabled: boolean;
+  write_enabled: boolean;
+  background_collection_enabled: boolean;
+  connector_runtime_enabled: boolean;
+  model_call_enabled: boolean;
+  memory_write_enabled: boolean;
+  context_injection_enabled: boolean;
+  production_authority_enabled: boolean;
+  next_safe_action: string;
+  authority_boundary: string;
+}
+
 export interface ConnectorDraftProposalItem {
   schema_version: "connector_draft_proposal_item.v1";
   proposal_ref: string;
@@ -6201,6 +6239,8 @@ export interface FounderLoopSourceReadiness {
   source_readiness_items: FounderLoopSourceReadinessItem[];
   source_readiness_posture: FounderLoopSourceReadinessPosture;
   source_readiness_proposal_candidates: FounderLoopSourceReadinessProposalCandidate[];
+  read_only_metadata_contracts: FounderLoopReadOnlyMetadataContract[];
+  read_only_metadata_contract_count: number;
   connector_draft_proposals?: ConnectorDraftProposalReadModel;
   supported_statuses: FounderLoopSourceReadinessStatus[];
   missing_contract_refs: string[];

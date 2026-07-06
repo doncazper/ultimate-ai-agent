@@ -379,7 +379,7 @@ runtime authority WIP lane. Phase 07 preserves the Phase 01 verified baseline at
 `local-runtime`, and `operator-approved`, and adds receipt-backed governed
 runtime evidence for configured loopback local-model calls, one exact
 allowlisted argv-only read-only command status lane, and exact Action Inbox
-approved focused pytest, repo-verifier, and frontend-check command execution
+approved focused pytest, repo-verifier, frontend-check, and repo-doctor command execution
 plus CLI/Control Center/evidence timeline parity for status, capabilities,
 invocation, receipt, safe-disable,
 and approval decision inspection. Phase 07 also pins command execution to the
@@ -1218,7 +1218,9 @@ tasks, CRM-lite/manual notes, repo context, and local-file context with
 supported states for `ready`, `blocked`, `missing`, `metadata_only`,
 `unavailable`, and `not_configured`. The lane also exposes draft-only proposal
 candidates for email metadata contract, calendar metadata contract, and
-account-auth boundary work as `proposal_only_no_execution_path`. This adds no
+account-auth boundary work as `proposal_only_no_execution_path`, plus
+backend-owned email/calendar read-only metadata contract refs under
+`read_only_metadata_contracts`. This adds no
 account auth, background polling, raw body ingestion, attachment download,
 send/write/archive/delete/label/move, calendar write, connector runtime/write,
 provider/model calls, memory writes, hidden context injection,

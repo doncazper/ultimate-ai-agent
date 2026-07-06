@@ -38,6 +38,7 @@ STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_PROMOTED_INTENTS = (
     "focused_pytest",
     "repo_verifier",
     "frontend_check",
+    "repo_doctor",
 )
 STAGED_ORCHESTRATION_REDACTIONS = (
     "raw_prompt_omitted",

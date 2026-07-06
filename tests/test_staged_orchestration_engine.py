@@ -296,6 +296,7 @@ def test_checkpoint_replay_is_idempotent_and_conflict_bound() -> None:
         ),
         ("repo_verifier", ("scripts/verify_documentation_integrity.py",)),
         ("frontend_check", ("frontend-check",)),
+        ("repo_doctor", ("doctor",)),
     ],
 )
 def test_approved_runtime_command_step_executes_through_runtime_gateway(

@@ -26,6 +26,7 @@ FOUNDER_LOOP_PANELS = ROOT / "apps/control-center/src/components/FounderLoopPane
 APP_TEST = ROOT / "apps/control-center/src/App.test.tsx"
 CONTROL_CENTER_ROUTE_TEST = ROOT / "tests/test_control_center_api_routes.py"
 STORAGE_BRIEFING_TEST = ROOT / "tests/test_founder_loop_storage_briefing.py"
+SOURCE_METADATA_CLI = ROOT / "scripts/inspect_source_readiness_metadata_contracts.py"
 
 DOC_REF = "docs/control_center/FCC_SOURCES_001_SOURCE_READINESS_DRAFT_ONLY_INPUTS.md"
 VERIFIER_REF = "scripts/verify_fcc_sources_001_source_readiness_draft_only_inputs.py"
@@ -74,6 +75,9 @@ def _validate_doc(root: Path, failures: list[str]) -> None:
             "SourceReadinessCards",
             "source_readiness_items",
             "source_readiness_posture",
+            "read_only_metadata_contracts",
+            "fcc-email-metadata-read-only-contract:fcc-p1-008",
+            "fcc-calendar-read-only-contract:fcc-p1-007",
             "source_readiness_proposal_candidates",
             "proposal_only_no_execution_path",
             "ready",
@@ -98,6 +102,10 @@ def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
             "python_core_source_readiness_read_model",
             "source_readiness_items",
             "source_readiness_posture",
+            "read_only_metadata_contracts",
+            "read_only_metadata_contract_count",
+            "fcc-email-metadata-read-only-contract:fcc-p1-008",
+            "fcc-calendar-read-only-contract:fcc-p1-007",
             "source_readiness_proposal_candidates",
             "Define email read-only metadata contract",
             "Define calendar read-only metadata contract",
@@ -122,6 +130,8 @@ def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
             "FounderLoopSourceReadinessStatus",
             '"metadata_only"',
             "FounderLoopSourceReadinessProposalCandidate",
+            "FounderLoopReadOnlyMetadataContract",
+            "read_only_metadata_contracts",
             "proposal_only_no_execution_path",
             "connector_runtime_enabled",
             "account_auth_enabled",
@@ -135,6 +145,8 @@ def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
         FOUNDER_LOOP_PANELS: [
             "SourceReadinessCards",
             "SourceReadinessProposalCards",
+            "ReadOnlyMetadataContractCards",
+            "Read-only metadata contracts",
             "Backend-owned source readiness posture",
             "read-only metadata",
             "connector runtime",
@@ -149,6 +161,9 @@ def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
             "draft_proposals_ready_no_send_write",
             "contract-ref:connector-draft-only-proposals:v1",
             "raw source",
+            "Read-only metadata contracts",
+            "fcc-email-metadata-read-only-contract:fcc-p1-008",
+            "fcc-calendar-read-only-contract:fcc-p1-007",
         ],
         CONTROL_CENTER_ROUTE_TEST: [
             "test_control_center_source_readiness_route_is_backend_owned_read_only",
@@ -163,6 +178,13 @@ def _validate_backend_and_frontend(root: Path, failures: list[str]) -> None:
             "source_readiness_posture",
             "metadata_only",
             "not_configured",
+        ],
+        SOURCE_METADATA_CLI: [
+            "source_readiness_metadata_contracts_cli.v1",
+            "read_only_metadata_contracts",
+            "state_not_found_no_write",
+            "connector_runtime_enabled",
+            "write_authority_enabled",
         ],
     }
     for path, fragments in requirements.items():
@@ -197,7 +219,8 @@ def _validate_active_docs(root: Path, failures: list[str]) -> None:
         MATURITY_MANIFEST: [
             DOC_REF,
             VERIFIER_REF,
-            "backend_owned_source_readiness_proposal_candidates_connector_runtime_blocked",
+            "backend_owned_source_readiness_contract_refs_and_proposal_candidates_connector_runtime_blocked",
+            "scripts/inspect_source_readiness_metadata_contracts.py",
         ],
     }
     for path, fragments in required_by_doc.items():

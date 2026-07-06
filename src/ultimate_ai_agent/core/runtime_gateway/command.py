@@ -238,6 +238,11 @@ def command_allowlist_catalog() -> list[RuntimeCommandAllowlistEntry]:
             command_shape_ref="runtime-command-shape-ref:frontend-check",
             safe_summary="Frontend check commands require the later exact approval bridge.",
         ),
+        RuntimeCommandAllowlistEntry(
+            intent=RuntimeCommandIntent.repo_doctor,
+            command_shape_ref="runtime-command-shape-ref:repo-doctor",
+            safe_summary="Repo doctor commands require the later exact approval bridge.",
+        ),
     ]
 
 
@@ -263,6 +268,7 @@ def promoted_approval_bridge_command_intents() -> set[RuntimeCommandIntent]:
         RuntimeCommandIntent.focused_pytest,
         RuntimeCommandIntent.repo_verifier,
         RuntimeCommandIntent.frontend_check,
+        RuntimeCommandIntent.repo_doctor,
     }
 
 
@@ -885,6 +891,8 @@ def _argv_for_entry(
         )
     if entry.intent == RuntimeCommandIntent.frontend_check.value:
         return (_system_executable("make"), "frontend-check")
+    if entry.intent == RuntimeCommandIntent.repo_doctor.value:
+        return (_system_executable("make"), "doctor")
     raise ValueError("RUNTIME_COMMAND_ARGV_NOT_PROMOTED")
 
 

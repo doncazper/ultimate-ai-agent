@@ -52,6 +52,7 @@ GOVERNED_PRODUCT_PILOT_REQUIRED_BLOCKED_AUTHORITY_REFS = (
 GOVERNED_PRODUCT_PILOT_PROMOTED_AUTHORITY_REFS = (
     *GOVERNED_RUNTIME_IMPLEMENTED_AUTHORITY_REFS,
     "authority-ref:runtime-action-inbox-focused-pytest-phase-05",
+    "authority-ref:runtime-action-inbox-repo-doctor-phase-05",
     "authority-ref:governed-product-pilot-portable-evidence-local-hash-envelope",
     "authority-ref:governed-product-pilot-durable-run-records",
 )
@@ -738,7 +739,7 @@ def _pilot_lanes() -> list[GovernedProductPilotLane]:
             repo_safe_status=(
                 "Only exact allowlisted RuntimeGateway command lanes exist: read-only "
                 "git status and Action Inbox approved focused pytest, repo-verifier, "
-                "and frontend-check."
+                "frontend-check, and repo-doctor."
             ),
             promotion_path_ref="promotion-path-ref:runtime-command-exact-micro-lanes",
             execution_capable=True,
@@ -762,16 +763,19 @@ def _pilot_lanes() -> list[GovernedProductPilotLane]:
                 "authority-ref:runtime-action-inbox-focused-pytest-phase-05",
                 "authority-ref:runtime-action-inbox-repo-verifier-phase-05",
                 "authority-ref:runtime-action-inbox-frontend-check-phase-05",
+                "authority-ref:runtime-action-inbox-repo-doctor-phase-05",
             ],
             receipt_refs=[
                 "receipt-ref:runtime-focused-pytest-command",
                 "receipt-ref:runtime-repo-verifier-command",
                 "receipt-ref:runtime-frontend-check-command",
+                "receipt-ref:runtime-repo-doctor-command",
             ],
             evidence_refs=[
                 "evidence-ref:runtime-focused-pytest-command",
                 "evidence-ref:runtime-repo-verifier-command",
                 "evidence-ref:runtime-frontend-check-command",
+                "evidence-ref:runtime-repo-doctor-command",
             ],
             rollback_refs=["rollback-ref:governed-runtime-pilot:disable-profile"],
             safe_disable_refs=["safe-disable-ref:governed-runtime-pilot"],

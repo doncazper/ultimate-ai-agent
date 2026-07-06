@@ -341,6 +341,11 @@ def build_runtime_hardline_command_blocklist_read_model() -> RuntimeHardlineComm
             source_ref="allowlisted-shape-ref:runtime-command-focused-pytest",
             candidate_ref="hardline-command-candidate-ref:allowlisted-focused-pytest",
         ),
+        classify_hardline_command_argv(
+            ("make", "doctor"),
+            source_ref="allowlisted-shape-ref:runtime-command-repo-doctor",
+            candidate_ref="hardline-command-candidate-ref:allowlisted-repo-doctor",
+        ),
         *_blocked_corpus_classifications(),
     ]
     denied_count = sum(1 for item in classifications if item.denied)

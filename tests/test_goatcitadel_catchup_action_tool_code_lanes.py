@@ -49,10 +49,10 @@ def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authori
     assert catalog["control_center_presentation_only"] is True
     assert catalog["safe_refs_only"] is True
     assert catalog["raw_content_included"] is False
-    assert catalog["entry_count"] == 13
+    assert catalog["entry_count"] == 14
     assert catalog["preview_only_count"] == 4
     assert catalog["exact_local_mutation_count"] == 1
-    assert catalog["exact_runtime_lane_count"] == 3
+    assert catalog["exact_runtime_lane_count"] == 4
     assert catalog["proposal_only_count"] == 5
     assert catalog["blocked_count"] == 4
     assert all(catalog[flag] is False for flag in BROAD_AUTHORITY_FLAGS)
@@ -69,6 +69,7 @@ def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authori
         "runtime.focused_pytest_action_inbox",
         "runtime.repo_verifier_action_inbox",
         "runtime.frontend_check_action_inbox",
+        "runtime.repo_doctor_action_inbox",
     ]:
         runtime = _entry_by_id(catalog, capability_id)
         assert runtime["status"] == "implemented_exact_approval_required"
@@ -117,7 +118,7 @@ def test_actions_inbox_persists_backend_owned_action_tool_code_catalog(
     assert catalog["backend_owned"] is True
     assert catalog["entry_count"] == len(catalog["entries"])
     assert catalog["exact_local_mutation_count"] == 1
-    assert catalog["exact_runtime_lane_count"] == 3
+    assert catalog["exact_runtime_lane_count"] == 4
     assert catalog["generic_tool_execution_enabled"] is False
 
 
@@ -164,5 +165,5 @@ def test_founder_loop_cli_inspects_action_tool_code_catalog(capsys, tmp_path) ->
     assert output["raw_content_omitted"] is True
     assert output["raw_paths_omitted"] is True
     assert catalog["contract_ref"] == ACTION_TOOL_CODE_CATALOG_CONTRACT_REF
-    assert catalog["entry_count"] == 13
+    assert catalog["entry_count"] == 14
     assert catalog["background_autonomy_enabled"] is False

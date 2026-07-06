@@ -116,7 +116,7 @@ Current boundary summary:
   configured endpoint matching, receipt-detail execution truth, and CLI approval
   preflight. They are backend-owned safe-ref/metadata receipts; arbitrary
   shell/subprocess execution, focused tests outside the exact lane, repo verifier
-  and frontend-check execution outside named exact lanes, arbitrary adapter execution, remote provider/model
+  frontend-check, and repo-doctor execution outside named exact lanes, arbitrary adapter execution, remote provider/model
   calls, browser automation, connector writes, plugin runtime import, remote
   execution, production authority, and public release claims remain blocked.
 - `GET /api/runtime/governed-product-pilot-profile` exposes a Python Core

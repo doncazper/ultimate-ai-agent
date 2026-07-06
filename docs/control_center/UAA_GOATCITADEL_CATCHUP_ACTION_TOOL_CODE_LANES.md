@@ -28,8 +28,8 @@ Phase 04 adds Python Core Action/Tool/Code Lane Catalog contract
 
 The catalog separates inspectable metadata from callable execution. It shows
 Tool Broker v2 entries as preview-only, Action Inbox `local_task_create` as an
-exact local mutation lane, RuntimeGateway focused pytest, repo-verifier, and
-frontend-check as exact approval-required lanes, Coding patch proposal as
+exact local mutation lane, RuntimeGateway focused pytest, repo-verifier,
+frontend-check, and repo-doctor as exact approval-required lanes, Coding patch proposal as
 proposal-only, and Coding patch apply, allowlisted test command, Git review,
 and live preview as blocked until later exact authority graduation.
 

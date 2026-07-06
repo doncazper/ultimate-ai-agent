@@ -329,7 +329,7 @@ runtime-authority lane. Phase 07 release truth keeps v0.104.0 as the active
 product/package baseline while the governed runtime milestone is tag-eligible
 only after green PR review and verification: configured loopback local-model
 calls, one exact read-only status command, and exact Action Inbox approved
-focused pytest, repo-verifier, and frontend-check execution may produce
+focused pytest, repo-verifier, frontend-check, and repo-doctor execution may produce
 RuntimeGateway receipts; browser
 automation, connector writes, plugin import, remote execution, arbitrary
 shell/subprocess work outside exact approved lanes, public

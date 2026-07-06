@@ -165,7 +165,7 @@ def _gateway_with_runner(store: RuntimeInvocationStore) -> RuntimeGateway:
 
 @pytest.mark.parametrize(
     "intent",
-    ["focused_pytest", "repo_verifier", "frontend_check"],
+    ["focused_pytest", "repo_verifier", "frontend_check", "repo_doctor"],
 )
 def test_runtime_action_signed_evidence_pass_path_is_verifiable(
     tmp_path: Path,

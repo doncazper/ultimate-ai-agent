@@ -124,6 +124,7 @@ def test_governed_runtime_capabilities_are_sealed_by_default() -> None:
     assert catalog["git_status"]["enabled_for_phase"] is True
     assert catalog["git_status"]["no_op_readonly"] is True
     assert catalog["focused_pytest"]["enabled_for_phase"] is False
+    assert catalog["repo_doctor"]["enabled_for_phase"] is False
 
 
 def test_governed_runtime_post_routes_require_idempotency(tmp_path, monkeypatch) -> None:

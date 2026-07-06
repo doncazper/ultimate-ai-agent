@@ -65,6 +65,7 @@ class RuntimeCommandIntent(str, Enum):
     focused_pytest = "focused_pytest"
     repo_verifier = "repo_verifier"
     frontend_check = "frontend_check"
+    repo_doctor = "repo_doctor"
 
 
 class RuntimeInvocationStatus(str, Enum):

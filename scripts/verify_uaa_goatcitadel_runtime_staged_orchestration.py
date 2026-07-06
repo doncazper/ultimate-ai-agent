@@ -47,6 +47,7 @@ CORE_REQUIRED = [
     "focused_pytest",
     "repo_verifier",
     "frontend_check",
+    "repo_doctor",
     "validate_staged_orchestration_plan",
     "replay_staged_orchestration_checkpoint",
     "reason-ref:staged-orchestration:missing-dependency",

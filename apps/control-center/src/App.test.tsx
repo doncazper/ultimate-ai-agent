@@ -8098,6 +8098,26 @@ describe("Web Control Center shell", () => {
       screen.getAllByText("contract-ref:email-read-only-missing").length,
     ).toBeGreaterThan(0);
     expect(
+      screen.getAllByText("Read-only metadata contracts").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("heading", { name: /^email metadata contract$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /^calendar metadata contract$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("fcc-email-metadata-read-only-contract:fcc-p1-008"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("fcc-calendar-read-only-contract:fcc-p1-007"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        "GET /control-center/sources/readiness#read_only_metadata_contracts",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
       screen.getByRole("heading", {
         name: /Define email read-only metadata contract/i,
       }),
@@ -16241,6 +16261,18 @@ function envelopeForReadEndpoint(url: string) {
             proposal_ref: proposal.proposal_ref.replace("mock-", ""),
             action_item_ref: proposal.action_item_ref.replace("mock-", ""),
             status: "proposal_only",
+          }),
+        ),
+      read_only_metadata_contracts:
+        mockControlCenterData.founderSourceReadiness.read_only_metadata_contracts.map(
+          (contract) => ({
+            ...contract,
+            source: "python_core_source_readiness_read_model",
+            backend_owned: true,
+            contract_ref:
+              contract.source_kind === "email"
+                ? "fcc-email-metadata-read-only-contract:fcc-p1-008"
+                : "fcc-calendar-read-only-contract:fcc-p1-007",
           }),
         ),
       source_readiness_posture: {

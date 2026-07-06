@@ -45,6 +45,9 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert "governed_runtime_action_inbox_frontend_check_command_bridge" in manifest[
         "capabilities_declared"
     ]
+    assert "governed_runtime_action_inbox_repo_doctor_command_bridge" in manifest[
+        "capabilities_declared"
+    ]
     assert "governed_product_pilot_authority_profile" in manifest[
         "capabilities_declared"
     ]

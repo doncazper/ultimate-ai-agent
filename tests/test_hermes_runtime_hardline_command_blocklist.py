@@ -54,7 +54,7 @@ def test_hardline_command_blocklist_is_read_only_posture() -> None:
     assert read_model.raw_command_output_persisted is False
     assert read_model.classification_count == len(read_model.classifications)
     assert read_model.denied_classification_count >= 10
-    assert read_model.allowed_classification_count == 2
+    assert read_model.allowed_classification_count == 3
     assert set(RUNTIME_HARDLINE_COMMAND_BLOCKLIST_BLOCKED_AUTHORITY_REFS).issubset(
         set(read_model.blocked_authority_refs)
     )
@@ -114,6 +114,7 @@ def test_hardline_classifier_denies_catastrophic_command_shapes(
         ),
         ("python", "-m", "pytest", "tests/test_governed_runtime_contracts.py", "-q"),
         ("make", "frontend-check"),
+        ("make", "doctor"),
     ],
 )
 def test_hardline_classifier_allows_current_exact_command_shapes(

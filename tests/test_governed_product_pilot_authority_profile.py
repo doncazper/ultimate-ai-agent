@@ -81,7 +81,13 @@ def test_governed_product_pilot_lanes_are_exact_and_receipt_backed() -> None:
     )
     assert "receipt-ref:runtime-frontend-check-command" in action_lane["receipt_refs"]
     assert "evidence-ref:runtime-frontend-check-command" in action_lane["evidence_refs"]
+    assert "authority-ref:runtime-action-inbox-repo-doctor-phase-05" in (
+        action_lane["authority_refs"]
+    )
+    assert "receipt-ref:runtime-repo-doctor-command" in action_lane["receipt_refs"]
+    assert "evidence-ref:runtime-repo-doctor-command" in action_lane["evidence_refs"]
     assert "frontend-check" in action_lane["repo_safe_status"].lower()
+    assert "repo-doctor" in action_lane["repo_safe_status"].lower()
 
 
 def test_portable_evidence_envelope_contains_required_signed_fields() -> None:

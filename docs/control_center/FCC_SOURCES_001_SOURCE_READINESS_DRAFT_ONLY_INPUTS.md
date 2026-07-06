@@ -46,6 +46,12 @@ Source Readiness exposes:
   `unavailable`, and `not_configured`.
 - `source_readiness_posture` with backend ownership, source counts, missing
   contract refs, blocked state refs, and blocked authority refs.
+- `read_only_metadata_contracts` for backend-owned email/calendar metadata
+  contract refs, metadata refs, evidence refs, audit/replay refs, and blocked
+  runtime refs.
+  Current contract refs are
+  `fcc-email-metadata-read-only-contract:fcc-p1-008` and
+  `fcc-calendar-read-only-contract:fcc-p1-007`.
 - `source_readiness_proposal_candidates` for email read-only metadata contract,
   calendar read-only metadata contract, and account-auth boundary work.
 - `connector_draft_proposals` for backend-owned email-response and
@@ -57,6 +63,10 @@ All source proposal candidates are draft-only proposal/readability records.
 Connector draft proposals are local safe-ref review artifacts. They are not
 connector writes, live account states, external source reads, sent drafts, or
 evidence that source access has been completed.
+Read-only metadata contracts are contract evidence only. They are not live
+email/calendar fetches, source ingestion, account auth, connector runtime,
+message sends, archive/delete/label/move operations, calendar writes, or
+test-account proofs.
 
 ## Authority Boundary
 
