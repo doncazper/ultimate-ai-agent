@@ -68,6 +68,7 @@ CAPABILITIES_DECLARED = [
     "governed_runtime_loopback_local_model_call_pilot",
     "governed_runtime_allowlisted_readonly_command_pilot",
     "governed_runtime_action_inbox_focused_pytest_command_bridge",
+    "governed_runtime_action_inbox_repo_verifier_command_bridge",
     "governed_runtime_staged_orchestration_read_model",
     "governed_runtime_prepared_turn_read_model",
     "governed_product_pilot_authority_profile",

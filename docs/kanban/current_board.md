@@ -379,8 +379,9 @@ runtime authority WIP lane. Phase 07 preserves the Phase 01 verified baseline at
 `local-runtime`, and `operator-approved`, and adds receipt-backed governed
 runtime evidence for configured loopback local-model calls, one exact
 allowlisted argv-only read-only command status lane, and exact Action Inbox
-approved focused pytest command execution plus CLI/Control Center/evidence
-timeline parity for status, capabilities, invocation, receipt, safe-disable,
+approved focused pytest and repo-verifier command execution plus CLI/Control
+Center/evidence timeline parity for status, capabilities, invocation, receipt,
+safe-disable,
 and approval decision inspection. Phase 07 also pins command execution to the
 approved repo root, requires configured local-model endpoint matching, mirrors
 receipt execution truth on receipt detail, adds CLI approval preflight, and
@@ -389,9 +390,9 @@ The full-strength target is useful local runtime authority through a governed
 RuntimeGateway: configured loopback/local model calls, allowlisted argv-only
 local command execution, exact Action Inbox approval before execution,
 redacted receipts/evidence, and CLI/API/Control Center parity. The repo-safe
-Phase 07 slice adds no repo verifier/frontend-check execution, remote
-provider/model call, arbitrary command text, arbitrary shell/subprocess
-execution, browser/web authority, connector write, plugin runtime import,
+Phase 07 slice adds no frontend-check execution, remote provider/model call,
+arbitrary command text, arbitrary shell/subprocess execution, browser/web
+authority, connector write, plugin runtime import,
 remote execution, public beta, public release, production authority, or broad
 autonomy. Promotion still requires later focused PRs for broader command,
 provider, browser, connector, and release authority. Rollback/safe-disable posture must stay
