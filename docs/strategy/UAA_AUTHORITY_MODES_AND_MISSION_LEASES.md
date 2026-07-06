@@ -27,10 +27,14 @@ surfaces are:
 The first implementation is deliberately conservative: the default active
 lease is read-only; operator-selected session leases persist safe receipts for
 implemented local domain/capability subsets; existing exact lanes are mapped
-into domains and required trust modes; runtime policy can evaluate supplied
-active leases; unsupported browser/app/payment/calendar/messages/Home
-Assistant adapters remain denied or draft-degraded instead of being presented
-as live execution.
+into domains and required trust modes; RuntimeGateway API/CLI decisions consume
+the active lease store for command invocation, approval, and execution policy;
+unsupported browser/app/payment/calendar/messages/Home Assistant adapters remain
+denied or draft-degraded instead of being presented as live execution. Read-only
+command status may run under `workspace/read`; execution-capable command lanes
+require an active `workspace/execute` lease. Provider/model transport remains
+blocked by authority policy unless a later supported provider/model execution
+lease is implemented and tested.
 
 ## Core Problem
 

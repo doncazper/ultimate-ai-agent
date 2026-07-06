@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from ultimate_ai_agent.core.authority import build_default_authority_leases
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
     LocalModelRuntimeAdapter,
@@ -993,6 +994,53 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
     assert "safe pytest output" not in persisted
     assert "stdout" not in persisted
     assert "stderr" not in persisted
+
+
+def test_runtime_gateway_action_inbox_execute_requires_workspace_execute_lease(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=3,
+            output_bytes=b"should not execute",
+        )
+
+    store = RuntimeInvocationStore(
+        tmp_path,
+        active_authority_leases=build_default_authority_leases(),
+    )
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        store,
+        command_request=command_request,
+    )
+    gateway = RuntimeGateway(
+        store=store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+
+    result = gateway.execute_approved_command(
+        approved.invocation_ref,
+        _command_request_for_approved_record(command_request, approved),
+        _runtime_execute_request(approved),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-no-lease-execute",
+    )
+
+    assert calls == []
+    assert approved.policy_decision.allowed_to_execute is False
+    assert approved.policy_decision.authority_decision_outcome == "degrade_to_draft"
+    assert result.record.status == "execution_blocked"
+    assert result.error_category == "RUNTIME_COMMAND_POLICY_EXECUTION_BLOCKED"
+    assert result.record.receipt is not None
+    assert result.record.receipt.command_execution_performed is False
 
 
 def test_runtime_gateway_action_inbox_approval_executes_exact_repo_verifier_command(

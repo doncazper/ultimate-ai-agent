@@ -39,6 +39,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     RuntimeInvocationConflictError,
     RuntimeInvocationNotFoundError,
     RuntimeInvocationStore,
+    active_runtime_authority_leases,
     HermesChatRequest,
     HermesCliAdapter,
     build_portable_evidence_envelope,
@@ -1617,9 +1618,13 @@ def _print_receipt(record: Any) -> None:
 
 
 def _runtime_store(args: argparse.Namespace) -> RuntimeInvocationStore:
+    active_leases = active_runtime_authority_leases()
     if args.state_dir is None:
-        return RuntimeInvocationStore()
-    return RuntimeInvocationStore(Path(args.state_dir))
+        return RuntimeInvocationStore(active_authority_leases=active_leases)
+    return RuntimeInvocationStore(
+        Path(args.state_dir),
+        active_authority_leases=active_leases,
+    )
 
 
 def _inspect_action_inbox_bridge(args: argparse.Namespace) -> int:

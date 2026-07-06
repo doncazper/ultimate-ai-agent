@@ -672,6 +672,11 @@ def _approved_command_block_reason(
         return "RUNTIME_COMMAND_OPERATOR_APPROVED_PROFILE_REQUIRED"
     if record.request.requested_profile != RuntimeProfile.operator_approved.value:
         return "RUNTIME_COMMAND_INVOCATION_PROFILE_WEAKENED"
+    if (
+        not record.policy_decision.allowed_to_execute
+        or not record.policy_decision.command_execution_enabled
+    ):
+        return "RUNTIME_COMMAND_POLICY_EXECUTION_BLOCKED"
     if request.approval_ref != envelope.approval_ref:
         return "RUNTIME_COMMAND_ACTION_INBOX_APPROVAL_REF_CHANGED"
     if execute_request.approval_ref != envelope.approval_ref:

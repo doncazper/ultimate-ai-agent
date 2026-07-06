@@ -20,6 +20,11 @@ from ultimate_ai_agent.core.approvals import (
     ApprovalSubjectType,
     LocalApprovalAuthority,
 )
+from ultimate_ai_agent.core.authority import (
+    AuthorityLease,
+    AuthorityLeaseStore,
+    build_default_authority_leases,
+)
 from ultimate_ai_agent.core.execution.validation import (
     SECRET_LIKE_RE,
     validate_execution_ref,
@@ -605,11 +610,26 @@ def _action_inbox_envelope_for_request(
     return envelope, status, command_gateway_validated
 
 
+def active_runtime_authority_leases() -> list[AuthorityLease]:
+    active = AuthorityLeaseStore().list_leases(active_only=True)
+    return active or build_default_authority_leases()
+
+
 class RuntimeInvocationStore:
-    def __init__(self, state_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        state_dir: Path | None = None,
+        *,
+        active_authority_leases: Iterable[AuthorityLease] | None = None,
+    ) -> None:
         self.state_dir = state_dir or runtime_gateway_state_dir()
         self.path = self.state_dir / RUNTIME_GATEWAY_JSONL
         self.lock_path = self.state_dir / RUNTIME_GATEWAY_LOCK
+        self._active_authority_leases = (
+            list(active_authority_leases)
+            if active_authority_leases is not None
+            else None
+        )
         self._records: dict[str, RuntimeInvocationRecord] = {}
         self._entries: list[RuntimeGatewayStorageEntry] = []
         self._idempotency_index: dict[str, str] = {}
@@ -695,6 +715,7 @@ class RuntimeInvocationStore:
             status=RuntimeInvocationStatus.pending_approval,
             local_model_gateway_validated=local_model_gateway_validated,
             command_gateway_validated=command_gateway_validated,
+            active_authority_leases=self._active_authority_leases,
         )
         record = RuntimeInvocationRecord(
             invocation_ref=invocation_ref,
@@ -783,6 +804,7 @@ class RuntimeInvocationStore:
                     approval_ref=envelope.approval_ref,
                     status=status,
                     command_gateway_validated=command_gateway_validated,
+                    active_authority_leases=self._active_authority_leases,
                 )
                 policy_decision = policy_decision.model_copy(
                     update={
@@ -832,6 +854,7 @@ class RuntimeInvocationStore:
                 invocation_ref=record.invocation_ref,
                 approval_ref=request.approval_ref,
                 status=RuntimeInvocationStatus.pending_approval,
+                active_authority_leases=self._active_authority_leases,
             )
             updated = record.model_copy(
                 update={
@@ -1084,6 +1107,7 @@ class RuntimeInvocationStore:
                         invocation_ref=record.invocation_ref,
                         approval_ref=record.approval_requirement.approval_ref,
                         status=RuntimeInvocationStatus.safe_disabled,
+                        active_authority_leases=self._active_authority_leases,
                     )
                     receipt = (
                         record.receipt.model_copy(update={"safe_disable": state})

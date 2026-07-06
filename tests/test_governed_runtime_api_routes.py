@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.rate_limits import reset_api_rate_limit_state, route_rate_limit_group
+from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeCommandExecutionRequest,
     runtime_command_invocation_request,
@@ -95,6 +96,29 @@ def _runtime_action_inbox_refs(record: dict[str, object]) -> dict[str, str]:
         "action_envelope_ref": action_envelope_ref,
         "exact_scope_ref": exact_scope_ref,
     }
+
+
+def _activate_workspace_execute_authority(
+    tmp_path,
+    monkeypatch,
+    *,
+    suffix: str,
+) -> None:
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+    response = client.post(
+        "/api/runtime/authority-leases",
+        headers={
+            "x-uaa-idempotency-key": f"idempotency-ref:authority-runtime-{suffix}"
+        },
+        json={
+            "mode": "approved_safe_local_work_session",
+            "requested_domains": {"workspace": ["read", "execute"]},
+            "decision_reason_ref": f"reason-ref:authority-runtime-{suffix}",
+            "safe_summary": "Authorize exact governed runtime workspace command execution.",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["success"] is True
 
 
 def test_governed_runtime_capabilities_are_sealed_by_default() -> None:
@@ -435,30 +459,33 @@ def test_governed_runtime_local_model_call_records_safe_failure_receipt(
     body = response.json()
     assert body["success"] is False
     assert body["data"]["local_model_runtime_enabled"] is True
-    assert body["data"]["execution_performed"] is True
-    assert body["data"]["adapter_execution_enabled"] is True
-    assert body["data"]["model_call_performed"] is True
-    assert body["data"]["error_category"] == "M164_LLAMA_CPP_GATEWAY_UNAVAILABLE"
+    assert body["data"]["execution_performed"] is False
+    assert body["data"]["adapter_execution_enabled"] is False
+    assert body["data"]["model_call_performed"] is False
+    assert body["data"]["error_category"] == "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
     assert body["data"]["response_preview"] is None
     assert body["data"]["response_preview_persisted"] is False
     assert body["data"]["record"]["receipt"]["model_output_non_authoritative"] is True
+    assert body["data"]["record"]["policy_decision"]["authority_decision_outcome"] == (
+        "degrade_to_draft"
+    )
     invocation_ref = body["data"]["record"]["invocation_ref"]
 
     receipt = client.get(f"/api/runtime/invocations/{invocation_ref}/receipt")
     assert receipt.status_code == 200
     receipt_body = receipt.json()
     assert receipt_body["success"] is True
-    assert receipt_body["data"]["execution_performed"] is True
-    assert receipt_body["data"]["model_call_performed"] is True
+    assert receipt_body["data"]["execution_performed"] is False
+    assert receipt_body["data"]["model_call_performed"] is False
     assert receipt_body["data"]["command_execution_performed"] is False
-    assert receipt_body["data"]["receipt"]["model_call_performed"] is True
+    assert receipt_body["data"]["receipt"]["model_call_performed"] is False
     assert "api prompt should not persist" not in receipt.text
 
     persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
         encoding="utf-8"
     )
     assert "api prompt should not persist" not in persisted
-    assert "M164_LLAMA_CPP_GATEWAY_UNAVAILABLE" in persisted
+    assert "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED" in persisted
 
 
 def test_governed_runtime_command_run_records_redacted_receipt(
@@ -528,6 +555,7 @@ def test_governed_runtime_action_inbox_execute_receipt_detail_reports_execution(
 ) -> None:
     monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
     reset_api_rate_limit_state()
+    _activate_workspace_execute_authority(tmp_path, monkeypatch, suffix="success-api")
     command_request = RuntimeCommandExecutionRequest(
         intent="focused_pytest",
         requested_profile="operator-approved",
@@ -632,6 +660,11 @@ def test_governed_runtime_action_inbox_execute_rejects_changed_scope(
 ) -> None:
     monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
     reset_api_rate_limit_state()
+    _activate_workspace_execute_authority(
+        tmp_path,
+        monkeypatch,
+        suffix="changed-scope",
+    )
     command_request = RuntimeCommandExecutionRequest(
         intent="focused_pytest",
         requested_profile="operator-approved",

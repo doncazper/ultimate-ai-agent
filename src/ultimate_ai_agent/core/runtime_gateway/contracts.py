@@ -879,13 +879,23 @@ def build_policy_decision(
                 draft_fallback_available=True,
             )
         else:
+            command_capability = (
+                AuthorityCapability.read
+                if request.action_ref
+                == f"action-ref:runtime-command-{RuntimeCommandIntent.git_status.value}"
+                else AuthorityCapability.execute
+            )
             authority_request = AuthorityActionRequest(
                 action_ref=request.action_ref or invocation_ref,
                 domain=AuthorityDomain.workspace,
-                capability=AuthorityCapability.execute,
+                capability=command_capability,
                 safe_summary="Evaluate workspace command authority for governed runtime.",
                 route_ref="POST /api/runtime/command/run",
-                requested_mode=TrustMode.approved_safe_local_work_session,
+                requested_mode=(
+                    TrustMode.read_only
+                    if command_capability == AuthorityCapability.read
+                    else TrustMode.approved_safe_local_work_session
+                ),
                 draft_fallback_available=True,
             )
         authority_decision = evaluate_authority_request(

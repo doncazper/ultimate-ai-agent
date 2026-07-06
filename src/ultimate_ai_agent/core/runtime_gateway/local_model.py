@@ -38,7 +38,10 @@ from ultimate_ai_agent.core.runtime_gateway.command import (
     invoke_governed_command,
     invoke_approved_governed_command,
 )
-from ultimate_ai_agent.core.runtime_gateway.storage import RuntimeInvocationStore
+from ultimate_ai_agent.core.runtime_gateway.storage import (
+    RuntimeInvocationStore,
+    active_runtime_authority_leases,
+)
 
 
 LOCAL_MODEL_RUNTIME_ADAPTER_ID = "local-model-runtime-adapter"
@@ -226,7 +229,9 @@ class RuntimeGateway:
         command_adapter: GovernedCommandRuntimeAdapter | None = None,
         local_model_runtime_enabled: bool | None = None,
     ) -> None:
-        self.store = store or RuntimeInvocationStore()
+        self.store = store or RuntimeInvocationStore(
+            active_authority_leases=active_runtime_authority_leases()
+        )
         self.local_model_adapter = local_model_adapter or LocalModelRuntimeAdapter()
         self.command_adapter = command_adapter or GovernedCommandRuntimeAdapter()
         self._local_model_runtime_enabled = local_model_runtime_enabled
@@ -412,7 +417,7 @@ class RuntimeGateway:
             return RuntimeLocalModelGatewayResult(
                 record=updated,
                 request_byte_count=metadata.request_byte_count,
-                error_category=blocked_error,
+                error_category=metadata.error_category,
                 local_model_runtime_enabled=runtime_enabled,
             )
 

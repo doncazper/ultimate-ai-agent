@@ -36,6 +36,9 @@ browser, app, payment, calendar, messages, email, contacts, Home Assistant,
 and production/cloud adapters remain blocked or draft-only until implemented
 and tested, but the operator-facing explanation should name the required mode
 and domains instead of saying "blocked until another tiny lane graduates."
+Governed Runtime command policy uses the active lease store: read-only status
+commands require `workspace/read`, and execution-capable command lanes require
+`workspace/execute` plus the exact approval envelope and receipts.
 
 The `context_injection` prerequisite contract is planned-only and
 contract-ready for future gate review. It adds no runtime prompt/context

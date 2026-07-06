@@ -601,6 +601,7 @@ from ultimate_ai_agent.core.runtime_gateway.storage import (
     RuntimeInvocationConflictError,
     RuntimeInvocationNotFoundError,
     RuntimeInvocationStore,
+    active_runtime_authority_leases,
 )
 
 __all__ = [
@@ -757,6 +758,7 @@ __all__ = [
     "RuntimeLocalModelGatewayResult",
     "RuntimeLocalModelMessage",
     "RuntimeInvocationStore",
+    "active_runtime_authority_leases",
     "RuntimePolicyDecision",
     "RuntimeProfile",
     "RuntimeRollbackRef",

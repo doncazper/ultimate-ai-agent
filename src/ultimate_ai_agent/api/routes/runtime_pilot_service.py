@@ -33,6 +33,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeInvocationNotFoundError,
     RuntimeInvocationRequest,
     RuntimeInvocationStore,
+    active_runtime_authority_leases,
     RuntimeCommandExecutionRequest,
     RuntimeLocalModelCallRequest,
     build_default_runtime_capabilities,
@@ -87,7 +88,9 @@ _runtime_store_getter: _RuntimeStoreGetter | None = None
 
 
 def _default_runtime_store() -> RuntimeInvocationStore:
-    return RuntimeInvocationStore()
+    return RuntimeInvocationStore(
+        active_authority_leases=active_runtime_authority_leases()
+    )
 
 
 def _runtime_store() -> RuntimeInvocationStore:
