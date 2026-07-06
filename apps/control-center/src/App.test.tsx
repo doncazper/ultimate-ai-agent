@@ -7598,6 +7598,18 @@ describe("Web Control Center shell", () => {
         "blocked-authority:managed-scope-no-system-config-write",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText("Doctor")).toBeInTheDocument();
+    expect(screen.getByText("Setup diagnostics")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/doctor-diagnostics").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-doctor-diagnostics").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Protected material")).toBeInTheDocument();
+    expect(
+      screen.getByText("blocked-authority:runtime-doctor-no-installs"),
+    ).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
     expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
@@ -14676,6 +14688,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.runtimeManagedScopePolicy),
     ).toBe(true);
+    expect(API_ENDPOINTS.runtimeDoctorDiagnostics).toBe(
+      "/api/runtime/doctor-diagnostics",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeDoctorDiagnostics),
+    ).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15727,6 +15745,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeHardlineCommandBlocklist,
     [API_ENDPOINTS.runtimeManagedScopePolicy]:
       mockControlCenterData.runtimeManagedScopePolicy,
+    [API_ENDPOINTS.runtimeDoctorDiagnostics]:
+      mockControlCenterData.runtimeDoctorDiagnostics,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:

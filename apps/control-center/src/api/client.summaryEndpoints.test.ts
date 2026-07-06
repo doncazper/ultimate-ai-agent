@@ -806,6 +806,8 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.runtimeHardlineCommandBlocklist,
     [API_ENDPOINTS.runtimeManagedScopePolicy]:
       mockControlCenterData.runtimeManagedScopePolicy,
+    [API_ENDPOINTS.runtimeDoctorDiagnostics]:
+      mockControlCenterData.runtimeDoctorDiagnostics,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
