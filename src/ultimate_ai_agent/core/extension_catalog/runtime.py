@@ -23,6 +23,12 @@ from ultimate_ai_agent.core.extension_catalog.contracts import (
     InspectableExtensionPackageIdentity,
     InspectableExtensionProvenance,
     InspectableExtensionRequestedGrant,
+    SkillWriteApprovalGateReadModel,
+    SkillWriteDiffPreview,
+    SkillWriteProposal,
+    SkillWriteProposalKind,
+    SkillWriteReviewStatus,
+    validate_skill_write_approval_gate,
     validate_inspectable_extension_catalog,
 )
 
@@ -33,6 +39,7 @@ INSPECTABLE_EXTENSION_CATALOG_DOCS = [
     "doc:extension-activation-grants",
     "doc:goatcitadel-catchup-extensibility-final",
     "doc:hermes-runtime-progressive-skill-disclosure",
+    "doc:hermes-runtime-skill-write-approval-gate",
 ]
 
 INSPECTABLE_EXTENSION_CATALOG_SCHEMAS = [
@@ -50,6 +57,8 @@ EXTENSION_CATALOG_BLOCKED_CAPABILITIES = [
     "arbitrary_plugin_execution",
     "skill_runtime_import",
     "external_marketplace_fetch",
+    "direct_skill_write",
+    "automatic_skill_enablement",
     "connector_writes",
     "shell_subprocess_execution",
     "unrestricted_network_access",
@@ -59,6 +68,18 @@ EXTENSION_CATALOG_BLOCKED_CAPABILITIES = [
 ]
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+SKILL_WRITE_BLOCKED_AUTHORITY_REFS = [
+    "blocked-authority:skill-write-no-direct-file-write",
+    "blocked-authority:skill-write-no-runtime-import",
+    "blocked-authority:skill-write-no-execution",
+    "blocked-authority:skill-write-no-connector-write",
+    "blocked-authority:skill-write-no-shell-execution",
+    "blocked-authority:skill-write-no-provider-model-call",
+    "blocked-authority:skill-write-no-browser-automation",
+    "blocked-authority:skill-write-no-production-authority",
+]
 
 
 def _safe_file_hash(file_ref: str, rel_path: str) -> InspectableExtensionFileHash:
@@ -74,6 +95,60 @@ def _safe_file_hash(file_ref: str, rel_path: str) -> InspectableExtensionFileHas
         hash_value=f"sha256:{digest}",
         hash_status=ExtensionHashStatus.reviewed,
     )
+
+
+def build_default_skill_write_approval_gate() -> SkillWriteApprovalGateReadModel:
+    gate = SkillWriteApprovalGateReadModel(
+        gate_ref="skill-write-gate:hermes-runtime-adoption-phase-14",
+        proposal_count=1,
+        review_queue_ref="review-queue:skill-write-proposals",
+        required_authority_ref="authority-ref:local-approval-skill-write-review",
+        blocked_authority_refs=list(SKILL_WRITE_BLOCKED_AUTHORITY_REFS),
+        verifier_refs=["verifier:hermes-runtime-adoption-phase-14"],
+        next_safe_action_refs=[
+            "next-safe-action:review-staged-skill-diff-preview",
+            "next-safe-action:keep-skill-write-blocked-until-exact-lane",
+        ],
+        safe_summary=(
+            "Skill write proposals are staged for review with diff-preview refs; "
+            "no skill files are written and no skill is enabled or imported."
+        ),
+        proposals=[
+            SkillWriteProposal(
+                proposal_ref="skill-write-proposal:uaa-doc-helper-draft",
+                proposal_kind=SkillWriteProposalKind.create_skill,
+                skill_ref="skill:uaa-doc-helper-draft",
+                target_skill_ref="skill-target:uaa-owned-skill-review-queue",
+                staged_artifact_ref="staged-artifact:skill-write-doc-helper-draft",
+                review_decision_ref="skill-write-review:awaiting-operator",
+                review_status=SkillWriteReviewStatus.awaiting_operator_review,
+                diff_previews=[
+                    SkillWriteDiffPreview(
+                        diff_preview_ref="skill-write-diff-preview:doc-helper",
+                        target_ref="skill-target:uaa-owned-skill-review-queue",
+                        change_summary_ref="change-summary:skill-write-doc-helper",
+                        safe_summary=(
+                            "Proposed skill metadata and instructions are "
+                            "represented by safe refs only; raw diff and file "
+                            "content are omitted."
+                        ),
+                    )
+                ],
+                blocked_execution_labels=[
+                    "blocked-label:skill-write-file-write",
+                    "blocked-label:skill-runtime-import",
+                    "blocked-label:skill-execution",
+                ],
+                proof_refs=["proof-ref:hermes-runtime-adoption:phase-14"],
+                receipt_refs=[],
+                safe_summary=(
+                    "Draft skill write proposal awaits operator review and exact "
+                    "future approval before any file mutation lane can exist."
+                ),
+            )
+        ],
+    )
+    return validate_skill_write_approval_gate(gate)
 
 
 def build_default_inspectable_extension_catalog() -> InspectableExtensionCatalog:
@@ -100,6 +175,7 @@ def build_default_inspectable_extension_catalog() -> InspectableExtensionCatalog
             "progressive-disclosure:metadata-first-index",
             "progressive-disclosure:operator-selected-instructions",
         ],
+        skill_write_approval_gate=build_default_skill_write_approval_gate(),
         safe_summary=(
             "Read-only extension catalog metadata; packages remain non-callable "
             "and runtime import stays disabled. Skill entries disclose compact "

@@ -51,6 +51,7 @@ The catalog root includes:
 - `blocked_capabilities`
 - `compact_skill_index_refs`
 - `progressive_disclosure_refs`
+- `skill_write_approval_gate`
 - `docs_refs`
 - `schema_refs`
 - `safe_summary`
@@ -79,6 +80,7 @@ Each catalog entry includes:
 | Review evidence refs | Safe audit and review refs. | Evidence refs do not expose raw logs or package contents. |
 | Safe adoption posture | Repo-owned metadata only, reviewed adaptation required, or blocked until scoped milestone. | Adoption posture is not install or import authority. |
 | Progressive disclosure | Metadata-first status, full-instruction load posture, operator-selection requirement, and disabled hidden/automatic loading flags. | Full skill instructions are never auto-loaded and cannot become hidden context or runtime authority. |
+| Skill write gate | Staged proposal refs, diff-preview refs, review decision refs, blocked execution labels, and proof refs. | The gate is review-only; it writes no files and enables no skill runtime. |
 
 ## Read-Only Route Behavior
 
@@ -91,6 +93,8 @@ Each catalog entry includes:
 - file hash status and reviewed SHA-256 values
 - risk class
 - requested grant status
+- staged skill-write proposal refs
+- diff-preview refs and blocked execution labels
 - activation status
 - blocked or unknown state
 - blocker refs
@@ -174,6 +178,15 @@ does not add a new route, package install, runtime import, executable skill
 enablement, hidden context injection, provider/model call, connector write, or
 production authority.
 
+Hermes Runtime Adoption Phase 14 adds a Skill Write Approval Gate read model in
+`docs/runtime/UAA_HERMES_RUNTIME_SKILL_WRITE_APPROVAL_GATE.md` and
+`scripts/dev/uaa_extensions.py inspect-skill-write-gate`. The gate exposes
+staged skill-write proposals, diff-preview refs, review-decision refs, blocked
+execution labels, proof refs, and verifier refs only. It performs no file
+writes, skill enablement, runtime import, execution, provider/model call,
+connector write, shell/subprocess execution, browser automation, or production
+authority.
+
 ## Known Gaps
 
 - Static package review for arbitrary packages remains scoped to UAA-P2-048.
@@ -182,6 +195,7 @@ production authority.
 - No callable catalog exists.
 - No runtime import or package execution exists.
 - No automatic full-instruction loading or hidden skill activation exists.
+- No skill-write apply lane or direct skill-file mutation exists.
 - No marketplace fetch or external package import exists.
 - No persistence-backed extension registry exists.
 - MCP/A2A compatibility remains watchlist-only.
