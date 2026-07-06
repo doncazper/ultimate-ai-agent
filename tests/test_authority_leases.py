@@ -74,6 +74,14 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert work_board_card_create.domain == "workspace"
     assert work_board_card_create.capability == "write"
     assert work_board_card_create.required_mode == "ask_before_changes"
+    crm_local_mutation = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /control-center/crm/local-mutations" in mapping.route_refs
+    )
+    assert crm_local_mutation.domain == "contacts"
+    assert crm_local_mutation.capability == "write"
+    assert crm_local_mutation.required_mode == "ask_before_changes"
     assert {decision.outcome for decision in read_model.sample_decisions} >= {
         "allow",
         "deny",
@@ -263,6 +271,7 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
             "mode": "approved_safe_local_work_session",
             "requested_domains": {
                 "workspace": ["read", "write", "execute"],
+                "contacts": ["write"],
                 "browser": ["click"],
                 "provider_model_calls": ["execute"],
             },
@@ -278,6 +287,7 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     assert receipt["status"] == "issued"
     assert receipt["execution_performed"] is False
     assert receipt["granted_domains"]["workspace"] == ["read", "write", "execute"]
+    assert receipt["granted_domains"]["contacts"] == ["write"]
     assert "authority-domain-ref:browser" in receipt["denied_domain_refs"]
     assert "authority-domain-ref:provider_model_calls" in (
         receipt["denied_domain_refs"]

@@ -864,6 +864,7 @@ def _allowed_domain_capabilities(
             AuthorityDomain.workspace: local_execute,
             AuthorityDomain.files: local_change,
             AuthorityDomain.memory: local_change,
+            AuthorityDomain.contacts: local_change,
             AuthorityDomain.email: {AuthorityCapability.observe, AuthorityCapability.draft},
             AuthorityDomain.calendar: {
                 AuthorityCapability.observe,
@@ -878,6 +879,7 @@ def _allowed_domain_capabilities(
         AuthorityDomain.workspace: local_execute,
         AuthorityDomain.files: local_change,
         AuthorityDomain.memory: local_change,
+        AuthorityDomain.contacts: local_change,
         AuthorityDomain.provider_model_calls: {
             AuthorityCapability.observe,
             AuthorityCapability.read,
@@ -1283,6 +1285,17 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ["POST /control-center/memory/review/{candidate_ref}/accept"],
             ["repo-local-command:inspect-memory-review"],
             "Requires Memory domain write authority; Ask before changes returns ask until an operator confirms.",
+        ),
+        _mapping(
+            "lane-ref:crm-local-mutation",
+            "CRM local mutation",
+            AuthorityDomain.contacts,
+            AuthorityCapability.write,
+            TrustMode.ask_before_changes,
+            "implemented_exact_approval_required_mapped",
+            ["POST /control-center/crm/local-mutations"],
+            ["repo-local-command:uaa-crm:mutate-local"],
+            "Requires Contacts write authority plus exact approval, idempotency, receipts, and rollback refs for local CRM state only.",
         ),
         _mapping(
             "lane-ref:source-readiness-email-calendar",

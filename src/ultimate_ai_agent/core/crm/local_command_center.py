@@ -17,6 +17,17 @@ from ultimate_ai_agent.core.approvals import (
     ApprovalSubjectType,
     LocalApprovalAuthority,
 )
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityCapability,
+    AuthorityDecisionOutcome,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityLeaseStore,
+    TrustMode,
+    build_default_authority_leases,
+    evaluate_authority_request,
+)
 from ultimate_ai_agent.core.crm.contracts import (
     CRM_COMMUNICATIONS_REQUIRED_DENIAL_REFS,
     CRM_COMMUNICATIONS_SPINE_CONTRACT_REF,
@@ -70,10 +81,22 @@ CRM_LOCAL_COMMAND_CENTER_CLI_REFS = [
     "repo-local-command:uaa-crm:inspect-pipelines",
     "repo-local-command:uaa-crm:inspect-connector-read-lanes",
     "repo-local-command:uaa-crm:inspect-storage",
+    "repo-local-command:uaa-crm:mutate-local",
 ]
 
 CRM_LOCAL_MUTATION_CONTRACT_REF = "contract-ref:crm-local-mutation-lane:v1"
 CRM_LOCAL_MUTATION_ROUTE_REF = "POST /control-center/crm/local-mutations"
+CRM_LOCAL_MUTATION_AUTHORITY_ACTION_REF = "authority-action-ref:crm-local-mutation"
+CRM_LOCAL_MUTATION_AUTHORITY_LANE_REF = "lane-ref:crm-local-mutation"
+CRM_LOCAL_MUTATION_AUTHORITY_DOMAIN_REF = "authority-domain-ref:contacts"
+CRM_LOCAL_MUTATION_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
+CRM_LOCAL_MUTATION_AUTHORITY_REQUIRED_MODE_REF = (
+    "authority-mode-ref:ask-before-changes"
+)
+CRM_LOCAL_MUTATION_AUTHORITY_REQUIRED_BLOCKED_REF = (
+    "blocked-state:crm-local-mutation-authority-lease-required"
+)
+CRM_LOCAL_MUTATION_SAFE_DISABLE_REF = "safe-disable-ref:crm-local-mutation"
 CRM_LOCAL_IMPORT_EXPORT_CONTRACT_REF = "contract-ref:crm-local-import-export:v1"
 CRM_LOCAL_AI_PROPOSAL_CONTRACT_REF = "contract-ref:crm-ai-proposal-layer:v1"
 CRM_LOCAL_CONNECTOR_READ_POSTURE_REF = "posture-ref:crm-connector-read-lanes:v1"
@@ -143,6 +166,22 @@ SAFE_SUFFIX_RE = re.compile(r"[^a-z0-9_.:-]+")
 
 class CrmLocalCommandCenterError(RuntimeError):
     """Safe-ref-only CRM local command center error."""
+
+
+class CrmLocalAuthorityError(CrmLocalCommandCenterError):
+    """Raised when a CRM local mutation lacks active AuthorityLease scope."""
+
+    def __init__(
+        self,
+        reason_refs: list[str],
+        *,
+        code: str = "CRM_LOCAL_MUTATION_AUTHORITY_DENIED",
+        required_refs: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(code)
+        self.code = code
+        self.reason_refs = reason_refs
+        self.required_refs = required_refs or {}
 
 
 class CrmLocalCommandCenterDuplicateError(CrmLocalCommandCenterError):
@@ -934,6 +973,11 @@ class CrmLocalMutationReceipt(_CrmLocalModel):
     approval_status: str
     idempotency_ref: str
     payload_fingerprint_ref: str
+    authority_decision_ref: str
+    authority_decision_outcome: str
+    authority_lease_ref: str
+    authority_domain_ref: str = CRM_LOCAL_MUTATION_AUTHORITY_DOMAIN_REF
+    authority_capability_ref: str = CRM_LOCAL_MUTATION_AUTHORITY_CAPABILITY_REF
     before_ref: str
     after_ref: str
     rollback_ref: str
@@ -966,12 +1010,22 @@ class CrmLocalMutationReceipt(_CrmLocalModel):
             "approval_ref",
             "idempotency_ref",
             "payload_fingerprint_ref",
+            "authority_decision_ref",
+            "authority_lease_ref",
+            "authority_domain_ref",
+            "authority_capability_ref",
             "before_ref",
             "after_ref",
             "rollback_ref",
             "proof_ref",
         ]:
             _validate_ref(getattr(self, field_name), field_name)
+        _validate_safe_text(self.authority_decision_outcome, "authority_decision_outcome")
+        if self.authority_decision_outcome not in {
+            AuthorityDecisionOutcome.allow.value,
+            AuthorityDecisionOutcome.ask.value,
+        }:
+            raise ValueError("CRM_LOCAL_MUTATION_AUTHORITY_DECISION_UNSUPPORTED")
         _validate_safe_text(self.safe_summary, "safe_summary")
         _validate_ref_list(self.evidence_refs, "evidence_refs")
         _validate_ref_list(self.blocked_authority_refs, "blocked_authority_refs")
@@ -1056,10 +1110,16 @@ def crm_local_mutation_approval_request(
 
 
 class CrmLocalStore:
-    def __init__(self, state_dir: Path) -> None:
+    def __init__(
+        self,
+        state_dir: Path,
+        *,
+        active_authority_leases: list[AuthorityLease] | None = None,
+    ) -> None:
         self.state_dir = state_dir
         self.snapshot_file = state_dir / "crm_local_command_center_snapshot.json"
         self.events_file = state_dir / "crm_local_command_center_events.jsonl"
+        self._active_authority_leases = active_authority_leases
 
     @classmethod
     def from_env(cls) -> "CrmLocalStore":
@@ -1157,6 +1217,11 @@ class CrmLocalStore:
         )
         if approval_status != "approved":
             raise CrmLocalCommandCenterError("CRM_LOCAL_MUTATION_APPROVAL_DENIED")
+        authority_decision = self._local_mutation_authority_decision(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            payload_fingerprint_ref=payload_fingerprint_ref,
+        )
 
         before_ref = f"before-ref:crm-local:{_safe_suffix(request.target_ref)}"
         after_ref = f"after-ref:crm-local:{_safe_suffix(request.target_ref)}:{_safe_suffix(idempotency_ref)}"
@@ -1180,6 +1245,9 @@ class CrmLocalStore:
             approval_status=approval_status,
             idempotency_ref=idempotency_ref,
             payload_fingerprint_ref=payload_fingerprint_ref,
+            authority_decision_ref=authority_decision.decision_ref,
+            authority_decision_outcome=authority_decision.outcome,
+            authority_lease_ref=str(authority_decision.lease_ref),
             before_ref=before_ref,
             after_ref=after_ref,
             rollback_ref=(
@@ -1193,6 +1261,8 @@ class CrmLocalStore:
             safe_summary="Exact local CRM mutation receipt recorded.",
             evidence_refs=[
                 "evidence-ref:crm-local:mutation-lane",
+                authority_decision.decision_ref,
+                str(authority_decision.lease_ref),
                 *request.metadata_refs,
                 *approval_reason_refs,
             ],
@@ -1209,6 +1279,77 @@ class CrmLocalStore:
         state["storage_state"] = "local_state"
         self._write_state(state, receipt.audit_ref)
         return receipt
+
+    def _local_mutation_authority_decision(
+        self,
+        *,
+        request: CrmLocalMutationRequest,
+        idempotency_ref: str,
+        payload_fingerprint_ref: str,
+    ):
+        leases = (
+            self._active_authority_leases
+            if self._active_authority_leases is not None
+            else (
+                AuthorityLeaseStore().list_leases(active_only=True)
+                or build_default_authority_leases()
+            )
+        )
+        resource_refs = [
+            request.target_ref,
+            f"mutation-kind-ref:crm-local:{request.mutation_kind}",
+            CRM_LOCAL_MUTATION_CONTRACT_REF,
+            idempotency_ref,
+            payload_fingerprint_ref,
+            request.approval_ref,
+        ]
+        if request.relationship_ref:
+            resource_refs.append(request.relationship_ref)
+        if request.stage_ref:
+            resource_refs.append(request.stage_ref)
+        resource_refs.extend(request.metadata_refs)
+        authority_decision = evaluate_authority_request(
+            AuthorityActionRequest(
+                action_ref=CRM_LOCAL_MUTATION_AUTHORITY_ACTION_REF,
+                domain=AuthorityDomain.contacts,
+                capability=AuthorityCapability.write,
+                safe_summary=(
+                    "Evaluate Contacts write authority for exact local CRM "
+                    "mutation receipt."
+                ),
+                resource_refs=resource_refs,
+                route_ref=CRM_LOCAL_MUTATION_ROUTE_REF,
+                lane_ref=CRM_LOCAL_MUTATION_AUTHORITY_LANE_REF,
+                requested_mode=TrustMode.ask_before_changes,
+                rollback_ref=(
+                    "rollback-ref:crm-local:"
+                    f"{_safe_suffix(request.target_ref)}:manual-reverse-ready"
+                ),
+                safe_disable_ref=CRM_LOCAL_MUTATION_SAFE_DISABLE_REF,
+            ),
+            leases,
+        )
+        if authority_decision.outcome not in {
+            AuthorityDecisionOutcome.allow.value,
+            AuthorityDecisionOutcome.ask.value,
+        }:
+            raise CrmLocalAuthorityError(
+                [
+                    *authority_decision.reason_refs,
+                    CRM_LOCAL_MUTATION_AUTHORITY_REQUIRED_BLOCKED_REF,
+                ],
+                required_refs={
+                    "authority_decision_ref": authority_decision.decision_ref,
+                    "required_mode_ref": CRM_LOCAL_MUTATION_AUTHORITY_REQUIRED_MODE_REF,
+                    "required_domain_ref": CRM_LOCAL_MUTATION_AUTHORITY_DOMAIN_REF,
+                    "required_capability_ref": (
+                        CRM_LOCAL_MUTATION_AUTHORITY_CAPABILITY_REF
+                    ),
+                    "safe_disable_ref": authority_decision.safe_disable_ref,
+                    "rollback_ref": authority_decision.rollback_ref,
+                },
+            )
+        return authority_decision
 
     def export_redacted_snapshot(self) -> dict[str, Any]:
         model = self.read_model()

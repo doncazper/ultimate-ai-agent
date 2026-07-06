@@ -47,6 +47,7 @@ from ultimate_ai_agent.core.decision_router import (
 )
 from ultimate_ai_agent.core.crm import (
     CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF,
+    CrmLocalAuthorityError,
     CrmLocalCommandCenterDuplicateError,
     CrmLocalCommandCenterError,
     CrmLocalMutationRequest,
@@ -396,6 +397,19 @@ def post_control_center_crm_local_mutation(
                     "The CRM local mutation idempotency ref already has a "
                     "different safe payload fingerprint."
                 ),
+            },
+        ) from exc
+    except CrmLocalAuthorityError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": str(exc) or "CRM_LOCAL_MUTATION_AUTHORITY_DENIED",
+                "safe_message": (
+                    "CRM local mutation requires an active AuthorityLease "
+                    "granting Contacts write after exact approval validates."
+                ),
+                "reason_refs": exc.reason_refs,
+                "required_refs": dict(exc.required_refs),
             },
         ) from exc
     except CrmLocalCommandCenterError as exc:

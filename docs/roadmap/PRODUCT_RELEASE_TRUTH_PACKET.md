@@ -275,7 +275,7 @@ no sends, no calendar writes, no provider/model calls, no live web, no browser
 runtime, no hidden context injection, no public beta, no public release, no
 production readiness claims, and no production authority.
 CRM Local Command Center M2 current truth: backend-owned local CRM read models
-and exact local mutation receipts are documented in
+and exact `contacts/write`-gated local mutation receipts are documented in
 `docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md`,
 `docs/control_center/UAA_CRM_LOCAL_COMMAND_CENTER_PLAN.md`, and
 `docs/control_center/UAA_CRM_FEATURE_MINE_FOLLOWUPBOSS_WISEAGENT.md`, typed in

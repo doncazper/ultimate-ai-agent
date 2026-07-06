@@ -1000,7 +1000,7 @@ def route_classification_for_path(
     if normalized_method == "POST" and path in CONTROL_CENTER_CRM_LOCAL_MUTATION_PATHS:
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "CRM local mutation authority route; exact local-only approval, idempotency, receipt, rollback-readiness, evidence refs, and blocked external connector/send/write posture required",
+            "CRM local mutation authority route; contacts/write AuthorityLease, exact local-only approval, idempotency, receipt, rollback-readiness, evidence refs, and blocked external connector/send/write posture required",
         )
     if (
         normalized_method == "POST"

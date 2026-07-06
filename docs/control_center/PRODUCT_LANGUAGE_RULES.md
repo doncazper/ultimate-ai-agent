@@ -203,12 +203,14 @@ proposal posture, and callable runtime. It may name the current `/crm` Control
 Center route as the CRM Local Command Center M2 only when it also says the lane
 is local-first, backend-owned, safe-ref-only, partial, and blocked from
 connector/source runtime and external writes. It may describe exact local CRM
-mutation receipts only when idempotency, exact `LocalApprovalAuthority` scope,
-and redacted receipt posture are present. It must not imply connector runtime,
-connector writes, account auth, contact sync, contact import commit, sends,
-calendar writes, silent merges, silent contact creation, model/provider calls,
-live web, browser runtime, public beta, public release, production readiness,
-or production authority until an accepted milestone adds the exact capability.
+mutation receipts only when `Ask before changes` or stronger with
+`contacts/write`, idempotency, exact `LocalApprovalAuthority` scope, redacted
+receipt/audit refs, and rollback/safe-disable posture are present. It must not
+imply connector runtime, connector writes, account auth, contact sync, contact
+import commit, sends, calendar writes, silent merges, silent contact creation,
+model/provider calls, live web, browser runtime, public beta, public release,
+production readiness, or production authority until an accepted milestone adds
+the exact capability.
 
 North-star visuals are allowed only as design direction. They must be labeled
 as north-star visual targets and must not be described as shipped

@@ -25,7 +25,7 @@ does not grant current authority by itself.
 | `GET /control-center/crm/follow-ups` | Read-only follow-up queue. |
 | `GET /control-center/crm/pipelines` | Read-only pipelines and opportunities. |
 | `GET /control-center/crm/smart-lists` | Read-only smart lists plus connector/sends posture. |
-| `POST /control-center/crm/local-mutations` | Exact local mutation receipt lane requiring idempotency and exact approval. |
+| `POST /control-center/crm/local-mutations` | Exact local mutation receipt lane requiring idempotency, exact approval, and active `contacts/write` AuthorityLease scope. |
 
 ## Storage And Redaction
 
@@ -58,8 +58,9 @@ paths, raw provider payloads, account material, and secret-like values.
 ## Release Truth
 
 Current status is partial. UAA CRM has backend-owned local read routes and one
-exact local mutation lane. The connector-read readiness contract is
-backend-owned metadata only:
+exact local mutation lane gated by `contacts/write` AuthorityLease evaluation
+plus exact approval. The connector-read readiness contract is backend-owned
+metadata only:
 `posture-ref:crm-connector-read-lanes:v1`. It records missing prerequisites,
 safe-disable posture, proof/evidence refs, and the promotion path. It does not
 read from external sources.

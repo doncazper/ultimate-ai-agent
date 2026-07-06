@@ -1,0 +1,237 @@
+# Control Center App Shell Baseline
+
+Status: current north-star design baseline, documentation only.
+Baseline ID: CC-NS-2026-07-06.
+Current as of: 2026-07-06.
+Repo baseline: v0.104.0 / 0.104.0.
+
+This file is the source of truth for the static Control Center shell used by
+the north-star renders. If a generated render shows a different left rail,
+different tab order, different typography, or a route-specific sidebar, this
+baseline wins.
+
+This file does not change frontend behavior, route contracts, runtime
+authority, approval behavior, or product readiness. It defines the visual
+target for implementation and future render generation.
+
+## Static App Shell
+
+The Control Center uses one persistent shell across the app:
+
+- fixed left navigation rail;
+- persistent top status and authority strip;
+- bounded route workspace;
+- optional bottom evidence/receipt band;
+- route-local panes, tabs, queues, and inspectors inside the workspace only.
+
+The left rail must not be replaced by route-specific navigation. Route-specific
+navigation belongs in the route workspace as tabs, split-pane lists, segmented
+controls, or inspectors.
+
+## Canonical Left Rail
+
+The rail is owned by `apps/control-center/src/routes.tsx` and should preserve
+the route order below unless a later dated baseline intentionally changes it.
+
+### Primary Founder Loop
+
+These items are always visible in the same order on the standard desktop shell:
+
+1. Start Here
+2. Today
+3. Source Inbox
+4. Plans
+5. Work Board
+6. Action Inbox
+7. Proof
+8. Trust
+9. Memory
+10. Evidence
+11. Settings
+
+Source Inbox remains visible for route reachability and continuity, but copy
+must still describe it as source-readiness/read-only/draft-only until connector
+contracts grant more.
+
+### Supporting Surfaces
+
+Supporting surfaces use a stable secondary section after the primary Founder
+Loop list. They may be grouped, collapsed, or exposed through a command
+palette at narrower widths, but they must not appear or disappear based on the
+active route.
+
+Founder Loop support:
+
+1. Briefing
+2. CRM
+3. Trial Packet
+
+Review:
+
+1. Operator Loop
+2. Setup
+3. Coding
+4. Chat
+5. Models
+6. Approvals
+7. Files
+8. File Review
+9. Context Proposals
+10. Action Preview
+
+Runtime:
+
+1. Runtime
+2. Storage
+3. Local Runtime
+4. Manual Smoke
+5. Remote Workers
+6. Mobile Planning
+7. Plugin Governance
+
+Evidence:
+
+1. Foundation Gate
+2. Receipts
+3. Events
+4. Timeline
+
+System:
+
+1. Overview
+2. Dashboard
+3. API Routes
+4. Differentiators
+
+## Rail Behavior
+
+- Active route: one active item only.
+- Active supporting route: highlight it in the supporting section and keep the
+  primary list unchanged.
+- Route-local tabs must not be added to the global rail.
+- Disabled, planned, blocked, partial, experimental, and mock-only states may
+  appear as compact state labels, but state labels must not change item order.
+- The rail may collapse to icons at compact desktop widths only when the same
+  item order and route reachability are preserved.
+- The rail may expose overflow through a stable "More" or command-palette
+  affordance only when the hidden list remains deterministic.
+
+## Standard Desktop Layout
+
+Target viewport: 1440 x 900. The saved render assets are 1586 x 992 and should
+be treated as high-resolution 16:10-ish approximations of that target.
+
+| Token | Target |
+|---|---|
+| App shell | full-window grid, no page-like document canvas |
+| Left rail width | 260 px standard, 72 px collapsed only by explicit breakpoint |
+| Top strip height | 72-84 px |
+| Workspace padding | 24-32 px |
+| Panel gap | 16 px |
+| Panel radius | 8 px maximum |
+| Nav item radius | 6 px maximum |
+| Button/control radius | 6 px maximum |
+| Bottom evidence band | 96-144 px when present |
+| Dense table row | 36-44 px |
+| Inspector width | 320-380 px |
+| Queue/list pane width | 260-340 px |
+
+The window may contain internal pane scrolling where needed, but the primary
+route composition should not read as an endless page. Fixed pane headers and
+bounded ledgers are preferred over full-page vertical scroll.
+
+## Typography
+
+Typography should stay close to the current Control Center CSS and use a
+system-native professional rhythm.
+
+Font stack:
+
+```text
+Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
+```
+
+Monospace stack for refs, command names, hashes, and safe identifiers:
+
+```text
+ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace
+```
+
+| Use | Size | Line height | Weight |
+|---|---:|---:|---:|
+| Surface title | 24 px | 30-32 px | 650 |
+| Top-strip status | 13 px | 18 px | 500 |
+| Section heading | 18 px | 24 px | 650 |
+| Panel title | 15-16 px | 20-22 px | 650 |
+| Body text | 14 px | 20 px | 400 |
+| Dense table text | 13 px | 18 px | 400-500 |
+| Secondary text | 12-13 px | 16-18 px | 400 |
+| Eyebrow/state label | 11-12 px | 14-16 px | 650 |
+| Primary nav label | 14 px | 18 px | 600 |
+| Nav status sublabel | 11-12 px | 14-16 px | 400 |
+| Button label | 13 px | 16 px | 600 |
+| Safe ref/code label | 12 px | 16 px | 500 |
+
+Rules:
+
+- Do not scale font size with viewport width.
+- Letter spacing is 0 except for short all-caps section labels, where it may
+  be subtle and must remain readable.
+- Text must not overlap icons, chips, adjacent columns, or following content.
+- Prefer truncation with tooltips for safe refs and long route metadata.
+- Avoid hero-scale type inside panels, sidebars, queues, tables, and cockpit
+  surfaces.
+
+## Color And State Grounding
+
+Use the existing Control Center palette as the grounding layer:
+
+| Role | Color |
+|---|---|
+| App background | `#f5f7fa` |
+| Panel background | `#ffffff` |
+| Sidebar background | `#12212f` |
+| Sidebar active | `#28445c` |
+| Primary text | `#102a43` or `#1f2933` |
+| Secondary text | `#52606d` |
+| Border | `#d9e2ec` |
+| Info/accent | `#0b69a3` |
+| Ready/receipt | `#2f855a` |
+| Ask/partial/warning | `#f0b429` |
+| Denied/error | `#d64545` |
+| Planned/unsupported | `#9fb3c8` |
+
+State must use text plus color. Color alone is not enough for authority,
+approval, readiness, or failure states.
+
+## Date And Currency Rules
+
+Every render set must have:
+
+- a baseline ID;
+- a current-as-of date;
+- a repo baseline;
+- a route coverage map;
+- an app shell baseline;
+- a render manifest.
+
+This render set is current until a later dated baseline supersedes it. New or
+regenerated renders should either preserve `CC-NS-2026-07-06` or create a new
+dated baseline and update this package.
+
+## Future Render Prompt Requirements
+
+Future render prompts must explicitly include:
+
+```text
+Use the CC-NS-2026-07-06 static app shell.
+The left rail is identical across routes.
+Primary nav order: Start Here, Today, Source Inbox, Plans, Work Board,
+Action Inbox, Proof, Trust, Memory, Evidence, Settings.
+Do not add route-local tabs to the global left rail.
+Place route-local tabs and queues inside the workspace.
+Use Inter/system typography and the CC-NS-2026-07-06 size scale.
+```
+
+Generated images are allowed to be visually approximate, but implementation
+must follow this baseline where generated pixels conflict with the spec.

@@ -78,7 +78,7 @@ concerns such as selected relationship, filters, and expanded sections.
 | 06 follow-up queue | Implemented as backend-owned queue refs and counts. |
 | 07 smart lists | Implemented as safe smart-list definitions. |
 | 08 pipeline board | Implemented as local pipeline/opportunity stage refs. |
-| 09 exact local mutations | Implemented as approval/idempotency-bound local mutation receipts. |
+| 09 exact local mutations | Implemented as `contacts/write` AuthorityLease plus approval/idempotency-bound local mutation receipts. |
 | 10 communication drafts | Implemented as draft refs only; no sends. |
 | 11 AI proposal layer | Implemented as deterministic proposal refs only; no model/provider calls. |
 | 12 import/export | Implemented as redacted export and import preview only; no commit without later exact authority. |

@@ -83,7 +83,7 @@ public release, public beta, public distribution, or broad autonomy claims.
 | Area | Boundary |
 |---|---|
 | Mock/degraded Control Center fallback data | Can show UI shape, but cannot claim backend-owned truth, approval eligibility, or local task commit readiness. |
-| CRM `/crm` local command center | Partial backend-owned local CRM surface over Python-core read routes, CLI inspection, local storage posture, redacted import/export preview, deterministic proposal refs, and exact local mutation receipts. It does not have connector runtime, connector writes, external CRM writes, account sync, contact import commit, sends, calendar writes, provider/model calls, live web, browser runtime, public beta, public release, production readiness, or production authority. |
+| CRM `/crm` local command center | Partial backend-owned local CRM surface over Python-core read routes, CLI inspection, local storage posture, redacted import/export preview, deterministic proposal refs, and exact `contacts/write`-gated local mutation receipts. It does not have connector runtime, connector writes, external CRM writes, account sync, contact import commit, sends, calendar writes, provider/model calls, live web, browser runtime, public beta, public release, production readiness, or production authority. |
 | React-only UI state | Limited to presentation concerns such as filters, selected tabs, expanded panels, selected rows, and layout preferences. |
 | Preview/review-only controls | Can explain proposed state, validation posture, or review posture. They do not execute or grant authority. |
 

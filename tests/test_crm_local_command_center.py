@@ -6,6 +6,7 @@ from pathlib import Path
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.crm import (
     CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF,
+    CrmLocalAuthorityError,
     CrmLocalCommandCenterDuplicateError,
     CrmLocalMutationRequest,
     CrmLocalStore,
@@ -13,6 +14,7 @@ from ultimate_ai_agent.core.crm import (
     crm_local_mutation_approval_request,
     expected_crm_local_mutation_approval_ref,
 )
+from tests.authority_helpers import contacts_write_authority_lease
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,7 +57,10 @@ def test_crm_local_command_center_read_model_preserves_authority_boundaries() ->
 
 
 def test_crm_local_store_seed_clear_and_redacted_export(tmp_path: Path) -> None:
-    store = CrmLocalStore(tmp_path)
+    store = CrmLocalStore(
+        tmp_path,
+        active_authority_leases=[contacts_write_authority_lease()],
+    )
 
     seeded = store.seed_demo()
     assert seeded.state == "seeded_demo"
@@ -76,7 +81,10 @@ def test_crm_local_store_seed_clear_and_redacted_export(tmp_path: Path) -> None:
 def test_crm_local_mutation_requires_exact_approval_and_replays(
     tmp_path: Path,
 ) -> None:
-    store = CrmLocalStore(tmp_path)
+    store = CrmLocalStore(
+        tmp_path,
+        active_authority_leases=[contacts_write_authority_lease()],
+    )
     target_ref = "follow-up-ref:crm-local:alpha:due"
     idempotency_ref = "idempotency-ref:crm-local-test-001"
     approval_ref = expected_crm_local_mutation_approval_ref(
@@ -106,6 +114,10 @@ def test_crm_local_mutation_requires_exact_approval_and_replays(
         approval_authority=authority,
     )
     assert receipt.approval_status == "approved"
+    assert receipt.authority_decision_outcome == "ask"
+    assert receipt.authority_lease_ref == "authority-lease-ref:test-contacts-write"
+    assert receipt.authority_domain_ref == "authority-domain-ref:contacts"
+    assert receipt.authority_capability_ref == "authority-capability-ref:write"
     assert receipt.local_mutation_performed is True
     assert receipt.send_performed is False
     assert receipt.connector_write_performed is False
@@ -136,6 +148,56 @@ def test_crm_local_mutation_requires_exact_approval_and_replays(
         assert str(exc) == "CRM_LOCAL_MUTATION_IDEMPOTENCY_CONFLICT"
     else:
         raise AssertionError("expected idempotency conflict")
+
+
+def test_crm_local_mutation_requires_contacts_write_lease(tmp_path: Path) -> None:
+    store = CrmLocalStore(tmp_path)
+    target_ref = "follow-up-ref:crm-local:alpha:due"
+    idempotency_ref = "idempotency-ref:crm-local-authority-denied"
+    approval_ref = expected_crm_local_mutation_approval_ref(
+        target_ref=target_ref,
+        idempotency_ref=idempotency_ref,
+    )
+    request = CrmLocalMutationRequest(
+        mutation_kind="mark_follow_up_complete",
+        target_ref=target_ref,
+        approval_ref=approval_ref,
+    )
+    approval_request = crm_local_mutation_approval_request(
+        request=request,
+        idempotency_ref=idempotency_ref,
+    )
+    authority = LocalApprovalAuthority()
+    authority.create_request(approval_request)
+    authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id=request.actor_context.actor_id,
+        approval_ref=approval_ref,
+    )
+
+    try:
+        store.record_local_mutation(
+            request=request,
+            idempotency_ref=idempotency_ref,
+            approval_authority=authority,
+        )
+    except CrmLocalAuthorityError as exc:
+        assert str(exc) == "CRM_LOCAL_MUTATION_AUTHORITY_DENIED"
+        assert "blocked-state:crm-local-mutation-authority-lease-required" in (
+            exc.reason_refs
+        )
+        assert (
+            exc.required_refs["required_domain_ref"]
+            == "authority-domain-ref:contacts"
+        )
+        assert (
+            exc.required_refs["required_capability_ref"]
+            == "authority-capability-ref:write"
+        )
+    else:
+        raise AssertionError("expected CRM local mutation authority denial")
+
+    assert store.read_model().follow_ups[0].status == "due"
 
 
 def test_crm_import_preview_is_review_only_and_does_not_echo_rows(

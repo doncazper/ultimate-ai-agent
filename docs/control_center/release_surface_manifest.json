@@ -1152,13 +1152,14 @@
       "visual_proof_rationale": "No checked-in visual baseline exists for /crm yet; the route is partial backend-owned local CRM and remains blocked from visual-proof promotion until a scoped visual proof lane is accepted.",
       "promotion_criteria": [
         "Record checked-in redacted visual baseline proof or accepted no-baseline rationale before route maturity promotion.",
+        "Keep CRM local mutation persistence bound to active contacts/write AuthorityLease scope, exact approval, idempotency, receipts, rollback/safe-disable posture, and tests.",
         "Keep connector runtime, external CRM writes, account sync, sends, calendar writes, provider/model calls, live web, browser automation, public release, production readiness, and production authority blocked until separately accepted.",
         "Add accepted exact-scoped connector read-lane authority before claiming source sync or external CRM reads.",
         "Add accepted exact-scoped send/write authority, rollback posture, and redacted receipts before any external CRM write, send, calendar write, contact import commit, or account sync claim."
       ],
       "product_language_caveats": [
         "Release status is partial because /crm is a local backend-owned command center, not a public beta, public release, production readiness, or production authority claim.",
-        "Python Agent Core/API remains product truth; Control Center renders CRM M2 read-model and exact local receipt posture only.",
+        "Python Agent Core/API remains product truth; Control Center renders CRM M2 read-model and exact contacts/write-gated local receipt posture only.",
         "Route visibility does not grant connector writes, CRM writes, sends, calendar writes, provider/model calls, browser execution, hidden context injection, broad runtime authority, or hidden autonomy."
       ]
     },

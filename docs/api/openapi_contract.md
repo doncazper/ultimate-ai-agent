@@ -338,9 +338,10 @@ Contract rules:
 - `/control-center/crm/*` is the CRM Local Command Center M2 contract surface.
   Six CRM routes are local read routes, and
   `POST /control-center/crm/local-mutations` is one exact local mutation
-  receipt lane requiring idempotency and exact `LocalApprovalAuthority`
-  validation. CRM routes expose safe refs, bounded summaries, redacted storage
-  posture, deterministic proposal refs, import/export preview posture, and
+  receipt lane requiring active `contacts/write` AuthorityLease scope,
+  idempotency, and exact `LocalApprovalAuthority` validation. CRM routes expose
+  safe refs, bounded summaries, redacted storage posture, deterministic
+  proposal refs, import/export preview posture, authority proof refs, and
   receipt refs only. They do not add connector runtime, connector writes,
   external CRM writes, account sync, sends, calendar writes, provider/model
   calls, live web, browser automation, background autonomy, public beta, public

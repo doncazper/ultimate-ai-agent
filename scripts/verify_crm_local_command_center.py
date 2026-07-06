@@ -15,6 +15,12 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E402
+from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+)
 from ultimate_ai_agent.core.crm import (  # noqa: E402
     CRM_LOCAL_BLOCKED_AUTHORITY_REFS,
     CRM_LOCAL_COMMAND_CENTER_CONTRACT_REF,
@@ -172,7 +178,21 @@ def _assert_cli() -> None:
 
 def _assert_local_mutation() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        store = CrmLocalStore(Path(tmp))
+        store = CrmLocalStore(
+            Path(tmp),
+            active_authority_leases=[
+                AuthorityLease(
+                    lease_ref="authority-lease-ref:crm-verifier-contacts-write",
+                    mode=TrustMode.ask_before_changes,
+                    domains={
+                        AuthorityDomain.contacts: [AuthorityCapability.write],
+                    },
+                    safe_summary=(
+                        "Verifier lease grants Contacts write for local CRM mutation."
+                    ),
+                )
+            ],
+        )
         target_ref = "follow-up-ref:crm-local:alpha:due"
         idempotency_ref = "idempotency-ref:crm-verifier-local-001"
         approval_ref = expected_crm_local_mutation_approval_ref(
@@ -204,6 +224,12 @@ def _assert_local_mutation() -> None:
             _fail("local mutation contract ref drifted")
         if receipt.approval_status != "approved":
             _fail("local mutation receipt was not exact-approved")
+        if receipt.authority_decision_outcome != "ask":
+            _fail("local mutation receipt did not prove Contacts write authority")
+        if receipt.authority_domain_ref != "authority-domain-ref:contacts":
+            _fail("local mutation authority domain drifted")
+        if receipt.authority_capability_ref != "authority-capability-ref:write":
+            _fail("local mutation authority capability drifted")
         if receipt.local_mutation_performed is not True:
             _fail("local mutation receipt did not record local mutation")
         denied = [

@@ -67,8 +67,8 @@ export function CrmM1FixtureShellPanel({
       </div>
       <p className="section-copy">
         Local-first relationship command surface backed by Python Core read
-        models, safe refs, exact local mutation receipts, and blocked external
-        authority posture.
+        models, safe refs, Contacts write-gated local mutation receipts, and
+        blocked external authority posture.
       </p>
 
       {!crm.backend_owned ? (
@@ -157,7 +157,7 @@ export function CrmM1FixtureShellPanel({
           </div>
           <p className="safe-ref">
             {crm.pipelines[0]?.persisted_reorder_requires_exact_mutation
-              ? "Persisted stage changes require exact local mutation receipts."
+              ? "Persisted stage changes require Contacts write authority and exact local mutation receipts."
               : "Pipeline persistence is unavailable."}
           </p>
         </section>

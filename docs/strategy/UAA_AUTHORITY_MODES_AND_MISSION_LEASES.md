@@ -43,9 +43,12 @@ Founder Loop task state is written. Memory Review accept/correct reviewed
 recall writes require exact approval plus active `memory/write` authority before
 the recall-only `LocalMemoryStore` record is written; reject, defer, merge,
 supersede, and forget-request remain receipt/posture decisions without memory
-write authority. Provider/model transport remains blocked by authority policy
-unless a later supported provider/model execution lease is implemented and
-tested.
+write authority. CRM local mutations require exact approval plus active
+`contacts/write` authority before local CRM state is changed; connector reads,
+connector writes, sends, calendar writes, account sync, and external CRM writes
+remain unsupported unless later adapters are implemented and tested.
+Provider/model transport remains blocked by authority policy unless a later
+supported provider/model execution lease is implemented and tested.
 
 ## Core Problem
 

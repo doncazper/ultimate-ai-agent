@@ -137,9 +137,10 @@ Current boundary summary:
   `/control-center/crm/*` and one exact local mutation receipt route at
   `POST /control-center/crm/local-mutations`. These routes expose safe-ref CRM
   relationship, follow-up, timeline, pipeline, smart-list, report, storage,
-  import/export-preview, proposal, authority, and local receipt posture only.
-  Connector runtime, connector writes, external CRM writes, account sync,
-  sends, calendar writes, provider/model calls, live web, browser automation,
+  import/export-preview, proposal, `contacts/write` authority proof, and local
+  receipt posture only. Connector runtime, connector writes, external CRM
+  writes, account sync, sends, calendar writes, provider/model calls, live web,
+  browser automation,
   public beta, public release, production readiness, and production authority
   remain blocked.
 - Beta 12 extracts the app-owned Control Center shell/status route block into

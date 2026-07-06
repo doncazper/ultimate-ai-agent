@@ -35,3 +35,10 @@ Interaction principles:
 - status/risk treatment must use text, not color alone.
 
 This milestone defines governance only. It does not change frontend behavior, styling, dependencies, components, routes, or runtime authority.
+
+North-star visual targets for the contained desktop-app direction live in
+`docs/design/control_center_north_star/README.md`, with route coverage in
+`docs/design/control_center_north_star/SURFACE_COVERAGE.md` and static shell
+rules in `docs/design/control_center_north_star/APP_SHELL_BASELINE.md`. These
+renders are design targets only and do not claim shipped UI behavior or new
+authority.

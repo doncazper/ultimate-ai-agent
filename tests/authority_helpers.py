@@ -34,3 +34,27 @@ def issue_memory_write_authority_lease(state_dir: Path) -> None:
         ),
         idempotency_ref="idempotency-ref:test-memory-review-authority",
     )
+
+
+def contacts_write_authority_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:test-contacts-write",
+        mode=TrustMode.ask_before_changes,
+        domains={AuthorityDomain.contacts: [AuthorityCapability.write]},
+        safe_summary="Test lease grants Contacts write for exact local CRM mutation.",
+    )
+
+
+def issue_contacts_write_authority_lease(state_dir: Path) -> None:
+    AuthorityLeaseStore(state_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.ask_before_changes,
+            requested_domains={AuthorityDomain.contacts: [AuthorityCapability.write]},
+            decision_reason_ref="decision-reason-ref:test-crm-local-authority",
+            safe_summary=(
+                "Test session lease grants Contacts write for exact local CRM "
+                "mutation."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:test-crm-local-authority",
+    )

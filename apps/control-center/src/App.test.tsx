@@ -10654,7 +10654,9 @@ describe("Web Control Center shell", () => {
       expect(label.nextElementSibling).toHaveTextContent("blocked");
     }
     expect(
-      screen.getByText(/Persisted stage changes require exact local mutation receipts/i),
+      screen.getByText(
+        /Persisted stage changes require Contacts write authority and exact local mutation receipts/i,
+      ),
     ).toBeInTheDocument();
     for (const unsafeControl of [
       /send/i,
