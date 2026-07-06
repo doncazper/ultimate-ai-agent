@@ -1,5 +1,6 @@
 import type {
   RuntimeCapabilityMatrix,
+  RuntimeCapabilityDiscoveryReadModel,
   RuntimeDelegationAdapterReadModel,
   RuntimeReadinessReport,
 } from "../api/types";
@@ -10,10 +11,12 @@ export function RuntimeReadinessPanel({
   report,
   matrix,
   delegationAdapter,
+  capabilityDiscovery,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
   delegationAdapter: RuntimeDelegationAdapterReadModel;
+  capabilityDiscovery: RuntimeCapabilityDiscoveryReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -99,6 +102,62 @@ export function RuntimeReadinessPanel({
           </ul>
         </article>
       </div>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Capability discovery</p>
+            <h3>Static capability snapshot</h3>
+          </div>
+          <span className="status-pill compact">
+            {capabilityDiscovery.freshness_status}
+          </span>
+        </div>
+        <p>{capabilityDiscovery.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{capabilityDiscovery.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{capabilityDiscovery.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Live discovery</dt>
+            <dd>
+              {capabilityDiscovery.live_discovery_performed
+                ? "performed"
+                : "not performed"}
+            </dd>
+          </div>
+          <div>
+            <dt>UAA authorized execution</dt>
+            <dd>{capabilityDiscovery.uaa_authorized_capability_count}</dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Capability</th>
+                <th>Runtime support</th>
+                <th>UAA authorization</th>
+                <th>Trust label</th>
+              </tr>
+            </thead>
+            <tbody>
+              {capabilityDiscovery.capability_groups.map((group) => (
+                <tr key={group.group_ref}>
+                  <td>{group.group_kind}</td>
+                  <td>{group.runtime_support_status}</td>
+                  <td>{group.uaa_authorization_status}</td>
+                  <td>{group.trust_label}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </article>
       <h3>Capability Matrix</h3>
       {matrix.entries.length > 0 ? (
         <div className="table-wrap">

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `203`.
+Current OpenAPI path count: `204`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 132 |
+| `local_sensitive` | 133 |
 | `mutating_requires_authority` | 42 |
 
 Allowed current side-effect classes are:
@@ -102,7 +102,7 @@ authority, or a public beta claim.
 Governed Runtime Pilot Phase 07 keeps `/api/runtime/*` governed by contract and
 storage metadata while promoting configured local loopback model calls, one exact
 allowlisted read-only command status lane, and exact Action Inbox approved
-focused pytest command execution through `RuntimeGateway`, with CLI/Control
+focused pytest, repo verifier, and frontend check command execution through `RuntimeGateway`, with CLI/Control
 Center/evidence timeline parity for status, capabilities, invocation, receipt,
 safe-disable, approval decision inspection, command root pinning, configured
 endpoint matching, receipt-detail execution truth, and approval preflight.
@@ -131,11 +131,18 @@ Control Center binding while keeping live run submission, runtime model calls,
 provider SDK calls, tool execution, shell/subprocess execution, browser
 automation, connector writes, background autonomy, production authority, and
 raw prompt/response/provider payload/log/local-path persistence blocked.
+`GET /api/runtime/capability-discovery` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 02 capability discovery posture for models,
+runs, events, approvals, sessions, skills, toolsets, jobs, and blocked actions.
+It is a static snapshot with safe refs and a snapshot hash ref only; runtime
+support metadata cannot grant UAA permission, and stale or unreachable runtime
+state degrades to blocked.
 Capability, invocation, policy, approval-ref, receipt, and safe-disable records
 store safe refs and redacted metadata only; model output is untrusted proposal
 text, and command output is redacted and bounded. Remote provider/model calls,
-arbitrary shell/subprocess execution, focused tests outside the exact pytest
-lane, repo verifiers, frontend-check, arbitrary adapter execution, browser
+arbitrary shell/subprocess execution outside named exact command lanes,
+arbitrary focused tests outside the exact pytest lane, repo verifier/frontend
+check execution outside named exact lanes, arbitrary adapter execution, browser
 automation, connector writes, plugin runtime import, remote execution, raw
 prompt/response/command output/local path/env persistence, production authority,
 and public release claims remain blocked.

@@ -7453,6 +7453,15 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("uaa runtime inspect-delegation-adapter"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Capability discovery")).toBeInTheDocument();
+    expect(
+      screen.getByText("GET /api/runtime/capability-discovery"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("uaa runtime inspect-capability-discovery"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("not performed").length).toBeGreaterThan(0);
+    expect(screen.getByText("UAA authorized execution")).toBeInTheDocument();
     expect(
       screen.getByText(
         "blocked-authority:runtime-unrestricted-command-execution",
@@ -14245,6 +14254,12 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeDelegationAdapter)).toBe(
       true,
     );
+    expect(API_ENDPOINTS.runtimeCapabilityDiscovery).toBe(
+      "/api/runtime/capability-discovery",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeCapabilityDiscovery),
+    ).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15275,6 +15290,8 @@ function envelopeForReadEndpoint(url: string) {
     },
     [API_ENDPOINTS.runtimeDelegationAdapter]:
       mockControlCenterData.runtimeDelegationAdapter,
+    [API_ENDPOINTS.runtimeCapabilityDiscovery]:
+      mockControlCenterData.runtimeCapabilityDiscovery,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:

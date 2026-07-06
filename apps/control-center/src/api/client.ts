@@ -34,6 +34,7 @@ import type {
   RunAttachedApprovalQueue,
   RunObservabilityReadModel,
   RuntimeCapabilityMatrix,
+  RuntimeCapabilityDiscoveryReadModel,
   RuntimeDelegationAdapterReadModel,
   RuntimeReadinessReport,
   ApiRouteInventory,
@@ -302,6 +303,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const agentLoopSettledPromise = Promise.allSettled([
     read<FounderLoopAgentLoopThread>(API_ENDPOINTS.founderAgentLoopThread),
   ] as const);
+  const runtimeCapabilityDiscoverySettledPromise = Promise.allSettled([
+    read<RuntimeCapabilityDiscoveryReadModel>(
+      API_ENDPOINTS.runtimeCapabilityDiscovery,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -405,6 +411,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   ] as const);
   const workBoardResult = await workBoardSettledPromise;
   const agentLoopResult = await agentLoopSettledPromise;
+  const runtimeCapabilityDiscoveryResult =
+    await runtimeCapabilityDiscoverySettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -414,6 +422,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeReadiness = fulfilledValue(results[4]);
   const capabilityMatrix = fulfilledValue(results[5]);
   const runtimeDelegationAdapter = fulfilledValue(results[6]);
+  const runtimeCapabilityDiscovery = fulfilledValue(
+    runtimeCapabilityDiscoveryResult[0],
+  );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
@@ -471,6 +482,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeDelegationAdapter,
   )
     ? runtimeDelegationAdapter
+    : undefined;
+  const safeRuntimeCapabilityDiscovery = isSafeRuntimeCapabilityDiscovery(
+    runtimeCapabilityDiscovery,
+  )
+    ? runtimeCapabilityDiscovery
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -601,6 +617,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeModelProviderControlPlane === undefined;
   const runtimeDelegationAdapterFallbackUsed =
     safeRuntimeDelegationAdapter === undefined;
+  const runtimeCapabilityDiscoveryFallbackUsed =
+    safeRuntimeCapabilityDiscovery === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -739,18 +757,26 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /runtime/readiness",
         "GET /runtime/capability-matrix",
         "GET /api/runtime/delegation-adapter",
+        "GET /api/runtime/capability-discovery",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
         capabilityMatrix !== undefined &&
-        runtimeDelegationAdapter !== undefined,
-      warningRefs: runtimeDelegationAdapterFallbackUsed
-        ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
-        : [],
+        runtimeDelegationAdapter !== undefined &&
+        runtimeCapabilityDiscovery !== undefined,
+      warningRefs: [
+        ...(runtimeDelegationAdapterFallbackUsed
+          ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeCapabilityDiscoveryFallbackUsed
+          ? ["RUNTIME_CAPABILITY_DISCOVERY_MOCK_FALLBACK"]
+          : []),
+      ],
       usedFallback:
         runtimeReadiness === undefined ||
         capabilityMatrix === undefined ||
-        runtimeDelegationAdapterFallbackUsed,
+        runtimeDelegationAdapterFallbackUsed ||
+        runtimeCapabilityDiscoveryFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -839,6 +865,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeReadiness === undefined ||
     capabilityMatrix === undefined ||
     runtimeDelegationAdapter === undefined ||
+    runtimeCapabilityDiscovery === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -861,8 +888,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const fulfilledCount =
     coreFulfilledCount +
     (workBoardResult[0].status === "fulfilled" ? 1 : 0) +
-    (agentLoopResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 2;
+    (agentLoopResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeCapabilityDiscoveryResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 3;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -922,6 +950,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeDelegationAdapter:
       safeRuntimeDelegationAdapter ??
       mockControlCenterData.runtimeDelegationAdapter,
+    runtimeCapabilityDiscovery:
+      safeRuntimeCapabilityDiscovery ??
+      mockControlCenterData.runtimeCapabilityDiscovery,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -999,6 +1030,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !workBoardFallbackUsed &&
     !agentLoopThreadFallbackUsed &&
     !runtimeDelegationAdapterFallbackUsed &&
+    !runtimeCapabilityDiscoveryFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1024,6 +1056,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     workBoardFallbackUsed ||
     agentLoopThreadFallbackUsed ||
     runtimeDelegationAdapterFallbackUsed ||
+    runtimeCapabilityDiscoveryFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1046,6 +1079,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeDelegationAdapterFallbackUsed) {
     degradedSafeMessage =
       "Runtime delegation adapter posture was unavailable or unsafe; non-authoritative mock fallback kept delegated runtime authority blocked.";
+  } else if (runtimeCapabilityDiscoveryFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime capability discovery posture was unavailable or unsafe; non-authoritative mock fallback kept runtime controls blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1106,6 +1142,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         : []),
       ...(runtimeDelegationAdapterFallbackUsed
         ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeCapabilityDiscoveryFallbackUsed
+        ? ["RUNTIME_CAPABILITY_DISCOVERY_MOCK_FALLBACK"]
         : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
@@ -2763,6 +2802,63 @@ function isSafeRuntimeDelegationAdapter(
     ) &&
     value.blocked_reason_refs.includes(
       "blocked-authority:runtime-delegation-direct-control-center-runtime-access",
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeCapabilityDiscovery(
+  value: RuntimeCapabilityDiscoveryReadModel | undefined,
+): value is RuntimeCapabilityDiscoveryReadModel {
+  if (value === undefined || !Array.isArray(value.capability_groups)) {
+    return false;
+  }
+  const requiredGroupKinds = [
+    "models",
+    "runs",
+    "events",
+    "approvals",
+    "sessions",
+    "skills",
+    "toolsets",
+    "jobs",
+    "blocked_actions",
+  ] as const;
+  const groupKinds = new Set(
+    value.capability_groups.map((group) => group.group_kind),
+  );
+  const deniedTopLevelFlags: Array<keyof RuntimeCapabilityDiscoveryReadModel> = [
+    "runtime_reachable",
+    "live_discovery_performed",
+    "control_center_talks_directly_to_runtime",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+    "raw_provider_payload_persisted",
+    "raw_runtime_payload_persisted",
+    "raw_log_persisted",
+    "raw_local_path_persisted",
+    "credential_material_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_capability_discovery.v1" &&
+    value.status === "static_readiness_only" &&
+    value.uaa_controls_authority === true &&
+    value.safe_refs_only === true &&
+    value.stale === true &&
+    value.stale_or_unreachable_degrades_to_blocked === true &&
+    value.runtime_supported_cannot_grant_uaa_permission === true &&
+    value.uaa_authorized_capability_count === 0 &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    requiredGroupKinds.every((kind) => groupKinds.has(kind)) &&
+    value.capability_groups.every(
+      (group) =>
+        group.uaa_authorized_for_execution === false &&
+        group.stale_or_unreachable_degrades_to_blocked === true &&
+        isNonEmptyStringArray(group.capability_refs) &&
+        isNonEmptyStringArray(group.blocked_authority_refs) &&
+        isNonEmptyStringArray(group.next_safe_action_refs),
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

@@ -9424,6 +9424,119 @@ export const mockControlCenterData: ControlCenterData = {
       "sensitive_material_omitted",
     ],
   },
+  runtimeCapabilityDiscovery: {
+    schema_version: "runtime_capability_discovery.v1",
+    contract_ref: "contract-ref:runtime-capability-discovery:v1",
+    snapshot_ref:
+      "capability-snapshot-ref:runtime-discovery:hermes-agent:static-readiness",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-capability-discovery:mock",
+    runtime_identity_ref: "runtime-identity-ref:hermes-agent:optional-target",
+    adapter_ref: "runtime-delegation-adapter:hermes-agent",
+    runtime_label: "Hermes Agent optional delegated runtime",
+    status: "static_readiness_only",
+    freshness_status: "static_snapshot_unverified",
+    runtime_reachable: false,
+    live_discovery_performed: false,
+    stale: true,
+    stale_or_unreachable_degrades_to_blocked: true,
+    runtime_supported_cannot_grant_uaa_permission: true,
+    uaa_controls_authority: true,
+    control_center_talks_directly_to_runtime: false,
+    route_ref: "GET /api/runtime/capability-discovery",
+    cli_ref: "uaa runtime inspect-capability-discovery",
+    control_center_ref: "control-center-route:runtime",
+    freshness_policy_ref:
+      "freshness-policy-ref:runtime-capability-discovery:live-snapshot-required",
+    policy_evaluation_ref:
+      "policy-evaluation-ref:runtime-capability-discovery:blocked-by-default",
+    capability_groups: [
+      "models",
+      "runs",
+      "events",
+      "approvals",
+      "sessions",
+      "skills",
+      "toolsets",
+      "jobs",
+      "blocked_actions",
+    ].map((kind) => ({
+      group_ref: `capability-group-ref:runtime-discovery:${kind.replaceAll("_", "-")}`,
+      group_kind: kind as
+        | "models"
+        | "runs"
+        | "events"
+        | "approvals"
+        | "sessions"
+        | "skills"
+        | "toolsets"
+        | "jobs"
+        | "blocked_actions",
+      runtime_support_status:
+        kind === "blocked_actions"
+          ? "blocked_by_uaa"
+          : "reference_only_unverified",
+      uaa_authorization_status: "blocked",
+      runtime_supported_by_reference: kind !== "blocked_actions",
+      uaa_authorized_for_execution: false,
+      stale_or_unreachable_degrades_to_blocked: true,
+      trust_label: "runtime capability is unverified metadata",
+      safe_summary:
+        "Mock fallback capability metadata is non-authoritative and grants no UAA execution authority.",
+      capability_refs: [
+        `capability-ref:runtime-discovery:${kind.replaceAll("_", "-")}`,
+      ],
+      blocked_authority_refs: [
+        "blocked-authority:runtime-capability-cannot-grant-permission",
+      ],
+      next_safe_action_refs: [
+        "next-safe-action-ref:runtime-capability-discovery:evaluate-policy-before-controls",
+      ],
+    })),
+    runtime_supported_capability_count: 8,
+    uaa_authorized_capability_count: 0,
+    blocked_authority_refs: [
+      "blocked-authority:runtime-unrestricted-command-execution",
+      "blocked-authority:runtime-command-execution-without-gateway-allowlist",
+      "blocked-authority:runtime-browser-automation",
+      "blocked-authority:runtime-connector-write",
+      "blocked-authority:runtime-plugin-import",
+      "blocked-authority:runtime-remote-execution",
+      "blocked-authority:runtime-remote-provider-model-call",
+      "blocked-authority:runtime-production-authority",
+      "blocked-authority:runtime-capability-cannot-grant-permission",
+      "blocked-authority:runtime-capability-stale-or-unreachable",
+    ],
+    proof_refs: [
+      "proof-ref:runtime-capability-discovery:mock-fallback",
+      "proof-ref:runtime-capability-discovery:uaa-authority-owner",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-capability-discovery:add-signed-live-snapshot",
+      "next-safe-action-ref:runtime-capability-discovery:add-freshness-policy",
+      "next-safe-action-ref:runtime-capability-discovery:evaluate-policy-before-controls",
+    ],
+    safe_refs_only: true,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    raw_provider_payload_persisted: false,
+    raw_runtime_payload_persisted: false,
+    raw_log_persisted: false,
+    raw_local_path_persisted: false,
+    credential_material_persisted: false,
+    safe_summary:
+      "Runtime capability discovery mock fallback is static and non-authoritative.",
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "command_output_omitted",
+      "local_paths_omitted",
+      "environment_omitted",
+      "sensitive_material_omitted",
+      "runtime_payload_omitted",
+    ],
+  },
   m15Review: {
     status: "mock_preview_only",
     readOnly: true,
