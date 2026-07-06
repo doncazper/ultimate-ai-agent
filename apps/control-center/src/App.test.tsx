@@ -7520,6 +7520,29 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("uaa runtime inspect-delegation-adapter"),
     ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Runtime interface mode: shell_guarded/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Interface mode")).toBeInTheDocument();
+    expect(screen.getByText("GET /api/runtime/interface-mode")).toBeInTheDocument();
+    expect(screen.getByText("uaa runtime inspect-interface-mode")).toBeInTheDocument();
+    expect(screen.getByText("Hermes CLI")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "argv-shape-ref:hermes-chat-query-quiet-source-uaa-control-center",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Hermes context bridge")).toBeInTheDocument();
+    expect(
+      screen.getByText("GET /api/runtime/hermes/context-pack"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("uaa runtime inspect-hermes-context-pack"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Memory Review and reviewed context")).toBeInTheDocument();
+    expect(screen.getByText("CRM local command center")).toBeInTheDocument();
+    expect(screen.getAllByText("candidate_only_review_required").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Hermes-projected").length).toBeGreaterThan(0);
     expect(screen.getByText("Capability discovery")).toBeInTheDocument();
     expect(
       screen.getByText("GET /api/runtime/capability-discovery"),
@@ -14819,6 +14842,18 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeDelegationAdapter)).toBe(
       true,
     );
+    expect(API_ENDPOINTS.runtimeInterfaceMode).toBe(
+      "/api/runtime/interface-mode",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeInterfaceMode)).toBe(
+      true,
+    );
+    expect(API_ENDPOINTS.runtimeHermesContextPack).toBe(
+      "/api/runtime/hermes/context-pack",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeHermesContextPack)).toBe(
+      true,
+    );
     expect(API_ENDPOINTS.runtimeCapabilityDiscovery).toBe(
       "/api/runtime/capability-discovery",
     );
@@ -15979,6 +16014,10 @@ function envelopeForReadEndpoint(url: string) {
     },
     [API_ENDPOINTS.runtimeDelegationAdapter]:
       mockControlCenterData.runtimeDelegationAdapter,
+    [API_ENDPOINTS.runtimeInterfaceMode]:
+      mockControlCenterData.runtimeInterfaceMode,
+    [API_ENDPOINTS.runtimeHermesContextPack]:
+      mockControlCenterData.runtimeHermesContextPack,
     [API_ENDPOINTS.runtimeCapabilityDiscovery]:
       mockControlCenterData.runtimeCapabilityDiscovery,
     [API_ENDPOINTS.runtimeRunEvents]: mockControlCenterData.runtimeRunEvents,

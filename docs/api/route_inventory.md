@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `231`.
+Current OpenAPI path count: `234`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -131,6 +131,24 @@ Control Center binding while keeping live run submission, runtime model calls,
 provider SDK calls, tool execution, shell/subprocess execution, browser
 automation, connector writes, background autonomy, production authority, and
 raw prompt/response/provider payload/log/local-path persistence blocked.
+`GET /api/runtime/interface-mode` exposes a protected Python Core
+`runtime_interface_mode.v1` read model for UAA operating as a shell over
+Hermes while UAA-native agent planning and execution are off. It reports
+`shell_guarded`, `operator_override`, and `pure_hermes_pass_through` posture,
+Hermes CLI readiness, exact argv shapes, blocked unsafe flags, and candidate-only
+Memory update policy.
+`GET /api/runtime/hermes/context-pack` exposes a protected Python Core
+`hermes_context_pack.v1` read model with curated summaries from Memory, CRM,
+Chat, Cowork/Plans, Today, Action Inbox, Evidence, Proof, and Sources. It
+shows provenance refs, why-shown refs, evidence/proof refs, and explicit false
+flags for raw record, transcript, path, log, credential, and unbounded private
+content exposure.
+`POST /api/runtime/hermes/chat` exposes the exact guarded Hermes CLI chat lane
+for `hermes chat --query ... --quiet --source uaa-control-center`. It is
+classified `mutating_requires_authority`, requires idempotency, returns a
+redacted receipt, hashes query content, summarizes output, and blocks yolo,
+oneshot, arbitrary args/toolsets, shell strings, raw persistence, direct Memory
+writes, browser automation, connector writes, and production authority.
 `GET /api/runtime/capability-discovery` exposes a protected read-only Python
 Core Hermes Runtime Adoption Phase 02 capability discovery posture for models,
 runs, events, approvals, sessions, skills, toolsets, jobs, and blocked actions.

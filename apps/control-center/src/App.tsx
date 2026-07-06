@@ -12,7 +12,10 @@ import {
   getRouteSurfaceLabel,
   renderRoute,
 } from "./routes";
-import type { BackendConnectionSummary } from "./api/types";
+import type {
+  BackendConnectionSummary,
+  RuntimeInterfaceModeReadModel,
+} from "./api/types";
 
 export function App() {
   const state = useControlCenterData();
@@ -70,6 +73,7 @@ export function App() {
   return (
     <AppShell activePath={activePath} connection={state.data.connection}>
       <ConnectionStatus connection={state.data.connection} />
+      <RuntimeInterfaceModeBanner mode={state.data.runtimeInterfaceMode} />
       <RouteStatePanel
         state={getRouteStateDescriptor(
           activePath,
@@ -79,6 +83,20 @@ export function App() {
       />
       {renderRoute(activePath, state.data)}
     </AppShell>
+  );
+}
+
+function RuntimeInterfaceModeBanner({
+  mode,
+}: {
+  mode: RuntimeInterfaceModeReadModel;
+}) {
+  return (
+    <SafeAlert
+      tone="info"
+      title={`Runtime interface mode: ${mode.active_mode}`}
+      message={`UAA-native agent execution is ${mode.uaa_execution_enabled ? "enabled" : "off"}; Hermes context is ${mode.context_pack_ref}; memory updates are ${mode.memory_update_policy}.`}
+    />
   );
 }
 

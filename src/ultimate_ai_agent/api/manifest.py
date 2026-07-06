@@ -689,6 +689,8 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/delegation-adapter",
     "/api/runtime/governed-product-pilot-profile",
     "/api/runtime/hardline-command-blocklist",
+    "/api/runtime/interface-mode",
+    "/api/runtime/hermes/context-pack",
     "/api/runtime/prompt-stability-tiers",
     "/api/runtime/profiles",
     "/api/runtime/run-events",
@@ -707,6 +709,7 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
 }
 GOVERNED_RUNTIME_MUTATING_PATHS = {
     "/api/runtime/command/run",
+    "/api/runtime/hermes/chat",
     "/api/runtime/invocations",
     "/api/runtime/local-model/call",
     "/api/runtime/invocations/{id}/approve",
@@ -948,6 +951,11 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Governed runtime command authority route permits only exact RuntimeGateway-derived argv for a Phase 04 read-only status intent; arbitrary command text, shell execution, networked commands, raw output persistence, and unvalidated approval refs remain blocked.",
+        )
+    if normalized_method == "POST" and path == "/api/runtime/hermes/chat":
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Hermes interface-mode chat route permits only exact Hermes CLI chat argv with query hashing, redacted output receipts, idempotency, and visible mode posture; yolo, oneshot, arbitrary args, toolset passthrough, shell strings, raw persistence, direct memory writes, and production authority remain blocked.",
         )
     if normalized_method == "POST" and path == "/api/runtime/invocations/{id}/approve":
         return (

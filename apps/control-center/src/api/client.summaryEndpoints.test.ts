@@ -803,6 +803,10 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.capabilityMatrix,
     [API_ENDPOINTS.runtimeDelegationAdapter]:
       mockControlCenterData.runtimeDelegationAdapter,
+    [API_ENDPOINTS.runtimeInterfaceMode]:
+      mockControlCenterData.runtimeInterfaceMode,
+    [API_ENDPOINTS.runtimeHermesContextPack]:
+      mockControlCenterData.runtimeHermesContextPack,
     [API_ENDPOINTS.runtimeCapabilityDiscovery]:
       mockControlCenterData.runtimeCapabilityDiscovery,
     [API_ENDPOINTS.runtimeRunEvents]: mockControlCenterData.runtimeRunEvents,

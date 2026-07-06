@@ -114,6 +114,7 @@ WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
 }
 GOVERNED_RUNTIME_MUTATING_PATHS = {
     "/api/runtime/command/run",
+    "/api/runtime/hermes/chat",
     "/api/runtime/invocations",
     "/api/runtime/local-model/call",
     "/api/runtime/invocations/{id}/approve",

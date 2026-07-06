@@ -42,6 +42,8 @@ import type {
   RuntimeContextBudgetPressureReadModel,
   RuntimeDelegationAdapterReadModel,
   RuntimeDoctorDiagnosticsReadModel,
+  RuntimeInterfaceModeReadModel,
+  HermesContextPackReadModel,
   RuntimeHardlineCommandBlocklistReadModel,
   RuntimeManagedScopePolicyReadModel,
   RuntimeMcpCatalogFilteringReadModel,
@@ -332,6 +334,12 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeCapabilityDiscovery,
     ),
   ] as const);
+  const runtimeInterfaceModeSettledPromise = Promise.allSettled([
+    read<RuntimeInterfaceModeReadModel>(API_ENDPOINTS.runtimeInterfaceMode),
+  ] as const);
+  const runtimeHermesContextPackSettledPromise = Promise.allSettled([
+    read<HermesContextPackReadModel>(API_ENDPOINTS.runtimeHermesContextPack),
+  ] as const);
   const runtimeRunEventsSettledPromise = Promise.allSettled([
     read<RuntimeRunEventsReadModel>(API_ENDPOINTS.runtimeRunEvents),
   ] as const);
@@ -540,6 +548,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const agentLoopResult = await agentLoopSettledPromise;
   const runtimeCapabilityDiscoveryResult =
     await runtimeCapabilityDiscoverySettledPromise;
+  const runtimeInterfaceModeResult = await runtimeInterfaceModeSettledPromise;
+  const runtimeHermesContextPackResult =
+    await runtimeHermesContextPackSettledPromise;
   const runtimeRunEventsResult = await runtimeRunEventsSettledPromise;
   const runtimeApprovalBridgeResult =
     await runtimeApprovalBridgeSettledPromise;
@@ -590,6 +601,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeDelegationAdapter = fulfilledValue(results[6]);
   const runtimeCapabilityDiscovery = fulfilledValue(
     runtimeCapabilityDiscoveryResult[0],
+  );
+  const runtimeInterfaceMode = fulfilledValue(runtimeInterfaceModeResult[0]);
+  const runtimeHermesContextPack = fulfilledValue(
+    runtimeHermesContextPackResult[0],
   );
   const runtimeRunEvents = fulfilledValue(runtimeRunEventsResult[0]);
   const runtimeApprovalBridge = fulfilledValue(runtimeApprovalBridgeResult[0]);
@@ -699,6 +714,16 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeDelegationAdapter,
   )
     ? runtimeDelegationAdapter
+    : undefined;
+  const safeRuntimeInterfaceMode = isSafeRuntimeInterfaceMode(
+    runtimeInterfaceMode,
+  )
+    ? runtimeInterfaceMode
+    : undefined;
+  const safeRuntimeHermesContextPack = isSafeRuntimeHermesContextPack(
+    runtimeHermesContextPack,
+  )
+    ? runtimeHermesContextPack
     : undefined;
   const safeRuntimeCapabilityDiscovery = isSafeRuntimeCapabilityDiscovery(
     runtimeCapabilityDiscovery,
@@ -940,6 +965,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeModelProviderControlPlane === undefined;
   const runtimeDelegationAdapterFallbackUsed =
     safeRuntimeDelegationAdapter === undefined;
+  const runtimeInterfaceModeFallbackUsed =
+    safeRuntimeInterfaceMode === undefined;
+  const runtimeHermesContextPackFallbackUsed =
+    safeRuntimeHermesContextPack === undefined;
   const runtimeCapabilityDiscoveryFallbackUsed =
     safeRuntimeCapabilityDiscovery === undefined;
   const runtimeRunEventsFallbackUsed = safeRuntimeRunEvents === undefined;
@@ -1123,6 +1152,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /runtime/readiness",
         "GET /runtime/capability-matrix",
         "GET /api/runtime/delegation-adapter",
+        "GET /api/runtime/interface-mode",
+        "GET /api/runtime/hermes/context-pack",
         "GET /api/runtime/capability-discovery",
         "GET /api/runtime/run-events",
         "GET /api/runtime/approval-bridge",
@@ -1149,6 +1180,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeReadiness !== undefined &&
         capabilityMatrix !== undefined &&
         runtimeDelegationAdapter !== undefined &&
+        runtimeInterfaceMode !== undefined &&
+        runtimeHermesContextPack !== undefined &&
         runtimeCapabilityDiscovery !== undefined &&
         runtimeRunEvents !== undefined &&
         runtimeApprovalBridge !== undefined &&
@@ -1176,6 +1209,12 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeInterfaceModeFallbackUsed
+          ? ["RUNTIME_INTERFACE_MODE_MOCK_FALLBACK"]
+          : []),
+        ...(runtimeHermesContextPackFallbackUsed
+          ? ["RUNTIME_HERMES_CONTEXT_PACK_MOCK_FALLBACK"]
           : []),
         ...(runtimeCapabilityDiscoveryFallbackUsed
           ? ["RUNTIME_CAPABILITY_DISCOVERY_MOCK_FALLBACK"]
@@ -1254,6 +1293,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeReadiness === undefined ||
         capabilityMatrix === undefined ||
         runtimeDelegationAdapterFallbackUsed ||
+        runtimeInterfaceModeFallbackUsed ||
+        runtimeHermesContextPackFallbackUsed ||
         runtimeCapabilityDiscoveryFallbackUsed ||
         runtimeRunEventsFallbackUsed ||
         runtimeApprovalBridgeFallbackUsed ||
@@ -1366,6 +1407,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeReadiness === undefined ||
     capabilityMatrix === undefined ||
     runtimeDelegationAdapter === undefined ||
+    runtimeInterfaceMode === undefined ||
+    runtimeHermesContextPack === undefined ||
     runtimeCapabilityDiscovery === undefined ||
     runtimeRunEvents === undefined ||
     runtimeApprovalBridge === undefined ||
@@ -1413,6 +1456,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     coreFulfilledCount +
     (workBoardResult[0].status === "fulfilled" ? 1 : 0) +
     (agentLoopResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeInterfaceModeResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeHermesContextPackResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeCapabilityDiscoveryResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeRunEventsResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeApprovalBridgeResult[0].status === "fulfilled" ? 1 : 0) +
@@ -1437,7 +1482,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeInterruptRedirectResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeLoggingProfileResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeResultClassificationResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 26;
+  const expectedReadCount = results.length + 28;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1497,6 +1542,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeDelegationAdapter:
       safeRuntimeDelegationAdapter ??
       mockControlCenterData.runtimeDelegationAdapter,
+    runtimeInterfaceMode:
+      safeRuntimeInterfaceMode ?? mockControlCenterData.runtimeInterfaceMode,
+    runtimeHermesContextPack:
+      safeRuntimeHermesContextPack ??
+      mockControlCenterData.runtimeHermesContextPack,
     runtimeCapabilityDiscovery:
       safeRuntimeCapabilityDiscovery ??
       mockControlCenterData.runtimeCapabilityDiscovery,
@@ -1639,6 +1689,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !workBoardFallbackUsed &&
     !agentLoopThreadFallbackUsed &&
     !runtimeDelegationAdapterFallbackUsed &&
+    !runtimeInterfaceModeFallbackUsed &&
+    !runtimeHermesContextPackFallbackUsed &&
     !runtimeCapabilityDiscoveryFallbackUsed &&
     !runtimeRunEventsFallbackUsed &&
     !runtimeApprovalBridgeFallbackUsed &&
@@ -1688,6 +1740,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     workBoardFallbackUsed ||
     agentLoopThreadFallbackUsed ||
     runtimeDelegationAdapterFallbackUsed ||
+    runtimeInterfaceModeFallbackUsed ||
+    runtimeHermesContextPackFallbackUsed ||
     runtimeCapabilityDiscoveryFallbackUsed ||
     runtimeRunEventsFallbackUsed ||
     runtimeApprovalBridgeFallbackUsed ||
@@ -1734,6 +1788,12 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeDelegationAdapterFallbackUsed) {
     degradedSafeMessage =
       "Runtime delegation adapter posture was unavailable or unsafe; non-authoritative mock fallback kept delegated runtime authority blocked.";
+  } else if (runtimeInterfaceModeFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime interface mode was unavailable or unsafe; non-authoritative mock fallback kept UAA-native agent execution off and Hermes authority blocked.";
+  } else if (runtimeHermesContextPackFallbackUsed) {
+    degradedSafeMessage =
+      "Hermes context pack posture was unavailable or unsafe; non-authoritative mock fallback kept raw Memory and CRM access blocked.";
   } else if (runtimeCapabilityDiscoveryFallbackUsed) {
     degradedSafeMessage =
       "Runtime capability discovery posture was unavailable or unsafe; non-authoritative mock fallback kept runtime controls blocked.";
@@ -1866,6 +1926,12 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         : []),
       ...(runtimeDelegationAdapterFallbackUsed
         ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeInterfaceModeFallbackUsed
+        ? ["RUNTIME_INTERFACE_MODE_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeHermesContextPackFallbackUsed
+        ? ["RUNTIME_HERMES_CONTEXT_PACK_MOCK_FALLBACK"]
         : []),
       ...(runtimeCapabilityDiscoveryFallbackUsed
         ? ["RUNTIME_CAPABILITY_DISCOVERY_MOCK_FALLBACK"]
@@ -3565,6 +3631,94 @@ function isSafeRuntimeDelegationAdapter(
       "blocked-authority:runtime-delegation-direct-control-center-runtime-access",
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeInterfaceMode(
+  value: RuntimeInterfaceModeReadModel | undefined,
+): value is RuntimeInterfaceModeReadModel {
+  if (
+    value === undefined ||
+    !isPlainRecord(value.hermes_cli_posture) ||
+    !Array.isArray(value.mode_profiles)
+  ) {
+    return false;
+  }
+  const deniedFlags: Array<keyof RuntimeInterfaceModeReadModel> = [
+    "control_center_mints_authority",
+    "uaa_native_agent_enabled",
+    "uaa_planning_enabled",
+    "uaa_execution_enabled",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+    "raw_provider_payload_persisted",
+    "raw_log_persisted",
+    "raw_local_path_persisted",
+    "credential_material_persisted",
+  ];
+  const modes = new Set(value.mode_profiles.map((profile) => profile.mode));
+  return (
+    value.schema_version === "runtime_interface_mode.v1" &&
+    value.active_mode === "shell_guarded" &&
+    value.python_core_owns_truth === true &&
+    value.memory_update_policy === "candidate_only_review_required" &&
+    modes.has("shell_guarded") &&
+    modes.has("operator_override") &&
+    modes.has("pure_hermes_pass_through") &&
+    value.mode_profiles.every(
+      (profile) =>
+        profile.uaa_native_agent_enabled === false &&
+        profile.uaa_planning_enabled === false &&
+        profile.uaa_execution_enabled === false,
+    ) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:hermes-unrestricted-command-execution",
+    ) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:hermes-direct-memory-write",
+    ) &&
+    deniedFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeHermesContextPack(
+  value: HermesContextPackReadModel | undefined,
+): value is HermesContextPackReadModel {
+  if (value === undefined || !Array.isArray(value.sections)) {
+    return false;
+  }
+  const deniedFlags: Array<keyof HermesContextPackReadModel> = [
+    "hermes_receives_raw_database_access",
+    "raw_memory_records_exposed",
+    "raw_crm_records_exposed",
+    "raw_chat_transcripts_exposed",
+    "raw_local_paths_exposed",
+    "raw_logs_exposed",
+    "credential_material_exposed",
+    "unbounded_private_content_exposed",
+    "direct_memory_write_enabled",
+  ];
+  const sources = new Set(value.sections.map((section) => section.source_surface));
+  return (
+    value.schema_version === "hermes_context_pack.v1" &&
+    value.context_pack_ref ===
+      "hermes-context-pack-ref:uaa-curated-runtime-interface-mode" &&
+    value.memory_update_policy === "candidate_only_review_required" &&
+    value.projected_provenance_visible === true &&
+    value.section_count === value.sections.length &&
+    value.section_count >= 9 &&
+    sources.has("Memory Review and reviewed context") &&
+    sources.has("CRM local command center") &&
+    sources.has("Chat turns and handoffs") &&
+    sources.has("Evidence") &&
+    sources.has("Proof") &&
+    value.sections.every(
+      (section) =>
+        section.projected_to_hermes === true &&
+        isNonEmptyStringArray(section.provenance_refs) &&
+        isNonEmptyStringArray(section.why_shown_refs),
+    ) &&
+    deniedFlags.every((flag) => value[flag] === false)
   );
 }
 

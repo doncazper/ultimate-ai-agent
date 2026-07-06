@@ -521,6 +521,8 @@ export function renderRoute(path: string, data: ControlCenterData) {
           report={data.runtimeReadiness}
           matrix={data.capabilityMatrix}
           delegationAdapter={data.runtimeDelegationAdapter}
+          interfaceMode={data.runtimeInterfaceMode}
+          hermesContextPack={data.runtimeHermesContextPack}
           capabilityDiscovery={data.runtimeCapabilityDiscovery}
           runEvents={data.runtimeRunEvents}
           approvalBridge={data.runtimeApprovalBridge}

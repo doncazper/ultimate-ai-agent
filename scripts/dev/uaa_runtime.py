@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -30,9 +31,13 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     RuntimeInvocationConflictError,
     RuntimeInvocationNotFoundError,
     RuntimeInvocationStore,
+    HermesChatRequest,
+    HermesCliAdapter,
     build_portable_evidence_envelope,
     build_default_runtime_capabilities,
+    build_hermes_context_pack_read_model,
     build_governed_product_pilot_authority_profile,
+    build_runtime_interface_mode_read_model,
     build_runtime_approval_bridge_read_model,
     build_runtime_capability_discovery_read_model,
     build_runtime_context_budget_pressure_read_model,
@@ -302,6 +307,68 @@ def _print_delegation_adapter(read_model: dict[str, Any]) -> None:
         print(f"- {ref}")
     print("Next safe actions:")
     for ref in read_model["next_safe_action_refs"]:
+        print(f"- {ref}")
+
+
+def _print_interface_mode(read_model: dict[str, Any]) -> None:
+    print("Runtime interface mode")
+    print(f"Status: {read_model['status']}")
+    print(f"Active mode: {read_model['active_mode']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Hermes CLI: {read_model['hermes_cli_posture']['status']}")
+    print(f"Context pack: {read_model['context_pack_ref']}")
+    print(f"Memory updates: {read_model['memory_update_policy']}")
+    print(f"UAA native agent enabled: {read_model['uaa_native_agent_enabled']}")
+    print(f"UAA execution enabled: {read_model['uaa_execution_enabled']}")
+    print(f"Summary: {read_model['safe_summary']}")
+    print("Modes:")
+    for profile in read_model["mode_profiles"]:
+        print(
+            f"- {profile['mode']} status={profile['status']} "
+            f"hermes_chat={profile['hermes_cli_chat_enabled']} "
+            f"external_only={profile['external_handoff_only']}"
+        )
+        print(f"  summary: {profile['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_hermes_context_pack(read_model: dict[str, Any]) -> None:
+    print("Hermes context pack")
+    print(f"Status: {read_model['status']}")
+    print(f"Context pack: {read_model['context_pack_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Sections: {read_model['section_count']}")
+    print(f"Memory updates: {read_model['memory_update_policy']}")
+    print(f"Summary: {read_model['safe_summary']}")
+    print(
+        "Raw exposure: "
+        f"memory={read_model['raw_memory_records_exposed']} "
+        f"crm={read_model['raw_crm_records_exposed']} "
+        f"chat={read_model['raw_chat_transcripts_exposed']} "
+        f"paths={read_model['raw_local_paths_exposed']}"
+    )
+    for section in read_model["sections"]:
+        print(f"- {section['source_surface']}: {section['section_ref']}")
+        print(f"  summary: {section['safe_summary']}")
+
+
+def _print_hermes_chat(receipt: dict[str, Any]) -> None:
+    print("Hermes interface-mode chat")
+    print(f"Status: {receipt['status']}")
+    print(f"Mode: {receipt['mode']}")
+    print(f"Receipt: {receipt['receipt_ref']}")
+    print(f"Query ref: {receipt['query_ref']}")
+    print(f"Context pack: {receipt['context_pack_ref']}")
+    print(f"Execution performed: {receipt['execution_performed']}")
+    print(f"External handoff only: {receipt['external_handoff_only']}")
+    print(f"Output summary: {receipt.get('output_summary') or 'none'}")
+    print(f"Memory updates: {receipt['memory_update_policy']}")
+    print("Blocked:")
+    for ref in receipt["blocked_reason_refs"] or ["none"]:
         print(f"- {ref}")
 
 
@@ -1640,6 +1707,116 @@ def _inspect_delegation_adapter(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_delegation_adapter(read_model)
+    return 0
+
+
+def _inspect_interface_mode(args: argparse.Namespace) -> int:
+    read_model = build_runtime_interface_mode_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-interface-mode",
+        "runtime_interface_mode": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_runtime_output_omitted": True,
+        "execution_performed": False,
+        "uaa_native_agent_execution_enabled": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_interface_mode(read_model)
+    return 0
+
+
+def _inspect_hermes_context_pack(args: argparse.Namespace) -> int:
+    read_model = build_hermes_context_pack_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-hermes-context-pack",
+        "hermes_context_pack": read_model,
+        "safe_refs_only": True,
+        "raw_memory_records_omitted": True,
+        "raw_crm_records_omitted": True,
+        "raw_chat_transcripts_omitted": True,
+        "raw_paths_omitted": True,
+        "execution_performed": False,
+        "direct_memory_write_enabled": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_hermes_context_pack(read_model)
+    return 0
+
+
+def _hermes_chat(args: argparse.Namespace) -> int:
+    try:
+        request = HermesChatRequest(
+            mode=args.mode,
+            query=args.query,
+            operator_submission_acknowledged=True,
+        )
+    except ValidationError:
+        query_digest = hashlib.sha256(args.query.encode("utf-8")).hexdigest()[:24]
+        receipt = {
+            "schema_version": "hermes_chat_receipt.v1",
+            "receipt_ref": f"hermes-chat-receipt-ref:blocked:{query_digest}",
+            "status": "blocked_unsafe_input",
+            "mode": args.mode,
+            "query_ref": f"hermes-query-ref:sha256:{query_digest}",
+            "context_pack_ref": "hermes-context-pack-ref:uaa-curated-runtime-interface-mode",
+            "execution_performed": False,
+            "external_handoff_only": False,
+            "output_summary": "Hermes chat was blocked before execution because the query failed interface-mode validation.",
+            "memory_update_policy": "candidate_only_review_required",
+            "blocked_reason_refs": [
+                "blocked-authority:hermes-unsafe-query-fragment"
+            ],
+            "unsafe_arg_blocked": True,
+            "raw_prompt_persisted": False,
+            "raw_response_persisted": False,
+            "raw_output_persisted": False,
+            "raw_local_path_persisted": False,
+            "hidden_output_persistence_enabled": False,
+            "idempotency_ref": args.idempotency_ref,
+        }
+        payload = {
+            "schema_version": "governed-runtime-cli:v1",
+            "command_ref": "repo-local-command:uaa-runtime-hermes-chat",
+            "hermes_chat_receipt": receipt,
+            "safe_refs_only": True,
+            "raw_query_omitted": True,
+            "raw_output_omitted": True,
+            "raw_paths_omitted": True,
+            "memory_updates_candidate_only": True,
+            "execution_performed": False,
+        }
+        if args.json:
+            _print_json(payload)
+        else:
+            _print_hermes_chat(receipt)
+        return 2
+    receipt = HermesCliAdapter().chat(
+        request,
+        idempotency_ref=args.idempotency_ref,
+    ).model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-hermes-chat",
+        "hermes_chat_receipt": receipt,
+        "safe_refs_only": True,
+        "raw_query_omitted": True,
+        "raw_output_omitted": True,
+        "raw_paths_omitted": True,
+        "memory_updates_candidate_only": True,
+        "execution_performed": receipt["execution_performed"],
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_hermes_chat(receipt)
     return 0
 
 
@@ -3229,6 +3406,55 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref delegation adapter read model as JSON.",
     )
     delegation.set_defaults(func=_inspect_delegation_adapter)
+
+    interface_mode = subparsers.add_parser(
+        "inspect-interface-mode",
+        help="Inspect runtime interface mode over Hermes without UAA agent execution.",
+    )
+    interface_mode.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref runtime interface mode read model as JSON.",
+    )
+    interface_mode.set_defaults(func=_inspect_interface_mode)
+
+    hermes_context_pack = subparsers.add_parser(
+        "inspect-hermes-context-pack",
+        help="Inspect the curated Hermes context pack without exposing raw records.",
+    )
+    hermes_context_pack.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref Hermes context pack read model as JSON.",
+    )
+    hermes_context_pack.set_defaults(func=_inspect_hermes_context_pack)
+
+    hermes_chat = subparsers.add_parser(
+        "hermes-chat",
+        help="Submit an exact governed Hermes chat request with redacted receipt.",
+    )
+    hermes_chat.add_argument(
+        "--mode",
+        choices=("shell_guarded", "operator_override"),
+        required=True,
+        help="Interface mode for the explicit operator-submitted Hermes chat.",
+    )
+    hermes_chat.add_argument(
+        "--query",
+        required=True,
+        help="Transient Hermes query; it is hashed only and not persisted.",
+    )
+    hermes_chat.add_argument(
+        "--idempotency-ref",
+        default="idempotency-ref:hermes-chat-cli",
+        help="Safe idempotency ref for the Hermes chat receipt.",
+    )
+    hermes_chat.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the redacted Hermes chat receipt as JSON.",
+    )
+    hermes_chat.set_defaults(func=_hermes_chat)
 
     capability_discovery = subparsers.add_parser(
         "inspect-capability-discovery",

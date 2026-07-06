@@ -6,6 +6,8 @@ import type {
   RuntimeContextBudgetPressureReadModel,
   RuntimeDelegationAdapterReadModel,
   RuntimeDoctorDiagnosticsReadModel,
+  RuntimeInterfaceModeReadModel,
+  HermesContextPackReadModel,
   RuntimeHardlineCommandBlocklistReadModel,
   RuntimeInterruptRedirectReadModel,
   RuntimeLoggingProfileReadModel,
@@ -34,6 +36,8 @@ export function RuntimeReadinessPanel({
   report,
   matrix,
   delegationAdapter,
+  interfaceMode,
+  hermesContextPack,
   capabilityDiscovery,
   runEvents,
   approvalBridge,
@@ -62,6 +66,8 @@ export function RuntimeReadinessPanel({
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
   delegationAdapter: RuntimeDelegationAdapterReadModel;
+  interfaceMode: RuntimeInterfaceModeReadModel;
+  hermesContextPack: HermesContextPackReadModel;
   capabilityDiscovery: RuntimeCapabilityDiscoveryReadModel;
   runEvents: RuntimeRunEventsReadModel;
   approvalBridge: RuntimeApprovalBridgeReadModel;
@@ -117,6 +123,130 @@ export function RuntimeReadinessPanel({
           </div>
         ))}
       </div>
+      <div className="panel-grid two">
+        <article className="info-card">
+          <div className="panel-heading compact-heading">
+            <div>
+              <p className="eyebrow">Interface mode</p>
+              <h3>{interfaceMode.active_mode}</h3>
+            </div>
+            <span className="status-pill compact">{interfaceMode.status}</span>
+          </div>
+          <p>{interfaceMode.safe_summary}</p>
+          <dl className="detail-grid">
+            <div>
+              <dt>Route</dt>
+              <dd>{interfaceMode.route_ref}</dd>
+            </div>
+            <div>
+              <dt>CLI</dt>
+              <dd>{interfaceMode.cli_ref}</dd>
+            </div>
+            <div>
+              <dt>UAA-native agent</dt>
+              <dd>{interfaceMode.uaa_execution_enabled ? "enabled" : "off"}</dd>
+            </div>
+            <div>
+              <dt>Memory updates</dt>
+              <dd>{interfaceMode.memory_update_policy}</dd>
+            </div>
+          </dl>
+          <ul className="compact-list">
+            {interfaceMode.mode_profiles.map((profile) => (
+              <li key={profile.mode}>
+                {profile.mode}: {profile.external_handoff_only ? "external only" : "guarded"}; UAA execution off
+              </li>
+            ))}
+          </ul>
+        </article>
+        <article className="info-card">
+          <div className="panel-heading compact-heading">
+            <div>
+              <p className="eyebrow">Hermes CLI</p>
+              <h3>{interfaceMode.hermes_cli_posture.status}</h3>
+            </div>
+            <span className="status-pill compact">
+              {interfaceMode.hermes_cli_posture.discovery_source}
+            </span>
+          </div>
+          <p>{interfaceMode.hermes_cli_posture.safe_summary}</p>
+          <dl className="detail-grid">
+            <div>
+              <dt>Status argv</dt>
+              <dd>{interfaceMode.hermes_cli_posture.readiness_command_shape_ref}</dd>
+            </div>
+            <div>
+              <dt>Chat argv</dt>
+              <dd>{interfaceMode.hermes_cli_posture.chat_command_shape_ref}</dd>
+            </div>
+            <div>
+              <dt>Exact argv only</dt>
+              <dd>{interfaceMode.hermes_cli_posture.exact_argv_only ? "yes" : "no"}</dd>
+            </div>
+            <div>
+              <dt>Unsafe modes</dt>
+              <dd>
+                {interfaceMode.hermes_cli_posture.yolo_allowed ||
+                interfaceMode.hermes_cli_posture.oneshot_allowed
+                  ? "allowed"
+                  : "blocked"}
+              </dd>
+            </div>
+          </dl>
+        </article>
+      </div>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Hermes context bridge</p>
+            <h3>{hermesContextPack.context_pack_ref}</h3>
+          </div>
+          <span className="status-pill compact">{hermesContextPack.status}</span>
+        </div>
+        <p>{hermesContextPack.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{hermesContextPack.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{hermesContextPack.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Sections</dt>
+            <dd>{hermesContextPack.section_count}</dd>
+          </div>
+          <div>
+            <dt>Raw database access</dt>
+            <dd>
+              {hermesContextPack.hermes_receives_raw_database_access
+                ? "exposed"
+                : "not exposed"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Projection</th>
+                <th>Why shown</th>
+              </tr>
+            </thead>
+            <tbody>
+              {hermesContextPack.sections.map((section) => (
+                <tr key={section.section_ref}>
+                  <td>{section.source_surface}</td>
+                  <td>{section.projected_to_hermes ? "Hermes-projected" : "UAA-native only"}</td>
+                  <td>{section.why_shown_refs[0]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </article>
       <div className="panel-grid two">
         <article className="info-card">
           <div className="panel-heading compact-heading">

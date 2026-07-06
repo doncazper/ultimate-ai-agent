@@ -519,51 +519,21 @@
     "mattermost_role_bound_speak_only_replies",
     "mattermost_approval_required_tool_actions"
   ],
-  "foundation_gate_status": null,
   "idempotency_audit_policy_ref": "idempotency:p1-084:mutating-routes:v1",
-  "local_auth_policy": {
-    "authorization_header_scheme": "Bearer",
-    "bearer_env": "UAA_API_LOCAL_BEARER",
-    "dev_only_bypass_enabled": false,
-    "dev_only_bypass_env": "UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY",
-    "dev_only_bypass_production_authority": false,
-    "enabled_env": "UAA_API_LOCAL_AUTH_ENABLED",
-    "enterprise_auth_enabled": false,
-    "fail_closed_by_default": true,
-    "minimum_bearer_length": 12,
-    "multi_user_auth_enabled": false,
-    "oauth_enabled": false,
-    "password_flow_enabled": false,
-    "policy_ref": "auth:p1-083:local-protected-routes:v1",
-    "production_authority_enabled": false,
-    "protected_route_classifications": [
-      "local_readonly",
-      "local_sensitive",
-      "mutating_requires_authority"
-    ],
-    "public_metadata_paths": [
-      "/api/manifest",
-      "/health",
-      "/openapi.json",
-      "/version"
-    ],
-    "session_cookie_auth_enabled": false
-  },
-  "no_runtime_integrations": true,
   "package_version": "0.104.0",
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
-    "not_required_for_route_classification": 190,
-    "required_before_mutation_authority": 42
+    "not_required_for_route_classification": 192,
+    "required_before_mutation_authority": 43
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 229,
+    "protected_local_bearer_required": 232,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 27,
-    "local_sensitive": 160,
-    "mutating_requires_authority": 42,
+    "local_sensitive": 162,
+    "mutating_requires_authority": 43,
     "public_metadata": 3
   },
   "route_classification_vocabulary": [
@@ -572,47 +542,14 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 232,
-  "route_groups": [
-    "adapter-boundary",
-    "api-boundary",
-    "approval-authority",
-    "consent",
-    "context-budget",
-    "contracts",
-    "control-center",
-    "cost-governor",
-    "extension-catalog",
-    "files",
-    "foundation-gate",
-    "governed-runtime",
-    "kernel",
-    "ledger",
-    "mattermost",
-    "memory",
-    "model-router",
-    "model-runtime",
-    "observability",
-    "openwebui-local-test",
-    "provider-registry",
-    "remote-workers",
-    "runtime-boundary",
-    "runtime-readiness",
-    "secret-broker",
-    "system",
-    "task-decomposition",
-    "tool-broker",
-    "truth",
-    "web-evidence",
-    "world-state"
-  ],
+  "route_count": 235,
   "route_idempotency_posture_summary": {
-    "not_required_for_route_classification": 190,
-    "required_before_mutation_authority": 42
+    "not_required_for_route_classification": 192,
+    "required_before_mutation_authority": 43
   },
   "route_rate_limit_posture_summary": {
-    "not_targeted_for_route": 168,
-    "targeted_local_fixed_window": 64
+    "not_targeted_for_route": 170,
+    "targeted_local_fixed_window": 65
   },
   "routes": [
     {
@@ -891,6 +828,66 @@
       "route_classification": "local_sensitive",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Get api runtime hardline command blocklist",
+      "tags": [
+        "governed-runtime"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_api_runtime_hermes_chat",
+      "path": "/api/runtime/hermes/chat",
+      "rate_limit_group": "governed_runtime_pilot",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Post api runtime hermes chat",
+      "tags": [
+        "governed-runtime"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "GET",
+      "operation_id": "get_api_runtime_hermes_context_pack",
+      "path": "/api/runtime/hermes/context-pack",
+      "rate_limit_group": null,
+      "rate_limit_policy_ref": null,
+      "rate_limit_posture": "not_targeted_for_route",
+      "rate_limit_targeted": false,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Get api runtime hermes context pack",
+      "tags": [
+        "governed-runtime"
+      ]
+    },
+    {
+      "approval_posture": "not_required_for_route_classification",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": null,
+      "idempotency_posture": "not_required_for_route_classification",
+      "idempotency_required": false,
+      "method": "GET",
+      "operation_id": "get_api_runtime_interface_mode",
+      "path": "/api/runtime/interface-mode",
+      "rate_limit_group": null,
+      "rate_limit_policy_ref": null,
+      "rate_limit_posture": "not_targeted_for_route",
+      "rate_limit_targeted": false,
+      "route_classification": "local_sensitive",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Get api runtime interface mode",
       "tags": [
         "governed-runtime"
       ]
@@ -5257,7 +5254,6 @@
     }
   ],
   "schema_version": "uaa-api-route-inventory.v4",
-  "title": "Ultimate AI Agent API Boundary",
   "web_access_posture": {
     "allowed_methods": [],
     "allows_clicks_forms_auth_cookies_downloads_uploads": false,

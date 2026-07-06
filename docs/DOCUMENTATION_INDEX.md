@@ -61,6 +61,7 @@ blocked, planned, and future-scoped states distinct.
 | UAA GoatCitadel catch-up Phase 07 model/provider/research posture | `docs/control_center/UAA_GOATCITADEL_CATCHUP_MODEL_PROVIDER_RESEARCH.md`, `src/ultimate_ai_agent/core/providers/control_plane.py`, `scripts/verify_uaa_goatcitadel_catchup_model_provider_research.py`, `tests/test_goatcitadel_catchup_model_provider_research.py` |
 | Hermes runtime adoption prompt pack | `docs/prompts/hermes_runtime_adoption/README.md`, `docs/prompts/hermes_runtime_adoption/00_execute_all_45_review_fix_merge_harden.prompt.md`, `docs/prompts/hermes_runtime_adoption/01_critical_runtime_delegation_and_capabilities.prompt.md`, `docs/prompts/hermes_runtime_adoption/02_tools_memory_context_and_rollback.prompt.md`, `docs/prompts/hermes_runtime_adoption/03_orchestration_coding_and_runtime_safety.prompt.md`, `docs/prompts/hermes_runtime_adoption/04_operator_surfaces_extensions_and_diagnostics.prompt.md`, `docs/prompts/hermes_runtime_adoption/05_advanced_lanes_and_final_report.prompt.md`, `docs/prompts/hermes_runtime_adoption/prompt_bundle_manifest.json` |
 | Hermes runtime delegation adapter | `docs/runtime/UAA_HERMES_RUNTIME_DELEGATION_ADAPTER.md` |
+| Hermes interface mode with UAA memory bridge | `docs/runtime/UAA_HERMES_INTERFACE_MODE.md` |
 | Hermes runtime capability discovery | `docs/runtime/UAA_HERMES_RUNTIME_CAPABILITY_DISCOVERY.md` |
 | Hermes runtime run events | `docs/runtime/UAA_HERMES_RUNTIME_RUN_EVENTS.md` |
 | Hermes runtime approval bridge | `docs/runtime/UAA_HERMES_RUNTIME_APPROVAL_BRIDGE.md` |
@@ -1358,6 +1359,7 @@ docs/runtime/UAA_GOATCITADEL_RUNTIME_PREPARED_TURN_LOOP.md
 docs/runtime/UAA_GOATCITADEL_RUNTIME_ACTION_SIGNED_EVIDENCE.md
 docs/runtime/UAA_GOATCITADEL_RUNTIME_PARITY_FINAL_HARDENING.md
 docs/runtime/UAA_HERMES_RUNTIME_DELEGATION_ADAPTER.md
+docs/runtime/UAA_HERMES_INTERFACE_MODE.md
 docs/runtime/UAA_HERMES_RUNTIME_CAPABILITY_DISCOVERY.md
 docs/runtime/UAA_HERMES_RUNTIME_RUN_EVENTS.md
 docs/runtime/UAA_HERMES_RUNTIME_APPROVAL_BRIDGE.md

@@ -9260,6 +9260,115 @@ export interface RuntimeDelegationAdapterReadModel {
   redactions_applied: string[];
 }
 
+export interface HermesCliPostureReadModel {
+  schema_version: "hermes_cli_posture.v1";
+  cli_ref: string;
+  discovery_source: string;
+  status: "ready" | "missing" | "unavailable" | "blocked";
+  readiness_command_shape_ref: string;
+  chat_command_shape_ref: string;
+  readiness_checked: boolean;
+  readiness_exit_code: number | null;
+  readiness_timed_out: boolean;
+  readiness_output_summary: string | null;
+  readiness_output_persisted: boolean;
+  cli_path_persisted: boolean;
+  exact_argv_only: boolean;
+  shell_strings_allowed: boolean;
+  yolo_allowed: boolean;
+  oneshot_allowed: boolean;
+  arbitrary_args_allowed: boolean;
+  toolset_passthrough_allowed: boolean;
+  safe_summary: string;
+  blocked_reason_refs: string[];
+}
+
+export interface RuntimeInterfaceModeProfile {
+  mode: "shell_guarded" | "operator_override" | "pure_hermes_pass_through";
+  status: string;
+  uaa_native_agent_enabled: boolean;
+  uaa_planning_enabled: boolean;
+  uaa_execution_enabled: boolean;
+  uaa_redaction_receipts_enabled: boolean;
+  hermes_cli_chat_enabled: boolean;
+  external_handoff_only: boolean;
+  operator_submission_required: boolean;
+  safe_summary: string;
+  allowed_action_refs: string[];
+  blocked_authority_refs: string[];
+}
+
+export interface RuntimeInterfaceModeReadModel {
+  schema_version: "runtime_interface_mode.v1";
+  contract_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  status: string;
+  active_mode: "shell_guarded" | "operator_override" | "pure_hermes_pass_through";
+  mode_profiles: RuntimeInterfaceModeProfile[];
+  hermes_cli_posture: HermesCliPostureReadModel;
+  context_pack_ref: string;
+  memory_update_policy: string;
+  control_center_mints_authority: boolean;
+  python_core_owns_truth: boolean;
+  uaa_native_agent_enabled: boolean;
+  uaa_planning_enabled: boolean;
+  uaa_execution_enabled: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  raw_provider_payload_persisted: boolean;
+  raw_log_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  credential_material_persisted: boolean;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  redactions_applied: string[];
+}
+
+export interface HermesContextSectionReadModel {
+  section_ref: string;
+  source_surface: string;
+  projected_to_hermes: boolean;
+  uaa_native_source_ref: string;
+  safe_summary: string;
+  provenance_refs: string[];
+  why_shown_refs: string[];
+  evidence_refs: string[];
+  proof_refs: string[];
+  route_refs: string[];
+}
+
+export interface HermesContextPackReadModel {
+  schema_version: "hermes_context_pack.v1";
+  contract_ref: string;
+  context_pack_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  status: string;
+  built_at_ref: string;
+  source_count: number;
+  section_count: number;
+  sections: HermesContextSectionReadModel[];
+  token_budget_ref: string;
+  safe_summary: string;
+  memory_update_policy: string;
+  hermes_receives_raw_database_access: boolean;
+  raw_memory_records_exposed: boolean;
+  raw_crm_records_exposed: boolean;
+  raw_chat_transcripts_exposed: boolean;
+  raw_local_paths_exposed: boolean;
+  raw_logs_exposed: boolean;
+  credential_material_exposed: boolean;
+  unbounded_private_content_exposed: boolean;
+  direct_memory_write_enabled: boolean;
+  projected_provenance_visible: boolean;
+  evidence_refs: string[];
+  proof_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeDiscoveredCapabilityGroup {
   group_ref: string;
   group_kind:
@@ -12158,6 +12267,8 @@ export interface ControlCenterData {
   runtimeReadiness: RuntimeReadinessReport;
   capabilityMatrix: RuntimeCapabilityMatrix;
   runtimeDelegationAdapter: RuntimeDelegationAdapterReadModel;
+  runtimeInterfaceMode: RuntimeInterfaceModeReadModel;
+  runtimeHermesContextPack: HermesContextPackReadModel;
   runtimeCapabilityDiscovery: RuntimeCapabilityDiscoveryReadModel;
   runtimeRunEvents: RuntimeRunEventsReadModel;
   runtimeApprovalBridge: RuntimeApprovalBridgeReadModel;

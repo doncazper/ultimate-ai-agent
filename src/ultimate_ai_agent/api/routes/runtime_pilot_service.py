@@ -21,6 +21,8 @@ from ultimate_ai_agent.core.execution import (
 )
 from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeGateway,
+    HermesChatRequest,
+    HermesCliAdapter,
     RuntimeInvocationConflictError,
     RuntimeInvocationNotFoundError,
     RuntimeInvocationRequest,
@@ -28,7 +30,9 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeCommandExecutionRequest,
     RuntimeLocalModelCallRequest,
     build_default_runtime_capabilities,
+    build_hermes_context_pack_read_model,
     build_governed_product_pilot_authority_profile,
+    build_runtime_interface_mode_read_model,
     build_runtime_approval_bridge_read_model,
     build_runtime_capability_discovery_read_model,
     build_runtime_context_budget_pressure_read_model,
@@ -210,6 +214,66 @@ def get_api_runtime_delegation_adapter() -> ResultEnvelope:
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:runtime-delegation-adapter:phase-01"}],
         redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/interface-mode", response_model=ResultEnvelope)
+def get_api_runtime_interface_mode() -> ResultEnvelope:
+    read_model = build_runtime_interface_mode_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_interface_mode",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.contract_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-interface-mode:v1"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/hermes/context-pack", response_model=ResultEnvelope)
+def get_api_runtime_hermes_context_pack() -> ResultEnvelope:
+    read_model = build_hermes_context_pack_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_hermes_context_pack",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.context_pack_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:hermes-context-pack:v1"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.post("/hermes/chat", response_model=ResultEnvelope)
+def post_api_runtime_hermes_chat(
+    request: HermesChatRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None, alias="x-uaa-idempotency-key"
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None, alias="x-uaa-idempotency-ref"
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+    receipt = HermesCliAdapter().chat(request, idempotency_ref=idempotency_ref)
+    return ResultEnvelope(
+        success=receipt.status in {"receipt_recorded", "external_handoff_only"},
+        operation="api_runtime_hermes_chat",
+        service="GovernedRuntimeAPI",
+        trace_id=receipt.receipt_ref,
+        data={
+            "receipt": receipt.model_dump(mode="json"),
+            "execution_performed": receipt.execution_performed,
+            "external_handoff_only": receipt.external_handoff_only,
+            "raw_prompt_persisted": receipt.raw_prompt_persisted,
+            "raw_response_persisted": receipt.raw_response_persisted,
+            "raw_output_persisted": receipt.raw_output_persisted,
+            "model_output_authority": receipt.model_output_authority,
+            "memory_update_policy": receipt.memory_update_policy,
+        },
+        evidence=[{"evidence_ref": "evidence-ref:hermes-interface-mode-chat"}],
+        redactions_applied=receipt.redactions_applied,
     )
 
 
