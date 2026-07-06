@@ -27,10 +27,10 @@ Current route classification summary:
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
 | `local_sensitive` | 163 |
-| `mutating_requires_authority` | 44 |
+| `mutating_requires_authority` | 46 |
 
-The current OpenAPI path count is `236` and `/api/manifest` currently reports
-`237` route operations after later scoped FCC-V1-003 through
+The current OpenAPI path count is `238` and `/api/manifest` currently reports
+`239` route operations after later scoped FCC-V1-003 through
 FCC-V1-006 Founder Loop route work, FCC-MEM-001 Memory Workbench/search/manual
 intake and lifecycle routes, the governed memory L1/L2/L3 index routes, Phase
 5 context-pack proposals, the Phase 6.1 internal Action proposal hook, the
@@ -49,8 +49,8 @@ patch apply readiness route, blocked test-command readiness route, blocked Git
 review route, blocked live-preview readiness route, and blocked multi-agent
 review readiness route, plus the backend-owned Work Board Kanban read-model
 route, exact approved persisted reorder route, and exact approved local
-card-create route, plus the protected authority-state lease inspection route,
-plus the governed runtime
+card-create route, plus the protected authority-state lease inspection route
+and AuthorityLease issue/revoke receipt routes, plus the governed runtime
 pilot Phase 08 parity-loop read-only inspection route, Hermes Runtime Adoption
 Phase 01 delegation adapter readiness route, Phase 02 capability discovery
 posture route, Governed Product Pilot profile route, invocation metadata,

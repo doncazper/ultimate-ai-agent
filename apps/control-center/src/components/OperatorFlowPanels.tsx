@@ -1634,6 +1634,34 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
 
       <div
         className="operator-boundary-list"
+        aria-label="Authority lease receipts"
+      >
+        {authorityLeaseState.recent_receipts.map((receipt) => (
+          <article
+            className={`surface-state-card ${settingsPostureClass(
+              receipt.status === "denied" ? "Blocked" : "Partial",
+            )}`}
+            aria-label={`Authority lease receipt ${receipt.status}`}
+            key={receipt.receipt_ref}
+            role="status"
+          >
+            <span className="surface-state-kind">
+              {receipt.operation} / {receipt.status}
+            </span>
+            <strong>{receipt.mode.replaceAll("_", " ")}</strong>
+            <p>{receipt.safe_summary}</p>
+            <div className="note-list" aria-label={`${receipt.receipt_ref} refs`}>
+              <span>{receipt.receipt_ref}</span>
+              <span>{receipt.lease_ref}</span>
+              <span>{receipt.audit_ref}</span>
+              <span>{receipt.safe_disable_ref}</span>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div
+        className="operator-boundary-list"
         aria-label="Settings authority posture labels"
       >
         {authorityPosturesValid ? (

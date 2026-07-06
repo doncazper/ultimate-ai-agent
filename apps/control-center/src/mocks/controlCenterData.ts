@@ -11469,6 +11469,35 @@ export const mockControlCenterData: ControlCenterData = {
             "Requires Approved safe local work with workspace/execute plus RuntimeGateway allowlist and receipts.",
         },
       ],
+      recent_receipts: [
+        {
+          operation: "issue",
+          status: "issued",
+          receipt_ref: "receipt-ref:authority-lease:mock-issued",
+          lease_ref: "authority-lease-ref:mock-read-only-session",
+          idempotency_ref: "idempotency-ref:authority-lease:mock-issued",
+          decision_reason_ref: "reason-ref:authority-lease:mock-issued",
+          mode: "read_only",
+          scope: "session",
+          requested_domains: {
+            workspace: ["read"],
+          },
+          granted_domains: {
+            workspace: ["read"],
+          },
+          denied_domain_refs: [],
+          unsupported_adapter_refs: [],
+          audit_ref: "audit-ref:authority-lease:mock-issued",
+          rollback_ref: "rollback-ref:authority-lease:mock-issued",
+          safe_disable_ref: "safe-disable-ref:authority-lease:mock-issued",
+          kill_switch_ref: "kill-switch-ref:authority-lease-local",
+          receipt_sink_ref: "receipt-sink-ref:authority-lease-action-receipts",
+          safe_summary:
+            "Mock AuthorityLease receipt proves the Settings cockpit can render lease selection receipts.",
+          execution_performed: false,
+          redactions_applied: ["safe_refs_only", "credentials_omitted"],
+        },
+      ],
       sample_decisions: [
         {
           decision_ref: "authority-policy-decision-ref:mock-read",

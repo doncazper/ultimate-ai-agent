@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any
+from pathlib import Path
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -22,6 +24,9 @@ AUTHORITY_STATE_CONTRACT_REF = "contract-ref:authority-modes-mission-leases:v1"
 AUTHORITY_STATE_API_REF = "GET /api/runtime/authority-state"
 AUTHORITY_STATE_SETTINGS_ROUTE_REF = "GET /control-center/settings/status#authority_lease_state"
 AUTHORITY_STATE_CLI_REF = "repo-local-command:uaa-runtime-inspect-authority-state"
+AUTHORITY_STATE_DIR_ENV = "UAA_AUTHORITY_STATE_DIR"
+AUTHORITY_LEASES_FILE = "authority_leases.json"
+AUTHORITY_LEASE_RECEIPTS_FILE = "authority_lease_receipts.jsonl"
 AUTHORITY_STATE_REDACTIONS = (
     "safe_refs_only",
     "bounded_summaries_only",
@@ -349,6 +354,127 @@ class AuthorityCapabilityMapping(_AuthorityModel):
         return self
 
 
+class AuthorityLeaseIssueRequest(_AuthorityModel):
+    mode: TrustMode
+    scope: AuthorityLeaseScope = AuthorityLeaseScope.session
+    mission_ref: str | None = None
+    operator_ref: str = "operator-ref:local-user"
+    requested_domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
+        default_factory=dict
+    )
+    constraints: dict[str, Any] = Field(default_factory=dict)
+    decision_reason_ref: str = Field(..., min_length=1)
+    duration_minutes: int = Field(default=60, ge=5, le=480)
+    safe_summary: str = Field(..., min_length=1, max_length=520)
+
+    @model_validator(mode="after")
+    def validate_issue_request(self) -> "AuthorityLeaseIssueRequest":
+        for value, field_name in [
+            (self.mission_ref, "authority_lease_mission_ref"),
+            (self.operator_ref, "authority_lease_operator_ref"),
+            (self.decision_reason_ref, "authority_lease_decision_reason_ref"),
+        ]:
+            if value is not None:
+                validate_task_ref(value, field_name)
+        validate_safe_task_text(self.safe_summary, "authority_lease_issue_summary")
+        validate_safe_task_payload(self.constraints, "authority_lease_issue_constraints")
+        if self.scope == AuthorityLeaseScope.mission.value and not self.mission_ref:
+            raise ValueError("AUTHORITY_LEASE_MISSION_REF_REQUIRED")
+        for domain, capabilities in self.requested_domains.items():
+            validate_safe_task_text(_enum_value(domain), "authority_issue_domain")
+            for capability in capabilities:
+                validate_safe_task_text(
+                    _enum_value(capability),
+                    "authority_issue_capability",
+                )
+        return self
+
+
+class AuthorityLeaseRevokeRequest(_AuthorityModel):
+    lease_ref: str = Field(..., min_length=1)
+    decision_reason_ref: str = Field(..., min_length=1)
+    safe_summary: str = Field(..., min_length=1, max_length=520)
+
+    @model_validator(mode="after")
+    def validate_revoke_request(self) -> "AuthorityLeaseRevokeRequest":
+        validate_task_ref(self.lease_ref, "authority_lease_revoke_lease_ref")
+        validate_task_ref(
+            self.decision_reason_ref,
+            "authority_lease_revoke_decision_reason_ref",
+        )
+        validate_safe_task_text(self.safe_summary, "authority_lease_revoke_summary")
+        return self
+
+
+class AuthorityLeaseReceipt(_AuthorityModel):
+    schema_version: Literal["uaa-authority-lease-receipt.v1"] = (
+        "uaa-authority-lease-receipt.v1"
+    )
+    operation: Literal["issue", "revoke"]
+    status: Literal["issued", "revoked", "replayed", "denied"]
+    receipt_ref: str = Field(..., min_length=1)
+    lease_ref: str = Field(..., min_length=1)
+    idempotency_ref: str = Field(..., min_length=1)
+    decision_reason_ref: str = Field(..., min_length=1)
+    mode: TrustMode
+    scope: AuthorityLeaseScope
+    requested_domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
+        default_factory=dict
+    )
+    granted_domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
+        default_factory=dict
+    )
+    denied_domain_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
+    audit_ref: str
+    rollback_ref: str
+    safe_disable_ref: str
+    kill_switch_ref: str
+    receipt_sink_ref: str
+    safe_summary: str = Field(..., min_length=1, max_length=520)
+    execution_performed: bool = False
+    raw_paths_included: bool = False
+    raw_prompt_included: bool = False
+    raw_response_included: bool = False
+    raw_provider_payload_included: bool = False
+    redactions_applied: list[str] = Field(
+        default_factory=lambda: list(AUTHORITY_STATE_REDACTIONS)
+    )
+    created_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def validate_receipt(self) -> "AuthorityLeaseReceipt":
+        for value, field_name in [
+            (self.receipt_ref, "authority_lease_receipt_ref"),
+            (self.lease_ref, "authority_lease_receipt_lease_ref"),
+            (self.idempotency_ref, "authority_lease_receipt_idempotency_ref"),
+            (self.decision_reason_ref, "authority_lease_receipt_reason_ref"),
+            (self.audit_ref, "authority_lease_receipt_audit_ref"),
+            (self.rollback_ref, "authority_lease_receipt_rollback_ref"),
+            (self.safe_disable_ref, "authority_lease_receipt_safe_disable_ref"),
+            (self.kill_switch_ref, "authority_lease_receipt_kill_switch_ref"),
+            (self.receipt_sink_ref, "authority_lease_receipt_sink_ref"),
+        ]:
+            validate_task_ref(value, field_name)
+        for refs, field_name in [
+            (self.denied_domain_refs, "authority_lease_denied_domain_ref"),
+            (self.unsupported_adapter_refs, "authority_lease_unsupported_adapter_ref"),
+        ]:
+            _validate_ref_list(refs, field_name)
+        validate_safe_task_text(self.safe_summary, "authority_lease_receipt_summary")
+        for redaction in self.redactions_applied:
+            validate_safe_task_text(redaction, "authority_lease_receipt_redaction")
+        if (
+            self.execution_performed
+            or self.raw_paths_included
+            or self.raw_prompt_included
+            or self.raw_response_included
+            or self.raw_provider_payload_included
+        ):
+            raise ValueError("AUTHORITY_LEASE_RECEIPT_MUST_BE_REDACTED")
+        return self
+
+
 class AuthorityStateReadModel(_AuthorityModel):
     schema_version: str = AUTHORITY_STATE_SCHEMA_VERSION
     contract_ref: str = AUTHORITY_STATE_CONTRACT_REF
@@ -365,6 +491,7 @@ class AuthorityStateReadModel(_AuthorityModel):
     )
     active_leases: list[AuthorityLease] = Field(default_factory=list)
     capability_mappings: list[AuthorityCapabilityMapping] = Field(default_factory=list)
+    recent_receipts: list[AuthorityLeaseReceipt] = Field(default_factory=list)
     sample_decisions: list[AuthorityPolicyDecision] = Field(default_factory=list)
     kill_switch_visible: bool = True
     receipts_required: bool = True
@@ -634,6 +761,450 @@ def build_default_authority_leases() -> list[AuthorityLease]:
     ]
 
 
+class AuthorityLeaseConflictError(RuntimeError):
+    """Raised when an idempotency ref is reused for a different lease operation."""
+
+
+def authority_state_dir() -> Path:
+    value = os.environ.get(AUTHORITY_STATE_DIR_ENV, "").strip()
+    if value:
+        return Path(value).expanduser()
+    return Path(".uaa") / "authority"
+
+
+def _default_requested_domains(
+    mode: TrustMode,
+) -> dict[AuthorityDomain, list[AuthorityCapability]]:
+    if mode == TrustMode.read_only:
+        return {
+            AuthorityDomain.workspace: [
+                AuthorityCapability.observe,
+                AuthorityCapability.read,
+                AuthorityCapability.draft,
+                AuthorityCapability.prepare,
+            ],
+            AuthorityDomain.memory: [
+                AuthorityCapability.observe,
+                AuthorityCapability.read,
+                AuthorityCapability.draft,
+            ],
+        }
+    if mode == TrustMode.ask_before_changes:
+        return {
+            AuthorityDomain.workspace: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.execute,
+            ],
+            AuthorityDomain.files: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+            ],
+            AuthorityDomain.memory: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+            ],
+        }
+    return {
+        AuthorityDomain.workspace: [
+            AuthorityCapability.read,
+            AuthorityCapability.write,
+            AuthorityCapability.execute,
+            AuthorityCapability.commit,
+        ],
+        AuthorityDomain.files: [
+            AuthorityCapability.read,
+            AuthorityCapability.write,
+            AuthorityCapability.mutate,
+        ],
+        AuthorityDomain.memory: [
+            AuthorityCapability.read,
+            AuthorityCapability.write,
+            AuthorityCapability.mutate,
+        ],
+    }
+
+
+def _allowed_domain_capabilities(
+    mode: TrustMode,
+) -> dict[AuthorityDomain, set[AuthorityCapability]]:
+    read_prepare = {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.draft,
+        AuthorityCapability.prepare,
+    }
+    local_change = read_prepare | {
+        AuthorityCapability.write,
+        AuthorityCapability.mutate,
+        AuthorityCapability.commit,
+    }
+    local_execute = local_change | {AuthorityCapability.execute}
+    if mode == TrustMode.read_only:
+        return {
+            AuthorityDomain.workspace: read_prepare,
+            AuthorityDomain.files: read_prepare,
+            AuthorityDomain.memory: {
+                AuthorityCapability.observe,
+                AuthorityCapability.read,
+                AuthorityCapability.draft,
+            },
+            AuthorityDomain.email: {AuthorityCapability.observe, AuthorityCapability.draft},
+            AuthorityDomain.calendar: {
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            },
+            AuthorityDomain.provider_model_calls: {
+                AuthorityCapability.observe,
+                AuthorityCapability.read,
+            },
+        }
+    if mode == TrustMode.ask_before_changes:
+        return {
+            AuthorityDomain.workspace: local_execute,
+            AuthorityDomain.files: local_change,
+            AuthorityDomain.memory: local_change,
+            AuthorityDomain.email: {AuthorityCapability.observe, AuthorityCapability.draft},
+            AuthorityDomain.calendar: {
+                AuthorityCapability.observe,
+                AuthorityCapability.draft,
+            },
+            AuthorityDomain.provider_model_calls: {
+                AuthorityCapability.observe,
+                AuthorityCapability.read,
+            },
+        }
+    return {
+        AuthorityDomain.workspace: local_execute,
+        AuthorityDomain.files: local_change,
+        AuthorityDomain.memory: local_change,
+        AuthorityDomain.provider_model_calls: {
+            AuthorityCapability.observe,
+            AuthorityCapability.read,
+        },
+    }
+
+
+def _filter_requested_domains(
+    request: AuthorityLeaseIssueRequest,
+) -> tuple[
+    dict[AuthorityDomain, list[AuthorityCapability]],
+    list[str],
+    list[str],
+]:
+    mode = TrustMode(request.mode)
+    requested = request.requested_domains or _default_requested_domains(mode)
+    allowed = _allowed_domain_capabilities(mode)
+    granted: dict[AuthorityDomain, list[AuthorityCapability]] = {}
+    denied_refs: list[str] = []
+    unsupported_refs: list[str] = []
+    for domain, capabilities in requested.items():
+        domain_value = AuthorityDomain(domain)
+        allowed_capabilities = allowed.get(domain_value, set())
+        granted_capabilities = [
+            AuthorityCapability(capability)
+            for capability in capabilities
+            if AuthorityCapability(capability) in allowed_capabilities
+        ]
+        if granted_capabilities:
+            granted[domain_value] = granted_capabilities
+        denied = [
+            AuthorityCapability(capability)
+            for capability in capabilities
+            if AuthorityCapability(capability) not in allowed_capabilities
+        ]
+        if denied or domain_value not in allowed:
+            denied_refs.append(f"authority-domain-ref:{domain_value.value}")
+        for capability in denied:
+            unsupported_refs.append(
+                "adapter-ref:"
+                f"{domain_value.value}:{capability.value}"
+                "-not-implemented-for-authority-lease-v1"
+            )
+        if domain_value not in allowed:
+            unsupported_refs.append(
+                f"adapter-ref:{domain_value.value}:not-implemented-for-authority-lease-v1"
+            )
+    return granted, list(dict.fromkeys(denied_refs)), list(dict.fromkeys(unsupported_refs))
+
+
+class AuthorityLeaseStore:
+    def __init__(self, state_dir: Path | None = None) -> None:
+        self.state_dir = state_dir or authority_state_dir()
+        self.leases_path = self.state_dir / AUTHORITY_LEASES_FILE
+        self.receipts_path = self.state_dir / AUTHORITY_LEASE_RECEIPTS_FILE
+
+    def list_leases(self, *, active_only: bool = False) -> list[AuthorityLease]:
+        leases = self._read_leases()
+        if active_only:
+            leases = [lease for lease in leases if lease.is_active()]
+        return leases
+
+    def list_receipts(self, *, limit: int = 20) -> list[AuthorityLeaseReceipt]:
+        if not self.receipts_path.exists():
+            return []
+        receipts: list[AuthorityLeaseReceipt] = []
+        for line in self.receipts_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            receipts.append(AuthorityLeaseReceipt(**json.loads(line)))
+        return receipts[-limit:]
+
+    def build_state_read_model(self) -> AuthorityStateReadModel:
+        active = self.list_leases(active_only=True)
+        return build_authority_state_read_model(
+            active_leases=active or build_default_authority_leases(),
+            recent_receipts=self.list_receipts(limit=8),
+        )
+
+    def issue_lease(
+        self,
+        request: AuthorityLeaseIssueRequest,
+        *,
+        idempotency_ref: str,
+    ) -> tuple[AuthorityLease | None, AuthorityLeaseReceipt]:
+        validate_task_ref(idempotency_ref, "authority_lease_idempotency_ref")
+        existing = self._receipt_for_idempotency(idempotency_ref)
+        if existing is not None:
+            if existing.operation != "issue":
+                raise AuthorityLeaseConflictError("AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT")
+            lease = self._lease_by_ref(existing.lease_ref)
+            return lease, existing.model_copy(update={"status": "replayed"})
+        granted, denied_refs, unsupported_refs = _filter_requested_domains(request)
+        lease_ref = _stable_ref(
+            "authority-lease-ref",
+            {
+                "idempotency_ref": idempotency_ref,
+                "mode": request.mode,
+                "scope": request.scope,
+                "mission_ref": request.mission_ref,
+                "granted": {
+                    _enum_value(domain): [_enum_value(capability) for capability in caps]
+                    for domain, caps in granted.items()
+                },
+            },
+        )
+        if not granted:
+            receipt = self._receipt(
+                operation="issue",
+                status="denied",
+                lease_ref=lease_ref,
+                idempotency_ref=idempotency_ref,
+                request=request,
+                granted_domains={},
+                denied_domain_refs=denied_refs or ["authority-domain-ref:none-granted"],
+                unsupported_adapter_refs=unsupported_refs,
+                safe_summary=(
+                    "Authority lease request denied because no requested domain "
+                    "capability is implemented for this trust mode."
+                ),
+            )
+            self._append_receipt(receipt)
+            return None, receipt
+        now = utc_now()
+        lease = AuthorityLease(
+            lease_ref=lease_ref,
+            mode=request.mode,
+            scope=request.scope,
+            mission_ref=request.mission_ref,
+            operator_ref=request.operator_ref,
+            domains=granted,
+            constraints={
+                **request.constraints,
+                "decision_reason_ref": request.decision_reason_ref,
+                "idempotency_ref": idempotency_ref,
+                "unsupported_adapters_execute": False,
+            },
+            unsupported_adapter_refs=unsupported_refs,
+            safe_disable_ref=f"safe-disable-ref:{lease_ref.split(':')[-1]}",
+            rollback_ref=f"rollback-ref:{lease_ref.split(':')[-1]}",
+            kill_switch_ref="kill-switch-ref:authority-lease-local",
+            audit_ref=f"audit-ref:{lease_ref.split(':')[-1]}",
+            receipt_sink_ref="receipt-sink-ref:authority-lease-action-receipts",
+            issued_at=now,
+            expires_at=now + timedelta(minutes=request.duration_minutes),
+            safe_summary=request.safe_summary,
+        )
+        leases = [item for item in self._read_leases() if item.lease_ref != lease.lease_ref]
+        leases.append(lease)
+        self._write_leases(leases)
+        receipt = self._receipt(
+            operation="issue",
+            status="issued",
+            lease_ref=lease.lease_ref,
+            idempotency_ref=idempotency_ref,
+            request=request,
+            granted_domains=granted,
+            denied_domain_refs=denied_refs,
+            unsupported_adapter_refs=unsupported_refs,
+            safe_summary="Authority lease issued with safe refs, receipts, and kill-switch posture.",
+        )
+        self._append_receipt(receipt)
+        return lease, receipt
+
+    def revoke_lease(
+        self,
+        request: AuthorityLeaseRevokeRequest,
+        *,
+        idempotency_ref: str,
+    ) -> tuple[AuthorityLease | None, AuthorityLeaseReceipt]:
+        validate_task_ref(idempotency_ref, "authority_lease_idempotency_ref")
+        existing = self._receipt_for_idempotency(idempotency_ref)
+        if existing is not None:
+            if existing.operation != "revoke":
+                raise AuthorityLeaseConflictError("AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT")
+            return self._lease_by_ref(existing.lease_ref), existing.model_copy(
+                update={"status": "replayed"}
+            )
+        leases = self._read_leases()
+        lease = next((item for item in leases if item.lease_ref == request.lease_ref), None)
+        if lease is None:
+            receipt = AuthorityLeaseReceipt(
+                operation="revoke",
+                status="denied",
+                receipt_ref=_stable_ref(
+                    "receipt-ref:authority-lease",
+                    {"operation": "revoke", "idempotency_ref": idempotency_ref},
+                ),
+                lease_ref=request.lease_ref,
+                idempotency_ref=idempotency_ref,
+                decision_reason_ref=request.decision_reason_ref,
+                mode=TrustMode.read_only,
+                scope=AuthorityLeaseScope.session,
+                requested_domains={},
+                granted_domains={},
+                denied_domain_refs=["authority-lease-ref:not-found"],
+                unsupported_adapter_refs=[],
+                audit_ref=_stable_ref(
+                    "audit-ref:authority-lease",
+                    {"operation": "revoke-denied", "idempotency_ref": idempotency_ref},
+                ),
+                rollback_ref="rollback-ref:authority-lease-noop",
+                safe_disable_ref="safe-disable-ref:authority-lease-noop",
+                kill_switch_ref="kill-switch-ref:authority-lease-local",
+                receipt_sink_ref="receipt-sink-ref:authority-lease-action-receipts",
+                safe_summary="Authority lease revoke denied because the lease ref was not found.",
+            )
+            self._append_receipt(receipt)
+            return None, receipt
+        revoked = lease.model_copy(
+            update={
+                "status": AuthorityLeaseStatus.revoked,
+                "constraints": {
+                    **lease.constraints,
+                    "revocation_reason_ref": request.decision_reason_ref,
+                    "revocation_idempotency_ref": idempotency_ref,
+                },
+            }
+        )
+        self._write_leases(
+            [revoked if item.lease_ref == lease.lease_ref else item for item in leases]
+        )
+        receipt = AuthorityLeaseReceipt(
+            operation="revoke",
+            status="revoked",
+            receipt_ref=_stable_ref(
+                "receipt-ref:authority-lease",
+                {"operation": "revoke", "lease_ref": lease.lease_ref},
+            ),
+            lease_ref=lease.lease_ref,
+            idempotency_ref=idempotency_ref,
+            decision_reason_ref=request.decision_reason_ref,
+            mode=TrustMode(lease.mode),
+            scope=AuthorityLeaseScope(lease.scope),
+            requested_domains=lease.domains,
+            granted_domains={},
+            denied_domain_refs=[],
+            unsupported_adapter_refs=lease.unsupported_adapter_refs,
+            audit_ref=_stable_ref(
+                "audit-ref:authority-lease",
+                {"operation": "revoke", "lease_ref": lease.lease_ref},
+            ),
+            rollback_ref=lease.rollback_ref,
+            safe_disable_ref=lease.safe_disable_ref,
+            kill_switch_ref=lease.kill_switch_ref,
+            receipt_sink_ref=lease.receipt_sink_ref,
+            safe_summary=request.safe_summary,
+        )
+        self._append_receipt(receipt)
+        return revoked, receipt
+
+    def _receipt(
+        self,
+        *,
+        operation: Literal["issue", "revoke"],
+        status: Literal["issued", "revoked", "replayed", "denied"],
+        lease_ref: str,
+        idempotency_ref: str,
+        request: AuthorityLeaseIssueRequest,
+        granted_domains: dict[AuthorityDomain, list[AuthorityCapability]],
+        denied_domain_refs: list[str],
+        unsupported_adapter_refs: list[str],
+        safe_summary: str,
+    ) -> AuthorityLeaseReceipt:
+        return AuthorityLeaseReceipt(
+            operation=operation,
+            status=status,
+            receipt_ref=_stable_ref(
+                "receipt-ref:authority-lease",
+                {"operation": operation, "idempotency_ref": idempotency_ref},
+            ),
+            lease_ref=lease_ref,
+            idempotency_ref=idempotency_ref,
+            decision_reason_ref=request.decision_reason_ref,
+            mode=request.mode,
+            scope=request.scope,
+            requested_domains=request.requested_domains
+            or _default_requested_domains(TrustMode(request.mode)),
+            granted_domains=granted_domains,
+            denied_domain_refs=denied_domain_refs,
+            unsupported_adapter_refs=unsupported_adapter_refs,
+            audit_ref=_stable_ref(
+                "audit-ref:authority-lease",
+                {"operation": operation, "idempotency_ref": idempotency_ref},
+            ),
+            rollback_ref=f"rollback-ref:{lease_ref.split(':')[-1]}",
+            safe_disable_ref=f"safe-disable-ref:{lease_ref.split(':')[-1]}",
+            kill_switch_ref="kill-switch-ref:authority-lease-local",
+            receipt_sink_ref="receipt-sink-ref:authority-lease-action-receipts",
+            safe_summary=safe_summary,
+        )
+
+    def _read_leases(self) -> list[AuthorityLease]:
+        if not self.leases_path.exists():
+            return []
+        payload = json.loads(self.leases_path.read_text(encoding="utf-8"))
+        return [AuthorityLease(**item) for item in payload.get("leases", [])]
+
+    def _write_leases(self, leases: list[AuthorityLease]) -> None:
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "schema_version": "uaa-authority-lease-store.v1",
+            "leases": [lease.model_dump(mode="json") for lease in leases],
+        }
+        self.leases_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    def _append_receipt(self, receipt: AuthorityLeaseReceipt) -> None:
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        with self.receipts_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(receipt.model_dump(mode="json"), sort_keys=True) + "\n")
+
+    def _receipt_for_idempotency(
+        self,
+        idempotency_ref: str,
+    ) -> AuthorityLeaseReceipt | None:
+        for receipt in reversed(self.list_receipts(limit=200)):
+            if receipt.idempotency_ref == idempotency_ref:
+                return receipt
+        return None
+
+    def _lease_by_ref(self, lease_ref: str) -> AuthorityLease | None:
+        return next((lease for lease in self._read_leases() if lease.lease_ref == lease_ref), None)
+
+
 def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]:
     return [
         _mapping(
@@ -735,8 +1306,12 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
     ]
 
 
-def build_authority_state_read_model() -> AuthorityStateReadModel:
-    leases = build_default_authority_leases()
+def build_authority_state_read_model(
+    *,
+    active_leases: list[AuthorityLease] | None = None,
+    recent_receipts: list[AuthorityLeaseReceipt] | None = None,
+) -> AuthorityStateReadModel:
+    leases = active_leases or build_default_authority_leases()
     samples = [
         evaluate_authority_request(
             AuthorityActionRequest(
@@ -775,7 +1350,7 @@ def build_authority_state_read_model() -> AuthorityStateReadModel:
         ),
     ]
     return AuthorityStateReadModel(
-        active_mode=TrustMode.read_only,
+        active_mode=TrustMode(leases[-1].mode) if leases else TrustMode.read_only,
         operator_summary=(
             "Authority is now modeled as trust modes, explicit domains, and "
             "session or mission leases. Unknown authority denies by default; "
@@ -784,6 +1359,7 @@ def build_authority_state_read_model() -> AuthorityStateReadModel:
         ),
         active_leases=leases,
         capability_mappings=build_existing_lane_authority_mappings(),
+        recent_receipts=recent_receipts or [],
         sample_decisions=samples,
     )
 

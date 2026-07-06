@@ -19,12 +19,18 @@ surfaces are:
 - `GET /api/runtime/authority-state`
 - `GET /control-center/settings/status#authority_lease_state`
 - `scripts/dev/uaa_runtime.py inspect-authority-state --json`
+- `POST /api/runtime/authority-leases`
+- `POST /api/runtime/authority-leases/revoke`
+- `scripts/dev/uaa_runtime.py select-authority-mode`
+- `scripts/dev/uaa_runtime.py revoke-authority-lease`
 
 The first implementation is deliberately conservative: the default active
-lease is read-only; existing exact lanes are mapped into domains and required
-trust modes; runtime policy can evaluate supplied active leases; unsupported
-browser/app/payment/calendar/messages/Home Assistant adapters remain denied or
-draft-degraded instead of being presented as live execution.
+lease is read-only; operator-selected session leases persist safe receipts for
+implemented local domain/capability subsets; existing exact lanes are mapped
+into domains and required trust modes; runtime policy can evaluate supplied
+active leases; unsupported browser/app/payment/calendar/messages/Home
+Assistant adapters remain denied or draft-degraded instead of being presented
+as live execution.
 
 ## Core Problem
 

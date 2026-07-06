@@ -9,23 +9,23 @@ from .repo import load_json
 
 ROUTE_FIXTURE_PATH = "tests/fixtures/api_route_inventory_133.json"
 ROUTE_FIXTURE_SCHEMA_VERSION = "uaa-api-route-inventory.v4"
-EXPECTED_ROUTE_COUNT = 237
-EXPECTED_OPENAPI_PATH_COUNT = 236
+EXPECTED_ROUTE_COUNT = 239
+EXPECTED_OPENAPI_PATH_COUNT = 238
 EXPECTED_AUTH_POSTURE_SUMMARY = {
     "public_metadata_no_auth": 3,
-    "protected_local_bearer_required": 234,
+    "protected_local_bearer_required": 236,
 }
 EXPECTED_APPROVAL_POSTURE_SUMMARY = {
     "not_required_for_route_classification": 193,
-    "required_before_mutation_authority": 44,
+    "required_before_mutation_authority": 46,
 }
 EXPECTED_IDEMPOTENCY_POSTURE_SUMMARY = {
     "not_required_for_route_classification": 193,
-    "required_before_mutation_authority": 44,
+    "required_before_mutation_authority": 46,
 }
 EXPECTED_RATE_LIMIT_POSTURE_SUMMARY = {
     "not_targeted_for_route": 172,
-    "targeted_local_fixed_window": 65,
+    "targeted_local_fixed_window": 67,
 }
 EXPECTED_MUTATING_ROUTE_COUNT = EXPECTED_APPROVAL_POSTURE_SUMMARY[
     "required_before_mutation_authority"
@@ -64,6 +64,8 @@ EXPECTED_MUTATING_ROUTES = {
     ("POST", "/integrations/mattermost/roles/bind"),
     ("POST", "/integrations/mattermost/roles/unbind"),
     ("POST", "/api/runtime/command/run"),
+    ("POST", "/api/runtime/authority-leases"),
+    ("POST", "/api/runtime/authority-leases/revoke"),
     ("POST", "/api/runtime/hermes/chat"),
     ("POST", "/api/runtime/invocations"),
     ("POST", "/api/runtime/local-model/call"),

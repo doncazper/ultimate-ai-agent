@@ -17,7 +17,14 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.core.control_center.runtime_action_bridge import (  # noqa: E402
     build_runtime_action_inbox_bridge_read_model,
 )
-from ultimate_ai_agent.core.authority import build_authority_state_read_model  # noqa: E402
+from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AuthorityDomain,
+    AuthorityCapability,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseRevokeRequest,
+    AuthorityLeaseStore,
+    TrustMode,
+)
 from ultimate_ai_agent.core.control_center.runtime_parity_loop import (  # noqa: E402
     build_runtime_parity_loop_read_model,
 )
@@ -1685,7 +1692,7 @@ def _authority_profile(args: argparse.Namespace) -> int:
 
 
 def _inspect_authority_state(args: argparse.Namespace) -> int:
-    read_model = build_authority_state_read_model().model_dump(mode="json")
+    read_model = AuthorityLeaseStore().build_state_read_model().model_dump(mode="json")
     if args.json:
         _print_json(_authority_payload(read_model))
     else:
@@ -1697,6 +1704,92 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
         print(f"Active leases: {len(read_model['active_leases'])}")
         print(f"Capability mappings: {len(read_model['capability_mappings'])}")
     return 0
+
+
+def _parse_authority_domains(values: list[str] | None) -> dict[AuthorityDomain, list[AuthorityCapability]]:
+    parsed: dict[AuthorityDomain, list[AuthorityCapability]] = {}
+    for value in values or []:
+        if ":" not in value:
+            raise SystemExit(f"authority domain must use domain:capability,capability form: {value}")
+        domain_text, capability_text = value.split(":", 1)
+        domain = AuthorityDomain(domain_text.strip())
+        capabilities = [
+            AuthorityCapability(item.strip())
+            for item in capability_text.split(",")
+            if item.strip()
+        ]
+        if not capabilities:
+            raise SystemExit(f"authority domain has no capabilities: {value}")
+        parsed[domain] = capabilities
+    return parsed
+
+
+def _select_authority_mode(args: argparse.Namespace) -> int:
+    request = AuthorityLeaseIssueRequest(
+        mode=TrustMode(args.mode),
+        scope=args.scope,
+        mission_ref=args.mission_ref,
+        requested_domains=_parse_authority_domains(args.domain),
+        decision_reason_ref=args.reason_ref,
+        duration_minutes=args.duration_minutes,
+        safe_summary=args.summary,
+    )
+    lease, receipt = AuthorityLeaseStore().issue_lease(
+        request,
+        idempotency_ref=args.idempotency_ref,
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-select-authority-mode",
+        "lease": lease.model_dump(mode="json") if lease is not None else None,
+        "receipt": receipt.model_dump(mode="json"),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "execution_performed": False,
+        "unsupported_adapters_claimed_execution": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        print("Authority mode selection")
+        print(f"Status: {receipt.status}")
+        print(f"Mode: {receipt.mode}")
+        print(f"Lease: {receipt.lease_ref}")
+        print(f"Receipt: {receipt.receipt_ref}")
+        print(f"Granted domains: {len(receipt.granted_domains)}")
+        print(f"Denied domains: {len(receipt.denied_domain_refs)}")
+    return 0 if receipt.status in {"issued", "replayed"} else 1
+
+
+def _revoke_authority_lease(args: argparse.Namespace) -> int:
+    request = AuthorityLeaseRevokeRequest(
+        lease_ref=args.lease_ref,
+        decision_reason_ref=args.reason_ref,
+        safe_summary=args.summary,
+    )
+    lease, receipt = AuthorityLeaseStore().revoke_lease(
+        request,
+        idempotency_ref=args.idempotency_ref,
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-revoke-authority-lease",
+        "lease": lease.model_dump(mode="json") if lease is not None else None,
+        "receipt": receipt.model_dump(mode="json"),
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "execution_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        print("Authority lease revoke")
+        print(f"Status: {receipt.status}")
+        print(f"Lease: {receipt.lease_ref}")
+        print(f"Receipt: {receipt.receipt_ref}")
+    return 0 if receipt.status in {"revoked", "replayed"} else 1
 
 
 def _inspect_role_provider_evidence(args: argparse.Namespace) -> int:
@@ -3280,6 +3373,79 @@ def build_parser() -> argparse.ArgumentParser:
     )
     authority_state.add_argument("--json", action="store_true", help="Emit safe JSON.")
     authority_state.set_defaults(func=_inspect_authority_state)
+
+    select_authority = subparsers.add_parser(
+        "select-authority-mode",
+        help="Issue a session-scoped AuthorityLease for implemented domains.",
+    )
+    select_authority.add_argument(
+        "--mode",
+        required=True,
+        choices=[mode.value for mode in TrustMode],
+        help="Trust mode to request.",
+    )
+    select_authority.add_argument(
+        "--domain",
+        action="append",
+        help="Domain capabilities in domain:capability,capability form.",
+    )
+    select_authority.add_argument(
+        "--scope",
+        default="session",
+        choices=["session", "mission"],
+        help="Lease scope.",
+    )
+    select_authority.add_argument(
+        "--reason-ref",
+        required=True,
+        help="Safe decision reason ref.",
+    )
+    select_authority.add_argument(
+        "--idempotency-ref",
+        required=True,
+        help="Safe idempotency ref.",
+    )
+    select_authority.add_argument(
+        "--duration-minutes",
+        type=int,
+        default=60,
+        help="Lease duration in minutes.",
+    )
+    select_authority.add_argument(
+        "--mission-ref",
+        default=None,
+        help="Mission ref when requesting a mission-scoped lease.",
+    )
+    select_authority.add_argument(
+        "--summary",
+        required=True,
+        help="Safe bounded operator summary.",
+    )
+    select_authority.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    select_authority.set_defaults(func=_select_authority_mode)
+
+    revoke_authority = subparsers.add_parser(
+        "revoke-authority-lease",
+        help="Revoke an AuthorityLease and emit a safe receipt.",
+    )
+    revoke_authority.add_argument("--lease-ref", required=True, help="Lease ref.")
+    revoke_authority.add_argument(
+        "--reason-ref",
+        required=True,
+        help="Safe decision reason ref.",
+    )
+    revoke_authority.add_argument(
+        "--idempotency-ref",
+        required=True,
+        help="Safe idempotency ref.",
+    )
+    revoke_authority.add_argument(
+        "--summary",
+        required=True,
+        help="Safe bounded operator summary.",
+    )
+    revoke_authority.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    revoke_authority.set_defaults(func=_revoke_authority_lease)
 
     export_evidence = subparsers.add_parser(
         "export-evidence-envelope",

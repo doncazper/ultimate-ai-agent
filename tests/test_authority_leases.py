@@ -7,6 +7,7 @@ from scripts.dev import uaa_runtime
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.authority import (
+    AUTHORITY_STATE_DIR_ENV,
     AuthorityActionRequest,
     AuthorityCapability,
     AuthorityDecisionOutcome,
@@ -235,3 +236,114 @@ def test_authority_state_api_cli_and_settings_surface(capsys) -> None:
     cli_payload = capsys.readouterr().out
     assert "authority_state_read_model" in cli_payload
     assert "raw_paths_omitted" in cli_payload
+
+
+def test_authority_lease_issue_revoke_api_and_cli_are_durable(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+
+    missing_idempotency = client.post(
+        "/api/runtime/authority-leases",
+        json={
+            "mode": "approved_safe_local_work_session",
+            "decision_reason_ref": "reason-ref:authority-api-missing-idempotency",
+            "safe_summary": "Select local workspace authority for this session.",
+        },
+    )
+    assert missing_idempotency.status_code == 428
+    assert missing_idempotency.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
+
+    issue = client.post(
+        "/api/runtime/authority-leases",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:authority-api-issue"},
+        json={
+            "mode": "approved_safe_local_work_session",
+            "requested_domains": {
+                "workspace": ["read", "write", "execute"],
+                "browser": ["click"],
+                "provider_model_calls": ["execute"],
+            },
+            "decision_reason_ref": "reason-ref:authority-api-issue",
+            "safe_summary": "Select local workspace authority for this session.",
+        },
+    )
+    assert issue.status_code == 200
+    body = issue.json()
+    assert body["success"] is True
+    receipt = body["data"]["receipt"]
+    lease = body["data"]["lease"]
+    assert receipt["status"] == "issued"
+    assert receipt["execution_performed"] is False
+    assert receipt["granted_domains"]["workspace"] == ["read", "write", "execute"]
+    assert "authority-domain-ref:browser" in receipt["denied_domain_refs"]
+    assert "authority-domain-ref:provider_model_calls" in (
+        receipt["denied_domain_refs"]
+    )
+    assert "adapter-ref:browser:not-implemented-for-authority-lease-v1" in (
+        receipt["unsupported_adapter_refs"]
+    )
+    assert (
+        "adapter-ref:provider_model_calls:execute"
+        "-not-implemented-for-authority-lease-v1"
+    ) in receipt["unsupported_adapter_refs"]
+
+    state = client.get("/api/runtime/authority-state")
+    assert state.status_code == 200
+    state_data = state.json()["data"]
+    assert state_data["active_mode"] == "approved_safe_local_work_session"
+    assert state_data["active_leases"][0]["lease_ref"] == lease["lease_ref"]
+    assert state_data["recent_receipts"][0]["receipt_ref"] == receipt["receipt_ref"]
+
+    cli_issue = uaa_runtime.main(
+        [
+            "select-authority-mode",
+            "--mode",
+            "ask_before_changes",
+            "--domain",
+            "workspace:read,write",
+            "--reason-ref",
+            "reason-ref:authority-cli-issue",
+            "--idempotency-ref",
+            "idempotency-ref:authority-cli-issue",
+            "--summary",
+            "Select ask-before-changes workspace authority.",
+            "--json",
+        ]
+    )
+    assert cli_issue == 0
+    cli_payload = capsys.readouterr().out
+    assert "uaa-runtime-select-authority-mode" in cli_payload
+    assert "receipt-ref:authority-lease" in cli_payload
+
+    revoke = client.post(
+        "/api/runtime/authority-leases/revoke",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:authority-api-revoke"},
+        json={
+            "lease_ref": lease["lease_ref"],
+            "decision_reason_ref": "reason-ref:authority-api-revoke",
+            "safe_summary": "Revoke local workspace authority for this session.",
+        },
+    )
+    assert revoke.status_code == 200
+    assert revoke.json()["success"] is True
+    assert revoke.json()["data"]["receipt"]["status"] == "revoked"
+
+    cli_revoke = uaa_runtime.main(
+        [
+            "revoke-authority-lease",
+            "--lease-ref",
+            lease["lease_ref"],
+            "--reason-ref",
+            "reason-ref:authority-cli-revoke",
+            "--idempotency-ref",
+            "idempotency-ref:authority-cli-revoke",
+            "--summary",
+            "Revoke already-revoked authority lease for safe replay proof.",
+            "--json",
+        ]
+    )
+    assert cli_revoke == 0
+    assert "uaa-runtime-revoke-authority-lease" in capsys.readouterr().out

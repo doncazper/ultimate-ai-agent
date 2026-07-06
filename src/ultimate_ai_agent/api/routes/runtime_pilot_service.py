@@ -12,7 +12,12 @@ from ultimate_ai_agent.core.hygiene.envelopes import (
     ResultEnvelope,
     Severity,
 )
-from ultimate_ai_agent.core.authority import build_authority_state_read_model
+from ultimate_ai_agent.core.authority import (
+    AuthorityLeaseConflictError,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseRevokeRequest,
+    AuthorityLeaseStore,
+)
 from ultimate_ai_agent.core.decision_router import prepare_turn
 from ultimate_ai_agent.core.control_center.runtime_parity_loop import (
     build_runtime_parity_loop_read_model,
@@ -89,6 +94,10 @@ def _runtime_store() -> RuntimeInvocationStore:
     if _runtime_store_getter is None:
         return _default_runtime_store()
     return _runtime_store_getter()
+
+
+def _authority_store() -> AuthorityLeaseStore:
+    return AuthorityLeaseStore()
 
 
 def _idempotency_ref(
@@ -683,7 +692,7 @@ def get_api_runtime_run_events() -> ResultEnvelope:
 
 @router.get("/authority-state", response_model=ResultEnvelope)
 def get_api_runtime_authority_state() -> ResultEnvelope:
-    read_model = build_authority_state_read_model()
+    read_model = _authority_store().build_state_read_model()
     return ResultEnvelope(
         success=True,
         operation="api_runtime_authority_state",
@@ -692,6 +701,112 @@ def get_api_runtime_authority_state() -> ResultEnvelope:
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:authority-state:v1"}],
         redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.post("/authority-leases", response_model=ResultEnvelope)
+def post_api_runtime_authority_lease(
+    request: AuthorityLeaseIssueRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias="x-uaa-idempotency-key",
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias="x-uaa-idempotency-ref",
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+    try:
+        lease, receipt = _authority_store().issue_lease(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+    except AuthorityLeaseConflictError:
+        return ResultEnvelope(
+            success=False,
+            operation="api_runtime_authority_lease_issue",
+            service="GovernedRuntimeAPI",
+            trace_id=idempotency_ref,
+            error=ErrorEnvelope(
+                code="AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT",
+                category=ErrorCategory.conflict,
+                safe_message="The authority lease idempotency ref already belongs to another operation.",
+                severity=Severity.medium,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+            ),
+            redactions_applied=list(receipt.redactions_applied)
+            if "receipt" in locals()
+            else ["safe_refs_only"],
+        )
+    return ResultEnvelope(
+        success=receipt.status in {"issued", "replayed"},
+        operation="api_runtime_authority_lease_issue",
+        service="GovernedRuntimeAPI",
+        trace_id=receipt.receipt_ref,
+        data={
+            "lease": lease.model_dump(mode="json") if lease is not None else None,
+            "receipt": receipt.model_dump(mode="json"),
+            "execution_performed": False,
+            "unsupported_adapters_claimed_execution": False,
+            "unknown_authority_default": "deny",
+        },
+        evidence=[{"evidence_ref": "evidence-ref:authority-lease-issue:v1"}],
+        redactions_applied=list(receipt.redactions_applied),
+    )
+
+
+@router.post("/authority-leases/revoke", response_model=ResultEnvelope)
+def post_api_runtime_authority_lease_revoke(
+    request: AuthorityLeaseRevokeRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias="x-uaa-idempotency-key",
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias="x-uaa-idempotency-ref",
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+    try:
+        lease, receipt = _authority_store().revoke_lease(
+            request,
+            idempotency_ref=idempotency_ref,
+        )
+    except AuthorityLeaseConflictError:
+        return ResultEnvelope(
+            success=False,
+            operation="api_runtime_authority_lease_revoke",
+            service="GovernedRuntimeAPI",
+            trace_id=idempotency_ref,
+            error=ErrorEnvelope(
+                code="AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT",
+                category=ErrorCategory.conflict,
+                safe_message="The authority lease idempotency ref already belongs to another operation.",
+                severity=Severity.medium,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+            ),
+            redactions_applied=["safe_refs_only"],
+        )
+    return ResultEnvelope(
+        success=receipt.status in {"revoked", "replayed"},
+        operation="api_runtime_authority_lease_revoke",
+        service="GovernedRuntimeAPI",
+        trace_id=receipt.receipt_ref,
+        data={
+            "lease": lease.model_dump(mode="json") if lease is not None else None,
+            "receipt": receipt.model_dump(mode="json"),
+            "execution_performed": False,
+            "unsupported_adapters_claimed_execution": False,
+            "unknown_authority_default": "deny",
+        },
+        evidence=[{"evidence_ref": "evidence-ref:authority-lease-revoke:v1"}],
+        redactions_applied=list(receipt.redactions_applied),
     )
 
 

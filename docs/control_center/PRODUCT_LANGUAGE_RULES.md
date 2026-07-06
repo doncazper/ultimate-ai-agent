@@ -64,9 +64,15 @@ documentation guardrails.
 Use `GET /api/runtime/authority-state`,
 `GET /control-center/settings/status#authority_lease_state`, and
 `scripts/dev/uaa_runtime.py inspect-authority-state --json` as the current
-source of truth for active mode, domain grants, existing lane mappings,
-policy decisions, receipts, audit refs, rollback/safe-disable posture, and
-kill-switch visibility.
+inspection source of truth for active mode, domain grants, existing lane
+mappings, policy decisions, receipts, audit refs, rollback/safe-disable posture,
+and kill-switch visibility. Use `POST /api/runtime/authority-leases`,
+`POST /api/runtime/authority-leases/revoke`,
+`scripts/dev/uaa_runtime.py select-authority-mode`, and
+`scripts/dev/uaa_runtime.py revoke-authority-lease` for operator-selected
+session lease receipts. These routes may grant only implemented local domain
+capability subsets; unsupported adapter domains must remain denied or recorded
+as unsupported refs.
 
 Required copy distinctions:
 

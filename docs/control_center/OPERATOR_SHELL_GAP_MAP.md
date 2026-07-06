@@ -3,7 +3,7 @@
 Status: active UAA-P0-007 operator-shell gap map
 Baseline: v0.104.0 / 0.104.0
 Source plan: `docs/roadmap/OPERATOR_RUNTIME_EXCELLENCE_ROADMAP.md` M172
-API boundary: current FastAPI manifest has 236 OpenAPI paths
+API boundary: current FastAPI manifest has 238 OpenAPI paths
 Lineage: carries forward the UAA-P1-065 `FCC-P0-002` Control Center
 organization cleanup as historical product-surface context.
 
@@ -27,7 +27,11 @@ session/mission scope, constraints, receipts, audit, redaction, rollback,
 safe-disable, and kill-switch visibility. The current inspection surfaces are
 `GET /api/runtime/authority-state`,
 `GET /control-center/settings/status#authority_lease_state`, and
-`scripts/dev/uaa_runtime.py inspect-authority-state --json`. Unsupported
+`scripts/dev/uaa_runtime.py inspect-authority-state --json`; operator-selected
+session leases are recorded through `POST /api/runtime/authority-leases`,
+`POST /api/runtime/authority-leases/revoke`,
+`scripts/dev/uaa_runtime.py select-authority-mode`, and
+`scripts/dev/uaa_runtime.py revoke-authority-lease`. Unsupported
 browser, app, payment, calendar, messages, email, contacts, Home Assistant,
 and production/cloud adapters remain blocked or draft-only until implemented
 and tested, but the operator-facing explanation should name the required mode

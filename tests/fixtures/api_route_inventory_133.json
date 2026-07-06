@@ -557,16 +557,16 @@
   "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
   "route_approval_posture_summary": {
     "not_required_for_route_classification": 193,
-    "required_before_mutation_authority": 44
+    "required_before_mutation_authority": 46
   },
   "route_auth_posture_summary": {
-    "protected_local_bearer_required": 234,
+    "protected_local_bearer_required": 236,
     "public_metadata_no_auth": 3
   },
   "route_classification_summary": {
     "local_readonly": 27,
     "local_sensitive": 163,
-    "mutating_requires_authority": 44,
+    "mutating_requires_authority": 46,
     "public_metadata": 3
   },
   "route_classification_vocabulary": [
@@ -575,7 +575,7 @@
     "local_sensitive",
     "mutating_requires_authority"
   ],
-  "route_count": 237,
+  "route_count": 239,
   "route_groups": [
     "adapter-boundary",
     "api-boundary",
@@ -611,11 +611,11 @@
   ],
   "route_idempotency_posture_summary": {
     "not_required_for_route_classification": 193,
-    "required_before_mutation_authority": 44
+    "required_before_mutation_authority": 46
   },
   "route_rate_limit_posture_summary": {
     "not_targeted_for_route": 172,
-    "targeted_local_fixed_window": 65
+    "targeted_local_fixed_window": 67
   },
   "routes": [
     {
@@ -674,6 +674,46 @@
       "route_classification": "local_sensitive",
       "side_effect_class": "local_dev_workspace_only",
       "summary": "Get api runtime approval bridge",
+      "tags": [
+        "governed-runtime"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_api_runtime_authority_leases",
+      "path": "/api/runtime/authority-leases",
+      "rate_limit_group": "governed_runtime_pilot",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Post api runtime authority leases",
+      "tags": [
+        "governed-runtime"
+      ]
+    },
+    {
+      "approval_posture": "required_before_mutation_authority",
+      "auth_posture": "protected_local_bearer_required",
+      "idempotency_policy_ref": "idempotency:p1-084:mutating-routes:v1",
+      "idempotency_posture": "required_before_mutation_authority",
+      "idempotency_required": true,
+      "method": "POST",
+      "operation_id": "post_api_runtime_authority_leases_revoke",
+      "path": "/api/runtime/authority-leases/revoke",
+      "rate_limit_group": "governed_runtime_pilot",
+      "rate_limit_policy_ref": "rate-limit:p1-085:targeted-local:v1",
+      "rate_limit_posture": "targeted_local_fixed_window",
+      "rate_limit_targeted": true,
+      "route_classification": "mutating_requires_authority",
+      "side_effect_class": "local_dev_workspace_only",
+      "summary": "Post api runtime authority leases revoke",
       "tags": [
         "governed-runtime"
       ]

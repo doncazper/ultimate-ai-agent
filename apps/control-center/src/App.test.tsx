@@ -10828,6 +10828,10 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("status", { name: /Authority decision deny/i }),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("Authority lease receipts")).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: /Authority lease receipt issued/i }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("status", {
         name: /Kill switch: Global runtime authority/i,

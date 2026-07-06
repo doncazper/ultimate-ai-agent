@@ -11723,6 +11723,29 @@ export interface AuthorityPolicyDecision {
   audit_record_ref: string;
 }
 
+export interface AuthorityLeaseReceipt {
+  operation: "issue" | "revoke";
+  status: "issued" | "revoked" | "replayed" | "denied";
+  receipt_ref: string;
+  lease_ref: string;
+  idempotency_ref: string;
+  decision_reason_ref: string;
+  mode: AuthorityTrustMode;
+  scope: "session" | "mission";
+  requested_domains: Record<string, string[]>;
+  granted_domains: Record<string, string[]>;
+  denied_domain_refs: string[];
+  unsupported_adapter_refs: string[];
+  audit_ref: string;
+  rollback_ref: string;
+  safe_disable_ref: string;
+  kill_switch_ref: string;
+  receipt_sink_ref: string;
+  safe_summary: string;
+  execution_performed: boolean;
+  redactions_applied: string[];
+}
+
 export interface AuthorityCapabilityMapping {
   lane_ref: string;
   label: string;
@@ -11751,6 +11774,7 @@ export interface AuthorityStateReadModel {
   policy_outcomes: AuthorityDecisionOutcome[];
   active_leases: AuthorityLease[];
   capability_mappings: AuthorityCapabilityMapping[];
+  recent_receipts: AuthorityLeaseReceipt[];
   sample_decisions: AuthorityPolicyDecision[];
   kill_switch_visible: boolean;
   receipts_required: boolean;

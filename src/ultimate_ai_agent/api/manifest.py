@@ -715,6 +715,8 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/invocations/{id}/receipt",
 }
 GOVERNED_RUNTIME_MUTATING_PATHS = {
+    "/api/runtime/authority-leases",
+    "/api/runtime/authority-leases/revoke",
     "/api/runtime/command/run",
     "/api/runtime/hermes/chat",
     "/api/runtime/invocations",

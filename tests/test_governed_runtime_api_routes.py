@@ -140,6 +140,14 @@ def test_governed_runtime_post_routes_require_idempotency(tmp_path, monkeypatch)
             "safe_summary": "Inspect repo status with redacted output.",
         },
     )
+    authority_lease = client.post(
+        "/api/runtime/authority-leases",
+        json={
+            "mode": "approved_safe_local_work_session",
+            "decision_reason_ref": "reason-ref:runtime-authority-missing-idempotency",
+            "safe_summary": "Select governed runtime authority.",
+        },
+    )
 
     assert response.status_code == 428
     assert response.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
@@ -147,6 +155,8 @@ def test_governed_runtime_post_routes_require_idempotency(tmp_path, monkeypatch)
     assert local_model.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
     assert command.status_code == 428
     assert command.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
+    assert authority_lease.status_code == 428
+    assert authority_lease.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
 
 
 def test_governed_runtime_generic_invocation_cannot_enable_local_model_runtime(
@@ -327,6 +337,8 @@ def test_governed_runtime_routes_are_manifest_visible_with_safe_posture() -> Non
 
     for path in [
         "/api/runtime/invocations",
+        "/api/runtime/authority-leases",
+        "/api/runtime/authority-leases/revoke",
         "/api/runtime/command/run",
         "/api/runtime/local-model/call",
         "/api/runtime/invocations/{id}/approve",
@@ -349,6 +361,12 @@ def test_governed_runtime_rate_limit_group_handles_dynamic_routes() -> None:
         "governed_runtime_pilot"
     )
     assert route_rate_limit_group("POST", "/api/runtime/command/run") == (
+        "governed_runtime_pilot"
+    )
+    assert route_rate_limit_group("POST", "/api/runtime/authority-leases") == (
+        "governed_runtime_pilot"
+    )
+    assert route_rate_limit_group("POST", "/api/runtime/authority-leases/revoke") == (
         "governed_runtime_pilot"
     )
     assert route_rate_limit_group(
