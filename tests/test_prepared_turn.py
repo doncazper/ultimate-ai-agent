@@ -19,6 +19,9 @@ def test_prepared_turn_direct_answer_has_no_memory_tools_or_execution() -> None:
     turn = prepare_turn(sample_id="diy-desk")
 
     assert turn.branch == PreparedTurnBranch.answer_directly.value
+    assert turn.turn_run_approval_chain is not None
+    assert turn.turn_run_approval_chain.current_state == "routed"
+    assert turn.turn_run_approval_chain.linkage.approval_ref is None
     assert turn.memory_readiness.status == "memory_not_used"
     assert turn.tool_action_readiness.status == "tool_action_not_used"
     assert turn.route_decision_binding.route_decision_is_approval is False
@@ -51,11 +54,28 @@ def test_prepared_turn_tool_action_readiness_is_proposal_only() -> None:
 
 def test_prepared_turn_approval_required_has_exact_envelope_posture() -> None:
     turn = prepare_turn(sample_id="order-materials")
+    chain = turn.turn_run_approval_chain
+    assert chain is not None
 
     assert turn.branch == PreparedTurnBranch.approval_required.value
     assert turn.tool_action_readiness.status == "approval_required"
     assert turn.route_decision_binding.approval_ref == (
         "approval-ref:prepared-turn:approval_required"
+    )
+    assert turn.durable_run_ref == chain.linkage.durable_run_ref.ref
+    assert chain.linkage.turn_ref is not None
+    assert chain.linkage.turn_ref.ref == turn.latest_user_turn_ref
+    assert chain.linkage.operator_task_ref == turn.task_ref
+    assert chain.linkage.approval_ref is not None
+    assert chain.linkage.approval_ref.ref == turn.route_decision_binding.approval_ref
+    assert chain.linkage.route_decision_binding_ref is not None
+    assert chain.linkage.route_decision_binding_ref.ref == (
+        turn.route_decision_binding.binding_ref
+    )
+    assert chain.current_state == "waiting_for_approval"
+    assert chain.transitions[-1].approval_ref is not None
+    assert chain.transitions[-1].approval_ref.ref == (
+        turn.route_decision_binding.approval_ref
     )
     assert turn.next_actions[0].requires_approval is True
     assert turn.action_execution_performed is False

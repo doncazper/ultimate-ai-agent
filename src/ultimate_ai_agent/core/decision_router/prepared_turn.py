@@ -23,8 +23,12 @@ from ultimate_ai_agent.core.decision_router.turn_contracts import (
 )
 from ultimate_ai_agent.core.execution import (
     TurnRunApprovalChainReadModel,
+    TurnRunApprovalState,
+    TurnRunApprovalTransitionRequest,
+    TurnRunApprovalTransitionStatus,
+    apply_turn_run_approval_transition,
+    build_empty_turn_run_approval_chain,
     build_sample_staged_orchestration_read_model,
-    build_sample_turn_run_approval_chain,
 )
 from ultimate_ai_agent.core.planning.validation import (
     validate_safe_task_payload,
@@ -235,7 +239,13 @@ def prepare_turn(
         resource_refs=[task_ref],
     )
     branch = _branch_for_contract(policy.turn_contract)
-    chain = build_sample_turn_run_approval_chain()
+    chain = _prepared_turn_approval_chain(
+        suffix=suffix,
+        latest_turn_ref=latest_turn_ref,
+        task_ref=task_ref,
+        route_binding=route_binding,
+        approval_ref=_approval_ref(policy.turn_contract),
+    )
     return PreparedTurn(
         prepared_turn_ref=f"prepared-turn-ref:{suffix}",
         session_ref=session_ref,
@@ -260,6 +270,63 @@ def prepare_turn(
         next_actions=_next_actions(policy.turn_contract),
         safe_summary=_safe_summary(policy.turn_contract),
     )
+
+
+def _prepared_turn_approval_chain(
+    *,
+    suffix: str,
+    latest_turn_ref: str,
+    task_ref: str,
+    route_binding: RouteDecisionBinding,
+    approval_ref: str | None,
+) -> TurnRunApprovalChainReadModel:
+    durable_run_ref = f"durable-run-ref:prepared-turn:{suffix}"
+    chain = build_empty_turn_run_approval_chain(
+        chain_ref=f"turn-run-chain:prepared-turn:{suffix}",
+        turn_ref=latest_turn_ref,
+        durable_run_ref=durable_run_ref,
+        operator_task_ref=task_ref,
+        approval_ref=approval_ref,
+        route_decision_binding_ref=route_binding.binding_ref,
+    )
+    target_states = [TurnRunApprovalState.routed]
+    if str(route_binding.turn_contract) in {
+        TurnContractKind.draft_or_plan.value,
+        TurnContractKind.prepare_tool_or_action.value,
+        TurnContractKind.approval_required.value,
+        TurnContractKind.execute_approved_action.value,
+    }:
+        target_states.append(TurnRunApprovalState.planning)
+    if approval_ref:
+        target_states.append(TurnRunApprovalState.waiting_for_approval)
+    for state in target_states:
+        request = TurnRunApprovalTransitionRequest(
+            transition_ref=f"turn-run-transition:prepared-turn:{suffix}:{state.value}",
+            from_state=chain.current_state,
+            to_state=state,
+            actor_ref=route_binding.actor_ref,
+            idempotency_key=f"idempotency-ref:prepared-turn:{suffix}:{state.value}",
+            checkpoint_ref=f"checkpoint-ref:prepared-turn:{suffix}:{state.value}",
+            receipt_ref=f"receipt-ref:prepared-turn:{suffix}:{state.value}",
+            replay_ref=f"replay-ref:prepared-turn:{suffix}:{state.value}",
+            approval_ref=approval_ref
+            if state == TurnRunApprovalState.waiting_for_approval
+            else None,
+            approval_scope_run_ref=durable_run_ref
+            if state == TurnRunApprovalState.waiting_for_approval
+            else None,
+            approval_scope_turn_ref=latest_turn_ref
+            if state == TurnRunApprovalState.waiting_for_approval
+            else None,
+            route_decision_binding_ref=route_binding.binding_ref,
+            evidence_refs=[f"evidence-ref:prepared-turn-chain:{state.value}"],
+            reason_refs=[f"reason-ref:prepared-turn-chain:{state.value}"],
+            safe_summary="Prepared turn recorded state-only durable run posture.",
+        )
+        chain, decision = apply_turn_run_approval_transition(chain, request)
+        if decision.status != TurnRunApprovalTransitionStatus.accepted.value:
+            raise ValueError("prepared turn approval chain transition failed")
+    return chain
 
 
 def build_sample_prepared_turns() -> list[PreparedTurn]:

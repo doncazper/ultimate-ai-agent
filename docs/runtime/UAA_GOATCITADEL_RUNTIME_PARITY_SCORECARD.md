@@ -80,13 +80,13 @@ that UAA already has the same runtime capability.
 
 | Runtime parity dimension | Current Score | Target Score | Confidence | Status | Strongest UAA evidence | Missing evidence | Exact implementation lane |
 |---|---:|---:|---|---|---|---|---|
-| Turn-contract clarity | 9 | 9 | High | implemented | `src/ultimate_ai_agent/core/decision_router/`, `PreparedTurn`, `scripts/dev/uaa_turn_router.py`, `tests/test_turn_contract_router_harness_binding.py`, and `docs/architecture/TURN_CONTRACT_ROUTER.md` prove `base_answer` handling, prepared-turn branches, preview routing, route binding, preflight posture, approval escalation, and executor fencing without model/provider calls. | Prepared turns are inspectable but not yet connected to live Control Center chat composition as a primary UI workflow. | Phase 08 Prompt: cockpit parity |
+| Turn-contract clarity | 9 | 9 | High | implemented | `src/ultimate_ai_agent/core/decision_router/`, `PreparedTurn`, `scripts/dev/uaa_turn_router.py`, `tests/test_turn_contract_router_harness_binding.py`, and `docs/architecture/TURN_CONTRACT_ROUTER.md` prove `base_answer` handling, prepared-turn branches, preview routing, route binding, preflight posture, approval escalation, and executor fencing without model/provider calls. Prepared turns now bind the visible route-decision ref to their own state-only turn/run/approval chain. | Prepared turns are inspectable through backend/API/CLI, but live Control Center chat composition is not yet the primary operator workflow. | Phase 08 Prompt: cockpit parity |
 | Authority/safety boundary | 9 | 9 | High | implemented | `AGENTS.md`, `src/ultimate_ai_agent/core/runtime_gateway/contracts.py`, `docs/control_center/AUTHORITY_GRADUATION_BOARD.md`, and `tests/test_governed_runtime_contracts.py` preserve sealed/default posture, exact approval scopes, idempotency, redaction, and blocked authority refs. | Later phases must prove they do not route around LocalApprovalAuthority, route side-effect classification, OpenAPI, redaction, or Foundation Gate checks. | Phase 02 Prompt through Phase 08 Prompt: harden each new surface against authority creep |
 | Execution readiness | 8 | 8 | Medium | implemented | RuntimeGateway contracts, Action Inbox approval envelopes, local loopback metadata receipts, focused pytest, repo-verifier, and frontend-check approval bridge posture, `RuntimeActionSignedEvidenceEnvelope`, signed evidence CLI/API/Control Center refs, and runtime contract tests show exact-lane execution scaffolding, idempotent replay, safe-disable, scope-drift blocking, redaction, and offline verification. | Signed evidence is now implemented for the exact focused pytest, repo-verifier, and frontend-check utility lanes; broader action lanes still need separate approval, receipt, rollback, redaction, route classification, and verifier proof. | Phase 07 Prompt: mature action execution and signed evidence |
-| Durable runtime integration | 8 | 8 | Medium | partial | Durable run/read-model work, RuntimeGateway invocation storage, Run Observability, `TurnRunApprovalChainReadModel`, and `StagedOrchestrationReadModel` show local durable state, replay posture, approval-wait posture, staged dependencies, degraded handoff posture, and read-only API/CLI inspection. | Prepared chat turns have not yet been attached to the route-decision -> durable run -> staged orchestration -> approval-wait path. | Phase 05 Prompt: chat turn preparation |
+| Durable runtime integration | 8 | 8 | Medium | implemented | Durable run/read-model work, RuntimeGateway invocation storage, Run Observability, `TurnRunApprovalChainReadModel`, and `StagedOrchestrationReadModel` show local durable state, replay posture, approval-wait posture, staged dependencies, degraded handoff posture, and read-only API/CLI inspection. `prepare_turn()` now builds a same-chain durable approval read model bound to the prepared turn ref, route-decision binding ref, durable run ref, and approval ref, and the parity loop consumes that same chain. | Live chat still needs a seamless prepared turn -> exact action receipt -> proof narrative workflow in the Control Center. | Phase 08 Prompt: cockpit parity |
 | Model/provider routing | 7 | 7 | Medium | implemented | `src/ultimate_ai_agent/core/providers/control_plane.py`, `src/ultimate_ai_agent/core/providers/role_evidence.py`, provider research posture docs/tests, router-dry-run posture, `scripts/dev/uaa_runtime.py inspect-role-provider-evidence`, and model/provider control-plane tests show read-only role-based provider/model evidence and dry-run routing. | Evidence is advisory/read-only and not yet a live execution router; remote provider calls, provider SDK calls, fallback execution, and provider-output authority remain blocked. | Phase 06 Prompt: role-based model/provider evidence |
 | Operator inspectability | 9 | 8 | High | implemented | CLI/API/Control Center surfaces for Turn Router, RuntimeGateway, Evidence, Action Inbox, Provider posture, Work Board, Coding, and GoatCitadel catch-up cockpit parity expose safe refs and blocked states. Phase 08 adds `RuntimeParityLoopReadModel`, `GET /api/runtime/parity-loop`, `uaa runtime inspect-parity-loop`, and Control Center parity-loop stage refs so the runtime loop is inspectable as one backend-owned chain. | The cockpit still does not provide authority-bearing execute controls; this remains intentional until exact lanes are separately approved. | Phase 08 Prompt: cockpit/CLI/API parity and final hardening |
-| Product usefulness today | 8 | 8 | Medium | partial | Today, Action Inbox, Evidence, Proof, Memory, Trust, Runtime readiness, Coding Cockpit, Work Board, PreparedTurn inspection, exact runtime receipts, signed evidence, and the Phase 08 parity-loop read model provide a local-first reviewable operation loop. | The primary chat UI still needs a seamless prepared chat turn -> exact action receipt -> proof narrative flow before UAA can claim full GoatCitadel-style product parity. | Phase 08 Prompt: cockpit/CLI/API parity and final hardening |
+| Product usefulness today | 8 | 8 | Medium | partial | Today, Action Inbox, Evidence, Proof, Memory, Trust, Runtime readiness, Coding Cockpit, Work Board, PreparedTurn inspection, exact runtime receipts, signed evidence, and the Phase 08 parity-loop read model provide a local-first reviewable operation loop. The backend runtime loop now keeps prepared-turn, route-decision, durable approval, and parity-loop refs consistent. | The primary chat UI still needs a seamless prepared chat turn -> exact action receipt -> proof narrative flow before UAA can claim full GoatCitadel-style product parity. | Phase 08 Prompt: cockpit/CLI/API parity and final hardening |
 | Long-term safe foundation | 9 | 9 | High | implemented | Python Agent Core owns durable truth; Control Center is presentation/initiation only; OpenAPI/API manifest, PolicyEngine, LocalApprovalAuthority, route classifications, product truth, and verifiers are active gates. | Future runtime phases must avoid broad flags and preserve safe refs, bounded previews, hashes, receipts, and blocked-state language. | All phases preserve this foundation |
 
 ## Phase Lane Map
@@ -112,8 +112,11 @@ command step execution for `focused_pytest`, `repo_verifier`, and
 
 Phase 05 Prompt is implemented as backend-owned PreparedTurn context, route,
 memory, tool/action readiness, orchestration, durable run, evidence, and
-next-action posture without hidden context injection. Implemented evidence now
-lives in `docs/runtime/UAA_GOATCITADEL_RUNTIME_PREPARED_TURN_LOOP.md`,
+next-action posture without hidden context injection. Prepared turns build a
+same-chain `TurnRunApprovalChainReadModel` bound to the prepared turn's
+route-decision binding ref, durable run ref, and approval ref. Implemented
+evidence now lives in
+`docs/runtime/UAA_GOATCITADEL_RUNTIME_PREPARED_TURN_LOOP.md`,
 `src/ultimate_ai_agent/core/decision_router/prepared_turn.py`, and
 `GET /api/runtime/prepared-turn`.
 
@@ -147,8 +150,11 @@ Phase 08 Prompt is implemented as final cockpit, CLI, API, docs, and verifier
 inspection parity. It adds `RuntimeParityLoopReadModel`,
 `GET /api/runtime/parity-loop`, `uaa runtime inspect-parity-loop`, Control
 Center parity-loop API/CLI/stage refs in the Runtime Action Inbox bridge, and
-`scripts/verify_uaa_goatcitadel_runtime_parity_final.py`. It keeps Control
-Center as presentation/initiation only and does not add broad runtime authority.
+`scripts/verify_uaa_goatcitadel_runtime_parity_final.py`. The parity loop uses
+the prepared turn's own turn/run/approval chain instead of a separate sample
+chain, so the displayed prepared turn, route-decision binding, durable run, and
+approval refs are consistent. It keeps Control Center as
+presentation/initiation only and does not add broad runtime authority.
 
 ## GoatCitadel Patterns Borrowed As UAA-Native Designs
 

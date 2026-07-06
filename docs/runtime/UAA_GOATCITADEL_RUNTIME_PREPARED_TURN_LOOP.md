@@ -18,6 +18,8 @@ Python Agent Core owns `PreparedTurn`, a safe-ref read model for:
 - tool/action readiness
 - staged orchestration eligibility
 - durable run ref
+- a state-only `TurnRunApprovalChainReadModel` bound to the same prepared
+  turn ref, route-decision binding ref, durable run ref, and approval ref
 - evidence refs
 - blocked authority refs
 
@@ -54,6 +56,7 @@ action execution, browser automation, connector write, shell/subprocess work,
 production authority, or broad autonomy.
 
 Route decisions are not approval. Approval-required turns expose exact envelope
-posture only, and execution remains blocked unless a later exact-approved lane
+posture and enter a state-only approval-wait chain; the approval ref remains an
+identifier only. Execution remains blocked unless a later exact-approved lane
 proves approval binding, idempotency, receipts, rollback or safe-disable
 posture, redaction, CLI/API/Core parity, and focused verifier coverage.

@@ -17,6 +17,7 @@ from ultimate_ai_agent.core.control_center.runtime_parity_loop import (
     RUNTIME_PARITY_LOOP_CONTRACT_REF,
     build_runtime_parity_loop_read_model,
 )
+from ultimate_ai_agent.core.decision_router import prepare_turn
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
     RuntimeApprovalBindingRequest,
@@ -150,6 +151,9 @@ def _gateway_with_runner(store: RuntimeInvocationStore) -> RuntimeGateway:
 
 def test_runtime_parity_loop_read_model_is_backend_owned_and_safe_ref_only() -> None:
     read_model = build_runtime_parity_loop_read_model([])
+    prepared = prepare_turn(sample_id="order-materials")
+    chain = prepared.turn_run_approval_chain
+    assert chain is not None
 
     assert read_model["contract_ref"] == RUNTIME_PARITY_LOOP_CONTRACT_REF
     assert read_model["source"] == "python_core_runtime_parity_loop_read_model"
@@ -161,6 +165,12 @@ def test_runtime_parity_loop_read_model_is_backend_owned_and_safe_ref_only() -> 
     assert read_model["runtime_invocation_count"] == 0
     assert read_model["runtime_receipt_count"] == 0
     assert read_model["runtime_signed_evidence_count"] == 0
+    assert read_model["prepared_turn_ref"] == prepared.prepared_turn_ref
+    assert read_model["route_decision_binding_ref"] == (
+        prepared.route_decision_binding.binding_ref
+    )
+    assert read_model["durable_run_ref"] == chain.linkage.durable_run_ref.ref
+    assert read_model["approval_ref"] == chain.linkage.approval_ref.ref
     assert read_model["implemented_stage_count"] >= 6
     assert "runtime-loop-stage-ref:signed-evidence" in read_model["stage_refs"]
     assert read_model["broad_runtime_authority_enabled"] is False

@@ -23,6 +23,8 @@ DOC_REQUIRED = [
     "Prepared turns never persist raw prompt text",
     "Control Center cannot mint authority",
     "Route decisions are not approval",
+    "same prepared",
+    "route-decision binding ref",
     "GET /api/runtime/prepared-turn",
     "prepare-turn",
 ]
@@ -34,6 +36,10 @@ CORE_REQUIRED = [
     "PreparedTurnReadiness",
     "PreparedTurnNextAction",
     "prepare_turn",
+    "_prepared_turn_approval_chain",
+    "build_empty_turn_run_approval_chain",
+    "apply_turn_run_approval_transition",
+    "TurnRunApprovalTransitionRequest",
     "build_sample_prepared_turns",
     "base_answer",
     "answer_with_reviewed_memory",
@@ -57,6 +63,8 @@ CLI_API_REQUIRED = [
 
 TEST_REQUIRED = [
     "test_prepared_turn_direct_answer_has_no_memory_tools_or_execution",
+    "turn_run_approval_chain.current_state",
+    "chain.linkage.route_decision_binding_ref",
     "test_prepared_turn_memory_readiness_uses_reviewed_refs_only",
     "test_prepared_turn_tool_action_readiness_is_proposal_only",
     "test_prepared_turn_approval_required_has_exact_envelope_posture",

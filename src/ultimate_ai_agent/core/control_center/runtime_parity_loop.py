@@ -10,7 +10,6 @@ from ultimate_ai_agent.core.control_center.runtime_action_bridge import (
 from ultimate_ai_agent.core.decision_router import prepare_turn
 from ultimate_ai_agent.core.execution import (
     build_sample_staged_orchestration_read_model,
-    build_sample_turn_run_approval_chain,
 )
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
@@ -232,7 +231,9 @@ def build_runtime_parity_loop_read_model(
     entries: list[Any] | None = None,
 ) -> dict[str, Any]:
     prepared = prepare_turn(sample_id="order-materials")
-    chain = build_sample_turn_run_approval_chain()
+    chain = prepared.turn_run_approval_chain
+    if chain is None:
+        raise ValueError("runtime parity loop prepared turn chain is missing")
     staged = build_sample_staged_orchestration_read_model()
     role_provider = build_model_provider_control_plane_read_model().role_provider_evidence
     action_bridge = build_runtime_action_inbox_bridge_read_model(records, entries=entries)

@@ -22,6 +22,8 @@ DOC_REQUIRED = [
     "GET /api/runtime/parity-loop",
     "inspect-parity-loop",
     "Control Center cannot mint",
+    "prepared turn's own",
+    "same-chain consistency",
     "Still blocked",
     "runtime model calls",
     "provider SDK calls",
@@ -34,6 +36,7 @@ DOC_REQUIRED = [
 CORE_REQUIRED = [
     "RuntimeParityLoopReadModel",
     "build_runtime_parity_loop_read_model",
+    "prepared.turn_run_approval_chain",
     "RUNTIME_PARITY_LOOP_CONTRACT_REF",
     "runtime-loop-stage-ref:prepared-turn",
     "runtime-loop-stage-ref:signed-evidence",
@@ -55,6 +58,8 @@ SURFACE_REQUIRED = [
 
 TEST_REQUIRED = [
     "test_runtime_parity_loop_read_model_is_backend_owned_and_safe_ref_only",
+    "route_decision_binding_ref",
+    "durable_run_ref",
     "test_runtime_parity_loop_links_receipt_and_signed_evidence",
     "test_runtime_parity_loop_api_and_cli_are_safe_ref_inspection",
     "test_runtime_action_bridge_projects_runtime_parity_loop_refs",

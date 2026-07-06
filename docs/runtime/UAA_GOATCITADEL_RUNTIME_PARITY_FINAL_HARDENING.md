@@ -30,6 +30,11 @@ surfaces together for operators:
 - Verifier:
   `scripts/verify_uaa_goatcitadel_runtime_parity_final.py`.
 
+The parity-loop read model uses the prepared turn's own
+`turn_run_approval_chain`; it does not rebuild a separate durable run sample.
+The visible prepared turn ref, route-decision binding ref, durable run ref, and
+approval ref are tested for same-chain consistency.
+
 ## Authority Boundary
 
 This read model performs no execution and grants no authority. It stores safe
