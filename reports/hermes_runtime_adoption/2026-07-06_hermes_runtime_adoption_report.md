@@ -3,7 +3,7 @@
 Date: 2026-07-06  
 Branch at report creation: `codex/hermes-adoption-45-skills-marketplace-final`  
 Base main before Phase 45: `a6b9ee4d8d8019986b868f53b7fc75183159d0c0`  
-Status: Phase 45 report prepared on branch; final merge SHA for Phase 45 is pending PR review and merge.
+Status: Phase 45 merged through PR #243; final report status updated on `main`.
 
 ## Phases
 
@@ -107,7 +107,7 @@ governed runtime target/reference rather than imported product identity.
 | 42 | #240 | `codex/hermes-adoption-42-messaging-gateway-posture` | `25d692b9a8543fd8892bf4d72299438298508a83` |
 | 43 | #241 | `codex/hermes-adoption-43-remote-execution-posture` | `877709706484acc270b67f5a0a2162d163a413fd` |
 | 44 | #242 | `codex/hermes-adoption-44-plugin-metadata` | `a6b9ee4d8d8019986b868f53b7fc75183159d0c0` |
-| 45 | pending | `codex/hermes-adoption-45-skills-marketplace-final` | pending |
+| 45 | #243 | `codex/hermes-adoption-45-skills-marketplace-final` | `525a020d00a8ad45639159ead29476eb0b2502f5` |
 
 PR #202 was closed and superseded by Phase 05 PR #203.
 
@@ -169,7 +169,7 @@ Control Center UI output. OpenAPI was run in the final pass even though Phase
 
 ## Known Gaps
 
-- Phase 45 PR and merge SHA are pending at report creation time.
+- Phase 45 PR #243 merged at `525a020d00a8ad45639159ead29476eb0b2502f5`.
 - Phases 40-45 intentionally add posture/read-model/CLI/report contracts, not
   runtime execution.
 - The API route truth row remains route-focused and does not include Phases
@@ -269,6 +269,7 @@ parity, route classification, and focused verifiers:
 
 ## Final Git Status
 
-At report creation, the working tree contains Phase 45 changes on
-`codex/hermes-adoption-45-skills-marketplace-final`. Final status on `main`
-will be confirmed after Phase 45 PR review and merge.
+After Phase 45 PR #243 merged, `main` fast-forwarded to
+`525a020d00a8ad45639159ead29476eb0b2502f5` before this report-status update.
+The final assistant handoff confirms the post-update `main` commit and clean
+working tree.
