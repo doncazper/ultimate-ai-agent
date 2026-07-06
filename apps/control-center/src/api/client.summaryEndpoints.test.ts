@@ -826,6 +826,8 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.runtimeSlashCommandRegistry,
     [API_ENDPOINTS.runtimeInterruptRedirect]:
       mockControlCenterData.runtimeInterruptRedirect,
+    [API_ENDPOINTS.runtimeLoggingProfile]:
+      mockControlCenterData.runtimeLoggingProfile,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,

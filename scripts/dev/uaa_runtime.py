@@ -48,6 +48,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_preview_rail_read_model,
     build_runtime_slash_command_registry_read_model,
     build_runtime_interrupt_redirect_read_model,
+    build_runtime_logging_profile_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -940,6 +941,44 @@ def _print_interrupt_redirect(read_model: dict[str, Any]) -> None:
         print(f"  receipt={proposal['receipt_plan_ref']}")
         print(f"  recovery={proposal['recovery_state_ref']}")
         print(f"  proof={proposal['proof_ref']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_logging_profile(read_model: dict[str, Any]) -> None:
+    print("Runtime logging profile posture")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Active profile: {read_model['active_profile_ref']}")
+    print(
+        "Profiles: "
+        f"total={read_model['profile_count']} "
+        f"quiet={read_model['quiet_default_count']} "
+        f"flagged={read_model['disabled_until_flagged_count']} "
+        f"blocked_raw={read_model['blocked_raw_detail_count']}"
+    )
+    print(
+        "Persistence/export: "
+        f"verbose={read_model['verbose_logging_enabled']} "
+        f"raw_logs={read_model['raw_logs_persisted']} "
+        f"telemetry={read_model['remote_telemetry_export_enabled']} "
+        f"background_stream={read_model['background_log_stream_enabled']}"
+    )
+    print("Logging profiles:")
+    for profile in read_model["profiles"]:
+        print(
+            f"- {profile['display_label']}: "
+            f"kind={profile['profile_kind']} status={profile['profile_status']} "
+            f"retention={profile['retention_class']}"
+        )
+        print(f"  flag={profile['flag_scope_ref']}")
+        print(f"  ttl={profile['ttl_policy_ref']}")
+        print(f"  redaction={profile['redaction_verifier_ref']}")
+        print(f"  proof={profile['proof_ref']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1857,6 +1896,31 @@ def _inspect_interrupt_redirect(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_interrupt_redirect(read_model)
+    return 0
+
+
+def _inspect_logging_profile(args: argparse.Namespace) -> int:
+    read_model = build_runtime_logging_profile_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-logging-profile",
+        "runtime_logging_profile": read_model,
+        "metadata_only": True,
+        "safe_refs_only": True,
+        "verbose_logging_toggled": False,
+        "raw_logs_omitted": True,
+        "raw_prompts_omitted": True,
+        "raw_responses_omitted": True,
+        "provider_payloads_omitted": True,
+        "local_paths_omitted": True,
+        "credential_material_omitted": True,
+        "remote_telemetry_export_performed": False,
+        "background_log_stream_started": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_logging_profile(read_model)
     return 0
 
 
@@ -2962,6 +3026,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the interrupt/redirect run-control posture as JSON.",
     )
     interrupt_redirect.set_defaults(func=_inspect_interrupt_redirect)
+
+    logging_profile = subparsers.add_parser(
+        "inspect-logging-profile",
+        help="Inspect governed logging profile posture without toggling verbosity.",
+    )
+    logging_profile.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the governed logging profile posture as JSON.",
+    )
+    logging_profile.set_defaults(func=_inspect_logging_profile)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",
