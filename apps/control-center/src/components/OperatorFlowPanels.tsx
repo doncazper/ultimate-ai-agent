@@ -1033,6 +1033,61 @@ function ModelProviderControlPlanePanel({
           blockerCodes={controlPlane.model_metadata_discovery.provider_model_refs}
         />
         <ReadinessGateCard
+          title="Delegated runtime model catalog"
+          status={controlPlane.delegated_runtime_model_catalog.status}
+          summary={controlPlane.delegated_runtime_model_catalog.safe_summary}
+          details={[
+            [
+              "Runtime profiles",
+              String(
+                controlPlane.delegated_runtime_model_catalog
+                  .runtime_profile_count,
+              ),
+            ],
+            [
+              "Model refs",
+              String(controlPlane.delegated_runtime_model_catalog.model_count),
+            ],
+            [
+              "Runtime reports available",
+              String(
+                controlPlane.delegated_runtime_model_catalog
+                  .runtime_reported_available_count,
+              ),
+            ],
+            [
+              "UAA authorized models",
+              String(
+                controlPlane.delegated_runtime_model_catalog
+                  .uaa_authorized_model_count,
+              ),
+            ],
+            [
+              "Runtime says available",
+              controlPlane.delegated_runtime_model_catalog
+                .runtime_says_available_is_not_authority
+                ? "not authority"
+                : "unsafe",
+            ],
+            [
+              "Provider SDK calls",
+              controlPlane.delegated_runtime_model_catalog.provider_sdk_call_enabled
+                ? "enabled"
+                : "blocked",
+            ],
+          ]}
+          blockerCodes={[
+            ...controlPlane.delegated_runtime_model_catalog.proof_refs,
+            ...controlPlane.delegated_runtime_model_catalog.blocked_authority_refs,
+            controlPlane.delegated_runtime_model_catalog
+              .runtime_profiles_route_ref,
+            ...controlPlane.delegated_runtime_model_catalog.records.map(
+              (record) =>
+                `${record.display_label}: ${record.uaa_invocation_posture}`,
+            ),
+          ]}
+        />
+        <ReadinessGateCard
           title="Cost hooks"
           status={controlPlane.cost_hooks.status}
           summary={controlPlane.cost_hooks.safe_summary}

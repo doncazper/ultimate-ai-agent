@@ -8500,6 +8500,76 @@ export interface ModelProviderResearchPosture {
   broad_autonomy_enabled: boolean;
 }
 
+export interface DelegatedRuntimeModelAvailabilityRecord {
+  runtime_ref: string;
+  runtime_profile_ref: string;
+  delegated_runtime_profile_ref: string;
+  provider_ref: string;
+  model_ref: string;
+  display_label: string;
+  runtime_availability_status:
+    | "runtime_reports_available"
+    | "runtime_reports_planned"
+    | "local_gateway_metadata_available";
+  uaa_invocation_posture:
+    | "blocked_no_exact_invocation_lane"
+    | "blocked_profile_not_configured"
+    | "metadata_only_existing_lane_separate";
+  cost_metadata_status:
+    | "static_cost_metadata_only"
+    | "local_hardware_cost_posture_only"
+    | "cost_unknown_blocks_use";
+  latency_metadata_status:
+    | "static_latency_label_only"
+    | "local_gateway_readiness_only"
+    | "latency_unknown_blocks_use";
+  source_ref: string;
+  cost_posture_ref: string;
+  latency_posture_ref: string;
+  runtime_reported_available: boolean;
+  uaa_invocation_allowed: boolean;
+  provider_sdk_call_enabled: boolean;
+  live_provider_discovery_performed: boolean;
+  live_provider_network_call_performed: boolean;
+  credential_collection_enabled: boolean;
+  credential_material_visible: boolean;
+  billing_authority_granted: boolean;
+  model_output_authority_enabled: boolean;
+  raw_provider_payload_persisted: boolean;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+}
+
+export interface DelegatedRuntimeModelCatalogPosture {
+  schema_version: "delegated_runtime_model_catalog.v1";
+  contract_ref: string;
+  status: "read_only_runtime_model_availability";
+  route_ref: "GET /control-center/providers/runtime-control-plane";
+  cli_ref: string;
+  runtime_profiles_route_ref: string;
+  provider_catalog_ref: string;
+  model_count: number;
+  runtime_profile_count: number;
+  runtime_reported_available_count: number;
+  uaa_authorized_model_count: number;
+  records: DelegatedRuntimeModelAvailabilityRecord[];
+  runtime_says_available_is_not_authority: boolean;
+  uaa_may_invoke_any_listed_model: boolean;
+  static_cost_metadata_only: boolean;
+  static_latency_metadata_only: boolean;
+  live_provider_discovery_enabled: boolean;
+  provider_sdk_call_enabled: boolean;
+  remote_model_call_enabled: boolean;
+  credential_collection_enabled: boolean;
+  billing_authority_granted: boolean;
+  model_output_authority_enabled: boolean;
+  proof_refs: string[];
+  docs_refs: string[];
+  verifier_refs: string[];
+  blocked_authority_refs: string[];
+  safe_summary: string;
+}
+
 export interface ModelProviderControlPlaneReadModel {
   schema_version: "model_provider_control_plane.v1";
   contract_ref: string;
@@ -8517,6 +8587,7 @@ export interface ModelProviderControlPlaneReadModel {
   cost_hooks: ProviderCostHookPosture;
   local_llama_cpp_lifecycle: LocalLlamaCppLifecyclePosture;
   router_traces: ModelRouterTracePosture[];
+  delegated_runtime_model_catalog: DelegatedRuntimeModelCatalogPosture;
   model_provider_research_posture: ModelProviderResearchPosture;
   credential_readiness_ref: string;
   provider_catalog_ref: string;

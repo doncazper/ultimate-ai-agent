@@ -1555,6 +1555,13 @@
           "operation_id": "get_control_center_providers_setup_guide",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/providers/runtime-control-plane",
+          "operation_id": "get_control_center_providers_runtime_control_plane",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_readonly"
         }
       ],
       "side_effect_class": "local_dev_workspace_only",
@@ -1580,7 +1587,9 @@
       "evidence_refs": [
         "apps/control-center/src/routes.tsx",
         "docs/control_center/route_status_manifest.json",
-        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
+        "docs/control_center/MODEL_PROVIDER_CONTROL_PLANE.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_MODEL_PROVIDER_CATALOG.md"
       ],
       "owner": "local-model-management",
       "backend_contract_rationale": "backend-route-refs-present",
