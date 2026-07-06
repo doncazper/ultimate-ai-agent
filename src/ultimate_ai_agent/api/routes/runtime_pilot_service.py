@@ -38,6 +38,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_streaming_progress_read_model,
     build_runtime_tool_registry_availability_read_model,
     build_runtime_action_signed_evidence,
+    build_runtime_context_references_read_model,
     command_allowlist_catalog,
     verify_runtime_action_signed_evidence,
 )
@@ -257,6 +258,20 @@ def get_api_runtime_session_search(
         trace_id=read_model.snapshot_ref,
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:runtime-session-search:phase-12"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/context-references", response_model=ResultEnvelope)
+def get_api_runtime_context_references() -> ResultEnvelope:
+    read_model = build_runtime_context_references_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_context_references",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.preview_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-context-references:phase-16"}],
         redactions_applied=read_model.redactions_applied,
     )
 
