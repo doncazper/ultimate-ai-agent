@@ -29,6 +29,7 @@ from ultimate_ai_agent.core.memory import (
     MemoryReviewDecisionRequest,
 )
 from ultimate_ai_agent.core.storage import (
+    FounderLoopAuthorityError,
     FounderLoopStorageDuplicateError,
     FounderLoopStorageError,
 )
@@ -1759,6 +1760,19 @@ def post_control_center_action_local_task_commit(
                     "The local task commit idempotency key already exists with "
                     "different safe task payload refs."
                 ),
+            },
+        ) from exc
+    except FounderLoopAuthorityError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_DENIED",
+                "safe_message": (
+                    "Local task commit requires an active AuthorityLease "
+                    "granting Workspace write after exact approval validates."
+                ),
+                "reason_refs": exc.reason_refs,
+                "required_refs": dict(exc.required_refs),
             },
         ) from exc
     except FounderLoopStorageError as exc:

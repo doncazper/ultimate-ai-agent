@@ -19,6 +19,17 @@ from ultimate_ai_agent.core.approvals import (
     ApprovalSubjectType,
     LocalApprovalAuthority,
 )
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityCapability,
+    AuthorityDecisionOutcome,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityLeaseStore,
+    TrustMode,
+    build_default_authority_leases,
+    evaluate_authority_request,
+)
 from ultimate_ai_agent.core.chat import (
     CHAT_DURABLE_RECEIPT_CONTRACT_REF,
     CHAT_DURABLE_RECEIPT_ROUTE_REFS,
@@ -84,6 +95,12 @@ from ultimate_ai_agent.core.costs import (
     CostGovernor,
 )
 from ultimate_ai_agent.core.control_center.local_tasks import (
+    FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_ACTION_REF,
+    FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_CAPABILITY_REF,
+    FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_DOMAIN_REF,
+    FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_LANE_REF,
+    FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_REQUIRED_BLOCKED_REF,
+    FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_REQUIRED_MODE_REF,
     FOUNDER_LOOP_LOCAL_TASK_BLOCKED_REFS,
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTE_REF,
@@ -960,6 +977,23 @@ class FounderLoopStorageError(Exception):
 
 class FounderLoopStorageDuplicateError(FounderLoopStorageError):
     """Raised when a duplicate idempotency key is denied."""
+
+
+class FounderLoopAuthorityError(FounderLoopStorageError):
+    def __init__(
+        self,
+        reason_refs: list[str],
+        *,
+        required_refs: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__("FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_DENIED")
+        self.reason_refs = reason_refs
+        self.required_refs = required_refs or {}
+
+
+def active_founder_loop_authority_leases() -> list[AuthorityLease]:
+    active = AuthorityLeaseStore().list_leases(active_only=True)
+    return active or build_default_authority_leases()
 
 
 MEMORY_REVIEW_WRITE_LANE_ID = "memory_review_accept_correct_reviewed_recall_write"
@@ -6133,6 +6167,7 @@ class FounderLoopRepository:
         seed_defaults: bool = True,
         ensure_storage: bool = True,
         read_only: bool = False,
+        active_authority_leases: list[AuthorityLease] | None = None,
     ) -> None:
         self.state_dir = state_dir
         self.db_path = self.state_dir / "founder_loop.sqlite3"
@@ -6142,6 +6177,7 @@ class FounderLoopRepository:
         self.logs_dir = self.state_dir / "logs"
         self.seed_defaults = seed_defaults
         self.read_only = read_only
+        self._active_authority_leases = active_authority_leases
         if ensure_storage:
             self._ensure_storage()
 
@@ -6152,6 +6188,7 @@ class FounderLoopRepository:
         seed_defaults: bool = True,
         ensure_storage: bool = True,
         read_only: bool = False,
+        active_authority_leases: list[AuthorityLease] | None = None,
     ) -> "FounderLoopRepository":
         configured = os.environ.get(FOUNDER_LOOP_STATE_DIR_ENV)
         state_dir = Path(configured) if configured else DEFAULT_FOUNDER_LOOP_STATE_DIR
@@ -6160,6 +6197,7 @@ class FounderLoopRepository:
             seed_defaults=seed_defaults,
             ensure_storage=ensure_storage,
             read_only=read_only,
+            active_authority_leases=active_authority_leases,
         )
 
     def storage_status(self) -> dict[str, Any]:
@@ -12070,6 +12108,11 @@ class FounderLoopRepository:
         )
         if approval_status != "approved":
             raise FounderLoopStorageError("FOUNDER_LOOP_LOCAL_TASK_APPROVAL_DENIED")
+        authority_decision = self._local_task_authority_decision(
+            item_ref=item_ref,
+            local_task_ref=local_task_ref,
+            idempotency_key_ref=idempotency_key_ref,
+        )
 
         receipt_ref = local_task_commit_receipt_ref(item_ref, idempotency_key_ref)
         audit_ref = local_task_commit_audit_ref(item_ref, idempotency_key_ref)
@@ -12096,6 +12139,9 @@ class FounderLoopRepository:
             approval_ref=request.approval_ref,
             approval_status=approval_status,
             approval_reason_refs=approval_reason_refs,
+            authority_decision_ref=authority_decision.decision_ref,
+            authority_decision_outcome=authority_decision.outcome,
+            authority_lease_ref=authority_decision.lease_ref,
             safe_disable_ref=str(safe_disable_posture["safe_disable_ref"]),
             rollback_ref=str(safe_disable_posture["rollback_ref"]),
             safe_disable_posture_ref=str(
@@ -12990,6 +13036,66 @@ class FounderLoopRepository:
         elif approval_receipt.get("approval_status") != "approved":
             blocked_reasons.append("blocked-state:backend-owned-approval-not-approved")
         return list(dict.fromkeys(blocked_reasons))
+
+    def _local_task_authority_decision(
+        self,
+        *,
+        item_ref: str,
+        local_task_ref: str,
+        idempotency_key_ref: str,
+    ):
+        leases = (
+            self._active_authority_leases
+            if self._active_authority_leases is not None
+            else active_founder_loop_authority_leases()
+        )
+        decision = evaluate_authority_request(
+            AuthorityActionRequest(
+                action_ref=FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_ACTION_REF,
+                domain=AuthorityDomain.workspace,
+                capability=AuthorityCapability.write,
+                safe_summary=(
+                    "Evaluate Workspace write authority for exact Action Inbox "
+                    "local task commit."
+                ),
+                resource_refs=[
+                    item_ref,
+                    local_task_ref,
+                    FOUNDER_LOOP_LOCAL_TASK_COMMIT_CONTRACT_REF,
+                    idempotency_key_ref,
+                ],
+                route_ref=FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTE_REF,
+                lane_ref=FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_LANE_REF,
+                requested_mode=TrustMode.ask_before_changes,
+                draft_fallback_available=True,
+                rollback_ref=FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF,
+                safe_disable_ref=FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF,
+            ),
+            leases,
+        )
+        if decision.outcome not in {
+            AuthorityDecisionOutcome.allow.value,
+            AuthorityDecisionOutcome.ask.value,
+        }:
+            raise FounderLoopAuthorityError(
+                [
+                    *decision.reason_refs,
+                    FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_REQUIRED_BLOCKED_REF,
+                ],
+                required_refs={
+                    "authority_decision_ref": decision.decision_ref,
+                    "required_mode_ref": (
+                        FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_REQUIRED_MODE_REF
+                    ),
+                    "required_domain_ref": FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_DOMAIN_REF,
+                    "required_capability_ref": (
+                        FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_CAPABILITY_REF
+                    ),
+                    "safe_disable_ref": decision.safe_disable_ref,
+                    "rollback_ref": decision.rollback_ref,
+                },
+            )
+        return decision
 
     def _memory_context_pack_action_approval_status(
         self,

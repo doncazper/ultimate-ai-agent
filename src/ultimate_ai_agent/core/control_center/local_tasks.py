@@ -13,6 +13,7 @@ from ultimate_ai_agent.core.approvals.enums import (
     ApprovalRiskLevel,
     ApprovalSubjectType,
 )
+from ultimate_ai_agent.core.authority import AuthorityDecisionOutcome
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -50,6 +51,20 @@ FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_POSTURE_REF = (
 )
 FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLED_BLOCKED_REF = (
     "blocked-state:local-task-safe-disabled"
+)
+FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_ACTION_REF = (
+    "authority-action-ref:founder-loop-local-task-commit"
+)
+FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_LANE_REF = (
+    "lane-ref:action-inbox-local-task-commit"
+)
+FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_DOMAIN_REF = "authority-domain-ref:workspace"
+FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
+FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_REQUIRED_MODE_REF = (
+    "authority-mode-ref:ask-before-changes"
+)
+FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_REQUIRED_BLOCKED_REF = (
+    "blocked-state:local-task-authority-lease-required"
 )
 FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_BLOCKED_REF = (
     "blocked-state:rollback-execution-not-scoped"
@@ -118,6 +133,11 @@ class FounderLoopLocalTaskCommitReceipt(BaseModel):
     approval_ref: str = Field(..., min_length=1, max_length=160)
     approval_status: str = Field(..., min_length=1, max_length=80)
     approval_reason_refs: list[str] = Field(default_factory=list)
+    authority_decision_ref: str | None = None
+    authority_decision_outcome: str | None = None
+    authority_lease_ref: str | None = None
+    authority_domain_ref: str = FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_DOMAIN_REF
+    authority_capability_ref: str = FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_CAPABILITY_REF
     local_task_created: bool = True
     safe_disable_ref: str = FOUNDER_LOOP_LOCAL_TASK_SAFE_DISABLE_REF
     rollback_ref: str = FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF
@@ -154,11 +174,30 @@ class FounderLoopLocalTaskCommitReceipt(BaseModel):
             "payload_fingerprint_ref",
             "evidence_timeline_event_ref",
             "approval_ref",
+            "authority_domain_ref",
+            "authority_capability_ref",
             "safe_disable_ref",
             "rollback_ref",
             "safe_disable_posture_ref",
         ]:
             _validate_safe_ref(getattr(self, field_name), field_name)
+        for field_name in [
+            "authority_decision_ref",
+            "authority_lease_ref",
+        ]:
+            ref_value = getattr(self, field_name)
+            if ref_value is not None:
+                _validate_safe_ref(ref_value, field_name)
+        if self.authority_decision_outcome is not None:
+            _validate_safe_text(
+                self.authority_decision_outcome,
+                "authority_decision_outcome",
+            )
+            if self.authority_decision_outcome not in {
+                AuthorityDecisionOutcome.allow.value,
+                AuthorityDecisionOutcome.ask.value,
+            }:
+                raise ValueError("local task receipt authority decision unsupported")
         for field_name in [
             "approval_reason_refs",
             "evidence_refs",

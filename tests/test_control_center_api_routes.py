@@ -12,6 +12,14 @@ from scripts.verification.api_routes import (
 )
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.core.authority import (
+    AUTHORITY_STATE_DIR_ENV,
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
+    TrustMode,
+)
 from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
 )
@@ -33,6 +41,22 @@ client = TestClient(app)
 ROOT = Path(__file__).resolve().parents[1]
 ROUTE_STATUS_MANIFEST_PATH = ROOT / "docs/control_center/route_status_manifest.json"
 PRODUCT_LANGUAGE_RULES_PATH = ROOT / "docs/control_center/PRODUCT_LANGUAGE_RULES.md"
+
+
+def _issue_workspace_write_lease(state_dir: Path) -> None:
+    AuthorityLeaseStore(state_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.ask_before_changes,
+            requested_domains={
+                AuthorityDomain.workspace: [AuthorityCapability.write],
+            },
+            decision_reason_ref="decision-reason-ref:api-local-task-authority-lease",
+            safe_summary=(
+                "Test session lease grants Workspace write for local task commit."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:api-local-task-authority-lease",
+    )
 
 
 def _load_route_status_manifest() -> dict:
@@ -734,6 +758,9 @@ def test_control_center_action_local_task_commit_requires_exact_approval_and_rec
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    authority_state_dir = tmp_path / "authority"
+    _issue_workspace_write_lease(authority_state_dir)
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
     api_client = TestClient(app)
     repo = FounderLoopRepository.from_env()
     action = _approve_local_task_seed_action(repo)
@@ -800,6 +827,13 @@ def test_control_center_action_local_task_commit_requires_exact_approval_and_rec
     ]
     assert receipt["raw_content_stored"] is False
     assert receipt["external_side_effect_performed"] is False
+    assert receipt["authority_decision_ref"].startswith(
+        "authority-policy-decision-ref:sha256:"
+    )
+    assert receipt["authority_decision_outcome"] == "ask"
+    assert receipt["authority_lease_ref"].startswith("authority-lease-ref:sha256:")
+    assert receipt["authority_domain_ref"] == "authority-domain-ref:workspace"
+    assert receipt["authority_capability_ref"] == "authority-capability-ref:write"
 
     receipt_response = api_client.get(
         "/control-center/actions/local-task-create-scorecard/receipt"

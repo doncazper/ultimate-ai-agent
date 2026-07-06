@@ -1,11 +1,21 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
+from ultimate_ai_agent.core.authority import (
+    AUTHORITY_STATE_DIR_ENV,
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
+    TrustMode,
+)
 from ultimate_ai_agent.core.control_center.dogfood_live_loop import (
     DOGFOOD_LIVE_LOOP_ACTION_REF,
     DOGFOOD_LIVE_LOOP_FIXTURE_REF,
@@ -23,6 +33,33 @@ from ultimate_ai_agent.core.storage import FounderLoopRepository, FounderLoopSto
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _workspace_write_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:test-dogfood-workspace-write",
+        mode=TrustMode.ask_before_changes,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary=(
+            "Test lease grants Workspace write for dogfood local task commit."
+        ),
+    )
+
+
+def _issue_workspace_write_lease(state_dir: Path) -> None:
+    AuthorityLeaseStore(state_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.ask_before_changes,
+            requested_domains={
+                AuthorityDomain.workspace: [AuthorityCapability.write],
+            },
+            decision_reason_ref="decision-reason-ref:test-dogfood-authority-lease",
+            safe_summary=(
+                "Test session lease grants Workspace write for dogfood CLI seeding."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:test-dogfood-authority-lease",
+    )
 
 
 def _assert_no_broad_runtime_authority(payload: dict[str, Any]) -> None:
@@ -53,7 +90,10 @@ def _assert_no_broad_runtime_authority(payload: dict[str, Any]) -> None:
 def test_dogfood_live_loop_acceptance_seeds_one_complete_local_loop(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[_workspace_write_lease()],
+    )
 
     read_model = build_dogfood_live_loop_acceptance_read_model(
         repo=repo,
@@ -106,7 +146,10 @@ def test_dogfood_live_loop_acceptance_seeds_one_complete_local_loop(
 
 
 def test_dogfood_live_loop_fixture_is_replay_safe(tmp_path: Path) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[_workspace_write_lease()],
+    )
 
     first = build_dogfood_live_loop_acceptance_read_model(
         repo=repo,
@@ -128,7 +171,10 @@ def test_dogfood_live_loop_fixture_is_replay_safe(tmp_path: Path) -> None:
 def test_dogfood_live_loop_fixture_blocks_preexisting_non_dogfood_receipt(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[_workspace_write_lease()],
+    )
     decision = repo.record_action_decision(
         action_id="local-task-create-scorecard",
         decision="approve",
@@ -161,7 +207,10 @@ def test_dogfood_live_loop_fixture_blocks_preexisting_non_dogfood_receipt(
 def test_dogfood_live_loop_validator_rejects_incomplete_or_nondeterministic_refs(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[_workspace_write_lease()],
+    )
     read_model = build_dogfood_live_loop_acceptance_read_model(
         repo=repo,
         seed_fixture=True,
@@ -188,6 +237,8 @@ def test_dogfood_live_loop_cli_inspects_full_loop_with_safe_refs(
     tmp_path: Path,
 ) -> None:
     state_dir = tmp_path / "founder_loop"
+    authority_state_dir = tmp_path / "authority"
+    _issue_workspace_write_lease(authority_state_dir)
 
     result = subprocess.run(
         [
@@ -199,6 +250,7 @@ def test_dogfood_live_loop_cli_inspects_full_loop_with_safe_refs(
             "--seed-fixture",
         ],
         cwd=ROOT,
+        env={**os.environ, AUTHORITY_STATE_DIR_ENV: str(authority_state_dir)},
         check=True,
         capture_output=True,
         text=True,

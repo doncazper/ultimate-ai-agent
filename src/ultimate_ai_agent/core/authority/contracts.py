@@ -1263,6 +1263,17 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             "Requires Workspace write authority plus exact approval, idempotency, receipts, and rollback refs.",
         ),
         _mapping(
+            "lane-ref:action-inbox-local-task-commit",
+            "Action Inbox local task commit",
+            AuthorityDomain.workspace,
+            AuthorityCapability.write,
+            TrustMode.ask_before_changes,
+            "implemented_exact_approval_required_mapped",
+            ["POST /control-center/actions/{action_id}/local-task/commit"],
+            ["repo-local-command:inspect-action-inbox-local-task-commit"],
+            "Requires Workspace write authority plus exact Action Inbox approval, idempotency, receipts, and safe-disable refs.",
+        ),
+        _mapping(
             "lane-ref:memory-review-accept-correct",
             "Reviewed memory write",
             AuthorityDomain.memory,

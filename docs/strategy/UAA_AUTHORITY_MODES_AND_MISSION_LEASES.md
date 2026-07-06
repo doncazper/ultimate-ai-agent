@@ -37,7 +37,9 @@ command status may run under `workspace/read`; execution-capable command lanes
 require an active `workspace/execute` lease. Work Board persisted reorder and
 local-card-create lanes now require both exact approval and an active
 `workspace/write` lease, returning readable authority-denied refs when the
-operator remains in read-only mode. Provider/model transport remains blocked by
+operator remains in read-only mode. Action Inbox local-task commit likewise
+requires exact approval plus active `workspace/write` authority before local
+Founder Loop task state is written. Provider/model transport remains blocked by
 authority policy unless a later supported provider/model execution lease is
 implemented and tested.
 

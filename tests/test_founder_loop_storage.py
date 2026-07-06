@@ -4,6 +4,13 @@ import json
 
 import pytest
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+    build_default_authority_leases,
+)
 from ultimate_ai_agent.core.chat import CHAT_LOCAL_OPERATOR_SURFACE_CONTRACT_REF
 from ultimate_ai_agent.core.code import (
     GOVERNED_CODE_WORKBENCH_CONTRACT_REF,
@@ -45,6 +52,7 @@ from ultimate_ai_agent.core.storage import (
     MEMORY_SOURCE_PROVENANCE_CONTRACT_REF,
     PLANS_ACTION_ENVELOPE_CONTRACT_REF,
     TODAY_PRODUCT_SPINE_CONTRACT_REF,
+    FounderLoopAuthorityError,
     FounderLoopRepository,
     FounderLoopStorageDuplicateError,
     FounderLoopStorageError,
@@ -81,6 +89,18 @@ HISTORY_KEYS = {
     "stale",
     "blocked",
 }
+
+
+def _workspace_write_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:test-founder-loop-workspace-write",
+        mode=TrustMode.ask_before_changes,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary=(
+            "Test lease grants Workspace write for exact approved Action Inbox "
+            "local task commits."
+        ),
+    )
 
 
 def _history_answers() -> dict[str, dict[str, object]]:
@@ -124,6 +144,72 @@ def _local_task_commit_request_for_action(
         decision_reason_ref="decision-reason-ref:test-local-task-commit",
         metadata_refs=metadata_refs or ["metadata-ref:test-local-task-commit"],
     )
+
+
+def test_founder_loop_local_task_commit_records_authority_decision(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[_workspace_write_lease()],
+    )
+    action = _approve_local_task_seed_action(repo)
+
+    receipt = repo.commit_local_task(
+        action_id="local-task-create-scorecard",
+        request=_local_task_commit_request_for_action(action),
+        idempotency_key_ref="idempotency-ref:test-local-task-commit",
+    )
+
+    assert receipt["status"] == "local_task_created"
+    assert receipt["authority_decision_ref"].startswith(
+        "authority-policy-decision-ref:sha256:"
+    )
+    assert receipt["authority_decision_outcome"] == "ask"
+    assert (
+        receipt["authority_lease_ref"]
+        == "authority-lease-ref:test-founder-loop-workspace-write"
+    )
+    assert receipt["authority_domain_ref"] == "authority-domain-ref:workspace"
+    assert receipt["authority_capability_ref"] == "authority-capability-ref:write"
+    assert receipt["connector_write_performed"] is False
+    assert receipt["shell_subprocess_execution_performed"] is False
+    assert receipt["model_provider_authority_used"] is False
+    assert receipt["external_side_effect_performed"] is False
+
+
+def test_founder_loop_local_task_commit_requires_workspace_write_lease(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=build_default_authority_leases(),
+    )
+    action = _approve_local_task_seed_action(repo)
+
+    with pytest.raises(FounderLoopAuthorityError) as exc_info:
+        repo.commit_local_task(
+            action_id="local-task-create-scorecard",
+            request=_local_task_commit_request_for_action(action),
+            idempotency_key_ref="idempotency-ref:test-local-task-commit-denied",
+        )
+
+    assert "blocked-state:local-task-authority-lease-required" in (
+        exc_info.value.reason_refs
+    )
+    assert (
+        exc_info.value.required_refs["required_mode_ref"]
+        == "authority-mode-ref:ask-before-changes"
+    )
+    assert (
+        exc_info.value.required_refs["required_domain_ref"]
+        == "authority-domain-ref:workspace"
+    )
+    assert (
+        exc_info.value.required_refs["required_capability_ref"]
+        == "authority-capability-ref:write"
+    )
+    assert repo.storage_status()["counts"]["local_task_commit_receipts"] == 0
 
 
 def test_founder_loop_repository_seeds_safe_storage_backed_loop(tmp_path: Path) -> None:
