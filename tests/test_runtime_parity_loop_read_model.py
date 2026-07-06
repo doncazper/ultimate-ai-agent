@@ -29,9 +29,17 @@ from ultimate_ai_agent.core.runtime_gateway import (
     runtime_command_invocation_request,
 )
 from ultimate_ai_agent.core.time import utc_now
+from tests.authority_helpers import workspace_execute_authority_lease
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _runtime_store_with_workspace_execute(tmp_path: Path) -> RuntimeInvocationStore:
+    return RuntimeInvocationStore(
+        tmp_path,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
 
 
 def _test_hash_ref(prefix: str, value: object) -> str:
@@ -182,7 +190,7 @@ def test_runtime_parity_loop_read_model_is_backend_owned_and_safe_ref_only() -> 
 
 
 def test_runtime_parity_loop_links_receipt_and_signed_evidence(tmp_path: Path) -> None:
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     request = _command_request()
     approved = _approve(store, request)
     _gateway_with_runner(store).execute_approved_command(

@@ -58,3 +58,20 @@ def issue_contacts_write_authority_lease(state_dir: Path) -> None:
         ),
         idempotency_ref="idempotency-ref:test-crm-local-authority",
     )
+
+
+def workspace_execute_authority_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:test-workspace-execute",
+        mode=TrustMode.approved_safe_local_work_session,
+        domains={
+            AuthorityDomain.workspace: [
+                AuthorityCapability.read,
+                AuthorityCapability.execute,
+            ]
+        },
+        safe_summary=(
+            "Test lease grants Workspace read and execute for exact runtime "
+            "commands."
+        ),
+    )

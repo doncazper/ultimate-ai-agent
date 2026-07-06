@@ -25,9 +25,17 @@ from ultimate_ai_agent.core.runtime_gateway import (
     verify_runtime_action_signed_evidence,
 )
 from ultimate_ai_agent.core.time import utc_now
+from tests.authority_helpers import workspace_execute_authority_lease
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _runtime_store_with_workspace_execute(tmp_path: Path) -> RuntimeInvocationStore:
+    return RuntimeInvocationStore(
+        tmp_path,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
 
 
 def _test_hash_ref(prefix: str, value: object) -> str:
@@ -171,7 +179,7 @@ def test_runtime_action_signed_evidence_pass_path_is_verifiable(
     tmp_path: Path,
     intent: str,
 ) -> None:
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     request = _command_request(intent)
     approved = _approve(store, request)
     result = _gateway_with_runner(store).execute_approved_command(
@@ -214,7 +222,7 @@ def test_runtime_action_signed_evidence_pass_path_is_verifiable(
 def test_runtime_action_signed_evidence_requires_receipt_and_action_envelope(
     tmp_path: Path,
 ) -> None:
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     request = _command_request()
     created = store.create_invocation(
         runtime_command_invocation_request(request),
@@ -228,7 +236,7 @@ def test_runtime_action_signed_evidence_requires_receipt_and_action_envelope(
 def test_runtime_action_signed_evidence_detects_scope_drift_and_tamper(
     tmp_path: Path,
 ) -> None:
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     request = _command_request()
     approved = _approve(store, request)
     changed = _approved_command_request(request, approved).model_copy(
@@ -266,7 +274,7 @@ def test_runtime_action_signed_evidence_detects_scope_drift_and_tamper(
 def test_runtime_action_signed_evidence_idempotent_replay_is_stable(
     tmp_path: Path,
 ) -> None:
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     request = _command_request()
     approved = _approve(store, request)
     gateway = _gateway_with_runner(store)
@@ -294,7 +302,7 @@ def test_runtime_action_signed_evidence_idempotent_replay_is_stable(
 def test_runtime_action_signed_evidence_safe_disable_blocks_execution(
     tmp_path: Path,
 ) -> None:
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     request = _command_request()
     approved = _approve(store, request)
     store.safe_disable(
@@ -317,7 +325,7 @@ def test_runtime_action_signed_evidence_safe_disable_blocks_execution(
 
 
 def test_runtime_action_signed_evidence_cli_export_and_verify(tmp_path: Path) -> None:
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     request = _command_request()
     approved = _approve(store, request)
     result = _gateway_with_runner(store).execute_approved_command(

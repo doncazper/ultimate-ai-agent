@@ -330,7 +330,8 @@ product/package baseline while the governed runtime milestone is tag-eligible
 only after green PR review and verification: configured loopback local-model
 calls, one exact read-only status command, and exact Action Inbox approved
 focused pytest, repo-verifier, frontend-check, and repo-doctor execution may produce
-RuntimeGateway receipts; browser
+RuntimeGateway receipts only under active `workspace/execute` AuthorityLease
+scope plus exact Action Inbox approval; browser
 automation, connector writes, plugin import, remote execution, arbitrary
 shell/subprocess work outside exact approved lanes, public
 beta, public release, production authority, and broad autonomy remain blocked.

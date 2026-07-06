@@ -37,10 +37,18 @@ from ultimate_ai_agent.core.runtime_gateway import (
     runtime_command_invocation_request,
 )
 from ultimate_ai_agent.core.time import utc_now
+from tests.authority_helpers import workspace_execute_authority_lease
 
 
 client = TestClient(app)
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _runtime_store_with_workspace_execute(tmp_path: Path) -> RuntimeInvocationStore:
+    return RuntimeInvocationStore(
+        tmp_path,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
 
 
 def _plan_with(**updates: object) -> StagedOrchestrationPlan:
@@ -314,7 +322,7 @@ def test_approved_runtime_command_step_executes_through_runtime_gateway(
             output_bytes=b"redacted staged orchestration output marker",
         )
 
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     request = _approved_runtime_command_request(intent=intent)
     approved = _approve_runtime_command(store, request)
     approved_request = request.model_copy(

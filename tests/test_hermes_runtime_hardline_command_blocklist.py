@@ -33,10 +33,18 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeApprovalBindingRequest,
 )
 from ultimate_ai_agent.core.time import utc_now
+from tests.authority_helpers import workspace_execute_authority_lease
 
 
 ROOT = Path(__file__).resolve().parents[1]
 client = TestClient(app)
+
+
+def _runtime_store_with_workspace_execute(tmp_path: Path) -> RuntimeInvocationStore:
+    return RuntimeInvocationStore(
+        tmp_path,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
 
 
 def test_hardline_command_blocklist_is_read_only_posture() -> None:
@@ -235,7 +243,7 @@ def test_runtime_gateway_approved_command_hardline_floor_blocks_before_runner(
             output_bytes=b"should-not-run",
         )
 
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     command_request = _approved_runtime_command_request()
     approved = _bind_runtime_action_inbox_approval(
         store,

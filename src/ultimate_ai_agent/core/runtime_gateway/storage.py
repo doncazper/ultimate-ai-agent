@@ -628,7 +628,7 @@ class RuntimeInvocationStore:
         self._active_authority_leases = (
             list(active_authority_leases)
             if active_authority_leases is not None
-            else None
+            else active_runtime_authority_leases()
         )
         self._records: dict[str, RuntimeInvocationRecord] = {}
         self._entries: list[RuntimeGatewayStorageEntry] = []

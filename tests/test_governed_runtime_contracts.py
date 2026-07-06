@@ -9,7 +9,6 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from ultimate_ai_agent.core.authority import build_default_authority_leases
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
     LocalModelRuntimeAdapter,
@@ -40,9 +39,17 @@ from ultimate_ai_agent.core.control_center.runtime_action_bridge import (
     build_runtime_action_inbox_bridge_read_model,
 )
 from ultimate_ai_agent.core.time import utc_now
+from tests.authority_helpers import workspace_execute_authority_lease
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _runtime_store_with_workspace_execute(tmp_path: Path) -> RuntimeInvocationStore:
+    return RuntimeInvocationStore(
+        tmp_path,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
 
 
 def _runtime_request(summary: str = "safe governed runtime summary") -> RuntimeInvocationRequest:
@@ -189,7 +196,10 @@ def test_runtime_receipts_cannot_claim_execution() -> None:
 
 
 def test_runtime_store_persists_safe_refs_only_and_replays_idempotency(tmp_path: Path) -> None:
-    store = RuntimeInvocationStore(tmp_path)
+    store = RuntimeInvocationStore(
+        tmp_path,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
     request = _runtime_request("operator provided summary should not persist")
 
     created = store.create_invocation(
@@ -224,7 +234,7 @@ def test_runtime_store_persists_safe_refs_only_and_replays_idempotency(tmp_path:
 
 
 def test_runtime_store_records_blocked_execute_and_detects_tampering(tmp_path: Path) -> None:
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     created = store.create_invocation(
         _runtime_request(),
         idempotency_ref="idempotency-ref:runtime-tamper",
@@ -249,7 +259,7 @@ def test_runtime_store_records_blocked_execute_and_detects_tampering(tmp_path: P
 
 
 def test_runtime_store_replays_mutating_operation_idempotency(tmp_path: Path) -> None:
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     created = store.create_invocation(
         _runtime_request(),
         idempotency_ref="idempotency-ref:runtime-mutation-create",
@@ -302,7 +312,9 @@ def test_runtime_store_replays_mutating_operation_idempotency(tmp_path: Path) ->
     assert "operator execute replay summary should not persist" not in persisted
 
 
-def test_runtime_gateway_local_model_call_records_metadata_only_receipt(tmp_path: Path) -> None:
+def test_runtime_gateway_local_model_call_blocks_without_provider_execute_authority(
+    tmp_path: Path,
+) -> None:
     gateway = RuntimeGateway(
         store=RuntimeInvocationStore(tmp_path),
         local_model_adapter=LocalModelRuntimeAdapter(
@@ -330,11 +342,15 @@ def test_runtime_gateway_local_model_call_records_metadata_only_receipt(tmp_path
         idempotency_ref="idempotency-ref:runtime-local-model-success",
     )
 
-    assert result.record.status == "receipt_recorded"
+    assert result.record.status == "execution_blocked"
     assert result.record.receipt is not None
-    assert result.record.receipt.model_call_performed is True
+    assert result.record.receipt.model_call_performed is False
     assert result.record.receipt.model_output_non_authoritative is True
-    assert result.response_preview == "UAA_LOCAL_RUNTIME_OK"
+    assert result.response_preview is None
+    assert result.error_category == "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED"
+    assert result.record.policy_decision.authority_decision_outcome == (
+        "degrade_to_draft"
+    )
     assert replay.replayed is True
 
     persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
@@ -564,7 +580,7 @@ def test_runtime_gateway_command_replay_after_safe_disable_keeps_idempotency_sha
             output_bytes=b"SAFE_STATUS",
         )
 
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     gateway = RuntimeGateway(
         store=store,
         command_adapter=GovernedCommandRuntimeAdapter(
@@ -786,7 +802,7 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
             output_bytes=b"safe pytest output",
         )
 
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     command_request = _approved_runtime_command_request()
     approved = _bind_runtime_action_inbox_approval(
         store,
@@ -1010,10 +1026,7 @@ def test_runtime_gateway_action_inbox_execute_requires_workspace_execute_lease(
             output_bytes=b"should not execute",
         )
 
-    store = RuntimeInvocationStore(
-        tmp_path,
-        active_authority_leases=build_default_authority_leases(),
-    )
+    store = RuntimeInvocationStore(tmp_path)
     command_request = _approved_runtime_command_request()
     approved = _bind_runtime_action_inbox_approval(
         store,
@@ -1057,7 +1070,7 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_repo_verifier_comm
             output_bytes=b"raw repo verifier output should be redacted",
         )
 
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     command_request = _approved_runtime_command_request(intent="repo_verifier")
     approved = _bind_runtime_action_inbox_approval(
         store,
@@ -1114,7 +1127,7 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_frontend_check_com
             output_bytes=b"raw frontend check output should be redacted",
         )
 
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     command_request = _approved_runtime_command_request(intent="frontend_check")
     approved = _bind_runtime_action_inbox_approval(
         store,
@@ -1171,7 +1184,7 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_repo_doctor_comman
             output_bytes=b"raw doctor output should be redacted",
         )
 
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     command_request = _approved_runtime_command_request(intent="repo_doctor")
     approved = _bind_runtime_action_inbox_approval(
         store,
@@ -1217,7 +1230,7 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_repo_doctor_comman
 def test_runtime_launcher_actions_approve_and_deny_by_safe_selector_ref(
     tmp_path: Path,
 ) -> None:
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     command_request = _approved_runtime_command_request()
     created = store.create_invocation(
         runtime_command_invocation_request(command_request),
@@ -1393,7 +1406,7 @@ def test_runtime_gateway_expired_approval_execution_fails_closed_with_receipt(
             output_bytes=b"SHOULD_NOT_RUN",
         )
 
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     command_request = _approved_runtime_command_request()
     expired = _bind_runtime_action_inbox_approval(
         store,
@@ -1482,7 +1495,7 @@ def test_runtime_gateway_action_inbox_execute_requires_top_level_refs(
             output_bytes=b"SHOULD_NOT_RUN",
         )
 
-    store = RuntimeInvocationStore(tmp_path)
+    store = _runtime_store_with_workspace_execute(tmp_path)
     command_request = _approved_runtime_command_request()
     approved = _bind_runtime_action_inbox_approval(
         store,
@@ -1967,7 +1980,7 @@ def test_runtime_gateway_local_model_replay_without_receipt_does_not_call_transp
             request,
             idempotency_ref="idempotency-ref:runtime-local-model-replay-no-receipt",
         )
-    assert calls == 1
+    assert calls == 0
 
     store.record_receipt = original_record_receipt  # type: ignore[method-assign]
     replay = gateway.invoke_local_model(
@@ -1975,7 +1988,7 @@ def test_runtime_gateway_local_model_replay_without_receipt_does_not_call_transp
         idempotency_ref="idempotency-ref:runtime-local-model-replay-no-receipt",
     )
 
-    assert calls == 1
+    assert calls == 0
     assert replay.replayed is True
     assert replay.record.status == "execution_blocked"
     assert replay.error_category == "RUNTIME_LOCAL_MODEL_IDEMPOTENT_REPLAY_WITHOUT_RECEIPT"
@@ -2019,7 +2032,8 @@ def test_runtime_gateway_local_model_replay_after_safe_disable_keeps_idempotency
     )
 
     assert first.record.receipt is not None
-    assert calls == 1
+    assert first.record.status == "execution_blocked"
+    assert calls == 0
     assert replay.replayed is True
     assert replay.record.status == "safe_disabled"
     assert replay.record.policy_decision.allowed_to_execute is False

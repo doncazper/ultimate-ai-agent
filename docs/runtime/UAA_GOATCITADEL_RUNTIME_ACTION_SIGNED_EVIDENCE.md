@@ -19,7 +19,8 @@ remains blocked, and no unrestricted shell is added.
 
 - Exact Action Inbox approved utility command lane evidence through
   `RuntimeGateway` for `focused_pytest`, `repo_verifier`, `frontend_check`, and
-  `repo_doctor`.
+  `repo_doctor`; execution requires active `workspace/execute` AuthorityLease
+  scope in addition to the exact Action Inbox approval envelope.
 - `RuntimeActionSignedEvidenceEnvelope` with approval ref, exact scope ref,
   policy decision ref, route-decision binding ref, payload fingerprint ref,
   receipt ref, rollback ref, safe-disable ref, artifact hash refs, and evidence
@@ -39,6 +40,8 @@ remains blocked, and no unrestricted shell is added.
 ## Still Blocked
 
 - Broad runtime authority remains blocked.
+- Default read-only authority can inspect read-only command posture only; it
+  cannot execute utility command lanes.
 - No unrestricted shell.
 - No arbitrary command text.
 - No browser automation.
