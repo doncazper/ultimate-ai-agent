@@ -109,8 +109,23 @@ class ExtensionSafeAdoptionPosture(str, Enum):
     blocked_until_scoped_milestone = "blocked_until_scoped_milestone"
 
 
+class ExtensionProgressiveDisclosureStatus(str, Enum):
+    metadata_indexed = "metadata_indexed"
+    full_instructions_blocked = "full_instructions_blocked"
+    future_review_required = "future_review_required"
+    blocked = "blocked"
+
+
+class ExtensionFullInstructionLoadPosture(str, Enum):
+    metadata_only = "metadata_only"
+    operator_selected_review_required = "operator_selected_review_required"
+    blocked_runtime_import = "blocked_runtime_import"
+
+
 class _ExtensionCatalogModel(BaseModel):
-    model_config = ConfigDict(use_enum_values=True, extra="forbid", protected_namespaces=())
+    model_config = ConfigDict(
+        use_enum_values=True, extra="forbid", protected_namespaces=()
+    )
 
 
 class InspectableExtensionPackageIdentity(_ExtensionCatalogModel):
@@ -151,12 +166,18 @@ class InspectableExtensionRequestedGrant(_ExtensionCatalogModel):
 class InspectableExtensionCatalogEntry(_ExtensionCatalogModel):
     catalog_entry_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
     manifest_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    compact_skill_index_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
+    metadata_summary_ref: str = Field(..., min_length=1, pattern=SAFE_REF_PATTERN)
     package_identity: InspectableExtensionPackageIdentity
     provenance: InspectableExtensionProvenance
     file_hashes: list[InspectableExtensionFileHash] = Field(default_factory=list)
-    declared_capabilities: list[InspectableExtensionCapability] = Field(default_factory=list)
+    declared_capabilities: list[InspectableExtensionCapability] = Field(
+        default_factory=list
+    )
     risk_class: ExtensionRiskClass
-    requested_grants: list[InspectableExtensionRequestedGrant] = Field(default_factory=list)
+    requested_grants: list[InspectableExtensionRequestedGrant] = Field(
+        default_factory=list
+    )
     activation_status: ExtensionActivationStatus = ExtensionActivationStatus.inactive
     blocked_state: ExtensionBlockedState = ExtensionBlockedState.unknown
     blocker_refs: list[str] = Field(default_factory=list)
@@ -168,6 +189,12 @@ class InspectableExtensionCatalogEntry(_ExtensionCatalogModel):
     blocked_reason: str = Field(..., min_length=1, max_length=240)
     review_evidence_refs: list[str] = Field(default_factory=list)
     safe_adoption_posture: ExtensionSafeAdoptionPosture
+    progressive_disclosure_status: ExtensionProgressiveDisclosureStatus
+    full_instruction_load_posture: ExtensionFullInstructionLoadPosture
+    metadata_first: Literal[True] = True
+    operator_selected_before_full_instruction: Literal[True] = True
+    automatic_instruction_loading_enabled: Literal[False] = False
+    hidden_activation_enabled: Literal[False] = False
     safe_summary: str = Field(..., min_length=1, max_length=500)
 
 
@@ -181,7 +208,14 @@ class InspectableExtensionCatalog(_ExtensionCatalogModel):
     entries: list[InspectableExtensionCatalogEntry] = Field(default_factory=list)
     read_only: Literal[True] = True
     inspectable_catalog_enabled: Literal[True] = True
+    progressive_disclosure_enabled: Literal[True] = True
+    metadata_first_index_enabled: Literal[True] = True
     callable_catalog_enabled: Literal[False] = False
+    automatic_instruction_loading_enabled: Literal[False] = False
+    full_instruction_auto_load_enabled: Literal[False] = False
+    hidden_skill_activation_enabled: Literal[False] = False
+    skill_runtime_import_enabled: Literal[False] = False
+    external_marketplace_fetch_enabled: Literal[False] = False
     runtime_import_enabled: Literal[False] = False
     execution_enabled: Literal[False] = False
     connector_writes_enabled: Literal[False] = False
@@ -191,6 +225,8 @@ class InspectableExtensionCatalog(_ExtensionCatalogModel):
     mobile_control_enabled: Literal[False] = False
     public_distribution_claimed: Literal[False] = False
     blocked_capabilities: list[str] = Field(default_factory=list)
+    compact_skill_index_refs: list[str] = Field(default_factory=list)
+    progressive_disclosure_refs: list[str] = Field(default_factory=list)
     docs_refs: list[str] = Field(default_factory=list)
     schema_refs: list[str] = Field(default_factory=list)
     developer_guidance_refs: list[str] = Field(default_factory=list)
@@ -262,6 +298,11 @@ class ExtensionActivationRevocationRecord(_ExtensionCatalogModel):
 
 CATALOG_DENIED_TRUE_FLAGS = (
     "callable_catalog_enabled",
+    "automatic_instruction_loading_enabled",
+    "full_instruction_auto_load_enabled",
+    "hidden_skill_activation_enabled",
+    "skill_runtime_import_enabled",
+    "external_marketplace_fetch_enabled",
     "runtime_import_enabled",
     "execution_enabled",
     "connector_writes_enabled",
@@ -300,11 +341,35 @@ def validate_inspectable_extension_catalog(
         raise ValueError("EXTENSION_CATALOG_READ_ONLY_REQUIRED")
     if not catalog.inspectable_catalog_enabled:
         raise ValueError("EXTENSION_CATALOG_INSPECTION_REQUIRED")
+    if not catalog.progressive_disclosure_enabled:
+        raise ValueError("EXTENSION_CATALOG_PROGRESSIVE_DISCLOSURE_REQUIRED")
+    if not catalog.metadata_first_index_enabled:
+        raise ValueError("EXTENSION_CATALOG_METADATA_FIRST_REQUIRED")
+    _validate_safe_ref_list(
+        catalog.compact_skill_index_refs,
+        "EXTENSION_CATALOG_COMPACT_SKILL_INDEX_REF_REQUIRED",
+    )
+    _validate_safe_ref_list(
+        catalog.progressive_disclosure_refs,
+        "EXTENSION_CATALOG_PROGRESSIVE_DISCLOSURE_REF_REQUIRED",
+    )
     for entry in catalog.entries:
+        _validate_safe_ref_list(
+            [entry.compact_skill_index_ref, entry.metadata_summary_ref],
+            "EXTENSION_CATALOG_SKILL_METADATA_REF_REQUIRED",
+        )
         _validate_safe_ref_list(
             entry.review_evidence_refs,
             "EXTENSION_CATALOG_REVIEW_EVIDENCE_REF_REQUIRED",
         )
+        if not entry.metadata_first:
+            raise ValueError("EXTENSION_CATALOG_ENTRY_METADATA_FIRST_REQUIRED")
+        if not entry.operator_selected_before_full_instruction:
+            raise ValueError("EXTENSION_CATALOG_ENTRY_OPERATOR_SELECTION_REQUIRED")
+        if entry.automatic_instruction_loading_enabled:
+            raise ValueError("EXTENSION_CATALOG_ENTRY_AUTO_INSTRUCTION_LOAD_DENIED")
+        if entry.hidden_activation_enabled:
+            raise ValueError("EXTENSION_CATALOG_ENTRY_HIDDEN_ACTIVATION_DENIED")
         if entry.required_grant_refs:
             _validate_safe_ref_list(
                 entry.required_grant_refs,
@@ -324,7 +389,11 @@ def validate_inspectable_extension_catalog(
         }:
             raise ValueError("EXTENSION_CATALOG_ACTIVE_STATUS_DENIED")
         if (
-            entry.blocked_state in {ExtensionBlockedState.blocked.value, ExtensionBlockedState.unknown.value}
+            entry.blocked_state
+            in {
+                ExtensionBlockedState.blocked.value,
+                ExtensionBlockedState.unknown.value,
+            }
             and not entry.blocker_refs
         ):
             raise ValueError("EXTENSION_CATALOG_BLOCKER_REF_REQUIRED")
@@ -349,12 +418,16 @@ def validate_extension_activation_grant_record(
         raise ValueError("EXTENSION_ACTIVATION_EXACT_SCOPE_REQUIRED")
     if record.approval_ref in MISSING_APPROVAL_REFS:
         raise ValueError("EXTENSION_ACTIVATION_APPROVAL_REQUIRED")
-    _validate_safe_ref_list(record.capability_refs, "EXTENSION_ACTIVATION_CAPABILITY_REF_REQUIRED")
+    _validate_safe_ref_list(
+        record.capability_refs, "EXTENSION_ACTIVATION_CAPABILITY_REF_REQUIRED"
+    )
     _validate_safe_ref_list(
         record.requested_grant_refs,
         "EXTENSION_ACTIVATION_REQUESTED_GRANT_REF_REQUIRED",
     )
-    _validate_safe_ref_list(record.audit_refs, "EXTENSION_ACTIVATION_AUDIT_REF_REQUIRED")
+    _validate_safe_ref_list(
+        record.audit_refs, "EXTENSION_ACTIVATION_AUDIT_REF_REQUIRED"
+    )
     if record.grant_status == ExtensionActivationGrantStatus.granted.value:
         if record.staleness_status != ExtensionActivationGrantStaleness.current.value:
             raise ValueError("EXTENSION_ACTIVATION_STALE_GRANT_DENIED")
@@ -410,7 +483,9 @@ def validate_extension_activation_revocation_record(
         raise ValueError("EXTENSION_ACTIVATION_EXACT_SCOPE_REQUIRED")
     if record.approval_ref in MISSING_APPROVAL_REFS:
         raise ValueError("EXTENSION_ACTIVATION_APPROVAL_REQUIRED")
-    _validate_safe_ref_list(record.audit_refs, "EXTENSION_ACTIVATION_AUDIT_REF_REQUIRED")
+    _validate_safe_ref_list(
+        record.audit_refs, "EXTENSION_ACTIVATION_AUDIT_REF_REQUIRED"
+    )
     return record
 
 
@@ -421,7 +496,11 @@ def revoke_extension_activation_grant(
     validate_extension_activation_grant_record(grant)
     validate_extension_activation_revocation_record(revocation)
     binding_pairs = (
-        ("activation_grant_ref", grant.activation_grant_ref, revocation.activation_grant_ref),
+        (
+            "activation_grant_ref",
+            grant.activation_grant_ref,
+            revocation.activation_grant_ref,
+        ),
         ("package_ref", grant.package_ref, revocation.package_ref),
         ("manifest_ref", grant.manifest_ref, revocation.manifest_ref),
         ("version_ref", grant.version_ref, revocation.version_ref),
@@ -436,7 +515,9 @@ def revoke_extension_activation_grant(
         update={
             "grant_status": ExtensionActivationGrantStatus.revoked,
             "revocation_ref": revocation.revocation_ref,
-            "audit_refs": list(dict.fromkeys([*grant.audit_refs, *revocation.audit_refs])),
+            "audit_refs": list(
+                dict.fromkeys([*grant.audit_refs, *revocation.audit_refs])
+            ),
             "receipt_refs": list(
                 dict.fromkeys([*grant.receipt_refs, *revocation.receipt_refs])
             ),

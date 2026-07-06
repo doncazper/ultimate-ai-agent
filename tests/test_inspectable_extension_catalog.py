@@ -23,7 +23,14 @@ def test_default_inspectable_extension_catalog_is_read_only_and_non_callable() -
     assert payload["catalog_status"] == "read_only_inspection"
     assert payload["read_only"] is True
     assert payload["inspectable_catalog_enabled"] is True
+    assert payload["progressive_disclosure_enabled"] is True
+    assert payload["metadata_first_index_enabled"] is True
     assert payload["callable_catalog_enabled"] is False
+    assert payload["automatic_instruction_loading_enabled"] is False
+    assert payload["full_instruction_auto_load_enabled"] is False
+    assert payload["hidden_skill_activation_enabled"] is False
+    assert payload["skill_runtime_import_enabled"] is False
+    assert payload["external_marketplace_fetch_enabled"] is False
     assert payload["runtime_import_enabled"] is False
     assert payload["execution_enabled"] is False
     assert payload["connector_writes_enabled"] is False
@@ -33,9 +40,21 @@ def test_default_inspectable_extension_catalog_is_read_only_and_non_callable() -
     assert payload["mobile_control_enabled"] is False
     assert payload["public_distribution_claimed"] is False
     assert "plugin_runtime_import" in payload["blocked_capabilities"]
+    assert "automatic_skill_instruction_loading" in payload["blocked_capabilities"]
+    assert "hidden_skill_activation" in payload["blocked_capabilities"]
+    assert "external_marketplace_fetch" in payload["blocked_capabilities"]
     assert "arbitrary_plugin_execution" in payload["blocked_capabilities"]
     assert "connector_writes" in payload["blocked_capabilities"]
+    assert (
+        "compact-skill-index:uaa-owned-progressive-disclosure"
+        in payload["compact_skill_index_refs"]
+    )
+    assert (
+        "progressive-disclosure:metadata-first-index"
+        in payload["progressive_disclosure_refs"]
+    )
     assert "doc:goatcitadel-catchup-extensibility-final" in payload["docs_refs"]
+    assert "doc:hermes-runtime-progressive-skill-disclosure" in payload["docs_refs"]
     assert (
         "doc:goatcitadel-catchup-extensibility-final"
         in payload["developer_guidance_refs"]
@@ -46,10 +65,17 @@ def test_default_inspectable_extension_catalog_is_read_only_and_non_callable() -
     )
 
     reviewed_entry = payload["entries"][0]
+    assert reviewed_entry["compact_skill_index_ref"].startswith("compact-skill-index:")
+    assert reviewed_entry["metadata_summary_ref"].startswith("skill-metadata:")
     assert reviewed_entry["provenance"]["provenance_status"] == "reviewed"
     assert reviewed_entry["file_hashes"]
-    assert all(item["file_ref"].startswith("file-ref:") for item in reviewed_entry["file_hashes"])
-    assert reviewed_entry["declared_capabilities"][0]["capability_ref"].startswith("capability:")
+    assert all(
+        item["file_ref"].startswith("file-ref:")
+        for item in reviewed_entry["file_hashes"]
+    )
+    assert reviewed_entry["declared_capabilities"][0]["capability_ref"].startswith(
+        "capability:"
+    )
     assert reviewed_entry["activation_status"] == "future_scoped"
     assert reviewed_entry["visibility_status"] == "implemented"
     assert reviewed_entry["trust_posture"] == "reviewed_metadata"
@@ -59,9 +85,29 @@ def test_default_inspectable_extension_catalog_is_read_only_and_non_callable() -
     ]
     assert reviewed_entry["review_evidence_refs"]
     assert reviewed_entry["safe_adoption_posture"] == "repo_owned_metadata_only"
+    assert reviewed_entry["progressive_disclosure_status"] == "metadata_indexed"
+    assert (
+        reviewed_entry["full_instruction_load_posture"]
+        == "operator_selected_review_required"
+    )
+    assert reviewed_entry["metadata_first"] is True
+    assert reviewed_entry["operator_selected_before_full_instruction"] is True
+    assert reviewed_entry["automatic_instruction_loading_enabled"] is False
+    assert reviewed_entry["hidden_activation_enabled"] is False
     assert "runtime import" in reviewed_entry["blocked_reason"]
 
-    blocked_entry = payload["entries"][1]
+    skill_entry = payload["entries"][1]
+    assert skill_entry["package_identity"]["package_kind"] == "skill"
+    assert skill_entry["progressive_disclosure_status"] == "metadata_indexed"
+    assert skill_entry["callable_posture"] == "inspectable_only"
+    assert skill_entry["trust_posture"] == "reviewed_metadata"
+    assert skill_entry["metadata_first"] is True
+    assert skill_entry["operator_selected_before_full_instruction"] is True
+    assert skill_entry["automatic_instruction_loading_enabled"] is False
+    assert skill_entry["hidden_activation_enabled"] is False
+    assert "full instruction loading" in skill_entry["blocked_reason"]
+
+    blocked_entry = payload["entries"][2]
     assert blocked_entry["provenance"]["provenance_status"] == "unknown"
     assert blocked_entry["blocked_state"] == "unknown"
     assert blocked_entry["activation_status"] == "blocked"
@@ -71,12 +117,19 @@ def test_default_inspectable_extension_catalog_is_read_only_and_non_callable() -
     assert blocked_entry["callable_posture"] == "blocked_runtime"
     assert blocked_entry["required_grant_refs"] == ["grant-request:unknown-runtime"]
     assert blocked_entry["safe_adoption_posture"] == "blocked_until_scoped_milestone"
+    assert blocked_entry["progressive_disclosure_status"] == "blocked"
+    assert blocked_entry["full_instruction_load_posture"] == "blocked_runtime_import"
 
 
 @pytest.mark.parametrize(
     "field",
     [
         "callable_catalog_enabled",
+        "automatic_instruction_loading_enabled",
+        "full_instruction_auto_load_enabled",
+        "hidden_skill_activation_enabled",
+        "skill_runtime_import_enabled",
+        "external_marketplace_fetch_enabled",
         "runtime_import_enabled",
         "execution_enabled",
         "connector_writes_enabled",
@@ -87,7 +140,9 @@ def test_default_inspectable_extension_catalog_is_read_only_and_non_callable() -
         "public_distribution_claimed",
     ],
 )
-def test_inspectable_extension_catalog_validation_denies_runtime_authority(field: str) -> None:
+def test_inspectable_extension_catalog_validation_denies_runtime_authority(
+    field: str,
+) -> None:
     catalog = build_default_inspectable_extension_catalog().model_copy(
         update={field: True}
     )
@@ -125,7 +180,9 @@ def test_extension_catalog_openapi_route_is_get_only_and_not_runtime_catalog() -
 
     assert "/extensions/catalog" in paths
     assert sorted(paths["/extensions/catalog"].keys()) == ["get"]
-    assert paths["/extensions/catalog"]["get"]["operationId"] == "get_extensions_catalog"
+    assert (
+        paths["/extensions/catalog"]["get"]["operationId"] == "get_extensions_catalog"
+    )
     for forbidden in [
         "/extensions/catalog/execute",
         "/extensions/catalog/import",
@@ -147,7 +204,16 @@ def test_inspectable_extension_catalog_schema_pins_disabled_runtime_fields() -> 
     assert schema["title"] == "uaa_inspectable_extension_catalog"
     assert schema["properties"]["catalog_status"]["const"] == "read_only_inspection"
     assert schema["properties"]["read_only"]["const"] is True
+    assert schema["properties"]["progressive_disclosure_enabled"]["const"] is True
+    assert schema["properties"]["metadata_first_index_enabled"]["const"] is True
     assert schema["properties"]["callable_catalog_enabled"]["const"] is False
+    assert (
+        schema["properties"]["automatic_instruction_loading_enabled"]["const"] is False
+    )
+    assert schema["properties"]["full_instruction_auto_load_enabled"]["const"] is False
+    assert schema["properties"]["hidden_skill_activation_enabled"]["const"] is False
+    assert schema["properties"]["skill_runtime_import_enabled"]["const"] is False
+    assert schema["properties"]["external_marketplace_fetch_enabled"]["const"] is False
     assert schema["properties"]["runtime_import_enabled"]["const"] is False
     assert schema["properties"]["execution_enabled"]["const"] is False
     assert schema["properties"]["connector_writes_enabled"]["const"] is False
@@ -156,10 +222,18 @@ def test_inspectable_extension_catalog_schema_pins_disabled_runtime_fields() -> 
         "visibility_status",
         "trust_posture",
         "callable_posture",
+        "compact_skill_index_ref",
+        "metadata_summary_ref",
         "required_grant_refs",
         "blocked_reason",
         "review_evidence_refs",
         "safe_adoption_posture",
+        "progressive_disclosure_status",
+        "full_instruction_load_posture",
+        "metadata_first",
+        "operator_selected_before_full_instruction",
+        "automatic_instruction_loading_enabled",
+        "hidden_activation_enabled",
     ]:
         assert field in entry["required"]
         assert field in entry["properties"]

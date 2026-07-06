@@ -12,7 +12,14 @@
     "entries",
     "read_only",
     "inspectable_catalog_enabled",
+    "progressive_disclosure_enabled",
+    "metadata_first_index_enabled",
     "callable_catalog_enabled",
+    "automatic_instruction_loading_enabled",
+    "full_instruction_auto_load_enabled",
+    "hidden_skill_activation_enabled",
+    "skill_runtime_import_enabled",
+    "external_marketplace_fetch_enabled",
     "runtime_import_enabled",
     "execution_enabled",
     "connector_writes_enabled",
@@ -22,6 +29,8 @@
     "mobile_control_enabled",
     "public_distribution_claimed",
     "blocked_capabilities",
+    "compact_skill_index_refs",
+    "progressive_disclosure_refs",
     "docs_refs",
     "schema_refs",
     "developer_guidance_refs",
@@ -55,7 +64,28 @@
     "inspectable_catalog_enabled": {
       "const": true
     },
+    "progressive_disclosure_enabled": {
+      "const": true
+    },
+    "metadata_first_index_enabled": {
+      "const": true
+    },
     "callable_catalog_enabled": {
+      "const": false
+    },
+    "automatic_instruction_loading_enabled": {
+      "const": false
+    },
+    "full_instruction_auto_load_enabled": {
+      "const": false
+    },
+    "hidden_skill_activation_enabled": {
+      "const": false
+    },
+    "skill_runtime_import_enabled": {
+      "const": false
+    },
+    "external_marketplace_fetch_enabled": {
       "const": false
     },
     "runtime_import_enabled": {
@@ -87,6 +117,18 @@
       "items": {
         "type": "string",
         "minLength": 1
+      }
+    },
+    "compact_skill_index_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/safe_ref"
+      }
+    },
+    "progressive_disclosure_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/safe_ref"
       }
     },
     "docs_refs": {
@@ -132,6 +174,8 @@
       "required": [
         "catalog_entry_ref",
         "manifest_ref",
+        "compact_skill_index_ref",
+        "metadata_summary_ref",
         "package_identity",
         "provenance",
         "file_hashes",
@@ -149,6 +193,12 @@
         "blocked_reason",
         "review_evidence_refs",
         "safe_adoption_posture",
+        "progressive_disclosure_status",
+        "full_instruction_load_posture",
+        "metadata_first",
+        "operator_selected_before_full_instruction",
+        "automatic_instruction_loading_enabled",
+        "hidden_activation_enabled",
         "safe_summary"
       ],
       "properties": {
@@ -156,6 +206,12 @@
           "$ref": "#/$defs/safe_ref"
         },
         "manifest_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "compact_skill_index_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "metadata_summary_ref": {
           "$ref": "#/$defs/safe_ref"
         },
         "package_identity": {
@@ -253,6 +309,33 @@
             "reviewed_adaptation_required",
             "blocked_until_scoped_milestone"
           ]
+        },
+        "progressive_disclosure_status": {
+          "enum": [
+            "metadata_indexed",
+            "full_instructions_blocked",
+            "future_review_required",
+            "blocked"
+          ]
+        },
+        "full_instruction_load_posture": {
+          "enum": [
+            "metadata_only",
+            "operator_selected_review_required",
+            "blocked_runtime_import"
+          ]
+        },
+        "metadata_first": {
+          "const": true
+        },
+        "operator_selected_before_full_instruction": {
+          "const": true
+        },
+        "automatic_instruction_loading_enabled": {
+          "const": false
+        },
+        "hidden_activation_enabled": {
+          "const": false
         },
         "safe_summary": {
           "type": "string",
