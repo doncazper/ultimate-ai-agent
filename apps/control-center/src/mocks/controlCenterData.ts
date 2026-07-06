@@ -51,6 +51,7 @@ import type {
   RuntimeSubagentReviewArtifact,
   RuntimeLspDiagnosticEvidenceContract,
   RuntimePreviewRailSlot,
+  RuntimeSlashCommandRegistryEntry,
   RuntimeSessionContinuitySurface,
   RuntimeWorktreePerAgentLane,
   RuntimeVirtualAgentSlot,
@@ -1802,6 +1803,119 @@ const runtimePreviewRailSlots = [
     slot_status: "execution_blocked",
     safe_summary:
       "Mock delegated runtime event preview keeps direct payload rendering blocked.",
+  }),
+];
+
+const runtimeSlashCommandRegistryBlockedRefs = [
+  "blocked-authority:slash-command-registry-no-chat-execution",
+  "blocked-authority:slash-command-registry-no-runtime-invocation",
+  "blocked-authority:slash-command-registry-no-state-mutation",
+  "blocked-authority:slash-command-registry-no-shell-execution",
+  "blocked-authority:slash-command-registry-no-provider-call",
+  "blocked-authority:slash-command-registry-no-browser-automation",
+  "blocked-authority:slash-command-registry-no-connector-write",
+  "blocked-authority:slash-command-registry-no-control-center-authority-mint",
+  "blocked-authority:slash-command-registry-no-raw-prompt-persistence",
+  "blocked-authority:slash-command-registry-no-raw-response-persistence",
+];
+
+function runtimeSlashCommandRegistryEntry(
+  slug: string,
+  overrides: Pick<
+    RuntimeSlashCommandRegistryEntry,
+    | "display_label"
+    | "trigger_label"
+    | "command_status"
+    | "authority_class"
+    | "side_effect_class"
+    | "safe_summary"
+  >,
+): RuntimeSlashCommandRegistryEntry {
+  return {
+    command_ref: `slash-command-ref:${slug}`,
+    display_label: overrides.display_label,
+    trigger_label: overrides.trigger_label,
+    command_status: overrides.command_status,
+    authority_class: overrides.authority_class,
+    side_effect_class: overrides.side_effect_class,
+    docs_ref: `docs-ref:runtime-slash-command-registry:${slug}`,
+    approval_policy_ref: `approval-policy-ref:slash-command:${slug}`,
+    idempotency_policy_ref: `idempotency-policy-ref:slash-command:${slug}`,
+    receipt_plan_ref: `receipt-plan-ref:slash-command:${slug}`,
+    proof_ref: "proof-ref:hermes-runtime-adoption:phase-36:slash-command-registry",
+    safe_summary: overrides.safe_summary,
+    blocked_authority_refs: runtimeSlashCommandRegistryBlockedRefs,
+    promotion_path_refs: [`promotion-path-ref:slash-command:${slug}:contract`],
+    next_safe_action_refs: [`next-safe-action-ref:slash-command:${slug}:review`],
+    visible_in_control_center: true,
+    registered_metadata_only: true,
+    chat_trigger_enabled: false,
+    runtime_invocation_enabled: false,
+    state_mutation_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    control_center_mints_authority: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+  };
+}
+
+const runtimeSlashCommandRegistryEntries = [
+  runtimeSlashCommandRegistryEntry("explain-repo", {
+    display_label: "Explain repo",
+    trigger_label: "/explain",
+    command_status: "metadata_ready",
+    authority_class: "read_only_metadata",
+    side_effect_class: "none",
+    safe_summary:
+      "Mock explain command is registered metadata only and cannot execute.",
+  }),
+  runtimeSlashCommandRegistryEntry("plan-task", {
+    display_label: "Plan task",
+    trigger_label: "/plan",
+    command_status: "metadata_ready",
+    authority_class: "proposal_only",
+    side_effect_class: "proposal_only",
+    safe_summary:
+      "Mock plan command is proposal metadata only and cannot invoke runtimes.",
+  }),
+  runtimeSlashCommandRegistryEntry("open-proof", {
+    display_label: "Open proof",
+    trigger_label: "/proof",
+    command_status: "metadata_ready",
+    authority_class: "read_only_metadata",
+    side_effect_class: "none",
+    safe_summary:
+      "Mock proof command records navigation metadata without opening records.",
+  }),
+  runtimeSlashCommandRegistryEntry("run-tests", {
+    display_label: "Run tests",
+    trigger_label: "/run-tests",
+    command_status: "disabled_requires_exact_lane",
+    authority_class: "approval_required_future_lane",
+    side_effect_class: "command_execution",
+    safe_summary:
+      "Mock test command stays disabled until an exact allowlisted lane exists.",
+  }),
+  runtimeSlashCommandRegistryEntry("ask-agent", {
+    display_label: "Ask agent",
+    trigger_label: "/ask-agent",
+    command_status: "disabled_requires_exact_lane",
+    authority_class: "approval_required_future_lane",
+    side_effect_class: "model_call",
+    safe_summary:
+      "Mock agent command stays disabled until runtime/provider boundaries exist.",
+  }),
+  runtimeSlashCommandRegistryEntry("apply-patch", {
+    display_label: "Apply patch",
+    trigger_label: "/apply-patch",
+    command_status: "blocked_high_authority",
+    authority_class: "blocked_high_authority",
+    side_effect_class: "local_mutation",
+    safe_summary:
+      "Mock patch command remains blocked without exact approval and rollback.",
   }),
 ];
 
@@ -14031,6 +14145,77 @@ export const mockControlCenterData: ControlCenterData = {
       "raw_runtime_payloads_omitted",
       "raw_browser_state_omitted",
       "screenshot_pixels_omitted",
+    ],
+  },
+  runtimeSlashCommandRegistry: {
+    schema_version: "runtime_slash_command_registry.v1",
+    contract_ref:
+      "contract-ref:hermes-runtime-adoption-slash-command-registry:v1",
+    status: "metadata_registry_all_commands_disabled",
+    snapshot_ref: "slash-command-registry-snapshot-ref:runtime:metadata",
+    snapshot_hash_ref: "snapshot-hash-ref:slash-command-registry:mock",
+    route_ref: "GET /api/runtime/slash-command-registry",
+    cli_ref: "uaa runtime inspect-slash-command-registry",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime slash command registry mock fallback shows command metadata and authority labels only; command execution and runtime invocation stay blocked.",
+    commands: runtimeSlashCommandRegistryEntries,
+    command_count: runtimeSlashCommandRegistryEntries.length,
+    metadata_ready_count: runtimeSlashCommandRegistryEntries.filter(
+      (command) => command.command_status === "metadata_ready",
+    ).length,
+    disabled_count: runtimeSlashCommandRegistryEntries.filter(
+      (command) => command.command_status === "disabled_requires_exact_lane",
+    ).length,
+    blocked_count: runtimeSlashCommandRegistryEntries.filter(
+      (command) => command.command_status === "blocked_high_authority",
+    ).length,
+    command_contract_visible: true,
+    side_effect_class_visible: true,
+    approval_policy_visible: true,
+    idempotency_policy_visible: true,
+    receipt_plan_visible: true,
+    cli_api_alignment_visible: true,
+    chat_trigger_enabled: false,
+    runtime_invocation_enabled: false,
+    state_mutation_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    control_center_mints_authority: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    blocked_authority_refs: runtimeSlashCommandRegistryBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:slash-command-registry:command-contract",
+      "promotion-path-ref:slash-command-registry:side-effect-class",
+      "promotion-path-ref:slash-command-registry:approval-policy",
+      "promotion-path-ref:slash-command-registry:idempotency",
+      "promotion-path-ref:slash-command-registry:receipt",
+      "promotion-path-ref:slash-command-registry:tests",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-36:slash-command-registry",
+      "proof-ref:slash-command-registry:metadata-only",
+      "proof-ref:slash-command-registry:execution-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-36:slash-command-registry",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:slash-command-registry:bind-command-contract",
+      "next-safe-action-ref:slash-command-registry:define-chat-parser",
+      "next-safe-action-ref:slash-command-registry:keep-execution-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_prompts_omitted",
+      "raw_responses_omitted",
+      "provider_payloads_omitted",
+      "runtime_payloads_omitted",
+      "command_execution_outputs_omitted",
     ],
   },
   runtimeApprovalBridge: {

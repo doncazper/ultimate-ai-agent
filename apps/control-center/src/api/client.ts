@@ -56,6 +56,7 @@ import type {
   RuntimeStreamingProgressReadModel,
   RuntimeProfileIsolationReadModel,
   RuntimeReadinessReport,
+  RuntimeSlashCommandRegistryReadModel,
   RuntimeWorktreePerAgentReadModel,
   ApiRouteInventory,
   FounderLoopActionDecisionKind,
@@ -413,6 +414,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimePreviewRailSettledPromise = Promise.allSettled([
     read<RuntimePreviewRailReadModel>(API_ENDPOINTS.runtimePreviewRail),
   ] as const);
+  const runtimeSlashCommandRegistrySettledPromise = Promise.allSettled([
+    read<RuntimeSlashCommandRegistryReadModel>(
+      API_ENDPOINTS.runtimeSlashCommandRegistry,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -550,6 +556,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeWorktreePerAgentSettledPromise;
   const runtimeLspDiagnosticsResult = await runtimeLspDiagnosticsSettledPromise;
   const runtimePreviewRailResult = await runtimePreviewRailSettledPromise;
+  const runtimeSlashCommandRegistryResult =
+    await runtimeSlashCommandRegistrySettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -603,6 +611,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeWorktreePerAgent = fulfilledValue(runtimeWorktreePerAgentResult[0]);
   const runtimeLspDiagnostics = fulfilledValue(runtimeLspDiagnosticsResult[0]);
   const runtimePreviewRail = fulfilledValue(runtimePreviewRailResult[0]);
+  const runtimeSlashCommandRegistry = fulfilledValue(
+    runtimeSlashCommandRegistryResult[0],
+  );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
@@ -751,6 +762,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     : undefined;
   const safeRuntimePreviewRail = isSafeRuntimePreviewRail(runtimePreviewRail)
     ? runtimePreviewRail
+    : undefined;
+  const safeRuntimeSlashCommandRegistry = isSafeRuntimeSlashCommandRegistry(
+    runtimeSlashCommandRegistry,
+  )
+    ? runtimeSlashCommandRegistry
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -918,6 +934,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeLspDiagnosticsFallbackUsed =
     safeRuntimeLspDiagnostics === undefined;
   const runtimePreviewRailFallbackUsed = safeRuntimePreviewRail === undefined;
+  const runtimeSlashCommandRegistryFallbackUsed =
+    safeRuntimeSlashCommandRegistry === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -1076,6 +1094,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/worktree-per-agent",
         "GET /api/runtime/lsp-diagnostics",
         "GET /api/runtime/preview-rail",
+        "GET /api/runtime/slash-command-registry",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -1100,7 +1119,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeSubagentIsolation !== undefined &&
         runtimeWorktreePerAgent !== undefined &&
         runtimeLspDiagnostics !== undefined &&
-        runtimePreviewRail !== undefined,
+        runtimePreviewRail !== undefined &&
+        runtimeSlashCommandRegistry !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -1165,6 +1185,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimePreviewRailFallbackUsed
           ? ["RUNTIME_PREVIEW_RAIL_MOCK_FALLBACK"]
           : []),
+        ...(runtimeSlashCommandRegistryFallbackUsed
+          ? ["RUNTIME_SLASH_COMMAND_REGISTRY_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1189,7 +1212,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeSubagentIsolationFallbackUsed ||
         runtimeWorktreePerAgentFallbackUsed ||
         runtimeLspDiagnosticsFallbackUsed ||
-        runtimePreviewRailFallbackUsed,
+        runtimePreviewRailFallbackUsed ||
+        runtimeSlashCommandRegistryFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1298,6 +1322,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeWorktreePerAgent === undefined ||
     runtimeLspDiagnostics === undefined ||
     runtimePreviewRail === undefined ||
+    runtimeSlashCommandRegistry === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1340,8 +1365,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeSubagentIsolationResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeWorktreePerAgentResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeLspDiagnosticsResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimePreviewRailResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 22;
+    (runtimePreviewRailResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeSlashCommandRegistryResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 23;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1455,6 +1481,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       mockControlCenterData.runtimeLspDiagnostics,
     runtimePreviewRail:
       safeRuntimePreviewRail ?? mockControlCenterData.runtimePreviewRail,
+    runtimeSlashCommandRegistry:
+      safeRuntimeSlashCommandRegistry ??
+      mockControlCenterData.runtimeSlashCommandRegistry,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1552,6 +1581,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeWorktreePerAgentFallbackUsed &&
     !runtimeLspDiagnosticsFallbackUsed &&
     !runtimePreviewRailFallbackUsed &&
+    !runtimeSlashCommandRegistryFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1597,6 +1627,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeWorktreePerAgentFallbackUsed ||
     runtimeLspDiagnosticsFallbackUsed ||
     runtimePreviewRailFallbackUsed ||
+    runtimeSlashCommandRegistryFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1679,6 +1710,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimePreviewRailFallbackUsed) {
     degradedSafeMessage =
       "Runtime preview rail posture was unavailable or unsafe; non-authoritative mock fallback kept browser automation, raw sensitive file display, screenshot capture, and direct runtime payload rendering blocked.";
+  } else if (runtimeSlashCommandRegistryFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime slash command registry posture was unavailable or unsafe; non-authoritative mock fallback kept command execution, runtime invocation, state mutation, and raw prompt/response persistence blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -4926,6 +4960,99 @@ function isSafeRuntimePreviewRail(
         slot.raw_path_persisted === false &&
         slot.raw_file_content_persisted === false &&
         slot.raw_runtime_payload_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeSlashCommandRegistry(
+  value: RuntimeSlashCommandRegistryReadModel | undefined,
+): value is RuntimeSlashCommandRegistryReadModel {
+  if (value === undefined || !Array.isArray(value.commands)) {
+    return false;
+  }
+  const allowedStatuses = new Set([
+    "metadata_ready",
+    "disabled_requires_exact_lane",
+    "blocked_high_authority",
+  ]);
+  const allowedAuthorityClasses = new Set([
+    "read_only_metadata",
+    "proposal_only",
+    "approval_required_future_lane",
+    "blocked_high_authority",
+  ]);
+  const allowedSideEffectClasses = new Set([
+    "none",
+    "proposal_only",
+    "command_execution",
+    "model_call",
+    "local_mutation",
+    "runtime_invocation",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeSlashCommandRegistryReadModel> = [
+    "chat_trigger_enabled",
+    "runtime_invocation_enabled",
+    "state_mutation_enabled",
+    "shell_execution_enabled",
+    "provider_call_enabled",
+    "browser_automation_enabled",
+    "connector_write_enabled",
+    "control_center_mints_authority",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_slash_command_registry.v1" &&
+    value.status === "metadata_registry_all_commands_disabled" &&
+    value.route_ref === "GET /api/runtime/slash-command-registry" &&
+    value.cli_ref === "uaa runtime inspect-slash-command-registry" &&
+    value.command_count === value.commands.length &&
+    value.metadata_ready_count ===
+      value.commands.filter((command) => command.command_status === "metadata_ready")
+        .length &&
+    value.disabled_count ===
+      value.commands.filter(
+        (command) => command.command_status === "disabled_requires_exact_lane",
+      ).length &&
+    value.blocked_count ===
+      value.commands.filter(
+        (command) => command.command_status === "blocked_high_authority",
+      ).length &&
+    value.command_contract_visible === true &&
+    value.side_effect_class_visible === true &&
+    value.approval_policy_visible === true &&
+    value.idempotency_policy_visible === true &&
+    value.receipt_plan_visible === true &&
+    value.cli_api_alignment_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:slash-command-registry-no-chat-execution",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.commands.every(
+      (command) =>
+        allowedStatuses.has(command.command_status) &&
+        allowedAuthorityClasses.has(command.authority_class) &&
+        allowedSideEffectClasses.has(command.side_effect_class) &&
+        isNonEmptyStringArray(command.blocked_authority_refs) &&
+        isNonEmptyStringArray(command.promotion_path_refs) &&
+        isNonEmptyStringArray(command.next_safe_action_refs) &&
+        command.visible_in_control_center === true &&
+        command.registered_metadata_only === true &&
+        command.chat_trigger_enabled === false &&
+        command.runtime_invocation_enabled === false &&
+        command.state_mutation_enabled === false &&
+        command.shell_execution_enabled === false &&
+        command.provider_call_enabled === false &&
+        command.browser_automation_enabled === false &&
+        command.connector_write_enabled === false &&
+        command.control_center_mints_authority === false &&
+        command.raw_prompt_persisted === false &&
+        command.raw_response_persisted === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

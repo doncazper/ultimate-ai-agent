@@ -19,6 +19,7 @@ import type {
   RuntimePromptStabilityTiersReadModel,
   RuntimePreviewRailReadModel,
   RuntimeReadinessReport,
+  RuntimeSlashCommandRegistryReadModel,
   RuntimeUsageCostAnalyticsReadModel,
   RuntimeVirtualProviderMoaReadModel,
   RuntimeWorktreePerAgentReadModel,
@@ -50,6 +51,7 @@ export function RuntimeReadinessPanel({
   worktreePerAgent,
   lspDiagnostics,
   previewRail,
+  slashCommandRegistry,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -74,6 +76,7 @@ export function RuntimeReadinessPanel({
   worktreePerAgent: RuntimeWorktreePerAgentReadModel;
   lspDiagnostics: RuntimeLspDiagnosticsReadModel;
   previewRail: RuntimePreviewRailReadModel;
+  slashCommandRegistry: RuntimeSlashCommandRegistryReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -1198,6 +1201,126 @@ export function RuntimeReadinessPanel({
           {previewRail.blocked_authority_refs.slice(0, 6).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Slash commands</p>
+            <h3>Governed registry</h3>
+          </div>
+          <span className="status-pill compact">
+            {slashCommandRegistry.status}
+          </span>
+        </div>
+        <p>{slashCommandRegistry.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{slashCommandRegistry.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{slashCommandRegistry.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Commands</dt>
+            <dd>{slashCommandRegistry.command_count}</dd>
+          </div>
+          <div>
+            <dt>Metadata ready</dt>
+            <dd>{slashCommandRegistry.metadata_ready_count}</dd>
+          </div>
+          <div>
+            <dt>Disabled</dt>
+            <dd>{slashCommandRegistry.disabled_count}</dd>
+          </div>
+          <div>
+            <dt>Blocked</dt>
+            <dd>{slashCommandRegistry.blocked_count}</dd>
+          </div>
+          <div>
+            <dt>Chat execution</dt>
+            <dd>
+              {slashCommandRegistry.chat_trigger_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Runtime invocation</dt>
+            <dd>
+              {slashCommandRegistry.runtime_invocation_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Command</th>
+                <th>Status</th>
+                <th>Authority</th>
+                <th>Side effect</th>
+                <th>Receipt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {slashCommandRegistry.commands.map((command) => (
+                <tr key={command.command_ref}>
+                  <td>
+                    {command.trigger_label} {command.display_label}
+                  </td>
+                  <td>{command.command_status}</td>
+                  <td>{command.authority_class}</td>
+                  <td>{command.side_effect_class}</td>
+                  <td>{command.receipt_plan_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>Approval policy</dt>
+            <dd>
+              {slashCommandRegistry.approval_policy_visible
+                ? "visible"
+                : "missing"}
+            </dd>
+          </div>
+          <div>
+            <dt>Idempotency</dt>
+            <dd>
+              {slashCommandRegistry.idempotency_policy_visible
+                ? "visible"
+                : "missing"}
+            </dd>
+          </div>
+          <div>
+            <dt>State mutation</dt>
+            <dd>
+              {slashCommandRegistry.state_mutation_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Raw prompt</dt>
+            <dd>
+              {slashCommandRegistry.raw_prompt_persisted ? "stored" : "omitted"}
+            </dd>
+          </div>
+        </dl>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {slashCommandRegistry.blocked_authority_refs
+            .slice(0, 6)
+            .map((ref) => (
+              <li key={ref}>{ref}</li>
+            ))}
         </ul>
       </article>
       <article className="info-card">

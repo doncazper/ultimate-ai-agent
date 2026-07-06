@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `227`.
+Current OpenAPI path count: `228`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 156 |
+| `local_sensitive` | 157 |
 | `mutating_requires_authority` | 42 |
 
 Allowed current side-effect classes are:
@@ -267,6 +267,15 @@ capture, raw sensitive file display, direct runtime payload rendering, file
 reads/writes, shell execution, provider calls, Control Center authority
 minting, raw path persistence, raw file-content persistence, and raw runtime
 payload persistence remain blocked.
+`GET /api/runtime/slash-command-registry` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 36 slash command registry posture. It
+returns command refs, trigger labels, command status, authority class,
+side-effect class, docs refs, approval policy refs, idempotency policy refs,
+receipt-plan refs, proof refs, verifier refs, promotion refs, and blocked
+authority refs only. Chat slash-command execution, runtime invocation, state
+mutation, shell execution, provider calls, browser automation, connector
+writes, Control Center authority minting, raw prompt persistence, and raw
+response persistence remain blocked.
 `GET /api/runtime/context-references` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 16 context-reference posture. It returns
 safe-ref grammar, preview refs, budget estimates, why-included refs, and

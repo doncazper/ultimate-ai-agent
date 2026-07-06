@@ -46,6 +46,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_worktree_per_agent_read_model,
     build_runtime_lsp_diagnostics_read_model,
     build_runtime_preview_rail_read_model,
+    build_runtime_slash_command_registry_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -863,6 +864,43 @@ def _print_preview_rail(read_model: dict[str, Any]) -> None:
         print(f"  preview={slot['bounded_preview_ref']}")
         print(f"  receipt={slot['receipt_plan_ref']}")
         print(f"  proof={slot['proof_ref']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_slash_command_registry(read_model: dict[str, Any]) -> None:
+    print("Runtime slash command registry")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Commands: "
+        f"total={read_model['command_count']} "
+        f"metadata_ready={read_model['metadata_ready_count']} "
+        f"disabled={read_model['disabled_count']} "
+        f"blocked={read_model['blocked_count']}"
+    )
+    print(
+        "Execution flags: "
+        f"chat={read_model['chat_trigger_enabled']} "
+        f"runtime={read_model['runtime_invocation_enabled']} "
+        f"mutation={read_model['state_mutation_enabled']} "
+        f"shell={read_model['shell_execution_enabled']}"
+    )
+    print("Registered commands:")
+    for command in read_model["commands"]:
+        print(
+            f"- {command['trigger_label']} {command['display_label']}: "
+            f"status={command['command_status']} "
+            f"authority={command['authority_class']} "
+            f"side_effect={command['side_effect_class']}"
+        )
+        print(f"  approval={command['approval_policy_ref']}")
+        print(f"  receipt={command['receipt_plan_ref']}")
+        print(f"  proof={command['proof_ref']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1726,6 +1764,33 @@ def _inspect_preview_rail(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_preview_rail(read_model)
+    return 0
+
+
+def _inspect_slash_command_registry(args: argparse.Namespace) -> int:
+    read_model = build_runtime_slash_command_registry_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-slash-command-registry",
+        "runtime_slash_command_registry": read_model,
+        "metadata_only": True,
+        "safe_refs_only": True,
+        "raw_prompts_omitted": True,
+        "raw_responses_omitted": True,
+        "command_execution_performed": False,
+        "runtime_invocation_performed": False,
+        "state_mutation_performed": False,
+        "shell_execution_performed": False,
+        "provider_call_performed": False,
+        "browser_automation_performed": False,
+        "connector_write_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_slash_command_registry(read_model)
     return 0
 
 
@@ -2809,6 +2874,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref preview rail posture as JSON.",
     )
     preview_rail.set_defaults(func=_inspect_preview_rail)
+
+    slash_command_registry = subparsers.add_parser(
+        "inspect-slash-command-registry",
+        help="Inspect governed slash command metadata without execution.",
+    )
+    slash_command_registry.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the governed slash command registry as JSON.",
+    )
+    slash_command_registry.set_defaults(func=_inspect_slash_command_registry)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",
