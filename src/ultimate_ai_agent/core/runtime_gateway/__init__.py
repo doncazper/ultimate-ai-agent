@@ -478,6 +478,20 @@ from ultimate_ai_agent.core.runtime_gateway.plugin_metadata_posture import (
     RuntimePluginSurfaceStatus,
     build_runtime_plugin_metadata_posture_read_model,
 )
+from ultimate_ai_agent.core.runtime_gateway.skill_marketplace_posture import (
+    RUNTIME_SKILL_MARKETPLACE_BLOCKED_AUTHORITY_REFS,
+    RUNTIME_SKILL_MARKETPLACE_POSTURE_CLI_REF,
+    RUNTIME_SKILL_MARKETPLACE_POSTURE_CONTRACT_REF,
+    RUNTIME_SKILL_MARKETPLACE_POSTURE_DOC_REF,
+    RUNTIME_SKILL_MARKETPLACE_POSTURE_PROOF_REF,
+    RUNTIME_SKILL_MARKETPLACE_POSTURE_SNAPSHOT_REF,
+    RUNTIME_SKILL_MARKETPLACE_POSTURE_VERIFIER_REF,
+    RuntimeSkillMarketplacePostureReadModel,
+    RuntimeSkillMarketplaceStage,
+    RuntimeSkillMarketplaceStageKind,
+    RuntimeSkillMarketplaceStageStatus,
+    build_runtime_skill_marketplace_posture_read_model,
+)
 from ultimate_ai_agent.core.runtime_gateway.context_references import (
     RUNTIME_CONTEXT_REFERENCES_BLOCKED_AUTHORITY_REFS,
     RUNTIME_CONTEXT_REFERENCES_CLI_REF,
@@ -927,6 +941,7 @@ __all__ = [
     "build_runtime_messaging_gateway_posture_read_model",
     "build_runtime_remote_execution_posture_read_model",
     "build_runtime_plugin_metadata_posture_read_model",
+    "build_runtime_skill_marketplace_posture_read_model",
     "build_runtime_context_references_read_model",
     "build_runtime_checkpoint_rollback_read_model",
     "classify_sensitive_context_candidate",
