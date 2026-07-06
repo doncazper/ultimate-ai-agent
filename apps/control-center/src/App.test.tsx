@@ -33,7 +33,11 @@ import {
   resetControlCenterReadLimiterForTests,
   setLocalApiBearerForSession,
 } from "./api/client";
-import type { AuthorityLease, AuthorityLeaseReceipt } from "./api/types";
+import type {
+  AuthorityDecisionPreview,
+  AuthorityLease,
+  AuthorityLeaseReceipt,
+} from "./api/types";
 import { EmptyState, ErrorState, LoadingState } from "./components/DataState";
 import {
   MOCK_CONTROL_CENTER_ROUTE_COUNT,
@@ -10771,9 +10775,80 @@ describe("Web Control Center shell", () => {
       receipt_ref: "receipt-ref:authority-lease:app-test-revoked",
       safe_summary: "Authority lease revoked for app test.",
     };
+    const authorityPreview: AuthorityDecisionPreview = {
+      schema_version: "uaa-authority-decision-preview.v1",
+      preview_ref: "authority-decision-preview-ref:app-test-workspace-execute",
+      decision: {
+        schema_version: "uaa-authority-state.v1",
+        decision_ref: "authority-policy-decision-ref:app-test-workspace-execute",
+        action_ref: "authority-action-ref:control-center-preview-workspace-execute",
+        outcome: "degrade_to_draft",
+        domain: "workspace",
+        capability: "execute",
+        lease_ref: null,
+        matched_mode: null,
+        required_mode: "approved_safe_local_work_session",
+        required_domain_refs: ["authority-domain-ref:workspace"],
+        required_capability_refs: ["authority-capability-ref:execute"],
+        reason_refs: [
+          "reason-ref:authority:no-active-lease-for-domain-capability",
+        ],
+        operator_message:
+          "Requires Approved safe local work with Workspace execute domain scope.",
+        known_authority: false,
+        unsupported_adapter: false,
+        receipts_required: true,
+        audit_required: true,
+        redaction_required: true,
+        rollback_ref: "rollback-ref:authority-policy:app-test-workspace-execute",
+        safe_disable_ref:
+          "safe-disable-ref:authority-policy:app-test-workspace-execute",
+        kill_switch_ref: "kill-switch-ref:authority-lease-local",
+        receipt_ref: null,
+        audit_record_ref: "audit-ref:authority-policy:app-test-workspace-execute",
+        redactions_applied: ["safe_refs_only", "credentials_omitted"],
+        decided_at: "2026-07-06T00:00:00Z",
+      },
+      active_lease_refs: ["authority-lease-ref:default-read-only-session"],
+      preview_receipt_ref:
+        "receipt-ref:authority-decision-preview:app-test-workspace-execute",
+      audit_record_ref:
+        "audit-ref:authority-decision-preview:app-test-workspace-execute",
+      operator_summary:
+        "Authority decision preview evaluated active lease scope without executing or mutating anything.",
+      execution_performed: false,
+      mutation_performed: false,
+      safe_refs_only: true,
+      raw_paths_included: false,
+      raw_prompt_included: false,
+      raw_response_included: false,
+      raw_provider_payload_included: false,
+      unknown_authority_default: "deny",
+      unsupported_adapters_claimed_execution: false,
+      receipts_required: true,
+      audit_required: true,
+      redaction_required: true,
+      redactions_applied: ["safe_refs_only", "credentials_omitted"],
+    };
     let settingsStatus = mockControlCenterData.settingsStatus;
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
+      if (
+        options?.method === "POST" &&
+        urlText.endsWith(API_ENDPOINTS.runtimeAuthorityDecisionPreview)
+      ) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            success: true,
+            data: authorityPreview,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
       if (
         options?.method === "POST" &&
         urlText.endsWith(API_ENDPOINTS.runtimeAuthorityLeases)
@@ -10936,8 +11011,40 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Authority mode controls")).toBeInTheDocument();
     expect(
+      screen.getByLabelText("Authority decision preview controls"),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("button", { name: "Full machine" }),
     ).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Workspace command" }));
+    const previewResult = await screen.findByRole("status", {
+      name: /Authority decision preview degrade_to_draft/i,
+    });
+    expect(previewResult).toHaveTextContent("workspace / execute");
+    expect(previewResult).toHaveTextContent(
+      "Requires Approved safe local work with Workspace execute domain scope.",
+    );
+    expect(previewResult).toHaveTextContent("approved safe local work session");
+    expect(previewResult).toHaveTextContent("not performed");
+    expect(previewResult).toHaveTextContent(
+      "receipt-ref:authority-decision-preview:app-test-workspace-execute",
+    );
+    expect(previewResult).toHaveTextContent("authority-domain-ref:workspace");
+    expect(previewResult).toHaveTextContent("authority-capability-ref:execute");
+    const previewCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).includes(API_ENDPOINTS.runtimeAuthorityDecisionPreview) &&
+        init?.method === "POST",
+    );
+    expect(previewCall).toBeDefined();
+    const previewRequest = previewCall?.[1] as RequestInit;
+    expect(String(previewRequest.body)).toContain(
+      "authority-action-ref:control-center-preview-workspace-execute",
+    );
+    expect(JSON.stringify(previewRequest.headers)).not.toContain(
+      "X-UAA-Idempotency-Key",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Safe local work" }));
     const issueResult = await screen.findByLabelText(

@@ -4,6 +4,7 @@ import {
   fetchChatTurnReceipt,
   inspectLocalModelsRoute,
   issueAuthorityLease,
+  previewAuthorityDecision,
   recordChatHandoff,
   recordChatTurnReceipt,
   requestRedactedLocalChatProbe,
@@ -20,6 +21,8 @@ import type {
   ControlCenterSettingsAuthorityPosture,
   ControlCenterSettingsFeatureFlagPosture,
   ControlCenterSettingsKillSwitchPosture,
+  AuthorityActionRequest,
+  AuthorityDecisionPreview,
   AuthorityLeaseMutationResult,
   AuthorityTrustMode,
   LocalModelsInspectionStatus,
@@ -105,6 +108,77 @@ const AUTHORITY_MODE_OPTIONS: Array<{
     summary: "Planned until browser, payments, apps, and external adapters are implemented.",
     requestedDomains: {},
     disabled: true,
+  },
+];
+const AUTHORITY_DECISION_PREVIEW_OPTIONS: Array<{
+  key: string;
+  label: string;
+  summary: string;
+  request: AuthorityActionRequest;
+}> = [
+  {
+    key: "workspace-execute",
+    label: "Workspace command",
+    summary: "Would an exact RuntimeGateway workspace command be allowed now?",
+    request: {
+      action_ref: "authority-action-ref:control-center-preview-workspace-execute",
+      domain: "workspace",
+      capability: "execute",
+      safe_summary:
+        "Preview exact workspace command authority without executing anything.",
+      route_ref: "POST /api/runtime/command/run",
+      requested_mode: "approved_safe_local_work_session",
+      draft_fallback_available: true,
+    },
+  },
+  {
+    key: "file-prepare",
+    label: "File proposal",
+    summary: "Would a safe file write proposal be available now?",
+    request: {
+      action_ref: "authority-action-ref:control-center-preview-files-prepare",
+      domain: "files",
+      capability: "prepare",
+      safe_summary:
+        "Preview file proposal authority without reading raw paths or applying changes.",
+      route_ref: "POST /files/write/propose",
+      requested_mode: "ask_before_changes",
+      draft_fallback_available: true,
+    },
+  },
+  {
+    key: "browser-click",
+    label: "Browser click",
+    summary: "What does the lease system say about browser control today?",
+    request: {
+      action_ref: "authority-action-ref:control-center-preview-browser-click",
+      domain: "browser",
+      capability: "click",
+      safe_summary:
+        "Preview browser click authority without browser automation.",
+      route_ref: "browser-action-ref:click",
+      requested_mode: "full_machine_access_session",
+      draft_fallback_available: true,
+      unsupported_adapter: true,
+    },
+  },
+  {
+    key: "purchase-budget",
+    label: "Budgeted purchase",
+    summary: "What would a delegated shopping/payment mission require?",
+    request: {
+      action_ref:
+        "authority-action-ref:control-center-preview-shopping-payment-budget",
+      domain: "shopping_payments",
+      capability: "purchase_under_budget",
+      safe_summary:
+        "Preview delegated purchase authority without opening a browser or charging anything.",
+      resource_refs: ["merchant-ref:review-required", "budget-ref:max-total"],
+      route_ref: "mission-action-ref:shopping-payment",
+      requested_mode: "delegated_mission_autonomous_window",
+      draft_fallback_available: true,
+      unsupported_adapter: true,
+    },
   },
 ];
 const TASK_DECOMPOSITION_ROUTE_REFS = [
@@ -1463,6 +1537,11 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
     useState<AuthorityTrustMode>();
   const [authorityRevoking, setAuthorityRevoking] = useState(false);
   const [authorityError, setAuthorityError] = useState<string>();
+  const [authorityPreview, setAuthorityPreview] =
+    useState<AuthorityDecisionPreview>();
+  const [authorityPreviewPendingKey, setAuthorityPreviewPendingKey] =
+    useState<string>();
+  const [authorityPreviewError, setAuthorityPreviewError] = useState<string>();
   useEffect(() => {
     setSettingsSnapshot(data.settingsStatus);
   }, [data.settingsStatus]);
@@ -1525,6 +1604,24 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
       );
     } finally {
       setAuthorityRevoking(false);
+    }
+  }
+  async function handleAuthorityPreview(
+    option: (typeof AUTHORITY_DECISION_PREVIEW_OPTIONS)[number],
+  ) {
+    setAuthorityPreviewPendingKey(option.key);
+    setAuthorityPreviewError(undefined);
+    try {
+      const result = await previewAuthorityDecision(option.request);
+      setAuthorityPreview(result);
+    } catch (error) {
+      setAuthorityPreviewError(
+        error instanceof Error
+          ? error.message
+          : "Authority decision preview was not available.",
+      );
+    } finally {
+      setAuthorityPreviewPendingKey(undefined);
     }
   }
   const settingsStatusRecord = settingsStatus as unknown as Record<
@@ -1753,6 +1850,129 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
             {authorityError ? (
               <p className="safe-copy" role="alert">
                 {authorityError}
+              </p>
+            ) : null}
+          </div>
+        </article>
+        <article className="panel">
+          <div className="panel-heading">
+            <h3>Decision preview</h3>
+            <span>{authorityPreview?.decision.outcome.replaceAll("_", " ") ?? "ready"}</span>
+          </div>
+          <p>
+            Preview the active lease decision for a concrete action before the
+            operator changes mode. The preview route records safe refs only and
+            does not execute or mutate.
+          </p>
+          <div
+            className="operator-action-panel"
+            aria-label="Authority decision preview controls"
+          >
+            <div className="action-button-row">
+              {AUTHORITY_DECISION_PREVIEW_OPTIONS.map((option) => (
+                <button
+                  className="secondary-button"
+                  disabled={authorityPreviewPendingKey !== undefined}
+                  key={option.key}
+                  onClick={() => void handleAuthorityPreview(option)}
+                  type="button"
+                >
+                  {authorityPreviewPendingKey === option.key
+                    ? `Previewing ${option.label}`
+                    : option.label}
+                </button>
+              ))}
+            </div>
+            <ul className="compact-list">
+              {AUTHORITY_DECISION_PREVIEW_OPTIONS.map((option) => (
+                <li key={`${option.key}-summary`}>
+                  <strong>{option.label}</strong>
+                  <small>{option.summary}</small>
+                </li>
+              ))}
+            </ul>
+            {authorityPreview ? (
+              <div
+                className={`surface-state-card ${settingsPostureClass(
+                  authorityPreview.decision.outcome === "allow"
+                    ? "Partial"
+                    : authorityPreview.decision.outcome === "ask" ||
+                        authorityPreview.decision.outcome === "degrade_to_draft"
+                      ? "Degraded"
+                      : "Blocked",
+                )}`}
+                aria-label={`Authority decision preview ${authorityPreview.decision.outcome}`}
+                role="status"
+              >
+                <span className="surface-state-kind">
+                  {authorityPreview.decision.outcome.replaceAll("_", " ")}
+                </span>
+                <strong>
+                  {authorityPreview.decision.domain.replaceAll("_", " ")} /{" "}
+                  {authorityPreview.decision.capability.replaceAll("_", " ")}
+                </strong>
+                <p>{authorityPreview.decision.operator_message}</p>
+                <dl className="metadata-list">
+                  <div>
+                    <dt>Required mode</dt>
+                    <dd>
+                      {authorityPreview.decision.required_mode?.replaceAll(
+                        "_",
+                        " ",
+                      ) ?? "active lease"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Known authority</dt>
+                    <dd>
+                      {authorityPreview.decision.known_authority
+                        ? "yes"
+                        : "no"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Execution</dt>
+                    <dd>
+                      {authorityPreview.execution_performed
+                        ? "performed"
+                        : "not performed"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Mutation</dt>
+                    <dd>
+                      {authorityPreview.mutation_performed
+                        ? "performed"
+                        : "not performed"}
+                    </dd>
+                  </div>
+                </dl>
+                <div
+                  className="note-list"
+                  aria-label="Authority decision preview refs"
+                >
+                  <span>{authorityPreview.preview_receipt_ref}</span>
+                  <span>{authorityPreview.audit_record_ref}</span>
+                  <span>{authorityPreview.decision.decision_ref}</span>
+                  <span>
+                    {authorityPreview.decision.lease_ref ??
+                      "authority-lease-ref:required"}
+                  </span>
+                  {authorityPreview.decision.required_domain_refs.map((ref) => (
+                    <span key={ref}>{ref}</span>
+                  ))}
+                  {authorityPreview.decision.required_capability_refs.map((ref) => (
+                    <span key={ref}>{ref}</span>
+                  ))}
+                  {authorityPreview.decision.reason_refs.map((ref) => (
+                    <span key={ref}>{ref}</span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {authorityPreviewError ? (
+              <p className="safe-copy" role="alert">
+                {authorityPreviewError}
               </p>
             ) : null}
           </div>
