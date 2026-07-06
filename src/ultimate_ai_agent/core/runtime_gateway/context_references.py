@@ -14,6 +14,12 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import GOVERNED_RUNTIME_RE
 from ultimate_ai_agent.core.runtime_gateway.delegation import (
     RUNTIME_DELEGATION_CONTROL_CENTER_REF,
 )
+from ultimate_ai_agent.core.runtime_gateway.sensitive_context import (
+    SENSITIVE_CONTEXT_BLOCKED_AUTHORITY_REFS,
+    SENSITIVE_CONTEXT_CLASSIFIER_REF,
+    SENSITIVE_CONTEXT_GUARD_REF,
+    validate_sensitive_context_candidate_allowed,
+)
 
 
 RUNTIME_CONTEXT_REFERENCES_CONTRACT_REF = (
@@ -104,6 +110,9 @@ class RuntimeContextReference(BaseModel):
     shell_execution_performed: bool = False
     browser_automation_performed: bool = False
     production_authority_performed: bool = False
+    sensitive_context_guard_ref: str = SENSITIVE_CONTEXT_GUARD_REF
+    sensitive_context_classifier_ref: str = SENSITIVE_CONTEXT_CLASSIFIER_REF
+    sensitive_context_guard_applied: bool = True
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
@@ -111,6 +120,14 @@ class RuntimeContextReference(BaseModel):
     def validate_reference(self) -> "RuntimeContextReference":
         validate_execution_ref(self.context_ref, "context_ref")
         validate_execution_ref(self.source_ref, "source_ref")
+        validate_execution_ref(
+            self.sensitive_context_guard_ref,
+            "sensitive_context_guard_ref",
+        )
+        validate_execution_ref(
+            self.sensitive_context_classifier_ref,
+            "sensitive_context_classifier_ref",
+        )
         for field_name in (
             "why_included_refs",
             "evidence_refs",
@@ -135,6 +152,19 @@ class RuntimeContextReference(BaseModel):
                 raise ValueError("RUNTIME_CONTEXT_REF_BLOCKED_PREVIEW_DENIED")
             if not self.blocked_authority_refs:
                 raise ValueError("RUNTIME_CONTEXT_REF_BLOCKER_REQUIRED")
+        if not self.sensitive_context_guard_applied:
+            raise ValueError("RUNTIME_CONTEXT_REF_SENSITIVE_GUARD_REQUIRED")
+        for candidate, candidate_kind in (
+            (self.context_ref, "context-ref"),
+            (self.source_ref, "source-ref"),
+        ):
+            validate_sensitive_context_candidate_allowed(
+                candidate,
+                candidate_kind=candidate_kind,
+                status=str(self.status),
+                preview_available=self.preview_available,
+                blocked_authority_refs=self.blocked_authority_refs,
+            )
         denied_flags = {
             "live_url_fetch_performed": self.live_url_fetch_performed,
             "raw_path_persisted": self.raw_path_persisted,
@@ -174,6 +204,14 @@ class RuntimeContextReferencePostureReadModel(BaseModel):
         "Context references are operator-selected safe refs with bounded "
         "previews, budget estimates, why-included refs, and blocked live-fetch "
         "or automatic injection posture."
+    )
+    sensitive_context_guard_ref: str = SENSITIVE_CONTEXT_GUARD_REF
+    sensitive_context_classifier_ref: str = SENSITIVE_CONTEXT_CLASSIFIER_REF
+    sensitive_context_blocking_enabled: bool = True
+    sensitive_context_bypass_enabled: bool = False
+    sensitive_context_bypass_approval_required: bool = True
+    sensitive_context_blocked_authority_refs: list[str] = Field(
+        default_factory=lambda: list(SENSITIVE_CONTEXT_BLOCKED_AUTHORITY_REFS)
     )
     references: list[RuntimeContextReference]
     reference_count: int = 0
@@ -224,6 +262,11 @@ class RuntimeContextReferencePostureReadModel(BaseModel):
             (self.control_center_ref, "control_center_ref"),
             (self.safe_ref_grammar_ref, "safe_ref_grammar_ref"),
             (self.budget_state_ref, "budget_state_ref"),
+            (self.sensitive_context_guard_ref, "sensitive_context_guard_ref"),
+            (
+                self.sensitive_context_classifier_ref,
+                "sensitive_context_classifier_ref",
+            ),
         ]:
             validate_execution_ref(value, field_name)
         for field_name in (
@@ -232,6 +275,7 @@ class RuntimeContextReferencePostureReadModel(BaseModel):
             "proof_refs",
             "verifier_refs",
             "next_safe_action_refs",
+            "sensitive_context_blocked_authority_refs",
         ):
             for ref in getattr(self, field_name):
                 validate_execution_ref(ref, field_name)
@@ -305,6 +349,16 @@ class RuntimeContextReferencePostureReadModel(BaseModel):
             raise ValueError(
                 "RUNTIME_CONTEXT_REFERENCES_AUTHORITY_DENIED: " + ", ".join(enabled)
             )
+        if not self.sensitive_context_blocking_enabled:
+            raise ValueError("RUNTIME_CONTEXT_REFERENCES_SENSITIVE_GUARD_REQUIRED")
+        if self.sensitive_context_bypass_enabled:
+            raise ValueError("RUNTIME_CONTEXT_REFERENCES_SENSITIVE_BYPASS_DENIED")
+        if not self.sensitive_context_bypass_approval_required:
+            raise ValueError("RUNTIME_CONTEXT_REFERENCES_BYPASS_APPROVAL_REQUIRED")
+        if set(SENSITIVE_CONTEXT_BLOCKED_AUTHORITY_REFS) - set(
+            self.sensitive_context_blocked_authority_refs
+        ):
+            raise ValueError("RUNTIME_CONTEXT_REFERENCES_SENSITIVE_BLOCKERS_REQUIRED")
         if RUNTIME_CONTEXT_REFERENCES_PROOF_REF not in self.proof_refs:
             raise ValueError("RUNTIME_CONTEXT_REFERENCES_PHASE_PROOF_REQUIRED")
         if not self.blocked_authority_refs:
@@ -482,6 +536,7 @@ def _default_references() -> list[RuntimeContextReference]:
             blocked_authority_refs=[
                 "blocked-authority:context-references-no-protected-config-read",
                 "blocked-authority:context-references-no-raw-path-persistence",
+                *SENSITIVE_CONTEXT_BLOCKED_AUTHORITY_REFS,
             ],
             preview_available=False,
         ),

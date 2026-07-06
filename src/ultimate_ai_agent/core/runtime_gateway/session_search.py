@@ -17,6 +17,12 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
 from ultimate_ai_agent.core.runtime_gateway.delegation import (
     RUNTIME_DELEGATION_CONTROL_CENTER_REF,
 )
+from ultimate_ai_agent.core.runtime_gateway.sensitive_context import (
+    SENSITIVE_CONTEXT_BLOCKED_AUTHORITY_REFS,
+    SENSITIVE_CONTEXT_CLASSIFIER_REF,
+    SENSITIVE_CONTEXT_GUARD_REF,
+    validate_sensitive_context_candidate_allowed,
+)
 
 
 RUNTIME_SESSION_SEARCH_CONTRACT_REF = (
@@ -82,6 +88,9 @@ class RuntimeSessionSearchResult(BaseModel):
     context_injection_authorized: bool = False
     action_execution_authorized: bool = False
     production_authority_enabled: bool = False
+    sensitive_context_guard_ref: str = SENSITIVE_CONTEXT_GUARD_REF
+    sensitive_context_classifier_ref: str = SENSITIVE_CONTEXT_CLASSIFIER_REF
+    sensitive_context_guard_applied: bool = True
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
@@ -93,6 +102,11 @@ class RuntimeSessionSearchResult(BaseModel):
             (self.recency_state_ref, "recency_state_ref"),
             (self.source_surface_ref, "source_surface_ref"),
             (self.attachable_context_ref, "attachable_context_ref"),
+            (self.sensitive_context_guard_ref, "sensitive_context_guard_ref"),
+            (
+                self.sensitive_context_classifier_ref,
+                "sensitive_context_classifier_ref",
+            ),
         ]:
             validate_execution_ref(value, field_name)
         if self.run_ref is not None:
@@ -132,6 +146,15 @@ class RuntimeSessionSearchResult(BaseModel):
             raise ValueError(
                 "RUNTIME_SESSION_SEARCH_AUTHORITY_DENIED: " + ", ".join(enabled)
             )
+        if not self.sensitive_context_guard_applied:
+            raise ValueError("RUNTIME_SESSION_SEARCH_SENSITIVE_GUARD_REQUIRED")
+        validate_sensitive_context_candidate_allowed(
+            self.attachable_context_ref,
+            candidate_kind="attachable-context-ref",
+            status="included",
+            preview_available=True,
+            blocked_authority_refs=self.blocked_authority_refs,
+        )
         if not self.why_matched_refs:
             raise ValueError("RUNTIME_SESSION_SEARCH_WHY_MATCHED_REQUIRED")
         if not self.blocked_authority_refs:
@@ -153,6 +176,14 @@ class RuntimeSessionSearchReadModel(BaseModel):
     safe_summary: str = (
         "Session and run search returns safe refs and bounded summaries only; "
         "it is separate from durable memory and never injects context by itself."
+    )
+    sensitive_context_guard_ref: str = SENSITIVE_CONTEXT_GUARD_REF
+    sensitive_context_classifier_ref: str = SENSITIVE_CONTEXT_CLASSIFIER_REF
+    sensitive_context_blocking_enabled: bool = True
+    sensitive_context_bypass_enabled: bool = False
+    sensitive_context_bypass_approval_required: bool = True
+    sensitive_context_blocked_authority_refs: list[str] = Field(
+        default_factory=lambda: list(SENSITIVE_CONTEXT_BLOCKED_AUTHORITY_REFS)
     )
     results: list[RuntimeSessionSearchResult]
     result_count: int = 0
@@ -194,6 +225,11 @@ class RuntimeSessionSearchReadModel(BaseModel):
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
             (self.query_ref, "query_ref"),
+            (self.sensitive_context_guard_ref, "sensitive_context_guard_ref"),
+            (
+                self.sensitive_context_classifier_ref,
+                "sensitive_context_classifier_ref",
+            ),
         ]:
             validate_execution_ref(value, field_name)
         for field_name in (
@@ -201,6 +237,7 @@ class RuntimeSessionSearchReadModel(BaseModel):
             "proof_refs",
             "verifier_refs",
             "next_safe_action_refs",
+            "sensitive_context_blocked_authority_refs",
         ):
             for ref in getattr(self, field_name):
                 validate_execution_ref(ref, field_name)
@@ -248,6 +285,16 @@ class RuntimeSessionSearchReadModel(BaseModel):
             raise ValueError(
                 "RUNTIME_SESSION_SEARCH_AUTHORITY_DENIED: " + ", ".join(enabled)
             )
+        if not self.sensitive_context_blocking_enabled:
+            raise ValueError("RUNTIME_SESSION_SEARCH_SENSITIVE_GUARD_REQUIRED")
+        if self.sensitive_context_bypass_enabled:
+            raise ValueError("RUNTIME_SESSION_SEARCH_SENSITIVE_BYPASS_DENIED")
+        if not self.sensitive_context_bypass_approval_required:
+            raise ValueError("RUNTIME_SESSION_SEARCH_BYPASS_APPROVAL_REQUIRED")
+        if set(SENSITIVE_CONTEXT_BLOCKED_AUTHORITY_REFS) - set(
+            self.sensitive_context_blocked_authority_refs
+        ):
+            raise ValueError("RUNTIME_SESSION_SEARCH_SENSITIVE_BLOCKERS_REQUIRED")
         if RUNTIME_SESSION_SEARCH_PROOF_REF not in self.proof_refs:
             raise ValueError("RUNTIME_SESSION_SEARCH_PHASE_PROOF_REQUIRED")
         if not self.memory_separation_posture:
@@ -435,6 +482,13 @@ def build_runtime_session_search_read_model(
 ) -> RuntimeSessionSearchReadModel:
     resolved_query_ref = query_ref or "query-ref:runtime-session-search:all-safe-refs"
     validate_execution_ref(resolved_query_ref, "query_ref")
+    validate_sensitive_context_candidate_allowed(
+        resolved_query_ref,
+        candidate_kind="query-ref",
+        status="included",
+        preview_available=True,
+        blocked_authority_refs=RUNTIME_SESSION_SEARCH_BLOCKED_AUTHORITY_REFS,
+    )
     bounded_limit = max(1, min(int(limit), 25))
     results = [
         result
