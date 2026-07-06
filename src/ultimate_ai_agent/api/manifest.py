@@ -678,6 +678,7 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/capability-discovery",
     "/api/runtime/delegation-adapter",
     "/api/runtime/governed-product-pilot-profile",
+    "/api/runtime/profiles",
     "/api/runtime/run-events",
     "/api/runtime/streaming-progress",
     "/api/runtime/staged-orchestration",

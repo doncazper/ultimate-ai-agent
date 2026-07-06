@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `207`.
+Current OpenAPI path count: `208`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 136 |
+| `local_sensitive` | 137 |
 | `mutating_requires_authority` | 42 |
 
 Allowed current side-effect classes are:
@@ -142,6 +142,14 @@ Runtime Adoption Phase 03 run/event posture for external runtime lifecycle
 state, UAA durable run state mapping, event-ref grammar, proof binding, blocked
 stop posture, and approval-wait proposals. It does not create delegated runs,
 stop delegated runs, resolve runtime approvals, or stream live events.
+`GET /api/runtime/profiles` exposes a protected read-only Python Core Hermes
+Runtime Adoption Phase 06 profile isolation posture for UAA-owned profile refs
+that stay separate from delegated runtime profile refs, safe display labels,
+role, configured status, authority posture, workspace and memory scope refs,
+toolset posture, profile health, blocked reasons, and proof refs. It does not
+create profiles, delete profiles, write runtime config, copy sensitive
+material, change runtime defaults, allow cross-profile authority bleed, expose
+raw delegated profile names, or expose workspace paths.
 Capability, invocation, policy, approval-ref, receipt, and safe-disable records
 store safe refs and redacted metadata only; model output is untrusted proposal
 text, and command output is redacted and bounded. Remote provider/model calls,

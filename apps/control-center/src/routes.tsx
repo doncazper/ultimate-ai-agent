@@ -525,6 +525,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           runEvents={data.runtimeRunEvents}
           approvalBridge={data.runtimeApprovalBridge}
           streamingProgress={data.runtimeStreamingProgress}
+          profiles={data.runtimeProfiles}
         />
       );
     case "/operator-loop":

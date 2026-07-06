@@ -36,6 +36,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_approval_bridge_read_model,
     build_runtime_capability_discovery_read_model,
     build_runtime_delegation_adapter_read_model,
+    build_runtime_profile_isolation_read_model,
     build_runtime_run_events_read_model,
     build_runtime_streaming_progress_read_model,
     build_runtime_action_signed_evidence,
@@ -384,6 +385,36 @@ def _print_streaming_progress(read_model: dict[str, Any]) -> None:
         print(f"- {ref}")
 
 
+def _print_profiles(read_model: dict[str, Any]) -> None:
+    print("Runtime profile isolation")
+    print(f"Status: {read_model['status']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Profiles: {read_model['profile_count']}")
+    print(f"Configured: {read_model['configured_profile_count']}")
+    print(f"Blocked: {read_model['blocked_profile_count']}")
+    print(
+        "Create/delete/config/default changes: "
+        f"{read_model['profile_creation_enabled']}/"
+        f"{read_model['profile_deletion_enabled']}/"
+        f"{read_model['runtime_config_write_enabled']}/"
+        f"{read_model['runtime_default_change_enabled']}"
+    )
+    print("Profiles:")
+    for profile in read_model["profiles"]:
+        print(
+            f"- {profile['display_label']} role={profile['role']} "
+            f"health={profile['profile_health']}"
+        )
+        print(f"  uaa={profile['profile_ref']}")
+        print(f"  delegated={profile['delegated_runtime_profile_ref']}")
+        print(f"  workspace={profile['workspace_scope_ref']}")
+        print(f"  memory={profile['memory_scope_ref']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
 def _print_invocation(record: Any) -> None:
     print("Governed runtime invocation")
     print(f"Invocation: {record.invocation_ref}")
@@ -659,6 +690,31 @@ def _inspect_streaming_progress(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_streaming_progress(read_model)
+    return 0
+
+
+def _inspect_profiles(args: argparse.Namespace) -> int:
+    read_model = build_runtime_profile_isolation_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-profiles",
+        "runtime_profile_isolation": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_profile_names_omitted": True,
+        "sensitive_material_omitted": True,
+        "execution_performed": False,
+        "profile_creation_performed": False,
+        "profile_deletion_performed": False,
+        "runtime_config_write_performed": False,
+        "sensitive_material_copy_performed": False,
+        "runtime_default_change_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_profiles(read_model)
     return 0
 
 
@@ -1352,6 +1408,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref runtime streaming progress read model as JSON.",
     )
     streaming_progress.set_defaults(func=_inspect_streaming_progress)
+
+    profiles = subparsers.add_parser(
+        "inspect-profiles",
+        help="Inspect isolated runtime profile metadata without changing config.",
+    )
+    profiles.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref runtime profile isolation read model as JSON.",
+    )
+    profiles.set_defaults(func=_inspect_profiles)
 
     bridge = subparsers.add_parser(
         "inspect-action-inbox-bridge",

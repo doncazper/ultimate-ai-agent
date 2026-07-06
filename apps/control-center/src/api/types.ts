@@ -8987,6 +8987,78 @@ export interface RuntimeStreamingProgressReadModel {
   redactions_applied: string[];
 }
 
+export interface RuntimeProfileIsolationRecord {
+  profile_ref: string;
+  delegated_runtime_profile_ref: string;
+  display_label: string;
+  role: "coding" | "research" | "operations" | "crm" | "review";
+  configured_status:
+    | "metadata_configured"
+    | "not_configured"
+    | "planned_disabled"
+    | "blocked";
+  authority_profile:
+    | "sealed"
+    | "read_only_proposal"
+    | "approval_required_future_lane";
+  authority_profile_ref: string;
+  workspace_scope_ref: string;
+  memory_scope_ref: string;
+  toolset_posture: string;
+  profile_health:
+    | "healthy_metadata_only"
+    | "unconfigured_blocked"
+    | "planned_blocked"
+    | "needs_operator_review";
+  isolated_from_profile_refs: string[];
+  configured_for_live_runtime: boolean;
+  can_create_runtime_profile: boolean;
+  can_delete_runtime_profile: boolean;
+  can_write_runtime_config: boolean;
+  can_copy_sensitive_material: boolean;
+  can_change_runtime_defaults: boolean;
+  can_execute_tools: boolean;
+  can_call_models: boolean;
+  can_write_memory: boolean;
+  can_access_workspace_paths: boolean;
+  cross_profile_authority_bleed_allowed: boolean;
+  safe_summary: string;
+  blocked_reason_refs: string[];
+  proof_refs: string[];
+  next_safe_action_refs: string[];
+}
+
+export interface RuntimeProfileIsolationReadModel {
+  schema_version: "runtime_profile_isolation.v1";
+  contract_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  status: string;
+  default_uaa_profile_ref: string;
+  profiles: RuntimeProfileIsolationRecord[];
+  profile_count: number;
+  configured_profile_count: number;
+  blocked_profile_count: number;
+  uaa_profile_refs_separate_from_delegated_runtime_refs: boolean;
+  profile_creation_enabled: boolean;
+  profile_deletion_enabled: boolean;
+  runtime_config_write_enabled: boolean;
+  sensitive_material_copy_enabled: boolean;
+  runtime_default_change_enabled: boolean;
+  cross_profile_authority_bleed_allowed: boolean;
+  control_center_mints_profiles: boolean;
+  safe_refs_only: boolean;
+  raw_profile_names_persisted: boolean;
+  raw_workspace_paths_persisted: boolean;
+  raw_sensitive_material_persisted: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  next_safe_action_refs: string[];
+  safe_summary: string;
+  redactions_applied: string[];
+}
+
 export interface RuntimeApprovalScopeValidationResult {
   validation_ref: string;
   requested_scope_ref: string;
@@ -9833,6 +9905,7 @@ export interface ControlCenterData {
   runtimeRunEvents: RuntimeRunEventsReadModel;
   runtimeApprovalBridge: RuntimeApprovalBridgeReadModel;
   runtimeStreamingProgress: RuntimeStreamingProgressReadModel;
+  runtimeProfiles: RuntimeProfileIsolationReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;
