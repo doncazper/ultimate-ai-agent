@@ -39,6 +39,7 @@ import type {
   RuntimeDelegationAdapterReadModel,
   RuntimeRunEventsReadModel,
   RuntimeStreamingProgressReadModel,
+  RuntimeProfileIsolationReadModel,
   RuntimeReadinessReport,
   ApiRouteInventory,
   FounderLoopActionDecisionKind,
@@ -322,6 +323,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeStreamingProgress,
     ),
   ] as const);
+  const runtimeProfilesSettledPromise = Promise.allSettled([
+    read<RuntimeProfileIsolationReadModel>(API_ENDPOINTS.runtimeProfiles),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -432,6 +436,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeApprovalBridgeSettledPromise;
   const runtimeStreamingProgressResult =
     await runtimeStreamingProgressSettledPromise;
+  const runtimeProfilesResult = await runtimeProfilesSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -449,6 +454,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeStreamingProgress = fulfilledValue(
     runtimeStreamingProgressResult[0],
   );
+  const runtimeProfiles = fulfilledValue(runtimeProfilesResult[0]);
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
@@ -524,6 +530,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeStreamingProgress,
   )
     ? runtimeStreamingProgress
+    : undefined;
+  const safeRuntimeProfiles = isSafeRuntimeProfileIsolation(runtimeProfiles)
+    ? runtimeProfiles
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -661,6 +670,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeApprovalBridge === undefined;
   const runtimeStreamingProgressFallbackUsed =
     safeRuntimeStreamingProgress === undefined;
+  const runtimeProfilesFallbackUsed = safeRuntimeProfiles === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -803,6 +813,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/run-events",
         "GET /api/runtime/approval-bridge",
         "GET /api/runtime/streaming-progress",
+        "GET /api/runtime/profiles",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -811,7 +822,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeCapabilityDiscovery !== undefined &&
         runtimeRunEvents !== undefined &&
         runtimeApprovalBridge !== undefined &&
-        runtimeStreamingProgress !== undefined,
+        runtimeStreamingProgress !== undefined &&
+        runtimeProfiles !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -828,6 +840,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeStreamingProgressFallbackUsed
           ? ["RUNTIME_STREAMING_PROGRESS_MOCK_FALLBACK"]
           : []),
+        ...(runtimeProfilesFallbackUsed
+          ? ["RUNTIME_PROFILES_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -836,7 +851,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeCapabilityDiscoveryFallbackUsed ||
         runtimeRunEventsFallbackUsed ||
         runtimeApprovalBridgeFallbackUsed ||
-        runtimeStreamingProgressFallbackUsed,
+        runtimeStreamingProgressFallbackUsed ||
+        runtimeProfilesFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -929,6 +945,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeRunEvents === undefined ||
     runtimeApprovalBridge === undefined ||
     runtimeStreamingProgress === undefined ||
+    runtimeProfiles === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -955,8 +972,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeCapabilityDiscoveryResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeRunEventsResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeApprovalBridgeResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeStreamingProgressResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 6;
+    (runtimeStreamingProgressResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeProfilesResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 7;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1026,6 +1044,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeStreamingProgress:
       safeRuntimeStreamingProgress ??
       mockControlCenterData.runtimeStreamingProgress,
+    runtimeProfiles:
+      safeRuntimeProfiles ?? mockControlCenterData.runtimeProfiles,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1107,6 +1127,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeRunEventsFallbackUsed &&
     !runtimeApprovalBridgeFallbackUsed &&
     !runtimeStreamingProgressFallbackUsed &&
+    !runtimeProfilesFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1136,6 +1157,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeRunEventsFallbackUsed ||
     runtimeApprovalBridgeFallbackUsed ||
     runtimeStreamingProgressFallbackUsed ||
+    runtimeProfilesFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1170,6 +1192,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeStreamingProgressFallbackUsed) {
     degradedSafeMessage =
       "Runtime streaming progress posture was unavailable or unsafe; non-authoritative mock fallback kept live runtime transport blocked.";
+  } else if (runtimeProfilesFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime profile isolation posture was unavailable or unsafe; non-authoritative mock fallback kept profile mutation blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1243,6 +1268,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ...(runtimeStreamingProgressFallbackUsed
         ? ["RUNTIME_STREAMING_PROGRESS_MOCK_FALLBACK"]
         : []),
+      ...(runtimeProfilesFallbackUsed ? ["RUNTIME_PROFILES_MOCK_FALLBACK"] : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
         : []),
@@ -3090,6 +3116,75 @@ function isSafeRuntimeStreamingProgress(
         event.raw_log_persisted === false &&
         event.raw_prompt_persisted === false &&
         event.raw_response_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeProfileIsolation(
+  value: RuntimeProfileIsolationReadModel | undefined,
+): value is RuntimeProfileIsolationReadModel {
+  if (value === undefined || !Array.isArray(value.profiles)) {
+    return false;
+  }
+  const deniedTopLevelFlags: Array<keyof RuntimeProfileIsolationReadModel> = [
+    "profile_creation_enabled",
+    "profile_deletion_enabled",
+    "runtime_config_write_enabled",
+    "sensitive_material_copy_enabled",
+    "runtime_default_change_enabled",
+    "cross_profile_authority_bleed_allowed",
+    "control_center_mints_profiles",
+    "raw_profile_names_persisted",
+    "raw_workspace_paths_persisted",
+    "raw_sensitive_material_persisted",
+  ];
+  const profileRefs = new Set(value.profiles.map((profile) => profile.profile_ref));
+  const delegatedRefs = new Set(
+    value.profiles.map((profile) => profile.delegated_runtime_profile_ref),
+  );
+  const roleSet = new Set(value.profiles.map((profile) => profile.role));
+  const hasRefOverlap = [...profileRefs].some((ref) => delegatedRefs.has(ref));
+  const configuredCount = value.profiles.filter(
+    (profile) => profile.configured_status === "metadata_configured",
+  ).length;
+  const blockedCount = value.profiles.length - configuredCount;
+  return (
+    value.schema_version === "runtime_profile_isolation.v1" &&
+    value.status === "profile_metadata_read_model_only" &&
+    value.uaa_profile_refs_separate_from_delegated_runtime_refs === true &&
+    value.safe_refs_only === true &&
+    value.profile_count === value.profiles.length &&
+    value.configured_profile_count === configuredCount &&
+    value.blocked_profile_count === blockedCount &&
+    hasRefOverlap === false &&
+    roleSet.has("coding") &&
+    roleSet.has("research") &&
+    roleSet.has("operations") &&
+    roleSet.has("crm") &&
+    roleSet.has("review") &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.profiles.every(
+      (profile) =>
+        typeof profile.profile_ref === "string" &&
+        typeof profile.delegated_runtime_profile_ref === "string" &&
+        profile.profile_ref !== profile.delegated_runtime_profile_ref &&
+        profile.configured_for_live_runtime === false &&
+        profile.can_create_runtime_profile === false &&
+        profile.can_delete_runtime_profile === false &&
+        profile.can_write_runtime_config === false &&
+        profile.can_copy_sensitive_material === false &&
+        profile.can_change_runtime_defaults === false &&
+        profile.can_execute_tools === false &&
+        profile.can_call_models === false &&
+        profile.can_write_memory === false &&
+        profile.can_access_workspace_paths === false &&
+        profile.cross_profile_authority_bleed_allowed === false &&
+        isNonEmptyStringArray(profile.blocked_reason_refs) &&
+        isNonEmptyStringArray(profile.proof_refs) &&
+        isNonEmptyStringArray(profile.next_safe_action_refs),
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

@@ -1929,6 +1929,13 @@
           "operation_id": "get_api_runtime_streaming_progress",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/profiles",
+          "operation_id": "get_api_runtime_profiles",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "side_effect_class": "mixed_validation_and_local_dev_workspace_only",
@@ -1956,7 +1963,8 @@
         "docs/runtime/UAA_HERMES_RUNTIME_CAPABILITY_DISCOVERY.md",
         "docs/runtime/UAA_HERMES_RUNTIME_RUN_EVENTS.md",
         "docs/runtime/UAA_HERMES_RUNTIME_APPROVAL_BRIDGE.md",
-        "docs/runtime/UAA_HERMES_RUNTIME_STREAMING_PROGRESS.md"
+        "docs/runtime/UAA_HERMES_RUNTIME_STREAMING_PROGRESS.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_PROFILE_ISOLATION.md"
       ],
       "owner": "runtime-readiness",
       "backend_contract_rationale": "backend-route-refs-present",

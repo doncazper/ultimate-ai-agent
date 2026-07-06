@@ -30,6 +30,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_approval_bridge_read_model,
     build_runtime_capability_discovery_read_model,
     build_runtime_delegation_adapter_read_model,
+    build_runtime_profile_isolation_read_model,
     build_runtime_run_events_read_model,
     build_runtime_streaming_progress_read_model,
     build_runtime_action_signed_evidence,
@@ -245,6 +246,20 @@ def get_api_runtime_streaming_progress() -> ResultEnvelope:
         evidence=[
             {"evidence_ref": "evidence-ref:runtime-streaming-progress:phase-05"}
         ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/profiles", response_model=ResultEnvelope)
+def get_api_runtime_profiles() -> ResultEnvelope:
+    read_model = build_runtime_profile_isolation_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_profiles",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.contract_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-profiles:phase-06"}],
         redactions_applied=read_model.redactions_applied,
     )
 

@@ -359,6 +359,27 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     );
   });
 
+  it("marks missing runtime profiles as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.runtimeProfiles];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.runtimeProfiles.profile_creation_enabled).toBe(false);
+    expect(data.runtimeProfiles.profile_deletion_enabled).toBe(false);
+    expect(data.runtimeProfiles.runtime_config_write_enabled).toBe(false);
+    expect(data.runtimeProfiles.sensitive_material_copy_enabled).toBe(false);
+    expect(data.runtimeProfiles.cross_profile_authority_bleed_allowed).toBe(false);
+    expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
+    expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
+      "GET /api/runtime/profiles",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain("RUNTIME_PROFILES_MOCK_FALLBACK");
+  });
+
   it("marks missing CRM route as non-authoritative fallback", async () => {
     const routeData = baseRouteData();
     delete routeData[API_ENDPOINTS.crmSummary];
@@ -741,6 +762,7 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.runtimeApprovalBridge,
     [API_ENDPOINTS.runtimeStreamingProgress]:
       mockControlCenterData.runtimeStreamingProgress,
+    [API_ENDPOINTS.runtimeProfiles]: mockControlCenterData.runtimeProfiles,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,

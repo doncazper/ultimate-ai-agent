@@ -7472,6 +7472,10 @@ describe("Web Control Center shell", () => {
       screen.getByText("uaa runtime inspect-streaming-progress"),
     ).toBeInTheDocument();
     expect(screen.getByText("stale_disconnected")).toBeInTheDocument();
+    expect(screen.getByText("Runtime profiles")).toBeInTheDocument();
+    expect(screen.getByText("GET /api/runtime/profiles")).toBeInTheDocument();
+    expect(screen.getByText("uaa runtime inspect-profiles")).toBeInTheDocument();
+    expect(screen.getByText("Isolated profile metadata")).toBeInTheDocument();
     expect(screen.getByText("Approval bridge")).toBeInTheDocument();
     expect(
       screen.getByText("GET /api/runtime/approval-bridge"),
@@ -14297,6 +14301,8 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeStreamingProgress)).toBe(
       true,
     );
+    expect(API_ENDPOINTS.runtimeProfiles).toBe("/api/runtime/profiles");
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeProfiles)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15334,6 +15340,7 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeApprovalBridge,
     [API_ENDPOINTS.runtimeStreamingProgress]:
       mockControlCenterData.runtimeStreamingProgress,
+    [API_ENDPOINTS.runtimeProfiles]: mockControlCenterData.runtimeProfiles,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:

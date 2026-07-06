@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `207`.
+Current OpenAPI path count: `208`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -105,6 +105,15 @@ Contract rules:
   and proof refs. It is read-model only and does not open SSE/WebSocket
   subscriptions, reconnect to Hermes, ingest live runtime events, or persist
   raw runtime/tool/generated/log/prompt/response payloads.
+  `GET /api/runtime/profiles` exposes the Hermes Runtime Adoption Phase 06
+  backend-owned runtime profile isolation posture for UAA-owned profile refs
+  that are separate from delegated runtime profile refs, safe display labels,
+  role, configured status, authority posture, workspace and memory scope refs,
+  toolset posture, profile health, blocked reasons, and proof refs. It is
+  read-model only and does not create profiles, delete profiles, write runtime
+  config, copy sensitive material, change runtime defaults, allow cross-profile
+  authority bleed, expose raw delegated profile names, or expose workspace
+  paths.
   Phase 07
   preserves configured local loopback model calls and the exact read-only status
   command while adding exact Action Inbox approved focused pytest, repo verifier, and frontend check command execution

@@ -5,6 +5,7 @@ import type {
   RuntimeDelegationAdapterReadModel,
   RuntimeRunEventsReadModel,
   RuntimeStreamingProgressReadModel,
+  RuntimeProfileIsolationReadModel,
   RuntimeReadinessReport,
 } from "../api/types";
 import { EmptyState } from "./DataState";
@@ -18,6 +19,7 @@ export function RuntimeReadinessPanel({
   runEvents,
   approvalBridge,
   streamingProgress,
+  profiles,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -26,6 +28,7 @@ export function RuntimeReadinessPanel({
   runEvents: RuntimeRunEventsReadModel;
   approvalBridge: RuntimeApprovalBridgeReadModel;
   streamingProgress: RuntimeStreamingProgressReadModel;
+  profiles: RuntimeProfileIsolationReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -326,6 +329,79 @@ export function RuntimeReadinessPanel({
         <h4>Blocked transport</h4>
         <ul className="compact-list">
           {streamingProgress.blocked_authority_refs.slice(0, 5).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Runtime profiles</p>
+            <h3>Isolated profile metadata</h3>
+          </div>
+          <span className="status-pill compact">{profiles.status}</span>
+        </div>
+        <p>{profiles.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{profiles.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{profiles.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Profiles</dt>
+            <dd>{profiles.profile_count}</dd>
+          </div>
+          <div>
+            <dt>Configured</dt>
+            <dd>{profiles.configured_profile_count}</dd>
+          </div>
+          <div>
+            <dt>Profile mutation</dt>
+            <dd>
+              {profiles.profile_creation_enabled ||
+              profiles.runtime_config_write_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Cross-profile authority</dt>
+            <dd>
+              {profiles.cross_profile_authority_bleed_allowed
+                ? "allowed"
+                : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Profile</th>
+                <th>Role</th>
+                <th>Health</th>
+                <th>Authority</th>
+              </tr>
+            </thead>
+            <tbody>
+              {profiles.profiles.map((profile) => (
+                <tr key={profile.profile_ref}>
+                  <td>{profile.display_label}</td>
+                  <td>{profile.role}</td>
+                  <td>{profile.profile_health}</td>
+                  <td>{profile.authority_profile}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h4>Isolation blockers</h4>
+        <ul className="compact-list">
+          {profiles.blocked_authority_refs.slice(0, 5).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>
