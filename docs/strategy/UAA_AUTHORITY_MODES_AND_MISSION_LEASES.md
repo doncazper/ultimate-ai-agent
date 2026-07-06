@@ -34,9 +34,12 @@ the active lease store for command invocation, approval, and execution policy;
 unsupported browser/app/payment/calendar/messages/Home Assistant adapters remain
 denied or draft-degraded instead of being presented as live execution. Read-only
 command status may run under `workspace/read`; execution-capable command lanes
-require an active `workspace/execute` lease. Provider/model transport remains
-blocked by authority policy unless a later supported provider/model execution
-lease is implemented and tested.
+require an active `workspace/execute` lease. Work Board persisted reorder and
+local-card-create lanes now require both exact approval and an active
+`workspace/write` lease, returning readable authority-denied refs when the
+operator remains in read-only mode. Provider/model transport remains blocked by
+authority policy unless a later supported provider/model execution lease is
+implemented and tested.
 
 ## Core Problem
 

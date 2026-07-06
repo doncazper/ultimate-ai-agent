@@ -14,6 +14,17 @@ from ultimate_ai_agent.core.approvals import (
     ApprovalSubjectType,
     LocalApprovalAuthority,
 )
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityCapability,
+    AuthorityDecisionOutcome,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityLeaseStore,
+    TrustMode,
+    build_default_authority_leases,
+    evaluate_authority_request,
+)
 from ultimate_ai_agent.core.hygiene.actor_context import (
     ActorContext,
     ActorType,
@@ -54,6 +65,12 @@ WORK_BOARD_CARD_CREATE_SAFE_DISABLE_REF = "safe-disable-ref:work-board:local-car
 WORK_BOARD_CARD_CREATE_ROLLBACK_REF = "rollback-ref:work-board:remove-local-created-card"
 WORK_BOARD_CARD_CREATE_PROOF_REF = "proof-ref:work-board-local-card-create"
 WORK_BOARD_CARD_CREATE_EVIDENCE_REF = "evidence-ref:work-board-local-card-create"
+WORK_BOARD_AUTHORITY_DOMAIN_REF = "authority-domain-ref:workspace"
+WORK_BOARD_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
+WORK_BOARD_REORDER_AUTHORITY_ACTION_REF = "authority-action-ref:work-board-reorder"
+WORK_BOARD_CARD_CREATE_AUTHORITY_ACTION_REF = (
+    "authority-action-ref:work-board-card-create"
+)
 WORK_BOARD_BLOCKED_CARD_ARCHIVE_ASSIGNMENT_REF = (
     "blocked-state:work-board-no-card-archive-assignment"
 )
@@ -220,6 +237,11 @@ class WorkBoardReorderReceipt(BaseModel):
     approval_ref: str
     approval_decision_ref: str
     approval_validation_ref: str
+    authority_decision_ref: str | None = None
+    authority_decision_outcome: str | None = None
+    authority_lease_ref: str | None = None
+    authority_domain_ref: str = WORK_BOARD_AUTHORITY_DOMAIN_REF
+    authority_capability_ref: str = WORK_BOARD_AUTHORITY_CAPABILITY_REF
     exact_scope_ref: str
     action_envelope_ref: str
     idempotency_ref: str
@@ -255,6 +277,8 @@ class WorkBoardReorderReceipt(BaseModel):
             self.approval_ref,
             self.approval_decision_ref,
             self.approval_validation_ref,
+            self.authority_domain_ref,
+            self.authority_capability_ref,
             self.exact_scope_ref,
             self.action_envelope_ref,
             self.idempotency_ref,
@@ -268,6 +292,19 @@ class WorkBoardReorderReceipt(BaseModel):
             self.applied_at_ref,
         ]:
             validate_task_ref(ref, "work_board_reorder_receipt_ref")
+        for ref in [self.authority_decision_ref, self.authority_lease_ref]:
+            if ref is not None:
+                validate_task_ref(ref, "work_board_reorder_authority_ref")
+        if self.authority_decision_outcome is not None:
+            validate_safe_task_text(
+                self.authority_decision_outcome,
+                "work_board_reorder_authority_decision_outcome",
+            )
+            if self.authority_decision_outcome not in {
+                AuthorityDecisionOutcome.allow.value,
+                AuthorityDecisionOutcome.ask.value,
+            }:
+                raise ValueError("work board reorder authority decision unsupported")
         validate_safe_task_text(self.route_ref, "work_board_reorder_route_ref")
         validate_safe_task_text(self.safe_summary, "work_board_reorder_summary")
         forbidden_flags = {
@@ -305,6 +342,11 @@ class WorkBoardCardCreateReceipt(BaseModel):
     approval_ref: str
     approval_decision_ref: str
     approval_validation_ref: str
+    authority_decision_ref: str | None = None
+    authority_decision_outcome: str | None = None
+    authority_lease_ref: str | None = None
+    authority_domain_ref: str = WORK_BOARD_AUTHORITY_DOMAIN_REF
+    authority_capability_ref: str = WORK_BOARD_AUTHORITY_CAPABILITY_REF
     exact_scope_ref: str
     action_envelope_ref: str
     idempotency_ref: str
@@ -341,6 +383,8 @@ class WorkBoardCardCreateReceipt(BaseModel):
             self.approval_ref,
             self.approval_decision_ref,
             self.approval_validation_ref,
+            self.authority_domain_ref,
+            self.authority_capability_ref,
             self.exact_scope_ref,
             self.action_envelope_ref,
             self.idempotency_ref,
@@ -354,6 +398,19 @@ class WorkBoardCardCreateReceipt(BaseModel):
             self.applied_at_ref,
         ]:
             validate_task_ref(ref, "work_board_card_create_receipt_ref")
+        for ref in [self.authority_decision_ref, self.authority_lease_ref]:
+            if ref is not None:
+                validate_task_ref(ref, "work_board_card_create_authority_ref")
+        if self.authority_decision_outcome is not None:
+            validate_safe_task_text(
+                self.authority_decision_outcome,
+                "work_board_card_create_authority_decision_outcome",
+            )
+            if self.authority_decision_outcome not in {
+                AuthorityDecisionOutcome.allow.value,
+                AuthorityDecisionOutcome.ask.value,
+            }:
+                raise ValueError("work board card create authority decision unsupported")
         validate_safe_task_text(self.route_ref, "work_board_card_create_route_ref")
         validate_safe_task_text(self.safe_summary, "work_board_card_create_summary")
         forbidden_flags = {
@@ -772,6 +829,23 @@ class WorkBoardApprovalError(RuntimeError):
         super().__init__("WORK_BOARD_REORDER_APPROVAL_DENIED")
         self.reason_refs = reason_refs
         self.required_refs = required_refs or {}
+
+
+class WorkBoardAuthorityError(RuntimeError):
+    def __init__(
+        self,
+        reason_refs: list[str],
+        *,
+        required_refs: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__("WORK_BOARD_AUTHORITY_DENIED")
+        self.reason_refs = reason_refs
+        self.required_refs = required_refs or {}
+
+
+def active_work_board_authority_leases() -> list[AuthorityLease]:
+    active = AuthorityLeaseStore().list_leases(active_only=True)
+    return active or build_default_authority_leases()
 
 
 def _layout_from_columns(
@@ -1442,14 +1516,76 @@ def _validate_work_board_card_create_approval(
     return approval_ref, approval_decision_ref, approval_validation_ref
 
 
+def _validate_work_board_authority(
+    *,
+    action_ref: str,
+    route_ref: str,
+    active_authority_leases: list[AuthorityLease] | None,
+):
+    leases = (
+        active_authority_leases
+        if active_authority_leases is not None
+        else active_work_board_authority_leases()
+    )
+    decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref=action_ref,
+            domain=AuthorityDomain.workspace,
+            capability=AuthorityCapability.write,
+            safe_summary=(
+                "Evaluate Workspace write authority for exact Work Board local mutation."
+            ),
+            route_ref=route_ref,
+            requested_mode=TrustMode.ask_before_changes,
+            draft_fallback_available=True,
+            rollback_ref=(
+                WORK_BOARD_REORDER_ROLLBACK_REF
+                if route_ref == WORK_BOARD_REORDER_ROUTE_REF
+                else WORK_BOARD_CARD_CREATE_ROLLBACK_REF
+            ),
+            safe_disable_ref=(
+                WORK_BOARD_REORDER_SAFE_DISABLE_REF
+                if route_ref == WORK_BOARD_REORDER_ROUTE_REF
+                else WORK_BOARD_CARD_CREATE_SAFE_DISABLE_REF
+            ),
+        ),
+        leases,
+    )
+    if decision.outcome not in {
+        AuthorityDecisionOutcome.allow.value,
+        AuthorityDecisionOutcome.ask.value,
+    }:
+        raise WorkBoardAuthorityError(
+            [
+                *decision.reason_refs,
+                "blocked-state:work-board-authority-lease-required",
+            ],
+            required_refs={
+                "authority_decision_ref": decision.decision_ref,
+                "required_mode_ref": "authority-mode-ref:ask-before-changes",
+                "required_domain_ref": WORK_BOARD_AUTHORITY_DOMAIN_REF,
+                "required_capability_ref": WORK_BOARD_AUTHORITY_CAPABILITY_REF,
+                "safe_disable_ref": decision.safe_disable_ref,
+                "rollback_ref": decision.rollback_ref,
+            },
+        )
+    return decision
+
+
 class WorkBoardStateStore:
-    def __init__(self, state_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        state_dir: Path | None = None,
+        *,
+        active_authority_leases: list[AuthorityLease] | None = None,
+    ) -> None:
         self.state_dir = state_dir or work_board_state_dir()
         self.state_path = self.state_dir / WORK_BOARD_STATE_FILE
         self.receipts_path = self.state_dir / WORK_BOARD_RECEIPTS_FILE
         self.card_create_receipts_path = (
             self.state_dir / WORK_BOARD_CARD_CREATE_RECEIPTS_FILE
         )
+        self._active_authority_leases = active_authority_leases
 
     def load_layout(self) -> dict[str, list[str]] | None:
         if not self.state_path.exists():
@@ -1540,6 +1676,11 @@ class WorkBoardStateStore:
                 previous_order_ref=approval_preview.previous_order_ref,
             )
         )
+        authority_decision = _validate_work_board_authority(
+            action_ref=WORK_BOARD_REORDER_AUTHORITY_ACTION_REF,
+            route_ref=WORK_BOARD_REORDER_ROUTE_REF,
+            active_authority_leases=self._active_authority_leases,
+        )
         receipt = WorkBoardReorderReceipt(
             board_ref=WORK_BOARD_BOARD_REF,
             receipt_ref=_hash_ref(
@@ -1554,6 +1695,9 @@ class WorkBoardStateStore:
             approval_ref=approval_ref,
             approval_decision_ref=approval_decision_ref,
             approval_validation_ref=approval_validation_ref,
+            authority_decision_ref=authority_decision.decision_ref,
+            authority_decision_outcome=authority_decision.outcome,
+            authority_lease_ref=authority_decision.lease_ref,
             exact_scope_ref=approval_preview.exact_scope_ref,
             action_envelope_ref=approval_preview.action_envelope_ref,
             idempotency_ref=idempotency_ref,
@@ -1623,6 +1767,11 @@ class WorkBoardStateStore:
                 idempotency_ref=idempotency_ref,
             )
         )
+        authority_decision = _validate_work_board_authority(
+            action_ref=WORK_BOARD_CARD_CREATE_AUTHORITY_ACTION_REF,
+            route_ref=WORK_BOARD_CARD_CREATE_ROUTE_REF,
+            active_authority_leases=self._active_authority_leases,
+        )
         new_card = _local_card_from_request(request, card_ref=approval_preview.card_ref)
         new_layout = {
             column.column_ref: list(current_layout.get(column.column_ref, []))
@@ -1648,6 +1797,9 @@ class WorkBoardStateStore:
             approval_ref=approval_ref,
             approval_decision_ref=approval_decision_ref,
             approval_validation_ref=approval_validation_ref,
+            authority_decision_ref=authority_decision.decision_ref,
+            authority_decision_outcome=authority_decision.outcome,
+            authority_lease_ref=authority_decision.lease_ref,
             exact_scope_ref=approval_preview.exact_scope_ref,
             action_envelope_ref=approval_preview.action_envelope_ref,
             idempotency_ref=idempotency_ref,

@@ -11,6 +11,13 @@ from pydantic import ValidationError
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.core.authority import (
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+    build_default_authority_leases,
+)
 from ultimate_ai_agent.core.control_center import (
     WORK_BOARD_BACKEND_ROUTE_REF,
     WORK_BOARD_BOARD_REF,
@@ -25,6 +32,7 @@ from ultimate_ai_agent.core.control_center import (
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.control_center.work_board import (
     WORK_BOARD_STATE_DIR_ENV,
+    WorkBoardAuthorityError,
     WorkBoardCardCreateRequest,
     WorkBoardReorderRequest,
     WorkBoardStateStore,
@@ -35,6 +43,17 @@ from ultimate_ai_agent.core.control_center.work_board import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _workspace_write_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:test-work-board-write",
+        mode=TrustMode.ask_before_changes,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary=(
+            "Test lease grants Workspace write for exact approved Work Board mutations."
+        ),
+    )
 
 
 def test_work_board_read_model_is_backend_owned_safe_refs_only() -> None:
@@ -273,7 +292,10 @@ def test_work_board_state_store_persists_with_external_exact_approval(
         columns=reordered_columns,
     )
     idempotency_ref = "idempotency-ref:work-board-test-reorder"
-    store = WorkBoardStateStore(tmp_path / "work_board")
+    store = WorkBoardStateStore(
+        tmp_path / "work_board",
+        active_authority_leases=[_workspace_write_lease()],
+    )
     approval_preview = prepare_work_board_reorder_approval(
         request,
         columns=base_board.columns,
@@ -309,6 +331,11 @@ def test_work_board_state_store_persists_with_external_exact_approval(
     assert receipt.connector_write_performed is False
     assert receipt.provider_model_call_performed is False
     assert receipt.production_authority_enabled is False
+    assert receipt.authority_decision_ref is not None
+    assert receipt.authority_decision_outcome == "ask"
+    assert receipt.authority_lease_ref == "authority-lease-ref:test-work-board-write"
+    assert receipt.authority_domain_ref == "authority-domain-ref:workspace"
+    assert receipt.authority_capability_ref == "authority-capability-ref:write"
     receipt_ref = receipt.receipt_ref
 
     replay = store.persist_reorder(
@@ -348,6 +375,76 @@ def test_work_board_state_store_persists_with_external_exact_approval(
         )
 
 
+def test_work_board_reorder_requires_active_workspace_write_lease(
+    tmp_path: Path,
+) -> None:
+    base_board = build_work_board_read_model(apply_persisted_state=False)
+    ready_column = next(
+        column
+        for column in base_board.columns
+        if column.column_ref == "work-board-column:ready"
+    )
+    reordered_columns = []
+    for column in base_board.columns:
+        card_refs = list(column.card_refs)
+        if column.column_ref == ready_column.column_ref:
+            card_refs = list(reversed(card_refs))
+        reordered_columns.append(
+            {"column_ref": column.column_ref, "card_refs": card_refs}
+        )
+    request = WorkBoardReorderRequest(
+        decision_reason_ref="decision-reason-ref:work-board-test-reorder-denied",
+        columns=reordered_columns,
+    )
+    idempotency_ref = "idempotency-ref:work-board-test-reorder-denied"
+    approval_preview = prepare_work_board_reorder_approval(
+        request,
+        columns=base_board.columns,
+        cards=base_board.cards,
+        idempotency_ref=idempotency_ref,
+    )
+    authority = LocalApprovalAuthority()
+    authority.create_request(approval_preview.approval_request)
+    authority.grant(
+        approval_preview.approval_request.approval_request_id,
+        approved_by_actor_id=approval_preview.approval_request.actor_context.actor_id,
+        approval_ref=approval_preview.expected_approval_ref,
+    )
+    approved_request = request.model_copy(
+        update={
+            "approval_ref": approval_preview.expected_approval_ref,
+            "exact_scope_ref": approval_preview.exact_scope_ref,
+            "action_envelope_ref": approval_preview.action_envelope_ref,
+        }
+    )
+    store = WorkBoardStateStore(
+        tmp_path / "work_board",
+        active_authority_leases=build_default_authority_leases(),
+    )
+
+    with pytest.raises(WorkBoardAuthorityError) as exc_info:
+        store.persist_reorder(
+            approved_request,
+            columns=base_board.columns,
+            cards=base_board.cards,
+            idempotency_ref=idempotency_ref,
+            approval_authority=authority,
+        )
+
+    assert "blocked-state:work-board-authority-lease-required" in (
+        exc_info.value.reason_refs
+    )
+    assert (
+        exc_info.value.required_refs["required_domain_ref"]
+        == "authority-domain-ref:workspace"
+    )
+    assert (
+        exc_info.value.required_refs["required_capability_ref"]
+        == "authority-capability-ref:write"
+    )
+    assert not (tmp_path / "work_board" / "work_board_state.json").exists()
+
+
 def test_work_board_state_store_persists_card_create_with_external_exact_approval(
     tmp_path: Path,
 ) -> None:
@@ -361,7 +458,10 @@ def test_work_board_state_store_persists_card_create_with_external_exact_approva
         tags=["local", "approved"],
     )
     idempotency_ref = "idempotency-ref:work-board-test-card-create"
-    store = WorkBoardStateStore(tmp_path / "work_board")
+    store = WorkBoardStateStore(
+        tmp_path / "work_board",
+        active_authority_leases=[_workspace_write_lease()],
+    )
     approval_preview = prepare_work_board_card_create_approval(
         request,
         columns=base_board.columns,
@@ -398,6 +498,11 @@ def test_work_board_state_store_persists_card_create_with_external_exact_approva
     assert receipt.connector_write_performed is False
     assert receipt.provider_model_call_performed is False
     assert receipt.production_authority_enabled is False
+    assert receipt.authority_decision_ref is not None
+    assert receipt.authority_decision_outcome == "ask"
+    assert receipt.authority_lease_ref == "authority-lease-ref:test-work-board-write"
+    assert receipt.authority_domain_ref == "authority-domain-ref:workspace"
+    assert receipt.authority_capability_ref == "authority-capability-ref:write"
     receipt_ref = receipt.receipt_ref
 
     replay = store.persist_card_create(
@@ -434,6 +539,67 @@ def test_work_board_state_store_persists_card_create_with_external_exact_approva
             idempotency_ref=idempotency_ref,
             approval_authority=authority,
         )
+
+
+def test_work_board_card_create_requires_active_workspace_write_lease(
+    tmp_path: Path,
+) -> None:
+    base_board = build_work_board_read_model(apply_persisted_state=False)
+    request = WorkBoardCardCreateRequest(
+        decision_reason_ref="decision-reason-ref:work-board-test-card-create-denied",
+        column_ref="work-board-column:triage",
+        title="Local approved board item",
+        safe_summary="Safe local board item created through the exact card-create lane.",
+        priority="medium",
+        tags=["local", "approved"],
+    )
+    idempotency_ref = "idempotency-ref:work-board-test-card-create-denied"
+    approval_preview = prepare_work_board_card_create_approval(
+        request,
+        columns=base_board.columns,
+        cards=base_board.cards,
+        idempotency_ref=idempotency_ref,
+    )
+    authority = LocalApprovalAuthority()
+    authority.create_request(approval_preview.approval_request)
+    authority.grant(
+        approval_preview.approval_request.approval_request_id,
+        approved_by_actor_id=approval_preview.approval_request.actor_context.actor_id,
+        approval_ref=approval_preview.expected_approval_ref,
+    )
+    approved_request = request.model_copy(
+        update={
+            "approval_ref": approval_preview.expected_approval_ref,
+            "exact_scope_ref": approval_preview.exact_scope_ref,
+            "action_envelope_ref": approval_preview.action_envelope_ref,
+        }
+    )
+    store = WorkBoardStateStore(
+        tmp_path / "work_board",
+        active_authority_leases=build_default_authority_leases(),
+    )
+
+    with pytest.raises(WorkBoardAuthorityError) as exc_info:
+        store.persist_card_create(
+            approved_request,
+            columns=base_board.columns,
+            cards=base_board.cards,
+            idempotency_ref=idempotency_ref,
+            approval_authority=authority,
+        )
+
+    assert "blocked-state:work-board-authority-lease-required" in (
+        exc_info.value.reason_refs
+    )
+    assert (
+        exc_info.value.required_refs["required_domain_ref"]
+        == "authority-domain-ref:workspace"
+    )
+    assert (
+        exc_info.value.required_refs["required_capability_ref"]
+        == "authority-capability-ref:write"
+    )
+    assert not (tmp_path / "work_board" / "work_board_state.json").exists()
 
 
 def test_work_board_route_is_local_sensitive_and_side_effect_bounded() -> None:

@@ -152,6 +152,7 @@ from ultimate_ai_agent.core.control_center.work_board import (
     WORK_BOARD_REORDER_ROUTE_REF,
     WORK_BOARD_ROUTE_REF,
     WorkBoardBlockedLaneReadModel,
+    WorkBoardAuthorityError,
     WorkBoardCardReadModel,
     WorkBoardColumnReadModel,
     WorkBoardDragDropPostureReadModel,

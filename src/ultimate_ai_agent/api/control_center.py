@@ -23,6 +23,7 @@ from ultimate_ai_agent.core.control_center.operational_status import (
 )
 from ultimate_ai_agent.core.control_center.work_board import (
     WorkBoardApprovalError,
+    WorkBoardAuthorityError,
     WorkBoardCardCreateRequest,
     WorkBoardReorderRequest,
     WorkBoardStateStore,
@@ -494,6 +495,19 @@ def post_control_center_work_board_reorder(
                 "required_refs": required_refs,
             },
         ) from exc
+    except WorkBoardAuthorityError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "WORK_BOARD_REORDER_AUTHORITY_DENIED",
+                "safe_message": (
+                    "Work Board reorder requires an active AuthorityLease "
+                    "granting Workspace write after exact approval validates."
+                ),
+                "reason_refs": exc.reason_refs,
+                "required_refs": dict(exc.required_refs),
+            },
+        ) from exc
     except ValueError as exc:
         raise HTTPException(
             status_code=400,
@@ -580,6 +594,19 @@ def post_control_center_work_board_card_create(
                 ),
                 "reason_refs": exc.reason_refs,
                 "required_refs": required_refs,
+            },
+        ) from exc
+    except WorkBoardAuthorityError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "WORK_BOARD_CARD_CREATE_AUTHORITY_DENIED",
+                "safe_message": (
+                    "Work Board card create requires an active AuthorityLease "
+                    "granting Workspace write after exact approval validates."
+                ),
+                "reason_refs": exc.reason_refs,
+                "required_refs": dict(exc.required_refs),
             },
         ) from exc
     except ValueError as exc:

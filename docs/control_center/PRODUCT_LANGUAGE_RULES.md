@@ -80,6 +80,13 @@ uses `workspace/read`, while execution-capable command lanes require
 must not be described as executable from an active lease until a supported
 provider/model execution lease exists and is tested.
 
+Work Board persisted reorder and local-card-create copy must say the action
+requires `Ask before changes` or stronger with the `workspace/write` domain
+capability plus exact approval, idempotency, redacted receipts, audit refs, and
+rollback/safe-disable posture. Under Read-only mode, copy should say the action
+requires Workspace write authority rather than using opaque blocked-lane
+language.
+
 Required copy distinctions:
 
 - Unknown authority is denied.
@@ -107,7 +114,8 @@ low-friction authority tier vocabulary:
   executes the draft.
 - Tier 3 reversible local mutation: exact local mutation lanes may use
   lightweight/session-scoped approval or visible undo/safe-disable only when
-  the Python core owns receipts and state.
+  the Python core owns receipts and state, and the active AuthorityLease grants
+  the matching local domain capability.
 - Tier 4 external mutation: sends, connector writes, paid provider calls,
   external account changes, and filesystem writes outside safe local scopes
   require exact approval, idempotency, receipt, redaction, safe-disable, and
