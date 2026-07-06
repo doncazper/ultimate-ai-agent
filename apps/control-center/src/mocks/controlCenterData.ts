@@ -9684,6 +9684,160 @@ export const mockControlCenterData: ControlCenterData = {
       "runtime_event_payload_omitted",
     ],
   },
+  runtimeApprovalBridge: {
+    schema_version: "runtime_approval_bridge.v1",
+    contract_ref: "contract-ref:runtime-approval-bridge:v1",
+    route_ref: "GET /api/runtime/approval-bridge",
+    cli_ref: "uaa runtime inspect-approval-bridge",
+    control_center_ref: "control-center-route:runtime",
+    status: "read_model_resolution_blocked",
+    action_inbox_projection: {
+      action_inbox_item_ref:
+        "action-inbox-ref:runtime-approval-bridge:mock-approval-wait",
+      source: "runtime_approval_bridge_mock_fallback",
+      lane: "runtime_approval_review",
+      status: "review_required_resolution_blocked",
+      proof_ref: "proof-ref:runtime-approval-bridge:mock-fallback",
+      approval_controls_visible: false,
+      runtime_resolution_controls_visible: false,
+      safe_summary:
+        "Mock fallback projects runtime approval review metadata only; no approval or runtime resolution control is available.",
+    },
+    envelopes: [
+      {
+        envelope_ref: "runtime-approval-envelope-ref:hermes-agent:mock",
+        runtime_approval_ref: "runtime-approval-ref:hermes-agent:mock",
+        runtime_run_ref: "runtime-run-ref:hermes-agent:mock-approval-wait",
+        uaa_durable_run_ref:
+          "durable-run-ref:runtime-delegation:mock-approval-wait",
+        action_inbox_item_ref:
+          "action-inbox-ref:runtime-approval-bridge:mock-approval-wait",
+        proof_ref: "proof-ref:runtime-approval-bridge:mock-fallback",
+        requested_scope_ref: "runtime-approval-scope-ref:hermes-agent:mock",
+        idempotency_key_ref: "idempotency-ref:runtime-approval-bridge:mock",
+        side_effect_class: "runtime_approval_resolution",
+        risk_class: "medium",
+        state: "runtime_requested",
+        resolution_posture: "blocked_no_runtime_send",
+        timeout_policy_ref:
+          "timeout-policy-ref:runtime-approval-bridge:default-deny",
+        deny_receipt_ref: "receipt-plan-ref:runtime-approval-bridge:deny",
+        approval_refs_are_identifiers_only: true,
+        runtime_requested: true,
+        uaa_approval_recorded: false,
+        runtime_resolution_sent: false,
+        approval_resolution_enabled: false,
+        denial_resolution_enabled: false,
+        timeout_defaults_to_deny: true,
+        raw_runtime_payload_persisted: false,
+        raw_prompt_persisted: false,
+        raw_response_persisted: false,
+        safe_summary:
+          "Mock fallback shows a runtime approval request as review metadata only.",
+        blocked_authority_refs: [
+          "blocked-authority:runtime-approval-resolution-send",
+          "blocked-authority:runtime-approval-approval-as-authority",
+          "blocked-authority:runtime-approval-timeout-send",
+        ],
+        next_safe_action_refs: [
+          "next-safe-action-ref:runtime-approval-bridge:bind-local-approval-authority",
+          "next-safe-action-ref:runtime-approval-bridge:add-denial-receipt",
+        ],
+      },
+    ],
+    decision_previews: [
+      {
+        decision_ref: "decision-ref:runtime-approval-bridge:mock-deny",
+        decision_kind: "deny",
+        envelope_ref: "runtime-approval-envelope-ref:hermes-agent:mock",
+        action_inbox_item_ref:
+          "action-inbox-ref:runtime-approval-bridge:mock-approval-wait",
+        receipt_ref: "receipt-plan-ref:runtime-approval-bridge:deny",
+        runtime_resolution_sent: false,
+        safe_summary:
+          "Denial can be previewed locally, but the runtime is not sent a denial.",
+        blocked_authority_refs: [
+          "blocked-authority:runtime-approval-resolution-send",
+        ],
+      },
+      {
+        decision_ref: "decision-ref:runtime-approval-bridge:mock-timeout",
+        decision_kind: "timeout",
+        envelope_ref: "runtime-approval-envelope-ref:hermes-agent:mock",
+        action_inbox_item_ref:
+          "action-inbox-ref:runtime-approval-bridge:mock-approval-wait",
+        receipt_ref: "receipt-plan-ref:runtime-approval-bridge:timeout-deny",
+        runtime_resolution_sent: false,
+        safe_summary:
+          "Timeout defaults to deny locally; runtime send remains blocked.",
+        blocked_authority_refs: [
+          "blocked-authority:runtime-approval-timeout-send",
+        ],
+      },
+      {
+        decision_ref:
+          "decision-ref:runtime-approval-bridge:mock-scope-mismatch",
+        decision_kind: "scope_mismatch",
+        envelope_ref: "runtime-approval-envelope-ref:hermes-agent:mock",
+        action_inbox_item_ref:
+          "action-inbox-ref:runtime-approval-bridge:mock-approval-wait",
+        receipt_ref:
+          "receipt-plan-ref:runtime-approval-bridge:scope-mismatch",
+        runtime_resolution_sent: false,
+        safe_summary:
+          "Scope mismatch blocks any future resolution attempt.",
+        blocked_authority_refs: [
+          "blocked-authority:runtime-approval-resolution-send",
+        ],
+      },
+    ],
+    scope_validation: {
+      validation_ref: "validation-ref:runtime-approval-bridge:scope",
+      requested_scope_ref: "runtime-approval-scope-ref:hermes-agent:mock",
+      provided_scope_ref: "runtime-approval-scope-ref:hermes-agent:other",
+      scope_matches: false,
+      status: "scope_mismatch_blocked",
+      safe_summary:
+        "Mock fallback scope mismatch blocks any future runtime resolution.",
+    },
+    pending_runtime_approval_count: 1,
+    denied_preview_count: 1,
+    timeout_preview_count: 1,
+    scope_mismatch_count: 1,
+    runtime_resolution_sent_count: 0,
+    approval_resolution_route_enabled: false,
+    deny_resolution_route_enabled: false,
+    timeout_resolution_route_enabled: false,
+    uaa_controls_authority: true,
+    control_center_talks_directly_to_runtime: false,
+    safe_refs_only: true,
+    raw_runtime_payload_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    blocked_authority_refs: [
+      "blocked-authority:runtime-approval-resolution-send",
+      "blocked-authority:runtime-approval-approval-as-authority",
+      "blocked-authority:runtime-approval-timeout-send",
+    ],
+    proof_refs: [
+      "proof-ref:runtime-approval-bridge:mock-fallback",
+      "proof-ref:runtime-approval-bridge:action-inbox-projection",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:runtime-approval-bridge:validate-exact-scope",
+      "next-safe-action-ref:runtime-approval-bridge:bind-idempotency",
+      "next-safe-action-ref:runtime-approval-bridge:add-runtime-resolution-receipt",
+    ],
+    safe_summary:
+      "Runtime approval bridge mock fallback is non-authoritative and keeps approval resolution blocked.",
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "runtime_approval_payload_omitted",
+    ],
+  },
   m15Review: {
     status: "mock_preview_only",
     readOnly: true,

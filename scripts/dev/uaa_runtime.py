@@ -33,6 +33,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_portable_evidence_envelope,
     build_default_runtime_capabilities,
     build_governed_product_pilot_authority_profile,
+    build_runtime_approval_bridge_read_model,
     build_runtime_capability_discovery_read_model,
     build_runtime_delegation_adapter_read_model,
     build_runtime_run_events_read_model,
@@ -333,6 +334,34 @@ def _print_run_events(read_model: dict[str, Any]) -> None:
         print(f"- {ref}")
 
 
+def _print_approval_bridge(read_model: dict[str, Any]) -> None:
+    print("Runtime approval bridge")
+    print(f"Status: {read_model['status']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Pending runtime approvals: {read_model['pending_runtime_approval_count']}")
+    print(f"Denied previews: {read_model['denied_preview_count']}")
+    print(f"Timeout previews: {read_model['timeout_preview_count']}")
+    print(f"Runtime resolutions sent: {read_model['runtime_resolution_sent_count']}")
+    projection = read_model["action_inbox_projection"]
+    print(f"Action Inbox item: {projection['action_inbox_item_ref']}")
+    print(f"Action Inbox status: {projection['status']}")
+    print("Envelopes:")
+    for envelope in read_model["envelopes"]:
+        print(f"- {envelope['runtime_approval_ref']} state={envelope['state']}")
+        print(f"  run={envelope['runtime_run_ref']}")
+        print(f"  scope={envelope['requested_scope_ref']}")
+        print(f"  resolution={envelope['resolution_posture']}")
+    scope = read_model["scope_validation"]
+    print(f"Scope validation: {scope['status']} matches={scope['scope_matches']}")
+    print("Decision previews:")
+    for preview in read_model["decision_previews"]:
+        print(f"- {preview['decision_kind']} sent={preview['runtime_resolution_sent']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
 def _print_invocation(record: Any) -> None:
     print("Governed runtime invocation")
     print(f"Invocation: {record.invocation_ref}")
@@ -553,6 +582,30 @@ def _inspect_run_events(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_run_events(read_model)
+    return 0
+
+
+def _inspect_approval_bridge(args: argparse.Namespace) -> int:
+    read_model = build_runtime_approval_bridge_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-approval-bridge",
+        "runtime_approval_bridge": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_provider_payload_omitted": True,
+        "raw_runtime_payload_omitted": True,
+        "raw_logs_omitted": True,
+        "execution_performed": False,
+        "approval_resolution_sent": False,
+        "denial_resolution_sent": False,
+        "timeout_resolution_sent": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_approval_bridge(read_model)
     return 0
 
 
@@ -1224,6 +1277,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref runtime run events read model as JSON.",
     )
     run_events.set_defaults(func=_inspect_run_events)
+
+    approval_bridge = subparsers.add_parser(
+        "inspect-approval-bridge",
+        help="Inspect runtime approval bridge posture without sending decisions.",
+    )
+    approval_bridge.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref runtime approval bridge read model as JSON.",
+    )
+    approval_bridge.set_defaults(func=_inspect_approval_bridge)
 
     bridge = subparsers.add_parser(
         "inspect-action-inbox-bridge",

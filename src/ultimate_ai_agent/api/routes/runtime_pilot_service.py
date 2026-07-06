@@ -27,6 +27,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeLocalModelCallRequest,
     build_default_runtime_capabilities,
     build_governed_product_pilot_authority_profile,
+    build_runtime_approval_bridge_read_model,
     build_runtime_capability_discovery_read_model,
     build_runtime_delegation_adapter_read_model,
     build_runtime_run_events_read_model,
@@ -213,6 +214,20 @@ def get_api_runtime_run_events() -> ResultEnvelope:
         trace_id=read_model.contract_ref,
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:runtime-run-events:phase-03"}],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/approval-bridge", response_model=ResultEnvelope)
+def get_api_runtime_approval_bridge() -> ResultEnvelope:
+    read_model = build_runtime_approval_bridge_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_approval_bridge",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.contract_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[{"evidence_ref": "evidence-ref:runtime-approval-bridge:phase-04"}],
         redactions_applied=read_model.redactions_applied,
     )
 

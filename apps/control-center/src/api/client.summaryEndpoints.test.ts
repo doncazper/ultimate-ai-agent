@@ -306,6 +306,36 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.connection.warnings).toContain("RUNTIME_RUN_EVENTS_MOCK_FALLBACK");
   });
 
+  it("marks missing runtime approval bridge as non-authoritative fallback", async () => {
+    const routeData = baseRouteData();
+    delete routeData[API_ENDPOINTS.runtimeApprovalBridge];
+    stubControlCenterFetch(routeData);
+
+    const data = await loadControlCenterData();
+
+    expect(data.runtimeApprovalBridge.approval_resolution_route_enabled).toBe(
+      false,
+    );
+    expect(data.runtimeApprovalBridge.deny_resolution_route_enabled).toBe(false);
+    expect(data.runtimeApprovalBridge.timeout_resolution_route_enabled).toBe(
+      false,
+    );
+    expect(data.runtimeApprovalBridge.runtime_resolution_sent_count).toBe(0);
+    expect(
+      data.runtimeApprovalBridge.action_inbox_projection
+        .approval_controls_visible,
+    ).toBe(false);
+    expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
+    expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
+      "GET /api/runtime/approval-bridge",
+    );
+    expect(data.connection.state).toBe("degraded");
+    expect(data.connection.usingMockData).toBe(true);
+    expect(data.connection.warnings).toContain(
+      "RUNTIME_APPROVAL_BRIDGE_MOCK_FALLBACK",
+    );
+  });
+
   it("marks missing CRM route as non-authoritative fallback", async () => {
     const routeData = baseRouteData();
     delete routeData[API_ENDPOINTS.crmSummary];
@@ -684,6 +714,8 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.runtimeCapabilityDiscovery]:
       mockControlCenterData.runtimeCapabilityDiscovery,
     [API_ENDPOINTS.runtimeRunEvents]: mockControlCenterData.runtimeRunEvents,
+    [API_ENDPOINTS.runtimeApprovalBridge]:
+      mockControlCenterData.runtimeApprovalBridge,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,

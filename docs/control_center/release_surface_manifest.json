@@ -1894,6 +1894,13 @@
           "operation_id": "get_runtime_capability_matrix",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/approval-bridge",
+          "operation_id": "get_api_runtime_approval_bridge",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "side_effect_class": "validation_only",
@@ -1916,7 +1923,8 @@
       "evidence_refs": [
         "apps/control-center/src/routes.tsx",
         "docs/control_center/route_status_manifest.json",
-        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
+        "docs/runtime/UAA_HERMES_RUNTIME_APPROVAL_BRIDGE.md"
       ],
       "owner": "runtime-readiness",
       "backend_contract_rationale": "backend-route-refs-present",

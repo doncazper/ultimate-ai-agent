@@ -4,7 +4,7 @@
   "baseline": "v0.104.0 / 0.104.0",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
-  "openapi_path_count": 205,
+  "openapi_path_count": 206,
   "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",
   "allowed_release_statuses": [
     "status_available_not_completion",
@@ -864,7 +864,7 @@
       "risk_class": "medium",
       "release_status": "status_available_not_completion",
       "approval_requirement": "No approval for read-only status; lifecycle actions require a later scoped milestone.",
-      "evidence_audit_output": "Runtime readiness refs, capability matrix refs, runtime delegation refs, capability discovery snapshot refs, runtime run/event posture refs, Foundation Gate refs, and latency refs.",
+      "evidence_audit_output": "Runtime readiness refs, capability matrix refs, runtime delegation refs, capability discovery snapshot refs, runtime run/event posture refs, runtime approval bridge refs, Foundation Gate refs, and latency refs.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -933,6 +933,13 @@
           "method": "GET",
           "path": "/api/runtime/run-events",
           "operation_id": "get_api_runtime_run_events",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/approval-bridge",
+          "operation_id": "get_api_runtime_approval_bridge",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         }
