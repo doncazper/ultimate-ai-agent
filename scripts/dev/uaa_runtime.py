@@ -38,6 +38,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_context_budget_pressure_read_model,
     build_runtime_delegation_adapter_read_model,
     build_runtime_hardline_command_blocklist_read_model,
+    build_runtime_managed_scope_policy_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -514,6 +515,43 @@ def _print_hardline_command_blocklist(read_model: dict[str, Any]) -> None:
         )
         print(f"  reason={classification['denial_reason_ref']}")
         print(f"  summary: {classification['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_managed_scope_policy(read_model: dict[str, Any]) -> None:
+    print("Runtime managed scope policy")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Policy profile: {read_model['policy_profile_ref']}")
+    print(f"Profile label: {read_model['profile_label']}")
+    print(f"Pinned sources: {read_model['pinned_source_count']}")
+    print(f"Active pins: {read_model['active_pinned_source_count']}")
+    print(f"Drift warnings: {read_model['drift_warning_count']}")
+    print(
+        "Writes/delivery/enforcement: "
+        f"system_config={read_model['system_config_write_enabled']} "
+        f"privileged={read_model['privileged_write_enabled']} "
+        f"mdm={read_model['mdm_delivery_enabled']} "
+        f"production={read_model['production_enforcement_claimed']}"
+    )
+    print("Pinned sources:")
+    for source in read_model["pinned_sources"]:
+        print(
+            f"- {source['display_label']}: "
+            f"kind={source['source_kind']} "
+            f"precedence={source['precedence']} "
+            f"drift={source['drift_status']}"
+        )
+        print(f"  source={source['source_ref']}")
+    print("Drift warnings:")
+    for warning in read_model["drift_warnings"]:
+        print(f"- {warning['warning_ref']} status={warning['status']}")
+        print(f"  summary: {warning['safe_summary']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1137,6 +1175,33 @@ def _inspect_hardline_command_blocklist(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_hardline_command_blocklist(read_model)
+    return 0
+
+
+def _inspect_managed_scope_policy(args: argparse.Namespace) -> int:
+    read_model = build_runtime_managed_scope_policy_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-managed-scope-policy",
+        "runtime_managed_scope_policy": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_config_omitted": True,
+        "protected_material_omitted": True,
+        "account_material_omitted": True,
+        "system_config_write_performed": False,
+        "privileged_write_performed": False,
+        "mdm_delivery_performed": False,
+        "runtime_config_mutation_performed": False,
+        "production_enforcement_claimed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_managed_scope_policy(read_model)
     return 0
 
 
@@ -2121,6 +2186,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref hardline command blocklist read model as JSON.",
     )
     hardline_command_blocklist.set_defaults(func=_inspect_hardline_command_blocklist)
+
+    managed_scope_policy = subparsers.add_parser(
+        "inspect-managed-scope-policy",
+        help="Inspect read-only local managed scope policy posture.",
+    )
+    managed_scope_policy.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref managed scope policy read model as JSON.",
+    )
+    managed_scope_policy.set_defaults(func=_inspect_managed_scope_policy)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",

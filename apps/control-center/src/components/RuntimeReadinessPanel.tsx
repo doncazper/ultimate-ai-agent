@@ -5,6 +5,7 @@ import type {
   RuntimeContextBudgetPressureReadModel,
   RuntimeDelegationAdapterReadModel,
   RuntimeHardlineCommandBlocklistReadModel,
+  RuntimeManagedScopePolicyReadModel,
   RuntimeToolRegistryAvailabilityReadModel,
   RuntimeRunEventsReadModel,
   RuntimeStreamingProgressReadModel,
@@ -32,6 +33,7 @@ export function RuntimeReadinessPanel({
   promptStabilityTiers,
   contextBudgetPressure,
   hardlineCommandBlocklist,
+  managedScopePolicy,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -47,6 +49,7 @@ export function RuntimeReadinessPanel({
   promptStabilityTiers: RuntimePromptStabilityTiersReadModel;
   contextBudgetPressure: RuntimeContextBudgetPressureReadModel;
   hardlineCommandBlocklist: RuntimeHardlineCommandBlocklistReadModel;
+  managedScopePolicy: RuntimeManagedScopePolicyReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -291,6 +294,97 @@ export function RuntimeReadinessPanel({
             </dd>
           </div>
         </dl>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Managed scope</p>
+            <h3>Local policy profile</h3>
+          </div>
+          <span className="status-pill compact">{managedScopePolicy.status}</span>
+        </div>
+        <p>{managedScopePolicy.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{managedScopePolicy.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{managedScopePolicy.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Policy profile</dt>
+            <dd>{managedScopePolicy.policy_profile_ref}</dd>
+          </div>
+          <div>
+            <dt>Pinned sources</dt>
+            <dd>{managedScopePolicy.pinned_source_count}</dd>
+          </div>
+          <div>
+            <dt>Drift warnings</dt>
+            <dd>{managedScopePolicy.drift_warning_count}</dd>
+          </div>
+          <div>
+            <dt>Config writes</dt>
+            <dd>
+              {managedScopePolicy.system_config_write_enabled ||
+              managedScopePolicy.privileged_write_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>MDM delivery</dt>
+            <dd>
+              {managedScopePolicy.mdm_delivery_enabled ? "enabled" : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Production enforcement</dt>
+            <dd>
+              {managedScopePolicy.production_enforcement_claimed
+                ? "claimed"
+                : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Kind</th>
+                <th>Precedence</th>
+                <th>Drift</th>
+              </tr>
+            </thead>
+            <tbody>
+              {managedScopePolicy.pinned_sources.map((source) => (
+                <tr key={source.source_ref}>
+                  <td>{source.display_label}</td>
+                  <td>{source.source_kind}</td>
+                  <td>{source.precedence}</td>
+                  <td>{source.drift_status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h4>Drift warnings</h4>
+        <ul className="compact-list">
+          {managedScopePolicy.drift_warnings.map((warning) => (
+            <li key={warning.warning_ref}>
+              {warning.warning_ref}: {warning.status}
+            </li>
+          ))}
+        </ul>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {managedScopePolicy.blocked_authority_refs.slice(0, 5).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
       </article>
       <article className="info-card">
         <div className="panel-heading compact-heading">

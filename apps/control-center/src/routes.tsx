@@ -532,6 +532,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           promptStabilityTiers={data.runtimePromptStabilityTiers}
           contextBudgetPressure={data.runtimeContextBudgetPressure}
           hardlineCommandBlocklist={data.runtimeHardlineCommandBlocklist}
+          managedScopePolicy={data.runtimeManagedScopePolicy}
         />
       );
     case "/operator-loop":

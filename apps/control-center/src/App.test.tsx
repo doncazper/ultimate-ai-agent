@@ -7581,6 +7581,23 @@ describe("Web Control Center shell", () => {
         "blocked-authority:runtime-hardline-command-floor-override",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText("Managed scope")).toBeInTheDocument();
+    expect(screen.getByText("Local policy profile")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/managed-scope-policy").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-managed-scope-policy").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Workspace standards baseline")).toBeInTheDocument();
+    expect(
+      screen.getByText("drift-warning-ref:managed-scope-policy:sealed-default: warning"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:managed-scope-no-system-config-write",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
     expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
@@ -14653,6 +14670,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.runtimeHardlineCommandBlocklist),
     ).toBe(true);
+    expect(API_ENDPOINTS.runtimeManagedScopePolicy).toBe(
+      "/api/runtime/managed-scope-policy",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeManagedScopePolicy),
+    ).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15702,6 +15725,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeContextBudgetPressure,
     [API_ENDPOINTS.runtimeHardlineCommandBlocklist]:
       mockControlCenterData.runtimeHardlineCommandBlocklist,
+    [API_ENDPOINTS.runtimeManagedScopePolicy]:
+      mockControlCenterData.runtimeManagedScopePolicy,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
