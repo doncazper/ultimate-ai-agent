@@ -683,6 +683,19 @@ def _print_approval_bridge(read_model: dict[str, Any]) -> None:
     print(f"Denied previews: {read_model['denied_preview_count']}")
     print(f"Timeout previews: {read_model['timeout_preview_count']}")
     print(f"Runtime resolutions sent: {read_model['runtime_resolution_sent_count']}")
+    posture = read_model["fail_closed_timeout_posture"]
+    print(f"Fail-closed policy: {posture['policy_ref']}")
+    print(
+        "Timeout/ambiguous waits: "
+        f"expired_deny={posture['expired_waits_default_to_deny']} "
+        f"ambiguous_deny={posture['ambiguous_waits_default_to_deny']}"
+    )
+    print(
+        "Broad approval controls: "
+        f"auto_approve={posture['auto_approve_enabled']} "
+        f"approve_all={posture['approve_all_enabled']} "
+        f"standing={posture['standing_broad_authority_enabled']}"
+    )
     projection = read_model["action_inbox_projection"]
     print(f"Action Inbox item: {projection['action_inbox_item_ref']}")
     print(f"Action Inbox status: {projection['status']}")
@@ -1292,6 +1305,18 @@ def _inspect_approval_bridge(args: argparse.Namespace) -> int:
         "approval_resolution_sent": False,
         "denial_resolution_sent": False,
         "timeout_resolution_sent": False,
+        "fail_closed_timeout_policy_ref": read_model[
+            "fail_closed_timeout_posture"
+        ]["policy_ref"],
+        "auto_approve_enabled": read_model["fail_closed_timeout_posture"][
+            "auto_approve_enabled"
+        ],
+        "approve_all_enabled": read_model["fail_closed_timeout_posture"][
+            "approve_all_enabled"
+        ],
+        "standing_broad_authority_enabled": read_model[
+            "fail_closed_timeout_posture"
+        ]["standing_broad_authority_enabled"],
     }
     if args.json:
         _print_json(payload)

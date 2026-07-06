@@ -63,6 +63,7 @@ blocked, planned, and future-scoped states distinct.
 | Hermes runtime capability discovery | `docs/runtime/UAA_HERMES_RUNTIME_CAPABILITY_DISCOVERY.md` |
 | Hermes runtime run events | `docs/runtime/UAA_HERMES_RUNTIME_RUN_EVENTS.md` |
 | Hermes runtime approval bridge | `docs/runtime/UAA_HERMES_RUNTIME_APPROVAL_BRIDGE.md` |
+| Hermes runtime fail-closed approval timeouts | `docs/runtime/UAA_HERMES_RUNTIME_FAIL_CLOSED_APPROVAL_TIMEOUTS.md` |
 | Hermes runtime streaming progress | `docs/runtime/UAA_HERMES_RUNTIME_STREAMING_PROGRESS.md` |
 | Hermes runtime profile isolation | `docs/runtime/UAA_HERMES_RUNTIME_PROFILE_ISOLATION.md` |
 | Hermes runtime model provider catalog | `docs/runtime/UAA_HERMES_RUNTIME_MODEL_PROVIDER_CATALOG.md` |

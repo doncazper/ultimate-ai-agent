@@ -7618,6 +7618,12 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("review_required_resolution_blocked"),
     ).toBeInTheDocument();
+    expect(screen.getByText(/fail_closed_default_deny/)).toBeInTheDocument();
+    expect(screen.getByText("Ambiguous waits")).toBeInTheDocument();
+    expect(screen.getByText("Approve all")).toBeInTheDocument();
+    expect(screen.getByText("Standing authority")).toBeInTheDocument();
+    expect(screen.getByText("Expired grants")).toBeInTheDocument();
+    expect(screen.getByText("not reused")).toBeInTheDocument();
     expect(screen.getAllByText("blocked").length).toBeGreaterThan(0);
     expect(screen.getAllByText("not performed").length).toBeGreaterThan(0);
     expect(screen.getByText("UAA authorized execution")).toBeInTheDocument();
