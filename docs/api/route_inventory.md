@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `218`.
+Current OpenAPI path count: `219`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 139 |
+| `local_sensitive` | 148 |
 | `mutating_requires_authority` | 42 |
 
 Allowed current side-effect classes are:
@@ -202,6 +202,14 @@ allowed shape counts, hardline rule refs, proof refs, verifier refs,
 next-safe-action refs, and blocked authority refs only. Command execution, raw
 command strings, raw command text/output persistence, hardline floor override,
 and production authority remain blocked.
+`GET /api/runtime/managed-scope-policy` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 27 managed scope policy posture. It returns
+pinned local policy source refs, source kinds, precedence, checksum refs, drift
+warning refs, rollback refs, admin/operator proof refs, verifier refs,
+next-safe-action refs, and blocked authority refs only. System config writes,
+privileged writes, MDM delivery, managed secrets, unsigned runtime config
+overrides, raw config/local path/account/credential material persistence,
+production enforcement, and production authority remain blocked.
 `GET /api/runtime/context-references` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 16 context-reference posture. It returns
 safe-ref grammar, preview refs, budget estimates, why-included refs, and

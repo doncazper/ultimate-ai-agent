@@ -804,6 +804,8 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.runtimeContextBudgetPressure,
     [API_ENDPOINTS.runtimeHardlineCommandBlocklist]:
       mockControlCenterData.runtimeHardlineCommandBlocklist,
+    [API_ENDPOINTS.runtimeManagedScopePolicy]:
+      mockControlCenterData.runtimeManagedScopePolicy,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,

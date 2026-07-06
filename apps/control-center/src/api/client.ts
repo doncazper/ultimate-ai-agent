@@ -39,6 +39,7 @@ import type {
   RuntimeContextBudgetPressureReadModel,
   RuntimeDelegationAdapterReadModel,
   RuntimeHardlineCommandBlocklistReadModel,
+  RuntimeManagedScopePolicyReadModel,
   RuntimePromptStabilityTiersReadModel,
   RuntimeToolsetCapabilityPosture,
   RuntimeToolRegistryAvailabilityReadModel,
@@ -363,6 +364,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeHardlineCommandBlocklist,
     ),
   ] as const);
+  const runtimeManagedScopePolicySettledPromise = Promise.allSettled([
+    read<RuntimeManagedScopePolicyReadModel>(
+      API_ENDPOINTS.runtimeManagedScopePolicy,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -485,6 +491,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeContextBudgetPressureSettledPromise;
   const runtimeHardlineCommandBlocklistResult =
     await runtimeHardlineCommandBlocklistSettledPromise;
+  const runtimeManagedScopePolicyResult =
+    await runtimeManagedScopePolicySettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -518,6 +526,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const runtimeHardlineCommandBlocklist = fulfilledValue(
     runtimeHardlineCommandBlocklistResult[0],
+  );
+  const runtimeManagedScopePolicy = fulfilledValue(
+    runtimeManagedScopePolicyResult[0],
   );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
@@ -625,6 +636,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     isSafeRuntimeHardlineCommandBlocklist(runtimeHardlineCommandBlocklist)
       ? runtimeHardlineCommandBlocklist
       : undefined;
+  const safeRuntimeManagedScopePolicy = isSafeRuntimeManagedScopePolicy(
+    runtimeManagedScopePolicy,
+  )
+    ? runtimeManagedScopePolicy
+    : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
   const normalizedProofIndex = normalizeProofIndex(proofIndex);
@@ -774,6 +790,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeContextBudgetPressure === undefined;
   const runtimeHardlineCommandBlocklistFallbackUsed =
     safeRuntimeHardlineCommandBlocklist === undefined;
+  const runtimeManagedScopePolicyFallbackUsed =
+    safeRuntimeManagedScopePolicy === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -923,6 +941,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/prompt-stability-tiers",
         "GET /api/runtime/context-budget-pressure",
         "GET /api/runtime/hardline-command-blocklist",
+        "GET /api/runtime/managed-scope-policy",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -938,7 +957,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeUsageCostAnalytics !== undefined &&
         runtimePromptStabilityTiers !== undefined &&
         runtimeContextBudgetPressure !== undefined &&
-        runtimeHardlineCommandBlocklist !== undefined,
+        runtimeHardlineCommandBlocklist !== undefined &&
+        runtimeManagedScopePolicy !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -976,6 +996,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeHardlineCommandBlocklistFallbackUsed
           ? ["RUNTIME_HARDLINE_COMMAND_BLOCKLIST_MOCK_FALLBACK"]
           : []),
+        ...(runtimeManagedScopePolicyFallbackUsed
+          ? ["RUNTIME_MANAGED_SCOPE_POLICY_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -991,7 +1014,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeUsageCostAnalyticsFallbackUsed ||
         runtimePromptStabilityTiersFallbackUsed ||
         runtimeContextBudgetPressureFallbackUsed ||
-        runtimeHardlineCommandBlocklistFallbackUsed,
+        runtimeHardlineCommandBlocklistFallbackUsed ||
+        runtimeManagedScopePolicyFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1091,6 +1115,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimePromptStabilityTiers === undefined ||
     runtimeContextBudgetPressure === undefined ||
     runtimeHardlineCommandBlocklist === undefined ||
+    runtimeManagedScopePolicy === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1124,8 +1149,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeUsageCostAnalyticsResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimePromptStabilityTiersResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeContextBudgetPressureResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeHardlineCommandBlocklistResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 13;
+    (runtimeHardlineCommandBlocklistResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeManagedScopePolicyResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 14;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1214,6 +1240,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeHardlineCommandBlocklist:
       safeRuntimeHardlineCommandBlocklist ??
       mockControlCenterData.runtimeHardlineCommandBlocklist,
+    runtimeManagedScopePolicy:
+      safeRuntimeManagedScopePolicy ??
+      mockControlCenterData.runtimeManagedScopePolicy,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1302,6 +1331,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimePromptStabilityTiersFallbackUsed &&
     !runtimeContextBudgetPressureFallbackUsed &&
     !runtimeHardlineCommandBlocklistFallbackUsed &&
+    !runtimeManagedScopePolicyFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1338,6 +1368,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimePromptStabilityTiersFallbackUsed ||
     runtimeContextBudgetPressureFallbackUsed ||
     runtimeHardlineCommandBlocklistFallbackUsed ||
+    runtimeManagedScopePolicyFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1393,6 +1424,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeHardlineCommandBlocklistFallbackUsed) {
     degradedSafeMessage =
       "Runtime hardline command blocklist posture was unavailable or unsafe; non-authoritative mock fallback kept command floor override and catastrophic command categories blocked.";
+  } else if (runtimeManagedScopePolicyFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime managed scope policy posture was unavailable or unsafe; non-authoritative mock fallback kept local policy config writes and privileged delivery blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1484,6 +1518,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         : []),
       ...(runtimeHardlineCommandBlocklistFallbackUsed
         ? ["RUNTIME_HARDLINE_COMMAND_BLOCKLIST_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeManagedScopePolicyFallbackUsed
+        ? ["RUNTIME_MANAGED_SCOPE_POLICY_MOCK_FALLBACK"]
         : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
@@ -3866,6 +3903,89 @@ function isSafeRuntimeHardlineCommandBlocklist(
           : classification.status === "allowed_shape" &&
             classification.denial_category === "allowed"),
     )
+  );
+}
+
+function isSafeRuntimeManagedScopePolicy(
+  value: RuntimeManagedScopePolicyReadModel | undefined,
+): value is RuntimeManagedScopePolicyReadModel {
+  if (
+    value === undefined ||
+    !Array.isArray(value.pinned_sources) ||
+    !Array.isArray(value.drift_warnings)
+  ) {
+    return false;
+  }
+  const allowedSourceKinds = new Set([
+    "repo_local_policy",
+    "prompt_pack_policy",
+    "operator_profile",
+    "runtime_default",
+  ]);
+  const allowedDriftStatuses = new Set(["aligned", "warning", "blocked"]);
+  const deniedTopLevelFlags: Array<keyof RuntimeManagedScopePolicyReadModel> = [
+    "system_config_write_enabled",
+    "privileged_write_enabled",
+    "mdm_delivery_enabled",
+    "managed_secrets_enabled",
+    "unsigned_runtime_config_override_enabled",
+    "production_enforcement_claimed",
+    "control_center_mints_authority",
+    "runtime_config_mutation_performed",
+    "raw_config_persisted",
+    "raw_local_path_persisted",
+    "account_material_persisted",
+    "credential_material_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_managed_scope_policy.v1" &&
+    value.status === "read_only_local_policy_profile_posture" &&
+    value.route_ref === "GET /api/runtime/managed-scope-policy" &&
+    value.cli_ref === "uaa runtime inspect-managed-scope-policy" &&
+    value.pinned_source_count === value.pinned_sources.length &&
+    value.active_pinned_source_count ===
+      value.pinned_sources.filter((source) => source.active).length &&
+    value.drift_warning_count === value.drift_warnings.length &&
+    value.blocked_drift_warning_count ===
+      value.drift_warnings.filter((warning) => warning.status === "blocked")
+        .length &&
+    value.local_config_source_visible === true &&
+    value.precedence_visible === true &&
+    value.verification_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:managed-scope-no-system-config-write",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.pinned_sources.every(
+      (source) =>
+        allowedSourceKinds.has(source.source_kind) &&
+        allowedDriftStatuses.has(source.drift_status) &&
+        source.pinned === true &&
+        source.verified === true &&
+        isNonEmptyStringArray(source.blocked_authority_refs) &&
+        source.system_config_write_performed === false &&
+        source.privileged_write_performed === false &&
+        source.mdm_delivery_performed === false &&
+        source.managed_protected_material_performed === false &&
+        source.unsigned_runtime_config_override_performed === false &&
+        source.production_enforcement_claimed === false,
+    ) &&
+    value.drift_warnings.every(
+      (warning) =>
+        allowedDriftStatuses.has(warning.status) &&
+        warning.operator_review_required === true &&
+        isNonEmptyStringArray(warning.blocked_authority_refs) &&
+        isNonEmptyStringArray(warning.proof_refs) &&
+        warning.auto_remediation_performed === false &&
+        warning.runtime_config_write_performed === false &&
+        warning.unsigned_override_accepted === false &&
+        warning.production_enforcement_claimed === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
   );
 }
 

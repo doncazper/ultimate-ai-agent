@@ -9705,6 +9705,95 @@ export interface RuntimeHardlineCommandBlocklistReadModel {
   safe_summary: string;
 }
 
+export type RuntimeManagedScopePolicySourceKind =
+  | "repo_local_policy"
+  | "prompt_pack_policy"
+  | "operator_profile"
+  | "runtime_default";
+
+export type RuntimeManagedScopeDriftStatus = "aligned" | "warning" | "blocked";
+
+export interface RuntimeManagedScopePolicyPinSource {
+  source_ref: string;
+  source_kind: RuntimeManagedScopePolicySourceKind;
+  display_label: string;
+  precedence: number;
+  pinned: boolean;
+  verified: boolean;
+  active: boolean;
+  checksum_ref: string;
+  drift_status: RuntimeManagedScopeDriftStatus;
+  drift_warning_ref?: string | null;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  system_config_write_performed: boolean;
+  privileged_write_performed: boolean;
+  mdm_delivery_performed: boolean;
+  managed_protected_material_performed: boolean;
+  unsigned_runtime_config_override_performed: boolean;
+  production_enforcement_claimed: boolean;
+}
+
+export interface RuntimeManagedScopePolicyDriftWarning {
+  warning_ref: string;
+  source_ref: string;
+  status: RuntimeManagedScopeDriftStatus;
+  severity: string;
+  safe_summary: string;
+  expected_policy_ref: string;
+  observed_policy_ref: string;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  operator_review_required: boolean;
+  auto_remediation_performed: boolean;
+  runtime_config_write_performed: boolean;
+  unsigned_override_accepted: boolean;
+  production_enforcement_claimed: boolean;
+}
+
+export interface RuntimeManagedScopePolicyReadModel {
+  schema_version: "runtime_managed_scope_policy.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  policy_profile_ref: string;
+  profile_label: string;
+  safe_summary: string;
+  pinned_sources: RuntimeManagedScopePolicyPinSource[];
+  drift_warnings: RuntimeManagedScopePolicyDriftWarning[];
+  pinned_source_count: number;
+  active_pinned_source_count: number;
+  drift_warning_count: number;
+  blocked_drift_warning_count: number;
+  local_config_source_visible: boolean;
+  precedence_visible: boolean;
+  verification_visible: boolean;
+  rollback_ref: string;
+  admin_operator_proof_ref: string;
+  system_config_write_enabled: boolean;
+  privileged_write_enabled: boolean;
+  mdm_delivery_enabled: boolean;
+  managed_secrets_enabled: boolean;
+  unsigned_runtime_config_override_enabled: boolean;
+  production_enforcement_claimed: boolean;
+  control_center_mints_authority: boolean;
+  runtime_config_mutation_performed: boolean;
+  raw_config_persisted: boolean;
+  raw_local_path_persisted: boolean;
+  account_material_persisted: boolean;
+  credential_material_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -10880,6 +10969,7 @@ export interface ControlCenterData {
   runtimePromptStabilityTiers: RuntimePromptStabilityTiersReadModel;
   runtimeContextBudgetPressure: RuntimeContextBudgetPressureReadModel;
   runtimeHardlineCommandBlocklist: RuntimeHardlineCommandBlocklistReadModel;
+  runtimeManagedScopePolicy: RuntimeManagedScopePolicyReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;
