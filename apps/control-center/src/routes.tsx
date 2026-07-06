@@ -543,6 +543,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           previewRail={data.runtimePreviewRail}
           slashCommandRegistry={data.runtimeSlashCommandRegistry}
           interruptRedirect={data.runtimeInterruptRedirect}
+          loggingProfile={data.runtimeLoggingProfile}
         />
       );
     case "/operator-loop":

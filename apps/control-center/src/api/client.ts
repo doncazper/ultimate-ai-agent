@@ -48,6 +48,7 @@ import type {
   RuntimePromptStabilityTiersReadModel,
   RuntimePreviewRailReadModel,
   RuntimeInterruptRedirectReadModel,
+  RuntimeLoggingProfileReadModel,
   RuntimeSessionContinuityReadModel,
   RuntimeToolsetCapabilityPosture,
   RuntimeToolRegistryAvailabilityReadModel,
@@ -425,6 +426,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeInterruptRedirect,
     ),
   ] as const);
+  const runtimeLoggingProfileSettledPromise = Promise.allSettled([
+    read<RuntimeLoggingProfileReadModel>(API_ENDPOINTS.runtimeLoggingProfile),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -566,6 +570,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeSlashCommandRegistrySettledPromise;
   const runtimeInterruptRedirectResult =
     await runtimeInterruptRedirectSettledPromise;
+  const runtimeLoggingProfileResult = await runtimeLoggingProfileSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -625,6 +630,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeInterruptRedirect = fulfilledValue(
     runtimeInterruptRedirectResult[0],
   );
+  const runtimeLoggingProfile = fulfilledValue(runtimeLoggingProfileResult[0]);
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
@@ -783,6 +789,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeInterruptRedirect,
   )
     ? runtimeInterruptRedirect
+    : undefined;
+  const safeRuntimeLoggingProfile = isSafeRuntimeLoggingProfile(
+    runtimeLoggingProfile,
+  )
+    ? runtimeLoggingProfile
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -954,6 +965,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeSlashCommandRegistry === undefined;
   const runtimeInterruptRedirectFallbackUsed =
     safeRuntimeInterruptRedirect === undefined;
+  const runtimeLoggingProfileFallbackUsed =
+    safeRuntimeLoggingProfile === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -1139,7 +1152,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeLspDiagnostics !== undefined &&
         runtimePreviewRail !== undefined &&
         runtimeSlashCommandRegistry !== undefined &&
-        runtimeInterruptRedirect !== undefined,
+        runtimeInterruptRedirect !== undefined &&
+        runtimeLoggingProfile !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -1210,6 +1224,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeInterruptRedirectFallbackUsed
           ? ["RUNTIME_INTERRUPT_REDIRECT_MOCK_FALLBACK"]
           : []),
+        ...(runtimeLoggingProfileFallbackUsed
+          ? ["RUNTIME_LOGGING_PROFILE_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1236,7 +1253,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeLspDiagnosticsFallbackUsed ||
         runtimePreviewRailFallbackUsed ||
         runtimeSlashCommandRegistryFallbackUsed ||
-        runtimeInterruptRedirectFallbackUsed,
+        runtimeInterruptRedirectFallbackUsed ||
+        runtimeLoggingProfileFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1347,6 +1365,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimePreviewRail === undefined ||
     runtimeSlashCommandRegistry === undefined ||
     runtimeInterruptRedirect === undefined ||
+    runtimeLoggingProfile === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1391,8 +1410,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeLspDiagnosticsResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimePreviewRailResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeSlashCommandRegistryResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeInterruptRedirectResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 24;
+    (runtimeInterruptRedirectResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeLoggingProfileResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 25;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1512,6 +1532,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeInterruptRedirect:
       safeRuntimeInterruptRedirect ??
       mockControlCenterData.runtimeInterruptRedirect,
+    runtimeLoggingProfile:
+      safeRuntimeLoggingProfile ?? mockControlCenterData.runtimeLoggingProfile,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1611,6 +1633,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimePreviewRailFallbackUsed &&
     !runtimeSlashCommandRegistryFallbackUsed &&
     !runtimeInterruptRedirectFallbackUsed &&
+    !runtimeLoggingProfileFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1658,6 +1681,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimePreviewRailFallbackUsed ||
     runtimeSlashCommandRegistryFallbackUsed ||
     runtimeInterruptRedirectFallbackUsed ||
+    runtimeLoggingProfileFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1746,6 +1770,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeInterruptRedirectFallbackUsed) {
     degradedSafeMessage =
       "Runtime interrupt and redirect posture was unavailable or unsafe; non-authoritative mock fallback kept live stop, process kill, runtime mutation, and raw runtime payload persistence blocked.";
+  } else if (runtimeLoggingProfileFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime logging profile posture was unavailable or unsafe; non-authoritative mock fallback kept verbose logging, raw log persistence, and remote telemetry export blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -5174,6 +5201,91 @@ function isSafeRuntimeInterruptRedirect(
         proposal.control_center_mints_authority === false &&
         proposal.raw_runtime_payload_persisted === false &&
         proposal.raw_log_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeLoggingProfile(
+  value: RuntimeLoggingProfileReadModel | undefined,
+): value is RuntimeLoggingProfileReadModel {
+  if (value === undefined || !Array.isArray(value.profiles)) {
+    return false;
+  }
+  const allowedStatuses = new Set([
+    "active_default",
+    "disabled_until_flagged",
+    "blocked_raw_detail",
+  ]);
+  const allowedRetention = new Set([
+    "session_only",
+    "bounded_local_receipt",
+    "no_persistence",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeLoggingProfileReadModel> = [
+    "verbose_logging_enabled",
+    "raw_logs_persisted",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+    "provider_payload_persisted",
+    "local_path_persisted",
+    "credential_material_persisted",
+    "remote_telemetry_export_enabled",
+    "background_log_stream_enabled",
+    "control_center_mints_authority",
+  ];
+  return (
+    value.schema_version === "runtime_logging_profile.v1" &&
+    value.status === "quiet_default_redacted_troubleshooting_available" &&
+    value.route_ref === "GET /api/runtime/logging-profile" &&
+    value.cli_ref === "uaa runtime inspect-logging-profile" &&
+    value.active_profile_ref === "logging-profile-ref:runtime:quiet-normal" &&
+    value.profile_count === value.profiles.length &&
+    value.quiet_default_count ===
+      value.profiles.filter(
+        (profile) => profile.profile_status === "active_default",
+      ).length &&
+    value.disabled_until_flagged_count ===
+      value.profiles.filter(
+        (profile) => profile.profile_status === "disabled_until_flagged",
+      ).length &&
+    value.blocked_raw_detail_count ===
+      value.profiles.filter(
+        (profile) => profile.profile_status === "blocked_raw_detail",
+      ).length &&
+    value.flag_scope_visible === true &&
+    value.ttl_policy_visible === true &&
+    value.redaction_rules_visible === true &&
+    value.retention_policy_visible === true &&
+    value.operator_proof_visible === true &&
+    value.safe_disable_visible === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:logging-profile-no-raw-log-persistence",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.profiles.every(
+      (profile) =>
+        allowedStatuses.has(profile.profile_status) &&
+        allowedRetention.has(profile.retention_class) &&
+        profile.visible_in_control_center === true &&
+        profile.operator_flag_required === true &&
+        profile.safe_disable_available === true &&
+        isNonEmptyStringArray(profile.blocked_authority_refs) &&
+        isNonEmptyStringArray(profile.promotion_path_refs) &&
+        isNonEmptyStringArray(profile.next_safe_action_refs) &&
+        profile.raw_logs_persisted === false &&
+        profile.raw_prompt_persisted === false &&
+        profile.raw_response_persisted === false &&
+        profile.provider_payload_persisted === false &&
+        profile.local_path_persisted === false &&
+        profile.credential_material_persisted === false &&
+        profile.remote_telemetry_export_enabled === false &&
+        profile.background_log_stream_enabled === false &&
+        profile.control_center_mints_authority === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

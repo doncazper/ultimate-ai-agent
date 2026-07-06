@@ -50,6 +50,7 @@ import type {
   RuntimeSubagentIsolationRole,
   RuntimeSubagentReviewArtifact,
   RuntimeLspDiagnosticEvidenceContract,
+  RuntimeLoggingProfileRecord,
   RuntimePreviewRailSlot,
   RuntimeRunControlProposal,
   RuntimeSlashCommandRegistryEntry,
@@ -2022,6 +2023,93 @@ const runtimeInterruptRedirectProposals = [
     side_effect_class: "recovery_state_transition",
     safe_summary:
       "Mock recovery posture is future approval-bound and does not resume work.",
+  }),
+];
+
+const runtimeLoggingProfileBlockedRefs = [
+  "blocked-authority:logging-profile-no-raw-log-persistence",
+  "blocked-authority:logging-profile-no-raw-prompt-persistence",
+  "blocked-authority:logging-profile-no-raw-response-persistence",
+  "blocked-authority:logging-profile-no-provider-payload-persistence",
+  "blocked-authority:logging-profile-no-local-path-persistence",
+  "blocked-authority:logging-profile-no-credential-persistence",
+  "blocked-authority:logging-profile-no-remote-telemetry-export",
+  "blocked-authority:logging-profile-no-background-log-stream",
+  "blocked-authority:logging-profile-no-control-center-authority-mint",
+];
+
+function runtimeLoggingProfileRecord(
+  slug: string,
+  overrides: Pick<
+    RuntimeLoggingProfileRecord,
+    | "profile_kind"
+    | "display_label"
+    | "profile_status"
+    | "retention_class"
+    | "safe_summary"
+  >,
+): RuntimeLoggingProfileRecord {
+  return {
+    profile_ref: `logging-profile-ref:runtime:${slug}`,
+    profile_kind: overrides.profile_kind,
+    display_label: overrides.display_label,
+    profile_status: overrides.profile_status,
+    retention_class: overrides.retention_class,
+    flag_scope_ref: `logging-flag-scope-ref:runtime:${slug}`,
+    ttl_policy_ref: `ttl-policy-ref:runtime-logging:${slug}`,
+    retention_policy_ref: `retention-policy-ref:runtime-logging:${slug}`,
+    redaction_policy_ref: `redaction-policy-ref:runtime-logging:${slug}`,
+    redaction_verifier_ref: `redaction-verifier-ref:runtime-logging:${slug}`,
+    proof_ref: `proof-ref:runtime-logging:${slug}`,
+    safe_summary: overrides.safe_summary,
+    blocked_authority_refs: runtimeLoggingProfileBlockedRefs,
+    promotion_path_refs: [
+      `promotion-path-ref:runtime-logging:${slug}:flag-scope`,
+      `promotion-path-ref:runtime-logging:${slug}:ttl`,
+      `promotion-path-ref:runtime-logging:${slug}:redaction-verifier`,
+    ],
+    next_safe_action_refs: [
+      `next-safe-action-ref:runtime-logging:${slug}:operator-proof`,
+    ],
+    visible_in_control_center: true,
+    operator_flag_required: true,
+    safe_disable_available: true,
+    raw_logs_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    provider_payload_persisted: false,
+    local_path_persisted: false,
+    credential_material_persisted: false,
+    remote_telemetry_export_enabled: false,
+    background_log_stream_enabled: false,
+    control_center_mints_authority: false,
+  };
+}
+
+const runtimeLoggingProfileRecords = [
+  runtimeLoggingProfileRecord("quiet-normal", {
+    profile_kind: "quiet_normal",
+    display_label: "Quiet normal",
+    profile_status: "active_default",
+    retention_class: "no_persistence",
+    safe_summary:
+      "Mock quiet profile keeps verbose troubleshooting disabled by default.",
+  }),
+  runtimeLoggingProfileRecord("redacted-troubleshooting", {
+    profile_kind: "redacted_troubleshooting",
+    display_label: "Redacted troubleshooting",
+    profile_status: "disabled_until_flagged",
+    retention_class: "session_only",
+    safe_summary:
+      "Mock troubleshooting profile is flag/TTL posture only and stores no raw logs.",
+  }),
+  runtimeLoggingProfileRecord("forensic-safe-refs", {
+    profile_kind: "forensic_safe_refs",
+    display_label: "Forensic safe refs",
+    profile_status: "blocked_raw_detail",
+    retention_class: "bounded_local_receipt",
+    safe_summary:
+      "Mock forensic profile can show safe refs only; raw detail remains blocked.",
   }),
 ];
 
@@ -14391,6 +14479,77 @@ export const mockControlCenterData: ControlCenterData = {
       "raw_logs_omitted",
       "process_identifiers_omitted",
       "operator_instruction_text_omitted",
+    ],
+  },
+  runtimeLoggingProfile: {
+    schema_version: "runtime_logging_profile.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-logging-profile:v1",
+    status: "quiet_default_redacted_troubleshooting_available",
+    snapshot_ref: "logging-profile-snapshot-ref:runtime:redacted",
+    snapshot_hash_ref: "snapshot-hash-ref:logging-profile:mock",
+    route_ref: "GET /api/runtime/logging-profile",
+    cli_ref: "uaa runtime inspect-logging-profile",
+    control_center_ref: "control-center-route:runtime",
+    active_profile_ref: "logging-profile-ref:runtime:quiet-normal",
+    safe_summary:
+      "Runtime logging profile mock fallback keeps quiet mode active and exposes only redacted troubleshooting posture.",
+    profiles: runtimeLoggingProfileRecords,
+    profile_count: runtimeLoggingProfileRecords.length,
+    quiet_default_count: runtimeLoggingProfileRecords.filter(
+      (profile) => profile.profile_status === "active_default",
+    ).length,
+    disabled_until_flagged_count: runtimeLoggingProfileRecords.filter(
+      (profile) => profile.profile_status === "disabled_until_flagged",
+    ).length,
+    blocked_raw_detail_count: runtimeLoggingProfileRecords.filter(
+      (profile) => profile.profile_status === "blocked_raw_detail",
+    ).length,
+    flag_scope_visible: true,
+    ttl_policy_visible: true,
+    redaction_rules_visible: true,
+    retention_policy_visible: true,
+    operator_proof_visible: true,
+    safe_disable_visible: true,
+    verbose_logging_enabled: false,
+    raw_logs_persisted: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    provider_payload_persisted: false,
+    local_path_persisted: false,
+    credential_material_persisted: false,
+    remote_telemetry_export_enabled: false,
+    background_log_stream_enabled: false,
+    control_center_mints_authority: false,
+    blocked_authority_refs: runtimeLoggingProfileBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:logging-profile:flag-scope",
+      "promotion-path-ref:logging-profile:ttl",
+      "promotion-path-ref:logging-profile:redaction-verifier",
+      "promotion-path-ref:logging-profile:retention-policy",
+      "promotion-path-ref:logging-profile:operator-proof",
+      "promotion-path-ref:logging-profile:safe-disable",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-38:logging-profile",
+      "proof-ref:logging-profile:quiet-default",
+      "proof-ref:logging-profile:raw-logs-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-38:logging-profile",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:logging-profile:operator-flag-contract",
+      "next-safe-action-ref:logging-profile:redaction-regression-fixtures",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_logs_omitted",
+      "raw_prompts_omitted",
+      "raw_responses_omitted",
+      "provider_payloads_omitted",
+      "local_paths_omitted",
+      "credential_material_omitted",
     ],
   },
   runtimeApprovalBridge: {

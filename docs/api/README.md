@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `229`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `230` route
+Current OpenAPI path count: `230`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `231` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview adds one no-effect diagnostic route. The Hermes Runtime
@@ -29,6 +29,9 @@ Hermes Runtime Adoption Phase 37 adds `GET /api/runtime/interrupt-redirect`
 as a protected read-only run-control proposal route with live stop, process
 kill, runtime mutation, raw runtime payload persistence, and raw log
 persistence blocked.
+Hermes Runtime Adoption Phase 38 adds `GET /api/runtime/logging-profile` as a
+protected read-only logging profile route with verbose toggling, raw log
+persistence, provider payload persistence, and remote telemetry export blocked.
 
 The API boundary is metadata-first, validation-first, approval-aware for
 local/dev policy checks, simulated/fallback-first for model runtime behavior,

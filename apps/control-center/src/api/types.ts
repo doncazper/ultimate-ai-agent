@@ -10636,6 +10636,91 @@ export interface RuntimeInterruptRedirectReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeLoggingProfileKind =
+  | "quiet_normal"
+  | "redacted_troubleshooting"
+  | "forensic_safe_refs";
+
+export type RuntimeLoggingProfileStatus =
+  | "active_default"
+  | "disabled_until_flagged"
+  | "blocked_raw_detail";
+
+export type RuntimeLoggingRetentionClass =
+  | "session_only"
+  | "bounded_local_receipt"
+  | "no_persistence";
+
+export interface RuntimeLoggingProfileRecord {
+  profile_ref: string;
+  profile_kind: RuntimeLoggingProfileKind;
+  display_label: string;
+  profile_status: RuntimeLoggingProfileStatus;
+  retention_class: RuntimeLoggingRetentionClass;
+  flag_scope_ref: string;
+  ttl_policy_ref: string;
+  retention_policy_ref: string;
+  redaction_policy_ref: string;
+  redaction_verifier_ref: string;
+  proof_ref: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  visible_in_control_center: boolean;
+  operator_flag_required: boolean;
+  safe_disable_available: boolean;
+  raw_logs_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  provider_payload_persisted: boolean;
+  local_path_persisted: boolean;
+  credential_material_persisted: boolean;
+  remote_telemetry_export_enabled: boolean;
+  background_log_stream_enabled: boolean;
+  control_center_mints_authority: boolean;
+}
+
+export interface RuntimeLoggingProfileReadModel {
+  schema_version: "runtime_logging_profile.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  active_profile_ref: string;
+  safe_summary: string;
+  profiles: RuntimeLoggingProfileRecord[];
+  profile_count: number;
+  quiet_default_count: number;
+  disabled_until_flagged_count: number;
+  blocked_raw_detail_count: number;
+  flag_scope_visible: boolean;
+  ttl_policy_visible: boolean;
+  redaction_rules_visible: boolean;
+  retention_policy_visible: boolean;
+  operator_proof_visible: boolean;
+  safe_disable_visible: boolean;
+  verbose_logging_enabled: boolean;
+  raw_logs_persisted: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  provider_payload_persisted: boolean;
+  local_path_persisted: boolean;
+  credential_material_persisted: boolean;
+  remote_telemetry_export_enabled: boolean;
+  background_log_stream_enabled: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -11822,6 +11907,7 @@ export interface ControlCenterData {
   runtimePreviewRail: RuntimePreviewRailReadModel;
   runtimeSlashCommandRegistry: RuntimeSlashCommandRegistryReadModel;
   runtimeInterruptRedirect: RuntimeInterruptRedirectReadModel;
+  runtimeLoggingProfile: RuntimeLoggingProfileReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

@@ -8,6 +8,7 @@ import type {
   RuntimeDoctorDiagnosticsReadModel,
   RuntimeHardlineCommandBlocklistReadModel,
   RuntimeInterruptRedirectReadModel,
+  RuntimeLoggingProfileReadModel,
   RuntimeLspDiagnosticsReadModel,
   RuntimeManagedScopePolicyReadModel,
   RuntimeMcpCatalogFilteringReadModel,
@@ -54,6 +55,7 @@ export function RuntimeReadinessPanel({
   previewRail,
   slashCommandRegistry,
   interruptRedirect,
+  loggingProfile,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -80,6 +82,7 @@ export function RuntimeReadinessPanel({
   previewRail: RuntimePreviewRailReadModel;
   slashCommandRegistry: RuntimeSlashCommandRegistryReadModel;
   interruptRedirect: RuntimeInterruptRedirectReadModel;
+  loggingProfile: RuntimeLoggingProfileReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -1434,6 +1437,104 @@ export function RuntimeReadinessPanel({
         <h4>Blocked authority</h4>
         <ul className="compact-list">
           {interruptRedirect.blocked_authority_refs.slice(0, 6).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Logging</p>
+            <h3>Verbose detail posture</h3>
+          </div>
+          <span className="status-pill compact">{loggingProfile.status}</span>
+        </div>
+        <p>{loggingProfile.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{loggingProfile.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{loggingProfile.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Active profile</dt>
+            <dd>{loggingProfile.active_profile_ref}</dd>
+          </div>
+          <div>
+            <dt>Profiles</dt>
+            <dd>{loggingProfile.profile_count}</dd>
+          </div>
+          <div>
+            <dt>Flagged profile</dt>
+            <dd>{loggingProfile.disabled_until_flagged_count}</dd>
+          </div>
+          <div>
+            <dt>Raw detail blocked</dt>
+            <dd>{loggingProfile.blocked_raw_detail_count}</dd>
+          </div>
+          <div>
+            <dt>Verbose enabled</dt>
+            <dd>{loggingProfile.verbose_logging_enabled ? "enabled" : "disabled"}</dd>
+          </div>
+          <div>
+            <dt>Remote telemetry</dt>
+            <dd>
+              {loggingProfile.remote_telemetry_export_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Profile</th>
+                <th>Status</th>
+                <th>Retention</th>
+                <th>TTL</th>
+                <th>Redaction</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loggingProfile.profiles.map((profile) => (
+                <tr key={profile.profile_ref}>
+                  <td>{profile.display_label}</td>
+                  <td>{profile.profile_status}</td>
+                  <td>{profile.retention_class}</td>
+                  <td>{profile.ttl_policy_ref}</td>
+                  <td>{profile.redaction_verifier_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>Flag scope</dt>
+            <dd>{loggingProfile.flag_scope_visible ? "visible" : "missing"}</dd>
+          </div>
+          <div>
+            <dt>Safe disable</dt>
+            <dd>{loggingProfile.safe_disable_visible ? "visible" : "missing"}</dd>
+          </div>
+          <div>
+            <dt>Raw logs</dt>
+            <dd>{loggingProfile.raw_logs_persisted ? "stored" : "omitted"}</dd>
+          </div>
+          <div>
+            <dt>Provider payload</dt>
+            <dd>
+              {loggingProfile.provider_payload_persisted ? "stored" : "omitted"}
+            </dd>
+          </div>
+        </dl>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {loggingProfile.blocked_authority_refs.slice(0, 6).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>
