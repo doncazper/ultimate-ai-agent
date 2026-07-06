@@ -178,8 +178,8 @@ are operator-run prompts, not runtime system prompts, and they do not grant
 durable board mutation, issue tracker writes, connector writes, provider/model
 calls, shell/subprocess execution, browser automation, background autonomy,
 public beta/release, or production authority. Use
-`docs/prompts/kanban_board/00_execute_kanban_board_end_to_end.prompt.md` for
-the end-to-end wrapper.
+`docs/prompts/kanban_board/00_execute_kanban_board_end_to_end.prompt.md` for the
+end-to-end wrapper.
 
 ## Hermes Runtime Adoption prompts
 
@@ -224,4 +224,19 @@ shell/subprocess execution, plugin runtime import, remote execution, public
 release claims, production authority, or broad autonomy. Use
 `docs/prompts/uaa_goatcitadel_runtime_parity/00_execute_runtime_parity_end_to_end.prompt.md`
 or `scripts/dev/run_uaa_goatcitadel_runtime_parity_prompt_pack.sh` for the
+end-to-end wrapper.
+
+## Coding Pair Agent Relay Runner prompts
+
+Stored execution prompts for the Coding Pair Agent Relay Runner live in
+`docs/prompts/coding_pair_agent_relay_runner/`. They target a bounded
+foreground paired-agent coding loop where UAA owns the relay state, turn budget,
+approval gate, adapter policy, receipts, redaction, and operator-visible
+artifacts. They are operator-run prompts, not runtime system prompts, and they
+do not grant provider SDK calls, unrestricted shell/subprocess execution,
+background autonomy, browser automation, connector writes, Git mutation,
+automatic patch apply, public release claims, production authority, or broad
+local-agent execution by themselves. Use
+`docs/prompts/coding_pair_agent_relay_runner/00_execute_coding_pair_agent_relay_runner_end_to_end.prompt.md`
+or `scripts/dev/run_coding_pair_agent_relay_runner_prompt_pack.sh` for the
 end-to-end wrapper.

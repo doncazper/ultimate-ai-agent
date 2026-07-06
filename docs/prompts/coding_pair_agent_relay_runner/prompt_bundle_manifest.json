@@ -1,0 +1,19 @@
+{
+  "$schema": "../../schemas/prompt_bundle_manifest.schema.json",
+  "bundle_id": "coding-pair-agent-relay-runner-001",
+  "version": "1.0.0",
+  "purpose": "Stored prompts for graduating UAA Coding Cockpit multi-agent review toward a bounded foreground paired-agent relay runner with exact authority, receipts, redaction, CLI/API/UI parity, and fail-closed fallback.",
+  "developer_prompt_refs": [
+    "docs/prompts/coding_pair_agent_relay_runner/00_execute_coding_pair_agent_relay_runner_end_to_end.prompt.md",
+    "docs/prompts/coding_pair_agent_relay_runner/01_baseline_authority_and_product_truth.prompt.md",
+    "docs/prompts/coding_pair_agent_relay_runner/02_pair_run_contracts_and_state_machine.prompt.md",
+    "docs/prompts/coding_pair_agent_relay_runner/03_adapter_registry_policy_and_approval_gate.prompt.md",
+    "docs/prompts/coding_pair_agent_relay_runner/04_foreground_relay_runner_orchestrator.prompt.md",
+    "docs/prompts/coding_pair_agent_relay_runner/05_transcript_artifacts_receipts_and_evidence.prompt.md",
+    "docs/prompts/coding_pair_agent_relay_runner/06_coding_chat_cli_api_ui_surfaces.prompt.md",
+    "docs/prompts/coding_pair_agent_relay_runner/07_final_hardening_and_graduation_truth.prompt.md"
+  ],
+  "bundle_hash": "sha256:0b8cd3246d27ace4cd048043b67ae62e732e067f842a47a51430adfca1075219",
+  "stable_within_run": true,
+  "created_at": "2026-07-05"
+}
