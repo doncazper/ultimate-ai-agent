@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `214`.
+Current OpenAPI path count: `215`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -171,6 +171,14 @@ blocked authority refs only. Live model fan-out, provider SDK calls, external
 runtime dispatch, hidden advisor prompts, model-output authority, connector
 writes, shell/subprocess execution, browser automation, and production
 authority remain blocked.
+`GET /api/runtime/usage-cost-analytics` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 22 usage and cost analytics posture. It
+returns redacted accounting record refs, runtime/provider/model refs,
+task-value refs, receipt refs, estimate refs, bounded usage estimates, latency
+estimates, cost minor units, proof refs, verifier refs, and blocked authority
+refs only. Billing actions, provider calls, provider SDK calls, live pricing
+fetches, operator export, raw prompt/response/provider-payload persistence,
+model-output authority, and production authority remain blocked.
 `GET /api/runtime/context-references` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 16 context-reference posture. It returns
 safe-ref grammar, preview refs, budget estimates, why-included refs, and

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `214`.
+Current OpenAPI path count: `215`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -124,6 +124,14 @@ Contract rules:
   SDKs, dispatch external runtimes, use hidden advisor prompts, treat agent
   output as authority, write connectors, run shell/subprocess commands,
   automate browsers, or grant production authority.
+  `GET /api/runtime/usage-cost-analytics` exposes the Hermes Runtime Adoption
+  Phase 22 backend-owned usage and cost analytics posture. It returns redacted
+  accounting record refs, runtime/provider/model refs, task-value refs, receipt
+  refs, estimate refs, bounded usage estimates, latency estimates, cost minor
+  units, proof refs, verifier refs, and blocked authority refs only. It does
+  not perform billing actions, provider calls, provider SDK calls, live pricing
+  fetches, operator export, raw prompt/response/provider-payload persistence,
+  model-output authority, or production authority.
   `GET /api/runtime/context-references` exposes the Hermes Runtime Adoption
   Phase 16 backend-owned context-reference posture. It returns safe-ref grammar,
   preview refs, budget estimates, why-included refs, and blocked URL/live-fetch

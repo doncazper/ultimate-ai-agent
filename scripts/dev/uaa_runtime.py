@@ -42,6 +42,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_session_lineage_read_model,
     build_runtime_streaming_progress_read_model,
     build_runtime_tool_registry_availability_read_model,
+    build_runtime_usage_cost_analytics_read_model,
     build_runtime_virtual_provider_moa_read_model,
     build_runtime_action_signed_evidence,
     build_runtime_checkpoint_rollback_read_model,
@@ -380,6 +381,41 @@ def _print_virtual_provider_moa(read_model: dict[str, Any]) -> None:
                 f"  - {slot['display_label']}: role={slot['role']} "
                 f"runtime={slot['runtime_ref']}"
             )
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_usage_cost_analytics(read_model: dict[str, Any]) -> None:
+    print("Runtime usage and cost analytics posture")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Records: {read_model['record_count']}")
+    print(f"Estimated input units: {read_model['total_estimated_input_tokens']}")
+    print(f"Estimated output units: {read_model['total_estimated_output_tokens']}")
+    print(f"Estimated total units: {read_model['total_estimated_tokens']}")
+    print(f"Estimated minor cost units: {read_model['total_estimated_cost_minor_units']}")
+    print(f"Provider calls: {read_model['provider_call_enabled']}")
+    print(f"Provider SDK: {read_model['provider_sdk_enabled']}")
+    print(f"Billing actions: {read_model['billing_action_enabled']}")
+    print(f"Operator export: {read_model['operator_export_available']}")
+    print("Records:")
+    for record in read_model["records"]:
+        print(
+            f"- {record['display_label']}: "
+            f"source={record['source_kind']} status={record['status']} "
+            f"runtime={record['runtime_ref']}"
+        )
+        print(
+            "  "
+            f"units={record['estimated_total_tokens']} "
+            f"cost_minor={record['estimated_cost_minor_units']} "
+            f"latency_ms={record['latency_ms']}"
+        )
+        print(f"  summary: {record['safe_summary']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -878,6 +914,35 @@ def _inspect_virtual_provider_moa(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_virtual_provider_moa(read_model)
+    return 0
+
+
+def _inspect_usage_cost_analytics(args: argparse.Namespace) -> int:
+    read_model = build_runtime_usage_cost_analytics_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-usage-cost-analytics",
+        "runtime_usage_cost_analytics": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_prompts_omitted": True,
+        "raw_responses_omitted": True,
+        "provider_payloads_omitted": True,
+        "billing_payloads_omitted": True,
+        "operator_export_payloads_omitted": True,
+        "provider_call_performed": False,
+        "provider_sdk_call_performed": False,
+        "billing_action_performed": False,
+        "live_price_fetch_performed": False,
+        "operator_export_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_usage_cost_analytics(read_model)
     return 0
 
 
@@ -1806,6 +1871,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref virtual provider preset read model as JSON.",
     )
     virtual_provider_moa.set_defaults(func=_inspect_virtual_provider_moa)
+
+    usage_cost_analytics = subparsers.add_parser(
+        "inspect-usage-cost-analytics",
+        help="Inspect redacted runtime usage and cost accounting posture.",
+    )
+    usage_cost_analytics.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref runtime usage and cost read model as JSON.",
+    )
+    usage_cost_analytics.set_defaults(func=_inspect_usage_cost_analytics)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",

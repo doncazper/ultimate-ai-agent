@@ -40,6 +40,7 @@ import type {
   RunObservabilityReadModel,
   RuntimeVirtualAgentSlot,
   RuntimeVirtualProviderPreset,
+  RuntimeUsageCostRecord,
   RuntimeToolRegistryEntry,
   TrustAuthorityMatrix,
   WorkBoardReadModel,
@@ -425,6 +426,104 @@ const runtimeVirtualProviderMoaPresets: RuntimeVirtualProviderPreset[] = [
         model_ref: "model-ref:uaa:safety-supervisor",
       }),
     ],
+  }),
+];
+
+const runtimeUsageCostAnalyticsBlockedRefs = [
+  "blocked-authority:usage-cost-analytics-no-billing-action",
+  "blocked-authority:usage-cost-analytics-no-provider-call",
+  "blocked-authority:usage-cost-analytics-no-provider-sdk-call",
+  "blocked-authority:usage-cost-analytics-no-live-price-fetch",
+  "blocked-authority:usage-cost-analytics-no-raw-prompt-persistence",
+  "blocked-authority:usage-cost-analytics-no-raw-response-persistence",
+  "blocked-authority:usage-cost-analytics-no-provider-payload-persistence",
+  "blocked-authority:usage-cost-analytics-no-operator-export",
+  "blocked-authority:usage-cost-analytics-no-production-authority",
+];
+
+function runtimeUsageCostRecord(
+  slug: string,
+  overrides: Partial<RuntimeUsageCostRecord>,
+): RuntimeUsageCostRecord {
+  return {
+    record_ref: `usage-cost-record-ref:${slug}`,
+    display_label: overrides.display_label ?? "Runtime accounting record",
+    source_kind: overrides.source_kind ?? "manual_diagnostic_receipt",
+    status: overrides.status ?? "read_only_estimate",
+    runtime_ref: overrides.runtime_ref ?? "runtime-ref:uaa:mock-runtime",
+    provider_ref: overrides.provider_ref ?? "provider-ref:uaa:mock-provider",
+    model_ref: overrides.model_ref ?? "model-ref:uaa:mock-model",
+    task_value_ref:
+      overrides.task_value_ref ?? `task-value-ref:runtime-usage:${slug}`,
+    receipt_ref: overrides.receipt_ref ?? `runtime-receipt-ref:usage-cost:${slug}`,
+    cost_estimate_ref:
+      overrides.cost_estimate_ref ?? `cost-estimate-ref:runtime-usage:${slug}`,
+    safe_summary:
+      overrides.safe_summary ??
+      "Mock fallback row is read-only accounting posture only.",
+    estimated_input_tokens: overrides.estimated_input_tokens ?? 0,
+    estimated_output_tokens: overrides.estimated_output_tokens ?? 0,
+    estimated_total_tokens: overrides.estimated_total_tokens ?? 0,
+    latency_ms: overrides.latency_ms ?? 0,
+    estimated_cost_minor_units: overrides.estimated_cost_minor_units ?? 0,
+    currency_ref: overrides.currency_ref ?? "currency-ref:usd",
+    proof_refs: overrides.proof_refs ?? [
+      "proof-ref:hermes-runtime-adoption:phase-22:usage-cost-analytics",
+    ],
+    evidence_refs: overrides.evidence_refs ?? [
+      `evidence-ref:runtime-usage-cost:${slug}`,
+    ],
+    blocked_authority_refs:
+      overrides.blocked_authority_refs ?? runtimeUsageCostAnalyticsBlockedRefs,
+    provider_call_performed: false,
+    provider_sdk_call_performed: false,
+    billing_action_performed: false,
+    live_price_fetch_performed: false,
+    raw_prompt_persisted: false,
+    raw_response_persisted: false,
+    provider_payload_persisted: false,
+    output_authoritative: false,
+    production_authority_enabled: false,
+  };
+}
+
+const runtimeUsageCostAnalyticsRecords: RuntimeUsageCostRecord[] = [
+  runtimeUsageCostRecord("local-loopback-diagnostic", {
+    display_label: "Local diagnostic accounting",
+    source_kind: "manual_diagnostic_receipt",
+    status: "recorded_diagnostic",
+    runtime_ref: "runtime-ref:uaa:runtime-gateway",
+    provider_ref: "provider-ref:uaa:local-loopback",
+    model_ref: "model-ref:uaa:loopback-diagnostic",
+    safe_summary:
+      "Mock local diagnostic row shows bounded accounting metadata only.",
+    estimated_input_tokens: 128,
+    estimated_output_tokens: 64,
+    estimated_total_tokens: 192,
+    latency_ms: 42,
+  }),
+  runtimeUsageCostRecord("provider-catalog-reference", {
+    display_label: "Provider catalog cost reference",
+    source_kind: "provider_catalog_reference",
+    runtime_ref: "runtime-ref:provider-catalog:read-only",
+    provider_ref: "provider-ref:frontier-provider:blocked-reference",
+    model_ref: "model-ref:frontier-model:cost-reference",
+    safe_summary:
+      "Mock catalog reference is an offline estimate; no provider call is made.",
+    estimated_input_tokens: 900,
+    estimated_output_tokens: 250,
+    estimated_total_tokens: 1150,
+    estimated_cost_minor_units: 14,
+  }),
+  runtimeUsageCostRecord("delegated-runtime-future", {
+    display_label: "Delegated runtime future accounting",
+    source_kind: "delegated_runtime_future",
+    status: "blocked_missing_authority",
+    runtime_ref: "runtime-ref:hermes-agent:optional-target",
+    provider_ref: "provider-ref:delegated-runtime:future",
+    model_ref: "model-ref:delegated-runtime:future",
+    safe_summary:
+      "Mock delegated runtime accounting remains blocked until receipts exist.",
   }),
 ];
 
@@ -11717,6 +11816,83 @@ export const mockControlCenterData: ControlCenterData = {
       "provider_payloads_omitted",
       "advisor_prompts_omitted",
       "agent_outputs_omitted",
+    ],
+  },
+  runtimeUsageCostAnalytics: {
+    schema_version: "runtime_usage_cost_analytics.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-usage-cost-analytics:v1",
+    status: "read_only_redacted_accounting_posture",
+    snapshot_ref: "usage-cost-analytics-snapshot-ref:runtime:mock-accounting",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-usage-cost-analytics:mock",
+    route_ref: "GET /api/runtime/usage-cost-analytics",
+    cli_ref: "uaa runtime inspect-usage-cost-analytics",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime usage and cost mock fallback shows redacted accounting posture only; provider calls and billing remain blocked.",
+    records: runtimeUsageCostAnalyticsRecords,
+    record_count: runtimeUsageCostAnalyticsRecords.length,
+    manual_diagnostic_receipt_count: runtimeUsageCostAnalyticsRecords.filter(
+      (record) => record.source_kind === "manual_diagnostic_receipt",
+    ).length,
+    runtime_receipt_record_count: runtimeUsageCostAnalyticsRecords.filter(
+      (record) => record.source_kind === "runtime_receipt_metadata",
+    ).length,
+    provider_catalog_reference_count: runtimeUsageCostAnalyticsRecords.filter(
+      (record) => record.source_kind === "provider_catalog_reference",
+    ).length,
+    blocked_record_count: runtimeUsageCostAnalyticsRecords.filter(
+      (record) => record.status === "blocked_missing_authority",
+    ).length,
+    total_estimated_input_tokens: runtimeUsageCostAnalyticsRecords.reduce(
+      (sum, record) => sum + record.estimated_input_tokens,
+      0,
+    ),
+    total_estimated_output_tokens: runtimeUsageCostAnalyticsRecords.reduce(
+      (sum, record) => sum + record.estimated_output_tokens,
+      0,
+    ),
+    total_estimated_tokens: runtimeUsageCostAnalyticsRecords.reduce(
+      (sum, record) => sum + record.estimated_total_tokens,
+      0,
+    ),
+    total_latency_ms: runtimeUsageCostAnalyticsRecords.reduce(
+      (sum, record) => sum + record.latency_ms,
+      0,
+    ),
+    total_estimated_cost_minor_units: runtimeUsageCostAnalyticsRecords.reduce(
+      (sum, record) => sum + record.estimated_cost_minor_units,
+      0,
+    ),
+    currency_ref: "currency-ref:usd",
+    operator_export_available: false,
+    billing_action_enabled: false,
+    provider_call_enabled: false,
+    provider_sdk_enabled: false,
+    live_price_fetch_enabled: false,
+    raw_prompt_persistence_enabled: false,
+    raw_response_persistence_enabled: false,
+    provider_payload_persistence_enabled: false,
+    output_authority_enabled: false,
+    production_authority_enabled: false,
+    blocked_authority_refs: runtimeUsageCostAnalyticsBlockedRefs,
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-22:usage-cost-analytics",
+    ],
+    verifier_refs: ["verifier-ref:hermes-runtime-adoption:phase-22"],
+    next_safe_action_refs: [
+      "next-safe-action-ref:usage-cost-analytics:bind-provider-result-envelope",
+      "next-safe-action-ref:usage-cost-analytics:add-cost-attribution",
+      "next-safe-action-ref:usage-cost-analytics:keep-billing-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "prompt_content_omitted",
+      "response_content_omitted",
+      "provider_payloads_omitted",
+      "billing_payloads_omitted",
+      "operator_export_payloads_omitted",
+      "usage_samples_bounded",
     ],
   },
   runtimeApprovalBridge: {

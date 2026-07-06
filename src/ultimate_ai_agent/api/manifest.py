@@ -693,6 +693,7 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
     "/api/runtime/session-search",
     "/api/runtime/streaming-progress",
     "/api/runtime/tool-registry",
+    "/api/runtime/usage-cost-analytics",
     "/api/runtime/virtual-provider-moa",
     "/api/runtime/staged-orchestration",
     "/api/runtime/prepared-turn",

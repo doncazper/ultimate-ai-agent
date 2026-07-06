@@ -9359,6 +9359,88 @@ export interface RuntimeVirtualProviderMoaReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeUsageAccountingSource =
+  | "manual_diagnostic_receipt"
+  | "runtime_receipt_metadata"
+  | "provider_catalog_reference"
+  | "delegated_runtime_future";
+
+export type RuntimeUsageAccountingStatus =
+  | "recorded_diagnostic"
+  | "read_only_estimate"
+  | "blocked_missing_authority";
+
+export interface RuntimeUsageCostRecord {
+  record_ref: string;
+  display_label: string;
+  source_kind: RuntimeUsageAccountingSource;
+  status: RuntimeUsageAccountingStatus;
+  runtime_ref: string;
+  provider_ref: string;
+  model_ref: string;
+  task_value_ref: string;
+  receipt_ref: string;
+  cost_estimate_ref: string;
+  safe_summary: string;
+  estimated_input_tokens: number;
+  estimated_output_tokens: number;
+  estimated_total_tokens: number;
+  latency_ms: number;
+  estimated_cost_minor_units: number;
+  currency_ref: string;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocked_authority_refs: string[];
+  provider_call_performed: boolean;
+  provider_sdk_call_performed: boolean;
+  billing_action_performed: boolean;
+  live_price_fetch_performed: boolean;
+  raw_prompt_persisted: boolean;
+  raw_response_persisted: boolean;
+  provider_payload_persisted: boolean;
+  output_authoritative: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface RuntimeUsageCostAnalyticsReadModel {
+  schema_version: "runtime_usage_cost_analytics.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  records: RuntimeUsageCostRecord[];
+  record_count: number;
+  manual_diagnostic_receipt_count: number;
+  runtime_receipt_record_count: number;
+  provider_catalog_reference_count: number;
+  blocked_record_count: number;
+  total_estimated_input_tokens: number;
+  total_estimated_output_tokens: number;
+  total_estimated_tokens: number;
+  total_latency_ms: number;
+  total_estimated_cost_minor_units: number;
+  currency_ref: string;
+  operator_export_available: boolean;
+  billing_action_enabled: boolean;
+  provider_call_enabled: boolean;
+  provider_sdk_enabled: boolean;
+  live_price_fetch_enabled: boolean;
+  raw_prompt_persistence_enabled: boolean;
+  raw_response_persistence_enabled: boolean;
+  provider_payload_persistence_enabled: boolean;
+  output_authority_enabled: boolean;
+  production_authority_enabled: boolean;
+  blocked_authority_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -10506,6 +10588,7 @@ export interface ControlCenterData {
   runtimeProfiles: RuntimeProfileIsolationReadModel;
   runtimeToolRegistry: RuntimeToolRegistryAvailabilityReadModel;
   runtimeVirtualProviderMoa: RuntimeVirtualProviderMoaReadModel;
+  runtimeUsageCostAnalytics: RuntimeUsageCostAnalyticsReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

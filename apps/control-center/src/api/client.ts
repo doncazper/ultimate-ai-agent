@@ -39,6 +39,7 @@ import type {
   RuntimeDelegationAdapterReadModel,
   RuntimeToolsetCapabilityPosture,
   RuntimeToolRegistryAvailabilityReadModel,
+  RuntimeUsageCostAnalyticsReadModel,
   RuntimeVirtualProviderMoaReadModel,
   RuntimeRunEventsReadModel,
   RuntimeStreamingProgressReadModel,
@@ -339,6 +340,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeVirtualProviderMoa,
     ),
   ] as const);
+  const runtimeUsageCostAnalyticsSettledPromise = Promise.allSettled([
+    read<RuntimeUsageCostAnalyticsReadModel>(
+      API_ENDPOINTS.runtimeUsageCostAnalytics,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -453,6 +459,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeToolRegistryResult = await runtimeToolRegistrySettledPromise;
   const runtimeVirtualProviderMoaResult =
     await runtimeVirtualProviderMoaSettledPromise;
+  const runtimeUsageCostAnalyticsResult =
+    await runtimeUsageCostAnalyticsSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -474,6 +482,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeToolRegistry = fulfilledValue(runtimeToolRegistryResult[0]);
   const runtimeVirtualProviderMoa = fulfilledValue(
     runtimeVirtualProviderMoaResult[0],
+  );
+  const runtimeUsageCostAnalytics = fulfilledValue(
+    runtimeUsageCostAnalyticsResult[0],
   );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
@@ -561,6 +572,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeVirtualProviderMoa,
   )
     ? runtimeVirtualProviderMoa
+    : undefined;
+  const safeRuntimeUsageCostAnalytics = isSafeRuntimeUsageCostAnalytics(
+    runtimeUsageCostAnalytics,
+  )
+    ? runtimeUsageCostAnalytics
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -703,6 +719,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeToolRegistry === undefined;
   const runtimeVirtualProviderMoaFallbackUsed =
     safeRuntimeVirtualProviderMoa === undefined;
+  const runtimeUsageCostAnalyticsFallbackUsed =
+    safeRuntimeUsageCostAnalytics === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -848,6 +866,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/profiles",
         "GET /api/runtime/tool-registry",
         "GET /api/runtime/virtual-provider-moa",
+        "GET /api/runtime/usage-cost-analytics",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -859,7 +878,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeStreamingProgress !== undefined &&
         runtimeProfiles !== undefined &&
         runtimeToolRegistry !== undefined &&
-        runtimeVirtualProviderMoa !== undefined,
+        runtimeVirtualProviderMoa !== undefined &&
+        runtimeUsageCostAnalytics !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -885,6 +905,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeVirtualProviderMoaFallbackUsed
           ? ["RUNTIME_VIRTUAL_PROVIDER_MOA_MOCK_FALLBACK"]
           : []),
+        ...(runtimeUsageCostAnalyticsFallbackUsed
+          ? ["RUNTIME_USAGE_COST_ANALYTICS_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -896,7 +919,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeStreamingProgressFallbackUsed ||
         runtimeProfilesFallbackUsed ||
         runtimeToolRegistryFallbackUsed ||
-        runtimeVirtualProviderMoaFallbackUsed,
+        runtimeVirtualProviderMoaFallbackUsed ||
+        runtimeUsageCostAnalyticsFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -992,6 +1016,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeProfiles === undefined ||
     runtimeToolRegistry === undefined ||
     runtimeVirtualProviderMoa === undefined ||
+    runtimeUsageCostAnalytics === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1021,8 +1046,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeStreamingProgressResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeProfilesResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeToolRegistryResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeVirtualProviderMoaResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 9;
+    (runtimeVirtualProviderMoaResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeUsageCostAnalyticsResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 10;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1099,6 +1125,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeVirtualProviderMoa:
       safeRuntimeVirtualProviderMoa ??
       mockControlCenterData.runtimeVirtualProviderMoa,
+    runtimeUsageCostAnalytics:
+      safeRuntimeUsageCostAnalytics ??
+      mockControlCenterData.runtimeUsageCostAnalytics,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1183,6 +1212,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeProfilesFallbackUsed &&
     !runtimeToolRegistryFallbackUsed &&
     !runtimeVirtualProviderMoaFallbackUsed &&
+    !runtimeUsageCostAnalyticsFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1215,6 +1245,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeProfilesFallbackUsed ||
     runtimeToolRegistryFallbackUsed ||
     runtimeVirtualProviderMoaFallbackUsed ||
+    runtimeUsageCostAnalyticsFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1258,6 +1289,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeVirtualProviderMoaFallbackUsed) {
     degradedSafeMessage =
       "Virtual multi-agent provider posture was unavailable or unsafe; non-authoritative mock fallback kept provider fan-out blocked.";
+  } else if (runtimeUsageCostAnalyticsFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime usage and cost posture was unavailable or unsafe; non-authoritative mock fallback kept billing and provider execution blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1337,6 +1371,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         : []),
       ...(runtimeVirtualProviderMoaFallbackUsed
         ? ["RUNTIME_VIRTUAL_PROVIDER_MOA_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeUsageCostAnalyticsFallbackUsed
+        ? ["RUNTIME_USAGE_COST_ANALYTICS_MOCK_FALLBACK"]
         : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
@@ -3332,6 +3369,115 @@ function isSafeRuntimeVirtualProviderMoa(
             slot.production_authority_enabled === false &&
             isNonEmptyStringArray(slot.blocked_authority_refs),
         ),
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeUsageCostAnalytics(
+  value: RuntimeUsageCostAnalyticsReadModel | undefined,
+): value is RuntimeUsageCostAnalyticsReadModel {
+  if (value === undefined || !Array.isArray(value.records)) {
+    return false;
+  }
+  const allowedSources = new Set([
+    "manual_diagnostic_receipt",
+    "runtime_receipt_metadata",
+    "provider_catalog_reference",
+    "delegated_runtime_future",
+  ]);
+  const allowedStatuses = new Set([
+    "recorded_diagnostic",
+    "read_only_estimate",
+    "blocked_missing_authority",
+  ]);
+  const totalInput = value.records.reduce(
+    (sum, record) => sum + record.estimated_input_tokens,
+    0,
+  );
+  const totalOutput = value.records.reduce(
+    (sum, record) => sum + record.estimated_output_tokens,
+    0,
+  );
+  const totalUnits = value.records.reduce(
+    (sum, record) => sum + record.estimated_total_tokens,
+    0,
+  );
+  const totalLatency = value.records.reduce(
+    (sum, record) => sum + record.latency_ms,
+    0,
+  );
+  const totalCostMinor = value.records.reduce(
+    (sum, record) => sum + record.estimated_cost_minor_units,
+    0,
+  );
+  const deniedTopLevelFlags: Array<keyof RuntimeUsageCostAnalyticsReadModel> = [
+    "operator_export_available",
+    "billing_action_enabled",
+    "provider_call_enabled",
+    "provider_sdk_enabled",
+    "live_price_fetch_enabled",
+    "raw_prompt_persistence_enabled",
+    "raw_response_persistence_enabled",
+    "provider_payload_persistence_enabled",
+    "output_authority_enabled",
+    "production_authority_enabled",
+  ];
+  return (
+    value.schema_version === "runtime_usage_cost_analytics.v1" &&
+    value.status === "read_only_redacted_accounting_posture" &&
+    value.route_ref === "GET /api/runtime/usage-cost-analytics" &&
+    value.cli_ref === "uaa runtime inspect-usage-cost-analytics" &&
+    value.record_count === value.records.length &&
+    value.manual_diagnostic_receipt_count ===
+      value.records.filter(
+        (record) => record.source_kind === "manual_diagnostic_receipt",
+      ).length &&
+    value.runtime_receipt_record_count ===
+      value.records.filter(
+        (record) => record.source_kind === "runtime_receipt_metadata",
+      ).length &&
+    value.provider_catalog_reference_count ===
+      value.records.filter(
+        (record) => record.source_kind === "provider_catalog_reference",
+      ).length &&
+    value.blocked_record_count ===
+      value.records.filter(
+        (record) => record.status === "blocked_missing_authority",
+      ).length &&
+    value.total_estimated_input_tokens === totalInput &&
+    value.total_estimated_output_tokens === totalOutput &&
+    value.total_estimated_tokens === totalUnits &&
+    value.total_latency_ms === totalLatency &&
+    value.total_estimated_cost_minor_units === totalCostMinor &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:usage-cost-analytics-no-billing-action",
+    ) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.records.every(
+      (record) =>
+        allowedSources.has(record.source_kind) &&
+        allowedStatuses.has(record.status) &&
+        record.estimated_total_tokens ===
+          record.estimated_input_tokens + record.estimated_output_tokens &&
+        record.estimated_input_tokens >= 0 &&
+        record.estimated_output_tokens >= 0 &&
+        record.estimated_total_tokens >= 0 &&
+        record.latency_ms >= 0 &&
+        record.estimated_cost_minor_units >= 0 &&
+        record.provider_call_performed === false &&
+        record.provider_sdk_call_performed === false &&
+        record.billing_action_performed === false &&
+        record.live_price_fetch_performed === false &&
+        record.raw_prompt_persisted === false &&
+        record.raw_response_persisted === false &&
+        record.provider_payload_persisted === false &&
+        record.output_authoritative === false &&
+        record.production_authority_enabled === false &&
+        isNonEmptyStringArray(record.blocked_authority_refs),
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );
