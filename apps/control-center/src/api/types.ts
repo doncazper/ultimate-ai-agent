@@ -10310,6 +10310,74 @@ export interface RuntimeWorktreePerAgentReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeLspDiagnosticLanguage = "python" | "typescript" | "docs";
+
+export type RuntimeLspDiagnosticStatus =
+  | "evidence_placeholder"
+  | "proof_ready"
+  | "execution_blocked";
+
+export interface RuntimeLspDiagnosticEvidenceContract {
+  diagnostic_ref: string;
+  display_label: string;
+  language: RuntimeLspDiagnosticLanguage;
+  status: RuntimeLspDiagnosticStatus;
+  source_scope_ref: string;
+  evidence_ref: string;
+  receipt_plan_ref: string;
+  proof_ref: string;
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  next_safe_action_refs: string[];
+  language_server_started: boolean;
+  dependency_install_enabled: boolean;
+  shell_execution_enabled: boolean;
+  file_read_enabled: boolean;
+  file_write_enabled: boolean;
+  provider_call_enabled: boolean;
+  raw_path_persisted: boolean;
+  raw_diagnostic_payload_persisted: boolean;
+}
+
+export interface RuntimeLspDiagnosticsReadModel {
+  schema_version: "runtime_lsp_diagnostics.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  control_center_ref: string;
+  safe_summary: string;
+  diagnostics: RuntimeLspDiagnosticEvidenceContract[];
+  diagnostic_count: number;
+  evidence_placeholder_count: number;
+  proof_ready_count: number;
+  execution_blocked_count: number;
+  diagnostic_evidence_contract_visible: boolean;
+  receipt_plan_visible: boolean;
+  proof_link_visible: boolean;
+  redaction_policy_visible: boolean;
+  allowlisted_server_required_for_promotion: boolean;
+  cwd_jail_required_for_promotion: boolean;
+  timeout_required_for_promotion: boolean;
+  language_server_started: boolean;
+  dependency_install_enabled: boolean;
+  shell_execution_enabled: boolean;
+  file_read_enabled: boolean;
+  file_write_enabled: boolean;
+  provider_call_enabled: boolean;
+  control_center_mints_authority: boolean;
+  raw_path_persisted: boolean;
+  raw_diagnostic_payload_persisted: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -11492,6 +11560,7 @@ export interface ControlCenterData {
   runtimeBackgroundJobs: RuntimeBackgroundJobsReadModel;
   runtimeSubagentIsolation: RuntimeSubagentIsolationReadModel;
   runtimeWorktreePerAgent: RuntimeWorktreePerAgentReadModel;
+  runtimeLspDiagnostics: RuntimeLspDiagnosticsReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

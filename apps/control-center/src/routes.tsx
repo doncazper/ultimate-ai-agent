@@ -539,6 +539,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           backgroundJobs={data.runtimeBackgroundJobs}
           subagentIsolation={data.runtimeSubagentIsolation}
           worktreePerAgent={data.runtimeWorktreePerAgent}
+          lspDiagnostics={data.runtimeLspDiagnostics}
         />
       );
     case "/operator-loop":

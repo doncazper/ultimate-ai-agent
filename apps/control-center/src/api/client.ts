@@ -35,6 +35,7 @@ import type {
   RunObservabilityReadModel,
   RuntimeApprovalBridgeReadModel,
   RuntimeBackgroundJobsReadModel,
+  RuntimeLspDiagnosticsReadModel,
   RuntimeSubagentIsolationReadModel,
   RuntimeCapabilityMatrix,
   RuntimeCapabilityDiscoveryReadModel,
@@ -403,6 +404,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeWorktreePerAgent,
     ),
   ] as const);
+  const runtimeLspDiagnosticsSettledPromise = Promise.allSettled([
+    read<RuntimeLspDiagnosticsReadModel>(
+      API_ENDPOINTS.runtimeLspDiagnostics,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -538,6 +544,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeSubagentIsolationSettledPromise;
   const runtimeWorktreePerAgentResult =
     await runtimeWorktreePerAgentSettledPromise;
+  const runtimeLspDiagnosticsResult = await runtimeLspDiagnosticsSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -589,6 +596,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeSubagentIsolationResult[0],
   );
   const runtimeWorktreePerAgent = fulfilledValue(runtimeWorktreePerAgentResult[0]);
+  const runtimeLspDiagnostics = fulfilledValue(runtimeLspDiagnosticsResult[0]);
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
@@ -729,6 +737,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeWorktreePerAgent,
   )
     ? runtimeWorktreePerAgent
+    : undefined;
+  const safeRuntimeLspDiagnostics = isSafeRuntimeLspDiagnostics(
+    runtimeLspDiagnostics,
+  )
+    ? runtimeLspDiagnostics
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -893,6 +906,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeSubagentIsolation === undefined;
   const runtimeWorktreePerAgentFallbackUsed =
     safeRuntimeWorktreePerAgent === undefined;
+  const runtimeLspDiagnosticsFallbackUsed =
+    safeRuntimeLspDiagnostics === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -1049,6 +1064,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/background-jobs",
         "GET /api/runtime/subagent-isolation",
         "GET /api/runtime/worktree-per-agent",
+        "GET /api/runtime/lsp-diagnostics",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -1071,7 +1087,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeMcpCatalogFiltering !== undefined &&
         runtimeBackgroundJobs !== undefined &&
         runtimeSubagentIsolation !== undefined &&
-        runtimeWorktreePerAgent !== undefined,
+        runtimeWorktreePerAgent !== undefined &&
+        runtimeLspDiagnostics !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -1130,6 +1147,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeWorktreePerAgentFallbackUsed
           ? ["RUNTIME_WORKTREE_PER_AGENT_MOCK_FALLBACK"]
           : []),
+        ...(runtimeLspDiagnosticsFallbackUsed
+          ? ["RUNTIME_LSP_DIAGNOSTICS_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1152,7 +1172,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeMcpCatalogFilteringFallbackUsed ||
         runtimeBackgroundJobsFallbackUsed ||
         runtimeSubagentIsolationFallbackUsed ||
-        runtimeWorktreePerAgentFallbackUsed,
+        runtimeWorktreePerAgentFallbackUsed ||
+        runtimeLspDiagnosticsFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1259,6 +1280,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeBackgroundJobs === undefined ||
     runtimeSubagentIsolation === undefined ||
     runtimeWorktreePerAgent === undefined ||
+    runtimeLspDiagnostics === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1299,8 +1321,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeMcpCatalogFilteringResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeBackgroundJobsResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeSubagentIsolationResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeWorktreePerAgentResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 20;
+    (runtimeWorktreePerAgentResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeLspDiagnosticsResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 21;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1409,6 +1432,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeWorktreePerAgent:
       safeRuntimeWorktreePerAgent ??
       mockControlCenterData.runtimeWorktreePerAgent,
+    runtimeLspDiagnostics:
+      safeRuntimeLspDiagnostics ??
+      mockControlCenterData.runtimeLspDiagnostics,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1504,6 +1530,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeBackgroundJobsFallbackUsed &&
     !runtimeSubagentIsolationFallbackUsed &&
     !runtimeWorktreePerAgentFallbackUsed &&
+    !runtimeLspDiagnosticsFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1547,6 +1574,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeBackgroundJobsFallbackUsed ||
     runtimeSubagentIsolationFallbackUsed ||
     runtimeWorktreePerAgentFallbackUsed ||
+    runtimeLspDiagnosticsFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1623,6 +1651,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeWorktreePerAgentFallbackUsed) {
     degradedSafeMessage =
       "Runtime worktree-per-agent posture was unavailable or unsafe; non-authoritative mock fallback kept Git worktree, branch, file, commit, and push mutation blocked.";
+  } else if (runtimeLspDiagnosticsFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime LSP diagnostics posture was unavailable or unsafe; non-authoritative mock fallback kept language-server launch, installs, shell execution, and raw diagnostic persistence blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -4712,6 +4743,80 @@ function isSafeRuntimeWorktreePerAgent(
         lane.shell_execution_enabled === false &&
         lane.provider_call_enabled === false &&
         lane.raw_path_persisted === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeLspDiagnostics(
+  value: RuntimeLspDiagnosticsReadModel | undefined,
+): value is RuntimeLspDiagnosticsReadModel {
+  if (value === undefined || !Array.isArray(value.diagnostics)) {
+    return false;
+  }
+  const allowedLanguages = new Set(["python", "typescript", "docs"]);
+  const allowedStatuses = new Set([
+    "evidence_placeholder",
+    "proof_ready",
+    "execution_blocked",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeLspDiagnosticsReadModel> = [
+    "language_server_started",
+    "dependency_install_enabled",
+    "shell_execution_enabled",
+    "file_read_enabled",
+    "file_write_enabled",
+    "provider_call_enabled",
+    "control_center_mints_authority",
+    "raw_path_persisted",
+    "raw_diagnostic_payload_persisted",
+  ];
+  return (
+    value.schema_version === "runtime_lsp_diagnostics.v1" &&
+    value.status === "diagnostic_evidence_placeholder_posture" &&
+    value.route_ref === "GET /api/runtime/lsp-diagnostics" &&
+    value.cli_ref === "uaa runtime inspect-lsp-diagnostics" &&
+    value.diagnostic_count === value.diagnostics.length &&
+    value.evidence_placeholder_count ===
+      value.diagnostics.filter(
+        (diagnostic) => diagnostic.status === "evidence_placeholder",
+      ).length &&
+    value.proof_ready_count ===
+      value.diagnostics.filter((diagnostic) => diagnostic.status === "proof_ready")
+        .length &&
+    value.execution_blocked_count ===
+      value.diagnostics.filter(
+        (diagnostic) => diagnostic.status === "execution_blocked",
+      ).length &&
+    value.diagnostic_evidence_contract_visible === true &&
+    value.receipt_plan_visible === true &&
+    value.proof_link_visible === true &&
+    value.redaction_policy_visible === true &&
+    value.allowlisted_server_required_for_promotion === true &&
+    value.cwd_jail_required_for_promotion === true &&
+    value.timeout_required_for_promotion === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:lsp-diagnostics-no-language-server-launch",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.diagnostics.every(
+      (diagnostic) =>
+        allowedLanguages.has(diagnostic.language) &&
+        allowedStatuses.has(diagnostic.status) &&
+        isNonEmptyStringArray(diagnostic.blocked_authority_refs) &&
+        isNonEmptyStringArray(diagnostic.next_safe_action_refs) &&
+        diagnostic.language_server_started === false &&
+        diagnostic.dependency_install_enabled === false &&
+        diagnostic.shell_execution_enabled === false &&
+        diagnostic.file_read_enabled === false &&
+        diagnostic.file_write_enabled === false &&
+        diagnostic.provider_call_enabled === false &&
+        diagnostic.raw_path_persisted === false &&
+        diagnostic.raw_diagnostic_payload_persisted === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

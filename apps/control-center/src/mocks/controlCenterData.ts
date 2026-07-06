@@ -49,6 +49,7 @@ import type {
   RuntimeMcpToolSlice,
   RuntimeSubagentIsolationRole,
   RuntimeSubagentReviewArtifact,
+  RuntimeLspDiagnosticEvidenceContract,
   RuntimeSessionContinuitySurface,
   RuntimeWorktreePerAgentLane,
   RuntimeVirtualAgentSlot,
@@ -1640,6 +1641,72 @@ const runtimeWorktreePerAgentLanes: RuntimeWorktreePerAgentLane[] = [
     isolation_mode: "blocked_worktree_mutation",
     safe_summary:
       "Mock verifier lane records checkpoint and rollback plans without running Git.",
+  }),
+];
+
+const runtimeLspDiagnosticsBlockedRefs = [
+  "blocked-authority:lsp-diagnostics-no-language-server-launch",
+  "blocked-authority:lsp-diagnostics-no-dependency-install",
+  "blocked-authority:lsp-diagnostics-no-shell-execution",
+  "blocked-authority:lsp-diagnostics-no-file-read",
+  "blocked-authority:lsp-diagnostics-no-file-write",
+  "blocked-authority:lsp-diagnostics-no-provider-call",
+  "blocked-authority:lsp-diagnostics-no-control-center-authority-mint",
+  "blocked-authority:lsp-diagnostics-no-raw-path-persistence",
+  "blocked-authority:lsp-diagnostics-no-raw-diagnostic-payload-persistence",
+];
+
+function runtimeLspDiagnostic(
+  slug: string,
+  overrides: Pick<
+    RuntimeLspDiagnosticEvidenceContract,
+    "display_label" | "language" | "status" | "safe_summary"
+  >,
+): RuntimeLspDiagnosticEvidenceContract {
+  return {
+    diagnostic_ref: `lsp-diagnostic-ref:${slug}`,
+    display_label: overrides.display_label,
+    language: overrides.language,
+    status: overrides.status,
+    source_scope_ref: `source-scope-ref:lsp-diagnostic:${slug}:safe-ref-only`,
+    evidence_ref: `evidence-ref:lsp-diagnostic:${slug}`,
+    receipt_plan_ref: `receipt-plan-ref:lsp-diagnostic:${slug}`,
+    proof_ref: "proof-ref:hermes-runtime-adoption:phase-34:lsp-diagnostics",
+    safe_summary: overrides.safe_summary,
+    blocked_authority_refs: runtimeLspDiagnosticsBlockedRefs,
+    next_safe_action_refs: [`next-safe-action-ref:lsp-diagnostic:${slug}:review`],
+    language_server_started: false,
+    dependency_install_enabled: false,
+    shell_execution_enabled: false,
+    file_read_enabled: false,
+    file_write_enabled: false,
+    provider_call_enabled: false,
+    raw_path_persisted: false,
+    raw_diagnostic_payload_persisted: false,
+  };
+}
+
+const runtimeLspDiagnostics = [
+  runtimeLspDiagnostic("python-semantic-proof", {
+    display_label: "Python semantic proof",
+    language: "python",
+    status: "proof_ready",
+    safe_summary:
+      "Mock Python diagnostic proof contract is ready, but no language server is launched.",
+  }),
+  runtimeLspDiagnostic("typescript-diagnostic-placeholder", {
+    display_label: "TypeScript diagnostic placeholder",
+    language: "typescript",
+    status: "evidence_placeholder",
+    safe_summary:
+      "Mock TypeScript diagnostics stay as safe evidence placeholders until an allowlisted server lane exists.",
+  }),
+  runtimeLspDiagnostic("docs-diagnostic-blocked", {
+    display_label: "Docs diagnostic blocked lane",
+    language: "docs",
+    status: "execution_blocked",
+    safe_summary:
+      "Mock docs diagnostic lane keeps shell execution and file reads blocked.",
   }),
 ];
 
@@ -13728,6 +13795,75 @@ export const mockControlCenterData: ControlCenterData = {
       "raw_paths_omitted",
       "raw_file_content_omitted",
       "raw_git_output_omitted",
+    ],
+  },
+  runtimeLspDiagnostics: {
+    schema_version: "runtime_lsp_diagnostics.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-lsp-diagnostics:v1",
+    status: "diagnostic_evidence_placeholder_posture",
+    snapshot_ref: "lsp-diagnostics-snapshot-ref:runtime:evidence",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-lsp-diagnostics:mock",
+    route_ref: "GET /api/runtime/lsp-diagnostics",
+    cli_ref: "uaa runtime inspect-lsp-diagnostics",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime LSP diagnostics mock fallback shows safe evidence contracts only; no language server or shell command is launched.",
+    diagnostics: runtimeLspDiagnostics,
+    diagnostic_count: runtimeLspDiagnostics.length,
+    evidence_placeholder_count: runtimeLspDiagnostics.filter(
+      (diagnostic) => diagnostic.status === "evidence_placeholder",
+    ).length,
+    proof_ready_count: runtimeLspDiagnostics.filter(
+      (diagnostic) => diagnostic.status === "proof_ready",
+    ).length,
+    execution_blocked_count: runtimeLspDiagnostics.filter(
+      (diagnostic) => diagnostic.status === "execution_blocked",
+    ).length,
+    diagnostic_evidence_contract_visible: true,
+    receipt_plan_visible: true,
+    proof_link_visible: true,
+    redaction_policy_visible: true,
+    allowlisted_server_required_for_promotion: true,
+    cwd_jail_required_for_promotion: true,
+    timeout_required_for_promotion: true,
+    language_server_started: false,
+    dependency_install_enabled: false,
+    shell_execution_enabled: false,
+    file_read_enabled: false,
+    file_write_enabled: false,
+    provider_call_enabled: false,
+    control_center_mints_authority: false,
+    raw_path_persisted: false,
+    raw_diagnostic_payload_persisted: false,
+    blocked_authority_refs: runtimeLspDiagnosticsBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:lsp-diagnostics:allowlisted-server",
+      "promotion-path-ref:lsp-diagnostics:cwd-jail",
+      "promotion-path-ref:lsp-diagnostics:timeout",
+      "promotion-path-ref:lsp-diagnostics:redaction",
+      "promotion-path-ref:lsp-diagnostics:diagnostic-receipt",
+      "promotion-path-ref:lsp-diagnostics:proof-link",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-34:lsp-diagnostics",
+      "proof-ref:lsp-diagnostics:evidence-contracts",
+      "proof-ref:lsp-diagnostics:server-launch-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-34:lsp-diagnostics",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:lsp-diagnostics:define-allowlisted-server",
+      "next-safe-action-ref:lsp-diagnostics:bind-diagnostic-receipt",
+      "next-safe-action-ref:lsp-diagnostics:keep-launch-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_paths_omitted",
+      "raw_file_content_omitted",
+      "raw_diagnostic_payloads_omitted",
+      "language_server_logs_omitted",
     ],
   },
   runtimeApprovalBridge: {

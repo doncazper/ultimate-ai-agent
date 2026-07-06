@@ -44,6 +44,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_mcp_catalog_filtering_read_model,
     build_runtime_subagent_isolation_read_model,
     build_runtime_worktree_per_agent_read_model,
+    build_runtime_lsp_diagnostics_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -790,6 +791,41 @@ def _print_worktree_per_agent(read_model: dict[str, Any]) -> None:
         print(f"  worktree={lane['worktree_ref']}")
         print(f"  checkpoint={lane['checkpoint_plan_ref']}")
         print(f"  rollback={lane['rollback_plan_ref']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_lsp_diagnostics(read_model: dict[str, Any]) -> None:
+    print("Runtime LSP diagnostics")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Diagnostics: "
+        f"total={read_model['diagnostic_count']} "
+        f"placeholder={read_model['evidence_placeholder_count']} "
+        f"proof_ready={read_model['proof_ready_count']} "
+        f"execution_blocked={read_model['execution_blocked_count']}"
+    )
+    print(
+        "Blocked controls: "
+        f"server={read_model['language_server_started']} "
+        f"install={read_model['dependency_install_enabled']} "
+        f"shell={read_model['shell_execution_enabled']} "
+        f"file_read={read_model['file_read_enabled']}"
+    )
+    print("Diagnostic contracts:")
+    for item in read_model["diagnostics"]:
+        print(
+            f"- {item['display_label']}: "
+            f"language={item['language']} status={item['status']}"
+        )
+        print(f"  evidence={item['evidence_ref']}")
+        print(f"  receipt={item['receipt_plan_ref']}")
+        print(f"  proof={item['proof_ref']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1603,6 +1639,31 @@ def _inspect_worktree_per_agent(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_worktree_per_agent(read_model)
+    return 0
+
+
+def _inspect_lsp_diagnostics(args: argparse.Namespace) -> int:
+    read_model = build_runtime_lsp_diagnostics_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-lsp-diagnostics",
+        "runtime_lsp_diagnostics": read_model,
+        "safe_refs_only": True,
+        "evidence_only": True,
+        "raw_paths_omitted": True,
+        "raw_file_content_omitted": True,
+        "raw_diagnostic_payloads_omitted": True,
+        "language_server_started": False,
+        "dependency_install_performed": False,
+        "shell_execution_performed": False,
+        "file_read_performed": False,
+        "file_write_performed": False,
+        "provider_call_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_lsp_diagnostics(read_model)
     return 0
 
 
@@ -2664,6 +2725,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref worktree-per-agent posture as JSON.",
     )
     worktree_per_agent.set_defaults(func=_inspect_worktree_per_agent)
+
+    lsp_diagnostics = subparsers.add_parser(
+        "inspect-lsp-diagnostics",
+        help="Inspect semantic diagnostic evidence posture without LSP execution.",
+    )
+    lsp_diagnostics.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref LSP diagnostics posture as JSON.",
+    )
+    lsp_diagnostics.set_defaults(func=_inspect_lsp_diagnostics)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `225`.
+Current OpenAPI path count: `226`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 154 |
+| `local_sensitive` | 155 |
 | `mutating_requires_authority` | 42 |
 
 Allowed current side-effect classes are:
@@ -251,6 +251,13 @@ plans, Git receipt plans, rollback plans, proof refs, verifier refs, and
 blocked authority refs only. Git worktree create/delete, branch mutation, file
 writes, commits, pushes, raw path persistence, shell execution, and provider
 calls remain blocked.
+`GET /api/runtime/lsp-diagnostics` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 34 semantic diagnostics proof posture. It returns
+diagnostic refs, safe source scope refs, evidence refs, receipt-plan refs,
+proof refs, verifier refs, promotion refs, redaction refs, and blocked
+authority refs only. Language-server launch, dependency install, shell
+execution, file reads/writes, provider calls, raw path persistence, and raw
+diagnostic payload persistence remain blocked.
 `GET /api/runtime/context-references` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 16 context-reference posture. It returns
 safe-ref grammar, preview refs, budget estimates, why-included refs, and

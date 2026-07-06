@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `225`.
+Current OpenAPI path count: `226`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -204,6 +204,13 @@ Contract rules:
   authority refs only. Git worktree create/delete, branch mutation, file
   writes, commits, pushes, raw path persistence, shell execution, and provider
   calls remain blocked.
+  `GET /api/runtime/lsp-diagnostics` exposes the Hermes Runtime Adoption Phase
+  34 backend-owned semantic diagnostics proof posture. It returns diagnostic
+  refs, safe source scope refs, evidence refs, receipt-plan refs, proof refs,
+  verifier refs, promotion refs, redaction refs, and blocked authority refs
+  only. Language-server launch, dependency install, shell execution, file
+  reads/writes, provider calls, raw path persistence, and raw diagnostic
+  payload persistence remain blocked.
   `GET /api/runtime/context-references` exposes the Hermes Runtime Adoption
   Phase 16 backend-owned context-reference posture. It returns safe-ref grammar,
   preview refs, budget estimates, why-included refs, and blocked URL/live-fetch
