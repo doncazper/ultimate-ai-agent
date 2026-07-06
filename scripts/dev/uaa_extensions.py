@@ -14,6 +14,7 @@ import sys
 
 from ultimate_ai_agent.core.extension_catalog import (
     build_default_inspectable_extension_catalog,
+    build_default_skill_bundle_proposal_posture,
     build_default_skill_write_approval_gate,
 )
 
@@ -28,6 +29,11 @@ def inspect_skill_write_gate() -> dict[str, object]:
     return gate.model_dump(mode="json")
 
 
+def inspect_skill_bundles() -> dict[str, object]:
+    posture = build_default_skill_bundle_proposal_posture()
+    return posture.model_dump(mode="json")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -39,6 +45,10 @@ def main(argv: list[str] | None = None) -> int:
         "inspect-skill-write-gate",
         help="Print staged skill-write approval gate metadata as safe-ref JSON.",
     )
+    subparsers.add_parser(
+        "inspect-skill-bundles",
+        help="Print proposal-only skill bundle posture as safe-ref JSON.",
+    )
     args = parser.parse_args(argv)
 
     if args.command == "inspect-catalog":
@@ -46,6 +56,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "inspect-skill-write-gate":
         print(json.dumps(inspect_skill_write_gate(), indent=2, sort_keys=True))
+        return 0
+    if args.command == "inspect-skill-bundles":
+        print(json.dumps(inspect_skill_bundles(), indent=2, sort_keys=True))
         return 0
 
     parser.error(f"unknown command: {args.command}")

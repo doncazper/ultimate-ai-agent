@@ -7539,6 +7539,16 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText(/Plugin enablement allowed: no/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Skill bundle proposals: 1/i)).toBeInTheDocument();
+    expect(
+      screen.getByText("skill-bundle-proposal:founder-loop-review"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Skill bundle activation enabled: no/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Skill bundle tool execution enabled: no/i),
+    ).toBeInTheDocument();
   });
 
   it("renders clear headings for every local shell page", async () => {
@@ -15775,6 +15785,11 @@ const mockApiData = {
       status: "planned_disabled",
       plugin_enablement_allowed: false,
       native_build_tools_enabled: false,
+      skill_bundle_proposal_status: "proposal_only",
+      skill_bundle_proposal_count: 1,
+      skill_bundle_proposal_refs: ["skill-bundle-proposal:founder-loop-review"],
+      skill_bundle_activation_enabled: false,
+      skill_bundle_tool_execution_enabled: false,
     },
     warnings: [],
     blockers: [],

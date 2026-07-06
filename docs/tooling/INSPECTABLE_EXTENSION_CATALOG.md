@@ -52,6 +52,7 @@ The catalog root includes:
 - `compact_skill_index_refs`
 - `progressive_disclosure_refs`
 - `skill_write_approval_gate`
+- `skill_bundle_proposal_posture`
 - `docs_refs`
 - `schema_refs`
 - `safe_summary`
@@ -81,6 +82,7 @@ Each catalog entry includes:
 | Safe adoption posture | Repo-owned metadata only, reviewed adaptation required, or blocked until scoped milestone. | Adoption posture is not install or import authority. |
 | Progressive disclosure | Metadata-first status, full-instruction load posture, operator-selection requirement, and disabled hidden/automatic loading flags. | Full skill instructions are never auto-loaded and cannot become hidden context or runtime authority. |
 | Skill write gate | Staged proposal refs, diff-preview refs, review decision refs, blocked execution labels, and proof refs. | The gate is review-only; it writes no files and enables no skill runtime. |
+| Skill bundle proposals | Reusable task-profile proposal refs, constituent skill refs, context-pack refs, toolset refs, authority-profile refs, verifier refs, and blocked authority refs. | Bundles are proposal metadata only; they do not activate skills, inject context, import runtime code, or execute tools. |
 
 ## Read-Only Route Behavior
 
@@ -95,6 +97,8 @@ Each catalog entry includes:
 - requested grant status
 - staged skill-write proposal refs
 - diff-preview refs and blocked execution labels
+- staged skill-bundle proposal refs
+- constituent skill, context-pack, toolset, authority-profile, verifier, and proof refs
 - activation status
 - blocked or unknown state
 - blocker refs
@@ -127,6 +131,9 @@ Callable/runtime catalog behavior remains not scoped:
 - no production authority claim
 - no automatic full instruction loading
 - no hidden skill activation
+- no skill bundle activation
+- no bundle-driven context injection
+- no bundle-driven tool execution
 - no external marketplace fetch
 
 ## OpenAPI Impact
@@ -187,6 +194,15 @@ writes, skill enablement, runtime import, execution, provider/model call,
 connector write, shell/subprocess execution, browser automation, or production
 authority.
 
+Hermes Runtime Adoption Phase 15 adds a Skill Bundle Proposal Posture read model
+in `docs/runtime/UAA_HERMES_RUNTIME_SKILL_BUNDLE_PROPOSALS.md` and
+`scripts/dev/uaa_extensions.py inspect-skill-bundles`. Bundle proposals expose
+safe refs for constituent skills, context packs, toolsets, authority profiles,
+verification, proof, and blocked authority only. They do not activate bundles,
+enable skills, inject context, import runtime code, execute tools, call
+providers/models, write connectors, run shell/subprocess commands, perform
+browser automation, or claim production authority.
+
 ## Known Gaps
 
 - Static package review for arbitrary packages remains scoped to UAA-P2-048.
@@ -196,6 +212,8 @@ authority.
 - No runtime import or package execution exists.
 - No automatic full-instruction loading or hidden skill activation exists.
 - No skill-write apply lane or direct skill-file mutation exists.
+- No skill bundle activation, context injection, or bundle-driven tool execution
+  exists.
 - No marketplace fetch or external package import exists.
 - No persistence-backed extension registry exists.
 - MCP/A2A compatibility remains watchlist-only.

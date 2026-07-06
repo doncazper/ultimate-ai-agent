@@ -193,6 +193,7 @@ from ultimate_ai_agent.core.control_center.dashboard import (
     StatusCard,
     build_control_center_dashboard,
     build_operator_loop_summary,
+    build_plugin_governance_summary,
     build_provider_credential_readiness_summary,
 )
 from ultimate_ai_agent.core.control_center.enums import (
@@ -375,6 +376,7 @@ __all__ = [
     "StatusCard",
     "build_control_center_dashboard",
     "build_operator_loop_summary",
+    "build_plugin_governance_summary",
     "build_provider_credential_readiness_summary",
     "build_control_center_manifest",
     "build_action_inbox_decision_lane_read_model",

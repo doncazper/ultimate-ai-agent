@@ -18,6 +18,7 @@ from ultimate_ai_agent.core.control_center.dashboard import (
     RemoteWorkerSummary,
     RuntimeReadinessSummary,
     StatusCard,
+    build_plugin_governance_summary,
     build_provider_credential_readiness_summary,
 )
 
@@ -41,5 +42,6 @@ __all__ = [
     "RemoteWorkerSummary",
     "RuntimeReadinessSummary",
     "StatusCard",
+    "build_plugin_governance_summary",
     "build_provider_credential_readiness_summary",
 ]

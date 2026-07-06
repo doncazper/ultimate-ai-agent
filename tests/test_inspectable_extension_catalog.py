@@ -55,8 +55,15 @@ def test_default_inspectable_extension_catalog_is_read_only_and_non_callable() -
     )
     assert payload["skill_write_approval_gate"]["status"] == "staged_review_only"
     assert payload["skill_write_approval_gate"]["file_write_enabled"] is False
+    assert payload["skill_bundle_proposal_posture"]["status"] == "proposal_only"
+    assert payload["skill_bundle_proposal_posture"]["proposal_count"] == 1
+    assert (
+        payload["skill_bundle_proposal_posture"]["bundle_activation_enabled"] is False
+    )
+    assert payload["skill_bundle_proposal_posture"]["tool_execution_enabled"] is False
     assert "doc:goatcitadel-catchup-extensibility-final" in payload["docs_refs"]
     assert "doc:hermes-runtime-progressive-skill-disclosure" in payload["docs_refs"]
+    assert "doc:hermes-runtime-skill-bundle-proposals" in payload["docs_refs"]
     assert (
         "doc:goatcitadel-catchup-extensibility-final"
         in payload["developer_guidance_refs"]
@@ -240,7 +247,12 @@ def test_inspectable_extension_catalog_schema_pins_disabled_runtime_fields() -> 
         assert field in entry["required"]
         assert field in entry["properties"]
     assert "skill_write_approval_gate" in schema["required"]
+    assert "skill_bundle_proposal_posture" in schema["required"]
     gate = schema["$defs"]["skill_write_approval_gate"]
     assert gate["properties"]["status"]["const"] == "staged_review_only"
     assert gate["properties"]["file_write_enabled"]["const"] is False
     assert gate["properties"]["runtime_import_enabled"]["const"] is False
+    posture = schema["$defs"]["skill_bundle_proposal_posture"]
+    assert posture["properties"]["status"]["const"] == "proposal_only"
+    assert posture["properties"]["bundle_activation_enabled"]["const"] is False
+    assert posture["properties"]["tool_execution_enabled"]["const"] is False
