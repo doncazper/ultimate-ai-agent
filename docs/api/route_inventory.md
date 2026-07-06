@@ -132,17 +132,20 @@ provider SDK calls, tool execution, shell/subprocess execution, browser
 automation, connector writes, background autonomy, production authority, and
 raw prompt/response/provider payload/log/local-path persistence blocked.
 `GET /api/runtime/interface-mode` exposes a protected Python Core
-`runtime_interface_mode.v1` read model for UAA operating as a shell over
-Hermes while UAA-native agent planning and execution are off. It reports
+`runtime_interface_mode.v1` read model for optional Hermes interface mode. It
+defaults to `disabled`, leaving UAA UAA-native with no Hermes CLI discovery,
+readiness probe, context projection, or chat execution unless
+`UAA_HERMES_INTERFACE_MODE_ENABLED=1` is explicitly set. It also reports opt-in
 `shell_guarded`, `operator_override`, and `pure_hermes_pass_through` posture,
-Hermes CLI readiness, exact argv shapes, blocked unsafe flags, and candidate-only
-Memory update policy.
+exact argv shapes, blocked unsafe flags, and candidate-only Memory update
+policy.
 `GET /api/runtime/hermes/context-pack` exposes a protected Python Core
-`hermes_context_pack.v1` read model with curated summaries from Memory, CRM,
-Chat, Cowork/Plans, Today, Action Inbox, Evidence, Proof, and Sources. It
-shows provenance refs, why-shown refs, evidence/proof refs, and explicit false
-flags for raw record, transcript, path, log, credential, and unbounded private
-content exposure.
+`hermes_context_pack.v1` read model. While disabled, it reports
+`projection_enabled=false` and zero projected sections. When explicitly enabled,
+it contains curated summaries from Memory, CRM, Chat, Cowork/Plans, Today,
+Action Inbox, Evidence, Proof, and Sources with provenance refs, why-shown refs,
+evidence/proof refs, and explicit false flags for raw record, transcript, path,
+log, credential, and unbounded private content exposure.
 `POST /api/runtime/hermes/chat` exposes the exact guarded Hermes CLI chat lane
 for `hermes chat --query ... --quiet --source uaa-control-center`. It is
 classified `mutating_requires_authority`, requires idempotency, returns a

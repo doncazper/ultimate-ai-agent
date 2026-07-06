@@ -15,7 +15,8 @@ hardline command blocklist posture, managed scope policy posture, doctor
 diagnostics posture, session continuity posture, MCP catalog filtering
 posture, background job posture, subagent isolation posture,
 worktree-per-agent posture, LSP diagnostics posture, context-reference,
-Hermes interface-mode, Hermes context-pack, and checkpoint-rollback routes,
+optional disabled-by-default Hermes interface-mode/context-pack, and
+checkpoint-rollback routes,
 Governed Product
 Pilot authority profile, and
 runtime parity loop add protected read-only `/api/runtime/*` inspection routes.

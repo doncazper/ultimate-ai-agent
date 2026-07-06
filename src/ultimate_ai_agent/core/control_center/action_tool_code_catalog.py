@@ -46,6 +46,38 @@ ACTION_TOOL_CODE_BLOCKED_AUTHORITY_REFS = (
     "blocked-authority:action-tool-code:no-background-autonomy",
     "blocked-authority:action-tool-code:no-production-authority",
 )
+RUNTIME_EXACT_COMMAND_LANE_SPECS = (
+    {
+        "command_intent": "focused_pytest",
+        "capability_id": "runtime.focused_pytest_action_inbox",
+        "capability_ref": "capability-ref:runtime-gateway:focused-pytest-action-inbox",
+        "lane_ref": "lane-ref:runtime-gateway:focused-pytest-action-inbox",
+        "label": "RuntimeGateway focused pytest command",
+        "receipt_ref": "receipt-plan:runtime-action-inbox:focused-pytest",
+        "evidence_ref": "evidence-ref:runtime-action-inbox:focused-pytest",
+        "proof_ref": "proof-ref:runtime-action-inbox:focused-pytest",
+    },
+    {
+        "command_intent": "repo_verifier",
+        "capability_id": "runtime.repo_verifier_action_inbox",
+        "capability_ref": "capability-ref:runtime-gateway:repo-verifier-action-inbox",
+        "lane_ref": "lane-ref:runtime-gateway:repo-verifier-action-inbox",
+        "label": "RuntimeGateway documentation verifier command",
+        "receipt_ref": "receipt-plan:runtime-action-inbox:repo-verifier",
+        "evidence_ref": "evidence-ref:runtime-action-inbox:repo-verifier",
+        "proof_ref": "proof-ref:runtime-action-inbox:repo-verifier",
+    },
+    {
+        "command_intent": "frontend_check",
+        "capability_id": "runtime.frontend_check_action_inbox",
+        "capability_ref": "capability-ref:runtime-gateway:frontend-check-action-inbox",
+        "lane_ref": "lane-ref:runtime-gateway:frontend-check-action-inbox",
+        "label": "RuntimeGateway frontend check command",
+        "receipt_ref": "receipt-plan:runtime-action-inbox:frontend-check",
+        "evidence_ref": "evidence-ref:runtime-action-inbox:frontend-check",
+        "proof_ref": "proof-ref:runtime-action-inbox:frontend-check",
+    },
+)
 
 
 ActionToolCodeCapabilityKind = Literal[
@@ -296,7 +328,7 @@ def build_action_tool_code_lane_catalog_read_model(
     entries: list[ActionToolCodeLaneEntry] = []
     entries.extend(_tool_preview_entries())
     entries.append(_local_task_entry(action_work_queue))
-    entries.append(_runtime_focused_pytest_entry(runtime_action_bridge))
+    entries.extend(_runtime_exact_command_entries(runtime_action_bridge))
     entries.extend(_code_workflow_entries())
     prompts = _unblock_prompts()
     blocked_refs = list(
@@ -420,19 +452,36 @@ def _local_task_entry(
     )
 
 
-def _runtime_focused_pytest_entry(
+def _runtime_exact_command_entries(
+    runtime_action_bridge: dict[str, Any] | None,
+) -> list[ActionToolCodeLaneEntry]:
+    return [
+        _runtime_exact_command_entry(spec, runtime_action_bridge)
+        for spec in RUNTIME_EXACT_COMMAND_LANE_SPECS
+    ]
+
+
+def _runtime_exact_command_entry(
+    spec: dict[str, str],
     runtime_action_bridge: dict[str, Any] | None,
 ) -> ActionToolCodeLaneEntry:
-    receipt_refs = ["receipt-plan:runtime-action-inbox:focused-pytest"]
-    evidence_refs = ["evidence-ref:runtime-action-inbox:focused-pytest"]
+    command_intent = spec["command_intent"]
+    receipt_refs = [spec["receipt_ref"]]
+    evidence_refs = [spec["evidence_ref"]]
     if runtime_action_bridge:
-        receipt_refs.extend(runtime_action_bridge.get("receipt_refs") or [])
-        evidence_refs.extend(runtime_action_bridge.get("evidence_refs") or [])
+        for item in runtime_action_bridge.get("items") or []:
+            if (
+                not isinstance(item, dict)
+                or item.get("command_intent") != command_intent
+            ):
+                continue
+            receipt_refs.extend(item.get("receipt_refs") or [])
+            evidence_refs.extend(item.get("evidence_refs") or [])
     return ActionToolCodeLaneEntry(
-        capability_id="runtime.focused_pytest_action_inbox",
-        capability_ref="capability-ref:runtime-gateway:focused-pytest-action-inbox",
-        lane_ref="lane-ref:runtime-gateway:focused-pytest-action-inbox",
-        label="RuntimeGateway focused pytest command",
+        capability_id=spec["capability_id"],
+        capability_ref=spec["capability_ref"],
+        lane_ref=spec["lane_ref"],
+        label=spec["label"],
         capability_kind="runtime_micro_lane",
         surface="Runtime",
         status="implemented_exact_approval_required",
@@ -455,7 +504,7 @@ def _runtime_focused_pytest_entry(
             "receipts are inspection artifacts, not approval authority."
         ),
         route_refs=[
-            "POST /runtime/action-inbox/approved-command/execute",
+            "POST /api/runtime/invocations/{id}/execute",
             "GET /control-center/actions/inbox",
         ],
         cli_refs=[
@@ -464,7 +513,7 @@ def _runtime_focused_pytest_entry(
         ],
         receipt_refs=list(dict.fromkeys(ref for ref in receipt_refs if isinstance(ref, str))),
         evidence_refs=list(dict.fromkeys(ref for ref in evidence_refs if isinstance(ref, str))),
-        proof_refs=["proof-ref:runtime-action-inbox:focused-pytest"],
+        proof_refs=[spec["proof_ref"]],
         blocked_authority_refs=list(GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS),
         exact_runtime_lane_available=True,
     )

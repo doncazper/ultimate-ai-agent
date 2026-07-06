@@ -73,7 +73,9 @@ export function App() {
   return (
     <AppShell activePath={activePath} connection={state.data.connection}>
       <ConnectionStatus connection={state.data.connection} />
-      <RuntimeInterfaceModeBanner mode={state.data.runtimeInterfaceMode} />
+      {state.data.runtimeInterfaceMode.interface_enabled ? (
+        <RuntimeInterfaceModeBanner mode={state.data.runtimeInterfaceMode} />
+      ) : null}
       <RouteStatePanel
         state={getRouteStateDescriptor(
           activePath,

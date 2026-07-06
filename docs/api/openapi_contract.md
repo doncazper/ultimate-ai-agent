@@ -84,17 +84,22 @@ Contract rules:
   background autonomy, production authority, and raw prompt/response/provider
   payload/log/local-path persistence remain blocked.
   `GET /api/runtime/interface-mode` exposes the backend-owned
-  `runtime_interface_mode.v1` contract for Hermes interface mode. It shows
-  `shell_guarded`, `operator_override`, and `pure_hermes_pass_through` modes,
-  keeps UAA-native agent planning/execution off, reports Hermes CLI posture,
-  and labels blocked unsafe Hermes flags, arbitrary args, shell strings, direct
-  memory writes, raw persistence, browser automation, connector writes, and
-  production authority.
-  `GET /api/runtime/hermes/context-pack` exposes the curated
-  `hermes_context_pack.v1` bridge from Memory, CRM, Chat, Cowork/Plans, Today,
-  Action Inbox, Evidence, Proof, and Sources into Hermes-projected safe
-  summaries. It carries provenance refs, why-shown refs, evidence/proof refs,
-  and explicit false flags for raw Memory/CRM/chat/path/log/credential exposure.
+  `runtime_interface_mode.v1` contract for optional Hermes interface mode. The
+  default mode is `disabled`: UAA remains UAA-native, does not discover or probe
+  Hermes, does not project context, and does not execute Hermes chat unless
+  `UAA_HERMES_INTERFACE_MODE_ENABLED=1` is explicitly set. The contract also
+  shows opt-in `shell_guarded`, `operator_override`, and
+  `pure_hermes_pass_through` postures, keeps UAA-native agent
+  planning/execution off, reports Hermes CLI posture, and labels blocked unsafe
+  Hermes flags, arbitrary args, shell strings, direct memory writes, raw
+  persistence, browser automation, connector writes, and production authority.
+  `GET /api/runtime/hermes/context-pack` exposes the
+  `hermes_context_pack.v1` bridge. While the interface is disabled it reports
+  `projection_enabled=false` and zero projected sections. When explicitly
+  enabled, it projects Memory, CRM, Chat, Cowork/Plans, Today, Action Inbox,
+  Evidence, Proof, and Sources into Hermes-safe summaries. It carries provenance
+  refs, why-shown refs, evidence/proof refs, and explicit false flags for raw
+  Memory/CRM/chat/path/log/credential exposure.
   `POST /api/runtime/hermes/chat` is a mutating-requires-authority local
   interface route for exact Hermes CLI chat argv only. It requires idempotency,
   returns a redacted receipt, hashes the query, summarizes output, and keeps

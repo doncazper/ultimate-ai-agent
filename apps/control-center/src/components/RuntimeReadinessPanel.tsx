@@ -154,7 +154,13 @@ export function RuntimeReadinessPanel({
           <ul className="compact-list">
             {interfaceMode.mode_profiles.map((profile) => (
               <li key={profile.mode}>
-                {profile.mode}: {profile.external_handoff_only ? "external only" : "guarded"}; UAA execution off
+                {profile.mode}:{" "}
+                {profile.mode === "disabled"
+                  ? "disabled"
+                  : profile.external_handoff_only
+                    ? "external only"
+                    : "guarded"}
+                ; UAA execution off
               </li>
             ))}
           </ul>
@@ -218,6 +224,10 @@ export function RuntimeReadinessPanel({
             <dd>{hermesContextPack.section_count}</dd>
           </div>
           <div>
+            <dt>Projection</dt>
+            <dd>{hermesContextPack.projection_enabled ? "enabled" : "disabled"}</dd>
+          </div>
+          <div>
             <dt>Raw database access</dt>
             <dd>
               {hermesContextPack.hermes_receives_raw_database_access
@@ -236,13 +246,21 @@ export function RuntimeReadinessPanel({
               </tr>
             </thead>
             <tbody>
-              {hermesContextPack.sections.map((section) => (
-                <tr key={section.section_ref}>
-                  <td>{section.source_surface}</td>
-                  <td>{section.projected_to_hermes ? "Hermes-projected" : "UAA-native only"}</td>
-                  <td>{section.why_shown_refs[0]}</td>
+              {hermesContextPack.sections.length > 0 ? (
+                hermesContextPack.sections.map((section) => (
+                  <tr key={section.section_ref}>
+                    <td>{section.source_surface}</td>
+                    <td>{section.projected_to_hermes ? "Hermes-projected" : "UAA-native only"}</td>
+                    <td>{section.why_shown_refs[0]}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td>UAA-native context</td>
+                  <td>Hermes projection disabled</td>
+                  <td>UAA is not acting as a Hermes frontend.</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

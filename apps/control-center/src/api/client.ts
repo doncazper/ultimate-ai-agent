@@ -3659,9 +3659,11 @@ function isSafeRuntimeInterfaceMode(
   const modes = new Set(value.mode_profiles.map((profile) => profile.mode));
   return (
     value.schema_version === "runtime_interface_mode.v1" &&
-    value.active_mode === "shell_guarded" &&
+    (value.active_mode === "disabled" || value.active_mode === "shell_guarded") &&
+    (value.interface_enabled === false || value.active_mode === "shell_guarded") &&
     value.python_core_owns_truth === true &&
     value.memory_update_policy === "candidate_only_review_required" &&
+    modes.has("disabled") &&
     modes.has("shell_guarded") &&
     modes.has("operator_override") &&
     modes.has("pure_hermes_pass_through") &&
@@ -3699,11 +3701,14 @@ function isSafeRuntimeHermesContextPack(
     "direct_memory_write_enabled",
   ];
   const sources = new Set(value.sections.map((section) => section.source_surface));
-  return (
-    value.schema_version === "hermes_context_pack.v1" &&
-    value.context_pack_ref ===
-      "hermes-context-pack-ref:uaa-curated-runtime-interface-mode" &&
-    value.memory_update_policy === "candidate_only_review_required" &&
+  const disabledProjection =
+    value.projection_enabled === false &&
+    value.status === "disabled_uaa_native_only" &&
+    value.section_count === 0 &&
+    value.source_count === 0 &&
+    value.sections.length === 0;
+  const enabledProjection =
+    value.projection_enabled === true &&
     value.projected_provenance_visible === true &&
     value.section_count === value.sections.length &&
     value.section_count >= 9 &&
@@ -3717,7 +3722,13 @@ function isSafeRuntimeHermesContextPack(
         section.projected_to_hermes === true &&
         isNonEmptyStringArray(section.provenance_refs) &&
         isNonEmptyStringArray(section.why_shown_refs),
-    ) &&
+    );
+  return (
+    value.schema_version === "hermes_context_pack.v1" &&
+    value.context_pack_ref ===
+      "hermes-context-pack-ref:uaa-curated-runtime-interface-mode" &&
+    value.memory_update_policy === "candidate_only_review_required" &&
+    (disabledProjection || enabledProjection) &&
     deniedFlags.every((flag) => value[flag] === false)
   );
 }

@@ -329,10 +329,10 @@ runtime-authority lane. Phase 07 release truth keeps v0.104.0 as the active
 product/package baseline while the governed runtime milestone is tag-eligible
 only after green PR review and verification: configured loopback local-model
 calls, one exact read-only status command, and exact Action Inbox approved
-focused pytest and repo-verifier execution may produce RuntimeGateway receipts;
-browser
+focused pytest, repo-verifier, and frontend-check execution may produce
+RuntimeGateway receipts; browser
 automation, connector writes, plugin import, remote execution, arbitrary
-shell/subprocess work, frontend-check runtime execution, public
+shell/subprocess work outside exact approved lanes, public
 beta, public release, production authority, and broad autonomy remain blocked.
 Full UAA-P1-087.2
 local/private UI tuning and UAA-P1-087.3 private UI trial/native boot planning

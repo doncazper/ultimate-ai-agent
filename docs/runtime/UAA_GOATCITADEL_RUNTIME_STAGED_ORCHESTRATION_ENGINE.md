@@ -8,7 +8,7 @@ import GoatCitadel packages. The base read model remains non-mutating, and the
 first execution-capable slice is limited to one approved-runtime-command step
 that can consume the existing exact Action Inbox approved focused pytest
 RuntimeGateway lane. The runtime approval bridge also promotes the exact
-`repo_verifier` utility command lane.
+`repo_verifier` and `frontend_check` utility command lanes.
 
 ## Implemented Repo-Safe Slice
 

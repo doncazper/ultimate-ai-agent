@@ -1525,7 +1525,7 @@ function runtimeActionInboxBridgeFixture(
     default_profile: "sealed",
     runtime_profile_status: "receipt_recorded_runtime_activity",
     local_model_readiness: "configured_loopback_available_when_enabled",
-    command_runtime_readiness: "focused_pytest_receipt_recorded",
+    command_runtime_readiness: "utility_command_receipt_recorded",
     safe_disable_ref: "safe-disable-ref:runtime-app-test",
     safe_disable_posture_ref: "safe-disable-posture-ref:runtime-app-test",
     safe_disable_active: false,
@@ -1666,11 +1666,73 @@ function actionToolCodeLaneCatalogFixture(
       blocked_reason: "Arbitrary commands remain blocked.",
       receipt_requirement: "Requires RuntimeGateway command receipt refs.",
       rollback_or_safe_disable_posture: "Runtime safe-disable is backend-owned.",
-      route_refs: ["POST /runtime/action-inbox/approved-command/execute"],
+      route_refs: ["POST /api/runtime/invocations/{id}/execute"],
       cli_refs: ["scripts/dev/uaa_runtime.py receipts"],
       receipt_refs: ["receipt-plan:runtime-action-inbox:focused-pytest"],
       evidence_refs: ["evidence-ref:runtime-action-inbox:focused-pytest"],
       proof_refs: ["proof-ref:runtime-action-inbox:focused-pytest"],
+      blocked_authority_refs: [
+        "blocked-authority:runtime-unrestricted-command-execution",
+      ],
+      unblock_prompt_refs: [],
+      operator_visible: true,
+      inspectable_now: true,
+      proposal_only: false,
+      exact_local_mutation_available: false,
+      exact_runtime_lane_available: true,
+      ...flags,
+    },
+    {
+      capability_id: "runtime.repo_verifier_action_inbox",
+      capability_ref: "capability-ref:runtime-gateway:repo-verifier",
+      lane_ref: "lane-ref:runtime-gateway:repo-verifier",
+      label: "RuntimeGateway documentation verifier command",
+      capability_kind: "runtime_micro_lane",
+      surface: "Runtime",
+      status: "implemented_exact_approval_required",
+      side_effect_class: "local_dev_workspace_only",
+      required_approval_scope:
+        "approval-scope-ref:governed-runtime-exact-envelope",
+      eligibility_reason: "Eligible only through exact Action Inbox approval.",
+      blocked_reason: "Arbitrary commands remain blocked.",
+      receipt_requirement: "Requires RuntimeGateway command receipt refs.",
+      rollback_or_safe_disable_posture: "Runtime safe-disable is backend-owned.",
+      route_refs: ["POST /api/runtime/invocations/{id}/execute"],
+      cli_refs: ["scripts/dev/uaa_runtime.py receipts"],
+      receipt_refs: ["receipt-plan:runtime-action-inbox:repo-verifier"],
+      evidence_refs: ["evidence-ref:runtime-action-inbox:repo-verifier"],
+      proof_refs: ["proof-ref:runtime-action-inbox:repo-verifier"],
+      blocked_authority_refs: [
+        "blocked-authority:runtime-unrestricted-command-execution",
+      ],
+      unblock_prompt_refs: [],
+      operator_visible: true,
+      inspectable_now: true,
+      proposal_only: false,
+      exact_local_mutation_available: false,
+      exact_runtime_lane_available: true,
+      ...flags,
+    },
+    {
+      capability_id: "runtime.frontend_check_action_inbox",
+      capability_ref: "capability-ref:runtime-gateway:frontend-check",
+      lane_ref: "lane-ref:runtime-gateway:frontend-check",
+      label: "RuntimeGateway frontend check command",
+      capability_kind: "runtime_micro_lane",
+      surface: "Runtime",
+      status: "implemented_exact_approval_required",
+      side_effect_class: "local_dev_workspace_only",
+      required_approval_scope:
+        "approval-scope-ref:governed-runtime-exact-envelope",
+      eligibility_reason: "Eligible only through exact Action Inbox approval.",
+      blocked_reason: "Arbitrary commands remain blocked.",
+      receipt_requirement: "Requires RuntimeGateway command receipt refs.",
+      rollback_or_safe_disable_posture: "Runtime safe-disable is backend-owned.",
+      route_refs: ["POST /api/runtime/invocations/{id}/execute"],
+      cli_refs: ["scripts/dev/uaa_runtime.py receipts"],
+      receipt_refs: ["receipt-plan:runtime-action-inbox:frontend-check"],
+      evidence_refs: ["evidence-ref:runtime-action-inbox:frontend-check"],
+      proof_refs: ["proof-ref:runtime-action-inbox:frontend-check"],
       blocked_authority_refs: [
         "blocked-authority:runtime-unrestricted-command-execution",
       ],
@@ -1727,7 +1789,7 @@ function actionToolCodeLaneCatalogFixture(
     entry_count: entries.length,
     preview_only_count: 1,
     exact_local_mutation_count: 1,
-    exact_runtime_lane_count: 1,
+    exact_runtime_lane_count: 3,
     proposal_only_count: 1,
     blocked_count: 1,
     entries,
@@ -6318,7 +6380,7 @@ describe("Web Control Center shell", () => {
     );
     expect(bridge).toHaveTextContent("backend-owned");
     expect(bridge).toHaveTextContent("receipt_recorded_runtime_activity");
-    expect(bridge).toHaveTextContent("focused_pytest_receipt_recorded");
+    expect(bridge).toHaveTextContent("utility_command_receipt_recorded");
     expect(bridge).toHaveTextContent("uaa runtime status");
     expect(bridge).toHaveTextContent("uaa runtime receipts show");
     expect(bridge).toHaveTextContent("uaa runtime receipts evidence");
@@ -6383,6 +6445,10 @@ describe("Web Control Center shell", () => {
     );
     expect(catalog).toHaveTextContent("Action Inbox local task create");
     expect(catalog).toHaveTextContent("RuntimeGateway focused pytest command");
+    expect(catalog).toHaveTextContent(
+      "RuntimeGateway documentation verifier command",
+    );
+    expect(catalog).toHaveTextContent("RuntimeGateway frontend check command");
     expect(catalog).toHaveTextContent("Coding approved patch apply");
     expect(catalog).toHaveTextContent("Generic tool execution");
     expect(catalog).toHaveTextContent("blocked");
@@ -7520,10 +7586,8 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("uaa runtime inspect-delegation-adapter"),
     ).toBeInTheDocument();
-    expect(
-      screen.getAllByText(/Runtime interface mode: shell_guarded/i).length,
-    ).toBeGreaterThan(0);
     expect(screen.getByText("Interface mode")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "disabled" }).length).toBeGreaterThan(0);
     expect(screen.getByText("GET /api/runtime/interface-mode")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-interface-mode")).toBeInTheDocument();
     expect(screen.getByText("Hermes CLI")).toBeInTheDocument();
@@ -7539,10 +7603,10 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("uaa runtime inspect-hermes-context-pack"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Memory Review and reviewed context")).toBeInTheDocument();
-    expect(screen.getByText("CRM local command center")).toBeInTheDocument();
+    expect(screen.getByText("UAA-native context")).toBeInTheDocument();
+    expect(screen.getByText("Hermes projection disabled")).toBeInTheDocument();
     expect(screen.getAllByText("candidate_only_review_required").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Hermes-projected").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Hermes-projected")).not.toBeInTheDocument();
     expect(screen.getByText("Capability discovery")).toBeInTheDocument();
     expect(
       screen.getByText("GET /api/runtime/capability-discovery"),
@@ -14318,7 +14382,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/M18 local runtime surface/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/Exact approved focused pytest execution/i),
+      screen.getByText(/Exact approved utility command execution/i),
     ).toBeInTheDocument();
     expect(
       screen.getAllByText(/Runtime readiness report/i).length,

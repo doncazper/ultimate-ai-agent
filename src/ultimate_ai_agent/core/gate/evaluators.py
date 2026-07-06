@@ -6620,7 +6620,7 @@ class FoundationGateEvaluator:
             "isRuntimeValidationEndpoint",
             "M18 local runtime surface",
             "Local runtime status is backend-owned",
-            "Exact approved focused pytest execution is visible through RuntimeGateway receipts",
+            "Exact approved utility command execution is visible through RuntimeGateway receipts",
             "this UI does not start runtimes or grant arbitrary command",
             "production runtime readiness is not claimed",
             "Manual smoke reports are safe summaries",

@@ -4,7 +4,7 @@
   "baseline": "v0.104.0 / 0.104.0",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
-  "openapi_path_count": 210,
+  "openapi_path_count": 234,
   "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",
   "allowed_release_statuses": [
     "status_available_not_completion",
@@ -968,6 +968,146 @@
           "method": "GET",
           "path": "/api/runtime/tool-registry",
           "operation_id": "get_api_runtime_tool_registry",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/interface-mode",
+          "operation_id": "get_api_runtime_interface_mode",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/hermes/context-pack",
+          "operation_id": "get_api_runtime_hermes_context_pack",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/virtual-provider-moa",
+          "operation_id": "get_api_runtime_virtual_provider_moa",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/usage-cost-analytics",
+          "operation_id": "get_api_runtime_usage_cost_analytics",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/prompt-stability-tiers",
+          "operation_id": "get_api_runtime_prompt_stability_tiers",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/context-budget-pressure",
+          "operation_id": "get_api_runtime_context_budget_pressure",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/hardline-command-blocklist",
+          "operation_id": "get_api_runtime_hardline_command_blocklist",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/managed-scope-policy",
+          "operation_id": "get_api_runtime_managed_scope_policy",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/doctor-diagnostics",
+          "operation_id": "get_api_runtime_doctor_diagnostics",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/session-continuity",
+          "operation_id": "get_api_runtime_session_continuity",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/mcp-catalog-filtering",
+          "operation_id": "get_api_runtime_mcp_catalog_filtering",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/background-jobs",
+          "operation_id": "get_api_runtime_background_jobs",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/subagent-isolation",
+          "operation_id": "get_api_runtime_subagent_isolation",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/worktree-per-agent",
+          "operation_id": "get_api_runtime_worktree_per_agent",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/lsp-diagnostics",
+          "operation_id": "get_api_runtime_lsp_diagnostics",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/preview-rail",
+          "operation_id": "get_api_runtime_preview_rail",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/slash-command-registry",
+          "operation_id": "get_api_runtime_slash_command_registry",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/interrupt-redirect",
+          "operation_id": "get_api_runtime_interrupt_redirect",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/logging-profile",
+          "operation_id": "get_api_runtime_logging_profile",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/result-classification",
+          "operation_id": "get_api_runtime_result_classification",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
         },

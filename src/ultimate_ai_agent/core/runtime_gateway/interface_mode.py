@@ -33,6 +33,7 @@ HERMES_CHAT_ROUTE_REF = "POST /api/runtime/hermes/chat"
 HERMES_CHAT_CLI_REF = "uaa runtime hermes-chat"
 HERMES_CONTEXT_PACK_REF = "hermes-context-pack-ref:uaa-curated-runtime-interface-mode"
 HERMES_CLI_ENV = "UAA_HERMES_CLI_PATH"
+HERMES_INTERFACE_MODE_ENABLED_ENV = "UAA_HERMES_INTERFACE_MODE_ENABLED"
 HERMES_EXACT_CHAT_ARGV_SHAPE_REF = (
     "argv-shape-ref:hermes-chat-query-quiet-source-uaa-control-center"
 )
@@ -80,6 +81,7 @@ HERMES_INTERFACE_MODE_REDACTIONS = (
 
 
 class RuntimeInterfaceMode(str, Enum):
+    disabled = "disabled"
     shell_guarded = "shell_guarded"
     operator_override = "operator_override"
     pure_hermes_pass_through = "pure_hermes_pass_through"
@@ -211,7 +213,8 @@ class RuntimeInterfaceModeReadModel(BaseModel):
     route_ref: str = RUNTIME_INTERFACE_MODE_ROUTE_REF
     cli_ref: str = RUNTIME_INTERFACE_MODE_CLI_REF
     status: str = "active_shell_over_external_runtime"
-    active_mode: RuntimeInterfaceMode = RuntimeInterfaceMode.shell_guarded
+    active_mode: RuntimeInterfaceMode = RuntimeInterfaceMode.disabled
+    interface_enabled: bool = False
     mode_profiles: list[RuntimeInterfaceModeProfile]
     hermes_cli_posture: HermesCliPostureReadModel
     context_pack_ref: str = HERMES_CONTEXT_PACK_REF
@@ -314,6 +317,7 @@ class HermesContextPackReadModel(BaseModel):
     route_ref: str = HERMES_CONTEXT_PACK_ROUTE_REF
     cli_ref: str = HERMES_CONTEXT_PACK_CLI_REF
     status: str = "curated_redacted_context_ready"
+    projection_enabled: bool = True
     built_at_ref: str = Field(default_factory=lambda: _hash_ref("time-ref", utc_now().isoformat()))
     source_count: int
     section_count: int
@@ -508,6 +512,8 @@ class HermesCliAdapter:
         return None, "not_found", "hermes-cli-ref:not-found"
 
     def readiness(self) -> HermesCliPostureReadModel:
+        if not is_hermes_interface_mode_enabled():
+            return _disabled_hermes_cli_posture()
         cli_path, discovery_source, cli_ref = self.discover_cli()
         if cli_path is None:
             return HermesCliPostureReadModel(
@@ -556,6 +562,18 @@ class HermesCliAdapter:
         idempotency_ref: str,
     ) -> HermesChatReceiptReadModel:
         validate_execution_ref(idempotency_ref, "idempotency_ref")
+        if not is_hermes_interface_mode_enabled():
+            return _hermes_blocked_receipt(
+                request,
+                idempotency_ref,
+                cli_ref="hermes-cli-ref:interface-mode-disabled",
+                status=HermesChatStatus.blocked,
+                blocked_reason_refs=["blocked-authority:hermes-interface-mode-disabled"],
+                output_summary=(
+                    "Hermes interface mode is disabled; UAA stayed UAA-native and "
+                    "did not discover, probe, or execute Hermes."
+                ),
+            )
         if request.mode == RuntimeInterfaceMode.pure_hermes_pass_through.value:
             return _hermes_external_handoff_receipt(request, idempotency_ref)
         cli_path, discovery_source, cli_ref = self.discover_cli()
@@ -645,12 +663,29 @@ def build_runtime_interface_mode_read_model(
     adapter: HermesCliAdapter | None = None,
 ) -> RuntimeInterfaceModeReadModel:
     hermes = adapter or HermesCliAdapter()
+    interface_enabled = is_hermes_interface_mode_enabled()
     profiles = [
         RuntimeInterfaceModeProfile(
+            mode=RuntimeInterfaceMode.disabled,
+            status="disabled_uaa_native_only",
+            uaa_redaction_receipts_enabled=False,
+            hermes_cli_chat_enabled=False,
+            operator_submission_required=True,
+            safe_summary=(
+                "Hermes interface mode is off by default; UAA remains UAA-native "
+                "and does not discover, probe, or execute Hermes."
+            ),
+            allowed_action_refs=[],
+            blocked_authority_refs=[
+                "blocked-authority:hermes-interface-mode-disabled",
+                *HERMES_INTERFACE_MODE_BLOCKED_AUTHORITY_REFS,
+            ],
+        ),
+        RuntimeInterfaceModeProfile(
             mode=RuntimeInterfaceMode.shell_guarded,
-            status="default_guarded_shell",
+            status="available_when_explicitly_enabled",
             uaa_redaction_receipts_enabled=True,
-            hermes_cli_chat_enabled=True,
+            hermes_cli_chat_enabled=interface_enabled,
             operator_submission_required=True,
             safe_summary=(
                 "UAA native agent planning is off; UAA keeps redaction, receipts, "
@@ -661,9 +696,9 @@ def build_runtime_interface_mode_read_model(
         ),
         RuntimeInterfaceModeProfile(
             mode=RuntimeInterfaceMode.operator_override,
-            status="explicit_operator_submission",
+            status="available_when_explicitly_enabled",
             uaa_redaction_receipts_enabled=True,
-            hermes_cli_chat_enabled=True,
+            hermes_cli_chat_enabled=interface_enabled,
             operator_submission_required=True,
             safe_summary=(
                 "Operator override submits explicitly to Hermes with weaker UAA "
@@ -688,19 +723,55 @@ def build_runtime_interface_mode_read_model(
         ),
     ]
     return RuntimeInterfaceModeReadModel(
+        status=(
+            "active_shell_over_external_runtime"
+            if interface_enabled
+            else "disabled_uaa_native_only"
+        ),
+        active_mode=(
+            RuntimeInterfaceMode.shell_guarded
+            if interface_enabled
+            else RuntimeInterfaceMode.disabled
+        ),
+        interface_enabled=interface_enabled,
         mode_profiles=profiles,
         hermes_cli_posture=hermes.readiness(),
         safe_summary=(
-            "Runtime interface mode lets Control Center supervise Hermes as an "
+            "Runtime interface mode is disabled; UAA remains UAA-native and Hermes "
+            "is removable without changing the core operator loop."
+            if not interface_enabled
+            else "Runtime interface mode lets Control Center supervise Hermes as an "
             "external runtime while UAA-native agent planning and execution stay off."
         ),
-        blocked_authority_refs=list(HERMES_INTERFACE_MODE_BLOCKED_AUTHORITY_REFS),
+        blocked_authority_refs=(
+            [
+                "blocked-authority:hermes-interface-mode-disabled",
+                *HERMES_INTERFACE_MODE_BLOCKED_AUTHORITY_REFS,
+            ]
+            if not interface_enabled
+            else list(HERMES_INTERFACE_MODE_BLOCKED_AUTHORITY_REFS)
+        ),
         evidence_refs=["evidence-ref:runtime-interface-mode:python-core-contract"],
         proof_refs=["proof-ref:runtime-interface-mode:uaa-memory-bridge"],
     )
 
 
 def build_hermes_context_pack_read_model() -> HermesContextPackReadModel:
+    if not is_hermes_interface_mode_enabled():
+        return HermesContextPackReadModel(
+            status="disabled_uaa_native_only",
+            projection_enabled=False,
+            source_count=0,
+            section_count=0,
+            sections=[],
+            safe_summary=(
+                "Hermes context projection is disabled; UAA does not build a Hermes "
+                "context pack and continues using UAA-native memory, evidence, and proof."
+            ),
+            projected_provenance_visible=False,
+            evidence_refs=["evidence-ref:hermes-context-pack:disabled"],
+            proof_refs=["proof-ref:hermes-context-pack:disabled"],
+        )
     sections = [
         _context_section(
             "memory",
@@ -780,21 +851,39 @@ def build_hermes_context_pack_read_model() -> HermesContextPackReadModel:
 
 
 def verify_hermes_interface_mode_contract() -> dict[str, object]:
-    interface = build_runtime_interface_mode_read_model(
-        adapter=HermesCliAdapter(runner=_no_hermes_runner)
-    )
-    context_pack = build_hermes_context_pack_read_model()
-    pass_through_receipt = HermesCliAdapter(runner=_no_hermes_runner).chat(
-        HermesChatRequest(
-            mode=RuntimeInterfaceMode.pure_hermes_pass_through,
-            query="external handoff only",
-            operator_submission_acknowledged=True,
-        ),
-        idempotency_ref="idempotency-ref:hermes-interface-verifier",
-    )
+    previous_enabled = os.environ.get(HERMES_INTERFACE_MODE_ENABLED_ENV)
+    try:
+        os.environ.pop(HERMES_INTERFACE_MODE_ENABLED_ENV, None)
+        disabled_interface = build_runtime_interface_mode_read_model(
+            adapter=HermesCliAdapter(runner=_no_hermes_runner)
+        )
+        disabled_context_pack = build_hermes_context_pack_read_model()
+        os.environ[HERMES_INTERFACE_MODE_ENABLED_ENV] = "1"
+        interface = build_runtime_interface_mode_read_model(
+            adapter=HermesCliAdapter(runner=_no_hermes_runner)
+        )
+        context_pack = build_hermes_context_pack_read_model()
+        pass_through_receipt = HermesCliAdapter(runner=_no_hermes_runner).chat(
+            HermesChatRequest(
+                mode=RuntimeInterfaceMode.pure_hermes_pass_through,
+                query="external handoff only",
+                operator_submission_acknowledged=True,
+            ),
+            idempotency_ref="idempotency-ref:hermes-interface-verifier",
+        )
+    finally:
+        if previous_enabled is None:
+            os.environ.pop(HERMES_INTERFACE_MODE_ENABLED_ENV, None)
+        else:
+            os.environ[HERMES_INTERFACE_MODE_ENABLED_ENV] = previous_enabled
     return {
         "schema_version": "hermes_interface_mode_verifier.v1",
         "contract_ref": RUNTIME_INTERFACE_MODE_CONTRACT_REF,
+        "default_disabled": (
+            disabled_interface.active_mode == RuntimeInterfaceMode.disabled.value
+            and not disabled_interface.interface_enabled
+            and not disabled_context_pack.projection_enabled
+        ),
         "uaa_native_agent_execution_off": not interface.uaa_execution_enabled,
         "uaa_native_agent_planning_off": not interface.uaa_planning_enabled,
         "context_curated_redacted": (
@@ -846,6 +935,29 @@ def _is_executable_file(candidate: Path) -> bool:
         return candidate.is_file() and os.access(candidate, os.X_OK)
     except OSError:
         return False
+
+
+def is_hermes_interface_mode_enabled() -> bool:
+    return os.getenv(HERMES_INTERFACE_MODE_ENABLED_ENV, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _disabled_hermes_cli_posture() -> HermesCliPostureReadModel:
+    return HermesCliPostureReadModel(
+        cli_ref="hermes-cli-ref:interface-mode-disabled",
+        discovery_source="disabled",
+        status=HermesCliStatus.blocked,
+        readiness_checked=False,
+        safe_summary=(
+            "Hermes interface mode is disabled by default; no Hermes CLI discovery "
+            "or readiness command was run."
+        ),
+        blocked_reason_refs=["blocked-authority:hermes-interface-mode-disabled"],
+    )
 
 
 def _validate_hermes_query(query: str) -> None:

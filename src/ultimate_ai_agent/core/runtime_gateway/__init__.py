@@ -50,6 +50,7 @@ from ultimate_ai_agent.core.runtime_gateway.interface_mode import (
     HERMES_CLI_ENV,
     HERMES_EXACT_CHAT_ARGV_SHAPE_REF,
     HERMES_INTERFACE_MODE_BLOCKED_AUTHORITY_REFS,
+    HERMES_INTERFACE_MODE_ENABLED_ENV,
     RUNTIME_INTERFACE_MODE_CLI_REF,
     RUNTIME_INTERFACE_MODE_CONTRACT_REF,
     RUNTIME_INTERFACE_MODE_ROUTE_REF,
@@ -67,6 +68,7 @@ from ultimate_ai_agent.core.runtime_gateway.interface_mode import (
     RuntimeInterfaceModeReadModel,
     build_hermes_context_pack_read_model,
     build_runtime_interface_mode_read_model,
+    is_hermes_interface_mode_enabled,
     verify_hermes_interface_mode_contract,
 )
 from ultimate_ai_agent.core.runtime_gateway.capability_discovery import (

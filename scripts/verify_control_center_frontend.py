@@ -575,7 +575,7 @@ M17_HARDENING_SELECTED_STATE_MARKERS = [
 ]
 
 M18_RUNTIME_BOUNDARY_MARKERS = [
-    "Exact approved focused pytest execution is visible through RuntimeGateway receipts",
+    "Exact approved utility command execution is visible through RuntimeGateway receipts",
     "blocked broad runtime authority",
     "arbitrary command, browser, connector, plugin, remote, public beta, or production authority",
     "Manual smoke reports are safe summaries",
@@ -942,7 +942,7 @@ def verify(root: Path = ROOT) -> list[str]:
     if client.exists():
         text = client.read_text(encoding="utf-8")
         post_count = text.count('method: "POST"')
-        if post_count not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}:
+        if post_count not in {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}:
             failures.append("frontend client must declare only scoped POST calls")
         if "API_ENDPOINTS.actionPreview" not in text:
             failures.append("frontend client must post through API_ENDPOINTS.actionPreview")

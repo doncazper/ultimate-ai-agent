@@ -881,7 +881,7 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
     for command, expected_strings in [
         (
             ["status"],
-            ["Governed runtime status", "focused_pytest_receipt_recorded"],
+            ["Governed runtime status", "utility_command_receipt_recorded"],
         ),
         (
             ["capabilities"],
@@ -931,7 +931,7 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
         text=True,
     )
     assert "Governed runtime status" in launcher_status.stdout
-    assert "focused_pytest_receipt_recorded" in launcher_status.stdout
+    assert "utility_command_receipt_recorded" in launcher_status.stdout
     assert "safe pytest output" not in launcher_status.stdout
     assert str(tmp_path) not in launcher_status.stdout
 
@@ -1052,7 +1052,7 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_repo_verifier_comm
     assert "stderr" not in persisted
 
 
-def test_runtime_gateway_action_inbox_keeps_frontend_check_unpromoted(
+def test_runtime_gateway_action_inbox_approval_executes_exact_frontend_check_command(
     tmp_path: Path,
 ) -> None:
     calls: list[dict[str, object]] = []
@@ -1063,7 +1063,7 @@ def test_runtime_gateway_action_inbox_keeps_frontend_check_unpromoted(
             exit_code=0,
             timed_out=False,
             duration_ms=1,
-            output_bytes=b"frontend check output should not exist",
+            output_bytes=b"raw frontend check output should be redacted",
         )
 
     store = RuntimeInvocationStore(tmp_path)
@@ -1087,16 +1087,26 @@ def test_runtime_gateway_action_inbox_keeps_frontend_check_unpromoted(
         idempotency_ref="idempotency-ref:runtime-action-inbox-frontend-check-execute",
     )
 
-    assert result.record.status == "execution_blocked"
-    assert result.error_category == "RUNTIME_COMMAND_APPROVAL_BRIDGE_INTENT_NOT_PROMOTED"
+    assert result.record.status == "receipt_recorded"
     assert result.record.receipt is not None
-    assert result.record.receipt.command_execution_performed is False
-    assert calls == []
+    assert result.record.receipt.command_execution_performed is True
+    assert result.record.receipt.command_receipt_metadata is not None
+    assert result.record.receipt.command_receipt_metadata.intent == "frontend_check"
+    assert result.output_persisted is False
+    assert len(calls) == 1
+    argv = calls[0]["argv"]
+    assert isinstance(argv, tuple)
+    assert argv in {
+        ("/usr/bin/make", "frontend-check"),
+        ("/bin/make", "frontend-check"),
+    }
 
     persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
         encoding="utf-8"
     )
-    assert "frontend check output" not in persisted
+    assert "raw frontend check output" not in persisted
+    assert "stdout" not in persisted
+    assert "stderr" not in persisted
 
 
 def test_runtime_launcher_actions_approve_and_deny_by_safe_selector_ref(

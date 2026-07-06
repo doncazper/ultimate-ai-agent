@@ -9284,7 +9284,11 @@ export interface HermesCliPostureReadModel {
 }
 
 export interface RuntimeInterfaceModeProfile {
-  mode: "shell_guarded" | "operator_override" | "pure_hermes_pass_through";
+  mode:
+    | "disabled"
+    | "shell_guarded"
+    | "operator_override"
+    | "pure_hermes_pass_through";
   status: string;
   uaa_native_agent_enabled: boolean;
   uaa_planning_enabled: boolean;
@@ -9304,7 +9308,12 @@ export interface RuntimeInterfaceModeReadModel {
   route_ref: string;
   cli_ref: string;
   status: string;
-  active_mode: "shell_guarded" | "operator_override" | "pure_hermes_pass_through";
+  active_mode:
+    | "disabled"
+    | "shell_guarded"
+    | "operator_override"
+    | "pure_hermes_pass_through";
+  interface_enabled: boolean;
   mode_profiles: RuntimeInterfaceModeProfile[];
   hermes_cli_posture: HermesCliPostureReadModel;
   context_pack_ref: string;
@@ -9347,6 +9356,7 @@ export interface HermesContextPackReadModel {
   route_ref: string;
   cli_ref: string;
   status: string;
+  projection_enabled: boolean;
   built_at_ref: string;
   source_count: number;
   section_count: number;

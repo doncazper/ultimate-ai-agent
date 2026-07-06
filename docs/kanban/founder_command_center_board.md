@@ -38,11 +38,11 @@ UAA-P1-091 v0.105.0 Governed Runtime Pilot is the active scoped internal
 runtime-authority lane on the Operator Runtime Excellence board. It is relevant
 to the Founder Command Center only as backend-owned Action Inbox/runtime receipt
 truth: configured loopback local-model receipts, one exact read-only status
-command, and exact Action Inbox approved focused pytest and repo-verifier
-execution through
+command, and exact Action Inbox approved focused pytest, repo-verifier, and
+frontend-check execution through
 RuntimeGateway. It does not grant browser automation, connector writes, plugin
-import, remote execution, arbitrary shell/subprocess work, frontend-check
-runtime execution, public beta, public release,
+import, remote execution, arbitrary shell/subprocess work outside exact
+approved lanes, public beta, public release,
 production authority, or broad autonomy.
 
 The `context_injection` prerequisite contract is contract-ready for future gate

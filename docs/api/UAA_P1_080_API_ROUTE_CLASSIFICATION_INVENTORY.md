@@ -54,7 +54,8 @@ Phase 01 delegation adapter readiness route, Phase 02 capability discovery
 posture route, Governed Product Pilot profile route, invocation metadata,
 approval-ref binding, metadata-only local
 loopback model receipt, exact read-only command status receipt, exact Action
-Inbox approved focused pytest command receipt, blocked receipt, and safe-disable
+Inbox approved focused pytest, repo-verifier, and frontend-check command
+receipts, blocked receipt, and safe-disable
 routes, plus the no-effect Turn Contract Router preview diagnostic route, plus
 the CRM Local Command Center M2 read routes and exact local mutation receipt
 route, plus the governed runtime capability-discovery and run-events

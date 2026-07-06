@@ -262,6 +262,7 @@ def promoted_approval_bridge_command_intents() -> set[RuntimeCommandIntent]:
     return {
         RuntimeCommandIntent.focused_pytest,
         RuntimeCommandIntent.repo_verifier,
+        RuntimeCommandIntent.frontend_check,
     }
 
 

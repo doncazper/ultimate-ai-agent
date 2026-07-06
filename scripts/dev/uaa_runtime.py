@@ -147,8 +147,8 @@ def _print_bridge_summary(read_model: dict[str, Any]) -> None:
         f"blocked={read_model['blocked_count']}"
     )
     print(
-        "Authority: exact focused pytest and repo-verifier bridges only; "
-        "broad runtime remains blocked"
+        "Authority: exact focused pytest, repo-verifier, and frontend-check "
+        "bridges only; broad runtime remains blocked"
     )
     print("Blocked: " + ", ".join(read_model["blocked_authority_refs"] or ["none"]))
     print("Items:")
