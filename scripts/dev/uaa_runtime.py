@@ -37,6 +37,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_capability_discovery_read_model,
     build_runtime_delegation_adapter_read_model,
     build_runtime_run_events_read_model,
+    build_runtime_streaming_progress_read_model,
     build_runtime_action_signed_evidence,
     verify_portable_evidence_envelope,
     verify_runtime_action_signed_evidence,
@@ -362,6 +363,27 @@ def _print_approval_bridge(read_model: dict[str, Any]) -> None:
         print(f"- {ref}")
 
 
+def _print_streaming_progress(read_model: dict[str, Any]) -> None:
+    print("Runtime streaming progress")
+    print(f"Status: {read_model['status']}")
+    print(f"Stream state: {read_model['stream_state']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Events: {read_model['event_count']}")
+    print(f"Live subscription: {read_model['live_subscription_enabled']}")
+    print(f"SSE transport: {read_model['sse_transport_enabled']}")
+    print(f"WebSocket transport: {read_model['websocket_transport_enabled']}")
+    print(f"Stale stream: {read_model['stale_stream']}")
+    print("Event previews:")
+    for event in read_model["event_previews"]:
+        print(f"- #{event['sequence']} {event['event_kind']} {event['event_ref']}")
+        print(f"  proof={event['proof_ref']}")
+        print(f"  hash={event['event_hash_ref']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
 def _print_invocation(record: Any) -> None:
     print("Governed runtime invocation")
     print(f"Invocation: {record.invocation_ref}")
@@ -606,6 +628,37 @@ def _inspect_approval_bridge(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_approval_bridge(read_model)
+    return 0
+
+
+def _inspect_streaming_progress(args: argparse.Namespace) -> int:
+    read_model = build_runtime_streaming_progress_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-streaming-progress",
+        "runtime_streaming_progress": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_provider_payload_omitted": True,
+        "raw_runtime_payload_omitted": True,
+        "raw_tool_payload_omitted": True,
+        "raw_logs_omitted": True,
+        "raw_runtime_payload_persisted": False,
+        "raw_tool_payload_persisted": False,
+        "raw_generated_content_persisted": False,
+        "raw_log_persisted": False,
+        "raw_prompt_persisted": False,
+        "raw_response_persisted": False,
+        "execution_performed": False,
+        "live_subscription_performed": False,
+        "sse_subscription_performed": False,
+        "websocket_subscription_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_streaming_progress(read_model)
     return 0
 
 
@@ -1288,6 +1341,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref runtime approval bridge read model as JSON.",
     )
     approval_bridge.set_defaults(func=_inspect_approval_bridge)
+
+    streaming_progress = subparsers.add_parser(
+        "inspect-streaming-progress",
+        help="Inspect redacted runtime streaming progress previews without live transport.",
+    )
+    streaming_progress.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref runtime streaming progress read model as JSON.",
+    )
+    streaming_progress.set_defaults(func=_inspect_streaming_progress)
 
     bridge = subparsers.add_parser(
         "inspect-action-inbox-bridge",
