@@ -1953,6 +1953,13 @@
           "operation_id": "get_api_runtime_tool_registry",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "local_sensitive"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/session-search",
+          "operation_id": "get_api_runtime_session_search",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         }
       ],
       "side_effect_class": "mixed_validation_and_local_dev_workspace_only",

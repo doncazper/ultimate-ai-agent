@@ -38,6 +38,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_delegation_adapter_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_run_events_read_model,
+    build_runtime_session_search_read_model,
     build_runtime_streaming_progress_read_model,
     build_runtime_tool_registry_availability_read_model,
     build_runtime_action_signed_evidence,
@@ -345,6 +346,31 @@ def _print_tool_registry(read_model: dict[str, Any]) -> None:
         )
         print(f"  side_effect={entry['side_effect_class']}")
         print(f"  summary: {entry['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_session_search(read_model: dict[str, Any]) -> None:
+    print("Runtime session/run search")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Query ref: {read_model['query_ref']}")
+    print(f"Results: {read_model['result_count']}")
+    print(f"Session refs: {read_model['session_ref_count']}")
+    print(f"Run refs: {read_model['run_ref_count']}")
+    print("Results:")
+    for result in read_model["results"]:
+        print(
+            f"- {result['title']}: kind={result['result_kind']} "
+            f"session={result['session_ref']}"
+        )
+        print(f"  run={result.get('run_ref') or 'none'}")
+        print(f"  context={result['attachable_context_ref']}")
+        print(f"  summary: {result['safe_summary']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -691,6 +717,51 @@ def _inspect_tool_registry(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_tool_registry(read_model)
+    return 0
+
+
+def _inspect_session_search(args: argparse.Namespace) -> int:
+    try:
+        read_model = build_runtime_session_search_read_model(
+            query_ref=args.query_ref,
+            limit=args.limit,
+        ).model_dump(mode="json")
+    except ValueError as exc:
+        payload = {
+            "schema_version": "governed-runtime-cli:v1",
+            "command_ref": "repo-local-command:uaa-runtime-inspect-session-search",
+            "status": "blocked",
+            "error_ref": "RUNTIME_SESSION_SEARCH_REF_DENIED",
+            "reason_ref": str(exc) or "invalid_query_ref",
+            "safe_refs_only": True,
+            "raw_content_omitted": True,
+            "raw_paths_omitted": True,
+            "raw_transcript_omitted": True,
+            "raw_prompt_omitted": True,
+            "raw_response_omitted": True,
+        }
+        _print_json(payload)
+        return 1
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-session-search",
+        "runtime_session_search": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_transcript_omitted": True,
+        "raw_prompt_omitted": True,
+        "raw_response_omitted": True,
+        "raw_provider_payload_omitted": True,
+        "execution_performed": False,
+        "memory_write_performed": False,
+        "context_injection_performed": False,
+        "semantic_provider_call_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_session_search(read_model)
     return 0
 
 
@@ -1483,6 +1554,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref runtime tool registry read model as JSON.",
     )
     tool_registry.set_defaults(func=_inspect_tool_registry)
+
+    session_search = subparsers.add_parser(
+        "inspect-session-search",
+        help="Inspect safe-ref session/run search separate from durable memory.",
+    )
+    session_search.add_argument("--query-ref", default=None)
+    session_search.add_argument("--limit", type=int, default=20)
+    session_search.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref session search read model as JSON.",
+    )
+    session_search.set_defaults(func=_inspect_session_search)
 
     run_events = subparsers.add_parser(
         "inspect-run-events",

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `209`.
+Current OpenAPI path count: `210`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 137 |
+| `local_sensitive` | 139 |
 | `mutating_requires_authority` | 42 |
 
 Allowed current side-effect classes are:
@@ -148,6 +148,13 @@ side-effect class, risk, blocker refs, proof refs, and next safe actions while
 keeping tool invocation, remote discovery, live web fetch, provider/model call,
 plugin import, connector write activation, raw tool payload persistence, and
 production authority disabled.
+`GET /api/runtime/session-search` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 12 session/run search posture. It returns safe
+refs, bounded summaries, proof refs, attachable context refs, and memory
+separation posture only. Raw transcript persistence, raw prompt/response
+exposure, semantic provider calls, embedding/vector indexing, hidden context
+injection, memory writes, action execution, and production authority remain
+blocked.
 `GET /api/runtime/run-events` exposes a protected read-only Python Core Hermes
 Runtime Adoption Phase 03 run/event posture for external runtime lifecycle
 state, UAA durable run state mapping, event-ref grammar, proof binding, blocked
