@@ -8,11 +8,12 @@ real backend-owned receipt state. FCC-MEM-001 expands that lifecycle with
 defer, merge, supersede, and forget-request receipts while preserving the same
 authority boundary. Memory remains recall, not truth or authority.
 Accept/correct decisions create reviewed recall-only `LocalMemoryStore` records
-with safe summaries and refs. Defer/merge/supersede/forget-request are posture
-and receipt states only. These decisions do not automatically write memory
-beyond reviewed recall-only accept/correct records, delete/export memory,
-inject context, sync CRM/accounts, write connectors, execute actions, call
-providers, or grant public beta or production authority.
+with safe summaries and refs only after exact approval plus active
+`memory/write` AuthorityLease evaluation. Defer/merge/supersede/forget-request
+are posture and receipt states only. These decisions do not automatically write
+memory beyond reviewed recall-only accept/correct records, delete/export
+memory, inject context, sync CRM/accounts, write connectors, execute actions,
+call providers, or grant public beta or production authority.
 
 ## Contract
 
@@ -37,17 +38,22 @@ Every mutating decision route requires `X-UAA-Idempotency-Key` or
 same stored receipt payload. The same key with a different safe payload returns
 a conflict.
 
-## Reviewed Recall-Write Micro-Lane
+## Reviewed Recall-Write Authority
 
-The reviewed recall-write lane is implemented only for accept/correct Memory
-Review decisions. Its exact scope is
+The reviewed recall-write capability is implemented only for accept/correct
+Memory Review decisions. Its exact approval scope is
 `exact-scope-ref:memory-review:accept-correct-reviewed-recall-write`.
 Receipt-only decisions use
 `exact-scope-ref:memory-review:receipt-state-no-recall-write`.
 The Python Core captures and validates a backend-owned exact
 `LocalApprovalAuthority` grant for that scope, candidate ref, decision kind,
 payload fingerprint, source/evidence refs, idempotency ref, and reviewer ref
-before a reviewed recall-only `LocalMemoryStore` record is written.
+before authority evaluation. It then evaluates the active AuthorityLease store
+for `Ask before changes` or stronger with domain `memory` and capability
+`write` before a reviewed recall-only `LocalMemoryStore` record is written.
+Missing or insufficient lease scope returns a readable authority denial with
+`blocked-state:memory-review-authority-lease-required`, required mode, domain,
+and capability refs, and no recall record write.
 
 Safe-disable and rollback posture are explicit:
 
@@ -75,6 +81,11 @@ through `scripts/dev/uaa_founder_loop.py memory-receipts`.
 - `approval_scope_ref`
 - `approval_status`
 - `approval_reason_refs`
+- `authority_decision_ref` for accept/correct only
+- `authority_decision_outcome` for accept/correct only
+- `authority_lease_ref` for accept/correct only
+- `authority_domain_ref`
+- `authority_capability_ref`
 - `safe_disable_ref`
 - `rollback_ref`
 - `safe_disable_posture_ref`
@@ -139,6 +150,6 @@ Primary proof lanes:
 - `docs/control_center/route_status_manifest.json`
 
 The verifier checks route metadata, idempotency replay/conflict behavior,
-receipt shape, rejected-candidate preservation, Evidence Timeline visibility,
-release-surface truth, route-status truth, milestone truth, no unsafe UI labels,
-and no product overclaims.
+receipt shape, AuthorityLease denial/proof behavior, rejected-candidate
+preservation, Evidence Timeline visibility, release-surface truth, route-status
+truth, milestone truth, no unsafe UI labels, and no product overclaims.

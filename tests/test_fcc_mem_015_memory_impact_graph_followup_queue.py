@@ -21,6 +21,7 @@ from ultimate_ai_agent.core.memory.workbench import (
     build_memory_impact_graph,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
+from tests.authority_helpers import memory_write_authority_lease
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,7 +47,10 @@ def _accept_first_memory_candidate(repo: FounderLoopRepository) -> dict[str, obj
 def test_repository_memory_impact_graph_followups_and_health_are_safe(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     _accept_first_memory_candidate(repo)
 
     impact_graph = repo.memory_impact_graph(limit=10)

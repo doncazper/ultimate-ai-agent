@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.memory import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     L2_FACTUAL_GRAPH_TEMPORAL_INDEX_CONTRACT_REF,
@@ -18,6 +19,10 @@ from ultimate_ai_agent.core.memory import (
     build_l2_factual_graph_temporal_index,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
+from tests.authority_helpers import (
+    issue_memory_write_authority_lease,
+    memory_write_authority_lease,
+)
 
 
 def _first_candidate_ref(repo: FounderLoopRepository) -> str:
@@ -140,7 +145,10 @@ def test_l2_fact_item_rejects_raw_private_or_authority_flags(
 def test_l2_index_derives_fact_graph_and_time_from_l1_previews_only(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     accept_receipt = _record_decision(repo, decision="accept")
     correct_receipt = _record_decision(repo, decision="correct")
     l2_index = repo.memory_l2_factual_graph_temporal_index()
@@ -186,7 +194,10 @@ def test_l2_index_derives_fact_graph_and_time_from_l1_previews_only(
 def test_l2_index_skips_rejected_unreviewed_raw_or_authority_records(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     _record_decision(repo, decision="accept")
     record = repo.list_memory_review_recall_records()[0]
     unreviewed = {**record, "memory_id": "mem_l2_unreviewed", "review_state": "pending"}
@@ -217,6 +228,9 @@ def test_l2_index_api_route_is_backend_backed_and_read_only(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    authority_state_dir = tmp_path / "authority"
+    issue_memory_write_authority_lease(authority_state_dir)
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
     client = TestClient(app)
     candidate_ref = (
         "business-memory-candidate:preference:memory-review-founder-loop-preferences"

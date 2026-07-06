@@ -12,6 +12,7 @@ from ultimate_ai_agent.core.memory import (
     MemoryReviewDecisionRequest,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
+from tests.authority_helpers import memory_write_authority_lease
 
 
 DENIED_FLAGS = [
@@ -111,7 +112,10 @@ def test_memory_learning_posture_is_backend_owned_and_denies_broad_authority(
 def test_memory_learning_posture_tracks_correction_rejection_and_forget_receipts(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     candidate_ref = _first_candidate_ref(repo)
 
     correct_receipt = repo.record_memory_review_decision(

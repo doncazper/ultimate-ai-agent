@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.memory import (
     MEMORY_FEEDBACK_BLOCKED_STATE_REFS,
     MEMORY_HRR_REQUIRED_MILESTONE_REF,
@@ -19,6 +20,10 @@ from ultimate_ai_agent.core.memory import (
     MemoryReviewDecisionRequest,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
+from tests.authority_helpers import (
+    issue_memory_write_authority_lease,
+    memory_write_authority_lease,
+)
 
 
 client = TestClient(app)
@@ -180,7 +185,10 @@ def test_query_ref_improves_matching_candidate_without_mutating_memory(
 def test_safe_query_is_hashed_and_propagates_through_memory_indexes(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     decision = _record_accepted_candidate(repo, "safe-query-alpha")
 
     workbench = repo.memory_workbench(safe_query="safe query alpha", limit=20)
@@ -252,7 +260,10 @@ def test_safe_query_is_hashed_and_propagates_through_memory_indexes(
 def test_feedback_receipts_tune_trust_and_power_inspection_models(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     decision = _record_accepted_candidate(repo, "feedback-alpha")
     memory_record_ref = decision["reviewed_recall_record_ref"]
 
@@ -324,6 +335,9 @@ def test_memory_feature_mine_api_routes_are_hash_only_and_authority_blocked(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    authority_state_dir = tmp_path / "authority"
+    issue_memory_write_authority_lease(authority_state_dir)
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
     repo = FounderLoopRepository.from_env()
     decision = _record_accepted_candidate(repo, "api-alpha")
     memory_record_ref = decision["reviewed_recall_record_ref"]

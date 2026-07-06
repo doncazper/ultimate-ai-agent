@@ -24,6 +24,14 @@ from scripts.verification.repo import (  # noqa: E402
     print_failures_or_success,
 )
 from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
+from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AUTHORITY_STATE_DIR_ENV,
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
+    TrustMode,
+)
 from ultimate_ai_agent.core.memory import (  # noqa: E402
     FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
     MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
@@ -337,11 +345,15 @@ def _append_behavior_failures(
     context: ApiVerifierContext,
 ) -> None:
     old_state_dir = os.environ.get("UAA_FOUNDER_LOOP_STATE_DIR")
+    old_authority_state_dir = os.environ.get(AUTHORITY_STATE_DIR_ENV)
     old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
     bearer = "fcc-v1-005-local-bearer"
     auth_headers = {"Authorization": f"Bearer {bearer}"}
     with tempfile.TemporaryDirectory() as temp_dir:
         os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = str(Path(temp_dir) / "founder_loop")
+        authority_state_dir = Path(temp_dir) / "authority"
+        _issue_memory_write_lease(authority_state_dir)
+        os.environ[AUTHORITY_STATE_DIR_ENV] = str(authority_state_dir)
         os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
             candidate_ref = _candidate_ref(context, auth_headers)
@@ -376,10 +388,29 @@ def _append_behavior_failures(
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
             else:
                 os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = old_state_dir
+            if old_authority_state_dir is None:
+                os.environ.pop(AUTHORITY_STATE_DIR_ENV, None)
+            else:
+                os.environ[AUTHORITY_STATE_DIR_ENV] = old_authority_state_dir
             if old_bearer is None:
                 os.environ.pop(LOCAL_API_BEARER_ENV, None)
             else:
                 os.environ[LOCAL_API_BEARER_ENV] = old_bearer
+
+
+def _issue_memory_write_lease(state_dir: Path) -> None:
+    AuthorityLeaseStore(state_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.ask_before_changes,
+            requested_domains={AuthorityDomain.memory: [AuthorityCapability.write]},
+            decision_reason_ref="decision-reason-ref:fcc-v1-005-authority",
+            safe_summary=(
+                "Verifier session lease grants Memory write for exact Memory Review "
+                "accept/correct behavior checks."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:fcc-v1-005-authority",
+    )
 
 
 def _candidate_ref(context: ApiVerifierContext, auth_headers: dict[str, str]) -> str:
@@ -536,6 +567,28 @@ def _append_receipt_shape_failures(
     )
     if receipt.get("approval_scope_ref") != expected_scope_ref:
         failures.append(f"{label} approval scope ref drifted")
+    if receipt.get("decision") in {"accept", "correct"}:
+        for field in [
+            "authority_decision_ref",
+            "authority_decision_outcome",
+            "authority_lease_ref",
+            "authority_domain_ref",
+            "authority_capability_ref",
+        ]:
+            if not receipt.get(field):
+                failures.append(f"{label} missing authority field {field}")
+        if receipt.get("authority_domain_ref") != "authority-domain-ref:memory":
+            failures.append(f"{label} authority domain ref drifted")
+        if receipt.get("authority_capability_ref") != "authority-capability-ref:write":
+            failures.append(f"{label} authority capability ref drifted")
+    else:
+        for field in [
+            "authority_decision_ref",
+            "authority_decision_outcome",
+            "authority_lease_ref",
+        ]:
+            if receipt.get(field):
+                failures.append(f"{label} receipt-only decision claimed {field}")
     if receipt.get("safe_disable_ref") != MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF:
         failures.append(f"{label} safe-disable ref drifted")
     if receipt.get("rollback_execution_enabled") is not False:
@@ -551,6 +604,9 @@ def _append_receipt_shape_failures(
 def _append_cli_parity_failures(failures: list[str]) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         state_dir = Path(temp_dir) / "founder_loop_cli"
+        authority_state_dir = Path(temp_dir) / "authority"
+        _issue_memory_write_lease(authority_state_dir)
+        env = {**os.environ, AUTHORITY_STATE_DIR_ENV: str(authority_state_dir)}
         repo = FounderLoopRepository(state_dir)
         queue = repo.list_memory_review_queue(limit=1)
         candidate_ref = str(
@@ -577,6 +633,7 @@ def _append_cli_parity_failures(failures: list[str]) -> None:
                 "--evidence-ref",
                 "evidence-ref:fcc-v1-005-cli",
             ],
+            env=env,
             capture_output=True,
             text=True,
             check=False,
@@ -592,6 +649,10 @@ def _append_cli_parity_failures(failures: list[str]) -> None:
         receipt = dict(decision_payload.get("receipt") or {})
         if receipt.get("reviewed_recall_write_performed") is not True:
             failures.append("Memory Review CLI accept must prove reviewed recall write")
+        if receipt.get("authority_domain_ref") != "authority-domain-ref:memory":
+            failures.append("Memory Review CLI accept authority domain drifted")
+        if receipt.get("authority_capability_ref") != "authority-capability-ref:write":
+            failures.append("Memory Review CLI accept authority capability drifted")
         if receipt.get("approval_scope_ref") != MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF:
             failures.append("Memory Review CLI accept approval scope drifted")
         if str(state_dir) in decision.stdout:
@@ -607,6 +668,7 @@ def _append_cli_parity_failures(failures: list[str]) -> None:
                 "--limit",
                 "5",
             ],
+            env=env,
             capture_output=True,
             text=True,
             check=False,

@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.memory import (
     CONTEXT_PACK_PROPOSAL_CONTRACT_REF,
     CONTEXT_PACK_PROPOSAL_ROUTE_REF,
@@ -23,6 +24,10 @@ from ultimate_ai_agent.core.memory import (
     build_l3_identity_session_preference_index,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
+from tests.authority_helpers import (
+    issue_memory_write_authority_lease,
+    memory_write_authority_lease,
+)
 
 
 def _first_candidate_ref(repo: FounderLoopRepository) -> str:
@@ -163,7 +168,10 @@ def test_context_pack_proposal_rejects_raw_private_or_authority_flags(
 def test_context_pack_proposals_derive_from_reviewed_l1_l2_l3_layers(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     accept_receipt = _record_decision(repo, decision="accept")
     correct_receipt = _record_decision(
         repo,
@@ -217,7 +225,10 @@ def test_context_pack_proposals_derive_from_reviewed_l1_l2_l3_layers(
 def test_context_pack_proposals_skip_unreviewed_rejected_raw_or_authority_records(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     _record_decision(repo, decision="accept")
     record = repo.list_memory_review_recall_records()[0]
     unreviewed = {
@@ -257,6 +268,9 @@ def test_context_pack_api_route_is_backend_backed_and_read_only(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    authority_state_dir = tmp_path / "authority"
+    issue_memory_write_authority_lease(authority_state_dir)
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
     client = TestClient(app)
     candidate_ref = (
         "business-memory-candidate:preference:memory-review-founder-loop-preferences"
@@ -311,6 +325,9 @@ def test_context_pack_preview_api_route_is_backend_backed_and_read_only(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "preview_api"))
+    authority_state_dir = tmp_path / "preview_authority"
+    issue_memory_write_authority_lease(authority_state_dir)
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
     client = TestClient(app)
     candidate_ref = (
         "business-memory-candidate:preference:memory-review-founder-loop-preferences"

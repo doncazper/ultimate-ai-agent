@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.memory import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     MEMORY_CITATION_INTEGRITY_CONTRACT_REF,
@@ -25,6 +26,10 @@ from ultimate_ai_agent.core.memory import (
     MemoryReviewDecisionRequest,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
+from tests.authority_helpers import (
+    issue_memory_write_authority_lease,
+    memory_write_authority_lease,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,7 +53,10 @@ def _accept_first_memory_candidate(repo: FounderLoopRepository) -> dict[str, obj
 
 
 def test_fcc_mem_016_020_repository_read_models_are_safe(tmp_path: Path) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     _accept_first_memory_candidate(repo)
 
     retrieval = repo.memory_retrieval_diagnostics(limit=10)
@@ -172,7 +180,10 @@ def test_fcc_mem_016_020_repository_read_models_are_safe(tmp_path: Path) -> None
 def test_memory_feedback_receipt_feeds_quality_queue_without_memory_write(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     _accept_first_memory_candidate(repo)
     target_ref = str(repo.memory_impact_graph(limit=10)["nodes"][0]["memory_ref"])
 
@@ -221,6 +232,9 @@ def test_control_center_memory_diagnostic_routes_and_feedback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "api_state"))
+    authority_state_dir = tmp_path / "authority"
+    issue_memory_write_authority_lease(authority_state_dir)
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
     repo = FounderLoopRepository.from_env()
     _accept_first_memory_candidate(repo)
     target_ref = str(repo.memory_impact_graph(limit=10)["nodes"][0]["memory_ref"])
@@ -308,7 +322,10 @@ def test_founder_loop_cli_memory_context_pack_preview_omits_raw_paths(
     tmp_path: Path,
 ) -> None:
     state_dir = tmp_path / "cli_preview_state"
-    repo = FounderLoopRepository(state_dir)
+    repo = FounderLoopRepository(
+        state_dir,
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     _accept_first_memory_candidate(repo)
     context_pack_ref = repo.memory_context_pack_proposals(limit=5)["proposals"][0][
         "context_pack_ref"

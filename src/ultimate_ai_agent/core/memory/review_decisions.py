@@ -7,6 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import AuthorityDecisionOutcome
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -115,6 +116,16 @@ MEMORY_REVIEW_WRITE_SAFE_DISABLE_POSTURE_REF = (
 )
 MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF = (
     "blocked-state:memory-review-rollback-execution-blocked"
+)
+MEMORY_REVIEW_AUTHORITY_ACTION_REF = (
+    "authority-action-ref:memory-review-accept-correct"
+)
+MEMORY_REVIEW_AUTHORITY_LANE_REF = "lane-ref:memory-review-accept-correct"
+MEMORY_REVIEW_AUTHORITY_DOMAIN_REF = "authority-domain-ref:memory"
+MEMORY_REVIEW_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
+MEMORY_REVIEW_AUTHORITY_REQUIRED_MODE_REF = "authority-mode-ref:ask-before-changes"
+MEMORY_REVIEW_AUTHORITY_REQUIRED_BLOCKED_REF = (
+    "blocked-state:memory-review-authority-lease-required"
 )
 
 _DENIED_FLAGS = [
@@ -435,6 +446,11 @@ class MemoryReviewDecisionReceipt(BaseModel):
     approval_reason_refs: list[str] = Field(
         default_factory=lambda: ["approval-reason:local-memory-review-scope-validated"]
     )
+    authority_decision_ref: str | None = None
+    authority_decision_outcome: str | None = None
+    authority_lease_ref: str | None = None
+    authority_domain_ref: str = MEMORY_REVIEW_AUTHORITY_DOMAIN_REF
+    authority_capability_ref: str = MEMORY_REVIEW_AUTHORITY_CAPABILITY_REF
     safe_disable_ref: str = Field(default=MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF)
     rollback_ref: str = Field(default=MEMORY_REVIEW_WRITE_ROLLBACK_REF)
     safe_disable_posture_ref: str = Field(
@@ -505,6 +521,19 @@ class MemoryReviewDecisionReceipt(BaseModel):
         _safe_ref(self.approval_ref, "approval_ref")
         _safe_ref(self.approval_scope_ref, "approval_scope_ref")
         _safe_text(self.approval_status, "approval_status")
+        _safe_ref(self.authority_domain_ref, "authority_domain_ref")
+        _safe_ref(self.authority_capability_ref, "authority_capability_ref")
+        for field_name in ["authority_decision_ref", "authority_lease_ref"]:
+            ref_value = getattr(self, field_name)
+            if ref_value is not None:
+                _safe_ref(ref_value, field_name)
+        if self.authority_decision_outcome is not None:
+            _safe_text(self.authority_decision_outcome, "authority_decision_outcome")
+            if self.authority_decision_outcome not in {
+                AuthorityDecisionOutcome.allow.value,
+                AuthorityDecisionOutcome.ask.value,
+            }:
+                raise ValueError("memory review authority decision unsupported")
         _safe_ref(self.safe_disable_ref, "safe_disable_ref")
         _safe_ref(self.rollback_ref, "rollback_ref")
         _safe_ref(self.safe_disable_posture_ref, "safe_disable_posture_ref")
@@ -560,8 +589,20 @@ class MemoryReviewDecisionReceipt(BaseModel):
             raise ValueError("accept/correct decisions require reviewed recall record ref")
         if self.decision in {"accept", "correct"} and self.reviewed_recall_write_performed is not True:
             raise ValueError("accept/correct decisions require reviewed recall write proof")
+        if self.decision in {"accept", "correct"} and (
+            self.authority_decision_ref is None
+            or self.authority_decision_outcome is None
+            or self.authority_lease_ref is None
+        ):
+            raise ValueError("accept/correct decisions require authority lease proof")
         if self.decision not in {"accept", "correct"} and self.reviewed_recall_write_performed:
             raise ValueError("non-write memory review decisions must not claim recall writes")
+        if self.decision not in {"accept", "correct"} and (
+            self.authority_decision_ref is not None
+            or self.authority_decision_outcome is not None
+            or self.authority_lease_ref is not None
+        ):
+            raise ValueError("receipt-only memory decisions must not claim authority lease proof")
         if self.decision == "reject" and self.reviewed_recall_record_ref is not None:
             raise ValueError("reject decisions must not create reviewed recall records")
         if self.decision == "reject" and self.rejection_ref is None:

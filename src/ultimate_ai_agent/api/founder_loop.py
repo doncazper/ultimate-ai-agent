@@ -1966,6 +1966,19 @@ def _record_memory_review_decision(
                 ),
             },
         ) from exc
+    except FounderLoopAuthorityError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": str(exc) or "FOUNDER_LOOP_MEMORY_WRITE_AUTHORITY_DENIED",
+                "safe_message": (
+                    "Memory Review accept/correct requires an active AuthorityLease "
+                    "granting Memory write after exact approval validates."
+                ),
+                "reason_refs": exc.reason_refs,
+                "required_refs": dict(exc.required_refs),
+            },
+        ) from exc
     except FounderLoopStorageError as exc:
         code = str(exc) or "FOUNDER_LOOP_MEMORY_DECISION_ERROR"
         status_code = 404 if code == "FOUNDER_LOOP_MEMORY_CANDIDATE_NOT_FOUND" else 400

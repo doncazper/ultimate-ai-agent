@@ -39,9 +39,13 @@ local-card-create lanes now require both exact approval and an active
 `workspace/write` lease, returning readable authority-denied refs when the
 operator remains in read-only mode. Action Inbox local-task commit likewise
 requires exact approval plus active `workspace/write` authority before local
-Founder Loop task state is written. Provider/model transport remains blocked by
-authority policy unless a later supported provider/model execution lease is
-implemented and tested.
+Founder Loop task state is written. Memory Review accept/correct reviewed
+recall writes require exact approval plus active `memory/write` authority before
+the recall-only `LocalMemoryStore` record is written; reject, defer, merge,
+supersede, and forget-request remain receipt/posture decisions without memory
+write authority. Provider/model transport remains blocked by authority policy
+unless a later supported provider/model execution lease is implemented and
+tested.
 
 ## Core Problem
 

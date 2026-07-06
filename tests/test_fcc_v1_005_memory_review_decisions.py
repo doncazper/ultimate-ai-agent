@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -11,6 +12,16 @@ from pydantic import ValidationError
 
 from scripts import verify_fcc_v1_005_memory_review_decisions as verifier
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.authority import (
+    AUTHORITY_STATE_DIR_ENV,
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
+    TrustMode,
+    build_default_authority_leases,
+)
 from ultimate_ai_agent.core.memory import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
@@ -23,9 +34,35 @@ from ultimate_ai_agent.core.memory import (
     MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
 )
 from ultimate_ai_agent.core.storage import (
+    FounderLoopAuthorityError,
     FounderLoopRepository,
     FounderLoopStorageDuplicateError,
 )
+
+
+def _memory_write_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:test-memory-review-write",
+        mode=TrustMode.ask_before_changes,
+        domains={AuthorityDomain.memory: [AuthorityCapability.write]},
+        safe_summary=(
+            "Test lease grants Memory write for exact Memory Review accept/correct."
+        ),
+    )
+
+
+def _issue_memory_write_lease(state_dir: Path) -> None:
+    AuthorityLeaseStore(state_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.ask_before_changes,
+            requested_domains={AuthorityDomain.memory: [AuthorityCapability.write]},
+            decision_reason_ref="decision-reason-ref:test-memory-review-authority",
+            safe_summary=(
+                "Test session lease grants Memory write for Memory Review CLI/API."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:test-memory-review-authority",
+    )
 
 
 def _safe_receipt(**overrides: object) -> MemoryReviewDecisionReceipt:
@@ -46,6 +83,11 @@ def _safe_receipt(**overrides: object) -> MemoryReviewDecisionReceipt:
         "approval_scope_ref": MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
         "approval_status": "approved",
         "approval_reason_refs": ["approval-reason:approval-validated"],
+        "authority_decision_ref": "authority-policy-decision-ref:memory-review:test",
+        "authority_decision_outcome": "ask",
+        "authority_lease_ref": "authority-lease-ref:test-memory-review-write",
+        "authority_domain_ref": "authority-domain-ref:memory",
+        "authority_capability_ref": "authority-capability-ref:write",
         "safe_disable_ref": MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
         "rollback_ref": MEMORY_REVIEW_WRITE_ROLLBACK_REF,
         "rollback_blocker_refs": [MEMORY_REVIEW_WRITE_ROLLBACK_BLOCKED_REF],
@@ -135,7 +177,10 @@ def test_memory_review_decision_receipt_rejects_authority_flags(flag: str) -> No
 def test_memory_review_decisions_persist_append_first_replay_and_conflict(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[_memory_write_lease()],
+    )
     candidate_ref = _first_candidate_ref(repo)
     request = _decision_request()
 
@@ -152,6 +197,13 @@ def test_memory_review_decisions_persist_append_first_replay_and_conflict(
     assert receipt["reviewed_recall_record_ref"].startswith("memory-record-ref:")
     assert receipt["reviewed_recall_write_performed"] is True
     assert receipt["approval_scope_ref"] == MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+    assert receipt["authority_decision_ref"].startswith(
+        "authority-policy-decision-ref:sha256:"
+    )
+    assert receipt["authority_decision_outcome"] == "ask"
+    assert receipt["authority_lease_ref"] == "authority-lease-ref:test-memory-review-write"
+    assert receipt["authority_domain_ref"] == "authority-domain-ref:memory"
+    assert receipt["authority_capability_ref"] == "authority-capability-ref:write"
     assert receipt["safe_disable_ref"] == MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF
     assert receipt["rollback_ref"] == MEMORY_REVIEW_WRITE_ROLLBACK_REF
     assert receipt["rollback_execution_enabled"] is False
@@ -233,10 +285,45 @@ def test_memory_review_accept_correct_denied_when_write_lane_safe_disabled(
     assert reject_receipt.get("reviewed_recall_record_ref") is None
 
 
+def test_memory_review_accept_correct_requires_memory_write_lease(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=build_default_authority_leases(),
+    )
+    candidate_ref = _first_candidate_ref(repo)
+
+    with pytest.raises(FounderLoopAuthorityError) as exc_info:
+        repo.record_memory_review_decision(
+            candidate_ref=candidate_ref,
+            decision="accept",
+            request=_decision_request(),
+            idempotency_key_ref="idempotency-ref:test-memory-authority-denied",
+        )
+
+    assert str(exc_info.value) == "FOUNDER_LOOP_MEMORY_WRITE_AUTHORITY_DENIED"
+    assert "blocked-state:memory-review-authority-lease-required" in (
+        exc_info.value.reason_refs
+    )
+    assert (
+        exc_info.value.required_refs["required_domain_ref"]
+        == "authority-domain-ref:memory"
+    )
+    assert (
+        exc_info.value.required_refs["required_capability_ref"]
+        == "authority-capability-ref:write"
+    )
+    assert repo.list_memory_review_recall_records() == []
+
+
 def test_memory_review_correction_stores_bounded_safe_summary_and_ref(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[_memory_write_lease()],
+    )
     candidate_ref = _first_candidate_ref(repo)
 
     with pytest.raises(Exception, match="FOUNDER_LOOP_MEMORY_CORRECTION_REF_REQUIRED"):
@@ -341,7 +428,10 @@ def test_rejected_candidate_is_preserved_and_evidence_visible(tmp_path: Path) ->
 def test_terminal_memory_review_decision_suppresses_prior_recall_projection(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[_memory_write_lease()],
+    )
     candidate_ref = _first_candidate_ref(repo)
     accept_receipt = repo.record_memory_review_decision(
         candidate_ref=candidate_ref,
@@ -460,6 +550,8 @@ def test_memory_review_cli_records_and_inspects_reviewed_recall_write(
     tmp_path: Path,
 ) -> None:
     state_dir = tmp_path / "founder_loop"
+    authority_state_dir = tmp_path / "authority"
+    _issue_memory_write_lease(authority_state_dir)
     repo = FounderLoopRepository(state_dir)
     candidate_ref = _first_candidate_ref(repo)
 
@@ -483,6 +575,7 @@ def test_memory_review_cli_records_and_inspects_reviewed_recall_write(
             "--evidence-ref",
             "evidence-ref:test-memory-cli",
         ],
+        env={**os.environ, AUTHORITY_STATE_DIR_ENV: str(authority_state_dir)},
         check=True,
         capture_output=True,
         text=True,
@@ -491,6 +584,9 @@ def test_memory_review_cli_records_and_inspects_reviewed_recall_write(
     receipt = decision_payload["receipt"]
     assert receipt["decision"] == "accept"
     assert receipt["reviewed_recall_write_performed"] is True
+    assert receipt["authority_decision_outcome"] == "ask"
+    assert receipt["authority_domain_ref"] == "authority-domain-ref:memory"
+    assert receipt["authority_capability_ref"] == "authority-capability-ref:write"
     assert receipt["approval_scope_ref"] == MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
     assert receipt["safe_disable_ref"] == MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF
     assert receipt["rollback_execution_enabled"] is False
@@ -507,6 +603,7 @@ def test_memory_review_cli_records_and_inspects_reviewed_recall_write(
             "--limit",
             "5",
         ],
+        env={**os.environ, AUTHORITY_STATE_DIR_ENV: str(authority_state_dir)},
         check=True,
         capture_output=True,
         text=True,

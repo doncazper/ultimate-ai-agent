@@ -93,6 +93,15 @@ idempotency, receipt/audit refs, and safe-disable posture before local Founder
 Loop task state is written. Read-only mode must be described as requiring
 Workspace write authority, not as a generic blocked lane.
 
+Memory Review accept/correct copy must say reviewed recall writes require
+`Ask before changes` or stronger with `memory/write`, exact approval,
+idempotency, redacted receipt/audit refs, and rollback/safe-disable posture
+before the recall-only local memory record is written. Read-only mode must be
+described as requiring Memory write authority. Reject, defer, merge, supersede,
+and forget-request remain receipt/posture decisions and must not imply broad
+memory write, delete/export, context injection, connector write, provider/model
+call, or truth authority.
+
 Required copy distinctions:
 
 - Unknown authority is denied.

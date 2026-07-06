@@ -22,6 +22,7 @@ from ultimate_ai_agent.core.storage import (
     FounderLoopRepository,
     FounderLoopStorageDuplicateError,
 )
+from tests.authority_helpers import memory_write_authority_lease
 
 
 def _decision_request(**overrides: object) -> MemoryReviewDecisionRequest:
@@ -416,7 +417,10 @@ def test_merge_and_supersede_mark_local_peer_posture_without_deletion(
 
 
 def test_merge_suppresses_primary_and_peer_recall_projections(tmp_path: Path) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     primary = _manual_memory_candidate(repo, "merge-primary-recall")
     peer = _manual_memory_candidate(repo, "merge-peer-recall")
     primary_accept = repo.record_memory_review_decision(

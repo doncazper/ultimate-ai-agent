@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.memory import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     L1_HOT_MEMORY_INDEX_CONTRACT_REF,
@@ -17,6 +18,10 @@ from ultimate_ai_agent.core.memory import (
     build_l1_hot_memory_index,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
+from tests.authority_helpers import (
+    issue_memory_write_authority_lease,
+    memory_write_authority_lease,
+)
 
 
 def _first_candidate_ref(repo: FounderLoopRepository) -> str:
@@ -124,7 +129,10 @@ def test_l1_hot_memory_preview_rejects_raw_private_or_authority_flags(
 def test_l1_index_derives_from_reviewed_accept_and_correct_records_only(
     tmp_path: Path,
 ) -> None:
-    accept_repo = FounderLoopRepository(tmp_path / "accept")
+    accept_repo = FounderLoopRepository(
+        tmp_path / "accept",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     accept_record = _accepted_record(accept_repo, decision="accept")
     accept_index = accept_repo.memory_l1_hot_index()
 
@@ -149,7 +157,10 @@ def test_l1_index_derives_from_reviewed_accept_and_correct_records_only(
     )
     assert query_index["preview_count"] == 1
 
-    correct_repo = FounderLoopRepository(tmp_path / "correct")
+    correct_repo = FounderLoopRepository(
+        tmp_path / "correct",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     _accepted_record(correct_repo, decision="correct")
     correct_index = correct_repo.memory_l1_hot_index()
     assert correct_index["indexed_record_count"] == 1
@@ -170,7 +181,10 @@ def test_l1_index_derives_from_reviewed_accept_and_correct_records_only(
 def test_l1_index_skips_unreviewed_rejected_raw_or_private_records(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
     record = _accepted_record(repo)
     unreviewed = {**record, "memory_id": "mem_unreviewed", "review_state": "user_review_required"}
     deleted = {**record, "memory_id": "mem_rejected", "retention_state": "deleted"}
@@ -190,6 +204,9 @@ def test_l1_index_api_route_is_backend_backed_and_preview_only(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    authority_state_dir = tmp_path / "authority"
+    issue_memory_write_authority_lease(authority_state_dir)
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
     client = TestClient(app)
     candidate_ref = (
         "business-memory-candidate:preference:memory-review-founder-loop-preferences"

@@ -370,6 +370,12 @@ from ultimate_ai_agent.core.memory.provider import MemoryProviderWriteRequest
 from ultimate_ai_agent.core.memory.review_decisions import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
+    MEMORY_REVIEW_AUTHORITY_ACTION_REF,
+    MEMORY_REVIEW_AUTHORITY_CAPABILITY_REF,
+    MEMORY_REVIEW_AUTHORITY_DOMAIN_REF,
+    MEMORY_REVIEW_AUTHORITY_LANE_REF,
+    MEMORY_REVIEW_AUTHORITY_REQUIRED_BLOCKED_REF,
+    MEMORY_REVIEW_AUTHORITY_REQUIRED_MODE_REF,
     MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
     MEMORY_REVIEW_RECEIPT_SCOPE_REF,
     MEMORY_REVIEW_DECISION_CONTRACT_REF,
@@ -984,9 +990,11 @@ class FounderLoopAuthorityError(FounderLoopStorageError):
         self,
         reason_refs: list[str],
         *,
+        code: str = "FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_DENIED",
         required_refs: dict[str, str] | None = None,
     ) -> None:
-        super().__init__("FOUNDER_LOOP_LOCAL_TASK_AUTHORITY_DENIED")
+        super().__init__(code)
+        self.code = code
         self.reason_refs = reason_refs
         self.required_refs = required_refs or {}
 
@@ -13097,6 +13105,70 @@ class FounderLoopRepository:
             )
         return decision
 
+    def _memory_review_write_authority_decision(
+        self,
+        *,
+        candidate_ref: str,
+        review_ref: str,
+        decision: MemoryReviewDecisionKind,
+        idempotency_key_ref: str,
+        payload_fingerprint_ref: str,
+    ):
+        leases = (
+            self._active_authority_leases
+            if self._active_authority_leases is not None
+            else active_founder_loop_authority_leases()
+        )
+        authority_decision = evaluate_authority_request(
+            AuthorityActionRequest(
+                action_ref=MEMORY_REVIEW_AUTHORITY_ACTION_REF,
+                domain=AuthorityDomain.memory,
+                capability=AuthorityCapability.write,
+                safe_summary=(
+                    "Evaluate Memory write authority for exact Memory Review "
+                    "accept/correct reviewed recall write."
+                ),
+                resource_refs=[
+                    candidate_ref,
+                    review_ref,
+                    FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
+                    MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
+                    idempotency_key_ref,
+                    payload_fingerprint_ref,
+                ],
+                route_ref=(
+                    "POST /control-center/memory/review/{candidate_ref}/"
+                    f"{str(decision).replace('_', '-')}"
+                ),
+                lane_ref=MEMORY_REVIEW_AUTHORITY_LANE_REF,
+                requested_mode=TrustMode.ask_before_changes,
+                draft_fallback_available=True,
+                rollback_ref=MEMORY_REVIEW_WRITE_ROLLBACK_REF,
+                safe_disable_ref=MEMORY_REVIEW_WRITE_SAFE_DISABLE_REF,
+            ),
+            leases,
+        )
+        if authority_decision.outcome not in {
+            AuthorityDecisionOutcome.allow.value,
+            AuthorityDecisionOutcome.ask.value,
+        }:
+            raise FounderLoopAuthorityError(
+                [
+                    *authority_decision.reason_refs,
+                    MEMORY_REVIEW_AUTHORITY_REQUIRED_BLOCKED_REF,
+                ],
+                code="FOUNDER_LOOP_MEMORY_WRITE_AUTHORITY_DENIED",
+                required_refs={
+                    "authority_decision_ref": authority_decision.decision_ref,
+                    "required_mode_ref": MEMORY_REVIEW_AUTHORITY_REQUIRED_MODE_REF,
+                    "required_domain_ref": MEMORY_REVIEW_AUTHORITY_DOMAIN_REF,
+                    "required_capability_ref": MEMORY_REVIEW_AUTHORITY_CAPABILITY_REF,
+                    "safe_disable_ref": authority_decision.safe_disable_ref,
+                    "rollback_ref": authority_decision.rollback_ref,
+                },
+            )
+        return authority_decision
+
     def _memory_context_pack_action_approval_status(
         self,
         *,
@@ -14670,6 +14742,17 @@ class FounderLoopRepository:
         related_projection_candidates = self._memory_review_payloads_for_refs(
             related_candidate_refs
         )
+        authority_decision = (
+            self._memory_review_write_authority_decision(
+                candidate_ref=candidate_ref,
+                review_ref=review_ref,
+                decision=decision,
+                idempotency_key_ref=idempotency_key_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
+            if decision in {"accept", "correct"}
+            else None
+        )
         reviewed_recall_record_ref = (
             self._write_memory_review_recall_record(
                 candidate=candidate,
@@ -14719,6 +14802,15 @@ class FounderLoopRepository:
             approval_scope_ref=approval["approval_scope_ref"],
             approval_status=approval["approval_status"],
             approval_reason_refs=approval["approval_reason_refs"],
+            authority_decision_ref=(
+                authority_decision.decision_ref if authority_decision else None
+            ),
+            authority_decision_outcome=(
+                authority_decision.outcome if authority_decision else None
+            ),
+            authority_lease_ref=(
+                authority_decision.lease_ref if authority_decision else None
+            ),
             safe_disable_ref=str(safe_disable_posture["safe_disable_ref"]),
             rollback_ref=str(safe_disable_posture["rollback_ref"]),
             safe_disable_posture_ref=str(
