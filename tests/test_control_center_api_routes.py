@@ -718,6 +718,7 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/api/runtime/mcp-catalog-filtering" in paths
     assert "/api/runtime/background-jobs" in paths
     assert "/api/runtime/subagent-isolation" in paths
+    assert "/api/runtime/worktree-per-agent" in paths
     assert len(paths) == EXPECTED_OPENAPI_PATH_COUNT
     assert len(operation_ids) == len(set(operation_ids)) == EXPECTED_ROUTE_COUNT
 

@@ -50,6 +50,7 @@ import type {
   RuntimeSubagentIsolationRole,
   RuntimeSubagentReviewArtifact,
   RuntimeSessionContinuitySurface,
+  RuntimeWorktreePerAgentLane,
   RuntimeVirtualAgentSlot,
   RuntimeVirtualProviderPreset,
   RuntimeUsageCostRecord,
@@ -1562,6 +1563,84 @@ const runtimeSubagentReviewArtifacts: RuntimeSubagentReviewArtifact[] = [
     raw_agent_output_persisted: false,
     executable_authority: false,
   },
+];
+
+const runtimeWorktreePerAgentBlockedRefs = [
+  "blocked-authority:worktree-per-agent-no-git-worktree-create",
+  "blocked-authority:worktree-per-agent-no-git-worktree-delete",
+  "blocked-authority:worktree-per-agent-no-branch-mutation",
+  "blocked-authority:worktree-per-agent-no-file-write",
+  "blocked-authority:worktree-per-agent-no-commit",
+  "blocked-authority:worktree-per-agent-no-push",
+  "blocked-authority:worktree-per-agent-no-shell-execution",
+  "blocked-authority:worktree-per-agent-no-provider-call",
+  "blocked-authority:worktree-per-agent-no-control-center-authority-mint",
+  "blocked-authority:worktree-per-agent-no-raw-path-persistence",
+];
+
+function runtimeWorktreePerAgentLane(
+  slug: string,
+  overrides: Pick<
+    RuntimeWorktreePerAgentLane,
+    "display_label" | "agent_role" | "lane_status" | "isolation_mode" | "safe_summary"
+  >,
+): RuntimeWorktreePerAgentLane {
+  return {
+    lane_ref: `worktree-agent-lane-ref:${slug}`,
+    display_label: overrides.display_label,
+    agent_role: overrides.agent_role,
+    lane_status: overrides.lane_status,
+    isolation_mode: overrides.isolation_mode,
+    workspace_scope_ref: `workspace-scope-ref:worktree-agent:${slug}`,
+    branch_proposal_ref: `branch-proposal-ref:worktree-agent:${slug}`,
+    branch_name_ref: `branch-name-ref:worktree-agent:${slug}:proposal`,
+    worktree_ref: `worktree-ref:worktree-agent:${slug}:safe-ref-only`,
+    checkpoint_plan_ref: `checkpoint-plan-ref:worktree-agent:${slug}`,
+    git_receipt_plan_ref: `git-receipt-plan-ref:worktree-agent:${slug}`,
+    rollback_plan_ref: `rollback-plan-ref:worktree-agent:${slug}`,
+    safe_summary: overrides.safe_summary,
+    proof_refs: ["proof-ref:hermes-runtime-adoption:phase-33:worktree-per-agent"],
+    blocked_authority_refs: runtimeWorktreePerAgentBlockedRefs,
+    next_safe_action_refs: [
+      `next-safe-action-ref:worktree-agent:${slug}:review`,
+    ],
+    git_worktree_create_enabled: false,
+    git_worktree_delete_enabled: false,
+    branch_mutation_enabled: false,
+    file_write_enabled: false,
+    commit_enabled: false,
+    push_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    raw_path_persisted: false,
+  };
+}
+
+const runtimeWorktreePerAgentLanes: RuntimeWorktreePerAgentLane[] = [
+  runtimeWorktreePerAgentLane("implementer", {
+    display_label: "Implementer worktree lane",
+    agent_role: "implementer",
+    lane_status: "proposal",
+    isolation_mode: "branch_proposal_only",
+    safe_summary:
+      "Mock implementer lane proposes branch/worktree shape; Git and file mutation remain blocked.",
+  }),
+  runtimeWorktreePerAgentLane("reviewer", {
+    display_label: "Reviewer comparison lane",
+    agent_role: "reviewer",
+    lane_status: "review_ready",
+    isolation_mode: "existing_worktree_ref_only",
+    safe_summary:
+      "Mock reviewer lane compares safe refs only; worktree create/delete remains blocked.",
+  }),
+  runtimeWorktreePerAgentLane("verifier", {
+    display_label: "Verifier proof lane",
+    agent_role: "verifier",
+    lane_status: "mutation_blocked",
+    isolation_mode: "blocked_worktree_mutation",
+    safe_summary:
+      "Mock verifier lane records checkpoint and rollback plans without running Git.",
+  }),
 ];
 
 const memoryLifecycleBlockedRefs = [
@@ -13581,6 +13660,74 @@ export const mockControlCenterData: ControlCenterData = {
       "raw_agent_outputs_omitted",
       "raw_transcripts_omitted",
       "provider_payloads_omitted",
+    ],
+  },
+  runtimeWorktreePerAgent: {
+    schema_version: "runtime_worktree_per_agent.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-worktree-per-agent:v1",
+    status: "read_only_worktree_lane_posture",
+    snapshot_ref: "worktree-per-agent-snapshot-ref:runtime:mock-proposals",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-worktree-per-agent:mock",
+    route_ref: "GET /api/runtime/worktree-per-agent",
+    cli_ref: "uaa runtime inspect-worktree-per-agent",
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime worktree-per-agent mock fallback shows branch/worktree lane proposals and blocked Git mutation labels only.",
+    lanes: runtimeWorktreePerAgentLanes,
+    lane_count: runtimeWorktreePerAgentLanes.length,
+    proposal_count: runtimeWorktreePerAgentLanes.filter(
+      (lane) => lane.lane_status === "proposal",
+    ).length,
+    review_ready_count: runtimeWorktreePerAgentLanes.filter(
+      (lane) => lane.lane_status === "review_ready",
+    ).length,
+    mutation_blocked_count: runtimeWorktreePerAgentLanes.filter(
+      (lane) => lane.lane_status === "mutation_blocked",
+    ).length,
+    workspace_grants_visible: true,
+    branch_name_policy_visible: true,
+    checkpoint_plan_visible: true,
+    git_receipt_plan_visible: true,
+    rollback_plan_visible: true,
+    cli_parity_visible: true,
+    git_worktree_create_enabled: false,
+    git_worktree_delete_enabled: false,
+    branch_mutation_enabled: false,
+    file_write_enabled: false,
+    commit_enabled: false,
+    push_enabled: false,
+    shell_execution_enabled: false,
+    provider_call_enabled: false,
+    control_center_mints_authority: false,
+    raw_path_persisted: false,
+    blocked_authority_refs: runtimeWorktreePerAgentBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:worktree-per-agent:exact-workspace-grant",
+      "promotion-path-ref:worktree-per-agent:branch-naming",
+      "promotion-path-ref:worktree-per-agent:checkpoint",
+      "promotion-path-ref:worktree-per-agent:git-receipt",
+      "promotion-path-ref:worktree-per-agent:rollback",
+      "promotion-path-ref:worktree-per-agent:cli-parity",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-33:worktree-per-agent",
+      "proof-ref:worktree-per-agent:branch-lane-proposals",
+      "proof-ref:worktree-per-agent:git-mutation-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-33:worktree-per-agent",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:worktree-per-agent:review-branch-policy",
+      "next-safe-action-ref:worktree-per-agent:bind-checkpoint-plan",
+      "next-safe-action-ref:worktree-per-agent:keep-git-mutation-blocked",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_paths_omitted",
+      "raw_file_content_omitted",
+      "raw_git_output_omitted",
     ],
   },
   runtimeApprovalBridge: {

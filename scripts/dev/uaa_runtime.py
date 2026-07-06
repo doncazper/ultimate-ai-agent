@@ -43,6 +43,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_managed_scope_policy_read_model,
     build_runtime_mcp_catalog_filtering_read_model,
     build_runtime_subagent_isolation_read_model,
+    build_runtime_worktree_per_agent_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -751,6 +752,44 @@ def _print_subagent_isolation(read_model: dict[str, Any]) -> None:
             f"- {artifact['display_label']}: "
             f"kind={artifact['artifact_kind']}"
         )
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_worktree_per_agent(read_model: dict[str, Any]) -> None:
+    print("Runtime worktree per agent")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Lanes: "
+        f"total={read_model['lane_count']} "
+        f"proposal={read_model['proposal_count']} "
+        f"review_ready={read_model['review_ready_count']} "
+        f"mutation_blocked={read_model['mutation_blocked_count']}"
+    )
+    print(
+        "Blocked controls: "
+        f"create={read_model['git_worktree_create_enabled']} "
+        f"delete={read_model['git_worktree_delete_enabled']} "
+        f"branch={read_model['branch_mutation_enabled']} "
+        f"write={read_model['file_write_enabled']} "
+        f"commit={read_model['commit_enabled']} "
+        f"push={read_model['push_enabled']}"
+    )
+    print("Lanes:")
+    for lane in read_model["lanes"]:
+        print(
+            f"- {lane['display_label']}: "
+            f"status={lane['lane_status']} isolation={lane['isolation_mode']}"
+        )
+        print(f"  branch={lane['branch_proposal_ref']}")
+        print(f"  worktree={lane['worktree_ref']}")
+        print(f"  checkpoint={lane['checkpoint_plan_ref']}")
+        print(f"  rollback={lane['rollback_plan_ref']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1537,6 +1576,33 @@ def _inspect_subagent_isolation(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_subagent_isolation(read_model)
+    return 0
+
+
+def _inspect_worktree_per_agent(args: argparse.Namespace) -> int:
+    read_model = build_runtime_worktree_per_agent_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-worktree-per-agent",
+        "runtime_worktree_per_agent": read_model,
+        "safe_refs_only": True,
+        "proposal_only": True,
+        "raw_paths_omitted": True,
+        "raw_file_content_omitted": True,
+        "raw_git_output_omitted": True,
+        "git_worktree_create_performed": False,
+        "git_worktree_delete_performed": False,
+        "branch_mutation_performed": False,
+        "file_write_performed": False,
+        "commit_performed": False,
+        "push_performed": False,
+        "shell_execution_performed": False,
+        "provider_call_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_worktree_per_agent(read_model)
     return 0
 
 
@@ -2587,6 +2653,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref subagent isolation posture as JSON.",
     )
     subagent_isolation.set_defaults(func=_inspect_subagent_isolation)
+
+    worktree_per_agent = subparsers.add_parser(
+        "inspect-worktree-per-agent",
+        help="Inspect worktree-per-agent posture without Git or file mutation.",
+    )
+    worktree_per_agent.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref worktree-per-agent posture as JSON.",
+    )
+    worktree_per_agent.set_defaults(func=_inspect_worktree_per_agent)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",

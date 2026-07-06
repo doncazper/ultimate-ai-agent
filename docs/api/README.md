@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `224`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `225` route
+Current OpenAPI path count: `225`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `226` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview adds one no-effect diagnostic route. The Hermes Runtime
@@ -12,8 +12,10 @@ streaming progress, profile isolation, tool registry, session-search,
 session-lineage, virtual-provider Mixture-of-Agents posture, usage/cost
 analytics posture, prompt stability tier posture, context budget pressure,
 hardline command blocklist posture, managed scope policy posture, doctor
-diagnostics posture, session continuity posture,
-context-reference, and checkpoint-rollback routes, Governed Product
+diagnostics posture, session continuity posture, MCP catalog filtering
+posture, background job posture, subagent isolation posture,
+worktree-per-agent posture, context-reference, and checkpoint-rollback routes,
+Governed Product
 Pilot authority profile, and
 runtime parity loop add protected read-only `/api/runtime/*` inspection routes.
 

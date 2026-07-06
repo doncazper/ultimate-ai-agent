@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `224`.
+Current OpenAPI path count: `225`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -177,6 +177,33 @@ Contract rules:
   messaging gateways, account sync, connector writes, remote sessions, raw
   transcript or provider payload persistence, or Control Center authority
   minting.
+  `GET /api/runtime/mcp-catalog-filtering` exposes the Hermes Runtime Adoption
+  Phase 30 backend-owned MCP catalog filtering posture. It returns metadata
+  catalog refs, tool filter contracts, blocked activation states, proof refs,
+  verifier refs, and blocked authority refs only. Installing MCP servers,
+  running subprocess MCPs, OAuth login, tool invocation, connector writes, raw
+  manifest persistence, and Control Center authority minting remain blocked.
+  `GET /api/runtime/background-jobs` exposes the Hermes Runtime Adoption Phase
+  31 backend-owned background job posture. It returns durable job proposal refs,
+  schedule policies, approval scope refs, idempotency refs, safe-disable refs,
+  receipt plans, failure handling refs, proof refs, verifier refs, and blocked
+  authority refs only. Schedulers, workers, run-now, pause/resume mutation,
+  autonomous retries, external delivery, provider calls, shell execution, and
+  connector writes remain blocked.
+  `GET /api/runtime/subagent-isolation` exposes the Hermes Runtime Adoption
+  Phase 32 backend-owned subagent isolation posture. It returns role refs,
+  scope envelopes, context/tool/memory grant refs, budget refs, kill-switch
+  refs, review artifacts, proof refs, verifier refs, and blocked authority refs
+  only. Live dispatch, background fan-out, cross-agent memory transfer, tool
+  sharing, autonomous delegation, raw transcript persistence, and raw agent
+  output persistence remain blocked.
+  `GET /api/runtime/worktree-per-agent` exposes the Hermes Runtime Adoption
+  Phase 33 backend-owned worktree-per-agent posture. It returns lane refs,
+  workspace scope refs, branch proposal refs, worktree refs, checkpoint plans,
+  Git receipt plans, rollback plans, proof refs, verifier refs, and blocked
+  authority refs only. Git worktree create/delete, branch mutation, file
+  writes, commits, pushes, raw path persistence, shell execution, and provider
+  calls remain blocked.
   `GET /api/runtime/context-references` exposes the Hermes Runtime Adoption
   Phase 16 backend-owned context-reference posture. It returns safe-ref grammar,
   preview refs, budget estimates, why-included refs, and blocked URL/live-fetch
