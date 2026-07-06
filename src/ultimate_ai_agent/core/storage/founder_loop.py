@@ -2063,7 +2063,9 @@ class FounderLoopEvidenceAuditReceiptSpine(BaseModel):
                 ref
                 for envelope in self.receipt_envelopes
                 for ref in (
-                    [] if envelope.approval_ref.startswith("approval-ref:not-") else [envelope.approval_ref]
+                    []
+                    if envelope.approval_ref.startswith("approval-ref:not-")
+                    else [envelope.approval_ref]
                 )
             ),
             "idempotency_refs": _unique_sorted_refs(
@@ -3447,7 +3449,9 @@ def _source_readiness_read_model(
 ) -> dict[str, Any]:
     source_readiness_items = _source_readiness_items(briefing_items=briefing_items)
     source_readiness_posture = _source_readiness_posture(source_readiness_items)
-    connector_draft_proposals = build_connector_draft_proposal_read_model().storage_record()
+    connector_draft_proposals = (
+        build_connector_draft_proposal_read_model().storage_record()
+    )
     blocked_authority_refs = _unique_sorted_refs(
         [
             *source_readiness_posture["blocked_authority_refs"],
@@ -7971,14 +7975,18 @@ class FounderLoopRepository:
         narrative_items: list[dict[str, Any]],
     ) -> FounderLoopEvidenceAuditGroup:
         selected_events = [
-            event for event in events if _evidence_event_matches_audit_group(event, group_kind)
+            event
+            for event in events
+            if _evidence_event_matches_audit_group(event, group_kind)
         ]
         selected_items = [
             item
             for item in narrative_items
             if _timeline_item_matches_audit_group(item, group_kind)
         ]
-        event_refs = _unique_sorted_refs(event["event_ref"] for event in selected_events)
+        event_refs = _unique_sorted_refs(
+            event["event_ref"] for event in selected_events
+        )
         timeline_item_refs = _unique_sorted_refs(
             [
                 *[event["timeline_item_ref"] for event in selected_events],
@@ -8002,9 +8010,7 @@ class FounderLoopRepository:
         missing_receipt_refs = (
             []
             if receipt_refs
-            else [
-                _missing_receipt_ref(f"evidence-audit-group:{group_kind}")
-            ]
+            else [_missing_receipt_ref(f"evidence-audit-group:{group_kind}")]
             if selected_events or selected_items
             else []
         )
@@ -8042,7 +8048,9 @@ class FounderLoopRepository:
             timeline_item_refs=timeline_item_refs,
             receipt_refs=receipt_refs,
             approval_refs=_unique_sorted_refs(
-                ref for event in selected_events for ref in event.get("approval_refs", [])
+                ref
+                for event in selected_events
+                for ref in event.get("approval_refs", [])
             ),
             audit_refs=_unique_sorted_refs(
                 [
@@ -9638,9 +9646,7 @@ class FounderLoopRepository:
                     replay_refs=["replay-ref:web-evidence-product-slice"],
                     rollback_refs=rollback_refs,
                     safe_disable_refs=safe_disable_refs,
-                    rollback_blockers=[
-                        "rollback_is_local_receipt_suppression_only"
-                    ],
+                    rollback_blockers=["rollback_is_local_receipt_suppression_only"],
                     redaction_status=str(attachment["redaction_posture_ref"]),
                     stale_state="recheck_web_evidence_before_future_reliance",
                     missing_evidence_posture="receipt_and_audit_refs_available",
@@ -9868,9 +9874,7 @@ class FounderLoopRepository:
             "action_inbox_work_queue_contract_ref": (
                 ACTION_INBOX_WORK_QUEUE_CONTRACT_REF
             ),
-            "action_inbox_work_queue_read_model": (
-                action_inbox_work_queue_read_model
-            ),
+            "action_inbox_work_queue_read_model": (action_inbox_work_queue_read_model),
             "runtime_action_inbox_bridge_contract_ref": (
                 RUNTIME_ACTION_INBOX_BRIDGE_CONTRACT_REF
             ),
@@ -11752,7 +11756,10 @@ class FounderLoopRepository:
         enabled = bool(payload.get("enabled"))
         disabled_reason_refs = list(payload.get("disabled_reason_refs") or [])
         blocked_state_refs = list(payload.get("blocked_state_refs") or [])
-        if not enabled and MEMORY_REVIEW_WRITE_SAFE_DISABLED_BLOCKED_REF not in blocked_state_refs:
+        if (
+            not enabled
+            and MEMORY_REVIEW_WRITE_SAFE_DISABLED_BLOCKED_REF not in blocked_state_refs
+        ):
             blocked_state_refs.append(MEMORY_REVIEW_WRITE_SAFE_DISABLED_BLOCKED_REF)
         posture = {
             "schema_version": "memory_review_write_safe_disable_posture.v1",
@@ -13341,6 +13348,10 @@ class FounderLoopRepository:
             "workbench_contract_ref": MEMORY_WORKBENCH_CONTRACT_REF,
             "workbench_health": workbench["health"],
             "workbench_groups": workbench["groups"],
+            "bounded_memory_posture_contract_ref": workbench["bounded_memory_posture"][
+                "contract_ref"
+            ],
+            "bounded_memory_posture": workbench["bounded_memory_posture"],
             "decision_route_refs": list(MEMORY_REVIEW_DECISION_ROUTE_REFS),
             "decision_kinds": list(MEMORY_REVIEW_DECISION_KINDS),
             "exact_write_scope_ref": MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
@@ -14286,9 +14297,8 @@ class FounderLoopRepository:
                 str(replay["receipt_ref"])
             )
         safe_disable_posture = self.memory_review_write_safe_disable_posture()
-        if (
-            decision in {"accept", "correct"}
-            and not bool(safe_disable_posture.get("memory_review_writes_enabled"))
+        if decision in {"accept", "correct"} and not bool(
+            safe_disable_posture.get("memory_review_writes_enabled")
         ):
             raise FounderLoopStorageError("FOUNDER_LOOP_MEMORY_WRITE_SAFE_DISABLED")
         approval = self._record_memory_review_local_approval(

@@ -3393,6 +3393,99 @@ export interface FounderLoopMemorySearchIndexStatus {
   algebraic_retrieval_enabled: boolean;
 }
 
+export interface FounderLoopMemoryBoundedPosture {
+  schema_version: string;
+  contract_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  proof_ref: string;
+  status: string;
+  source: string;
+  backend_owned: boolean;
+  control_center_presentation_only: boolean;
+  safe_refs_only: boolean;
+  raw_content_included: boolean;
+  target_posture: {
+    supported_target_kinds: string[];
+    target_refs: string[];
+    target_ref_count: number;
+    operator_selected_context_required: boolean;
+    automatic_context_injection_authorized: boolean;
+    hidden_context_injection_authorized: boolean;
+  };
+  capacity_posture: {
+    visible_item_count: number;
+    candidate_count: number;
+    context_pack_count: number;
+    max_visible_items: number;
+    max_provenance_refs: number;
+    token_estimate: number;
+    token_budget_state: string;
+    search_index_status: FounderLoopMemorySearchIndexStatus;
+  };
+  source_posture: {
+    source_refs: string[];
+    source_ref_count: number;
+    provenance_refs: string[];
+    provenance_ref_count: number;
+    evidence_refs: string[];
+    evidence_ref_count: number;
+    receipt_refs: string[];
+    receipt_ref_count: number;
+    safe_summary_only: boolean;
+    source_refs_required: boolean;
+  };
+  staleness_posture: {
+    stale_count: number;
+    stale_item_refs: string[];
+    stale_state_refs: string[];
+    recheck_required_before_recall: boolean;
+  };
+  why_shown_posture: {
+    why_shown_required: boolean;
+    why_shown_refs: string[];
+    included_reason_refs: string[];
+    quality_state_refs: string[];
+  };
+  quality_review_posture: {
+    review_required_before_recall: boolean;
+    correction_supported: boolean;
+    rejection_supported: boolean;
+    correction_receipt_refs: string[];
+    rejection_receipt_refs: string[];
+    accepted_receipt_refs: string[];
+    receipt_backed_decision_kinds: MemoryReviewDecisionKind[];
+    reviewed_recall_write_scope_ref: string;
+    memory_write_requires_review_receipt: boolean;
+    rollback_posture: string;
+  };
+  context_pack_posture: {
+    context_pack_refs: string[];
+    proposal_count: number;
+    context_pack_preview_only: boolean;
+    prompt_context_written: boolean;
+    context_injection_authorized: boolean;
+    hidden_prompt_context_authorized: boolean;
+  };
+  automatic_memory_write_authorized: boolean;
+  autonomous_memory_write_authorized: boolean;
+  hidden_prompt_injection_authorized: boolean;
+  external_memory_provider_write_authorized: boolean;
+  context_injection_authorized: boolean;
+  memory_truth_authority: boolean;
+  semantic_provider_enabled: boolean;
+  vector_db_enabled: boolean;
+  embedding_search_enabled: boolean;
+  model_provider_call_authorized: boolean;
+  live_web_fetch_authorized: boolean;
+  connector_write_authorized: boolean;
+  delete_export_execution_authorized: boolean;
+  background_autonomy_authorized: boolean;
+  production_authority_enabled: boolean;
+  blocked_state_refs: string[];
+  next_safe_action: string;
+}
+
 export interface FounderLoopMemoryHrrReadiness {
   schema_version: string;
   contract_ref: string;
@@ -3526,6 +3619,7 @@ export interface FounderLoopMemoryWorkbench {
   health: FounderLoopMemoryWorkbenchHealth;
   lifecycle_posture?: FounderLoopMemoryLifecyclePosture;
   learning_posture?: FounderLoopMemoryLearningPosture;
+  bounded_memory_posture?: FounderLoopMemoryBoundedPosture;
   decision_receipts: MemoryReviewDecisionReceipt[];
   l1_preview_refs: string[];
   l2_projection_refs: string[];
@@ -3556,6 +3650,8 @@ export interface FounderLoopMemoryReview {
   workbench_contract_ref?: string;
   workbench_health?: FounderLoopMemoryWorkbenchHealth;
   workbench_groups?: FounderLoopMemoryWorkbenchGroup[];
+  bounded_memory_posture_contract_ref?: string;
+  bounded_memory_posture?: FounderLoopMemoryBoundedPosture;
   evidence_memory_loop_binding_contract_ref?: string;
   evidence_memory_loop_binding_read_model?: FounderLoopEvidenceMemoryLoopBindingReadModel;
   decision_route_refs: string[];

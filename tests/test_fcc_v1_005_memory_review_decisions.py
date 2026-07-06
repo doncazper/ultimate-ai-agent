@@ -14,6 +14,7 @@ from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.memory import (
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     FCC_MEMORY_REVIEW_DECISION_CONTRACT_REF,
+    MEMORY_BOUNDED_POSTURE_CONTRACT_REF,
     MemoryReviewDecisionReceipt,
     MemoryReviewDecisionRequest,
     MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF,
@@ -59,7 +60,9 @@ def _safe_receipt(**overrides: object) -> MemoryReviewDecisionReceipt:
 
 
 def _first_candidate_ref(repo: FounderLoopRepository) -> str:
-    return str(repo.list_memory_review_queue(limit=1)[0]["business_memory_candidate_ref"])
+    return str(
+        repo.list_memory_review_queue(limit=1)[0]["business_memory_candidate_ref"]
+    )
 
 
 def _decision_request(**overrides: object) -> MemoryReviewDecisionRequest:
@@ -158,7 +161,9 @@ def test_memory_review_decisions_persist_append_first_replay_and_conflict(
     assert receipt["external_crm_sync_authorized"] is False
     assert receipt["automatic_action_execution_authorized"] is False
     assert receipt["source_truth_authority"] is False
-    assert repo.list_memory_review_decisions()[0]["receipt_ref"] == receipt["receipt_ref"]
+    assert (
+        repo.list_memory_review_decisions()[0]["receipt_ref"] == receipt["receipt_ref"]
+    )
     recall_records = repo.list_memory_review_recall_records()
     assert len(recall_records) == 1
     recall_record = recall_records[0]
@@ -288,7 +293,10 @@ def test_memory_review_correction_stores_bounded_safe_summary_and_ref(
     assert receipt["receipt_ref"] in recall_record["receipt_refs"]
     assert "raw" not in str(recall_record).lower()
     queue_item = repo.list_memory_review_queue(limit=1)[0]
-    assert queue_item["correction_posture"] == "corrected_summary_ref_recorded_no_raw_content"
+    assert (
+        queue_item["correction_posture"]
+        == "corrected_summary_ref_recorded_no_raw_content"
+    )
 
 
 def test_rejected_candidate_is_preserved_and_evidence_visible(tmp_path: Path) -> None:
@@ -304,7 +312,9 @@ def test_rejected_candidate_is_preserved_and_evidence_visible(tmp_path: Path) ->
 
     queue_item = repo.list_memory_review_queue(limit=1)[0]
     assert queue_item["review_state"] == "rejected"
-    assert queue_item["rejection_posture"] == "rejected_candidate_preserved_with_receipt"
+    assert (
+        queue_item["rejection_posture"] == "rejected_candidate_preserved_with_receipt"
+    )
     assert queue_item["business_memory_candidate_ref"] == candidate_ref
     assert receipt["receipt_ref"] in queue_item["evidence_refs"]
     assert receipt.get("reviewed_recall_record_ref") is None
@@ -323,8 +333,7 @@ def test_rejected_candidate_is_preserved_and_evidence_visible(tmp_path: Path) ->
     assert history["approved"]["status"] == "decision_receipt_recorded"
     assert (
         "Memory Review accept, correct, reject, defer, merge, supersede, "
-        "and forget-request decisions"
-        in history["happened"]["answer"]
+        "and forget-request decisions" in history["happened"]["answer"]
     )
     assert "context injection" in history["blocked"]["answer"]
 
@@ -435,6 +444,14 @@ def test_memory_review_decision_api_requires_idempotency_replays_and_conflicts(
     assert review.status_code == 200
     data = review.json()["data"]
     assert receipt["receipt_ref"] in data["decision_receipt_refs"]
+    assert data["bounded_memory_posture_contract_ref"] == (
+        MEMORY_BOUNDED_POSTURE_CONTRACT_REF
+    )
+    assert data["bounded_memory_posture"]["context_injection_authorized"] is False
+    assert (
+        data["bounded_memory_posture"]["external_memory_provider_write_authorized"]
+        is False
+    )
     assert data["context_injection_authorized"] is False
     assert data["raw_content_stored"] is False
 
@@ -495,14 +512,19 @@ def test_memory_review_cli_records_and_inspects_reviewed_recall_write(
         text=True,
     )
     inspect_payload = json.loads(inspect.stdout)
-    assert inspect_payload["exact_write_scope_ref"] == MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+    assert (
+        inspect_payload["exact_write_scope_ref"] == MEMORY_REVIEW_EXACT_WRITE_SCOPE_REF
+    )
     assert (
         inspect_payload["approval_binding"]
         == "local_approval_authority_exact_scope_validated"
     )
     assert inspect_payload["reviewed_recall_record_count"] == 1
     assert receipt["receipt_ref"] in inspect_payload["decision_receipt_refs"]
-    assert inspect_payload["write_safe_disable_posture"]["rollback_execution_enabled"] is False
+    assert (
+        inspect_payload["write_safe_disable_posture"]["rollback_execution_enabled"]
+        is False
+    )
     assert inspect_payload["safe_refs_only"] is True
     serialized = json.dumps(inspect_payload).lower()
     assert "raw_prompt" not in serialized

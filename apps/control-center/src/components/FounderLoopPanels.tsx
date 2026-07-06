@@ -7718,6 +7718,7 @@ export function MemoryReviewSurfacePanel({
       />
       <MemoryLifecyclePosturePanel workbench={workbench} />
       <MemoryLearningPosturePanel workbench={workbench} />
+      <MemoryBoundedPosturePanel workbench={workbench} />
       <MemoryRankingDiagnosticsPanel workbench={workbench} />
       <div className="panel-grid">
         <MemoryRetrievalDiagnosticsPanel diagnostics={retrievalDiagnostics} />
@@ -8904,6 +8905,176 @@ function MemoryLearningPosturePanel({
       />
       <RefListWithFallback
         emptyLabel="Learning posture blockers: none"
+        refs={posture.blocked_state_refs}
+      />
+      <p>{posture.next_safe_action}</p>
+    </article>
+  );
+}
+
+function MemoryBoundedPosturePanel({
+  workbench,
+}: {
+  workbench: FounderLoopMemoryWorkbench;
+}) {
+  const posture = workbench.bounded_memory_posture;
+  if (!posture) {
+    return (
+      <article aria-label="Bounded memory posture" className="status-card warning">
+        <div className="status-card-header">
+          <h3>Bounded memory posture</h3>
+          <span>backend posture missing</span>
+        </div>
+        <p>
+          Capacity, target, staleness, source, why-shown, and correction or
+          rejection posture must come from the backend Memory Workbench before
+          Control Center presents bounded memory as current product truth.
+        </p>
+      </article>
+    );
+  }
+
+  const capacityItems = [
+    `visible items: ${posture.capacity_posture.visible_item_count}`,
+    `candidate refs: ${posture.capacity_posture.candidate_count}`,
+    `context-pack refs: ${posture.capacity_posture.context_pack_count}`,
+    `token estimate: ${posture.capacity_posture.token_estimate}`,
+  ];
+  const sourceItems = [
+    `source refs: ${posture.source_posture.source_ref_count}`,
+    `provenance refs: ${posture.source_posture.provenance_ref_count}`,
+    `evidence refs: ${posture.source_posture.evidence_ref_count}`,
+    `receipt refs: ${posture.source_posture.receipt_ref_count}`,
+  ];
+  const qualitySignals = [
+    posture.quality_review_posture.review_required_before_recall
+      ? "review before recall"
+      : "review missing",
+    posture.quality_review_posture.correction_supported
+      ? "correction receipts"
+      : "correction missing",
+    posture.quality_review_posture.rejection_supported
+      ? "rejection receipts"
+      : "rejection missing",
+    posture.quality_review_posture.memory_write_requires_review_receipt
+      ? "review receipt required"
+      : "receipt missing",
+  ];
+  const deniedSignals = [
+    `automatic writes: ${
+      posture.automatic_memory_write_authorized ? "enabled" : "blocked"
+    }`,
+    `hidden prompt injection: ${
+      posture.hidden_prompt_injection_authorized ? "enabled" : "blocked"
+    }`,
+    `external memory provider writes: ${
+      posture.external_memory_provider_write_authorized ? "enabled" : "blocked"
+    }`,
+    `context injection: ${
+      posture.context_injection_authorized ? "enabled" : "blocked"
+    }`,
+    `memory truth authority: ${
+      posture.memory_truth_authority ? "enabled" : "blocked"
+    }`,
+  ];
+  const reviewReceiptRefs = [
+    ...posture.quality_review_posture.accepted_receipt_refs,
+    ...posture.quality_review_posture.correction_receipt_refs,
+    ...posture.quality_review_posture.rejection_receipt_refs,
+  ].filter((ref, index, refs) => refs.indexOf(ref) === index);
+
+  return (
+    <article aria-label="Bounded memory posture" className="status-card">
+      <div className="status-card-header">
+        <div>
+          <h3>Bounded memory posture</h3>
+          <p className="muted">
+            Bounded memory is a compact, safe-ref-only posture over capacity,
+            targets, sources, staleness, why-shown refs, and review receipts. It
+            does not write hidden context, call models, or sync external memory.
+          </p>
+        </div>
+        <span>{posture.status}</span>
+      </div>
+      <dl className="detail-list">
+        <DetailTerm label="Contract ref" value={posture.contract_ref} />
+        <DetailTerm label="CLI parity" value={posture.cli_ref} />
+        <DetailTerm label="Proof ref" value={posture.proof_ref} />
+        <DetailTerm
+          label="Backend-owned"
+          value={posture.backend_owned ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Safe refs only"
+          value={posture.safe_refs_only ? "yes" : "no"}
+        />
+        <DetailTerm
+          label="Raw content"
+          value={posture.raw_content_included ? "included" : "omitted"}
+        />
+        <DetailTerm
+          label="Target selection"
+          value={
+            posture.target_posture.operator_selected_context_required
+              ? "operator selected"
+              : "automatic"
+          }
+        />
+        <DetailTerm
+          label="Token budget"
+          value={posture.capacity_posture.token_budget_state}
+        />
+        <DetailTerm
+          label="Staleness"
+          value={
+            posture.staleness_posture.recheck_required_before_recall
+              ? "recheck required"
+              : "current"
+          }
+        />
+        <DetailTerm
+          label="Rollback posture"
+          value={posture.quality_review_posture.rollback_posture}
+        />
+      </dl>
+      <InlineListWithFallback
+        emptyLabel="Capacity bounds: none"
+        items={capacityItems}
+      />
+      <InlineListWithFallback
+        emptyLabel="Source posture: none"
+        items={sourceItems}
+      />
+      <InlineListWithFallback
+        emptyLabel="Quality review posture: none"
+        items={qualitySignals}
+      />
+      <InlineListWithFallback
+        emptyLabel="Denied authority posture: none"
+        items={deniedSignals}
+      />
+      <RefListWithFallback
+        emptyLabel="Target refs: none"
+        refs={posture.target_posture.target_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Why-shown refs: none"
+        refs={posture.why_shown_posture.why_shown_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Included reason refs: none"
+        refs={posture.why_shown_posture.included_reason_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Stale item refs: none"
+        refs={posture.staleness_posture.stale_item_refs}
+      />
+      <RefListWithFallback
+        emptyLabel="Review receipt refs: none recorded"
+        refs={reviewReceiptRefs}
+      />
+      <RefListWithFallback
+        emptyLabel="Bounded memory blockers: none"
         refs={posture.blocked_state_refs}
       />
       <p>{posture.next_safe_action}</p>

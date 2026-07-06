@@ -13414,6 +13414,8 @@ describe("Web Control Center shell", () => {
     delete (partialWorkbench as { lifecycle_posture?: unknown })
       .lifecycle_posture;
     delete (partialWorkbench as { learning_posture?: unknown }).learning_posture;
+    delete (partialWorkbench as { bounded_memory_posture?: unknown })
+      .bounded_memory_posture;
     const fetchMock = vi.fn(async (url: string) => {
       const urlText = String(url);
       if (urlText.endsWith(API_ENDPOINTS.founderMemoryWorkbench)) {
@@ -13449,6 +13451,11 @@ describe("Web Control Center shell", () => {
     expect(
       screen.queryByText(
         "contract-ref:goatcitadel-catchup-memory-learning-posture:v1",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "contract-ref:hermes-runtime-adoption-bounded-memory-posture:v1",
       ),
     ).not.toBeInTheDocument();
     expect(
@@ -13623,6 +13630,102 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       within(panel).getByText("blocked-state:memory-learning-no-broad-memory-write"),
+    ).toBeInTheDocument();
+    expect(within(panel).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("renders backend-owned bounded memory posture without granting authority", async () => {
+    cleanup();
+    const baseBoundedPosture =
+      mockControlCenterData.founderMemoryWorkbench.bounded_memory_posture;
+    expect(baseBoundedPosture).toBeDefined();
+    const boundedPosture = {
+      ...baseBoundedPosture!,
+      status: "implemented_backend_owned_bounded_memory_posture",
+      capacity_posture: {
+        ...baseBoundedPosture!.capacity_posture,
+        visible_item_count: 2,
+        candidate_count: 2,
+        context_pack_count: 1,
+        token_estimate: 128,
+      },
+      source_posture: {
+        ...baseBoundedPosture!.source_posture,
+        receipt_refs: ["receipt:memory-bounded:test"],
+        receipt_ref_count: 1,
+      },
+      quality_review_posture: {
+        ...baseBoundedPosture!.quality_review_posture,
+        accepted_receipt_refs: ["receipt:memory-bounded:accept"],
+        correction_receipt_refs: ["receipt:memory-bounded:correct"],
+        rejection_receipt_refs: ["receipt:memory-bounded:reject"],
+        receipt_backed_decision_kinds: ["accept", "correct", "reject"],
+      },
+    };
+    const workbench = {
+      ...mockControlCenterData.founderMemoryWorkbench,
+      bounded_memory_posture: boundedPosture,
+    };
+    const review = {
+      ...mockControlCenterData.founderMemoryReview,
+      bounded_memory_posture_contract_ref: boundedPosture?.contract_ref,
+      bounded_memory_posture: boundedPosture,
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      const urlText = String(url);
+      if (urlText.endsWith(API_ENDPOINTS.founderMemoryWorkbench)) {
+        return new Response(JSON.stringify({ ok: true, result: workbench }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (urlText.endsWith(API_ENDPOINTS.founderMemoryReview)) {
+        return new Response(JSON.stringify({ ok: true, result: review }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (READ_ENDPOINTS.some((endpoint) => urlText.endsWith(endpoint))) {
+        return new Response(JSON.stringify(envelopeForReadEndpoint(urlText)), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected request ${urlText}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.pushState({}, "", "/memory");
+    render(<App />);
+
+    const panel = await screen.findByLabelText("Bounded memory posture");
+    expect(
+      within(panel).getByRole("heading", { name: /Bounded memory posture/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByText(
+        "contract-ref:hermes-runtime-adoption-bounded-memory-posture:v1",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByText(
+        "repo-local-command:founder-loop-memory-bounded-posture",
+      ),
+    ).toBeInTheDocument();
+    expect(within(panel).getByText("visible items: 2")).toBeInTheDocument();
+    expect(within(panel).getByText("candidate refs: 2")).toBeInTheDocument();
+    expect(within(panel).getByText("automatic writes: blocked"))
+      .toBeInTheDocument();
+    expect(within(panel).getByText("hidden prompt injection: blocked"))
+      .toBeInTheDocument();
+    expect(within(panel).getByText("external memory provider writes: blocked"))
+      .toBeInTheDocument();
+    expect(within(panel).getByText("memory truth authority: blocked"))
+      .toBeInTheDocument();
+    expect(
+      within(panel).getByText("blocked-state:bounded-memory-no-autonomous-memory-write"),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByText("receipt:memory-bounded:correct"),
     ).toBeInTheDocument();
     expect(within(panel).queryByRole("button")).not.toBeInTheDocument();
   });
