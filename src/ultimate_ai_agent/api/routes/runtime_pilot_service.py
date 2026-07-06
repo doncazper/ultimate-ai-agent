@@ -27,6 +27,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeLocalModelCallRequest,
     build_default_runtime_capabilities,
     build_governed_product_pilot_authority_profile,
+    build_runtime_delegation_adapter_read_model,
     build_runtime_action_signed_evidence,
     command_allowlist_catalog,
     verify_runtime_action_signed_evidence,
@@ -165,6 +166,22 @@ def get_api_runtime_governed_product_pilot_profile() -> ResultEnvelope:
         data=profile.model_dump(mode="json"),
         evidence=[{"evidence_ref": profile.portable_evidence_envelope.evidence_ref}],
         redactions_applied=profile.redactions_applied,
+    )
+
+
+@router.get("/delegation-adapter", response_model=ResultEnvelope)
+def get_api_runtime_delegation_adapter() -> ResultEnvelope:
+    read_model = build_runtime_delegation_adapter_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_delegation_adapter",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.adapter_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-delegation-adapter:phase-01"}
+        ],
+        redactions_applied=read_model.redactions_applied,
     )
 
 

@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `202`.
+Current OpenAPI path count: `203`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -74,6 +74,15 @@ Contract rules:
   parity-loop inspection model that ties prepared turn, route decision, durable
   run, staged orchestration, provider evidence, Action Inbox approval, receipt,
   signed evidence, and blocked-state refs together without executing work.
+  `GET /api/runtime/delegation-adapter` exposes the Hermes Runtime Adoption
+  Phase 01 backend-owned runtime delegation adapter readiness model with
+  runtime identity refs, endpoint posture, authority mode, capability refs,
+  health refs, proof refs, blocked reasons, and next safe actions. It is
+  read-only readiness only: UAA controls authority, Control Center does not
+  talk directly to Hermes, and live run submission, model/provider calls, tool
+  execution, shell/subprocess execution, browser automation, connector writes,
+  background autonomy, production authority, and raw prompt/response/provider
+  payload/log/local-path persistence remain blocked.
   Phase 07
   preserves configured local loopback model calls and the exact read-only status
   command while adding exact Action Inbox approved focused pytest command execution

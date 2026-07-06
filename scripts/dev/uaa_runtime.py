@@ -33,6 +33,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_portable_evidence_envelope,
     build_default_runtime_capabilities,
     build_governed_product_pilot_authority_profile,
+    build_runtime_delegation_adapter_read_model,
     build_runtime_action_signed_evidence,
     verify_portable_evidence_envelope,
     verify_runtime_action_signed_evidence,
@@ -245,6 +246,31 @@ def _print_role_provider_evidence(read_model: dict[str, Any]) -> None:
         print("  remote blocked candidates: " + ", ".join(blocked or ["none"]))
 
 
+def _print_delegation_adapter(read_model: dict[str, Any]) -> None:
+    print("Runtime delegation adapter")
+    print(f"Status: {read_model['status']}")
+    print(f"Runtime: {read_model['runtime_label']}")
+    print(f"Adapter: {read_model['adapter_ref']}")
+    print(f"Authority mode: {read_model['authority_mode']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Control Center: {read_model['control_center_ref']}")
+    endpoint = read_model["endpoint_posture"]
+    print(f"Endpoint configured: {endpoint['endpoint_configured']}")
+    print(f"Live transport: {endpoint['live_transport_enabled']}")
+    print(f"UAA controls authority: {read_model['uaa_controls_authority']}")
+    print(f"Live run submission: {read_model['live_run_submission_enabled']}")
+    print("Capabilities:")
+    for ref in read_model["capability_refs"]:
+        print(f"- {ref}")
+    print("Blocked:")
+    for ref in read_model["blocked_reason_refs"]:
+        print(f"- {ref}")
+    print("Next safe actions:")
+    for ref in read_model["next_safe_action_refs"]:
+        print(f"- {ref}")
+
+
 def _print_invocation(record: Any) -> None:
     print("Governed runtime invocation")
     print(f"Invocation: {record.invocation_ref}")
@@ -397,6 +423,27 @@ def _inspect_role_provider_evidence(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_role_provider_evidence(read_model)
+    return 0
+
+
+def _inspect_delegation_adapter(args: argparse.Namespace) -> int:
+    read_model = build_runtime_delegation_adapter_read_model().model_dump(mode="json")
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-delegation-adapter",
+        "runtime_delegation_adapter": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_provider_payload_omitted": True,
+        "raw_logs_omitted": True,
+        "execution_performed": False,
+        "live_run_submission_performed": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_delegation_adapter(read_model)
     return 0
 
 
@@ -1035,6 +1082,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref role evidence read model as JSON.",
     )
     role_provider.set_defaults(func=_inspect_role_provider_evidence)
+
+    delegation = subparsers.add_parser(
+        "inspect-delegation-adapter",
+        help="Inspect the Hermes runtime delegation adapter readiness contract.",
+    )
+    delegation.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref delegation adapter read model as JSON.",
+    )
+    delegation.set_defaults(func=_inspect_delegation_adapter)
 
     bridge = subparsers.add_parser(
         "inspect-action-inbox-bridge",

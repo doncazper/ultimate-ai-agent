@@ -34,6 +34,7 @@ import type {
   RunAttachedApprovalQueue,
   RunObservabilityReadModel,
   RuntimeCapabilityMatrix,
+  RuntimeDelegationAdapterReadModel,
   RuntimeReadinessReport,
   ApiRouteInventory,
   FounderLoopActionDecisionKind,
@@ -312,6 +313,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     read<RuntimeCapabilityMatrix>(
       API_ENDPOINTS.runtimeCapabilityMatrix,
     ),
+    read<RuntimeDelegationAdapterReadModel>(
+      API_ENDPOINTS.runtimeDelegationAdapter,
+    ),
     read<unknown>(API_ENDPOINTS.setupAssistantSummary),
     read<ProviderCatalog>(API_ENDPOINTS.providerSetupGuide),
     read<ModelProviderControlPlaneReadModel>(
@@ -409,47 +413,48 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const routes = fulfilledValue(results[3]);
   const runtimeReadiness = fulfilledValue(results[4]);
   const capabilityMatrix = fulfilledValue(results[5]);
-  const setupAssistantSource = fulfilledValue(results[6]);
+  const runtimeDelegationAdapter = fulfilledValue(results[6]);
+  const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
     setupAssistantSource,
     mockControlCenterData.macosSetupAssistant,
   );
-  const providerCatalog = fulfilledValue(results[7]);
-  const modelProviderControlPlane = fulfilledValue(results[8]);
-  const controlCenterSettingsStatus = fulfilledValue(results[9]);
-  const controlCenterLocalModelsStatus = fulfilledValue(results[10]);
-  const founderToday = fulfilledValue(results[11]);
-  const founderEvidenceTimeline = fulfilledValue(results[12]);
-  const founderMemoryReview = fulfilledValue(results[13]);
-  const founderMemoryWorkbench = fulfilledValue(results[14]);
-  const founderMemoryContextPacks = fulfilledValue(results[15]);
-  const founderMemoryRetrievalDiagnostics = fulfilledValue(results[16]);
-  const founderMemoryCitationIntegrity = fulfilledValue(results[17]);
-  const founderMemoryQualityIssues = fulfilledValue(results[18]);
-  const founderMemoryMaintenanceRuns = fulfilledValue(results[19]);
-  const founderMemoryContextManifest = fulfilledValue(results[20]);
-  const founderActionsInbox = fulfilledValue(results[21]);
-  const founderMorningBriefing = fulfilledValue(results[22]);
-  const founderSourceReadiness = fulfilledValue(results[23]);
-  const founderStorageStatus = fulfilledValue(results[24]);
-  const crmLocalCommandCenter = fulfilledValue(results[25]);
-  const approvalSummary = fulfilledValue(results[26]);
-  const approvalQueue = fulfilledValue(results[27]);
-  const runObservability = fulfilledValue(results[28]);
+  const providerCatalog = fulfilledValue(results[8]);
+  const modelProviderControlPlane = fulfilledValue(results[9]);
+  const controlCenterSettingsStatus = fulfilledValue(results[10]);
+  const controlCenterLocalModelsStatus = fulfilledValue(results[11]);
+  const founderToday = fulfilledValue(results[12]);
+  const founderEvidenceTimeline = fulfilledValue(results[13]);
+  const founderMemoryReview = fulfilledValue(results[14]);
+  const founderMemoryWorkbench = fulfilledValue(results[15]);
+  const founderMemoryContextPacks = fulfilledValue(results[16]);
+  const founderMemoryRetrievalDiagnostics = fulfilledValue(results[17]);
+  const founderMemoryCitationIntegrity = fulfilledValue(results[18]);
+  const founderMemoryQualityIssues = fulfilledValue(results[19]);
+  const founderMemoryMaintenanceRuns = fulfilledValue(results[20]);
+  const founderMemoryContextManifest = fulfilledValue(results[21]);
+  const founderActionsInbox = fulfilledValue(results[22]);
+  const founderMorningBriefing = fulfilledValue(results[23]);
+  const founderSourceReadiness = fulfilledValue(results[24]);
+  const founderStorageStatus = fulfilledValue(results[25]);
+  const crmLocalCommandCenter = fulfilledValue(results[26]);
+  const approvalSummary = fulfilledValue(results[27]);
+  const approvalQueue = fulfilledValue(results[28]);
+  const runObservability = fulfilledValue(results[29]);
   const safeObservedRunObservability = safeRunObservability(runObservability);
-  const runtimeReadinessSummary = fulfilledValue(results[29]);
-  const foundationGateSummary = fulfilledValue(results[30]);
-  const founderStartHere = fulfilledValue(results[31]);
-  const proofIndex = fulfilledValue(results[32]);
-  const trustAuthorityMatrix = fulfilledValue(results[33]);
-  const codingSession = fulfilledValue(results[34]);
-  const codingContext = fulfilledValue(results[35]);
-  const codingPatchProposal = fulfilledValue(results[36]);
-  const codingPatchApplyReadiness = fulfilledValue(results[37]);
-  const codingTestCommandReadiness = fulfilledValue(results[38]);
-  const codingGitReview = fulfilledValue(results[39]);
-  const codingLivePreview = fulfilledValue(results[40]);
-  const codingMultiAgentReview = fulfilledValue(results[41]);
+  const runtimeReadinessSummary = fulfilledValue(results[30]);
+  const foundationGateSummary = fulfilledValue(results[31]);
+  const founderStartHere = fulfilledValue(results[32]);
+  const proofIndex = fulfilledValue(results[33]);
+  const trustAuthorityMatrix = fulfilledValue(results[34]);
+  const codingSession = fulfilledValue(results[35]);
+  const codingContext = fulfilledValue(results[36]);
+  const codingPatchProposal = fulfilledValue(results[37]);
+  const codingPatchApplyReadiness = fulfilledValue(results[38]);
+  const codingTestCommandReadiness = fulfilledValue(results[39]);
+  const codingGitReview = fulfilledValue(results[40]);
+  const codingLivePreview = fulfilledValue(results[41]);
+  const codingMultiAgentReview = fulfilledValue(results[42]);
   const workBoard = fulfilledValue(workBoardResult[0]);
   const founderAgentLoopThread = fulfilledValue(agentLoopResult[0]);
   const safeCodingMultiAgentReview = isSafeCodingMultiAgentReview(
@@ -461,6 +466,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     modelProviderControlPlane,
   )
     ? modelProviderControlPlane
+    : undefined;
+  const safeRuntimeDelegationAdapter = isSafeRuntimeDelegationAdapter(
+    runtimeDelegationAdapter,
+  )
+    ? runtimeDelegationAdapter
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -589,6 +599,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     crmLocalCommandCenter.authority_posture?.provider_model_call_enabled !== false;
   const modelProviderControlPlaneFallbackUsed =
     safeModelProviderControlPlane === undefined;
+  const runtimeDelegationAdapterFallbackUsed =
+    safeRuntimeDelegationAdapter === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -721,6 +733,26 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         controlCenterLocalModelsStatus === undefined,
     }),
     routeReadStateInput({
+      route: "/runtime",
+      surfaceLabel: "Runtime",
+      backendRouteRefs: [
+        "GET /runtime/readiness",
+        "GET /runtime/capability-matrix",
+        "GET /api/runtime/delegation-adapter",
+      ],
+      endpointReturned:
+        runtimeReadiness !== undefined &&
+        capabilityMatrix !== undefined &&
+        runtimeDelegationAdapter !== undefined,
+      warningRefs: runtimeDelegationAdapterFallbackUsed
+        ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
+        : [],
+      usedFallback:
+        runtimeReadiness === undefined ||
+        capabilityMatrix === undefined ||
+        runtimeDelegationAdapterFallbackUsed,
+    }),
+    routeReadStateInput({
       route: "/briefing",
       surfaceLabel: "Briefing",
       backendRouteRef: "GET /control-center/morning-briefing/summary",
@@ -806,6 +838,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     routes === undefined ||
     runtimeReadiness === undefined ||
     capabilityMatrix === undefined ||
+    runtimeDelegationAdapter === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -886,6 +919,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       runtimeReadiness ?? mockControlCenterData.runtimeReadiness,
     capabilityMatrix:
       capabilityMatrix ?? mockControlCenterData.capabilityMatrix,
+    runtimeDelegationAdapter:
+      safeRuntimeDelegationAdapter ??
+      mockControlCenterData.runtimeDelegationAdapter,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -962,6 +998,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !codingSessionFallbackUsed &&
     !workBoardFallbackUsed &&
     !agentLoopThreadFallbackUsed &&
+    !runtimeDelegationAdapterFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -986,6 +1023,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     codingSessionFallbackUsed ||
     workBoardFallbackUsed ||
     agentLoopThreadFallbackUsed ||
+    runtimeDelegationAdapterFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1005,6 +1043,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (modelProviderControlPlaneFallbackUsed) {
     degradedSafeMessage =
       "Model/provider control-plane posture was unavailable or unsafe; non-authoritative mock fallback kept broad provider authority blocked.";
+  } else if (runtimeDelegationAdapterFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime delegation adapter posture was unavailable or unsafe; non-authoritative mock fallback kept delegated runtime authority blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1062,6 +1103,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       ...(workBoardFallbackUsed ? workBoardEndpointFallbackWarningRefs : []),
       ...(agentLoopThreadFallbackUsed
         ? ["AGENT_LOOP_THREAD_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeDelegationAdapterFallbackUsed
+        ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
         : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
@@ -2673,6 +2717,55 @@ function safetyFlagIsFalse(
   names: string[],
 ): boolean {
   return names.some((name) => safety[name] === false);
+}
+
+function isSafeRuntimeDelegationAdapter(
+  value: RuntimeDelegationAdapterReadModel | undefined,
+): value is RuntimeDelegationAdapterReadModel {
+  if (value === undefined || !isPlainRecord(value.endpoint_posture)) {
+    return false;
+  }
+  const deniedTopLevelFlags: Array<keyof RuntimeDelegationAdapterReadModel> = [
+    "control_center_talks_directly_to_runtime",
+    "live_run_submission_enabled",
+    "runtime_model_calls_enabled",
+    "provider_sdk_calls_enabled",
+    "tool_execution_enabled",
+    "shell_execution_enabled",
+    "browser_automation_enabled",
+    "connector_write_enabled",
+    "background_autonomy_enabled",
+    "production_authority_enabled",
+    "raw_prompt_persisted",
+    "raw_response_persisted",
+    "raw_provider_payload_persisted",
+    "raw_log_persisted",
+    "raw_local_path_persisted",
+    "credential_material_persisted",
+  ];
+  const endpoint = value.endpoint_posture;
+  return (
+    value.schema_version === "runtime_delegation_adapter.v1" &&
+    value.status === "readiness_only" &&
+    value.runtime_kind === "hermes_agent" &&
+    value.uaa_controls_authority === true &&
+    value.runtime_provides_capability_only === true &&
+    value.safe_refs_only === true &&
+    endpoint.live_transport_enabled === false &&
+    endpoint.credential_material_exposed === false &&
+    isNonEmptyStringArray(value.capability_refs) &&
+    isNonEmptyStringArray(value.health_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.blocked_reason_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.blocked_reason_refs.includes(
+      "blocked-authority:runtime-delegation-live-run-submission",
+    ) &&
+    value.blocked_reason_refs.includes(
+      "blocked-authority:runtime-delegation-direct-control-center-runtime-access",
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
 }
 
 function isSafeCodingMultiAgentReview(

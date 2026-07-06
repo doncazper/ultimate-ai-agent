@@ -639,6 +639,8 @@ function baseRouteData(): Record<string, unknown> {
     [API_ENDPOINTS.runtimeReadiness]: mockControlCenterData.runtimeReadiness,
     [API_ENDPOINTS.runtimeCapabilityMatrix]:
       mockControlCenterData.capabilityMatrix,
+    [API_ENDPOINTS.runtimeDelegationAdapter]:
+      mockControlCenterData.runtimeDelegationAdapter,
     [API_ENDPOINTS.setupAssistantSummary]:
       mockControlCenterData.macosSetupAssistant,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,

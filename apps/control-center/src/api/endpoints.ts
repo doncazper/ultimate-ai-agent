@@ -65,6 +65,7 @@ export const API_ENDPOINTS = {
   crmSmartLists: "/control-center/crm/smart-lists",
   runtimeReadiness: "/runtime/readiness",
   runtimeCapabilityMatrix: "/runtime/capability-matrix",
+  runtimeDelegationAdapter: "/api/runtime/delegation-adapter",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
   localModels: "/v1/models",
   localChatCompletions: "/v1/chat/completions",
@@ -203,6 +204,7 @@ export const READ_ENDPOINTS = [
   API_ENDPOINTS.crmSmartLists,
   API_ENDPOINTS.runtimeReadiness,
   API_ENDPOINTS.runtimeCapabilityMatrix,
+  API_ENDPOINTS.runtimeDelegationAdapter,
 ] as const;
 
 export function isAllowedReadEndpoint(

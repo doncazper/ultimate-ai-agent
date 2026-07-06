@@ -7442,6 +7442,22 @@ describe("Web Control Center shell", () => {
     window.history.pushState({}, "", "/runtime");
     const { unmount } = render(<App />);
     expect(await screen.findByText("Capability Matrix")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: /Hermes Agent optional delegated runtime/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("GET /api/runtime/delegation-adapter"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("uaa runtime inspect-delegation-adapter"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:runtime-unrestricted-command-execution",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("cloud_provider_runtime")).toBeInTheDocument();
     unmount();
 
@@ -14223,6 +14239,12 @@ describe("Web Control Center shell", () => {
     expect(API_ENDPOINTS.runtimeSmokeReportValidate).toBe(
       "/runtime/smoke-reports/validate",
     );
+    expect(API_ENDPOINTS.runtimeDelegationAdapter).toBe(
+      "/api/runtime/delegation-adapter",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeDelegationAdapter)).toBe(
+      true,
+    );
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15251,6 +15273,8 @@ function envelopeForReadEndpoint(url: string) {
       ...mockApiData.capabilityMatrix,
       baseline_version: "0.20.1",
     },
+    [API_ENDPOINTS.runtimeDelegationAdapter]:
+      mockControlCenterData.runtimeDelegationAdapter,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
