@@ -9360,6 +9360,11 @@ export const mockControlCenterData: ControlCenterData = {
       status: "planned_disabled",
       plugin_enablement_allowed: false,
       native_build_tools_enabled: false,
+      skill_bundle_proposal_status: "proposal_only",
+      skill_bundle_proposal_count: 1,
+      skill_bundle_proposal_refs: ["skill-bundle-proposal:founder-loop-review"],
+      skill_bundle_activation_enabled: false,
+      skill_bundle_tool_execution_enabled: false,
     },
     provider_credential_readiness: {
       status: "reference_readiness_only",

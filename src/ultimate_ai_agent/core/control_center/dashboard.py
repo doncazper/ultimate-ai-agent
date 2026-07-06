@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent import __version__
 from ultimate_ai_agent.core.local_model_management.readiness import inspect_local_model_gateway
+from ultimate_ai_agent.core.extension_catalog import build_default_skill_bundle_proposal_posture
 from ultimate_ai_agent.core.model_runtime.redaction import contains_secret_like
 from ultimate_ai_agent.core.providers.readiness import (
     GovernedProviderInvocationReadiness,
@@ -143,8 +144,26 @@ class PluginGovernanceSummary(BaseModel):
     status: str = "planned_disabled"
     plugin_enablement_allowed: bool = False
     native_build_tools_enabled: bool = False
+    skill_bundle_proposal_status: str = "proposal_only"
+    skill_bundle_proposal_count: int = 0
+    skill_bundle_proposal_refs: list[str] = Field(default_factory=list)
+    skill_bundle_activation_enabled: bool = False
+    skill_bundle_tool_execution_enabled: bool = False
 
     model_config = ConfigDict(extra="forbid")
+
+
+def build_plugin_governance_summary() -> PluginGovernanceSummary:
+    skill_bundle_posture = build_default_skill_bundle_proposal_posture()
+    return PluginGovernanceSummary(
+        skill_bundle_proposal_status=skill_bundle_posture.status,
+        skill_bundle_proposal_count=skill_bundle_posture.proposal_count,
+        skill_bundle_proposal_refs=[
+            proposal.proposal_ref for proposal in skill_bundle_posture.proposals
+        ],
+        skill_bundle_activation_enabled=skill_bundle_posture.bundle_activation_enabled,
+        skill_bundle_tool_execution_enabled=skill_bundle_posture.tool_execution_enabled,
+    )
 
 
 class ProviderCredentialReadinessItem(BaseModel):
@@ -669,7 +688,7 @@ def build_control_center_dashboard(
         remote_worker_summary=RemoteWorkerSummary(),
         private_mesh_summary=PrivateMeshSummary(),
         mobile_planning_summary=MobilePlanningSummary(),
-        plugin_governance_summary=PluginGovernanceSummary(),
+        plugin_governance_summary=build_plugin_governance_summary(),
         provider_credential_readiness=build_provider_credential_readiness_summary(),
         operator_loop_summary=operator_loop_summary,
         warnings=[

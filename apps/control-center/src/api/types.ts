@@ -7775,6 +7775,11 @@ export interface PluginGovernanceSummary {
   status: string;
   plugin_enablement_allowed: boolean;
   native_build_tools_enabled: boolean;
+  skill_bundle_proposal_status: string;
+  skill_bundle_proposal_count: number;
+  skill_bundle_proposal_refs: string[];
+  skill_bundle_activation_enabled: boolean;
+  skill_bundle_tool_execution_enabled: boolean;
 }
 
 export type ProviderCredentialReadinessPosture =

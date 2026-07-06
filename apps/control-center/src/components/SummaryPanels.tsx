@@ -93,6 +93,16 @@ export function PluginGovernancePanel({ summary }: { summary: PluginGovernanceSu
       </div>
       <p>Plugin enablement allowed: {summary.plugin_enablement_allowed ? "yes" : "no"}</p>
       <p>Native build tools enabled: {summary.native_build_tools_enabled ? "yes" : "no"}</p>
+      <p>Skill bundle proposals: {summary.skill_bundle_proposal_count}</p>
+      <p>Skill bundle activation enabled: {summary.skill_bundle_activation_enabled ? "yes" : "no"}</p>
+      <p>Skill bundle tool execution enabled: {summary.skill_bundle_tool_execution_enabled ? "yes" : "no"}</p>
+      {summary.skill_bundle_proposal_refs.length > 0 ? (
+        <ul className="summary-list">
+          {summary.skill_bundle_proposal_refs.map((proposalRef) => (
+            <li key={proposalRef}>{proposalRef}</li>
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 }

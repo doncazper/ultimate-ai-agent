@@ -32,6 +32,7 @@
     "compact_skill_index_refs",
     "progressive_disclosure_refs",
     "skill_write_approval_gate",
+    "skill_bundle_proposal_posture",
     "docs_refs",
     "schema_refs",
     "developer_guidance_refs",
@@ -134,6 +135,9 @@
     },
     "skill_write_approval_gate": {
       "$ref": "#/$defs/skill_write_approval_gate"
+    },
+    "skill_bundle_proposal_posture": {
+      "$ref": "#/$defs/skill_bundle_proposal_posture"
     },
     "docs_refs": {
       "type": "array",
@@ -451,6 +455,243 @@
           "const": false
         },
         "production_authority_enabled": {
+          "const": false
+        }
+      }
+    },
+    "skill_bundle_proposal_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "posture_ref",
+        "status",
+        "proposal_count",
+        "proposals",
+        "bundle_review_queue_ref",
+        "required_authority_ref",
+        "blocked_authority_refs",
+        "verifier_refs",
+        "next_safe_action_refs",
+        "safe_summary",
+        "bundle_activation_enabled",
+        "skill_enablement_enabled",
+        "tool_execution_enabled",
+        "context_injection_enabled",
+        "runtime_import_enabled",
+        "provider_model_call_enabled",
+        "connector_writes_enabled",
+        "shell_execution_enabled",
+        "browser_automation_enabled",
+        "production_authority_enabled"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "uaa_skill_bundle_proposal_posture.v1"
+        },
+        "posture_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "status": {
+          "const": "proposal_only"
+        },
+        "proposal_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "proposals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/skill_bundle_proposal"
+          }
+        },
+        "bundle_review_queue_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "required_authority_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "blocked_authority_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "verifier_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "next_safe_action_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "bundle_activation_enabled": {
+          "const": false
+        },
+        "skill_enablement_enabled": {
+          "const": false
+        },
+        "tool_execution_enabled": {
+          "const": false
+        },
+        "context_injection_enabled": {
+          "const": false
+        },
+        "runtime_import_enabled": {
+          "const": false
+        },
+        "provider_model_call_enabled": {
+          "const": false
+        },
+        "connector_writes_enabled": {
+          "const": false
+        },
+        "shell_execution_enabled": {
+          "const": false
+        },
+        "browser_automation_enabled": {
+          "const": false
+        },
+        "production_authority_enabled": {
+          "const": false
+        }
+      }
+    },
+    "skill_bundle_proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposal_ref",
+        "bundle_ref",
+        "bundle_name",
+        "proposal_status",
+        "skill_refs",
+        "context_pack_refs",
+        "toolset_refs",
+        "authority_profile_ref",
+        "verification_refs",
+        "blocked_authority_refs",
+        "proof_refs",
+        "next_safe_action_refs",
+        "safe_summary",
+        "activation_performed",
+        "skill_enablement_performed",
+        "tool_execution_performed",
+        "context_injection_performed",
+        "runtime_import_performed",
+        "provider_model_call_performed",
+        "connector_write_performed",
+        "shell_execution_performed",
+        "browser_automation_performed",
+        "production_authority_performed"
+      ],
+      "properties": {
+        "proposal_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "bundle_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "bundle_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "proposal_status": {
+          "enum": ["proposal_only", "review_required", "blocked"]
+        },
+        "skill_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          },
+          "minItems": 1
+        },
+        "context_pack_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          },
+          "minItems": 1
+        },
+        "toolset_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          },
+          "minItems": 1
+        },
+        "authority_profile_ref": {
+          "$ref": "#/$defs/safe_ref"
+        },
+        "verification_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          },
+          "minItems": 1
+        },
+        "blocked_authority_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          },
+          "minItems": 1
+        },
+        "proof_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "next_safe_action_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/safe_ref"
+          }
+        },
+        "safe_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "activation_performed": {
+          "const": false
+        },
+        "skill_enablement_performed": {
+          "const": false
+        },
+        "tool_execution_performed": {
+          "const": false
+        },
+        "context_injection_performed": {
+          "const": false
+        },
+        "runtime_import_performed": {
+          "const": false
+        },
+        "provider_model_call_performed": {
+          "const": false
+        },
+        "connector_write_performed": {
+          "const": false
+        },
+        "shell_execution_performed": {
+          "const": false
+        },
+        "browser_automation_performed": {
+          "const": false
+        },
+        "production_authority_performed": {
           "const": false
         }
       }

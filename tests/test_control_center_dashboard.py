@@ -41,6 +41,15 @@ def test_control_center_dashboard_snapshot_is_safe_summary_only() -> None:
     assert snapshot.private_mesh_summary.status == "planned_disabled"
     assert snapshot.mobile_planning_summary.sensor_access_enabled is False
     assert snapshot.plugin_governance_summary.plugin_enablement_allowed is False
+    assert snapshot.plugin_governance_summary.skill_bundle_proposal_count == 1
+    assert (
+        snapshot.plugin_governance_summary.skill_bundle_proposal_refs
+        == ["skill-bundle-proposal:founder-loop-review"]
+    )
+    assert snapshot.plugin_governance_summary.skill_bundle_activation_enabled is False
+    assert (
+        snapshot.plugin_governance_summary.skill_bundle_tool_execution_enabled is False
+    )
     assert snapshot.provider_credential_readiness.status == "reference_readiness_only"
     assert snapshot.provider_credential_readiness.invocation_enabled is False
     assert snapshot.provider_credential_readiness.raw_key_collection_enabled is False

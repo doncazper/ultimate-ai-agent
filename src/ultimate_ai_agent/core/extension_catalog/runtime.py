@@ -23,11 +23,15 @@ from ultimate_ai_agent.core.extension_catalog.contracts import (
     InspectableExtensionPackageIdentity,
     InspectableExtensionProvenance,
     InspectableExtensionRequestedGrant,
+    SkillBundleProposal,
+    SkillBundleProposalPostureReadModel,
+    SkillBundleProposalStatus,
     SkillWriteApprovalGateReadModel,
     SkillWriteDiffPreview,
     SkillWriteProposal,
     SkillWriteProposalKind,
     SkillWriteReviewStatus,
+    validate_skill_bundle_proposal_posture,
     validate_skill_write_approval_gate,
     validate_inspectable_extension_catalog,
 )
@@ -40,6 +44,7 @@ INSPECTABLE_EXTENSION_CATALOG_DOCS = [
     "doc:goatcitadel-catchup-extensibility-final",
     "doc:hermes-runtime-progressive-skill-disclosure",
     "doc:hermes-runtime-skill-write-approval-gate",
+    "doc:hermes-runtime-skill-bundle-proposals",
 ]
 
 INSPECTABLE_EXTENSION_CATALOG_SCHEMAS = [
@@ -59,6 +64,9 @@ EXTENSION_CATALOG_BLOCKED_CAPABILITIES = [
     "external_marketplace_fetch",
     "direct_skill_write",
     "automatic_skill_enablement",
+    "skill_bundle_activation",
+    "skill_bundle_tool_execution",
+    "skill_bundle_context_injection",
     "connector_writes",
     "shell_subprocess_execution",
     "unrestricted_network_access",
@@ -79,6 +87,20 @@ SKILL_WRITE_BLOCKED_AUTHORITY_REFS = [
     "blocked-authority:skill-write-no-provider-model-call",
     "blocked-authority:skill-write-no-browser-automation",
     "blocked-authority:skill-write-no-production-authority",
+]
+
+
+SKILL_BUNDLE_BLOCKED_AUTHORITY_REFS = [
+    "blocked-authority:skill-bundle-no-activation",
+    "blocked-authority:skill-bundle-no-skill-enable",
+    "blocked-authority:skill-bundle-no-tool-execution",
+    "blocked-authority:skill-bundle-no-context-injection",
+    "blocked-authority:skill-bundle-no-runtime-import",
+    "blocked-authority:skill-bundle-no-provider-model-call",
+    "blocked-authority:skill-bundle-no-connector-write",
+    "blocked-authority:skill-bundle-no-shell-execution",
+    "blocked-authority:skill-bundle-no-browser-automation",
+    "blocked-authority:skill-bundle-no-production-authority",
 ]
 
 
@@ -151,6 +173,67 @@ def build_default_skill_write_approval_gate() -> SkillWriteApprovalGateReadModel
     return validate_skill_write_approval_gate(gate)
 
 
+def build_default_skill_bundle_proposal_posture() -> (
+    SkillBundleProposalPostureReadModel
+):
+    posture = SkillBundleProposalPostureReadModel(
+        posture_ref="skill-bundle-posture:hermes-runtime-adoption-phase-15",
+        proposal_count=1,
+        bundle_review_queue_ref="review-queue:skill-bundle-proposals",
+        required_authority_ref="authority-ref:local-approval-skill-bundle-review",
+        blocked_authority_refs=list(SKILL_BUNDLE_BLOCKED_AUTHORITY_REFS),
+        verifier_refs=["verifier:hermes-runtime-adoption-phase-15"],
+        next_safe_action_refs=[
+            "next-safe-action:review-skill-bundle-proposal",
+            "next-safe-action:map-constituent-skill-trust-before-activation",
+            "next-safe-action:keep-bundle-activation-blocked-until-exact-lane",
+        ],
+        safe_summary=(
+            "Skill bundles are proposal metadata only: they combine safe refs "
+            "for skills, context, toolsets, authority profile, and verifier "
+            "expectations without enabling skills, injecting context, importing "
+            "runtime code, or executing tools."
+        ),
+        proposals=[
+            SkillBundleProposal(
+                proposal_ref="skill-bundle-proposal:founder-loop-review",
+                bundle_ref="skill-bundle:founder-loop-review",
+                bundle_name="Founder Loop Review Bundle",
+                proposal_status=SkillBundleProposalStatus.proposal_only,
+                skill_refs=[
+                    "skill:uaa-skill-metadata-index",
+                    "skill:operator-loop-review-helper",
+                ],
+                context_pack_refs=[
+                    "context-pack:founder-loop-safe-summary",
+                    "context-pack:authority-posture-safe-summary",
+                ],
+                toolset_refs=[
+                    "toolset:read-only-inspection",
+                    "toolset:proof-ref-inspection",
+                ],
+                authority_profile_ref="authority-profile:sealed-default",
+                verification_refs=[
+                    "verifier:hermes-runtime-adoption-phase-15",
+                    "verifier:inspectable-extension-catalog",
+                ],
+                blocked_authority_refs=list(SKILL_BUNDLE_BLOCKED_AUTHORITY_REFS),
+                proof_refs=["proof-ref:hermes-runtime-adoption:phase-15"],
+                next_safe_action_refs=[
+                    "next-safe-action:review-skill-bundle-constituents",
+                    "next-safe-action:define-exact-activation-lane",
+                ],
+                safe_summary=(
+                    "Proposed reusable operator-review bundle with safe refs for "
+                    "skills, context, tools, authority profile, and verification; "
+                    "activation and execution remain blocked."
+                ),
+            )
+        ],
+    )
+    return validate_skill_bundle_proposal_posture(posture)
+
+
 def build_default_inspectable_extension_catalog() -> InspectableExtensionCatalog:
     catalog = InspectableExtensionCatalog(
         catalog_ref="inspectable-catalog:uaa-extension-catalog-v1",
@@ -176,6 +259,7 @@ def build_default_inspectable_extension_catalog() -> InspectableExtensionCatalog
             "progressive-disclosure:operator-selected-instructions",
         ],
         skill_write_approval_gate=build_default_skill_write_approval_gate(),
+        skill_bundle_proposal_posture=build_default_skill_bundle_proposal_posture(),
         safe_summary=(
             "Read-only extension catalog metadata; packages remain non-callable "
             "and runtime import stays disabled. Skill entries disclose compact "
