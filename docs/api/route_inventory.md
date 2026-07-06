@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `217`.
+Current OpenAPI path count: `218`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -195,6 +195,13 @@ compression, automatic context mutation, model summarization calls, context
 injection, provider SDK calls, cache writes, raw
 context/prompt/response/provider-payload persistence, and production authority
 remain blocked.
+`GET /api/runtime/hardline-command-blocklist` exposes a protected read-only
+Python Core Hermes Runtime Adoption Phase 25 hardline command blocklist
+posture. It returns command-shape classification refs, denied category refs,
+allowed shape counts, hardline rule refs, proof refs, verifier refs,
+next-safe-action refs, and blocked authority refs only. Command execution, raw
+command strings, raw command text/output persistence, hardline floor override,
+and production authority remain blocked.
 `GET /api/runtime/context-references` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 16 context-reference posture. It returns
 safe-ref grammar, preview refs, budget estimates, why-included refs, and

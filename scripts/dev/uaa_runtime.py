@@ -37,6 +37,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_capability_discovery_read_model,
     build_runtime_context_budget_pressure_read_model,
     build_runtime_delegation_adapter_read_model,
+    build_runtime_hardline_command_blocklist_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -487,6 +488,32 @@ def _print_context_budget_pressure(read_model: dict[str, Any]) -> None:
             f"delta={proposal['expected_token_delta']}"
         )
         print(f"  summary: {proposal['safe_summary']}")
+    print("Blocked:")
+    for ref in read_model["blocked_authority_refs"]:
+        print(f"- {ref}")
+
+
+def _print_hardline_command_blocklist(read_model: dict[str, Any]) -> None:
+    print("Runtime hardline command blocklist floor")
+    print(f"Status: {read_model['status']}")
+    print(f"Snapshot: {read_model['snapshot_ref']}")
+    print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
+    print(f"CLI: {read_model['cli_ref']}")
+    print(f"Non-overridable floor: {read_model['non_overridable_floor']}")
+    print(f"Override bypass permitted: {read_model['override_bypass_permitted']}")
+    print(f"Classifications: {read_model['classification_count']}")
+    print(f"Denied classifications: {read_model['denied_classification_count']}")
+    print(f"Allowed classifications: {read_model['allowed_classification_count']}")
+    print("Classifications:")
+    for classification in read_model["classifications"]:
+        print(
+            f"- {classification['candidate_ref']}: "
+            f"status={classification['status']} "
+            f"category={classification['denial_category']}"
+        )
+        print(f"  reason={classification['denial_reason_ref']}")
+        print(f"  summary: {classification['safe_summary']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1071,6 +1098,32 @@ def _inspect_context_budget_pressure(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         _print_context_budget_pressure(read_model)
+    return 0
+
+
+def _inspect_hardline_command_blocklist(args: argparse.Namespace) -> int:
+    read_model = build_runtime_hardline_command_blocklist_read_model().model_dump(
+        mode="json"
+    )
+    payload = {
+        "schema_version": "governed-runtime-cli:v1",
+        "command_ref": "repo-local-command:uaa-runtime-inspect-hardline-command-blocklist",
+        "runtime_hardline_command_blocklist": read_model,
+        "safe_refs_only": True,
+        "raw_content_omitted": True,
+        "raw_paths_omitted": True,
+        "raw_command_text_omitted": True,
+        "raw_command_output_omitted": True,
+        "argv_examples_omitted": True,
+        "override_bypass_permitted": False,
+        "command_execution_performed": False,
+        "runner_invocation_performed": False,
+        "production_authority_enabled": False,
+    }
+    if args.json:
+        _print_json(payload)
+    else:
+        _print_hardline_command_blocklist(read_model)
     return 0
 
 
@@ -2032,6 +2085,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit the safe-ref context budget pressure read model as JSON.",
     )
     context_budget_pressure.set_defaults(func=_inspect_context_budget_pressure)
+
+    hardline_command_blocklist = subparsers.add_parser(
+        "inspect-hardline-command-blocklist",
+        help="Inspect the read-only non-overridable command deny floor.",
+    )
+    hardline_command_blocklist.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the safe-ref hardline command blocklist read model as JSON.",
+    )
+    hardline_command_blocklist.set_defaults(func=_inspect_hardline_command_blocklist)
 
     session_search = subparsers.add_parser(
         "inspect-session-search",

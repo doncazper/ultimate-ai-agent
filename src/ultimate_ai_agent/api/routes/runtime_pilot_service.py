@@ -33,6 +33,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_capability_discovery_read_model,
     build_runtime_context_budget_pressure_read_model,
     build_runtime_delegation_adapter_read_model,
+    build_runtime_hardline_command_blocklist_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -288,6 +289,22 @@ def get_api_runtime_context_budget_pressure() -> ResultEnvelope:
         data=read_model.model_dump(mode="json"),
         evidence=[
             {"evidence_ref": "evidence-ref:runtime-context-budget:phase-24"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/hardline-command-blocklist", response_model=ResultEnvelope)
+def get_api_runtime_hardline_command_blocklist() -> ResultEnvelope:
+    read_model = build_runtime_hardline_command_blocklist_read_model()
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_hardline_command_blocklist",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-hardline-command-blocklist:phase-25"}
         ],
         redactions_applied=read_model.redactions_applied,
     )

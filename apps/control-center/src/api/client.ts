@@ -38,6 +38,7 @@ import type {
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeContextBudgetPressureReadModel,
   RuntimeDelegationAdapterReadModel,
+  RuntimeHardlineCommandBlocklistReadModel,
   RuntimePromptStabilityTiersReadModel,
   RuntimeToolsetCapabilityPosture,
   RuntimeToolRegistryAvailabilityReadModel,
@@ -357,6 +358,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeContextBudgetPressure,
     ),
   ] as const);
+  const runtimeHardlineCommandBlocklistSettledPromise = Promise.allSettled([
+    read<RuntimeHardlineCommandBlocklistReadModel>(
+      API_ENDPOINTS.runtimeHardlineCommandBlocklist,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -477,6 +483,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimePromptStabilityTiersSettledPromise;
   const runtimeContextBudgetPressureResult =
     await runtimeContextBudgetPressureSettledPromise;
+  const runtimeHardlineCommandBlocklistResult =
+    await runtimeHardlineCommandBlocklistSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -507,6 +515,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const runtimeContextBudgetPressure = fulfilledValue(
     runtimeContextBudgetPressureResult[0],
+  );
+  const runtimeHardlineCommandBlocklist = fulfilledValue(
+    runtimeHardlineCommandBlocklistResult[0],
   );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
@@ -610,6 +621,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   )
     ? runtimeContextBudgetPressure
     : undefined;
+  const safeRuntimeHardlineCommandBlocklist =
+    isSafeRuntimeHardlineCommandBlocklist(runtimeHardlineCommandBlocklist)
+      ? runtimeHardlineCommandBlocklist
+      : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
   const normalizedProofIndex = normalizeProofIndex(proofIndex);
@@ -757,6 +772,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimePromptStabilityTiers === undefined;
   const runtimeContextBudgetPressureFallbackUsed =
     safeRuntimeContextBudgetPressure === undefined;
+  const runtimeHardlineCommandBlocklistFallbackUsed =
+    safeRuntimeHardlineCommandBlocklist === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -905,6 +922,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/usage-cost-analytics",
         "GET /api/runtime/prompt-stability-tiers",
         "GET /api/runtime/context-budget-pressure",
+        "GET /api/runtime/hardline-command-blocklist",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -919,7 +937,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeVirtualProviderMoa !== undefined &&
         runtimeUsageCostAnalytics !== undefined &&
         runtimePromptStabilityTiers !== undefined &&
-        runtimeContextBudgetPressure !== undefined,
+        runtimeContextBudgetPressure !== undefined &&
+        runtimeHardlineCommandBlocklist !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -954,6 +973,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeContextBudgetPressureFallbackUsed
           ? ["RUNTIME_CONTEXT_BUDGET_PRESSURE_MOCK_FALLBACK"]
           : []),
+        ...(runtimeHardlineCommandBlocklistFallbackUsed
+          ? ["RUNTIME_HARDLINE_COMMAND_BLOCKLIST_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -968,7 +990,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeVirtualProviderMoaFallbackUsed ||
         runtimeUsageCostAnalyticsFallbackUsed ||
         runtimePromptStabilityTiersFallbackUsed ||
-        runtimeContextBudgetPressureFallbackUsed,
+        runtimeContextBudgetPressureFallbackUsed ||
+        runtimeHardlineCommandBlocklistFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1067,6 +1090,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeUsageCostAnalytics === undefined ||
     runtimePromptStabilityTiers === undefined ||
     runtimeContextBudgetPressure === undefined ||
+    runtimeHardlineCommandBlocklist === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1099,8 +1123,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeVirtualProviderMoaResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeUsageCostAnalyticsResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimePromptStabilityTiersResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeContextBudgetPressureResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 12;
+    (runtimeContextBudgetPressureResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeHardlineCommandBlocklistResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 13;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1186,6 +1211,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeContextBudgetPressure:
       safeRuntimeContextBudgetPressure ??
       mockControlCenterData.runtimeContextBudgetPressure,
+    runtimeHardlineCommandBlocklist:
+      safeRuntimeHardlineCommandBlocklist ??
+      mockControlCenterData.runtimeHardlineCommandBlocklist,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1273,6 +1301,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeUsageCostAnalyticsFallbackUsed &&
     !runtimePromptStabilityTiersFallbackUsed &&
     !runtimeContextBudgetPressureFallbackUsed &&
+    !runtimeHardlineCommandBlocklistFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1308,6 +1337,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeUsageCostAnalyticsFallbackUsed ||
     runtimePromptStabilityTiersFallbackUsed ||
     runtimeContextBudgetPressureFallbackUsed ||
+    runtimeHardlineCommandBlocklistFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1360,6 +1390,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeContextBudgetPressureFallbackUsed) {
     degradedSafeMessage =
       "Runtime context budget posture was unavailable or unsafe; non-authoritative mock fallback kept hidden compression, automatic context mutation, and model summarization blocked.";
+  } else if (runtimeHardlineCommandBlocklistFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime hardline command blocklist posture was unavailable or unsafe; non-authoritative mock fallback kept command floor override and catastrophic command categories blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -1448,6 +1481,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         : []),
       ...(runtimeContextBudgetPressureFallbackUsed
         ? ["RUNTIME_CONTEXT_BUDGET_PRESSURE_MOCK_FALLBACK"]
+        : []),
+      ...(runtimeHardlineCommandBlocklistFallbackUsed
+        ? ["RUNTIME_HARDLINE_COMMAND_BLOCKLIST_MOCK_FALLBACK"]
         : []),
       ...(modelProviderControlPlaneFallbackUsed
         ? ["MODEL_PROVIDER_CONTROL_PLANE_MOCK_FALLBACK"]
@@ -3762,6 +3798,74 @@ function isSafeRuntimeContextBudgetPressure(
         proposal.production_authority_enabled === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeHardlineCommandBlocklist(
+  value: RuntimeHardlineCommandBlocklistReadModel | undefined,
+): value is RuntimeHardlineCommandBlocklistReadModel {
+  if (value === undefined || !Array.isArray(value.classifications)) {
+    return false;
+  }
+  const allowedStatuses = new Set(["allowed_shape", "hardline_denied"]);
+  const allowedCategories = new Set([
+    "allowed",
+    "empty_argv",
+    "shell_metachar",
+    "shell_interpreter",
+    "inline_code",
+    "destructive_filesystem",
+    "disk_writer",
+    "network_transfer",
+    "remote_access",
+    "privilege_escalation",
+    "permission_mutation",
+    "git_mutation",
+    "package_install",
+    "production_orchestration",
+    "container_runtime",
+    "desktop_automation",
+    "browser_automation",
+  ]);
+  return (
+    value.schema_version === "runtime_hardline_command_blocklist.v1" &&
+    value.status === "read_only_hardline_command_blocklist_floor" &&
+    value.route_ref === "GET /api/runtime/hardline-command-blocklist" &&
+    value.cli_ref === "uaa runtime inspect-hardline-command-blocklist" &&
+    value.non_overridable_floor === true &&
+    value.override_bypass_permitted === false &&
+    value.command_execution_performed === false &&
+    value.raw_command_text_persisted === false &&
+    value.raw_command_output_persisted === false &&
+    value.classification_count === value.classifications.length &&
+    value.denied_classification_count ===
+      value.classifications.filter((classification) => classification.denied)
+        .length &&
+    value.allowed_classification_count ===
+      value.classifications.filter((classification) => !classification.denied)
+        .length &&
+    isNonEmptyStringArray(value.hardline_rule_refs) &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:runtime-hardline-command-floor-override",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.classifications.every(
+      (classification) =>
+        allowedStatuses.has(classification.status) &&
+        allowedCategories.has(classification.denial_category) &&
+        classification.non_overridable === true &&
+        classification.override_bypass_permitted === false &&
+        classification.raw_command_text_persisted === false &&
+        classification.raw_command_output_persisted === false &&
+        classification.command_execution_performed === false &&
+        (classification.denied
+          ? classification.status === "hardline_denied" &&
+            classification.denial_category !== "allowed"
+          : classification.status === "allowed_shape" &&
+            classification.denial_category === "allowed"),
+    )
   );
 }
 

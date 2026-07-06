@@ -4,6 +4,7 @@ import type {
   RuntimeCapabilityDiscoveryReadModel,
   RuntimeContextBudgetPressureReadModel,
   RuntimeDelegationAdapterReadModel,
+  RuntimeHardlineCommandBlocklistReadModel,
   RuntimeToolRegistryAvailabilityReadModel,
   RuntimeRunEventsReadModel,
   RuntimeStreamingProgressReadModel,
@@ -30,6 +31,7 @@ export function RuntimeReadinessPanel({
   usageCostAnalytics,
   promptStabilityTiers,
   contextBudgetPressure,
+  hardlineCommandBlocklist,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -44,6 +46,7 @@ export function RuntimeReadinessPanel({
   usageCostAnalytics: RuntimeUsageCostAnalyticsReadModel;
   promptStabilityTiers: RuntimePromptStabilityTiersReadModel;
   contextBudgetPressure: RuntimeContextBudgetPressureReadModel;
+  hardlineCommandBlocklist: RuntimeHardlineCommandBlocklistReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -281,6 +284,92 @@ export function RuntimeReadinessPanel({
               <ul className="compact-list">
                 {capabilityDiscovery.toolset_posture.blocked_authority_refs
                   .slice(0, 3)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+        </dl>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Command floor</p>
+            <h3>Hardline blocklist</h3>
+          </div>
+          <span className="status-pill compact">
+            {hardlineCommandBlocklist.non_overridable_floor
+              ? "non-overridable"
+              : "blocked"}
+          </span>
+        </div>
+        <p>{hardlineCommandBlocklist.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{hardlineCommandBlocklist.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{hardlineCommandBlocklist.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Classifications</dt>
+            <dd>{hardlineCommandBlocklist.classification_count}</dd>
+          </div>
+          <div>
+            <dt>Denied</dt>
+            <dd>{hardlineCommandBlocklist.denied_classification_count}</dd>
+          </div>
+          <div>
+            <dt>Allowed</dt>
+            <dd>{hardlineCommandBlocklist.allowed_classification_count}</dd>
+          </div>
+          <div>
+            <dt>Override bypass</dt>
+            <dd>
+              {hardlineCommandBlocklist.override_bypass_permitted
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Candidate</th>
+                <th>Status</th>
+                <th>Category</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {hardlineCommandBlocklist.classifications
+                .slice(0, 8)
+                .map((classification) => (
+                  <tr key={classification.candidate_ref}>
+                    <td>{classification.candidate_ref}</td>
+                    <td>{classification.status}</td>
+                    <td>{classification.denial_category}</td>
+                    <td>{classification.denial_reason_ref}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>Foundation gate</dt>
+            <dd>{hardlineCommandBlocklist.foundation_gate_ref}</dd>
+          </div>
+          <div>
+            <dt>Blocked authority</dt>
+            <dd>
+              <ul className="compact-list">
+                {hardlineCommandBlocklist.blocked_authority_refs
+                  .slice(0, 4)
                   .map((ref) => (
                     <li key={ref}>{ref}</li>
                   ))}

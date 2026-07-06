@@ -7564,6 +7564,23 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("blocked-authority:context-budget-no-hidden-compression"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Command floor")).toBeInTheDocument();
+    expect(screen.getByText("Hardline blocklist")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/hardline-command-blocklist").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-hardline-command-blocklist")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("hardline-command-candidate-ref:shell-metachar"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:runtime-hardline-command-floor-override",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
     expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
@@ -14624,6 +14641,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.runtimeContextBudgetPressure),
     ).toBe(true);
+    expect(API_ENDPOINTS.runtimeHardlineCommandBlocklist).toBe(
+      "/api/runtime/hardline-command-blocklist",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeHardlineCommandBlocklist),
+    ).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15671,6 +15694,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimePromptStabilityTiers,
     [API_ENDPOINTS.runtimeContextBudgetPressure]:
       mockControlCenterData.runtimeContextBudgetPressure,
+    [API_ENDPOINTS.runtimeHardlineCommandBlocklist]:
+      mockControlCenterData.runtimeHardlineCommandBlocklist,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
