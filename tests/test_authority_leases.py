@@ -13,6 +13,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityDecisionOutcome,
     AuthorityDomain,
     AuthorityLease,
+    AuthorityLeaseStore,
     AuthorityMissionPlanRequest,
     TrustMode,
     build_authority_mission_plan,
@@ -380,7 +381,10 @@ def test_authority_decision_preview_api_and_cli_are_read_only(
     assert "execution_performed" in cli_payload
 
 
-def test_authority_mission_plan_api_cli_and_core_are_read_only(capsys) -> None:
+def test_authority_mission_plan_api_cli_and_core_are_read_only(
+    capsys,
+    tmp_path,
+) -> None:
     draft_plan = build_authority_mission_plan(
         AuthorityMissionPlanRequest(
             mission_ref="mission-ref:test-ticket-purchase",
@@ -450,6 +454,35 @@ def test_authority_mission_plan_api_cli_and_core_are_read_only(capsys) -> None:
     assert plan["unsupported_adapter_refs"] == []
     assert plan["route_ref"] == "POST /api/runtime/authority-missions/plan"
     assert plan["cli_ref"] == "repo-local-command:uaa-runtime-plan-authority-mission"
+
+    issue_ready_plan = build_authority_mission_plan(
+        AuthorityMissionPlanRequest(
+            mission_ref="mission-ref:test-core-workspace-maintenance",
+            safe_goal_summary="Preview a local workspace maintenance mission.",
+            requested_mode=TrustMode.approved_safe_local_work_session,
+            requested_domains={
+                AuthorityDomain.workspace: [
+                    AuthorityCapability.read,
+                    AuthorityCapability.execute,
+                ],
+            },
+            decision_reason_ref="reason-ref:test-core-workspace-mission-plan",
+        ),
+        build_default_authority_leases(),
+    )
+    lease, receipt = AuthorityLeaseStore(tmp_path / "authority").issue_lease(
+        issue_ready_plan.lease_issue_request,
+        idempotency_ref="idempotency-ref:test-core-workspace-mission-issue",
+    )
+    assert issue_ready_plan.lease_issue_ready is True
+    assert lease is not None
+    assert lease.scope == "mission"
+    assert lease.mission_ref == "mission-ref:test-core-workspace-maintenance"
+    assert lease.domains["workspace"] == ["read", "execute"]
+    assert receipt.status == "issued"
+    assert receipt.scope == "mission"
+    assert receipt.execution_performed is False
+    assert receipt.unsupported_adapter_refs == []
 
     cli_exit = uaa_runtime.main(
         [

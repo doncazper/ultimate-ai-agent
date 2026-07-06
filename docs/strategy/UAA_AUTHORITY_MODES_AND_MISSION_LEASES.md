@@ -30,7 +30,9 @@ surfaces are:
 - Control Center `/settings` authority mode controls for implemented local
   domain subsets, revoke receipts, decision previews for concrete
   mode/domain/capability requests, and mission-plan previews for delegated
-  AuthorityLease issue requirements
+  AuthorityLease issue requirements. Issue-ready mission plans may be issued
+  through the same `POST /api/runtime/authority-leases` receipt path when the
+  backend-generated lease request has no denied domains or unsupported adapters.
 
 The first implementation is deliberately conservative: the default active
 lease is read-only; operator-selected session leases persist safe receipts for
@@ -40,7 +42,9 @@ the active lease store for command invocation, approval, and execution policy;
 Control Center `/settings` can preview workspace command, file proposal,
 browser-click, and budgeted-purchase decisions against the active lease, and can
 plan a delegated mission lease envelope without issuing a lease, executing work,
-or mutating anything; preview results show required modes, domain and capability
+or mutating anything; issue-ready implemented local mission plans can then issue
+the exact backend-generated mission-scoped lease request through the existing
+lease receipt route; preview results show required modes, domain and capability
 refs, receipt/audit refs, and unsupported-adapter reasons;
 unsupported browser/app/payment/calendar/messages/Home Assistant adapters remain
 denied or draft-degraded instead of being presented as live execution. Read-only

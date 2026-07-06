@@ -78,17 +78,20 @@ kill-switch visibility, and mission-scoped lease requirements. Use
 session lease receipts. Control Center `/settings` may issue and revoke only
 implemented local AuthorityLease subsets and may preview concrete
 mode/domain/capability decisions or delegated mission plans through
-validation-only preview routes. Preview copy must show required mode, required
+validation-only preview routes. For an issue-ready mission plan, `/settings` may
+call `POST /api/runtime/authority-leases` with the backend-generated
+`lease_issue_request`; draft-only or unsupported mission plans must not expose an
+enabled issue control. Preview copy must show required mode, required
 domain/capability refs, blocked/degraded reasons, receipt/audit refs,
 unsupported adapter refs, lease-issue readiness, and no-execution/no-mutation
 posture instead of raw JSON. These routes and controls may grant only
 implemented local domain capability subsets; unsupported adapter domains must
-remain denied or recorded as unsupported refs. Governed Runtime command
-decisions must describe the active lease requirement: read-only command status
-uses `workspace/read`, while execution-capable command lanes require
-`workspace/execute` and an exact approval envelope. Provider/model transport
-must not be described as executable from an active lease until a supported
-provider/model execution lease exists and is tested.
+remain denied, disabled for issue, or recorded as unsupported refs. Governed
+Runtime command decisions must describe the active lease requirement: read-only
+command status uses `workspace/read`, while execution-capable command lanes
+require `workspace/execute` and an exact approval envelope. Provider/model
+transport must not be described as executable from an active lease until a
+supported provider/model execution lease exists and is tested.
 
 Work Board persisted reorder and local-card-create copy must say the action
 requires `Ask before changes` or stronger with the `workspace/write` domain

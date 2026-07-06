@@ -1604,6 +1604,7 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   const [authorityMissionPendingKey, setAuthorityMissionPendingKey] =
     useState<string>();
   const [authorityMissionError, setAuthorityMissionError] = useState<string>();
+  const [authorityMissionIssuing, setAuthorityMissionIssuing] = useState(false);
   useEffect(() => {
     setSettingsSnapshot(data.settingsStatus);
   }, [data.settingsStatus]);
@@ -1704,6 +1705,28 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
       setAuthorityMissionPendingKey(undefined);
     }
   }
+  async function handleAuthorityMissionIssue() {
+    if (!authorityMissionPlan?.lease_issue_ready) {
+      return;
+    }
+    setAuthorityMissionIssuing(true);
+    setAuthorityMissionError(undefined);
+    try {
+      const result = await issueAuthorityLease(
+        authorityMissionPlan.lease_issue_request,
+      );
+      setAuthorityMutation(result);
+      await refreshSettingsSnapshot();
+    } catch (error) {
+      setAuthorityMissionError(
+        error instanceof Error
+          ? error.message
+          : "Authority mission lease receipt was not recorded.",
+      );
+    } finally {
+      setAuthorityMissionIssuing(false);
+    }
+  }
   const settingsStatusRecord = settingsStatus as unknown as Record<
     string,
     unknown
@@ -1755,7 +1778,7 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
         headingId="settings-heading"
         heading="Settings"
         status={settingsStatus.status}
-        summary="Settings show backend-owned read-only maturity, feature-flag, kill-switch, route-safety, and blocked-authority posture. Mutation controls are not exposed."
+        summary="Settings show backend-owned maturity, feature-flag, kill-switch, route-safety, and blocked-authority posture. Scoped AuthorityLease controls are receipt-backed; unsupported mutation controls stay absent."
       />
 
       <ProviderCatalogPanel catalog={data.providerCatalog} mode="settings" />
@@ -2169,6 +2192,21 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
                   ))}
                 </div>
                 <small>{authorityMissionPlan.next_safe_action}</small>
+                <div className="action-button-row">
+                  <button
+                    className="secondary-button"
+                    disabled={
+                      !authorityMissionPlan.lease_issue_ready ||
+                      authorityMissionIssuing
+                    }
+                    onClick={() => void handleAuthorityMissionIssue()}
+                    type="button"
+                  >
+                    {authorityMissionIssuing
+                      ? "Recording mission lease"
+                      : "Issue mission lease"}
+                  </button>
+                </div>
               </div>
             ) : null}
             {authorityMissionError ? (

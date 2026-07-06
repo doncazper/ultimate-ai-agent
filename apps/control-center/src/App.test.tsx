@@ -10769,6 +10769,32 @@ describe("Web Control Center shell", () => {
       },
       safe_summary: "Authority lease issued for app test.",
     };
+    const issuedMissionLease: AuthorityLease = {
+      ...issuedLease,
+      lease_ref: "authority-lease-ref:app-test-workspace-mission",
+      scope: "mission",
+      mission_ref: "mission-ref:control-center-workspace-maintenance-preview",
+      domains: {
+        workspace: ["read", "execute"],
+        files: ["read", "prepare"],
+      },
+      safe_summary: "App test mission-scoped workspace lease.",
+    };
+    const issuedMissionReceipt: AuthorityLeaseReceipt = {
+      ...issuedReceipt,
+      receipt_ref: "receipt-ref:authority-lease:app-test-mission-issued",
+      lease_ref: issuedMissionLease.lease_ref,
+      scope: "mission",
+      requested_domains: {
+        workspace: ["read", "execute"],
+        files: ["read", "prepare"],
+      },
+      granted_domains: {
+        workspace: ["read", "execute"],
+        files: ["read", "prepare"],
+      },
+      safe_summary: "Mission AuthorityLease issued for app test.",
+    };
     const revokedReceipt: AuthorityLeaseReceipt = {
       ...issuedReceipt,
       operation: "revoke",
@@ -10901,6 +10927,57 @@ describe("Web Control Center shell", () => {
       kill_switch_visible: true,
       redactions_applied: ["safe_refs_only", "credentials_omitted"],
     };
+    const workspaceMissionPlan: AuthorityMissionPlan = {
+      ...authorityMissionPlan,
+      plan_ref: "authority-mission-plan-ref:app-test-workspace",
+      mission_ref: "mission-ref:control-center-workspace-maintenance-preview",
+      requested_mode: "approved_safe_local_work_session",
+      requested_domains: {
+        workspace: ["read", "execute"],
+        files: ["read", "prepare"],
+      },
+      granted_domains: {
+        workspace: ["read", "execute"],
+        files: ["read", "prepare"],
+      },
+      denied_domain_refs: [],
+      unsupported_adapter_refs: [],
+      active_lease_refs: ["authority-lease-ref:default-read-only-session"],
+      lease_issue_request_ref:
+        "authority-lease-issue-request-ref:app-test-workspace",
+      lease_issue_request: {
+        mode: "approved_safe_local_work_session",
+        scope: "mission",
+        mission_ref: "mission-ref:control-center-workspace-maintenance-preview",
+        requested_domains: {
+          workspace: ["read", "execute"],
+          files: ["read", "prepare"],
+        },
+        constraints: {
+          workspace_ref: "workspace-ref:current",
+          external_side_effects_allowed: false,
+        },
+        decision_reason_ref: "reason-ref:control-center-workspace-mission-plan",
+        duration_minutes: 120,
+        safe_summary:
+          "Mission-scoped AuthorityLease issue draft for implemented domain capabilities only.",
+      },
+      lease_issue_ready: true,
+      required_domain_refs: [
+        "authority-domain-ref:files",
+        "authority-domain-ref:workspace",
+      ],
+      required_capability_refs: [
+        "authority-capability-ref:execute",
+        "authority-capability-ref:prepare",
+        "authority-capability-ref:read",
+      ],
+      blocked_reason_refs: [],
+      operator_summary:
+        "Mission lease plan is issue-ready for currently implemented domain capabilities.",
+      next_safe_action:
+        "Issue the mission-scoped AuthorityLease with the displayed domain scope.",
+    };
     let settingsStatus = mockControlCenterData.settingsStatus;
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       const urlText = String(url);
@@ -10924,11 +11001,16 @@ describe("Web Control Center shell", () => {
         options?.method === "POST" &&
         urlText.endsWith(API_ENDPOINTS.runtimeAuthorityMissionPlan)
       ) {
+        const requestBody = String(options.body ?? "");
         return new Response(
           JSON.stringify({
             ok: true,
             success: true,
-            data: authorityMissionPlan,
+            data: requestBody.includes(
+              "mission-ref:control-center-workspace-maintenance-preview",
+            )
+              ? workspaceMissionPlan
+              : authorityMissionPlan,
           }),
           {
             status: 200,
@@ -10940,13 +11022,19 @@ describe("Web Control Center shell", () => {
         options?.method === "POST" &&
         urlText.endsWith(API_ENDPOINTS.runtimeAuthorityLeases)
       ) {
+        const requestBody = String(options.body ?? "");
+        const missionIssue = requestBody.includes(
+          "mission-ref:control-center-workspace-maintenance-preview",
+        );
+        const nextLease = missionIssue ? issuedMissionLease : issuedLease;
+        const nextReceipt = missionIssue ? issuedMissionReceipt : issuedReceipt;
         settingsStatus = {
           ...mockControlCenterData.settingsStatus,
           authority_lease_state: {
             ...mockControlCenterData.settingsStatus.authority_lease_state,
             active_mode: "approved_safe_local_work_session",
-            active_leases: [issuedLease],
-            recent_receipts: [issuedReceipt],
+            active_leases: [nextLease],
+            recent_receipts: [nextReceipt],
           },
         };
         return new Response(
@@ -10954,8 +11042,8 @@ describe("Web Control Center shell", () => {
             ok: true,
             success: true,
             data: {
-              lease: issuedLease,
-              receipt: issuedReceipt,
+              lease: nextLease,
+              receipt: nextReceipt,
               execution_performed: false,
               unsupported_adapters_claimed_execution: false,
               unknown_authority_default: "deny",
@@ -11160,6 +11248,7 @@ describe("Web Control Center shell", () => {
     expect(missionPlanResult).toHaveTextContent(
       "adapter-ref:shopping_payments:purchase_under_budget-not-implemented-for-authority-lease-v1",
     );
+    expect(screen.getByRole("button", { name: "Issue mission lease" })).toBeDisabled();
     const missionPlanCall = fetchMock.mock.calls.find(
       ([url, init]) =>
         String(url).includes(API_ENDPOINTS.runtimeAuthorityMissionPlan) &&
@@ -11172,6 +11261,48 @@ describe("Web Control Center shell", () => {
     );
     expect(JSON.stringify(missionPlanRequest.headers)).not.toContain(
       "X-UAA-Idempotency-Key",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Workspace mission" }));
+    const workspaceMissionPlanResult = await screen.findByRole("status", {
+      name: /Authority mission plan issue ready/i,
+    });
+    expect(workspaceMissionPlanResult).toHaveTextContent("Issue ready");
+    expect(workspaceMissionPlanResult).toHaveTextContent(
+      "mission-ref:control-center-workspace-maintenance-preview",
+    );
+    expect(workspaceMissionPlanResult).toHaveTextContent(
+      "authority-domain-ref:workspace",
+    );
+    expect(workspaceMissionPlanResult).toHaveTextContent(
+      "authority-capability-ref:execute",
+    );
+    expect(
+      screen.getByRole("button", { name: "Issue mission lease" }),
+    ).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Issue mission lease" }));
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText("Authority lease action result"),
+      ).toHaveTextContent("receipt-ref:authority-lease:app-test-mission-issued"),
+    );
+    const missionIssueCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).includes(API_ENDPOINTS.runtimeAuthorityLeases) &&
+        init?.method === "POST" &&
+        String(init.body).includes(
+          "mission-ref:control-center-workspace-maintenance-preview",
+        ),
+    );
+    expect(missionIssueCall).toBeDefined();
+    const missionIssueRequest = missionIssueCall?.[1] as RequestInit;
+    expect(String(missionIssueRequest.body)).toContain('"scope":"mission"');
+    expect(String(missionIssueRequest.body)).toContain(
+      "reason-ref:control-center-workspace-mission-plan",
+    );
+    expect(JSON.stringify(missionIssueRequest.headers)).toContain(
+      "idempotency-ref:control-center-authority-lease",
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Safe local work" }));
