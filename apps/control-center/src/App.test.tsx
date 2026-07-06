@@ -7524,6 +7524,20 @@ describe("Web Control Center shell", () => {
         "blocked-authority:virtual-provider-moa-no-live-model-fanout",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText("Usage and cost")).toBeInTheDocument();
+    expect(screen.getByText("Redacted accounting posture")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/usage-cost-analytics").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("uaa runtime inspect-usage-cost-analytics").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Local diagnostic accounting")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-authority:usage-cost-analytics-no-billing-action",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/tool-registry")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-tool-registry")).toBeInTheDocument();
     expect(screen.getByText("File Metadata Preview")).toBeInTheDocument();
@@ -14566,6 +14580,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.runtimeVirtualProviderMoa),
     ).toBe(true);
+    expect(API_ENDPOINTS.runtimeUsageCostAnalytics).toBe(
+      "/api/runtime/usage-cost-analytics",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeUsageCostAnalytics),
+    ).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -15607,6 +15627,8 @@ function envelopeForReadEndpoint(url: string) {
     [API_ENDPOINTS.runtimeToolRegistry]: mockControlCenterData.runtimeToolRegistry,
     [API_ENDPOINTS.runtimeVirtualProviderMoa]:
       mockControlCenterData.runtimeVirtualProviderMoa,
+    [API_ENDPOINTS.runtimeUsageCostAnalytics]:
+      mockControlCenterData.runtimeUsageCostAnalytics,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:
