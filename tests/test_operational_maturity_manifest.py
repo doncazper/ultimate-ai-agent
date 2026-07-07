@@ -94,9 +94,11 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
     assert "authority_capability_contract" in schema["required"]
     assert "authority_capabilities" in schema["$defs"]["module"]["required"]
     assert "graduated_lanes" not in schema["$defs"]["module"]["required"]
-    assert "legacy_status" in schema["$defs"]["lane"]["required"]
-    assert "canonical_authority_capability_id" in schema["$defs"]["lane"]["required"]
+    assert "graduated_lanes" not in schema["$defs"]["module"]["properties"]
+    assert "lane" not in schema["$defs"]
+    assert all("graduated_lanes" not in module for module in modules.values())
     assert "policy_decisions" in schema["$defs"]["authority_capability"]["required"]
+    assert "blocked_authorities" in schema["$defs"]["authority_capability"]["required"]
     assert (
         "legacy_lane_id"
         not in schema["$defs"]["authority_capability"]["required"]
@@ -112,36 +114,6 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
         "routine_operational_loop",
     }
     assert modules["action_inbox"]["current_rank"] == 3
-    local_task_lane = modules["action_inbox"]["graduated_lanes"][0]
-    assert local_task_lane["lane_id"] == "local_task_create"
-    assert local_task_lane["legacy_status"] == LEGACY_LANE_STATUS
-    assert (
-        local_task_lane["canonical_authority_capability_id"]
-        == LOCAL_TASK_AUTHORITY_CAPABILITY_ID
-    )
-    assert local_task_lane["rank"] == 5
-    assert (
-        "POST /control-center/actions/{action_id}/local-task/commit"
-        in local_task_lane["backend_routes"]
-    )
-    assert local_task_lane["rollback_or_safe_disable_required"] is True
-    assert set(local_task_lane["rollback_or_safe_disable_refs"]) == {
-        LOCAL_TASK_ROLLBACK_REF,
-        LOCAL_TASK_SAFE_DISABLE_REF,
-    }
-    assert "rollback_execution" in local_task_lane["blocked_authorities"]
-    assert (
-        local_task_lane["repeatability_gate_ref"] == LOCAL_TASK_REPEATABILITY_GATE_REF
-    )
-    assert LOCAL_TASK_REPEATABILITY_REQUIRED_FOCUSED_TEST_REFS.issubset(
-        set(local_task_lane["focused_test_refs"])
-    )
-    assert LOCAL_TASK_REPEATABILITY_REQUIRED_FRONTEND_TEST_REFS.issubset(
-        set(local_task_lane["frontend_repeatability_test_refs"])
-    )
-    assert LOCAL_TASK_REPEATABILITY_REQUIRED_VERIFIER_REFS.issubset(
-        set(local_task_lane["verifier_repeatability_refs"])
-    )
     local_task_capability = modules["action_inbox"]["authority_capabilities"][0]
     assert local_task_capability["capability_id"] == LOCAL_TASK_AUTHORITY_CAPABILITY_ID
     assert local_task_capability["legacy_lane_id"] == "local_task_create"
@@ -172,6 +144,7 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
     assert LOCAL_TASK_REPEATABILITY_REQUIRED_VERIFIER_REFS.issubset(
         set(local_task_capability["verifier_repeatability_refs"])
     )
+    assert "rollback_execution" in local_task_capability["blocked_authorities"]
     assert "AuthorityLease" in local_task_capability["operator_copy"]
     assert MEMORY_CONTEXT_PACK_ROUTE in modules["memory"]["backend_routes"]
     assert MEMORY_CONTEXT_PACK_PREVIEW_ROUTE in modules["memory"]["backend_routes"]
@@ -307,7 +280,7 @@ def test_operational_maturity_verifier_requires_authority_capability_mapping() -
     failures = verify(manifest_override=manifest)
 
     assert any(
-        "action_inbox implemented authority requires authority_capabilities" in failure
+        "Action Inbox local_task_create authority capability missing" in failure
         for failure in failures
     )
     assert any(
@@ -400,19 +373,20 @@ def test_operational_maturity_verifier_requires_local_task_repeatability_gate() 
 def test_operational_maturity_verifier_requires_local_task_safe_disable_flag() -> None:
     manifest = _manifest_copy()
     modules = {module["module_id"]: module for module in manifest["modules"]}
-    modules["action_inbox"]["graduated_lanes"][0][
-        "rollback_or_safe_disable_required"
-    ] = False
+    capability = modules["action_inbox"]["authority_capabilities"][0]
+    capability["rollback_or_safe_disable_refs"] = []
 
     failures = verify(manifest_override=manifest)
 
     assert any(
-        "action_inbox:local_task_create rank 5 lane requires rollback_or_safe_disable_required"
+        "action_inbox:authority-capability:action-inbox:local-task-create "
+        "authority capability requires posture refs"
         in failure
         for failure in failures
     )
     assert any(
-        "local_task_create legacy lane must require rollback or safe-disable"
+        "local_task_create authority capability missing "
+        f"{LOCAL_TASK_SAFE_DISABLE_REF}"
         in failure
         for failure in failures
     )
@@ -421,22 +395,17 @@ def test_operational_maturity_verifier_requires_local_task_safe_disable_flag() -
 def test_operational_maturity_verifier_requires_rollback_execution_blocked() -> None:
     manifest = _manifest_copy()
     modules = {module["module_id"]: module for module in manifest["modules"]}
-    lane = modules["action_inbox"]["graduated_lanes"][0]
-    lane["blocked_authorities"] = [
+    capability = modules["action_inbox"]["authority_capabilities"][0]
+    capability["blocked_authorities"] = [
         authority
-        for authority in lane["blocked_authorities"]
+        for authority in capability["blocked_authorities"]
         if authority != "rollback_execution"
     ]
 
     failures = verify(manifest_override=manifest)
 
     assert any(
-        "action_inbox:local_task_create rank 5 lane must block rollback_execution"
-        in failure
-        for failure in failures
-    )
-    assert any(
-        "local_task_create legacy lane must keep rollback_execution blocked"
+        "local_task_create authority capability must keep rollback_execution blocked"
         in failure
         for failure in failures
     )
@@ -679,30 +648,43 @@ def test_authority_scorecard_rejects_context_injection_selection_or_missing_cont
     )
 
 
-def test_operational_maturity_rejects_context_injection_graduated_lane() -> None:
+def test_operational_maturity_rejects_context_injection_authority_capability() -> None:
     manifest = _manifest_copy()
     modules = {module["module_id"]: module for module in manifest["modules"]}
     memory = modules["memory"]
-    memory["graduated_lanes"].append(
+    memory["authority_capabilities"].append(
         {
-            "lane_id": "context_injection",
+            "capability_id": "authority-capability:memory:context-injection",
+            "legacy_lane_id": "context_injection",
             "rank": 5,
             "honest_status": "runtime_context_injection",
-            "smallest_operational_action": "Inject context into a prompt.",
+            "authority_domain_ref": "authority-domain-ref:memory",
+            "authority_capability_ref": "authority-capability-ref:execute",
+            "required_mode_ref": "authority-mode-ref:ask-before-changes",
+            "authority_lease_requirement_ref": (
+                "authority-lease-requirement-ref:memory-context-injection:memory:execute"
+            ),
+            "lease_scope": "session",
+            "active_lease_required": True,
+            "exact_approval_required": True,
+            "idempotency_required": True,
+            "receipts_required": True,
+            "audit_required": True,
+            "redaction_required": True,
+            "policy_decisions": list(EXPECTED_POLICY_DECISIONS),
             "backend_routes": [MEMORY_CONTEXT_MANIFEST_ROUTE],
             "receipt_refs": ["receipt:context-injection:*"],
             "evidence_refs": ["evidence-ref:context-injection"],
             "blocked_authorities": [],
-            "real_local_mutation": True,
-            "durable_receipt": True,
-            "evidence_timeline_event": True,
-            "rollback_or_safe_disable_required": True,
             "rollback_or_safe_disable_refs": [
                 "rollback-ref:context-injection:test",
                 "safe-disable-ref:context-injection:test",
             ],
             "cli_parity_ref": CONTEXT_INJECTION_CLI_REF,
             "focused_test_refs": list(CONTEXT_INJECTION_REQUIRED_TEST_REFS),
+            "operator_copy": (
+                "Context injection would require an active AuthorityLease and remains blocked."
+            ),
         }
     )
 
@@ -710,8 +692,7 @@ def test_operational_maturity_rejects_context_injection_graduated_lane() -> None
     _append_memory_context_pack_manifest_failures(failures, memory)
 
     context_injection_failure = (
-        "memory must not mark context_injection as implemented authority capability "
-        "or legacy graduated lane"
+        "memory must not mark context_injection as implemented authority capability"
     )
     assert any(
         context_injection_failure in failure for failure in failures

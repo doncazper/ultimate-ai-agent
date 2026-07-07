@@ -241,62 +241,6 @@
       "real_local_mutation": false,
       "durable_receipt": true,
       "evidence_timeline_event": true,
-      "graduated_lanes": [
-        {
-          "lane_id": "local_task_create",
-          "legacy_status": "compatibility_audit_only",
-          "canonical_authority_capability_id": "authority-capability:action-inbox:local-task-create",
-          "rank": 5,
-          "honest_status": "local_execution_receipt_evidence",
-          "smallest_operational_action": "Commit one approved local Action Inbox item into local task state.",
-          "backend_routes": [
-            "POST /control-center/actions/{action_id}/local-task/commit"
-          ],
-          "receipt_refs": ["receipt:founder-loop-local-task:*"],
-          "evidence_refs": ["evidence-event-type:local_task_created"],
-          "blocked_authorities": [
-            "connector_write",
-            "shell_subprocess_execution",
-            "model_provider_authority",
-            "memory_write",
-            "context_injection",
-            "external_side_effect",
-            "rollback_execution",
-            "production_authority"
-          ],
-          "real_local_mutation": true,
-          "durable_receipt": true,
-          "evidence_timeline_event": true,
-          "rollback_or_safe_disable_required": true,
-          "rollback_or_safe_disable_refs": [
-            "rollback-not-applicable:local-task-safe-disable",
-            "safe-disable:founder-loop:local-task-create-scorecard"
-          ],
-          "cli_parity_ref": "scripts/dev/uaa_founder_loop.py commit-local-task",
-          "focused_test_refs": [
-            "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_requires_exact_approval_and_records_evidence",
-            "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_denies_when_safe_disabled",
-            "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_rejects_unsupported_action_kind",
-            "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_rejects_expired_backend_approval",
-            "tests/test_control_center_api_routes.py::test_control_center_action_local_task_commit_requires_exact_approval_and_receipts",
-            "tests/test_control_center_api_routes.py::test_control_center_action_local_task_commit_denies_safe_disabled_lane",
-            "tests/test_fcc_v1_003_founder_loop_vertical_slice.py::test_founder_loop_cli_commits_local_task_with_safe_refs"
-          ],
-          "repeatability_gate_ref": "FCC-ACTION-002",
-          "frontend_repeatability_test_refs": [
-            "apps/control-center/src/App.test.tsx::commits only the eligible Action Inbox local-task create lane through the typed route",
-            "apps/control-center/src/App.test.tsx::keeps local task commit receipt local and explicit when backend read-model refresh fails",
-            "apps/control-center/src/App.test.tsx::shows replay posture from the refreshed Action Inbox read model",
-            "apps/control-center/src/App.test.tsx::keeps conflicting local task commits out of committed UI state"
-          ],
-          "verifier_repeatability_refs": [
-            "scripts/verify_operational_maturity.py::_append_mock_fallback_fixture_failures",
-            "scripts/verify_operational_maturity.py::_append_behavior_probe_failures",
-            "scripts/verify_operational_maturity.py::_append_cli_probe_failures",
-            "scripts/verify_operational_maturity.py::_append_local_task_repeatability_gate_failures"
-          ]
-        }
-      ],
       "authority_capabilities": [
         {
           "capability_id": "authority-capability:action-inbox:local-task-create",
@@ -315,6 +259,16 @@
           "audit_required": true,
           "redaction_required": true,
           "policy_decisions": ["allow", "ask", "deny", "degrade_to_draft"],
+          "blocked_authorities": [
+            "connector_write",
+            "shell_subprocess_execution",
+            "model_provider_authority",
+            "memory_write",
+            "context_injection",
+            "external_side_effect",
+            "rollback_execution",
+            "production_authority"
+          ],
           "rollback_or_safe_disable_refs": [
             "rollback-not-applicable:local-task-safe-disable",
             "safe-disable:founder-loop:local-task-create-scorecard"
@@ -380,7 +334,6 @@
       "real_local_mutation": false,
       "durable_receipt": false,
       "evidence_timeline_event": false,
-      "graduated_lanes": [],
       "authority_capabilities": []
     },
     {
@@ -468,45 +421,6 @@
       "real_local_mutation": false,
       "durable_receipt": true,
       "evidence_timeline_event": true,
-      "graduated_lanes": [
-        {
-          "lane_id": "reviewed_memory_recall_write",
-          "legacy_status": "compatibility_audit_only",
-          "canonical_authority_capability_id": "authority-capability:memory:reviewed-recall-write",
-          "rank": 5,
-          "honest_status": "local_execution_receipt_evidence",
-          "smallest_operational_action": "Record one Memory Review accept/correct decision that creates a reviewed recall-only LocalMemoryStore record.",
-          "backend_routes": [
-            "POST /control-center/memory/review/{candidate_ref}/accept",
-            "POST /control-center/memory/review/{candidate_ref}/correct"
-          ],
-          "receipt_refs": ["receipt:memory-review:*"],
-          "evidence_refs": ["evidence-ref:founder-loop:memory-review-decision"],
-          "blocked_authorities": [
-            "automatic_memory_write",
-            "context_injection",
-            "connector_write",
-            "memory_delete_export_execution",
-            "source_truth_authority",
-            "rollback_execution",
-            "production_authority"
-          ],
-          "real_local_mutation": true,
-          "durable_receipt": true,
-          "evidence_timeline_event": true,
-          "rollback_or_safe_disable_required": true,
-          "rollback_or_safe_disable_refs": [
-            "rollback-ref:memory-review:suppress-reviewed-recall-record",
-            "safe-disable-ref:memory-review:accept-correct-reviewed-recall-write"
-          ],
-          "cli_parity_ref": "scripts/dev/uaa_founder_loop.py record-memory-decision",
-          "focused_test_refs": [
-            "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_decisions_persist_append_first_replay_and_conflict",
-            "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_accept_correct_denied_when_write_lane_safe_disabled",
-            "tests/test_fcc_v1_005_memory_review_decisions.py::test_memory_review_cli_records_and_inspects_reviewed_recall_write"
-          ]
-        }
-      ],
       "authority_capabilities": [
         {
           "capability_id": "authority-capability:memory:reviewed-recall-write",
@@ -525,6 +439,15 @@
           "audit_required": true,
           "redaction_required": true,
           "policy_decisions": ["allow", "ask", "deny", "degrade_to_draft"],
+          "blocked_authorities": [
+            "automatic_memory_write",
+            "context_injection",
+            "connector_write",
+            "memory_delete_export_execution",
+            "source_truth_authority",
+            "rollback_execution",
+            "production_authority"
+          ],
           "rollback_or_safe_disable_refs": [
             "rollback-ref:memory-review:suppress-reviewed-recall-record",
             "safe-disable-ref:memory-review:accept-correct-reviewed-recall-write"
@@ -572,7 +495,6 @@
       "real_local_mutation": false,
       "durable_receipt": true,
       "evidence_timeline_event": true,
-      "graduated_lanes": [],
       "authority_capabilities": []
     },
     {
@@ -609,7 +531,6 @@
       "real_local_mutation": false,
       "durable_receipt": true,
       "evidence_timeline_event": true,
-      "graduated_lanes": [],
       "authority_capabilities": []
     },
     {
@@ -687,7 +608,6 @@
       "real_local_mutation": false,
       "durable_receipt": false,
       "evidence_timeline_event": false,
-      "graduated_lanes": [],
       "authority_capabilities": []
     },
     {
@@ -737,7 +657,6 @@
       "real_local_mutation": false,
       "durable_receipt": false,
       "evidence_timeline_event": false,
-      "graduated_lanes": [],
       "authority_capabilities": []
     },
     {
@@ -802,7 +721,6 @@
       "real_local_mutation": false,
       "durable_receipt": false,
       "evidence_timeline_event": false,
-      "graduated_lanes": [],
       "authority_capabilities": []
     }
   ]

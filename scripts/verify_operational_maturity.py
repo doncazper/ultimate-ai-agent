@@ -487,21 +487,23 @@ def _append_schema_shape_failures(
     ]:
         if field not in module_required:
             failures.append(f"operational maturity schema missing module field {field}")
-    lane_required = set(schema.get("$defs", {}).get("lane", {}).get("required", []))
-    for field in [
-        "legacy_status",
-        "canonical_authority_capability_id",
-    ]:
-        if field not in lane_required:
-            failures.append(
-                f"operational maturity schema missing legacy lane field {field}"
-            )
+    if "lane" in schema.get("$defs", {}):
+        failures.append("operational maturity schema must not define legacy lane")
+    module_properties = set(
+        schema.get("$defs", {}).get("module", {}).get("properties", {})
+    )
+    if "graduated_lanes" in module_properties:
+        failures.append("operational maturity schema must reject graduated_lanes")
     capability_required = set(
         schema.get("$defs", {}).get("authority_capability", {}).get("required", [])
     )
     if "policy_decisions" not in capability_required:
         failures.append(
             "operational maturity schema missing authority capability field policy_decisions"
+        )
+    if "blocked_authorities" not in capability_required:
+        failures.append(
+            "operational maturity schema missing authority capability field blocked_authorities"
         )
     binding_required = set(
         schema.get("$defs", {}).get("ui_status_binding", {}).get("required", [])
@@ -1379,8 +1381,6 @@ def _append_module_failures(
                     failures.append(f"{module_id} rank 5+ requires real_local_mutation")
                 if not module.get("cli_or_script_refs"):
                     failures.append(f"{module_id} rank 5+ requires cli_or_script_refs")
-        for lane in module.get("graduated_lanes", []):
-            _append_lane_failures(failures, module_id, lane, routes_by_ref)
         _append_authority_capability_failures(
             failures,
             module_id,
@@ -1421,7 +1421,9 @@ def _append_memory_context_pack_manifest_failures(
     if MEMORY_REVIEWED_RECALL_WRITE_CLI_REF not in set(
         module.get("cli_or_script_refs", [])
     ):
-        failures.append("memory reviewed recall-write lane missing CLI parity ref")
+        failures.append(
+            "memory reviewed recall-write authority capability missing CLI parity ref"
+        )
     if CONTEXT_INJECTION_CLI_REF not in set(module.get("cli_or_script_refs", [])):
         failures.append("memory context-injection contract missing CLI parity ref")
     if CONTEXT_PACK_PREVIEW_CLI_REF not in set(module.get("cli_or_script_refs", [])):
@@ -1430,9 +1432,6 @@ def _append_memory_context_pack_manifest_failures(
     for blocked in CONTEXT_INJECTION_REQUIRED_BLOCKED_AUTHORITIES:
         if blocked not in blocked_authorities:
             failures.append(f"memory context-injection contract must block {blocked}")
-    lanes = {
-        str(lane.get("lane_id")): lane for lane in module.get("graduated_lanes", [])
-    }
     capabilities_by_id = {
         str(capability.get("capability_id")): capability
         for capability in module.get("authority_capabilities", [])
@@ -1442,11 +1441,6 @@ def _append_memory_context_pack_manifest_failures(
         for capability in module.get("authority_capabilities", [])
         if capability.get("legacy_lane_id")
     }
-    if "context_injection" in lanes or "context_pack_preview_materialization" in lanes:
-        failures.append(
-            "memory must not mark context_injection as implemented authority capability "
-            "or legacy graduated lane"
-        )
     for capability in module.get("authority_capabilities", []):
         legacy_lane_id = str(capability.get("legacy_lane_id", ""))
         if legacy_lane_id in {
@@ -1454,8 +1448,7 @@ def _append_memory_context_pack_manifest_failures(
             "context_pack_preview_materialization",
         }:
             failures.append(
-                "memory must not mark context_injection as implemented authority capability "
-                "or legacy graduated lane"
+                "memory must not mark context_injection as implemented authority capability"
             )
             break
     capability = capabilities_by_id.get(
@@ -1507,46 +1500,6 @@ def _append_memory_context_pack_manifest_failures(
                 "memory reviewed recall-write authority capability missing "
                 f"focused test {test_ref}"
             )
-    lane = lanes.get(MEMORY_REVIEWED_RECALL_WRITE_LANE_ID)
-    if lane is None:
-        return
-    if lane.get("legacy_status") != LEGACY_LANE_STATUS:
-        failures.append(
-            "memory reviewed recall-write legacy lane must be compatibility/audit only"
-        )
-    if (
-        lane.get("canonical_authority_capability_id")
-        != MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_CAPABILITY_ID
-    ):
-        failures.append(
-            "memory reviewed recall-write legacy lane canonical authority binding drifted"
-        )
-    lane_routes = set(lane.get("backend_routes", []))
-    for route_ref in MEMORY_REVIEWED_RECALL_WRITE_ROUTES:
-        if route_ref not in lane_routes:
-            failures.append(
-                f"memory reviewed recall-write legacy lane missing route {route_ref}"
-            )
-    posture_refs = set(lane.get("rollback_or_safe_disable_refs", []))
-    for posture_ref in MEMORY_REVIEWED_RECALL_WRITE_POSTURE_REFS:
-        if posture_ref not in posture_refs:
-            failures.append(
-                "memory reviewed recall-write legacy lane missing posture ref "
-                f"{posture_ref}"
-            )
-    if lane.get("cli_parity_ref") != MEMORY_REVIEWED_RECALL_WRITE_CLI_REF:
-        failures.append(
-            "memory reviewed recall-write legacy lane CLI parity ref drifted"
-        )
-    lane_tests = set(lane.get("focused_test_refs", []))
-    for test_ref in MEMORY_REVIEWED_RECALL_WRITE_TEST_REFS:
-        if test_ref not in lane_tests:
-            failures.append(
-                "memory reviewed recall-write legacy lane missing focused test "
-                f"{test_ref}"
-            )
-
-
 def _append_patch_workbench_manifest_failures(
     failures: list[str],
     module: dict[str, Any],
@@ -1637,120 +1590,17 @@ def _append_local_model_manifest_failures(
         )
 
 
-def _append_lane_failures(
-    failures: list[str],
-    module_id: str,
-    lane: dict[str, Any],
-    routes_by_ref: dict[str, dict[str, Any]],
-) -> None:
-    lane_id = str(lane.get("lane_id"))
-    rank = int(lane.get("rank", -1))
-    if lane.get("legacy_status") != LEGACY_LANE_STATUS:
-        failures.append(
-            f"{module_id}:{lane_id} legacy lane must be compatibility/audit only"
-        )
-    if not lane.get("canonical_authority_capability_id"):
-        failures.append(
-            f"{module_id}:{lane_id} legacy lane requires canonical authority "
-            "capability binding"
-        )
-    if rank < 5:
-        failures.append(f"{module_id}:{lane_id} graduated lane must be rank 5+")
-    for field in [
-        "real_local_mutation",
-        "durable_receipt",
-        "evidence_timeline_event",
-    ]:
-        if lane.get(field) is not True:
-            failures.append(f"{module_id}:{lane_id} rank 5 lane requires {field}")
-    if not lane.get("receipt_refs"):
-        failures.append(f"{module_id}:{lane_id} rank 5 lane requires receipt_refs")
-    if not lane.get("evidence_refs"):
-        failures.append(f"{module_id}:{lane_id} rank 5 lane requires evidence_refs")
-    if not lane.get("cli_parity_ref"):
-        failures.append(f"{module_id}:{lane_id} rank 5 lane requires cli_parity_ref")
-    if not lane.get("focused_test_refs"):
-        failures.append(
-            f"{module_id}:{lane_id} rank 5 lane requires focused_test_refs"
-        )
-    if lane.get("rollback_or_safe_disable_required") is not True:
-        failures.append(
-            f"{module_id}:{lane_id} rank 5 lane requires rollback_or_safe_disable_required"
-        )
-    posture_refs = set(lane.get("rollback_or_safe_disable_refs", []))
-    if not posture_refs:
-        failures.append(f"{module_id}:{lane_id} rank 5 lane requires posture refs")
-    if lane_id == LOCAL_TASK_LANE_ID:
-        for expected_ref in [LOCAL_TASK_ROLLBACK_REF, LOCAL_TASK_SAFE_DISABLE_REF]:
-            if expected_ref not in posture_refs:
-                failures.append(
-                    f"{module_id}:{lane_id} rank 5 lane missing posture ref {expected_ref}"
-                )
-    if "rollback_execution" not in set(lane.get("blocked_authorities", [])):
-        failures.append(
-            f"{module_id}:{lane_id} rank 5 lane must block rollback_execution"
-        )
-    for route_ref in lane.get("backend_routes", []):
-        route = routes_by_ref.get(route_ref)
-        if route is None:
-            failures.append(
-                f"{module_id}:{lane_id} references missing route {route_ref}"
-            )
-            continue
-        if route.get("route_classification") != "mutating_requires_authority":
-            failures.append(
-                f"{module_id}:{lane_id} route must be mutating authority gated"
-            )
-        if route.get("side_effect_class") != "local_dev_workspace_only":
-            failures.append(
-                f"{module_id}:{lane_id} route must stay local_dev_workspace_only"
-            )
-        if route.get("idempotency_required") is not True:
-            failures.append(f"{module_id}:{lane_id} route must require idempotency")
-
-
 def _append_authority_capability_failures(
     failures: list[str],
     module_id: str,
     module: dict[str, Any],
     routes_by_ref: dict[str, dict[str, Any]],
 ) -> None:
-    legacy_lane_ids = {
-        str(lane.get("lane_id")) for lane in module.get("graduated_lanes", [])
-    }
-    legacy_lane_capability_bindings = {
-        str(lane.get("lane_id")): str(lane.get("canonical_authority_capability_id"))
-        for lane in module.get("graduated_lanes", [])
-        if lane.get("lane_id") and lane.get("canonical_authority_capability_id")
-    }
     capabilities = {
         str(capability.get("capability_id")): capability
         for capability in module.get("authority_capabilities", [])
     }
-    if legacy_lane_ids and not capabilities:
-        failures.append(
-            f"{module_id} implemented authority requires authority_capabilities"
-        )
-        return
     for capability_id, capability in capabilities.items():
-        legacy_lane_id = capability.get("legacy_lane_id")
-        if (
-            legacy_lane_id
-            and legacy_lane_ids
-            and str(legacy_lane_id) not in legacy_lane_ids
-        ):
-            failures.append(
-                f"{module_id}:{capability_id} authority capability legacy lane binding drifted"
-            )
-        if legacy_lane_id:
-            expected_capability_id = legacy_lane_capability_bindings.get(
-                str(legacy_lane_id)
-            )
-            if expected_capability_id and expected_capability_id != capability_id:
-                failures.append(
-                    f"{module_id}:{capability_id} authority capability legacy lane "
-                    "canonical binding drifted"
-                )
         if int(capability.get("rank", -1)) < 5:
             failures.append(
                 f"{module_id}:{capability_id} authority capability must be rank 5+"
@@ -1818,10 +1668,6 @@ def _append_first_lane_failures(
         failures.append("Action Inbox module must remain rank 3 overall")
     if action_inbox.get("next_target_rank") != 5:
         failures.append("Action Inbox target rank must be 5")
-    lanes = {
-        str(lane.get("lane_id")): lane
-        for lane in action_inbox.get("graduated_lanes", [])
-    }
     capabilities_by_id = {
         str(capability.get("capability_id")): capability
         for capability in action_inbox.get("authority_capabilities", [])
@@ -1865,39 +1711,11 @@ def _append_first_lane_failures(
             failures.append(
                 f"local_task_create authority capability missing {LOCAL_TASK_ROUTE}"
             )
+        if "rollback_execution" not in set(capability.get("blocked_authorities", [])):
+            failures.append(
+                "local_task_create authority capability must keep rollback_execution blocked"
+            )
         _append_local_task_repeatability_gate_failures(failures, capability, root)
-    lane = lanes.get(LOCAL_TASK_LANE_ID)
-    if lane is not None:
-        if lane.get("legacy_status") != LEGACY_LANE_STATUS:
-            failures.append(
-                "local_task_create legacy lane must be compatibility/audit only"
-            )
-        if (
-            lane.get("canonical_authority_capability_id")
-            != LOCAL_TASK_AUTHORITY_CAPABILITY_ID
-        ):
-            failures.append(
-                "local_task_create legacy lane canonical authority binding drifted"
-            )
-        if lane.get("rank") != 5:
-            failures.append("local_task_create legacy lane must be rank 5")
-        for expected, field in [
-            (LOCAL_TASK_ROUTE, "backend_routes"),
-            (LOCAL_TASK_RECEIPT_REF, "receipt_refs"),
-            (LOCAL_TASK_EVENT_REF, "evidence_refs"),
-            (LOCAL_TASK_ROLLBACK_REF, "rollback_or_safe_disable_refs"),
-            (LOCAL_TASK_SAFE_DISABLE_REF, "rollback_or_safe_disable_refs"),
-        ]:
-            if expected not in set(lane.get(field, [])):
-                failures.append(f"local_task_create legacy lane missing {expected}")
-        if lane.get("rollback_or_safe_disable_required") is not True:
-            failures.append(
-                "local_task_create legacy lane must require rollback or safe-disable"
-            )
-        if "rollback_execution" not in set(lane.get("blocked_authorities", [])):
-            failures.append(
-                "local_task_create legacy lane must keep rollback_execution blocked"
-            )
     route = routes_by_ref.get(LOCAL_TASK_ROUTE)
     if route is None:
         failures.append("local_task_create route missing from API manifest")
@@ -2048,23 +1866,6 @@ def _append_ref_resolution_failures(
             _append_cli_or_script_ref_failure(
                 failures, root, str(ref), f"{module_id}.cli_or_script_refs"
             )
-        for lane in module.get("graduated_lanes", []):
-            lane_id = str(lane.get("lane_id"))
-            for ref in lane.get("focused_test_refs", []):
-                _append_repo_ref_failure(
-                    failures,
-                    root,
-                    str(ref),
-                    f"{module_id}:{lane_id}.focused_test_refs",
-                )
-            cli_ref = lane.get("cli_parity_ref")
-            if cli_ref:
-                _append_cli_or_script_ref_failure(
-                    failures,
-                    root,
-                    str(cli_ref),
-                    f"{module_id}:{lane_id}.cli_parity_ref",
-                )
         for capability in module.get("authority_capabilities", []):
             capability_id = str(capability.get("capability_id"))
             for ref in capability.get("focused_test_refs", []):
