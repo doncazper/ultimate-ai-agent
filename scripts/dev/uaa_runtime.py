@@ -4111,7 +4111,10 @@ def build_parser() -> argparse.ArgumentParser:
     select_authority.add_argument(
         "--domain",
         action="append",
-        help="Domain capabilities in domain:capability,capability form.",
+        help=(
+            "Domain capabilities in domain:capability,capability form; omit to "
+            "use the backend AuthorityLease mode default scope."
+        ),
     )
     select_authority.add_argument(
         "--scope",

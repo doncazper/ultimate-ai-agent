@@ -11446,6 +11446,9 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByRole("button", { name: "Full machine" }),
     ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Delegated mission" }),
+    ).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Workspace command" }));
     const previewResult = await screen.findByRole("status", {
@@ -11634,6 +11637,31 @@ describe("Web Control Center shell", () => {
           ),
         }),
       }),
+    );
+    const safeLocalIssueCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        String(url).includes(API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue) &&
+        init?.method === "POST" &&
+        String(init.body).includes(
+          "reason-ref:control-center-authority-approved_safe_local_work_session",
+        ),
+    );
+    expect(safeLocalIssueCall).toBeDefined();
+    const safeLocalCatalog =
+      mockControlCenterData.settingsStatus.authority_lease_state.mode_catalog.find(
+        (entry) => entry.mode === "approved_safe_local_work_session",
+      );
+    const safeLocalRequest = JSON.parse(
+      String((safeLocalIssueCall?.[1] as RequestInit | undefined)?.body ?? "{}"),
+    );
+    expect(safeLocalRequest.lease_issue_request.scope).toBe(
+      safeLocalCatalog?.scope,
+    );
+    expect(safeLocalRequest.lease_issue_request.requested_domains).toEqual(
+      safeLocalCatalog?.default_requested_domains,
+    );
+    expect(safeLocalRequest.lease_issue_request.safe_summary).toContain(
+      "backend AuthorityLease mode catalog",
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Revoke active lease" }));

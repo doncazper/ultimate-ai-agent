@@ -61,59 +61,36 @@ const AUTHORITY_MODE_OPTIONS: Array<{
   mode: AuthorityTrustMode;
   label: string;
   summary: string;
-  requestedDomains: Record<string, string[]>;
-  disabled?: boolean;
 }> = [
   {
     mode: "read_only",
     label: "Read-only",
     summary: "Workspace and memory inspection, drafts, and prepare-only posture.",
-    requestedDomains: {
-      workspace: ["observe", "read", "draft", "prepare"],
-      memory: ["observe", "read", "draft"],
-    },
   },
   {
     mode: "ask_before_changes",
     label: "Ask before changes",
     summary: "Workspace, files, and memory write posture with ask-before-mutation.",
-    requestedDomains: {
-      workspace: ["read", "write", "execute"],
-      files: ["read", "write"],
-      memory: ["read", "write"],
-    },
   },
   {
     mode: "approved_safe_local_work_session",
     label: "Safe local work",
     summary: "Exact local workspace read, write, and command execution authority.",
-    requestedDomains: {
-      workspace: ["read", "write", "execute"],
-    },
   },
   {
     mode: "full_local_workspace_session",
     label: "Full workspace",
     summary: "Local workspace/files/memory authority; external adapters remain blocked.",
-    requestedDomains: {
-      workspace: ["read", "write", "execute", "commit"],
-      files: ["read", "write", "mutate"],
-      memory: ["read", "write", "mutate"],
-    },
   },
   {
     mode: "full_machine_access_session",
     label: "Full machine",
     summary: "Planned until shell, apps, browser, and settings adapters are implemented.",
-    requestedDomains: {},
-    disabled: true,
   },
   {
     mode: "delegated_mission_autonomous_window",
     label: "Delegated mission",
     summary: "Planned until browser, payments, apps, and external adapters are implemented.",
-    requestedDomains: {},
-    disabled: true,
   },
 ];
 const AUTHORITY_DECISION_PREVIEW_OPTIONS: Array<{
@@ -1634,7 +1611,11 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   }
   async function handleAuthorityMode(option: (typeof AUTHORITY_MODE_OPTIONS)[number]) {
     const modeReadiness = authorityModeCatalogByMode.get(option.mode);
-    if (option.disabled || modeReadiness?.issue_ready === false) {
+    if (
+      !modeReadiness ||
+      !modeReadiness.issue_ready ||
+      modeReadiness.requires_mission_ref
+    ) {
       return;
     }
     setAuthorityPendingMode(option.mode);
@@ -1643,11 +1624,11 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
       const result = await approveAndIssueAuthorityLease({
         lease_issue_request: {
           mode: option.mode,
-          scope: "session",
-          requested_domains: option.requestedDomains,
+          scope: modeReadiness.scope,
+          requested_domains: modeReadiness.default_requested_domains,
           decision_reason_ref: `reason-ref:control-center-authority-${option.mode}`,
           duration_minutes: 120,
-          safe_summary: `Control Center selected ${option.label} authority mode for implemented local domains.`,
+          safe_summary: `Control Center selected ${option.label} authority mode from the backend AuthorityLease mode catalog.`,
         },
         approved_by_actor_ref: "operator-ref:control-center-local-user",
         approval_safe_summary: `Operator selected ${option.label} authority mode for the current session.`,
@@ -2004,12 +1985,14 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
             <div className="action-button-row">
               {AUTHORITY_MODE_OPTIONS.map((option) => {
                 const modeReadiness = authorityModeCatalogByMode.get(option.mode);
-                const modeBlocked = modeReadiness?.issue_ready === false;
+                const modeBlocked =
+                  !modeReadiness ||
+                  !modeReadiness.issue_ready ||
+                  modeReadiness.requires_mission_ref;
                 return (
                   <button
                     className="secondary-button"
                     disabled={
-                      Boolean(option.disabled) ||
                       modeBlocked ||
                       authorityPendingMode !== undefined
                     }

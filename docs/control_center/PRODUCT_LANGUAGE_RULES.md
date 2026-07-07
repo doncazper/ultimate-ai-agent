@@ -82,6 +82,10 @@ blocked by denied/unsupported refs. Do not infer readiness from a button label,
 roadmap lane, or legacy graduation status; Full Machine and Delegated Mission
 copy must remain blocked when the catalog reports unsupported shell, app,
 browser, payment, settings, or external adapters.
+Mode-selection controls must submit the backend catalog entry scope and
+`default_requested_domains` for issue-ready session-scoped modes. Mission-scoped
+entries must go through mission planning and must not be issued from a generic
+mode button.
 Use
 `POST /api/runtime/authority-leases`,
 `POST /api/runtime/authority-leases/approve-and-issue`,

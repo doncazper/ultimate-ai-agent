@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from fastapi.testclient import TestClient
 import pytest
 
@@ -1606,6 +1608,33 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     assert "receipt-ref:authority-lease" in cli_payload
     assert '"approval_captured": true' in cli_payload
     assert '"approval_validated": true' in cli_payload
+
+    default_cli_issue = uaa_runtime.main(
+        [
+            "select-authority-mode",
+            "--mode",
+            "approved_safe_local_work_session",
+            "--reason-ref",
+            "reason-ref:authority-cli-default-mode-scope",
+            "--idempotency-ref",
+            "idempotency-ref:authority-cli-default-mode-scope",
+            "--summary",
+            "Select approved safe local work with backend default domains.",
+            "--approve",
+            "--approved-by-actor-ref",
+            "operator-ref:test-cli-default-approver",
+            "--json",
+        ]
+    )
+    assert default_cli_issue == 0
+    default_cli_payload = json.loads(capsys.readouterr().out)
+    assert default_cli_payload["receipt"]["requested_domains"] == {
+        "workspace": ["read", "write", "execute"]
+    }
+    assert default_cli_payload["receipt"]["granted_domains"] == {
+        "workspace": ["read", "write", "execute"]
+    }
+    assert default_cli_payload["approval_captured"] is True
 
     conflicting_cli_issue = uaa_runtime.main(
         [

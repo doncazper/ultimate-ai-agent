@@ -80,7 +80,10 @@ surfaces are:
   route still denies authority-increasing requests without a matching approval
   grant. CLI `select-authority-mode --approve` is the repo-local parity path for
   capturing the same exact local operator approval without requiring hand-built
-  grant JSON.
+  grant JSON. Generic mode controls must send the backend
+  `mode_catalog.default_requested_domains` and scope for issue-ready,
+  session-scoped modes; mission-scoped defaults remain on the mission planner
+  path instead of being issued from a generic button.
 
 The first implementation is deliberately conservative: the default active
 lease is read-only; operator-selected session leases persist safe receipts for
