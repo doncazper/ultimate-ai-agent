@@ -162,6 +162,14 @@ def _read_model(store: RuntimeInvocationStore) -> dict[str, Any]:
     )
 
 
+def _authority_scope_label(item: dict[str, Any]) -> str:
+    if not item.get("authority_scope_required"):
+        return "not required"
+    if item.get("authority_scope_allowed"):
+        return "allowed by active lease"
+    return "requires active lease"
+
+
 def _print_bridge_summary(read_model: dict[str, Any]) -> None:
     print("Governed runtime Action Inbox bridge")
     print(f"Status: {read_model['status']}")
@@ -196,6 +204,37 @@ def _print_bridge_summary(read_model: dict[str, Any]) -> None:
         )
         print(f"  envelope: {item['action_envelope_ref']}")
         print(f"  scope: {item['exact_scope_ref']}")
+        print(f"  authority scope: {_authority_scope_label(item)}")
+        print(
+            "  authority outcome: "
+            f"{item.get('authority_decision_outcome') or 'missing'}"
+        )
+        print(
+            "  authority lease: "
+            f"{item.get('authority_lease_ref') or 'none'}"
+        )
+        print(
+            "  authority requirement: "
+            f"{item.get('authority_required_mode_ref') or 'active-mode'} + "
+            f"{item.get('authority_domain_ref') or 'authority-domain-ref:unknown'} "
+            f"domain + "
+            f"{item.get('authority_capability_ref') or 'authority-capability-ref:unknown'} "
+            f"capability"
+        )
+        print(
+            "  authority audit: "
+            f"{item.get('authority_audit_ref') or 'none'}"
+        )
+        print(
+            "  authority receipt: "
+            f"{item.get('authority_policy_receipt_ref') or 'none'}"
+        )
+        print(
+            "  authority reason refs: "
+            + ", ".join(item["authority_reason_refs"] or ["none"])
+        )
+        if item.get("authority_operator_message"):
+            print(f"  authority message: {item['authority_operator_message']}")
         print(f"  receipt refs: {', '.join(item['receipt_refs'] or ['none'])}")
         print(f"  evidence refs: {', '.join(item['evidence_refs'] or ['none'])}")
         print(

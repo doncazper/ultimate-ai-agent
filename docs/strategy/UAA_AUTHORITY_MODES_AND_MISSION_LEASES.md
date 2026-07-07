@@ -152,6 +152,9 @@ Control Center Action Inbox renders those runtime authority facts directly:
 authority decision outcome, lease, domain, capability, required mode, audit,
 policy receipt, operator message, and blocked reason refs are cockpit-visible
 without adding execution controls.
+The repo-local `uaa_runtime inspect-action-inbox-bridge` CLI mirrors the same
+inspection-only authority facts in readable text for API/CLI parity; it does not
+mint leases, approve envelopes, or execute adapters.
 The RuntimeGateway invocation lifecycle is also mapped into authority domains:
 `POST /api/runtime/invocations` is a workspace draft record-only route,
 `POST /api/runtime/invocations/{id}/approve` and

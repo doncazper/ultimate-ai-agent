@@ -255,6 +255,34 @@ def test_runtime_parity_loop_api_and_cli_are_safe_ref_inspection() -> None:
     )
 
 
+def test_runtime_action_bridge_cli_text_renders_authority_scope(tmp_path: Path) -> None:
+    store = _runtime_store_with_workspace_execute(tmp_path)
+    request = _command_request()
+    _approve(store, request)
+
+    cli = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/dev/uaa_runtime.py"),
+            "--state-dir",
+            str(tmp_path),
+            "inspect-action-inbox-bridge",
+        ],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+
+    assert "authority scope: allowed by active lease" in cli.stdout
+    assert "authority outcome: allow" in cli.stdout
+    assert "authority-lease-ref:test-workspace-execute" in cli.stdout
+    assert "authority-domain-ref:workspace" in cli.stdout
+    assert "authority-capability-ref:execute" in cli.stdout
+    assert "authority-mode-ref:approved-safe-local-work-session" in cli.stdout
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in cli.stdout
+
+
 def test_runtime_action_bridge_projects_runtime_parity_loop_refs() -> None:
     bridge = build_runtime_action_inbox_bridge_read_model([])
 
