@@ -734,14 +734,15 @@ def _pilot_lanes() -> list[GovernedProductPilotLane]:
             title="Mature action execution",
             status="implemented",
             full_strength_goal=(
-                "Local action execution runs only named micro-lanes with receipts."
+                "Local action execution runs only implemented authority capabilities "
+                "with active lease scope and receipts."
             ),
             repo_safe_status=(
                 "Only exact allowlisted RuntimeGateway command lanes exist: read-only "
                 "git status and Action Inbox approved focused pytest, repo-verifier, "
                 "frontend-check, and repo-doctor."
             ),
-            promotion_path_ref="promotion-path-ref:runtime-command-exact-micro-lanes",
+            promotion_path_ref="promotion-path-ref:runtime-command-authority-capabilities",
             execution_capable=True,
             approval_binding_required=True,
             route_refs=[

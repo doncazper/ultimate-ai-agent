@@ -186,7 +186,8 @@ class OperatorWorkspaceSpineReadModel(BaseModel):
     blocked_authority_summary: str = (
         "Mutating workspace actions, Git operations, command execution, browser "
         "preview automation, dev-server lifecycle control, external agents, and "
-        "production authority require later exact authority graduation."
+        "production authority require implemented AuthorityLease domain/capability "
+        "scope, exact approval, receipts, and safe-disable posture."
     )
     next_safe_action: str = (
         "Inspect workspace, Git, preview, run-log, and coworker posture refs; "
@@ -381,7 +382,11 @@ def build_operator_workspace_spine_read_model() -> OperatorWorkspaceSpineReadMod
                 "blocked-state:operator-workspace:no-connector-write",
                 "blocked-state:operator-workspace:no-background-autonomy",
             ],
-            next_safe_action="Record handoff proposals as safe refs only until worker authority graduates.",
+            next_safe_action=(
+                "Record handoff proposals as safe refs only until worker authority "
+                "has implemented AuthorityLease scope, exact approval, receipts, "
+                "and safe-disable posture."
+            ),
         ),
     ]
     return OperatorWorkspaceSpineReadModel(lanes=lanes)

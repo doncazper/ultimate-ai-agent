@@ -2607,7 +2607,11 @@ def build_coding_cockpit_session_seed() -> CodingCockpitSessionReadModel:
                 "blocked-state:coding-no-shell-subprocess",
                 "blocked-state:coding-no-command-execution",
             ],
-            next_safe_action="Keep command controls disabled until exact shell authority graduates.",
+            next_safe_action=(
+                "Keep command controls disabled until an implemented workspace/shell "
+                "AuthorityLease scope, exact approval, receipts, and safe-disable "
+                "posture are present."
+            ),
         ),
         git_preview=CodingCockpitPreviewPanel(
             panel_ref="coding-panel:git-preview",
@@ -3706,7 +3710,8 @@ def build_coding_multi_agent_review() -> CodingMultiAgentReviewReadModel:
             status="blocked",
             safe_summary=(
                 "Would hold local verifier result refs after allowlisted command "
-                "and local-agent execution authority graduate."
+                "and local-agent execution have implemented AuthorityLease scope, "
+                "exact approval, receipts, and safe-disable posture."
             ),
             output_artifact_refs=["agent-artifact:coding-local-verifier-required"],
             proof_refs=proof_refs,

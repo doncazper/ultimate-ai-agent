@@ -1399,7 +1399,10 @@ function ActionToolCodeLaneCatalogPanel({
         <dl className="detail-list">
           <DetailTerm label="Generic tools" value="blocked" />
           <DetailTerm label="Unrestricted shell" value="blocked" />
-          <DetailTerm label="Code apply" value="blocked unless exact lane exists" />
+          <DetailTerm
+            label="Code apply"
+            value="requires files/write AuthorityLease scope"
+          />
           <DetailTerm label="Provider/browser/connector" value="blocked" />
         </dl>
       </article>
@@ -1482,7 +1485,7 @@ function ActionToolCodeLaneCatalogPanel({
           <article className="review-card" key={prompt.prompt_ref}>
             <div className="review-card-heading">
               <h4>{prompt.title}</h4>
-              <span>blocked lane prompt</span>
+              <span>authority capability prompt</span>
             </div>
             <p>{prompt.copy_ready_prompt}</p>
             <dl className="detail-list">
