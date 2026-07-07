@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF,
     RUNTIME_LSP_DIAGNOSTICS_BLOCKED_AUTHORITY_REFS,
     build_runtime_lsp_diagnostics_read_model,
 )
@@ -33,6 +34,23 @@ def main() -> int:
         failures.append("LSP diagnostics route ref is stale")
     if read_model.cli_ref != "uaa runtime inspect-lsp-diagnostics":
         failures.append("LSP diagnostics CLI ref is stale")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("LSP diagnostics authority mapping ref is stale")
+    if read_model.authority_state_decision_outcome != "deny":
+        failures.append("LSP diagnostics authority decision must deny by default")
+    if read_model.authority_state_status != "planned_unsupported_adapter":
+        failures.append("LSP diagnostics authority status must remain unsupported")
+    if "reason-ref:authority:adapter-unsupported" not in (
+        read_model.authority_state_reason_refs
+    ):
+        failures.append("LSP diagnostics authority decision lacks adapter reason")
+    if "adapter-ref:lsp-server-launch:not-implemented" not in (
+        read_model.unsupported_adapter_refs
+    ):
+        failures.append("LSP diagnostics server launch adapter ref missing")
     if read_model.status != "diagnostic_evidence_placeholder_posture":
         failures.append("LSP diagnostics posture is not evidence-only")
     if read_model.diagnostic_count != 3:
@@ -110,7 +128,9 @@ def main() -> int:
             "Full-Strength",
             "Repo-Safe",
             "Blocked / Needs Authority",
-            "Exact Promotion Path",
+            "AuthorityState",
+            "Exact Authority Path",
+            RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF,
             ROUTE,
             "inspect-lsp-diagnostics",
         ]:
@@ -148,6 +168,13 @@ def main() -> int:
             failures.append("LSP diagnostics CLI claims provider call")
         if read_model_payload["route_ref"] != f"GET {ROUTE}":
             failures.append("LSP diagnostics CLI returned stale route ref")
+        if (
+            read_model_payload["authority_state_mapping_ref"]
+            != RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("LSP diagnostics CLI returned stale authority mapping")
+        if read_model_payload["authority_state_decision_outcome"] != "deny":
+            failures.append("LSP diagnostics CLI should show denied authority")
 
     if failures:
         for failure in failures:

@@ -373,6 +373,9 @@ from ultimate_ai_agent.core.runtime_gateway.worktree_per_agent import (
     build_runtime_worktree_per_agent_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway.lsp_diagnostics import (
+    RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF,
+    RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_LSP_DIAGNOSTICS_BLOCKED_AUTHORITY_REFS,
     RUNTIME_LSP_DIAGNOSTICS_CLI_REF,
     RUNTIME_LSP_DIAGNOSTICS_CONTRACT_REF,

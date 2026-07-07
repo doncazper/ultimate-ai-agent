@@ -61,8 +61,8 @@ surfaces are:
   safe refs, route/CLI refs, audit refs, receipt refs when applicable, and
   no execution.
 - Runtime worktree-per-agent, staged orchestration, background job inspection,
-  and subagent isolation consume that same AuthorityState catalog instead of
-  carrying standalone blocker language:
+  subagent isolation, and LSP diagnostics consume that same AuthorityState
+  catalog instead of carrying standalone blocker language:
   worktree implementer/reviewer/verifier lanes expose mapped decision refs and
   outcomes, staged orchestration exposes the read-model `workspace/prepare`
   decision plus the stronger approved-runtime-command `workspace/execute`
@@ -70,9 +70,11 @@ surfaces are:
   `apps/execute` background-autonomy decision plus unsupported worker/supervisor
   adapter refs, and subagent isolation exposes the delegated-mission
   `apps/execute` live-dispatch decision plus unsupported dispatch/tool-sharing/
-  memory-transfer adapter refs. These API/CLI surfaces remain safe-ref
-  inspection only unless exact active leases, implemented adapters, and existing
-  runtime gates pass.
+  memory-transfer adapter refs. LSP diagnostics expose the Full local workspace
+  `workspace/read` diagnostic-evidence decision plus unsupported
+  language-server/file-read/diagnostic-extraction adapter refs. These API/CLI
+  surfaces remain safe-ref inspection only unless exact active leases,
+  implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and
   `scripts/dev/uaa_runtime.py inspect-authority-state --summary` provide the
   compact operator/API parity view over the same decision catalog: capability

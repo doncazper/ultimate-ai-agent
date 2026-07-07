@@ -3467,6 +3467,28 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-lsp-diagnostics-evidence",
+            "Runtime LSP diagnostics evidence",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.full_local_workspace_session,
+            "planned_unsupported_adapter",
+            ["GET /api/runtime/lsp-diagnostics"],
+            ["repo-local-command:uaa-runtime-inspect-lsp-diagnostics"],
+            (
+                "Semantic diagnostics are modeled as Full local workspace "
+                "read authority, but no allowlisted language-server launch, "
+                "cwd jail, file-read adapter, dependency install guard, "
+                "timeout, redacted diagnostic extraction, or diagnostic "
+                "receipt adapter is implemented."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:lsp-server-launch:not-implemented",
+                "adapter-ref:lsp-file-read:not-implemented",
+                "adapter-ref:lsp-diagnostic-extraction:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:cloud-production-deploy-adapter",
             "Cloud production deploy adapter",
             AuthorityDomain.cloud_production,

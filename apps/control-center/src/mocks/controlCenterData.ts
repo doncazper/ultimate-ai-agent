@@ -16049,6 +16049,24 @@ export const mockControlCenterData: ControlCenterData = {
     route_ref: "GET /api/runtime/lsp-diagnostics",
     cli_ref: "uaa runtime inspect-lsp-diagnostics",
     control_center_ref: "control-center-route:runtime",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref: "lane-ref:runtime-lsp-diagnostics-evidence",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-lsp-diagnostics-evidence",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:mock-runtime-lsp-diagnostics",
+    authority_state_decision_outcome: "deny",
+    authority_state_status: "planned_unsupported_adapter",
+    authority_state_operator_message:
+      "Denied because the requested adapter is not implemented.",
+    authority_state_reason_refs: ["reason-ref:authority:adapter-unsupported"],
+    unsupported_adapter_refs: [
+      "adapter-ref:lsp-server-launch:not-implemented",
+      "adapter-ref:lsp-file-read:not-implemented",
+      "adapter-ref:lsp-diagnostic-extraction:not-implemented",
+    ],
     safe_summary:
       "Runtime LSP diagnostics mock fallback shows safe evidence contracts only; no language server or shell command is launched.",
     diagnostics: runtimeLspDiagnostics,

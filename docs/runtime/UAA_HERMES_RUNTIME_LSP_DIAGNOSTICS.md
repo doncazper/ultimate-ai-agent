@@ -19,9 +19,14 @@ The current implementation is read/evidence only:
 - Python Agent Core owns `RuntimeLspDiagnosticsReadModel`.
 - API route: `GET /api/runtime/lsp-diagnostics`.
 - CLI inspection: `scripts/dev/uaa_runtime.py inspect-lsp-diagnostics`.
+- AuthorityState binding: `lane-ref:runtime-lsp-diagnostics-evidence`
+  evaluates as Full local workspace `workspace/read` authority through
+  `GET /api/runtime/authority-state` and
+  `repo-local-command:uaa-runtime-inspect-authority-state`.
 - Control Center renders diagnostic refs, safe source scope refs, evidence refs,
   receipt-plan refs, proof refs, redaction posture, promotion requirements, and
-  blocked authority refs.
+  blocked authority refs, authority decision refs, blocked reason refs, and
+  unsupported adapter refs.
 - Mock fallback is visibly non-authoritative and keeps language-server launch,
   dependency install, shell execution, file access, provider calls, raw paths,
   and raw diagnostic payload persistence blocked.
@@ -41,9 +46,16 @@ These remain blocked:
 - raw local path persistence
 - raw diagnostic payload or language-server log persistence
 
-## Exact Promotion Path
+Known but unsupported adapter refs:
 
-Promotion requires all of the following before any real diagnostic lane can run:
+- `adapter-ref:lsp-server-launch:not-implemented`
+- `adapter-ref:lsp-file-read:not-implemented`
+- `adapter-ref:lsp-diagnostic-extraction:not-implemented`
+
+## Exact Authority Path
+
+Live diagnostics require all of the following before any real diagnostic lane
+can run under an active AuthorityLease:
 
 - allowlisted language server or argv-only diagnostic command
 - cwd jail and workspace scope
@@ -59,6 +71,11 @@ Promotion requires all of the following before any real diagnostic lane can run:
 - route side-effect classification
 - Control Center labels that distinguish evidence placeholder, proof-ready,
   blocked, and executable states
+
+Unknown authority remains denied. Known LSP diagnostic authority inside the
+current catalog remains denied because the language-server launch, file-read,
+diagnostic extraction, dependency install, timeout, redaction, and receipted
+evidence adapters are not implemented or tested.
 
 ## Verification
 

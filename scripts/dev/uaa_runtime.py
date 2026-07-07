@@ -2907,7 +2907,10 @@ def _inspect_worktree_per_agent(args: argparse.Namespace) -> int:
 
 
 def _inspect_lsp_diagnostics(args: argparse.Namespace) -> int:
-    read_model = build_runtime_lsp_diagnostics_read_model().model_dump(mode="json")
+    authority_state = AuthorityLeaseStore().build_state_read_model()
+    read_model = build_runtime_lsp_diagnostics_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    ).model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-lsp-diagnostics",

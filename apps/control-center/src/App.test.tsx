@@ -8013,6 +8013,14 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("uaa runtime inspect-lsp-diagnostics").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("lane-ref:runtime-lsp-diagnostics-evidence"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-policy-decision-ref:mock-runtime-lsp-diagnostics",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("Python semantic proof")).toBeInTheDocument();
     expect(screen.getByText("Docs diagnostic blocked lane")).toBeInTheDocument();
     expect(

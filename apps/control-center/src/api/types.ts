@@ -11123,6 +11123,16 @@ export interface RuntimeLspDiagnosticsReadModel {
   route_ref: string;
   cli_ref: string;
   control_center_ref: string;
+  authority_state_route_ref: string;
+  authority_state_cli_ref: string;
+  authority_state_mapping_ref: string;
+  authority_state_catalog_ref: string;
+  authority_state_decision_ref: string;
+  authority_state_decision_outcome: AuthorityDecisionOutcome;
+  authority_state_status: string;
+  authority_state_operator_message: string;
+  authority_state_reason_refs: string[];
+  unsupported_adapter_refs: string[];
   safe_summary: string;
   diagnostics: RuntimeLspDiagnosticEvidenceContract[];
   diagnostic_count: number;

@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF,
+    RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_LSP_DIAGNOSTICS_BLOCKED_AUTHORITY_REFS,
     RUNTIME_LSP_DIAGNOSTICS_CONTRACT_REF,
     RuntimeLspDiagnosticEvidenceContract,
@@ -26,6 +29,32 @@ def test_lsp_diagnostics_is_read_only_evidence_posture() -> None:
     assert read_model.status == "diagnostic_evidence_placeholder_posture"
     assert read_model.route_ref == "GET /api/runtime/lsp-diagnostics"
     assert read_model.cli_ref == "uaa runtime inspect-lsp-diagnostics"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_catalog_ref.startswith(
+        "authority-decision-catalog-ref:"
+    )
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_decision_outcome == "deny"
+    assert read_model.authority_state_status == "planned_unsupported_adapter"
+    assert "reason-ref:authority:adapter-unsupported" in (
+        read_model.authority_state_reason_refs
+    )
+    assert "adapter-ref:lsp-server-launch:not-implemented" in (
+        read_model.unsupported_adapter_refs
+    )
     assert read_model.diagnostic_count == 3
     assert read_model.evidence_placeholder_count == 1
     assert read_model.proof_ready_count == 1
@@ -141,6 +170,18 @@ def test_lsp_diagnostics_api_returns_safe_read_model() -> None:
     assert body["operation"] == "api_runtime_lsp_diagnostics"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/lsp-diagnostics"
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "deny"
+    assert data["authority_state_status"] == "planned_unsupported_adapter"
+    assert "reason-ref:authority:adapter-unsupported" in (
+        data["authority_state_reason_refs"]
+    )
+    assert "adapter-ref:lsp-server-launch:not-implemented" in (
+        data["unsupported_adapter_refs"]
+    )
     assert data["diagnostic_count"] == 3
     assert data["language_server_started"] is False
     assert data["dependency_install_enabled"] is False
@@ -182,4 +223,13 @@ def test_lsp_diagnostics_cli_uses_same_read_model() -> None:
     assert payload["provider_call_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/lsp-diagnostics"
     assert read_model["cli_ref"] == "uaa runtime inspect-lsp-diagnostics"
+    assert (
+        read_model["authority_state_mapping_ref"]
+        == RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF
+    )
+    assert read_model["authority_state_decision_outcome"] == "deny"
+    assert read_model["authority_state_status"] == "planned_unsupported_adapter"
+    assert "reason-ref:authority:adapter-unsupported" in (
+        read_model["authority_state_reason_refs"]
+    )
     assert read_model["diagnostic_count"] == 3

@@ -663,6 +663,24 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "deny"
     )
+    lsp_diagnostics = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-lsp-diagnostics-evidence"
+    )
+    assert lsp_diagnostics.domain == "workspace"
+    assert lsp_diagnostics.capability == "read"
+    assert lsp_diagnostics.required_mode == "full_local_workspace_session"
+    assert lsp_diagnostics.status == "planned_unsupported_adapter"
+    assert "GET /api/runtime/lsp-diagnostics" in lsp_diagnostics.route_refs
+    assert "adapter-ref:lsp-server-launch:not-implemented" in (
+        lsp_diagnostics.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane["lane-ref:runtime-lsp-diagnostics-evidence"]
+        .decision.outcome
+        == "deny"
+    )
     cloud_production_deploy = next(
         mapping
         for mapping in read_model.capability_mappings

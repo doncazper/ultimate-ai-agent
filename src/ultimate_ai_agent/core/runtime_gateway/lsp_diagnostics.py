@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -28,6 +32,14 @@ RUNTIME_LSP_DIAGNOSTICS_PROOF_REF = (
 RUNTIME_LSP_DIAGNOSTICS_VERIFIER_REF = (
     "verifier-ref:hermes-runtime-adoption:phase-34:lsp-diagnostics"
 )
+RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_STATE_ROUTE_REF = "GET /api/runtime/authority-state"
+RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-lsp-diagnostics-evidence"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_LSP_DIAGNOSTICS_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:lsp-diagnostics-no-language-server-launch",
@@ -129,6 +141,16 @@ class RuntimeLspDiagnosticsReadModel(BaseModel):
     route_ref: str = RUNTIME_LSP_DIAGNOSTICS_ROUTE_REF
     cli_ref: str = RUNTIME_LSP_DIAGNOSTICS_CLI_REF
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
+    authority_state_route_ref: str = RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_STATE_ROUTE_REF
+    authority_state_cli_ref: str = RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_STATE_CLI_REF
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     safe_summary: str = (
         "Semantic diagnostics posture exposes diagnostic evidence contracts "
         "only; no language server or shell command is launched."
@@ -178,6 +200,9 @@ class RuntimeLspDiagnosticsReadModel(BaseModel):
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for value, field_name in [
@@ -185,6 +210,17 @@ class RuntimeLspDiagnosticsReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
@@ -194,6 +230,8 @@ class RuntimeLspDiagnosticsReadModel(BaseModel):
             "proof_refs",
             "verifier_refs",
             "next_safe_action_refs",
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "redactions_applied",
         ):
             for value in getattr(self, field_name):
@@ -201,6 +239,13 @@ class RuntimeLspDiagnosticsReadModel(BaseModel):
                     validate_safe_execution_text(value, field_name)
                 else:
                     validate_execution_ref(value, field_name)
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_UNKNOWN")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_OUTCOME_UNKNOWN")
         if self.diagnostic_count != len(self.diagnostics):
             raise ValueError("RUNTIME_LSP_DIAGNOSTIC_COUNT_DRIFT")
         status_counts = {
@@ -268,6 +313,10 @@ def _snapshot_hash_ref(payload: dict[str, object]) -> str:
     return f"snapshot-hash-ref:runtime-lsp-diagnostics:{digest}"
 
 
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))
+
+
 def _diagnostic(
     slug: str,
     *,
@@ -291,7 +340,10 @@ def _diagnostic(
     )
 
 
-def build_runtime_lsp_diagnostics_read_model() -> RuntimeLspDiagnosticsReadModel:
+def build_runtime_lsp_diagnostics_read_model(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeLspDiagnosticsReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     diagnostics = [
         _diagnostic(
             "python-semantic-proof",
@@ -327,9 +379,23 @@ def build_runtime_lsp_diagnostics_read_model() -> RuntimeLspDiagnosticsReadModel
     payload_for_hash: dict[str, object] = {
         "diagnostics": [item.model_dump(mode="json") for item in diagnostics],
         "blocked": list(RUNTIME_LSP_DIAGNOSTICS_BLOCKED_AUTHORITY_REFS),
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
     }
     return RuntimeLspDiagnosticsReadModel(
         snapshot_hash_ref=_snapshot_hash_ref(payload_for_hash),
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         diagnostics=diagnostics,
         diagnostic_count=len(diagnostics),
         evidence_placeholder_count=sum(
@@ -368,3 +434,13 @@ def build_runtime_lsp_diagnostics_read_model() -> RuntimeLspDiagnosticsReadModel
             "next-safe-action-ref:lsp-diagnostics:keep-launch-blocked",
         ],
     )
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    entries = {entry.lane_ref: entry for entry in catalog}
+    if RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF not in entries:
+        raise ValueError("RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_CATALOG_MISSING")
+    return entries[RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF]
