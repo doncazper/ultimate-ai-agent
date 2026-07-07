@@ -160,6 +160,14 @@
       "preview_available_does_not_mean_runtime_execution": true
     }
   },
+  "authority_capability_contract": {
+    "canonical_authority_source": "authority_capabilities",
+    "legacy_lane_posture": "compatibility_audit_only",
+    "default_unknown_authority_decision": "deny",
+    "policy_decisions": ["allow", "ask", "deny", "degrade_to_draft"],
+    "lease_evaluation_required": true,
+    "operator_copy_rule": "Operator-facing authority copy must name the required trust mode, domain, capability, active AuthorityLease scope, blocked reason, and receipt/audit posture instead of claiming lane graduation."
+  },
   "modules": [
     {
       "module_id": "action_inbox",
@@ -236,6 +244,8 @@
       "graduated_lanes": [
         {
           "lane_id": "local_task_create",
+          "legacy_status": "compatibility_audit_only",
+          "canonical_authority_capability_id": "authority-capability:action-inbox:local-task-create",
           "rank": 5,
           "honest_status": "local_execution_receipt_evidence",
           "smallest_operational_action": "Commit one approved local Action Inbox item into local task state.",
@@ -304,6 +314,7 @@
           "receipts_required": true,
           "audit_required": true,
           "redaction_required": true,
+          "policy_decisions": ["allow", "ask", "deny", "degrade_to_draft"],
           "rollback_or_safe_disable_refs": [
             "rollback-not-applicable:local-task-safe-disable",
             "safe-disable:founder-loop:local-task-create-scorecard"
@@ -460,6 +471,8 @@
       "graduated_lanes": [
         {
           "lane_id": "reviewed_memory_recall_write",
+          "legacy_status": "compatibility_audit_only",
+          "canonical_authority_capability_id": "authority-capability:memory:reviewed-recall-write",
           "rank": 5,
           "honest_status": "local_execution_receipt_evidence",
           "smallest_operational_action": "Record one Memory Review accept/correct decision that creates a reviewed recall-only LocalMemoryStore record.",
@@ -511,6 +524,7 @@
           "receipts_required": true,
           "audit_required": true,
           "redaction_required": true,
+          "policy_decisions": ["allow", "ask", "deny", "degrade_to_draft"],
           "rollback_or_safe_disable_refs": [
             "rollback-ref:memory-review:suppress-reviewed-recall-record",
             "safe-disable-ref:memory-review:accept-correct-reviewed-recall-write"

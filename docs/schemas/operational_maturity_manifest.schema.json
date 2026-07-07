@@ -12,6 +12,7 @@
     "verifier_ref",
     "authority_tier_doc_ref",
     "authority_tier_model",
+    "authority_capability_contract",
     "modules"
   ],
   "properties": {
@@ -35,6 +36,9 @@
     },
     "authority_tier_model": {
       "$ref": "#/$defs/authority_tier_model"
+    },
+    "authority_capability_contract": {
+      "$ref": "#/$defs/authority_capability_contract"
     },
     "modules": {
       "type": "array",
@@ -134,11 +138,40 @@
         "guardrails": { "$ref": "#/$defs/authority_tier_guardrails" }
       }
     },
+    "authority_capability_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_authority_source",
+        "legacy_lane_posture",
+        "default_unknown_authority_decision",
+        "policy_decisions",
+        "lease_evaluation_required",
+        "operator_copy_rule"
+      ],
+      "properties": {
+        "canonical_authority_source": { "const": "authority_capabilities" },
+        "legacy_lane_posture": { "const": "compatibility_audit_only" },
+        "default_unknown_authority_decision": { "const": "deny" },
+        "policy_decisions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["allow", "ask", "deny", "degrade_to_draft"]
+          }
+        },
+        "lease_evaluation_required": { "const": true },
+        "operator_copy_rule": { "type": "string", "minLength": 1 }
+      }
+    },
     "lane": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "lane_id",
+        "legacy_status",
+        "canonical_authority_capability_id",
         "rank",
         "honest_status",
         "smallest_operational_action",
@@ -156,6 +189,11 @@
       ],
       "properties": {
         "lane_id": { "type": "string", "minLength": 1 },
+        "legacy_status": { "const": "compatibility_audit_only" },
+        "canonical_authority_capability_id": {
+          "type": "string",
+          "minLength": 1
+        },
         "rank": { "$ref": "#/$defs/rank" },
         "honest_status": { "type": "string", "minLength": 1 },
         "smallest_operational_action": { "type": "string", "minLength": 1 },
@@ -202,6 +240,7 @@
         "receipts_required",
         "audit_required",
         "redaction_required",
+        "policy_decisions",
         "rollback_or_safe_disable_refs",
         "backend_routes",
         "cli_parity_ref",
@@ -227,6 +266,14 @@
         "receipts_required": { "type": "boolean" },
         "audit_required": { "type": "boolean" },
         "redaction_required": { "type": "boolean" },
+        "policy_decisions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["allow", "ask", "deny", "degrade_to_draft"]
+          }
+        },
         "rollback_or_safe_disable_refs": {
           "type": "array",
           "items": { "type": "string" }

@@ -10,6 +10,10 @@ theatre or overclaiming operational behavior. A module may be broadly
 review-only while one exact AuthorityLease capability is implemented; the
 manifest must distinguish the module rank from any authority capability rank
 and keep legacy lane metadata as compatibility/audit context only.
+The manifest `authority_capability_contract` makes `authority_capabilities` the
+canonical authority source, keeps legacy lane records audit-only, requires
+`allow`, `ask`, `deny`, and `degrade_to_draft` policy outcomes, and keeps
+unknown authority denied unless evaluated inside an active AuthorityLease scope.
 
 ## Ladder
 

@@ -114,6 +114,9 @@ TIER_MODEL_REQUIRED_GUARDRAILS = {
     "draft_available_does_not_mean_send_available",
     "preview_available_does_not_mean_runtime_execution",
 }
+EXPECTED_POLICY_DECISIONS = {"allow", "ask", "deny", "degrade_to_draft"}
+LEGACY_LANE_STATUS = "compatibility_audit_only"
+CANONICAL_AUTHORITY_SOURCE = "authority_capabilities"
 AUTHORITY_MODE_CANON_SNIPPETS = {
     "active authority foundation canon for authoritylease v1",
     "mode/domain/lease authority",
@@ -452,6 +455,7 @@ def _append_schema_shape_failures(
     for field in [
         "authority_tier_doc_ref",
         "authority_tier_model",
+        "authority_capability_contract",
     ]:
         if field not in top_level_required:
             failures.append(f"operational maturity schema missing field {field}")
@@ -460,6 +464,7 @@ def _append_schema_shape_failures(
         "usable_authority_tier",
         "authority_tier_guardrails",
         "authority_tier_model",
+        "authority_capability_contract",
     ]:
         if def_name not in defs:
             failures.append(f"operational maturity schema missing def {def_name}")
@@ -482,6 +487,22 @@ def _append_schema_shape_failures(
     ]:
         if field not in module_required:
             failures.append(f"operational maturity schema missing module field {field}")
+    lane_required = set(schema.get("$defs", {}).get("lane", {}).get("required", []))
+    for field in [
+        "legacy_status",
+        "canonical_authority_capability_id",
+    ]:
+        if field not in lane_required:
+            failures.append(
+                f"operational maturity schema missing legacy lane field {field}"
+            )
+    capability_required = set(
+        schema.get("$defs", {}).get("authority_capability", {}).get("required", [])
+    )
+    if "policy_decisions" not in capability_required:
+        failures.append(
+            "operational maturity schema missing authority capability field policy_decisions"
+        )
     binding_required = set(
         schema.get("$defs", {}).get("ui_status_binding", {}).get("required", [])
     )
@@ -589,6 +610,7 @@ def _append_manifest_shape_failures(
         failures.append("operational maturity manifest verifier_ref drifted")
     if manifest.get("authority_tier_doc_ref") != AUTHORITY_TIER_DOC_REF:
         failures.append("operational maturity manifest authority_tier_doc_ref drifted")
+    _append_authority_capability_contract_failures(failures, manifest)
     modules = manifest.get("modules")
     if not isinstance(modules, list):
         failures.append("operational maturity manifest modules must be a list")
@@ -600,6 +622,39 @@ def _append_manifest_shape_failures(
         )
     if len(module_ids) != len(set(module_ids)):
         failures.append("operational maturity manifest contains duplicate modules")
+
+
+def _append_authority_capability_contract_failures(
+    failures: list[str],
+    manifest: dict[str, Any],
+) -> None:
+    contract = manifest.get("authority_capability_contract")
+    if not isinstance(contract, dict):
+        failures.append(
+            "operational maturity manifest requires authority_capability_contract"
+        )
+        return
+    if contract.get("canonical_authority_source") != CANONICAL_AUTHORITY_SOURCE:
+        failures.append(
+            "authority capability contract canonical_authority_source drifted"
+        )
+    if contract.get("legacy_lane_posture") != LEGACY_LANE_STATUS:
+        failures.append("authority capability contract legacy_lane_posture drifted")
+    if contract.get("default_unknown_authority_decision") != "deny":
+        failures.append(
+            "authority capability contract must deny unknown authority by default"
+        )
+    if set(contract.get("policy_decisions", [])) != EXPECTED_POLICY_DECISIONS:
+        failures.append("authority capability contract policy decisions drifted")
+    if contract.get("lease_evaluation_required") is not True:
+        failures.append("authority capability contract must require lease evaluation")
+    operator_copy_rule = str(contract.get("operator_copy_rule", ""))
+    for fragment in ["trust mode", "domain", "capability", "AuthorityLease", "receipt"]:
+        if fragment not in operator_copy_rule:
+            failures.append(
+                "authority capability contract operator_copy_rule missing "
+                f"{fragment}"
+            )
 
 
 def _append_authority_tier_model_failures(
@@ -1430,6 +1485,10 @@ def _append_memory_context_pack_manifest_failures(
                 "memory reviewed recall-write authority capability missing "
                 f"posture ref {posture_ref}"
             )
+    if set(capability.get("policy_decisions", [])) != EXPECTED_POLICY_DECISIONS:
+        failures.append(
+            "memory reviewed recall-write authority capability policy decisions drifted"
+        )
     capability_routes = set(capability.get("backend_routes", []))
     for route_ref in MEMORY_REVIEWED_RECALL_WRITE_ROUTES:
         if route_ref not in capability_routes:
@@ -1451,6 +1510,17 @@ def _append_memory_context_pack_manifest_failures(
     lane = lanes.get(MEMORY_REVIEWED_RECALL_WRITE_LANE_ID)
     if lane is None:
         return
+    if lane.get("legacy_status") != LEGACY_LANE_STATUS:
+        failures.append(
+            "memory reviewed recall-write legacy lane must be compatibility/audit only"
+        )
+    if (
+        lane.get("canonical_authority_capability_id")
+        != MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_CAPABILITY_ID
+    ):
+        failures.append(
+            "memory reviewed recall-write legacy lane canonical authority binding drifted"
+        )
     lane_routes = set(lane.get("backend_routes", []))
     for route_ref in MEMORY_REVIEWED_RECALL_WRITE_ROUTES:
         if route_ref not in lane_routes:
@@ -1575,9 +1645,22 @@ def _append_lane_failures(
 ) -> None:
     lane_id = str(lane.get("lane_id"))
     rank = int(lane.get("rank", -1))
+    if lane.get("legacy_status") != LEGACY_LANE_STATUS:
+        failures.append(
+            f"{module_id}:{lane_id} legacy lane must be compatibility/audit only"
+        )
+    if not lane.get("canonical_authority_capability_id"):
+        failures.append(
+            f"{module_id}:{lane_id} legacy lane requires canonical authority "
+            "capability binding"
+        )
     if rank < 5:
         failures.append(f"{module_id}:{lane_id} graduated lane must be rank 5+")
-    for field in ["real_local_mutation", "durable_receipt", "evidence_timeline_event"]:
+    for field in [
+        "real_local_mutation",
+        "durable_receipt",
+        "evidence_timeline_event",
+    ]:
         if lane.get(field) is not True:
             failures.append(f"{module_id}:{lane_id} rank 5 lane requires {field}")
     if not lane.get("receipt_refs"):
@@ -1587,7 +1670,9 @@ def _append_lane_failures(
     if not lane.get("cli_parity_ref"):
         failures.append(f"{module_id}:{lane_id} rank 5 lane requires cli_parity_ref")
     if not lane.get("focused_test_refs"):
-        failures.append(f"{module_id}:{lane_id} rank 5 lane requires focused_test_refs")
+        failures.append(
+            f"{module_id}:{lane_id} rank 5 lane requires focused_test_refs"
+        )
     if lane.get("rollback_or_safe_disable_required") is not True:
         failures.append(
             f"{module_id}:{lane_id} rank 5 lane requires rollback_or_safe_disable_required"
@@ -1633,6 +1718,11 @@ def _append_authority_capability_failures(
     legacy_lane_ids = {
         str(lane.get("lane_id")) for lane in module.get("graduated_lanes", [])
     }
+    legacy_lane_capability_bindings = {
+        str(lane.get("lane_id")): str(lane.get("canonical_authority_capability_id"))
+        for lane in module.get("graduated_lanes", [])
+        if lane.get("lane_id") and lane.get("canonical_authority_capability_id")
+    }
     capabilities = {
         str(capability.get("capability_id")): capability
         for capability in module.get("authority_capabilities", [])
@@ -1652,9 +1742,22 @@ def _append_authority_capability_failures(
             failures.append(
                 f"{module_id}:{capability_id} authority capability legacy lane binding drifted"
             )
+        if legacy_lane_id:
+            expected_capability_id = legacy_lane_capability_bindings.get(
+                str(legacy_lane_id)
+            )
+            if expected_capability_id and expected_capability_id != capability_id:
+                failures.append(
+                    f"{module_id}:{capability_id} authority capability legacy lane "
+                    "canonical binding drifted"
+                )
         if int(capability.get("rank", -1)) < 5:
             failures.append(
                 f"{module_id}:{capability_id} authority capability must be rank 5+"
+            )
+        if set(capability.get("policy_decisions", [])) != EXPECTED_POLICY_DECISIONS:
+            failures.append(
+                f"{module_id}:{capability_id} authority capability policy decisions drifted"
             )
         for field in [
             "active_lease_required",
@@ -1754,6 +1857,10 @@ def _append_first_lane_failures(
                 failures.append(
                     f"local_task_create authority capability missing {expected_ref}"
                 )
+        if set(capability.get("policy_decisions", [])) != EXPECTED_POLICY_DECISIONS:
+            failures.append(
+                "local_task_create authority capability policy decisions drifted"
+            )
         if LOCAL_TASK_ROUTE not in set(capability.get("backend_routes", [])):
             failures.append(
                 f"local_task_create authority capability missing {LOCAL_TASK_ROUTE}"
@@ -1761,6 +1868,17 @@ def _append_first_lane_failures(
         _append_local_task_repeatability_gate_failures(failures, capability, root)
     lane = lanes.get(LOCAL_TASK_LANE_ID)
     if lane is not None:
+        if lane.get("legacy_status") != LEGACY_LANE_STATUS:
+            failures.append(
+                "local_task_create legacy lane must be compatibility/audit only"
+            )
+        if (
+            lane.get("canonical_authority_capability_id")
+            != LOCAL_TASK_AUTHORITY_CAPABILITY_ID
+        ):
+            failures.append(
+                "local_task_create legacy lane canonical authority binding drifted"
+            )
         if lane.get("rank") != 5:
             failures.append("local_task_create legacy lane must be rank 5")
         for expected, field in [

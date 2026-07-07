@@ -14,6 +14,7 @@ from scripts.verify_operational_maturity import (
     CONTEXT_INJECTION_REQUIRED_TEST_REFS,
     CONTEXT_INJECTION_REQUIRED_VERIFIER_REFS,
     CONTEXT_PACK_PREVIEW_CLI_REF,
+    EXPECTED_POLICY_DECISIONS,
     EXPECTED_AUTHORITY_CANDIDATES,
     EXPECTED_AUTHORITY_FOUNDATIONS,
     EXPECTED_FOLLOW_ON_CANDIDATE_RANKING,
@@ -24,6 +25,7 @@ from scripts.verify_operational_maturity import (
     FIRST_IMPLEMENTATION_REQUIRED_VERIFICATION_REFS,
     EXPECTED_USABLE_AUTHORITY_TIERS,
     LADDER_LABELS,
+    LEGACY_LANE_STATUS,
     LOW_FRICTION_TIER_IDS,
     LOCAL_TASK_AUTHORITY_CAPABILITY_ID,
     LOCAL_TASK_AUTHORITY_CAPABILITY_REF,
@@ -77,12 +79,24 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
 
     assert manifest["schema_version"] == "uaa-control-center-operational-maturity.v1"
     assert manifest["authority_tier_doc_ref"] == AUTHORITY_TIER_DOC_REF
+    authority_contract = manifest["authority_capability_contract"]
+    assert authority_contract["canonical_authority_source"] == "authority_capabilities"
+    assert authority_contract["legacy_lane_posture"] == LEGACY_LANE_STATUS
+    assert authority_contract["default_unknown_authority_decision"] == "deny"
+    assert set(authority_contract["policy_decisions"]) == EXPECTED_POLICY_DECISIONS
+    assert authority_contract["lease_evaluation_required"] is True
+    assert "AuthorityLease" in authority_contract["operator_copy_rule"]
     assert schema["$defs"]["rank"]["minimum"] == 0
     assert schema["$defs"]["rank"]["maximum"] == 7
     assert "authority_tier_model" in schema["$defs"]
+    assert "authority_capability_contract" in schema["$defs"]
     assert "authority_capability" in schema["$defs"]
+    assert "authority_capability_contract" in schema["required"]
     assert "authority_capabilities" in schema["$defs"]["module"]["required"]
     assert "graduated_lanes" not in schema["$defs"]["module"]["required"]
+    assert "legacy_status" in schema["$defs"]["lane"]["required"]
+    assert "canonical_authority_capability_id" in schema["$defs"]["lane"]["required"]
+    assert "policy_decisions" in schema["$defs"]["authority_capability"]["required"]
     assert (
         "legacy_lane_id"
         not in schema["$defs"]["authority_capability"]["required"]
@@ -100,6 +114,11 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
     assert modules["action_inbox"]["current_rank"] == 3
     local_task_lane = modules["action_inbox"]["graduated_lanes"][0]
     assert local_task_lane["lane_id"] == "local_task_create"
+    assert local_task_lane["legacy_status"] == LEGACY_LANE_STATUS
+    assert (
+        local_task_lane["canonical_authority_capability_id"]
+        == LOCAL_TASK_AUTHORITY_CAPABILITY_ID
+    )
     assert local_task_lane["rank"] == 5
     assert (
         "POST /control-center/actions/{action_id}/local-task/commit"
@@ -126,6 +145,7 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
     local_task_capability = modules["action_inbox"]["authority_capabilities"][0]
     assert local_task_capability["capability_id"] == LOCAL_TASK_AUTHORITY_CAPABILITY_ID
     assert local_task_capability["legacy_lane_id"] == "local_task_create"
+    assert set(local_task_capability["policy_decisions"]) == EXPECTED_POLICY_DECISIONS
     assert (
         local_task_capability["authority_domain_ref"] == LOCAL_TASK_AUTHORITY_DOMAIN_REF
     )
@@ -180,6 +200,7 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
         == MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_LEASE_REQUIREMENT_REF
     )
     assert memory_capability["active_lease_required"] is True
+    assert set(memory_capability["policy_decisions"]) == EXPECTED_POLICY_DECISIONS
     assert "AuthorityLease" in memory_capability["operator_copy"]
     assert CONTEXT_PACK_PREVIEW_CLI_REF in modules["memory"]["cli_or_script_refs"]
     assert CONTEXT_INJECTION_REQUIRED_BLOCKED_AUTHORITIES.issubset(
@@ -292,6 +313,53 @@ def test_operational_maturity_verifier_requires_authority_capability_mapping() -
     assert any(
         "memory reviewed recall-write authority capability authority_domain_ref drifted"
         in failure
+        for failure in failures
+    )
+
+
+def test_operational_maturity_verifier_requires_authority_capability_contract() -> None:
+    manifest = _manifest_copy()
+    manifest["authority_capability_contract"][
+        "default_unknown_authority_decision"
+    ] = "ask"
+    manifest["authority_capability_contract"]["policy_decisions"] = [
+        "allow",
+        "ask",
+        "deny",
+    ]
+
+    failures = verify(manifest_override=manifest)
+
+    assert any(
+        "authority capability contract must deny unknown authority by default"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        "authority capability contract policy decisions drifted" in failure
+        for failure in failures
+    )
+
+
+def test_operational_maturity_verifier_requires_capability_policy_decisions() -> None:
+    manifest = _manifest_copy()
+    modules = {module["module_id"]: module for module in manifest["modules"]}
+    modules["action_inbox"]["authority_capabilities"][0]["policy_decisions"] = [
+        "allow",
+        "ask",
+        "deny",
+    ]
+
+    failures = verify(manifest_override=manifest)
+
+    assert any(
+        "action_inbox:authority-capability:action-inbox:local-task-create "
+        "authority capability policy decisions drifted"
+        in failure
+        for failure in failures
+    )
+    assert any(
+        "local_task_create authority capability policy decisions drifted" in failure
         for failure in failures
     )
 
