@@ -139,11 +139,12 @@ Required copy distinctions:
 - Degraded-to-draft is not execution.
 - Visibility of a mode/domain/lease is not itself authority.
 
-## Usable Authority Tiers
+## Authority Modes and Usable Tiers
 
-Use `docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md` and
+Use `docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md` as the active
+AuthorityLease mode/domain/lease canon and
 `docs/control_center/operational_maturity_manifest.json` for the current
-low-friction authority tier vocabulary:
+low-friction tier vocabulary:
 
 - Tier 0 UI/ephemeral state: presentation-only local UI state can stay in
   React/local browser state and must not imply durable operator truth.

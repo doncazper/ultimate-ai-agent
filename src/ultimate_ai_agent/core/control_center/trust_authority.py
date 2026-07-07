@@ -53,7 +53,9 @@ TRUST_AUTHORITY_MATRIX_ROUTE_REF = "GET /control-center/trust-authority/matrix"
 TRUST_AUTHORITY_MATRIX_CLI_REF = (
     "python scripts/dev/uaa_founder_loop.py inspect-trust-authority"
 )
-TRUST_AUTHORITY_MATRIX_DOC_REF = "docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"
+TRUST_AUTHORITY_MATRIX_DOC_REF = (
+    "docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md"
+)
 TRUST_AUTHORITY_ALLOWED_CLI_INSPECTION_REFS: tuple[str, ...] = (
     TRUST_AUTHORITY_MATRIX_CLI_REF,
     "python scripts/dev/uaa_founder_loop.py inspect",

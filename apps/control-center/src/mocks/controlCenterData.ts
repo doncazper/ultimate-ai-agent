@@ -5937,7 +5937,7 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
       route_refs: ["GET /control-center/trust-authority/matrix"],
       proof_refs: ["proof-ref:mock-fallback:trust-authority"],
       verifier_refs: ["tests/test_trust_authority_matrix.py"],
-      docs_refs: ["docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"],
+      docs_refs: ["docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md"],
       cli_inspection_refs: [
         "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
       ],
@@ -5982,7 +5982,7 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
       route_refs: [],
       proof_refs: ["proof-ref:mock-fallback:external-mutation-blocked"],
       verifier_refs: ["tests/test_trust_authority_matrix.py"],
-      docs_refs: ["docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"],
+      docs_refs: ["docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md"],
       cli_inspection_refs: [
         "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
       ],
@@ -6041,7 +6041,7 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
     "proof-ref:mock-fallback:external-mutation-blocked",
   ],
   verifier_refs: ["tests/test_trust_authority_matrix.py"],
-  docs_refs: ["docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"],
+  docs_refs: ["docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md"],
   cli_inspection_refs: [
     "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
   ],

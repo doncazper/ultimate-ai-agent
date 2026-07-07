@@ -51,9 +51,6 @@ AUTHORITY_SCORECARD_SCHEMA_PATH = (
 AUTHORITY_CONVEYOR_DOC_PATH = ROOT / "docs/control_center/AUTHORITY_RAMP_CONVEYOR.md"
 LADDER_DOC_PATH = ROOT / "docs/control_center/OPERATIONALIZATION_LADDER.md"
 GAP_MAP_PATH = ROOT / "docs/control_center/OPERATOR_SHELL_GAP_MAP.md"
-USABLE_AUTHORITY_PLAN_PATH = (
-    ROOT / "docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"
-)
 PRODUCT_LANGUAGE_RULES_PATH = ROOT / "docs/control_center/PRODUCT_LANGUAGE_RULES.md"
 FOUNDER_BOARD_PATH = ROOT / "docs/kanban/founder_command_center_board.md"
 CONTROL_CENTER_MOCK_DATA_PATH = (
@@ -129,7 +126,8 @@ AUTHORITY_MODE_CANON_SNIPPETS = {
     "approved safe local work",
 }
 PRODUCT_LANGUAGE_TIER_SNIPPETS = {
-    "usable authority tiers",
+    "authority modes and usable tiers",
+    "authoritylease",
     "tier 1 local read/preview",
     "tier 2 local draft/proposal",
     "draft available is not send available",

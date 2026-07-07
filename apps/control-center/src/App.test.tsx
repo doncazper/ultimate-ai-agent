@@ -16039,7 +16039,7 @@ function trustFixtureLane(
     route_refs: [],
     proof_refs: [],
     verifier_refs: ["tests/test_trust_authority_matrix.py"],
-    docs_refs: ["docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"],
+    docs_refs: ["docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md"],
     cli_inspection_refs: [
       "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
     ],
