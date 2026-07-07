@@ -32,10 +32,13 @@ session leases are recorded through `POST /api/runtime/authority-leases`,
 `POST /api/runtime/authority-leases/revoke`,
 `scripts/dev/uaa_runtime.py select-authority-mode`, and
 `scripts/dev/uaa_runtime.py revoke-authority-lease`. Control Center `/settings`
-can request and revoke implemented local lease subsets with receipts. Unsupported
-browser, app, payment, calendar, messages, email, contacts, Home Assistant,
-and production/cloud adapters remain blocked or draft-only until implemented
-and tested, but the operator-facing explanation should name the required mode
+can request and revoke implemented local lease subsets with receipts. These
+routes are the mapped `system_settings/write` authority control plane and do
+not execute adapters, bypass unknown-authority denial, or grant unsupported
+domains. Unsupported browser, app, payment, calendar, messages, email,
+contacts, Home Assistant, and production/cloud adapters remain blocked or
+draft-only until implemented and tested, but the operator-facing explanation
+should name the required mode
 and domains instead of saying "blocked until another tiny lane graduates."
 Governed Runtime command policy uses the active lease store: read-only status
 commands require `workspace/read`, and execution-capable command lanes require

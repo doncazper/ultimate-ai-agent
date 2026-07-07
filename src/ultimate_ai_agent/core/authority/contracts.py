@@ -1868,6 +1868,30 @@ class AuthorityLeaseStore:
 def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]:
     return [
         _mapping(
+            "lane-ref:authority-lease-control-plane",
+            "AuthorityLease issue and revoke",
+            AuthorityDomain.system_settings,
+            AuthorityCapability.write,
+            TrustMode.ask_before_changes,
+            "implemented_operator_selected_root_control_receipt_required",
+            [
+                "POST /api/runtime/authority-leases",
+                "POST /api/runtime/authority-leases/revoke",
+            ],
+            [
+                "scripts/dev/uaa_runtime.py select-authority-mode",
+                "scripts/dev/uaa_runtime.py revoke-authority-lease",
+            ],
+            (
+                "Operator-selected trust-mode control plane for issuing or "
+                "revoking session/mission AuthorityLease objects. It records "
+                "idempotent receipts, audit refs, redaction posture, rollback/"
+                "safe-disable refs, and kill-switch visibility; it does not "
+                "execute adapters, mint model/provider authority, bypass "
+                "unknown-authority denial, or grant unsupported domains."
+            ),
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

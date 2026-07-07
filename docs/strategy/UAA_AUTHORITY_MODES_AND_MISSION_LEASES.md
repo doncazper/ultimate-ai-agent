@@ -42,6 +42,10 @@ lease is read-only; operator-selected session leases persist safe receipts for
 implemented local domain/capability subsets; existing exact lanes are mapped
 into domains and required trust modes; RuntimeGateway decisions consume the
 active lease store for command invocation, approval, and execution policy;
+AuthorityLease issue/revoke routes are the mapped `system_settings/write`
+control plane for selecting or reducing trust mode and only record idempotent
+receipts, audit refs, redaction, rollback/safe-disable refs, and kill-switch
+visibility;
 mode defaults are mode-specific, so Approved Safe Local Work defaults to
 Workspace read/write/execute only, while Full Machine and Delegated Mission
 defaults request unsupported machine/browser/payment domains and fail closed

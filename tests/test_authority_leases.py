@@ -70,6 +70,21 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         mapping.domain == "workspace" and mapping.capability == "execute"
         for mapping in read_model.capability_mappings
     )
+    authority_control_plane = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /api/runtime/authority-leases" in mapping.route_refs
+    )
+    assert authority_control_plane.domain == "system_settings"
+    assert authority_control_plane.capability == "write"
+    assert authority_control_plane.required_mode == "ask_before_changes"
+    assert (
+        authority_control_plane.status
+        == "implemented_operator_selected_root_control_receipt_required"
+    )
+    assert "POST /api/runtime/authority-leases/revoke" in (
+        authority_control_plane.route_refs
+    )
     task_decomposition_execute = next(
         mapping
         for mapping in read_model.capability_mappings
