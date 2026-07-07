@@ -1,15 +1,19 @@
 # Exact-Approved Provider Credential Validation Lane
 
-Status: exact-approved validation lane implemented; runtime provider/model use
-remains blocked.
+Status: AuthorityLease-gated exact-approved validation lane implemented;
+runtime provider/model use remains blocked outside this exact non-invoking
+validation scope.
 
 This lane adds one isolated provider credential validation path:
 `POST /control-center/providers/credentials/validate`. It can validate one
-OpenAI-compatible provider credential only after exact `LocalApprovalAuthority`
-scope, policy scope, idempotency, revocation/safe-disable refs, and a redacted
-validation receipt ref are present. The default app posture remains blocked
-because no approval grant, enabled adapter, or injected validation transport is
-installed by default.
+OpenAI-compatible provider credential only after an active AuthorityLease grants
+`provider_model_calls/execute`, exact `LocalApprovalAuthority` scope, policy
+scope, idempotency, revocation/safe-disable refs, and a redacted validation
+receipt ref are present. The default app posture is authority-required because
+the API route only reads persisted active leases; without one it returns a
+blocked authority decision before exact approval or adapter execution. Even with
+authority, the lane remains blocked until exact approval, an enabled adapter,
+and an injected validation transport are present.
 The public request contract is safe-ref-only: it accepts `credential_ref` and
 scope refs, not raw credential material. Transient credential material can only
 enter the core through an exact-scoped internal adapter/vault handoff and is
@@ -26,6 +30,7 @@ provided by `scripts/verify_provider_credential_validation_lane.py` and
 
 - `credential_ref`
 - `provider_ref`
+- active `provider_model_calls/execute` AuthorityLease
 - exact approval scope
 - `policy_ref`
 - `idempotency_ref`
@@ -40,7 +45,9 @@ provided by `scripts/verify_provider_credential_validation_lane.py` and
 The OpenAI-compatible adapter shell has no built-in stdlib/provider SDK
 transport. A later scoped enablement must inject an approved transport inside
 the exact validation adapter boundary; otherwise the lane records
-`validation_blocked` with `PROVIDER_VALIDATION_TRANSPORT_NOT_CONFIGURED`.
+`validation_blocked` with `PROVIDER_VALIDATION_TRANSPORT_NOT_CONFIGURED`. Direct
+core and verifier paths may inject an explicit provider validation lease for
+tests; this does not create standing provider/model authority.
 
 The only returned statuses are:
 
@@ -71,4 +78,6 @@ or CLI output.
 Credential validation is not provider runtime authority. A valid credential
 receipt only says the exact validation check returned `credential_valid`; it
 does not authorize invocation, routing, fallback, spending, or provider output
-authority.
+authority. The required AuthorityLease authorizes only this exact
+non-invoking validation decision path and does not authorize provider SDK calls,
+chat/completions, billing, payload persistence, fallback, or background use.

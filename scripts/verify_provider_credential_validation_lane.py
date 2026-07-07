@@ -14,6 +14,12 @@ from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.api.rate_limits import route_rate_limit_group  # noqa: E402
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority  # noqa: E402
+from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+)
 from ultimate_ai_agent.core.hygiene.policies import (  # noqa: E402
     ClassificationValue,
     DataClassification,
@@ -87,7 +93,29 @@ def _exact_authority_for(
         approved_by_actor_id="operator:local",
         approval_ref=request.approval_ref,
     )
+    authority.issue_authority_lease(_provider_validation_authority_lease())
     return authority
+
+
+def _provider_validation_authority_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:provider-credential-validation-execute-verify",
+        mode=TrustMode.full_machine_access_session,
+        domains={
+            AuthorityDomain.provider_model_calls: [
+                AuthorityCapability.read,
+                AuthorityCapability.execute,
+            ]
+        },
+        constraints={
+            "provider_lane_ref": "provider-credential-validation-lane:exact-approved:v1",
+            "model_invocation_allowed": False,
+        },
+        safe_summary=(
+            "Verifier lease grants exact provider credential validation execution "
+            "without model invocation authority."
+        ),
+    )
 
 
 def _evaluate_with_exact_approval(
@@ -165,13 +193,28 @@ def main() -> int:
     if "PROVIDER_REF_REQUIRED" not in missing_provider.reason_codes:
         failures.append("missing provider ref did not report required ref")
 
+    no_authority_spy = _SpyValidationAdapter()
+    no_authority = evaluate_provider_credential_validation(
+        _request(),
+        adapter=no_authority_spy,
+    )
+    if no_authority.status != ProviderCredentialValidationStatus.validation_blocked:
+        failures.append("missing authority lease did not block")
+    if "AUTHORITY_LEASE_REQUIRED" not in no_authority.reason_codes:
+        failures.append("missing authority lease did not report required lease")
+    if no_authority_spy.called:
+        failures.append("adapter executed before authority validation")
+
     no_approval_spy = _SpyValidationAdapter()
+    no_approval_authority = LocalApprovalAuthority()
+    no_approval_authority.issue_authority_lease(_provider_validation_authority_lease())
     no_approval = evaluate_provider_credential_validation(
         _request(),
         adapter=no_approval_spy,
+        approval_authority=no_approval_authority,
     )
     if no_approval.status != ProviderCredentialValidationStatus.validation_blocked:
-        failures.append("missing exact approval did not block")
+        failures.append("missing exact approval did not block after authority")
     if "APPROVAL_REF_UNKNOWN" not in no_approval.reason_codes:
         failures.append("missing exact approval did not report unknown approval")
     if no_approval_spy.called:

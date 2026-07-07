@@ -1951,6 +1951,23 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:provider-credential-validation",
+            "Provider credential validation",
+            AuthorityDomain.provider_model_calls,
+            AuthorityCapability.execute,
+            TrustMode.full_machine_access_session,
+            "implemented_exact_lease_required_non_invoking_validation",
+            ["POST /control-center/providers/credentials/validate"],
+            ["scripts/inspect_provider_credential_validation_lane.py"],
+            (
+                "Requires Full machine access with provider_model_calls/execute "
+                "AuthorityLease scope plus exact approval, transient credential "
+                "handling, idempotency, redacted receipts, and safe-disable refs; "
+                "no model invocation, provider SDK authority, billing authority, "
+                "or payload persistence is granted."
+            ),
+        ),
+        _mapping(
             "lane-ref:provider-tiny-exact-approved-invocation",
             "Tiny exact-approved provider invocation",
             AuthorityDomain.provider_model_calls,

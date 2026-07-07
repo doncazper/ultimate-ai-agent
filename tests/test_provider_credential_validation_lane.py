@@ -8,6 +8,15 @@ import pytest
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.authority import (
+    AUTHORITY_STATE_DIR_ENV,
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
+    TrustMode,
+)
 from ultimate_ai_agent.core.hygiene.policies import (
     ClassificationValue,
     DataClassification,
@@ -68,7 +77,45 @@ def exact_authority_for(
         approved_by_actor_id="operator:local",
         approval_ref=request.approval_ref,
     )
+    authority.issue_authority_lease(provider_validation_authority_lease())
     return authority
+
+
+def exact_approval_only_authority_for(
+    request: ExactProviderCredentialValidationRequest,
+) -> LocalApprovalAuthority:
+    authority = LocalApprovalAuthority()
+    approval_request = build_provider_credential_validation_approval_request(request)
+    authority.create_request(approval_request)
+    authority.grant(
+        approval_request.approval_request_id,
+        approved_by_actor_id="operator:local",
+        approval_ref=request.approval_ref,
+    )
+    return authority
+
+
+def provider_validation_authority_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:provider-credential-validation-execute-test",
+        mode=TrustMode.full_machine_access_session,
+        domains={
+            AuthorityDomain.provider_model_calls: [
+                AuthorityCapability.read,
+                AuthorityCapability.execute,
+            ]
+        },
+        constraints={
+            "provider_lane_ref": (
+                "provider-credential-validation-lane:exact-approved:v1"
+            ),
+            "model_invocation_allowed": False,
+        },
+        safe_summary=(
+            "Test lease grants exact provider credential validation execution "
+            "without model invocation authority."
+        ),
+    )
 
 
 def evaluate_with_exact_approval(
@@ -168,15 +215,34 @@ def test_client_supplied_approval_grants_are_not_accepted() -> None:
         ExactProviderCredentialValidationRequest(**values)
 
 
-def test_missing_exact_approval_blocks_before_adapter_execution() -> None:
+def test_authority_lease_is_required_before_credential_validation() -> None:
     adapter = SpyProviderCredentialValidationAdapter()
     decision = evaluate_provider_credential_validation(
         validation_request(),
         adapter=adapter,
+        approval_authority=exact_approval_only_authority_for(validation_request()),
+    )
+
+    assert decision.status == ProviderCredentialValidationStatus.validation_blocked
+    assert "AUTHORITY_LEASE_REQUIRED" in decision.reason_codes
+    assert decision.authority_decision is not None
+    assert decision.authority_decision.outcome == "deny"
+    assert adapter.called is False
+    assert decision.receipt is None
+
+
+def test_missing_exact_approval_blocks_after_authority_lease() -> None:
+    adapter = SpyProviderCredentialValidationAdapter()
+    decision = evaluate_provider_credential_validation(
+        validation_request(),
+        adapter=adapter,
+        active_authority_leases=[provider_validation_authority_lease()],
     )
 
     assert decision.status == ProviderCredentialValidationStatus.validation_blocked
     assert "APPROVAL_REF_UNKNOWN" in decision.reason_codes
+    assert decision.authority_decision is not None
+    assert decision.authority_decision.outcome == "allow"
     assert adapter.called is False
     assert decision.receipt is None
 
@@ -239,6 +305,8 @@ def test_valid_and_invalid_credentials_record_redacted_receipts(tmp_path: Path) 
 
     assert valid.allowed is True
     assert valid.status == ProviderCredentialValidationStatus.credential_valid
+    assert valid.authority_decision is not None
+    assert valid.authority_decision.outcome == "allow"
     assert invalid.allowed is True
     assert invalid.status == ProviderCredentialValidationStatus.credential_invalid
     receipts = store.list_receipts()
@@ -422,7 +490,11 @@ def test_provider_credential_validation_route_rejects_missing_idempotency() -> N
     assert response.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
 
 
-def test_provider_credential_validation_route_defaults_to_approval_required() -> None:
+def test_provider_credential_validation_route_defaults_to_authority_required(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
     client = TestClient(app)
     request = validation_request()
 
@@ -437,10 +509,50 @@ def test_provider_credential_validation_route_defaults_to_approval_required() ->
     assert payload["success"] is False
     assert payload["data"]["status"] == "validation_blocked"
     assert payload["data"]["receipt"] is None
-    assert "APPROVAL_REF_UNKNOWN" in payload["data"]["reason_codes"]
+    assert "AUTHORITY_LEASE_REQUIRED" in payload["data"]["reason_codes"]
+    assert payload["data"]["authority_decision"]["outcome"] == "deny"
     evidence_refs = [item["evidence_ref"] for item in payload["evidence"]]
     assert request.validation_receipt_ref not in evidence_refs
     assert request.provider_manifest_ref in evidence_refs
+
+
+def test_provider_credential_validation_route_uses_persisted_authority_lease(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    authority_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_dir))
+    lease, receipt = AuthorityLeaseStore(authority_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.full_machine_access_session,
+            requested_domains={
+                AuthorityDomain.provider_model_calls: [AuthorityCapability.execute]
+            },
+            decision_reason_ref="reason-ref:test-provider-validation-route-authority",
+            safe_summary="Select provider validation authority for this session.",
+        ),
+        idempotency_ref="idempotency-ref:test-provider-validation-route-authority",
+    )
+    assert lease is not None
+    assert receipt.status == "issued"
+    client = TestClient(app)
+    request = validation_request(
+        validation_ref="provider-credential-validation-ref:route-authority"
+    )
+
+    response = client.post(
+        PROVIDER_CREDENTIAL_VALIDATION_ROUTE,
+        headers={"X-UAA-Idempotency-Key": request.idempotency_ref},
+        json=request.model_dump(mode="json"),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is False
+    assert payload["data"]["status"] == "validation_blocked"
+    assert "APPROVAL_REF_UNKNOWN" in payload["data"]["reason_codes"]
+    assert payload["data"]["authority_decision"]["outcome"] == "allow"
+    assert payload["data"]["authority_decision"]["lease_ref"] == lease.lease_ref
 
 
 def test_provider_credential_validation_route_rejects_conflicting_idempotency_headers() -> None:

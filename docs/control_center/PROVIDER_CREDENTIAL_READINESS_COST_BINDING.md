@@ -55,6 +55,6 @@ Vault Backend V1 adds only a local safe-ref ledger for enroll/revoke/rotation
 posture. It still must not expose secret resolution, validate provider
 credentials, call provider SDKs, invoke models, or make providers callable.
 The exact-approved provider credential validation lane is a separate,
-one-provider, redacted-receipt validation boundary and still does not make
-providers callable. The Exact-Approved Provider Invocation Promotion Plan does
-not make providers callable.
+AuthorityLease-gated one-provider redacted-receipt validation boundary and still
+does not make providers callable. The Exact-Approved Provider Invocation
+Promotion Plan does not make providers callable.

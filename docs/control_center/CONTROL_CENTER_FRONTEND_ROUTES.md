@@ -410,11 +410,13 @@ readiness, validation readiness, invocation readiness, readiness status,
 unknown paid-cost approval posture, cost estimate refs, budget decision refs,
 max-approved USD refs, future receipt refs, and CostGovernor decision/posture
 refs. The exact credential validation lane route
-`POST /control-center/providers/credentials/validate` is exact-approval,
-policy, idempotency, revocation/safe-disable, and redacted-receipt scoped for
-one provider credential check only. It does not authorize invocation, model
-calls, provider SDKs, fallback, billing, raw credential display, or provider
-payload persistence. The exact tiny lane route
+`POST /control-center/providers/credentials/validate` is active
+`provider_model_calls/execute` AuthorityLease, exact-approval, policy,
+idempotency, revocation/safe-disable, and redacted-receipt scoped for one
+provider credential check only. Missing active lease must show an
+authority-required blocker before approval or adapter execution. It does not
+authorize invocation, model calls, provider SDKs, fallback, billing, raw
+credential display, or provider payload persistence. The exact tiny lane route
 `POST /control-center/providers/exact-approved-lanes/tiny` is disabled by
 default; the API route blocks without exact approval, and the Python core
 evaluator reaches approved-no-execution only when exact approval and cost gates
@@ -431,7 +433,8 @@ The future gates are separate:
   defines adapter storage backend, consent, policy, approval, revocation,
   audit, redaction, and rollback behavior.
 - Broad Provider Credential Validation remains blocked outside the
-  exact-approved one-provider lane with redacted validation receipts.
+  AuthorityLease-gated exact-approved one-provider lane with redacted validation
+  receipts.
 - Tiny Exact-Approved Provider Lane remains disabled by default until a scoped
   adapter enablement milestone defines provider SDK/network authority. The
   current route requires exact approval, CostGovernor posture, idempotency,

@@ -101,6 +101,15 @@ core/CLI test paths must inject the explicit provider execution lease before
 exact approval is meaningful. This does not grant broad provider routing,
 autonomous/background model calls, billing authority, provider SDK authority, or
 payload persistence, and the default adapter remains disabled/no-execution.
+The exact-approved provider credential validation lane follows the same
+mode/domain foundation for a narrower non-invoking scope: it requires active
+`provider_model_calls/execute` AuthorityLease scope before PolicyEngine,
+LocalApprovalAuthority, adapter, transport, idempotency, and redacted receipt
+gates are evaluated. Missing lease scope produces an authority-required blocked
+decision that names Full machine access plus the provider_model_calls domain and
+execute capability. The validation lease does not authorize chat/completions,
+provider SDK authority, billing authority, fallback routing, provider payload
+persistence, or background/autonomous provider use.
 Provider/model transport outside the two named exact tiny adapter scopes remains
 blocked by authority policy unless a later supported provider/model execution
 lease is implemented and tested. Existing local loopback model requests may

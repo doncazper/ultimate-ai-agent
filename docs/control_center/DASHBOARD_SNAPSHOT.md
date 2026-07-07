@@ -56,12 +56,13 @@ The readiness gates are intentionally separate:
   exact refs, approval, idempotency, audit, rollback, safe-disable, and an
   approved vault backend. The current dashboard records
   `CREDENTIAL_ENROLLMENT_NOT_SCOPED` and collects no credential material.
-- Provider Credential Validation v1: exact-approved one-provider validation
-  lane requiring provider manifest refs, provider auth references, consent,
-  policy, approval, idempotency, revocation/safe-disable refs, transient secret
-  material, and redacted validation receipts. The default app posture records
-  validation-blocked / approval-required states and broad provider validation
-  remains out of scope.
+- Provider Credential Validation v1: AuthorityLease-gated exact-approved
+  one-provider validation lane requiring active `provider_model_calls/execute`,
+  provider manifest refs, provider auth references, consent, policy, approval,
+  idempotency, revocation/safe-disable refs, transient secret material, and
+  redacted validation receipts. The default app posture records
+  authority-required / validation-blocked / approval-required states and broad
+  provider validation remains out of scope.
 - Governed Provider Invocation v1: future invocation contract requiring
   PolicyEngine, LocalApprovalAuthority or successor approval, provider
   allowlists, redacted request/response summaries, receipt/audit refs,

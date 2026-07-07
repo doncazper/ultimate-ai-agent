@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import uuid
 from enum import Enum
@@ -14,6 +15,17 @@ from ultimate_ai_agent.core.approvals.enums import (
     ApprovalSubjectType,
 )
 from ultimate_ai_agent.core.approvals.requests import ApprovalRequest
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityCapability,
+    AuthorityDecisionOutcome,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityPolicyDecision,
+    TrustMode,
+    build_default_authority_leases,
+    evaluate_authority_request,
+)
 from ultimate_ai_agent.core.capabilities.enums import (
     CapabilityKind,
     CoordinationMode,
@@ -530,6 +542,7 @@ class ProviderCredentialValidationDecision(_ProviderCredentialValidationModel):
     reason_codes: list[str] = Field(default_factory=list)
     safe_message: str = Field(..., min_length=1)
     required_next_action: str | None = None
+    authority_decision: AuthorityPolicyDecision | None = None
     receipt: ProviderCredentialValidationReceipt | None = None
 
     @model_validator(mode="after")
@@ -545,6 +558,11 @@ class ProviderCredentialValidationDecision(_ProviderCredentialValidationModel):
             raise ValueError("PROVIDER_CREDENTIAL_VALIDATION_DECISION_ALLOWED_BLOCKED")
         if self.allowed and self.receipt is None:
             raise ValueError("PROVIDER_CREDENTIAL_VALIDATION_DECISION_RECEIPT_REQUIRED")
+        if self.allowed and (
+            self.authority_decision is None
+            or self.authority_decision.outcome != AuthorityDecisionOutcome.allow.value
+        ):
+            raise ValueError("PROVIDER_CREDENTIAL_VALIDATION_DECISION_AUTHORITY_REQUIRED")
         return self
 
 
@@ -741,6 +759,44 @@ def build_provider_credential_validation_approval_request(
     )
 
 
+def build_provider_credential_validation_authority_request(
+    request: ProviderCredentialValidationRequest,
+) -> AuthorityActionRequest:
+    action_digest = hashlib.sha256(request.validation_ref.encode("utf-8")).hexdigest()[
+        :24
+    ]
+    scope_ref = f"authority-resource-ref:provider-credential-validation:{action_digest}"
+    return AuthorityActionRequest(
+        action_ref=f"authority-action-ref:provider-credential-validation:{action_digest}",
+        domain=AuthorityDomain.provider_model_calls,
+        capability=AuthorityCapability.execute,
+        safe_summary=(
+            "Evaluate the exact-approved provider credential validation lane "
+            "using safe refs, transient credential handling, and redacted receipts."
+        ),
+        resource_refs=[
+            request.provider_ref,
+            request.policy_ref,
+            PROVIDER_CREDENTIAL_VALIDATION_ENDPOINT_REF,
+            scope_ref,
+        ],
+        route_ref=f"POST {PROVIDER_CREDENTIAL_VALIDATION_ROUTE}",
+        lane_ref="provider-credential-validation-lane:exact-approved:v1",
+        adapter_ref="provider-validation-adapter-ref:openai-compatible:models-index",
+        requested_mode=TrustMode.full_machine_access_session,
+        constraints={
+            "provider_ref": request.provider_ref,
+            "policy_ref": request.policy_ref,
+            "provider_credential_validation_scope_ref": scope_ref,
+            "model_invocation_allowed": False,
+            "provider_payload_persistence_allowed": False,
+        },
+        draft_fallback_available=False,
+        rollback_ref=request.safe_disable_ref,
+        safe_disable_ref=request.safe_disable_ref,
+    )
+
+
 def build_provider_credential_validation_policy_manifest() -> CapabilityManifest:
     return CapabilityManifest(
         id=PROVIDER_CREDENTIAL_VALIDATION_CAPABILITY_ID,
@@ -848,6 +904,7 @@ def evaluate_provider_credential_validation(
     adapter: ProviderCredentialValidationAdapter | None = None,
     policy_engine: PolicyEngine | None = None,
     approval_authority: LocalApprovalAuthority | None = None,
+    active_authority_leases: list[AuthorityLease] | None = None,
     receipt_store: ProviderCredentialValidationReceiptStore | None = None,
     credential_secret: SecretStr | str | None = None,
 ) -> ProviderCredentialValidationDecision:
@@ -899,6 +956,41 @@ def evaluate_provider_credential_validation(
             required_next_action="fix_provider_validation_policy_scope_before_validation",
         )
 
+    authority_request = build_provider_credential_validation_authority_request(request)
+    authority_leases = active_authority_leases
+    if authority_leases is None:
+        authority_leases = approval_authority.list_authority_leases(active_only=True)
+    authority_decision = evaluate_authority_request(
+        authority_request,
+        authority_leases or build_default_authority_leases(),
+    )
+    if authority_decision.outcome != AuthorityDecisionOutcome.allow.value:
+        return _blocked_decision(
+            request,
+            reason_codes=list(
+                dict.fromkeys(
+                    [
+                        "AUTHORITY_LEASE_REQUIRED",
+                        *[
+                            ref.removeprefix("reason-ref:authority:")
+                            .replace("-", "_")
+                            .upper()
+                            for ref in authority_decision.reason_refs
+                        ],
+                    ]
+                )
+            ),
+            safe_message=(
+                "Requires Full machine access for this session plus the "
+                "provider_model_calls domain and execute capability before "
+                "provider credential validation can proceed."
+            ),
+            required_next_action=(
+                "select_full_machine_access_with_provider_model_calls_execute_scope"
+            ),
+            authority_decision=authority_decision,
+        )
+
     approval_request = build_provider_credential_validation_approval_request(request)
     approval_decision = approval_authority.validate_for_request(
         approval_request,
@@ -915,6 +1007,7 @@ def evaluate_provider_credential_validation(
             reason_codes=list(approval_decision.reason_codes),
             safe_message="Exact LocalApprovalAuthority scope is required before provider credential validation.",
             required_next_action=required_next_action,
+            authority_decision=authority_decision,
         )
 
     if not adapter.enabled:
@@ -926,6 +1019,7 @@ def evaluate_provider_credential_validation(
             ],
             safe_message="Exact approval validated, but provider credential validation adapter is disabled by default.",
             required_next_action="keep_validation_adapter_disabled_until_scoped_enablement",
+            authority_decision=authority_decision,
         )
 
     if credential_secret is None:
@@ -937,6 +1031,7 @@ def evaluate_provider_credential_validation(
             ],
             safe_message="Provider credential validation requires transient credential material that is never persisted.",
             required_next_action="provide_transient_credential_material_inside_the_exact_validation_adapter_scope",
+            authority_decision=authority_decision,
         )
 
     adapter_request = ProviderCredentialValidationAdapterRequest(
@@ -970,6 +1065,7 @@ def evaluate_provider_credential_validation(
             reason_codes=list(dict.fromkeys(reason_codes)),
             safe_message="Provider credential validation transport could not produce a valid or invalid credential result.",
             required_next_action="review_validation_transport_status_before_retry",
+            authority_decision=authority_decision,
             receipt=receipt,
         )
 
@@ -979,6 +1075,7 @@ def evaluate_provider_credential_validation(
         status=transport_receipt.status,
         reason_codes=list(receipt.reason_codes),
         safe_message="Provider credential validation produced a redacted receipt.",
+        authority_decision=authority_decision,
         receipt=receipt,
     )
 
@@ -1065,6 +1162,7 @@ def _blocked_decision(
     reason_codes: list[str],
     safe_message: str,
     required_next_action: str,
+    authority_decision: AuthorityPolicyDecision | None = None,
 ) -> ProviderCredentialValidationDecision:
     return ProviderCredentialValidationDecision(
         decision_ref=f"provider-credential-validation-decision:{_suffix(request.validation_ref)}",
@@ -1073,6 +1171,7 @@ def _blocked_decision(
         reason_codes=list(dict.fromkeys(reason_codes)),
         safe_message=safe_message,
         required_next_action=required_next_action,
+        authority_decision=authority_decision,
         receipt=None,
     )
 

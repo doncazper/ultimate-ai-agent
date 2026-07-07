@@ -194,7 +194,10 @@ def post_control_center_providers_credentials_validate(
                 "raw_credential_omitted",
             ],
         )
-    decision = evaluate_provider_credential_validation(request)
+    decision = evaluate_provider_credential_validation(
+        request,
+        active_authority_leases=AuthorityLeaseStore().list_leases(active_only=True),
+    )
     evidence = [
         {"evidence_ref": request.provider_manifest_ref},
         {"evidence_ref": request.provider_allowlist_ref},

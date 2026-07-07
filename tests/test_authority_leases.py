@@ -136,6 +136,22 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         provider_invocation.status
         == "implemented_exact_lease_required_provider_cost_governed"
     )
+    provider_credential_validation = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /control-center/providers/credentials/validate"
+        in mapping.route_refs
+    )
+    assert provider_credential_validation.domain == "provider_model_calls"
+    assert provider_credential_validation.capability == "execute"
+    assert (
+        provider_credential_validation.required_mode
+        == "full_machine_access_session"
+    )
+    assert (
+        provider_credential_validation.status
+        == "implemented_exact_lease_required_non_invoking_validation"
+    )
     assert {decision.outcome for decision in read_model.sample_decisions} >= {
         "allow",
         "deny",
