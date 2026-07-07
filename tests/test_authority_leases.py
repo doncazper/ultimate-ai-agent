@@ -224,6 +224,29 @@ def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
     )
 
 
+def test_delegated_mission_mode_requires_mission_scope() -> None:
+    with pytest.raises(
+        ValueError,
+        match="AUTHORITY_DELEGATED_MISSION_REQUIRES_MISSION_SCOPE",
+    ):
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.delegated_mission_autonomous_window,
+            decision_reason_ref="reason-ref:test-delegated-session-denied",
+            safe_summary="Invalid delegated mission session lease.",
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="AUTHORITY_DELEGATED_MISSION_REQUIRES_MISSION_SCOPE",
+    ):
+        AuthorityLease(
+            lease_ref="authority-lease-ref:test-delegated-session-denied",
+            mode=TrustMode.delegated_mission_autonomous_window,
+            domains={AuthorityDomain.workspace: [AuthorityCapability.execute]},
+            safe_summary="Invalid delegated mission session lease.",
+        )
+
+
 def test_authority_evaluator_ask_and_allow_modes() -> None:
     ask_lease = AuthorityLease(
         lease_ref="authority-lease-ref:test-ask-workspace",

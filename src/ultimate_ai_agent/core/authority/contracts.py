@@ -194,6 +194,11 @@ class AuthorityLease(_AuthorityModel):
                 )
         if self.scope == AuthorityLeaseScope.mission.value and not self.mission_ref:
             raise ValueError("AUTHORITY_LEASE_MISSION_REF_REQUIRED")
+        if (
+            self.mode == TrustMode.delegated_mission_autonomous_window.value
+            and self.scope != AuthorityLeaseScope.mission.value
+        ):
+            raise ValueError("AUTHORITY_DELEGATED_MISSION_REQUIRES_MISSION_SCOPE")
         required = {
             "receipts_required": self.receipts_required,
             "audit_required": self.audit_required,
@@ -577,6 +582,11 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
         validate_safe_task_payload(self.constraints, "authority_lease_issue_constraints")
         if self.scope == AuthorityLeaseScope.mission.value and not self.mission_ref:
             raise ValueError("AUTHORITY_LEASE_MISSION_REF_REQUIRED")
+        if (
+            self.mode == TrustMode.delegated_mission_autonomous_window.value
+            and self.scope != AuthorityLeaseScope.mission.value
+        ):
+            raise ValueError("AUTHORITY_DELEGATED_MISSION_REQUIRES_MISSION_SCOPE")
         for domain, capabilities in self.requested_domains.items():
             validate_safe_task_text(_enum_value(domain), "authority_issue_domain")
             for capability in capabilities:

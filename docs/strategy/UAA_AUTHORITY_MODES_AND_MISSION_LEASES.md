@@ -47,6 +47,8 @@ Workspace read/write/execute only, while Full Machine and Delegated Mission
 defaults request unsupported machine/browser/payment domains and fail closed
 until exact adapters are implemented or the operator explicitly requests an
 implemented local domain subset;
+Delegated Mission authority must be mission-scoped and bound to a safe
+`mission_ref`, not issued as a standing session lease;
 mission-bound RuntimeGateway requests carry a safe `mission_ref` through
 `RuntimeInvocationRequest`, payload fingerprinting, policy decisions, redacted
 storage, and receipt surfaces; mission-scoped leases grant only actions carrying
