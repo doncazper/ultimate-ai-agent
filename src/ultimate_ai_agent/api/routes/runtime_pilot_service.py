@@ -48,7 +48,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_governed_product_pilot_authority_profile,
     build_runtime_interface_mode_read_model,
     build_runtime_approval_bridge_read_model,
-    build_runtime_capability_discovery_read_model,
+    build_runtime_capability_discovery_read_model_from_authority_catalog,
     build_runtime_context_budget_pressure_read_model,
     build_runtime_delegation_adapter_read_model,
     build_runtime_doctor_diagnostics_read_model,
@@ -316,7 +316,10 @@ def post_api_runtime_hermes_chat(
 
 @router.get("/capability-discovery", response_model=ResultEnvelope)
 def get_api_runtime_capability_discovery() -> ResultEnvelope:
-    read_model = build_runtime_capability_discovery_read_model()
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_runtime_capability_discovery_read_model_from_authority_catalog(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_capability_discovery",

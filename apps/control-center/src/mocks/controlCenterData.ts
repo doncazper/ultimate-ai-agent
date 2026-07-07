@@ -14622,6 +14622,31 @@ export const mockControlCenterData: ControlCenterData = {
     route_ref: "GET /api/runtime/capability-discovery",
     cli_ref: "uaa runtime inspect-capability-discovery",
     control_center_ref: "control-center-route:runtime",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-capability-discovery-read-model",
+    authority_state_catalog_ref:
+      "authority-catalog-ref:runtime-capability-discovery-read-model",
+    authority_state_decision_ref:
+      "authority-decision-ref:runtime-capability-discovery-read-model:allow",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Read-only mode allows runtime capability discovery posture inspection; tool invocation and high-authority runtime adapters remain unavailable.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:runtime-live-capability-discovery:not-implemented",
+      "adapter-ref:runtime-tool-invocation:not-implemented",
+      "adapter-ref:runtime-toolset-config-mutation:not-implemented",
+      "adapter-ref:runtime-browser-automation:not-implemented",
+      "adapter-ref:runtime-connector-write:not-implemented",
+      "adapter-ref:runtime-plugin-import:not-implemented",
+      "adapter-ref:runtime-production-authority:not-implemented",
+    ],
     freshness_policy_ref:
       "freshness-policy-ref:runtime-capability-discovery:live-snapshot-required",
     policy_evaluation_ref:

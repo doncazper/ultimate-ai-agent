@@ -7,6 +7,10 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_MAPPING_REF,
+    RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_ROUTE_REF,
+    RUNTIME_CAPABILITY_DISCOVERY_ROUTE_REF,
     RuntimeCapabilityDiscoveryReadModel,
     RuntimeCapabilityGroupKind,
     RuntimeToolsetCapabilityPosture,
@@ -31,6 +35,28 @@ def test_runtime_capability_discovery_is_static_readiness_only() -> None:
     assert read_model.control_center_talks_directly_to_runtime is False
     assert read_model.uaa_authorized_capability_count == 0
     assert read_model.runtime_supported_capability_count == 8
+    assert read_model.route_ref == RUNTIME_CAPABILITY_DISCOVERY_ROUTE_REF
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_status == "implemented_authority_bound_read_model"
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        read_model.authority_state_reason_refs
+    )
+    assert (
+        "adapter-ref:runtime-tool-invocation:not-implemented"
+        in read_model.unsupported_adapter_refs
+    )
     assert read_model.safe_refs_only is True
     assert read_model.raw_provider_payload_persisted is False
     assert read_model.raw_runtime_payload_persisted is False
@@ -153,6 +179,12 @@ def test_api_runtime_capability_discovery_route_returns_safe_refs() -> None:
     assert body["success"] is True
     data = body["data"]
     assert data["schema_version"] == "runtime_capability_discovery.v1"
+    assert data["route_ref"] == RUNTIME_CAPABILITY_DISCOVERY_ROUTE_REF
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["runtime_reachable"] is False
     assert data["live_discovery_performed"] is False
     assert data["uaa_authorized_capability_count"] == 0
@@ -185,6 +217,11 @@ def test_cli_runtime_capability_discovery_uses_same_read_model() -> None:
     assert payload["runtime_permission_granted"] is False
     assert read_model["route_ref"] == "GET /api/runtime/capability-discovery"
     assert read_model["cli_ref"] == "uaa runtime inspect-capability-discovery"
+    assert (
+        read_model["authority_state_mapping_ref"]
+        == RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_MAPPING_REF
+    )
+    assert read_model["authority_state_decision_outcome"] == "allow"
     assert read_model["uaa_authorized_capability_count"] == 0
     assert read_model["toolset_posture"]["toolset_count"] == 8
     assert read_model["toolset_posture"]["uaa_allowed_execution_count"] == 0

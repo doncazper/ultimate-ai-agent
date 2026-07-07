@@ -358,6 +358,22 @@ export function RuntimeReadinessPanel({
             <dd>{capabilityDiscovery.cli_ref}</dd>
           </div>
           <div>
+            <dt>Authority state</dt>
+            <dd>{capabilityDiscovery.authority_state_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Authority mapping</dt>
+            <dd>{capabilityDiscovery.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision</dt>
+            <dd>{capabilityDiscovery.authority_state_decision_outcome}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{capabilityDiscovery.authority_state_decision_ref}</dd>
+          </div>
+          <div>
             <dt>Live discovery</dt>
             <dd>
               {capabilityDiscovery.live_discovery_performed
@@ -392,6 +408,30 @@ export function RuntimeReadinessPanel({
             </tbody>
           </table>
         </div>
+        <dl className="detail-grid">
+          <div>
+            <dt>Unsupported adapters</dt>
+            <dd>
+              <ul className="compact-list">
+                {capabilityDiscovery.unsupported_adapter_refs
+                  .slice(0, 4)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Authority reason</dt>
+            <dd>
+              <ul className="compact-list">
+                {capabilityDiscovery.authority_state_reason_refs.map((ref) => (
+                  <li key={ref}>{ref}</li>
+                ))}
+              </ul>
+            </dd>
+          </div>
+        </dl>
         <div className="panel-heading compact-heading subsection-heading">
           <div>
             <p className="eyebrow">Toolset posture</p>

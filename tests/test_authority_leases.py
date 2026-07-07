@@ -717,6 +717,27 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert messages_send.domain == "messages"
     assert messages_send.capability == "send"
     assert messages_send.status == "planned_unsupported_adapter"
+    capability_discovery = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-capability-discovery-read-model"
+    )
+    assert capability_discovery.domain == "workspace"
+    assert capability_discovery.capability == "read"
+    assert capability_discovery.required_mode == "read_only"
+    assert capability_discovery.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/capability-discovery" in (
+        capability_discovery.route_refs
+    )
+    assert "adapter-ref:runtime-tool-invocation:not-implemented" in (
+        capability_discovery.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane[
+            "lane-ref:runtime-capability-discovery-read-model"
+        ].decision.outcome
+        == "allow"
+    )
     browser_action = next(
         mapping
         for mapping in read_model.capability_mappings

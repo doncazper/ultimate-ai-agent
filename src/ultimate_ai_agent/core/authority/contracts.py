@@ -2836,6 +2836,33 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-capability-discovery-read-model",
+            "Runtime capability discovery read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/capability-discovery"],
+            ["repo-local-command:uaa-runtime-inspect-capability-discovery"],
+            (
+                "Runtime capability discovery reads static runtime capability, "
+                "toolset, blocked-authority, proof, and next-safe-action refs "
+                "under Workspace read authority. It does not enable live "
+                "discovery, tool invocation, config mutation, browser or "
+                "connector work, provider calls, plugin import, raw runtime "
+                "payload persistence, or production authority."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:runtime-live-capability-discovery:not-implemented",
+                "adapter-ref:runtime-tool-invocation:not-implemented",
+                "adapter-ref:runtime-toolset-config-mutation:not-implemented",
+                "adapter-ref:runtime-browser-automation:not-implemented",
+                "adapter-ref:runtime-connector-write:not-implemented",
+                "adapter-ref:runtime-plugin-import:not-implemented",
+                "adapter-ref:runtime-production-authority:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

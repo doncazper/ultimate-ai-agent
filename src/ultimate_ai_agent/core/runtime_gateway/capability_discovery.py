@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -27,6 +31,16 @@ RUNTIME_CAPABILITY_DISCOVERY_CLI_REF = "uaa runtime inspect-capability-discovery
 RUNTIME_CAPABILITY_DISCOVERY_SNAPSHOT_REF = (
     "capability-snapshot-ref:runtime-discovery:hermes-agent:static-readiness"
 )
+RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-capability-discovery-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 
 class RuntimeCapabilityGroupKind(str, Enum):
@@ -321,6 +335,16 @@ class RuntimeCapabilityDiscoveryReadModel(BaseModel):
     route_ref: str = RUNTIME_CAPABILITY_DISCOVERY_ROUTE_REF
     cli_ref: str = RUNTIME_CAPABILITY_DISCOVERY_CLI_REF
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     freshness_policy_ref: str = (
         "freshness-policy-ref:runtime-capability-discovery:live-snapshot-required"
     )
@@ -364,11 +388,16 @@ class RuntimeCapabilityDiscoveryReadModel(BaseModel):
             (self.runtime_identity_ref, "runtime_identity_ref"),
             (self.adapter_ref, "adapter_ref"),
             (self.control_center_ref, "control_center_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
             (self.freshness_policy_ref, "freshness_policy_ref"),
             (self.policy_evaluation_ref, "policy_evaluation_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "proof_refs",
             "next_safe_action_refs",
@@ -382,6 +411,17 @@ class RuntimeCapabilityDiscoveryReadModel(BaseModel):
             (self.freshness_status, "freshness_status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(str(value), field_name)
@@ -402,6 +442,17 @@ class RuntimeCapabilityDiscoveryReadModel(BaseModel):
         if self.control_center_talks_directly_to_runtime:
             raise ValueError(
                 "RUNTIME_CAPABILITY_DISCOVERY_CONTROL_CENTER_DIRECT_DENIED"
+            )
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError(
+                "RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_MAPPING_MISMATCH"
+            )
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError(
+                "RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_DECISION_INVALID"
             )
         if not self.safe_refs_only:
             raise ValueError("RUNTIME_CAPABILITY_DISCOVERY_SAFE_REFS_REQUIRED")
@@ -715,10 +766,15 @@ def _build_runtime_toolset_capability_posture() -> RuntimeToolsetCapabilityPostu
 def _snapshot_hash_ref(
     groups: list[RuntimeDiscoveredCapabilityGroup],
     toolset_posture: RuntimeToolsetCapabilityPosture,
+    authority_entry: AuthorityDecisionCatalogEntry,
 ) -> str:
     payload = {
         "contract_ref": RUNTIME_CAPABILITY_DISCOVERY_CONTRACT_REF,
         "snapshot_ref": RUNTIME_CAPABILITY_DISCOVERY_SNAPSHOT_REF,
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
         "groups": [group.model_dump(mode="json") for group in groups],
         "toolset_posture": toolset_posture.model_dump(mode="json"),
     }
@@ -729,6 +785,16 @@ def _snapshot_hash_ref(
 def build_runtime_capability_discovery_read_model() -> (
     RuntimeCapabilityDiscoveryReadModel
 ):
+    authority_entry = _authority_entry(authority_decision_catalog=None)
+    return build_runtime_capability_discovery_read_model_from_authority_catalog(
+        authority_decision_catalog=[authority_entry]
+    )
+
+
+def build_runtime_capability_discovery_read_model_from_authority_catalog(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeCapabilityDiscoveryReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     toolset_posture = _build_runtime_toolset_capability_posture()
     groups = [
         _capability_group(
@@ -890,9 +956,21 @@ def build_runtime_capability_discovery_read_model() -> (
         ),
     ]
     return RuntimeCapabilityDiscoveryReadModel(
-        snapshot_hash_ref=_snapshot_hash_ref(groups, toolset_posture),
+        snapshot_hash_ref=_snapshot_hash_ref(groups, toolset_posture, authority_entry),
         capability_groups=groups,
         toolset_posture=toolset_posture,
+        authority_state_route_ref=RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_ROUTE_REF,
+        authority_state_cli_ref=RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_CLI_REF,
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         runtime_supported_capability_count=sum(
             1 for group in groups if group.runtime_supported_by_reference
         ),
@@ -915,3 +993,17 @@ def build_runtime_capability_discovery_read_model() -> (
             "next-safe-action-ref:runtime-capability-discovery:evaluate-policy-before-controls",
         ],
     )
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    for entry in catalog:
+        if entry.lane_ref == RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_MAPPING_MISSING")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))

@@ -57,7 +57,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_governed_product_pilot_authority_profile,
     build_runtime_interface_mode_read_model,
     build_runtime_approval_bridge_read_model,
-    build_runtime_capability_discovery_read_model,
+    build_runtime_capability_discovery_read_model_from_authority_catalog,
     build_runtime_context_budget_pressure_read_model,
     build_runtime_delegation_adapter_read_model,
     build_runtime_doctor_diagnostics_read_model,
@@ -459,6 +459,13 @@ def _print_capability_discovery(read_model: dict[str, Any]) -> None:
     print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
     print(f"Route: {read_model['route_ref']}")
     print(f"CLI: {read_model['cli_ref']}")
+    print(f"Authority state: {read_model['authority_state_route_ref']}")
+    print(f"Authority mapping: {read_model['authority_state_mapping_ref']}")
+    print(
+        "Authority decision: "
+        f"{read_model['authority_state_decision_outcome']} "
+        f"({read_model['authority_state_decision_ref']})"
+    )
     print(f"Runtime reachable: {read_model['runtime_reachable']}")
     print(f"Live discovery performed: {read_model['live_discovery_performed']}")
     print(f"Freshness: {read_model['freshness_status']}")
@@ -2573,7 +2580,10 @@ def _hermes_chat(args: argparse.Namespace) -> int:
 
 
 def _inspect_capability_discovery(args: argparse.Namespace) -> int:
-    read_model = build_runtime_capability_discovery_read_model().model_dump(mode="json")
+    authority_state = AuthorityLeaseStore().build_state_read_model()
+    read_model = build_runtime_capability_discovery_read_model_from_authority_catalog(
+        authority_decision_catalog=authority_state.decision_catalog,
+    ).model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-capability-discovery",

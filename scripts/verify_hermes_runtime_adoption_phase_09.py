@@ -17,6 +17,10 @@ os.environ.setdefault("UAA_API_LOCAL_AUTH_DISABLED_FOR_DEV_ONLY", "1")
 
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_MAPPING_REF,
+    RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_ROUTE_REF,
+    RUNTIME_CAPABILITY_DISCOVERY_ROUTE_REF,
     build_runtime_capability_discovery_read_model,
 )
 
@@ -122,9 +126,45 @@ def _assert_toolset_posture(payload: dict[str, Any]) -> None:
         _fail("toolset invocation blocker missing")
 
 
+def _assert_authority_state(payload: dict[str, Any]) -> None:
+    if payload.get("route_ref") != RUNTIME_CAPABILITY_DISCOVERY_ROUTE_REF:
+        _fail("capability discovery route ref drifted")
+    if (
+        payload.get("authority_state_route_ref")
+        != RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_ROUTE_REF
+    ):
+        _fail("capability discovery AuthorityState route ref drifted")
+    if (
+        payload.get("authority_state_cli_ref")
+        != RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_CLI_REF
+    ):
+        _fail("capability discovery AuthorityState CLI ref drifted")
+    if (
+        payload.get("authority_state_mapping_ref")
+        != RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_MAPPING_REF
+    ):
+        _fail("capability discovery AuthorityState mapping drifted")
+    if payload.get("authority_state_decision_outcome") != "allow":
+        _fail("capability discovery AuthorityState decision must allow read")
+    if (
+        payload.get("authority_state_status")
+        != "implemented_authority_bound_read_model"
+    ):
+        _fail("capability discovery AuthorityState status drifted")
+    if "reason-ref:authority:active-lease-grants-domain-capability" not in (
+        payload.get("authority_state_reason_refs") or []
+    ):
+        _fail("capability discovery AuthorityState reason missing")
+    if "adapter-ref:runtime-tool-invocation:not-implemented" not in (
+        payload.get("unsupported_adapter_refs") or []
+    ):
+        _fail("capability discovery unsupported adapter refs missing")
+
+
 def main() -> None:
     read_model = build_runtime_capability_discovery_read_model()
     core_payload = read_model.model_dump(mode="json")
+    _assert_authority_state(core_payload)
     _assert_toolset_posture(core_payload)
     _assert_no_toolset_authority(core_payload)
 
@@ -136,6 +176,7 @@ def main() -> None:
     api_payload = body.get("data")
     if not isinstance(api_payload, dict):
         _fail("capability discovery route did not return data")
+    _assert_authority_state(api_payload)
     _assert_toolset_posture(api_payload)
     _assert_no_toolset_authority(api_payload)
 
@@ -154,6 +195,7 @@ def main() -> None:
     read_model_payload = cli_payload.get("runtime_capability_discovery")
     if not isinstance(read_model_payload, dict):
         _fail("CLI did not return runtime capability discovery data")
+    _assert_authority_state(read_model_payload)
     _assert_toolset_posture(read_model_payload)
     _assert_no_toolset_authority(read_model_payload)
     print("Hermes Runtime Adoption Phase 09 toolset posture verification passed.")

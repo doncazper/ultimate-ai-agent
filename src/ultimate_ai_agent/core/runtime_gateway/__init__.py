@@ -72,6 +72,9 @@ from ultimate_ai_agent.core.runtime_gateway.interface_mode import (
     verify_hermes_interface_mode_contract,
 )
 from ultimate_ai_agent.core.runtime_gateway.capability_discovery import (
+    RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_MAPPING_REF,
+    RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_CAPABILITY_DISCOVERY_CLI_REF,
     RUNTIME_CAPABILITY_DISCOVERY_CONTRACT_REF,
     RUNTIME_CAPABILITY_DISCOVERY_ROUTE_REF,
@@ -87,6 +90,7 @@ from ultimate_ai_agent.core.runtime_gateway.capability_discovery import (
     RuntimeToolsetSupportStatus,
     RuntimeToolsetUaaAllowanceStatus,
     build_runtime_capability_discovery_read_model,
+    build_runtime_capability_discovery_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.run_events import (
     RUNTIME_RUN_EVENTS_CLI_REF,
@@ -669,6 +673,9 @@ __all__ = [
     "RUNTIME_INTERFACE_MODE_CLI_REF",
     "RUNTIME_INTERFACE_MODE_CONTRACT_REF",
     "RUNTIME_INTERFACE_MODE_ROUTE_REF",
+    "RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_MAPPING_REF",
+    "RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_CAPABILITY_DISCOVERY_AUTHORITY_STATE_ROUTE_REF",
     "RUNTIME_CAPABILITY_DISCOVERY_CLI_REF",
     "RUNTIME_CAPABILITY_DISCOVERY_CONTRACT_REF",
     "RUNTIME_CAPABILITY_DISCOVERY_ROUTE_REF",
@@ -1016,6 +1023,7 @@ __all__ = [
     "build_hermes_runtime_delegation_read_model",
     "build_runtime_interface_mode_read_model",
     "build_runtime_capability_discovery_read_model",
+    "build_runtime_capability_discovery_read_model_from_authority_catalog",
     "build_runtime_approval_bridge_read_model",
     "build_runtime_streaming_progress_read_model",
     "build_runtime_profile_isolation_read_model",

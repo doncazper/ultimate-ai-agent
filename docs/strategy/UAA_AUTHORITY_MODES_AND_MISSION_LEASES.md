@@ -105,7 +105,12 @@ surfaces are:
   signal/review/adaptation inspection while external code execution, direct
   marketplace install, runtime import, automatic skill writes, provider calls,
   browser automation, connector writes, raw marketplace material persistence,
-  and Control Center authority minting remain blocked.
+  and Control Center authority minting remain blocked. Runtime capability
+  discovery and toolset posture expose the Read-only `workspace/read`
+  capability-discovery decision while live runtime discovery, tool invocation,
+  toolset configuration mutation, Hermes toolset enablement, browser
+  automation, connector writes, provider calls, plugin runtime import, raw
+  runtime/tool payload persistence, and production authority remain blocked.
   These API/CLI surfaces remain safe-ref inspection only unless exact active
   leases, implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and

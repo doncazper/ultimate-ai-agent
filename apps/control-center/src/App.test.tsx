@@ -7781,6 +7781,17 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("uaa runtime inspect-capability-discovery"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("lane-ref:runtime-capability-discovery-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-decision-ref:runtime-capability-discovery-read-model:allow",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("adapter-ref:runtime-tool-invocation:not-implemented"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Toolset posture")).toBeInTheDocument();
     expect(screen.getByText("Runtime support vs UAA allowance")).toBeInTheDocument();
     expect(screen.getByText("Coding workspace tools")).toBeInTheDocument();
