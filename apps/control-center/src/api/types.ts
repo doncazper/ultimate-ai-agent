@@ -11797,6 +11797,7 @@ export interface AuthorityPolicyDecision {
   outcome: AuthorityDecisionOutcome;
   domain: AuthorityDomain;
   capability: string;
+  capability_ref?: string | null;
   lease_ref: string | null;
   matched_mode: AuthorityTrustMode | null;
   required_mode: AuthorityTrustMode | null;
@@ -11825,6 +11826,7 @@ export interface AuthorityActionRequest {
   safe_summary: string;
   resource_refs?: string[];
   route_ref?: string | null;
+  capability_ref?: string | null;
   lane_ref?: string | null;
   adapter_ref?: string | null;
   requested_mode?: AuthorityTrustMode | null;

@@ -311,6 +311,7 @@ class AuthorityActionRequest(_AuthorityModel):
     safe_summary: str = Field(..., min_length=1, max_length=520)
     resource_refs: list[str] = Field(default_factory=list)
     route_ref: str | None = None
+    capability_ref: str | None = None
     lane_ref: str | None = None
     adapter_ref: str | None = None
     requested_mode: TrustMode | None = None
@@ -328,6 +329,7 @@ class AuthorityActionRequest(_AuthorityModel):
     def validate_request(self) -> "AuthorityActionRequest":
         for value, field_name in [
             (self.action_ref, "authority_action_ref"),
+            (self.capability_ref, "authority_capability_ref"),
             (self.lane_ref, "authority_lane_ref"),
             (self.adapter_ref, "authority_adapter_ref"),
             (self.rollback_ref, "authority_rollback_ref"),
@@ -356,6 +358,7 @@ class AuthorityPolicyDecision(_AuthorityModel):
     outcome: AuthorityDecisionOutcome
     domain: AuthorityDomain
     capability: AuthorityCapability
+    capability_ref: str | None = None
     lease_ref: str | None = None
     matched_mode: TrustMode | None = None
     required_mode: TrustMode | None = None
@@ -383,6 +386,7 @@ class AuthorityPolicyDecision(_AuthorityModel):
         for value, field_name in [
             (self.decision_ref, "authority_decision_ref"),
             (self.action_ref, "authority_action_ref"),
+            (self.capability_ref, "authority_capability_ref"),
             (self.lease_ref, "authority_lease_ref"),
             (self.rollback_ref, "authority_rollback_ref"),
             (self.safe_disable_ref, "authority_safe_disable_ref"),
@@ -1145,6 +1149,7 @@ def _decision(
         outcome=outcome,
         domain=request.domain,
         capability=request.capability,
+        capability_ref=request.capability_ref,
         lease_ref=lease_ref,
         matched_mode=matched_mode,
         required_mode=request.requested_mode,
@@ -2886,6 +2891,9 @@ def _authority_decision_catalog_entry(
             capability=AuthorityCapability(mapping.capability),
             safe_summary=f"Evaluate AuthorityLease decision posture for {mapping.label}.",
             route_ref=mapping.route_refs[0] if mapping.route_refs else None,
+            capability_ref=(
+                f"authority-capability-ref:{_safe_mapping_suffix(mapping.lane_ref)}"
+            ),
             lane_ref=mapping.lane_ref,
             requested_mode=TrustMode(mapping.required_mode),
             draft_fallback_available=_mapping_supports_draft_fallback(mapping),

@@ -2212,6 +2212,7 @@ def _preview_authority_decision(args: argparse.Namespace) -> int:
         safe_summary=args.summary,
         resource_refs=args.resource_ref or [],
         route_ref=args.route_ref,
+        capability_ref=args.capability_ref,
         lane_ref=args.lane_ref,
         adapter_ref=args.adapter_ref,
         requested_mode=TrustMode(args.requested_mode) if args.requested_mode else None,
@@ -3956,7 +3957,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     authority_preview.add_argument("--resource-ref", action="append", help="Safe resource ref.")
     authority_preview.add_argument("--route-ref", default=None, help="Route ref.")
-    authority_preview.add_argument("--lane-ref", default=None, help="Lane ref.")
+    authority_preview.add_argument(
+        "--capability-ref",
+        default=None,
+        help="Authority capability ref for the previewed action.",
+    )
+    authority_preview.add_argument(
+        "--lane-ref",
+        default=None,
+        help="Legacy lane ref compatibility alias; prefer --capability-ref.",
+    )
     authority_preview.add_argument("--adapter-ref", default=None, help="Adapter ref.")
     authority_preview.add_argument(
         "--requested-mode",

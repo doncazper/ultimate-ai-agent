@@ -909,6 +909,7 @@ def test_authority_decision_preview_api_and_cli_are_read_only(
             "action_ref": "authority-action-ref:test-preview-workspace-execute-denied",
             "domain": "workspace",
             "capability": "execute",
+            "capability_ref": "authority-capability-ref:test-preview-workspace-execute",
             "safe_summary": "Preview workspace execution authority without running anything.",
             "route_ref": "POST /api/runtime/command/run",
             "requested_mode": "approved_safe_local_work_session",
@@ -931,6 +932,10 @@ def test_authority_decision_preview_api_and_cli_are_read_only(
     assert denied_preview["decision"]["required_capability_refs"] == [
         "authority-capability-ref:execute"
     ]
+    assert (
+        denied_preview["decision"]["capability_ref"]
+        == "authority-capability-ref:test-preview-workspace-execute"
+    )
 
     preview_issue_idempotency_ref = "idempotency-ref:authority-preview-issue"
     preview_issue_request = AuthorityLeaseIssueRequest(
@@ -986,6 +991,8 @@ def test_authority_decision_preview_api_and_cli_are_read_only(
             "browser",
             "--capability",
             "click",
+            "--capability-ref",
+            "authority-capability-ref:test-preview-cli-browser-click",
             "--summary",
             "Preview browser click authority without running browser automation.",
             "--requested-mode",
@@ -998,6 +1005,7 @@ def test_authority_decision_preview_api_and_cli_are_read_only(
     assert cli_exit == 0
     cli_payload = capsys.readouterr().out
     assert "uaa-runtime-preview-authority-decision" in cli_payload
+    assert "authority-capability-ref:test-preview-cli-browser-click" in cli_payload
     assert "adapter-unsupported" in cli_payload
     assert "execution_performed" in cli_payload
 
