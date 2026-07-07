@@ -1860,6 +1860,29 @@ def _authority_profile(args: argparse.Namespace) -> int:
     return 0
 
 
+def _authority_domain_summary(domains: dict[str, list[str]]) -> str:
+    if not domains:
+        return "none"
+    parts = []
+    for domain, capabilities in sorted(domains.items()):
+        capability_text = ", ".join(str(capability) for capability in capabilities)
+        parts.append(f"{domain}: {capability_text or 'none'}")
+    return "; ".join(parts)
+
+
+def _authority_constraint_summary(constraints: dict[str, Any]) -> str:
+    if not constraints:
+        return "none"
+    return ", ".join(
+        f"{key}={json.dumps(value, sort_keys=True)}"
+        for key, value in sorted(constraints.items())
+    )
+
+
+def _authority_ref_summary(refs: list[str]) -> str:
+    return ", ".join(refs) if refs else "none"
+
+
 def _inspect_authority_state(args: argparse.Namespace) -> int:
     read_model = AuthorityLeaseStore().build_state_read_model().model_dump(mode="json")
     if args.json:
@@ -1871,7 +1894,50 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
         print(f"API: {read_model['api_ref']}")
         print(f"Summary: {read_model['operator_summary']}")
         print(f"Active leases: {len(read_model['active_leases'])}")
+        for lease in read_model["active_leases"]:
+            print(
+                f"- {lease['lease_ref']} mode={lease['mode']} "
+                f"scope={lease['scope']} status={lease['status']}"
+            )
+            print(f"  domains: {_authority_domain_summary(lease['domains'])}")
+            print(
+                f"  constraints: "
+                f"{_authority_constraint_summary(lease['constraints'])}"
+            )
+            print(
+                f"  safe-disable={lease['safe_disable_ref']} "
+                f"rollback={lease['rollback_ref']} "
+                f"kill-switch={lease['kill_switch_ref']}"
+            )
+            print(
+                "  unsupported adapters: "
+                f"{_authority_ref_summary(lease['unsupported_adapter_refs'])}"
+            )
         print(f"Capability mappings: {len(read_model['capability_mappings'])}")
+        print("Sample decisions:")
+        for decision in read_model["sample_decisions"]:
+            requirement = _authority_decision_requirement_dict(decision)
+            print(
+                f"- {decision['outcome']} {decision['domain']}/"
+                f"{decision['capability']}: {requirement}"
+            )
+            print(f"  lease: {decision['lease_ref'] or 'none'}")
+            print(f"  reasons: {_authority_ref_summary(decision['reason_refs'])}")
+            print(f"  message: {decision['operator_message']}")
+        print("Recent receipts:")
+        for receipt in read_model["recent_receipts"]:
+            print(
+                f"- {receipt['status']} {receipt['receipt_ref']} "
+                f"mode={receipt['mode']} scope={receipt['scope']}"
+            )
+            print(f"  granted: {_authority_domain_summary(receipt['granted_domains'])}")
+            print(f"  denied: {_authority_ref_summary(receipt['denied_domain_refs'])}")
+            print(
+                "  unsupported adapters: "
+                f"{_authority_ref_summary(receipt['unsupported_adapter_refs'])}"
+            )
+        print(f"Unknown authority default: {read_model['unknown_authority_default']}")
+        print(f"Kill switch visible: {read_model['kill_switch_visible']}")
     return 0
 
 
@@ -1919,6 +1985,23 @@ def _authority_decision_requirement(decision: Any) -> str:
         list(decision.required_capability_refs),
         "authority-capability-ref",
     ) or _authority_value_label(decision.capability)
+    return f"Requires {mode} + {domain} domain + {capability} capability."
+
+
+def _authority_decision_requirement_dict(decision: dict[str, Any]) -> str:
+    mode = (
+        _authority_value_label(decision["required_mode"])
+        if decision.get("required_mode")
+        else "active lease"
+    )
+    domain = _authority_ref_labels(
+        list(decision.get("required_domain_refs") or []),
+        "authority-domain-ref",
+    ) or _authority_value_label(decision["domain"])
+    capability = _authority_ref_labels(
+        list(decision.get("required_capability_refs") or []),
+        "authority-capability-ref",
+    ) or _authority_value_label(decision["capability"])
     return f"Requires {mode} + {domain} domain + {capability} capability."
 
 

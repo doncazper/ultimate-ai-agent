@@ -1021,6 +1021,22 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     assert state_data["active_leases"][0]["lease_ref"] == lease["lease_ref"]
     assert state_data["recent_receipts"][0]["receipt_ref"] == receipt["receipt_ref"]
 
+    cli_state = uaa_runtime.main(["inspect-authority-state"])
+    assert cli_state == 0
+    cli_state_text = capsys.readouterr().out
+    assert "Authority modes and mission leases" in cli_state_text
+    assert "Active leases: 1" in cli_state_text
+    assert lease["lease_ref"] in cli_state_text
+    assert "domains: workspace: read, write, execute" in cli_state_text
+    assert "constraints:" in cli_state_text
+    assert "Recent receipts:" in cli_state_text
+    assert receipt["receipt_ref"] in cli_state_text
+    assert "denied: authority-domain-ref:contacts" in cli_state_text
+    assert "unsupported adapters: adapter-ref:contacts" in cli_state_text
+    assert "Sample decisions:" in cli_state_text
+    assert "Unknown authority default: deny" in cli_state_text
+    assert "Kill switch visible: True" in cli_state_text
+
     cli_issue = uaa_runtime.main(
         [
             "select-authority-mode",
