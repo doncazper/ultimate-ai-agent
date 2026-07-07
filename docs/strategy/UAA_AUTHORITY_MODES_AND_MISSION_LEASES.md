@@ -155,8 +155,12 @@ File preview and tree preview require active `files/read` authority before
 safe-root metadata is inspected. File write proposal and diff preview require
 active `files/prepare` authority before proposal refs are reviewed. File Review
 approval capture requires active `files/write` authority before the review-only
-safe-ref record is persisted. Raw file access, context injection, memory
-writes, export, execution, patch apply, and rollback execution remain
+safe-ref record is persisted. AuthorityState distinguishes unsupported adapters
+that block the current capability from adjacent blocked adapters: safe file
+metadata/proposal and source-readiness metadata rows can evaluate as known
+lease-gated capabilities while still showing raw-file, patch-apply, live-fetch,
+and live-write adapter refs as unsupported. Raw file access, context injection,
+memory writes, export, execution, patch apply, and rollback execution remain
 unsupported until separately implemented and tested.
 Task Decomposition local plan execution now requires an active
 `workspace/execute` AuthorityLease with an `allow` decision before registered

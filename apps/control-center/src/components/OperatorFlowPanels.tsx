@@ -2763,6 +2763,16 @@ function AuthorityDecisionCatalogCard({
           <dt>Adapter</dt>
           <dd>{decision.unsupported_adapter ? "unsupported" : "available"}</dd>
         </div>
+        <div>
+          <dt>Unsupported refs</dt>
+          <dd>
+            {entry.unsupported_adapter_refs.length === 0
+              ? "none"
+              : decision.unsupported_adapter
+                ? "block capability"
+                : "related blockers"}
+          </dd>
+        </div>
       </dl>
       <div className="note-list" aria-label={`${entry.catalog_ref} refs`}>
         <span>{entry.catalog_ref}</span>

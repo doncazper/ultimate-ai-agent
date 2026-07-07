@@ -670,6 +670,7 @@ class AuthorityCapabilityMapping(_AuthorityModel):
     cli_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     unsupported_adapter_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_blocks_capability: bool = False
     operator_copy: str = Field(..., min_length=1, max_length=360)
 
     @model_validator(mode="after")
@@ -687,6 +688,16 @@ class AuthorityCapabilityMapping(_AuthorityModel):
             self.required_mode,
         ]:
             validate_safe_task_text(_enum_value(value), "authority_mapping_text")
+        if (
+            self.unsupported_adapter_blocks_capability
+            and not self.unsupported_adapter_refs
+        ):
+            raise ValueError("AUTHORITY_MAPPING_BLOCKING_UNSUPPORTED_REFS_REQUIRED")
+        if (
+            self.status.startswith("planned_unsupported")
+            and not self.unsupported_adapter_refs
+        ):
+            raise ValueError("AUTHORITY_MAPPING_PLANNED_UNSUPPORTED_REFS_REQUIRED")
         return self
 
 
@@ -3309,8 +3320,9 @@ def _authority_decision_catalog_entry(
     *,
     kill_switch_engaged: bool = False,
 ) -> AuthorityDecisionCatalogEntry:
-    unsupported_adapter = bool(mapping.unsupported_adapter_refs) or mapping.status.startswith(
-        "planned_unsupported"
+    unsupported_adapter = (
+        mapping.unsupported_adapter_blocks_capability
+        or mapping.status.startswith("planned_unsupported")
     )
     decision = evaluate_authority_request(
         AuthorityActionRequest(
@@ -3361,7 +3373,7 @@ def _safe_mapping_suffix(lane_ref: str) -> str:
 
 
 def _mapping_supports_draft_fallback(mapping: AuthorityCapabilityMapping) -> bool:
-    if mapping.unsupported_adapter_refs:
+    if mapping.unsupported_adapter_blocks_capability:
         return False
     capability = AuthorityCapability(mapping.capability)
     if capability in READ_PREPARE_CAPABILITIES:
@@ -3381,6 +3393,7 @@ def _mapping(
     operator_copy: str,
     *,
     unsupported_adapter_refs: list[str] | None = None,
+    unsupported_adapter_blocks_capability: bool = False,
 ) -> AuthorityCapabilityMapping:
     return AuthorityCapabilityMapping(
         lane_ref=lane_ref,
@@ -3393,5 +3406,9 @@ def _mapping(
         cli_refs=cli_refs,
         evidence_refs=[f"evidence-ref:authority-mapping:{lane_ref.split(':')[-1]}"],
         unsupported_adapter_refs=unsupported_adapter_refs or [],
+        unsupported_adapter_blocks_capability=(
+            unsupported_adapter_blocks_capability
+            or status.startswith("planned_unsupported")
+        ),
         operator_copy=operator_copy,
     )

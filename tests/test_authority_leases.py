@@ -231,6 +231,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert shell_adapter.capability == "execute"
     assert shell_adapter.required_mode == "full_machine_access_session"
     assert shell_adapter.status == "planned_unsupported_adapter"
+    assert shell_adapter.unsupported_adapter_blocks_capability is True
     assert "adapter-ref:shell-arbitrary-command:not-implemented" in (
         shell_adapter.unsupported_adapter_refs
     )
@@ -334,6 +335,15 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert file_safe_preview.domain == "files"
     assert file_safe_preview.capability == "read"
     assert file_safe_preview.required_mode == "read_only"
+    assert file_safe_preview.unsupported_adapter_blocks_capability is False
+    assert (
+        catalog_by_lane["lane-ref:file-safe-preview"].decision.outcome
+        == "degrade_to_draft"
+    )
+    assert (
+        catalog_by_lane["lane-ref:file-safe-preview"].decision.unsupported_adapter
+        is False
+    )
     file_write_proposal = next(
         mapping
         for mapping in read_model.capability_mappings
@@ -342,6 +352,21 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert file_write_proposal.domain == "files"
     assert file_write_proposal.capability == "prepare"
     assert file_write_proposal.status == "implemented_exact_lease_required_proposal_only"
+    assert file_write_proposal.unsupported_adapter_blocks_capability is False
+    assert (
+        catalog_by_lane["lane-ref:file-write-proposal-diff-preview"].decision.outcome
+        == "degrade_to_draft"
+    )
+    email_metadata = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:source-readiness-email-calendar"
+    )
+    assert email_metadata.unsupported_adapter_blocks_capability is False
+    assert (
+        catalog_by_lane["lane-ref:source-readiness-email-calendar"].decision.outcome
+        == "allow"
+    )
     provider_invocation = next(
         mapping
         for mapping in read_model.capability_mappings

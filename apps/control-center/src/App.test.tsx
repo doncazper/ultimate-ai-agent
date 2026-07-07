@@ -11391,7 +11391,7 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText(/Degraded/i).length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Authority decision summary")).toBeInTheDocument();
     expect(
-      screen.getByText(/Mock authority summary covers two fallback capabilities/i),
+      screen.getByText(/Mock authority summary covers three fallback capabilities/i),
     ).toBeInTheDocument();
     const modeReadiness = screen.getByLabelText("Authority mode readiness");
     expect(modeReadiness).toBeInTheDocument();
@@ -11415,9 +11415,14 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("status", {
+        name: /Authority catalog Mock file safe preview degrade_to_draft/i,
+      }),
+    ).toHaveTextContent("related blockers");
+    expect(
+      screen.getByRole("status", {
         name: /Authority catalog Mock browser click deny/i,
       }),
-    ).toBeInTheDocument();
+    ).toHaveTextContent("block capability");
     expect(
       screen.getByText("authority-decision-catalog-ref:mock-workspace-read"),
     ).toBeInTheDocument();

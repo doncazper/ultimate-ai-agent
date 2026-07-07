@@ -12087,6 +12087,7 @@ export interface AuthorityCapabilityMapping {
   cli_refs: string[];
   evidence_refs: string[];
   unsupported_adapter_refs: string[];
+  unsupported_adapter_blocks_capability: boolean;
   operator_copy: string;
 }
 
