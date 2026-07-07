@@ -28,6 +28,7 @@ import type {
   RuntimeSlashCommandRegistryReadModel,
   RuntimeUsageCostAnalyticsReadModel,
   RuntimeVirtualProviderMoaReadModel,
+  RuntimeVoiceMediaPostureReadModel,
   RuntimeWorktreePerAgentReadModel,
 } from "../api/types";
 import { EmptyState } from "./DataState";
@@ -64,6 +65,7 @@ export function RuntimeReadinessPanel({
   interruptRedirect,
   loggingProfile,
   resultClassification,
+  voiceMediaPosture,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -95,6 +97,7 @@ export function RuntimeReadinessPanel({
   interruptRedirect: RuntimeInterruptRedirectReadModel;
   loggingProfile: RuntimeLoggingProfileReadModel;
   resultClassification: RuntimeResultClassificationReadModel;
+  voiceMediaPosture: RuntimeVoiceMediaPostureReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -2095,6 +2098,122 @@ export function RuntimeReadinessPanel({
         <h4>Authority reason</h4>
         <ul className="compact-list">
           {resultClassification.authority_state_reason_refs.map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Voice and media</p>
+            <h3>Posture inspection</h3>
+          </div>
+          <span className="status-pill compact">
+            {voiceMediaPosture.status}
+          </span>
+        </div>
+        <p>{voiceMediaPosture.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{voiceMediaPosture.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{voiceMediaPosture.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Authority</dt>
+            <dd>{voiceMediaPosture.authority_state_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{voiceMediaPosture.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision</dt>
+            <dd>{voiceMediaPosture.authority_state_decision_outcome}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{voiceMediaPosture.authority_state_decision_ref}</dd>
+          </div>
+          <div>
+            <dt>Lanes</dt>
+            <dd>{voiceMediaPosture.lane_count}</dd>
+          </div>
+          <div>
+            <dt>Blocked lanes</dt>
+            <dd>{voiceMediaPosture.blocked_lane_count}</dd>
+          </div>
+          <div>
+            <dt>Microphone</dt>
+            <dd>
+              {voiceMediaPosture.microphone_access_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Generation</dt>
+            <dd>
+              {voiceMediaPosture.media_generation_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Provider</dt>
+            <dd>
+              {voiceMediaPosture.provider_calls_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Media material</dt>
+            <dd>{voiceMediaPosture.raw_media_persisted ? "stored" : "omitted"}</dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Lane</th>
+                <th>Status</th>
+                <th>Consent</th>
+                <th>Receipt</th>
+                <th>Safe disable</th>
+              </tr>
+            </thead>
+            <tbody>
+              {voiceMediaPosture.lanes.map((lane) => (
+                <tr key={lane.lane_ref}>
+                  <td>{lane.display_label}</td>
+                  <td>{lane.status}</td>
+                  <td>{lane.consent_ref}</td>
+                  <td>{lane.receipt_plan_ref}</td>
+                  <td>{lane.safe_disable_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h4>Unsupported adapters</h4>
+        <ul className="compact-list">
+          {voiceMediaPosture.unsupported_adapter_refs.slice(0, 6).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {voiceMediaPosture.blocked_authority_refs.slice(0, 6).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+        <h4>Authority reason</h4>
+        <ul className="compact-list">
+          {voiceMediaPosture.authority_state_reason_refs.map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>

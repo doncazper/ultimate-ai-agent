@@ -60,6 +60,7 @@ import type {
   RuntimeInterruptRedirectReadModel,
   RuntimeLoggingProfileReadModel,
   RuntimeResultClassificationReadModel,
+  RuntimeVoiceMediaPostureReadModel,
   RuntimeSessionContinuityReadModel,
   RuntimeToolsetCapabilityPosture,
   RuntimeToolRegistryAvailabilityReadModel,
@@ -462,6 +463,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeResultClassification,
     ),
   ] as const);
+  const runtimeVoiceMediaPostureSettledPromise = Promise.allSettled([
+    read<RuntimeVoiceMediaPostureReadModel>(
+      API_ENDPOINTS.runtimeVoiceMediaPosture,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -611,6 +617,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeLoggingProfileResult = await runtimeLoggingProfileSettledPromise;
   const runtimeResultClassificationResult =
     await runtimeResultClassificationSettledPromise;
+  const runtimeVoiceMediaPostureResult =
+    await runtimeVoiceMediaPostureSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -680,6 +688,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   const runtimeLoggingProfile = fulfilledValue(runtimeLoggingProfileResult[0]);
   const runtimeResultClassification = fulfilledValue(
     runtimeResultClassificationResult[0],
+  );
+  const runtimeVoiceMediaPosture = fulfilledValue(
+    runtimeVoiceMediaPostureResult[0],
   );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
@@ -864,6 +875,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeResultClassification,
   )
     ? runtimeResultClassification
+    : undefined;
+  const safeRuntimeVoiceMediaPosture = isSafeRuntimeVoiceMediaPosture(
+    runtimeVoiceMediaPosture,
+  )
+    ? runtimeVoiceMediaPosture
     : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
@@ -1055,6 +1071,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeLoggingProfile === undefined;
   const runtimeResultClassificationFallbackUsed =
     safeRuntimeResultClassification === undefined;
+  const runtimeVoiceMediaPostureFallbackUsed =
+    safeRuntimeVoiceMediaPosture === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -1247,7 +1265,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeSlashCommandRegistry !== undefined &&
         runtimeInterruptRedirect !== undefined &&
         runtimeLoggingProfile !== undefined &&
-        runtimeResultClassification !== undefined,
+        runtimeResultClassification !== undefined &&
+        runtimeVoiceMediaPosture !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -1333,6 +1352,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeResultClassificationFallbackUsed
           ? ["RUNTIME_RESULT_CLASSIFICATION_MOCK_FALLBACK"]
           : []),
+        ...(runtimeVoiceMediaPostureFallbackUsed
+          ? ["RUNTIME_VOICE_MEDIA_POSTURE_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1364,7 +1386,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeSlashCommandRegistryFallbackUsed ||
         runtimeInterruptRedirectFallbackUsed ||
         runtimeLoggingProfileFallbackUsed ||
-        runtimeResultClassificationFallbackUsed,
+        runtimeResultClassificationFallbackUsed ||
+        runtimeVoiceMediaPostureFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1480,6 +1503,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeInterruptRedirect === undefined ||
     runtimeLoggingProfile === undefined ||
     runtimeResultClassification === undefined ||
+    runtimeVoiceMediaPosture === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1529,8 +1553,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeSlashCommandRegistryResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeInterruptRedirectResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeLoggingProfileResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeResultClassificationResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 29;
+    (runtimeResultClassificationResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeVoiceMediaPostureResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 30;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1663,6 +1688,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeResultClassification:
       safeRuntimeResultClassification ??
       mockControlCenterData.runtimeResultClassification,
+    runtimeVoiceMediaPosture:
+      safeRuntimeVoiceMediaPosture ??
+      mockControlCenterData.runtimeVoiceMediaPosture,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1766,6 +1794,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeInterruptRedirectFallbackUsed &&
     !runtimeLoggingProfileFallbackUsed &&
     !runtimeResultClassificationFallbackUsed &&
+    !runtimeVoiceMediaPostureFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1818,6 +1847,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeInterruptRedirectFallbackUsed ||
     runtimeLoggingProfileFallbackUsed ||
     runtimeResultClassificationFallbackUsed ||
+    runtimeVoiceMediaPostureFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1921,6 +1951,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeResultClassificationFallbackUsed) {
     degradedSafeMessage =
       "Runtime result classification posture was unavailable or unsafe; non-authoritative mock fallback kept tool output from becoming truth or action authority.";
+  } else if (runtimeVoiceMediaPostureFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime voice/media posture was unavailable or unsafe; non-authoritative mock fallback kept microphone, camera, upload, generation, provider, and delivery authority blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -6265,6 +6298,97 @@ function isSafeRuntimeResultClassification(
         item.raw_output_persisted === false &&
         item.provider_payload_persisted === false &&
         item.control_center_mints_authority === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeVoiceMediaPosture(
+  value: RuntimeVoiceMediaPostureReadModel | undefined,
+): value is RuntimeVoiceMediaPostureReadModel {
+  if (value === undefined || !Array.isArray(value.lanes)) {
+    return false;
+  }
+  const allowedLaneKinds = new Set([
+    "voice_input",
+    "speech_to_text",
+    "text_to_speech",
+    "image_input",
+    "image_generation",
+    "media_upload",
+    "media_delivery",
+  ]);
+  const deniedTopLevelFlags: Array<keyof RuntimeVoiceMediaPostureReadModel> = [
+    "microphone_access_enabled",
+    "camera_access_enabled",
+    "file_upload_enabled",
+    "transcription_enabled",
+    "media_generation_enabled",
+    "provider_calls_enabled",
+    "external_delivery_enabled",
+    "raw_media_persisted",
+    "control_center_mints_authority",
+  ];
+  return (
+    value.schema_version === "runtime_voice_media_posture.v1" &&
+    value.status === "read_model_posture_only" &&
+    value.route_ref === "GET /api/runtime/voice-media-posture" &&
+    value.cli_ref === "uaa runtime inspect-voice-media-posture" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-voice-media-posture-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    hasExactStringValue(
+      value.authority_state_decision_outcome,
+      TRUST_AUTHORITY_DECISION_OUTCOMES,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    typeof value.authority_state_operator_message === "string" &&
+    Array.isArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    Array.isArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
+    value.lane_count === value.lanes.length &&
+    value.blocked_lane_count ===
+      value.lanes.filter((lane) => lane.status === "blocked_until_authority")
+        .length &&
+    value.local_only_option_required === true &&
+    value.provider_boundary_required === true &&
+    value.consent_required === true &&
+    value.receipt_required === true &&
+    value.safe_disable_required === true &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:voice-media-no-microphone-access",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.lanes.every(
+      (lane) =>
+        allowedLaneKinds.has(lane.lane_kind) &&
+        lane.status === "blocked_until_authority" &&
+        isNonEmptyStringArray(lane.blocked_authority_refs) &&
+        isNonEmptyStringArray(lane.promotion_path_refs) &&
+        isNonEmptyStringArray(lane.next_safe_action_refs) &&
+        lane.local_only_option_required === true &&
+        lane.provider_boundary_required === true &&
+        lane.consent_required === true &&
+        lane.receipt_required === true &&
+        lane.safe_disable_required === true &&
+        lane.microphone_access_enabled === false &&
+        lane.camera_access_enabled === false &&
+        lane.file_upload_enabled === false &&
+        lane.transcription_enabled === false &&
+        lane.media_generation_enabled === false &&
+        lane.provider_calls_enabled === false &&
+        lane.external_delivery_enabled === false &&
+        lane.raw_media_persisted === false &&
+        lane.control_center_mints_authority === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

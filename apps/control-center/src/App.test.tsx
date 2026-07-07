@@ -16064,6 +16064,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.runtimeResultClassification),
     ).toBe(true);
+    expect(API_ENDPOINTS.runtimeVoiceMediaPosture).toBe(
+      "/api/runtime/voice-media-posture",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeVoiceMediaPosture)).toBe(
+      true,
+    );
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -17260,6 +17266,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeLoggingProfile,
     [API_ENDPOINTS.runtimeResultClassification]:
       mockControlCenterData.runtimeResultClassification,
+    [API_ENDPOINTS.runtimeVoiceMediaPosture]:
+      mockControlCenterData.runtimeVoiceMediaPosture,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:

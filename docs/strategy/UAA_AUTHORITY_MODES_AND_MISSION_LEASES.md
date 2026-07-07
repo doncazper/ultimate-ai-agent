@@ -62,8 +62,9 @@ surfaces are:
   no execution.
 - Runtime worktree-per-agent, staged orchestration, background job inspection,
   subagent isolation, LSP diagnostics, preview rail, slash command registry,
-  result classification, logging profile, and interrupt redirect consume that
-  same AuthorityState catalog instead of carrying standalone blocker language:
+  result classification, logging profile, interrupt redirect, and voice/media
+  posture consume that same AuthorityState catalog instead of carrying
+  standalone blocker language:
   worktree implementer/reviewer/verifier lanes expose mapped decision refs and
   outcomes, staged orchestration exposes the read-model `workspace/prepare`
   decision plus the stronger approved-runtime-command `workspace/execute`
@@ -89,7 +90,11 @@ surfaces are:
   remain blocked. Interrupt redirect exposes the Read-only `workspace/read`
   proposal metadata decision while live stops, process kills, runtime mutation,
   shell/provider/browser work, connector writes, runtime/log material
-  persistence, and Control Center authority minting remain blocked.
+  persistence, and Control Center authority minting remain blocked. Voice/media
+  posture exposes the Read-only `workspace/read` lane inspection decision while
+  microphone, camera, upload, transcription, generation, provider-call, external
+  delivery, media material persistence, and Control Center authority minting
+  remain blocked.
   These API/CLI surfaces remain safe-ref inspection only unless exact active
   leases, implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and

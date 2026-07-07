@@ -158,16 +158,10 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         )
         assert decision_by_lane[lane_ref].decision.outcome == "allow"
     assert mappings_by_lane["lane-ref:local-draft-proposal"].capability == "draft"
-    assert (
-        decision_by_lane["lane-ref:local-draft-proposal"].decision.outcome
-        == "allow"
-    )
+    assert decision_by_lane["lane-ref:local-draft-proposal"].decision.outcome == "allow"
     assert mappings_by_lane["lane-ref:connector-draft-only"].domain == "email"
     assert mappings_by_lane["lane-ref:connector-draft-only"].capability == "draft"
-    assert (
-        decision_by_lane["lane-ref:connector-draft-only"].decision.outcome
-        == "allow"
-    )
+    assert decision_by_lane["lane-ref:connector-draft-only"].decision.outcome == "allow"
     mapped_domains = {
         str(getattr(mapping.domain, "value", mapping.domain))
         for mapping in read_model.capability_mappings
@@ -208,8 +202,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert mode_catalog["full_machine_access_session"].unsupported_adapter_refs
     assert mode_catalog["delegated_mission_autonomous_window"].issue_ready is False
     assert (
-        mode_catalog["delegated_mission_autonomous_window"].requires_mission_ref
-        is True
+        mode_catalog["delegated_mission_autonomous_window"].requires_mission_ref is True
     )
     assert "reason-ref:authority:adapter-unsupported" in (
         mode_catalog["delegated_mission_autonomous_window"].blocked_reason_refs
@@ -236,9 +229,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         not entry.control_center_grants_authority
         for entry in read_model.decision_catalog
     )
-    catalog_by_lane = {
-        entry.lane_ref: entry for entry in read_model.decision_catalog
-    }
+    catalog_by_lane = {entry.lane_ref: entry for entry in read_model.decision_catalog}
     assert (
         catalog_by_lane["lane-ref:runtime-command-focused-pytest"].decision.outcome
         == "degrade_to_draft"
@@ -248,8 +239,9 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         == "deny"
     )
     assert (
-        catalog_by_lane["lane-ref:shell-arbitrary-command-adapter"]
-        .decision.unsupported_adapter
+        catalog_by_lane[
+            "lane-ref:shell-arbitrary-command-adapter"
+        ].decision.unsupported_adapter
         is True
     )
     shell_adapter = next(
@@ -282,10 +274,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert issue_tracker_sync.capability == "write"
     assert issue_tracker_sync.required_mode == "full_machine_access_session"
     assert issue_tracker_sync.status == "planned_unsupported_adapter"
-    assert (
-        catalog_by_lane["lane-ref:issue-tracker-sync"].decision.outcome
-        == "deny"
-    )
+    assert catalog_by_lane["lane-ref:issue-tracker-sync"].decision.outcome == "deny"
     assert (
         catalog_by_lane["lane-ref:issue-tracker-sync"].decision.unsupported_adapter
         is True
@@ -297,7 +286,9 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     )
     assert task_decomposition_execute.domain == "workspace"
     assert task_decomposition_execute.capability == "execute"
-    assert task_decomposition_execute.required_mode == "approved_safe_local_work_session"
+    assert (
+        task_decomposition_execute.required_mode == "approved_safe_local_work_session"
+    )
     assert (
         task_decomposition_execute.status
         == "implemented_exact_lease_required_local_orchestration"
@@ -326,10 +317,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     )
     assert runtime_approval_binding.domain == "workspace"
     assert runtime_approval_binding.capability == "execute"
-    assert (
-        runtime_approval_binding.required_mode
-        == "approved_safe_local_work_session"
-    )
+    assert runtime_approval_binding.required_mode == "approved_safe_local_work_session"
     runtime_approved_execute = next(
         mapping
         for mapping in read_model.capability_mappings
@@ -338,8 +326,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert runtime_approved_execute.domain == "workspace"
     assert runtime_approved_execute.capability == "execute"
     assert (
-        runtime_approved_execute.status
-        == "implemented_exact_lease_rechecked_execution"
+        runtime_approved_execute.status == "implemented_exact_lease_rechecked_execution"
     )
     worktree_implementer = mappings_by_lane[
         "lane-ref:runtime-worktree-implementer-proposal"
@@ -353,26 +340,18 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
-    worktree_reviewer = mappings_by_lane[
-        "lane-ref:runtime-worktree-reviewer-compare"
-    ]
+    worktree_reviewer = mappings_by_lane["lane-ref:runtime-worktree-reviewer-compare"]
     assert worktree_reviewer.domain == "workspace"
     assert worktree_reviewer.capability == "read"
     assert (
-        decision_by_lane[
-            "lane-ref:runtime-worktree-reviewer-compare"
-        ].decision.outcome
+        decision_by_lane["lane-ref:runtime-worktree-reviewer-compare"].decision.outcome
         == "allow"
     )
-    worktree_verifier = mappings_by_lane[
-        "lane-ref:runtime-worktree-verifier-proof"
-    ]
+    worktree_verifier = mappings_by_lane["lane-ref:runtime-worktree-verifier-proof"]
     assert worktree_verifier.domain == "workspace"
     assert worktree_verifier.capability == "prepare"
     assert (
-        decision_by_lane[
-            "lane-ref:runtime-worktree-verifier-proof"
-        ].decision.outcome
+        decision_by_lane["lane-ref:runtime-worktree-verifier-proof"].decision.outcome
         == "allow"
     )
     staged_read_model = mappings_by_lane["lane-ref:staged-orchestration-read-model"]
@@ -383,9 +362,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         decision_by_lane["lane-ref:staged-orchestration-read-model"].decision.outcome
         == "allow"
     )
-    preview_rail = mappings_by_lane[
-        "lane-ref:runtime-preview-rail-safe-ref-read-model"
-    ]
+    preview_rail = mappings_by_lane["lane-ref:runtime-preview-rail-safe-ref-read-model"]
     assert preview_rail.domain == "workspace"
     assert preview_rail.capability == "read"
     assert preview_rail.required_mode == "read_only"
@@ -436,9 +413,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert logging_profile.status == "implemented_authority_bound_read_model"
     assert "GET /api/runtime/logging-profile" in logging_profile.route_refs
     assert (
-        decision_by_lane[
-            "lane-ref:runtime-logging-profile-posture"
-        ].decision.outcome
+        decision_by_lane["lane-ref:runtime-logging-profile-posture"].decision.outcome
         == "allow"
     )
     interrupt_redirect = mappings_by_lane[
@@ -455,15 +430,33 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    voice_media_posture = mappings_by_lane[
+        "lane-ref:runtime-voice-media-posture-read-model"
+    ]
+    assert voice_media_posture.domain == "workspace"
+    assert voice_media_posture.capability == "read"
+    assert voice_media_posture.required_mode == "read_only"
+    assert voice_media_posture.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/voice-media-posture" in (voice_media_posture.route_refs)
+    assert voice_media_posture.unsupported_adapter_blocks_capability is False
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-voice-media-posture-read-model"
+        ].decision.outcome
+        == "allow"
+    )
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-voice-media-posture-read-model"
+        ].decision.unsupported_adapter
+        is False
+    )
     staged_runtime_command = mappings_by_lane[
         "lane-ref:staged-orchestration-approved-runtime-command"
     ]
     assert staged_runtime_command.domain == "workspace"
     assert staged_runtime_command.capability == "execute"
-    assert (
-        staged_runtime_command.required_mode
-        == "approved_safe_local_work_session"
-    )
+    assert staged_runtime_command.required_mode == "approved_safe_local_work_session"
     assert (
         staged_runtime_command.status
         == "implemented_exact_lease_required_runtime_command_step"
@@ -531,7 +524,9 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     )
     assert file_write_proposal.domain == "files"
     assert file_write_proposal.capability == "prepare"
-    assert file_write_proposal.status == "implemented_exact_lease_required_proposal_only"
+    assert (
+        file_write_proposal.status == "implemented_exact_lease_required_proposal_only"
+    )
     assert file_write_proposal.unsupported_adapter_blocks_capability is False
     assert (
         catalog_by_lane["lane-ref:file-write-proposal-diff-preview"].decision.outcome
@@ -557,8 +552,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert connector_write.required_mode == "full_machine_access_session"
     assert connector_write.status == "planned_unsupported_adapter"
     assert (
-        catalog_by_lane["lane-ref:connector-write-low-risk"].decision.outcome
-        == "deny"
+        catalog_by_lane["lane-ref:connector-write-low-risk"].decision.outcome == "deny"
     )
     provider_invocation = next(
         mapping
@@ -576,15 +570,11 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     provider_credential_validation = next(
         mapping
         for mapping in read_model.capability_mappings
-        if "POST /control-center/providers/credentials/validate"
-        in mapping.route_refs
+        if "POST /control-center/providers/credentials/validate" in mapping.route_refs
     )
     assert provider_credential_validation.domain == "provider_model_calls"
     assert provider_credential_validation.capability == "execute"
-    assert (
-        provider_credential_validation.required_mode
-        == "full_machine_access_session"
-    )
+    assert provider_credential_validation.required_mode == "full_machine_access_session"
     assert (
         provider_credential_validation.status
         == "implemented_exact_lease_required_non_invoking_validation"
@@ -598,8 +588,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert local_model_runtime.capability == "execute"
     assert local_model_runtime.required_mode == "full_machine_access_session"
     assert (
-        local_model_runtime.status
-        == "implemented_exact_lease_required_local_loopback"
+        local_model_runtime.status == "implemented_exact_lease_required_local_loopback"
     )
     web_evidence = next(
         mapping
@@ -610,8 +599,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert web_evidence.capability == "read"
     assert web_evidence.required_mode == "read_only"
     assert (
-        web_evidence.status
-        == "implemented_authority_lease_required_gateway_https_get"
+        web_evidence.status == "implemented_authority_lease_required_gateway_https_get"
     )
     calendar_metadata = next(
         mapping
@@ -647,8 +635,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert browser_low_risk_action.required_mode == "full_machine_access_session"
     assert browser_low_risk_action.status == "planned_unsupported_adapter"
     assert (
-        catalog_by_lane["lane-ref:browser-low-risk-action"].decision.outcome
-        == "deny"
+        catalog_by_lane["lane-ref:browser-low-risk-action"].decision.outcome == "deny"
     )
     context_pack_action = next(
         mapping
@@ -662,8 +649,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert context_pack_action.capability == "draft"
     assert context_pack_action.required_mode == "read_only"
     assert (
-        context_pack_action.status
-        == "implemented_exact_lease_required_proposal_only"
+        context_pack_action.status == "implemented_exact_lease_required_proposal_only"
     )
     memory_write = next(
         mapping
@@ -686,8 +672,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert today_action_envelope.capability == "draft"
     assert today_action_envelope.required_mode == "read_only"
     assert (
-        today_action_envelope.status
-        == "implemented_exact_lease_required_proposal_only"
+        today_action_envelope.status == "implemented_exact_lease_required_proposal_only"
     )
     home_assistant_control = next(
         mapping
@@ -704,10 +689,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     )
     assert background_autonomy.domain == "apps"
     assert background_autonomy.capability == "execute"
-    assert (
-        background_autonomy.required_mode
-        == "delegated_mission_autonomous_window"
-    )
+    assert background_autonomy.required_mode == "delegated_mission_autonomous_window"
     assert background_autonomy.status == "planned_unsupported_adapter"
     assert (
         catalog_by_lane["lane-ref:background-autonomy-scoped"].decision.outcome
@@ -720,10 +702,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     )
     assert subagent_live_dispatch.domain == "apps"
     assert subagent_live_dispatch.capability == "execute"
-    assert (
-        subagent_live_dispatch.required_mode
-        == "delegated_mission_autonomous_window"
-    )
+    assert subagent_live_dispatch.required_mode == "delegated_mission_autonomous_window"
     assert subagent_live_dispatch.status == "planned_unsupported_adapter"
     assert "GET /api/runtime/subagent-isolation" in subagent_live_dispatch.route_refs
     assert "adapter-ref:subagent-live-dispatch:not-implemented" in (
@@ -749,8 +728,7 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         lsp_diagnostics.unsupported_adapter_refs
     )
     assert (
-        catalog_by_lane["lane-ref:runtime-lsp-diagnostics-evidence"]
-        .decision.outcome
+        catalog_by_lane["lane-ref:runtime-lsp-diagnostics-evidence"].decision.outcome
         == "deny"
     )
     cloud_production_deploy = next(
@@ -768,14 +746,10 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     )
     assert production_authority.domain == "cloud_production"
     assert production_authority.capability == "deploy"
-    assert (
-        production_authority.required_mode
-        == "delegated_mission_autonomous_window"
-    )
+    assert production_authority.required_mode == "delegated_mission_autonomous_window"
     assert production_authority.status == "planned_unsupported_adapter"
     assert (
-        catalog_by_lane["lane-ref:production-authority-gate"].decision.outcome
-        == "deny"
+        catalog_by_lane["lane-ref:production-authority-gate"].decision.outcome == "deny"
     )
     assert {decision.outcome for decision in read_model.sample_decisions} >= {
         "allow",
@@ -876,7 +850,10 @@ def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
     assert safe_local_receipt.status == "issued"
     assert safe_local_receipt.approval_required is True
     assert safe_local_receipt.approval_validated is True
-    assert safe_local_receipt.approval_ref == "approval-ref:test-authority:safe-local-default"
+    assert (
+        safe_local_receipt.approval_ref
+        == "approval-ref:test-authority:safe-local-default"
+    )
     assert safe_local_receipt.granted_domains == {
         "workspace": ["read", "write", "execute"]
     }
@@ -999,9 +976,7 @@ def test_authority_lease_kill_switch_blocks_new_lease_issue_api_cli_and_state(
     assert state_model.kill_switch_visible is True
     assert state_model.kill_switch_engaged is True
     assert "kill switch is engaged" in state_model.operator_summary
-    assert {
-        decision.outcome for decision in state_model.sample_decisions
-    } == {"deny"}
+    assert {decision.outcome for decision in state_model.sample_decisions} == {"deny"}
     assert all(
         "reason-ref:authority:kill-switch-engaged" in entry.decision.reason_refs
         for entry in state_model.decision_catalog
@@ -1041,9 +1016,7 @@ def test_authority_lease_kill_switch_blocks_new_lease_issue_api_cli_and_state(
         )
     )
     assert preview.decision.outcome == "deny"
-    assert "reason-ref:authority:kill-switch-engaged" in (
-        preview.decision.reason_refs
-    )
+    assert "reason-ref:authority:kill-switch-engaged" in (preview.decision.reason_refs)
 
     direct_decision = evaluate_authority_request(
         AuthorityActionRequest(
@@ -1079,8 +1052,8 @@ def test_authority_lease_kill_switch_blocks_new_lease_issue_api_cli_and_state(
     assert api_receipt["blocked_reason_refs"] == [
         "reason-ref:authority:lease-kill-switch-engaged"
     ]
-    assert "AUTHORITY_LEASE_KILL_SWITCH_ENGAGED" in (
-        api_receipt["approval_reason_codes"]
+    assert (
+        "AUTHORITY_LEASE_KILL_SWITCH_ENGAGED" in (api_receipt["approval_reason_codes"])
     )
     assert api_body["data"]["lease"] is None
 
@@ -1091,8 +1064,9 @@ def test_authority_lease_kill_switch_blocks_new_lease_issue_api_cli_and_state(
     assert api_state_data["decision_summary"]["outcome_counts"]["deny"] == len(
         api_state_data["decision_catalog"]
     )
-    assert "reason-ref:authority:kill-switch-engaged" in (
-        api_state_data["decision_summary"]["blocked_reason_refs"]
+    assert (
+        "reason-ref:authority:kill-switch-engaged"
+        in (api_state_data["decision_summary"]["blocked_reason_refs"])
     )
 
     cli_state = uaa_runtime.main(["inspect-authority-state"])
@@ -1293,13 +1267,15 @@ def test_authority_api_preview_enforces_mission_lease_scope(
 
     assert unrelated.status_code == 200
     assert unrelated.json()["data"]["decision"]["outcome"] == "degrade_to_draft"
-    assert "reason-ref:authority:mission-scope-mismatch" in (
-        unrelated.json()["data"]["decision"]["reason_refs"]
+    assert (
+        "reason-ref:authority:mission-scope-mismatch"
+        in (unrelated.json()["data"]["decision"]["reason_refs"])
     )
     assert matched.status_code == 200
     assert matched.json()["data"]["decision"]["outcome"] == "allow"
-    assert matched.json()["data"]["decision"]["lease_ref"] == (
-        issue.json()["data"]["lease"]["lease_ref"]
+    assert (
+        matched.json()["data"]["decision"]["lease_ref"]
+        == (issue.json()["data"]["lease"]["lease_ref"])
     )
 
 
@@ -1402,13 +1378,12 @@ def test_authority_state_api_cli_and_settings_surface(
         runtime_body["data"]["decision_catalog"]
     )
     assert (
-        runtime_body["data"]["decision_summary"]["outcome_counts"][
-            "degrade_to_draft"
-        ]
+        runtime_body["data"]["decision_summary"]["outcome_counts"]["degrade_to_draft"]
         > 0
     )
-    assert "reason-ref:authority:no-active-lease-for-domain-capability" in (
-        runtime_body["data"]["decision_summary"]["blocked_reason_refs"]
+    assert (
+        "reason-ref:authority:no-active-lease-for-domain-capability"
+        in (runtime_body["data"]["decision_summary"]["blocked_reason_refs"])
     )
     assert any(
         entry["decision"]["outcome"] == "degrade_to_draft"
@@ -1424,9 +1399,7 @@ def test_authority_state_api_cli_and_settings_surface(
     assert authority_state["unsupported_adapters_claimed_execution"] is False
     assert "issued_at" in authority_state["active_leases"][0]
     assert "expires_at" in authority_state["active_leases"][0]
-    assert len(authority_state["mode_catalog"]) == len(
-        authority_state["target_modes"]
-    )
+    assert len(authority_state["mode_catalog"]) == len(authority_state["target_modes"])
     assert any(
         entry["mode"] == "delegated_mission_autonomous_window"
         and entry["requires_mission_ref"] is True
@@ -1659,9 +1632,9 @@ def test_authority_mission_plan_api_cli_and_core_are_read_only(
         ref.startswith("adapter-ref:shopping_payments:")
         for ref in draft_plan.unsupported_adapter_refs
     )
-    assert {
-        preview.decision.outcome for preview in draft_plan.action_previews
-    } == {"degrade_to_draft"}
+    assert {preview.decision.outcome for preview in draft_plan.action_previews} == {
+        "degrade_to_draft"
+    }
     assert "reason-ref:authority:adapter-unsupported" in draft_plan.blocked_reason_refs
 
     response = client.post(
@@ -1806,7 +1779,9 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     )
     missing_approval = client.post(
         "/api/runtime/authority-leases",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:authority-api-missing-approval"},
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:authority-api-missing-approval"
+        },
         json=issue_request.model_dump(mode="json"),
     )
     assert missing_approval.status_code == 200
@@ -1842,19 +1817,19 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     assert "contacts" not in receipt["granted_domains"]
     assert "authority-domain-ref:contacts" in receipt["denied_domain_refs"]
     assert "authority-domain-ref:browser" in receipt["denied_domain_refs"]
-    assert "authority-domain-ref:provider_model_calls" in (
-        receipt["denied_domain_refs"]
+    assert (
+        "authority-domain-ref:provider_model_calls" in (receipt["denied_domain_refs"])
     )
     assert (
         "adapter-ref:contacts:write-not-available-for-authority-mode-v1"
         in receipt["unsupported_adapter_refs"]
     )
-    assert "adapter-ref:browser:click-not-implemented-for-authority-lease-v1" in (
-        receipt["unsupported_adapter_refs"]
+    assert (
+        "adapter-ref:browser:click-not-implemented-for-authority-lease-v1"
+        in (receipt["unsupported_adapter_refs"])
     )
     assert (
-        "adapter-ref:provider_model_calls:execute"
-        "-not-available-for-authority-mode-v1"
+        "adapter-ref:provider_model_calls:execute-not-available-for-authority-mode-v1"
     ) in receipt["unsupported_adapter_refs"]
 
     state = client.get("/api/runtime/authority-state")
@@ -2014,7 +1989,9 @@ def test_authority_lease_approve_and_issue_api_captures_exact_backend_approval(
     )
     response = client.post(
         "/api/runtime/authority-leases/approve-and-issue",
-        headers={"x-uaa-idempotency-key": "idempotency-ref:authority-approve-issue-api"},
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:authority-approve-issue-api"
+        },
         json={
             "lease_issue_request": issue_request.model_dump(mode="json"),
             "approved_by_actor_ref": "operator-ref:test-control-center",
@@ -2041,8 +2018,9 @@ def test_authority_lease_approve_and_issue_api_captures_exact_backend_approval(
     assert "authority-domain-ref:workspace" in requirement["resource_refs"]
     assert "authority-domain-ref:browser" not in requirement["resource_refs"]
     assert "authority-domain-ref:browser" in receipt["denied_domain_refs"]
-    assert "adapter-ref:browser:click-not-implemented-for-authority-lease-v1" in (
-        receipt["unsupported_adapter_refs"]
+    assert (
+        "adapter-ref:browser:click-not-implemented-for-authority-lease-v1"
+        in (receipt["unsupported_adapter_refs"])
     )
 
     state = client.get("/api/runtime/authority-state")

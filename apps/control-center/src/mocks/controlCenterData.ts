@@ -55,6 +55,7 @@ import type {
   RuntimeResultClassificationRecord,
   RuntimeRunControlProposal,
   RuntimeSlashCommandRegistryEntry,
+  RuntimeVoiceMediaLane,
   RuntimeSessionContinuitySurface,
   RuntimeStagedOrchestrationReadModel,
   RuntimeWorktreePerAgentLane,
@@ -2501,6 +2502,105 @@ const runtimeResultClassifications = [
     "untrusted_until_verified",
     "Mock untrusted data cannot become instructions or truth.",
   ),
+];
+
+const runtimeVoiceMediaBlockedRefs = [
+  "blocked-authority:voice-media-no-microphone-access",
+  "blocked-authority:voice-media-no-camera-access",
+  "blocked-authority:voice-media-no-file-upload",
+  "blocked-authority:voice-media-no-transcription",
+  "blocked-authority:voice-media-no-media-generation",
+  "blocked-authority:voice-media-no-provider-call",
+  "blocked-authority:voice-media-no-external-delivery",
+  "blocked-authority:voice-media-no-raw-media-persistence",
+  "blocked-authority:voice-media-no-control-center-authority-mint",
+];
+
+function runtimeVoiceMediaLane(
+  slug: string,
+  overrides: Pick<RuntimeVoiceMediaLane, "lane_kind" | "display_label" | "safe_summary">,
+): RuntimeVoiceMediaLane {
+  return {
+    lane_ref: `voice-media-lane-ref:runtime:${slug}`,
+    lane_kind: overrides.lane_kind,
+    display_label: overrides.display_label,
+    status: "blocked_until_authority",
+    safe_summary: overrides.safe_summary,
+    device_permission_ref: `device-permission-ref:voice-media:${slug}`,
+    consent_ref: `consent-ref:voice-media:${slug}`,
+    redaction_policy_ref: `redaction-policy-ref:voice-media:${slug}`,
+    receipt_plan_ref: `receipt-plan-ref:voice-media:${slug}`,
+    safe_disable_ref: `safe-disable-ref:voice-media:${slug}`,
+    proof_ref: `proof-ref:voice-media:${slug}`,
+    blocked_authority_refs: runtimeVoiceMediaBlockedRefs,
+    promotion_path_refs: [
+      `promotion-path-ref:voice-media:${slug}:device-permission`,
+      `promotion-path-ref:voice-media:${slug}:redaction-receipt`,
+      `promotion-path-ref:voice-media:${slug}:safe-disable`,
+    ],
+    next_safe_action_refs: [
+      `next-safe-action-ref:voice-media:${slug}:authority-contract`,
+    ],
+    local_only_option_required: true,
+    provider_boundary_required: true,
+    consent_required: true,
+    receipt_required: true,
+    safe_disable_required: true,
+    microphone_access_enabled: false,
+    camera_access_enabled: false,
+    file_upload_enabled: false,
+    transcription_enabled: false,
+    media_generation_enabled: false,
+    provider_calls_enabled: false,
+    external_delivery_enabled: false,
+    raw_media_persisted: false,
+    control_center_mints_authority: false,
+  };
+}
+
+const runtimeVoiceMediaLanes = [
+  runtimeVoiceMediaLane("voice-input", {
+    lane_kind: "voice_input",
+    display_label: "Voice input",
+    safe_summary:
+      "Mock voice input posture keeps microphone access blocked until consent, redaction, receipt, and safe-disable are proven.",
+  }),
+  runtimeVoiceMediaLane("speech-to-text", {
+    lane_kind: "speech_to_text",
+    display_label: "Speech to text",
+    safe_summary:
+      "Mock speech-to-text posture keeps transcription blocked until local/provider boundary and receipt controls are proven.",
+  }),
+  runtimeVoiceMediaLane("text-to-speech", {
+    lane_kind: "text_to_speech",
+    display_label: "Text to speech",
+    safe_summary:
+      "Mock text-to-speech posture keeps generation and delivery blocked.",
+  }),
+  runtimeVoiceMediaLane("image-input", {
+    lane_kind: "image_input",
+    display_label: "Image input",
+    safe_summary:
+      "Mock image input posture keeps camera, upload, and retention authority blocked.",
+  }),
+  runtimeVoiceMediaLane("image-generation", {
+    lane_kind: "image_generation",
+    display_label: "Image generation",
+    safe_summary:
+      "Mock image generation posture keeps provider and generation authority blocked.",
+  }),
+  runtimeVoiceMediaLane("media-upload", {
+    lane_kind: "media_upload",
+    display_label: "Media upload",
+    safe_summary:
+      "Mock media upload posture keeps file upload and external delivery blocked.",
+  }),
+  runtimeVoiceMediaLane("media-delivery", {
+    lane_kind: "media_delivery",
+    display_label: "External media delivery",
+    safe_summary:
+      "Mock external media delivery posture keeps send and publish authority blocked.",
+  }),
 ];
 
 const memoryLifecycleBlockedRefs = [
@@ -16563,6 +16663,91 @@ export const mockControlCenterData: ControlCenterData = {
       "raw_outputs_omitted",
       "provider_payloads_omitted",
       "untrusted_data_bounded",
+    ],
+  },
+  runtimeVoiceMediaPosture: {
+    schema_version: "runtime_voice_media_posture.v1",
+    contract_ref: "contract-ref:hermes-runtime-adoption-voice-media-posture:v1",
+    status: "read_model_posture_only",
+    snapshot_ref: "voice-media-posture-snapshot-ref:runtime:phase-41",
+    snapshot_hash_ref: "snapshot-hash-ref:voice-media-posture:mock",
+    route_ref: "GET /api/runtime/voice-media-posture",
+    cli_ref: "uaa runtime inspect-voice-media-posture",
+    doc_ref: "docs/runtime/UAA_HERMES_RUNTIME_VOICE_MEDIA_POSTURE.md",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-voice-media-posture-read-model",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-voice-media-posture-read-model",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:mock-runtime-voice-media-posture",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Allowed by active authority lease for safe posture inspection only.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:voice-media-microphone:not-implemented",
+      "adapter-ref:voice-media-camera:not-implemented",
+      "adapter-ref:voice-media-upload:not-implemented",
+      "adapter-ref:voice-media-transcription:not-implemented",
+      "adapter-ref:voice-media-generation:not-implemented",
+      "adapter-ref:voice-media-provider-call:not-implemented",
+      "adapter-ref:voice-media-external-delivery:not-implemented",
+    ],
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime voice/media mock fallback shows blocked posture only; microphone, camera, upload, transcription, generation, provider, and external delivery authority stay blocked.",
+    lanes: runtimeVoiceMediaLanes,
+    lane_count: runtimeVoiceMediaLanes.length,
+    blocked_lane_count: runtimeVoiceMediaLanes.filter(
+      (lane) => lane.status === "blocked_until_authority",
+    ).length,
+    local_only_option_required: true,
+    provider_boundary_required: true,
+    consent_required: true,
+    receipt_required: true,
+    safe_disable_required: true,
+    microphone_access_enabled: false,
+    camera_access_enabled: false,
+    file_upload_enabled: false,
+    transcription_enabled: false,
+    media_generation_enabled: false,
+    provider_calls_enabled: false,
+    external_delivery_enabled: false,
+    raw_media_persisted: false,
+    control_center_mints_authority: false,
+    blocked_authority_refs: runtimeVoiceMediaBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:voice-media:device-permission",
+      "promotion-path-ref:voice-media:local-only-option",
+      "promotion-path-ref:voice-media:provider-boundary",
+      "promotion-path-ref:voice-media:consent-receipt",
+      "promotion-path-ref:voice-media:redaction-verifier",
+      "promotion-path-ref:voice-media:safe-disable",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-41:voice-media-posture",
+      "proof-ref:voice-media:posture-only",
+      "proof-ref:voice-media:media-authority-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-41:voice-media-posture",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:voice-media:read-model-ui-labels",
+      "next-safe-action-ref:voice-media:device-permission-contract",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_media_omitted",
+      "device_identifiers_omitted",
+      "provider_payloads_omitted",
     ],
   },
   runtimeApprovalBridge: {

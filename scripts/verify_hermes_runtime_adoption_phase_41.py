@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_VOICE_MEDIA_POSTURE_AUTHORITY_MAPPING_REF,
     RUNTIME_VOICE_MEDIA_POSTURE_BLOCKED_AUTHORITY_REFS,
     build_runtime_voice_media_posture_read_model,
 )
@@ -28,8 +29,26 @@ def main() -> int:
 
     if read_model.status != "read_model_posture_only":
         failures.append("voice/media status is not posture-only")
+    if read_model.route_ref != "GET /api/runtime/voice-media-posture":
+        failures.append("voice/media route ref drifted")
     if read_model.cli_ref != "uaa runtime inspect-voice-media-posture":
         failures.append("voice/media CLI ref drifted")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_VOICE_MEDIA_POSTURE_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("voice/media AuthorityState mapping drifted")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("voice/media AuthorityState decision is not allow")
+    if (
+        "reason-ref:authority:active-lease-grants-domain-capability"
+        not in read_model.authority_state_reason_refs
+    ):
+        failures.append("voice/media AuthorityState reason missing active lease")
+    if "adapter-ref:voice-media-microphone:not-implemented" not in (
+        read_model.unsupported_adapter_refs
+    ):
+        failures.append("voice/media unsupported adapter refs missing microphone")
     if read_model.lane_count != 7:
         failures.append("voice/media lane count drifted")
     if read_model.blocked_lane_count != read_model.lane_count:
@@ -90,7 +109,8 @@ def main() -> int:
         "Full-Strength",
         "Repo-Safe",
         "Blocked / Needs Authority",
-        "Exact Promotion Path",
+        "AuthorityState",
+        "Exact Authority Path",
         "microphone access",
         "camera access",
         "file or media upload",
@@ -104,6 +124,8 @@ def main() -> int:
     for expected in [
         "inspect-voice-media-posture",
         "runtime_voice_media_posture",
+        "authority_state_mapping_ref",
+        "authority_state_decision_outcome",
         "microphone_access_performed",
         "media_generation_performed",
         "provider_call_performed",
@@ -143,6 +165,16 @@ def main() -> int:
             failures.append("CLI claims media generation")
         if payload["provider_call_performed"] is not False:
             failures.append("CLI claims provider calls")
+        if (
+            payload["runtime_voice_media_posture"]["authority_state_mapping_ref"]
+            != RUNTIME_VOICE_MEDIA_POSTURE_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("CLI returned stale AuthorityState mapping")
+        if (
+            payload["runtime_voice_media_posture"]["authority_state_decision_outcome"]
+            != "allow"
+        ):
+            failures.append("CLI returned stale AuthorityState decision")
         if payload["runtime_voice_media_posture"]["lane_count"] != 7:
             failures.append("CLI returned stale lane count")
 

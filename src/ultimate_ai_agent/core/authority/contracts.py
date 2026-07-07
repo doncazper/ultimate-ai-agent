@@ -3072,6 +3072,33 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ),
         ),
         _mapping(
+            "lane-ref:runtime-voice-media-posture-read-model",
+            "Runtime voice and media posture read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/voice-media-posture"],
+            ["repo-local-command:uaa-runtime-inspect-voice-media-posture"],
+            (
+                "Voice and media posture inspection reads lane labels, consent, "
+                "device-permission, redaction, receipt, proof, safe-disable, "
+                "and blocked refs under Workspace read authority. It does not "
+                "use microphones, cameras, uploads, transcription, generation, "
+                "provider calls, external delivery, media material persistence, "
+                "or Control Center authority minting."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:voice-media-microphone:not-implemented",
+                "adapter-ref:voice-media-camera:not-implemented",
+                "adapter-ref:voice-media-upload:not-implemented",
+                "adapter-ref:voice-media-transcription:not-implemented",
+                "adapter-ref:voice-media-generation:not-implemented",
+                "adapter-ref:voice-media-provider-call:not-implemented",
+                "adapter-ref:voice-media-external-delivery:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:staged-orchestration-approved-runtime-command",
             "Staged orchestration approved runtime command step",
             AuthorityDomain.workspace,

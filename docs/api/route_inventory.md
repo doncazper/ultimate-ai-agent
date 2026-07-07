@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `242`.
+Current OpenAPI path count: `243`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 165 |
+| `local_sensitive` | 166 |
 | `mutating_requires_authority` | 48 |
 
 Allowed current side-effect classes are:
@@ -345,6 +345,15 @@ refs, proof binding refs, verifier refs, promotion refs, and blocked authority
 refs only. Treating tool output as truth, treating output as action authority,
 mutation without receipt, unverified evidence promotion, raw output
 persistence, and provider payload persistence remain blocked.
+`GET /api/runtime/voice-media-posture` exposes a protected read-only Python
+Core Hermes Runtime Adoption Phase 41 voice/media posture. It returns voice
+input, speech-to-text, text-to-speech, image input, image generation, media
+upload, and external media delivery lane refs, consent refs,
+device-permission refs, redaction refs, receipt-plan refs, proof refs,
+verifier refs, authority refs, and blocked authority refs only. Microphone
+access, camera access, file/media upload, transcription, media generation,
+provider calls, external delivery, media material persistence, and Control
+Center authority minting remain blocked.
 `GET /api/runtime/context-references` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 16 context-reference posture. It returns
 safe-ref grammar, preview refs, budget estimates, why-included refs, and

@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -19,6 +23,7 @@ from ultimate_ai_agent.core.runtime_gateway.delegation import (
 RUNTIME_VOICE_MEDIA_POSTURE_CONTRACT_REF = (
     "contract-ref:hermes-runtime-adoption-voice-media-posture:v1"
 )
+RUNTIME_VOICE_MEDIA_POSTURE_ROUTE_REF = "GET /api/runtime/voice-media-posture"
 RUNTIME_VOICE_MEDIA_POSTURE_CLI_REF = "uaa runtime inspect-voice-media-posture"
 RUNTIME_VOICE_MEDIA_POSTURE_DOC_REF = (
     "docs/runtime/UAA_HERMES_RUNTIME_VOICE_MEDIA_POSTURE.md"
@@ -32,6 +37,16 @@ RUNTIME_VOICE_MEDIA_POSTURE_PROOF_REF = (
 RUNTIME_VOICE_MEDIA_POSTURE_VERIFIER_REF = (
     "verifier-ref:hermes-runtime-adoption:phase-41:voice-media-posture"
 )
+RUNTIME_VOICE_MEDIA_POSTURE_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_VOICE_MEDIA_POSTURE_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_VOICE_MEDIA_POSTURE_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-voice-media-posture-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_VOICE_MEDIA_POSTURE_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:voice-media-no-microphone-access",
@@ -159,8 +174,21 @@ class RuntimeVoiceMediaPostureReadModel(BaseModel):
     status: str = "read_model_posture_only"
     snapshot_ref: str = RUNTIME_VOICE_MEDIA_POSTURE_SNAPSHOT_REF
     snapshot_hash_ref: str = "snapshot-hash-ref:voice-media-posture:pending"
+    route_ref: str = RUNTIME_VOICE_MEDIA_POSTURE_ROUTE_REF
     cli_ref: str = RUNTIME_VOICE_MEDIA_POSTURE_CLI_REF
     doc_ref: str = RUNTIME_VOICE_MEDIA_POSTURE_DOC_REF
+    authority_state_route_ref: str = (
+        RUNTIME_VOICE_MEDIA_POSTURE_AUTHORITY_STATE_ROUTE_REF
+    )
+    authority_state_cli_ref: str = RUNTIME_VOICE_MEDIA_POSTURE_AUTHORITY_STATE_CLI_REF
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     safe_summary: str = (
         "Voice, image, TTS, and media lanes are visible as blocked posture only; "
@@ -190,12 +218,14 @@ class RuntimeVoiceMediaPostureReadModel(BaseModel):
     verifier_refs: list[str] = Field(default_factory=list)
     next_safe_action_refs: list[str] = Field(default_factory=list)
     redactions_applied: list[str] = Field(
-        default_factory=lambda: list(GOVERNED_RUNTIME_REDACTIONS)
-        + [
-            "raw_media_omitted",
-            "device_identifiers_omitted",
-            "provider_payloads_omitted",
-        ]
+        default_factory=lambda: (
+            list(GOVERNED_RUNTIME_REDACTIONS)
+            + [
+                "raw_media_omitted",
+                "device_identifiers_omitted",
+                "provider_payloads_omitted",
+            ]
+        )
     )
 
     model_config = ConfigDict(use_enum_values=True, extra="forbid")
@@ -206,18 +236,35 @@ class RuntimeVoiceMediaPostureReadModel(BaseModel):
             (self.contract_ref, "contract_ref"),
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
             (self.control_center_ref, "control_center_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for value, field_name in [
             (self.schema_version, "schema_version"),
             (self.status, "status"),
+            (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
             (self.doc_ref, "doc_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "promotion_path_refs",
             "proof_refs",
@@ -226,6 +273,13 @@ class RuntimeVoiceMediaPostureReadModel(BaseModel):
         ):
             for value in getattr(self, field_name):
                 validate_execution_ref(value, field_name)
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_VOICE_MEDIA_POSTURE_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_VOICE_MEDIA_AUTHORITY_MAPPING_STALE")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_VOICE_MEDIA_AUTHORITY_OUTCOME_UNKNOWN")
         for value in self.redactions_applied:
             validate_safe_execution_text(value, "redactions_applied")
         denied_flags = {
@@ -242,8 +296,7 @@ class RuntimeVoiceMediaPostureReadModel(BaseModel):
         enabled = [name for name, value in denied_flags.items() if value]
         if enabled:
             raise ValueError(
-                "RUNTIME_VOICE_MEDIA_READ_MODEL_AUTHORITY_DENIED: "
-                + ", ".join(enabled)
+                "RUNTIME_VOICE_MEDIA_READ_MODEL_AUTHORITY_DENIED: " + ", ".join(enabled)
             )
         required_flags = {
             "local_only_option_required": self.local_only_option_required,
@@ -273,6 +326,10 @@ class RuntimeVoiceMediaPostureReadModel(BaseModel):
         ):
             raise ValueError("RUNTIME_VOICE_MEDIA_BLOCKED_COUNT_MISMATCH")
         return self
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))
 
 
 def _lane(
@@ -305,9 +362,10 @@ def _lane(
     )
 
 
-def build_runtime_voice_media_posture_read_model() -> (
-    RuntimeVoiceMediaPostureReadModel
-):
+def build_runtime_voice_media_posture_read_model(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeVoiceMediaPostureReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     lanes = [
         _lane(
             RuntimeVoiceMediaLaneKind.voice_input,
@@ -353,10 +411,23 @@ def build_runtime_voice_media_posture_read_model() -> (
         ),
     ]
     payload = {
+        "route_ref": RUNTIME_VOICE_MEDIA_POSTURE_ROUTE_REF,
+        "authority_state_mapping_ref": authority_entry.lane_ref,
+        "authority_state_catalog_ref": authority_entry.catalog_ref,
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
+        "authority_state_status": authority_entry.status,
+        "authority_state_operator_message": authority_entry.decision.operator_message,
+        "authority_state_reason_refs": list(authority_entry.decision.reason_refs),
+        "unsupported_adapter_refs": list(authority_entry.unsupported_adapter_refs),
         "lanes": lanes,
         "lane_count": len(lanes),
         "blocked_lane_count": len(lanes),
-        "blocked_authority_refs": list(RUNTIME_VOICE_MEDIA_POSTURE_BLOCKED_AUTHORITY_REFS),
+        "blocked_authority_refs": list(
+            RUNTIME_VOICE_MEDIA_POSTURE_BLOCKED_AUTHORITY_REFS
+        ),
         "promotion_path_refs": [
             "promotion-path-ref:voice-media:device-permission",
             "promotion-path-ref:voice-media:local-only-option",
@@ -374,8 +445,13 @@ def build_runtime_voice_media_posture_read_model() -> (
     }
     snapshot_material = {
         "contract_ref": RUNTIME_VOICE_MEDIA_POSTURE_CONTRACT_REF,
+        "route_ref": payload["route_ref"],
         "cli_ref": RUNTIME_VOICE_MEDIA_POSTURE_CLI_REF,
         "lane_refs": [lane.lane_ref for lane in lanes],
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
         "blocked_authority_refs": payload["blocked_authority_refs"],
     }
     payload["snapshot_hash_ref"] = (
@@ -385,3 +461,13 @@ def build_runtime_voice_media_posture_read_model() -> (
         ).hexdigest()[:16]
     )
     return RuntimeVoiceMediaPostureReadModel(**payload)
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    for entry in catalog:
+        if entry.lane_ref == RUNTIME_VOICE_MEDIA_POSTURE_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_VOICE_MEDIA_AUTHORITY_MAPPING_MISSING")

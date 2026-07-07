@@ -64,6 +64,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_interrupt_redirect_read_model,
     build_runtime_logging_profile_read_model,
     build_runtime_result_classification_read_model,
+    build_runtime_voice_media_posture_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -380,9 +381,7 @@ def get_api_runtime_prompt_stability_tiers() -> ResultEnvelope:
         service="GovernedRuntimeAPI",
         trace_id=read_model.snapshot_ref,
         data=read_model.model_dump(mode="json"),
-        evidence=[
-            {"evidence_ref": "evidence-ref:runtime-prompt-stability:phase-23"}
-        ],
+        evidence=[{"evidence_ref": "evidence-ref:runtime-prompt-stability:phase-23"}],
         redactions_applied=read_model.redactions_applied,
     )
 
@@ -396,9 +395,7 @@ def get_api_runtime_context_budget_pressure() -> ResultEnvelope:
         service="GovernedRuntimeAPI",
         trace_id=read_model.snapshot_ref,
         data=read_model.model_dump(mode="json"),
-        evidence=[
-            {"evidence_ref": "evidence-ref:runtime-context-budget:phase-24"}
-        ],
+        evidence=[{"evidence_ref": "evidence-ref:runtime-context-budget:phase-24"}],
         redactions_applied=read_model.redactions_applied,
     )
 
@@ -444,9 +441,7 @@ def get_api_runtime_doctor_diagnostics() -> ResultEnvelope:
         service="GovernedRuntimeAPI",
         trace_id=read_model.snapshot_ref,
         data=read_model.model_dump(mode="json"),
-        evidence=[
-            {"evidence_ref": "evidence-ref:runtime-doctor-diagnostics:phase-28"}
-        ],
+        evidence=[{"evidence_ref": "evidence-ref:runtime-doctor-diagnostics:phase-28"}],
         redactions_applied=read_model.redactions_applied,
     )
 
@@ -460,9 +455,7 @@ def get_api_runtime_session_continuity() -> ResultEnvelope:
         service="GovernedRuntimeAPI",
         trace_id=read_model.snapshot_ref,
         data=read_model.model_dump(mode="json"),
-        evidence=[
-            {"evidence_ref": "evidence-ref:runtime-session-continuity:phase-29"}
-        ],
+        evidence=[{"evidence_ref": "evidence-ref:runtime-session-continuity:phase-29"}],
         redactions_applied=read_model.redactions_applied,
     )
 
@@ -512,9 +505,7 @@ def get_api_runtime_subagent_isolation() -> ResultEnvelope:
         service="GovernedRuntimeAPI",
         trace_id=read_model.snapshot_ref,
         data=read_model.model_dump(mode="json"),
-        evidence=[
-            {"evidence_ref": "evidence-ref:runtime-subagent-isolation:phase-32"}
-        ],
+        evidence=[{"evidence_ref": "evidence-ref:runtime-subagent-isolation:phase-32"}],
         redactions_applied=read_model.redactions_applied,
     )
 
@@ -531,9 +522,7 @@ def get_api_runtime_worktree_per_agent() -> ResultEnvelope:
         service="GovernedRuntimeAPI",
         trace_id=read_model.snapshot_ref,
         data=read_model.model_dump(mode="json"),
-        evidence=[
-            {"evidence_ref": "evidence-ref:runtime-worktree-per-agent:phase-33"}
-        ],
+        evidence=[{"evidence_ref": "evidence-ref:runtime-worktree-per-agent:phase-33"}],
         redactions_applied=read_model.redactions_applied,
     )
 
@@ -639,6 +628,25 @@ def get_api_runtime_result_classification() -> ResultEnvelope:
         data=read_model.model_dump(mode="json"),
         evidence=[
             {"evidence_ref": "evidence-ref:runtime-result-classification:phase-39"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/voice-media-posture", response_model=ResultEnvelope)
+def get_api_runtime_voice_media_posture() -> ResultEnvelope:
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_runtime_voice_media_posture_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_voice_media_posture",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-voice-media-posture:phase-41"}
         ],
         redactions_applied=read_model.redactions_applied,
     )
@@ -854,10 +862,12 @@ def post_api_runtime_authority_lease_approve_and_issue(
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
     lease_request = request.lease_issue_request
-    approval_requirement, approval_grant = build_authority_lease_operator_approval_grant(
-        lease_request,
-        idempotency_ref=idempotency_ref,
-        approved_by_actor_id=request.approved_by_actor_ref,
+    approval_requirement, approval_grant = (
+        build_authority_lease_operator_approval_grant(
+            lease_request,
+            idempotency_ref=idempotency_ref,
+            approved_by_actor_id=request.approved_by_actor_ref,
+        )
     )
     if approval_grant is not None:
         lease_request = lease_request.model_copy(

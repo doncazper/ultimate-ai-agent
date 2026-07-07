@@ -100,6 +100,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | GET | `/api/runtime/session-lineage` | `get_api_runtime_session_lineage` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/session-search` | `get_api_runtime_session_search` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/slash-command-registry` | `get_api_runtime_slash_command_registry` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/voice-media-posture` | `get_api_runtime_voice_media_posture` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/staged-orchestration` | `get_api_runtime_staged_orchestration` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/streaming-progress` | `get_api_runtime_streaming_progress` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/subagent-isolation` | `get_api_runtime_subagent_isolation` | `local_dev_workspace_only` | no | future | yes |

@@ -209,10 +209,7 @@ def _print_bridge_summary(read_model: dict[str, Any]) -> None:
             "  authority outcome: "
             f"{item.get('authority_decision_outcome') or 'missing'}"
         )
-        print(
-            "  authority lease: "
-            f"{item.get('authority_lease_ref') or 'none'}"
-        )
+        print(f"  authority lease: {item.get('authority_lease_ref') or 'none'}")
         print(
             "  authority requirement: "
             f"{item.get('authority_required_mode_ref') or 'active-mode'} + "
@@ -221,13 +218,9 @@ def _print_bridge_summary(read_model: dict[str, Any]) -> None:
             f"{item.get('authority_capability_ref') or 'authority-capability-ref:unknown'} "
             f"capability"
         )
+        print(f"  authority audit: {item.get('authority_audit_ref') or 'none'}")
         print(
-            "  authority audit: "
-            f"{item.get('authority_audit_ref') or 'none'}"
-        )
-        print(
-            "  authority receipt: "
-            f"{item.get('authority_policy_receipt_ref') or 'none'}"
+            f"  authority receipt: {item.get('authority_policy_receipt_ref') or 'none'}"
         )
         print(
             "  authority reason refs: "
@@ -571,7 +564,9 @@ def _print_usage_cost_analytics(read_model: dict[str, Any]) -> None:
     print(f"Estimated input units: {read_model['total_estimated_input_tokens']}")
     print(f"Estimated output units: {read_model['total_estimated_output_tokens']}")
     print(f"Estimated total units: {read_model['total_estimated_tokens']}")
-    print(f"Estimated minor cost units: {read_model['total_estimated_cost_minor_units']}")
+    print(
+        f"Estimated minor cost units: {read_model['total_estimated_cost_minor_units']}"
+    )
     print(f"Provider calls: {read_model['provider_call_enabled']}")
     print(f"Provider SDK: {read_model['provider_sdk_enabled']}")
     print(f"Billing actions: {read_model['billing_action_enabled']}")
@@ -912,10 +907,7 @@ def _print_subagent_isolation(read_model: dict[str, Any]) -> None:
         print(f"  receipt={role['receipt_plan_ref']}")
     print("Artifacts:")
     for artifact in read_model["review_artifacts"]:
-        print(
-            f"- {artifact['display_label']}: "
-            f"kind={artifact['artifact_kind']}"
-        )
+        print(f"- {artifact['display_label']}: kind={artifact['artifact_kind']}")
     print("Blocked:")
     for ref in read_model["blocked_authority_refs"]:
         print(f"- {ref}")
@@ -1214,8 +1206,16 @@ def _print_voice_media_posture(read_model: dict[str, Any]) -> None:
     print(f"Status: {read_model['status']}")
     print(f"Snapshot: {read_model['snapshot_ref']}")
     print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
+    print(f"Route: {read_model['route_ref']}")
     print(f"Doc: {read_model['doc_ref']}")
     print(f"CLI: {read_model['cli_ref']}")
+    print(f"Authority state: {read_model['authority_state_route_ref']}")
+    print(f"Authority mapping: {read_model['authority_state_mapping_ref']}")
+    print(
+        "Authority decision: "
+        f"{read_model['authority_state_decision_outcome']} "
+        f"({read_model['authority_state_decision_ref']})"
+    )
     print(
         "Lanes: "
         f"total={read_model['lane_count']} "
@@ -1451,8 +1451,7 @@ def _print_session_lineage(read_model: dict[str, Any]) -> None:
     print("Forks:")
     for fork in read_model["forks"]:
         print(
-            f"- {fork['fork_ref']}: status={fork['status']} "
-            f"branch={fork['branch_ref']}"
+            f"- {fork['fork_ref']}: status={fork['status']} branch={fork['branch_ref']}"
         )
         print(f"  parent={fork['parent_session_ref']}")
         print(f"  child={fork['child_session_ref']}")
@@ -1509,10 +1508,7 @@ def _print_checkpoint_rollback(read_model: dict[str, Any]) -> None:
     print(f"Exact core rollback receipts: {read_model['exact_core_supported_count']}")
     print(f"Rollback route enabled: {read_model['rollback_execution_route_enabled']}")
     for lane in read_model["lanes"]:
-        print(
-            f"- {lane['lane_ref']}: kind={lane['lane_kind']} "
-            f"status={lane['status']}"
-        )
+        print(f"- {lane['lane_ref']}: kind={lane['lane_kind']} status={lane['status']}")
         print(f"  checkpoint={lane['checkpoint_ref']}")
         print(f"  rollback_plan={lane['rollback_plan_ref']}")
         print(f"  summary: {lane['safe_summary']}")
@@ -1907,7 +1903,9 @@ def _command_run(args: argparse.Namespace) -> int:
         print(f"Receipt: {payload['receipt_ref'] or 'none'}")
         print(f"Command enabled: {result.command_execution_enabled}")
         print(f"Command performed: {payload['command_execution_performed']}")
-        print(f"Exit code: {result.exit_code if result.exit_code is not None else 'none'}")
+        print(
+            f"Exit code: {result.exit_code if result.exit_code is not None else 'none'}"
+        )
         print(f"Timed out: {result.timed_out}")
         print(f"Error: {result.error_category or 'none'}")
         if result.output_summary:
@@ -1980,8 +1978,14 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
         print(f"Summary: {read_model['operator_summary']}")
         print(f"Mode readiness: {len(read_model['mode_catalog'])}")
         for mode_entry in read_model["mode_catalog"]:
-            approval = "approval_required" if mode_entry["approval_required"] else "approval_not_required"
-            issue_ready = "issue_ready" if mode_entry["issue_ready"] else "not_issue_ready"
+            approval = (
+                "approval_required"
+                if mode_entry["approval_required"]
+                else "approval_not_required"
+            )
+            issue_ready = (
+                "issue_ready" if mode_entry["issue_ready"] else "not_issue_ready"
+            )
             print(
                 f"- {mode_entry['mode']} scope={mode_entry['scope']} "
                 f"status={mode_entry['status']} {approval} {issue_ready}"
@@ -2013,14 +2017,10 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
                 f"- {lease['lease_ref']} mode={lease['mode']} "
                 f"scope={lease['scope']} status={lease['status']}"
             )
-            print(
-                f"  issued={lease['issued_at']} "
-                f"expires={lease['expires_at']}"
-            )
+            print(f"  issued={lease['issued_at']} expires={lease['expires_at']}")
             print(f"  domains: {_authority_domain_summary(lease['domains'])}")
             print(
-                f"  constraints: "
-                f"{_authority_constraint_summary(lease['constraints'])}"
+                f"  constraints: {_authority_constraint_summary(lease['constraints'])}"
             )
             print(
                 f"  safe-disable={lease['safe_disable_ref']} "
@@ -2044,8 +2044,7 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
         )
         print(f"Status counts: {_authority_counts_summary(summary['status_counts'])}")
         print(
-            "Blocked reasons: "
-            f"{_authority_ref_summary(summary['blocked_reason_refs'])}"
+            f"Blocked reasons: {_authority_ref_summary(summary['blocked_reason_refs'])}"
         )
         print(
             "Unsupported adapters: "
@@ -2101,11 +2100,15 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
     return 0
 
 
-def _parse_authority_domains(values: list[str] | None) -> dict[AuthorityDomain, list[AuthorityCapability]]:
+def _parse_authority_domains(
+    values: list[str] | None,
+) -> dict[AuthorityDomain, list[AuthorityCapability]]:
     parsed: dict[AuthorityDomain, list[AuthorityCapability]] = {}
     for value in values or []:
         if ":" not in value:
-            raise SystemExit(f"authority domain must use domain:capability,capability form: {value}")
+            raise SystemExit(
+                f"authority domain must use domain:capability,capability form: {value}"
+            )
         domain_text, capability_text = value.split(":", 1)
         domain = AuthorityDomain(domain_text.strip())
         capabilities = [
@@ -2124,10 +2127,7 @@ def _authority_value_label(value: Any) -> str:
 
 
 def _authority_ref_labels(refs: list[str], prefix: str) -> str:
-    labels = [
-        ref.removeprefix(f"{prefix}:").replace("_", " ")
-        for ref in refs
-    ]
+    labels = [ref.removeprefix(f"{prefix}:").replace("_", " ") for ref in refs]
     return ", ".join(label for label in labels if label)
 
 
@@ -2173,22 +2173,21 @@ def _authority_mission_requirement(plan: Any) -> str:
     ) or ", ".join(
         domain.replace("_", " ") for domain in sorted(plan.requested_domains)
     )
-    capabilities = _authority_ref_labels(
-        list(plan.required_capability_refs),
-        "authority-capability-ref",
-    ) or "declared capability"
+    capabilities = (
+        _authority_ref_labels(
+            list(plan.required_capability_refs),
+            "authority-capability-ref",
+        )
+        or "declared capability"
+    )
     prefix = "Issue-ready for" if plan.lease_issue_ready else "Requires"
     return (
-        f"{prefix} {mode} + {domains} domain scope + "
-        f"{capabilities} capability scope."
+        f"{prefix} {mode} + {domains} domain scope + {capabilities} capability scope."
     )
 
 
 def _select_authority_mode(args: argparse.Namespace) -> int:
-    approval_grants = [
-        json.loads(value)
-        for value in (args.approval_grant_json or [])
-    ]
+    approval_grants = [json.loads(value) for value in (args.approval_grant_json or [])]
     if args.approve and (args.approval_ref or approval_grants):
         print(
             "ERROR: --approve captures an exact local approval grant; do not also pass "
@@ -2211,10 +2210,12 @@ def _select_authority_mode(args: argparse.Namespace) -> int:
     approval_captured = False
     approval_ref = args.approval_ref
     if args.approve:
-        approval_requirement, approval_grant = build_authority_lease_operator_approval_grant(
-            request,
-            idempotency_ref=args.idempotency_ref,
-            approved_by_actor_id=args.approved_by_actor_ref,
+        approval_requirement, approval_grant = (
+            build_authority_lease_operator_approval_grant(
+                request,
+                idempotency_ref=args.idempotency_ref,
+                approved_by_actor_id=args.approved_by_actor_ref,
+            )
         )
         if approval_grant is not None:
             approval_captured = True
@@ -2487,9 +2488,7 @@ def _hermes_chat(args: argparse.Namespace) -> int:
             "external_handoff_only": False,
             "output_summary": "Hermes chat was blocked before execution because the query failed interface-mode validation.",
             "memory_update_policy": "candidate_only_review_required",
-            "blocked_reason_refs": [
-                "blocked-authority:hermes-unsafe-query-fragment"
-            ],
+            "blocked_reason_refs": ["blocked-authority:hermes-unsafe-query-fragment"],
             "unsafe_arg_blocked": True,
             "raw_prompt_persisted": False,
             "raw_response_persisted": False,
@@ -2514,11 +2513,15 @@ def _hermes_chat(args: argparse.Namespace) -> int:
         else:
             _print_hermes_chat(receipt)
         return 2
-    receipt = HermesCliAdapter().chat(
-        request,
-        idempotency_ref=args.idempotency_ref,
-        active_authority_leases=active_runtime_authority_leases(),
-    ).model_dump(mode="json")
+    receipt = (
+        HermesCliAdapter()
+        .chat(
+            request,
+            idempotency_ref=args.idempotency_ref,
+            active_authority_leases=active_runtime_authority_leases(),
+        )
+        .model_dump(mode="json")
+    )
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-hermes-chat",
@@ -2589,9 +2592,7 @@ def _inspect_tool_registry(args: argparse.Namespace) -> int:
 
 
 def _inspect_virtual_provider_moa(args: argparse.Namespace) -> int:
-    read_model = build_runtime_virtual_provider_moa_read_model().model_dump(
-        mode="json"
-    )
+    read_model = build_runtime_virtual_provider_moa_read_model().model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-virtual-provider-moa",
@@ -2617,9 +2618,7 @@ def _inspect_virtual_provider_moa(args: argparse.Namespace) -> int:
 
 
 def _inspect_usage_cost_analytics(args: argparse.Namespace) -> int:
-    read_model = build_runtime_usage_cost_analytics_read_model().model_dump(
-        mode="json"
-    )
+    read_model = build_runtime_usage_cost_analytics_read_model().model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-usage-cost-analytics",
@@ -2729,9 +2728,7 @@ def _inspect_hardline_command_blocklist(args: argparse.Namespace) -> int:
 
 
 def _inspect_managed_scope_policy(args: argparse.Namespace) -> int:
-    read_model = build_runtime_managed_scope_policy_read_model().model_dump(
-        mode="json"
-    )
+    read_model = build_runtime_managed_scope_policy_read_model().model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-managed-scope-policy",
@@ -2756,9 +2753,7 @@ def _inspect_managed_scope_policy(args: argparse.Namespace) -> int:
 
 
 def _inspect_doctor_diagnostics(args: argparse.Namespace) -> int:
-    read_model = build_runtime_doctor_diagnostics_read_model().model_dump(
-        mode="json"
-    )
+    read_model = build_runtime_doctor_diagnostics_read_model().model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-doctor-diagnostics",
@@ -2782,9 +2777,7 @@ def _inspect_doctor_diagnostics(args: argparse.Namespace) -> int:
 
 
 def _inspect_session_continuity(args: argparse.Namespace) -> int:
-    read_model = build_runtime_session_continuity_read_model().model_dump(
-        mode="json"
-    )
+    read_model = build_runtime_session_continuity_read_model().model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-session-continuity",
@@ -3073,9 +3066,7 @@ def _inspect_result_classification(args: argparse.Namespace) -> int:
     authority_state = AuthorityLeaseStore().build_state_read_model()
     read_model = build_runtime_result_classification_read_model(
         authority_decision_catalog=authority_state.decision_catalog,
-    ).model_dump(
-        mode="json"
-    )
+    ).model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-result-classification",
@@ -3097,8 +3088,11 @@ def _inspect_result_classification(args: argparse.Namespace) -> int:
 
 
 def _inspect_voice_media_posture(args: argparse.Namespace) -> int:
-    read_model = build_runtime_voice_media_posture_read_model().model_dump(
-        mode="json"
+    authority_state = AuthorityLeaseStore().build_state_read_model()
+    read_model = build_runtime_voice_media_posture_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    ).model_dump(
+        mode="json",
     )
     payload = {
         "schema_version": "governed-runtime-cli:v1",
@@ -3343,9 +3337,7 @@ def _inspect_context_references(args: argparse.Namespace) -> int:
 
 
 def _inspect_checkpoint_rollback(args: argparse.Namespace) -> int:
-    read_model = build_runtime_checkpoint_rollback_read_model().model_dump(
-        mode="json"
-    )
+    read_model = build_runtime_checkpoint_rollback_read_model().model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-checkpoint-rollback",
@@ -3409,18 +3401,18 @@ def _inspect_approval_bridge(args: argparse.Namespace) -> int:
         "approval_resolution_sent": False,
         "denial_resolution_sent": False,
         "timeout_resolution_sent": False,
-        "fail_closed_timeout_policy_ref": read_model[
-            "fail_closed_timeout_posture"
-        ]["policy_ref"],
+        "fail_closed_timeout_policy_ref": read_model["fail_closed_timeout_posture"][
+            "policy_ref"
+        ],
         "auto_approve_enabled": read_model["fail_closed_timeout_posture"][
             "auto_approve_enabled"
         ],
         "approve_all_enabled": read_model["fail_closed_timeout_posture"][
             "approve_all_enabled"
         ],
-        "standing_broad_authority_enabled": read_model[
-            "fail_closed_timeout_posture"
-        ]["standing_broad_authority_enabled"],
+        "standing_broad_authority_enabled": read_model["fail_closed_timeout_posture"][
+            "standing_broad_authority_enabled"
+        ],
     }
     if args.json:
         _print_json(payload)
@@ -4076,7 +4068,9 @@ def build_parser() -> argparse.ArgumentParser:
         "preview-authority-decision",
         help="Preview an AuthorityLease policy decision without execution.",
     )
-    authority_preview.add_argument("--action-ref", required=True, help="Safe action ref.")
+    authority_preview.add_argument(
+        "--action-ref", required=True, help="Safe action ref."
+    )
     authority_preview.add_argument(
         "--domain",
         required=True,
@@ -4094,7 +4088,9 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Safe bounded action summary.",
     )
-    authority_preview.add_argument("--resource-ref", action="append", help="Safe resource ref.")
+    authority_preview.add_argument(
+        "--resource-ref", action="append", help="Safe resource ref."
+    )
     authority_preview.add_argument("--route-ref", default=None, help="Route ref.")
     authority_preview.add_argument(
         "--capability-ref",
@@ -4128,7 +4124,9 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Simulate an engaged kill switch.",
     )
-    authority_preview.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    authority_preview.add_argument(
+        "--json", action="store_true", help="Emit safe JSON."
+    )
     authority_preview.set_defaults(func=_preview_authority_decision)
 
     mission_plan = subparsers.add_parser(

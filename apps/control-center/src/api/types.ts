@@ -11639,6 +11639,96 @@ export interface RuntimeResultClassificationReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeVoiceMediaLaneKind =
+  | "voice_input"
+  | "speech_to_text"
+  | "text_to_speech"
+  | "image_input"
+  | "image_generation"
+  | "media_upload"
+  | "media_delivery";
+
+export type RuntimeVoiceMediaLaneStatus =
+  | "posture_only"
+  | "blocked_until_authority";
+
+export interface RuntimeVoiceMediaLane {
+  lane_ref: string;
+  lane_kind: RuntimeVoiceMediaLaneKind;
+  display_label: string;
+  status: RuntimeVoiceMediaLaneStatus;
+  safe_summary: string;
+  device_permission_ref: string;
+  consent_ref: string;
+  redaction_policy_ref: string;
+  receipt_plan_ref: string;
+  safe_disable_ref: string;
+  proof_ref: string;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  local_only_option_required: boolean;
+  provider_boundary_required: boolean;
+  consent_required: boolean;
+  receipt_required: boolean;
+  safe_disable_required: boolean;
+  microphone_access_enabled: boolean;
+  camera_access_enabled: boolean;
+  file_upload_enabled: boolean;
+  transcription_enabled: boolean;
+  media_generation_enabled: boolean;
+  provider_calls_enabled: boolean;
+  external_delivery_enabled: boolean;
+  raw_media_persisted: boolean;
+  control_center_mints_authority: boolean;
+}
+
+export interface RuntimeVoiceMediaPostureReadModel {
+  schema_version: "runtime_voice_media_posture.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  doc_ref: string;
+  authority_state_route_ref: string;
+  authority_state_cli_ref: string;
+  authority_state_mapping_ref: string;
+  authority_state_catalog_ref: string;
+  authority_state_decision_ref: string;
+  authority_state_decision_outcome: AuthorityDecisionOutcome;
+  authority_state_status: string;
+  authority_state_operator_message: string;
+  authority_state_reason_refs: string[];
+  unsupported_adapter_refs: string[];
+  control_center_ref: string;
+  safe_summary: string;
+  lanes: RuntimeVoiceMediaLane[];
+  lane_count: number;
+  blocked_lane_count: number;
+  local_only_option_required: boolean;
+  provider_boundary_required: boolean;
+  consent_required: boolean;
+  receipt_required: boolean;
+  safe_disable_required: boolean;
+  microphone_access_enabled: boolean;
+  camera_access_enabled: boolean;
+  file_upload_enabled: boolean;
+  transcription_enabled: boolean;
+  media_generation_enabled: boolean;
+  provider_calls_enabled: boolean;
+  external_delivery_enabled: boolean;
+  raw_media_persisted: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -13198,6 +13288,7 @@ export interface ControlCenterData {
   runtimeInterruptRedirect: RuntimeInterruptRedirectReadModel;
   runtimeLoggingProfile: RuntimeLoggingProfileReadModel;
   runtimeResultClassification: RuntimeResultClassificationReadModel;
+  runtimeVoiceMediaPosture: RuntimeVoiceMediaPostureReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

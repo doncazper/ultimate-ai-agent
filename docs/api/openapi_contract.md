@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `242`.
+Current OpenAPI path count: `243`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -279,6 +279,15 @@ Contract rules:
   authority, mutation without receipt, unverified evidence promotion, raw output
   persistence, provider payload persistence, production authority, and public
   release claims remain blocked.
+  `GET /api/runtime/voice-media-posture` exposes the Hermes Runtime Adoption
+  Phase 41 backend-owned voice/media posture. It returns voice input,
+  speech-to-text, text-to-speech, image input, image generation, media upload,
+  and external media delivery lane refs, consent refs, device-permission refs,
+  redaction refs, receipt-plan refs, proof refs, verifier refs, authority refs,
+  and blocked authority refs only. Microphone access, camera access, file/media
+  upload, transcription, media generation, provider calls, external delivery,
+  media material persistence, Control Center authority minting, production
+  authority, and public release claims remain blocked.
   `GET /api/runtime/context-references` exposes the Hermes Runtime Adoption
   Phase 16 backend-owned context-reference posture. It returns safe-ref grammar,
   preview refs, budget estimates, why-included refs, and blocked URL/live-fetch

@@ -548,6 +548,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           interruptRedirect={data.runtimeInterruptRedirect}
           loggingProfile={data.runtimeLoggingProfile}
           resultClassification={data.runtimeResultClassification}
+          voiceMediaPosture={data.runtimeVoiceMediaPosture}
         />
       );
     case "/operator-loop":

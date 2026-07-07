@@ -1,14 +1,21 @@
 import subprocess
 import sys
 
+from fastapi.testclient import TestClient
 import pytest
 
+from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_VOICE_MEDIA_POSTURE_AUTHORITY_MAPPING_REF,
     RUNTIME_VOICE_MEDIA_POSTURE_BLOCKED_AUTHORITY_REFS,
+    RUNTIME_VOICE_MEDIA_POSTURE_ROUTE_REF,
     RuntimeVoiceMediaLane,
     RuntimeVoiceMediaPostureReadModel,
     build_runtime_voice_media_posture_read_model,
 )
+
+
+client = TestClient(app)
 
 
 def test_voice_media_posture_is_blocked_read_model_only() -> None:
@@ -16,7 +23,25 @@ def test_voice_media_posture_is_blocked_read_model_only() -> None:
 
     assert read_model.schema_version == "runtime_voice_media_posture.v1"
     assert read_model.status == "read_model_posture_only"
+    assert read_model.route_ref == RUNTIME_VOICE_MEDIA_POSTURE_ROUTE_REF
     assert read_model.cli_ref == "uaa runtime inspect-voice-media-posture"
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_VOICE_MEDIA_POSTURE_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_route_ref == "GET /api/runtime/authority-state"
+    assert (
+        read_model.authority_state_cli_ref
+        == "repo-local-command:uaa-runtime-inspect-authority-state"
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_status == "implemented_authority_bound_read_model"
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        read_model.authority_state_reason_refs
+    )
+    assert "adapter-ref:voice-media-microphone:not-implemented" in (
+        read_model.unsupported_adapter_refs
+    )
     assert read_model.lane_count == 7
     assert read_model.blocked_lane_count == 7
     assert read_model.microphone_access_enabled is False
@@ -31,6 +56,28 @@ def test_voice_media_posture_is_blocked_read_model_only() -> None:
     assert set(RUNTIME_VOICE_MEDIA_POSTURE_BLOCKED_AUTHORITY_REFS).issubset(
         set(read_model.blocked_authority_refs)
     )
+
+
+def test_voice_media_posture_route_returns_authority_bound_read_model() -> None:
+    response = client.get("/api/runtime/voice-media-posture")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "api_runtime_voice_media_posture"
+    data = body["data"]
+    assert data["schema_version"] == "runtime_voice_media_posture.v1"
+    assert data["route_ref"] == "GET /api/runtime/voice-media-posture"
+    assert (
+        data["authority_state_mapping_ref"]
+        == "lane-ref:runtime-voice-media-posture-read-model"
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
+    assert data["lane_count"] == 7
+    assert data["blocked_lane_count"] == 7
+    assert data["microphone_access_enabled"] is False
+    assert data["media_generation_enabled"] is False
+    assert data["provider_calls_enabled"] is False
 
 
 def test_voice_media_lanes_require_promotion_controls() -> None:
@@ -88,7 +135,9 @@ def test_voice_media_read_model_denies_authority_flags(field: str) -> None:
     payload = build_runtime_voice_media_posture_read_model().model_dump(mode="json")
     payload[field] = True
 
-    with pytest.raises(ValueError, match="RUNTIME_VOICE_MEDIA_READ_MODEL_AUTHORITY_DENIED"):
+    with pytest.raises(
+        ValueError, match="RUNTIME_VOICE_MEDIA_READ_MODEL_AUTHORITY_DENIED"
+    ):
         RuntimeVoiceMediaPostureReadModel(**payload)
 
 
@@ -107,8 +156,8 @@ def test_voice_media_read_model_denies_authority_flags(field: str) -> None:
     ],
 )
 def test_voice_media_lane_denies_authority_flags(field: str) -> None:
-    payload = build_runtime_voice_media_posture_read_model().lanes[0].model_dump(
-        mode="json"
+    payload = (
+        build_runtime_voice_media_posture_read_model().lanes[0].model_dump(mode="json")
     )
     payload[field] = True
 
@@ -137,5 +186,11 @@ def test_voice_media_cli_uses_same_read_model() -> None:
     assert payload["microphone_access_performed"] is False
     assert payload["media_generation_performed"] is False
     assert payload["provider_call_performed"] is False
+    assert read_model["route_ref"] == "GET /api/runtime/voice-media-posture"
+    assert (
+        read_model["authority_state_mapping_ref"]
+        == "lane-ref:runtime-voice-media-posture-read-model"
+    )
+    assert read_model["authority_state_decision_outcome"] == "allow"
     assert read_model["lane_count"] == 7
     assert read_model["blocked_lane_count"] == 7
