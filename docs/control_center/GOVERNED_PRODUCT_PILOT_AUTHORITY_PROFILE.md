@@ -6,10 +6,10 @@ Baseline: v0.104.0 / 0.104.0
 The Governed Product Pilot profile moves UAA from a mostly blocked shell toward
 a usable local-first product pilot without deleting the sealed/default hard
 rules. The default profile remains `sealed` and deny-by-default. The pilot
-profile is an exact-lane profile: each promoted local lane must prove Python
-Core ownership, approval binding where execution-capable, idempotency, audit
-receipt, rollback or safe-disable posture, redaction, tests, and CLI/API/Core
-parity.
+profile is an AuthorityLease capability profile: each promoted local capability
+must prove Python Core ownership, approval binding where execution-capable,
+idempotency, audit receipt, rollback or safe-disable posture, redaction, tests,
+and CLI/API/Core parity.
 
 ## Backend Truth
 
@@ -22,13 +22,13 @@ parity.
 - Verifier: `scripts/verify_governed_product_pilot_authority_profile.py`
 - Focused tests: `tests/test_governed_product_pilot_authority_profile.py`
 
-Control Center may display or initiate backend-owned envelopes for exact lanes,
-but it does not mint authority. Product behavior cannot live only in React
-state.
+Control Center may display or initiate backend-owned envelopes for exact
+AuthorityLease capabilities, but it does not mint authority. Product behavior
+cannot live only in React state.
 
-## Exact Pilot Lanes
+## Pilot Authority Capabilities
 
-| Lane | Profile status | What is promoted | Boundary |
+| Capability | Profile status | What is promoted | Boundary |
 |---|---|---|---|
 | Live local agent runtime | Implemented | Configured loopback/local RuntimeGateway calls with non-authoritative output, redacted receipts, and safe refs. | No remote provider/model calls, tools, memory writes, file writes, connector writes, browser automation, or production authority. |
 | Mature action execution | Implemented | Named RuntimeGateway authority capabilities: one read-only local status command under `workspace/read` and exact Action Inbox approved focused pytest, repo-verifier, frontend-check, and repo-doctor command execution under active `workspace/execute` AuthorityLease scope. | No generic tool execution, arbitrary shell/subprocess, networked commands, installs, background execution, or approval refs as authority. |
@@ -39,10 +39,10 @@ state.
 
 | Capability | Current maturity | Evidence | Remaining gap |
 |---|---|---|---|
-| Mature action execution | Strong exact-lane local pilot | RuntimeGateway allowlist, AuthorityLease evaluation, Action Inbox approval envelope, receipt refs, CLI/API/Core parity, and tests for read-only command plus exact approved focused pytest, repo-verifier, frontend-check, and repo-doctor execution. | More action lanes require separate domain/capability scope, approval binding, rollback/safe-disable, redaction, and verifier coverage. |
+| Mature action execution | Strong exact-capability local pilot | RuntimeGateway allowlist, AuthorityLease evaluation, Action Inbox approval envelope, receipt refs, CLI/API/Core parity, and tests for read-only command plus exact approved focused pytest, repo-verifier, frontend-check, and repo-doctor execution. | More action capabilities require separate domain/capability scope, approval binding, rollback/safe-disable, redaction, and verifier coverage. |
 | Signed portable evidence | Strong local hash envelope, not public notarization | Envelope includes receipt, evidence, action, policy, approval, side-effect, timestamp, verifier, deterministic hash ref, local signed-envelope ref, offline verifier, tamper tests, redaction tests, and CLI export/verify. | Public signing, key custody, revocation, external notarization, and cross-device trust remain blocked until a separate signing-boundary milestone. |
-| Durable orchestration | Strong local durable run posture | Profile binds local run records, checkpoints, approval wait, retry/recovery, cancel/blocked/dead-letter posture, read-model status refs, redacted errors, and marks durable event log as truth while progress refs are not truth. | Live resume/cancel/retry execution controls and scheduler/background workers remain blocked until exact lanes are approved. |
-| Live local agent runtime | Usable local pilot lane | RuntimeGateway supports configured loopback/local model receipts with non-authoritative output, safe refs, redaction posture, and sealed/local-runtime/operator-approved profile separation. | Remote provider calls, arbitrary model routing, tool dispatch, memory writes, and production authority remain blocked. |
+| Durable orchestration | Strong local durable run posture | Profile binds local run records, checkpoints, approval wait, retry/recovery, cancel/blocked/dead-letter posture, read-model status refs, redacted errors, and marks durable event log as truth while progress refs are not truth. | Live resume/cancel/retry execution controls and scheduler/background workers remain blocked until exact capabilities are approved. |
+| Live local agent runtime | Usable local pilot capability | RuntimeGateway supports configured loopback/local model receipts with non-authoritative output, safe refs, redaction posture, and sealed/local-runtime/operator-approved profile separation. | Remote provider calls, arbitrary model routing, tool dispatch, memory writes, and production authority remain blocked. |
 
 ## Portable Evidence Verification
 
@@ -75,12 +75,12 @@ input file for offline verification but does not echo or persist the local path.
 
 ## Promotion Rule
 
-Future promotion must be lane-specific. A new exact lane needs scope,
+Future promotion must be capability-specific. A new exact capability needs scope,
 PolicyEngine/LocalApprovalAuthority binding where relevant, idempotency,
 receipts, rollback or safe-disable posture, redaction, CLI/API/Core parity,
 route side-effect classification, OpenAPI/API manifest alignment, focused
 tests, verifier coverage, product-language truth, and operator-visible blocked
-states. Graduation of one lane does not unlock the broader capability class.
+states. Graduation of one capability does not unlock the broader capability class.
 
 ## Next Exact Promotion Prompts
 
@@ -97,10 +97,10 @@ Use these prompts only after the current profile is green:
   rollback/safe-disable, redaction, CLI/API/Core parity, and route
   classification."
 - Durable run controls: "Promote one durable orchestration control, such as
-  cancel or resume, as an exact lane over existing run refs with approval
+  cancel or resume, as an exact capability over existing run refs with approval
   binding where effectful, idempotency, receipt refs, replay posture, redacted
   errors, CLI/API/Core parity, and tests."
-- Live runtime expansion: "Promote one additional local-runtime invocation lane
+- Live runtime expansion: "Promote one additional local-runtime invocation capability
   only through RuntimeGateway with configured endpoint matching, output as
   non-authoritative evidence, cost/latency/status refs, approval before side
   effects, redaction, safe-disable, and no remote provider or production

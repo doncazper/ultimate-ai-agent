@@ -31,7 +31,7 @@ def test_governed_product_pilot_profile_preserves_sealed_baseline() -> None:
     assert payload["default_runtime_profile"] == "sealed"
     assert payload["sealed_default_hard_rules_preserved"] is True
     assert payload["sealed_profile_deny_by_default"] is True
-    assert payload["pilot_profile_exact_lane_only"] is True
+    assert payload["pilot_profile_authority_capability_only"] is True
     assert payload["runtime_gateway_required"] is True
     assert payload["control_center_mints_authority"] is False
     assert payload["control_center_presentation_only"] is True
@@ -43,51 +43,66 @@ def test_governed_product_pilot_profile_preserves_sealed_baseline() -> None:
     )
 
 
-def test_governed_product_pilot_lanes_are_exact_and_receipt_backed() -> None:
+def test_governed_product_pilot_capabilities_are_exact_and_receipt_backed() -> None:
     profile = build_governed_product_pilot_authority_profile()
-    lanes = {lane.lane_ref: lane.model_dump(mode="json") for lane in profile.lanes}
-
-    assert set(lanes) >= {
-        "lane-ref:governed-product-pilot-live-local-agent-runtime",
-        "lane-ref:governed-product-pilot-mature-action-execution",
-        "lane-ref:governed-product-pilot-portable-evidence",
-        "lane-ref:governed-product-pilot-durable-orchestration",
+    capabilities = {
+        capability.capability_ref: capability.model_dump(mode="json")
+        for capability in profile.capabilities
     }
-    for lane in lanes.values():
-        assert lane["enabled_in_sealed_profile"] is False
-        assert lane["exact_micro_lane_only"] is True
-        assert lane["idempotency_required"] is True
-        assert lane["audit_receipt_required"] is True
-        assert lane["rollback_or_safe_disable_required"] is True
-        assert lane["redaction_required"] is True
-        assert lane["python_core_owned"] is True
-        assert lane["cli_parity"] is True
-        assert lane["api_parity"] is True
-        assert lane["raw_persistence_allowed"] is False
-        assert lane["generic_tool_execution_enabled"] is False
-        assert lane["broad_authority_enabled"] is False
-        assert lane["receipt_refs"]
-        assert lane["evidence_refs"]
-        if lane["execution_capable"] and not lane["read_only_no_op"]:
-            assert lane["approval_binding_required"] is True
-    action_lane = lanes["lane-ref:governed-product-pilot-mature-action-execution"]
+
+    assert set(capabilities) >= {
+        "authority-capability-ref:governed-product-pilot-live-local-agent-runtime",
+        "authority-capability-ref:governed-product-pilot-mature-action-execution",
+        "authority-capability-ref:governed-product-pilot-portable-evidence",
+        "authority-capability-ref:governed-product-pilot-durable-orchestration",
+    }
+    for capability in capabilities.values():
+        assert capability["enabled_in_sealed_profile"] is False
+        assert capability["authority_capability_only"] is True
+        assert capability["idempotency_required"] is True
+        assert capability["audit_receipt_required"] is True
+        assert capability["rollback_or_safe_disable_required"] is True
+        assert capability["redaction_required"] is True
+        assert capability["python_core_owned"] is True
+        assert capability["cli_parity"] is True
+        assert capability["api_parity"] is True
+        assert capability["raw_persistence_allowed"] is False
+        assert capability["generic_tool_execution_enabled"] is False
+        assert capability["broad_authority_enabled"] is False
+        assert capability["receipt_refs"]
+        assert capability["evidence_refs"]
+        if capability["execution_capable"] and not capability["read_only_no_op"]:
+            assert capability["approval_binding_required"] is True
+    action_capability = capabilities[
+        "authority-capability-ref:governed-product-pilot-mature-action-execution"
+    ]
     assert "authority-ref:runtime-action-inbox-repo-verifier-phase-05" in (
-        action_lane["authority_refs"]
+        action_capability["authority_refs"]
     )
-    assert "receipt-ref:runtime-repo-verifier-command" in action_lane["receipt_refs"]
-    assert "evidence-ref:runtime-repo-verifier-command" in action_lane["evidence_refs"]
+    assert "receipt-ref:runtime-repo-verifier-command" in action_capability["receipt_refs"]
+    assert "evidence-ref:runtime-repo-verifier-command" in (
+        action_capability["evidence_refs"]
+    )
     assert "authority-ref:runtime-action-inbox-frontend-check-phase-05" in (
-        action_lane["authority_refs"]
+        action_capability["authority_refs"]
     )
-    assert "receipt-ref:runtime-frontend-check-command" in action_lane["receipt_refs"]
-    assert "evidence-ref:runtime-frontend-check-command" in action_lane["evidence_refs"]
+    assert "receipt-ref:runtime-frontend-check-command" in (
+        action_capability["receipt_refs"]
+    )
+    assert "evidence-ref:runtime-frontend-check-command" in (
+        action_capability["evidence_refs"]
+    )
     assert "authority-ref:runtime-action-inbox-repo-doctor-phase-05" in (
-        action_lane["authority_refs"]
+        action_capability["authority_refs"]
     )
-    assert "receipt-ref:runtime-repo-doctor-command" in action_lane["receipt_refs"]
-    assert "evidence-ref:runtime-repo-doctor-command" in action_lane["evidence_refs"]
-    assert "frontend-check" in action_lane["repo_safe_status"].lower()
-    assert "repo-doctor" in action_lane["repo_safe_status"].lower()
+    assert "receipt-ref:runtime-repo-doctor-command" in (
+        action_capability["receipt_refs"]
+    )
+    assert "evidence-ref:runtime-repo-doctor-command" in (
+        action_capability["evidence_refs"]
+    )
+    assert "frontend-check" in action_capability["repo_safe_status"].lower()
+    assert "repo-doctor" in action_capability["repo_safe_status"].lower()
 
 
 def test_portable_evidence_envelope_contains_required_signed_fields() -> None:
@@ -174,9 +189,9 @@ def test_durable_orchestration_profile_marks_progress_as_non_truth() -> None:
     assert durable["dead_letter_state_supported"] is True
     assert durable["durable_event_log_is_source_of_truth"] is True
     assert durable["progress_refs_are_source_of_truth"] is False
-    assert durable["resume_requires_exact_lane"] is True
-    assert durable["cancel_requires_exact_lane"] is True
-    assert durable["retry_requires_exact_lane"] is True
+    assert durable["resume_requires_authority_capability"] is True
+    assert durable["cancel_requires_authority_capability"] is True
+    assert durable["retry_requires_authority_capability"] is True
     assert set(durable["read_model_status_refs"]) >= {
         "run-status-ref:active",
         "run-status-ref:completed",

@@ -172,7 +172,9 @@ class GovernedProductPilotPortableEvidenceEnvelope(BaseModel):
         "governed_network_read_only",
     ] = "local_dev_workspace_only"
     policy_decision_ref: str = "policy-decision-ref:governed-product-pilot-profile"
-    approval_ref: str = "approval-ref:governed-product-pilot-profile-exact-lanes"
+    approval_ref: str = (
+        "approval-ref:governed-product-pilot-profile-authority-capabilities"
+    )
     verifier_version_ref: str = GOVERNED_PRODUCT_PILOT_VERIFIER_VERSION_REF
     verifier_ref: str = GOVERNED_PRODUCT_PILOT_VERIFIER_REF
     issued_at: datetime = Field(default_factory=utc_now)
@@ -313,14 +315,14 @@ class GovernedProductPilotEvidenceVerificationResult(BaseModel):
         return self
 
 
-class GovernedProductPilotLane(BaseModel):
-    lane_ref: str = Field(..., min_length=1)
+class GovernedProductPilotAuthorityCapability(BaseModel):
+    capability_ref: str = Field(..., min_length=1)
     title: str = Field(..., min_length=1, max_length=120)
     status: Literal["implemented", "profile_ready", "blocked"]
     full_strength_goal: str = Field(..., min_length=1, max_length=300)
     repo_safe_status: str = Field(..., min_length=1, max_length=300)
     promotion_path_ref: str = Field(..., min_length=1)
-    exact_micro_lane_only: bool = True
+    authority_capability_only: bool = True
     enabled_in_sealed_profile: bool = False
     enabled_in_pilot_profile: bool = True
     execution_capable: bool = False
@@ -352,9 +354,9 @@ class GovernedProductPilotLane(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_lane(self) -> "GovernedProductPilotLane":
+    def validate_capability(self) -> "GovernedProductPilotAuthorityCapability":
         for value, field_name in [
-            (self.lane_ref, "lane_ref"),
+            (self.capability_ref, "capability_ref"),
             (self.promotion_path_ref, "promotion_path_ref"),
         ]:
             validate_execution_ref(value, field_name)
@@ -382,18 +384,22 @@ class GovernedProductPilotLane(BaseModel):
         for ref in self.route_refs:
             validate_safe_execution_text(ref, "route_refs")
         if self.enabled_in_sealed_profile:
-            raise ValueError("PILOT_LANE_SEALED_PROFILE_MUST_REMAIN_DISABLED")
-        if self.enabled_in_pilot_profile and not self.exact_micro_lane_only:
-            raise ValueError("PILOT_LANE_EXACT_SCOPE_REQUIRED")
+            raise ValueError(
+                "PILOT_AUTHORITY_CAPABILITY_SEALED_PROFILE_MUST_REMAIN_DISABLED"
+            )
+        if self.enabled_in_pilot_profile and not self.authority_capability_only:
+            raise ValueError("PILOT_AUTHORITY_CAPABILITY_EXACT_SCOPE_REQUIRED")
         if (
             self.execution_capable
             and not self.read_only_no_op
             and not self.approval_binding_required
         ):
-            raise ValueError("PILOT_EXECUTION_LANE_APPROVAL_BINDING_REQUIRED")
+            raise ValueError(
+                "PILOT_EXECUTION_AUTHORITY_CAPABILITY_APPROVAL_BINDING_REQUIRED"
+            )
         required = set(GOVERNED_PRODUCT_PILOT_REQUIRED_BLOCKED_AUTHORITY_REFS)
         if not required.issubset(set(self.blocked_authority_refs)):
-            raise ValueError("PILOT_LANE_BLOCKED_AUTHORITY_REFS_REQUIRED")
+            raise ValueError("PILOT_AUTHORITY_CAPABILITY_BLOCKED_AUTHORITY_REFS_REQUIRED")
         if not all(
             [
                 self.idempotency_required,
@@ -406,11 +412,11 @@ class GovernedProductPilotLane(BaseModel):
                 self.control_center_presentation_only,
             ]
         ):
-            raise ValueError("PILOT_LANE_GOVERNANCE_PROOF_REQUIRED")
+            raise ValueError("PILOT_AUTHORITY_CAPABILITY_GOVERNANCE_PROOF_REQUIRED")
         if self.raw_persistence_allowed:
-            raise ValueError("PILOT_LANE_RAW_PERSISTENCE_DENIED")
+            raise ValueError("PILOT_AUTHORITY_CAPABILITY_RAW_PERSISTENCE_DENIED")
         if self.generic_tool_execution_enabled or self.broad_authority_enabled:
-            raise ValueError("PILOT_LANE_BROAD_AUTHORITY_DENIED")
+            raise ValueError("PILOT_AUTHORITY_CAPABILITY_BROAD_AUTHORITY_DENIED")
         return self
 
 
@@ -429,7 +435,7 @@ class GovernedProductPilotAuthorityProfileReadModel(BaseModel):
     backend_owned: bool = True
     sealed_default_hard_rules_preserved: bool = True
     sealed_profile_deny_by_default: bool = True
-    pilot_profile_exact_lane_only: bool = True
+    pilot_profile_authority_capability_only: bool = True
     runtime_gateway_required: bool = True
     local_model_output_non_authoritative: bool = True
     control_center_mints_authority: bool = False
@@ -447,7 +453,7 @@ class GovernedProductPilotAuthorityProfileReadModel(BaseModel):
         default_factory=lambda: list(GOVERNED_PRODUCT_PILOT_PROMOTED_AUTHORITY_REFS)
     )
     blocked_authority_refs: list[str] = Field(default_factory=_combined_blocked_authority_refs)
-    lanes: list[GovernedProductPilotLane]
+    capabilities: list[GovernedProductPilotAuthorityCapability]
     portable_evidence_envelope: GovernedProductPilotPortableEvidenceEnvelope
     durable_orchestration_contract: dict[str, Any]
     route_refs: list[str] = Field(
@@ -539,7 +545,7 @@ class GovernedProductPilotAuthorityProfileReadModel(BaseModel):
                 self.backend_owned,
                 self.sealed_default_hard_rules_preserved,
                 self.sealed_profile_deny_by_default,
-                self.pilot_profile_exact_lane_only,
+                self.pilot_profile_authority_capability_only,
                 self.runtime_gateway_required,
                 self.local_model_output_non_authoritative,
                 self.control_center_presentation_only,
@@ -564,8 +570,8 @@ class GovernedProductPilotAuthorityProfileReadModel(BaseModel):
         required = set(GOVERNED_PRODUCT_PILOT_REQUIRED_BLOCKED_AUTHORITY_REFS)
         if not required.issubset(set(self.blocked_authority_refs)):
             raise ValueError("PILOT_PROFILE_BLOCKED_AUTHORITY_REFS_REQUIRED")
-        if len(self.lanes) < 4:
-            raise ValueError("PILOT_PROFILE_CORE_LANES_REQUIRED")
+        if len(self.capabilities) < 4:
+            raise ValueError("PILOT_PROFILE_CORE_AUTHORITY_CAPABILITIES_REQUIRED")
         if not self.portable_evidence_envelope.portable_offline_inspection_ready:
             raise ValueError("PILOT_EVIDENCE_PORTABILITY_REQUIRED")
         validate_safe_execution_text(
@@ -586,7 +592,9 @@ def build_portable_evidence_envelope() -> GovernedProductPilotPortableEvidenceEn
         "action_ref": "action-ref:governed-product-pilot-authority-profile",
         "side_effect_class": "local_dev_workspace_only",
         "policy_decision_ref": "policy-decision-ref:governed-product-pilot-profile",
-        "approval_ref": "approval-ref:governed-product-pilot-profile-exact-lanes",
+        "approval_ref": (
+            "approval-ref:governed-product-pilot-profile-authority-capabilities"
+        ),
         "verifier_version_ref": GOVERNED_PRODUCT_PILOT_VERIFIER_VERSION_REF,
         "verifier_ref": GOVERNED_PRODUCT_PILOT_VERIFIER_REF,
         "issued_at": issued_at,
@@ -692,11 +700,13 @@ def verify_portable_evidence_envelope(
     )
 
 
-def _pilot_lanes() -> list[GovernedProductPilotLane]:
+def _pilot_capabilities() -> list[GovernedProductPilotAuthorityCapability]:
     blocked = _combined_blocked_authority_refs()
     return [
-        GovernedProductPilotLane(
-            lane_ref="lane-ref:governed-product-pilot-live-local-agent-runtime",
+        GovernedProductPilotAuthorityCapability(
+            capability_ref=(
+                "authority-capability-ref:governed-product-pilot-live-local-agent-runtime"
+            ),
             title="Live local agent runtime",
             status="implemented",
             full_strength_goal=(
@@ -730,8 +740,10 @@ def _pilot_lanes() -> list[GovernedProductPilotLane]:
             test_refs=["test-ref:tests-test-governed-runtime-contracts"],
             blocked_authority_refs=blocked,
         ),
-        GovernedProductPilotLane(
-            lane_ref="lane-ref:governed-product-pilot-mature-action-execution",
+        GovernedProductPilotAuthorityCapability(
+            capability_ref=(
+                "authority-capability-ref:governed-product-pilot-mature-action-execution"
+            ),
             title="Mature action execution",
             status="implemented",
             full_strength_goal=(
@@ -788,8 +800,10 @@ def _pilot_lanes() -> list[GovernedProductPilotLane]:
             ],
             blocked_authority_refs=blocked,
         ),
-        GovernedProductPilotLane(
-            lane_ref="lane-ref:governed-product-pilot-portable-evidence",
+        GovernedProductPilotAuthorityCapability(
+            capability_ref=(
+                "authority-capability-ref:governed-product-pilot-portable-evidence"
+            ),
             title="Portable evidence envelopes",
             status="profile_ready",
             full_strength_goal=(
@@ -819,8 +833,10 @@ def _pilot_lanes() -> list[GovernedProductPilotLane]:
             test_refs=["test-ref:tests-test-governed-product-pilot-authority-profile"],
             blocked_authority_refs=blocked,
         ),
-        GovernedProductPilotLane(
-            lane_ref="lane-ref:governed-product-pilot-durable-orchestration",
+        GovernedProductPilotAuthorityCapability(
+            capability_ref=(
+                "authority-capability-ref:governed-product-pilot-durable-orchestration"
+            ),
             title="Durable orchestration",
             status="implemented",
             full_strength_goal=(
@@ -878,9 +894,9 @@ def build_governed_product_pilot_authority_profile() -> GovernedProductPilotAuth
         ],
         "durable_event_log_is_source_of_truth": True,
         "progress_refs_are_source_of_truth": False,
-        "resume_requires_exact_lane": True,
-        "cancel_requires_exact_lane": True,
-        "retry_requires_exact_lane": True,
+        "resume_requires_authority_capability": True,
+        "cancel_requires_authority_capability": True,
+        "retry_requires_authority_capability": True,
         "redacted_errors_only": True,
         "raw_payload_storage_allowed": False,
         "production_runtime_authority": False,
@@ -888,7 +904,7 @@ def build_governed_product_pilot_authority_profile() -> GovernedProductPilotAuth
     return GovernedProductPilotAuthorityProfileReadModel(
         default_runtime_profile=capabilities.default_profile,
         pilot_runtime_profiles=[RuntimeProfile.local_runtime, RuntimeProfile.operator_approved],
-        lanes=_pilot_lanes(),
+        capabilities=_pilot_capabilities(),
         portable_evidence_envelope=build_portable_evidence_envelope(),
         durable_orchestration_contract=durable_orchestration_contract,
     )

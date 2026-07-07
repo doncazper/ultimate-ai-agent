@@ -106,17 +106,17 @@ def main() -> int:
         failures,
         "required blocked authority refs missing",
     )
-    _append(len(profile["lanes"]) >= 4, failures, "core pilot lanes missing")
-    for lane in profile["lanes"]:
-        if lane["execution_capable"] and not lane["read_only_no_op"]:
+    _append(len(profile["capabilities"]) >= 4, failures, "core pilot capabilities missing")
+    for capability in profile["capabilities"]:
+        if capability["execution_capable"] and not capability["read_only_no_op"]:
             _append(
-                lane["approval_binding_required"] is True,
+                capability["approval_binding_required"] is True,
                 failures,
-                f"execution lane {lane['lane_ref']} lacks approval binding",
+                f"execution capability {capability['capability_ref']} lacks approval binding",
             )
-        _append(lane["raw_persistence_allowed"] is False, failures, "raw persistence allowed")
+        _append(capability["raw_persistence_allowed"] is False, failures, "raw persistence allowed")
         _append(
-            lane["control_center_presentation_only"] is True,
+            capability["control_center_presentation_only"] is True,
             failures,
             "Control Center presentation-only posture missing",
         )
