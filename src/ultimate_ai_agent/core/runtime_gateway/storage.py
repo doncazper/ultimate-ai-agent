@@ -24,6 +24,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityDecisionOutcome,
     AuthorityLease,
     AuthorityLeaseStore,
+    authority_lease_kill_switch_engaged,
     build_default_authority_leases,
 )
 from ultimate_ai_agent.core.execution.validation import (
@@ -426,6 +427,7 @@ def _action_inbox_envelope_for_request(
     request: RuntimeApprovalBindingRequest,
     idempotency_ref: str,
     active_authority_leases: list[AuthorityLease],
+    kill_switch_engaged: bool = False,
 ) -> tuple[
     RuntimeActionInboxApprovalEnvelope,
     RuntimeInvocationStatus,
@@ -577,6 +579,7 @@ def _action_inbox_envelope_for_request(
         status=status,
         command_gateway_validated=command_gateway_validated,
         active_authority_leases=active_authority_leases,
+        kill_switch_engaged=kill_switch_engaged,
     )
     authority_scope_allowed = (
         policy_decision.authority_decision_outcome == AuthorityDecisionOutcome.allow.value
@@ -691,10 +694,10 @@ class RuntimeInvocationStore:
         self.state_dir = state_dir or runtime_gateway_state_dir()
         self.path = self.state_dir / RUNTIME_GATEWAY_JSONL
         self.lock_path = self.state_dir / RUNTIME_GATEWAY_LOCK
-        self._active_authority_leases = (
+        self._explicit_active_authority_leases = (
             list(active_authority_leases)
             if active_authority_leases is not None
-            else active_runtime_authority_leases()
+            else None
         )
         self._records: dict[str, RuntimeInvocationRecord] = {}
         self._entries: list[RuntimeGatewayStorageEntry] = []
@@ -706,6 +709,14 @@ class RuntimeInvocationStore:
 
     def capabilities_storage_ref(self) -> str:
         return _hash_ref("runtime-storage-ref", {"path": RUNTIME_GATEWAY_JSONL})
+
+    def current_authority_leases(self) -> list[AuthorityLease]:
+        if self._explicit_active_authority_leases is not None:
+            return list(self._explicit_active_authority_leases)
+        return active_runtime_authority_leases()
+
+    def authority_lease_kill_switch_engaged(self) -> bool:
+        return authority_lease_kill_switch_engaged()
 
     def list_invocations(self) -> list[RuntimeInvocationRecord]:
         self._load()
@@ -775,13 +786,15 @@ class RuntimeInvocationStore:
         storage_request = request_with_idempotency.model_copy(
             update={"safe_summary": _summary_storage_ref(request.safe_summary)}
         )
+        active_authority_leases = self.current_authority_leases()
         policy_decision = build_policy_decision(
             storage_request,
             invocation_ref=invocation_ref,
             status=RuntimeInvocationStatus.pending_approval,
             local_model_gateway_validated=local_model_gateway_validated,
             command_gateway_validated=command_gateway_validated,
-            active_authority_leases=self._active_authority_leases,
+            active_authority_leases=active_authority_leases,
+            kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
         )
         record = RuntimeInvocationRecord(
             invocation_ref=invocation_ref,
@@ -857,12 +870,14 @@ class RuntimeInvocationStore:
             if replayed is not None:
                 return replayed
             if request.action_envelope_ref:
+                active_authority_leases = self.current_authority_leases()
                 envelope, status, _command_gateway_validated, policy_decision = (
                     _action_inbox_envelope_for_request(
                         record=record,
                         request=request,
                         idempotency_ref=idempotency_ref,
-                        active_authority_leases=self._active_authority_leases,
+                        active_authority_leases=active_authority_leases,
+                        kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
                     )
                 )
                 policy_decision = policy_decision.model_copy(
@@ -908,12 +923,14 @@ class RuntimeInvocationStore:
                     payload_fingerprint_ref=payload_fingerprint_ref,
                 )
                 return updated
+            active_authority_leases = self.current_authority_leases()
             policy_decision = build_policy_decision(
                 record.request,
                 invocation_ref=record.invocation_ref,
                 approval_ref=request.approval_ref,
                 status=RuntimeInvocationStatus.pending_approval,
-                active_authority_leases=self._active_authority_leases,
+                active_authority_leases=active_authority_leases,
+                kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
             )
             updated = record.model_copy(
                 update={
@@ -996,8 +1013,9 @@ class RuntimeInvocationStore:
         with self._exclusive_mutation():
             record = self.get_invocation(invocation_ref)
             validate_execution_ref(idempotency_ref, "idempotency_ref")
+            active_authority_leases = self.current_authority_leases()
             active_lease_refs = [
-                lease.lease_ref for lease in self._active_authority_leases if lease.is_active()
+                lease.lease_ref for lease in active_authority_leases if lease.is_active()
             ]
             payload_fingerprint_ref = _hash_ref(
                 "runtime-operation-fingerprint-ref",
@@ -1029,7 +1047,8 @@ class RuntimeInvocationStore:
                 approval_ref=record.approval_requirement.approval_ref,
                 status=RuntimeInvocationStatus(record.status),
                 command_gateway_validated=command_gateway_validated,
-                active_authority_leases=self._active_authority_leases,
+                active_authority_leases=active_authority_leases,
+                kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
             )
             if envelope is not None:
                 policy_decision = policy_decision.model_copy(
@@ -1242,7 +1261,8 @@ class RuntimeInvocationStore:
                         invocation_ref=record.invocation_ref,
                         approval_ref=record.approval_requirement.approval_ref,
                         status=RuntimeInvocationStatus.safe_disabled,
-                        active_authority_leases=self._active_authority_leases,
+                        active_authority_leases=self.current_authority_leases(),
+                        kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
                     )
                     receipt = (
                         record.receipt.model_copy(update={"safe_disable": state})

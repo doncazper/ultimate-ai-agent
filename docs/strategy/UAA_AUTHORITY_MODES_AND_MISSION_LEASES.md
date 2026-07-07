@@ -154,6 +154,12 @@ command that was approved under a workspace execute lease degrades back to a
 blocked draft receipt if that lease is no longer active at execution time; old
 approval refs and stale policy decision refs cannot keep execution authority
 alive.
+RuntimeGateway storage does not treat a previously loaded lease snapshot as
+durable execution authority: default stores re-read persisted active
+AuthorityLease state and the local kill switch at create, approval binding,
+safe-disable, and execution-policy refresh boundaries. Test-injected leases are
+still deterministic fixtures, but runtime/API paths must observe revocation and
+`UAA_AUTHORITY_LEASE_KILL_SWITCH=1` before any adapter runner can start.
 Runtime Action Inbox approval envelopes also separate exact
 LocalApprovalAuthority validation from AuthorityLease scope allowance, and
 approval binding refreshes the current active lease decision so a pending

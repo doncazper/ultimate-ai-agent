@@ -919,6 +919,7 @@ def build_policy_decision(
     local_model_gateway_validated: bool = False,
     command_gateway_validated: bool = False,
     active_authority_leases: list[AuthorityLease] | None = None,
+    kill_switch_engaged: bool = False,
 ) -> RuntimePolicyDecision:
     profile = RuntimeProfile(request.requested_profile)
     authority_decision = None
@@ -941,6 +942,7 @@ def build_policy_decision(
                 requested_mode=TrustMode.full_machine_access_session,
                 constraints=authority_constraints,
                 draft_fallback_available=True,
+                kill_switch_engaged=kill_switch_engaged,
             )
         else:
             command_capability = (
@@ -963,6 +965,7 @@ def build_policy_decision(
                 ),
                 constraints=authority_constraints,
                 draft_fallback_available=True,
+                kill_switch_engaged=kill_switch_engaged,
             )
         authority_decision = evaluate_authority_request(
             authority_request,
