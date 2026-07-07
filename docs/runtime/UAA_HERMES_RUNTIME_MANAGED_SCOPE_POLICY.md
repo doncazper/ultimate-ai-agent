@@ -1,6 +1,6 @@
 # UAA Hermes Runtime Managed Scope Policy
 
-Status: Hermes Runtime Adoption Phase 27, repo-safe read model.
+Status: Hermes Runtime Adoption Phase 27, AuthorityState-bound repo-safe read model.
 
 ## Full-Strength
 
@@ -15,13 +15,17 @@ Phase 27 adds Python Core ownership for a read-only local policy profile:
 - `RuntimeManagedScopePolicyReadModel`
 - `GET /api/runtime/managed-scope-policy`
 - `scripts/dev/uaa_runtime.py inspect-managed-scope-policy`
+- Authority mapping `lane-ref:runtime-managed-scope-policy-read-model` as
+  Read-only `workspace/read`
 - Control Center `/runtime` managed scope card
 
 The read model exposes pinned source refs, source kinds, precedence, checksum
 refs, drift warning refs, rollback refs, admin/operator proof refs, blocked
-authority refs, and promotion path refs. It does not write system config, apply
-privileged settings, deliver MDM profiles, manage secrets, accept unsigned
-runtime config overrides, or claim production enforcement.
+authority refs, promotion path refs, AuthorityState route/CLI/mapping/catalog/
+decision/reason refs, unsupported adapter refs, and decision-bound snapshot
+hashes. It does not write system config, apply privileged settings, deliver MDM
+profiles, manage secrets, accept unsigned runtime config overrides, or claim
+production enforcement.
 
 ## Blocked / Needs Authority
 

@@ -16113,6 +16113,31 @@ export const mockControlCenterData: ControlCenterData = {
     snapshot_hash_ref: "snapshot-hash-ref:runtime-managed-scope:mock",
     route_ref: "GET /api/runtime/managed-scope-policy",
     cli_ref: "uaa runtime inspect-managed-scope-policy",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-managed-scope-policy-read-model",
+    authority_state_catalog_ref:
+      "authority-catalog-ref:runtime-managed-scope-policy-read-model",
+    authority_state_decision_ref:
+      "authority-decision-ref:runtime-managed-scope-policy-read-model:allow",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Read-only mode allows managed scope policy inspection; system config writes, privileged writes, MDM delivery, protected material management, and production enforcement remain unavailable.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:managed-scope-system-config-write:not-implemented",
+      "adapter-ref:managed-scope-privileged-write:not-implemented",
+      "adapter-ref:managed-scope-mdm-delivery:not-implemented",
+      "adapter-ref:managed-scope-protected-material:not-implemented",
+      "adapter-ref:managed-scope-unsigned-config-override:not-implemented",
+      "adapter-ref:managed-scope-production-enforcement:not-implemented",
+      "adapter-ref:managed-scope-authority-mint:not-implemented",
+    ],
     control_center_ref: "control-center-route:runtime",
     policy_profile_ref: "managed-policy-profile-ref:runtime:local-operator",
     profile_label: "Local Operator Governed Runtime",

@@ -183,11 +183,14 @@ Contract rules:
   `GET /api/runtime/managed-scope-policy` exposes the Hermes Runtime Adoption
   Phase 27 backend-owned managed scope policy posture. It returns pinned local
   policy source refs, precedence, checksum refs, drift warning refs, rollback
-  refs, admin/operator proof refs, verifier refs, next-safe-action refs, and
-  blocked authority refs only. It does not write system config, perform
-  privileged writes, deliver MDM profiles, manage secrets, accept unsigned
-  runtime config overrides, persist raw config/local path/account/credential
-  material, or claim production enforcement.
+  refs, admin/operator proof refs, verifier refs, next-safe-action refs,
+  blocked authority refs, AuthorityState route/CLI/mapping/catalog/decision/
+  reason refs, unsupported adapter refs, and decision-bound snapshot hashes for
+  `lane-ref:runtime-managed-scope-policy-read-model` under Read-only
+  `workspace/read`. It does not write system config, perform privileged writes,
+  deliver MDM profiles, manage secrets, accept unsigned runtime config
+  overrides, persist raw config/local path/account/credential material, or claim
+  production enforcement.
   `GET /api/runtime/doctor-diagnostics` exposes the Hermes Runtime Adoption
   Phase 28 backend-owned runtime doctor diagnostics posture. It returns
   diagnostic refs, setup/runtime/provider/tool/protected-material/service/

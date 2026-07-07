@@ -7900,6 +7900,19 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("uaa runtime inspect-managed-scope-policy").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("lane-ref:runtime-managed-scope-policy-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-decision-ref:runtime-managed-scope-policy-read-model:allow",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "adapter-ref:managed-scope-system-config-write:not-implemented",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("Workspace standards baseline")).toBeInTheDocument();
     expect(
       screen.getByText("drift-warning-ref:managed-scope-policy:sealed-default: warning"),

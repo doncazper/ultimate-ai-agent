@@ -829,6 +829,25 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    managed_scope = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-managed-scope-policy-read-model"
+    )
+    assert managed_scope.domain == "workspace"
+    assert managed_scope.capability == "read"
+    assert managed_scope.required_mode == "read_only"
+    assert managed_scope.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/managed-scope-policy" in managed_scope.route_refs
+    assert "adapter-ref:managed-scope-system-config-write:not-implemented" in (
+        managed_scope.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane[
+            "lane-ref:runtime-managed-scope-policy-read-model"
+        ].decision.outcome
+        == "allow"
+    )
     browser_action = next(
         mapping
         for mapping in read_model.capability_mappings

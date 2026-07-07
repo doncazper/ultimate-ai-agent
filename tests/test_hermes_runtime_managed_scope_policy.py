@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_MAPPING_REF,
+    RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_MANAGED_SCOPE_POLICY_BLOCKED_AUTHORITY_REFS,
     RUNTIME_MANAGED_SCOPE_POLICY_CONTRACT_REF,
     RuntimeManagedScopePolicyDriftWarning,
@@ -27,6 +30,26 @@ def test_managed_scope_policy_is_read_only_local_policy_profile() -> None:
     assert read_model.status == "read_only_local_policy_profile_posture"
     assert read_model.route_ref == "GET /api/runtime/managed-scope-policy"
     assert read_model.cli_ref == "uaa runtime inspect-managed-scope-policy"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_reason_refs
+    assert "adapter-ref:managed-scope-system-config-write:not-implemented" in (
+        read_model.unsupported_adapter_refs
+    )
     assert read_model.pinned_source_count == 3
     assert read_model.active_pinned_source_count == 3
     assert read_model.drift_warning_count == 1
@@ -100,6 +123,14 @@ def test_managed_scope_read_model_denies_authority_flags(field: str) -> None:
         RuntimeManagedScopePolicyReadModel(**payload)
 
 
+def test_managed_scope_read_model_rejects_authority_mapping_drift() -> None:
+    payload = build_runtime_managed_scope_policy_read_model().model_dump(mode="json")
+    payload["authority_state_mapping_ref"] = "lane-ref:runtime-managed-scope-drift"
+
+    with pytest.raises(ValueError, match="AUTHORITY_MAPPING_MISMATCH"):
+        RuntimeManagedScopePolicyReadModel(**payload)
+
+
 @pytest.mark.parametrize(
     "field",
     [
@@ -153,6 +184,11 @@ def test_managed_scope_api_returns_safe_read_model() -> None:
     assert body["operation"] == "api_runtime_managed_scope_policy"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/managed-scope-policy"
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["system_config_write_enabled"] is False
     assert data["privileged_write_enabled"] is False
     assert data["mdm_delivery_enabled"] is False
@@ -178,6 +214,11 @@ def test_managed_scope_cli_uses_same_read_model() -> None:
 
     payload = json.loads(result.stdout)
     read_model = payload["runtime_managed_scope_policy"]
+    assert (
+        payload["authority_state"]["mapping_ref"]
+        == RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_MAPPING_REF
+    )
+    assert payload["authority_state"]["decision_outcome"] == "allow"
     assert payload["system_config_write_performed"] is False
     assert payload["privileged_write_performed"] is False
     assert payload["mdm_delivery_performed"] is False
@@ -185,4 +226,8 @@ def test_managed_scope_cli_uses_same_read_model() -> None:
     assert payload["production_enforcement_claimed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/managed-scope-policy"
     assert read_model["cli_ref"] == "uaa runtime inspect-managed-scope-policy"
+    assert (
+        read_model["authority_state_cli_ref"]
+        == RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_STATE_CLI_REF
+    )
     assert read_model["pinned_source_count"] == 3

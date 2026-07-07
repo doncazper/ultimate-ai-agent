@@ -134,6 +134,11 @@ surfaces are:
   writes, default changes, live activation, tool execution, provider calls,
   memory writes, sensitive material copy, cross-profile authority, raw delegated
   profile names, and workspace path exposure remain blocked.
+  Runtime managed scope policy exposes the Read-only `workspace/read` local
+  policy-profile inspection decision while system config writes, privileged
+  writes, MDM delivery, protected material management, unsigned config
+  overrides, production enforcement, raw config/path/account/credential
+  persistence, and Control Center authority minting remain blocked.
   These API/CLI surfaces remain safe-ref inspection only unless exact active
   leases, implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and

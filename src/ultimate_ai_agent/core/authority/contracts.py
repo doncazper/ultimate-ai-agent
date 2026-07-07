@@ -2994,6 +2994,33 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-managed-scope-policy-read-model",
+            "Runtime managed scope policy read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/managed-scope-policy"],
+            ["repo-local-command:uaa-runtime-inspect-managed-scope-policy"],
+            (
+                "Managed scope policy inspection reads pinned local policy "
+                "source refs, precedence, drift warnings, rollback refs, proof "
+                "refs, blockers, and next safe actions under Workspace read "
+                "authority. System config writes, privileged writes, MDM "
+                "delivery, protected material management, and production "
+                "enforcement remain blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:managed-scope-system-config-write:not-implemented",
+                "adapter-ref:managed-scope-privileged-write:not-implemented",
+                "adapter-ref:managed-scope-mdm-delivery:not-implemented",
+                "adapter-ref:managed-scope-protected-material:not-implemented",
+                "adapter-ref:managed-scope-unsigned-config-override:not-implemented",
+                "adapter-ref:managed-scope-production-enforcement:not-implemented",
+                "adapter-ref:managed-scope-authority-mint:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

@@ -251,10 +251,12 @@ and production authority remain blocked.
 Core Hermes Runtime Adoption Phase 27 managed scope policy posture. It returns
 pinned local policy source refs, source kinds, precedence, checksum refs, drift
 warning refs, rollback refs, admin/operator proof refs, verifier refs,
-next-safe-action refs, and blocked authority refs only. System config writes,
-privileged writes, MDM delivery, managed secrets, unsigned runtime config
-overrides, raw config/local path/account/credential material persistence,
-production enforcement, and production authority remain blocked.
+next-safe-action refs, blocked authority refs, AuthorityState route/CLI/mapping/
+catalog/decision/reason refs, unsupported adapter refs, and decision-bound
+snapshot hashes for `lane-ref:runtime-managed-scope-policy-read-model`. System
+config writes, privileged writes, MDM delivery, managed secrets, unsigned
+runtime config overrides, raw config/local path/account/credential material
+persistence, production enforcement, and production authority remain blocked.
 `GET /api/runtime/doctor-diagnostics` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 28 runtime doctor diagnostics posture. It returns
 diagnostic refs, setup/runtime/provider/tool/protected-material/service/

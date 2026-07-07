@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -30,6 +34,16 @@ RUNTIME_MANAGED_SCOPE_POLICY_PROOF_REF = (
 RUNTIME_MANAGED_SCOPE_POLICY_VERIFIER_REF = (
     "verifier-ref:hermes-runtime-adoption:phase-27:managed-scope-policy"
 )
+RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-managed-scope-policy-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_MANAGED_SCOPE_POLICY_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:managed-scope-no-system-config-write",
@@ -186,6 +200,16 @@ class RuntimeManagedScopePolicyReadModel(BaseModel):
     snapshot_hash_ref: str = "snapshot-hash-ref:runtime-managed-scope:pending"
     route_ref: str = RUNTIME_MANAGED_SCOPE_POLICY_ROUTE_REF
     cli_ref: str = RUNTIME_MANAGED_SCOPE_POLICY_CLI_REF
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     policy_profile_ref: str = "managed-policy-profile-ref:runtime:local-operator"
     profile_label: str = "Local Operator Governed Runtime"
@@ -244,6 +268,9 @@ class RuntimeManagedScopePolicyReadModel(BaseModel):
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
             (self.policy_profile_ref, "policy_profile_ref"),
             (self.rollback_ref, "rollback_ref"),
             (self.admin_operator_proof_ref, "admin_operator_proof_ref"),
@@ -254,11 +281,24 @@ class RuntimeManagedScopePolicyReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.profile_label, "profile_label"),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "promotion_path_refs",
             "proof_refs",
@@ -271,6 +311,13 @@ class RuntimeManagedScopePolicyReadModel(BaseModel):
                     validate_safe_execution_text(value, field_name)
                 else:
                     validate_execution_ref(value, field_name)
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_MANAGED_SCOPE_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_MANAGED_SCOPE_AUTHORITY_DECISION_INVALID")
         if self.pinned_source_count != len(self.pinned_sources):
             raise ValueError("RUNTIME_MANAGED_SCOPE_PIN_COUNT_DRIFT")
         if self.active_pinned_source_count != sum(
@@ -333,6 +380,16 @@ def _snapshot_hash_ref(payload: dict[str, object]) -> str:
 
 
 def build_runtime_managed_scope_policy_read_model() -> RuntimeManagedScopePolicyReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog=None)
+    return build_runtime_managed_scope_policy_read_model_from_authority_catalog(
+        authority_decision_catalog=[authority_entry]
+    )
+
+
+def build_runtime_managed_scope_policy_read_model_from_authority_catalog(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeManagedScopePolicyReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     blocked_refs = list(RUNTIME_MANAGED_SCOPE_POLICY_BLOCKED_AUTHORITY_REFS)
     pinned_sources = [
         RuntimeManagedScopePolicyPinSource(
@@ -393,9 +450,25 @@ def build_runtime_managed_scope_policy_read_model() -> RuntimeManagedScopePolicy
         ],
         "drift": [warning.model_dump(mode="json") for warning in drift_warnings],
         "blocked": blocked_refs,
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
     }
     return RuntimeManagedScopePolicyReadModel(
         snapshot_hash_ref=_snapshot_hash_ref(payload_for_hash),
+        authority_state_route_ref=RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_STATE_ROUTE_REF,
+        authority_state_cli_ref=RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_STATE_CLI_REF,
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         pinned_sources=pinned_sources,
         drift_warnings=drift_warnings,
         pinned_source_count=len(pinned_sources),
@@ -426,3 +499,17 @@ def build_runtime_managed_scope_policy_read_model() -> RuntimeManagedScopePolicy
             "next-safe-action-ref:managed-scope:add-rollback-proof",
         ],
     )
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    for entry in catalog:
+        if entry.lane_ref == RUNTIME_MANAGED_SCOPE_POLICY_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_MANAGED_SCOPE_AUTHORITY_MAPPING_MISSING")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))
