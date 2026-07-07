@@ -47,7 +47,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_hermes_context_pack_read_model,
     build_governed_product_pilot_authority_profile,
     build_runtime_interface_mode_read_model,
-    build_runtime_approval_bridge_read_model,
+    build_runtime_approval_bridge_read_model_from_authority_catalog,
     build_runtime_capability_discovery_read_model_from_authority_catalog,
     build_runtime_context_budget_pressure_read_model,
     build_runtime_delegation_adapter_read_model,
@@ -1067,12 +1067,15 @@ def post_api_runtime_authority_lease_revoke(
 
 @router.get("/approval-bridge", response_model=ResultEnvelope)
 def get_api_runtime_approval_bridge() -> ResultEnvelope:
-    read_model = build_runtime_approval_bridge_read_model()
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_runtime_approval_bridge_read_model_from_authority_catalog(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_approval_bridge",
         service="GovernedRuntimeAPI",
-        trace_id=read_model.contract_ref,
+        trace_id=read_model.snapshot_hash_ref,
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:runtime-approval-bridge:phase-04"}],
         redactions_applied=read_model.redactions_applied,

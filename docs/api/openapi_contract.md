@@ -352,9 +352,12 @@ Contract rules:
   `GET /api/runtime/approval-bridge` exposes the Hermes Runtime Adoption Phase
   04 backend-owned runtime approval bridge posture for approval envelopes,
   Action Inbox projection refs, proof refs, denial/timeout/scope-mismatch
-  previews, and default-deny timeout posture. It is read-model only and does
-  not send approval, denial, timeout, or scope-mismatch resolutions to Hermes or
-  any delegated runtime.
+  previews, and default-deny timeout posture. It now also returns the
+  AuthorityState mapping, catalog, decision, reason, unsupported-adapter, and
+  decision-bound snapshot refs for
+  `lane-ref:runtime-approval-bridge-read-model` under Read-only
+  `workspace/read`. It is read-model only and does not send approval, denial,
+  timeout, or scope-mismatch resolutions to Hermes or any delegated runtime.
   `GET /api/runtime/streaming-progress` exposes the Hermes Runtime Adoption
   Phase 05 backend-owned runtime streaming progress posture for ordered,
   redacted event previews, stale/disconnected stream state, event hash refs,

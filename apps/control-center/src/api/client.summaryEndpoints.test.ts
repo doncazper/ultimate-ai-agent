@@ -334,6 +334,15 @@ describe("loadControlCenterData summary endpoint wiring", () => {
       false,
     );
     expect(data.runtimeApprovalBridge.runtime_resolution_sent_count).toBe(0);
+    expect(data.runtimeApprovalBridge.authority_state_mapping_ref).toBe(
+      "lane-ref:runtime-approval-bridge-read-model",
+    );
+    expect(data.runtimeApprovalBridge.authority_state_decision_outcome).toBe(
+      "allow",
+    );
+    expect(data.runtimeApprovalBridge.unsupported_adapter_refs).toContain(
+      "adapter-ref:runtime-approval-resolution-send:not-implemented",
+    );
     expect(
       data.runtimeApprovalBridge.action_inbox_projection
         .approval_controls_visible,

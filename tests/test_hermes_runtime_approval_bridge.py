@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_APPROVAL_BRIDGE_AUTHORITY_MAPPING_REF,
+    RUNTIME_APPROVAL_BRIDGE_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_APPROVAL_BRIDGE_AUTHORITY_STATE_ROUTE_REF,
     RuntimeApprovalBridgeEnvelope,
     RuntimeApprovalBridgeReadModel,
     RuntimeApprovalFailClosedTimeoutPosture,
@@ -23,6 +26,23 @@ def test_runtime_approval_bridge_is_read_model_resolution_blocked() -> None:
 
     assert read_model.schema_version == "runtime_approval_bridge.v1"
     assert read_model.status == "read_model_resolution_blocked"
+    assert read_model.authority_state_route_ref == (
+        RUNTIME_APPROVAL_BRIDGE_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert read_model.authority_state_cli_ref == (
+        RUNTIME_APPROVAL_BRIDGE_AUTHORITY_STATE_CLI_REF
+    )
+    assert read_model.authority_state_mapping_ref == (
+        RUNTIME_APPROVAL_BRIDGE_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_reason_refs
+    assert "adapter-ref:runtime-approval-resolution-send:not-implemented" in (
+        read_model.unsupported_adapter_refs
+    )
     assert read_model.uaa_controls_authority is True
     assert read_model.control_center_talks_directly_to_runtime is False
     assert read_model.safe_refs_only is True
@@ -124,6 +144,14 @@ def test_runtime_approval_bridge_rejects_resolution_or_approval_ref_authority() 
     with pytest.raises(ValueError, match="UNSAFE_AUTHORITY_DENIED"):
         RuntimeApprovalBridgeReadModel(**model_payload)
 
+    authority_drift = build_runtime_approval_bridge_read_model().model_dump()
+    authority_drift["authority_state_mapping_ref"] = (
+        "lane-ref:wrong-runtime-approval-bridge"
+    )
+
+    with pytest.raises(ValueError, match="AUTHORITY_MAPPING_MISMATCH"):
+        RuntimeApprovalBridgeReadModel(**authority_drift)
+
     envelope_payload = build_runtime_approval_bridge_read_model().envelopes[0].model_dump()
     envelope_payload["runtime_resolution_sent"] = True
 
@@ -146,6 +174,15 @@ def test_api_runtime_approval_bridge_route_returns_safe_refs() -> None:
     data = body["data"]
     assert data["schema_version"] == "runtime_approval_bridge.v1"
     assert data["route_ref"] == "GET /api/runtime/approval-bridge"
+    assert data["authority_state_route_ref"] == "GET /api/runtime/authority-state"
+    assert data["authority_state_mapping_ref"] == (
+        "lane-ref:runtime-approval-bridge-read-model"
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
+    assert (
+        "adapter-ref:runtime-approval-resolution-send:not-implemented"
+        in data["unsupported_adapter_refs"]
+    )
     assert data["runtime_resolution_sent_count"] == 0
     assert data["approval_resolution_route_enabled"] is False
     assert data["fail_closed_timeout_posture"]["approve_all_enabled"] is False
@@ -181,8 +218,15 @@ def test_cli_runtime_approval_bridge_uses_same_read_model() -> None:
     assert payload["auto_approve_enabled"] is False
     assert payload["approve_all_enabled"] is False
     assert payload["standing_broad_authority_enabled"] is False
+    assert payload["authority_state"]["mapping_ref"] == (
+        "lane-ref:runtime-approval-bridge-read-model"
+    )
+    assert payload["authority_state"]["decision_outcome"] == "allow"
     assert read_model["route_ref"] == "GET /api/runtime/approval-bridge"
     assert read_model["cli_ref"] == "uaa runtime inspect-approval-bridge"
+    assert read_model["authority_state_cli_ref"] == (
+        "repo-local-command:uaa-runtime-inspect-authority-state"
+    )
     assert read_model["runtime_resolution_sent_count"] == 0
     assert read_model["fail_closed_timeout_posture"]["policy_ref"] == (
         "timeout-policy-ref:runtime-approval-bridge:fail-closed-v1"

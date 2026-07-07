@@ -17557,10 +17557,36 @@ export const mockControlCenterData: ControlCenterData = {
   runtimeApprovalBridge: {
     schema_version: "runtime_approval_bridge.v1",
     contract_ref: "contract-ref:runtime-approval-bridge:v1",
+    snapshot_ref:
+      "runtime-approval-bridge-snapshot-ref:hermes-agent:review-metadata",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-approval-bridge:mock",
     route_ref: "GET /api/runtime/approval-bridge",
     cli_ref: "uaa runtime inspect-approval-bridge",
     control_center_ref: "control-center-route:runtime",
     status: "read_model_resolution_blocked",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-approval-bridge-read-model",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-approval-bridge-read-model",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:mock-runtime-approval-bridge",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Approval-bridge inspection is allowed under read-only Workspace authority; runtime resolution sends remain unsupported.",
+    authority_state_reason_refs: [
+      "reason-ref:authority-lease-active:read-only-workspace",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:runtime-approval-resolution-send:not-implemented",
+      "adapter-ref:runtime-approval-denial-send:not-implemented",
+      "adapter-ref:runtime-approval-timeout-send:not-implemented",
+      "adapter-ref:runtime-approval-scope-mismatch-send:not-implemented",
+      "adapter-ref:runtime-approval-standing-grant:not-implemented",
+    ],
     action_inbox_projection: {
       action_inbox_item_ref:
         "action-inbox-ref:runtime-approval-bridge:mock-approval-wait",

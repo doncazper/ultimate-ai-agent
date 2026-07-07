@@ -36,6 +36,17 @@ def main() -> int:
         failures.append("approval bridge route ref is stale")
     if read_model.cli_ref != "uaa runtime inspect-approval-bridge":
         failures.append("approval bridge CLI ref is stale")
+    if (
+        read_model.authority_state_mapping_ref
+        != "lane-ref:runtime-approval-bridge-read-model"
+    ):
+        failures.append("approval bridge AuthorityState mapping ref drifted")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("approval bridge read-only authority decision drifted")
+    if "adapter-ref:runtime-approval-resolution-send:not-implemented" not in (
+        read_model.unsupported_adapter_refs
+    ):
+        failures.append("approval bridge unsupported adapter refs drifted")
     if posture.policy_ref != RUNTIME_APPROVAL_FAIL_CLOSED_POLICY_REF:
         failures.append("fail-closed policy ref drifted")
     if not posture.expired_waits_default_to_deny:
@@ -136,6 +147,11 @@ def main() -> int:
             failures.append("approval bridge CLI claims approval resolution")
         if payload["approve_all_enabled"] is not False:
             failures.append("approval bridge CLI claims approve-all")
+        if (
+            payload.get("authority_state", {}).get("mapping_ref")
+            != "lane-ref:runtime-approval-bridge-read-model"
+        ):
+            failures.append("approval bridge CLI mapping ref drifted")
         if cli_posture["policy_ref"] != RUNTIME_APPROVAL_FAIL_CLOSED_POLICY_REF:
             failures.append("approval bridge CLI returned stale policy ref")
 

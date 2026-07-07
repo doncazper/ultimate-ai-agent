@@ -3715,6 +3715,22 @@ export function RuntimeReadinessPanel({
             <dd>{approvalBridge.cli_ref}</dd>
           </div>
           <div>
+            <dt>Authority</dt>
+            <dd>{approvalBridge.authority_state_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{approvalBridge.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision</dt>
+            <dd>{approvalBridge.authority_state_decision_outcome}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{approvalBridge.authority_state_decision_ref}</dd>
+          </div>
+          <div>
             <dt>Runtime requested</dt>
             <dd>{approvalBridge.pending_runtime_approval_count}</dd>
           </div>
@@ -3824,6 +3840,18 @@ export function RuntimeReadinessPanel({
               {preview.decision_kind}: {preview.receipt_ref}; runtime send{" "}
               {preview.runtime_resolution_sent ? "sent" : "blocked"}
             </li>
+          ))}
+        </ul>
+        <h4>Unsupported adapters</h4>
+        <ul className="compact-list">
+          {approvalBridge.unsupported_adapter_refs.slice(0, 5).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+        <h4>Authority reason</h4>
+        <ul className="compact-list">
+          {approvalBridge.authority_state_reason_refs.slice(0, 3).map((ref) => (
+            <li key={ref}>{ref}</li>
           ))}
         </ul>
       </article>

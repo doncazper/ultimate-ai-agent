@@ -7181,6 +7181,31 @@ function isSafeRuntimeApprovalBridge(
   return (
     value.schema_version === "runtime_approval_bridge.v1" &&
     value.status === "read_model_resolution_blocked" &&
+    value.route_ref === "GET /api/runtime/approval-bridge" &&
+    value.cli_ref === "uaa runtime inspect-approval-bridge" &&
+    isSafeTrustAuthorityRef(value.snapshot_ref) &&
+    isSafeTrustAuthorityRef(value.snapshot_hash_ref) &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-approval-bridge-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    TRUST_AUTHORITY_DECISION_OUTCOMES.includes(
+      value.authority_state_decision_outcome,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    value.authority_state_status.length > 0 &&
+    typeof value.authority_state_operator_message === "string" &&
+    value.authority_state_operator_message.length > 0 &&
+    isNonEmptyStringArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    isNonEmptyStringArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.includes(
+      "adapter-ref:runtime-approval-resolution-send:not-implemented",
+    ) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
     value.uaa_controls_authority === true &&
     value.safe_refs_only === true &&
     value.runtime_resolution_sent_count === 0 &&

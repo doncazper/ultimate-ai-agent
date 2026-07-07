@@ -26,6 +26,21 @@ def _assert_bridge_payload(payload: dict[str, object]) -> None:
         _fail("unexpected approval bridge schema")
     if payload.get("status") != "read_model_resolution_blocked":
         _fail("approval bridge must stay read-model resolution blocked")
+    if payload.get("authority_state_route_ref") != "GET /api/runtime/authority-state":
+        _fail("approval bridge must expose AuthorityState route parity")
+    if (
+        payload.get("authority_state_mapping_ref")
+        != "lane-ref:runtime-approval-bridge-read-model"
+    ):
+        _fail("approval bridge must bind to the AuthorityState lane mapping")
+    if payload.get("authority_state_decision_outcome") != "allow":
+        _fail("default read-only lease must allow approval-bridge inspection")
+    unsupported = payload.get("unsupported_adapter_refs")
+    if not isinstance(unsupported, list) or (
+        "adapter-ref:runtime-approval-resolution-send:not-implemented"
+        not in unsupported
+    ):
+        _fail("approval resolution send adapter must remain unsupported")
     if payload.get("uaa_controls_authority") is not True:
         _fail("UAA must remain the authority owner")
     if payload.get("control_center_talks_directly_to_runtime") is not False:
@@ -145,6 +160,11 @@ def main() -> None:
         if cli_payload.get(field) is not False:
             _fail(f"CLI {field} must remain false")
     _assert_bridge_payload(cli_payload.get("runtime_approval_bridge", {}))
+    if (
+        cli_payload.get("authority_state", {}).get("mapping_ref")
+        != "lane-ref:runtime-approval-bridge-read-model"
+    ):
+        _fail("CLI must report AuthorityState mapping ref")
     print("Hermes Runtime Adoption Phase 04 approval bridge verification passed.")
 
 

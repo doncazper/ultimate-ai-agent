@@ -8211,6 +8211,19 @@ describe("Web Control Center shell", () => {
       screen.getByText("uaa runtime inspect-approval-bridge"),
     ).toBeInTheDocument();
     expect(
+      screen.getByText("lane-ref:runtime-approval-bridge-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-policy-decision-ref:mock-runtime-approval-bridge",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "adapter-ref:runtime-approval-resolution-send:not-implemented",
+      ),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText("review_required_resolution_blocked"),
     ).toBeInTheDocument();
     expect(screen.getByText(/fail_closed_default_deny/)).toBeInTheDocument();

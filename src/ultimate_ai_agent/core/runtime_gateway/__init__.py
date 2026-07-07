@@ -116,10 +116,14 @@ from ultimate_ai_agent.core.runtime_gateway.run_events import (
 )
 from ultimate_ai_agent.core.runtime_gateway.approval_bridge import (
     RUNTIME_APPROVAL_BRIDGE_ACTION_INBOX_REF,
+    RUNTIME_APPROVAL_BRIDGE_AUTHORITY_MAPPING_REF,
+    RUNTIME_APPROVAL_BRIDGE_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_APPROVAL_BRIDGE_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_APPROVAL_BRIDGE_CLI_REF,
     RUNTIME_APPROVAL_BRIDGE_CONTRACT_REF,
     RUNTIME_APPROVAL_BRIDGE_PROOF_REF,
     RUNTIME_APPROVAL_BRIDGE_ROUTE_REF,
+    RUNTIME_APPROVAL_BRIDGE_SNAPSHOT_REF,
     RUNTIME_APPROVAL_AMBIGUOUS_DENIAL_RECEIPT_REF,
     RUNTIME_APPROVAL_FAIL_CLOSED_BLOCKED_AUTHORITY_REFS,
     RUNTIME_APPROVAL_FAIL_CLOSED_POLICY_REF,
@@ -134,6 +138,7 @@ from ultimate_ai_agent.core.runtime_gateway.approval_bridge import (
     RuntimeApprovalFailClosedTimeoutPosture,
     RuntimeApprovalScopeValidationResult,
     build_runtime_approval_bridge_read_model,
+    build_runtime_approval_bridge_read_model_from_authority_catalog,
     validate_runtime_approval_scope,
 )
 from ultimate_ai_agent.core.runtime_gateway.streaming_progress import (
@@ -788,6 +793,10 @@ __all__ = [
     "RuntimeRunLifecycleMapping",
     "RuntimeRunProposalReadModel",
     "RuntimeUaaDurableRunState",
+    "RUNTIME_APPROVAL_BRIDGE_AUTHORITY_MAPPING_REF",
+    "RUNTIME_APPROVAL_BRIDGE_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_APPROVAL_BRIDGE_AUTHORITY_STATE_ROUTE_REF",
+    "RUNTIME_APPROVAL_BRIDGE_SNAPSHOT_REF",
     "RuntimeApprovalActionInboxProjection",
     "RuntimeApprovalBridgeDecisionKind",
     "RuntimeApprovalBridgeDecisionPreview",
@@ -1041,6 +1050,7 @@ __all__ = [
     "build_runtime_capability_discovery_read_model",
     "build_runtime_capability_discovery_read_model_from_authority_catalog",
     "build_runtime_approval_bridge_read_model",
+    "build_runtime_approval_bridge_read_model_from_authority_catalog",
     "build_runtime_streaming_progress_read_model",
     "build_runtime_profile_isolation_read_model",
     "build_runtime_tool_registry_availability_read_model",

@@ -412,6 +412,14 @@ stop posture, approval-wait proposals, and the AuthorityState mapping/catalog/
 decision/reason/unsupported-adapter refs for
 `lane-ref:runtime-run-events-read-model`. It does not create delegated runs,
 stop delegated runs, resolve runtime approvals, or stream live events.
+`GET /api/runtime/approval-bridge` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 04 approval bridge posture for approval
+envelopes, Action Inbox projection refs, proof refs, denial/timeout/scope-
+mismatch previews, default-deny timeout posture, and the AuthorityState
+mapping/catalog/decision/reason/unsupported-adapter refs for
+`lane-ref:runtime-approval-bridge-read-model`. It does not send approval,
+denial, timeout, or scope-mismatch resolutions to Hermes or any delegated
+runtime.
 `GET /api/runtime/profiles` exposes a protected read-only Python Core Hermes
 Runtime Adoption Phase 06 profile isolation posture for UAA-owned profile refs
 that stay separate from delegated runtime profile refs, safe display labels,

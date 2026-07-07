@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -24,6 +30,18 @@ from ultimate_ai_agent.core.runtime_gateway.run_events import (
 RUNTIME_APPROVAL_BRIDGE_CONTRACT_REF = "contract-ref:runtime-approval-bridge:v1"
 RUNTIME_APPROVAL_BRIDGE_ROUTE_REF = "GET /api/runtime/approval-bridge"
 RUNTIME_APPROVAL_BRIDGE_CLI_REF = "uaa runtime inspect-approval-bridge"
+RUNTIME_APPROVAL_BRIDGE_SNAPSHOT_REF = (
+    "runtime-approval-bridge-snapshot-ref:hermes-agent:review-metadata"
+)
+RUNTIME_APPROVAL_BRIDGE_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_APPROVAL_BRIDGE_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_APPROVAL_BRIDGE_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-approval-bridge-read-model"
+)
 RUNTIME_APPROVAL_BRIDGE_ACTION_INBOX_REF = (
     "action-inbox-ref:runtime-approval-bridge:approval-wait-sample"
 )
@@ -44,6 +62,7 @@ RUNTIME_APPROVAL_FAIL_CLOSED_BLOCKED_AUTHORITY_REFS = (
     "blocked-authority:runtime-approval-expired-grant-reuse",
     "blocked-authority:runtime-approval-ambiguous-grant",
 )
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 
 class RuntimeApprovalBridgeState(str, Enum):
@@ -330,10 +349,22 @@ class RuntimeApprovalFailClosedTimeoutPosture(BaseModel):
 class RuntimeApprovalBridgeReadModel(BaseModel):
     schema_version: str = "runtime_approval_bridge.v1"
     contract_ref: str = RUNTIME_APPROVAL_BRIDGE_CONTRACT_REF
+    snapshot_ref: str = RUNTIME_APPROVAL_BRIDGE_SNAPSHOT_REF
+    snapshot_hash_ref: str
     route_ref: str = RUNTIME_APPROVAL_BRIDGE_ROUTE_REF
     cli_ref: str = RUNTIME_APPROVAL_BRIDGE_CLI_REF
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     status: str = "read_model_resolution_blocked"
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     action_inbox_projection: RuntimeApprovalActionInboxProjection = Field(
         default_factory=RuntimeApprovalActionInboxProjection
     )
@@ -375,7 +406,12 @@ class RuntimeApprovalBridgeReadModel(BaseModel):
     def validate_read_model(self) -> "RuntimeApprovalBridgeReadModel":
         for value, field_name in [
             (self.contract_ref, "contract_ref"),
+            (self.snapshot_ref, "snapshot_ref"),
+            (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for value, field_name in [
@@ -383,16 +419,36 @@ class RuntimeApprovalBridgeReadModel(BaseModel):
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
             (self.status, "status"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "proof_refs",
             "next_safe_action_refs",
         ):
             for ref in getattr(self, field_name):
                 validate_execution_ref(ref, field_name)
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_APPROVAL_BRIDGE_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_APPROVAL_BRIDGE_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_APPROVAL_BRIDGE_AUTHORITY_DECISION_INVALID")
         if self.pending_runtime_approval_count != sum(
             1 for envelope in self.envelopes if envelope.state == "runtime_requested"
         ):
@@ -468,6 +524,16 @@ def validate_runtime_approval_scope(
 
 
 def build_runtime_approval_bridge_read_model() -> RuntimeApprovalBridgeReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog=None)
+    return build_runtime_approval_bridge_read_model_from_authority_catalog(
+        authority_decision_catalog=[authority_entry]
+    )
+
+
+def build_runtime_approval_bridge_read_model_from_authority_catalog(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeApprovalBridgeReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     requested_scope_ref = "runtime-approval-scope-ref:hermes-agent:sample"
     envelope_ref = "runtime-approval-envelope-ref:hermes-agent:sample"
     blocked_refs = [
@@ -534,13 +600,36 @@ def build_runtime_approval_bridge_read_model() -> RuntimeApprovalBridgeReadModel
             blocked_authority_refs=blocked_refs,
         ),
     ]
+    scope_validation = validate_runtime_approval_scope(
+        requested_scope_ref,
+        "runtime-approval-scope-ref:hermes-agent:other",
+    )
+    fail_closed_timeout_posture = RuntimeApprovalFailClosedTimeoutPosture()
     return RuntimeApprovalBridgeReadModel(
+        snapshot_hash_ref=_snapshot_hash_ref(
+            action_inbox_projection=RuntimeApprovalActionInboxProjection(),
+            fail_closed_timeout_posture=fail_closed_timeout_posture,
+            envelopes=[envelope],
+            decision_previews=decisions,
+            scope_validation=scope_validation,
+            authority_entry=authority_entry,
+        ),
+        authority_state_route_ref=RUNTIME_APPROVAL_BRIDGE_AUTHORITY_STATE_ROUTE_REF,
+        authority_state_cli_ref=RUNTIME_APPROVAL_BRIDGE_AUTHORITY_STATE_CLI_REF,
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
+        fail_closed_timeout_posture=fail_closed_timeout_posture,
         envelopes=[envelope],
         decision_previews=decisions,
-        scope_validation=validate_runtime_approval_scope(
-            requested_scope_ref,
-            "runtime-approval-scope-ref:hermes-agent:other",
-        ),
+        scope_validation=scope_validation,
         pending_runtime_approval_count=1,
         denied_preview_count=1,
         timeout_preview_count=1,
@@ -557,3 +646,47 @@ def build_runtime_approval_bridge_read_model() -> RuntimeApprovalBridgeReadModel
             "next-safe-action-ref:runtime-approval-bridge:add-runtime-resolution-receipt",
         ],
     )
+
+
+def _snapshot_hash_ref(
+    *,
+    action_inbox_projection: RuntimeApprovalActionInboxProjection,
+    fail_closed_timeout_posture: RuntimeApprovalFailClosedTimeoutPosture,
+    envelopes: list[RuntimeApprovalBridgeEnvelope],
+    decision_previews: list[RuntimeApprovalBridgeDecisionPreview],
+    scope_validation: RuntimeApprovalScopeValidationResult,
+    authority_entry: AuthorityDecisionCatalogEntry,
+) -> str:
+    payload = {
+        "contract_ref": RUNTIME_APPROVAL_BRIDGE_CONTRACT_REF,
+        "snapshot_ref": RUNTIME_APPROVAL_BRIDGE_SNAPSHOT_REF,
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
+        "action_inbox_projection": action_inbox_projection.model_dump(mode="json"),
+        "fail_closed_timeout_posture": fail_closed_timeout_posture.model_dump(
+            mode="json"
+        ),
+        "envelopes": [envelope.model_dump(mode="json") for envelope in envelopes],
+        "decision_previews": [
+            preview.model_dump(mode="json") for preview in decision_previews
+        ],
+        "scope_validation": scope_validation.model_dump(mode="json"),
+    }
+    digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    return f"snapshot-hash-ref:runtime-approval-bridge:{digest[:16]}"
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    for entry in catalog:
+        if entry.lane_ref == RUNTIME_APPROVAL_BRIDGE_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_APPROVAL_BRIDGE_AUTHORITY_MAPPING_MISSING")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))

@@ -1,6 +1,7 @@
 # UAA Hermes Runtime Fail-Closed Approval Timeouts
 
-Status: Hermes Runtime Adoption Phase 26, repo-safe hardening.
+Status: Hermes Runtime Adoption Phase 26, AuthorityState-bound repo-safe
+hardening.
 
 ## Full-Strength
 
@@ -18,6 +19,9 @@ command lane:
   promotion path refs, and next safe action refs.
 - `GET /api/runtime/approval-bridge` and
   `scripts/dev/uaa_runtime.py inspect-approval-bridge` return the same posture.
+- The approval bridge exposes `lane-ref:runtime-approval-bridge-read-model`
+  AuthorityState mapping, catalog, decision, reason, unsupported-adapter, and
+  decision-bound snapshot refs under Read-only `workspace/read`.
 - Control Center `/runtime` displays timeout, ambiguous wait, approve-all,
   standing authority, and expired-grant posture as read-only backend-owned
   state.

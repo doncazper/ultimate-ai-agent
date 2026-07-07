@@ -1,14 +1,16 @@
 # UAA Hermes Runtime Approval Bridge
 
-Status: Phase 04 repo-safe read model, hardened by Phase 26 fail-closed
-approval timeout posture.
+Status: Phase 04 AuthorityState-bound repo-safe read model, hardened by Phase
+26 fail-closed approval timeout posture.
 
 UAA now exposes a backend-owned runtime approval bridge posture for optional
 Hermes delegation. This is not an approval execution API. It models runtime
 approval envelopes, Action Inbox projection refs, proof refs, denial preview
 refs, timeout default-deny posture, and scope mismatch handling without sending
 approval, denial, timeout, or scope-mismatch resolutions to Hermes or any
-delegated runtime.
+delegated runtime. The read model now evaluates as
+`lane-ref:runtime-approval-bridge-read-model` under the Read-only
+`workspace/read` AuthorityLease decision.
 
 Phase 26 adds an explicit fail-closed timeout posture under the same read model:
 expired or ambiguous waits deny by default, approve-all and standing broad
@@ -29,6 +31,9 @@ Implemented:
 - `fail_closed_timeout_posture` with timeout and ambiguous denial receipt refs,
   explicit expiration, revoke, safe-disable, approve-all blocked state, and
   standing authority blocked state.
+- AuthorityState binding with route/CLI refs, catalog ref, decision ref,
+  decision outcome, reason refs, unsupported adapter refs, and a
+  decision-bound snapshot hash.
 - Action Inbox projection metadata that visibly separates “runtime requested”
   from “UAA approved.”
 - `GET /api/runtime/approval-bridge`.

@@ -2916,6 +2916,31 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-approval-bridge-read-model",
+            "Runtime approval bridge read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/approval-bridge"],
+            ["repo-local-command:uaa-runtime-inspect-approval-bridge"],
+            (
+                "Runtime approval bridge inspection reads approval-wait "
+                "envelopes, local decision previews, fail-closed timeout "
+                "posture, scope validation, proof refs, and blocked refs under "
+                "Workspace read authority. It does not send approve, deny, "
+                "timeout, or scope-mismatch resolutions, auto-approve, grant "
+                "standing authority, or persist raw runtime payloads."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:runtime-approval-resolution-send:not-implemented",
+                "adapter-ref:runtime-approval-denial-send:not-implemented",
+                "adapter-ref:runtime-approval-timeout-send:not-implemented",
+                "adapter-ref:runtime-approval-scope-mismatch-send:not-implemented",
+                "adapter-ref:runtime-approval-standing-grant:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

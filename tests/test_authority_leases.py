@@ -772,6 +772,25 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         catalog_by_lane["lane-ref:runtime-run-events-read-model"].decision.outcome
         == "allow"
     )
+    approval_bridge = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-approval-bridge-read-model"
+    )
+    assert approval_bridge.domain == "workspace"
+    assert approval_bridge.capability == "read"
+    assert approval_bridge.required_mode == "read_only"
+    assert approval_bridge.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/approval-bridge" in approval_bridge.route_refs
+    assert "adapter-ref:runtime-approval-resolution-send:not-implemented" in (
+        approval_bridge.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane[
+            "lane-ref:runtime-approval-bridge-read-model"
+        ].decision.outcome
+        == "allow"
+    )
     browser_action = next(
         mapping
         for mapping in read_model.capability_mappings

@@ -119,6 +119,11 @@ surfaces are:
   while run creation, stop/cancel execution, approval resolution, live event
   streaming, retry/recovery execution, provider/model calls, tool execution,
   raw runtime payload persistence, and production authority remain blocked.
+  Runtime approval bridge exposes the Read-only `workspace/read` approval-wait
+  inspection decision while approve/deny/timeout/scope-mismatch resolution
+  sends, auto-approve, approve-all, standing authority, expired-grant reuse,
+  ambiguous-grant authority, raw runtime approval payload persistence, and
+  Control Center authority minting remain blocked.
   These API/CLI surfaces remain safe-ref inspection only unless exact active
   leases, implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and
