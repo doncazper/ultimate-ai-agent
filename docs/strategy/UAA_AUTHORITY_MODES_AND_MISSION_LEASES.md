@@ -5,8 +5,8 @@ Date: 2026-07-06
 Purpose: preserve the product/architecture direction for moving UAA from
 permanent blocked-lane posture to governed, operator-selected autonomy.
 
-This document records the active strategic correction from tiny-lane-first
-graduation toward mode/domain/lease authority. It is not itself runtime
+This document records the active strategic correction from one-off lane
+promotion toward mode/domain/lease authority. It is not itself runtime
 authority and does not claim unsupported adapters are implemented. It is the
 canon and implementation guide for AuthorityLease V1.
 
@@ -39,7 +39,7 @@ surfaces are:
 
 The first implementation is deliberately conservative: the default active
 lease is read-only; operator-selected session leases persist safe receipts for
-implemented local domain/capability subsets; existing exact lanes are mapped
+implemented local domain/capability subsets; existing governed lanes are mapped
 into domains and required trust modes; RuntimeGateway decisions consume the
 active lease store for command invocation, approval, and execution policy;
 AuthorityLease issue/revoke routes are the mapped `system_settings/write`
@@ -49,7 +49,7 @@ visibility;
 mode defaults are mode-specific, so Approved Safe Local Work defaults to
 Workspace read/write/execute only, while Full Machine and Delegated Mission
 defaults request unsupported machine/browser/payment domains and fail closed
-until exact adapters are implemented or the operator explicitly requests an
+until exact-scoped adapters are implemented or the operator explicitly requests an
 implemented local domain subset;
 Delegated Mission authority must be mission-scoped and bound to a safe
 `mission_ref`, not issued as a standing session lease;
@@ -130,7 +130,7 @@ loopback/configured-endpoint only, records metadata-only receipts, treats model
 output as untrusted proposal text, and does not authorize remote provider SDK
 calls, tools/functions, streaming, memory/file writes, connector writes,
 browser automation, billing, or production authority.
-The tiny exact-approved provider invocation lane now requires an active
+The exact-approved provider invocation capability now requires an active
 `provider_model_calls/execute` AuthorityLease before it can proceed to its
 existing PolicyEngine, CostGovernor, exact LocalApprovalAuthority, adapter,
 idempotency, and redacted receipt gates. The default API route passes only
@@ -157,12 +157,12 @@ refs, rollback/safe-disable posture, and kill-switch visibility remain
 mandatory. Browser actions, auth/cookies, downloads/uploads, POST-style
 mutation, unrestricted browsing, context injection, memory writes, connector
 writes, provider/model calls, and production authority remain denied.
-Provider/model transport outside the two named exact tiny adapter scopes remains
-blocked by authority policy unless a later supported provider/model execution
-lease is implemented and tested. Existing local loopback model requests may
-carry `mission_ref` for policy evaluation, but that does not grant remote
-provider SDK calls, web fetching, tools/functions, streaming, or provider
-payload persistence.
+Provider/model transport outside named implemented adapter capabilities remains
+blocked by authority policy unless a supported provider/model execution lease is
+implemented and tested. Existing local loopback model requests may carry
+`mission_ref` for policy evaluation, but that does not grant remote provider
+SDK calls, web fetching, tools/functions, streaming, or provider payload
+persistence.
 Hermes interface-mode chat is now mapped into the same runtime authority model:
 `POST /api/runtime/hermes/chat` may run the exact guarded Hermes CLI chat argv
 only after active `workspace/execute` AuthorityLease scope is present. Missing
@@ -179,7 +179,7 @@ It protects aggressively, but it also risks freezing the product into permanent
 review-only behavior. The current pattern is:
 
 ```text
-This exact tiny lane is allowed; everything else is blocked.
+This one named capability is allowed; everything else is blocked.
 ```
 
 That is useful for early safety hardening, but it is not the end-state for the
@@ -340,7 +340,10 @@ Unknown authority is denied. Known authority inside an active lease is allowed.
 ```
 
 This replaces the current product habit of treating meaningful action as
-blocked unless a microscopic lane was separately promoted.
+blocked unless a one-off lane was separately promoted. Future work should
+instead ask whether the action has a known domain/capability, an active lease,
+policy allow/ask/degrade/deny behavior, receipts, audit records, rollback or
+safe-disable posture, and tested adapter support.
 
 ## Safety Rails
 
@@ -364,8 +367,8 @@ must be visible, revocable, bounded, and receipted.
 
 ## Canon Changes Needed
 
-The canon should change from "all broad authority blocked until tiny lane
-graduation" to "authority requires explicit mode/domain/lease and policy
+The canon should change from "all broad authority blocked behind one-off lane
+promotion" to "authority requires explicit mode/domain/lease and policy
 evaluation."
 
 Likely files to update:
@@ -373,7 +376,7 @@ Likely files to update:
 | File | Needed Change |
 |---|---|
 | `AGENTS.md` | Replace blanket no-broad-authority posture with explicit mode/domain/lease requirements. |
-| `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md` | Reframe from tiny-lane conveyor to trust-mode/domain/mission-lease maturity. |
+| `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md` | Reframe the former tiny-lane conveyor to trust-mode/domain/mission-lease maturity. |
 | `docs/control_center/authority_candidate_scorecard.json` | Track authority domains and lease requirements, not only blocked candidates. |
 | `docs/control_center/operational_maturity_manifest.json` | Track domain maturity and mode support. |
 | `docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md` | Become the authority mode and mission lease implementation plan. |
@@ -443,7 +446,7 @@ It should show:
 Copy should shift from:
 
 ```text
-Blocked until exact lane graduates.
+Blocked: no active browser authority.
 ```
 
 To:
@@ -464,7 +467,7 @@ Allowed by delegated ticket-purchase mission lease; budget limit $1000.
 2. Schema/model update: `AuthorityLease`, `AuthorityDomain`, `TrustMode`.
 3. Policy evaluator update: return `allow`, `ask`, `deny`, or `degrade_to_draft`.
 4. UI update: authority cockpit for selecting mode/domain and inspecting leases.
-5. Convert existing tiny lanes into capability-pack members.
+5. Convert existing lane records into AuthorityLease domain/capability mappings.
 6. Add Full Local Workspace mode.
 7. Add Full Machine Access mode with hard local safety rails.
 8. Add Delegated Mission V1, starting with browser/app mission dry-run and receipts.
