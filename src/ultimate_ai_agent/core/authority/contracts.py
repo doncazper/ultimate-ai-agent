@@ -473,6 +473,7 @@ class AuthorityDecisionPreview(_AuthorityModel):
 
 class AuthorityDecisionCatalogEntry(_AuthorityModel):
     catalog_ref: str = Field(..., min_length=1)
+    authority_capability_ref: str = Field(..., min_length=1)
     lane_ref: str = Field(..., min_length=1)
     label: str = Field(..., min_length=1, max_length=120)
     status: str = Field(..., min_length=1, max_length=80)
@@ -492,6 +493,7 @@ class AuthorityDecisionCatalogEntry(_AuthorityModel):
         _validate_ref_list(
             [
                 self.catalog_ref,
+                self.authority_capability_ref,
                 self.lane_ref,
                 *self.evidence_refs,
                 *self.unsupported_adapter_refs,
@@ -2895,6 +2897,9 @@ def _authority_decision_catalog_entry(
     )
     return AuthorityDecisionCatalogEntry(
         catalog_ref=f"authority-decision-catalog-ref:{_safe_mapping_suffix(mapping.lane_ref)}",
+        authority_capability_ref=(
+            f"authority-capability-ref:{_safe_mapping_suffix(mapping.lane_ref)}"
+        ),
         lane_ref=mapping.lane_ref,
         label=mapping.label,
         status=mapping.status,

@@ -11387,6 +11387,12 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("authority-decision-catalog-ref:mock-workspace-read"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("authority-capability-ref:mock-workspace-read"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("authority-capability-ref:mock-browser-click"),
+    ).toBeInTheDocument();
     expect(screen.getByText("lane-ref:browser-action-adapter")).toBeInTheDocument();
     expect(
       screen.getByRole("status", { name: /Authority decision allow/i }),

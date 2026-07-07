@@ -148,6 +148,10 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     } >= {"allow", "deny", "degrade_to_draft"}
     assert all(entry.safe_refs_only for entry in read_model.decision_catalog)
     assert all(
+        entry.authority_capability_ref.startswith("authority-capability-ref:")
+        for entry in read_model.decision_catalog
+    )
+    assert all(
         not entry.execution_performed and not entry.mutation_performed
         for entry in read_model.decision_catalog
     )
@@ -888,7 +892,8 @@ def test_authority_state_api_cli_and_settings_surface(
     assert "issued=" in cli_text
     assert "expires=" in cli_text
     assert "Decision catalog:" in cli_text
-    assert "lane-ref:runtime-command-focused-pytest" in cli_text
+    assert "authority-capability-ref:runtime-command-focused-pytest" in cli_text
+    assert "source: lane-ref:runtime-command-focused-pytest" in cli_text
 
 
 def test_authority_decision_preview_api_and_cli_are_read_only(

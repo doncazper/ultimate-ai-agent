@@ -11672,6 +11672,8 @@ export const mockControlCenterData: ControlCenterData = {
       decision_catalog: [
         {
           catalog_ref: "authority-decision-catalog-ref:mock-workspace-read",
+          authority_capability_ref:
+            "authority-capability-ref:mock-workspace-read",
           lane_ref: "lane-ref:mock-workspace-read",
           label: "Mock workspace read",
           status: "implemented_mock_fallback",
@@ -11718,6 +11720,7 @@ export const mockControlCenterData: ControlCenterData = {
         },
         {
           catalog_ref: "authority-decision-catalog-ref:mock-browser-click",
+          authority_capability_ref: "authority-capability-ref:mock-browser-click",
           lane_ref: "lane-ref:browser-action-adapter",
           label: "Mock browser click",
           status: "planned_unsupported_adapter",

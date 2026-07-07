@@ -2670,6 +2670,7 @@ function AuthorityDecisionCatalogCard({
       </dl>
       <div className="note-list" aria-label={`${entry.catalog_ref} refs`}>
         <span>{entry.catalog_ref}</span>
+        <span>{entry.authority_capability_ref}</span>
         <span>{entry.lane_ref}</span>
         <span>{decision.decision_ref}</span>
         <span>{decision.audit_record_ref}</span>

@@ -1966,10 +1966,11 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
             decision = entry["decision"]
             requirement = _authority_decision_requirement_dict(decision)
             print(
-                f"- {decision['outcome']} {entry['lane_ref']} "
+                f"- {decision['outcome']} {entry['authority_capability_ref']} "
                 f"{decision['domain']}/{decision['capability']}: {requirement}"
             )
             print(f"  catalog: {entry['catalog_ref']}")
+            print(f"  source: {entry['lane_ref']}")
             print(f"  status: {entry['status']}")
             print(f"  lease: {decision['lease_ref'] or 'none'}")
             print(f"  reasons: {_authority_ref_summary(decision['reason_refs'])}")

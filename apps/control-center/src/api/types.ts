@@ -12014,6 +12014,7 @@ export interface AuthorityCapabilityMapping {
 
 export interface AuthorityDecisionCatalogEntry {
   catalog_ref: string;
+  authority_capability_ref: string;
   lane_ref: string;
   label: string;
   status: string;
