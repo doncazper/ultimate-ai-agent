@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  approveAndIssueAuthorityLease,
   fetchControlCenterSettingsStatus,
   fetchChatTurnReceipt,
   inspectLocalModelsRoute,
-  issueAuthorityLease,
   planAuthorityMission,
   previewAuthorityDecision,
   recordChatHandoff,
@@ -1625,13 +1625,17 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
     setAuthorityPendingMode(option.mode);
     setAuthorityError(undefined);
     try {
-      const result = await issueAuthorityLease({
-        mode: option.mode,
-        scope: "session",
-        requested_domains: option.requestedDomains,
-        decision_reason_ref: `reason-ref:control-center-authority-${option.mode}`,
-        duration_minutes: 120,
-        safe_summary: `Control Center selected ${option.label} authority mode for implemented local domains.`,
+      const result = await approveAndIssueAuthorityLease({
+        lease_issue_request: {
+          mode: option.mode,
+          scope: "session",
+          requested_domains: option.requestedDomains,
+          decision_reason_ref: `reason-ref:control-center-authority-${option.mode}`,
+          duration_minutes: 120,
+          safe_summary: `Control Center selected ${option.label} authority mode for implemented local domains.`,
+        },
+        approved_by_actor_ref: "operator-ref:control-center-local-user",
+        approval_safe_summary: `Operator selected ${option.label} authority mode for the current session.`,
       });
       setAuthorityMutation(result);
       await refreshSettingsSnapshot();
@@ -1712,9 +1716,12 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
     setAuthorityMissionIssuing(true);
     setAuthorityMissionError(undefined);
     try {
-      const result = await issueAuthorityLease(
-        authorityMissionPlan.lease_issue_request,
-      );
+      const result = await approveAndIssueAuthorityLease({
+        lease_issue_request: authorityMissionPlan.lease_issue_request,
+        approved_by_actor_ref: "operator-ref:control-center-local-user",
+        approval_safe_summary:
+          "Operator approved this exact mission-scoped AuthorityLease plan.",
+      });
       setAuthorityMutation(result);
       await refreshSettingsSnapshot();
     } catch (error) {
@@ -1954,6 +1961,14 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
                   {authorityMutation.receipt.approval_validated ? "yes" : "no"}
                 </span>
                 <span>{authorityMutation.receipt.approval_status}</span>
+                {authorityMutation.approval_captured !== undefined ? (
+                  <span>
+                    captured {authorityMutation.approval_captured ? "yes" : "no"}
+                  </span>
+                ) : null}
+                {authorityMutation.approval_ref ? (
+                  <span>{authorityMutation.approval_ref}</span>
+                ) : null}
                 {authorityMutation.receipt.approval_scope_ref ? (
                   <span>{authorityMutation.receipt.approval_scope_ref}</span>
                 ) : null}

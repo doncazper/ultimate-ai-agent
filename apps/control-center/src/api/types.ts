@@ -11888,6 +11888,28 @@ export interface AuthorityLeaseIssueRequest {
   approval_grants?: Record<string, unknown>[];
 }
 
+export interface AuthorityLeaseApprovalRequirement {
+  schema_version: "uaa-authority-lease-approval-requirement.v1";
+  approval_required: boolean;
+  approval_scope_ref: string;
+  approval_request_ref: string;
+  run_ref: string;
+  subject_ref: string;
+  requested_action: "issue_authority_lease";
+  resource_refs: string[];
+  operator_ref: string;
+  risk_level: "safe" | "high";
+  data_classification: "system_internal";
+  purpose: string;
+  safe_summary: string;
+}
+
+export interface AuthorityLeaseApproveAndIssueRequest {
+  lease_issue_request: AuthorityLeaseIssueRequest;
+  approved_by_actor_ref?: string;
+  approval_safe_summary?: string;
+}
+
 export interface AuthorityLeaseRevokeRequest {
   lease_ref: string;
   decision_reason_ref: string;
@@ -11897,6 +11919,10 @@ export interface AuthorityLeaseRevokeRequest {
 export interface AuthorityLeaseMutationResult {
   lease: AuthorityLease | null;
   receipt: AuthorityLeaseReceipt;
+  approval_requirement?: AuthorityLeaseApprovalRequirement;
+  approval_captured?: boolean;
+  approval_ref?: string | null;
+  approval_grant_payload_persisted?: boolean;
   execution_performed: false;
   unsupported_adapters_claimed_execution: false;
   unknown_authority_default: "deny";

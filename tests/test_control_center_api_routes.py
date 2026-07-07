@@ -755,6 +755,7 @@ def test_control_center_openapi_routes_and_operation_ids_are_safe() -> None:
     assert "/api/runtime/authority-missions/plan" in paths
     assert "/api/runtime/authority-state" in paths
     assert "/api/runtime/authority-leases" in paths
+    assert "/api/runtime/authority-leases/approve-and-issue" in paths
     assert "/api/runtime/authority-leases/revoke" in paths
     assert len(paths) == EXPECTED_OPENAPI_PATH_COUNT
     assert len(operation_ids) == len(set(operation_ids)) == EXPECTED_ROUTE_COUNT

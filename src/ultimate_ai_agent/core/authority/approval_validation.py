@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import timedelta
 from typing import Any
 
@@ -77,11 +79,11 @@ def validate_authority_lease_approval(
     return authority.validate_for_request(approval_request, request.approval_ref)
 
 
-def build_authority_lease_test_grant(
+def build_authority_lease_approval_grant(
     requirement: AuthorityLeaseApprovalRequirement,
     *,
     approval_ref: str,
-    approved_by_actor_id: str = "operator-ref:test-approver",
+    approved_by_actor_id: str,
 ) -> ApprovalGrant:
     authority = LocalApprovalAuthority()
     approval_request = authority.create_request(
@@ -91,6 +93,57 @@ def build_authority_lease_test_grant(
         approval_request.approval_request_id,
         approved_by_actor_id=approved_by_actor_id,
         approval_ref=approval_ref,
+    )
+
+
+def build_authority_lease_backend_approval_ref(
+    requirement: AuthorityLeaseApprovalRequirement,
+    *,
+    idempotency_ref: str,
+) -> str:
+    payload = {
+        "approval_scope_ref": requirement.approval_scope_ref,
+        "idempotency_ref": idempotency_ref,
+        "requested_action": requirement.requested_action,
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()[:16]
+    return f"approval-ref:authority-lease:{digest}"
+
+
+def build_authority_lease_operator_approval_grant(
+    request: AuthorityLeaseIssueRequest,
+    *,
+    idempotency_ref: str,
+    approved_by_actor_id: str,
+) -> tuple[AuthorityLeaseApprovalRequirement, ApprovalGrant | None]:
+    requirement = build_authority_lease_approval_requirement_for_request(
+        request,
+        idempotency_ref=idempotency_ref,
+    )
+    if not requirement.approval_required:
+        return requirement, None
+    return requirement, build_authority_lease_approval_grant(
+        requirement,
+        approval_ref=build_authority_lease_backend_approval_ref(
+            requirement,
+            idempotency_ref=idempotency_ref,
+        ),
+        approved_by_actor_id=approved_by_actor_id,
+    )
+
+
+def build_authority_lease_test_grant(
+    requirement: AuthorityLeaseApprovalRequirement,
+    *,
+    approval_ref: str,
+    approved_by_actor_id: str = "operator-ref:test-approver",
+) -> ApprovalGrant:
+    return build_authority_lease_approval_grant(
+        requirement,
+        approval_ref=approval_ref,
+        approved_by_actor_id=approved_by_actor_id,
     )
 
 

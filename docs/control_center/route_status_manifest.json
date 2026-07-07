@@ -4,7 +4,7 @@
   "baseline": "v0.104.0 / 0.104.0",
   "source_map": "docs/control_center/OPERATOR_SHELL_GAP_MAP.md",
   "operator_readiness_taxonomy_ref": "docs/roadmap/OPERATOR_READINESS_STATUS_TAXONOMY.md",
-  "openapi_path_count": 240,
+  "openapi_path_count": 241,
   "default_posture": "contract_first_disabled_by_default_least_authority_review_gated",
   "allowed_release_statuses": [
     "status_available_not_completion",
@@ -1202,7 +1202,7 @@
       "side_effect_class": "validation_only",
       "risk_class": "high",
       "release_status": "status_available_not_completion",
-      "approval_requirement": "No approval is required for read-only Settings status, authority decision preview, or authority mission planning. AuthorityLease issue routes require exact LocalApprovalAuthority validation for authority-increasing mode/domain/capability scopes, idempotency, receipts, audit refs, redaction, and rollback/safe-disable posture before authority state changes; missing or invalid approval returns a denied receipt with approval scope/status/reason refs. AuthorityLease revoke is a safe-disable path that can only reduce active authority and records idempotent receipts.",
+      "approval_requirement": "No approval is required for read-only Settings status, authority decision preview, or authority mission planning. AuthorityLease approve-and-issue captures exact backend-owned LocalApprovalAuthority validation for authority-increasing mode/domain/capability scopes before calling the strict issue path; the lower-level issue route still denies missing or invalid approval with approval scope/status/reason refs. Issue and revoke routes require idempotency, receipts, audit refs, redaction, and rollback/safe-disable posture. AuthorityLease revoke is a safe-disable path that can only reduce active authority and records idempotent receipts.",
       "evidence_audit_output": "Backend-owned settings maturity gate, feature-flag posture, kill-switch posture, active authority mode/domain/lease refs, decision-preview refs, mission-plan refs, lease receipt refs, blocked/degraded/partial authority posture labels, route safety, and blocked authority refs only.",
       "current_backend_routes": [
         {
@@ -1258,6 +1258,13 @@
           "method": "POST",
           "path": "/api/runtime/authority-leases",
           "operation_id": "post_api_runtime_authority_leases",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-leases/approve-and-issue",
+          "operation_id": "post_api_runtime_authority_leases_approve_and_issue",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "mutating_requires_authority"
         },
@@ -2788,7 +2795,7 @@
       "side_effect_class": "validation_only",
       "risk_class": "high",
       "release_status": "status_available_not_completion",
-      "approval_requirement": "A scoped settings milestone is required before any setting can mutate state or enable authority. AuthorityLease issue and revoke controls require LocalApprovalAuthority validation, idempotency, receipts, audit refs, redaction, and rollback/safe-disable posture; previews and mission planning are inspection-only.",
+      "approval_requirement": "AuthorityLease approve-and-issue controls capture exact backend-owned LocalApprovalAuthority validation before any authority-increasing state change. The lower-level issue route denies missing or invalid approval. Issue and revoke controls require idempotency, receipts, audit refs, redaction, and rollback/safe-disable posture; previews and mission planning are inspection-only.",
       "evidence_audit_output": "Backend-owned settings status refs for maturity gate, feature-flag posture, kill-switch posture, active mode/domain/lease refs, decision-preview refs, mission-plan refs, lease receipt refs, route safety, and blocked authority only.",
       "backend_routes": [
         {
@@ -2830,6 +2837,13 @@
           "method": "POST",
           "path": "/api/runtime/authority-leases",
           "operation_id": "post_api_runtime_authority_leases",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-leases/approve-and-issue",
+          "operation_id": "post_api_runtime_authority_leases_approve_and_issue",
           "side_effect_class": "local_dev_workspace_only",
           "route_classification": "mutating_requires_authority"
         },

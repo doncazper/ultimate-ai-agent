@@ -14,16 +14,44 @@
     "idempotency_audit_policy_ref",
     "route_rate_limit_posture_summary",
     "rate_limit_policy_ref",
-    "projection_fields",
     "routes",
     "schema_version"
   ],
   "properties": {
+    "active_baseline": {
+      "type": "string",
+      "minLength": 1
+    },
+    "api_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capabilities_blocked": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "capabilities_declared": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "route_groups": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "schema_version": {
       "const": "uaa-api-route-inventory.v4"
     },
     "route_count": {
-      "const": 203
+      "const": 242
     },
     "route_classification_vocabulary": {
       "type": "array",
@@ -81,7 +109,7 @@
         },
         "protected_local_bearer_required": {
           "type": "integer",
-          "const": 200
+          "const": 239
         }
       }
     },
@@ -95,11 +123,11 @@
       "properties": {
         "not_required_for_route_classification": {
           "type": "integer",
-          "const": 161
+          "const": 195
         },
         "required_before_mutation_authority": {
           "type": "integer",
-          "const": 42
+          "const": 47
         }
       }
     },
@@ -117,7 +145,7 @@
         },
         "required_before_mutation_authority": {
           "type": "integer",
-          "const": 42
+          "const": 47
         }
       }
     },
@@ -138,7 +166,7 @@
         },
         "targeted_local_fixed_window": {
           "type": "integer",
-          "const": 64
+          "const": 68
         }
       }
     },
@@ -171,8 +199,8 @@
     },
     "routes": {
       "type": "array",
-      "minItems": 203,
-      "maxItems": 203,
+      "minItems": 242,
+      "maxItems": 242,
       "items": {
         "type": "object",
         "additionalProperties": false,

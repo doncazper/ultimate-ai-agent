@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `240`, generated from the FastAPI application and
+Current OpenAPI path count: `241`, generated from the FastAPI application and
 exposed through `/api/manifest`. `/api/manifest` currently reports `241` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
@@ -24,8 +24,10 @@ runtime parity loop add protected read-only `/api/runtime/*` inspection routes.
 AuthorityLease V1 adds `GET /api/runtime/authority-state` as a protected
 read-only authority mode/domain/lease inspection route with safe refs only,
 plus `POST /api/runtime/authority-leases` and
-`POST /api/runtime/authority-leases/revoke` as idempotency-bound local lease
-selection receipt routes.
+`POST /api/runtime/authority-leases/approve-and-issue` as exact
+approval-bound local lease selection receipt routes, and
+`POST /api/runtime/authority-leases/revoke` as the idempotency-bound
+safe-disable lease revocation route.
 `POST /api/runtime/hermes/chat` is also AuthorityLease-gated: exact guarded
 Hermes CLI chat requires active `workspace/execute` scope before Hermes
 discovery or subprocess execution, and records authority decision refs on the

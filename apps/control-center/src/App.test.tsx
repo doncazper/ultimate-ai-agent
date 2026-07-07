@@ -11091,7 +11091,7 @@ describe("Web Control Center shell", () => {
       }
       if (
         options?.method === "POST" &&
-        urlText.endsWith(API_ENDPOINTS.runtimeAuthorityLeases)
+        urlText.endsWith(API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue)
       ) {
         const requestBody = String(options.body ?? "");
         const missionIssue = requestBody.includes(
@@ -11115,6 +11115,9 @@ describe("Web Control Center shell", () => {
             data: {
               lease: nextLease,
               receipt: nextReceipt,
+              approval_captured: true,
+              approval_ref: nextReceipt.approval_ref,
+              approval_grant_payload_persisted: false,
               execution_performed: false,
               unsupported_adapters_claimed_execution: false,
               unknown_authority_default: "deny",
@@ -11402,7 +11405,7 @@ describe("Web Control Center shell", () => {
     );
     const missionIssueCall = fetchMock.mock.calls.find(
       ([url, init]) =>
-        String(url).includes(API_ENDPOINTS.runtimeAuthorityLeases) &&
+        String(url).includes(API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue) &&
         init?.method === "POST" &&
         String(init.body).includes(
           "mission-ref:control-center-workspace-maintenance-preview",
@@ -11423,6 +11426,7 @@ describe("Web Control Center shell", () => {
       "Authority lease action result",
     );
     expect(issueResult).toHaveTextContent("issued");
+    expect(issueResult).toHaveTextContent("captured yes");
     expect(issueResult).toHaveTextContent(
       "receipt-ref:authority-lease:app-test-issued",
     );
@@ -11438,7 +11442,7 @@ describe("Web Control Center shell", () => {
       "workspace ref: workspace-ref:current",
     );
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(API_ENDPOINTS.runtimeAuthorityLeases),
+      expect.stringContaining(API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue),
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({

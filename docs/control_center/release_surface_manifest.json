@@ -1004,6 +1004,13 @@
         },
         {
           "method": "POST",
+          "path": "/api/runtime/authority-leases/approve-and-issue",
+          "operation_id": "post_api_runtime_authority_leases_approve_and_issue",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
           "path": "/api/runtime/authority-leases/revoke",
           "operation_id": "post_api_runtime_authority_leases_revoke",
           "side_effect_class": "local_dev_workspace_only",
@@ -1065,7 +1072,7 @@
       "product_language_caveats": [
         "Release status is partial for partial route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
-        "AuthorityLease issue routes require exact LocalApprovalAuthority validation for authority-increasing scopes; missing or invalid approval records a denied receipt with approval status, approval scope, and reason refs instead of minting authority.",
+        "AuthorityLease approve-and-issue captures exact backend-owned LocalApprovalAuthority validation for authority-increasing scopes before strict issue; missing or invalid lower-level issue approval records a denied receipt with approval status, approval scope, and reason refs instead of minting authority.",
         "Dev-only auth bypass is a release blocker until Settings can show fail-closed local auth posture from backend-owned truth.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, memory/context injection, broad runtime authority, or hidden autonomy."
       ]

@@ -96,6 +96,8 @@ export const API_ENDPOINTS = {
   runtimeAuthorityDecisionPreview: "/api/runtime/authority-decisions/preview",
   runtimeAuthorityMissionPlan: "/api/runtime/authority-missions/plan",
   runtimeAuthorityLeases: "/api/runtime/authority-leases",
+  runtimeAuthorityLeasesApproveAndIssue:
+    "/api/runtime/authority-leases/approve-and-issue",
   runtimeAuthorityLeaseRevoke: "/api/runtime/authority-leases/revoke",
   runtimeSmokeReportValidate: "/runtime/smoke-reports/validate",
   localModels: "/v1/models",

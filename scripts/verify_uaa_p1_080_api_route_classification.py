@@ -37,7 +37,7 @@ ALLOWED_CLASSIFICATIONS = {
 EXPECTED_SIDE_EFFECT_MIX = {
     "validation_only": 76,
     "none": 4,
-    "local_dev_workspace_only": 158,
+    "local_dev_workspace_only": 159,
     "governed_network_read_only": 3,
 }
 EXPECTED_PUBLIC_METADATA_PATHS = {
@@ -62,6 +62,7 @@ HIGH_RISK_EXPECTATIONS = {
     ("POST", "/control-center/providers/router/dry-run"): "mutating_requires_authority",
     ("POST", "/api/runtime/invocations"): "mutating_requires_authority",
     ("POST", "/api/runtime/authority-leases"): "mutating_requires_authority",
+    ("POST", "/api/runtime/authority-leases/approve-and-issue"): "mutating_requires_authority",
     ("POST", "/api/runtime/authority-leases/revoke"): "mutating_requires_authority",
     ("POST", "/api/runtime/command/run"): "mutating_requires_authority",
     ("POST", "/api/runtime/invocations/{id}/approve"): "mutating_requires_authority",
@@ -95,7 +96,7 @@ REQUIRED_DOC_SNIPPETS = {
     "docs/api/UAA_P1_080_API_ROUTE_CLASSIFICATION_INVENTORY.md": [
         "Status: Implemented",
         str(EXPECTED_ROUTE_COUNT),
-        "| `mutating_requires_authority` | 46 |",
+        "| `mutating_requires_authority` | 47 |",
         f"The current OpenAPI path count is `{EXPECTED_OPENAPI_PATH_COUNT}`",
         f"`{EXPECTED_ROUTE_COUNT}` route operations",
         "public_metadata",

@@ -1246,3 +1246,76 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     )
     assert cli_revoke == 0
     assert "uaa-runtime-revoke-authority-lease" in capsys.readouterr().out
+
+
+def test_authority_lease_approve_and_issue_api_captures_exact_backend_approval(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+    issue_request = AuthorityLeaseIssueRequest(
+        mode=TrustMode.approved_safe_local_work_session,
+        requested_domains={
+            AuthorityDomain.workspace: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.execute,
+            ],
+            AuthorityDomain.browser: [AuthorityCapability.click],
+        },
+        decision_reason_ref="reason-ref:authority-approve-issue-api",
+        safe_summary="Select approved safe local authority for this session.",
+    )
+    response = client.post(
+        "/api/runtime/authority-leases/approve-and-issue",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:authority-approve-issue-api"},
+        json={
+            "lease_issue_request": issue_request.model_dump(mode="json"),
+            "approved_by_actor_ref": "operator-ref:test-control-center",
+            "approval_safe_summary": (
+                "Operator approved the exact local workspace authority lease."
+            ),
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    data = body["data"]
+    receipt = data["receipt"]
+    requirement = data["approval_requirement"]
+    assert data["approval_captured"] is True
+    assert data["approval_grant_payload_persisted"] is False
+    assert data["approval_ref"].startswith("approval-ref:authority-lease:")
+    assert receipt["status"] == "issued"
+    assert receipt["approval_required"] is True
+    assert receipt["approval_validated"] is True
+    assert receipt["approval_ref"] == data["approval_ref"]
+    assert receipt["approval_scope_ref"] == requirement["approval_scope_ref"]
+    assert requirement["approval_required"] is True
+    assert "authority-domain-ref:workspace" in requirement["resource_refs"]
+    assert "authority-domain-ref:browser" not in requirement["resource_refs"]
+    assert "authority-domain-ref:browser" in receipt["denied_domain_refs"]
+    assert "adapter-ref:browser:click-not-implemented-for-authority-lease-v1" in (
+        receipt["unsupported_adapter_refs"]
+    )
+
+    state = client.get("/api/runtime/authority-state")
+    assert state.status_code == 200
+    assert state.json()["data"]["active_mode"] == "approved_safe_local_work_session"
+
+    inline_grant = client.post(
+        "/api/runtime/authority-leases/approve-and-issue",
+        headers={
+            "x-uaa-idempotency-key": (
+                "idempotency-ref:authority-approve-issue-inline-denied"
+            )
+        },
+        json={
+            "lease_issue_request": {
+                **issue_request.model_dump(mode="json"),
+                "approval_ref": "approval-ref:caller-supplied-denied",
+            },
+            "approved_by_actor_ref": "operator-ref:test-control-center",
+        },
+    )
+    assert inline_grant.status_code == 422

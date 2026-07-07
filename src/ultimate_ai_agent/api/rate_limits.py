@@ -114,6 +114,7 @@ WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
 }
 GOVERNED_RUNTIME_MUTATING_PATHS = {
     "/api/runtime/authority-leases",
+    "/api/runtime/authority-leases/approve-and-issue",
     "/api/runtime/authority-leases/revoke",
     "/api/runtime/command/run",
     "/api/runtime/hermes/chat",

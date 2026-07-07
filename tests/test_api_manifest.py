@@ -641,6 +641,18 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         == "mutating_requires_authority"
     )
     assert (
+        routes_by_path["/api/runtime/authority-leases/approve-and-issue"][
+            "route_classification"
+        ]
+        == "mutating_requires_authority"
+    )
+    assert (
+        routes_by_path["/api/runtime/authority-leases/approve-and-issue"][
+            "idempotency_posture"
+        ]
+        == "required_before_mutation_authority"
+    )
+    assert (
         routes_by_path["/api/runtime/authority-leases/revoke"]["idempotency_posture"]
         == "required_before_mutation_authority"
     )

@@ -682,6 +682,38 @@ class AuthorityLeaseIssueRequest(_AuthorityModel):
         return self
 
 
+class AuthorityLeaseApproveAndIssueRequest(_AuthorityModel):
+    lease_issue_request: AuthorityLeaseIssueRequest
+    approved_by_actor_ref: str = "operator-ref:local-user"
+    approval_safe_summary: str = Field(
+        default=(
+            "Operator approved this exact AuthorityLease mode, domain, "
+            "capability, scope, and duration."
+        ),
+        min_length=1,
+        max_length=520,
+    )
+
+    @model_validator(mode="after")
+    def validate_approve_and_issue_request(
+        self,
+    ) -> "AuthorityLeaseApproveAndIssueRequest":
+        validate_task_ref(
+            self.approved_by_actor_ref,
+            "authority_lease_approved_by_actor_ref",
+        )
+        validate_safe_task_text(
+            self.approval_safe_summary,
+            "authority_lease_approval_safe_summary",
+        )
+        if (
+            self.lease_issue_request.approval_ref is not None
+            or self.lease_issue_request.approval_grants
+        ):
+            raise ValueError("AUTHORITY_LEASE_INLINE_APPROVAL_GRANTS_DENIED")
+        return self
+
+
 class AuthorityLeaseApprovalRequirement(_AuthorityModel):
     schema_version: Literal["uaa-authority-lease-approval-requirement.v1"] = (
         "uaa-authority-lease-approval-requirement.v1"

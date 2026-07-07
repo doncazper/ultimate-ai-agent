@@ -14,6 +14,7 @@ from ultimate_ai_agent.core.hygiene.envelopes import (
 )
 from ultimate_ai_agent.core.authority import (
     AuthorityActionRequest,
+    AuthorityLeaseApproveAndIssueRequest,
     AuthorityLeaseConflictError,
     AuthorityLeaseIssueRequest,
     AuthorityLeaseRevokeRequest,
@@ -21,6 +22,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityMissionPlanRequest,
 )
 from ultimate_ai_agent.core.authority.approval_validation import (
+    build_authority_lease_operator_approval_grant,
     validate_authority_lease_approval,
 )
 from ultimate_ai_agent.core.decision_router import prepare_turn
@@ -807,6 +809,80 @@ def post_api_runtime_authority_lease(
             "unknown_authority_default": "deny",
         },
         evidence=[{"evidence_ref": "evidence-ref:authority-lease-issue:v1"}],
+        redactions_applied=list(receipt.redactions_applied),
+    )
+
+
+@router.post("/authority-leases/approve-and-issue", response_model=ResultEnvelope)
+def post_api_runtime_authority_lease_approve_and_issue(
+    request: AuthorityLeaseApproveAndIssueRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias="x-uaa-idempotency-key",
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias="x-uaa-idempotency-ref",
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
+    lease_request = request.lease_issue_request
+    approval_requirement, approval_grant = build_authority_lease_operator_approval_grant(
+        lease_request,
+        idempotency_ref=idempotency_ref,
+        approved_by_actor_id=request.approved_by_actor_ref,
+    )
+    if approval_grant is not None:
+        lease_request = lease_request.model_copy(
+            update={
+                "approval_ref": approval_grant.approval_ref,
+                "approval_grants": [approval_grant.model_dump(mode="json")],
+            }
+        )
+    try:
+        lease, receipt = _authority_store().issue_lease(
+            lease_request,
+            idempotency_ref=idempotency_ref,
+            approval_validator=validate_authority_lease_approval,
+        )
+    except AuthorityLeaseConflictError:
+        return ResultEnvelope(
+            success=False,
+            operation="api_runtime_authority_lease_approve_and_issue",
+            service="GovernedRuntimeAPI",
+            trace_id=idempotency_ref,
+            error=ErrorEnvelope(
+                code="AUTHORITY_LEASE_IDEMPOTENCY_CONFLICT",
+                category=ErrorCategory.conflict,
+                safe_message="The authority lease idempotency ref already belongs to another operation.",
+                severity=Severity.medium,
+                retryable=False,
+                details_redacted=True,
+                source="GovernedRuntimeAPI",
+            ),
+            redactions_applied=["safe_refs_only"],
+        )
+    return ResultEnvelope(
+        success=receipt.status in {"issued", "replayed"},
+        operation="api_runtime_authority_lease_approve_and_issue",
+        service="GovernedRuntimeAPI",
+        trace_id=receipt.receipt_ref,
+        data={
+            "lease": lease.model_dump(mode="json") if lease is not None else None,
+            "receipt": receipt.model_dump(mode="json"),
+            "approval_requirement": approval_requirement.model_dump(mode="json"),
+            "approval_captured": approval_grant is not None,
+            "approval_ref": approval_grant.approval_ref
+            if approval_grant is not None
+            else None,
+            "approval_grant_payload_persisted": False,
+            "execution_performed": False,
+            "unsupported_adapters_claimed_execution": False,
+            "unknown_authority_default": "deny",
+        },
+        evidence=[
+            {"evidence_ref": "evidence-ref:authority-lease-approve-and-issue:v1"}
+        ],
         redactions_applied=list(receipt.redactions_applied),
     )
 

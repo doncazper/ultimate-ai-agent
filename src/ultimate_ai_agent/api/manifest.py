@@ -720,6 +720,7 @@ GOVERNED_RUNTIME_READONLY_PATHS = {
 }
 GOVERNED_RUNTIME_MUTATING_PATHS = {
     "/api/runtime/authority-leases",
+    "/api/runtime/authority-leases/approve-and-issue",
     "/api/runtime/authority-leases/revoke",
     "/api/runtime/command/run",
     "/api/runtime/hermes/chat",
@@ -973,6 +974,14 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Governed runtime invocation metadata route is mutation-like authority posture only; it stores safe refs and policy decisions, and idempotency, approval posture, redaction, and execution-blocked receipts are required before later lease-scoped execution authority.",
+        )
+    if (
+        normalized_method == "POST"
+        and path == "/api/runtime/authority-leases/approve-and-issue"
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "AuthorityLease approve-and-issue authority route captures an exact backend-owned LocalApprovalAuthority grant for the requested mode/domain/capability scope, validates it through the normal lease issue path, and records redacted receipts without adapter execution.",
         )
     if normalized_method == "POST" and path == "/api/runtime/command/run":
         return (

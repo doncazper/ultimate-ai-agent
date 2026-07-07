@@ -4,6 +4,7 @@ import type {
   ActionPreviewRequest,
   AuthorityActionRequest,
   AuthorityDecisionPreview,
+  AuthorityLeaseApproveAndIssueRequest,
   AuthorityLeaseIssueRequest,
   AuthorityLeaseMutationResult,
   AuthorityLeaseRevokeRequest,
@@ -2854,6 +2855,43 @@ export async function issueAuthorityLease(
         extractErrorMessage(
           data,
           "Authority lease receipt was not recorded safely.",
+        ),
+      ),
+    );
+  }
+  return result;
+}
+
+export async function approveAndIssueAuthorityLease(
+  request: AuthorityLeaseApproveAndIssueRequest,
+): Promise<AuthorityLeaseMutationResult> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": authorityLeaseIssueIdempotencyRef(
+          request.lease_issue_request,
+        ),
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<AuthorityLeaseMutationResult>;
+  const result = data.result ?? data.data;
+  if (!response.ok || !result) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "Authority lease approval and receipt were not recorded safely.",
         ),
       ),
     );

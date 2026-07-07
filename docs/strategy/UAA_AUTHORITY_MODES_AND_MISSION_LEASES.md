@@ -24,6 +24,7 @@ surfaces are:
 - `scripts/dev/uaa_runtime.py preview-authority-decision --json`
 - `scripts/dev/uaa_runtime.py plan-authority-mission --json`
 - `POST /api/runtime/authority-leases`
+- `POST /api/runtime/authority-leases/approve-and-issue`
 - `POST /api/runtime/authority-leases/revoke`
 - `scripts/dev/uaa_runtime.py select-authority-mode`
 - `scripts/dev/uaa_runtime.py revoke-authority-lease`
@@ -34,8 +35,11 @@ surfaces are:
   domain subsets, revoke receipts, decision previews for concrete
   mode/domain/capability requests, and mission-plan previews for delegated
   AuthorityLease issue requirements. Issue-ready mission plans may be issued
-  through the same `POST /api/runtime/authority-leases` receipt path when the
-  backend-generated lease request has no denied domains or unsupported adapters.
+  through `POST /api/runtime/authority-leases/approve-and-issue`, which captures
+  an exact backend-owned LocalApprovalAuthority grant and then uses the same
+  strict lease issue path. The lower-level `POST /api/runtime/authority-leases`
+  route still denies authority-increasing requests without a matching approval
+  grant.
 
 The first implementation is deliberately conservative: the default active
 lease is read-only; operator-selected session leases persist safe receipts for
