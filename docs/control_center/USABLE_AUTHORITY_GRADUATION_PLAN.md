@@ -1,8 +1,9 @@
-# Usable Authority Graduation Plan
+# Usable Authority Mode And Mission Lease Plan
 
-Status: planning-only, does not grant runtime authority
+Status: planning-only mode/domain/AuthorityLease implementation plan at a
+legacy compatibility path; does not grant runtime authority
 Scope: make UAA feel like a usable local-first command center while preserving
-earned authority boundaries
+explicit AuthorityLease boundaries
 
 ## Problem
 
@@ -22,6 +23,12 @@ The operator should experience:
 
 The operator should not have to experience every surface as a wall of
 contract-only, blocked, planned, or future-scoped states.
+
+Compatibility note: this file path is retained for existing verifiers and
+prompt references. The product model is no longer one-off lane promotion. The
+durable model is operator-selected trust mode, explicit authority domain,
+capability, session/mission AuthorityLease, policy decision, receipt, audit,
+redaction, rollback/safe-disable posture, and visible kill switch.
 
 ## Product Doctrine
 
@@ -159,10 +166,13 @@ Examples:
 
 Rules:
 
-- Separate authority graduation required.
+- Explicit AuthorityLease mode/domain/capability expansion required.
+- Policy decisions must remain one of allow, ask, deny, or degrade_to_draft.
 - Revocable scope required.
-- Pause/cancel/kill switch required.
+- Expiry, pause/cancel/revoke, and kill switch visibility required.
 - Budget, rate, retry, timeout, and observability limits required.
+- Receipts, audit refs, redaction, rollback/safe-disable posture, and CLI/API
+  parity required before the operator can rely on the authority.
 - No hidden execution.
 
 ## Constraint Reframe
@@ -174,7 +184,9 @@ Keep as global rules:
 - Python Agent Core owns durable product truth.
 - Control Center may present and initiate, but not invent durable truth.
 - External side effects require exact authority.
-- Broad autonomy remains blocked until earned by narrow lanes.
+- Broad autonomy remains denied unless an explicit AuthorityLease scope, policy
+  decision, receipts, tested adapter, and operator-visible kill switch prove the
+  specific domain/capability.
 - No hidden context injection.
 
 Loosen for product usability:
@@ -232,7 +244,7 @@ authority as equally dangerous.
 Tasks:
 
 - Add authority tier taxonomy to operational maturity/product language docs.
-- Map existing lanes to tiers.
+- Map existing authority artifacts to tiers, domains, and capabilities.
 - Update Trust/release language to distinguish preview, draft, reversible local
   mutation, external mutation, and standing authority.
 - Add tests preventing Tier 1/2 surfaces from being labeled as broad runtime
@@ -314,8 +326,10 @@ Tasks:
 Acceptance criteria:
 
 - The operator can answer why an item appeared.
-- Reviewed memory write lanes remain exact-scoped.
-- Runtime context injection remains blocked unless separately graduated.
+- Reviewed memory write capabilities remain exact-scoped.
+- Runtime context injection remains blocked unless a separate
+  AuthorityLease-gated capability is implemented, tested, receipted, and
+  approved.
 
 ### PR 6: Trust As Authority Map, Not Blocker Wall
 
@@ -324,7 +338,8 @@ Goal: make Trust explain usable authority tiers clearly.
 Tasks:
 
 - Add or harden `GET /control-center/trust-authority/matrix`.
-- Show authority by tier and lane.
+- Show authority by tier, trust mode, domain, capability, and active lease
+  status.
 - Distinguish read, preview, draft, reversible local mutation, external mutation,
   and background authority.
 - Link rows to proof/verifier/docs refs.
@@ -338,7 +353,7 @@ Acceptance criteria:
 
 ### PR 7: Web Evidence Product Slice
 
-Goal: productize a real safe web evidence lane.
+Goal: productize a real safe web evidence capability.
 
 Tasks:
 
@@ -349,8 +364,8 @@ Tasks:
   Evidence, Proof, and CLI inspection surfaces store safe refs and redacted
   WebAccessGateway audit summaries only.
 - Attach evidence to Today/Action/Proof where useful.
-- Keep the safe-disable env/route-off posture real, so the lane can be shut off
-  before transport construction.
+- Keep the safe-disable env/route-off posture real, so the capability can be
+  shut off before transport construction.
 
 Blocked:
 
@@ -376,9 +391,9 @@ Acceptance criteria:
   and production authority; exact promotion requires a later verifier-backed PR
   with scope, approval binding where mutation appears, redaction, CLI/API
   parity, safe-disable, rollback, receipts, and proof. No broad runtime
-  authority is added. This lane adds no broad runtime authority.
+  authority is added. This capability adds no broad runtime authority.
 
-### PR 8: Provider Draft/Summarize Micro-Lane
+### PR 8: Provider Draft/Summarize Capability
 
 Goal: make provider-assisted drafting useful and inspectable without granting
 broad provider authority.
@@ -391,8 +406,8 @@ Full-strength version:
 
 Repo-safe beta-09 version:
 
-- Keep the existing provider draft/summarize lane as an exact core/CLI wrapper
-  over the tiny provider path.
+- Keep the existing provider draft/summarize capability as an exact core/CLI
+  wrapper over the constrained provider path.
 - Default inspection remains blocked/no-execution.
 - Demo fixture proof uses injected transient test credential, exact
   LocalApprovalAuthority scope, CostGovernor posture, receipt store, and scoped
@@ -411,7 +426,7 @@ Tasks:
 Acceptance criteria:
 
 - One exact core/CLI provider draft/summarize wrapper is fixture-proven and
-  visible through Trust and Proof as inspection-only.
+  visible through Trust and Proof as an inspection-only capability.
 - Default live credentials and default Control Center invocation remain
   blocked.
 - No autonomous provider calls, provider SDK call, broad router fallback,
@@ -422,9 +437,9 @@ Acceptance criteria:
   operator-approved test credential, exact approval, CostGovernor decision,
   max-approved USD, receipt-store-before-network, complete usage/cost receipts,
   safe-disable/rollback, CLI/API/UI parity, Trust/Proof updates, and
-  route/OpenAPI truth before any stronger provider lane is enabled.
+  route/OpenAPI truth before any stronger provider capability is enabled.
 
-### PR 9: Connector Draft-Only Lane
+### PR 9: Connector Draft-Only Capability
 
 Goal: make email/calendar usefulness visible before sends/writes.
 
@@ -454,8 +469,8 @@ Tasks:
 Acceptance criteria:
 
 - Operator can see useful draft proposals.
-- No connector write/send/account sync/OAuth broadening unless separately
-  scoped.
+- No connector write/send/account sync/OAuth broadening without exact
+  mode/domain/capability scope.
 - Verification is covered by `scripts/verify_beta_10_connector_draft_only.py`.
 
 Blocked / needs authority:
@@ -463,7 +478,7 @@ Blocked / needs authority:
 - Connector runtime, send, write, sync, OAuth/account auth, auth-material
   collection, source ingestion, delivery workers, memory/context injection,
   provider/model calls, background runtime, public release, and production
-  authority remain blocked for this lane.
+  authority remain blocked for this capability.
 
 Exact promotion path:
 
@@ -498,14 +513,15 @@ Blocked / needs authority:
 
 Exact promotion path:
 
-- Promote one lane at a time: exact Git status read, dev-server manifest,
-  allowlisted command/test receipt, or coworker handoff receipt. Each promotion
-  needs Python Core ownership, route truth if a route is added, CLI parity,
-  redaction, proof/evidence receipts, safe-disable/rollback, and focused tests.
+- Promote one exact domain/capability at a time: exact Git status read,
+  dev-server manifest, allowlisted command/test receipt, or coworker handoff
+  receipt. Each promotion needs Python Core ownership, route truth if a route is
+  added, CLI parity, redaction, proof/evidence receipts,
+  safe-disable/rollback, and focused tests.
 
-### PR 10: Approved Test Send Or Test Write Lane
+### PR 10: Approved Test Send Or Test Write Capability
 
-Goal: graduate the first external mutation only after drafts are real.
+Goal: authorize the first external mutation only after drafts are real.
 
 Current note: connector draft-only proposals are now real safe-ref review
 artifacts. This PR must no-go rather than implement if connector read,
@@ -563,20 +579,23 @@ Acceptance criteria:
 This plan is complete when:
 
 - Start Here leads to one complete governed daily loop.
-- Action Inbox can commit one exact local task lane and show receipt/proof.
+- Action Inbox can commit one exact local task capability and show
+  receipt/proof.
 - Proof Detail explains every major loop event.
 - Trust presents authority by tier without turning every surface into a blocker.
 - Evidence and Memory are visibly bound to runs/actions/proofs.
-- Web evidence is useful through a safe lane.
-- One provider draft/summarize lane is safely available only as an exact
-  core/CLI, fixture-proven, default-UI-blocked inspection lane.
+- Web evidence is useful through a safe capability.
+- One provider draft/summarize capability is safely available only as an exact
+  core/CLI, fixture-proven, default-UI-blocked inspection capability.
 - Connector draft-only proposals are real.
-- One test external mutation is graduated only if exact approval and receipts are
-  proven.
+- One test external mutation may execute only if exact AuthorityLease scope,
+  approval, idempotency, receipts, audit, redaction, safe-disable, and rollback
+  or compensating-action posture are proven.
 - Primary UI routes have visual baselines.
 - Large backend/frontend monoliths are decomposed enough to evolve safely.
 - Mock fallback cannot masquerade as authority.
-- Existing broad dangerous authorities remain blocked until separately earned.
+- Existing broad dangerous authorities remain denied unless explicit
+  mode/domain/lease scope and tested adapters prove the exact capability.
 
 ## Standard Checks
 

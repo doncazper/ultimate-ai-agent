@@ -75,6 +75,24 @@ FORBIDDEN_TEXT = [
     "provider payload",
 ]
 
+PLAN_REQUIRED_TEXT = [
+    "Usable Authority Mode And Mission Lease Plan",
+    "explicit AuthorityLease boundaries",
+    "Policy decisions must remain one of allow, ask, deny, or degrade_to_draft.",
+    "Show authority by tier, trust mode, domain, capability, and active lease",
+    "One test external mutation may execute only if exact AuthorityLease scope",
+]
+
+PLAN_FORBIDDEN_TEXT = [
+    "Usable Authority Graduation Plan",
+    "Separate authority graduation required.",
+    "Runtime context injection remains blocked unless separately graduated.",
+    "Goal: graduate the first external mutation",
+    "One test external mutation is graduated",
+    "Broad autonomy remains blocked until earned by narrow lanes.",
+    "Show authority by tier and lane.",
+]
+
 
 def _fake_transport(_request: Any, _policy: Any) -> ReadOnlyHttpFetchTransportResponse:
     return ReadOnlyHttpFetchTransportResponse(
@@ -473,6 +491,13 @@ def _static_failures() -> list[str]:
             ],
             failures,
         )
+    _require(PLAN, PLAN_REQUIRED_TEXT, failures)
+    plan_text = _read(PLAN)
+    for snippet in PLAN_FORBIDDEN_TEXT:
+        if snippet in plan_text:
+            failures.append(
+                f"{PLAN.relative_to(ROOT)} still contains stale authority wording {snippet!r}"
+            )
     return failures
 
 

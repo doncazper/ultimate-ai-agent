@@ -11,8 +11,8 @@ Related gates:
 This document preserves the long-term product ambition for UAA: a governed,
 local-first delegated operator that can eventually handle ordinary life and
 business work, including purchases, bookings, subscriptions, account tasks,
-messages, calendar actions, and follow-up, after exact authority lanes have
-graduated.
+messages, calendar actions, and follow-up, after exact AuthorityLease
+domain/capability support is implemented, tested, and granted.
 
 This file grants no runtime authority. It adds no backend route, frontend
 control, connector runtime, credential handling, payment method, purchase
