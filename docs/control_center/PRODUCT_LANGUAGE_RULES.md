@@ -70,7 +70,8 @@ Use `GET /api/runtime/authority-state`,
 `scripts/dev/uaa_runtime.py plan-authority-mission --json` as the current
 inspection source of truth for active mode, domain grants, existing legacy lane
 mappings, policy decisions, receipts, audit refs, rollback/safe-disable posture,
-kill-switch visibility, and mission-scoped lease requirements. Use
+kill-switch visibility, active lease issued/expires timestamps, and
+mission-scoped lease requirements. Use
 `POST /api/runtime/authority-leases`,
 `POST /api/runtime/authority-leases/approve-and-issue`,
 `POST /api/runtime/authority-leases/revoke`,

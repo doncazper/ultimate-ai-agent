@@ -76,10 +76,11 @@ or mutating anything; issue-ready implemented local mission plans can then issue
 the exact backend-generated mission-scoped lease request through the existing
 lease receipt route; preview results show required modes, domain and capability
 refs, receipt/audit refs, and unsupported-adapter reasons;
-Control Center `/settings` and CLI `select-authority-mode --approve` show
-approval-required, approval-validated, approval-status, approval-scope, denial
-reason, receipt, audit, rollback/safe-disable, and kill-switch refs for
-AuthorityLease issue attempts;
+Control Center `/settings` and CLI `inspect-authority-state` show active lease
+issued/expires timestamps; Control Center `/settings` and CLI
+`select-authority-mode --approve` show approval-required, approval-validated,
+approval-status, approval-scope, denial reason, receipt, audit,
+rollback/safe-disable, and kill-switch refs for AuthorityLease issue attempts;
 unsupported browser/app/payment/calendar/messages/Home Assistant adapters remain
 denied or draft-degraded instead of being presented as live execution. Read-only
 command status may run under `workspace/read`; execution-capable command lanes
