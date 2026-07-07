@@ -49,6 +49,20 @@ FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_REQUIRED_MODE_REF = (
 FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_REQUIRED_BLOCKED_REF = (
     "blocked-state:today-action-envelope:workspace-draft-authority-required"
 )
+FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_ACTION_REF = (
+    "authority-action-ref:action-inbox-decision-receipt"
+)
+FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_LANE_REF = (
+    "lane-ref:action-inbox-decision-receipts"
+)
+FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_DOMAIN_REF = "authority-domain-ref:workspace"
+FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
+FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_REQUIRED_MODE_REF = (
+    "authority-mode-ref:ask-before-changes"
+)
+FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_REQUIRED_BLOCKED_REF = (
+    "blocked-state:action-inbox-decision:workspace-write-authority-required"
+)
 FOUNDER_LOOP_ACTION_DECISION_KINDS = ("approve", "edit", "reject", "defer")
 FOUNDER_LOOP_ACTION_ENVELOPE_PROMOTION_STATUS = "action_envelope_created"
 FRONTIER_AI_COST_USAGE_CONTRACT_REF = (
@@ -347,6 +361,19 @@ class FounderLoopActionDecisionReceipt(BaseModel):
         default="No provider authority",
         min_length=1,
     )
+    authority_decision_ref: str | None = Field(default=None, max_length=180)
+    authority_decision_outcome: str | None = Field(default=None, max_length=80)
+    authority_lease_ref: str | None = Field(default=None, max_length=180)
+    authority_audit_ref: str | None = Field(default=None, max_length=180)
+    authority_receipt_ref: str | None = Field(default=None, max_length=180)
+    authority_reason_refs: list[str] = Field(default_factory=list)
+    authority_domain_ref: str = FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_DOMAIN_REF
+    authority_capability_ref: str = (
+        FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_CAPABILITY_REF
+    )
+    authority_required_mode_ref: str = (
+        FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_REQUIRED_MODE_REF
+    )
     unknown_paid_cost_requires_explicit_approval: bool = True
     frontier_usage_claimed: bool = False
     created_at: str = Field(default_factory=lambda: utc_now().isoformat())
@@ -384,8 +411,27 @@ class FounderLoopActionDecisionReceipt(BaseModel):
             "cost_estimate_ref",
             "captured_usage_ref",
             "budget_decision_ref",
+            "authority_domain_ref",
+            "authority_capability_ref",
+            "authority_required_mode_ref",
         ]:
             _validate_safe_ref(getattr(self, field_name), field_name)
+        for field_name in [
+            "authority_decision_ref",
+            "authority_lease_ref",
+            "authority_audit_ref",
+            "authority_receipt_ref",
+        ]:
+            ref_value = getattr(self, field_name)
+            if ref_value is not None:
+                _validate_safe_ref(ref_value, field_name)
+        for ref_value in self.authority_reason_refs:
+            _validate_safe_ref(ref_value, "authority_reason_refs")
+        if self.authority_decision_outcome is not None:
+            _validate_safe_text(
+                self.authority_decision_outcome,
+                "authority_decision_outcome",
+            )
         if self.total_metered_units != (
             self.input_metered_units + self.output_metered_units
         ):

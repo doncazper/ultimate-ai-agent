@@ -28,6 +28,14 @@ from scripts.verification.repo import (  # noqa: E402
 from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E402
     FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF,
 )
+from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AUTHORITY_STATE_DIR_ENV,
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
+    TrustMode,
+)
 from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
 
 
@@ -254,6 +262,8 @@ def _append_doc_failures(failures: list[str], doc_text: str) -> None:
     for required in [
         "status: implemented for backend-owned action inbox decision state",
         FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF,
+        "`workspace/write` authoritylease scope",
+        "missing or mismatched authority records a blocked receipt",
         "does not execute the approved action",
         "reusing the same idempotency key with the same decision payload returns the prior receipt",
     ]:
@@ -266,11 +276,28 @@ def _append_api_behavior_failures(
     context: ApiVerifierContext,
 ) -> None:
     old_state_dir = os.environ.get("UAA_FOUNDER_LOOP_STATE_DIR")
+    old_authority_state_dir = os.environ.get(AUTHORITY_STATE_DIR_ENV)
     old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
     bearer = "fcc-v1-002-local-bearer"
     auth_headers = {"Authorization": f"Bearer {bearer}"}
     with tempfile.TemporaryDirectory() as temp_dir:
         os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = str(Path(temp_dir) / "founder_loop")
+        authority_state_dir = Path(temp_dir) / "authority"
+        os.environ[AUTHORITY_STATE_DIR_ENV] = str(authority_state_dir)
+        AuthorityLeaseStore(authority_state_dir).issue_lease(
+            AuthorityLeaseIssueRequest(
+                mode=TrustMode.ask_before_changes,
+                requested_domains={
+                    AuthorityDomain.workspace: [AuthorityCapability.write],
+                },
+                decision_reason_ref="decision-reason-ref:verifier-action-inbox-authority",
+                safe_summary=(
+                    "Verifier session lease grants Workspace write for Action "
+                    "Inbox decision receipt recording only."
+                ),
+            ),
+            idempotency_ref="idempotency-ref:verifier-action-inbox-authority",
+        )
         os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
             body = {"decision_reason_ref": "decision-reason-ref:verifier-reject"}
@@ -326,6 +353,10 @@ def _append_api_behavior_failures(
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
             else:
                 os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = old_state_dir
+            if old_authority_state_dir is None:
+                os.environ.pop(AUTHORITY_STATE_DIR_ENV, None)
+            else:
+                os.environ[AUTHORITY_STATE_DIR_ENV] = old_authority_state_dir
             if old_bearer is None:
                 os.environ.pop(LOCAL_API_BEARER_ENV, None)
             else:

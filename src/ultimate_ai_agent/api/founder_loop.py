@@ -1950,6 +1950,9 @@ def _record_action_decision(
             decision=decision,
             request=request,
             idempotency_key_ref=idempotency_key_ref,
+            active_authority_leases=AuthorityLeaseStore().list_leases(
+                active_only=True
+            ),
         )
     except FounderLoopStorageDuplicateError as exc:
         raise HTTPException(
@@ -1960,6 +1963,19 @@ def _record_action_decision(
                     "The Action decision idempotency key already exists with "
                     "different safe decision payload refs."
                 ),
+            },
+        ) from exc
+    except FounderLoopAuthorityError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": exc.code,
+                "safe_message": (
+                    "Action Inbox decision receipts require an active "
+                    "AuthorityLease granting Workspace write authority."
+                ),
+                "reason_refs": exc.reason_refs,
+                "required_refs": exc.required_refs,
             },
         ) from exc
     except FounderLoopStorageError as exc:

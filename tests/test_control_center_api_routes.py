@@ -887,6 +887,9 @@ def test_control_center_action_local_task_commit_denies_safe_disabled_lane(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    authority_state_dir = tmp_path / "authority"
+    _issue_workspace_write_lease(authority_state_dir)
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
     api_client = TestClient(app)
     repo = FounderLoopRepository.from_env()
     action = _approve_local_task_seed_action(repo)

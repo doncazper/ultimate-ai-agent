@@ -27,6 +27,17 @@ from ultimate_ai_agent.core.storage import (
     FounderLoopStorageError,
 )
 from ultimate_ai_agent.core.storage.founder_loop import FounderLoopActionRecord
+from tests.authority_helpers import (
+    memory_write_authority_lease,
+    workspace_write_authority_lease,
+)
+
+
+def _repo_with_workspace_write(tmp_path: Path) -> FounderLoopRepository:
+    return FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[workspace_write_authority_lease()],
+    )
 
 
 def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, object]:
@@ -49,7 +60,7 @@ def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, ob
 def test_action_inbox_backend_owned_approval_makes_local_task_lane_eligible(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = _repo_with_workspace_write(tmp_path)
 
     approval_receipt = repo.record_action_decision(
         action_id="local-task-create-scorecard",
@@ -81,7 +92,7 @@ def test_action_inbox_backend_owned_approval_makes_local_task_lane_eligible(
 def test_action_decision_ignores_caller_supplied_approval_grants(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = _repo_with_workspace_write(tmp_path)
     action = next(
         item
         for item in repo.list_action_inbox()
@@ -143,7 +154,7 @@ def _local_task_commit_request_for_action(
 def test_action_inbox_local_task_commit_requires_exact_approval_and_records_evidence(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = _repo_with_workspace_write(tmp_path)
 
     action = _approve_local_task_seed_action(repo)
     assert action["action_kind"] == FOUNDER_LOOP_LOCAL_TASK_CREATE_ACTION_KIND
@@ -297,7 +308,7 @@ def test_action_inbox_local_task_commit_requires_exact_approval_and_records_evid
 def test_action_inbox_local_task_commit_denies_when_safe_disabled(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = _repo_with_workspace_write(tmp_path)
     _approve_local_task_seed_action(repo)
 
     posture = repo._disable_local_task_create_lane_for_test(
@@ -341,7 +352,7 @@ def test_action_inbox_local_task_commit_denies_when_safe_disabled(
 
 
 def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = _repo_with_workspace_write(tmp_path)
 
     inbox = repo.actions_inbox()
     groups = {group["group_id"]: group for group in inbox["action_groups"]}
@@ -507,7 +518,10 @@ def test_action_inbox_groups_items_by_backend_contract_state(tmp_path: Path) -> 
 def test_memory_context_packs_derive_from_reviewed_l3_refs_only(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[memory_write_authority_lease()],
+    )
 
     empty_context_packs = repo.memory_context_pack_proposals()
     assert empty_context_packs["context_pack_count"] == 0
@@ -581,7 +595,7 @@ def test_memory_context_packs_derive_from_reviewed_l3_refs_only(
 def test_action_inbox_local_task_commit_rejects_unsupported_action_kind(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = _repo_with_workspace_write(tmp_path)
     repo.upsert_action(
         FounderLoopActionRecord(
             item_ref="founder-action:unsupported-local-task",
@@ -626,7 +640,7 @@ def test_action_inbox_local_task_commit_rejects_unsupported_action_kind(
 def test_action_inbox_local_task_commit_rejects_expired_backend_approval(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = _repo_with_workspace_write(tmp_path)
     action = _approve_local_task_seed_action(repo)
     repo._execute(
         """

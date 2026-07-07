@@ -20,6 +20,7 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     FounderLoopActionDecisionRequest,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
+from tests.authority_helpers import workspace_write_authority_lease
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -273,7 +274,10 @@ def test_action_inbox_decision_lanes_fail_safe_when_envelope_fields_are_missing(
 def test_action_inbox_decision_lanes_approval_receipts_do_not_execute(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[workspace_write_authority_lease()],
+    )
     repo.record_action_decision(
         action_id="local-task-create-scorecard",
         decision="approve",

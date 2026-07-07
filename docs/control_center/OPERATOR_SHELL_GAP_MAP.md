@@ -43,6 +43,10 @@ commands require `workspace/read`, and execution-capable command lanes require
 Work Board persisted reorder and local-card-create mutations now require
 `workspace/write` plus exact approval, idempotency, receipts, redaction, and
 rollback/safe-disable refs.
+Action Inbox approve/edit/reject/defer decision receipts now require
+`workspace/write`, idempotency, receipts, redaction, audit refs, and
+rollback/safe-disable refs before local decision state is recorded; missing
+authority is blocked as receipt state and does not mint backend approval.
 Action Inbox local-task commit now requires `workspace/write` plus exact
 approval, idempotency, receipts, redaction, and safe-disable refs before local
 Founder Loop task state is written.

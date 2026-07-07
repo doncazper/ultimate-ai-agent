@@ -6,7 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.control_center.action_decisions import (
+    FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_REQUIRED_BLOCKED_REF,
     FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF,
     FounderLoopActionDecisionRequest,
 )
@@ -14,13 +16,20 @@ from ultimate_ai_agent.core.storage import (
     FounderLoopRepository,
     FounderLoopStorageDuplicateError,
 )
+from tests.authority_helpers import (
+    issue_workspace_write_authority_lease,
+    workspace_write_authority_lease,
+)
 from scripts import verify_fcc_v1_002_action_inbox_state_machine as verifier
 
 
 def test_action_decision_storage_records_receipts_replay_and_conflict(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[workspace_write_authority_lease()],
+    )
     request = FounderLoopActionDecisionRequest(
         decision_reason_ref="decision-reason-ref:test-reject"
     )
@@ -66,7 +75,10 @@ def test_action_decision_storage_records_receipts_replay_and_conflict(
 def test_approval_decision_records_backend_owned_exact_local_approval(
     tmp_path: Path,
 ) -> None:
-    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[workspace_write_authority_lease()],
+    )
 
     backend_owned = repo.record_action_decision(
         action_id="setup-assistant-hardening",
@@ -100,11 +112,46 @@ def test_approval_decision_records_backend_owned_exact_local_approval(
     assert approved["connector_write_performed"] is False
 
 
+def test_action_decision_without_workspace_write_authority_blocks_receipt_state(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[],
+    )
+
+    blocked = repo.record_action_decision(
+        action_id="local-task-create-scorecard",
+        decision="approve",
+        request=FounderLoopActionDecisionRequest(
+            decision_reason_ref="decision-reason-ref:test-authority-missing"
+        ),
+        idempotency_key_ref="idempotency-ref:test-authority-missing",
+    )
+
+    assert blocked["status"] == "blocked"
+    assert blocked["approval_status"] == "authority_denied"
+    assert blocked["approval_ref"] is None
+    assert blocked["authority_decision_outcome"] == "degrade_to_draft"
+    assert FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_REQUIRED_BLOCKED_REF in blocked[
+        "blocked_state_refs"
+    ]
+    action = next(
+        item
+        for item in repo.list_action_inbox()
+        if item["item_ref"] == "founder-action:local-task-create-scorecard"
+    )
+    assert action["local_task_commit_eligible"] is False
+
+
 def test_action_decision_api_requires_idempotency_and_returns_receipt(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    issue_workspace_write_authority_lease(authority_state_dir)
     client = TestClient(app)
     body = {"decision_reason_ref": "decision-reason-ref:test-api-reject"}
 
@@ -155,6 +202,9 @@ def test_action_decision_api_records_backend_owned_approval_without_frontend_gra
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    issue_workspace_write_authority_lease(authority_state_dir)
     client = TestClient(app)
 
     response = client.post(

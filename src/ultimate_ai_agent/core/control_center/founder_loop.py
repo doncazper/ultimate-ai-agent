@@ -368,12 +368,14 @@ class FounderLoopControlCenterService:
         decision: str,
         request: FounderLoopActionDecisionRequest,
         idempotency_key_ref: str,
+        active_authority_leases: list[AuthorityLease] | None = None,
     ) -> dict[str, Any]:
         return self.repository.record_action_decision(
             action_id=action_id,
             decision=decision,
             request=request,
             idempotency_key_ref=idempotency_key_ref,
+            active_authority_leases=active_authority_leases,
         )
 
     def action_receipt(self, *, action_id: str) -> dict[str, Any] | None:

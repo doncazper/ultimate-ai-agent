@@ -2033,6 +2033,28 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             "Requires Workspace write authority plus exact approval, idempotency, receipts, and rollback refs.",
         ),
         _mapping(
+            "lane-ref:action-inbox-decision-receipts",
+            "Action Inbox decision receipts",
+            AuthorityDomain.workspace,
+            AuthorityCapability.write,
+            TrustMode.ask_before_changes,
+            "implemented_exact_lease_required_receipt_only",
+            [
+                "POST /control-center/actions/{action_id}/approve",
+                "POST /control-center/actions/{action_id}/edit",
+                "POST /control-center/actions/{action_id}/reject",
+                "POST /control-center/actions/{action_id}/defer",
+            ],
+            ["repo-local-command:inspect-action-inbox-decision-lanes"],
+            (
+                "Requires Workspace write AuthorityLease scope before "
+                "approve/edit/reject/defer decision receipt state is recorded; "
+                "decision receipts do not execute actions, connector writes, "
+                "shell/browser work, memory writes, provider/model calls, or "
+                "production authority."
+            ),
+        ),
+        _mapping(
             "lane-ref:action-inbox-local-task-commit",
             "Action Inbox local task commit",
             AuthorityDomain.workspace,

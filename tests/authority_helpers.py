@@ -122,6 +122,33 @@ def issue_files_write_authority_lease(state_dir: Path) -> None:
     )
 
 
+def workspace_write_authority_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:test-workspace-write",
+        mode=TrustMode.ask_before_changes,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary=(
+            "Test lease grants Workspace write for exact Control Center local "
+            "state mutations."
+        ),
+    )
+
+
+def issue_workspace_write_authority_lease(state_dir: Path) -> None:
+    AuthorityLeaseStore(state_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.ask_before_changes,
+            requested_domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+            decision_reason_ref="decision-reason-ref:test-workspace-write-authority",
+            safe_summary=(
+                "Test session lease grants Workspace write for exact Control "
+                "Center local state mutations."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:test-workspace-write-authority",
+    )
+
+
 def workspace_execute_authority_lease() -> AuthorityLease:
     return AuthorityLease(
         lease_ref="authority-lease-ref:test-workspace-execute",

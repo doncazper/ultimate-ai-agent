@@ -65,6 +65,9 @@ from ultimate_ai_agent.core.code import (
 )
 from ultimate_ai_agent.core.control_center.action_decisions import (
     ACTION_DECISION_REQUESTED_ACTION,
+    FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_ACTION_REF,
+    FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_LANE_REF,
+    FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_REQUIRED_BLOCKED_REF,
     FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS,
     FOUNDER_LOOP_ACTION_DECISION_KINDS,
     FOUNDER_LOOP_ACTION_DECISION_ROUTE_REFS,
@@ -12336,6 +12339,7 @@ class FounderLoopRepository:
         decision: str,
         request: FounderLoopActionDecisionRequest,
         idempotency_key_ref: str,
+        active_authority_leases: list[AuthorityLease] | None = None,
     ) -> dict[str, Any]:
         if decision not in FOUNDER_LOOP_ACTION_DECISION_KINDS:
             raise FounderLoopStorageError("FOUNDER_LOOP_ACTION_DECISION_UNSUPPORTED")
@@ -12345,12 +12349,22 @@ class FounderLoopRepository:
         if action is None:
             raise FounderLoopStorageError("FOUNDER_LOOP_ACTION_NOT_FOUND")
         action = {**action, **_action_envelope_contract_payload(action)}
+        authority_decision = self._action_decision_authority_decision(
+            item_ref=item_ref,
+            decision=decision,
+            idempotency_key_ref=idempotency_key_ref,
+            active_authority_leases=active_authority_leases,
+        )
+        authority_allowed = authority_decision.outcome in {
+            AuthorityDecisionOutcome.allow.value,
+            AuthorityDecisionOutcome.ask.value,
+        }
         request = self._request_with_backend_owned_action_approval_if_needed(
             action=action,
             decision=decision,
             request=request,
             idempotency_key_ref=idempotency_key_ref,
-        )
+        ) if authority_allowed else request
         fingerprint_payload = decision_payload_for_fingerprint(
             item_ref=item_ref,
             decision=decision,
@@ -12376,6 +12390,7 @@ class FounderLoopRepository:
             request=request,
             idempotency_key_ref=idempotency_key_ref,
             payload_fingerprint_ref=payload_fingerprint_ref,
+            authority_decision=authority_decision,
         )
         receipt_payload = receipt.model_dump(mode="json")
         with self._connect() as conn:
@@ -13203,6 +13218,55 @@ class FounderLoopRepository:
             )
         return authority_decision
 
+    def _action_decision_authority_decision(
+        self,
+        *,
+        item_ref: str,
+        decision: str,
+        idempotency_key_ref: str,
+        active_authority_leases: list[AuthorityLease] | None,
+    ):
+        leases = (
+            active_authority_leases
+            if active_authority_leases is not None
+            else self._active_authority_leases
+            if self._active_authority_leases is not None
+            else active_founder_loop_authority_leases()
+        )
+        route_ref = f"POST /control-center/actions/{{action_id}}/{decision}"
+        return evaluate_authority_request(
+            AuthorityActionRequest(
+                action_ref=(
+                    f"{FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_ACTION_REF}:"
+                    f"{_safe_suffix(item_ref)}:{_safe_suffix(decision)}"
+                ),
+                domain=AuthorityDomain.workspace,
+                capability=AuthorityCapability.write,
+                safe_summary=(
+                    "Evaluate Workspace write authority before recording an "
+                    "Action Inbox decision receipt."
+                ),
+                resource_refs=[
+                    item_ref,
+                    FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF,
+                    idempotency_key_ref,
+                ],
+                route_ref=route_ref,
+                lane_ref=FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_LANE_REF,
+                requested_mode=TrustMode.ask_before_changes,
+                draft_fallback_available=True,
+                rollback_ref=(
+                    "rollback-ref:action-inbox-decision:"
+                    f"{_short_ref_suffix(item_ref)}:{_safe_suffix(decision)}"
+                ),
+                safe_disable_ref=(
+                    "safe-disable-ref:action-inbox-decision:"
+                    f"{_short_ref_suffix(item_ref)}:{_safe_suffix(decision)}"
+                ),
+            ),
+            leases,
+        )
+
     def _local_task_authority_decision(
         self,
         *,
@@ -13573,14 +13637,31 @@ class FounderLoopRepository:
         request: FounderLoopActionDecisionRequest,
         idempotency_key_ref: str,
         payload_fingerprint_ref: str,
+        authority_decision,
     ) -> FounderLoopActionDecisionReceipt:
         item_ref = str(action["item_ref"])
-        status, approval_status, approval_reason_refs = self._decision_status(
-            action=action,
-            decision=decision,
-            request=request,
-            idempotency_key_ref=idempotency_key_ref,
-        )
+        authority_allowed = authority_decision.outcome in {
+            AuthorityDecisionOutcome.allow.value,
+            AuthorityDecisionOutcome.ask.value,
+        }
+        if authority_allowed:
+            status, approval_status, approval_reason_refs = self._decision_status(
+                action=action,
+                decision=decision,
+                request=request,
+                idempotency_key_ref=idempotency_key_ref,
+            )
+        else:
+            status = "blocked"
+            approval_status = "authority_denied"
+            approval_reason_refs = list(
+                dict.fromkeys(
+                    [
+                        *authority_decision.reason_refs,
+                        FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_REQUIRED_BLOCKED_REF,
+                    ]
+                )
+            )
         receipt_ref = action_decision_receipt_ref(
             item_ref,
             decision,
@@ -13622,7 +13703,18 @@ class FounderLoopRepository:
             approval_reason_refs=approval_reason_refs,
             safe_summary=_action_decision_safe_summary(decision, status),
             evidence_refs=evidence_refs,
-            blocked_state_refs=list(FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS),
+            blocked_state_refs=list(
+                dict.fromkeys(
+                    [
+                        *FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS,
+                        *(
+                            [FOUNDER_LOOP_ACTION_DECISION_AUTHORITY_REQUIRED_BLOCKED_REF]
+                            if not authority_allowed
+                            else []
+                        ),
+                    ]
+                )
+            ),
             estimated_cost_usd=float(action.get("estimated_cost_usd") or 0.0),
             max_approved_cost_usd=float(action.get("max_approved_cost_usd") or 0.0),
             provider_ref=str(action.get("provider_ref") or "provider-ref:not-invoked"),
@@ -13647,6 +13739,12 @@ class FounderLoopRepository:
             provider_authority_state_label=str(
                 action.get("provider_authority_state_label") or "No provider authority"
             ),
+            authority_decision_ref=authority_decision.decision_ref,
+            authority_decision_outcome=authority_decision.outcome,
+            authority_lease_ref=authority_decision.lease_ref,
+            authority_audit_ref=authority_decision.audit_record_ref,
+            authority_receipt_ref=authority_decision.receipt_ref,
+            authority_reason_refs=list(authority_decision.reason_refs),
             unknown_paid_cost_requires_explicit_approval=bool(
                 action.get("unknown_paid_cost_requires_explicit_approval", True)
             ),

@@ -22,6 +22,7 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
     build_web_evidence_product_slice_receipt,
 )
 from ultimate_ai_agent.core.authority import (
+    AUTHORITY_STATE_DIR_ENV,
     AuthorityCapability,
     AuthorityDomain,
     AuthorityLease,
@@ -40,6 +41,7 @@ from ultimate_ai_agent.core.storage import (
 from ultimate_ai_agent.core.tools.runtime.http_fetch import (
     ReadOnlyHttpFetchTransportResponse,
 )
+from tests.authority_helpers import issue_workspace_write_authority_lease
 
 
 def _history_answers(ref: str) -> dict:
@@ -211,6 +213,9 @@ def test_evidence_timeline_route_productizes_founder_loop_receipts(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    issue_workspace_write_authority_lease(authority_state_dir)
     client = TestClient(app)
 
     action_items = client.get("/control-center/actions/inbox").json()["data"]["items"]

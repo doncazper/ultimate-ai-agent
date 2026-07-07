@@ -3,10 +3,10 @@
 Status: implemented for backend-owned Action Inbox decision state.
 
 FCC-V1-002 makes Action Inbox approve, edit, reject, and defer decisions
-backend-owned, append-first, idempotent, and receipt-backed. It does not
-execute the approved action and does not grant connector, shell/subprocess,
-provider/model, memory-write, public beta, distribution, or production
-authority.
+backend-owned, append-first, idempotent, receipt-backed, and gated by active
+`workspace/write` AuthorityLease scope. It does not execute the approved action
+and does not grant connector, shell/subprocess, provider/model, memory-write,
+public beta, distribution, or production authority.
 
 ## Implemented Boundary
 
@@ -23,6 +23,10 @@ authority.
 - Approve validates exact `LocalApprovalAuthority` scope when approval is
   required. Approval refs remain identifiers until exact actor, action,
   resource refs, risk, expiry, and classification are validated.
+- Approve/edit/reject/defer decision receipt mutation requires active
+  `workspace/write` AuthorityLease scope. Missing or mismatched authority
+  records a blocked receipt with authority decision refs and does not mint
+  backend-owned approval.
 - Edit records a corrected envelope ref only. It does not execute work and does
   not grant approval.
 - Reject and defer record decision state and receipt refs only.
@@ -50,6 +54,10 @@ Receipts use safe refs only:
 - `audit_ref`
 - `evidence_refs`
 - `blocked_state_refs`
+- `authority_decision_ref`
+- `authority_decision_outcome`
+- `authority_lease_ref`
+- `authority_reason_refs`
 - `replayed`
 
 The denied flags remain false for execution, connector writes, memory writes,

@@ -71,7 +71,10 @@ operator remains in read-only mode. Today-to-Action envelope promotion requires
 active `workspace/draft` AuthorityLease scope before a local review-only Action
 envelope receipt is recorded; stronger local Workspace grants imply lower-risk
 draft/prepare authority but still do not authorize execution. Action Inbox
-local-task commit likewise requires exact approval plus active
+approve/edit/reject/defer decision receipts now require active
+`workspace/write` authority before local decision state is recorded; missing
+authority records a blocked receipt and does not mint backend-owned approval.
+Action Inbox local-task commit likewise requires exact approval plus active
 `workspace/write` authority before local Founder Loop task state is written.
 Memory Review accept/correct reviewed
 recall writes require exact approval plus active `memory/write` authority before
