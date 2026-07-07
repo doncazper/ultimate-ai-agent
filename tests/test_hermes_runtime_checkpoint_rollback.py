@@ -9,6 +9,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_MAPPING_REF,
+    RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_CHECKPOINT_ROLLBACK_BLOCKED_AUTHORITY_REFS,
     RUNTIME_CHECKPOINT_ROLLBACK_CONTRACT_REF,
     RuntimeCheckpointRollbackReadModel,
@@ -27,6 +30,27 @@ def test_checkpoint_rollback_posture_is_read_only_safe_ref_model() -> None:
     assert read_model.status == "read_only_checkpoint_rollback_posture"
     assert read_model.route_ref == "GET /api/runtime/checkpoint-rollback"
     assert read_model.cli_ref == "uaa runtime inspect-checkpoint-rollback"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_reason_refs
+    assert (
+        "adapter-ref:checkpoint-rollback-execution-route:not-implemented"
+        in read_model.unsupported_adapter_refs
+    )
     assert read_model.lane_count == 5
     assert read_model.checkpoint_required_count == 5
     assert read_model.checkpoint_available_count == 3
@@ -102,6 +126,17 @@ def test_checkpoint_rollback_read_model_denies_authority_flags(field: str) -> No
         RuntimeCheckpointRollbackReadModel(**payload)
 
 
+def test_checkpoint_rollback_read_model_rejects_authority_mapping_drift() -> None:
+    payload = build_runtime_checkpoint_rollback_read_model().model_dump(mode="json")
+    payload["authority_state_mapping_ref"] = "lane-ref:wrong-checkpoint-rollback"
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_MAPPING_MISMATCH",
+    ):
+        RuntimeCheckpointRollbackReadModel(**payload)
+
+
 def test_checkpoint_rollback_api_returns_read_only_posture() -> None:
     response = client.get("/api/runtime/checkpoint-rollback")
 
@@ -111,6 +146,11 @@ def test_checkpoint_rollback_api_returns_read_only_posture() -> None:
     assert body["operation"] == "api_runtime_checkpoint_rollback"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/checkpoint-rollback"
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["rollback_execution_route_enabled"] is False
     assert data["lane_count"] == 5
     serialized = json.dumps(body).lower()
@@ -134,10 +174,20 @@ def test_checkpoint_rollback_cli_uses_same_read_model() -> None:
 
     payload = json.loads(result.stdout)
     read_model = payload["runtime_checkpoint_rollback"]
+    authority_state = payload["authority_state"]
     assert payload["safe_refs_only"] is True
+    assert (
+        authority_state["mapping_ref"]
+        == RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_MAPPING_REF
+    )
+    assert authority_state["decision_outcome"] == "allow"
     assert payload["broad_filesystem_snapshot_performed"] is False
     assert payload["rollback_execution_performed"] is False
     assert payload["git_mutation_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/checkpoint-rollback"
     assert read_model["cli_ref"] == "uaa runtime inspect-checkpoint-rollback"
+    assert (
+        read_model["authority_state_cli_ref"]
+        == RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_STATE_CLI_REF
+    )
     assert read_model["lane_count"] == 5

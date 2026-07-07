@@ -645,6 +645,9 @@ from ultimate_ai_agent.core.runtime_gateway.context_references import (
     build_runtime_context_references_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway.checkpoint_rollback import (
+    RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_MAPPING_REF,
+    RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_CHECKPOINT_ROLLBACK_BLOCKED_AUTHORITY_REFS,
     RUNTIME_CHECKPOINT_ROLLBACK_CLI_REF,
     RUNTIME_CHECKPOINT_ROLLBACK_CONTRACT_REF,
@@ -656,6 +659,7 @@ from ultimate_ai_agent.core.runtime_gateway.checkpoint_rollback import (
     RuntimeCheckpointRollbackLane,
     RuntimeCheckpointRollbackReadModel,
     build_runtime_checkpoint_rollback_read_model,
+    build_runtime_checkpoint_rollback_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.sensitive_context import (
     SENSITIVE_CONTEXT_BLOCKED_AUTHORITY_REFS,
@@ -1110,6 +1114,9 @@ __all__ = [
     "RuntimeContextReferenceKind",
     "RuntimeContextReferencePostureReadModel",
     "RuntimeContextReferenceStatus",
+    "RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_MAPPING_REF",
+    "RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_STATE_ROUTE_REF",
     "RUNTIME_CHECKPOINT_ROLLBACK_BLOCKED_AUTHORITY_REFS",
     "RUNTIME_CHECKPOINT_ROLLBACK_CLI_REF",
     "RUNTIME_CHECKPOINT_ROLLBACK_CONTRACT_REF",
@@ -1174,6 +1181,7 @@ __all__ = [
     "build_runtime_skill_marketplace_posture_read_model",
     "build_runtime_context_references_read_model",
     "build_runtime_checkpoint_rollback_read_model",
+    "build_runtime_checkpoint_rollback_read_model_from_authority_catalog",
     "classify_sensitive_context_candidate",
     "classify_hardline_command_argv",
     "build_runtime_run_events_read_model",

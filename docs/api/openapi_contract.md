@@ -360,10 +360,13 @@ Contract rules:
   injection, provider/model call, connector write, shell/subprocess execution,
   browser automation, or production authority.
   `GET /api/runtime/checkpoint-rollback` exposes the Hermes Runtime Adoption
-  Phase 18 backend-owned checkpoint/rollback posture. It returns scoped
-  checkpoint, receipt, rollback-plan, proof, verifier, and blocked authority
-  refs only; rollback execution, broad filesystem snapshots, Git mutation, raw
-  path/content persistence, and production authority remain blocked.
+  Phase 18 backend-owned checkpoint/rollback posture bound to
+  `lane-ref:runtime-checkpoint-rollback-read-model` through AuthorityState. It
+  returns scoped checkpoint, receipt, rollback-plan, AuthorityState
+  mapping/decision refs, unsupported adapter refs, proof, verifier, and blocked
+  authority refs only; rollback execution, broad filesystem snapshots, Git
+  mutation, raw path/content persistence, and production authority remain
+  blocked.
   `GET /api/runtime/run-events` exposes the Hermes Runtime Adoption Phase 03
   backend-owned runtime run/event posture for lifecycle mappings, event refs,
   stop posture, and approval-wait proposals. It now also returns the

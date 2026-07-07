@@ -3244,6 +3244,34 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-checkpoint-rollback-read-model",
+            "Runtime checkpoint rollback read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/checkpoint-rollback"],
+            ["repo-local-command:uaa-runtime-inspect-checkpoint-rollback"],
+            (
+                "Checkpoint rollback inspection reads checkpoint, receipt, "
+                "rollback-plan, approval-scope, idempotency, proof, and blocked "
+                "authority refs under Workspace read authority. Broad snapshots, "
+                "rollback execution, Git mutation, unredacted material "
+                "persistence, shell/browser execution, and production authority "
+                "remain blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:checkpoint-rollback-broad-snapshot:not-implemented",
+                "adapter-ref:checkpoint-rollback-execution-route:not-implemented",
+                "adapter-ref:checkpoint-rollback-git-mutation:not-implemented",
+                "adapter-ref:checkpoint-rollback-material-persistence:not-implemented",
+                "adapter-ref:checkpoint-rollback-path-material:not-implemented",
+                "adapter-ref:checkpoint-rollback-shell-execution:not-implemented",
+                "adapter-ref:checkpoint-rollback-browser-automation:not-implemented",
+                "adapter-ref:checkpoint-rollback-production-authority:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

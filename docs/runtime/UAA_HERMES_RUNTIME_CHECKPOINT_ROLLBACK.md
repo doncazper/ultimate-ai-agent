@@ -1,6 +1,6 @@
 # UAA Hermes Runtime Checkpoint Rollback
 
-Status: Hermes Runtime Adoption Phase 18 repo-safe read model
+Status: Hermes Runtime Adoption Phase 18 AuthorityState-bound repo-safe read model
 
 ## Full-Strength Version
 
@@ -18,16 +18,20 @@ mutation lanes:
 - `RuntimeCheckpointRollbackReadModel`
 - exact lane checkpoint refs, checkpoint hash refs, mutation receipt refs,
   rollback-plan refs, rollback receipt refs, approval scope refs, idempotency
-  refs, proof refs, verifier refs, and blocked authority refs
+  refs, AuthorityState route/CLI/mapping/catalog/decision/reason refs,
+  unsupported adapter refs, proof refs, verifier refs, and blocked authority
+  refs
 
 Current lane posture covers file patch core rollback receipts, Work Board
 reorder receipt posture, CRM local mutation receipt posture, local task commit
 rollback readiness, and blocked Coding patch apply readiness.
 
-This is read-only posture only. It does not create checkpoints, execute
-rollback, take broad filesystem snapshots, mutate Git, persist raw content or
-raw paths, call providers/models, run shell/subprocess commands, automate
-browsers, or claim production authority.
+The read model is mapped as `lane-ref:runtime-checkpoint-rollback-read-model`
+under Read-only `workspace/read` and is evaluated from the active
+AuthorityLease decision catalog. This is read-only posture only. It does not
+create checkpoints, execute rollback, take broad filesystem snapshots, mutate
+Git, persist raw content or raw paths, call providers/models, run
+shell/subprocess commands, automate browsers, or claim production authority.
 
 ## Blocked / Needs Authority
 

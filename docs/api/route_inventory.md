@@ -422,10 +422,13 @@ persistence, raw file-content persistence, protected config reads, automatic
 context injection, provider/model calls, connector writes, shell/subprocess
 execution, browser automation, and production authority remain blocked.
 `GET /api/runtime/checkpoint-rollback` exposes a protected read-only Python Core
-Hermes Runtime Adoption Phase 18 checkpoint/rollback posture. It returns safe
-checkpoint, receipt, rollback-plan, proof, verifier, and blocked authority refs
-only; rollback execution, broad filesystem snapshots, Git mutation, raw
-path/content persistence, and production authority remain blocked.
+Hermes Runtime Adoption Phase 18 checkpoint/rollback posture bound to
+`lane-ref:runtime-checkpoint-rollback-read-model` through AuthorityState. It
+returns safe checkpoint, receipt, rollback-plan, AuthorityState
+mapping/decision refs, unsupported adapter refs, proof, verifier, and blocked
+authority refs only; rollback execution, broad filesystem snapshots, Git
+mutation, raw path/content persistence, and production authority remain
+blocked.
 `GET /api/runtime/run-events` exposes a protected read-only Python Core Hermes
 Runtime Adoption Phase 03 run/event posture for external runtime lifecycle
 state, UAA durable run state mapping, event-ref grammar, proof binding, blocked

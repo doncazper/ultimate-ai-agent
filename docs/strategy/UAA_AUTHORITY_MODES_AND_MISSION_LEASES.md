@@ -160,6 +160,11 @@ surfaces are:
   budget/proposal inspection decision while hidden compression, automatic
   context mutation, model/provider calls, cache writes, turn/provider material
   persistence, and production authority remain blocked.
+  Runtime checkpoint rollback exposes the Read-only `workspace/read`
+  checkpoint, rollback-plan, receipt, approval-scope, and idempotency posture
+  inspection decision while broad snapshots, rollback execution, Git mutation,
+  raw content/path persistence, shell/browser execution, and production
+  authority remain blocked.
   Runtime hardline command blocklist exposes the Read-only `workspace/read`
   floor-inspection decision while floor override, command string bypass,
   command execution, command material persistence, and production authority

@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -27,6 +31,16 @@ RUNTIME_CHECKPOINT_ROLLBACK_SNAPSHOT_REF = (
 RUNTIME_CHECKPOINT_ROLLBACK_PROOF_REF = (
     "proof-ref:hermes-runtime-adoption:phase-18:checkpoint-rollback"
 )
+RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-checkpoint-rollback-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_CHECKPOINT_ROLLBACK_BLOCKED_AUTHORITY_REFS = [
     "blocked-authority:checkpoint-rollback-no-broad-filesystem-snapshot",
@@ -153,6 +167,16 @@ class RuntimeCheckpointRollbackReadModel(BaseModel):
     route_ref: str = RUNTIME_CHECKPOINT_ROLLBACK_ROUTE_REF
     cli_ref: str = RUNTIME_CHECKPOINT_ROLLBACK_CLI_REF
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     safe_summary: str = (
         "Checkpoint rollback posture exposes AuthorityLease capability refs, "
         "receipts, and blocked broad snapshot or rollback execution authority."
@@ -194,9 +218,14 @@ class RuntimeCheckpointRollbackReadModel(BaseModel):
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "proof_refs",
             "verifier_refs",
@@ -209,6 +238,17 @@ class RuntimeCheckpointRollbackReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
@@ -234,6 +274,13 @@ class RuntimeCheckpointRollbackReadModel(BaseModel):
             ]
         ):
             raise ValueError("RUNTIME_CHECKPOINT_BLOCKED_COUNT_MISMATCH")
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_DECISION_INVALID")
         denied_flags = {
             "broad_filesystem_snapshot_enabled": self.broad_filesystem_snapshot_enabled,
             "rollback_execution_route_enabled": self.rollback_execution_route_enabled,
@@ -413,8 +460,32 @@ def _default_lanes() -> list[RuntimeCheckpointRollbackLane]:
 def build_runtime_checkpoint_rollback_read_model() -> (
     RuntimeCheckpointRollbackReadModel
 ):
+    return build_runtime_checkpoint_rollback_read_model_from_authority_catalog(
+        authority_decision_catalog=build_authority_decision_catalog()
+    )
+
+
+def build_runtime_checkpoint_rollback_read_model_from_authority_catalog(
+    *,
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> RuntimeCheckpointRollbackReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     lanes = _default_lanes()
     model = RuntimeCheckpointRollbackReadModel(
+        authority_state_route_ref=(
+            RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_STATE_ROUTE_REF
+        ),
+        authority_state_cli_ref=RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_STATE_CLI_REF,
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         lanes=lanes,
         lane_count=len(lanes),
         checkpoint_required_count=len([lane for lane in lanes if lane.checkpoint_required]),
@@ -440,3 +511,16 @@ def build_runtime_checkpoint_rollback_read_model() -> (
     )
     payload = model.model_dump(mode="json", exclude={"snapshot_hash_ref"})
     return model.model_copy(update={"snapshot_hash_ref": _hash_payload(payload)})
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> AuthorityDecisionCatalogEntry:
+    for entry in authority_decision_catalog:
+        if entry.lane_ref == RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_MAPPING_NOT_FOUND")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))
