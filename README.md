@@ -75,13 +75,13 @@ curated gallery and snapshot caveats.
 | Area | Current status | What to inspect |
 |---|---|---|
 | API boundary | Implemented for the current **240** OpenAPI paths, **241** `/api/manifest` route operations, and route metadata. | [docs/api/README.md](docs/api/README.md) |
-| Action Inbox | Backend-owned approve/edit/reject/defer decisions, receipts, evidence refs, and one exact approved local-task lane. Generic execution remains blocked. | [docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md](docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md) |
+| Action Inbox | Backend-owned approve/edit/reject/defer decisions, receipts, evidence refs, and one exact approved local-task AuthorityLease capability. Generic execution remains blocked. | [docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md](docs/control_center/FCC_V1_002_ACTION_INBOX_STATE_MACHINE.md) |
 | Chat handoff | Durable safe Chat turn receipts and reviewable Actions/Plans handoff receipts. Model output is not authority. | [docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md](docs/control_center/FCC_V1_004_CHAT_DURABLE_RECEIPT_HANDOFF.md) |
 | Memory | Review receipts, reviewed recall-only records, read-only L1/L2/L3 indexes, proposal-only context packs, and internal Action proposal receipts. Memory remains recall, not truth or authority. | [docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md](docs/memory/GOVERNED_COGNITIVE_MEMORY_SPINE_V1.md) |
-| Evidence | Productized safe-ref timeline for proposals, decisions, receipts, memory-review events, and one allowlisted WebAccessGateway web evidence preview receipt lane. | [docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md](docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md) |
-| Today, Plans, Settings, Runtime, Models | Partial/status/readiness surfaces, plus the governed product pilot authority profile for exact local runtime/action/evidence/orchestration lanes. Useful for inspection, not full product completion. | [docs/control_center/OPERATOR_SHELL_GAP_MAP.md](docs/control_center/OPERATOR_SHELL_GAP_MAP.md) |
-| CRM | Backend-owned local CRM command center with read routes, CLI inspection, local storage posture, redacted import/export preview, and one exact local mutation receipt lane. Connector runtime, account sync, sends, calendar writes, provider/model calls, and external CRM writes remain blocked. | [docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md](docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md) |
-| Inbox/email/calendar connectors | Planned or blocked contract lanes only. No live connector runtime or writes. | [docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md](docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md) |
+| Evidence | Productized safe-ref timeline for proposals, decisions, receipts, memory-review events, and one allowlisted Browser/read AuthorityLease-gated WebAccessGateway web evidence preview receipt capability. | [docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md](docs/control_center/FCC_V1_006_EVIDENCE_TIMELINE_PRODUCTIZATION.md) |
+| Today, Plans, Settings, Runtime, Models | Partial/status/readiness surfaces, plus the governed product pilot authority profile for exact local runtime/action/evidence/orchestration capabilities. Useful for inspection, not full product completion. | [docs/control_center/OPERATOR_SHELL_GAP_MAP.md](docs/control_center/OPERATOR_SHELL_GAP_MAP.md) |
+| CRM | Backend-owned local CRM command center with read routes, CLI inspection, local storage posture, redacted import/export preview, and one exact local mutation receipt capability. Connector runtime, account sync, sends, calendar writes, provider/model calls, and external CRM writes remain blocked. | [docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md](docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md) |
+| Inbox/email/calendar connectors | Planned or blocked AuthorityLease capability contracts only. No live connector runtime or writes. | [docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md](docs/strategy/FOUNDER_COMMAND_CENTER_MVP_SPEC.md) |
 
 ## Architecture At A Glance
 
@@ -135,9 +135,9 @@ Morning Briefing
 - **Memory Review**: accept/correct/reject receipts for reviewed recall only.
 - **Governed memory spine**: L1/L2/L3 read-only indexes over safe reviewed refs.
 - **Safe workspace previews**: patch proposals, validation proof, and rollback posture.
-- **Local model lane**: llama.cpp/OpenWebUI readiness evidence with local-first limits.
-- **Local CRM lane**: backend-owned relationship, follow-up, pipeline, smart-list, report, proposal, import/export-preview, and exact local mutation receipt posture with connector/sends/writes blocked.
-- **Governed runtime pilot**: scoped internal RuntimeGateway lanes for configured loopback local-model receipts, one read-only status command, exact Action Inbox approved focused pytest, repo-verifier, frontend-check, and repo-doctor execution, and approved-runtime-command staged orchestration steps that can consume those exact approved utility lanes; broad runtime authority remains blocked.
+- **Local model capability posture**: llama.cpp/OpenWebUI readiness evidence with local-first limits.
+- **Local CRM capability posture**: backend-owned relationship, follow-up, pipeline, smart-list, report, proposal, import/export-preview, and exact local mutation receipt posture with connector/sends/writes blocked.
+- **Governed runtime pilot**: scoped internal RuntimeGateway capabilities for configured loopback local-model receipts, one read-only status command, exact Action Inbox approved focused pytest, repo-verifier, frontend-check, and repo-doctor execution, and approved-runtime-command staged orchestration steps that can consume those exact approved utility capabilities; broad runtime authority remains blocked.
 - **Verification gates**: Foundation Gate, OpenAPI, docs, backend, frontend, and product-truth checks.
 
 ## Current Technical Snapshot
@@ -152,7 +152,7 @@ Morning Briefing
 | Governed runtime pilot | **UAA-P1-091 / v0.105.0** scoped internal milestone; Phase 07 hardening keeps `v0.104.0` active baseline until the milestone tag is created from green release truth |
 | API boundary | FastAPI route contract with **240** OpenAPI paths and **241** manifest route operations |
 | Founder Loop V1 | `FCC-V1-000` through `FCC-V1-007` complete for bounded proofed route surfaces |
-| Governed Cognitive Memory Spine | Phases 1-5 implemented as reviewed/read-only/proposal lanes; Phase 6.1 is internal Action proposal receipts only |
+| Governed Cognitive Memory Spine | Phases 1-5 implemented as reviewed/read-only/proposal capabilities; Phase 6.1 is internal Action proposal receipts only |
 | Deferred lane | `UAA-P1-087.2` in-person private UI functional tuning |
 | Implemented support | `UAA-P1-066` read-only Local Model Control Center inventory/status support |
 | Release posture | Local-first, review-gated, disabled by default, non-production by default |
@@ -307,7 +307,7 @@ npm --prefix apps/control-center run test -- --run
 | `/start` | Partial/backend-owned inspection | Start Here binds the repo-safe daily loop to run, proof, action, evidence, memory, and blocked authority refs. |
 | `/today` | Partial | Product spine exists; broader workflow is still staged. |
 | `/proof` | Partial/backend-owned inspection | Proof index/detail surfaces expose safe refs and blocked authority; they do not grant execution. |
-| `/trust` | Partial/backend-owned inspection | Trust is an authority map for enabled, approval-required, planned, and blocked lanes; it does not grant authority. |
+| `/trust` | Partial/backend-owned inspection | Trust is an authority map for enabled, approval-required, planned, and blocked capabilities; it does not grant authority. |
 | `/crm` | Partial/backend-owned local | Python-core CRM read model, read-only API routes, CLI inspection, local storage posture, and exact local mutation receipts exist. Connector runtime, external writes, account sync, sends, calendar writes, provider/model calls, live web, browser automation, and production authority remain blocked. |
 | `/inbox` | Supporting source-readiness surface | Connector workflows are not granted. |
 | `/settings` | Partial/support | Runtime authority is not granted by settings UI. |
@@ -364,7 +364,7 @@ These lines keep the active docs and verifiers aligned.
 - UAA-P1-087.2a Private Trial Packet And UI Tuning Surface is complete.
 - UAA-P1-087.2b Private Trial Findings Capture And Acceptance Ledger is complete.
 - UAA-P1-087.2c Private Trial Manual Review Scaffold is complete.
-- UAA-P1-091 v0.105.0 Governed Runtime Pilot Phase 07 is the active scoped internal runtime-authority lane: configured loopback local-model calls, one exact read-only status command, exact Action Inbox approved focused pytest, repo-verifier, frontend-check, and repo-doctor execution, and approved-runtime-command staged orchestration steps for those exact utility lanes are governed through RuntimeGateway receipts; browser automation, connector writes, plugin import, remote execution, arbitrary shell/subprocess work outside exact approved lanes, public beta, public release, production authority, and broad autonomy remain blocked.
+- UAA-P1-091 v0.105.0 Governed Runtime Pilot Phase 07 is the active scoped internal runtime-authority capability set: configured loopback local-model calls, one exact read-only status command, exact Action Inbox approved focused pytest, repo-verifier, frontend-check, and repo-doctor execution, and approved-runtime-command staged orchestration steps for those exact utility capabilities are governed through RuntimeGateway receipts; browser automation, connector writes, plugin import, remote execution, arbitrary shell/subprocess work outside exact approved capabilities, public beta, public release, production authority, and broad autonomy remain blocked.
 - UAA-P1-066 is implemented as read-only Local Model Control Center inventory/status support via `GET /control-center/local-models/status`. No lifecycle, switching, activation, downloads, model pulls, model calls, runtime adapters, provider/model authority, or production-readiness claim is added.
 - P0-016 hardens tuning advice without granting runtime authority.
 - P0-017 adds safe local model operational recovery guidance.
@@ -474,7 +474,7 @@ tests/                    Backend, contract, storage, verifier, and API tests
 - **Today spine**: tighter Today-to-Actions-to-Evidence loop behavior.
 - **Control Center polish**: clearer shell states and fewer raw technical surfaces.
 - **Local model support**: safer inventory/status/readiness visibility.
-- **Connector contracts**: read-only email/calendar lanes before any write authority.
+- **Connector contracts**: read-only email/calendar capabilities before any write authority.
 - **Private UI testing**: deferred `UAA-P1-087.2` functional tuning after more implementation evidence.
 
 ## Contributing

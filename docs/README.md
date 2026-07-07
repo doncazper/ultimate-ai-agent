@@ -127,7 +127,7 @@ fixture_only metadata only while adding no backend endpoints, no backend CRM
 read model, no connector runtime, no connector writes, no external CRM writes,
 no account sync, no sends, no calendar writes, no provider/model calls, no
 live web, no browser runtime, no public beta, and no production authority.
-CRM Local Command Center M2 is the current partial backend-owned CRM lane in
+CRM Local Command Center M2 is the current partial backend-owned CRM capability in
 `docs/control_center/CRM_LOCAL_COMMAND_CENTER_M2.md`,
 `docs/control_center/UAA_CRM_LOCAL_COMMAND_CENTER_PLAN.md`,
 `src/ultimate_ai_agent/core/crm/local_command_center.py`,
@@ -135,7 +135,7 @@ CRM Local Command Center M2 is the current partial backend-owned CRM lane in
 `tests/test_crm_local_command_center.py`, and
 `tests/test_crm_local_command_center_api_routes.py`. It adds local CRM read
 routes, CLI inspection, local storage posture, redacted import/export preview,
-deterministic proposal refs, and one exact local mutation receipt lane while
+deterministic proposal refs, and one exact local mutation receipt capability while
 keeping connector runtime, connector writes, external CRM writes, account sync,
 sends, calendar writes, provider/model calls, live web, browser runtime,
 public beta, public release, production readiness, and production authority
@@ -194,7 +194,7 @@ API runtime routes remain blocked. The contracts live in
 `scripts/inspect_credential_vault_backend.py`, and
 `scripts/inspect_tiny_provider_invocation_lane.py`, and
 `scripts/inspect_provider_credential_validation_lane.py`, and
-`scripts/inspect_exact_approved_provider_fallback.py`. Provider lane posture is
+`scripts/inspect_exact_approved_provider_fallback.py`. Provider capability posture is
 checked by `scripts/verify_provider_invocation_promotion_plan.py` and
 `scripts/verify_tiny_provider_invocation_lane.py`, and
 `scripts/verify_provider_credential_validation_lane.py`, with fallback sequencing
@@ -325,7 +325,7 @@ FCC-V1-004 Chat Durable Receipt And Handoff, completed FCC-V1-005 Memory
 Review Decisions, completed FCC-V1-006 Evidence Timeline Productization, and
 completed FCC-V1-007 Promotion And Proof Lane.
 UAA-P1-091 v0.105.0 Governed Runtime Pilot is the active scoped internal
-runtime-authority lane. Phase 07 release truth keeps v0.104.0 as the active
+runtime-authority capability set. Phase 07 release truth keeps v0.104.0 as the active
 product/package baseline while the governed runtime milestone is tag-eligible
 only after green PR review and verification: configured loopback local-model
 calls, one exact read-only status command, and exact Action Inbox approved
@@ -333,7 +333,7 @@ focused pytest, repo-verifier, frontend-check, and repo-doctor execution may pro
 RuntimeGateway receipts only under active `workspace/execute` AuthorityLease
 scope plus exact Action Inbox approval; browser
 automation, connector writes, plugin import, remote execution, arbitrary
-shell/subprocess work outside exact approved lanes, public
+shell/subprocess work outside exact approved capabilities, public
 beta, public release, production authority, and broad autonomy remain blocked.
 Full UAA-P1-087.2
 local/private UI tuning and UAA-P1-087.3 private UI trial/native boot planning
