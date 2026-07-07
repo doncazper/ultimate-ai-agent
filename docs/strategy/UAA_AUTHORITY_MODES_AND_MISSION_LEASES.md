@@ -67,9 +67,13 @@ command status may run under `workspace/read`; execution-capable command lanes
 require an active `workspace/execute` lease. Work Board persisted reorder and
 local-card-create lanes now require both exact approval and an active
 `workspace/write` lease, returning readable authority-denied refs when the
-operator remains in read-only mode. Action Inbox local-task commit likewise
-requires exact approval plus active `workspace/write` authority before local
-Founder Loop task state is written. Memory Review accept/correct reviewed
+operator remains in read-only mode. Today-to-Action envelope promotion requires
+active `workspace/draft` AuthorityLease scope before a local review-only Action
+envelope receipt is recorded; stronger local Workspace grants imply lower-risk
+draft/prepare authority but still do not authorize execution. Action Inbox
+local-task commit likewise requires exact approval plus active
+`workspace/write` authority before local Founder Loop task state is written.
+Memory Review accept/correct reviewed
 recall writes require exact approval plus active `memory/write` authority before
 the recall-only `LocalMemoryStore` record is written; reject, defer, merge,
 supersede, and forget-request remain receipt/posture decisions without memory

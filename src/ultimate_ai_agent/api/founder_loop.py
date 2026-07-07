@@ -1251,6 +1251,20 @@ def post_control_center_today_action_envelope(
                 ),
             },
         ) from exc
+    except FounderLoopAuthorityError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": exc.code,
+                "safe_message": (
+                    "Today-to-Action envelope creation requires an active "
+                    "AuthorityLease granting Workspace draft. The envelope is "
+                    "review-only and does not execute actions."
+                ),
+                "reason_refs": exc.reason_refs,
+                "required_refs": exc.required_refs,
+            },
+        ) from exc
     except FounderLoopStorageError as exc:
         code = str(exc) or "FOUNDER_LOOP_ACTION_ENVELOPE_PROMOTION_ERROR"
         status_code = 404 if code == "FOUNDER_LOOP_TODAY_ITEM_NOT_FOUND" else 400
@@ -1280,6 +1294,7 @@ def post_control_center_today_action_envelope(
             "safe_refs_only",
             "receipt_refs_only",
             "raw_content_omitted",
+            "authority_decision_refs_only",
         ],
     )
 

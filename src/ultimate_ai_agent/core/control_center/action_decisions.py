@@ -35,6 +35,20 @@ FOUNDER_LOOP_ACTION_DECISION_ROUTE_REFS = (
 FOUNDER_LOOP_ACTION_ENVELOPE_ROUTE_REFS = (
     "POST /control-center/today/action-envelope",
 )
+FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_ACTION_REF = (
+    "authority-action-ref:today-action-envelope-promotion"
+)
+FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_LANE_REF = (
+    "lane-ref:today-action-envelope-promotion"
+)
+FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_DOMAIN_REF = "authority-domain-ref:workspace"
+FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:draft"
+FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_REQUIRED_MODE_REF = (
+    "authority-mode-ref:read-only"
+)
+FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_REQUIRED_BLOCKED_REF = (
+    "blocked-state:today-action-envelope:workspace-draft-authority-required"
+)
 FOUNDER_LOOP_ACTION_DECISION_KINDS = ("approve", "edit", "reject", "defer")
 FOUNDER_LOOP_ACTION_ENVELOPE_PROMOTION_STATUS = "action_envelope_created"
 FRONTIER_AI_COST_USAGE_CONTRACT_REF = (
@@ -206,6 +220,18 @@ class FounderLoopActionEnvelope(BaseModel):
         default="No provider authority",
         min_length=1,
     )
+    authority_decision_ref: str | None = Field(default=None, max_length=180)
+    authority_decision_outcome: str | None = Field(default=None, max_length=80)
+    authority_lease_ref: str | None = Field(default=None, max_length=180)
+    authority_domain_ref: str = FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_DOMAIN_REF
+    authority_capability_ref: str = (
+        FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_CAPABILITY_REF
+    )
+    authority_required_mode_ref: str = (
+        FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_REQUIRED_MODE_REF
+    )
+    authority_audit_ref: str | None = Field(default=None, max_length=180)
+    authority_policy_receipt_ref: str | None = Field(default=None, max_length=180)
     unknown_paid_cost_requires_explicit_approval: bool = True
     frontier_usage_claimed: bool = False
 
@@ -228,8 +254,17 @@ class FounderLoopActionEnvelope(BaseModel):
             "cost_estimate_ref",
             "captured_usage_ref",
             "budget_decision_ref",
+            "authority_decision_ref",
+            "authority_lease_ref",
+            "authority_domain_ref",
+            "authority_capability_ref",
+            "authority_required_mode_ref",
+            "authority_audit_ref",
+            "authority_policy_receipt_ref",
         ]:
-            _validate_safe_ref(getattr(self, field_name), field_name)
+            value = getattr(self, field_name)
+            if value is not None:
+                _validate_safe_ref(value, field_name)
         for field_name in [
             "blocked_state_refs",
             "cost_receipt_refs",
@@ -418,6 +453,18 @@ class FounderLoopActionEnvelopePromotionReceipt(BaseModel):
         default="No provider authority",
         min_length=1,
     )
+    authority_decision_ref: str = Field(..., min_length=1)
+    authority_decision_outcome: str = Field(..., min_length=1)
+    authority_lease_ref: str | None = Field(default=None, max_length=180)
+    authority_domain_ref: str = FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_DOMAIN_REF
+    authority_capability_ref: str = (
+        FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_CAPABILITY_REF
+    )
+    authority_required_mode_ref: str = (
+        FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_REQUIRED_MODE_REF
+    )
+    authority_audit_ref: str = Field(..., min_length=1)
+    authority_policy_receipt_ref: str | None = Field(default=None, max_length=180)
     unknown_paid_cost_requires_explicit_approval: bool = True
     frontier_usage_claimed: bool = False
     created_at: str = Field(default_factory=lambda: utc_now().isoformat())
@@ -442,8 +489,17 @@ class FounderLoopActionEnvelopePromotionReceipt(BaseModel):
             "cost_estimate_ref",
             "captured_usage_ref",
             "budget_decision_ref",
+            "authority_decision_ref",
+            "authority_lease_ref",
+            "authority_domain_ref",
+            "authority_capability_ref",
+            "authority_required_mode_ref",
+            "authority_audit_ref",
+            "authority_policy_receipt_ref",
         ]:
-            _validate_safe_ref(getattr(self, field_name), field_name)
+            value = getattr(self, field_name)
+            if value is not None:
+                _validate_safe_ref(value, field_name)
         for field_name in [
             "evidence_refs",
             "blocked_state_refs",
@@ -464,6 +520,14 @@ class FounderLoopActionEnvelopePromotionReceipt(BaseModel):
             raise ValueError("frontier usage claims require cost receipt refs")
         if not self.unknown_paid_cost_requires_explicit_approval:
             raise ValueError("unknown paid cost must require explicit approval")
+        _validate_safe_text(
+            self.authority_decision_outcome,
+            "authority_decision_outcome",
+        )
+        if self.authority_decision_outcome != "allow":
+            raise ValueError("action envelope receipt requires allowed draft authority")
+        if not self.authority_lease_ref:
+            raise ValueError("action envelope receipt requires authority lease ref")
         denied_flags = {
             "action_executed": self.action_executed,
             "approval_grants_execution": self.approval_grants_execution,

@@ -105,9 +105,10 @@ Current boundary summary:
   exactly-once execution, rate-limit, mutation authority, or production
   authority claims.
 - UAA-P1-085 adds targeted local fixed-window rate limits for model/chat, task
-  decomposition, action preview/proposal, Action Inbox decisions, Today to
-  Action envelope promotion, Chat durable receipt/handoff routes, Memory Review
-  decision receipt routes, Memory context-pack internal Action proposal routes,
+  decomposition, action preview/proposal, Action Inbox decisions,
+  `workspace/draft` AuthorityLease-gated Today to Action envelope promotion,
+  Chat durable receipt/handoff routes, Memory Review decision receipt routes,
+  Memory context-pack internal Action proposal routes,
   the exact-approved provider credential validation lane, the tiny
   exact-approved provider lane, governed runtime pilot mutation routes, and
   local model validation route groups. It does not add auth, distributed quota,

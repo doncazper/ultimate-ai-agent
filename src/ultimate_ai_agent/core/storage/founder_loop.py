@@ -68,6 +68,12 @@ from ultimate_ai_agent.core.control_center.action_decisions import (
     FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS,
     FOUNDER_LOOP_ACTION_DECISION_KINDS,
     FOUNDER_LOOP_ACTION_DECISION_ROUTE_REFS,
+    FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_ACTION_REF,
+    FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_CAPABILITY_REF,
+    FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_DOMAIN_REF,
+    FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_LANE_REF,
+    FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_REQUIRED_BLOCKED_REF,
+    FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_REQUIRED_MODE_REF,
     FOUNDER_LOOP_ACTION_ENVELOPE_ROUTE_REFS,
     FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF,
     FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF,
@@ -10991,6 +10997,7 @@ class FounderLoopRepository:
         *,
         request: FounderLoopActionEnvelopePromotionRequest,
         idempotency_key_ref: str,
+        active_authority_leases: list[AuthorityLease] | None = None,
     ) -> dict[str, Any]:
         _validate_safe_ref(idempotency_key_ref, "idempotency_key_ref")
         source = self._today_item_payload_for_ref(request.today_item_ref)
@@ -10998,6 +11005,12 @@ class FounderLoopRepository:
             raise FounderLoopStorageError("FOUNDER_LOOP_TODAY_ITEM_NOT_FOUND")
 
         item_ref = today_item_to_action_item_ref(request.today_item_ref)
+        authority_decision = self._today_action_envelope_authority_decision(
+            today_item_ref=request.today_item_ref,
+            item_ref=item_ref,
+            idempotency_key_ref=idempotency_key_ref,
+            active_authority_leases=active_authority_leases,
+        )
         fingerprint_payload = promotion_payload_for_fingerprint(request=request)
         payload_fingerprint_ref = action_payload_fingerprint_ref(fingerprint_payload)
         replay = self._action_envelope_promotion_replay(idempotency_key_ref)
@@ -11046,6 +11059,18 @@ class FounderLoopRepository:
                     evidence_event_ref,
                     *cost_slot["cost_receipt_refs"],
                     request.today_item_ref,
+                    authority_decision.decision_ref,
+                    authority_decision.audit_record_ref,
+                    *(
+                        [authority_decision.receipt_ref]
+                        if authority_decision.receipt_ref
+                        else []
+                    ),
+                    *(
+                        [authority_decision.lease_ref]
+                        if authority_decision.lease_ref
+                        else []
+                    ),
                     *list((existing_action or {}).get("evidence_refs") or []),
                     *list(source.get("evidence_refs") or []),
                     *request.metadata_refs,
@@ -11080,6 +11105,11 @@ class FounderLoopRepository:
             idempotency_key_ref=idempotency_key_ref,
             payload_fingerprint_ref=payload_fingerprint_ref,
             evidence_timeline_event_ref=evidence_event_ref,
+            authority_decision_ref=authority_decision.decision_ref,
+            authority_decision_outcome=authority_decision.outcome,
+            authority_lease_ref=authority_decision.lease_ref,
+            authority_audit_ref=authority_decision.audit_record_ref,
+            authority_policy_receipt_ref=authority_decision.receipt_ref,
             safe_summary=(
                 "Today item ref was promoted into a reviewable Action envelope; "
                 "no action execution, connector write, memory write, shell/subprocess "
@@ -11181,6 +11211,18 @@ class FounderLoopRepository:
                 f"approval-requirement:founder-loop-v1:{_safe_suffix(item_ref)}"
             ),
             "expected_receipt_ref": receipt_ref,
+            "authority_decision_ref": authority_decision.decision_ref,
+            "authority_decision_outcome": authority_decision.outcome,
+            "authority_lease_ref": authority_decision.lease_ref,
+            "authority_domain_ref": FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_DOMAIN_REF,
+            "authority_capability_ref": (
+                FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_CAPABILITY_REF
+            ),
+            "authority_required_mode_ref": (
+                FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_REQUIRED_MODE_REF
+            ),
+            "authority_audit_ref": authority_decision.audit_record_ref,
+            "authority_policy_receipt_ref": authority_decision.receipt_ref,
             "rollback_ref": action_record.rollback_ref,
             "safe_disable_ref": action_record.safe_disable_ref,
             "blocked_state_refs": list(FOUNDER_LOOP_ACTION_DECISION_BLOCKED_REFS),
@@ -13087,6 +13129,79 @@ class FounderLoopRepository:
         elif approval_receipt.get("approval_status") != "approved":
             blocked_reasons.append("blocked-state:backend-owned-approval-not-approved")
         return list(dict.fromkeys(blocked_reasons))
+
+    def _today_action_envelope_authority_decision(
+        self,
+        *,
+        today_item_ref: str,
+        item_ref: str,
+        idempotency_key_ref: str,
+        active_authority_leases: list[AuthorityLease] | None,
+    ):
+        leases = (
+            active_authority_leases
+            if active_authority_leases is not None
+            else self._active_authority_leases
+            if self._active_authority_leases is not None
+            else active_founder_loop_authority_leases()
+        )
+        authority_decision = evaluate_authority_request(
+            AuthorityActionRequest(
+                action_ref=(
+                    f"{FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_ACTION_REF}:"
+                    f"{_safe_suffix(item_ref)}"
+                ),
+                domain=AuthorityDomain.workspace,
+                capability=AuthorityCapability.draft,
+                safe_summary=(
+                    "Evaluate Workspace draft authority before promoting a Today "
+                    "item into a reviewable Action envelope."
+                ),
+                resource_refs=[
+                    today_item_ref,
+                    item_ref,
+                    FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF,
+                    FOUNDER_LOOP_ACTION_STATE_CONTRACT_REF,
+                    idempotency_key_ref,
+                ],
+                route_ref=FOUNDER_LOOP_ACTION_ENVELOPE_ROUTE_REFS[0],
+                lane_ref=FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_LANE_REF,
+                requested_mode=TrustMode.read_only,
+                draft_fallback_available=False,
+                rollback_ref=(
+                    "rollback-ref:today-action-envelope:"
+                    f"{_short_ref_suffix(item_ref)}"
+                ),
+                safe_disable_ref=(
+                    "safe-disable-ref:today-action-envelope:"
+                    f"{_short_ref_suffix(item_ref)}"
+                ),
+            ),
+            leases,
+        )
+        if authority_decision.outcome != AuthorityDecisionOutcome.allow.value:
+            raise FounderLoopAuthorityError(
+                [
+                    *authority_decision.reason_refs,
+                    FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_REQUIRED_BLOCKED_REF,
+                ],
+                code="FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_DENIED",
+                required_refs={
+                    "authority_decision_ref": authority_decision.decision_ref,
+                    "required_mode_ref": (
+                        FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_REQUIRED_MODE_REF
+                    ),
+                    "required_domain_ref": (
+                        FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_DOMAIN_REF
+                    ),
+                    "required_capability_ref": (
+                        FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_CAPABILITY_REF
+                    ),
+                    "safe_disable_ref": authority_decision.safe_disable_ref,
+                    "rollback_ref": authority_decision.rollback_ref,
+                },
+            )
+        return authority_decision
 
     def _local_task_authority_decision(
         self,

@@ -991,6 +991,7 @@ def _inspect_dogfood_live_loop(args: argparse.Namespace) -> int:
 
 def _promote_action_envelope(args: argparse.Namespace) -> int:
     repo = _repository(args)
+    command_ref = "repo-local-command:founder-loop-promote-action-envelope"
     request = FounderLoopActionEnvelopePromotionRequest(
         today_item_ref=args.today_item_ref,
         decision_reason_ref=args.decision_reason_ref,
@@ -998,13 +999,49 @@ def _promote_action_envelope(args: argparse.Namespace) -> int:
         priority=args.priority,
         metadata_refs=args.metadata_ref,
     )
-    receipt = repo.promote_today_item_to_action_envelope(
-        request=request,
-        idempotency_key_ref=args.idempotency_ref,
-    )
+    try:
+        receipt = repo.promote_today_item_to_action_envelope(
+            request=request,
+            idempotency_key_ref=args.idempotency_ref,
+        )
+    except FounderLoopAuthorityError as exc:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref=command_ref,
+                error_ref=exc.code,
+                reason_refs=exc.reason_refs,
+                required_refs=exc.required_refs,
+            )
+        )
+        return 1
+    except FounderLoopStorageDuplicateError:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref=command_ref,
+                error_ref="FOUNDER_LOOP_ACTION_ENVELOPE_IDEMPOTENCY_CONFLICT",
+            )
+        )
+        return 1
+    except FounderLoopStorageError as exc:
+        _print_json(
+            _blocked_cli_payload(
+                command_ref=command_ref,
+                error_ref=str(exc)
+                or "FOUNDER_LOOP_ACTION_ENVELOPE_PROMOTION_BLOCKED",
+            )
+        )
+        return 1
+    except (ValueError, ValidationError):
+        _print_json(
+            _blocked_cli_payload(
+                command_ref=command_ref,
+                error_ref="FOUNDER_LOOP_ACTION_ENVELOPE_UNSAFE_INPUT",
+            )
+        )
+        return 1
     output = {
         "schema_version": "founder-loop-cli:v1",
-        "command_ref": "repo-local-command:founder-loop-promote-action-envelope",
+        "command_ref": command_ref,
         "receipt": receipt,
         "safe_refs_only": True,
         "raw_content_omitted": True,

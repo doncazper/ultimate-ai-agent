@@ -23,6 +23,7 @@ from scripts.verification.repo import (  # noqa: E402
     print_failures_or_success,
 )
 from ultimate_ai_agent.api.local_auth import LOCAL_API_BEARER_ENV  # noqa: E402
+from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV  # noqa: E402
 from ultimate_ai_agent.core.control_center.action_decisions import (  # noqa: E402
     FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF,
     FounderLoopActionDecisionRequest,
@@ -202,6 +203,8 @@ def _append_doc_failures(failures: list[str]) -> None:
                 "Status: implemented for the first receipt-bearing vertical slice",
                 FOUNDER_LOOP_VERTICAL_SLICE_CONTRACT_REF,
                 "Today item -> Action envelope -> exact approval/edit/reject/defer receipt -> Evidence Timeline",
+                "`workspace/draft` AuthorityLease",
+                "authority decision refs",
                 "does not execute the approved action",
                 "scripts/dev/uaa_founder_loop.py",
             ],
@@ -215,12 +218,14 @@ def _append_behavior_failures(
     root: Path,
 ) -> None:
     old_state_dir = os.environ.get("UAA_FOUNDER_LOOP_STATE_DIR")
+    old_authority_state_dir = os.environ.get(AUTHORITY_STATE_DIR_ENV)
     old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
     bearer = "fcc-v1-003-local-bearer"
     auth_headers = {"Authorization": f"Bearer {bearer}"}
     with tempfile.TemporaryDirectory() as temp_dir:
         state_dir = str(Path(temp_dir) / "founder_loop")
         os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = state_dir
+        os.environ[AUTHORITY_STATE_DIR_ENV] = str(Path(temp_dir) / "authority")
         os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
             item_ref = _exercise_promotion_api(failures, context, auth_headers)
@@ -232,6 +237,10 @@ def _append_behavior_failures(
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
             else:
                 os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = old_state_dir
+            if old_authority_state_dir is None:
+                os.environ.pop(AUTHORITY_STATE_DIR_ENV, None)
+            else:
+                os.environ[AUTHORITY_STATE_DIR_ENV] = old_authority_state_dir
             if old_bearer is None:
                 os.environ.pop(LOCAL_API_BEARER_ENV, None)
             else:
@@ -266,6 +275,15 @@ def _exercise_promotion_api(
     _append_no_authority_flag_failures(failures, receipt, "promotion receipt")
     if receipt.get("action_envelope_ref") is None:
         failures.append("Today-to-Action receipt missing action_envelope_ref")
+    if receipt.get("authority_decision_outcome") != "allow":
+        failures.append("Today-to-Action receipt missing allowed authority decision")
+    if not receipt.get("authority_lease_ref"):
+        failures.append("Today-to-Action receipt missing authority lease ref")
+    if "authority_decision_refs_only" not in first.json().get(
+        "redactions_applied",
+        [],
+    ):
+        failures.append("Today-to-Action route missing authority redaction posture")
     replay = context.client.post(
         "/control-center/today/action-envelope",
         json=body,

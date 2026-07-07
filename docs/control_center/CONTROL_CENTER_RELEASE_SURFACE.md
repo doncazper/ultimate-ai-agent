@@ -94,8 +94,9 @@ coverage. Duplicate replay runtime remains blocked until route-owner receipt
 storage exists outside routes that implement their own receipt-backed replay.
 FCC-V1-002 Action Inbox Backend State Machine is complete for decision state
 and receipt refs without action execution. FCC-V1-003 Founder Loop V1 Vertical
-Slice is complete for the first Today-to-Action envelope receipt loop,
-Evidence Timeline update, and CLI inspection path without action execution.
+Slice is complete for the first active `workspace/draft` AuthorityLease-gated
+Today-to-Action envelope receipt loop, Evidence Timeline update, and CLI
+inspection path without action execution.
 FCC-V1-004 Chat Durable Receipt And Handoff is complete for safe Chat turn
 receipts and reviewable Actions/Plans handoff receipts without action
 execution, memory writes, model-output authority, connector writes, or

@@ -1005,7 +1005,7 @@ def route_classification_for_path(
     ):
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Today-to-Action envelope authority route; exact idempotency, receipt, audit, and evidence posture required",
+            "Today-to-Action envelope authority route; workspace/draft AuthorityLease, exact idempotency, authority decision refs, receipt, audit, and evidence posture required while execution stays blocked",
         )
     if (
         normalized_method == "POST"

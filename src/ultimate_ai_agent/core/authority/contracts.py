@@ -218,9 +218,89 @@ class AuthorityLease(_AuthorityModel):
 
     def grants(self, domain: AuthorityDomain, capability: AuthorityCapability) -> bool:
         values = self.domains.get(domain, [])
-        return capability in values or _enum_value(capability) in {
-            _enum_value(item) for item in values
-        }
+        granted = {AuthorityCapability(item) for item in values}
+        requested = AuthorityCapability(capability)
+        return any(_capability_grants(item, requested) for item in granted)
+
+
+_CAPABILITY_IMPLICATIONS: dict[AuthorityCapability, set[AuthorityCapability]] = {
+    AuthorityCapability.observe: {AuthorityCapability.observe},
+    AuthorityCapability.read: {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+    },
+    AuthorityCapability.draft: {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.draft,
+    },
+    AuthorityCapability.prepare: {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.draft,
+        AuthorityCapability.prepare,
+    },
+    AuthorityCapability.write: {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.draft,
+        AuthorityCapability.prepare,
+        AuthorityCapability.write,
+    },
+    AuthorityCapability.mutate: {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.draft,
+        AuthorityCapability.prepare,
+        AuthorityCapability.write,
+        AuthorityCapability.mutate,
+    },
+    AuthorityCapability.execute: {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.draft,
+        AuthorityCapability.prepare,
+        AuthorityCapability.execute,
+    },
+    AuthorityCapability.commit: {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.draft,
+        AuthorityCapability.prepare,
+        AuthorityCapability.write,
+        AuthorityCapability.commit,
+    },
+    AuthorityCapability.send: {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.draft,
+        AuthorityCapability.prepare,
+        AuthorityCapability.send,
+    },
+    AuthorityCapability.purchase: {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.draft,
+        AuthorityCapability.prepare,
+        AuthorityCapability.purchase,
+    },
+    AuthorityCapability.purchase_under_budget: {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.draft,
+        AuthorityCapability.prepare,
+        AuthorityCapability.purchase_under_budget,
+    },
+    AuthorityCapability.admin: set(AuthorityCapability),
+    AuthorityCapability.destructive: set(AuthorityCapability),
+}
+
+
+def _capability_grants(
+    granted: AuthorityCapability,
+    requested: AuthorityCapability,
+) -> bool:
+    return requested in _CAPABILITY_IMPLICATIONS.get(granted, {granted})
 
 
 class AuthorityActionRequest(_AuthorityModel):
@@ -1833,6 +1913,22 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
                 "Requires Approved safe local work with workspace/execute "
                 "AuthorityLease scope before local registered handlers run; "
                 "high-risk nodes still require exact LocalApprovalAuthority grants."
+            ),
+        ),
+        _mapping(
+            "lane-ref:today-action-envelope-promotion",
+            "Today-to-Action envelope promotion",
+            AuthorityDomain.workspace,
+            AuthorityCapability.draft,
+            TrustMode.read_only,
+            "implemented_exact_lease_required_proposal_only",
+            ["POST /control-center/today/action-envelope"],
+            ["scripts/dev/uaa_founder_loop.py promote-action-envelope"],
+            (
+                "Requires Workspace draft AuthorityLease scope before a Today "
+                "item can be promoted into a reviewable Action envelope; action "
+                "execution, connector writes, memory writes, shell/browser work, "
+                "provider/model calls, and production authority remain denied."
             ),
         ),
         _mapping(

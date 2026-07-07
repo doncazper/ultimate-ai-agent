@@ -179,6 +179,18 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         context_pack_action.status
         == "implemented_exact_lease_required_proposal_only"
     )
+    today_action_envelope = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /control-center/today/action-envelope" in mapping.route_refs
+    )
+    assert today_action_envelope.domain == "workspace"
+    assert today_action_envelope.capability == "draft"
+    assert today_action_envelope.required_mode == "read_only"
+    assert (
+        today_action_envelope.status
+        == "implemented_exact_lease_required_proposal_only"
+    )
     assert {decision.outcome for decision in read_model.sample_decisions} >= {
         "allow",
         "deny",
@@ -217,6 +229,30 @@ def test_authority_evaluator_denies_unknown_and_degrades_when_draft_available() 
     assert "reason-ref:authority:no-active-lease-for-domain-capability" in (
         execute_decision.reason_refs
     )
+
+
+def test_authority_evaluator_treats_stronger_local_grants_as_draft_capable() -> None:
+    lease = AuthorityLease(
+        lease_ref="authority-lease-ref:test-workspace-write",
+        mode=TrustMode.ask_before_changes,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary="Workspace write implies lower-risk draft proposal authority.",
+    )
+
+    decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref="authority-action-ref:test-today-envelope",
+            domain=AuthorityDomain.workspace,
+            capability=AuthorityCapability.draft,
+            safe_summary="Create a reviewable Today-to-Action envelope.",
+            route_ref="POST /control-center/today/action-envelope",
+            requested_mode=TrustMode.read_only,
+        ),
+        [lease],
+    )
+
+    assert decision.outcome == AuthorityDecisionOutcome.allow.value
+    assert decision.lease_ref == lease.lease_ref
 
 
 def test_authority_mode_defaults_are_mode_specific_and_fail_closed(

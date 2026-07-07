@@ -59,12 +59,12 @@ provider/model calls, and shell/subprocess work.
 
 The `/actions` surface now calls the backend decision routes and displays
 receipt/audit refs. The route remains `partial` in the release surface
-manifest because FCC-V1-003 still needs the first full Today item to Action
-envelope to exact decision to durable receipt to Evidence Timeline loop.
+manifest because FCC-V1-003 owns the first full Today item to Action envelope
+to exact decision to durable receipt to Evidence Timeline loop.
 
 ## Remaining Blockers
 
-- Today-to-action envelope creation.
+- Broader Today-to-action execution beyond review-only envelope creation.
 - Action execution contract.
 - Evidence Timeline mutation binding for action decisions.
 - CLI/repo-local inspection command for the first full vertical loop.

@@ -353,10 +353,12 @@ class FounderLoopControlCenterService:
         *,
         request: FounderLoopActionEnvelopePromotionRequest,
         idempotency_key_ref: str,
+        active_authority_leases: list[AuthorityLease] | None = None,
     ) -> dict[str, Any]:
         return self.repository.promote_today_item_to_action_envelope(
             request=request,
             idempotency_key_ref=idempotency_key_ref,
+            active_authority_leases=active_authority_leases,
         )
 
     def record_action_decision(

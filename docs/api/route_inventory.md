@@ -83,6 +83,9 @@ Routes classified as `mutating_requires_authority` now require
 `X-UAA-Idempotency-Key` or `X-UAA-Idempotency-Ref` before the mutating handler
 can run. `/api/manifest` and the frozen route inventory expose
 `idempotency_required`, `idempotency_posture`, and `idempotency_policy_ref`.
+The Today-to-Action envelope promotion route additionally requires active
+`workspace/draft` AuthorityLease scope and records authority decision refs
+before local review-only Action envelope state is written.
 This is not durable dedupe storage, exactly-once execution, replay execution,
 mutation authority, production authority, or a public beta claim.
 

@@ -194,9 +194,12 @@ Tasks:
 
 - Promote one Today item into an Action envelope.
 - Add a backend path to create an Action envelope from a Today item ref.
+- Require active `workspace/draft` AuthorityLease scope and authority decision
+  refs before the review-only envelope state is recorded.
 - The route must not execute the action. It only creates a reviewable envelope.
 - The envelope must carry exact scope, risk, side-effect class, approval
-  requirement, idempotency, expected receipt, and rollback posture.
+  requirement, idempotency, expected receipt, authority decision refs, and
+  rollback posture.
 - Wire approval decision to receipt.
 - Approving the envelope produces a durable receipt.
 - Rejecting, editing, or deferring also produces a receipt.

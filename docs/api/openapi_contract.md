@@ -390,6 +390,9 @@ Contract rules:
   summaries plus Action Inbox and Chat receipts using SQLite and JSONL refs
   only. Today to Action envelope, Action decision, Chat handoff, and Memory
   Review decision routes record backend-owned review state and receipt refs;
+  Today to Action envelope creation requires active `workspace/draft`
+  AuthorityLease scope and records authority decision refs before local
+  review-only state is written;
   accept/correct create reviewed recall-only records. The L1, L2, L3, and context-pack
   routes provide derived read-only recall previews, factual/graph/temporal ref
   projections, and identity/session/preference/commitment representation

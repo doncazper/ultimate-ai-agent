@@ -20,11 +20,12 @@ authority.
 - `POST /control-center/today/action-envelope` creates a reviewable Action
   envelope from a safe Today item ref.
 - The route is protected, `mutating_requires_authority`,
-  `local_dev_workspace_only`, idempotency-gated, and rate-limited under
-  `today_to_action_envelope`.
+  `local_dev_workspace_only`, active `workspace/draft` AuthorityLease-gated,
+  idempotency-gated, and rate-limited under `today_to_action_envelope`.
 - The created envelope carries exact scope refs, risk class, side-effect class,
   approval requirement refs, expected receipt refs, idempotency refs, rollback
-  refs, safe-disable refs, blocked-state refs, and safe evidence refs.
+  refs, safe-disable refs, blocked-state refs, authority decision refs,
+  authority lease refs, and safe evidence refs.
 - Same idempotency key plus same payload returns the prior promotion receipt.
 - Same idempotency key plus conflicting payload is rejected.
 - Action approve/edit/reject/defer decisions continue through the FCC-V1-002
@@ -52,7 +53,8 @@ The verifier exercises the full local path in a temporary Founder Loop state
 store:
 
 - missing idempotency is rejected;
-- first Today-to-Action promotion creates a durable receipt;
+- first Today-to-Action promotion creates a durable receipt with authority
+  decision refs;
 - duplicate matching promotion replays the prior receipt;
 - conflicting duplicate promotion is rejected;
 - CLI inspect and promote commands return safe refs with raw paths omitted;
@@ -64,7 +66,9 @@ store:
 
 All receipts preserve denied authority flags. Approval refs remain identifiers
 until exact `LocalApprovalAuthority` validation succeeds, and even an approved
-decision remains decision-state only. Execution, connector writes,
+decision remains decision-state only. Today-to-Action promotion requires active
+`workspace/draft` AuthorityLease scope before local review-only state is
+written. Execution, connector writes,
 shell/subprocess work, provider/model calls, memory writes, context injection,
 rollback execution, public distribution, and production authority remain
 blocked.

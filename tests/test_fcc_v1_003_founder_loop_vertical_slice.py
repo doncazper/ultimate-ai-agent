@@ -4,13 +4,32 @@ import copy
 import json
 from pathlib import Path
 
+from fastapi.testclient import TestClient
+import pytest
+
 from scripts import verify_fcc_v1_003_founder_loop_vertical_slice as verifier
 from scripts.dev import uaa_founder_loop
 from scripts.verification.repo import load_json
-from ultimate_ai_agent.core.control_center.action_decisions import (
-    FounderLoopActionDecisionRequest,
+from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.authority import (
+    AUTHORITY_STATE_DIR_ENV,
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
+    TrustMode,
 )
-from ultimate_ai_agent.core.storage import FounderLoopRepository
+from ultimate_ai_agent.core.control_center.action_decisions import (
+    FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_CAPABILITY_REF,
+    FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_DOMAIN_REF,
+    FounderLoopActionDecisionRequest,
+    FounderLoopActionEnvelopePromotionRequest,
+    today_item_to_action_item_ref,
+)
+from ultimate_ai_agent.core.storage import FounderLoopAuthorityError, FounderLoopRepository
+
+
+client = TestClient(app)
 
 
 def _approve_local_task_seed_action(state_dir: Path) -> None:
@@ -46,6 +65,12 @@ def test_founder_loop_cli_promotes_and_inspects_safe_refs(
     promoted = json.loads(capsys.readouterr().out)
     assert promoted["receipt"]["action_executed"] is False
     assert promoted["receipt"]["action_envelope_ref"].startswith("action-envelope:")
+    assert promoted["receipt"]["authority_decision_outcome"] == "allow"
+    assert promoted["receipt"]["authority_lease_ref"]
+    assert (
+        promoted["receipt"]["authority_capability_ref"]
+        == FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_CAPABILITY_REF
+    )
 
     rc = uaa_founder_loop.main(["--state-dir", str(state_dir), "inspect", "--limit", "4"])
     assert rc == 0
@@ -54,6 +79,75 @@ def test_founder_loop_cli_promotes_and_inspects_safe_refs(
     assert inspected["raw_paths_omitted"] is True
     assert inspected["actions"][0]["receipt_refs"]
     assert "state_dir" not in inspected
+
+
+def test_today_action_envelope_requires_workspace_draft_authority_before_mutation(
+    tmp_path: Path,
+) -> None:
+    repo = FounderLoopRepository(
+        tmp_path / "founder_loop",
+        active_authority_leases=[],
+    )
+    item_ref = today_item_to_action_item_ref(verifier.TODAY_ITEM_REF)
+
+    with pytest.raises(FounderLoopAuthorityError) as exc_info:
+        repo.promote_today_item_to_action_envelope(
+            request=FounderLoopActionEnvelopePromotionRequest(
+                today_item_ref=verifier.TODAY_ITEM_REF,
+                metadata_refs=["metadata-ref:test-today-envelope-authority-denied"],
+            ),
+            idempotency_key_ref="idempotency-ref:test-today-envelope-authority-denied",
+            active_authority_leases=[],
+        )
+
+    assert exc_info.value.code == "FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_DENIED"
+    assert (
+        exc_info.value.required_refs["required_domain_ref"]
+        == FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_DOMAIN_REF
+    )
+    assert all(item["item_ref"] != item_ref for item in repo.list_action_inbox())
+
+
+def test_today_action_envelope_api_requires_workspace_draft_authority(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("UAA_FOUNDER_LOOP_STATE_DIR", str(tmp_path / "founder_loop"))
+    authority_state_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_state_dir))
+    AuthorityLeaseStore(authority_state_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.read_only,
+            requested_domains={
+                AuthorityDomain.memory: [AuthorityCapability.read],
+            },
+            decision_reason_ref="reason-ref:test-today-envelope-memory-only",
+            safe_summary="Memory-only read lease must not grant Workspace draft.",
+        ),
+        idempotency_ref="idempotency-ref:test-today-envelope-memory-only",
+    )
+
+    response = client.post(
+        "/control-center/today/action-envelope",
+        json={
+            "today_item_ref": verifier.TODAY_ITEM_REF,
+            "metadata_refs": ["metadata-ref:test-today-envelope-api-denied"],
+        },
+        headers={
+            "x-uaa-idempotency-key": "idempotency-ref:test-today-envelope-api-denied"
+        },
+    )
+
+    assert response.status_code == 403
+    detail = response.json()["detail"]
+    assert detail["code"] == "FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_DENIED"
+    assert (
+        detail["required_refs"]["required_capability_ref"]
+        == FOUNDER_LOOP_ACTION_ENVELOPE_AUTHORITY_CAPABILITY_REF
+    )
+    repo = FounderLoopRepository.from_env()
+    item_ref = today_item_to_action_item_ref(verifier.TODAY_ITEM_REF)
+    assert all(item["item_ref"] != item_ref for item in repo.list_action_inbox())
 
 
 def test_founder_loop_cli_commits_local_task_with_safe_refs(
