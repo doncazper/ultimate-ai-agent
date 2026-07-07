@@ -10,6 +10,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_SESSION_LINEAGE_AUTHORITY_MAPPING_REF,
+    RUNTIME_SESSION_LINEAGE_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_SESSION_LINEAGE_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_SESSION_LINEAGE_BLOCKED_AUTHORITY_REFS,
     build_runtime_session_lineage_read_model,
 )
@@ -26,6 +29,28 @@ def _assert_read_model(payload: dict[str, object]) -> None:
         _fail("session lineage posture is not read-only")
     if payload.get("route_ref") != "GET /api/runtime/session-lineage":
         _fail("route ref drifted")
+    if (
+        payload.get("authority_state_route_ref")
+        != RUNTIME_SESSION_LINEAGE_AUTHORITY_STATE_ROUTE_REF
+    ):
+        _fail("authority state route ref drifted")
+    if (
+        payload.get("authority_state_cli_ref")
+        != RUNTIME_SESSION_LINEAGE_AUTHORITY_STATE_CLI_REF
+    ):
+        _fail("authority state CLI ref drifted")
+    if (
+        payload.get("authority_state_mapping_ref")
+        != RUNTIME_SESSION_LINEAGE_AUTHORITY_MAPPING_REF
+    ):
+        _fail("authority state mapping ref drifted")
+    if payload.get("authority_state_decision_outcome") != "allow":
+        _fail("authority state decision outcome drifted")
+    if not payload.get("authority_state_reason_refs"):
+        _fail("authority state reason refs missing")
+    unsupported = set(payload.get("unsupported_adapter_refs") or [])
+    if "adapter-ref:session-lineage-runtime-dispatch:not-implemented" not in unsupported:
+        _fail("runtime dispatch unsupported adapter ref missing")
     for flag in (
         "raw_transcript_clone_enabled",
         "hidden_context_injection_enabled",
@@ -112,6 +137,14 @@ def verify_cli() -> None:
     )
     payload = json.loads(result.stdout)
     _assert_read_model(payload.get("runtime_session_lineage") or {})
+    authority_state = payload.get("authority_state") or {}
+    if (
+        authority_state.get("mapping_ref")
+        != RUNTIME_SESSION_LINEAGE_AUTHORITY_MAPPING_REF
+    ):
+        _fail("CLI authority mapping ref drifted")
+    if authority_state.get("decision_outcome") != "allow":
+        _fail("CLI authority decision outcome drifted")
     if payload.get("runtime_dispatch_performed") is not False:
         _fail("CLI claimed runtime dispatch")
     if payload.get("hidden_context_injection_performed") is not False:

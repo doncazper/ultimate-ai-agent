@@ -134,12 +134,14 @@ Contract rules:
   vector index, hidden context injection, memory write, action execution, or
   production authority.
   `GET /api/runtime/session-lineage` exposes the Hermes Runtime Adoption Phase
-  19 backend-owned session lineage and fork posture. It returns safe
-  parent/child, user request, task, run, proof, branch, reason, redacted
-  fork-envelope, retrieval-log, compare-view, verifier, and blocked authority
-  refs only. It does not clone raw transcripts, persist raw prompts or
-  responses, inject hidden context, dispatch runtimes, call providers/models,
-  write connectors, run shell/subprocess commands, automate browsers, or grant
+  19 backend-owned session lineage and fork posture bound to
+  `lane-ref:runtime-session-lineage-read-model` through AuthorityState. It
+  returns safe parent/child, user request, task, run, proof, branch, reason,
+  redacted fork-envelope, retrieval-log, compare-view, verifier, AuthorityState
+  mapping/decision refs, unsupported adapter refs, and blocked authority refs
+  only. It does not clone raw transcripts, persist raw prompts or responses,
+  inject hidden context, dispatch runtimes, call providers/models, write
+  connectors, run shell/subprocess commands, automate browsers, or grant
   production authority.
   `GET /api/runtime/virtual-provider-moa` exposes the Hermes Runtime Adoption
   Phase 20 backend-owned virtual provider Mixture-of-Agents posture bound to

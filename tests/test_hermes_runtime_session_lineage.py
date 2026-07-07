@@ -9,6 +9,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_SESSION_LINEAGE_AUTHORITY_MAPPING_REF,
+    RUNTIME_SESSION_LINEAGE_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_SESSION_LINEAGE_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_SESSION_LINEAGE_BLOCKED_AUTHORITY_REFS,
     RUNTIME_SESSION_LINEAGE_CONTRACT_REF,
     RuntimeSessionLineageReadModel,
@@ -27,6 +30,27 @@ def test_session_lineage_posture_is_read_only_safe_ref_model() -> None:
     assert read_model.status == "read_only_session_lineage_and_fork_posture"
     assert read_model.route_ref == "GET /api/runtime/session-lineage"
     assert read_model.cli_ref == "uaa runtime inspect-session-lineage"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_SESSION_LINEAGE_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_SESSION_LINEAGE_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_SESSION_LINEAGE_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_reason_refs
+    assert (
+        "adapter-ref:session-lineage-runtime-dispatch:not-implemented"
+        in read_model.unsupported_adapter_refs
+    )
     assert read_model.node_count == 7
     assert read_model.fork_count == 3
     assert read_model.root_count == 1
@@ -109,6 +133,17 @@ def test_session_lineage_read_model_denies_authority_flags(field: str) -> None:
         RuntimeSessionLineageReadModel(**payload)
 
 
+def test_session_lineage_read_model_rejects_authority_mapping_drift() -> None:
+    payload = build_runtime_session_lineage_read_model().model_dump(mode="json")
+    payload["authority_state_mapping_ref"] = "lane-ref:wrong-session-lineage"
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_SESSION_LINEAGE_AUTHORITY_MAPPING_MISMATCH",
+    ):
+        RuntimeSessionLineageReadModel(**payload)
+
+
 def test_session_lineage_api_returns_read_only_posture() -> None:
     response = client.get("/api/runtime/session-lineage")
 
@@ -118,6 +153,11 @@ def test_session_lineage_api_returns_read_only_posture() -> None:
     assert body["operation"] == "api_runtime_session_lineage"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/session-lineage"
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_SESSION_LINEAGE_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["raw_transcript_clone_enabled"] is False
     assert data["runtime_dispatch_enabled"] is False
     assert data["node_count"] == 7
@@ -143,10 +183,20 @@ def test_session_lineage_cli_uses_same_read_model() -> None:
 
     payload = json.loads(result.stdout)
     read_model = payload["runtime_session_lineage"]
+    authority_state = payload["authority_state"]
     assert payload["safe_refs_only"] is True
+    assert (
+        authority_state["mapping_ref"]
+        == RUNTIME_SESSION_LINEAGE_AUTHORITY_MAPPING_REF
+    )
+    assert authority_state["decision_outcome"] == "allow"
     assert payload["raw_transcripts_omitted"] is True
     assert payload["hidden_context_injection_performed"] is False
     assert payload["runtime_dispatch_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/session-lineage"
     assert read_model["cli_ref"] == "uaa runtime inspect-session-lineage"
+    assert (
+        read_model["authority_state_cli_ref"]
+        == RUNTIME_SESSION_LINEAGE_AUTHORITY_STATE_CLI_REF
+    )
     assert read_model["node_count"] == 7

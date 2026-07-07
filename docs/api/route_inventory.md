@@ -201,9 +201,11 @@ exposure, semantic provider calls, embedding/vector indexing, hidden context
 injection, memory writes, action execution, and production authority remain
 blocked.
 `GET /api/runtime/session-lineage` exposes a protected read-only Python Core
-Hermes Runtime Adoption Phase 19 session lineage and fork posture. It returns
-safe parent/child, user request, task, run, proof, branch, reason, redacted
-fork-envelope, retrieval-log, compare-view, verifier, and blocked authority refs
+Hermes Runtime Adoption Phase 19 session lineage and fork posture bound to
+`lane-ref:runtime-session-lineage-read-model` through AuthorityState. It
+returns safe parent/child, user request, task, run, proof, branch, reason,
+redacted fork-envelope, retrieval-log, compare-view, verifier, AuthorityState
+mapping/decision refs, unsupported adapter refs, and blocked authority refs
 only. Raw transcript cloning, raw prompt/response persistence, hidden context
 injection, runtime dispatch, provider/model calls, connector writes,
 shell/subprocess execution, browser automation, and production authority remain

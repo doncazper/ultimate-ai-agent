@@ -161,6 +161,11 @@ surfaces are:
   live fetch, automatic context injection, protected configuration reads,
   provider/model calls, connector writes, shell/browser execution, and
   production authority remain blocked.
+  Runtime session lineage exposes the Read-only `workspace/read` parent/child,
+  fork, proof, reason, retrieval-log, and compare-view inspection decision
+  while transcript cloning, hidden context injection, runtime dispatch,
+  provider/model calls, connector writes, shell/browser execution, and
+  production authority remain blocked.
   Runtime context budget pressure exposes the Read-only `workspace/read`
   budget/proposal inspection decision while hidden compression, automatic
   context mutation, model/provider calls, cache writes, turn/provider material

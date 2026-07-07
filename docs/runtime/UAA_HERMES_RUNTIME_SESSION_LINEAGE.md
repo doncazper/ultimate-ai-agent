@@ -1,6 +1,6 @@
 # UAA Hermes Runtime Session Lineage
 
-Status: Hermes Runtime Adoption Phase 19 repo-safe read model
+Status: Hermes Runtime Adoption Phase 19 AuthorityState-bound repo-safe read model
 
 ## Full-Strength Version
 
@@ -21,11 +21,16 @@ Phase 19 adds Python Core session lineage and fork posture:
 - fork refs with explicit operator intent refs, redacted fork-envelope refs,
   retrieval-log refs, compare-view refs, proof refs, verifier refs, and blocked
   authority refs
+- AuthorityState route/CLI/mapping/catalog/decision/reason refs and unsupported
+  adapter refs for governed lineage inspection
 
-This is read-only posture only. It does not clone raw transcripts, persist raw
-prompts or responses, inject hidden context into another runtime, dispatch a
-runtime, call providers/models, run shell/subprocess commands, automate
-browsers, write connectors, or claim production authority.
+The read model is mapped as `lane-ref:runtime-session-lineage-read-model` under
+Read-only `workspace/read` and is evaluated from the active AuthorityLease
+decision catalog. This is read-only posture only. It does not clone raw
+transcripts, persist raw prompts or responses, inject hidden context into
+another runtime, dispatch a runtime, call providers/models, run
+shell/subprocess commands, automate browsers, write connectors, or claim
+production authority.
 
 ## Blocked / Needs Authority
 

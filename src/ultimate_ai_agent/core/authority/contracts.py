@@ -3302,6 +3302,36 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-session-lineage-read-model",
+            "Runtime session lineage read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/session-lineage"],
+            ["repo-local-command:uaa-runtime-inspect-session-lineage"],
+            (
+                "Session lineage inspection reads parent, child, fork, proof, "
+                "reason, retrieval-log, compare-view, and blocked authority refs "
+                "under Workspace read authority. Transcript copy, prompt/response "
+                "material persistence, hidden context injection, runtime dispatch, "
+                "provider calls, shell/browser execution, connector writes, and "
+                "production authority remain blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:session-lineage-transcript-copy:not-implemented",
+                "adapter-ref:session-lineage-prompt-material:not-implemented",
+                "adapter-ref:session-lineage-response-material:not-implemented",
+                "adapter-ref:session-lineage-hidden-context-injection:not-implemented",
+                "adapter-ref:session-lineage-runtime-dispatch:not-implemented",
+                "adapter-ref:session-lineage-provider-call:not-implemented",
+                "adapter-ref:session-lineage-shell-execution:not-implemented",
+                "adapter-ref:session-lineage-browser-automation:not-implemented",
+                "adapter-ref:session-lineage-connector-write:not-implemented",
+                "adapter-ref:session-lineage-production-authority:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,
