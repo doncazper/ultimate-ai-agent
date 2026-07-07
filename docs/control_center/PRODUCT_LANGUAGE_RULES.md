@@ -72,6 +72,8 @@ inspection source of truth for active mode, domain grants, existing legacy lane
 mappings, policy decisions, receipts, audit refs, rollback/safe-disable posture,
 kill-switch visibility, active lease and lease-receipt issued/expires
 timestamps, and mission-scoped lease requirements. Use
+`authority_lease_state.capability_mappings` to explain every target domain,
+including planned or unsupported adapters, without implying live execution. Use
 `POST /api/runtime/authority-leases`,
 `POST /api/runtime/authority-leases/approve-and-issue`,
 `POST /api/runtime/authority-leases/revoke`,

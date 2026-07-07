@@ -40,7 +40,9 @@ domains. Unsupported browser, app, payment, calendar, messages, email,
 contacts, Home Assistant, and production/cloud adapters remain blocked or
 draft-only until implemented and tested, but the operator-facing explanation
 should name the required mode and domains instead of opaque blocked-language
-without a lease/domain/capability reason.
+without a lease/domain/capability reason. AuthorityLease capability mappings
+now include at least one row for every target domain, with unsupported rows
+marked planned or blocked instead of hidden.
 Governed Runtime command policy uses the active lease store: read-only status
 commands require `workspace/read`, and execution-capable command capabilities require
 `workspace/execute` plus the exact approval envelope and receipts.

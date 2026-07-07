@@ -2210,10 +2210,11 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             "implemented_operator_selected_root_control_receipt_required",
             [
                 "POST /api/runtime/authority-leases",
+                "POST /api/runtime/authority-leases/approve-and-issue",
                 "POST /api/runtime/authority-leases/revoke",
             ],
             [
-                "scripts/dev/uaa_runtime.py select-authority-mode",
+                "scripts/dev/uaa_runtime.py select-authority-mode --approve",
                 "scripts/dev/uaa_runtime.py revoke-authority-lease",
             ],
             (
@@ -2224,6 +2225,41 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
                 "execute adapters, mint model/provider authority, bypass "
                 "unknown-authority denial, or grant unsupported domains."
             ),
+        ),
+        _mapping(
+            "lane-ref:shell-arbitrary-command-adapter",
+            "Arbitrary shell command adapter",
+            AuthorityDomain.shell,
+            AuthorityCapability.execute,
+            TrustMode.full_machine_access_session,
+            "planned_unsupported_adapter",
+            ["GET /api/runtime/authority-state"],
+            ["scripts/dev/uaa_runtime.py inspect-authority-state"],
+            (
+                "Shell execute is a known authority domain, but arbitrary shell "
+                "strings are not implemented; only separately mapped RuntimeGateway "
+                "workspace commands may execute under their exact lease gates."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:shell-arbitrary-command:not-implemented",
+            ],
+        ),
+        _mapping(
+            "lane-ref:apps-local-automation-adapter",
+            "Local app automation adapter",
+            AuthorityDomain.apps,
+            AuthorityCapability.execute,
+            TrustMode.full_machine_access_session,
+            "planned_unsupported_adapter",
+            ["GET /api/runtime/authority-state"],
+            ["scripts/dev/uaa_runtime.py inspect-authority-state"],
+            (
+                "Local app control is modeled as an authority domain, but app "
+                "automation adapters are not implemented or callable from leases."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:apps-local-automation:not-implemented",
+            ],
         ),
         _mapping(
             "lane-ref:runtime-command-git-status",
@@ -2538,6 +2574,43 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:source-readiness-calendar-metadata",
+            "Calendar metadata readiness",
+            AuthorityDomain.calendar,
+            AuthorityCapability.observe,
+            TrustMode.read_only,
+            "partial_metadata_contract_only",
+            ["GET /control-center/sources/readiness"],
+            ["repo-local-command:inspect-source-readiness-metadata-contracts"],
+            (
+                "Calendar authority is limited to safe readiness contract refs; "
+                "live calendar fetch, event creation, updates, deletion, and "
+                "invites remain unsupported."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:calendar-live-fetch:not-implemented",
+                "adapter-ref:calendar-live-write:not-implemented",
+            ],
+        ),
+        _mapping(
+            "lane-ref:messages-live-send-adapter",
+            "Messages send adapter",
+            AuthorityDomain.messages,
+            AuthorityCapability.send,
+            TrustMode.delegated_mission_autonomous_window,
+            "planned_unsupported_adapter",
+            ["GET /api/runtime/authority-state"],
+            ["scripts/dev/uaa_runtime.py inspect-authority-state"],
+            (
+                "Messages send authority is modeled for future missions, but no "
+                "iMessage/SMS adapter, account binding, send, archive, or delete "
+                "execution is implemented."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:messages-live-send:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:web-evidence-product-slice",
             "Web evidence product slice",
             AuthorityDomain.browser,
@@ -2553,6 +2626,24 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
                 "auth/session state, downloads/uploads, mutation methods, provider/model "
                 "calls, memory writes, and production authority remain denied."
             ),
+        ),
+        _mapping(
+            "lane-ref:browser-action-adapter",
+            "Browser action adapter",
+            AuthorityDomain.browser,
+            AuthorityCapability.click,
+            TrustMode.delegated_mission_autonomous_window,
+            "planned_unsupported_adapter",
+            ["GET /api/runtime/authority-state"],
+            ["scripts/dev/uaa_runtime.py inspect-authority-state"],
+            (
+                "Browser click and form authority is modeled for delegated missions, "
+                "but browser sessions, auth state, clicks, forms, uploads, "
+                "downloads, and mutations remain unsupported."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:browser-execution:not-implemented",
+            ],
         ),
         _mapping(
             "lane-ref:provider-credential-validation",
@@ -2618,6 +2709,41 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             unsupported_adapter_refs=[
                 "adapter-ref:browser-execution:not-implemented",
                 "adapter-ref:shopping-payment:not-implemented",
+            ],
+        ),
+        _mapping(
+            "lane-ref:home-assistant-control-adapter",
+            "Home Assistant control adapter",
+            AuthorityDomain.home_assistant,
+            AuthorityCapability.write,
+            TrustMode.delegated_mission_autonomous_window,
+            "planned_unsupported_adapter",
+            ["GET /api/runtime/authority-state"],
+            ["scripts/dev/uaa_runtime.py inspect-authority-state"],
+            (
+                "Home Assistant control is modeled as a governed domain, but no "
+                "device/entity read or write adapter is implemented."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:home-assistant-control:not-implemented",
+            ],
+        ),
+        _mapping(
+            "lane-ref:cloud-production-deploy-adapter",
+            "Cloud production deploy adapter",
+            AuthorityDomain.cloud_production,
+            AuthorityCapability.deploy,
+            TrustMode.full_machine_access_session,
+            "planned_unsupported_adapter",
+            ["GET /api/runtime/authority-state"],
+            ["scripts/dev/uaa_runtime.py inspect-authority-state"],
+            (
+                "Cloud production deploy authority is a known domain, but deploy, "
+                "configuration mutation, remote execution, and rollback execution "
+                "adapters remain unsupported."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:cloud-production-deploy:not-implemented",
             ],
         ),
     ]

@@ -31,6 +31,9 @@ surfaces are:
 - `scripts/dev/uaa_runtime.py command run ... --mission-ref ...`
 - `GET /control-center/trust-authority/matrix` rows map legacy lane refs to
   AuthorityLease domain, capability, required mode, and lease requirement refs.
+- `GET /api/runtime/authority-state#capability_mappings` has at least one
+  explicit mapping row for every target AuthorityLease domain; unsupported
+  adapters remain `planned` or blocked rows and do not become executable.
 - Control Center `/settings` authority mode controls for implemented local
   domain subsets, revoke receipts, decision previews for concrete
   mode/domain/capability requests, and mission-plan previews for delegated

@@ -124,9 +124,43 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         authority_control_plane.status
         == "implemented_operator_selected_root_control_receipt_required"
     )
+    assert "POST /api/runtime/authority-leases/approve-and-issue" in (
+        authority_control_plane.route_refs
+    )
     assert "POST /api/runtime/authority-leases/revoke" in (
         authority_control_plane.route_refs
     )
+    assert "scripts/dev/uaa_runtime.py select-authority-mode --approve" in (
+        authority_control_plane.cli_refs
+    )
+    mapped_domains = {
+        str(getattr(mapping.domain, "value", mapping.domain))
+        for mapping in read_model.capability_mappings
+    }
+    target_domains = {
+        str(getattr(domain, "value", domain)) for domain in read_model.target_domains
+    }
+    assert target_domains <= mapped_domains
+    shell_adapter = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:shell-arbitrary-command-adapter"
+    )
+    assert shell_adapter.domain == "shell"
+    assert shell_adapter.capability == "execute"
+    assert shell_adapter.required_mode == "full_machine_access_session"
+    assert shell_adapter.status == "planned_unsupported_adapter"
+    assert "adapter-ref:shell-arbitrary-command:not-implemented" in (
+        shell_adapter.unsupported_adapter_refs
+    )
+    apps_adapter = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:apps-local-automation-adapter"
+    )
+    assert apps_adapter.domain == "apps"
+    assert apps_adapter.capability == "execute"
+    assert apps_adapter.status == "planned_unsupported_adapter"
     task_decomposition_execute = next(
         mapping
         for mapping in read_model.capability_mappings
@@ -280,6 +314,30 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         web_evidence.status
         == "implemented_authority_lease_required_gateway_https_get"
     )
+    calendar_metadata = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:source-readiness-calendar-metadata"
+    )
+    assert calendar_metadata.domain == "calendar"
+    assert calendar_metadata.capability == "observe"
+    assert calendar_metadata.status == "partial_metadata_contract_only"
+    messages_send = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:messages-live-send-adapter"
+    )
+    assert messages_send.domain == "messages"
+    assert messages_send.capability == "send"
+    assert messages_send.status == "planned_unsupported_adapter"
+    browser_action = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:browser-action-adapter"
+    )
+    assert browser_action.domain == "browser"
+    assert browser_action.capability == "click"
+    assert browser_action.status == "planned_unsupported_adapter"
     context_pack_action = next(
         mapping
         for mapping in read_model.capability_mappings
@@ -319,6 +377,22 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         today_action_envelope.status
         == "implemented_exact_lease_required_proposal_only"
     )
+    home_assistant_control = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:home-assistant-control-adapter"
+    )
+    assert home_assistant_control.domain == "home_assistant"
+    assert home_assistant_control.capability == "write"
+    assert home_assistant_control.status == "planned_unsupported_adapter"
+    cloud_production_deploy = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:cloud-production-deploy-adapter"
+    )
+    assert cloud_production_deploy.domain == "cloud_production"
+    assert cloud_production_deploy.capability == "deploy"
+    assert cloud_production_deploy.status == "planned_unsupported_adapter"
     assert {decision.outcome for decision in read_model.sample_decisions} >= {
         "allow",
         "deny",
