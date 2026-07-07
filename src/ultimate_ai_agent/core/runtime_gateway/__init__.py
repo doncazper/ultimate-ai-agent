@@ -455,6 +455,9 @@ from ultimate_ai_agent.core.runtime_gateway.logging_profile import (
     build_runtime_logging_profile_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway.result_classification import (
+    RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_MAPPING_REF,
+    RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_RESULT_CLASSIFICATION_BLOCKED_AUTHORITY_REFS,
     RUNTIME_RESULT_CLASSIFICATION_CLI_REF,
     RUNTIME_RESULT_CLASSIFICATION_CONTRACT_REF,

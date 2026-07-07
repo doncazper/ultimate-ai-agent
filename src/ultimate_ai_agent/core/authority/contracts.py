@@ -3018,6 +3018,24 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ),
         ),
         _mapping(
+            "lane-ref:runtime-result-classification-taxonomy",
+            "Runtime result classification taxonomy",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/result-classification"],
+            ["repo-local-command:uaa-runtime-inspect-result-classification"],
+            (
+                "Result classification inspection reads taxonomy labels, "
+                "verification statuses, provenance/redaction policies, receipt "
+                "requirements, proof bindings, and blocked refs under "
+                "Workspace read authority. It does not make tool output truth, "
+                "grant action authority, mutate without receipts, persist "
+                "output/provider material, or mint Control Center authority."
+            ),
+        ),
+        _mapping(
             "lane-ref:staged-orchestration-approved-runtime-command",
             "Staged orchestration approved runtime command step",
             AuthorityDomain.workspace,

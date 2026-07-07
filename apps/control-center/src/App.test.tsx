@@ -8115,6 +8115,14 @@ describe("Web Control Center shell", () => {
     ).toBeGreaterThan(0);
     expect(screen.getByText("Untrusted Data")).toBeInTheDocument();
     expect(
+      screen.getByText("lane-ref:runtime-result-classification-taxonomy"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-policy-decision-ref:mock-runtime-result-classification",
+      ),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText(
         "blocked-authority:result-classification-no-tool-output-as-truth",
       ),

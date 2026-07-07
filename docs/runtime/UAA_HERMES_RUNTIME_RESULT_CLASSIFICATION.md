@@ -1,8 +1,11 @@
 # UAA Hermes Runtime Result Classification Posture
 
-Status: Phase 39 repo-safe read model.  
-Route: `GET /api/runtime/result-classification`  
+Status: Phase 39 repo-safe read model.
+Route: `GET /api/runtime/result-classification`
 CLI: `scripts/dev/uaa_runtime.py inspect-result-classification`
+AuthorityState: `lane-ref:runtime-result-classification-taxonomy` evaluates as
+Read-only `workspace/read` through `GET /api/runtime/authority-state` and
+`scripts/dev/uaa_runtime.py inspect-authority-state`.
 
 ## Full-Strength
 
@@ -23,6 +26,7 @@ The current implementation is a backend-owned taxonomy only:
   proof, verifier, blocked authority, and promotion refs
 - Control Center labels for the taxonomy
 - CLI/API/Core parity
+- AuthorityState decision refs for the taxonomy inspection lane
 
 Classification labels are metadata. They do not make runtime output true and do
 not grant action authority.
@@ -39,9 +43,16 @@ The following remain blocked:
 - provider payload persistence
 - Control Center authority minting
 
-## Exact Promotion Path
+## Exact Authority Path
 
-Promotion requires:
+The current allowed AuthorityState decision applies only to reading result
+classification labels, verification statuses, provenance policies, redaction
+policies, receipt requirements, proof bindings, and blocked-authority refs. It
+does not make tool output truth, grant action authority, promote unverified
+evidence, permit mutation without receipts, persist output/provider material, or
+mint authority from the Control Center.
+
+Future execution-facing result authority requires:
 
 1. result envelope contract
 2. provenance record

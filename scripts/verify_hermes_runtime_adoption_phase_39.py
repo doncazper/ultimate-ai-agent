@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_MAPPING_REF,
     RUNTIME_RESULT_CLASSIFICATION_BLOCKED_AUTHORITY_REFS,
     build_runtime_result_classification_read_model,
 )
@@ -35,6 +36,22 @@ def main() -> int:
         failures.append("result classification CLI ref is stale")
     if read_model.status != "taxonomy_read_model_only":
         failures.append("result classification posture is not taxonomy-only")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("result classification AuthorityState mapping is stale")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("result classification AuthorityState decision must allow read")
+    if read_model.authority_state_status != "implemented_authority_bound_read_model":
+        failures.append("result classification AuthorityState status drifted")
+    if (
+        "reason-ref:authority:active-lease-grants-domain-capability"
+        not in read_model.authority_state_reason_refs
+    ):
+        failures.append("result classification AuthorityState reason is missing")
+    if read_model.unsupported_adapter_refs:
+        failures.append("result classification should not expose unsupported adapters")
     if read_model.classification_count != 7:
         failures.append("result classification lacks expected taxonomy")
     for label, count in {
@@ -118,7 +135,9 @@ def main() -> int:
             "Full-Strength",
             "Repo-Safe",
             "Blocked / Needs Authority",
-            "Exact Promotion Path",
+            "AuthorityState",
+            "Exact Authority Path",
+            RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_MAPPING_REF,
             ROUTE,
             "inspect-result-classification",
         ]:
@@ -142,6 +161,18 @@ def main() -> int:
             failures.append("CLI claims action authority")
         if payload["runtime_result_classification"]["route_ref"] != f"GET {ROUTE}":
             failures.append("CLI returned stale route ref")
+        if (
+            payload["runtime_result_classification"]["authority_state_mapping_ref"]
+            != RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("CLI returned stale AuthorityState mapping")
+        if (
+            payload["runtime_result_classification"][
+                "authority_state_decision_outcome"
+            ]
+            != "allow"
+        ):
+            failures.append("CLI returned unsafe AuthorityState decision")
 
     if failures:
         for failure in failures:

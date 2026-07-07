@@ -413,6 +413,22 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    result_classification = mappings_by_lane[
+        "lane-ref:runtime-result-classification-taxonomy"
+    ]
+    assert result_classification.domain == "workspace"
+    assert result_classification.capability == "read"
+    assert result_classification.required_mode == "read_only"
+    assert result_classification.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/result-classification" in (
+        result_classification.route_refs
+    )
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-result-classification-taxonomy"
+        ].decision.outcome
+        == "allow"
+    )
     staged_runtime_command = mappings_by_lane[
         "lane-ref:staged-orchestration-approved-runtime-command"
     ]

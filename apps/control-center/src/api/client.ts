@@ -6159,6 +6159,23 @@ function isSafeRuntimeResultClassification(
     value.status === "taxonomy_read_model_only" &&
     value.route_ref === "GET /api/runtime/result-classification" &&
     value.cli_ref === "uaa runtime inspect-result-classification" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-result-classification-taxonomy" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    hasExactStringValue(
+      value.authority_state_decision_outcome,
+      TRUST_AUTHORITY_DECISION_OUTCOMES,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    typeof value.authority_state_operator_message === "string" &&
+    Array.isArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    Array.isArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
     value.classification_count === value.classifications.length &&
     value.evidence_count ===
       value.classifications.filter((item) => item.result_kind === "evidence")

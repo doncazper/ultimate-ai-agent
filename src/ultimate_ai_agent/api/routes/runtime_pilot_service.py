@@ -621,7 +621,10 @@ def get_api_runtime_logging_profile() -> ResultEnvelope:
 
 @router.get("/result-classification", response_model=ResultEnvelope)
 def get_api_runtime_result_classification() -> ResultEnvelope:
-    read_model = build_runtime_result_classification_read_model()
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_runtime_result_classification_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_result_classification",

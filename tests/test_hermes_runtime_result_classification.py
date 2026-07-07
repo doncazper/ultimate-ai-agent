@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_MAPPING_REF,
+    RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_RESULT_CLASSIFICATION_BLOCKED_AUTHORITY_REFS,
     RUNTIME_RESULT_CLASSIFICATION_CONTRACT_REF,
     RuntimeResultClassificationReadModel,
@@ -26,6 +29,32 @@ def test_result_classification_taxonomy_is_read_only() -> None:
     assert read_model.status == "taxonomy_read_model_only"
     assert read_model.route_ref == "GET /api/runtime/result-classification"
     assert read_model.cli_ref == "uaa runtime inspect-result-classification"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_catalog_ref.startswith(
+        "authority-decision-catalog-ref:"
+    )
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_status == (
+        "implemented_authority_bound_read_model"
+    )
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        read_model.authority_state_reason_refs
+    )
+    assert read_model.unsupported_adapter_refs == []
     assert read_model.classification_count == 7
     assert read_model.evidence_count == 1
     assert read_model.mutation_count == 1
@@ -146,6 +175,17 @@ def test_result_classification_api_returns_safe_read_model() -> None:
     assert body["operation"] == "api_runtime_result_classification"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/result-classification"
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
+    assert data["authority_state_status"] == (
+        "implemented_authority_bound_read_model"
+    )
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        data["authority_state_reason_refs"]
+    )
     assert data["classification_count"] == 7
     assert data["tool_output_as_truth_enabled"] is False
     assert data["action_authority_enabled"] is False
@@ -177,4 +217,13 @@ def test_result_classification_cli_uses_same_read_model() -> None:
     assert payload["raw_outputs_omitted"] is True
     assert payload["provider_payloads_omitted"] is True
     assert read_model["route_ref"] == "GET /api/runtime/result-classification"
+    assert (
+        read_model["authority_state_mapping_ref"]
+        == RUNTIME_RESULT_CLASSIFICATION_AUTHORITY_MAPPING_REF
+    )
+    assert read_model["authority_state_decision_outcome"] == "allow"
+    assert (
+        read_model["authority_state_status"]
+        == "implemented_authority_bound_read_model"
+    )
     assert read_model["classification_count"] == 7

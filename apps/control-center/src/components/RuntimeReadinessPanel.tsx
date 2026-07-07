@@ -1940,6 +1940,22 @@ export function RuntimeReadinessPanel({
             <dd>{resultClassification.cli_ref}</dd>
           </div>
           <div>
+            <dt>Authority</dt>
+            <dd>{resultClassification.authority_state_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{resultClassification.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision</dt>
+            <dd>{resultClassification.authority_state_decision_outcome}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{resultClassification.authority_state_decision_ref}</dd>
+          </div>
+          <div>
             <dt>Classes</dt>
             <dd>{resultClassification.classification_count}</dd>
           </div>
@@ -2031,6 +2047,12 @@ export function RuntimeReadinessPanel({
             .map((ref) => (
               <li key={ref}>{ref}</li>
             ))}
+        </ul>
+        <h4>Authority reason</h4>
+        <ul className="compact-list">
+          {resultClassification.authority_state_reason_refs.map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
         </ul>
       </article>
       <article className="info-card">
