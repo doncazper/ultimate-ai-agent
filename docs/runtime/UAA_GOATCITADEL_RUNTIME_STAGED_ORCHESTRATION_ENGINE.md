@@ -75,6 +75,11 @@ active `approved_safe_local_work_session` `workspace/execute` lease plus the
 exact RuntimeGateway approval, idempotency, allowlist, safe-disable, rollback,
 redaction, and receipt chain before execution can occur.
 
+Control Center `/runtime` renders the staged plan status, route, CLI,
+AuthorityState decision refs, progress counts, checkpoints, and blocked
+authority refs from this backend-owned read model. It remains an inspection
+surface and cannot create leases or execute staged steps.
+
 ## Approved Runtime Command Step
 
 `execute_approved_runtime_command_step(...)` runs only after

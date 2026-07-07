@@ -541,6 +541,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           backgroundJobs={data.runtimeBackgroundJobs}
           subagentIsolation={data.runtimeSubagentIsolation}
           worktreePerAgent={data.runtimeWorktreePerAgent}
+          stagedOrchestration={data.runtimeStagedOrchestration}
           lspDiagnostics={data.runtimeLspDiagnostics}
           previewRail={data.runtimePreviewRail}
           slashCommandRegistry={data.runtimeSlashCommandRegistry}

@@ -66,6 +66,7 @@ import type {
   RuntimeUsageCostAnalyticsReadModel,
   RuntimeVirtualProviderMoaReadModel,
   RuntimeRunEventsReadModel,
+  RuntimeStagedOrchestrationReadModel,
   RuntimeStreamingProgressReadModel,
   RuntimeProfileIsolationReadModel,
   RuntimeReadinessReport,
@@ -430,6 +431,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeWorktreePerAgent,
     ),
   ] as const);
+  const runtimeStagedOrchestrationSettledPromise = Promise.allSettled([
+    read<RuntimeStagedOrchestrationReadModel>(
+      API_ENDPOINTS.runtimeStagedOrchestration,
+    ),
+  ] as const);
   const runtimeLspDiagnosticsSettledPromise = Promise.allSettled([
     read<RuntimeLspDiagnosticsReadModel>(
       API_ENDPOINTS.runtimeLspDiagnostics,
@@ -594,6 +600,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeSubagentIsolationSettledPromise;
   const runtimeWorktreePerAgentResult =
     await runtimeWorktreePerAgentSettledPromise;
+  const runtimeStagedOrchestrationResult =
+    await runtimeStagedOrchestrationSettledPromise;
   const runtimeLspDiagnosticsResult = await runtimeLspDiagnosticsSettledPromise;
   const runtimePreviewRailResult = await runtimePreviewRailSettledPromise;
   const runtimeSlashCommandRegistryResult =
@@ -658,6 +666,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeSubagentIsolationResult[0],
   );
   const runtimeWorktreePerAgent = fulfilledValue(runtimeWorktreePerAgentResult[0]);
+  const runtimeStagedOrchestration = fulfilledValue(
+    runtimeStagedOrchestrationResult[0],
+  );
   const runtimeLspDiagnostics = fulfilledValue(runtimeLspDiagnosticsResult[0]);
   const runtimePreviewRail = fulfilledValue(runtimePreviewRailResult[0]);
   const runtimeSlashCommandRegistry = fulfilledValue(
@@ -820,6 +831,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeWorktreePerAgent,
   )
     ? runtimeWorktreePerAgent
+    : undefined;
+  const safeRuntimeStagedOrchestration = isSafeRuntimeStagedOrchestration(
+    runtimeStagedOrchestration,
+  )
+    ? runtimeStagedOrchestration
     : undefined;
   const safeRuntimeLspDiagnostics = isSafeRuntimeLspDiagnostics(
     runtimeLspDiagnostics,
@@ -1026,6 +1042,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeSubagentIsolation === undefined;
   const runtimeWorktreePerAgentFallbackUsed =
     safeRuntimeWorktreePerAgent === undefined;
+  const runtimeStagedOrchestrationFallbackUsed =
+    safeRuntimeStagedOrchestration === undefined;
   const runtimeLspDiagnosticsFallbackUsed =
     safeRuntimeLspDiagnostics === undefined;
   const runtimePreviewRailFallbackUsed = safeRuntimePreviewRail === undefined;
@@ -1223,6 +1241,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeBackgroundJobs !== undefined &&
         runtimeSubagentIsolation !== undefined &&
         runtimeWorktreePerAgent !== undefined &&
+        runtimeStagedOrchestration !== undefined &&
         runtimeLspDiagnostics !== undefined &&
         runtimePreviewRail !== undefined &&
         runtimeSlashCommandRegistry !== undefined &&
@@ -1293,6 +1312,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeWorktreePerAgentFallbackUsed
           ? ["RUNTIME_WORKTREE_PER_AGENT_MOCK_FALLBACK"]
           : []),
+        ...(runtimeStagedOrchestrationFallbackUsed
+          ? ["RUNTIME_STAGED_ORCHESTRATION_MOCK_FALLBACK"]
+          : []),
         ...(runtimeLspDiagnosticsFallbackUsed
           ? ["RUNTIME_LSP_DIAGNOSTICS_MOCK_FALLBACK"]
           : []),
@@ -1336,6 +1358,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeBackgroundJobsFallbackUsed ||
         runtimeSubagentIsolationFallbackUsed ||
         runtimeWorktreePerAgentFallbackUsed ||
+        runtimeStagedOrchestrationFallbackUsed ||
         runtimeLspDiagnosticsFallbackUsed ||
         runtimePreviewRailFallbackUsed ||
         runtimeSlashCommandRegistryFallbackUsed ||
@@ -1450,6 +1473,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeBackgroundJobs === undefined ||
     runtimeSubagentIsolation === undefined ||
     runtimeWorktreePerAgent === undefined ||
+    runtimeStagedOrchestration === undefined ||
     runtimeLspDiagnostics === undefined ||
     runtimePreviewRail === undefined ||
     runtimeSlashCommandRegistry === undefined ||
@@ -1499,13 +1523,14 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeBackgroundJobsResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeSubagentIsolationResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeWorktreePerAgentResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeStagedOrchestrationResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeLspDiagnosticsResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimePreviewRailResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeSlashCommandRegistryResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeInterruptRedirectResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeLoggingProfileResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeResultClassificationResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 28;
+  const expectedReadCount = results.length + 29;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1619,6 +1644,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeWorktreePerAgent:
       safeRuntimeWorktreePerAgent ??
       mockControlCenterData.runtimeWorktreePerAgent,
+    runtimeStagedOrchestration:
+      safeRuntimeStagedOrchestration ??
+      mockControlCenterData.runtimeStagedOrchestration,
     runtimeLspDiagnostics:
       safeRuntimeLspDiagnostics ??
       mockControlCenterData.runtimeLspDiagnostics,
@@ -1783,6 +1811,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeBackgroundJobsFallbackUsed ||
     runtimeSubagentIsolationFallbackUsed ||
     runtimeWorktreePerAgentFallbackUsed ||
+    runtimeStagedOrchestrationFallbackUsed ||
     runtimeLspDiagnosticsFallbackUsed ||
     runtimePreviewRailFallbackUsed ||
     runtimeSlashCommandRegistryFallbackUsed ||
@@ -1871,6 +1900,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeWorktreePerAgentFallbackUsed) {
     degradedSafeMessage =
       "Runtime worktree-per-agent posture was unavailable or unsafe; non-authoritative mock fallback kept Git worktree, branch, file, commit, and push mutation blocked.";
+  } else if (runtimeStagedOrchestrationFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime staged orchestration posture was unavailable or unsafe; non-authoritative mock fallback kept autonomous workers and approved runtime commands blocked.";
   } else if (runtimeLspDiagnosticsFallbackUsed) {
     degradedSafeMessage =
       "Runtime LSP diagnostics posture was unavailable or unsafe; non-authoritative mock fallback kept language-server launch, installs, shell execution, and raw diagnostic persistence blocked.";
@@ -5421,6 +5453,155 @@ function isSafeRuntimeWorktreePerAgent(
         lane.raw_path_persisted === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeStagedOrchestration(
+  value: RuntimeStagedOrchestrationReadModel | undefined,
+): value is RuntimeStagedOrchestrationReadModel {
+  if (
+    value === undefined ||
+    !Array.isArray(value.plan?.stages) ||
+    !Array.isArray(value.plan?.steps) ||
+    !Array.isArray(value.plan?.checkpoints) ||
+    !Array.isArray(value.plan?.degraded_handoffs) ||
+    !Array.isArray(value.plan?.blocked_authority_refs)
+  ) {
+    return false;
+  }
+  const allowedStatuses = new Set([
+    "pending",
+    "running",
+    "waiting",
+    "degraded",
+    "skipped",
+    "blocked",
+    "failed",
+    "completed",
+  ]);
+  return (
+    value.schema_version === "staged_orchestration_engine.v1" &&
+    value.plan.schema_version === "staged_orchestration_engine.v1" &&
+    value.validation.schema_version === "staged_orchestration_engine.v1" &&
+    value.backend_owned === true &&
+    value.api_ref === "GET /api/runtime/staged-orchestration" &&
+    value.cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-staged-orchestration" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:staged-orchestration-read-model" &&
+    value.runtime_command_authority_state_mapping_ref ===
+      "lane-ref:staged-orchestration-approved-runtime-command" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    isSafeTrustAuthorityRef(value.runtime_command_authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.runtime_command_authority_state_decision_ref) &&
+    hasExactStringValue(
+      value.authority_state_decision_outcome,
+      TRUST_AUTHORITY_DECISION_OUTCOMES,
+    ) &&
+    hasExactStringValue(
+      value.runtime_command_authority_state_decision_outcome,
+      TRUST_AUTHORITY_DECISION_OUTCOMES,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    typeof value.runtime_command_authority_state_status === "string" &&
+    typeof value.authority_state_operator_message === "string" &&
+    typeof value.runtime_command_authority_state_operator_message === "string" &&
+    Array.isArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    Array.isArray(value.runtime_command_authority_state_reason_refs) &&
+    value.runtime_command_authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    Array.isArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
+    value.progress.total_stage_count === value.plan.stages.length &&
+    value.progress.total_step_count === value.plan.steps.length &&
+    value.validation.plan_ref === value.plan.plan_ref &&
+    ["accepted", "denied"].includes(value.validation.status) &&
+    allowedStatuses.has(value.plan.status) &&
+    value.plan.stages.every(
+      (stage) =>
+        allowedStatuses.has(stage.status) &&
+        isSafeTrustAuthorityRef(stage.stage_ref) &&
+        typeof stage.safe_summary === "string" &&
+        Array.isArray(stage.step_refs) &&
+        stage.step_refs.every(isSafeTrustAuthorityRef) &&
+        Array.isArray(stage.checkpoint_refs) &&
+        stage.checkpoint_refs.every(isSafeTrustAuthorityRef) &&
+        Array.isArray(stage.evidence_refs) &&
+        stage.evidence_refs.every(isSafeTrustAuthorityRef) &&
+        Array.isArray(stage.degraded_handoff_refs) &&
+        stage.degraded_handoff_refs.every(isSafeTrustAuthorityRef),
+    ) &&
+    value.plan.steps.every(
+      (step) =>
+        allowedStatuses.has(step.status) &&
+        isSafeTrustAuthorityRef(step.step_ref) &&
+        isSafeTrustAuthorityRef(step.stage_ref) &&
+        typeof step.safe_summary === "string" &&
+        Array.isArray(step.depends_on_step_refs) &&
+        step.depends_on_step_refs.every(isSafeTrustAuthorityRef) &&
+        (step.policy_ref === null || isSafeTrustAuthorityRef(step.policy_ref)) &&
+        (step.approval_posture_ref === null ||
+          isSafeTrustAuthorityRef(step.approval_posture_ref)) &&
+        (step.checkpoint_ref === null ||
+          isSafeTrustAuthorityRef(step.checkpoint_ref)) &&
+        Array.isArray(step.evidence_refs) &&
+        step.evidence_refs.every(isSafeTrustAuthorityRef) &&
+        Array.isArray(step.receipt_refs) &&
+        step.receipt_refs.every(isSafeTrustAuthorityRef) &&
+        Array.isArray(step.blocked_authority_refs) &&
+        step.blocked_authority_refs.every(isSafeTrustAuthorityRef) &&
+        Array.isArray(step.reason_refs) &&
+        step.reason_refs.every(isSafeTrustAuthorityRef) &&
+        step.execution_performed === false &&
+        step.raw_payload_persisted === false,
+    ) &&
+    value.plan.checkpoints.every(
+      (checkpoint) =>
+        isSafeTrustAuthorityRef(checkpoint.checkpoint_ref) &&
+        isSafeTrustAuthorityRef(checkpoint.stage_ref) &&
+        isSafeTrustAuthorityRef(checkpoint.step_ref) &&
+        Array.isArray(checkpoint.evidence_refs) &&
+        checkpoint.evidence_refs.every(isSafeTrustAuthorityRef) &&
+        Array.isArray(checkpoint.receipt_refs) &&
+        checkpoint.receipt_refs.every(isSafeTrustAuthorityRef) &&
+        Array.isArray(checkpoint.rollback_refs) &&
+        checkpoint.rollback_refs.every(isSafeTrustAuthorityRef) &&
+        checkpoint.raw_payload_persisted === false &&
+        checkpoint.execution_performed === false,
+    ) &&
+    value.plan.degraded_handoffs.every(
+      (handoff) =>
+        isSafeTrustAuthorityRef(handoff.handoff_ref) &&
+        isSafeTrustAuthorityRef(handoff.source_step_ref) &&
+        isSafeTrustAuthorityRef(handoff.target_stage_ref) &&
+        isSafeTrustAuthorityRef(handoff.checkpoint_ref) &&
+        Array.isArray(handoff.reason_refs) &&
+        handoff.reason_refs.every(isSafeTrustAuthorityRef) &&
+        Array.isArray(handoff.evidence_refs) &&
+        handoff.evidence_refs.every(isSafeTrustAuthorityRef) &&
+        Array.isArray(handoff.receipt_refs) &&
+        handoff.receipt_refs.every(isSafeTrustAuthorityRef) &&
+        handoff.execution_enabled === false,
+    ) &&
+    value.plan.blocked_authority_refs.includes(
+      "blocked-state:staged-orchestration:no-autonomous-worker",
+    ) &&
+    value.plan.no_effect === true &&
+    value.plan.approved_runtime_command_execution_enabled === false &&
+    value.plan.background_autonomy_enabled === false &&
+    value.plan.provider_model_call_enabled === false &&
+    value.plan.unrestricted_command_execution_enabled === false &&
+    value.validation.execution_performed === false &&
+    value.safe_refs_only === true &&
+    value.raw_payloads_persisted === false &&
+    value.execution_performed === false &&
+    value.approved_runtime_command_execution_enabled === false &&
+    value.runtime_execution_performed_by_read_model === false &&
+    value.control_center_can_mint_authority === false
   );
 }
 

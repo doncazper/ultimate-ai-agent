@@ -18,6 +18,7 @@ import type {
   RuntimeSessionContinuityReadModel,
   RuntimeToolRegistryAvailabilityReadModel,
   RuntimeRunEventsReadModel,
+  RuntimeStagedOrchestrationReadModel,
   RuntimeStreamingProgressReadModel,
   RuntimeProfileIsolationReadModel,
   RuntimePromptStabilityTiersReadModel,
@@ -56,6 +57,7 @@ export function RuntimeReadinessPanel({
   backgroundJobs,
   subagentIsolation,
   worktreePerAgent,
+  stagedOrchestration,
   lspDiagnostics,
   previewRail,
   slashCommandRegistry,
@@ -86,6 +88,7 @@ export function RuntimeReadinessPanel({
   backgroundJobs: RuntimeBackgroundJobsReadModel;
   subagentIsolation: RuntimeSubagentIsolationReadModel;
   worktreePerAgent: RuntimeWorktreePerAgentReadModel;
+  stagedOrchestration: RuntimeStagedOrchestrationReadModel;
   lspDiagnostics: RuntimeLspDiagnosticsReadModel;
   previewRail: RuntimePreviewRailReadModel;
   slashCommandRegistry: RuntimeSlashCommandRegistryReadModel;
@@ -478,6 +481,108 @@ export function RuntimeReadinessPanel({
             </dd>
           </div>
         </dl>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Staged orchestration</p>
+            <h3>Authority-scoped plan</h3>
+          </div>
+          <span className="status-pill compact">
+            {stagedOrchestration.plan.status}
+          </span>
+        </div>
+        <p>{stagedOrchestration.plan.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{stagedOrchestration.api_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{stagedOrchestration.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Validation</dt>
+            <dd>{stagedOrchestration.validation.status}</dd>
+          </div>
+          <div>
+            <dt>Checkpoint</dt>
+            <dd>{stagedOrchestration.latest_checkpoint_ref ?? "none"}</dd>
+          </div>
+          <div>
+            <dt>Read authority</dt>
+            <dd>
+              <span>{stagedOrchestration.authority_state_decision_outcome}</span>
+              <br />
+              <span>{stagedOrchestration.authority_state_decision_ref}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Runtime command</dt>
+            <dd>
+              <span>
+                {stagedOrchestration.runtime_command_authority_state_decision_outcome}
+              </span>
+              <br />
+              <span>
+                {stagedOrchestration.runtime_command_authority_state_decision_ref}
+              </span>
+            </dd>
+          </div>
+        </dl>
+        <div className="flag-list">
+          <div>
+            <span>Stages</span>
+            <strong>{stagedOrchestration.progress.total_stage_count}</strong>
+          </div>
+          <div>
+            <span>Steps</span>
+            <strong>{stagedOrchestration.progress.total_step_count}</strong>
+          </div>
+          <div>
+            <span>Waiting</span>
+            <strong>{stagedOrchestration.progress.waiting_count}</strong>
+          </div>
+          <div>
+            <span>Degraded</span>
+            <strong>{stagedOrchestration.progress.degraded_count}</strong>
+          </div>
+          <div>
+            <span>Execution</span>
+            <strong>
+              {stagedOrchestration.execution_performed ? "performed" : "not run"}
+            </strong>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Stage</th>
+                <th>Status</th>
+                <th>Steps</th>
+                <th>Checkpoint</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stagedOrchestration.plan.stages.map((stage) => (
+                <tr key={stage.stage_ref}>
+                  <td>{stage.stage_ref}</td>
+                  <td>{stage.status}</td>
+                  <td>{stage.step_refs.length}</td>
+                  <td>{stage.checkpoint_refs[0] ?? "none"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {stagedOrchestration.plan.blocked_authority_refs.slice(0, 6).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
       </article>
       <article className="info-card">
         <div className="panel-heading compact-heading">

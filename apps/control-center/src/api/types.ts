@@ -10914,6 +10914,157 @@ export interface RuntimeWorktreePerAgentReadModel {
   redactions_applied: string[];
 }
 
+export type StagedOrchestrationStatus =
+  | "pending"
+  | "running"
+  | "waiting"
+  | "degraded"
+  | "skipped"
+  | "blocked"
+  | "failed"
+  | "completed";
+
+export interface StagedOrchestrationStage {
+  stage_ref: string;
+  sequence: number;
+  safe_summary: string;
+  status: StagedOrchestrationStatus;
+  step_refs: string[];
+  checkpoint_refs: string[];
+  evidence_refs: string[];
+  degraded_handoff_refs: string[];
+}
+
+export interface StagedOrchestrationStep {
+  step_ref: string;
+  stage_ref: string;
+  safe_summary: string;
+  status: StagedOrchestrationStatus;
+  mode: string;
+  depends_on_step_refs: string[];
+  policy_ref: string | null;
+  approval_posture_ref: string | null;
+  checkpoint_ref: string | null;
+  evidence_refs: string[];
+  receipt_refs: string[];
+  blocked_authority_refs: string[];
+  reason_refs: string[];
+  execution_ready: boolean;
+  execution_performed: boolean;
+  raw_payload_persisted: boolean;
+}
+
+export interface StagedOrchestrationCheckpoint {
+  checkpoint_ref: string;
+  stage_ref: string;
+  step_ref: string;
+  sequence: number;
+  safe_summary: string;
+  idempotency_ref: string;
+  replay_ref: string;
+  evidence_refs: string[];
+  receipt_refs: string[];
+  rollback_refs: string[];
+  raw_payload_persisted: boolean;
+  execution_performed: boolean;
+}
+
+export interface StagedOrchestrationDegradedHandoff {
+  handoff_ref: string;
+  source_step_ref: string;
+  target_stage_ref: string;
+  safe_summary: string;
+  reason_refs: string[];
+  checkpoint_ref: string;
+  evidence_refs: string[];
+  receipt_refs: string[];
+  execution_enabled: boolean;
+}
+
+export interface StagedOrchestrationPlan {
+  schema_version: "staged_orchestration_engine.v1";
+  plan_ref: string;
+  run_ref: string;
+  turn_run_approval_chain_ref: string;
+  route_decision_binding_ref: string;
+  safe_summary: string;
+  status: StagedOrchestrationStatus;
+  stages: StagedOrchestrationStage[];
+  steps: StagedOrchestrationStep[];
+  checkpoints: StagedOrchestrationCheckpoint[];
+  degraded_handoffs: StagedOrchestrationDegradedHandoff[];
+  evidence_refs: string[];
+  receipt_refs: string[];
+  blocked_authority_refs: string[];
+  no_effect: boolean;
+  approved_runtime_command_execution_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  provider_model_call_enabled: boolean;
+  unrestricted_command_execution_enabled: boolean;
+}
+
+export interface StagedOrchestrationProgressSummary {
+  total_stage_count: number;
+  total_step_count: number;
+  pending_count: number;
+  running_count: number;
+  waiting_count: number;
+  degraded_count: number;
+  skipped_count: number;
+  blocked_count: number;
+  failed_count: number;
+  completed_count: number;
+}
+
+export interface StagedOrchestrationValidationDecision {
+  schema_version: "staged_orchestration_engine.v1";
+  plan_ref: string;
+  status: "accepted" | "denied";
+  reason_codes: string[];
+  safe_summary: string;
+  blocked_authority_refs: string[];
+  no_effect: boolean;
+  approved_runtime_command_execution_enabled: boolean;
+  execution_performed: boolean;
+}
+
+export interface RuntimeStagedOrchestrationReadModel {
+  schema_version: "staged_orchestration_engine.v1";
+  contract_ref: string;
+  source: string;
+  backend_owned: boolean;
+  plan: StagedOrchestrationPlan;
+  validation: StagedOrchestrationValidationDecision;
+  progress: StagedOrchestrationProgressSummary;
+  latest_checkpoint_ref: string | null;
+  cli_ref: string;
+  api_ref: string;
+  authority_state_route_ref: string;
+  authority_state_cli_ref: string;
+  authority_state_mapping_ref: string;
+  authority_state_catalog_ref: string;
+  authority_state_decision_ref: string;
+  authority_state_decision_outcome: AuthorityDecisionOutcome;
+  authority_state_status: string;
+  authority_state_operator_message: string;
+  authority_state_reason_refs: string[];
+  runtime_command_authority_state_mapping_ref: string;
+  runtime_command_authority_state_catalog_ref: string;
+  runtime_command_authority_state_decision_ref: string;
+  runtime_command_authority_state_decision_outcome: AuthorityDecisionOutcome;
+  runtime_command_authority_state_status: string;
+  runtime_command_authority_state_operator_message: string;
+  runtime_command_authority_state_reason_refs: string[];
+  unsupported_adapter_refs: string[];
+  redactions_applied: string[];
+  safe_refs_only: boolean;
+  raw_payloads_persisted: boolean;
+  execution_performed: boolean;
+  approved_runtime_command_execution_enabled: boolean;
+  runtime_execution_performed_by_read_model: boolean;
+  control_center_can_mint_authority: boolean;
+}
+
 export type RuntimeLspDiagnosticLanguage = "python" | "typescript" | "docs";
 
 export type RuntimeLspDiagnosticStatus =
@@ -12960,6 +13111,7 @@ export interface ControlCenterData {
   runtimeBackgroundJobs: RuntimeBackgroundJobsReadModel;
   runtimeSubagentIsolation: RuntimeSubagentIsolationReadModel;
   runtimeWorktreePerAgent: RuntimeWorktreePerAgentReadModel;
+  runtimeStagedOrchestration: RuntimeStagedOrchestrationReadModel;
   runtimeLspDiagnostics: RuntimeLspDiagnosticsReadModel;
   runtimePreviewRail: RuntimePreviewRailReadModel;
   runtimeSlashCommandRegistry: RuntimeSlashCommandRegistryReadModel;

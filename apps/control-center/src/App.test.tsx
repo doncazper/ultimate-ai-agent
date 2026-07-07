@@ -7965,6 +7965,21 @@ describe("Web Control Center shell", () => {
         "blocked-authority:worktree-per-agent-no-git-worktree-create",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText("Staged orchestration")).toBeInTheDocument();
+    expect(screen.getByText("Authority-scoped plan")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("GET /api/runtime/staged-orchestration").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "authority-policy-decision-ref:mock-staged-orchestration-runtime-command",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "blocked-state:staged-orchestration:no-autonomous-worker",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("Diagnostics").length).toBeGreaterThan(0);
     expect(screen.getByText("Semantic proof posture")).toBeInTheDocument();
     expect(
@@ -15938,6 +15953,12 @@ describe("Web Control Center shell", () => {
     expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeWorktreePerAgent)).toBe(
       true,
     );
+    expect(API_ENDPOINTS.runtimeStagedOrchestration).toBe(
+      "/api/runtime/staged-orchestration",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.runtimeStagedOrchestration)).toBe(
+      true,
+    );
     expect(API_ENDPOINTS.runtimeLspDiagnostics).toBe(
       "/api/runtime/lsp-diagnostics",
     );
@@ -17154,6 +17175,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeSubagentIsolation,
     [API_ENDPOINTS.runtimeWorktreePerAgent]:
       mockControlCenterData.runtimeWorktreePerAgent,
+    [API_ENDPOINTS.runtimeStagedOrchestration]:
+      mockControlCenterData.runtimeStagedOrchestration,
     [API_ENDPOINTS.runtimeLspDiagnostics]:
       mockControlCenterData.runtimeLspDiagnostics,
     [API_ENDPOINTS.runtimePreviewRail]:

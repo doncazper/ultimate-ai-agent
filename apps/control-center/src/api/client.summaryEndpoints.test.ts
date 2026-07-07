@@ -853,6 +853,8 @@ function baseRouteData(): Record<string, unknown> {
       mockControlCenterData.runtimeSubagentIsolation,
     [API_ENDPOINTS.runtimeWorktreePerAgent]:
       mockControlCenterData.runtimeWorktreePerAgent,
+    [API_ENDPOINTS.runtimeStagedOrchestration]:
+      mockControlCenterData.runtimeStagedOrchestration,
     [API_ENDPOINTS.runtimeLspDiagnostics]:
       mockControlCenterData.runtimeLspDiagnostics,
     [API_ENDPOINTS.runtimePreviewRail]:
