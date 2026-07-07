@@ -492,6 +492,31 @@ def test_authority_decision_preview_api_and_cli_are_read_only(
     assert "adapter-unsupported" in cli_payload
     assert "execution_performed" in cli_payload
 
+    cli_text_exit = uaa_runtime.main(
+        [
+            "preview-authority-decision",
+            "--action-ref",
+            "authority-action-ref:test-preview-cli-text",
+            "--domain",
+            "browser",
+            "--capability",
+            "click",
+            "--summary",
+            "Preview browser click authority without running browser automation.",
+            "--requested-mode",
+            "full_machine_access_session",
+            "--unsupported-adapter",
+            "--draft-fallback-available",
+        ]
+    )
+    assert cli_text_exit == 0
+    cli_text = capsys.readouterr().out
+    assert "Authority decision preview" in cli_text
+    assert (
+        "Requirement: Requires full machine access session + browser domain + "
+        "click capability."
+    ) in cli_text
+
 
 def test_authority_mission_plan_api_cli_and_core_are_read_only(
     capsys,
@@ -616,6 +641,28 @@ def test_authority_mission_plan_api_cli_and_core_are_read_only(
     assert "authority_mission_plan" in cli_payload
     assert "adapter-ref:shopping_payments" in cli_payload
     assert "execution_performed" in cli_payload
+
+    cli_text_exit = uaa_runtime.main(
+        [
+            "plan-authority-mission",
+            "--mission-ref",
+            "mission-ref:test-cli-ticket-mission-text",
+            "--domain",
+            "browser:observe,click,form_fill",
+            "--domain",
+            "shopping_payments:purchase_under_budget",
+            "--summary",
+            "Preview a delegated ticket purchase mission from the CLI.",
+        ]
+    )
+    assert cli_text_exit == 0
+    cli_text = capsys.readouterr().out
+    assert "Authority mission plan" in cli_text
+    assert (
+        "Requirement: Requires delegated mission autonomous window + "
+        "browser, shopping payments domain scope + click, form fill, observe, "
+        "purchase under budget capability scope."
+    ) in cli_text
 
 
 def test_authority_lease_issue_revoke_api_and_cli_are_durable(

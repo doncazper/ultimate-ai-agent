@@ -1880,6 +1880,54 @@ def _parse_authority_domains(values: list[str] | None) -> dict[AuthorityDomain, 
     return parsed
 
 
+def _authority_value_label(value: Any) -> str:
+    return str(getattr(value, "value", value)).replace("_", " ")
+
+
+def _authority_ref_labels(refs: list[str], prefix: str) -> str:
+    labels = [
+        ref.removeprefix(f"{prefix}:").replace("_", " ")
+        for ref in refs
+    ]
+    return ", ".join(label for label in labels if label)
+
+
+def _authority_decision_requirement(decision: Any) -> str:
+    mode = (
+        _authority_value_label(decision.required_mode)
+        if decision.required_mode
+        else "active lease"
+    )
+    domain = _authority_ref_labels(
+        list(decision.required_domain_refs),
+        "authority-domain-ref",
+    ) or _authority_value_label(decision.domain)
+    capability = _authority_ref_labels(
+        list(decision.required_capability_refs),
+        "authority-capability-ref",
+    ) or _authority_value_label(decision.capability)
+    return f"Requires {mode} + {domain} domain + {capability} capability."
+
+
+def _authority_mission_requirement(plan: Any) -> str:
+    mode = _authority_value_label(plan.requested_mode)
+    domains = _authority_ref_labels(
+        list(plan.required_domain_refs),
+        "authority-domain-ref",
+    ) or ", ".join(
+        domain.replace("_", " ") for domain in sorted(plan.requested_domains)
+    )
+    capabilities = _authority_ref_labels(
+        list(plan.required_capability_refs),
+        "authority-capability-ref",
+    ) or "declared capability"
+    prefix = "Issue-ready for" if plan.lease_issue_ready else "Requires"
+    return (
+        f"{prefix} {mode} + {domains} domain scope + "
+        f"{capabilities} capability scope."
+    )
+
+
 def _select_authority_mode(args: argparse.Namespace) -> int:
     request = AuthorityLeaseIssueRequest(
         mode=TrustMode(args.mode),
@@ -1983,6 +2031,7 @@ def _preview_authority_decision(args: argparse.Namespace) -> int:
         print(f"Outcome: {decision.outcome}")
         print(f"Domain: {decision.domain}")
         print(f"Capability: {decision.capability}")
+        print(f"Requirement: {_authority_decision_requirement(decision)}")
         print(f"Lease: {decision.lease_ref or 'none'}")
         print(f"Decision: {decision.decision_ref}")
         print(f"Preview receipt: {preview.preview_receipt_ref}")
@@ -2019,6 +2068,7 @@ def _plan_authority_mission(args: argparse.Namespace) -> int:
         print(f"Mission: {plan.mission_ref}")
         print(f"Mode: {plan.requested_mode}")
         print(f"Issue ready: {'yes' if plan.lease_issue_ready else 'no'}")
+        print(f"Requirement: {_authority_mission_requirement(plan)}")
         print(f"Granted domains: {len(plan.granted_domains)}")
         print(f"Unsupported adapters: {len(plan.unsupported_adapter_refs)}")
         print(f"Action previews: {len(plan.action_previews)}")
