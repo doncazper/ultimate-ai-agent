@@ -8,7 +8,7 @@
     "api_ref": "GET /api/runtime/authority-state",
     "settings_ref": "GET /control-center/settings/status#authority_lease_state",
     "cli_ref": "scripts/dev/uaa_runtime.py inspect-authority-state --json",
-    "safe_summary": "Authority candidates are no longer the user-facing authority model. Existing legacy lanes are mapped into AuthorityLease domains and capabilities; unknown authority denies by default, and unsupported adapters remain planned or blocked until implemented and tested."
+    "safe_summary": "Authority candidates are no longer the user-facing authority model. Existing legacy compatibility refs are mapped into AuthorityLease domains and capabilities; unknown authority denies by default, and unsupported adapters remain planned or blocked until implemented and tested."
   },
   "conveyor_doc_ref": "docs/control_center/AUTHORITY_RAMP_CONVEYOR.md",
   "verifier_ref": "scripts/verify_operational_maturity.py",

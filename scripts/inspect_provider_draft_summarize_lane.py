@@ -38,7 +38,7 @@ from ultimate_ai_agent.core.secrets.vault_contracts import ProviderCredentialVau
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Inspect the exact provider draft/summarize micro-lane."
+        description="Inspect the exact provider draft/summarize authority capability."
     )
     parser.add_argument(
         "--demo-fixture",
