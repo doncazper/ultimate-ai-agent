@@ -238,6 +238,18 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         context_pack_action.status
         == "implemented_exact_lease_required_proposal_only"
     )
+    memory_write = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /control-center/memory/review/{candidate_ref}/accept"
+        in mapping.route_refs
+    )
+    assert "POST /control-center/memory/review/{candidate_ref}/correct" in (
+        memory_write.route_refs
+    )
+    assert memory_write.domain == "memory"
+    assert memory_write.capability == "write"
+    assert memory_write.required_mode == "ask_before_changes"
     today_action_envelope = next(
         mapping
         for mapping in read_model.capability_mappings

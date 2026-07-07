@@ -2050,7 +2050,10 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             AuthorityCapability.write,
             TrustMode.ask_before_changes,
             "implemented_ask_required",
-            ["POST /control-center/memory/review/{candidate_ref}/accept"],
+            [
+                "POST /control-center/memory/review/{candidate_ref}/accept",
+                "POST /control-center/memory/review/{candidate_ref}/correct",
+            ],
             ["repo-local-command:inspect-memory-review"],
             "Requires Memory domain write authority; Ask before changes returns ask until an operator confirms.",
         ),
