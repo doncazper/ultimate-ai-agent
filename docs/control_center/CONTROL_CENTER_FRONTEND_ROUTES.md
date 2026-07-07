@@ -60,7 +60,7 @@ connector draft proposal refs from `GET /control-center/sources/readiness`,
 but no standalone or mutating draft proposal route, backend email/calendar
 connector route, account auth, send/write/archive/delete authority, or
 connector runtime.
-`/actions` renders backend-classified Action Inbox queue lanes from
+`/actions` renders backend-classified Action Inbox queue states from
 `GET /control-center/actions/inbox` so ready, approved local-task,
 authority-blocked, expired/stale, receipt-recorded, and proposal-only items are
 visibly distinct. The grouping is read-only metadata from Python core storage;
@@ -229,9 +229,10 @@ docs. No broad runtime authority is added.
 
 Beta 09 Provider Draft/Summarize preview keeps `/proof` and `/trust` as
 inspection-only Control Center surfaces for the exact core/CLI provider draft
-lane. `/proof` can show `proof-ref:provider-draft-summarize:exact` as
-backend-owned safe-ref proof and `/trust` can show the lane posture, CLI refs,
-safe-disable refs, rollback refs, blocked authority refs, and promotion refs.
+capability. `/proof` can show `proof-ref:provider-draft-summarize:exact` as
+backend-owned safe-ref proof and `/trust` can show the capability posture, CLI
+refs, safe-disable refs, rollback refs, blocked authority refs, and maturity
+refs.
 The frontend must not expose a provider-draft API route, provider-call button,
 default live provider network, provider SDK call, durable draft preview
 persistence, connector write, memory/context injection, action execution,
@@ -401,7 +402,7 @@ M40 remains future.
 ## Provider Credential Readiness + Cost Binding Visibility
 
 Setup, Settings, Models, and Action Inbox may render provider credential
-readiness, CostGovernor posture, and tiny provider lane posture from
+readiness, CostGovernor posture, and exact provider capability posture from
 `GET /control-center/dashboard`.
 Setup, Settings, and Models may also render provider catalog/cost-literacy
 metadata from `GET /control-center/providers/setup-guide`. This is reference
@@ -410,7 +411,7 @@ policy refs, revocation refs, approval refs, blocker codes, vault adapter
 readiness, validation readiness, invocation readiness, readiness status,
 unknown paid-cost approval posture, cost estimate refs, budget decision refs,
 max-approved USD refs, future receipt refs, and CostGovernor decision/posture
-refs. The exact credential validation lane route
+refs. The exact credential validation capability route
 `POST /control-center/providers/credentials/validate` is active
 `provider_model_calls/execute` AuthorityLease, exact-approval, policy,
 idempotency, revocation/safe-disable, and redacted-receipt scoped for one
@@ -434,9 +435,9 @@ The future gates are separate:
   defines adapter storage backend, consent, policy, approval, revocation,
   audit, redaction, and rollback behavior.
 - Broad Provider Credential Validation remains blocked outside the
-  AuthorityLease-gated exact-approved one-provider lane with redacted validation
-  receipts.
-- Tiny Exact-Approved Provider Lane remains disabled by default until a scoped
+  AuthorityLease-gated exact-approved one-provider capability with redacted
+  validation receipts.
+- Tiny Exact-Approved Provider Capability remains disabled by default until a scoped
   adapter enablement milestone defines provider SDK/network authority. The
   current route requires exact approval, CostGovernor posture, idempotency,
   redacted receipt refs, safe-disable behavior, and complete provider/model/

@@ -588,7 +588,7 @@
       "product_language_caveats": [
         "Release status is ship for proofed route-surface behavior; it is not a public beta, public release, production readiness, or production authority claim.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
-        "Action Inbox may present a backend-owned work queue and exact local_task_create local task record lane, but it must not imply generic action execution.",
+        "Action Inbox may present a backend-owned work queue and exact local_task_create AuthorityLease-gated local task record capability, but it must not imply generic action execution.",
         "Route visibility does not grant connector writes/sends, provider/model calls, shell/subprocess execution, browser execution, memory/context injection, external side effects, rollback execution, broad runtime authority, or hidden autonomy."
       ]
     },
@@ -980,10 +980,38 @@
           "operation_id": "get_control_center_providers_setup_guide",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-decisions/preview",
+          "operation_id": "post_api_runtime_authority_decisions_preview",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-missions/plan",
+          "operation_id": "post_api_runtime_authority_missions_plan",
+          "side_effect_class": "validation_only",
+          "route_classification": "local_sensitive"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-leases",
+          "operation_id": "post_api_runtime_authority_leases",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-leases/revoke",
+          "operation_id": "post_api_runtime_authority_leases_revoke",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "mutating_requires_authority"
         }
       ],
-      "side_effect_class": "validation_only",
-      "route_classification": "local_readonly",
+      "side_effect_class": "mixed",
+      "route_classification": "mixed",
       "approval_required": true,
       "proof_lanes": [
         "scripts/verify_control_center_release_surface.py",

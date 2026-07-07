@@ -70,7 +70,7 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for the read-only Start Here summary. Committing, sending, applying, executing, provider/model calls, connector writes, browser automation, shell/subprocess execution, background autonomy, public release, and production authority require later exact-scoped lanes.",
+      "approval_requirement": "None for the read-only Start Here summary. Committing, sending, applying, executing, provider/model calls, connector writes, browser automation, shell/subprocess execution, background autonomy, public release, and production authority require later exact-scoped AuthorityLease capabilities.",
       "evidence_audit_output": "Backend-owned Start Here local loop refs, readiness state, next safe action, action proposal ref, proof ref, evidence refs, blocked authority refs, local loop status, and missing prerequisite refs only; no UI-only truth, raw content, runtime execution, connector write, provider/model call, shell/browser execution, background autonomy, public release, or production authority.",
       "current_backend_routes": [
         {
@@ -126,7 +126,7 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only Trust authority matrix inspection. Trust explains available local read/preview/draft lanes, exact approval requirements, planned lanes, and blocked authority; it does not grant approval, execution, connector writes, provider/model calls, browser or shell execution, background autonomy, public release, or production authority.",
+      "approval_requirement": "None for read-only Trust authority matrix inspection. Trust explains available local read/preview/draft AuthorityLease capabilities, exact approval requirements, planned capabilities, and blocked authority; it does not grant approval, execution, connector writes, provider/model calls, browser or shell execution, background autonomy, public release, or production authority.",
       "evidence_audit_output": "Backend-owned Trust authority matrix safe refs, tier summaries, lane refs, route refs, proof refs, verifier refs, docs refs, approval posture, blocked authority refs, and next safe action only; no raw payloads, no UI-only authority, and no authority grant.",
       "current_backend_routes": [
         {
@@ -1284,7 +1284,7 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only Work Board inspection or local preview drag/drop. Persisted reorder and local card create require exact local approval, idempotency, receipts, rollback/safe-disable posture, and CLI inspection. Archive, assign, issue-tracker sync, connector writes, provider/model calls, shell/browser execution, background autonomy, public release, and production authority require later exact-scoped lanes.",
+      "approval_requirement": "None for read-only Work Board inspection or local preview drag/drop. Persisted reorder and local card create require exact local approval, active workspace/write AuthorityLease capability scope, idempotency, receipts, rollback/safe-disable posture, and CLI inspection. Archive, assign, issue-tracker sync, connector writes, provider/model calls, shell/browser execution, background autonomy, public release, and production authority require later exact-scoped AuthorityLease capabilities.",
       "evidence_audit_output": "Backend-owned Work Board card, column, proof, evidence, blocker, drag/drop posture, promotion-path, CLI inspection refs, exact approved reorder receipt refs, and exact approved local-card-create receipt refs only. Local drag/drop and keyboard moves are presentation preview until persisted through approval-bound routes.",
       "current_backend_routes": [
         {
@@ -1323,7 +1323,7 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only coding session, context, patch proposal, apply-readiness, test-command readiness, Git review, live-preview readiness, or multi-agent review readiness inspection; future patch apply, command, Git, browser, dev-server, provider, agent execution, connector, or production lanes require exact scoped authority, receipts, rollback or safe-disable posture, redaction, CLI parity, and verifier coverage.",
+      "approval_requirement": "None for read-only coding session, context, patch proposal, apply-readiness, test-command readiness, Git review, live-preview readiness, or multi-agent review readiness inspection; future patch apply, command, Git, browser, dev-server, provider, agent execution, connector, or production capabilities require exact AuthorityLease scope, receipts, rollback or safe-disable posture, redaction, CLI parity, and verifier coverage.",
       "evidence_audit_output": "Backend-owned Coding Cockpit session safe refs for workspace, context, task, patch proposal artifact, patch apply readiness, test command readiness, Git review readiness, live preview readiness, multi-agent review readiness, preview posture, proof, authority modes, redaction, blocked authority, and next safe action only; no file writes, patch apply, shell or subprocess execution, command execution, live Git command execution, Git mutation, dev server start or status detection, raw URL persistence, screenshot capture, console capture, provider or model calls, provider SDK calls, local agent execution, multi-agent execution, context injection, raw prompt persistence, raw response persistence, browser automation, connector writes, background autonomy, raw path persistence, raw content persistence, public release, or production authority.",
       "current_backend_routes": [
         {
@@ -1408,7 +1408,7 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for the read-only Start Here summary; execution, provider/model calls, connector writes/sends, browser or shell execution, background autonomy, public release, and production authority require later exact-scoped lanes.",
+      "approval_requirement": "None for the read-only Start Here summary; execution, provider/model calls, connector writes/sends, browser or shell execution, background autonomy, public release, and production authority require later exact-scoped AuthorityLease capabilities.",
       "evidence_audit_output": "Backend-owned Start Here safe refs, local readiness state, next safe action, action proposal ref, proof ref, evidence refs, blocked authority refs, and missing prerequisite refs only.",
       "backend_routes": [
         {
@@ -1471,7 +1471,7 @@
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
       "approval_requirement": "None for read-only Trust authority matrix inspection; mutation and execution remain outside this surface.",
-      "evidence_audit_output": "Trust authority map safe refs, tier summaries, approval posture, proof/verifier refs, and blocked authority refs only; available preview/draft lanes are not external sends or runtime execution.",
+      "evidence_audit_output": "Trust authority map safe refs, tier summaries, approval posture, proof/verifier refs, and blocked authority refs only; available preview/draft capabilities are not external sends or runtime execution.",
       "backend_routes": [
         {
           "method": "GET",
@@ -1550,8 +1550,8 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "founder_loop_v1_proofed",
-      "approval_requirement": "Action decisions require active workspace/write AuthorityLease scope, protected backend routes, idempotency, authority decision refs, receipt refs, and exact approval where scoped; read-only work queue inspection needs no approval. The exact local_task_create local task record lane separately requires approved exact scope plus workspace/write AuthorityLease evaluation; broad execution remains blocked.",
-      "evidence_audit_output": "Proofed Action Inbox route surface with AuthorityLease-gated backend-owned decision receipts, work queue read model, and one local_task_create local task record lane. Missing decision authority records blocked receipt state without minting backend-owned approval. The local task lane records durable local task receipt refs and local_task_created Evidence Timeline events only; no generic action execution, connector writes/sends, shell/subprocess execution, browser execution, provider/model calls, broad runtime authority, public beta, or production authority.",
+      "approval_requirement": "Action decisions require active workspace/write AuthorityLease scope, protected backend routes, idempotency, authority decision refs, receipt refs, and exact approval where scoped; read-only work queue inspection needs no approval. The exact local_task_create local task record capability separately requires approved exact scope plus workspace/write AuthorityLease evaluation; broad execution remains blocked.",
+      "evidence_audit_output": "Proofed Action Inbox route surface with AuthorityLease-gated backend-owned decision receipts, work queue read model, and one local_task_create local task record capability. Missing decision authority records blocked receipt state without minting backend-owned approval. The local task capability records durable local task receipt refs and local_task_created Evidence Timeline events only; no generic action execution, connector writes/sends, shell/subprocess execution, browser execution, provider/model calls, broad runtime authority, public beta, or production authority.",
       "backend_routes": [
         {
           "method": "GET",
@@ -2020,7 +2020,7 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only Work Board navigation or local preview drag/drop; persisted reorder and local card create require exact local approval, idempotency, receipts, rollback/safe-disable posture, and CLI inspection. Task creation, card archive/assignment, issue-tracker sync, connector writes, provider/model calls, shell/browser execution, background autonomy, public release, and production authority remain blocked until later exact-scoped lanes.",
+      "approval_requirement": "None for read-only Work Board navigation or local preview drag/drop; persisted reorder and local card create require exact local approval, active workspace/write AuthorityLease capability scope, idempotency, receipts, rollback/safe-disable posture, and CLI inspection. Task creation, card archive/assignment, issue-tracker sync, connector writes, provider/model calls, shell/browser execution, background autonomy, public release, and production authority remain blocked until later exact-scoped AuthorityLease capabilities.",
       "evidence_audit_output": "Work Board navigation renders backend-owned safe refs, proof refs, local preview posture, exact approved reorder receipt refs, and exact approved local-card-create receipt refs when persisted; no task creation, archive/assignment, issue tracker write, connector write, or external side effect is recorded.",
       "backend_routes": [
         {
@@ -2923,7 +2923,7 @@
       "side_effect_class": "local_dev_workspace_only",
       "risk_class": "medium",
       "release_status": "partial_backend_not_product_ready",
-      "approval_requirement": "None for read-only coding session inspection; later apply, command, Git, browser, provider, local-agent, connector, or production lanes require exact scoped authority and receipts.",
+      "approval_requirement": "None for read-only coding session inspection; later apply, command, Git, browser, provider, local-agent, connector, or production capabilities require exact AuthorityLease scope and receipts.",
       "evidence_audit_output": "Coding Cockpit session refs, workspace refs, context refs, task refs, patch proposal artifact refs, patch apply readiness refs, test command readiness refs, Git review refs, preview refs, multi-agent review refs, proof refs, blocked authority refs, redaction refs, and next-safe-action refs only; no file writes, patch apply, shell or subprocess execution, command execution, live Git command execution, Git mutation, provider or model calls, provider SDK calls, local agent execution, multi-agent execution, context injection, raw prompt persistence, raw response persistence, browser automation, connector writes, background autonomy, raw path persistence, raw content persistence, public release, or production authority.",
       "backend_routes": [
         {
