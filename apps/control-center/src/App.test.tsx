@@ -13,6 +13,7 @@ import {
   API_ENDPOINTS,
   actionDecisionEndpoint,
   actionLocalTaskCommitEndpoint,
+  actionReceiptEndpoint,
   chatTurnHandoffEndpoint,
   chatTurnReceiptEndpoint,
   isAllowedReadEndpoint,
@@ -9350,6 +9351,17 @@ describe("Web Control Center shell", () => {
         "Action approval receipt recorded; action execution remains blocked.",
       evidence_refs: ["evidence-ref:founder-loop:action-decision"],
       blocked_state_refs: ["blocked-state:no-action-execution"],
+      authority_decision_ref:
+        "authority-policy-decision-ref:mock-local-task-create-approve",
+      authority_decision_outcome: "ask",
+      authority_lease_ref: "authority-lease-ref:mock-workspace-write",
+      authority_audit_ref: "audit-ref:authority-policy:mock-local-task-create",
+      authority_receipt_ref:
+        "receipt-ref:authority-policy:mock-local-task-create",
+      authority_reason_refs: ["reason-ref:authority:ask-before-changes-mode"],
+      authority_domain_ref: "authority-domain-ref:workspace",
+      authority_capability_ref: "authority-capability-ref:write",
+      authority_required_mode_ref: "authority-mode-ref:ask-before-changes",
       created_at: "2026-06-22T00:00:30Z",
     };
     const approvedItem = approvedInbox.items.find(
@@ -9450,6 +9462,9 @@ describe("Web Control Center shell", () => {
       "founder-action:mock-local-task-create",
       "approve",
     );
+    const approvalReceiptEndpoint = actionReceiptEndpoint(
+      "founder-action:mock-local-task-create",
+    );
     const commitEndpoint = actionLocalTaskCommitEndpoint(
       "founder-action:mock-local-task-create",
     );
@@ -9482,6 +9497,15 @@ describe("Web Control Center shell", () => {
         });
       }
       if (options?.method === "POST" && urlText.endsWith(approvalEndpoint)) {
+        return new Response(
+          JSON.stringify({ ok: true, result: approvalReceipt }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (!options?.method && urlText.endsWith(approvalReceiptEndpoint)) {
         return new Response(
           JSON.stringify({ ok: true, result: approvalReceipt }),
           {
@@ -9526,6 +9550,28 @@ describe("Web Control Center shell", () => {
     expect(
       (await screen.findAllByText(approvalReceipt.receipt_ref)).length,
     ).toBeGreaterThan(0);
+    expect(await screen.findByText("Authority outcome")).toBeInTheDocument();
+    expect((await screen.findAllByText("ask")).length).toBeGreaterThan(0);
+    expect(
+      await screen.findByText("authority-lease-ref:mock-workspace-write"),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("authority-mode-ref:ask-before-changes"),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("authority-domain-ref:workspace"),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("authority-capability-ref:write"),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "authority-policy-decision-ref:mock-local-task-create-approve",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("reason-ref:authority:ask-before-changes-mode"),
+    ).toBeInTheDocument();
     const commitButton = await screen.findByRole("button", {
       name: /Create local task record/i,
     });

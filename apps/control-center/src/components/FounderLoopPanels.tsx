@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   commitLocalTask,
+  fetchActionReceipt,
   fetchFounderActionsInbox,
   fetchFounderMemoryContextPacks,
   recordManualMemoryCandidate,
@@ -10775,6 +10776,8 @@ function ActionItemCard({
 }) {
   const displayedItem = item;
   const reconcileActionItem = onReconciledItem ?? (() => undefined);
+  const [lastDecisionReceipt, setLastDecisionReceipt] =
+    useState<FounderLoopActionDecisionReceipt | null>(null);
   const riskClass = displayedItem.risk_class ?? "unspecified";
   const authorityBoundary =
     displayedItem.authority_boundary ?? "review-only; exact backend contract required";
@@ -10855,7 +10858,11 @@ function ActionItemCard({
         {actionGroupReason} Available operator action: {availableAction}
       </p>
       <ApprovalEnvelopeCard envelope={approvalEnvelope} />
-      <ReceiptVisibilityCard visibility={receiptVisibility} />
+      <ReceiptVisibilityCard
+        actionId={displayedItem.item_ref}
+        decisionReceipt={lastDecisionReceipt}
+        visibility={receiptVisibility}
+      />
       <FusionRoutingMetadataCard
         cacheContext={displayedItem.cache_context_economics}
         delegation={displayedItem.delegation_proposal}
@@ -10962,6 +10969,7 @@ function ActionItemCard({
       actionReadModelAuthoritative ? (
         <ActionDecisionControls
           item={displayedItem}
+          onRecordedReceipt={setLastDecisionReceipt}
           onReconciledItem={reconcileActionItem}
         />
       ) : null}
@@ -10978,6 +10986,7 @@ function ActionItemCard({
         <ActionDecisionControls
           decisions={["approve", "reject", "defer"]}
           item={displayedItem}
+          onRecordedReceipt={setLastDecisionReceipt}
           onReconciledItem={reconcileActionItem}
         />
       ) : null}
@@ -11547,11 +11556,54 @@ function ApprovalEnvelopeCard({
 }
 
 function ReceiptVisibilityCard({
+  actionId,
+  decisionReceipt,
   visibility,
 }: {
+  actionId: string;
+  decisionReceipt?: FounderLoopActionDecisionReceipt | null;
   visibility: NonNullable<FounderLoopActionItem["receipt_visibility"]>;
 }) {
   const backendOwned = isBackendOwnedReceiptVisibility(visibility);
+  const decisionReceiptRef = committedSafeRef(visibility.decision_receipt_ref);
+  const [fetchedDecisionReceipt, setFetchedDecisionReceipt] =
+    useState<FounderLoopActionDecisionReceipt | null>(decisionReceipt ?? null);
+  const [receiptFetchStatus, setReceiptFetchStatus] = useState<
+    "idle" | "loading" | "loaded" | "failed"
+  >("idle");
+  useEffect(() => {
+    if (decisionReceipt) {
+      setFetchedDecisionReceipt(decisionReceipt);
+      setReceiptFetchStatus("loaded");
+      return;
+    }
+    if (!decisionReceiptRef) {
+      setFetchedDecisionReceipt(null);
+      setReceiptFetchStatus("idle");
+      return;
+    }
+    let cancelled = false;
+    setReceiptFetchStatus("loading");
+    fetchActionReceipt(actionId)
+      .then((receipt) => {
+        if (cancelled) {
+          return;
+        }
+        setFetchedDecisionReceipt(receipt);
+        setReceiptFetchStatus(receipt ? "loaded" : "failed");
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        setFetchedDecisionReceipt(null);
+        setReceiptFetchStatus("failed");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [actionId, decisionReceipt, decisionReceiptRef]);
+  const visibleDecisionReceipt = decisionReceipt ?? fetchedDecisionReceipt;
   return (
     <section
       aria-label={backendOwned ? "Receipt Visibility" : "Receipt Visibility Unavailable"}
@@ -11597,7 +11649,55 @@ function ReceiptVisibilityCard({
           label="Backend owned"
           value={backendOwned ? "yes" : "unavailable"}
         />
+        {visibleDecisionReceipt ? (
+          <>
+            <DetailTerm
+              label="Authority outcome"
+              value={visibleDecisionReceipt.authority_decision_outcome ?? "missing"}
+            />
+            <DetailTerm
+              label="Authority lease"
+              value={visibleDecisionReceipt.authority_lease_ref ?? "required"}
+            />
+            <DetailTerm
+              label="Authority mode"
+              value={visibleDecisionReceipt.authority_required_mode_ref ?? "missing"}
+            />
+            <DetailTerm
+              label="Authority domain"
+              value={visibleDecisionReceipt.authority_domain_ref ?? "missing"}
+            />
+            <DetailTerm
+              label="Authority capability"
+              value={visibleDecisionReceipt.authority_capability_ref ?? "missing"}
+            />
+            <DetailTerm
+              label="Authority decision"
+              value={visibleDecisionReceipt.authority_decision_ref ?? "missing"}
+            />
+            <DetailTerm
+              label="Authority audit"
+              value={visibleDecisionReceipt.authority_audit_ref ?? "missing"}
+            />
+            <DetailTerm
+              label="Authority policy receipt"
+              value={visibleDecisionReceipt.authority_receipt_ref ?? "missing"}
+            />
+          </>
+        ) : null}
       </dl>
+      {visibleDecisionReceipt ? (
+        <RefListWithFallback
+          emptyLabel="Authority reason refs: none"
+          refs={visibleDecisionReceipt.authority_reason_refs ?? []}
+        />
+      ) : null}
+      {receiptFetchStatus === "failed" ? (
+        <p className="muted">
+          Authority decision details are unavailable from the receipt route; the
+          safe receipt ref remains visible.
+        </p>
+      ) : null}
       <InlineListWithFallback
         emptyLabel="Receipt visibility missing states: none"
         items={visibility.missing_field_states}
@@ -11616,10 +11716,12 @@ const actionDecisionLabels: Record<FounderLoopActionDecisionKind, string> = {
 function ActionDecisionControls({
   decisions = ["approve", "edit", "reject", "defer"],
   item,
+  onRecordedReceipt,
   onReconciledItem,
 }: {
   decisions?: FounderLoopActionDecisionKind[];
   item: FounderLoopActionItem;
+  onRecordedReceipt?: (receipt: FounderLoopActionDecisionReceipt) => void;
   onReconciledItem: (item: FounderLoopActionItem) => void;
 }) {
   const [state, setState] = useState<{
@@ -11726,6 +11828,7 @@ function ActionDecisionControls({
           item.item_ref,
         ],
       });
+      onRecordedReceipt?.(receipt);
       await refreshDecisionActionItem(receipt, decision);
     } catch (error) {
       setState({
@@ -11769,26 +11872,64 @@ function ActionDecisionControls({
         <p className="muted">{state.refreshMessage}</p>
       ) : null}
       {state.receipt ? (
-        <dl className="detail-list">
-          <DetailTerm label="Receipt" value={state.receipt.receipt_ref} />
-          <DetailTerm label="Audit" value={state.receipt.audit_ref} />
-          <DetailTerm
-            label="Approval ref"
-            value={state.receipt.approval_ref ?? "not required"}
+        <>
+          <dl className="detail-list">
+            <DetailTerm label="Receipt" value={state.receipt.receipt_ref} />
+            <DetailTerm label="Audit" value={state.receipt.audit_ref} />
+            <DetailTerm
+              label="Approval ref"
+              value={state.receipt.approval_ref ?? "not required"}
+            />
+            <DetailTerm
+              label="Read-model refresh"
+              value={state.refreshStatus}
+            />
+            <DetailTerm
+              label="Authority outcome"
+              value={state.receipt.authority_decision_outcome ?? "missing"}
+            />
+            <DetailTerm
+              label="Authority lease"
+              value={state.receipt.authority_lease_ref ?? "required"}
+            />
+            <DetailTerm
+              label="Authority mode"
+              value={state.receipt.authority_required_mode_ref ?? "missing"}
+            />
+            <DetailTerm
+              label="Authority domain"
+              value={state.receipt.authority_domain_ref ?? "missing"}
+            />
+            <DetailTerm
+              label="Authority capability"
+              value={state.receipt.authority_capability_ref ?? "missing"}
+            />
+            <DetailTerm
+              label="Authority decision"
+              value={state.receipt.authority_decision_ref ?? "missing"}
+            />
+            <DetailTerm
+              label="Authority audit"
+              value={state.receipt.authority_audit_ref ?? "missing"}
+            />
+            <DetailTerm
+              label="Authority policy receipt"
+              value={state.receipt.authority_receipt_ref ?? "missing"}
+            />
+            <DetailTerm
+              label="Action executed"
+              value={state.receipt.action_executed ? "yes" : "no"}
+            />
+            <DetailTerm
+              label="Connector write"
+              value={state.receipt.connector_write_performed ? "yes" : "no"}
+            />
+          </dl>
+          <RefListWithFallback
+            emptyLabel="Authority reason refs: none"
+            refs={state.receipt.authority_reason_refs ?? []}
           />
-          <DetailTerm
-            label="Read-model refresh"
-            value={state.refreshStatus}
-          />
-          <DetailTerm
-            label="Action executed"
-            value={state.receipt.action_executed ? "yes" : "no"}
-          />
-          <DetailTerm
-            label="Connector write"
-            value={state.receipt.connector_write_performed ? "yes" : "no"}
-          />
-        </dl>
+        </>
       ) : null}
     </div>
   );

@@ -124,6 +124,7 @@ import {
   API_ENDPOINTS,
   actionDecisionEndpoint,
   actionLocalTaskCommitEndpoint,
+  actionReceiptEndpoint,
   chatTurnHandoffEndpoint,
   chatTurnReceiptEndpoint,
   memoryContextPackActionProposalEndpoint,
@@ -2612,6 +2613,32 @@ export async function submitActionDecision(
     );
   }
   return receipt;
+}
+
+export async function fetchActionReceipt(
+  actionId: string,
+): Promise<FounderLoopActionDecisionReceipt | null> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${actionReceiptEndpoint(actionId)}`,
+    {
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+      }),
+    },
+  );
+  const data =
+    (await response.json()) as ResultEnvelope<FounderLoopActionDecisionReceipt>;
+  if (!response.ok) {
+    throw new Error(
+      sanitizeForDisplay(
+        data.error?.message ?? "Action decision receipt was not fetched safely.",
+      ),
+    );
+  }
+  return data.result ?? data.data ?? null;
 }
 
 export async function commitLocalTask(

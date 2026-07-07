@@ -3267,6 +3267,15 @@ export interface FounderLoopActionDecisionReceipt {
   safe_summary: string;
   evidence_refs: string[];
   blocked_state_refs: string[];
+  authority_decision_ref?: string | null;
+  authority_decision_outcome?: AuthorityDecisionOutcome | string | null;
+  authority_lease_ref?: string | null;
+  authority_audit_ref?: string | null;
+  authority_receipt_ref?: string | null;
+  authority_reason_refs?: string[];
+  authority_domain_ref?: string;
+  authority_capability_ref?: string;
+  authority_required_mode_ref?: string;
   created_at: string;
 }
 
