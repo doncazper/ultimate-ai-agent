@@ -3101,6 +3101,35 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-usage-cost-analytics-read-model",
+            "Runtime usage and cost analytics read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/usage-cost-analytics"],
+            ["repo-local-command:uaa-runtime-inspect-usage-cost-analytics"],
+            (
+                "Runtime usage and cost analytics reads redacted accounting "
+                "record refs, bounded usage estimates, proof refs, blockers, "
+                "and next safe actions under Workspace read authority. Billing, "
+                "provider calls, live price fetches, exports, material "
+                "persistence, output authority, and production authority remain "
+                "blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:usage-cost-provider-call:not-implemented",
+                "adapter-ref:usage-cost-provider-sdk-call:not-implemented",
+                "adapter-ref:usage-cost-billing-action:not-implemented",
+                "adapter-ref:usage-cost-live-price-fetch:not-implemented",
+                "adapter-ref:usage-cost-operator-export:not-implemented",
+                "adapter-ref:usage-cost-turn-material-persistence:not-implemented",
+                "adapter-ref:usage-cost-provider-material-persistence:not-implemented",
+                "adapter-ref:usage-cost-output-authority:not-implemented",
+                "adapter-ref:usage-cost-production-authority:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

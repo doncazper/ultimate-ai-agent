@@ -234,6 +234,9 @@ from ultimate_ai_agent.core.runtime_gateway.virtual_provider_moa import (
     build_runtime_virtual_provider_moa_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway.usage_cost_analytics import (
+    RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_MAPPING_REF,
+    RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_USAGE_COST_ANALYTICS_BLOCKED_AUTHORITY_REFS,
     RUNTIME_USAGE_COST_ANALYTICS_CLI_REF,
     RUNTIME_USAGE_COST_ANALYTICS_CONTRACT_REF,
@@ -245,6 +248,7 @@ from ultimate_ai_agent.core.runtime_gateway.usage_cost_analytics import (
     RuntimeUsageCostAnalyticsReadModel,
     RuntimeUsageCostRecord,
     build_runtime_usage_cost_analytics_read_model,
+    build_runtime_usage_cost_analytics_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.prompt_stability_tiers import (
     RUNTIME_PROMPT_STABILITY_BLOCKED_AUTHORITY_REFS,
@@ -911,6 +915,9 @@ __all__ = [
     "RuntimeVirtualProviderMoaReadModel",
     "RuntimeVirtualProviderPreset",
     "RuntimeVirtualProviderPresetStatus",
+    "RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_MAPPING_REF",
+    "RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_ROUTE_REF",
     "RUNTIME_USAGE_COST_ANALYTICS_BLOCKED_AUTHORITY_REFS",
     "RUNTIME_USAGE_COST_ANALYTICS_CLI_REF",
     "RUNTIME_USAGE_COST_ANALYTICS_CONTRACT_REF",
@@ -1107,6 +1114,7 @@ __all__ = [
     "build_runtime_session_lineage_read_model",
     "build_runtime_virtual_provider_moa_read_model",
     "build_runtime_usage_cost_analytics_read_model",
+    "build_runtime_usage_cost_analytics_read_model_from_authority_catalog",
     "build_runtime_prompt_stability_tiers_read_model",
     "build_runtime_context_budget_pressure_read_model",
     "build_runtime_hardline_command_blocklist_read_model",

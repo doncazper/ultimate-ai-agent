@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -27,6 +31,16 @@ RUNTIME_USAGE_COST_ANALYTICS_SNAPSHOT_REF = (
 RUNTIME_USAGE_COST_ANALYTICS_PROOF_REF = (
     "proof-ref:hermes-runtime-adoption:phase-22:usage-cost-analytics"
 )
+RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-usage-cost-analytics-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_USAGE_COST_ANALYTICS_BLOCKED_AUTHORITY_REFS = [
     "blocked-authority:usage-cost-analytics-no-billing-action",
@@ -155,6 +169,16 @@ class RuntimeUsageCostAnalyticsReadModel(BaseModel):
     snapshot_hash_ref: str = "snapshot-hash-ref:runtime-usage-cost-analytics:pending"
     route_ref: str = RUNTIME_USAGE_COST_ANALYTICS_ROUTE_REF
     cli_ref: str = RUNTIME_USAGE_COST_ANALYTICS_CLI_REF
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     safe_summary: str = (
         "Runtime usage and cost posture uses redacted receipt metadata and "
@@ -211,9 +235,14 @@ class RuntimeUsageCostAnalyticsReadModel(BaseModel):
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
             (self.currency_ref, "currency_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "proof_refs",
             "verifier_refs",
@@ -226,9 +255,27 @@ class RuntimeUsageCostAnalyticsReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_USAGE_COST_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_USAGE_COST_AUTHORITY_DECISION_INVALID")
         if self.record_count != len(self.records):
             raise ValueError("RUNTIME_USAGE_COST_RECORD_COUNT_MISMATCH")
         if self.manual_diagnostic_receipt_count != len(
@@ -445,8 +492,30 @@ def _default_records() -> list[RuntimeUsageCostRecord]:
 def build_runtime_usage_cost_analytics_read_model() -> (
     RuntimeUsageCostAnalyticsReadModel
 ):
+    return build_runtime_usage_cost_analytics_read_model_from_authority_catalog(
+        authority_decision_catalog=build_authority_decision_catalog()
+    )
+
+
+def build_runtime_usage_cost_analytics_read_model_from_authority_catalog(
+    *,
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> RuntimeUsageCostAnalyticsReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     records = _default_records()
     model = RuntimeUsageCostAnalyticsReadModel(
+        authority_state_route_ref=RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_ROUTE_REF,
+        authority_state_cli_ref=RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_CLI_REF,
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         records=records,
         record_count=len(records),
         manual_diagnostic_receipt_count=len(
@@ -513,8 +582,27 @@ def build_runtime_usage_cost_analytics_read_model() -> (
                 "receipt_ref": record.receipt_ref,
                 "estimated_total_tokens": record.estimated_total_tokens,
                 "estimated_cost_minor_units": record.estimated_cost_minor_units,
+                "authority_state_decision_ref": (
+                    authority_entry.decision.decision_ref
+                ),
+                "authority_state_decision_outcome": _authority_value(
+                    authority_entry.decision.outcome
+                ),
             }
             for record in records
         ]
     )
     return RuntimeUsageCostAnalyticsReadModel(**model.model_dump(mode="json"))
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> AuthorityDecisionCatalogEntry:
+    for entry in authority_decision_catalog:
+        if entry.lane_ref == RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_USAGE_COST_AUTHORITY_MAPPING_NOT_FOUND")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))

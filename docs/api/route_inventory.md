@@ -217,12 +217,14 @@ runtime dispatch, hidden advisor prompts, model-output authority, connector
 writes, shell/subprocess execution, browser automation, and production
 authority remain blocked.
 `GET /api/runtime/usage-cost-analytics` exposes a protected read-only Python
-Core Hermes Runtime Adoption Phase 22 usage and cost analytics posture. It
+Core Hermes Runtime Adoption Phase 22 usage and cost analytics posture bound to
+`lane-ref:runtime-usage-cost-analytics-read-model` through AuthorityState. It
 returns redacted accounting record refs, runtime/provider/model refs,
 task-value refs, receipt refs, estimate refs, bounded usage estimates, latency
-estimates, cost minor units, proof refs, verifier refs, and blocked authority
-refs only. Billing actions, provider calls, provider SDK calls, live pricing
-fetches, operator export, raw prompt/response/provider-payload persistence,
+estimates, cost minor units, AuthorityState mapping/decision refs, unsupported
+adapter refs, proof refs, verifier refs, and blocked authority refs only.
+Billing actions, provider calls, provider SDK calls, live pricing fetches,
+operator export, raw prompt/response/provider material persistence,
 model-output authority, and production authority remain blocked.
 `GET /api/runtime/prompt-stability-tiers` exposes a protected read-only Python
 Core Hermes Runtime Adoption Phase 23 prompt stability tier posture. It returns

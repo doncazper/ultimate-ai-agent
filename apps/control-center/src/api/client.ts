@@ -4691,6 +4691,28 @@ function isSafeRuntimeUsageCostAnalytics(
     value.status === "read_only_redacted_accounting_posture" &&
     value.route_ref === "GET /api/runtime/usage-cost-analytics" &&
     value.cli_ref === "uaa runtime inspect-usage-cost-analytics" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-usage-cost-analytics-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    hasExactStringValue(
+      value.authority_state_decision_outcome,
+      TRUST_AUTHORITY_DECISION_OUTCOMES,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    value.authority_state_status.length > 0 &&
+    typeof value.authority_state_operator_message === "string" &&
+    value.authority_state_operator_message.length > 0 &&
+    isNonEmptyStringArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    isNonEmptyStringArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.includes(
+      "adapter-ref:usage-cost-provider-call:not-implemented",
+    ) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
     value.record_count === value.records.length &&
     value.manual_diagnostic_receipt_count ===
       value.records.filter(

@@ -150,13 +150,15 @@ Contract rules:
   output as authority, write connectors, run shell/subprocess commands,
   automate browsers, or grant production authority.
   `GET /api/runtime/usage-cost-analytics` exposes the Hermes Runtime Adoption
-  Phase 22 backend-owned usage and cost analytics posture. It returns redacted
-  accounting record refs, runtime/provider/model refs, task-value refs, receipt
-  refs, estimate refs, bounded usage estimates, latency estimates, cost minor
-  units, proof refs, verifier refs, and blocked authority refs only. It does
-  not perform billing actions, provider calls, provider SDK calls, live pricing
-  fetches, operator export, raw prompt/response/provider-payload persistence,
-  model-output authority, or production authority.
+  Phase 22 backend-owned usage and cost analytics posture bound to
+  `lane-ref:runtime-usage-cost-analytics-read-model` through AuthorityState.
+  It returns redacted accounting record refs, runtime/provider/model refs,
+  task-value refs, receipt refs, estimate refs, bounded usage estimates,
+  latency estimates, cost minor units, AuthorityState mapping/decision refs,
+  unsupported adapter refs, proof refs, verifier refs, and blocked authority
+  refs only. It does not perform billing actions, provider calls, provider SDK
+  calls, live pricing fetches, operator export, raw prompt/response/provider
+  material persistence, model-output authority, or production authority.
   `GET /api/runtime/prompt-stability-tiers` exposes the Hermes Runtime
   Adoption Phase 23 backend-owned prompt stability tier posture. It returns
   prompt tier refs, manifest refs, redacted hash refs, cache policy refs, safe

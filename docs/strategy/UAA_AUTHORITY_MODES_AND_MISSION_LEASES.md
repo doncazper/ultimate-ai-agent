@@ -143,6 +143,10 @@ surfaces are:
   diagnostic inspection decision while installs, service starts, credential
   writes, runtime config mutation, raw log/path persistence, provider payload
   persistence, and Control Center authority minting remain blocked.
+  Runtime usage/cost analytics exposes the Read-only `workspace/read` redacted
+  accounting inspection decision while provider calls, provider SDK calls,
+  billing actions, live price fetches, operator export, turn/provider material
+  persistence, output authority, and production authority remain blocked.
   These API/CLI surfaces remain safe-ref inspection only unless exact active
   leases, implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and

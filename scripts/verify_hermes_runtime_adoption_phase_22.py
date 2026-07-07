@@ -10,6 +10,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_MAPPING_REF,
+    RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_USAGE_COST_ANALYTICS_BLOCKED_AUTHORITY_REFS,
     build_runtime_usage_cost_analytics_read_model,
 )
@@ -28,6 +31,30 @@ def _assert_read_model(payload: dict[str, object]) -> None:
         _fail("route ref drifted")
     if payload.get("cli_ref") != "uaa runtime inspect-usage-cost-analytics":
         _fail("CLI ref drifted")
+    if (
+        payload.get("authority_state_route_ref")
+        != RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_ROUTE_REF
+    ):
+        _fail("authority state route ref drifted")
+    if (
+        payload.get("authority_state_cli_ref")
+        != RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_CLI_REF
+    ):
+        _fail("authority state CLI ref drifted")
+    if (
+        payload.get("authority_state_mapping_ref")
+        != RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_MAPPING_REF
+    ):
+        _fail("authority mapping ref drifted")
+    if payload.get("authority_state_decision_outcome") != "allow":
+        _fail("usage cost analytics must be allowed only as Workspace read")
+    if not str(payload.get("authority_state_decision_ref") or "").startswith(
+        "authority-policy-decision-ref:"
+    ):
+        _fail("authority decision ref missing")
+    unsupported = set(payload.get("unsupported_adapter_refs") or [])
+    if "adapter-ref:usage-cost-provider-call:not-implemented" not in unsupported:
+        _fail("missing usage cost unsupported adapter ref")
     for flag in (
         "operator_export_available",
         "billing_action_enabled",
@@ -130,6 +157,14 @@ def verify_cli() -> None:
     )
     payload = json.loads(result.stdout)
     _assert_read_model(payload.get("runtime_usage_cost_analytics") or {})
+    authority_state = payload.get("authority_state") or {}
+    if (
+        authority_state.get("mapping_ref")
+        != RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_MAPPING_REF
+    ):
+        _fail("CLI authority mapping drifted")
+    if authority_state.get("decision_outcome") != "allow":
+        _fail("CLI authority decision drifted")
     if payload.get("provider_call_performed") is not False:
         _fail("CLI claimed provider call")
     if payload.get("provider_sdk_call_performed") is not False:

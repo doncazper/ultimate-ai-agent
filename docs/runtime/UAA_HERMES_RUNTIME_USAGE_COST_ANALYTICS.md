@@ -1,6 +1,6 @@
 # UAA Hermes Runtime Usage Cost Analytics
 
-Status: Hermes Runtime Adoption Phase 22 repo-safe read model
+Status: Hermes Runtime Adoption Phase 22 AuthorityState-bound repo-safe read model
 
 Phase 22 adds Python Core ownership for redacted runtime usage and cost
 analytics posture:
@@ -12,10 +12,13 @@ analytics posture:
 - Control Center Runtime readiness display
 - `scripts/verify_hermes_runtime_adoption_phase_22.py`
 
-This is accounting posture only. It does not perform live provider calls,
-provider SDK calls, billing actions, live price fetches, operator export,
-runtime dispatch, shell/subprocess execution, connector writes, browser
-automation, or production authority.
+The read model is mapped as
+`lane-ref:runtime-usage-cost-analytics-read-model` under Read-only
+`workspace/read` and is evaluated from the active AuthorityLease decision
+catalog. This is accounting posture only. It does not perform live provider
+calls, provider SDK calls, billing actions, live price fetches, operator
+export, runtime dispatch, shell/subprocess execution, connector writes,
+browser automation, or production authority.
 
 ## Full-Strength Version
 
@@ -38,6 +41,8 @@ The current implementation exposes a backend-owned read model containing:
 - bounded usage estimates
 - latency and cost minor-unit estimates
 - proof, evidence, verifier, and next-safe-action refs
+- AuthorityState route, CLI, mapping, catalog, decision, status, reason, and
+  unsupported-adapter refs
 - explicit blocked authority refs
 - redactions for prompt, response, provider payload, billing payload, and
   export payload content

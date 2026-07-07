@@ -3206,6 +3206,21 @@ export function RuntimeReadinessPanel({
             <dd>{usageCostAnalytics.cli_ref}</dd>
           </div>
           <div>
+            <dt>Authority</dt>
+            <dd>
+              {usageCostAnalytics.authority_state_decision_outcome} /{" "}
+              {usageCostAnalytics.authority_state_status}
+            </dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{usageCostAnalytics.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{usageCostAnalytics.authority_state_decision_ref}</dd>
+          </div>
+          <div>
             <dt>Records</dt>
             <dd>{usageCostAnalytics.record_count}</dd>
           </div>
@@ -3285,6 +3300,30 @@ export function RuntimeReadinessPanel({
               <ul className="compact-list">
                 {usageCostAnalytics.blocked_authority_refs
                   .slice(0, 4)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Unsupported adapters</dt>
+            <dd>
+              <ul className="compact-list">
+                {usageCostAnalytics.unsupported_adapter_refs
+                  .slice(0, 5)
+                  .map((ref) => (
+                    <li key={ref}>{ref}</li>
+                  ))}
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Authority reason</dt>
+            <dd>
+              <ul className="compact-list">
+                {usageCostAnalytics.authority_state_reason_refs
+                  .slice(0, 3)
                   .map((ref) => (
                     <li key={ref}>{ref}</li>
                   ))}

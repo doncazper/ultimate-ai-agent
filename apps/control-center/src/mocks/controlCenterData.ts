@@ -15831,6 +15831,33 @@ export const mockControlCenterData: ControlCenterData = {
     snapshot_hash_ref: "snapshot-hash-ref:runtime-usage-cost-analytics:mock",
     route_ref: "GET /api/runtime/usage-cost-analytics",
     cli_ref: "uaa runtime inspect-usage-cost-analytics",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-usage-cost-analytics-read-model",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-usage-cost-analytics-read-model",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:runtime-usage-cost-analytics-read-model:allow",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Runtime usage and cost analytics is allowed only as Workspace read under active AuthorityLease scope.",
+    authority_state_reason_refs: [
+      "authority-reason-ref:usage-cost-analytics:workspace-read-lease",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:usage-cost-provider-call:not-implemented",
+      "adapter-ref:usage-cost-provider-sdk-call:not-implemented",
+      "adapter-ref:usage-cost-billing-action:not-implemented",
+      "adapter-ref:usage-cost-live-price-fetch:not-implemented",
+      "adapter-ref:usage-cost-operator-export:not-implemented",
+      "adapter-ref:usage-cost-turn-material-persistence:not-implemented",
+      "adapter-ref:usage-cost-provider-material-persistence:not-implemented",
+      "adapter-ref:usage-cost-output-authority:not-implemented",
+      "adapter-ref:usage-cost-production-authority:not-implemented",
+    ],
     control_center_ref: "control-center-route:runtime",
     safe_summary:
       "Runtime usage and cost mock fallback shows redacted accounting posture only; provider calls and billing remain blocked.",

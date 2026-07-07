@@ -905,6 +905,25 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    usage_cost = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-usage-cost-analytics-read-model"
+    )
+    assert usage_cost.domain == "workspace"
+    assert usage_cost.capability == "read"
+    assert usage_cost.required_mode == "read_only"
+    assert usage_cost.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/usage-cost-analytics" in usage_cost.route_refs
+    assert "adapter-ref:usage-cost-provider-call:not-implemented" in (
+        usage_cost.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane[
+            "lane-ref:runtime-usage-cost-analytics-read-model"
+        ].decision.outcome
+        == "allow"
+    )
     browser_action = next(
         mapping
         for mapping in read_model.capability_mappings

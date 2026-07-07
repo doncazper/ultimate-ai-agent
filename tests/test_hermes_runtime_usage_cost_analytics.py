@@ -9,6 +9,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_MAPPING_REF,
+    RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_USAGE_COST_ANALYTICS_BLOCKED_AUTHORITY_REFS,
     RUNTIME_USAGE_COST_ANALYTICS_CONTRACT_REF,
     RuntimeUsageCostAnalyticsReadModel,
@@ -28,6 +31,27 @@ def test_usage_cost_analytics_is_read_only_accounting_posture() -> None:
     assert read_model.status == "read_only_redacted_accounting_posture"
     assert read_model.route_ref == "GET /api/runtime/usage-cost-analytics"
     assert read_model.cli_ref == "uaa runtime inspect-usage-cost-analytics"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_reason_refs
+    assert (
+        "adapter-ref:usage-cost-provider-call:not-implemented"
+        in read_model.unsupported_adapter_refs
+    )
     assert read_model.record_count == 4
     assert read_model.manual_diagnostic_receipt_count == 1
     assert read_model.runtime_receipt_record_count == 1
@@ -109,6 +133,17 @@ def test_usage_cost_analytics_denies_authority_flags(field: str) -> None:
         RuntimeUsageCostAnalyticsReadModel(**payload)
 
 
+def test_usage_cost_analytics_rejects_authority_mapping_drift() -> None:
+    payload = build_runtime_usage_cost_analytics_read_model().model_dump(mode="json")
+    payload["authority_state_mapping_ref"] = "lane-ref:wrong-usage-cost"
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_USAGE_COST_AUTHORITY_MAPPING_MISMATCH",
+    ):
+        RuntimeUsageCostAnalyticsReadModel(**payload)
+
+
 @pytest.mark.parametrize(
     "field",
     [
@@ -147,6 +182,10 @@ def test_usage_cost_analytics_api_returns_read_only_posture() -> None:
     assert body["operation"] == "api_runtime_usage_cost_analytics"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/usage-cost-analytics"
+    assert data["authority_state_mapping_ref"] == (
+        RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["provider_call_enabled"] is False
     assert data["billing_action_enabled"] is False
     assert data["operator_export_available"] is False
@@ -173,7 +212,13 @@ def test_usage_cost_analytics_cli_uses_same_read_model() -> None:
 
     payload = json.loads(result.stdout)
     read_model = payload["runtime_usage_cost_analytics"]
+    authority_state = payload["authority_state"]
     assert payload["safe_refs_only"] is True
+    assert (
+        authority_state["mapping_ref"]
+        == RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_MAPPING_REF
+    )
+    assert authority_state["decision_outcome"] == "allow"
     assert payload["provider_call_performed"] is False
     assert payload["provider_sdk_call_performed"] is False
     assert payload["billing_action_performed"] is False
@@ -181,4 +226,8 @@ def test_usage_cost_analytics_cli_uses_same_read_model() -> None:
     assert payload["operator_export_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/usage-cost-analytics"
     assert read_model["cli_ref"] == "uaa runtime inspect-usage-cost-analytics"
+    assert (
+        read_model["authority_state_cli_ref"]
+        == RUNTIME_USAGE_COST_ANALYTICS_AUTHORITY_STATE_CLI_REF
+    )
     assert read_model["record_count"] == 4
