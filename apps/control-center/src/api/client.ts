@@ -8491,6 +8491,8 @@ const TRUST_AUTHORITY_MATRIX_ARRAYS = [
   "lanes",
   "tier_summaries",
   "authority_domain_coverage",
+  "authority_capability_catalog",
+  "authority_capability_catalog_refs",
   "available_now_lane_refs",
   "approval_required_lane_refs",
   "planned_lane_refs",
@@ -8521,6 +8523,16 @@ const TRUST_AUTHORITY_LANE_ARRAYS = [
 const TRUST_AUTHORITY_DOMAIN_COVERAGE_ARRAYS = [
   "visible_mapping_refs",
   "unsupported_adapter_refs",
+] as const;
+
+const TRUST_AUTHORITY_CAPABILITY_CATALOG_ARRAYS = [
+  "route_refs",
+  "proof_refs",
+  "verifier_refs",
+  "cli_inspection_refs",
+  "safe_disable_refs",
+  "rollback_refs",
+  "blocked_authority_refs",
 ] as const;
 
 const TRUST_AUTHORITY_STATES = [
@@ -8588,6 +8600,11 @@ function isSafeTrustAuthorityMatrix(value: unknown): value is TrustAuthorityMatr
     (value.authority_domain_coverage as unknown[]).every(
       isSafeTrustAuthorityDomainCoverage,
     ) &&
+    (value.authority_capability_catalog as unknown[]).length ===
+      (value.lanes as unknown[]).length &&
+    (value.authority_capability_catalog as unknown[]).every(
+      isSafeTrustAuthorityCapabilityCatalogEntry,
+    ) &&
     hasTrustAuthorityMatrixRefParity(value)
   );
 }
@@ -8615,6 +8632,15 @@ function isSafeTrustAuthorityLane(value: unknown): boolean {
     typeof value.approval_posture === "string" &&
     typeof value.operator_can_do_now === "string" &&
     typeof value.next_safe_action === "string" &&
+    typeof value.authority_domain_ref === "string" &&
+    value.authority_domain_ref.startsWith("authority-domain-ref:") &&
+    typeof value.authority_capability_ref === "string" &&
+    value.authority_capability_ref.startsWith("authority-capability-ref:") &&
+    typeof value.required_authority_mode === "string" &&
+    typeof value.authority_lease_requirement_ref === "string" &&
+    value.authority_lease_requirement_ref.startsWith(
+      "authority-lease-requirement-ref:",
+    ) &&
     TRUST_AUTHORITY_LANE_ARRAYS.every((field) => Array.isArray(value[field])) &&
     value.safe_refs_only === true &&
     value.control_center_grants_authority === false &&
@@ -8672,6 +8698,7 @@ function hasTrustAuthorityMatrixRefParity(
   value: Record<string, unknown>,
 ): boolean {
   const lanes = value.lanes as Record<string, unknown>[];
+  const catalog = value.authority_capability_catalog as Record<string, unknown>[];
   const parityFields = [
     "cli_inspection_refs",
     "safe_disable_refs",
@@ -8684,6 +8711,67 @@ function hasTrustAuthorityMatrixRefParity(
       value[field],
       uniqueStrings(lanes.flatMap((lane) => stringArray(lane[field]))),
     ),
+  ) &&
+    hasExactStringList(
+      value.authority_capability_catalog_refs,
+      catalog.map((entry) => String(entry.catalog_ref)),
+    ) &&
+    hasExactStringList(
+      catalog.map((entry) => String(entry.source_lane_ref)),
+      lanes.map((lane) => String(lane.lane_ref)),
+    ) &&
+    catalog.every((entry, index) => {
+      const lane = lanes[index];
+      return (
+        entry.label === lane.label &&
+        entry.authority_state === lane.authority_state &&
+        entry.operator_posture === lane.operator_posture &&
+        entry.authority_domain_ref === lane.authority_domain_ref &&
+        entry.authority_capability_ref === lane.authority_capability_ref &&
+        entry.required_authority_mode === lane.required_authority_mode &&
+        entry.authority_lease_requirement_ref ===
+          lane.authority_lease_requirement_ref
+      );
+    });
+}
+
+function isSafeTrustAuthorityCapabilityCatalogEntry(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.catalog_ref === "string" &&
+    value.catalog_ref.startsWith("authority-capability-catalog-ref:") &&
+    typeof value.source_lane_ref === "string" &&
+    value.source_lane_ref.startsWith("trust-lane:") &&
+    typeof value.label === "string" &&
+    hasExactStringValue(value.authority_state, TRUST_AUTHORITY_STATES) &&
+    typeof value.operator_posture === "string" &&
+    typeof value.authority_domain_ref === "string" &&
+    value.authority_domain_ref.startsWith("authority-domain-ref:") &&
+    typeof value.authority_capability_ref === "string" &&
+    value.authority_capability_ref.startsWith("authority-capability-ref:") &&
+    typeof value.required_authority_mode === "string" &&
+    typeof value.authority_lease_requirement_ref === "string" &&
+    value.authority_lease_requirement_ref.startsWith(
+      "authority-lease-requirement-ref:",
+    ) &&
+    TRUST_AUTHORITY_CAPABILITY_CATALOG_ARRAYS.every((field) =>
+      Array.isArray(value[field]),
+    ) &&
+    stringArray(value.proof_refs).every(isSafeTrustAuthorityRef) &&
+    stringArray(value.safe_disable_refs).every(isSafeTrustAuthorityRef) &&
+    stringArray(value.rollback_refs).every(isSafeTrustAuthorityRef) &&
+    stringArray(value.blocked_authority_refs).every(isSafeTrustAuthorityRef) &&
+    typeof value.safe_summary === "string" &&
+    !containsUnsafeTrustText(value.label) &&
+    !containsUnsafeTrustText(value.required_authority_mode) &&
+    !containsUnsafeTrustText(value.safe_summary) &&
+    value.active_lease_required === true &&
+    value.unknown_authority_denied === true &&
+    value.safe_refs_only === true &&
+    value.control_center_grants_authority === false &&
+    value.execution_claimed === false
   );
 }
 

@@ -118,6 +118,30 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
         for lane in parsed.lanes
     )
     assert all(lane.required_authority_mode for lane in parsed.lanes)
+    assert len(parsed.authority_capability_catalog) == len(parsed.lanes)
+    assert parsed.authority_capability_catalog_refs == [
+        entry.catalog_ref for entry in parsed.authority_capability_catalog
+    ]
+    assert [entry.source_lane_ref for entry in parsed.authority_capability_catalog] == [
+        lane.lane_ref for lane in parsed.lanes
+    ]
+    catalog_by_lane = {
+        entry.source_lane_ref: entry for entry in parsed.authority_capability_catalog
+    }
+    for lane in parsed.lanes:
+        entry = catalog_by_lane[lane.lane_ref]
+        assert entry.authority_domain_ref == lane.authority_domain_ref
+        assert entry.authority_capability_ref == lane.authority_capability_ref
+        assert entry.required_authority_mode == lane.required_authority_mode
+        assert (
+            entry.authority_lease_requirement_ref
+            == lane.authority_lease_requirement_ref
+        )
+        assert entry.active_lease_required is True
+        assert entry.unknown_authority_denied is True
+        assert entry.safe_refs_only is True
+        assert entry.control_center_grants_authority is False
+        assert entry.execution_claimed is False
     assert parsed.authority_domain_coverage
     coverage_by_ref = {
         coverage.domain_ref: coverage for coverage in parsed.authority_domain_coverage

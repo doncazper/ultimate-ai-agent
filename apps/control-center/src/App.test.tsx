@@ -4050,6 +4050,21 @@ describe("Web Control Center shell", () => {
           name: "AuthorityLease Domain Coverage",
         }),
       ).toBeInTheDocument();
+      expect(
+        screen.getByLabelText("AuthorityLease capability catalog"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", {
+          name: "AuthorityLease Capability Catalog",
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "authority-capability-catalog-ref:provider-draft-summarize:provider_model_calls:draft",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("denied").length).toBeGreaterThan(0);
       expect(screen.getAllByText("shell").length).toBeGreaterThan(0);
       expect(screen.getAllByText("planned").length).toBeGreaterThan(0);
       expect(
@@ -4182,6 +4197,25 @@ describe("Web Control Center shell", () => {
           ...betaTrustAuthorityMatrix(),
           authority_domain_coverage: [],
         }),
+      },
+      {
+        name: "missing capability catalog",
+        mutate: () => ({
+          ...betaTrustAuthorityMatrix(),
+          authority_capability_catalog: [],
+          authority_capability_catalog_refs: [],
+        }),
+      },
+      {
+        name: "capability catalog grants execution",
+        mutate: () => {
+          const matrix = betaTrustAuthorityMatrix();
+          matrix.authority_capability_catalog[0] = {
+            ...matrix.authority_capability_catalog[0],
+            execution_claimed: true,
+          };
+          return matrix;
+        },
       },
       {
         name: "coverage claims execution",
@@ -16106,6 +16140,10 @@ function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
     lanes,
     tier_summaries: trustTierSummaries(lanes),
     authority_domain_coverage: trustDomainCoverageFixture(),
+    authority_capability_catalog: trustCapabilityCatalogFixture(lanes),
+    authority_capability_catalog_refs: trustCapabilityCatalogFixture(lanes).map(
+      (entry) => entry.catalog_ref,
+    ),
     available_now_lane_refs: lanes
       .filter((lane) => lane.authority_state === "available_now")
       .map((lane) => lane.lane_ref),
@@ -16188,6 +16226,41 @@ function trustLaneUnion(lanes: TrustFixtureLane[], field: keyof TrustFixtureLane
   return Array.from(
     new Set(lanes.flatMap((lane) => lane[field] as string[])),
   );
+}
+
+function trustCapabilityCatalogFixture(lanes: TrustFixtureLane[]) {
+  return lanes.map((lane) => {
+    const laneSuffix = lane.lane_ref.replace(/^trust-lane:/, "");
+    const domain = lane.authority_domain_ref.replace(/^authority-domain-ref:/, "");
+    const capability = lane.authority_capability_ref.replace(
+      /^authority-capability-ref:/,
+      "",
+    );
+    return {
+      catalog_ref: `authority-capability-catalog-ref:${laneSuffix}:${domain}:${capability}`,
+      source_lane_ref: lane.lane_ref,
+      label: lane.label,
+      authority_state: lane.authority_state,
+      operator_posture: lane.operator_posture,
+      authority_domain_ref: lane.authority_domain_ref,
+      authority_capability_ref: lane.authority_capability_ref,
+      required_authority_mode: lane.required_authority_mode,
+      authority_lease_requirement_ref: lane.authority_lease_requirement_ref,
+      active_lease_required: true,
+      unknown_authority_denied: true,
+      route_refs: [...lane.route_refs],
+      proof_refs: [...lane.proof_refs],
+      verifier_refs: [...lane.verifier_refs],
+      cli_inspection_refs: [...lane.cli_inspection_refs],
+      safe_disable_refs: [...lane.safe_disable_refs],
+      rollback_refs: [...lane.rollback_refs],
+      blocked_authority_refs: [...lane.blocked_authority_refs],
+      safe_summary: `${lane.label} is represented as an AuthorityLease ${domain}/${capability} capability. Unknown authority remains denied; an active matching lease is required before any non-read effect.`,
+      safe_refs_only: true,
+      control_center_grants_authority: false,
+      execution_claimed: false,
+    };
+  });
 }
 
 function trustTierSummaries(lanes: TrustFixtureLane[]) {

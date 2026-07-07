@@ -62,6 +62,7 @@ import type {
   RuntimeUsageCostRecord,
   RuntimePromptStabilityTier,
   RuntimeToolRegistryEntry,
+  TrustAuthorityLane,
   TrustAuthorityMatrix,
   WorkBoardReadModel,
 } from "../api/types";
@@ -6080,6 +6081,107 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
       execution_claimed: false,
     },
   ],
+  authority_capability_catalog: trustAuthorityCapabilityCatalog([
+    {
+      lane_ref: "trust-lane:mock-local-read-preview",
+      label: "Local read and preview",
+      tier: 1,
+      tier_id: "tier_1_local_read_preview",
+      tier_label: "Local read/preview",
+      lane_kind: "read_preview",
+      authority_state: "available_now",
+      authority_state_label: "available now",
+      operator_posture: "enabled_read_only",
+      authority_domain_ref: "authority-domain-ref:workspace",
+      authority_capability_ref: "authority-capability-ref:read",
+      required_authority_mode: "read_only",
+      authority_lease_requirement_ref:
+        "authority-lease-requirement-ref:mock-local-read-preview:workspace:read",
+      current_posture:
+        "Mock fallback says local read models are the intended lowest-friction lane.",
+      approval_posture: "No approval for local read/preview once backend-owned.",
+      operator_can_do_now:
+        "Use the backend route before relying on authority posture.",
+      next_safe_action: "Reconnect to the local backend Trust route.",
+      route_refs: ["GET /control-center/trust-authority/matrix"],
+      proof_refs: ["proof-ref:mock-fallback:trust-authority"],
+      verifier_refs: ["tests/test_trust_authority_matrix.py"],
+      docs_refs: ["docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md"],
+      cli_inspection_refs: [
+        "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
+      ],
+      safe_disable_refs: [
+        "safe-disable-ref:trust:mock-local-read-preview:read-model-only",
+      ],
+      rollback_refs: ["rollback-ref:trust:mock-local-read-preview:no-mutation"],
+      promotion_path_refs: [
+        "promotion-path-ref:trust:mock-local-read-preview:backend-route-required",
+      ],
+      blocked_authority_refs: [
+        "blocked-state:trust:mock-fallback-no-authority",
+      ],
+      requires_exact_approval: false,
+      requires_safe_disable: false,
+      requires_rollback_posture: false,
+      rollback_execution_enabled: false,
+      safe_refs_only: true,
+      control_center_grants_authority: false,
+    },
+    {
+      lane_ref: "trust-lane:mock-external-mutation-blocked",
+      label: "External mutation",
+      tier: 4,
+      tier_id: "tier_4_external_mutation",
+      tier_label: "External mutation",
+      lane_kind: "external_mutation",
+      authority_state: "blocked",
+      authority_state_label: "blocked",
+      operator_posture: "blocked",
+      authority_domain_ref: "authority-domain-ref:apps",
+      authority_capability_ref: "authority-capability-ref:write",
+      required_authority_mode: "full_machine_access_session",
+      authority_lease_requirement_ref:
+        "authority-lease-requirement-ref:mock-external-mutation:apps:write",
+      current_posture:
+        "External sends, writes, provider calls, browser, and shell work remain blocked.",
+      approval_posture:
+        "Future Tier 4 lanes require exact approval, idempotency, receipts, safe-disable, and rollback posture.",
+      operator_can_do_now: "Use local read and preview lanes only.",
+      next_safe_action: "Do not infer external authority from mock fallback.",
+      route_refs: [],
+      proof_refs: ["proof-ref:mock-fallback:external-mutation-blocked"],
+      verifier_refs: ["tests/test_trust_authority_matrix.py"],
+      docs_refs: ["docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md"],
+      cli_inspection_refs: [
+        "python scripts/dev/uaa_founder_loop.py inspect-trust-authority",
+      ],
+      safe_disable_refs: [
+        "safe-disable-ref:trust:mock-external-mutation:default-deny",
+      ],
+      rollback_refs: [
+        "rollback-ref:trust:mock-external-mutation:future-lane-required",
+      ],
+      promotion_path_refs: [
+        "promotion-path-ref:trust:mock-external-mutation:exact-scope-required",
+      ],
+      blocked_authority_refs: [
+        "blocked-state:trust:no-connector-write-send",
+        "blocked-state:trust:no-provider-model-call",
+        "blocked-state:trust:no-shell-subprocess-execution",
+        "blocked-state:trust:no-browser-execution",
+      ],
+      requires_exact_approval: true,
+      requires_safe_disable: true,
+      requires_rollback_posture: true,
+      rollback_execution_enabled: false,
+      safe_refs_only: true,
+      control_center_grants_authority: false,
+    },
+  ]),
+  authority_capability_catalog_refs: [
+    "authority-capability-catalog-ref:mock-local-read-preview:workspace:read",
+    "authority-capability-catalog-ref:mock-external-mutation-blocked:apps:write",
+  ],
   available_now_lane_refs: ["trust-lane:mock-local-read-preview"],
   approval_required_lane_refs: [],
   planned_lane_refs: [],
@@ -6124,6 +6226,43 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
   background_autonomy_enabled: false,
   production_authority_enabled: false,
 };
+
+function trustAuthorityCapabilityCatalog(
+  lanes: TrustAuthorityLane[],
+): TrustAuthorityMatrix["authority_capability_catalog"] {
+  return lanes.map((lane) => {
+    const laneSuffix = lane.lane_ref.replace(/^trust-lane:/, "");
+    const domain = lane.authority_domain_ref.replace(/^authority-domain-ref:/, "");
+    const capability = lane.authority_capability_ref.replace(
+      /^authority-capability-ref:/,
+      "",
+    );
+    return {
+      catalog_ref: `authority-capability-catalog-ref:${laneSuffix}:${domain}:${capability}`,
+      source_lane_ref: lane.lane_ref,
+      label: lane.label,
+      authority_state: lane.authority_state,
+      operator_posture: lane.operator_posture,
+      authority_domain_ref: lane.authority_domain_ref,
+      authority_capability_ref: lane.authority_capability_ref,
+      required_authority_mode: lane.required_authority_mode,
+      authority_lease_requirement_ref: lane.authority_lease_requirement_ref,
+      active_lease_required: true,
+      unknown_authority_denied: true,
+      route_refs: [...lane.route_refs],
+      proof_refs: [...lane.proof_refs],
+      verifier_refs: [...lane.verifier_refs],
+      cli_inspection_refs: [...lane.cli_inspection_refs],
+      safe_disable_refs: [...lane.safe_disable_refs],
+      rollback_refs: [...lane.rollback_refs],
+      blocked_authority_refs: [...lane.blocked_authority_refs],
+      safe_summary: `${lane.label} is represented as an AuthorityLease ${domain}/${capability} capability. Unknown authority remains denied; an active matching lease is required before any non-read effect.`,
+      safe_refs_only: true,
+      control_center_grants_authority: false,
+      execution_claimed: false,
+    };
+  });
+}
 
 function providerCatalogCard({
   slug,

@@ -1,4 +1,5 @@
 import type {
+  TrustAuthorityCapabilityCatalogEntry,
   TrustAuthorityDomainCoverage,
   TrustAuthorityLane,
   TrustAuthorityMatrix,
@@ -25,6 +26,7 @@ export function TrustAuthorityPanel({
   const blockedRows = laneRows.filter((lane) => lane.authority_state === "blocked");
   const fallbackLaneRefs = matrix.lanes.map((lane) => lane.lane_ref);
   const domainCoverageRows = authoritative ? matrix.authority_domain_coverage : [];
+  const capabilityRows = authoritative ? matrix.authority_capability_catalog : [];
   return (
     <section className="page-section" aria-labelledby="trust-heading">
       <div className="section-heading">
@@ -116,6 +118,8 @@ export function TrustAuthorityPanel({
 
       <DomainCoveragePanel rows={domainCoverageRows} />
 
+      <CapabilityCatalogPanel rows={capabilityRows} />
+
       <div className="two-column-grid">
         <LaneColumn
           lanes={availableRows}
@@ -162,6 +166,96 @@ export function TrustAuthorityPanel({
           : "Reconnect to the local backend before using Trust to choose a next safe action."}
       </p>
     </section>
+  );
+}
+
+function CapabilityCatalogPanel({
+  rows,
+}: {
+  rows: TrustAuthorityCapabilityCatalogEntry[];
+}) {
+  return (
+    <div className="panel-card" aria-label="AuthorityLease capability catalog">
+      <div className="list-card-header">
+        <div>
+          <h3>AuthorityLease Capability Catalog</h3>
+          <p>
+            Legacy Trust rows are projected into governed mode, domain, and
+            capability entries. Unknown authority stays denied; an active lease
+            is required before non-read effects.
+          </p>
+        </div>
+        <span className="status-pill compact">{rows.length} capabilities</span>
+      </div>
+      <div className="stacked-list compact">
+        {rows.map((row) => (
+          <article className="list-card compact" key={row.catalog_ref}>
+            <div className="list-card-header">
+              <div>
+                <strong>{row.label}</strong>
+                <p>{row.safe_summary}</p>
+              </div>
+              <span className="status-pill compact">
+                {formatTrustLabel(row.authority_state)}
+              </span>
+            </div>
+            <div className="detail-grid compact">
+              <DetailTerm
+                label="Capability"
+                value={formatAuthorityRef(row.authority_capability_ref)}
+              />
+              <DetailTerm
+                label="Domain"
+                value={formatAuthorityRef(row.authority_domain_ref)}
+              />
+              <DetailTerm
+                label="Mode"
+                value={formatTrustLabel(row.required_authority_mode)}
+              />
+              <DetailTerm
+                label="Lease"
+                value={row.active_lease_required ? "required" : "missing"}
+              />
+              <DetailTerm
+                label="Unknown"
+                value={row.unknown_authority_denied ? "denied" : "allowed"}
+              />
+              <DetailTerm
+                label="Execution"
+                value={row.execution_claimed ? "claimed" : "not claimed"}
+              />
+            </div>
+            <RefGroup
+              title="Catalog and source"
+              refs={[row.catalog_ref, row.source_lane_ref]}
+            />
+            <RefGroup
+              title="AuthorityLease requirement"
+              refs={[
+                row.authority_lease_requirement_ref,
+                row.authority_domain_ref,
+                row.authority_capability_ref,
+              ]}
+            />
+            <RefGroup
+              title="CLI, proof, and verifiers"
+              refs={[...row.cli_inspection_refs, ...row.proof_refs, ...row.verifier_refs]}
+            />
+            <RefGroup
+              title="Safe-disable and rollback"
+              refs={[...row.safe_disable_refs, ...row.rollback_refs]}
+            />
+            {row.blocked_authority_refs.length > 0 ? (
+              <RefGroup
+                title="Blocked authority"
+                refs={row.blocked_authority_refs}
+              />
+            ) : null}
+          </article>
+        ))}
+        {rows.length === 0 ? <p className="muted">none</p> : null}
+      </div>
+    </div>
   );
 }
 

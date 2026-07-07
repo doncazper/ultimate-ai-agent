@@ -333,6 +333,31 @@ export interface TrustAuthorityDomainCoverage {
   execution_claimed: boolean;
 }
 
+export interface TrustAuthorityCapabilityCatalogEntry {
+  catalog_ref: string;
+  source_lane_ref: string;
+  label: string;
+  authority_state: TrustAuthorityState;
+  operator_posture: TrustOperatorPosture;
+  authority_domain_ref: string;
+  authority_capability_ref: string;
+  required_authority_mode: string;
+  authority_lease_requirement_ref: string;
+  active_lease_required: boolean;
+  unknown_authority_denied: boolean;
+  route_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  cli_inspection_refs: string[];
+  safe_disable_refs: string[];
+  rollback_refs: string[];
+  blocked_authority_refs: string[];
+  safe_summary: string;
+  safe_refs_only: boolean;
+  control_center_grants_authority: boolean;
+  execution_claimed: boolean;
+}
+
 export interface TrustAuthorityMatrix {
   schema_version: "control-center-trust-authority-matrix.v1";
   contract_ref: string;
@@ -349,6 +374,8 @@ export interface TrustAuthorityMatrix {
   lanes: TrustAuthorityLane[];
   tier_summaries: TrustAuthorityTierSummary[];
   authority_domain_coverage: TrustAuthorityDomainCoverage[];
+  authority_capability_catalog: TrustAuthorityCapabilityCatalogEntry[];
+  authority_capability_catalog_refs: string[];
   available_now_lane_refs: string[];
   approval_required_lane_refs: string[];
   planned_lane_refs: string[];

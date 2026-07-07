@@ -151,6 +151,41 @@ def _assert_matrix(matrix: dict[str, Any], failures: list[str], label: str) -> N
             if cli_ref not in TRUST_AUTHORITY_ALLOWED_CLI_INSPECTION_REFS:
                 failures.append(f"{label} unregistered CLI ref: {cli_ref}")
 
+    if len(parsed.authority_capability_catalog) != len(parsed.lanes):
+        failures.append(f"{label} capability catalog must map every lane")
+    if parsed.authority_capability_catalog_refs != [
+        entry.catalog_ref for entry in parsed.authority_capability_catalog
+    ]:
+        failures.append(f"{label} capability catalog refs drifted")
+    if [entry.source_lane_ref for entry in parsed.authority_capability_catalog] != [
+        lane.lane_ref for lane in parsed.lanes
+    ]:
+        failures.append(f"{label} capability catalog source lane refs drifted")
+    catalog_by_lane = {
+        entry.source_lane_ref: entry for entry in parsed.authority_capability_catalog
+    }
+    for lane in parsed.lanes:
+        entry = catalog_by_lane.get(lane.lane_ref)
+        if entry is None:
+            failures.append(f"{label} missing capability entry for {lane.lane_ref}")
+            continue
+        if (
+            entry.authority_domain_ref != lane.authority_domain_ref
+            or entry.authority_capability_ref != lane.authority_capability_ref
+            or entry.required_authority_mode != lane.required_authority_mode
+            or entry.authority_lease_requirement_ref
+            != lane.authority_lease_requirement_ref
+        ):
+            failures.append(f"{label} capability entry drifted for {lane.lane_ref}")
+        if (
+            not entry.active_lease_required
+            or not entry.unknown_authority_denied
+            or not entry.safe_refs_only
+            or entry.control_center_grants_authority
+            or entry.execution_claimed
+        ):
+            failures.append(f"{label} capability entry grants authority: {lane.lane_ref}")
+
     lanes = parsed.lanes
     parity = {
         "cli_inspection_refs": [ref for lane in lanes for ref in lane.cli_inspection_refs],

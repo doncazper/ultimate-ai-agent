@@ -327,6 +327,68 @@ class TrustAuthorityDomainCoverage(BaseModel):
         return self
 
 
+class TrustAuthorityCapabilityCatalogEntry(BaseModel):
+    catalog_ref: str = Field(..., min_length=1)
+    source_lane_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1, max_length=160)
+    authority_state: TrustAuthorityState
+    operator_posture: TrustOperatorPosture
+    authority_domain_ref: str = Field(..., min_length=1)
+    authority_capability_ref: str = Field(..., min_length=1)
+    required_authority_mode: str = Field(..., min_length=1, max_length=120)
+    authority_lease_requirement_ref: str = Field(..., min_length=1)
+    active_lease_required: bool = True
+    unknown_authority_denied: bool = True
+    route_refs: list[str] = Field(default_factory=list)
+    proof_refs: list[str] = Field(default_factory=list)
+    verifier_refs: list[str] = Field(default_factory=list)
+    cli_inspection_refs: list[str] = Field(default_factory=list)
+    safe_disable_refs: list[str] = Field(default_factory=list)
+    rollback_refs: list[str] = Field(default_factory=list)
+    blocked_authority_refs: list[str] = Field(default_factory=list)
+    safe_summary: str = Field(..., min_length=1, max_length=520)
+    safe_refs_only: bool = True
+    control_center_grants_authority: bool = False
+    execution_claimed: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_entry(self) -> "TrustAuthorityCapabilityCatalogEntry":
+        _validate_ref_list(
+            [
+                self.catalog_ref,
+                self.source_lane_ref,
+                self.authority_domain_ref,
+                self.authority_capability_ref,
+                self.authority_lease_requirement_ref,
+            ],
+            "authority_capability_catalog_refs",
+        )
+        for field_name in (
+            "label",
+            "required_authority_mode",
+            "safe_summary",
+        ):
+            validate_safe_execution_text(str(getattr(self, field_name)), field_name)
+        _validate_text_list(self.route_refs, "route_refs")
+        _validate_ref_list(self.proof_refs, "proof_refs")
+        _validate_text_list(self.verifier_refs, "verifier_refs")
+        _validate_text_list(self.cli_inspection_refs, "cli_inspection_refs")
+        _validate_ref_list(self.safe_disable_refs, "safe_disable_refs")
+        _validate_ref_list(self.rollback_refs, "rollback_refs")
+        _validate_ref_list(self.blocked_authority_refs, "blocked_authority_refs")
+        if (
+            not self.active_lease_required
+            or not self.unknown_authority_denied
+            or not self.safe_refs_only
+            or self.control_center_grants_authority
+            or self.execution_claimed
+        ):
+            raise ValueError("Trust authority capabilities must stay lease-gated")
+        return self
+
+
 class TrustAuthorityMatrixReadModel(BaseModel):
     schema_version: str = "control-center-trust-authority-matrix.v1"
     contract_ref: str = TRUST_AUTHORITY_MATRIX_CONTRACT_REF
@@ -345,6 +407,10 @@ class TrustAuthorityMatrixReadModel(BaseModel):
     authority_domain_coverage: list[TrustAuthorityDomainCoverage] = Field(
         default_factory=list
     )
+    authority_capability_catalog: list[TrustAuthorityCapabilityCatalogEntry] = Field(
+        default_factory=list
+    )
+    authority_capability_catalog_refs: list[str] = Field(default_factory=list)
     available_now_lane_refs: list[str] = Field(default_factory=list)
     approval_required_lane_refs: list[str] = Field(default_factory=list)
     planned_lane_refs: list[str] = Field(default_factory=list)
@@ -407,9 +473,38 @@ class TrustAuthorityMatrixReadModel(BaseModel):
         )
         _validate_ref_list(self.planned_lane_refs, "planned_lane_refs")
         _validate_ref_list(self.blocked_lane_refs, "blocked_lane_refs")
+        _validate_ref_list(
+            self.authority_capability_catalog_refs,
+            "authority_capability_catalog_refs",
+        )
         lane_refs = [lane.lane_ref for lane in self.lanes]
         if len(lane_refs) != len(set(lane_refs)):
             raise ValueError("Trust authority lane refs must be unique")
+        catalog_refs = [
+            entry.catalog_ref for entry in self.authority_capability_catalog
+        ]
+        if len(catalog_refs) != len(set(catalog_refs)):
+            raise ValueError("Trust authority capability refs must be unique")
+        if self.authority_capability_catalog_refs != catalog_refs:
+            raise ValueError("Trust authority capability catalog refs drift")
+        if [entry.source_lane_ref for entry in self.authority_capability_catalog] != (
+            lane_refs
+        ):
+            raise ValueError("Trust authority capability catalog lane mapping drift")
+        lanes_by_ref = {lane.lane_ref: lane for lane in self.lanes}
+        for entry in self.authority_capability_catalog:
+            lane = lanes_by_ref[entry.source_lane_ref]
+            if (
+                entry.label != lane.label
+                or entry.authority_state != lane.authority_state
+                or entry.operator_posture != lane.operator_posture
+                or entry.authority_domain_ref != lane.authority_domain_ref
+                or entry.authority_capability_ref != lane.authority_capability_ref
+                or entry.required_authority_mode != lane.required_authority_mode
+                or entry.authority_lease_requirement_ref
+                != lane.authority_lease_requirement_ref
+            ):
+                raise ValueError("Trust authority capability catalog entry drift")
         domain_coverage_refs = [
             coverage.domain_ref for coverage in self.authority_domain_coverage
         ]
@@ -476,6 +571,7 @@ def build_trust_authority_matrix_read_model(
     lanes = _trust_authority_lanes(primary_loop_proof_ref=primary_loop_proof_ref)
     tier_summaries = _tier_summaries(lanes)
     authority_domain_coverage = _authority_domain_coverage()
+    authority_capability_catalog = _authority_capability_catalog(lanes)
     model = TrustAuthorityMatrixReadModel(
         doctrine="Earned authority, low friction by default, strict only where consequences justify it.",
         operator_summary=(
@@ -488,6 +584,10 @@ def build_trust_authority_matrix_read_model(
         lanes=lanes,
         tier_summaries=tier_summaries,
         authority_domain_coverage=authority_domain_coverage,
+        authority_capability_catalog=authority_capability_catalog,
+        authority_capability_catalog_refs=[
+            entry.catalog_ref for entry in authority_capability_catalog
+        ],
         available_now_lane_refs=[
             lane.lane_ref for lane in lanes if lane.authority_state == "available_now"
         ],
@@ -1297,6 +1397,52 @@ def _trust_authority_lanes(
             requires_rollback_posture=True,
         ),
     ]
+
+
+def _authority_capability_catalog(
+    lanes: list[TrustAuthorityLane],
+) -> list[TrustAuthorityCapabilityCatalogEntry]:
+    entries: list[TrustAuthorityCapabilityCatalogEntry] = []
+    for lane in lanes:
+        lane_suffix = _lane_suffix(lane.lane_ref)
+        domain_suffix = lane.authority_domain_ref.removeprefix(
+            "authority-domain-ref:"
+        )
+        capability_suffix = lane.authority_capability_ref.removeprefix(
+            "authority-capability-ref:"
+        )
+        entries.append(
+            TrustAuthorityCapabilityCatalogEntry(
+                catalog_ref=(
+                    "authority-capability-catalog-ref:"
+                    f"{lane_suffix}:{domain_suffix}:{capability_suffix}"
+                ),
+                source_lane_ref=lane.lane_ref,
+                label=lane.label,
+                authority_state=lane.authority_state,
+                operator_posture=lane.operator_posture,
+                authority_domain_ref=lane.authority_domain_ref,
+                authority_capability_ref=lane.authority_capability_ref,
+                required_authority_mode=lane.required_authority_mode,
+                authority_lease_requirement_ref=(
+                    lane.authority_lease_requirement_ref
+                ),
+                route_refs=list(lane.route_refs),
+                proof_refs=list(lane.proof_refs),
+                verifier_refs=list(lane.verifier_refs),
+                cli_inspection_refs=list(lane.cli_inspection_refs),
+                safe_disable_refs=list(lane.safe_disable_refs),
+                rollback_refs=list(lane.rollback_refs),
+                blocked_authority_refs=list(lane.blocked_authority_refs),
+                safe_summary=(
+                    f"{lane.label} is represented as an AuthorityLease "
+                    f"{domain_suffix}/{capability_suffix} capability. Unknown "
+                    "authority remains denied; an active matching lease is "
+                    "required before any non-read effect."
+                ),
+            )
+        )
+    return entries
 
 
 def _lane(

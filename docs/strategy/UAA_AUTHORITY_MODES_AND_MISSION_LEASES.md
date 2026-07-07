@@ -36,6 +36,12 @@ surfaces are:
   including implemented, partial, planned, hidden-ref, unsupported-adapter,
   `GET /api/runtime/authority-state`, and
   `repo-local-command:uaa-runtime-inspect-authority-state` inspection posture.
+- `GET /control-center/trust-authority/matrix#authority_capability_catalog`
+  projects each legacy Trust row into a governed AuthorityLease capability
+  entry with mode, domain, capability, lease requirement, source row,
+  safe-disable, rollback, blocked-authority, proof, verifier, API, and CLI refs.
+  This is the compatibility bridge away from the old graduation-lane product
+  concept: operators inspect governed capabilities, not broad allow flags.
 - `GET /api/runtime/authority-state#capability_mappings` has at least one
   explicit mapping row for every target AuthorityLease domain; unsupported
   adapters remain `planned` or blocked rows and do not become executable.
