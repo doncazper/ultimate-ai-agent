@@ -55,7 +55,7 @@ CORE_REQUIRED = [
     "reason-ref:staged-orchestration:dependency-cycle",
     "reason-ref:staged-orchestration:degraded-handoff-missing",
     "reason-ref:staged-orchestration:downstream-not-skipped",
-    "reason-ref:staged-orchestration:runtime-authority-not-promoted",
+    "reason-ref:staged-orchestration:runtime-authority-lease-required",
 ]
 
 CLI_API_REQUIRED = [
@@ -73,7 +73,7 @@ TEST_REQUIRED = [
     "test_checkpoint_replay_is_idempotent_and_conflict_bound",
     "test_approved_runtime_command_step_executes_through_runtime_gateway",
     "expected_argv_suffix",
-    "test_runtime_command_step_rejects_unpromoted_intent",
+    "test_runtime_command_step_rejects_unsupported_authority_capability_intent",
     "test_runtime_command_step_without_plan_enablement_is_rejected",
     "test_effectful_callback_and_raw_metadata_are_rejected",
     "test_runtime_cli_inspects_staged_orchestration_safe_json",

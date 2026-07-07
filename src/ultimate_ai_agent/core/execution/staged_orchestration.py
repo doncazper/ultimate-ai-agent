@@ -34,7 +34,16 @@ STAGED_ORCHESTRATION_BLOCKED_AUTHORITY_REFS = (
 STAGED_ORCHESTRATION_APPROVED_RUNTIME_STEP_AUTHORITY_REF = (
     "authority-ref:staged-orchestration:approved-runtime-command-step"
 )
-STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_PROMOTED_INTENTS = (
+STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_MODE_REF = (
+    "authority-mode-ref:approved-safe-local-work-session"
+)
+STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_DOMAIN_REF = (
+    "authority-domain-ref:workspace"
+)
+STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_CAPABILITY_REF = (
+    "authority-capability-ref:execute"
+)
+STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_CAPABILITY_INTENTS = (
     "focused_pytest",
     "repo_verifier",
     "frontend_check",
@@ -232,6 +241,15 @@ class StagedOrchestrationDegradedHandoff(_StagedOrchestrationModel):
 class StagedOrchestrationApprovedRuntimeCommandBinding(_StagedOrchestrationModel):
     binding_ref: str = Field(..., min_length=1)
     authority_ref: str = STAGED_ORCHESTRATION_APPROVED_RUNTIME_STEP_AUTHORITY_REF
+    authority_required_mode_ref: str = (
+        STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_MODE_REF
+    )
+    authority_required_domain_ref: str = (
+        STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_DOMAIN_REF
+    )
+    authority_required_capability_ref: str = (
+        STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_CAPABILITY_REF
+    )
     runtime_invocation_ref: str = Field(..., min_length=1)
     runtime_action_envelope_ref: str = Field(..., min_length=1)
     runtime_approval_ref: str = Field(..., min_length=1)
@@ -249,6 +267,18 @@ class StagedOrchestrationApprovedRuntimeCommandBinding(_StagedOrchestrationModel
         for value, field_name in [
             (self.binding_ref, "runtime_binding_ref"),
             (self.authority_ref, "runtime_binding_authority_ref"),
+            (
+                self.authority_required_mode_ref,
+                "runtime_binding_authority_required_mode_ref",
+            ),
+            (
+                self.authority_required_domain_ref,
+                "runtime_binding_authority_required_domain_ref",
+            ),
+            (
+                self.authority_required_capability_ref,
+                "runtime_binding_authority_required_capability_ref",
+            ),
             (self.runtime_invocation_ref, "runtime_binding_invocation_ref"),
             (self.runtime_action_envelope_ref, "runtime_binding_action_envelope_ref"),
             (self.runtime_approval_ref, "runtime_binding_approval_ref"),
@@ -268,8 +298,24 @@ class StagedOrchestrationApprovedRuntimeCommandBinding(_StagedOrchestrationModel
         _validate_safe_text(str(self.command_intent), "runtime_binding_command_intent")
         if self.authority_ref != STAGED_ORCHESTRATION_APPROVED_RUNTIME_STEP_AUTHORITY_REF:
             raise ValueError("STAGED_ORCHESTRATION_RUNTIME_BINDING_AUTHORITY_REF_REQUIRED")
-        if str(self.command_intent) not in STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_PROMOTED_INTENTS:
-            raise ValueError("STAGED_ORCHESTRATION_RUNTIME_COMMAND_INTENT_NOT_PROMOTED")
+        if (
+            self.authority_required_mode_ref
+            != STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_MODE_REF
+            or self.authority_required_domain_ref
+            != STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_DOMAIN_REF
+            or self.authority_required_capability_ref
+            != STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_CAPABILITY_REF
+        ):
+            raise ValueError(
+                "STAGED_ORCHESTRATION_RUNTIME_BINDING_AUTHORITY_LEASE_SCOPE_REQUIRED"
+            )
+        if (
+            str(self.command_intent)
+            not in STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_CAPABILITY_INTENTS
+        ):
+            raise ValueError(
+                "STAGED_ORCHESTRATION_RUNTIME_COMMAND_INTENT_UNSUPPORTED_BY_AUTHORITY_CAPABILITY"
+            )
         return self
 
 
@@ -557,8 +603,13 @@ class StagedOrchestrationRuntimeCommandStepResult(_StagedOrchestrationModel):
         _validate_safe_text(str(self.command_intent), "runtime_result_command_intent")
         for field_name in ("evidence_refs", "reason_refs"):
             _validate_refs(getattr(self, field_name), field_name)
-        if str(self.command_intent) not in STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_PROMOTED_INTENTS:
-            raise ValueError("STAGED_ORCHESTRATION_RUNTIME_RESULT_INTENT_NOT_PROMOTED")
+        if (
+            str(self.command_intent)
+            not in STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_CAPABILITY_INTENTS
+        ):
+            raise ValueError(
+                "STAGED_ORCHESTRATION_RUNTIME_RESULT_INTENT_UNSUPPORTED_BY_AUTHORITY_CAPABILITY"
+            )
         if self.output_persisted or self.raw_payloads_persisted:
             raise ValueError("STAGED_ORCHESTRATION_RUNTIME_RESULT_PERSISTENCE_DENIED")
         if (
@@ -762,8 +813,21 @@ def _validate_runtime_command_binding(
         raise ValueError("STAGED_ORCHESTRATION_RUNTIME_COMMAND_INTENT_CHANGED")
     if binding.authority_ref != STAGED_ORCHESTRATION_APPROVED_RUNTIME_STEP_AUTHORITY_REF:
         raise ValueError("STAGED_ORCHESTRATION_RUNTIME_BINDING_AUTHORITY_REF_REQUIRED")
-    if command_intent not in STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_PROMOTED_INTENTS:
-        raise ValueError("STAGED_ORCHESTRATION_RUNTIME_COMMAND_INTENT_NOT_PROMOTED")
+    if (
+        binding.authority_required_mode_ref
+        != STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_MODE_REF
+        or binding.authority_required_domain_ref
+        != STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_DOMAIN_REF
+        or binding.authority_required_capability_ref
+        != STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_AUTHORITY_CAPABILITY_REF
+    ):
+        raise ValueError(
+            "STAGED_ORCHESTRATION_RUNTIME_BINDING_AUTHORITY_LEASE_SCOPE_REQUIRED"
+        )
+    if command_intent not in STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_CAPABILITY_INTENTS:
+        raise ValueError(
+            "STAGED_ORCHESTRATION_RUNTIME_COMMAND_INTENT_UNSUPPORTED_BY_AUTHORITY_CAPABILITY"
+        )
     if requested_profile != "operator-approved":
         raise ValueError("STAGED_ORCHESTRATION_RUNTIME_OPERATOR_APPROVED_PROFILE_REQUIRED")
     if command_request.approval_ref != binding.runtime_approval_ref:
@@ -1045,7 +1109,9 @@ def _authority_reason_codes(plan: StagedOrchestrationPlan) -> list[str]:
         if not runtime_steps:
             reasons.append("reason-ref:staged-orchestration:runtime-step-required")
     if not plan.no_effect and not plan.approved_runtime_command_execution_enabled:
-        reasons.append("reason-ref:staged-orchestration:runtime-authority-not-promoted")
+        reasons.append(
+            "reason-ref:staged-orchestration:runtime-authority-lease-required"
+        )
     if plan.background_autonomy_enabled:
         reasons.append("reason-ref:staged-orchestration:background-autonomy-denied")
     if plan.provider_model_call_enabled:
@@ -1071,10 +1137,10 @@ def _authority_reason_codes(plan: StagedOrchestrationPlan) -> list[str]:
                     )
                 if (
                     str(binding.command_intent)
-                    not in STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_PROMOTED_INTENTS
+                    not in STAGED_ORCHESTRATION_APPROVED_RUNTIME_COMMAND_CAPABILITY_INTENTS
                 ):
                     reasons.append(
-                        "reason-ref:staged-orchestration:runtime-command-intent-not-promoted"
+                        "reason-ref:staged-orchestration:runtime-command-intent-unsupported-by-authority-capability"
                     )
             continue
         if binding is not None:

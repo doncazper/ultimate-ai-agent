@@ -329,6 +329,14 @@ def test_approved_runtime_command_step_executes_through_runtime_gateway(
         update={"approval_ref": approved.action_inbox_envelope.approval_ref}
     )
     plan = _runtime_command_plan(approved)
+    binding = plan.steps[0].runtime_command_binding
+    assert binding is not None
+    assert (
+        binding.authority_required_mode_ref
+        == "authority-mode-ref:approved-safe-local-work-session"
+    )
+    assert binding.authority_required_domain_ref == "authority-domain-ref:workspace"
+    assert binding.authority_required_capability_ref == "authority-capability-ref:execute"
     gateway = RuntimeGateway(
         store=store,
         command_adapter=GovernedCommandRuntimeAdapter(
@@ -369,7 +377,7 @@ def test_approved_runtime_command_step_executes_through_runtime_gateway(
     assert "redacted staged orchestration output marker" not in persisted
 
 
-def test_runtime_command_step_rejects_unpromoted_intent(
+def test_runtime_command_step_rejects_unsupported_authority_capability_intent(
     tmp_path: Path,
 ) -> None:
     store = RuntimeInvocationStore(tmp_path)
