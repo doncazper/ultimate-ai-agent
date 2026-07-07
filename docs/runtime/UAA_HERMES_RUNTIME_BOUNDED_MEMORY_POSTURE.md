@@ -57,13 +57,13 @@ The posture does not grant:
 
 Memory remains recall and review posture, not truth or action authority.
 
-## Promotion Path
+## AuthorityLease Capability Path
 
 Any future memory write, injection, external memory provider, or delete/export
-lane must prove exact scope, LocalApprovalAuthority binding, idempotency,
+capability must prove exact scope, LocalApprovalAuthority binding, idempotency,
 receipt/proof refs, rollback or supersede posture, safe-disable behavior,
 redaction, CLI/API/Core parity, route classification, and focused verifier
-coverage before it can graduate.
+coverage before it can become active AuthorityLease scope.
 
 ## Verification
 

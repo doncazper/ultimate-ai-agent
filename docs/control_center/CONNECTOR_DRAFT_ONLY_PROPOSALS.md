@@ -80,9 +80,9 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/test_connector_draft_proposals.p
 ```
 
 This lane does not add send, write, sync, provider, browser, shell, background,
-or production authority. Future send/write work must graduate separately with
-exact approval, idempotency, receipt, rollback, safe-disable, redaction, and
-test-target proof.
+or production authority. Future send/write work must be a separate
+AuthorityLease-gated capability with exact approval, idempotency, receipt,
+rollback, safe-disable, redaction, and test-target proof.
 
 ## Exact promotion path
 

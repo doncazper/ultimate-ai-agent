@@ -34,9 +34,10 @@ scoped adapter must keep Provider Credential Readiness, CostGovernor Binding,
 Credential Vault posture, exact approval, redacted receipts, CLI inspection
 parity, and UI blocked-state parity green.
 
-## Promotion Checklist
+## AuthorityLease Capability Checklist
 
-The tiny lane requires all of the following before adapter execution can occur:
+The exact provider invocation capability requires all of the following before
+adapter execution can occur:
 
 - active AuthorityLease granting `provider_model_calls/execute`
 - `credential_ref`

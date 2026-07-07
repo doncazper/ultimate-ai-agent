@@ -371,7 +371,7 @@ refs as inspection-only route, receipt, evidence, audit, memory, blocked, and
 promotion-path groups while CLI output exposes the complete proof records.
 Blocked / needs authority: provider/model calls, connector writes or sends,
 browser automation, shell/subprocess execution, background autonomy, public
-release claims, and production authority remain blocked. Exact promotion path:
-graduate one lane at a time with exact scope, approval binding, idempotency,
-redacted receipts, rollback or safe-disable posture, CLI parity, frontend truth
-labels, and focused tests/verifiers.
+release claims, and production authority remain blocked. Exact capability path:
+implement one AuthorityLease-gated capability at a time with exact scope,
+approval binding, idempotency, redacted receipts, rollback or safe-disable
+posture, CLI parity, frontend truth labels, and focused tests/verifiers.

@@ -14,9 +14,9 @@ browser, web, shell, scheduler, or credential runtime, and persists no raw
 private payloads.
 
 No broad authority is added. The only mutation exercised by the fixture is the
-already graduated exact `local_task_create` local task commit lane, using the
-existing backend approval, idempotency, receipt, evidence, rollback, and
-safe-disable posture.
+exact AuthorityLease-gated `local_task_create` local task commit capability,
+using the existing backend approval, idempotency, receipt, evidence, rollback,
+and safe-disable posture.
 
 ## Repo-Local Inspection
 

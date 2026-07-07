@@ -76,7 +76,8 @@ receive opaque refs and use brokered handles through approved adapters only.
 
 ## Everyday Authority Ladder
 
-Future life-OS behavior should graduate by consequence, not by UI enthusiasm:
+Future life-OS behavior should advance by consequence and AuthorityLease scope,
+not by UI enthusiasm:
 
 | Stage | Product behavior | Boundary |
 |---|---|---|
@@ -163,4 +164,4 @@ These are future-scoped seeds only; they are not selected implementation lanes:
 The near-term Founder Command Center lane remains Today, Action Inbox, Plans,
 Memory, Evidence, Settings, source readiness, and approval-envelope
 readability. This north star exists so later authority work has a product spine
-to graduate toward without pretending the authority exists today.
+to advance toward without pretending the authority exists today.

@@ -87,7 +87,7 @@ model intelligence. Code and tests are weighted above roadmap claims.
 | Action and tool calling | 6 | partial | 8 | implemented | GoatCitadel | UAA has exact Action Inbox decisions, one approved local-task lane, CRM local mutation receipts, and blocked generic execution. GoatCitadel shows capability/tool catalogs, policy-gated invocation, approvals, and code-mode receipts. | Add inspectable/callable catalog separation and richer action proposals while keeping generic tool execution blocked. |
 | Autonomy and authority management | 9 | implemented | 8 | implemented | UAA | UAA AGENTS, Security, LocalApprovalAuthority, PolicyEngine, route classification, OpenAPI checks, and product-language rules keep broad authority denied. GoatCitadel has Citadel Wards and scoped grants but exposes broader runtime claims. | Preserve UAA's narrower authority model while improving operator usefulness. |
 | Code and implementation assistance | 6 | partial | 8 | implemented | GoatCitadel | UAA has Coding Cockpit shell, workspace workbench contracts, patch proposals/apply receipts in product truth, and blocked shell authority. GoatCitadel has Code Mode v1 contracts, hashes, approval, artifact refs, and sandbox posture. | Make UAA code proposals, diffs, receipts, and test lanes more coherent before broader command authority. |
-| Research, web, and external information handling | 5 | partial | 7 | partial | GoatCitadel | UAA has WebAccessGateway guardrails and one allowlisted web evidence preview lane. GoatCitadel has provider/research and browser/evidence posture in docs/contracts. | Keep UAA web evidence read-only and gateway-owned; do not graduate browser action or unrestricted web fetching. |
+| Research, web, and external information handling | 5 | partial | 7 | partial | GoatCitadel | UAA has WebAccessGateway guardrails and one allowlisted web evidence preview lane. GoatCitadel has provider/research and browser/evidence posture in docs/contracts. | Keep UAA web evidence read-only and gateway-owned; do not enable browser action or unrestricted web fetching without a separate AuthorityLease-gated capability. |
 | Model/provider management | 5 | partial | 8 | implemented | GoatCitadel | UAA has local model status/readiness, RuntimeGateway pilot contracts, and blocked provider/model authority. GoatCitadel has provider catalog, local llama.cpp posture, model discovery, provider summaries, and model-router trace contracts. | Add metadata, secret-status, cost/readiness, and route-decision traces without live provider/model calls. |
 | Evidence, audit, and observability | 8 | implemented | 9 | implemented | GoatCitadel | UAA has Evidence Timeline, receipts, redaction, proof refs, route/API/verifier evidence, debug logging posture, and Phase 06 backend-owned evidence audit receipt spine with grouped lineage, artifact hash refs, verifier refs, missing receipt refs, and CLI parity. GoatCitadel claims signed offline-verifiable evidence and compliance bundles. | Add later signed portable evidence export/verification only through scoped local evidence milestones; no production compliance claims yet. |
 | Safety, security, and failure handling | 9 | implemented | 8 | implemented | UAA | UAA strongly blocks raw payload persistence, broad runtime authority, provider SDK calls, browser automation, shell execution, connector writes, and production claims. GoatCitadel has broad governance but more active runtime surface area. | Keep strict deny-by-default while introducing exact lanes only with rollback/safe-disable and receipts. |
@@ -170,9 +170,10 @@ tests, and CLI/API/core parity.
 
 ## Blocked Authority Preserved
 
-The following remain blocked unless a later exact-scoped milestone explicitly
-graduates them with tests, redaction, approval binding, rollback/safe-disable,
-idempotency, receipts, CLI/API/core parity, and product-language updates:
+The following remain blocked unless a later exact-scoped AuthorityLease
+capability explicitly implements them with tests, redaction, approval binding,
+rollback/safe-disable, idempotency, receipts, CLI/API/core parity, and
+product-language updates:
 
 - runtime model calls
 - provider SDK calls

@@ -73,7 +73,7 @@
         "Start Here is a backend-owned local read model and first-loop guide, not runtime execution authority.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, shell/subprocess execution, memory/context injection, broad runtime authority, or hidden autonomy.",
-        "Start Here is not a public beta and must not claim public release, production readiness, production authority, or completed product authority until later evidence-backed lanes graduate."
+        "Start Here is not a public beta and must not claim public release, production readiness, production authority, or completed product authority until later evidence-backed AuthorityLease capabilities are implemented."
       ]
     },
     {
@@ -147,7 +147,7 @@
         "Proof is a backend-owned local read model and detail guide, not runtime execution authority.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, shell/subprocess execution, memory/context injection, broad runtime authority, or hidden autonomy.",
-        "Proof is not a public beta and must not claim public release, production readiness, production authority, or completed product authority until later evidence-backed lanes graduate."
+        "Proof is not a public beta and must not claim public release, production readiness, production authority, or completed product authority until later evidence-backed AuthorityLease capabilities are implemented."
       ]
     },
     {
@@ -213,7 +213,7 @@
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
         "Draft available does not mean send available; preview available does not mean runtime execution.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, shell/subprocess execution, memory/context injection, broad runtime authority, standing authority, hidden autonomy, public release, production readiness, or production authority.",
-        "Trust is not a public beta and must not claim public release, production readiness, production authority, or completed product authority until later evidence-backed lanes graduate."
+        "Trust is not a public beta and must not claim public release, production readiness, production authority, or completed product authority until later evidence-backed AuthorityLease capabilities are implemented."
       ]
     },
     {
@@ -471,7 +471,7 @@
         "Work Board is a backend-owned local read model with exact approved persisted reorder and local-card-create receipts; archive, assignment, issue tracker sync, connector writes, rollback execution, and production authority remain separate blocked lanes.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
         "Route visibility, drag/drop preview, and reorder receipts do not grant connector writes, provider/model calls, browser execution, shell/subprocess execution, memory/context injection, broad runtime authority, hidden autonomy, or production authority.",
-        "Work Board is not a public beta and must not claim public release, production readiness, production authority, or completed product authority until later evidence-backed lanes graduate."
+        "Work Board is not a public beta and must not claim public release, production readiness, production authority, or completed product authority until later evidence-backed AuthorityLease capabilities are implemented."
       ]
     },
     {
@@ -980,6 +980,13 @@
           "operation_id": "get_control_center_providers_setup_guide",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/authority-state",
+          "operation_id": "get_api_runtime_authority_state",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",

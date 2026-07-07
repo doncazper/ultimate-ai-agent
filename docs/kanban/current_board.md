@@ -512,9 +512,9 @@ provider/model calls, no live web, no browser runtime, no public beta, or
 production authority is authorized.
 Next: CRM M2 local command center is implemented as a partial backend-owned
 read/local mutation lane. Future work must stay exact-scoped: connector read
-lanes and any send/write lane remain blocked behind separate authority
-graduation reports, unblock prompts, route contracts, redaction tests,
-safe-disable posture, and rollback-readiness evidence.
+capabilities and any send/write capability remain blocked behind separate
+AuthorityLease capability evidence, unblock prompts, route contracts, redaction
+tests, safe-disable posture, and rollback-readiness evidence.
 
 WEB-RUNTIME-AUTH-001 Web Runtime Authority Promotion Ladder
 Goal: promote the web/provider/browser authority ladder into active roadmap and

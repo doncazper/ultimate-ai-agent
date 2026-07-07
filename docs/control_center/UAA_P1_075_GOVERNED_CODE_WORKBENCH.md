@@ -67,9 +67,9 @@ Blocked / needs authority:
   prompts, raw responses, raw provider payloads, local paths, shell output,
   credentials, tokens, cookies, account identifiers, or private data.
 
-Exact promotion path:
+Exact AuthorityLease capability path:
 
-- Prompt 02 graduates backend-owned context-pack preview contracts and
+- Prompt 02 implements backend-owned context-pack preview contracts and
   inspection parity from safe refs only.
 - Prompt 03 adds patch proposal artifacts without apply.
 - Prompt 04 adds patch apply readiness and blocker refs without apply.
@@ -281,7 +281,7 @@ Full-strength version:
   Proof Detail links.
 - Autonomous dispatch, background agents, provider calls, local verifier
   execution, test fixing, merge orchestration, and any production authority
-  remain outside this lane until exact authority graduates.
+  remain outside this capability until exact AuthorityLease scope is implemented.
 
 Repo-safe current version:
 
