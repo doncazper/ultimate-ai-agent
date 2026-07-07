@@ -26,7 +26,7 @@ surfaces are:
 - `POST /api/runtime/authority-leases`
 - `POST /api/runtime/authority-leases/approve-and-issue`
 - `POST /api/runtime/authority-leases/revoke`
-- `scripts/dev/uaa_runtime.py select-authority-mode`
+- `scripts/dev/uaa_runtime.py select-authority-mode --approve`
 - `scripts/dev/uaa_runtime.py revoke-authority-lease`
 - `scripts/dev/uaa_runtime.py command run ... --mission-ref ...`
 - `GET /control-center/trust-authority/matrix` rows map legacy lane refs to
@@ -39,7 +39,9 @@ surfaces are:
   an exact backend-owned LocalApprovalAuthority grant and then uses the same
   strict lease issue path. The lower-level `POST /api/runtime/authority-leases`
   route still denies authority-increasing requests without a matching approval
-  grant.
+  grant. CLI `select-authority-mode --approve` is the repo-local parity path for
+  capturing the same exact local operator approval without requiring hand-built
+  grant JSON.
 
 The first implementation is deliberately conservative: the default active
 lease is read-only; operator-selected session leases persist safe receipts for
@@ -74,10 +76,10 @@ or mutating anything; issue-ready implemented local mission plans can then issue
 the exact backend-generated mission-scoped lease request through the existing
 lease receipt route; preview results show required modes, domain and capability
 refs, receipt/audit refs, and unsupported-adapter reasons;
-Control Center `/settings` and `scripts/dev/uaa_runtime.py
-select-authority-mode` show approval-required, approval-validated,
-approval-status, approval-scope, denial reason, receipt, audit,
-rollback/safe-disable, and kill-switch refs for AuthorityLease issue attempts;
+Control Center `/settings` and CLI `select-authority-mode --approve` show
+approval-required, approval-validated, approval-status, approval-scope, denial
+reason, receipt, audit, rollback/safe-disable, and kill-switch refs for
+AuthorityLease issue attempts;
 unsupported browser/app/payment/calendar/messages/Home Assistant adapters remain
 denied or draft-degraded instead of being presented as live execution. Read-only
 command status may run under `workspace/read`; execution-capable command lanes

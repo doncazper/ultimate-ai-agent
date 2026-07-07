@@ -29,8 +29,9 @@ safe-disable, and kill-switch visibility. The current inspection surfaces are
 `GET /control-center/settings/status#authority_lease_state`, and
 `scripts/dev/uaa_runtime.py inspect-authority-state --json`; operator-selected
 session leases are recorded through `POST /api/runtime/authority-leases`,
+`POST /api/runtime/authority-leases/approve-and-issue`,
 `POST /api/runtime/authority-leases/revoke`,
-`scripts/dev/uaa_runtime.py select-authority-mode`, and
+`scripts/dev/uaa_runtime.py select-authority-mode --approve`, and
 `scripts/dev/uaa_runtime.py revoke-authority-lease`. Control Center `/settings`
 can request and revoke implemented local lease subsets with receipts. These
 routes are the mapped `system_settings/write` authority control plane and do

@@ -28,6 +28,7 @@ from ultimate_ai_agent.core.authority import (  # noqa: E402
     TrustMode,
 )
 from ultimate_ai_agent.core.authority.approval_validation import (  # noqa: E402
+    build_authority_lease_operator_approval_grant,
     validate_authority_lease_approval,
 )
 from ultimate_ai_agent.core.control_center.runtime_parity_loop import (  # noqa: E402
@@ -2032,6 +2033,13 @@ def _select_authority_mode(args: argparse.Namespace) -> int:
         json.loads(value)
         for value in (args.approval_grant_json or [])
     ]
+    if args.approve and (args.approval_ref or approval_grants):
+        print(
+            "ERROR: --approve captures an exact local approval grant; do not also pass "
+            "--approval-ref or --approval-grant-json.",
+            file=sys.stderr,
+        )
+        return 2
     request = AuthorityLeaseIssueRequest(
         mode=TrustMode(args.mode),
         scope=args.scope,
@@ -2043,6 +2051,24 @@ def _select_authority_mode(args: argparse.Namespace) -> int:
         approval_ref=args.approval_ref,
         approval_grants=approval_grants,
     )
+    approval_requirement = None
+    approval_captured = False
+    approval_ref = args.approval_ref
+    if args.approve:
+        approval_requirement, approval_grant = build_authority_lease_operator_approval_grant(
+            request,
+            idempotency_ref=args.idempotency_ref,
+            approved_by_actor_id=args.approved_by_actor_ref,
+        )
+        if approval_grant is not None:
+            approval_captured = True
+            approval_ref = approval_grant.approval_ref
+            request = request.model_copy(
+                update={
+                    "approval_ref": approval_grant.approval_ref,
+                    "approval_grants": [approval_grant.model_dump(mode="json")],
+                }
+            )
     lease, receipt = AuthorityLeaseStore().issue_lease(
         request,
         idempotency_ref=args.idempotency_ref,
@@ -2053,6 +2079,14 @@ def _select_authority_mode(args: argparse.Namespace) -> int:
         "command_ref": "repo-local-command:uaa-runtime-select-authority-mode",
         "lease": lease.model_dump(mode="json") if lease is not None else None,
         "receipt": receipt.model_dump(mode="json"),
+        "approval_requirement": (
+            approval_requirement.model_dump(mode="json")
+            if approval_requirement is not None
+            else None
+        ),
+        "approval_captured": approval_captured,
+        "approval_ref": approval_ref,
+        "approval_grant_payload_persisted": False,
         "safe_refs_only": True,
         "raw_content_omitted": True,
         "raw_paths_omitted": True,
@@ -2070,6 +2104,9 @@ def _select_authority_mode(args: argparse.Namespace) -> int:
         print(f"Approval required: {receipt.approval_required}")
         print(f"Approval validated: {receipt.approval_validated}")
         print(f"Approval status: {receipt.approval_status}")
+        print(f"Approval captured: {approval_captured}")
+        if approval_ref:
+            print(f"Approval ref: {approval_ref}")
         print(f"Approval scope: {receipt.approval_scope_ref or 'none'}")
         print(f"Granted domains: {len(receipt.granted_domains)}")
         print(f"Denied domains: {len(receipt.denied_domain_refs)}")
@@ -3966,6 +4003,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--approval-ref",
         default=None,
         help="Safe LocalApprovalAuthority approval ref for authority-increasing leases.",
+    )
+    select_authority.add_argument(
+        "--approve",
+        action="store_true",
+        help=(
+            "Capture an exact local operator approval grant before issuing an "
+            "authority-increasing lease."
+        ),
+    )
+    select_authority.add_argument(
+        "--approved-by-actor-ref",
+        default="operator-ref:local-cli-user",
+        help="Safe operator actor ref used when --approve captures the exact grant.",
     )
     select_authority.add_argument(
         "--approval-grant-json",

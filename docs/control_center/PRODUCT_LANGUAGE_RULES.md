@@ -74,14 +74,15 @@ kill-switch visibility, and mission-scoped lease requirements. Use
 `POST /api/runtime/authority-leases`,
 `POST /api/runtime/authority-leases/approve-and-issue`,
 `POST /api/runtime/authority-leases/revoke`,
-`scripts/dev/uaa_runtime.py select-authority-mode`, and
+`scripts/dev/uaa_runtime.py select-authority-mode --approve`, and
 `scripts/dev/uaa_runtime.py revoke-authority-lease` for operator-selected
 session lease receipts. Control Center `/settings` may request only implemented
 local AuthorityLease subsets; authority-increasing requests must include an
 exact LocalApprovalAuthority grant or the backend records a denied receipt with
-approval status, approval scope, and reason refs. `/settings` may revoke active
-leases through safe-disable posture and may preview concrete
-mode/domain/capability decisions or delegated mission plans through
+approval status, approval scope, and reason refs. CLI `--approve` captures that
+exact local operator approval without requiring hand-built grant JSON.
+`/settings` may revoke active leases through safe-disable posture and may preview
+concrete mode/domain/capability decisions or delegated mission plans through
 validation-only preview routes. For an issue-ready mission plan, `/settings` may
 call `POST /api/runtime/authority-leases/approve-and-issue` with the
 backend-generated `lease_issue_request`; the backend captures an exact

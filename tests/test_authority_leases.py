@@ -75,23 +75,6 @@ def _approved_issue_payload(
     ).model_dump(mode="json")
 
 
-def _approval_grant_json_for_cli(
-    request: AuthorityLeaseIssueRequest,
-    *,
-    idempotency_ref: str,
-    approval_ref: str,
-) -> str:
-    requirement = build_authority_lease_approval_requirement_for_request(
-        request,
-        idempotency_ref=idempotency_ref,
-    )
-    grant = build_authority_lease_test_grant(
-        requirement,
-        approval_ref=approval_ref,
-    )
-    return grant.model_dump_json()
-
-
 def _workspace_execute_lease() -> AuthorityLease:
     return AuthorityLease(
         lease_ref="authority-lease-ref:test-workspace-execute",
@@ -1174,19 +1157,7 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     assert "Unknown authority default: deny" in cli_state_text
     assert "Kill switch visible: True" in cli_state_text
 
-    cli_issue_request = AuthorityLeaseIssueRequest(
-        mode=TrustMode.ask_before_changes,
-        requested_domains={
-            AuthorityDomain.workspace: [
-                AuthorityCapability.read,
-                AuthorityCapability.write,
-            ]
-        },
-        decision_reason_ref="reason-ref:authority-cli-issue",
-        safe_summary="Select ask-before-changes workspace authority.",
-    )
     cli_issue_idempotency_ref = "idempotency-ref:authority-cli-issue"
-    cli_approval_ref = "approval-ref:test-authority:cli-issue"
     cli_issue = uaa_runtime.main(
         [
             "select-authority-mode",
@@ -1200,14 +1171,9 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
             cli_issue_idempotency_ref,
             "--summary",
             "Select ask-before-changes workspace authority.",
-            "--approval-ref",
-            cli_approval_ref,
-            "--approval-grant-json",
-            _approval_grant_json_for_cli(
-                cli_issue_request,
-                idempotency_ref=cli_issue_idempotency_ref,
-                approval_ref=cli_approval_ref,
-            ),
+            "--approve",
+            "--approved-by-actor-ref",
+            "operator-ref:test-cli-approver",
             "--json",
         ]
     )
@@ -1215,7 +1181,29 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     cli_payload = capsys.readouterr().out
     assert "uaa-runtime-select-authority-mode" in cli_payload
     assert "receipt-ref:authority-lease" in cli_payload
+    assert '"approval_captured": true' in cli_payload
     assert '"approval_validated": true' in cli_payload
+
+    conflicting_cli_issue = uaa_runtime.main(
+        [
+            "select-authority-mode",
+            "--mode",
+            "ask_before_changes",
+            "--domain",
+            "workspace:read,write",
+            "--reason-ref",
+            "reason-ref:authority-cli-conflict",
+            "--idempotency-ref",
+            "idempotency-ref:authority-cli-conflict",
+            "--summary",
+            "Reject conflicting local authority approval inputs.",
+            "--approve",
+            "--approval-ref",
+            "approval-ref:test-authority:conflict",
+            "--json",
+        ]
+    )
+    assert conflicting_cli_issue == 2
 
     revoke = client.post(
         "/api/runtime/authority-leases/revoke",
