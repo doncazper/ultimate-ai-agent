@@ -164,6 +164,23 @@ def main() -> int:
             failures.append(f"Run Observability route ref missing from {doc}")
         if "retry/recovery" not in text.lower():
             failures.append(f"retry/recovery posture missing from {doc}")
+        if doc.name == "UAA_GOATCITADEL_CATCHUP_DURABLE_ORCHESTRATION.md":
+            for fragment in [
+                "exact AuthorityLease mode/domain/capability scope",
+                "AuthorityLease-gated capabilities",
+            ]:
+                if fragment not in text:
+                    failures.append(
+                        f"AuthorityLease capability wording missing from {doc}: {fragment}"
+                    )
+            for stale in [
+                "Future execution lanes",
+                "exact authority graduation",
+                "future run-control lane",
+                "graduated lanes",
+            ]:
+                if stale in text:
+                    failures.append(f"stale authority wording remains in {doc}: {stale}")
 
     if failures:
         for failure in failures:

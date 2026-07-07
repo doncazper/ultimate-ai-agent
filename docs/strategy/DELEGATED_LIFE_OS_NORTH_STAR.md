@@ -46,8 +46,9 @@ Today, this is only product direction. UAA currently must not claim or imply:
 - background autonomy or recurring execution
 - broad connector, browser, provider, shell, plugin, or model authority
 
-Every future promotion must pass the Authority Graduation Program and the
-operational maturity gates before it becomes product behavior.
+Every future promotion must pass AuthorityLease policy evaluation,
+mode/domain/capability scope checks, and the operational maturity gates before
+it becomes product behavior.
 
 ## Delegation Model
 

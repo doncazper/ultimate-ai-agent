@@ -29,7 +29,7 @@ surfaces are:
 - `scripts/dev/uaa_runtime.py select-authority-mode --approve`
 - `scripts/dev/uaa_runtime.py revoke-authority-lease`
 - `scripts/dev/uaa_runtime.py command run ... --mission-ref ...`
-- `GET /control-center/trust-authority/matrix` rows map legacy lane refs to
+- `GET /control-center/trust-authority/matrix` rows map legacy compatibility refs to
   AuthorityLease domain, capability, required mode, and lease requirement refs.
 - `GET /control-center/trust-authority/matrix#authority_domain_coverage`
   exposes backend-owned coverage rows for every target AuthorityLease domain,
@@ -40,7 +40,7 @@ surfaces are:
   projects each legacy Trust row into a governed AuthorityLease capability
   entry with mode, domain, capability, lease requirement, source row,
   safe-disable, rollback, blocked-authority, proof, verifier, API, and CLI refs.
-  This is the compatibility bridge away from the old graduation-lane product
+  This is the compatibility bridge away from the old lane-promotion product
   concept: operators inspect governed capabilities, not broad allow flags.
 - `GET /api/runtime/authority-state#capability_mappings` has at least one
   explicit mapping row for every target AuthorityLease domain; unsupported
@@ -423,7 +423,7 @@ Likely files to update:
 | File | Needed Change |
 |---|---|
 | `AGENTS.md` | Replace blanket no-broad-authority posture with explicit mode/domain/lease requirements. |
-| `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md` | Reframe the former tiny-lane conveyor to trust-mode/domain/mission-lease maturity. |
+| `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md` | Reframe the former one-off lane conveyor to trust-mode/domain/mission-lease maturity. |
 | `docs/control_center/authority_candidate_scorecard.json` | Track authority domains and lease requirements, not only blocked candidates. |
 | `docs/control_center/operational_maturity_manifest.json` | Track domain maturity and mode support. |
 | `docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md` | Become the authority mode and mission lease implementation plan. |

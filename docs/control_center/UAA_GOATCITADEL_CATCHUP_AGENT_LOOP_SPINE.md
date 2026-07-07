@@ -46,8 +46,9 @@ These remain blocked:
 
 ## Exact Promotion Path
 
-Any future promotion must add exact scope, approval binding, idempotency,
-receipt/proof refs, rollback or safe-disable posture, redaction, CLI/API/Core
-parity, route classification, focused tests, and Control Center truth labels.
-The Agent Loop Thread may then reference receipts from graduated lanes, but it
-must not itself mint authority.
+Any future promotion must add exact AuthorityLease scope, approval binding,
+idempotency, receipt/proof refs, rollback or safe-disable posture, redaction,
+CLI/API/Core parity, route classification, focused tests, and Control Center
+truth labels.
+The Agent Loop Thread may then reference receipts from AuthorityLease-gated
+capabilities, but it must not itself mint authority.

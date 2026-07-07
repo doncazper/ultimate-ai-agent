@@ -9,8 +9,9 @@ pytest RuntimeGateway lane.
 UAA should make durable work legible across the whole operator loop: every run
 has lifecycle state, current phase, current step, checkpoints, retry/recovery
 posture, approval waits, cancellation and dead-letter posture, redacted error
-summaries, evidence refs, and proof refs. Future execution lanes may use those
-refs, but only after exact authority graduation.
+summaries, evidence refs, and proof refs. Future execution capabilities may use
+those refs, but only after exact AuthorityLease mode/domain/capability scope,
+policy decision, approval binding, receipts, and tests are in place.
 
 ## Repo-Safe Version
 
@@ -60,8 +61,9 @@ These remain blocked:
 
 ## Exact Promotion Path
 
-Any future run-control lane must add exact scope, approval binding, idempotency,
-receipt/proof refs, rollback or safe-disable posture, redaction, CLI/API/Core
-parity, route classification, focused tests, and Control Center truth labels.
-Run Observability may display receipts from graduated lanes, but it must not
-itself execute, resume, cancel, retry, schedule, stream, or approve work.
+Any future run-control capability must add exact AuthorityLease scope, approval
+binding, idempotency, receipt/proof refs, rollback or safe-disable posture,
+redaction, CLI/API/Core parity, route classification, focused tests, and
+Control Center truth labels. Run Observability may display receipts from
+AuthorityLease-gated capabilities, but it must not itself execute, resume,
+cancel, retry, schedule, stream, or approve work.

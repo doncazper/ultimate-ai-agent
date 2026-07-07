@@ -97,8 +97,22 @@ def main() -> int:
         ROOT / "docs/control_center/UAA_GOATCITADEL_CATCHUP_SCOREBOARD.md",
     ]
     for doc in docs:
-        if AGENT_LOOP_THREAD_CONTRACT_REF not in doc.read_text(encoding="utf-8"):
+        text = doc.read_text(encoding="utf-8")
+        compact_text = " ".join(text.split())
+        if AGENT_LOOP_THREAD_CONTRACT_REF not in text:
             failures.append(f"Agent Loop contract ref missing from {doc}")
+        if doc.name == "UAA_GOATCITADEL_CATCHUP_AGENT_LOOP_SPINE.md":
+            for fragment in [
+                "exact AuthorityLease scope",
+                "AuthorityLease-gated capabilities",
+            ]:
+                if fragment not in compact_text:
+                    failures.append(
+                        f"AuthorityLease capability wording missing from {doc}: {fragment}"
+                    )
+            for stale in ["graduated lanes"]:
+                if stale in compact_text:
+                    failures.append(f"stale authority wording remains in {doc}: {stale}")
 
     if failures:
         for failure in failures:
