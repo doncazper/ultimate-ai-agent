@@ -225,6 +225,22 @@ def workspace_execute_mission_authority_lease(mission_ref: str) -> AuthorityLeas
     )
 
 
+def workspace_execute_ask_authority_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:test-workspace-execute-ask",
+        mode=TrustMode.ask_before_changes,
+        domains={
+            AuthorityDomain.workspace: [
+                AuthorityCapability.read,
+                AuthorityCapability.execute,
+            ]
+        },
+        safe_summary=(
+            "Test lease puts Workspace execute inside ask-before-changes mode."
+        ),
+    )
+
+
 def issue_workspace_execute_authority_lease(state_dir: Path) -> None:
     _issue_test_authority_lease(
         state_dir,

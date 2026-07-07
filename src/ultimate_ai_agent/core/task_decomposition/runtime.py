@@ -1068,10 +1068,7 @@ class TaskDecompositionService:
             handler_refs=self._handler_refs_for_plan(request.plan),
         )
         self._deny_duplicate_idempotency(record, request.idempotency_key, "execute")
-        if authority_decision.outcome not in {
-            AuthorityDecisionOutcome.allow.value,
-            AuthorityDecisionOutcome.ask.value,
-        }:
+        if authority_decision.outcome != AuthorityDecisionOutcome.allow.value:
             record = self._transition_durable_run(
                 record,
                 DurableRunTransitionKind.block,
@@ -1414,8 +1411,8 @@ class TaskDecompositionService:
                 )
             ),
             safe_summary=(
-                "Task decomposition plan execution requires active Workspace "
-                "execute AuthorityLease scope."
+                "Task decomposition plan execution requires an allow outcome "
+                "for active Workspace execute AuthorityLease scope."
             ),
             durable_binding=binding,
             **self._authority_result_fields(authority_decision),

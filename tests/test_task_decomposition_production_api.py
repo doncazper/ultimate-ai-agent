@@ -30,6 +30,7 @@ from ultimate_ai_agent.core.task_decomposition.runtime import (
 )
 from tests.authority_helpers import (
     issue_workspace_execute_authority_lease,
+    workspace_execute_ask_authority_lease,
     workspace_execute_authority_lease,
 )
 
@@ -283,6 +284,50 @@ def test_task_decomposition_run_rechecks_authority_kill_switch_before_execution(
     assert "reason-ref:authority:kill-switch-engaged" in execution["reason_codes"]
     assert "TASK_DECOMPOSITION_WORKSPACE_EXECUTE_AUTHORITY_REQUIRED" in execution["reason_codes"]
     assert "Summarize this request directly" not in response.text
+
+
+def test_task_decomposition_ask_authority_does_not_execute_plan(
+    tmp_path: Path,
+) -> None:
+    store = CapabilityRegistryStore(
+        CapabilityRegistryStoreConfig(registry_path=str(tmp_path / "registry.json"))
+    )
+    service = TaskDecompositionService(
+        registry_store=store,
+        active_authority_leases=[workspace_execute_ask_authority_lease()],
+    )
+    service.ensure_examples()
+    plan = TaskPlan(
+        plan_id="task-decomposition-run:ask-authority-no-execute",
+        goal="Run ask-mode task plan.",
+        nodes=[
+            TaskNode(
+                id="node:ask-authority",
+                title="Ask authority node",
+                objective="This node must not execute under ask authority alone.",
+                candidate_capabilities=["capability:example-echo-summary"],
+                selected_capability="capability:example-echo-summary",
+                input_bindings={"request": "ask authority should not execute"},
+                success_criteria=["Handler would return a summary."],
+            )
+        ],
+        final_success_criteria=["Ask authority should not execute handler."],
+    )
+
+    result = service.execute_plan_sync(
+        TaskPlanExecutionRequest(
+            plan=plan,
+            idempotency_key="p1-027-ask-authority-no-execute",
+        )
+    )
+
+    assert result.status == "awaiting_approval"
+    assert result.node_records == []
+    assert result.outputs == {}
+    assert result.authority_decision_outcome == "ask"
+    assert result.authority_lease_ref == "authority-lease-ref:test-workspace-execute-ask"
+    assert "reason-ref:authority:ask-before-changes-mode" in result.reason_codes
+    assert "TASK_DECOMPOSITION_WORKSPACE_EXECUTE_AUTHORITY_REQUIRED" in result.reason_codes
 
 
 def test_task_decomposition_explicit_idempotency_key_denies_duplicate_mutation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

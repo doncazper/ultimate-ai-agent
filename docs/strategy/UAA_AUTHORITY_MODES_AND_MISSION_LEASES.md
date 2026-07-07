@@ -143,13 +143,15 @@ safe-ref record is persisted. Raw file access, context injection, memory
 writes, export, execution, patch apply, and rollback execution remain
 unsupported until separately implemented and tested.
 Task Decomposition local plan execution now requires an active
-`workspace/execute` AuthorityLease before registered local handlers run. Exact
-LocalApprovalAuthority grants remain a separate second gate for approval-bound
-or high-risk capabilities inside a plan. In read-only mode, `/task-decomposition/run`
-and `/task-decomposition/plans/execute` return a durable, redacted blocked/draft
-decision with authority decision refs, required domain/capability refs, audit
-refs, receipt posture, and rollback/safe-disable refs instead of silently
-executing or claiming broad shell/tool authority.
+`workspace/execute` AuthorityLease with an `allow` decision before registered
+local handlers run. `ask` is not execution authority for task plans until a
+separate exact confirmation path validates it. Exact LocalApprovalAuthority
+grants remain a separate second gate for approval-bound or high-risk
+capabilities inside a plan. In read-only or ask-only mode,
+`/task-decomposition/run` and `/task-decomposition/plans/execute` return a
+durable, redacted blocked/draft decision with authority decision refs, required
+domain/capability refs, audit refs, receipt posture, and rollback/safe-disable
+refs instead of silently executing or claiming broad shell/tool authority.
 The same task execution authority decision observes the local AuthorityLease
 kill switch, so an active workspace lease cannot start registered handlers while
 `UAA_AUTHORITY_LEASE_KILL_SWITCH=1` is engaged.
