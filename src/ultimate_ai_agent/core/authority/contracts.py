@@ -1085,23 +1085,89 @@ def _default_requested_domains(
                 AuthorityCapability.write,
             ],
         }
+    if mode == TrustMode.approved_safe_local_work_session:
+        return {
+            AuthorityDomain.workspace: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.execute,
+            ],
+        }
+    if mode == TrustMode.full_local_workspace_session:
+        return {
+            AuthorityDomain.workspace: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.execute,
+                AuthorityCapability.commit,
+            ],
+            AuthorityDomain.files: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.mutate,
+            ],
+            AuthorityDomain.memory: [
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.mutate,
+            ],
+        }
+    if mode == TrustMode.full_machine_access_session:
+        return {
+            AuthorityDomain.shell: [AuthorityCapability.execute],
+            AuthorityDomain.apps: [
+                AuthorityCapability.observe,
+                AuthorityCapability.click,
+            ],
+            AuthorityDomain.browser: [
+                AuthorityCapability.observe,
+                AuthorityCapability.click,
+                AuthorityCapability.form_fill,
+                AuthorityCapability.upload,
+                AuthorityCapability.download,
+            ],
+            AuthorityDomain.system_settings: [
+                AuthorityCapability.read,
+                AuthorityCapability.mutate,
+            ],
+        }
     return {
-        AuthorityDomain.workspace: [
-            AuthorityCapability.read,
-            AuthorityCapability.write,
-            AuthorityCapability.execute,
-            AuthorityCapability.commit,
+        AuthorityDomain.browser: [
+            AuthorityCapability.observe,
+            AuthorityCapability.click,
+            AuthorityCapability.form_fill,
         ],
-        AuthorityDomain.files: [
-            AuthorityCapability.read,
-            AuthorityCapability.write,
-            AuthorityCapability.mutate,
+        AuthorityDomain.shopping_payments: [
+            AuthorityCapability.purchase_under_budget,
         ],
-        AuthorityDomain.memory: [
+    }
+
+
+def _local_implemented_authority_capabilities() -> dict[
+    AuthorityDomain,
+    set[AuthorityCapability],
+]:
+    read_prepare = {
+        AuthorityCapability.observe,
+        AuthorityCapability.read,
+        AuthorityCapability.draft,
+        AuthorityCapability.prepare,
+    }
+    local_change = read_prepare | {
+        AuthorityCapability.write,
+        AuthorityCapability.mutate,
+        AuthorityCapability.commit,
+    }
+    local_execute = local_change | {AuthorityCapability.execute}
+    return {
+        AuthorityDomain.workspace: local_execute,
+        AuthorityDomain.files: local_change,
+        AuthorityDomain.memory: local_change,
+        AuthorityDomain.contacts: local_change,
+        AuthorityDomain.provider_model_calls: {
+            AuthorityCapability.observe,
             AuthorityCapability.read,
-            AuthorityCapability.write,
-            AuthorityCapability.mutate,
-        ],
+        },
     }
 
 
@@ -1155,16 +1221,15 @@ def _allowed_domain_capabilities(
                 AuthorityCapability.read,
             },
         }
-    return {
-        AuthorityDomain.workspace: local_execute,
-        AuthorityDomain.files: local_change,
-        AuthorityDomain.memory: local_change,
-        AuthorityDomain.contacts: local_change,
-        AuthorityDomain.provider_model_calls: {
-            AuthorityCapability.observe,
-            AuthorityCapability.read,
-        },
-    }
+    if mode == TrustMode.approved_safe_local_work_session:
+        return {
+            AuthorityDomain.workspace: {
+                AuthorityCapability.read,
+                AuthorityCapability.write,
+                AuthorityCapability.execute,
+            },
+        }
+    return _local_implemented_authority_capabilities()
 
 
 def _filter_requested_domains(
@@ -1177,6 +1242,7 @@ def _filter_requested_domains(
     mode = TrustMode(request.mode)
     requested = request.requested_domains or _default_requested_domains(mode)
     allowed = _allowed_domain_capabilities(mode)
+    known_local = _local_implemented_authority_capabilities()
     granted: dict[AuthorityDomain, list[AuthorityCapability]] = {}
     denied_refs: list[str] = []
     unsupported_refs: list[str] = []
@@ -1198,12 +1264,17 @@ def _filter_requested_domains(
         if denied or domain_value not in allowed:
             denied_refs.append(f"authority-domain-ref:{domain_value.value}")
         for capability in denied:
+            suffix = (
+                "not-available-for-authority-mode-v1"
+                if capability in known_local.get(domain_value, set())
+                else "not-implemented-for-authority-lease-v1"
+            )
             unsupported_refs.append(
                 "adapter-ref:"
                 f"{domain_value.value}:{capability.value}"
-                "-not-implemented-for-authority-lease-v1"
+                f"-{suffix}"
             )
-        if domain_value not in allowed:
+        if domain_value not in allowed and domain_value not in known_local:
             unsupported_refs.append(
                 f"adapter-ref:{domain_value.value}:not-implemented-for-authority-lease-v1"
             )

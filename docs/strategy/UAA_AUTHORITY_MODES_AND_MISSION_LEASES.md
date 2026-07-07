@@ -42,6 +42,11 @@ lease is read-only; operator-selected session leases persist safe receipts for
 implemented local domain/capability subsets; existing exact lanes are mapped
 into domains and required trust modes; RuntimeGateway decisions consume the
 active lease store for command invocation, approval, and execution policy;
+mode defaults are mode-specific, so Approved Safe Local Work defaults to
+Workspace read/write/execute only, while Full Machine and Delegated Mission
+defaults request unsupported machine/browser/payment domains and fail closed
+until exact adapters are implemented or the operator explicitly requests an
+implemented local domain subset;
 mission-bound RuntimeGateway requests carry a safe `mission_ref` through
 `RuntimeInvocationRequest`, payload fingerprinting, policy decisions, redacted
 storage, and receipt surfaces; mission-scoped leases grant only actions carrying

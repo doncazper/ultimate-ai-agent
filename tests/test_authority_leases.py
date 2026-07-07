@@ -13,6 +13,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityDecisionOutcome,
     AuthorityDomain,
     AuthorityLease,
+    AuthorityLeaseIssueRequest,
     AuthorityLeaseStore,
     AuthorityMissionPlanRequest,
     TrustMode,
@@ -159,6 +160,67 @@ def test_authority_evaluator_denies_unknown_and_degrades_when_draft_available() 
     assert execute_decision.receipt_ref is None
     assert "reason-ref:authority:no-active-lease-for-domain-capability" in (
         execute_decision.reason_refs
+    )
+
+
+def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
+    tmp_path,
+) -> None:
+    store = AuthorityLeaseStore(tmp_path / "authority")
+
+    safe_local_lease, safe_local_receipt = store.issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.approved_safe_local_work_session,
+            decision_reason_ref="reason-ref:test-safe-local-default",
+            safe_summary="Select default safe local authority.",
+        ),
+        idempotency_ref="idempotency-ref:test-safe-local-default",
+    )
+    assert safe_local_lease is not None
+    assert safe_local_receipt.status == "issued"
+    assert safe_local_receipt.granted_domains == {
+        "workspace": ["read", "write", "execute"]
+    }
+    assert safe_local_receipt.denied_domain_refs == []
+
+    full_machine_lease, full_machine_receipt = store.issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.full_machine_access_session,
+            decision_reason_ref="reason-ref:test-full-machine-default",
+            safe_summary="Select default full machine authority.",
+        ),
+        idempotency_ref="idempotency-ref:test-full-machine-default",
+    )
+    assert full_machine_lease is None
+    assert full_machine_receipt.status == "denied"
+    assert full_machine_receipt.granted_domains == {}
+    assert "authority-domain-ref:browser" in full_machine_receipt.denied_domain_refs
+    assert "authority-domain-ref:shell" in full_machine_receipt.denied_domain_refs
+    assert any(
+        ref.startswith("adapter-ref:browser:")
+        for ref in full_machine_receipt.unsupported_adapter_refs
+    )
+
+    delegated_lease, delegated_receipt = store.issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.delegated_mission_autonomous_window,
+            scope="mission",
+            mission_ref="mission-ref:test-delegated-default",
+            decision_reason_ref="reason-ref:test-delegated-default",
+            safe_summary="Select default delegated mission authority.",
+        ),
+        idempotency_ref="idempotency-ref:test-delegated-default",
+    )
+    assert delegated_lease is None
+    assert delegated_receipt.status == "denied"
+    assert delegated_receipt.granted_domains == {}
+    assert "authority-domain-ref:browser" in delegated_receipt.denied_domain_refs
+    assert "authority-domain-ref:shopping_payments" in (
+        delegated_receipt.denied_domain_refs
+    )
+    assert any(
+        ref.startswith("adapter-ref:shopping_payments:")
+        for ref in delegated_receipt.unsupported_adapter_refs
     )
 
 
@@ -706,10 +768,15 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     assert receipt["status"] == "issued"
     assert receipt["execution_performed"] is False
     assert receipt["granted_domains"]["workspace"] == ["read", "write", "execute"]
-    assert receipt["granted_domains"]["contacts"] == ["write"]
+    assert "contacts" not in receipt["granted_domains"]
+    assert "authority-domain-ref:contacts" in receipt["denied_domain_refs"]
     assert "authority-domain-ref:browser" in receipt["denied_domain_refs"]
     assert "authority-domain-ref:provider_model_calls" in (
         receipt["denied_domain_refs"]
+    )
+    assert (
+        "adapter-ref:contacts:write-not-available-for-authority-mode-v1"
+        in receipt["unsupported_adapter_refs"]
     )
     assert "adapter-ref:browser:not-implemented-for-authority-lease-v1" in (
         receipt["unsupported_adapter_refs"]
