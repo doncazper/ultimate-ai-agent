@@ -390,16 +390,16 @@ def _static_failures() -> list[str]:
         [
             "Posture",
             "Safe-disable and rollback",
-            "Promotion path",
+            "Capability path",
             "CLI and verifiers",
-            "Mock Fallback Lane Refs",
+            "Mock Fallback Compatibility Refs",
         ],
         failures,
     )
     _require(
         FRONTEND_TEST,
         [
-            "renders Trust safe-disable, rollback, promotion, and CLI refs from backend",
+            "renders Trust safe-disable, rollback, capability path, and CLI refs from backend",
             "keeps Trust backend-owned when an unrelated endpoint degrades",
             "fails closed for unsafe Trust authority matrix payloads",
             "TRUST_AUTHORITY_MATRIX_MOCK_FALLBACK",

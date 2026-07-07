@@ -3982,7 +3982,7 @@ describe("Web Control Center shell", () => {
     }
   });
 
-  it("renders Trust safe-disable, rollback, promotion, and CLI refs from backend", async () => {
+  it("renders Trust safe-disable, rollback, capability path, and CLI refs from backend", async () => {
     stubReadEndpointOverrides({
       [API_ENDPOINTS.trustAuthorityMatrix]: betaTrustAuthorityMatrix(),
     });
@@ -4025,7 +4025,8 @@ describe("Web Control Center shell", () => {
           "rollback-ref:provider-draft-summarize:discard-local-draft",
         ).length,
       ).toBeGreaterThan(0);
-      expect(screen.getAllByText("Promotion path").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Capability path").length).toBeGreaterThan(0);
+      expect(screen.queryByText("Promotion path")).not.toBeInTheDocument();
       expect(
         screen.getAllByText(
           "promotion-path-ref:trust:provider-draft-summarize:live-provider-separate-contract",
@@ -4132,6 +4133,9 @@ describe("Web Control Center shell", () => {
       ).toBeGreaterThan(0);
       expect(
         screen.queryByText("Mock Fallback Lane Refs"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Fallback Lanes Hidden"),
       ).not.toBeInTheDocument();
       expect(
         screen.queryByText(/Backend unavailable; showing non-authoritative/i),

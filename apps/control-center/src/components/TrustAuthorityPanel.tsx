@@ -15,16 +15,20 @@ export function TrustAuthorityPanel({
   authoritative,
   matrix,
 }: TrustAuthorityPanelProps) {
-  const laneRows = authoritative ? matrix.lanes : [];
-  const availableRows = laneRows.filter(
-    (lane) => lane.authority_state === "available_now",
+  const compatibilityRows = authoritative ? matrix.lanes : [];
+  const availableRows = compatibilityRows.filter(
+    (capability) => capability.authority_state === "available_now",
   );
-  const approvalRows = laneRows.filter(
-    (lane) => lane.authority_state === "approval_required",
+  const approvalRows = compatibilityRows.filter(
+    (capability) => capability.authority_state === "approval_required",
   );
-  const plannedRows = laneRows.filter((lane) => lane.authority_state === "planned");
-  const blockedRows = laneRows.filter((lane) => lane.authority_state === "blocked");
-  const fallbackLaneRefs = matrix.lanes.map((lane) => lane.lane_ref);
+  const plannedRows = compatibilityRows.filter(
+    (capability) => capability.authority_state === "planned",
+  );
+  const blockedRows = compatibilityRows.filter(
+    (capability) => capability.authority_state === "blocked",
+  );
+  const fallbackCompatibilityRefs = matrix.lanes.map((lane) => lane.lane_ref);
   const domainCoverageRows = authoritative ? matrix.authority_domain_coverage : [];
   const capabilityRows = authoritative ? matrix.authority_capability_catalog : [];
   return (
@@ -52,7 +56,7 @@ export function TrustAuthorityPanel({
           <p className="muted">
             {authoritative
               ? matrix.operator_summary
-              : "Mock fallback data is non-authoritative; no lane is available until Python Core returns the backend-owned Trust matrix."}
+              : "Mock fallback data is non-authoritative; no authority capability is available until Python Core returns the backend-owned Trust matrix."}
           </p>
         </div>
         <div className="detail-grid compact">
@@ -93,7 +97,7 @@ export function TrustAuthorityPanel({
           value={
             authoritative
               ? String(matrix.blocked_lane_refs.length)
-              : String(fallbackLaneRefs.length)
+              : String(fallbackCompatibilityRefs.length)
           }
         />
       </div>
@@ -121,30 +125,38 @@ export function TrustAuthorityPanel({
       <CapabilityCatalogPanel rows={capabilityRows} />
 
       <div className="two-column-grid">
-        <LaneColumn
-          lanes={availableRows}
-          title={authoritative ? "Available Now" : "Fallback Lanes Hidden"}
+        <CapabilityColumn
+          capabilities={availableRows}
+          title={authoritative ? "Available Now" : "Fallback Capabilities Hidden"}
           tone="available"
         />
-        <LaneColumn
-          lanes={approvalRows}
+        <CapabilityColumn
+          capabilities={approvalRows}
           title="Requires Approval"
           tone="approval"
         />
       </div>
       <div className="two-column-grid">
-        <LaneColumn lanes={plannedRows} title="Planned" tone="planned" />
-        <LaneColumn lanes={blockedRows} title="Blocked" tone="blocked" />
+        <CapabilityColumn
+          capabilities={plannedRows}
+          title="Planned"
+          tone="planned"
+        />
+        <CapabilityColumn
+          capabilities={blockedRows}
+          title="Blocked"
+          tone="blocked"
+        />
       </div>
       {!authoritative ? (
         <div className="panel-card">
-          <h3>Mock Fallback Lane Refs</h3>
+          <h3>Mock Fallback Compatibility Refs</h3>
           <p className="muted">
             These refs show fallback shape only. Python Core must return the
-            Trust read model before any lane can be treated as enabled,
+            Trust read model before any capability can be treated as enabled,
             approval-ready, planned, or blocked product truth.
           </p>
-          <RefList refs={fallbackLaneRefs} />
+          <RefList refs={fallbackCompatibilityRefs} />
         </div>
       ) : null}
 
@@ -324,12 +336,12 @@ function DomainCoveragePanel({ rows }: { rows: TrustAuthorityDomainCoverage[] })
   );
 }
 
-function LaneColumn({
-  lanes,
+function CapabilityColumn({
+  capabilities,
   title,
   tone,
 }: {
-  lanes: TrustAuthorityLane[];
+  capabilities: TrustAuthorityLane[];
   title: string;
   tone: "available" | "approval" | "planned" | "blocked";
 }) {
@@ -337,78 +349,103 @@ function LaneColumn({
     <div className="panel-card">
       <h3>{title}</h3>
       <div className="stacked-list compact">
-        {lanes.map((lane) => (
-          <article className="list-card compact" key={lane.lane_ref}>
+        {capabilities.map((capability) => (
+          <article className="list-card compact" key={capability.lane_ref}>
             <div className="list-card-header">
               <div>
-                <strong>{lane.label}</strong>
-                <p>{lane.current_posture}</p>
+                <strong>{capability.label}</strong>
+                <p>{capability.current_posture}</p>
               </div>
               <span className="status-pill compact">
-                {lane.authority_state_label || stateLabel(lane.authority_state)}
+                {capability.authority_state_label ||
+                  stateLabel(capability.authority_state)}
               </span>
             </div>
             <div className="detail-grid compact">
-              <DetailTerm label="Tier" value={`${lane.tier}: ${lane.tier_label}`} />
-              <DetailTerm label="Kind" value={formatTrustLabel(lane.lane_kind)} />
+              <DetailTerm
+                label="Tier"
+                value={`${capability.tier}: ${capability.tier_label}`}
+              />
+              <DetailTerm
+                label="Capability kind"
+                value={formatTrustLabel(capability.lane_kind)}
+              />
               <DetailTerm
                 label="Posture"
-                value={formatTrustLabel(lane.operator_posture)}
+                value={formatTrustLabel(capability.operator_posture)}
               />
               <DetailTerm
                 label="Lease mode"
-                value={formatTrustLabel(lane.required_authority_mode)}
+                value={formatTrustLabel(capability.required_authority_mode)}
               />
               <DetailTerm
                 label="Domain"
-                value={formatAuthorityRef(lane.authority_domain_ref)}
+                value={formatAuthorityRef(capability.authority_domain_ref)}
               />
               <DetailTerm
                 label="Capability"
-                value={formatAuthorityRef(lane.authority_capability_ref)}
+                value={formatAuthorityRef(capability.authority_capability_ref)}
               />
               <DetailTerm
                 label="Approval"
-                value={lane.requires_exact_approval ? "exact required" : "not required"}
+                value={
+                  capability.requires_exact_approval
+                    ? "exact required"
+                    : "not required"
+                }
               />
               <DetailTerm
                 label="Safe disable"
-                value={lane.requires_safe_disable ? "required" : "not required"}
+                value={
+                  capability.requires_safe_disable ? "required" : "not required"
+                }
               />
               <DetailTerm
                 label="Rollback"
                 value={
-                  lane.requires_rollback_posture
+                  capability.requires_rollback_posture
                     ? "posture required"
-                    : lane.rollback_execution_enabled
+                    : capability.rollback_execution_enabled
                       ? "execution enabled"
                       : "execution blocked"
                 }
               />
             </div>
-            <p className="muted">{lane.operator_can_do_now}</p>
-            <p className="muted">{lane.approval_posture}</p>
-            <p className="muted">{lane.next_safe_action}</p>
-            <RefGroup title="Routes and proof" refs={[...lane.route_refs, ...lane.proof_refs]} />
+            <p className="muted">{capability.operator_can_do_now}</p>
+            <p className="muted">{capability.approval_posture}</p>
+            <p className="muted">{capability.next_safe_action}</p>
+            <RefGroup
+              title="Routes and proof"
+              refs={[...capability.route_refs, ...capability.proof_refs]}
+            />
             <RefGroup
               title="CLI and verifiers"
-              refs={[...lane.cli_inspection_refs, ...lane.verifier_refs]}
+              refs={[
+                ...capability.cli_inspection_refs,
+                ...capability.verifier_refs,
+              ]}
             />
             <RefGroup
               title="Safe-disable and rollback"
-              refs={[...lane.safe_disable_refs, ...lane.rollback_refs]}
+              refs={[...capability.safe_disable_refs, ...capability.rollback_refs]}
             />
             <RefGroup
               title="AuthorityLease requirement"
-              refs={authorityLeaseRequirementRefs(lane)}
+              refs={authorityLeaseRequirementRefs(capability)}
             />
-            <RefGroup title="Promotion path" refs={lane.promotion_path_refs} />
-            {(tone === "blocked" || lane.blocked_authority_refs.length > 0) ? (
-              <RefGroup title="Blocked authority" refs={lane.blocked_authority_refs} />
+            <RefGroup
+              title="Capability path"
+              refs={capability.promotion_path_refs}
+            />
+            {tone === "blocked" || capability.blocked_authority_refs.length > 0 ? (
+              <RefGroup
+                title="Blocked authority"
+                refs={capability.blocked_authority_refs}
+              />
             ) : null}
           </article>
         ))}
-        {lanes.length === 0 ? <p className="muted">none</p> : null}
+        {capabilities.length === 0 ? <p className="muted">none</p> : null}
       </div>
     </div>
   );

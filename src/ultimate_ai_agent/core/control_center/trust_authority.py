@@ -576,7 +576,7 @@ def build_trust_authority_matrix_read_model(
         doctrine="Earned authority, low friction by default, strict only where consequences justify it.",
         operator_summary=(
             "UAA can inspect local read models, previews, drafts, proof, evidence, "
-            "memory review state, exact local receipt lanes, governed runtime "
+            "memory review state, exact local receipt capabilities, governed runtime "
             "capabilities, and high-authority mode/domain requirements that remain "
             "blocked until an active AuthorityLease plus exact route, CLI, receipt, "
             "rollback, and verifier contracts exist."
@@ -750,7 +750,10 @@ def _trust_authority_lanes(
             tier=1,
             lane_kind="read_preview",
             authority_state="available_now",
-            current_posture="Action Inbox shows backend-owned queue state, lane counts, next item posture, and proof refs.",
+            current_posture=(
+                "Action Inbox shows backend-owned queue state, capability counts, "
+                "next item posture, and proof refs."
+            ),
             approval_posture="No approval required to inspect the queue; approval is required for exact local commits.",
             operator_can_do_now="Review requested, blocked, receipt-recorded, and no-authority items without executing them.",
             next_safe_action="Pick a local task commit candidate only when exact approval is available.",
@@ -828,9 +831,16 @@ def _trust_authority_lanes(
             tier=3,
             lane_kind="reversible_local_mutation",
             authority_state="approval_required",
-            current_posture="One local UAA task record lane can commit only with exact LocalApprovalAuthority scope, idempotency, receipt, evidence, proof, and safe-disable posture.",
+            current_posture=(
+                "One local UAA task record capability can commit only with exact "
+                "LocalApprovalAuthority scope, idempotency, receipt, evidence, "
+                "proof, and safe-disable posture."
+            ),
             approval_posture="Exact local approval required; approval refs are identifiers until scope validates.",
-            operator_can_do_now="Commit the proven local task lane only through the backend receipt route.",
+            operator_can_do_now=(
+                "Commit the proven local task capability only through the backend "
+                "receipt route."
+            ),
             next_safe_action="Inspect the local task receipt and proof detail after commit.",
             route_refs=[
                 "POST /control-center/actions/{action_id}/local-task/commit",
@@ -1049,10 +1059,19 @@ def _trust_authority_lanes(
             tier=2,
             lane_kind="draft_proposal",
             authority_state="available_now",
-            current_posture="The exact provider draft/summarize core and CLI lane can produce review-only draft refs when the existing tiny exact-approved provider path is satisfied; default Control Center invocation remains blocked.",
+            current_posture=(
+                "The exact provider draft/summarize core and CLI capability can "
+                "produce review-only draft refs when the existing tiny "
+                "exact-approved provider path is satisfied; default Control "
+                "Center invocation remains blocked."
+            ),
             approval_posture="Each provider attempt requires exact scope, CostGovernor posture, durable receipts, and blocked output authority; the draft is not truth, send authority, memory, action execution, or connector authority.",
             operator_can_do_now="Inspect the provider draft/summarize CLI posture and fixture proof; do not call providers from Trust.",
-            next_safe_action="Use the provider draft/summarize lane only through its exact core/CLI wrapper; live provider setup and default UI invocation remain separately blocked.",
+            next_safe_action=(
+                "Use the provider draft/summarize capability only through its "
+                "exact core/CLI wrapper; live provider setup and default UI "
+                "invocation remain separately blocked."
+            ),
             route_refs=[PROVIDER_DRAFT_SUMMARIZE_LANE_REF],
             proof_refs=[PROVIDER_DRAFT_SUMMARIZE_PROOF_REF],
             verifier_refs=[
