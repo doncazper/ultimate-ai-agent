@@ -59,9 +59,10 @@ Generic tool execution remains blocked. These also remain blocked:
 
 ## Exact Promotion Path
 
-Any future lane must add exact scope, approval binding, idempotency,
-receipt/proof refs, rollback or safe-disable posture, redaction, CLI/API/Core
-parity, route classification, focused tests, and Control Center truth labels.
+Any future authority capability must add exact scope, approval binding,
+idempotency, receipt/proof refs, rollback or safe-disable posture, redaction,
+CLI/API/Core parity, route classification, focused tests, and Control Center
+truth labels.
 
 Patch apply needs checkpoint creation, selected file/hunk apply, exact patch
 body validation, sensitive-diff guards, applied patch receipt refs, and rollback

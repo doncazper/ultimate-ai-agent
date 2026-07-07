@@ -3094,8 +3094,8 @@ export interface FounderLoopRuntimeEvidenceTimelineItem {
 
 export type ActionToolCodeCapabilityKind =
   | "tool_preview"
-  | "action_micro_lane"
-  | "runtime_micro_lane"
+  | "local_authority_capability"
+  | "runtime_authority_capability"
   | "code_workflow";
 
 export type ActionToolCodeLaneStatus =

@@ -4,6 +4,7 @@ from __future__ import annotations
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +31,13 @@ BROAD_AUTHORITY_FLAGS = (
     "background_autonomy_enabled",
     "production_authority_enabled",
 )
+
+
+def _entry_by_id(model: dict[str, Any], capability_id: str) -> dict[str, Any]:
+    for entry in model.get("entries") or []:
+        if isinstance(entry, dict) and entry.get("capability_id") == capability_id:
+            return entry
+    return {}
 
 
 def main() -> int:
@@ -82,10 +90,35 @@ def main() -> int:
         if model.get("blocked_count") != 4:
             failures.append(f"{source_name} catalog blocked count drifted")
         entries = model.get("entries") or []
+        local_task = _entry_by_id(model, "local_task_create")
+        if local_task.get("capability_kind") != "local_authority_capability":
+            failures.append(
+                f"{source_name} catalog local task must be a local authority capability"
+            )
+        for capability_id in [
+            "runtime.focused_pytest_action_inbox",
+            "runtime.repo_verifier_action_inbox",
+            "runtime.frontend_check_action_inbox",
+            "runtime.repo_doctor_action_inbox",
+        ]:
+            runtime_entry = _entry_by_id(model, capability_id)
+            if runtime_entry.get("capability_kind") != "runtime_authority_capability":
+                failures.append(
+                    f"{source_name} catalog {capability_id} must be a runtime "
+                    "authority capability"
+                )
         for entry in entries:
             if not isinstance(entry, dict):
                 failures.append(f"{source_name} catalog contains non-dict entry")
                 continue
+            if entry.get("capability_kind") in {
+                "action_micro_lane",
+                "runtime_micro_lane",
+            }:
+                failures.append(
+                    f"{source_name} entry {entry.get('capability_id')} uses legacy "
+                    "micro-lane capability kind"
+                )
             for flag in BROAD_AUTHORITY_FLAGS:
                 if entry.get(flag) is not False:
                     failures.append(

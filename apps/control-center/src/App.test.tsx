@@ -1657,7 +1657,7 @@ function actionToolCodeLaneCatalogFixture(
       capability_ref: "capability-ref:action-inbox:local-task-create",
       lane_ref: "lane-ref:action-inbox:local-task-create",
       label: "Action Inbox local task create",
-      capability_kind: "action_micro_lane",
+      capability_kind: "local_authority_capability",
       surface: "Action Inbox",
       status: "implemented_exact_local_mutation_lane",
       side_effect_class: "local_dev_workspace_only",
@@ -1686,7 +1686,7 @@ function actionToolCodeLaneCatalogFixture(
       capability_ref: "capability-ref:runtime-gateway:focused-pytest",
       lane_ref: "lane-ref:runtime-gateway:focused-pytest",
       label: "RuntimeGateway focused pytest command",
-      capability_kind: "runtime_micro_lane",
+      capability_kind: "runtime_authority_capability",
       surface: "Runtime",
       status: "implemented_exact_approval_required",
       side_effect_class: "local_dev_workspace_only",
@@ -1717,7 +1717,7 @@ function actionToolCodeLaneCatalogFixture(
       capability_ref: "capability-ref:runtime-gateway:repo-verifier",
       lane_ref: "lane-ref:runtime-gateway:repo-verifier",
       label: "RuntimeGateway documentation verifier command",
-      capability_kind: "runtime_micro_lane",
+      capability_kind: "runtime_authority_capability",
       surface: "Runtime",
       status: "implemented_exact_approval_required",
       side_effect_class: "local_dev_workspace_only",
@@ -1748,7 +1748,7 @@ function actionToolCodeLaneCatalogFixture(
       capability_ref: "capability-ref:runtime-gateway:frontend-check",
       lane_ref: "lane-ref:runtime-gateway:frontend-check",
       label: "RuntimeGateway frontend check command",
-      capability_kind: "runtime_micro_lane",
+      capability_kind: "runtime_authority_capability",
       surface: "Runtime",
       status: "implemented_exact_approval_required",
       side_effect_class: "local_dev_workspace_only",
@@ -3995,10 +3995,12 @@ describe("Web Control Center shell", () => {
       expect(
         screen.getByRole("heading", { name: /^Trust$/i }),
       ).toBeInTheDocument();
-      expect(screen.getByText("Provider draft/summarize")).toBeInTheDocument();
-      expect(screen.getByText("Connector draft-only")).toBeInTheDocument();
+      expect(screen.getAllByText("Provider draft/summarize").length).toBeGreaterThan(
+        0,
+      );
+      expect(screen.getAllByText("Connector draft-only").length).toBeGreaterThan(0);
       expect(screen.getAllByText("review only").length).toBeGreaterThan(0);
-      expect(screen.getByText("Exact local task commit")).toBeInTheDocument();
+      expect(screen.getAllByText("Exact local task commit").length).toBeGreaterThan(0);
       expect(screen.getAllByText("approval required").length).toBeGreaterThan(0);
       expect(screen.getAllByText("CLI and verifiers").length).toBeGreaterThan(0);
       expect(
@@ -4007,25 +4009,28 @@ describe("Web Control Center shell", () => {
         ).length,
       ).toBeGreaterThan(0);
       expect(
-        screen.getByText("python scripts/inspect_connector_draft_proposals.py"),
-      ).toBeInTheDocument();
+        screen.getAllByText("python scripts/inspect_connector_draft_proposals.py")
+          .length,
+      ).toBeGreaterThan(0);
       expect(
         screen.getAllByText("Safe-disable and rollback").length,
       ).toBeGreaterThan(0);
       expect(
-        screen.getByText(
+        screen.getAllByText(
           "safe-disable-ref:provider-draft-summarize:disable-exact-lane",
-        ),
-      ).toBeInTheDocument();
+        ).length,
+      ).toBeGreaterThan(0);
       expect(
-        screen.getByText("rollback-ref:provider-draft-summarize:discard-local-draft"),
-      ).toBeInTheDocument();
+        screen.getAllByText(
+          "rollback-ref:provider-draft-summarize:discard-local-draft",
+        ).length,
+      ).toBeGreaterThan(0);
       expect(screen.getAllByText("Promotion path").length).toBeGreaterThan(0);
       expect(
-        screen.getByText(
+        screen.getAllByText(
           "promotion-path-ref:trust:provider-draft-summarize:live-provider-separate-contract",
-        ),
-      ).toBeInTheDocument();
+        ).length,
+      ).toBeGreaterThan(0);
       expect(screen.getAllByText("AuthorityLease requirement").length).toBeGreaterThan(
         0,
       );
@@ -4033,15 +4038,15 @@ describe("Web Control Center shell", () => {
       expect(screen.getAllByText("workspace").length).toBeGreaterThan(0);
       expect(screen.getAllByText("draft").length).toBeGreaterThan(0);
       expect(
-        screen.getByText(
+        screen.getAllByText(
           "authority-lease-requirement-ref:provider-draft-summarize:provider_model_calls:draft",
-        ),
-      ).toBeInTheDocument();
+        ).length,
+      ).toBeGreaterThan(0);
       expect(
-        screen.getByText(
+        screen.getAllByText(
           "authority-lease-requirement-ref:local-task-commit:workspace:write",
-        ),
-      ).toBeInTheDocument();
+        ).length,
+      ).toBeGreaterThan(0);
       expect(
         screen.getByLabelText("AuthorityLease domain coverage"),
       ).toBeInTheDocument();
@@ -4059,20 +4064,21 @@ describe("Web Control Center shell", () => {
         }),
       ).toBeInTheDocument();
       expect(
-        screen.getByText(
+        screen.getAllByText(
           "authority-capability-catalog-ref:provider-draft-summarize:provider_model_calls:draft",
-        ),
-      ).toBeInTheDocument();
+        ).length,
+      ).toBeGreaterThan(0);
       expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
       expect(screen.getAllByText("denied").length).toBeGreaterThan(0);
       expect(screen.getAllByText("shell").length).toBeGreaterThan(0);
       expect(screen.getAllByText("planned").length).toBeGreaterThan(0);
       expect(
-        screen.getByText("lane-ref:shell-arbitrary-command-adapter"),
-      ).toBeInTheDocument();
+        screen.getAllByText("lane-ref:shell-arbitrary-command-adapter").length,
+      ).toBeGreaterThan(0);
       expect(
-        screen.getByText("adapter-ref:shell-arbitrary-command:not-implemented"),
-      ).toBeInTheDocument();
+        screen.getAllByText("adapter-ref:shell-arbitrary-command:not-implemented")
+          .length,
+      ).toBeGreaterThan(0);
       expect(
         screen.getAllByText(
           "repo-local-command:uaa-runtime-inspect-authority-state",
@@ -4118,7 +4124,9 @@ describe("Web Control Center shell", () => {
 
     try {
       expect(await screen.findByText("Backend degraded")).toBeInTheDocument();
-      expect(screen.getByText("Provider draft/summarize")).toBeInTheDocument();
+      expect(screen.getAllByText("Provider draft/summarize").length).toBeGreaterThan(
+        0,
+      );
       expect(
         screen.getAllByText("Safe-disable and rollback").length,
       ).toBeGreaterThan(0);

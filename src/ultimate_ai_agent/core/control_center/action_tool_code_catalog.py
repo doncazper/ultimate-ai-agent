@@ -91,8 +91,8 @@ RUNTIME_EXACT_COMMAND_LANE_SPECS = (
 
 ActionToolCodeCapabilityKind = Literal[
     "tool_preview",
-    "action_micro_lane",
-    "runtime_micro_lane",
+    "local_authority_capability",
+    "runtime_authority_capability",
     "code_workflow",
 ]
 ActionToolCodeStatus = Literal[
@@ -447,7 +447,7 @@ def _local_task_entry(
         capability_ref="capability-ref:action-inbox:local-task-create",
         lane_ref="lane-ref:action-inbox:local-task-create",
         label="Action Inbox local task create",
-        capability_kind="action_micro_lane",
+        capability_kind="local_authority_capability",
         surface="Action Inbox",
         status="implemented_exact_local_mutation_lane",
         side_effect_class="local_dev_workspace_only",
@@ -508,7 +508,7 @@ def _runtime_exact_command_entry(
         capability_ref=spec["capability_ref"],
         lane_ref=spec["lane_ref"],
         label=spec["label"],
-        capability_kind="runtime_micro_lane",
+        capability_kind="runtime_authority_capability",
         surface="Runtime",
         status="implemented_exact_approval_required",
         side_effect_class="local_dev_workspace_only",

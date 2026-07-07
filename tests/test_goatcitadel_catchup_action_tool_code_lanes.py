@@ -60,6 +60,7 @@ def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authori
     assert all(catalog[flag] is False for flag in BROAD_AUTHORITY_FLAGS)
 
     local_task = _entry_by_id(catalog, "local_task_create")
+    assert local_task["capability_kind"] == "local_authority_capability"
     assert local_task["status"] == "implemented_exact_local_mutation_lane"
     assert local_task["exact_local_mutation_available"] is True
     assert local_task["receipt_refs"]
@@ -74,6 +75,7 @@ def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authori
         "runtime.repo_doctor_action_inbox",
     ]:
         runtime = _entry_by_id(catalog, capability_id)
+        assert runtime["capability_kind"] == "runtime_authority_capability"
         assert runtime["status"] == "implemented_exact_approval_required"
         assert runtime["exact_runtime_lane_available"] is True
         assert runtime["receipt_refs"]
@@ -102,6 +104,8 @@ def test_action_tool_code_catalog_preserves_exact_lanes_and_blocks_broad_authori
         "raw response",
         "provider payload",
         "credential material",
+        "action_micro_lane",
+        "runtime_micro_lane",
     ):
         assert forbidden not in serialized
 
