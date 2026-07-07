@@ -3272,6 +3272,36 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-context-references-read-model",
+            "Runtime context references read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/context-references"],
+            ["repo-local-command:uaa-runtime-inspect-context-references"],
+            (
+                "Context reference inspection reads safe refs, previews, budget "
+                "estimates, why-included refs, guard posture, proof, and blocked "
+                "authority refs under Workspace read authority. Live fetch, "
+                "context injection, protected configuration reads, provider "
+                "calls, connector writes, shell/browser execution, and production "
+                "authority remain blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:context-references-live-url-fetch:not-implemented",
+                "adapter-ref:context-references-path-material:not-implemented",
+                "adapter-ref:context-references-file-material:not-implemented",
+                "adapter-ref:context-references-context-injection:not-implemented",
+                "adapter-ref:context-references-protected-config-read:not-implemented",
+                "adapter-ref:context-references-provider-call:not-implemented",
+                "adapter-ref:context-references-connector-write:not-implemented",
+                "adapter-ref:context-references-shell-execution:not-implemented",
+                "adapter-ref:context-references-browser-automation:not-implemented",
+                "adapter-ref:context-references-production-authority:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

@@ -81,7 +81,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_virtual_provider_moa_read_model_from_authority_catalog,
     build_runtime_action_signed_evidence,
     build_runtime_checkpoint_rollback_read_model_from_authority_catalog,
-    build_runtime_context_references_read_model,
+    build_runtime_context_references_read_model_from_authority_catalog,
     command_allowlist_catalog,
     verify_runtime_action_signed_evidence,
 )
@@ -820,12 +820,15 @@ def get_api_runtime_session_lineage() -> ResultEnvelope:
 
 @router.get("/context-references", response_model=ResultEnvelope)
 def get_api_runtime_context_references() -> ResultEnvelope:
-    read_model = build_runtime_context_references_read_model()
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_runtime_context_references_read_model_from_authority_catalog(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_context_references",
         service="GovernedRuntimeAPI",
-        trace_id=read_model.preview_ref,
+        trace_id=read_model.preview_hash_ref,
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:runtime-context-references:phase-16"}],
         redactions_applied=read_model.redactions_applied,

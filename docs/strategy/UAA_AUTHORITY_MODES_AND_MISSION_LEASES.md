@@ -156,6 +156,11 @@ surfaces are:
   contract inspection decision while hidden/context injection, model/provider
   calls, cache writes, turn/provider material persistence, output authority,
   and production authority remain blocked.
+  Runtime context references expose the Read-only `workspace/read` safe-ref,
+  preview, budget, why-included, and sensitive-guard inspection decision while
+  live fetch, automatic context injection, protected configuration reads,
+  provider/model calls, connector writes, shell/browser execution, and
+  production authority remain blocked.
   Runtime context budget pressure exposes the Read-only `workspace/read`
   budget/proposal inspection decision while hidden compression, automatic
   context mutation, model/provider calls, cache writes, turn/provider material

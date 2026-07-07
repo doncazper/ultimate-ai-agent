@@ -414,13 +414,15 @@ marketplace installation, runtime import, automatic skill writes, provider
 calls, browser automation, connector writes, raw marketplace payload
 persistence, and Control Center authority minting remain blocked.
 `GET /api/runtime/context-references` exposes a protected read-only Python Core
-Hermes Runtime Adoption Phase 16 context-reference posture. It returns
-safe-ref grammar, preview refs, budget estimates, why-included refs, and
-blocked URL/live-fetch posture for file, folder, diff, URL evidence, run,
-proof, task, memory, CRM object, and issue refs. Live URL fetch, raw path
-persistence, raw file-content persistence, protected config reads, automatic
-context injection, provider/model calls, connector writes, shell/subprocess
-execution, browser automation, and production authority remain blocked.
+Hermes Runtime Adoption Phase 16 context-reference posture bound to
+`lane-ref:runtime-context-references-read-model` through AuthorityState. It
+returns safe-ref grammar, preview refs, budget estimates, why-included refs,
+AuthorityState mapping/decision refs, unsupported adapter refs, and blocked
+URL/live-fetch posture for file, folder, diff, URL evidence, run, proof, task,
+memory, CRM object, and issue refs. Live URL fetch, raw path persistence, raw
+file-content persistence, protected config reads, automatic context injection,
+provider/model calls, connector writes, shell/subprocess execution, browser
+automation, and production authority remain blocked.
 `GET /api/runtime/checkpoint-rollback` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 18 checkpoint/rollback posture bound to
 `lane-ref:runtime-checkpoint-rollback-read-model` through AuthorityState. It

@@ -352,13 +352,15 @@ Contract rules:
   persistence, Control Center authority minting, production authority, and
   public release claims remain blocked.
   `GET /api/runtime/context-references` exposes the Hermes Runtime Adoption
-  Phase 16 backend-owned context-reference posture. It returns safe-ref grammar,
-  preview refs, budget estimates, why-included refs, and blocked URL/live-fetch
-  posture for file, folder, diff, URL evidence, run, proof, task, memory, CRM
-  object, and issue refs. It grants no live URL fetch, raw path persistence,
-  raw file-content persistence, protected config read, automatic context
-  injection, provider/model call, connector write, shell/subprocess execution,
-  browser automation, or production authority.
+  Phase 16 backend-owned context-reference posture bound to
+  `lane-ref:runtime-context-references-read-model` through AuthorityState. It
+  returns safe-ref grammar, preview refs, budget estimates, why-included refs,
+  AuthorityState mapping/decision refs, unsupported adapter refs, and blocked
+  URL/live-fetch posture for file, folder, diff, URL evidence, run, proof,
+  task, memory, CRM object, and issue refs. It grants no live URL fetch, raw
+  path persistence, raw file-content persistence, protected config read,
+  automatic context injection, provider/model call, connector write,
+  shell/subprocess execution, browser automation, or production authority.
   `GET /api/runtime/checkpoint-rollback` exposes the Hermes Runtime Adoption
   Phase 18 backend-owned checkpoint/rollback posture bound to
   `lane-ref:runtime-checkpoint-rollback-read-model` through AuthorityState. It

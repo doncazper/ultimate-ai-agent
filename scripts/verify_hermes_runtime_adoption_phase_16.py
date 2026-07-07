@@ -10,6 +10,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_REF,
+    RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_ROUTE_REF,
     build_runtime_context_references_read_model,
 )
 
@@ -40,6 +43,28 @@ def _assert_context(payload: dict[str, object]) -> None:
         _fail("unexpected context references schema")
     if payload.get("status") != "read_only_context_reference_preview":
         _fail("context references posture is not read-only preview")
+    if (
+        payload.get("authority_state_route_ref")
+        != RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_ROUTE_REF
+    ):
+        _fail("authority state route ref drifted")
+    if (
+        payload.get("authority_state_cli_ref")
+        != RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_CLI_REF
+    ):
+        _fail("authority state CLI ref drifted")
+    if (
+        payload.get("authority_state_mapping_ref")
+        != RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_REF
+    ):
+        _fail("authority state mapping ref drifted")
+    if payload.get("authority_state_decision_outcome") != "allow":
+        _fail("authority state decision outcome drifted")
+    if not payload.get("authority_state_reason_refs"):
+        _fail("authority state reason refs missing")
+    unsupported = set(payload.get("unsupported_adapter_refs") or [])
+    if "adapter-ref:context-references-live-url-fetch:not-implemented" not in unsupported:
+        _fail("live URL fetch unsupported adapter ref missing")
     for flag in DENIED_FLAGS:
         if payload.get(flag) is not False:
             _fail(f"{flag} must remain false")
@@ -122,6 +147,14 @@ def verify_cli() -> None:
     )
     payload = json.loads(result.stdout)
     _assert_context(payload.get("runtime_context_references") or {})
+    authority_state = payload.get("authority_state") or {}
+    if (
+        authority_state.get("mapping_ref")
+        != RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_REF
+    ):
+        _fail("CLI authority mapping ref drifted")
+    if authority_state.get("decision_outcome") != "allow":
+        _fail("CLI authority decision outcome drifted")
     if payload.get("live_url_fetch_performed") is not False:
         _fail("CLI claimed live URL fetch")
     if payload.get("automatic_context_injection_performed") is not False:

@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -33,6 +37,16 @@ RUNTIME_CONTEXT_REFERENCES_PREVIEW_REF = (
 RUNTIME_CONTEXT_REFERENCES_PROOF_REF = (
     "proof-ref:hermes-runtime-adoption:phase-16:context-references"
 )
+RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-context-references-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_CONTEXT_REFERENCES_BLOCKED_AUTHORITY_REFS = [
     "blocked-authority:context-references-no-live-url-fetch",
@@ -200,6 +214,16 @@ class RuntimeContextReferencePostureReadModel(BaseModel):
     cli_ref: str = RUNTIME_CONTEXT_REFERENCES_CLI_REF
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     safe_ref_grammar_ref: str = "safe-ref-grammar:runtime-context-references"
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     safe_summary: str = (
         "Context references are operator-selected safe refs with bounded "
         "previews, budget estimates, why-included refs, and blocked live-fetch "
@@ -262,6 +286,9 @@ class RuntimeContextReferencePostureReadModel(BaseModel):
             (self.control_center_ref, "control_center_ref"),
             (self.safe_ref_grammar_ref, "safe_ref_grammar_ref"),
             (self.budget_state_ref, "budget_state_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
             (self.sensitive_context_guard_ref, "sensitive_context_guard_ref"),
             (
                 self.sensitive_context_classifier_ref,
@@ -276,6 +303,8 @@ class RuntimeContextReferencePostureReadModel(BaseModel):
             "verifier_refs",
             "next_safe_action_refs",
             "sensitive_context_blocked_authority_refs",
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
         ):
             for ref in getattr(self, field_name):
                 validate_execution_ref(ref, field_name)
@@ -284,6 +313,17 @@ class RuntimeContextReferencePostureReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(str(value), field_name)
@@ -316,6 +356,13 @@ class RuntimeContextReferencePostureReadModel(BaseModel):
         expected_kinds = sorted(f"context-ref-kind:{kind.value}" for kind in RuntimeContextReferenceKind)
         if sorted(self.supported_ref_kinds) != expected_kinds:
             raise ValueError("RUNTIME_CONTEXT_REFERENCES_KIND_GRAMMAR_MISMATCH")
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_CONTEXT_REFERENCES_AUTHORITY_DECISION_INVALID")
         if self.estimated_token_count != sum(
             ref.token_estimate
             for ref in self.references
@@ -546,6 +593,16 @@ def _default_references() -> list[RuntimeContextReference]:
 def build_runtime_context_references_read_model() -> (
     RuntimeContextReferencePostureReadModel
 ):
+    return build_runtime_context_references_read_model_from_authority_catalog(
+        authority_decision_catalog=build_authority_decision_catalog()
+    )
+
+
+def build_runtime_context_references_read_model_from_authority_catalog(
+    *,
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> RuntimeContextReferencePostureReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     references = _default_references()
     included = [
         ref
@@ -563,6 +620,20 @@ def build_runtime_context_references_read_model() -> (
     token_budget_limit = 4000
     estimated_token_count = sum(ref.token_estimate for ref in included)
     model = RuntimeContextReferencePostureReadModel(
+        authority_state_route_ref=(
+            RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_ROUTE_REF
+        ),
+        authority_state_cli_ref=RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_CLI_REF,
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         references=references,
         reference_count=len(references),
         included_count=len(included),
@@ -585,3 +656,16 @@ def build_runtime_context_references_read_model() -> (
     )
     payload = model.model_dump(mode="json", exclude={"preview_hash_ref"})
     return model.model_copy(update={"preview_hash_ref": _hash_payload(payload)})
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> AuthorityDecisionCatalogEntry:
+    for entry in authority_decision_catalog:
+        if entry.lane_ref == RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_NOT_FOUND")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))

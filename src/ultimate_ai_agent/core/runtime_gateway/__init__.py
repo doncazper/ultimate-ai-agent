@@ -632,6 +632,9 @@ from ultimate_ai_agent.core.runtime_gateway.skill_marketplace_posture import (
     build_runtime_skill_marketplace_posture_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway.context_references import (
+    RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_REF,
+    RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_CONTEXT_REFERENCES_BLOCKED_AUTHORITY_REFS,
     RUNTIME_CONTEXT_REFERENCES_CLI_REF,
     RUNTIME_CONTEXT_REFERENCES_CONTRACT_REF,
@@ -643,6 +646,7 @@ from ultimate_ai_agent.core.runtime_gateway.context_references import (
     RuntimeContextReferencePostureReadModel,
     RuntimeContextReferenceStatus,
     build_runtime_context_references_read_model,
+    build_runtime_context_references_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.checkpoint_rollback import (
     RUNTIME_CHECKPOINT_ROLLBACK_AUTHORITY_MAPPING_REF,
@@ -780,6 +784,9 @@ __all__ = [
     "RUNTIME_SESSION_SEARCH_PROOF_REF",
     "RUNTIME_SESSION_SEARCH_ROUTE_REF",
     "RUNTIME_SESSION_SEARCH_SNAPSHOT_REF",
+    "RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_REF",
+    "RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_ROUTE_REF",
     "RUNTIME_CONTEXT_REFERENCES_BLOCKED_AUTHORITY_REFS",
     "RUNTIME_CONTEXT_REFERENCES_CLI_REF",
     "RUNTIME_CONTEXT_REFERENCES_CONTRACT_REF",
@@ -1180,6 +1187,7 @@ __all__ = [
     "build_runtime_plugin_metadata_posture_read_model",
     "build_runtime_skill_marketplace_posture_read_model",
     "build_runtime_context_references_read_model",
+    "build_runtime_context_references_read_model_from_authority_catalog",
     "build_runtime_checkpoint_rollback_read_model",
     "build_runtime_checkpoint_rollback_read_model_from_authority_catalog",
     "classify_sensitive_context_candidate",

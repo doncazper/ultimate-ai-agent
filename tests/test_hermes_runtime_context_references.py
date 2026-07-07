@@ -9,6 +9,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_REF,
+    RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_CONTEXT_REFERENCES_BLOCKED_AUTHORITY_REFS,
     RUNTIME_CONTEXT_REFERENCES_CONTRACT_REF,
     RuntimeContextReferencePostureReadModel,
@@ -27,6 +30,27 @@ def test_runtime_context_references_are_safe_ref_preview_only() -> None:
     assert read_model.status == "read_only_context_reference_preview"
     assert read_model.route_ref == "GET /api/runtime/context-references"
     assert read_model.cli_ref == "uaa runtime inspect-context-references"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_reason_refs
+    assert (
+        "adapter-ref:context-references-live-url-fetch:not-implemented"
+        in read_model.unsupported_adapter_refs
+    )
     assert read_model.reference_count == 11
     assert read_model.included_count == 9
     assert read_model.candidate_count == 1
@@ -132,6 +156,17 @@ def test_runtime_context_references_reject_kind_prefix_mismatch() -> None:
         RuntimeContextReferencePostureReadModel(**payload)
 
 
+def test_runtime_context_references_reject_authority_mapping_drift() -> None:
+    payload = build_runtime_context_references_read_model().model_dump(mode="json")
+    payload["authority_state_mapping_ref"] = "lane-ref:wrong-context-references"
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_MISMATCH",
+    ):
+        RuntimeContextReferencePostureReadModel(**payload)
+
+
 def test_api_runtime_context_references_route_returns_safe_refs() -> None:
     response = client.get("/api/runtime/context-references")
 
@@ -145,6 +180,11 @@ def test_api_runtime_context_references_route_returns_safe_refs() -> None:
 
     data = body["data"]
     assert data["schema_version"] == "runtime_context_references.v1"
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["reference_count"] == 11
     assert data["live_url_fetch_enabled"] is False
     assert data["automatic_context_injection_enabled"] is False
@@ -169,6 +209,12 @@ def test_cli_runtime_context_references_uses_same_read_model() -> None:
 
     payload = json.loads(result.stdout)
     read_model = payload["runtime_context_references"]
+    authority_state = payload["authority_state"]
+    assert (
+        authority_state["mapping_ref"]
+        == RUNTIME_CONTEXT_REFERENCES_AUTHORITY_MAPPING_REF
+    )
+    assert authority_state["decision_outcome"] == "allow"
     assert payload["live_url_fetch_performed"] is False
     assert payload["automatic_context_injection_performed"] is False
     assert payload["secret_config_read_performed"] is False
@@ -177,4 +223,8 @@ def test_cli_runtime_context_references_uses_same_read_model() -> None:
     assert payload["raw_file_content_omitted"] is True
     assert read_model["route_ref"] == "GET /api/runtime/context-references"
     assert read_model["cli_ref"] == "uaa runtime inspect-context-references"
+    assert (
+        read_model["authority_state_cli_ref"]
+        == RUNTIME_CONTEXT_REFERENCES_AUTHORITY_STATE_CLI_REF
+    )
     assert read_model["reference_count"] == 11

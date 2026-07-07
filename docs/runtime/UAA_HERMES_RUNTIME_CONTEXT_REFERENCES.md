@@ -1,6 +1,6 @@
 # UAA Hermes Runtime Context References
 
-Status: Hermes Runtime Adoption Phase 16 repo-safe read model
+Status: Hermes Runtime Adoption Phase 16 AuthorityState-bound repo-safe read model
 
 ## Full-Strength Version
 
@@ -23,13 +23,17 @@ Phase 16 adds a Python Agent Core read model for governed context references:
 - preview availability and blocked ref posture
 - token budget limit, estimate, remaining budget, and budget-state ref
 - sensitive context guard posture for protected context refs
+- AuthorityState route/CLI/mapping/catalog/decision/reason refs and unsupported
+  adapter refs for governed context-reference inspection
 - blocked live URL fetch, raw path persistence, raw file content persistence,
   secret/config reads, and automatic context injection
 
-This is inspection metadata only. It does not fetch URLs, persist raw paths or
-raw file contents, read secret/config material, inject context into runtime
-turns, call providers/models, write connectors, run shell commands, perform
-browser automation, or claim production authority.
+The read model is mapped as `lane-ref:runtime-context-references-read-model`
+under Read-only `workspace/read` and is evaluated from the active
+AuthorityLease decision catalog. This is inspection metadata only. It does not
+fetch URLs, persist raw paths or raw file contents, read secret/config material,
+inject context into runtime turns, call providers/models, write connectors, run
+shell commands, perform browser automation, or claim production authority.
 
 ## Blocked / Needs Authority
 
