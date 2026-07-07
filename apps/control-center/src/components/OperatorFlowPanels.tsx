@@ -2459,11 +2459,19 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
                 <dt>Status</dt>
                 <dd>{receipt.approval_status.replaceAll("_", " ")}</dd>
               </div>
-              <div>
-                <dt>Scope</dt>
-                <dd>{receipt.approval_scope_ref ?? "none"}</dd>
-              </div>
-            </dl>
+                <div>
+                  <dt>Scope</dt>
+                  <dd>{receipt.approval_scope_ref ?? "none"}</dd>
+                </div>
+                <div>
+                  <dt>Lease issued</dt>
+                  <dd>{authorityTimestampLabel(receipt.lease_issued_at)}</dd>
+                </div>
+                <div>
+                  <dt>Lease expires</dt>
+                  <dd>{authorityTimestampLabel(receipt.lease_expires_at)}</dd>
+                </div>
+              </dl>
             <div
               className="note-list"
               aria-label={`${receipt.receipt_ref} granted domains`}
@@ -2692,7 +2700,7 @@ function authorityConstraintLabels(lease: AuthorityLease) {
   );
 }
 
-function authorityTimestampLabel(value: string) {
+function authorityTimestampLabel(value: string | null | undefined) {
   if (!value) {
     return "unknown";
   }

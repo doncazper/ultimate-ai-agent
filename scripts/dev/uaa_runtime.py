@@ -1938,6 +1938,10 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
                 f"- {receipt['status']} {receipt['receipt_ref']} "
                 f"mode={receipt['mode']} scope={receipt['scope']}"
             )
+            print(
+                f"  lease-issued={receipt.get('lease_issued_at') or 'none'} "
+                f"lease-expires={receipt.get('lease_expires_at') or 'none'}"
+            )
             print(f"  granted: {_authority_domain_summary(receipt['granted_domains'])}")
             print(f"  denied: {_authority_ref_summary(receipt['denied_domain_refs'])}")
             print(

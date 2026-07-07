@@ -781,6 +781,8 @@ class AuthorityLeaseReceipt(_AuthorityModel):
     decision_reason_ref: str = Field(..., min_length=1)
     mode: TrustMode
     scope: AuthorityLeaseScope
+    lease_issued_at: datetime | None = None
+    lease_expires_at: datetime | None = None
     requested_domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
         default_factory=dict
     )
@@ -841,6 +843,14 @@ class AuthorityLeaseReceipt(_AuthorityModel):
             validate_safe_task_text(reason_code, "authority_lease_approval_reason_code")
         for redaction in self.redactions_applied:
             validate_safe_task_text(redaction, "authority_lease_receipt_redaction")
+        if (self.lease_issued_at is None) != (self.lease_expires_at is None):
+            raise ValueError("AUTHORITY_LEASE_RECEIPT_WINDOW_INCOMPLETE")
+        if (
+            self.lease_issued_at is not None
+            and self.lease_expires_at is not None
+            and self.lease_expires_at <= self.lease_issued_at
+        ):
+            raise ValueError("AUTHORITY_LEASE_RECEIPT_WINDOW_INVALID")
         if (
             self.execution_performed
             or self.raw_paths_included
@@ -1977,6 +1987,8 @@ class AuthorityLeaseStore:
             unsupported_adapter_refs=unsupported_refs,
             approval_requirement=approval_requirement,
             approval_decision=approval_decision,
+            lease_issued_at=lease.issued_at,
+            lease_expires_at=lease.expires_at,
             safe_summary="Authority lease issued with safe refs, receipts, and kill-switch posture.",
         )
         self._append_receipt(receipt)
@@ -2052,6 +2064,8 @@ class AuthorityLeaseStore:
             decision_reason_ref=request.decision_reason_ref,
             mode=TrustMode(lease.mode),
             scope=AuthorityLeaseScope(lease.scope),
+            lease_issued_at=lease.issued_at,
+            lease_expires_at=lease.expires_at,
             requested_domains=lease.domains,
             granted_domains={},
             denied_domain_refs=[],
@@ -2084,6 +2098,8 @@ class AuthorityLeaseStore:
         approval_requirement: AuthorityLeaseApprovalRequirement | None = None,
         approval_decision: Any | None = None,
         approval_reason_codes: list[str] | None = None,
+        lease_issued_at: datetime | None = None,
+        lease_expires_at: datetime | None = None,
     ) -> AuthorityLeaseReceipt:
         approval_required = bool(
             approval_requirement and approval_requirement.approval_required
@@ -2111,6 +2127,8 @@ class AuthorityLeaseStore:
             decision_reason_ref=request.decision_reason_ref,
             mode=request.mode,
             scope=request.scope,
+            lease_issued_at=lease_issued_at,
+            lease_expires_at=lease_expires_at,
             requested_domains=request.requested_domains
             or _default_requested_domains(TrustMode(request.mode)),
             granted_domains=granted_domains,

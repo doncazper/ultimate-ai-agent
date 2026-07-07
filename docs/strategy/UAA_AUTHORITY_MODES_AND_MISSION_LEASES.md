@@ -77,7 +77,7 @@ the exact backend-generated mission-scoped lease request through the existing
 lease receipt route; preview results show required modes, domain and capability
 refs, receipt/audit refs, and unsupported-adapter reasons;
 Control Center `/settings` and CLI `inspect-authority-state` show active lease
-issued/expires timestamps; Control Center `/settings` and CLI
+and lease-receipt issued/expires timestamps; Control Center `/settings` and CLI
 `select-authority-mode --approve` show approval-required, approval-validated,
 approval-status, approval-scope, denial reason, receipt, audit,
 rollback/safe-disable, and kill-switch refs for AuthorityLease issue attempts;

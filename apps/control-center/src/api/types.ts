@@ -11856,6 +11856,8 @@ export interface AuthorityLeaseReceipt {
   decision_reason_ref: string;
   mode: AuthorityTrustMode;
   scope: "session" | "mission";
+  lease_issued_at: string | null;
+  lease_expires_at: string | null;
   requested_domains: Record<string, string[]>;
   granted_domains: Record<string, string[]>;
   denied_domain_refs: string[];

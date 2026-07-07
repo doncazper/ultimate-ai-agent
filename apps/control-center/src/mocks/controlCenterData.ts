@@ -11491,6 +11491,8 @@ export const mockControlCenterData: ControlCenterData = {
           decision_reason_ref: "reason-ref:authority-lease:mock-issued",
           mode: "read_only",
           scope: "session",
+          lease_issued_at: "2026-07-06T00:00:00Z",
+          lease_expires_at: "2026-07-06T01:00:00Z",
           requested_domains: {
             workspace: ["read"],
           },

@@ -10833,6 +10833,8 @@ describe("Web Control Center shell", () => {
       receipt_ref: "receipt-ref:authority-lease:app-test-issued",
       lease_ref: issuedLease.lease_ref,
       mode: "approved_safe_local_work_session",
+      lease_issued_at: issuedLease.issued_at,
+      lease_expires_at: issuedLease.expires_at,
       granted_domains: {
         workspace: ["read", "write", "execute"],
       },
@@ -11408,6 +11410,12 @@ describe("Web Control Center shell", () => {
     );
     expect(screen.getByLabelText("Authority lease receipts")).toHaveTextContent(
       "files: read, prepare",
+    );
+    expect(screen.getByLabelText("Authority lease receipts")).toHaveTextContent(
+      "2026-07-06 02:00:00 UTC",
+    );
+    expect(screen.getByLabelText("Authority lease receipts")).toHaveTextContent(
+      "2026-07-06 04:00:00 UTC",
     );
     const missionIssueCall = fetchMock.mock.calls.find(
       ([url, init]) =>

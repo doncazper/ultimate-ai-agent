@@ -1123,6 +1123,8 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     assert receipt["approval_validated"] is True
     assert receipt["approval_ref"] == "approval-ref:test-authority:api-issue"
     assert receipt["execution_performed"] is False
+    assert receipt["lease_issued_at"] == lease["issued_at"]
+    assert receipt["lease_expires_at"] == lease["expires_at"]
     assert receipt["granted_domains"]["workspace"] == ["read", "write", "execute"]
     assert "contacts" not in receipt["granted_domains"]
     assert "authority-domain-ref:contacts" in receipt["denied_domain_refs"]
@@ -1161,6 +1163,8 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     assert "constraints:" in cli_state_text
     assert "Recent receipts:" in cli_state_text
     assert receipt["receipt_ref"] in cli_state_text
+    assert "lease-issued=" in cli_state_text
+    assert "lease-expires=" in cli_state_text
     assert "denied: authority-domain-ref:contacts" in cli_state_text
     assert "unsupported adapters: adapter-ref:contacts" in cli_state_text
     assert "Sample decisions:" in cli_state_text
@@ -1226,7 +1230,10 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     )
     assert revoke.status_code == 200
     assert revoke.json()["success"] is True
-    assert revoke.json()["data"]["receipt"]["status"] == "revoked"
+    revoke_receipt = revoke.json()["data"]["receipt"]
+    assert revoke_receipt["status"] == "revoked"
+    assert revoke_receipt["lease_issued_at"] == lease["issued_at"]
+    assert revoke_receipt["lease_expires_at"] == lease["expires_at"]
 
     cli_revoke = uaa_runtime.main(
         [
