@@ -332,6 +332,9 @@ Contract rules:
   `provider_model_calls/execute` AuthorityLease scope under Full machine access
   before transport execution; without that lease, `/api/runtime/local-model/call`
   degrades to a draft-style blocked receipt with authority decision refs.
+  Action Inbox approved command execution refreshes the current active
+  AuthorityLease decision before process start, so stale approval refs or
+  expired/revoked workspace execute leases cannot preserve execution authority.
   `uaa runtime status`, `uaa runtime capabilities`, `uaa runtime invocations
   list/show`, `uaa runtime receipts show`, `uaa runtime safe-disable`, and
   `uaa actions approve|deny` are local inspection/exact-envelope decision

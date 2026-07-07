@@ -164,6 +164,10 @@ before transport execution, records metadata-only/redacted receipts, treats
 model output as untrusted proposal text, and denies remote provider SDK calls,
 tools/functions, streaming, connector writes, browser automation, billing, and
 production authority.
+Runtime command execution routes refresh active AuthorityLease scope before
+process start. If a previously approved Action Inbox command no longer has an
+active `workspace/execute` lease, execution records a blocked receipt instead
+of relying on stale approval or policy refs.
 `GET /api/runtime/capability-discovery` exposes a protected read-only Python
 Core Hermes Runtime Adoption Phase 02 capability discovery posture for models,
 runs, events, approvals, sessions, skills, toolsets, jobs, and blocked actions.

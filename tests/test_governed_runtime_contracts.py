@@ -1334,6 +1334,66 @@ def test_runtime_gateway_action_inbox_execute_requires_workspace_execute_lease(
     assert result.record.receipt.command_execution_performed is False
 
 
+def test_runtime_gateway_action_inbox_execute_rechecks_active_authority_lease(
+    tmp_path: Path,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def runner(**kwargs: object) -> RuntimeCommandRunResult:
+        calls.append(kwargs)
+        return RuntimeCommandRunResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=5,
+            output_bytes=b"should not execute after lease removal",
+        )
+
+    approval_store = _runtime_store_with_workspace_execute(tmp_path)
+    command_request = _approved_runtime_command_request()
+    approved = _bind_runtime_action_inbox_approval(
+        approval_store,
+        command_request=command_request,
+    )
+    assert approved.policy_decision.allowed_to_execute is True
+    assert approved.policy_decision.authority_decision_outcome == "allow"
+
+    execution_store = RuntimeInvocationStore(
+        tmp_path,
+        active_authority_leases=[],
+    )
+    gateway = RuntimeGateway(
+        store=execution_store,
+        command_adapter=GovernedCommandRuntimeAdapter(
+            workspace_root=ROOT,
+            runner=runner,
+        ),
+    )
+    result = gateway.execute_approved_command(
+        approved.invocation_ref,
+        _command_request_for_approved_record(command_request, approved),
+        _runtime_execute_request(approved),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-execute-stale-lease",
+    )
+
+    assert calls == []
+    assert result.record.status == "execution_blocked"
+    assert result.error_category == "RUNTIME_COMMAND_POLICY_EXECUTION_BLOCKED"
+    assert result.record.policy_decision.allowed_to_execute is False
+    assert result.record.policy_decision.authority_decision_outcome == (
+        "degrade_to_draft"
+    )
+    assert result.record.policy_decision.authority_lease_ref is None
+    assert "AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION" in (
+        result.record.policy_decision.reason_codes
+    )
+    assert result.record.receipt is not None
+    assert result.record.receipt.command_execution_performed is False
+    assert any(
+        entry.entry_kind == "authority_policy_refreshed_for_execution"
+        for entry in execution_store.list_entries()
+    )
+
+
 def test_runtime_gateway_action_inbox_execute_allows_matching_mission_lease(
     tmp_path: Path,
 ) -> None:

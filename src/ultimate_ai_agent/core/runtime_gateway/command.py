@@ -550,6 +550,13 @@ def invoke_approved_governed_command(
             direct_idempotency_ref=True,
             payload_fingerprint_ref=execution_fingerprint_ref,
         )
+    record = store.refresh_policy_decision_for_execution(
+        record.invocation_ref,
+        idempotency_ref=_operation_idempotency_ref(
+            idempotency_ref,
+            "authority-policy-refresh",
+        ),
+    )
     blocked_error = _approved_command_block_reason(
         record=record,
         request=request,

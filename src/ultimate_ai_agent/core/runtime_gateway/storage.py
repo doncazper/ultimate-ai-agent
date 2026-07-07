@@ -924,6 +924,78 @@ class RuntimeInvocationStore:
             )
             return updated
 
+    def refresh_policy_decision_for_execution(
+        self,
+        invocation_ref: str,
+        *,
+        idempotency_ref: str,
+    ) -> RuntimeInvocationRecord:
+        with self._exclusive_mutation():
+            record = self.get_invocation(invocation_ref)
+            validate_execution_ref(idempotency_ref, "idempotency_ref")
+            active_lease_refs = [
+                lease.lease_ref for lease in self._active_authority_leases if lease.is_active()
+            ]
+            payload_fingerprint_ref = _hash_ref(
+                "runtime-operation-fingerprint-ref",
+                {
+                    "operation": "authority_policy_refreshed_for_execution",
+                    "invocation_ref": invocation_ref,
+                    "previous_policy_decision_ref": (
+                        record.policy_decision.policy_decision_ref
+                    ),
+                    "approval_ref": record.approval_requirement.approval_ref,
+                    "active_lease_refs": active_lease_refs,
+                },
+            )
+            replayed = self._idempotent_operation_replay(
+                idempotency_ref,
+                payload_fingerprint_ref,
+            )
+            if replayed is not None:
+                return replayed
+            envelope = record.action_inbox_envelope
+            command_gateway_validated = (
+                bool(envelope and envelope.approval_validated)
+                and record.request.requested_authority
+                == RuntimeAuthority.allowlisted_command.value
+            )
+            policy_decision = build_policy_decision(
+                record.request,
+                invocation_ref=record.invocation_ref,
+                approval_ref=record.approval_requirement.approval_ref,
+                status=RuntimeInvocationStatus(record.status),
+                command_gateway_validated=command_gateway_validated,
+                active_authority_leases=self._active_authority_leases,
+            )
+            if envelope is not None:
+                policy_decision = policy_decision.model_copy(
+                    update={
+                        "approval_requirement": (
+                            policy_decision.approval_requirement.model_copy(
+                                update={
+                                    "approval_validated": envelope.approval_validated,
+                                    "approval_binding_recorded": True,
+                                }
+                            )
+                        )
+                    }
+                )
+            updated = record.model_copy(
+                update={
+                    "policy_decision": policy_decision,
+                    "approval_requirement": policy_decision.approval_requirement,
+                    "updated_at": utc_now(),
+                }
+            )
+            self._append(
+                "authority_policy_refreshed_for_execution",
+                updated,
+                entry_idempotency_ref=idempotency_ref,
+                payload_fingerprint_ref=payload_fingerprint_ref,
+            )
+            return updated
+
     def record_receipt(
         self,
         invocation_ref: str,

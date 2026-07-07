@@ -101,6 +101,12 @@ and `/task-decomposition/plans/execute` return a durable, redacted blocked/draft
 decision with authority decision refs, required domain/capability refs, audit
 refs, receipt posture, and rollback/safe-disable refs instead of silently
 executing or claiming broad shell/tool authority.
+Governed Runtime Action Inbox command execution now re-evaluates the current
+active AuthorityLease scope immediately before an approved command starts. A
+command that was approved under a workspace execute lease degrades back to a
+blocked draft receipt if that lease is no longer active at execution time; old
+approval refs and stale policy decision refs cannot keep execution authority
+alive.
 The governed runtime local-model call route now also uses the mode/domain
 foundation: `POST /api/runtime/local-model/call` requires active
 `provider_model_calls/execute` AuthorityLease scope with Full machine access
