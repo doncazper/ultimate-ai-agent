@@ -2310,6 +2310,14 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
                   <dd>{lease.mission_ref ?? "session-wide"}</dd>
                 </div>
                 <div>
+                  <dt>Issued</dt>
+                  <dd>{authorityTimestampLabel(lease.issued_at)}</dd>
+                </div>
+                <div>
+                  <dt>Expires</dt>
+                  <dd>{authorityTimestampLabel(lease.expires_at)}</dd>
+                </div>
+                <div>
                   <dt>Receipts</dt>
                   <dd>{lease.receipts_required ? "required" : "missing"}</dd>
                 </div>
@@ -2682,6 +2690,13 @@ function authorityConstraintLabels(lease: AuthorityLease) {
     ([key, value]) =>
       `${key.replaceAll("_", " ")}: ${authorityConstraintValue(value)}`,
   );
+}
+
+function authorityTimestampLabel(value: string) {
+  if (!value) {
+    return "unknown";
+  }
+  return value.replace("T", " ").replace("Z", " UTC");
 }
 
 function authorityConstraintValue(value: unknown): string {

@@ -10818,6 +10818,8 @@ describe("Web Control Center shell", () => {
       ...mockControlCenterData.settingsStatus.authority_lease_state.active_leases[0],
       lease_ref: "authority-lease-ref:app-test-safe-local",
       mode: "approved_safe_local_work_session",
+      issued_at: "2026-07-06T02:00:00Z",
+      expires_at: "2026-07-06T04:00:00Z",
       domains: {
         workspace: ["read", "write", "execute"],
       },
@@ -11263,6 +11265,10 @@ describe("Web Control Center shell", () => {
       "authority-lease-ref:mock-read-only-session",
     );
     expect(activeLeaseScopes).toHaveTextContent("read only");
+    expect(activeLeaseScopes).toHaveTextContent("Issued");
+    expect(activeLeaseScopes).toHaveTextContent("2026-07-06 00:00:00 UTC");
+    expect(activeLeaseScopes).toHaveTextContent("Expires");
+    expect(activeLeaseScopes).toHaveTextContent("2026-07-06 01:00:00 UTC");
     expect(activeLeaseScopes).toHaveTextContent(/Receipts\s*required/);
     expect(activeLeaseScopes).toHaveTextContent(/Kill switch\s*visible/);
     expect(screen.getByLabelText("Authority mode controls")).toBeInTheDocument();
@@ -11440,6 +11446,12 @@ describe("Web Control Center shell", () => {
     );
     expect(screen.getByLabelText("Active AuthorityLease scopes")).toHaveTextContent(
       "workspace ref: workspace-ref:current",
+    );
+    expect(screen.getByLabelText("Active AuthorityLease scopes")).toHaveTextContent(
+      "2026-07-06 02:00:00 UTC",
+    );
+    expect(screen.getByLabelText("Active AuthorityLease scopes")).toHaveTextContent(
+      "2026-07-06 04:00:00 UTC",
     );
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining(API_ENDPOINTS.runtimeAuthorityLeasesApproveAndIssue),

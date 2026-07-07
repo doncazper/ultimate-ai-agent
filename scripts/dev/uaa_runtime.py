@@ -1903,6 +1903,10 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
                 f"- {lease['lease_ref']} mode={lease['mode']} "
                 f"scope={lease['scope']} status={lease['status']}"
             )
+            print(
+                f"  issued={lease['issued_at']} "
+                f"expires={lease['expires_at']}"
+            )
             print(f"  domains: {_authority_domain_summary(lease['domains'])}")
             print(
                 f"  constraints: "

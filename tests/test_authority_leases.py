@@ -749,6 +749,8 @@ def test_authority_state_api_cli_and_settings_surface(
     assert runtime_body["success"] is True
     assert runtime_body["data"]["active_mode"] == "read_only"
     assert runtime_body["data"]["unknown_authority_default"] == "deny"
+    assert "issued_at" in runtime_body["data"]["active_leases"][0]
+    assert "expires_at" in runtime_body["data"]["active_leases"][0]
 
     assert settings_response.status_code == 200
     settings_body = settings_response.json()
@@ -756,11 +758,19 @@ def test_authority_state_api_cli_and_settings_surface(
     assert authority_state["api_ref"] == "GET /api/runtime/authority-state"
     assert authority_state["kill_switch_visible"] is True
     assert authority_state["unsupported_adapters_claimed_execution"] is False
+    assert "issued_at" in authority_state["active_leases"][0]
+    assert "expires_at" in authority_state["active_leases"][0]
 
     assert exit_code == 0
     cli_payload = capsys.readouterr().out
     assert "authority_state_read_model" in cli_payload
     assert "raw_paths_omitted" in cli_payload
+
+    text_exit_code = uaa_runtime.main(["inspect-authority-state"])
+    assert text_exit_code == 0
+    cli_text = capsys.readouterr().out
+    assert "issued=" in cli_text
+    assert "expires=" in cli_text
 
 
 def test_authority_decision_preview_api_and_cli_are_read_only(

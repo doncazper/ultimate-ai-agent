@@ -11702,6 +11702,8 @@ export interface AuthorityLease {
   mode: AuthorityTrustMode;
   scope: "session" | "mission";
   status: "active" | "expired" | "revoked" | "planned";
+  issued_at: string;
+  expires_at: string;
   mission_ref: string | null;
   domains: Record<string, string[]>;
   constraints: Record<string, unknown>;

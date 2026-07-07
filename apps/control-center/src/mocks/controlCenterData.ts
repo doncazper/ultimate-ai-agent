@@ -11435,6 +11435,8 @@ export const mockControlCenterData: ControlCenterData = {
           mode: "read_only",
           scope: "session",
           status: "active",
+          issued_at: "2026-07-06T00:00:00Z",
+          expires_at: "2026-07-06T01:00:00Z",
           mission_ref: null,
           domains: {
             workspace: ["observe", "read", "draft", "prepare"],
