@@ -10889,7 +10889,7 @@ describe("Web Control Center shell", () => {
       {
         path: "/evidence",
         heading: /^Evidence Viewer$/,
-        marker: /Evidence lanes/i,
+        marker: /Evidence checks/i,
         route: "/task-decomposition/audit",
       },
       {

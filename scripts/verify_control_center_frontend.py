@@ -1793,7 +1793,7 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
         "Revocation ref",
         "Approval ref",
         "Credential material visible",
-        "Lane ref",
+        "Capability ref",
         "Route ref",
         "Exact approval",
         "Credential ref",

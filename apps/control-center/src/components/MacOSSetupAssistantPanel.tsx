@@ -337,7 +337,7 @@ function ProviderCredentialSetupSummary({
           </dd>
         </div>
         <div>
-          <dt>Tiny provider lane</dt>
+          <dt>Scoped provider capability</dt>
           <dd>{readiness.tiny_invocation_readiness.status}</dd>
         </div>
         <div>

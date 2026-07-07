@@ -4681,7 +4681,7 @@ function OperatorWorkspaceSpinePanel({
                 />
               </dl>
               <RefListWithFallback
-                emptyLabel="Lane refs: none"
+                emptyLabel="Capability refs: none"
                 refs={[
                   lane.lane_ref,
                   ...lane.source_refs,
@@ -7233,7 +7233,7 @@ function ActionInboxProviderCostPosture({
           }
         />
         <DetailTerm
-          label="Tiny provider lane"
+          label="Scoped provider capability"
           value={readiness.tiny_invocation_readiness.status}
         />
         <DetailTerm

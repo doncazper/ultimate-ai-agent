@@ -1053,7 +1053,7 @@ function ModelProviderControlPlanePanel({
           </dd>
         </div>
         <div>
-          <dt>Exact tiny live lane</dt>
+          <dt>Scoped live provider capability</dt>
           <dd>
             {controlPlane.authority.exact_tiny_provider_lane_available
               ? "wired, approval required"
@@ -1061,7 +1061,7 @@ function ModelProviderControlPlanePanel({
           </dd>
         </div>
         <div>
-          <dt>Credential validation lane</dt>
+          <dt>Credential validation capability</dt>
           <dd>
             {controlPlane.authority.exact_credential_validation_lane_available
               ? "wired, approval required"
@@ -1540,7 +1540,7 @@ export function EvidenceOperatorPanel({ data }: { data: ControlCenterData }) {
       <div className="panel-grid">
         <article className="panel">
           <div className="panel-heading">
-            <h3>Evidence lanes</h3>
+            <h3>Evidence checks</h3>
             <span>{data.dashboard.foundation_gate_summary.status}</span>
           </div>
           <dl className="metadata-list">
@@ -3053,7 +3053,7 @@ export function ProviderCredentialReadinessPanel({
           <dd>{readiness.invocation_readiness.readiness_status}</dd>
         </div>
         <div>
-          <dt>Tiny provider lane</dt>
+          <dt>Scoped provider capability</dt>
           <dd>{readiness.tiny_invocation_readiness.status}</dd>
         </div>
         <div>
@@ -3373,7 +3373,7 @@ export function ProviderCredentialReadinessPanel({
           status={readiness.tiny_invocation_readiness.status}
           summary={readiness.tiny_invocation_readiness.safe_summary}
           details={[
-            ["Lane ref", readiness.tiny_invocation_readiness.lane_ref],
+            ["Capability ref", readiness.tiny_invocation_readiness.lane_ref],
             ["Route ref", readiness.tiny_invocation_readiness.route_ref],
             ["Provider ref", readiness.tiny_invocation_readiness.provider_ref],
             ["Model ref", readiness.tiny_invocation_readiness.model_ref],
