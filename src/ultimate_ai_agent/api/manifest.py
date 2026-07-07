@@ -74,6 +74,7 @@ CAPABILITIES_DECLARED = [
     "governed_runtime_staged_orchestration_read_model",
     "governed_runtime_prepared_turn_read_model",
     "governed_product_pilot_authority_profile",
+    "authority_state_decision_catalog",
     "authority_decision_preview",
     "authority_mission_plan_preview",
     "governed_product_pilot_portable_evidence_envelope",
@@ -954,6 +955,11 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.local_readonly,
             "Governed runtime capability route exposes protected local RuntimeGateway profile and blocked-authority posture only.",
+        )
+    if normalized_method == "GET" and path == "/api/runtime/authority-state":
+        return (
+            ApiRouteClassification.local_sensitive,
+            "Authority state inspection route exposes active mode/domain/lease refs, capability mappings, decision catalog outcomes, receipts, kill-switch posture, and blocked reasons without mutation or execution.",
         )
     if normalized_method == "POST" and path == "/api/runtime/authority-decisions/preview":
         return (

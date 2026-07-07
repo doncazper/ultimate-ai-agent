@@ -102,6 +102,9 @@ The JSON manifest covers the current visible Control Center routes and actions:
 - Action Preview submission
 - Action Inbox approval-envelope/state-change posture inspection
 - Morning Briefing source-readiness and missing-contract posture inspection
+- Settings AuthorityLease state inspection, capability mapping refs, and
+  decision-catalog outcome refs through `GET /api/runtime/authority-state`
+  without granting or executing authority
 - CRM Local Command Center M2 inspection with backend CRM read routes, CLI
   parity, local storage posture, redacted import/export preview, deterministic
   proposal refs, and an exact local mutation receipt lane while connector

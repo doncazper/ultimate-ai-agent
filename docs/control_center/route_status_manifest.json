@@ -1202,8 +1202,8 @@
       "side_effect_class": "validation_only",
       "risk_class": "high",
       "release_status": "status_available_not_completion",
-      "approval_requirement": "No approval is required for read-only Settings status, authority decision preview, or authority mission planning. AuthorityLease approve-and-issue captures exact backend-owned LocalApprovalAuthority validation for authority-increasing mode/domain/capability scopes before calling the strict issue path; the lower-level issue route still denies missing or invalid approval with approval scope/status/reason refs. Issue and revoke routes require idempotency, receipts, audit refs, redaction, and rollback/safe-disable posture. AuthorityLease revoke is a safe-disable path that can only reduce active authority and records idempotent receipts.",
-      "evidence_audit_output": "Backend-owned settings maturity gate, feature-flag posture, kill-switch posture, active authority mode/domain/lease refs, decision-preview refs, mission-plan refs, lease receipt refs, blocked/degraded/partial authority posture labels, route safety, and blocked authority refs only.",
+      "approval_requirement": "No approval is required for read-only Settings status, AuthorityLease state inspection, authority decision preview, or authority mission planning. AuthorityLease approve-and-issue captures exact backend-owned LocalApprovalAuthority validation for authority-increasing mode/domain/capability scopes before calling the strict issue path; the lower-level issue route still denies missing or invalid approval with approval scope/status/reason refs. Issue and revoke routes require idempotency, receipts, audit refs, redaction, and rollback/safe-disable posture. AuthorityLease revoke is a safe-disable path that can only reduce active authority and records idempotent receipts.",
+      "evidence_audit_output": "Backend-owned settings maturity gate, feature-flag posture, kill-switch posture, active authority mode/domain/lease refs, capability mapping refs, decision-catalog outcome refs, decision-preview refs, mission-plan refs, lease receipt refs, blocked/degraded/partial authority posture labels, route safety, and blocked authority refs only.",
       "current_backend_routes": [
         {
           "method": "GET",
@@ -1232,6 +1232,13 @@
           "operation_id": "get_control_center_providers_runtime_control_plane",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/authority-state",
+          "operation_id": "get_api_runtime_authority_state",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",
@@ -2795,8 +2802,8 @@
       "side_effect_class": "validation_only",
       "risk_class": "high",
       "release_status": "status_available_not_completion",
-      "approval_requirement": "AuthorityLease approve-and-issue controls capture exact backend-owned LocalApprovalAuthority validation before any authority-increasing state change. The lower-level issue route denies missing or invalid approval. Issue and revoke controls require idempotency, receipts, audit refs, redaction, and rollback/safe-disable posture; previews and mission planning are inspection-only.",
-      "evidence_audit_output": "Backend-owned settings status refs for maturity gate, feature-flag posture, kill-switch posture, active mode/domain/lease refs, decision-preview refs, mission-plan refs, lease receipt refs, route safety, and blocked authority only.",
+      "approval_requirement": "AuthorityLease state inspection, previews, and mission planning are inspection-only. AuthorityLease approve-and-issue controls capture exact backend-owned LocalApprovalAuthority validation before any authority-increasing state change. The lower-level issue route denies missing or invalid approval. Issue and revoke controls require idempotency, receipts, audit refs, redaction, and rollback/safe-disable posture.",
+      "evidence_audit_output": "Backend-owned settings status refs for maturity gate, feature-flag posture, kill-switch posture, active mode/domain/lease refs, capability mapping refs, decision-catalog outcome refs, decision-preview refs, mission-plan refs, lease receipt refs, route safety, and blocked authority only.",
       "backend_routes": [
         {
           "method": "GET",
@@ -2818,6 +2825,13 @@
           "operation_id": "get_control_center_providers_setup_guide",
           "side_effect_class": "validation_only",
           "route_classification": "local_readonly"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/authority-state",
+          "operation_id": "get_api_runtime_authority_state",
+          "side_effect_class": "local_dev_workspace_only",
+          "route_classification": "local_sensitive"
         },
         {
           "method": "POST",

@@ -51,6 +51,7 @@ def test_api_manifest_endpoint_is_metadata_only_and_versioned() -> None:
     assert "governed_product_pilot_authority_profile" in manifest[
         "capabilities_declared"
     ]
+    assert "authority_state_decision_catalog" in manifest["capabilities_declared"]
     assert "governed_product_pilot_portable_evidence_envelope" in manifest[
         "capabilities_declared"
     ]
@@ -602,6 +603,9 @@ def test_api_manifest_route_inventory_has_stable_operation_ids_and_side_effect_c
         routes_by_path["/api/runtime/authority-state"]["approval_posture"]
         == "not_required_for_route_classification"
     )
+    assert "decision catalog outcomes" in routes_by_path[
+        "/api/runtime/authority-state"
+    ]["classification_reason"]
     assert (
         routes_by_path["/api/runtime/authority-decisions/preview"][
             "route_classification"

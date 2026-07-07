@@ -108,6 +108,14 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
             for route in surfaces[surface_name]["current_backend_routes"]
         }
         assert "/control-center/dashboard" in route_paths
+    settings_route_paths = {
+        route["path"]
+        for route in surfaces["Settings"]["current_backend_routes"]
+    }
+    assert "/api/runtime/authority-state" in settings_route_paths
+    assert "decision-catalog outcome refs" in surfaces["Settings"][
+        "evidence_audit_output"
+    ]
     assert (
         "/control-center/providers/setup-guide"
         in {
@@ -124,6 +132,18 @@ def test_control_center_route_status_manifest_covers_visible_actions() -> None:
     setup_route_paths = {route["path"] for route in setup_action["backend_routes"]}
     assert "/control-center/dashboard" in setup_route_paths
     assert "/control-center/providers/setup-guide" in setup_route_paths
+    settings_action = next(
+        action
+        for action in visible_actions
+        if action["action_id"] == "navigate-settings"
+    )
+    settings_action_route_paths = {
+        route["path"] for route in settings_action["backend_routes"]
+    }
+    assert "/api/runtime/authority-state" in settings_action_route_paths
+    assert "decision-catalog outcome refs" in settings_action[
+        "evidence_audit_output"
+    ]
 
 
 def test_control_center_route_status_manifest_matches_openapi_and_api_manifest() -> (
