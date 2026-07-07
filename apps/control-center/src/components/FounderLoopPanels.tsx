@@ -2414,7 +2414,7 @@ function RunObservabilityPanel({
           <p>
             Retry, recovery, cancellation, and resume are inspection posture
             only here; execution stays blocked until exact backend authority is
-            graduated.
+            implemented under active AuthorityLease scope.
           </p>
         </article>
         <article className="status-card">

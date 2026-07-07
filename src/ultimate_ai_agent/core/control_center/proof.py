@@ -1043,8 +1043,9 @@ def _connector_draft_proposal_record(
         ),
         next_safe_action=(
             f"Inspect {CONNECTOR_DRAFT_PROPOSAL_CLI_REF} and "
-            f"{CONNECTOR_DRAFT_PROPOSAL_CONTRACT_REF}; graduate a separate "
-            "exact test-send/write lane before any external effect."
+            f"{CONNECTOR_DRAFT_PROPOSAL_CONTRACT_REF}; implement a separate "
+            "AuthorityLease-gated exact test-send/write capability before any "
+            "external effect."
         ),
     )
 

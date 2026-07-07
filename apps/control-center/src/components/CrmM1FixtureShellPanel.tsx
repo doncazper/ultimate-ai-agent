@@ -248,8 +248,9 @@ export function CrmM1FixtureShellPanel({
         </div>
         <p className="section-copy">
           CRM connector reads remain disabled until an exact single-source
-          gateway lane, policy decision, approval scope, audit receipt,
-          redaction contract, and route classification are graduated.
+          gateway capability has AuthorityLease domain scope, policy decision,
+          approval scope, audit receipt, redaction contract, and route
+          classification.
         </p>
         <div className="panel-grid">
           <MetricCard
