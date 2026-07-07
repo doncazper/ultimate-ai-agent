@@ -7,8 +7,11 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_WORKTREE_PER_AGENT_BLOCKED_AUTHORITY_REFS,
     RUNTIME_WORKTREE_PER_AGENT_CONTRACT_REF,
+    RUNTIME_WORKTREE_PER_AGENT_LANE_AUTHORITY_MAPPING_REFS,
     RuntimeWorktreePerAgentLane,
     RuntimeWorktreePerAgentReadModel,
     build_runtime_worktree_per_agent_read_model,
@@ -30,20 +33,21 @@ def test_worktree_per_agent_is_read_only_posture() -> None:
     assert read_model.proposal_count == 1
     assert read_model.review_ready_count == 1
     assert read_model.mutation_blocked_count == 1
-    assert read_model.authority_state_route_ref == "GET /api/runtime/authority-state"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_STATE_ROUTE_REF
+    )
     assert (
         read_model.authority_state_cli_ref
-        == "repo-local-command:uaa-runtime-inspect-authority-state"
+        == RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_STATE_CLI_REF
     )
     assert read_model.authority_state_decision_count == 3
     assert read_model.authority_state_allowed_count == 3
     assert read_model.authority_state_degraded_count == 0
     assert read_model.authority_state_denied_count == 0
-    assert set(read_model.authority_state_mapping_refs) == {
-        "lane-ref:runtime-worktree-implementer-proposal",
-        "lane-ref:runtime-worktree-reviewer-compare",
-        "lane-ref:runtime-worktree-verifier-proof",
-    }
+    assert set(read_model.authority_state_mapping_refs) == set(
+        RUNTIME_WORKTREE_PER_AGENT_LANE_AUTHORITY_MAPPING_REFS.values()
+    )
     assert len(read_model.authority_state_decision_refs) == 3
     assert read_model.workspace_grants_visible is True
     assert read_model.branch_name_policy_visible is True
@@ -176,6 +180,7 @@ def test_worktree_per_agent_api_returns_safe_read_model() -> None:
     assert body["success"] is True
     assert body["operation"] == "api_runtime_worktree_per_agent"
     data = body["data"]
+    assert body["trace_id"] == data["snapshot_hash_ref"]
     assert data["route_ref"] == "GET /api/runtime/worktree-per-agent"
     assert data["lane_count"] == 3
     assert data["authority_state_route_ref"] == "GET /api/runtime/authority-state"
@@ -217,6 +222,17 @@ def test_worktree_per_agent_cli_uses_same_read_model() -> None:
     assert payload["push_performed"] is False
     assert payload["shell_execution_performed"] is False
     assert payload["provider_call_performed"] is False
+    assert payload["authority_state"]["decision_count"] == 3
+    assert payload["authority_state"]["allowed_count"] == 3
+    assert payload["authority_state"]["degraded_count"] == 0
+    assert payload["authority_state"]["denied_count"] == 0
+    assert set(payload["authority_state"]["mapping_refs"]) == set(
+        RUNTIME_WORKTREE_PER_AGENT_LANE_AUTHORITY_MAPPING_REFS.values()
+    )
+    assert all(
+        lane["decision_outcome"] == "allow"
+        for lane in payload["authority_state"]["lane_decisions"]
+    )
     assert read_model["route_ref"] == "GET /api/runtime/worktree-per-agent"
     assert read_model["cli_ref"] == "uaa runtime inspect-worktree-per-agent"
     assert read_model["lane_count"] == 3

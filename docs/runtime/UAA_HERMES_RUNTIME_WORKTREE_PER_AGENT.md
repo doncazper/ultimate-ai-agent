@@ -23,6 +23,9 @@ The current implementation is read/proposal only:
   `lane-ref:runtime-worktree-implementer-proposal`,
   `lane-ref:runtime-worktree-reviewer-compare`, and
   `lane-ref:runtime-worktree-verifier-proof`.
+- `scripts/dev/uaa_runtime.py inspect-worktree-per-agent` returns the same
+  AuthorityState mapping refs, decision refs, outcomes, reason refs, and
+  unsupported adapter refs as the Python Core read model.
 - Control Center renders lane refs, workspace scope refs, branch proposal refs,
   branch name refs, worktree refs, checkpoint plans, Git receipt plans,
   rollback plans, proof refs, AuthorityState decision refs/outcomes, and

@@ -260,10 +260,12 @@ Contract rules:
   `GET /api/runtime/worktree-per-agent` exposes the Hermes Runtime Adoption
   Phase 33 backend-owned worktree-per-agent posture. It returns lane refs,
   workspace scope refs, branch proposal refs, worktree refs, checkpoint plans,
-  Git receipt plans, rollback plans, proof refs, verifier refs, and blocked
-  authority refs only. Git worktree create/delete, branch mutation, file
-  writes, commits, pushes, raw path persistence, shell execution, and provider
-  calls remain blocked.
+  Git receipt plans, rollback plans, proof refs, verifier refs, AuthorityState
+  route/CLI/mapping/decision refs for the implementer/reviewer/verifier lanes,
+  and blocked authority refs only. The three read/prepare lane decisions are
+  allowed by the active read-only lease, but Git worktree create/delete, branch
+  mutation, file writes, commits, pushes, raw path persistence, shell
+  execution, and provider calls remain blocked.
   `GET /api/runtime/lsp-diagnostics` exposes the Hermes Runtime Adoption Phase
   34 backend-owned semantic diagnostics proof posture. It returns diagnostic
   refs, safe source scope refs, evidence refs, receipt-plan refs, proof refs,

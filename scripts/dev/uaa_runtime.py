@@ -66,7 +66,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_managed_scope_policy_read_model_from_authority_catalog,
     build_runtime_mcp_catalog_filtering_read_model_from_authority_catalog,
     build_runtime_subagent_isolation_read_model_from_authority_catalog,
-    build_runtime_worktree_per_agent_read_model,
+    build_runtime_worktree_per_agent_read_model_from_authority_catalog,
     build_runtime_lsp_diagnostics_read_model,
     build_runtime_preview_rail_read_model,
     build_runtime_slash_command_registry_read_model,
@@ -3182,13 +3182,37 @@ def _inspect_subagent_isolation(args: argparse.Namespace) -> int:
 
 def _inspect_worktree_per_agent(args: argparse.Namespace) -> int:
     authority_state = AuthorityLeaseStore().build_state_read_model()
-    read_model = build_runtime_worktree_per_agent_read_model(
+    read_model = build_runtime_worktree_per_agent_read_model_from_authority_catalog(
         authority_decision_catalog=authority_state.decision_catalog,
     ).model_dump(mode="json")
+    lane_authority = [
+        {
+            "mapping_ref": lane["authority_state_mapping_ref"],
+            "decision_ref": lane["authority_state_decision_ref"],
+            "decision_outcome": lane["authority_state_decision_outcome"],
+            "status": lane["authority_state_status"],
+            "reason_refs": lane["authority_state_reason_refs"],
+            "unsupported_adapter_refs": lane["unsupported_adapter_refs"],
+        }
+        for lane in read_model["lanes"]
+    ]
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-worktree-per-agent",
         "runtime_worktree_per_agent": read_model,
+        "authority_state": {
+            "route_ref": authority_state.api_ref,
+            "cli_ref": authority_state.cli_ref,
+            "active_mode": authority_state.active_mode,
+            "kill_switch_visible": authority_state.kill_switch_visible,
+            "decision_count": read_model["authority_state_decision_count"],
+            "allowed_count": read_model["authority_state_allowed_count"],
+            "degraded_count": read_model["authority_state_degraded_count"],
+            "denied_count": read_model["authority_state_denied_count"],
+            "mapping_refs": read_model["authority_state_mapping_refs"],
+            "decision_refs": read_model["authority_state_decision_refs"],
+            "lane_decisions": lane_authority,
+        },
         "safe_refs_only": True,
         "proposal_only": True,
         "raw_paths_omitted": True,

@@ -13,6 +13,7 @@ from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     RUNTIME_WORKTREE_PER_AGENT_BLOCKED_AUTHORITY_REFS,
+    RUNTIME_WORKTREE_PER_AGENT_LANE_AUTHORITY_MAPPING_REFS,
     build_runtime_worktree_per_agent_read_model,
 )
 
@@ -39,6 +40,12 @@ def main() -> int:
         failures.append("worktree-per-agent lacks expected lane proposals")
     if read_model.mutation_blocked_count < 1:
         failures.append("worktree-per-agent lacks blocked mutation posture")
+    if set(read_model.authority_state_mapping_refs) != set(
+        RUNTIME_WORKTREE_PER_AGENT_LANE_AUTHORITY_MAPPING_REFS.values()
+    ):
+        failures.append("worktree-per-agent AuthorityState mappings drifted")
+    if read_model.authority_state_allowed_count != 3:
+        failures.append("worktree-per-agent AuthorityState decisions should allow read lanes")
     unsafe_flags = {
         "git worktree create": read_model.git_worktree_create_enabled,
         "git worktree delete": read_model.git_worktree_delete_enabled,
@@ -135,6 +142,15 @@ def main() -> int:
     else:
         payload = json.loads(cli_result.stdout)
         read_model_payload = payload["runtime_worktree_per_agent"]
+        authority_state = payload.get("authority_state")
+        if not isinstance(authority_state, dict):
+            failures.append("worktree-per-agent CLI missing authority state")
+        elif set(authority_state.get("mapping_refs") or []) != set(
+            RUNTIME_WORKTREE_PER_AGENT_LANE_AUTHORITY_MAPPING_REFS.values()
+        ):
+            failures.append("worktree-per-agent CLI authority mappings drifted")
+        elif authority_state.get("allowed_count") != 3:
+            failures.append("worktree-per-agent CLI authority decisions drifted")
         if payload["git_worktree_create_performed"] is not False:
             failures.append("worktree-per-agent CLI claims create")
         if payload["branch_mutation_performed"] is not False:

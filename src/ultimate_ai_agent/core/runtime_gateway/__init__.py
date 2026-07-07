@@ -432,9 +432,12 @@ from ultimate_ai_agent.core.runtime_gateway.subagent_isolation import (
     build_runtime_subagent_isolation_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.worktree_per_agent import (
+    RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_WORKTREE_PER_AGENT_BLOCKED_AUTHORITY_REFS,
     RUNTIME_WORKTREE_PER_AGENT_CLI_REF,
     RUNTIME_WORKTREE_PER_AGENT_CONTRACT_REF,
+    RUNTIME_WORKTREE_PER_AGENT_LANE_AUTHORITY_MAPPING_REFS,
     RUNTIME_WORKTREE_PER_AGENT_PROOF_REF,
     RUNTIME_WORKTREE_PER_AGENT_ROUTE_REF,
     RUNTIME_WORKTREE_PER_AGENT_SNAPSHOT_REF,
@@ -445,6 +448,7 @@ from ultimate_ai_agent.core.runtime_gateway.worktree_per_agent import (
     RuntimeWorktreePerAgentLane,
     RuntimeWorktreePerAgentReadModel,
     build_runtime_worktree_per_agent_read_model,
+    build_runtime_worktree_per_agent_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.lsp_diagnostics import (
     RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF,
@@ -1194,7 +1198,11 @@ __all__ = [
     "build_runtime_background_jobs_read_model_from_authority_catalog",
     "build_runtime_subagent_isolation_read_model",
     "build_runtime_subagent_isolation_read_model_from_authority_catalog",
+    "RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_WORKTREE_PER_AGENT_AUTHORITY_STATE_ROUTE_REF",
+    "RUNTIME_WORKTREE_PER_AGENT_LANE_AUTHORITY_MAPPING_REFS",
     "build_runtime_worktree_per_agent_read_model",
+    "build_runtime_worktree_per_agent_read_model_from_authority_catalog",
     "build_runtime_lsp_diagnostics_read_model",
     "build_runtime_preview_rail_read_model",
     "build_runtime_slash_command_registry_read_model",
