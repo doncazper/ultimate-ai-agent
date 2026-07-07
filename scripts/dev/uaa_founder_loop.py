@@ -48,9 +48,15 @@ from ultimate_ai_agent.core.control_center.trust_authority import (  # noqa: E40
     build_trust_authority_matrix_read_model,
 )
 from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (  # noqa: E402
+    WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_BLOCKED_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_CAPABILITY_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_DOMAIN_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_MODE_REF,
+    WebEvidenceProductSliceAuthorityError,
     WebEvidenceProductSliceRequest,
     build_web_evidence_product_slice_receipt,
 )
+from ultimate_ai_agent.core.authority import AuthorityLeaseStore  # noqa: E402
 from ultimate_ai_agent.core.memory import (  # noqa: E402
     FCC_MEMORY_REVIEW_DECISION_BLOCKED_STATE_REFS,
     MEMORY_FEEDBACK_QUALITY_BLOCKED_STATE_REFS,
@@ -482,9 +488,40 @@ def _attach_web_evidence(args: argparse.Namespace) -> int:
             evidence_refs=args.evidence_ref,
             metadata_refs=args.metadata_ref,
         )
-        receipt = build_web_evidence_product_slice_receipt(request)
+        receipt = build_web_evidence_product_slice_receipt(
+            request,
+            active_authority_leases=AuthorityLeaseStore().list_leases(
+                active_only=True
+            ),
+        )
         durable_record = repo.record_web_evidence_attachment(receipt)
         replayed = bool(durable_record.get("replayed", False))
+    except WebEvidenceProductSliceAuthorityError as exc:
+        _print_json(
+            {
+                "schema_version": "founder-loop-cli:v1",
+                "command_ref": "repo-local-command:founder-loop-web-evidence-attach",
+                "status": "blocked",
+                "error_ref": "FOUNDER_LOOP_WEB_EVIDENCE_AUTHORITY_DENIED",
+                "request_ref": args.request_ref,
+                "reason_refs": [
+                    *exc.decision.reason_refs,
+                    WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_BLOCKED_REF,
+                ],
+                "required_refs": {
+                    "authority_decision_ref": exc.decision.decision_ref,
+                    "required_mode_ref": WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_MODE_REF,
+                    "required_domain_ref": WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_DOMAIN_REF,
+                    "required_capability_ref": WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_CAPABILITY_REF,
+                    "safe_disable_ref": exc.decision.safe_disable_ref,
+                    "rollback_ref": exc.decision.rollback_ref,
+                },
+                "safe_refs_only": True,
+                "raw_content_omitted": True,
+                "raw_paths_omitted": True,
+            }
+        )
+        return 1
     except (ValidationError, ValueError):
         _print_json(
             _blocked_cli_payload(

@@ -173,9 +173,10 @@ Backend API endpoints consumed:
 - `GET /control-center/proof/index`
 - `GET /control-center/proof/{proof_ref}`
 - `POST /control-center/web-evidence/attach` for the Beta 08 Web Evidence beta
-  slice only: configured host allowlist HTTPS GET through WebAccessGateway,
-  transient bounded redacted preview to the requester, durable safe refs and
-  redacted audit summary only.
+  slice only: active Browser/read AuthorityLease, configured host allowlist
+  HTTPS GET through WebAccessGateway, transient bounded redacted preview to the
+  requester, durable safe refs, authority decision refs, and redacted audit
+  summary only.
 - `GET /control-center/trust-authority/matrix`
 - `GET /control-center/morning-briefing/summary`
 - `GET /control-center/storage/status`

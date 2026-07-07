@@ -1068,7 +1068,7 @@ def route_classification_for_path(
     ):
         return (
             ApiRouteClassification.local_sensitive,
-            "Tier 1 WebAccessGateway preview route; allowlisted HTTPS GET only, bounded redacted preview returned, safe receipt refs stored locally, and browser/session/download/upload/mutation/context/memory/provider/connector authority remains blocked",
+            "Tier 1 WebAccessGateway preview route; active browser/read AuthorityLease scope, allowlisted HTTPS GET only, bounded redacted preview returned, safe receipt refs stored locally, and browser action/session/download/upload/mutation/context/memory/provider/connector authority remains blocked",
         )
     if (
         normalized_method == "POST"

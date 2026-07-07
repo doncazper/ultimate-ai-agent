@@ -29,6 +29,12 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (  
     WebEvidenceProductSliceRequest,
     build_web_evidence_product_slice_receipt,
 )
+from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+)
 from ultimate_ai_agent.core.storage import (  # noqa: E402
     FounderLoopRepository,
     FounderLoopStorageDuplicateError,
@@ -80,6 +86,23 @@ def _fake_transport(_request: Any, _policy: Any) -> ReadOnlyHttpFetchTransportRe
 
 _fake_transport.transport_ref = "http-fetch-transport:beta-08-fake"
 _fake_transport.real_world_transport_performed = True
+
+
+def _browser_read_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:web-evidence-product-slice-verify",
+        mode=TrustMode.read_only,
+        domains={AuthorityDomain.browser: [AuthorityCapability.read]},
+        constraints={
+            "web_evidence_lane_ref": "lane-ref:web-evidence-product-slice",
+            "https_get_only": True,
+            "browser_actions_allowed": False,
+        },
+        safe_summary=(
+            "Verifier lease grants Browser read authority for one "
+            "WebAccessGateway preview."
+        ),
+    )
 
 
 def _request(
@@ -218,6 +241,7 @@ def _runtime_failures() -> list[str]:
         receipt = build_web_evidence_product_slice_receipt(
             _request(),
             transport=_fake_transport,
+            active_authority_leases=[_browser_read_lease()],
         )
         _assert_receipt(receipt, failures, "receipt")
 
@@ -228,6 +252,7 @@ def _runtime_failures() -> list[str]:
                 build_web_evidence_product_slice_receipt(
                     _request(),
                     transport=_fake_transport,
+                    active_authority_leases=[_browser_read_lease()],
                 )
             )
             try:
@@ -235,6 +260,7 @@ def _runtime_failures() -> list[str]:
                     build_web_evidence_product_slice_receipt(
                         _request(url="https://example.org/changed"),
                         transport=_fake_transport,
+                        active_authority_leases=[_browser_read_lease()],
                     )
                 )
                 failures.append("storage accepted conflicting web evidence request_ref")
@@ -276,6 +302,7 @@ def _runtime_failures() -> list[str]:
             build_web_evidence_product_slice_receipt(
                 _request(),
                 transport=_fake_transport,
+                active_authority_leases=[_browser_read_lease()],
             )
             failures.append("product slice allowed caller-controlled host scope")
         except ValueError as exc:
@@ -294,6 +321,7 @@ def _runtime_failures() -> list[str]:
             build_web_evidence_product_slice_receipt(
                 _request(),
                 transport=tracking_transport,
+                active_authority_leases=[_browser_read_lease()],
             )
             failures.append("safe-disable env did not block web evidence")
         except ValueError as exc:

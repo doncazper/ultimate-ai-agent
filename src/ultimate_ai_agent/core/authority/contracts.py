@@ -1078,6 +1078,9 @@ def _default_requested_domains(
                 AuthorityCapability.read,
                 AuthorityCapability.draft,
             ],
+            AuthorityDomain.browser: [
+                AuthorityCapability.read,
+            ],
         }
     if mode == TrustMode.ask_before_changes:
         return {
@@ -1179,6 +1182,9 @@ def _local_implemented_authority_capabilities() -> dict[
             AuthorityCapability.read,
             AuthorityCapability.execute,
         },
+        AuthorityDomain.browser: {
+            AuthorityCapability.read,
+        },
     }
 
 
@@ -1210,6 +1216,9 @@ def _allowed_domain_capabilities(
             AuthorityDomain.calendar: {
                 AuthorityCapability.observe,
                 AuthorityCapability.draft,
+            },
+            AuthorityDomain.browser: {
+                AuthorityCapability.read,
             },
             AuthorityDomain.provider_model_calls: {
                 AuthorityCapability.observe,
@@ -1949,6 +1958,23 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
                 "adapter-ref:email-live-fetch:not-implemented",
                 "adapter-ref:calendar-live-fetch:not-implemented",
             ],
+        ),
+        _mapping(
+            "lane-ref:web-evidence-product-slice",
+            "Web evidence product slice",
+            AuthorityDomain.browser,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_lease_required_gateway_https_get",
+            ["POST /control-center/web-evidence/attach"],
+            ["scripts/dev/uaa_founder_loop.py attach-web-evidence"],
+            (
+                "Requires Read-only mode with Browser read AuthorityLease scope, "
+                "configured host allowlist, WebAccessGateway HTTPS GET only, bounded "
+                "redacted preview, safe refs, and audit/receipt refs; browser actions, "
+                "auth/session state, downloads/uploads, mutation methods, provider/model "
+                "calls, memory writes, and production authority remain denied."
+            ),
         ),
         _mapping(
             "lane-ref:provider-credential-validation",

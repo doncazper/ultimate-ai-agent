@@ -16,6 +16,9 @@ UAA-P1-063 adds:
 - `GET /web-evidence/status` for operator-visible capability status and chatbot
   capability disclosure.
 - `POST /web-evidence/request` for a governed evidence request envelope.
+- `POST /control-center/web-evidence/attach` for the Control Center product
+  slice, gated by active Browser/read AuthorityLease scope before any transport
+  opens.
 - HTTPS GET only.
 - Explicit operator allowlist through `UAA_GOVERNED_WEB_EVIDENCE_ALLOWED_HOSTS`.
 - Enablement through `UAA_GOVERNED_WEB_EVIDENCE_ENABLED=1`.
@@ -24,9 +27,11 @@ UAA-P1-063 adds:
 - Receipt refs, preview refs, host refs, path refs, and URL refs.
 - No raw page/body storage and no raw header storage.
 
-The current API route fails closed unless governed web evidence is enabled and a
-reviewed transport is available. Core tests use an injected fake transport. This
-keeps the route contract testable without adding hidden network access.
+The current API route fails closed unless governed web evidence is enabled,
+required Browser/read authority is active where the Control Center product slice
+is used, and a reviewed transport is available. Core tests use an injected fake
+transport plus explicit test AuthorityLease scope. This keeps the route contract
+testable without adding hidden network access.
 
 ## Denied Capabilities
 

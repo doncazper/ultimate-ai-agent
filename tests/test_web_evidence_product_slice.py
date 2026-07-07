@@ -24,12 +24,24 @@ from ultimate_ai_agent.core.control_center.trust_authority import (
     build_trust_authority_matrix_read_model,
 )
 from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
+    WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_CAPABILITY_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_DOMAIN_REF,
     WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV,
     WEB_EVIDENCE_PRODUCT_SLICE_DISABLED_ENV,
     WEB_EVIDENCE_PRODUCT_SLICE_PROOF_REF,
     WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF,
+    WebEvidenceProductSliceAuthorityError,
     WebEvidenceProductSliceRequest,
     build_web_evidence_product_slice_receipt,
+)
+from ultimate_ai_agent.core.authority import (
+    AUTHORITY_STATE_DIR_ENV,
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
+    TrustMode,
 )
 from ultimate_ai_agent.core.storage import FounderLoopRepository
 from ultimate_ai_agent.core.tools.runtime.http_fetch import (
@@ -67,6 +79,42 @@ def _allow_example_org(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV, "example.org")
 
 
+def _browser_read_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:web-evidence-browser-read-test",
+        mode=TrustMode.read_only,
+        domains={AuthorityDomain.browser: [AuthorityCapability.read]},
+        constraints={
+            "web_evidence_lane_ref": "lane-ref:web-evidence-product-slice",
+            "https_get_only": True,
+            "browser_actions_allowed": False,
+        },
+        safe_summary=(
+            "Test lease grants Browser read authority for one WebAccessGateway "
+            "web evidence preview."
+        ),
+    )
+
+
+def _issue_browser_read_lease(state_dir: Path) -> str:
+    lease, receipt = AuthorityLeaseStore(state_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.read_only,
+            requested_domains={
+                AuthorityDomain.browser: [AuthorityCapability.read]
+            },
+            decision_reason_ref="reason-ref:test-web-evidence-browser-read",
+            safe_summary=(
+                "Select Browser read authority for one WebAccessGateway preview."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:test-web-evidence-browser-read",
+    )
+    assert lease is not None
+    assert receipt.status == "issued"
+    return lease.lease_ref
+
+
 def test_web_evidence_product_slice_records_safe_refs_only(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -76,6 +124,7 @@ def test_web_evidence_product_slice_records_safe_refs_only(
     receipt = build_web_evidence_product_slice_receipt(
         _request(),
         transport=_fake_transport,
+        active_authority_leases=[_browser_read_lease()],
     )
 
     durable = repo.record_web_evidence_attachment(receipt)
@@ -107,6 +156,15 @@ def test_web_evidence_product_slice_records_safe_refs_only(
     assert durable["web_access_audit_summary"]["authority_mode"] == "read_only"
     assert durable["web_access_audit_summary"]["policy_status"] == "allowed"
     assert durable["web_access_audit_summary"]["raw_url_omitted"] is True
+    assert durable["authority_decision_outcome"] == "allow"
+    assert durable["authority_lease_ref"] == (
+        "authority-lease-ref:web-evidence-browser-read-test"
+    )
+    assert durable["authority_domain_ref"] == WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_DOMAIN_REF
+    assert (
+        durable["authority_capability_ref"]
+        == WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_CAPABILITY_REF
+    )
     assert receipt.safe_url_ref.startswith("http-fetch-url:example-org/path-")
     assert "/status" not in receipt.safe_url_ref
 
@@ -144,6 +202,7 @@ def test_web_evidence_proof_and_trust_are_available(
     receipt = build_web_evidence_product_slice_receipt(
         _request(),
         transport=_fake_transport,
+        active_authority_leases=[_browser_read_lease()],
     )
     repo.record_web_evidence_attachment(receipt)
 
@@ -184,6 +243,7 @@ def test_web_evidence_product_slice_requires_configured_allowlist(
         build_web_evidence_product_slice_receipt(
             _request(),
             transport=_fake_transport,
+            active_authority_leases=[_browser_read_lease()],
         )
 
 
@@ -205,7 +265,32 @@ def test_web_evidence_product_slice_rejects_caller_self_authorized_host(
         build_web_evidence_product_slice_receipt(
             request,
             transport=_fake_transport,
+            active_authority_leases=[_browser_read_lease()],
         )
+
+
+def test_web_evidence_product_slice_requires_browser_read_authority(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _allow_example_org(monkeypatch)
+    transport_called = False
+
+    def tracking_transport(_request: Any, _policy: Any) -> ReadOnlyHttpFetchTransportResponse:
+        nonlocal transport_called
+        transport_called = True
+        return _fake_transport(_request, _policy)
+
+    with pytest.raises(WebEvidenceProductSliceAuthorityError) as exc_info:
+        build_web_evidence_product_slice_receipt(
+            _request(),
+            transport=tracking_transport,
+        )
+
+    assert transport_called is False
+    decision = exc_info.value.decision
+    assert decision.outcome == "deny"
+    assert decision.domain == "browser"
+    assert decision.capability == "read"
 
 
 def test_web_evidence_product_slice_safe_disable_blocks_transport(
@@ -224,24 +309,32 @@ def test_web_evidence_product_slice_safe_disable_blocks_transport(
         build_web_evidence_product_slice_receipt(
             _request(),
             transport=tracking_transport,
+            active_authority_leases=[_browser_read_lease()],
         )
 
     assert transport_called is False
 
 
-def test_web_evidence_attach_route_returns_backend_receipt(monkeypatch: Any) -> None:
+def test_web_evidence_attach_route_returns_backend_receipt(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
     _allow_example_org(monkeypatch)
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
     receipt = build_web_evidence_product_slice_receipt(
         _request(),
         transport=_fake_transport,
+        active_authority_leases=[_browser_read_lease()],
     )
 
     class StubService:
         def attach_web_evidence(
             self,
             request: WebEvidenceProductSliceRequest,
+            active_authority_leases: list[AuthorityLease] | None = None,
         ) -> dict[str, Any]:
             assert request.request_ref == "web-evidence-request:api-test"
+            assert active_authority_leases == []
             return {
                 **receipt.model_dump(mode="json"),
                 "request_ref": request.request_ref,
@@ -282,6 +375,9 @@ def test_web_evidence_attach_route_uses_gateway_storage_replay_and_conflict(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _allow_example_org(monkeypatch)
+    authority_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_dir))
+    lease_ref = _issue_browser_read_lease(authority_dir)
     monkeypatch.setattr(
         web_evidence_slice,
         "build_read_only_real_world_http_fetch_transport",
@@ -312,6 +408,7 @@ def test_web_evidence_attach_route_uses_gateway_storage_replay_and_conflict(
 
     assert first.status_code == 200
     assert first.json()["data"]["replayed"] is False
+    assert first.json()["data"]["authority_lease_ref"] == lease_ref
     assert first.json()["data"]["web_access_audit_summary"]["raw_url_omitted"] is True
     assert second.status_code == 200
     assert second.json()["data"]["replayed"] is True
@@ -340,6 +437,46 @@ def test_web_evidence_attach_route_blocks_unsafe_url_without_echoing_input(
     assert response.status_code == 400
     assert raw_secret not in response.text
     assert "https://example.org/status" not in response.text
+
+
+def test_web_evidence_attach_route_requires_browser_read_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _allow_example_org(monkeypatch)
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+    monkeypatch.setattr(
+        web_evidence_slice,
+        "build_read_only_real_world_http_fetch_transport",
+        lambda: _fake_transport,
+    )
+    repo = FounderLoopRepository(tmp_path / "founder_loop")
+    service = FounderLoopControlCenterService(repo)
+    monkeypatch.setattr(
+        founder_loop_api,
+        "get_founder_loop_service",
+        lambda: service,
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/control-center/web-evidence/attach",
+        json={
+            "request_ref": "web-evidence-request:api-authority-test",
+            "url": "https://example.org/status",
+            "allowed_host": "example.org",
+            "evidence_refs": ["evidence-ref:control-center:web-evidence-auth-test"],
+            "metadata_refs": ["metadata-ref:control-center:web-evidence-auth-test"],
+        },
+    )
+
+    assert response.status_code == 403
+    payload = response.json()["detail"]
+    assert payload["code"] == "CONTROL_CENTER_WEB_EVIDENCE_AUTHORITY_DENIED"
+    assert WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_DOMAIN_REF in (
+        payload["required_refs"]["required_domain_ref"]
+    )
+    assert repo.list_web_evidence_attachments() == []
 
 
 def test_web_evidence_cli_attach_failure_omits_raw_url_secret_and_paths(
@@ -386,6 +523,7 @@ def test_web_evidence_cli_inspection_uses_same_storage(
     receipt = build_web_evidence_product_slice_receipt(
         _request(),
         transport=_fake_transport,
+        active_authority_leases=[_browser_read_lease()],
     )
     repo.record_web_evidence_attachment(receipt)
 

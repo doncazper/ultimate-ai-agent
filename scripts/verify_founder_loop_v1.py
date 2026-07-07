@@ -33,6 +33,15 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (  
     WebEvidenceProductSliceRequest,
     build_web_evidence_product_slice_receipt,
 )
+from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AUTHORITY_STATE_DIR_ENV,
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
+    TrustMode,
+)
 from ultimate_ai_agent.core.storage import (  # noqa: E402
     EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES,
     FounderLoopRepository,
@@ -313,11 +322,13 @@ def _append_behavior_failures(
     failures: list[str], context: ApiVerifierContext
 ) -> None:
     old_state_dir = os.environ.get("UAA_FOUNDER_LOOP_STATE_DIR")
+    old_authority_state_dir = os.environ.get(AUTHORITY_STATE_DIR_ENV)
     old_bearer = os.environ.get(LOCAL_API_BEARER_ENV)
     bearer = "fcc-v1-007-local-bearer"
     auth_headers = {"Authorization": f"Bearer {bearer}"}
     with tempfile.TemporaryDirectory() as temp_dir:
         os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = str(Path(temp_dir) / "founder_loop")
+        os.environ[AUTHORITY_STATE_DIR_ENV] = str(Path(temp_dir) / "authority")
         os.environ[LOCAL_API_BEARER_ENV] = bearer
         try:
             receipts = _exercise_founder_loop(failures, context, auth_headers)
@@ -327,6 +338,10 @@ def _append_behavior_failures(
                 os.environ.pop("UAA_FOUNDER_LOOP_STATE_DIR", None)
             else:
                 os.environ["UAA_FOUNDER_LOOP_STATE_DIR"] = old_state_dir
+            if old_authority_state_dir is None:
+                os.environ.pop(AUTHORITY_STATE_DIR_ENV, None)
+            else:
+                os.environ[AUTHORITY_STATE_DIR_ENV] = old_authority_state_dir
             if old_bearer is None:
                 os.environ.pop(LOCAL_API_BEARER_ENV, None)
             else:
@@ -408,6 +423,7 @@ def _exercise_founder_loop(
     )
     _append_receipt_from_response(failures, decision, receipts, "Memory Review")
     local_task_action = _approve_local_task_for_proof()
+    _issue_workspace_write_lease_for_proof()
     local_task = context.client.post(
         "/control-center/actions/local-task-create-scorecard/local-task/commit",
         json=FounderLoopLocalTaskCommitRequest(
@@ -460,6 +476,7 @@ def _record_web_evidence_for_proof() -> str:
                 metadata_refs=["metadata-ref:fcc-v1-007-web-evidence"],
             ),
             transport=_fake_web_evidence_transport,
+            active_authority_leases=[_browser_read_lease()],
         )
     finally:
         if previous_allowlist is None:
@@ -485,6 +502,39 @@ _fake_web_evidence_transport.transport_ref = (
     "http-fetch-transport:fake-fcc-v1-007-web-evidence"
 )
 _fake_web_evidence_transport.real_world_transport_performed = True
+
+
+def _issue_workspace_write_lease_for_proof() -> None:
+    AuthorityLeaseStore().issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.ask_before_changes,
+            requested_domains={
+                AuthorityDomain.workspace: [AuthorityCapability.write]
+            },
+            decision_reason_ref="reason-ref:fcc-v1-007-local-task-authority",
+            safe_summary=(
+                "Verifier lease grants Workspace write for exact local task commit."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:fcc-v1-007-local-task-authority",
+    )
+
+
+def _browser_read_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:founder-loop-web-evidence-verify",
+        mode=TrustMode.read_only,
+        domains={AuthorityDomain.browser: [AuthorityCapability.read]},
+        constraints={
+            "web_evidence_lane_ref": "lane-ref:web-evidence-product-slice",
+            "https_get_only": True,
+            "browser_actions_allowed": False,
+        },
+        safe_summary=(
+            "Verifier lease grants Browser read authority for one "
+            "Founder Loop web evidence preview."
+        ),
+    )
 
 
 def _append_receipt_from_response(

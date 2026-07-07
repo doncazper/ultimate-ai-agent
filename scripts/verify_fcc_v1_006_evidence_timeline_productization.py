@@ -33,6 +33,12 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (  
     WebEvidenceProductSliceRequest,
     build_web_evidence_product_slice_receipt,
 )
+from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+)
 from ultimate_ai_agent.core.storage import (  # noqa: E402
     EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF,
     EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES,
@@ -438,7 +444,9 @@ def _exercise_loop(
 
 
 def _commit_local_task_for_timeline() -> str:
-    repo = FounderLoopRepository.from_env()
+    repo = FounderLoopRepository.from_env(
+        active_authority_leases=[_workspace_write_lease()]
+    )
     repo.record_action_decision(
         action_id="local-task-create-scorecard",
         decision="approve",
@@ -479,6 +487,7 @@ def _record_web_evidence_for_timeline() -> str:
                 metadata_refs=["metadata-ref:fcc-v1-006-web-evidence"],
             ),
             transport=_fake_web_evidence_transport,
+            active_authority_leases=[_browser_read_lease()],
         )
     finally:
         if previous_allowlist is None:
@@ -504,6 +513,37 @@ _fake_web_evidence_transport.transport_ref = (
     "http-fetch-transport:fake-fcc-v1-006-web-evidence"
 )
 _fake_web_evidence_transport.real_world_transport_performed = True
+
+
+def _workspace_write_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:evidence-timeline-local-task-verify",
+        mode=TrustMode.ask_before_changes,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        constraints={
+            "local_task_lane_ref": "lane-ref:action-inbox-local-task-commit",
+        },
+        safe_summary=(
+            "Verifier lease grants Workspace write for exact local task commit."
+        ),
+    )
+
+
+def _browser_read_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:evidence-timeline-web-evidence-verify",
+        mode=TrustMode.read_only,
+        domains={AuthorityDomain.browser: [AuthorityCapability.read]},
+        constraints={
+            "web_evidence_lane_ref": "lane-ref:web-evidence-product-slice",
+            "https_get_only": True,
+            "browser_actions_allowed": False,
+        },
+        safe_summary=(
+            "Verifier lease grants Browser read authority for one "
+            "Evidence Timeline web evidence preview."
+        ),
+    )
 
 
 def _append_ui_failures(failures: list[str], root: Path) -> None:

@@ -18,7 +18,7 @@
     "prompt_ref": "docs/prompts/fcc_authority_ramp/02_read_only_proposal_foundation.prompt.md",
     "foundation_ref": "read_only_real_world_web_fetch",
     "status": "implemented",
-    "safe_summary": "The exact read_only_real_world_web_fetch lane is implemented as explicit allowlisted HTTPS GET through WebAccessGateway with bounded redacted preview, safe refs, CLI inspection, and the scoped Control Center Web Evidence product-slice route.",
+    "safe_summary": "The exact read_only_real_world_web_fetch lane is implemented as active Browser/read AuthorityLease-gated allowlisted HTTPS GET through WebAccessGateway with bounded redacted preview, safe refs, CLI inspection, and the scoped Control Center Web Evidence product-slice route.",
     "allowed_scope": [
       "https_get_only",
       "explicit_public_allowlist",
@@ -64,7 +64,7 @@
     {
       "foundation_id": "read_only_real_world_web_fetch",
       "status": "implemented",
-      "safe_summary": "Read-only real-world HTTPS GET is available only through the WebAccessGateway-routed M72 tool runtime path, CLI inspector, and scoped Control Center Web Evidence attachment route, with explicit public allowlist and bounded redacted preview.",
+      "safe_summary": "Read-only real-world HTTPS GET is available only through active Browser/read AuthorityLease scope, the WebAccessGateway-routed M72 tool runtime path, CLI inspector, and scoped Control Center Web Evidence attachment route, with explicit public allowlist and bounded redacted preview.",
       "route_refs": [
         "POST /control-center/web-evidence/attach"
       ],
@@ -546,7 +546,7 @@
   "follow_on_candidate_ranking": {
     "status": "ranked_with_selected_micro_lane",
     "fixed_first_lane_ref": "read_only_real_world_web_fetch",
-    "ranking_method": "Rank the fixed follow-on candidate set by local-first value, existing maturity, exact-scope clarity, approval/receipt feasibility, reversibility, redaction complexity, blast radius, and external dependency risk. The fixed first WebAccessGateway lane is excluded and no ranked candidate receives authority.",
+    "ranking_method": "Rank the fixed follow-on candidate set by local-first value, existing maturity, exact-scope clarity, approval/receipt feasibility, reversibility, redaction complexity, blast radius, and external dependency risk. The fixed first WebAccessGateway lane is represented as Browser/read AuthorityLease-gated web evidence; no ranked future candidate receives authority without its own lease-bound implementation.",
     "ranked_candidate_ids": [
       "memory_write",
       "context_injection",

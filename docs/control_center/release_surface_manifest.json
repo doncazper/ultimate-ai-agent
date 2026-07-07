@@ -143,7 +143,7 @@
         "Keep public beta, public release, production readiness, and production authority claims blocked."
       ],
       "product_language_caveats": [
-        "Web Evidence in Proof is a Tier 1 allowlisted WebAccessGateway preview receipt path, not unrestricted browsing or browser execution.",
+        "Web Evidence in Proof is a Browser/read AuthorityLease-gated Tier 1 allowlisted WebAccessGateway preview receipt path, not unrestricted browsing or browser execution.",
         "Proof is a backend-owned local read model and detail guide, not runtime execution authority.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
         "Route visibility does not grant connector writes, provider/model calls, browser execution, shell/subprocess execution, memory/context injection, broad runtime authority, or hidden autonomy.",
@@ -208,7 +208,7 @@
         "Keep external mutation, background authority, public release, production readiness, and production authority claims blocked."
       ],
       "product_language_caveats": [
-        "Trust marks Web Evidence as available only for the exact Tier 1 WebAccessGateway preview lane; broader web/browser authority stays blocked.",
+        "Trust marks Web Evidence as available only for the exact Browser/read AuthorityLease-gated Tier 1 WebAccessGateway preview lane; broader web/browser authority stays blocked.",
         "Trust is an authority map and read-only explanation surface, not an authority grant.",
         "Python Agent Core/API remains product truth; Control Center is presentation only.",
         "Draft available does not mean send available; preview available does not mean runtime execution.",

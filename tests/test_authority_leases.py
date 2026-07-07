@@ -152,6 +152,18 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         provider_credential_validation.status
         == "implemented_exact_lease_required_non_invoking_validation"
     )
+    web_evidence = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /control-center/web-evidence/attach" in mapping.route_refs
+    )
+    assert web_evidence.domain == "browser"
+    assert web_evidence.capability == "read"
+    assert web_evidence.required_mode == "read_only"
+    assert (
+        web_evidence.status
+        == "implemented_authority_lease_required_gateway_https_get"
+    )
     assert {decision.outcome for decision in read_model.sample_decisions} >= {
         "allow",
         "deny",
@@ -509,7 +521,13 @@ def test_runtime_policy_can_be_gated_by_active_authority_lease() -> None:
     assert allowed.authority_lease_ref == "authority-lease-ref:test-workspace-execute"
 
 
-def test_authority_state_api_cli_and_settings_surface(capsys) -> None:
+def test_authority_state_api_cli_and_settings_surface(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+
     runtime_response = client.get("/api/runtime/authority-state")
     settings_response = client.get("/control-center/settings/status")
     exit_code = uaa_runtime.main(["inspect-authority-state", "--json"])
@@ -851,7 +869,7 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
         "adapter-ref:contacts:write-not-available-for-authority-mode-v1"
         in receipt["unsupported_adapter_refs"]
     )
-    assert "adapter-ref:browser:not-implemented-for-authority-lease-v1" in (
+    assert "adapter-ref:browser:click-not-implemented-for-authority-lease-v1" in (
         receipt["unsupported_adapter_refs"]
     )
     assert (

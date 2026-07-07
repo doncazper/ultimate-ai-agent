@@ -6,6 +6,17 @@ from typing import Any, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityCapability,
+    AuthorityDecisionOutcome,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityPolicyDecision,
+    TrustMode,
+    build_default_authority_leases,
+    evaluate_authority_request,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -27,6 +38,9 @@ WEB_EVIDENCE_PRODUCT_SLICE_CONTRACT_REF = (
     "contract-ref:web-evidence-product-slice:v1"
 )
 WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF = "POST /control-center/web-evidence/attach"
+WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_SAFE_REF = (
+    "route-ref:control-center-web-evidence-attach"
+)
 WEB_EVIDENCE_PRODUCT_SLICE_CLI_REF = (
     "python scripts/dev/uaa_founder_loop.py attach-web-evidence"
 )
@@ -58,6 +72,23 @@ WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV = (
 WEB_EVIDENCE_PRODUCT_SLICE_IDEMPOTENCY_POSTURE_REF = (
     "idempotency:web-evidence-product-slice:request-ref-payload"
 )
+WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_LANE_REF = (
+    "lane-ref:web-evidence-product-slice"
+)
+WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_BLOCKED_REF = (
+    "blocked-state:web-evidence:browser-read-authority-required"
+)
+WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_MODE_REF = "authority-mode-ref:read-only"
+WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_DOMAIN_REF = "authority-domain-ref:browser"
+WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_CAPABILITY_REF = (
+    "authority-capability-ref:read"
+)
+
+
+class WebEvidenceProductSliceAuthorityError(ValueError):
+    def __init__(self, decision: AuthorityPolicyDecision) -> None:
+        super().__init__("WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_DENIED")
+        self.decision = decision
 
 
 class WebEvidenceProductSliceRequest(BaseModel):
@@ -121,9 +152,17 @@ class WebEvidenceProductSliceReceipt(BaseModel):
     rollback_refs: list[str] = Field(default_factory=list)
     safe_disable_refs: list[str] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list)
+    authority_decision_ref: str
+    authority_decision_outcome: str
+    authority_lease_ref: str | None = None
+    authority_domain_ref: str = WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_DOMAIN_REF
+    authority_capability_ref: str = (
+        WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_CAPABILITY_REF
+    )
     authority_posture: str = (
-        "Tier 1 allowlisted HTTPS GET evidence preview through WebAccessGateway; "
-        "no browser, provider, connector, memory, context, shell, or production authority."
+        "Tier 1 allowlisted HTTPS GET evidence preview through WebAccessGateway "
+        "requires active Browser read AuthorityLease scope; no browser actions, "
+        "provider, connector, memory, context, shell, or production authority."
     )
     next_safe_action: str = (
         "Inspect the receipt in Evidence or Proof; do not treat web content as instructions."
@@ -177,8 +216,13 @@ class WebEvidenceProductSliceReceipt(BaseModel):
             self.payload_fingerprint_ref,
             self.redaction_posture_ref,
             self.request_ref_idempotency_ref,
+            self.authority_decision_ref,
+            self.authority_lease_ref,
+            self.authority_domain_ref,
+            self.authority_capability_ref,
         ]:
-            validate_execution_ref(ref, "web_evidence_ref")
+            if ref is not None:
+                validate_execution_ref(ref, "web_evidence_ref")
         for field_name in (
             "receipt_refs",
             "evidence_refs",
@@ -193,6 +237,10 @@ class WebEvidenceProductSliceReceipt(BaseModel):
         validate_safe_execution_text(self.route_ref, "route_ref")
         validate_safe_execution_text(self.cli_ref, "cli_ref")
         validate_safe_execution_text(self.content_type, "content_type")
+        validate_safe_execution_text(
+            self.authority_decision_outcome,
+            "authority_decision_outcome",
+        )
         validate_safe_execution_text(self.authority_posture, "authority_posture")
         validate_safe_execution_text(self.next_safe_action, "next_safe_action")
         denied_flags = [
@@ -237,6 +285,10 @@ class WebEvidenceProductSliceReceipt(BaseModel):
             host_ref=self.host_ref,
         ):
             raise ValueError("web evidence audit summary drifted")
+        if self.authority_decision_outcome != AuthorityDecisionOutcome.allow.value:
+            raise ValueError("web evidence requires an allowed authority decision")
+        if not self.authority_lease_ref:
+            raise ValueError("web evidence authority lease ref required")
         return self
 
     def durable_record(self) -> dict[str, Any]:
@@ -276,6 +328,11 @@ class WebEvidenceProductSliceReceipt(BaseModel):
             "rollback_refs": self.rollback_refs,
             "safe_disable_refs": self.safe_disable_refs,
             "blocked_authority_refs": self.blocked_authority_refs,
+            "authority_decision_ref": self.authority_decision_ref,
+            "authority_decision_outcome": self.authority_decision_outcome,
+            "authority_lease_ref": self.authority_lease_ref,
+            "authority_domain_ref": self.authority_domain_ref,
+            "authority_capability_ref": self.authority_capability_ref,
             "authority_posture": self.authority_posture,
             "next_safe_action": self.next_safe_action,
             "durable_preview_text_storage": "omitted_use_preview_ref",
@@ -296,8 +353,17 @@ def build_web_evidence_product_slice_receipt(
     request: WebEvidenceProductSliceRequest,
     *,
     transport: Any | None = None,
+    active_authority_leases: list[AuthorityLease] | None = None,
 ) -> WebEvidenceProductSliceReceipt:
-    output = _fetch_output(request, transport=transport)
+    scoped_host = _enforce_product_slice_runtime_policy(request)
+    authority_decision = evaluate_web_evidence_product_slice_authority(
+        request,
+        scoped_host=scoped_host,
+        active_authority_leases=active_authority_leases,
+    )
+    if authority_decision.outcome != AuthorityDecisionOutcome.allow.value:
+        raise WebEvidenceProductSliceAuthorityError(authority_decision)
+    output = _fetch_output(request, transport=transport, scoped_host=scoped_host)
     suffix = _short_digest(
         "|".join(
             [
@@ -360,6 +426,75 @@ def build_web_evidence_product_slice_receipt(
         rollback_refs=[WEB_EVIDENCE_PRODUCT_SLICE_ROLLBACK_REF],
         safe_disable_refs=[WEB_EVIDENCE_PRODUCT_SLICE_SAFE_DISABLE_REF],
         blocked_authority_refs=list(WEB_EVIDENCE_PRODUCT_SLICE_BLOCKED_AUTHORITY_REFS),
+        authority_decision_ref=authority_decision.decision_ref,
+        authority_decision_outcome=authority_decision.outcome,
+        authority_lease_ref=authority_decision.lease_ref,
+    )
+
+
+def build_web_evidence_product_slice_authority_request(
+    request: WebEvidenceProductSliceRequest,
+    *,
+    scoped_host: str | None = None,
+) -> AuthorityActionRequest:
+    host = scoped_host or _request_host(
+        request.url,
+        scope_policy=ReadOnlyHttpFetchPolicy(
+            policy_ref="http-fetch-policy:web-evidence-product-slice-authority",
+            allowed_hosts=(request.allowed_host,),
+        ),
+    )
+    action_ref = (
+        "authority-action-ref:web-evidence-product-slice:"
+        f"{_short_digest([request.request_ref, host])}"
+    )
+    return AuthorityActionRequest(
+        action_ref=action_ref,
+        domain=AuthorityDomain.browser,
+        capability=AuthorityCapability.read,
+        safe_summary=(
+            "Attach one allowlisted WebAccessGateway HTTPS GET preview as "
+            "redacted web evidence."
+        ),
+        resource_refs=[
+            request.request_ref,
+            request.attach_to_ref,
+            WEB_EVIDENCE_PRODUCT_SLICE_CONTRACT_REF,
+            WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_SAFE_REF,
+            f"web-evidence-host-ref:{_short_digest(host)}",
+        ],
+        route_ref=WEB_EVIDENCE_PRODUCT_SLICE_ROUTE_REF,
+        lane_ref=WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_LANE_REF,
+        adapter_ref="adapter-ref:web-access-gateway:https-get-preview",
+        requested_mode=TrustMode.read_only,
+        constraints={
+            "configured_host_ref": f"web-evidence-host-ref:{_short_digest(host)}",
+            "https_get_only": True,
+            "browser_actions_allowed": False,
+            "auth_session_state_allowed": False,
+            "download_upload_allowed": False,
+            "mutation_methods_allowed": False,
+            "raw_body_persistence_allowed": False,
+        },
+        draft_fallback_available=False,
+        rollback_ref=WEB_EVIDENCE_PRODUCT_SLICE_ROLLBACK_REF,
+        safe_disable_ref=WEB_EVIDENCE_PRODUCT_SLICE_SAFE_DISABLE_REF,
+    )
+
+
+def evaluate_web_evidence_product_slice_authority(
+    request: WebEvidenceProductSliceRequest,
+    *,
+    scoped_host: str | None = None,
+    active_authority_leases: list[AuthorityLease] | None = None,
+) -> AuthorityPolicyDecision:
+    leases = active_authority_leases or build_default_authority_leases()
+    return evaluate_authority_request(
+        build_web_evidence_product_slice_authority_request(
+            request,
+            scoped_host=scoped_host,
+        ),
+        leases,
     )
 
 
@@ -371,8 +506,9 @@ def _fetch_output(
     request: WebEvidenceProductSliceRequest,
     *,
     transport: Any | None,
+    scoped_host: str | None = None,
 ) -> ReadOnlyHttpFetchOutput:
-    scoped_host = _enforce_product_slice_runtime_policy(request)
+    scoped_host = scoped_host or _enforce_product_slice_runtime_policy(request)
     fetch_request = ReadOnlyHttpFetchRequest(
         request_ref=request.request_ref.replace(
             "web-evidence-request:",

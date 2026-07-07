@@ -134,14 +134,16 @@ eventually support useful real-world evidence, richer source review, and later
 browser/web workflows under separate gates. The repo-safe current version uses
 `POST /control-center/web-evidence/attach` and
 `scripts/dev/uaa_founder_loop.py attach-web-evidence` for one configured host
-allowlist HTTPS GET through WebAccessGateway; the redacted preview is returned
-transiently to the requester, while durable Today/Evidence/Proof/CLI surfaces
-store safe refs, request-ref idempotency posture, rollback/safe-disable refs,
-and a redacted WebAccessGateway audit summary only. Blocked/needs-authority
-remains browser actions, auth/cookies, downloads/uploads, POST-style mutation,
-raw URL/body/header persistence, context injection, memory writes,
-provider/model calls, connector writes, public release, and production
-authority. Exact promotion requires a later verifier-backed PR with exact
+allowlist HTTPS GET through WebAccessGateway after an active Browser/read
+AuthorityLease decision; the redacted preview is returned transiently to the
+requester, while durable Today/Evidence/Proof/CLI surfaces store safe refs,
+authority decision refs, request-ref idempotency posture, rollback/safe-disable
+refs, and a redacted WebAccessGateway audit summary only.
+Blocked/needs-authority remains browser actions, auth/cookies,
+downloads/uploads, POST-style mutation, raw URL/body/header persistence,
+context injection, memory writes, provider/model calls, connector writes,
+public release, and production authority. Exact promotion requires a later
+verifier-backed PR with exact
 scope, configured policy, approval binding if mutation appears, redaction,
 receipt/proof evidence, safe-disable, rollback, CLI/API parity, docs, and
 tests. Verification:

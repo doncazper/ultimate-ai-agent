@@ -21,6 +21,12 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
     WebEvidenceProductSliceRequest,
     build_web_evidence_product_slice_receipt,
 )
+from ultimate_ai_agent.core.authority import (
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+)
 from ultimate_ai_agent.core.storage import (
     EVIDENCE_TIMELINE_PRODUCTIZATION_CONTRACT_REF,
     EVIDENCE_TIMELINE_PRODUCTIZED_EVENT_TYPES,
@@ -130,6 +136,23 @@ _fake_web_evidence_transport.transport_ref = (
 _fake_web_evidence_transport.real_world_transport_performed = True
 
 
+def _browser_read_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:fcc-v1-006-web-evidence",
+        mode=TrustMode.read_only,
+        domains={AuthorityDomain.browser: [AuthorityCapability.read]},
+        constraints={
+            "web_evidence_lane_ref": "lane-ref:web-evidence-product-slice",
+            "https_get_only": True,
+            "browser_actions_allowed": False,
+        },
+        safe_summary=(
+            "Test lease grants Browser read authority for one safe-ref "
+            "web evidence timeline seed."
+        ),
+    )
+
+
 def _record_web_evidence_seed() -> str:
     repo = FounderLoopRepository.from_env()
     previous_allowlist = os.environ.get(WEB_EVIDENCE_PRODUCT_SLICE_ALLOWED_HOSTS_ENV)
@@ -144,6 +167,7 @@ def _record_web_evidence_seed() -> str:
                 metadata_refs=["metadata-ref:fcc-v1-006-web-evidence"],
             ),
             transport=_fake_web_evidence_transport,
+            active_authority_leases=[_browser_read_lease()],
         )
     finally:
         if previous_allowlist is None:

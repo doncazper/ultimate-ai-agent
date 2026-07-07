@@ -18,8 +18,14 @@ from ultimate_ai_agent.core.control_center.local_tasks import (
     FounderLoopLocalTaskCommitRequest,
 )
 from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
+    WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_BLOCKED_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_CAPABILITY_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_DOMAIN_REF,
+    WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_MODE_REF,
+    WebEvidenceProductSliceAuthorityError,
     WebEvidenceProductSliceRequest,
 )
+from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.memory import (
@@ -1131,7 +1137,12 @@ def post_control_center_web_evidence_attach(
     request: WebEvidenceProductSliceRequest,
 ) -> ResultEnvelope:
     try:
-        data = get_founder_loop_service().attach_web_evidence(request)
+        data = get_founder_loop_service().attach_web_evidence(
+            request,
+            active_authority_leases=AuthorityLeaseStore().list_leases(
+                active_only=True
+            ),
+        )
     except FounderLoopStorageDuplicateError as exc:
         raise HTTPException(
             status_code=409,
@@ -1141,6 +1152,29 @@ def post_control_center_web_evidence_attach(
                     "The web evidence request ref already points to a different "
                     "receipt fingerprint."
                 ),
+            },
+        ) from exc
+    except WebEvidenceProductSliceAuthorityError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "CONTROL_CENTER_WEB_EVIDENCE_AUTHORITY_DENIED",
+                "safe_message": (
+                    "Web evidence attach requires an active AuthorityLease "
+                    "granting Browser read before WebAccessGateway fetch."
+                ),
+                "reason_refs": [
+                    *exc.decision.reason_refs,
+                    WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_BLOCKED_REF,
+                ],
+                "required_refs": {
+                    "authority_decision_ref": exc.decision.decision_ref,
+                    "required_mode_ref": WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_MODE_REF,
+                    "required_domain_ref": WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_DOMAIN_REF,
+                    "required_capability_ref": WEB_EVIDENCE_PRODUCT_SLICE_AUTHORITY_CAPABILITY_REF,
+                    "safe_disable_ref": exc.decision.safe_disable_ref,
+                    "rollback_ref": exc.decision.rollback_ref,
+                },
             },
         ) from exc
     except (FounderLoopStorageError, ValueError) as exc:

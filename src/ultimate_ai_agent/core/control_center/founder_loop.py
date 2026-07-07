@@ -26,6 +26,7 @@ from ultimate_ai_agent.core.control_center.web_evidence_product_slice import (
     WebEvidenceProductSliceRequest,
     build_web_evidence_product_slice_receipt,
 )
+from ultimate_ai_agent.core.authority import AuthorityLease
 from ultimate_ai_agent.core.chat import ChatHandoffRequest, ChatTurnReceiptRequest
 from ultimate_ai_agent.core.memory import (
     ManualMemoryCandidateRequest,
@@ -89,10 +90,12 @@ class FounderLoopControlCenterService:
         request: WebEvidenceProductSliceRequest,
         *,
         transport: Any | None = None,
+        active_authority_leases: list[AuthorityLease] | None = None,
     ) -> dict[str, Any]:
         receipt = build_web_evidence_product_slice_receipt(
             request,
             transport=transport,
+            active_authority_leases=active_authority_leases,
         )
         durable_record = self.repository.record_web_evidence_attachment(receipt)
         replayed = bool(durable_record.get("replayed", False))

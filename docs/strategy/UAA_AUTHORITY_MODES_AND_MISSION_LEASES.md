@@ -110,6 +110,15 @@ decision that names Full machine access plus the provider_model_calls domain and
 execute capability. The validation lease does not authorize chat/completions,
 provider SDK authority, billing authority, fallback routing, provider payload
 persistence, or background/autonomous provider use.
+The Control Center Web Evidence product-slice route now requires active
+`browser/read` AuthorityLease scope before WebAccessGateway HTTPS GET transport
+opens. This converts the old Tier 1 web-evidence lane into the mode/domain
+system without widening it: configured host allowlist, HTTPS GET only, bounded
+redacted preview, safe refs, authority decision refs, audit records, receipt
+refs, rollback/safe-disable posture, and kill-switch visibility remain
+mandatory. Browser actions, auth/cookies, downloads/uploads, POST-style
+mutation, unrestricted browsing, context injection, memory writes, connector
+writes, provider/model calls, and production authority remain denied.
 Provider/model transport outside the two named exact tiny adapter scopes remains
 blocked by authority policy unless a later supported provider/model execution
 lease is implemented and tested. Existing local loopback model requests may
