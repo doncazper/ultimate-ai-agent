@@ -4802,7 +4802,7 @@ describe("Web Control Center shell", () => {
     }
   });
 
-  it("drops incomplete Action Inbox decision lanes instead of crashing the route", async () => {
+  it("drops incomplete Action Inbox decision groups instead of crashing the route", async () => {
     const unsafeInbox = {
       ...mockControlCenterData.founderActionsInbox,
       action_inbox_decision_lane_contract_ref:
@@ -4834,10 +4834,10 @@ describe("Web Control Center shell", () => {
       ).toBeInTheDocument();
       expect(screen.queryByText("Loading local Action Inbox")).not.toBeInTheDocument();
       expect(
-        screen.getByText("backend decision lanes missing"),
+        screen.getByText("backend decision groups missing"),
       ).toBeInTheDocument();
       expect(
-        screen.getByText(/will not backfill cost, authority, approval, or receipt lanes/i),
+        screen.getByText(/will not backfill cost, authority, approval, or receipt groups/i),
       ).toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: /^execute$/i }),
@@ -6134,7 +6134,7 @@ describe("Web Control Center shell", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("does not backfill Action Inbox decision lanes from mocks", async () => {
+  it("does not backfill Action Inbox decision groups from mocks", async () => {
     const partialInbox = { ...mockControlCenterData.founderActionsInbox };
     delete (
       partialInbox as {
@@ -6170,7 +6170,7 @@ describe("Web Control Center shell", () => {
     render(<App />);
 
     expect(
-      await screen.findByText("backend decision lanes missing"),
+      await screen.findByText("backend decision groups missing"),
     ).toBeInTheDocument();
     expect(
       screen.queryByText(
@@ -8740,7 +8740,7 @@ describe("Web Control Center shell", () => {
     }
   });
 
-  it("filters Action Inbox lanes as presentation-only drilldowns over backend groups", async () => {
+  it("filters Action Inbox groups as presentation-only drilldowns over backend data", async () => {
     const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
       if (options?.method === "POST") {
         throw new Error("unexpected mutation request");
@@ -8759,47 +8759,49 @@ describe("Web Control Center shell", () => {
 
     try {
       expect(await screen.findByText("Backend online")).toBeInTheDocument();
-      const filterRegion = screen.getByLabelText("Action Inbox lane filters");
+      const filterRegion = screen.getByLabelText(
+        "Action Inbox queue group filters",
+      );
       expect(
         within(filterRegion).getByRole("button", {
-          name: /Filter lane: All lanes/i,
+          name: /Filter group: All groups/i,
         }),
       ).toHaveAttribute("aria-pressed", "true");
       expect(
-        screen.getByLabelText("Selected Action Inbox lane drilldown"),
-      ).toHaveTextContent("all_lanes");
-      const laneStack = screen.getByLabelText("Action Inbox queue lanes");
+        screen.getByLabelText("Selected Action Inbox queue group drilldown"),
+      ).toHaveTextContent("all_groups");
+      const groupStack = screen.getByLabelText("Action Inbox queue groups");
       expect(
-        within(laneStack).getByRole("heading", {
+        within(groupStack).getByRole("heading", {
           name: /^Approved local-task create lane$/i,
         }),
       ).toBeInTheDocument();
       expect(
-        within(laneStack).getByRole("heading", {
+        within(groupStack).getByRole("heading", {
           name: /^Ready for decision$/i,
         }),
       ).toBeInTheDocument();
 
       fireEvent.click(
         within(filterRegion).getByRole("button", {
-          name: /Filter lane: Approved local-task create lane/i,
+          name: /Filter group: Approved local-task create lane/i,
         }),
       );
 
       const drilldown = screen.getByLabelText(
-        "Selected Action Inbox lane drilldown",
+        "Selected Action Inbox queue group drilldown",
       );
       expect(drilldown).toHaveTextContent("approved_local_task_lane");
       expect(drilldown).toHaveTextContent(
         "Inspect approval posture or commit the local-task create lane.",
       );
       expect(
-        within(laneStack).getByRole("heading", {
+        within(groupStack).getByRole("heading", {
           name: /^Approved local-task create lane$/i,
         }),
       ).toBeInTheDocument();
       expect(
-        within(laneStack).queryByRole("heading", {
+        within(groupStack).queryByRole("heading", {
           name: /^Ready for decision$/i,
         }),
       ).not.toBeInTheDocument();
@@ -8820,11 +8822,11 @@ describe("Web Control Center shell", () => {
 
       fireEvent.click(
         within(filterRegion).getByRole("button", {
-          name: /Filter lane: All lanes/i,
+          name: /Filter group: All groups/i,
         }),
       );
       expect(
-        within(laneStack).getByRole("heading", {
+        within(groupStack).getByRole("heading", {
           name: /^Ready for decision$/i,
         }),
       ).toBeInTheDocument();
@@ -9154,7 +9156,7 @@ describe("Web Control Center shell", () => {
     ).toBe(false);
   });
 
-  it("renders backend Action Inbox decision lanes before operator approval", async () => {
+  it("renders backend Action Inbox decision groups before operator approval", async () => {
     const laneIds = [
       "needs_approval",
       "blocked",

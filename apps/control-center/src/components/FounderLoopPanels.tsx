@@ -210,7 +210,9 @@ export function FounderLoopSpinePanel({
           settingsStatus,
           today,
         });
-  const localTaskSummary = summarizeLocalTaskLane(inbox?.items ?? today.actions);
+  const localTaskSummary = summarizeLocalTaskCapability(
+    inbox?.items ?? today.actions,
+  );
   const loopTruthCopy = actionReadModelAuthoritative
     ? "The spine is backed by the local backend read model."
     : "This spine is showing non-authoritative fallback shape until the backend read model is available.";
@@ -732,7 +734,7 @@ function buildFounderLoopSpineItems({
   ];
 }
 
-function summarizeLocalTaskLane(items: FounderLoopActionItem[]): string {
+function summarizeLocalTaskCapability(items: FounderLoopActionItem[]): string {
   const eligible = items.filter(
     (item) =>
       item.action_kind === "local_task_create" &&
@@ -743,9 +745,9 @@ function summarizeLocalTaskLane(items: FounderLoopActionItem[]): string {
     return `${receipts} local task receipt refs`;
   }
   if (eligible > 0) {
-    return `${eligible} approved local-task create lane`;
+    return `${eligible} approved local-task create capability`;
   }
-  return "Local task lane blocked unless exact approval exists";
+  return "Local task capability blocked unless exact approval exists";
 }
 
 function isPresent<T>(value: T | null | undefined): value is T {
@@ -772,9 +774,9 @@ function buildDailyLoopCommandItems(
   const loopReadModel = today.today_loop_read_model;
   if (!loopReadModel) {
     const missingSummary =
-      "Today loop digest is missing; Control Center will not infer decision lanes from fallback state.";
+      "Today loop digest is missing; Control Center will not infer decision groups from fallback state.";
     const missingNextAction =
-      "Wait for the backend-owned Today loop read model before treating refs as decision lanes.";
+      "Wait for the backend-owned Today loop read model before treating refs as decision groups.";
     return [
       {
         commandRef: "daily-loop-command:what-matters-today",
@@ -798,7 +800,7 @@ function buildDailyLoopCommandItems(
         status: "backend digest missing",
         summary: missingSummary,
         whyShown:
-          "Control Center needs backend-owned review refs before showing a decision lane.",
+          "Control Center needs backend-owned review refs before showing a decision group.",
         whatThisAffects: "Actions, Plans, Evidence, Memory-derived follow-ups",
         nextSafeAction: missingNextAction,
         refs: [],
@@ -1789,7 +1791,7 @@ function ActionInboxWorkQueuePanel({
               <DetailTerm label="Available action" value={lane.available_action} />
             </dl>
             <RefListWithFallback
-              emptyLabel="Lane item refs: none"
+              emptyLabel="Group item refs: none"
               refs={lane.item_refs}
             />
           </article>
@@ -6810,15 +6812,15 @@ export function ActionInboxSurfacePanel({
         ))}
       </div>
       <article
-        aria-label="Action Inbox lane filters and drilldown"
+        aria-label="Action Inbox queue group filters and drilldown"
         className="status-card action-lane-filter-card"
       >
         <div className="status-card-header">
-          <h3>Lane filters</h3>
+          <h3>Queue group filters</h3>
           <span>{selectedActionGroup === "all" ? "all" : selectedActionGroup}</span>
         </div>
         <div
-          aria-label="Action Inbox lane filters"
+          aria-label="Action Inbox queue group filters"
           className="action-lane-filter-row"
         >
           <button
@@ -6827,7 +6829,7 @@ export function ActionInboxSurfacePanel({
             onClick={() => setSelectedActionGroup("all")}
             type="button"
           >
-            Filter lane: All lanes ({displayedInbox.items.length})
+            Filter group: All groups ({displayedInbox.items.length})
           </button>
           {actionGroups.map((group) => (
             <button
@@ -6837,17 +6839,17 @@ export function ActionInboxSurfacePanel({
               onClick={() => setSelectedActionGroup(group.summary.group_id)}
               type="button"
             >
-              Filter lane: {group.summary.label} ({group.summary.count})
+              Filter group: {group.summary.label} ({group.summary.count})
             </button>
           ))}
         </div>
         <dl
-          aria-label="Selected Action Inbox lane drilldown"
+          aria-label="Selected Action Inbox queue group drilldown"
           className="detail-list"
         >
           <DetailTerm
-            label="Selected lane"
-            value={selectedActionGroup === "all" ? "all_lanes" : selectedActionGroup}
+            label="Selected group"
+            value={selectedActionGroup === "all" ? "all_groups" : selectedActionGroup}
           />
           <DetailTerm
             label="Visible items"
@@ -6865,32 +6867,32 @@ export function ActionInboxSurfacePanel({
             label="Available action"
             value={
               selectedActionGroupSummary?.summary.available_action ??
-              "Inspect every backend-classified lane without adding authority."
+              "Inspect every backend-classified group without adding authority."
             }
           />
           <DetailTerm
-            label="Lane reason"
+            label="Group reason"
             value={
               selectedActionGroupSummary?.summary.safe_summary ??
-              "All backend-classified lanes are visible."
+              "All backend-classified groups are visible."
             }
           />
           <DetailTerm
             label="Work queue status"
-            value={selectedWorkQueueLane?.status ?? "all_lanes"}
+            value={selectedWorkQueueLane?.status ?? "all_groups"}
           />
         </dl>
         <RefListWithFallback
-          emptyLabel="Selected lane blockers: none"
+          emptyLabel="Selected group blockers: none"
           refs={selectedWorkQueueLane?.blocked_authority_refs ?? []}
         />
         <p className="muted">
-          Filters and drilldowns are presentation-only. Lane membership,
+          Filters and drilldowns are presentation-only. Group membership,
           eligibility, envelope posture, and receipt visibility remain supplied
           by the backend Action Inbox read model.
         </p>
       </article>
-      <div className="action-lane-stack" aria-label="Action Inbox queue lanes">
+      <div className="action-lane-stack" aria-label="Action Inbox queue groups">
         {visibleActionGroups.map((group) => (
           <ActionLaneSection
             actionReadModelAuthoritative={actionReadModelAuthoritative}
@@ -6953,12 +6955,12 @@ function ActionInboxDecisionLanePanel({
     return (
       <article className="status-card">
         <div className="status-card-header">
-          <h3>Decision lanes</h3>
-          <span>backend decision lanes missing</span>
+          <h3>Decision groups</h3>
+          <span>backend decision groups missing</span>
         </div>
         <p>
-          Backend-owned decision-lane posture is unavailable. The UI will not
-          backfill cost, authority, approval, or receipt lanes from mock data.
+          Backend-owned decision-group posture is unavailable. The UI will not
+          backfill cost, authority, approval, or receipt groups from mock data.
         </p>
         <dl className="detail-list">
           <DetailTerm
@@ -6976,11 +6978,11 @@ function ActionInboxDecisionLanePanel({
     <>
       <article className="status-card">
         <div className="status-card-header">
-          <h3>Decision lanes</h3>
+          <h3>Decision groups</h3>
           <span>{readModel.status}</span>
         </div>
         <p>
-          Backend-owned lanes show approval, cost, provider/model, evidence,
+          Backend-owned groups show approval, cost, provider/model, evidence,
           and expected receipt posture before any operator decision. Approval
           alone does not execute work.
         </p>
@@ -7038,12 +7040,12 @@ function ActionInboxDecisionLanePanel({
           ]}
         />
         <RefListWithFallback
-          emptyLabel="Decision-lane blockers: missing"
+          emptyLabel="Decision-group blockers: missing"
           refs={readModel.blocked_state_refs}
         />
       </article>
       <div
-        aria-label="Action Inbox decision lanes"
+        aria-label="Action Inbox decision groups"
         className="review-grid action-decision-lane-grid"
       >
         {readModel.lane_order.map((laneId) => {
@@ -7071,11 +7073,11 @@ function ActionInboxDecisionLanePanel({
                 <DetailTerm label="Next safe action" value={lane.next_safe_action} />
               </dl>
               <RefListWithFallback
-                emptyLabel="Lane item refs: none"
+                emptyLabel="Group item refs: none"
                 refs={lane.item_refs}
               />
               <RefListWithFallback
-                emptyLabel="Lane blockers: missing"
+                emptyLabel="Group blockers: missing"
                 refs={lane.blocked_state_refs}
               />
             </article>
@@ -7083,7 +7085,7 @@ function ActionInboxDecisionLanePanel({
         })}
       </div>
       <div
-        aria-label="Action Inbox decision lane item details"
+        aria-label="Action Inbox decision group item details"
         className="review-grid action-decision-lane-items"
       >
         {readModel.items.map((item) => (
@@ -7318,7 +7320,7 @@ function ActionLaneSection({
     >
       <div className="action-lane-header">
         <div>
-          <p className="eyebrow">Queue lane</p>
+          <p className="eyebrow">Queue group</p>
           <h3 id={headingId}>{group.summary.label}</h3>
         </div>
         <span className="status-pill compact">{group.summary.count}</span>
@@ -7338,7 +7340,7 @@ function ActionLaneSection({
         </div>
       ) : (
         <p className="empty-state">
-          No Action Inbox items are currently classified in this lane.
+          No Action Inbox items are currently classified in this group.
         </p>
       )}
     </section>
@@ -10923,7 +10925,7 @@ function ActionItemCard({
       <LocalTaskCommitPostureCard item={displayedItem} />
       <dl className="detail-list">
         <DetailTerm label="Item ref" value={displayedItem.item_ref} />
-        <DetailTerm label="Queue lane" value={actionGroupId} />
+        <DetailTerm label="Queue group" value={actionGroupId} />
         <DetailTerm label="Status" value={displayedItem.status} />
         <DetailTerm label="Priority" value={displayedItem.priority} />
         <DetailTerm label="Risk" value={riskClass} />
@@ -11818,7 +11820,7 @@ function ActionDecisionControls({
           receipt,
           message: `${receipt.status}: ${receipt.safe_summary}`,
           refreshMessage:
-            "Backend read-model refresh is pending; the decision receipt is shown, but lane membership has not changed until backend-owned Action Inbox data confirms it.",
+            "Backend read-model refresh is pending; the decision receipt is shown, but group membership has not changed until backend-owned Action Inbox data confirms it.",
         });
         return;
       }
@@ -11830,7 +11832,7 @@ function ActionDecisionControls({
           receipt,
           message: `${receipt.status}: ${receipt.safe_summary}`,
           refreshMessage:
-            "Backend read-model refresh did not yet include the decision receipt; lane membership remains pending until the backend read model catches up.",
+            "Backend read-model refresh did not yet include the decision receipt; group membership remains pending until the backend read model catches up.",
         });
         return;
       }

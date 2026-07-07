@@ -122,7 +122,7 @@ def main() -> int:
         FRONTEND_PANEL,
         [
             "ActionInboxDecisionLanePanel",
-            "backend decision lanes missing",
+            "backend decision groups missing",
             "Cost blocked",
             "Cost approved",
             "Unknown paid cost",
@@ -140,7 +140,7 @@ def main() -> int:
     _require(
         FRONTEND_TEST,
         [
-            "backend decision lanes missing",
+            "backend decision groups missing",
             "contract-ref:product-loop-005-action-inbox-decision-lanes:v1",
             "python_core_action_inbox_decision_lane_read_model",
             "fails closed when the Action Inbox work queue exposes unsafe controls",
