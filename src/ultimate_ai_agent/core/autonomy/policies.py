@@ -13,6 +13,13 @@ from ultimate_ai_agent.core.autonomy.sessions import (
     ScopedAutonomySessionRequest,
     validate_scoped_autonomy_session_scope,
 )
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityDecisionOutcome,
+    AuthorityLease,
+    AuthorityPolicyDecision,
+    evaluate_authority_request,
+)
 
 
 AUTONOMY_POLICY_ENGINE_DOCS = [
@@ -102,6 +109,8 @@ class AutonomyPolicyEvaluationRequest(_AutonomyPolicyModel):
     policy_activation_requested: bool = False
     session_start_requested: bool = False
     execution_requested: bool = False
+    authority_action_request: AuthorityActionRequest | None = None
+    active_authority_leases: list[AuthorityLease] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -127,6 +136,19 @@ class AutonomyPolicyDecision(_AutonomyPolicyModel):
     session_started: bool = False
     execution_performed: bool = False
     side_effects_performed: list[str] = Field(default_factory=list)
+    authority_decision_ref: str | None = None
+    authority_decision_outcome: str | None = None
+    authority_lease_ref: str | None = None
+    authority_known: bool = False
+    authority_decision_allows_review: bool = False
+    authority_required_domain_refs: list[str] = Field(default_factory=list)
+    authority_required_capability_refs: list[str] = Field(default_factory=list)
+    authority_reason_refs: list[str] = Field(default_factory=list)
+    authority_audit_record_ref: str | None = None
+    authority_receipt_ref: str | None = None
+    authority_safe_disable_ref: str | None = None
+    authority_rollback_ref: str | None = None
+    authority_operator_message: str | None = None
     reason_codes: list[str]
     safe_summary: str
 
@@ -146,6 +168,44 @@ class AutonomyPolicyDecision(_AutonomyPolicyModel):
             raise ValueError("EXECUTION_DENIED")
         if self.side_effects_performed:
             raise ValueError("AUTONOMY_SIDE_EFFECTS_DENIED")
+        for value, field_name in [
+            (self.authority_decision_ref, "authority_decision_ref"),
+            (self.authority_lease_ref, "authority_lease_ref"),
+            (self.authority_audit_record_ref, "authority_audit_record_ref"),
+            (self.authority_receipt_ref, "authority_receipt_ref"),
+            (self.authority_safe_disable_ref, "authority_safe_disable_ref"),
+            (self.authority_rollback_ref, "authority_rollback_ref"),
+        ]:
+            if value is not None:
+                _validate_m61_ref(value, field_name)
+        for refs, field_name in [
+            (self.authority_required_domain_refs, "authority_required_domain_ref"),
+            (
+                self.authority_required_capability_refs,
+                "authority_required_capability_ref",
+            ),
+            (self.authority_reason_refs, "authority_reason_ref"),
+        ]:
+            for ref in refs:
+                _validate_m61_ref(ref, field_name)
+        if self.authority_decision_outcome is not None:
+            if self.authority_decision_outcome not in {
+                AuthorityDecisionOutcome.allow.value,
+                AuthorityDecisionOutcome.ask.value,
+                AuthorityDecisionOutcome.deny.value,
+                AuthorityDecisionOutcome.degrade_to_draft.value,
+            }:
+                raise ValueError("AUTONOMY_AUTHORITY_DECISION_OUTCOME_INVALID")
+        if self.authority_operator_message is not None:
+            _validate_safe_payload(self.authority_operator_message)
+        if self.authority_decision_allows_review and (
+            self.authority_decision_outcome
+            not in {
+                AuthorityDecisionOutcome.allow.value,
+                AuthorityDecisionOutcome.ask.value,
+            }
+        ):
+            raise ValueError("AUTONOMY_AUTHORITY_REVIEW_REQUIRES_ALLOW_OR_ASK")
         _validate_safe_payload(self.safe_summary)
         return self
 
@@ -219,6 +279,13 @@ def build_autonomy_policy_decision(
     if validated.approval_ref or validated.session_request.approval_ref:
         reason_codes.append("APPROVAL_REF_IDENTIFIER_ONLY")
     policy_matched = matched_rule_ref is not None
+    authority_decision = _evaluate_optional_authority_request(validated)
+    authority_allows_review = _authority_decision_allows_review(authority_decision)
+    if authority_decision is not None:
+        if authority_allows_review:
+            reason_codes.append("AUTHORITY_LEASE_SCOPE_MATCHED_FOR_REVIEW")
+        else:
+            reason_codes.append("AUTHORITY_LEASE_SCOPE_NOT_GRANTED_FOR_REVIEW")
     return AutonomyPolicyDecision(
         decision_ref=f"autonomy-policy-decision:{_ref_suffix(validated.evaluation_request_ref)}",
         evaluation_request_ref=validated.evaluation_request_ref,
@@ -227,14 +294,84 @@ def build_autonomy_policy_decision(
         matched_rule_ref=matched_rule_ref,
         contract_valid_for_review=True,
         policy_matched=policy_matched,
-        policy_allows_review=policy_matched,
+        policy_allows_review=policy_matched
+        and (authority_decision is None or authority_allows_review),
         authority_granted=False,
         session_started=False,
         execution_performed=False,
         side_effects_performed=[],
+        authority_decision_ref=(
+            authority_decision.decision_ref if authority_decision is not None else None
+        ),
+        authority_decision_outcome=(
+            _authority_decision_outcome(authority_decision)
+            if authority_decision is not None
+            else None
+        ),
+        authority_lease_ref=(
+            authority_decision.lease_ref if authority_decision is not None else None
+        ),
+        authority_known=(
+            authority_decision.known_authority if authority_decision is not None else False
+        ),
+        authority_decision_allows_review=authority_allows_review,
+        authority_required_domain_refs=(
+            authority_decision.required_domain_refs
+            if authority_decision is not None
+            else []
+        ),
+        authority_required_capability_refs=(
+            authority_decision.required_capability_refs
+            if authority_decision is not None
+            else []
+        ),
+        authority_reason_refs=(
+            authority_decision.reason_refs if authority_decision is not None else []
+        ),
+        authority_audit_record_ref=(
+            authority_decision.audit_record_ref if authority_decision is not None else None
+        ),
+        authority_receipt_ref=(
+            authority_decision.receipt_ref if authority_decision is not None else None
+        ),
+        authority_safe_disable_ref=(
+            authority_decision.safe_disable_ref if authority_decision is not None else None
+        ),
+        authority_rollback_ref=(
+            authority_decision.rollback_ref if authority_decision is not None else None
+        ),
+        authority_operator_message=(
+            authority_decision.operator_message if authority_decision is not None else None
+        ),
         reason_codes=reason_codes or ["M63_AUTONOMY_POLICY_NO_MATCH"],
         safe_summary="M63 evaluates autonomy policy contracts for review only; no authority is granted.",
     )
+
+
+def _evaluate_optional_authority_request(
+    request: AutonomyPolicyEvaluationRequest,
+) -> AuthorityPolicyDecision | None:
+    if request.authority_action_request is None:
+        return None
+    return evaluate_authority_request(
+        request.authority_action_request,
+        request.active_authority_leases,
+    )
+
+
+def _authority_decision_outcome(decision: AuthorityPolicyDecision) -> str:
+    return str(getattr(decision.outcome, "value", decision.outcome))
+
+
+def _authority_decision_allows_review(
+    decision: AuthorityPolicyDecision | None,
+) -> bool:
+    if decision is None:
+        return False
+    return _authority_decision_outcome(decision) in {
+        AuthorityDecisionOutcome.allow.value,
+        AuthorityDecisionOutcome.ask.value,
+    }
 
 
 _RISK_ORDER = {

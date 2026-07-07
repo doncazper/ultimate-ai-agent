@@ -333,7 +333,7 @@ Adapt existing systems:
 
 | Existing Area | Change |
 |---|---|
-| `PolicyEngine` | Evaluate actions against active leases and domain grants. |
+| `PolicyEngine` | Evaluate concrete `AuthorityActionRequest` objects against active leases and domain grants; legacy review-only policy contracts may record AuthorityLease decisions without granting execution. |
 | `LocalApprovalAuthority` | Track and evaluate session/mission leases alongside one-action approval refs; no approval ref grants authority unless the lease domain/capability decision also allows or asks. |
 | `RuntimeGateway` | Execute when the action is inside the active lease. |
 | `WebAccessGateway` | Support browser/web domain policies beyond permanent blocked posture. |

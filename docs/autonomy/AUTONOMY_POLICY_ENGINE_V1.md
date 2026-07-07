@@ -13,5 +13,14 @@ worker, no execution, no tool execution, no shell execution, no network tools,
 no browser automation, no backend route, no dependency, no memory write, no
 context injection, and no production authority.
 
+AuthorityLease V1 integration is metadata-only for M63. When an evaluation
+request includes an `AuthorityActionRequest`, the decision records the
+AuthorityLease policy decision ref, outcome, required domain/capability refs,
+reason refs, receipt/audit refs, rollback/safe-disable refs, and operator
+message. `allow` or `ask` means the policy review can show the action is inside
+an active lease scope; it still does not start a session or execute work.
+`deny` or `degrade_to_draft` keeps the policy review blocked with readable
+missing-scope reasons.
+
 Skill Package Security Rule remains in force for this milestone. M64 remains
 future.

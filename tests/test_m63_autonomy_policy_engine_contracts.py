@@ -13,6 +13,14 @@ from ultimate_ai_agent.core.autonomy import (
     validate_autonomy_policy_evaluation_request,
     validate_autonomy_policy_rule,
 )
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityCapability,
+    AuthorityDecisionOutcome,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+)
 
 
 def _scope(**overrides: Any) -> Any:
@@ -191,3 +199,74 @@ def test_autonomy_policy_revalidates_model_copy_mutated_objects() -> None:
 
     with pytest.raises(ValueError, match="SECRET_LIKE_AUTONOMY_POLICY_CONTENT_DENIED"):
         validate_autonomy_policy_evaluation_request(mutated_request)
+
+
+def test_autonomy_policy_decision_records_matching_authority_lease_scope() -> None:
+    lease = AuthorityLease(
+        lease_ref="authority-lease-ref:m63-workspace-write",
+        mode=TrustMode.ask_before_changes,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary="M63 test lease grants workspace write for review visibility.",
+    )
+    authority_action_request = AuthorityActionRequest(
+        action_ref="authority-action-ref:m63-workspace-write",
+        domain=AuthorityDomain.workspace,
+        capability=AuthorityCapability.write,
+        requested_mode=TrustMode.ask_before_changes,
+        safe_summary="Evaluate M63 workspace write against an active AuthorityLease.",
+        draft_fallback_available=True,
+        rollback_ref="rollback-ref:m63-workspace-write",
+        safe_disable_ref="safe-disable-ref:m63-workspace-write",
+    )
+
+    decision = build_autonomy_policy_decision(
+        _evaluation_request(
+            authority_action_request=authority_action_request,
+            active_authority_leases=[lease],
+        )
+    )
+
+    assert decision.policy_matched is True
+    assert decision.policy_allows_review is True
+    assert decision.authority_granted is False
+    assert decision.session_started is False
+    assert decision.execution_performed is False
+    assert decision.authority_decision_outcome == AuthorityDecisionOutcome.ask.value
+    assert decision.authority_lease_ref == lease.lease_ref
+    assert decision.authority_known is True
+    assert decision.authority_decision_allows_review is True
+    assert decision.authority_receipt_ref is not None
+    assert "AUTHORITY_LEASE_SCOPE_MATCHED_FOR_REVIEW" in decision.reason_codes
+
+
+def test_autonomy_policy_decision_blocks_review_when_authority_scope_is_missing() -> None:
+    authority_action_request = AuthorityActionRequest(
+        action_ref="authority-action-ref:m63-workspace-write-missing-lease",
+        domain=AuthorityDomain.workspace,
+        capability=AuthorityCapability.write,
+        requested_mode=TrustMode.ask_before_changes,
+        safe_summary="Evaluate M63 workspace write without an active AuthorityLease.",
+        draft_fallback_available=True,
+        rollback_ref="rollback-ref:m63-workspace-write-missing-lease",
+        safe_disable_ref="safe-disable-ref:m63-workspace-write-missing-lease",
+    )
+
+    decision = build_autonomy_policy_decision(
+        _evaluation_request(authority_action_request=authority_action_request)
+    )
+
+    assert decision.policy_matched is True
+    assert decision.policy_allows_review is False
+    assert decision.authority_granted is False
+    assert (
+        decision.authority_decision_outcome
+        == AuthorityDecisionOutcome.degrade_to_draft.value
+    )
+    assert decision.authority_lease_ref is None
+    assert decision.authority_known is False
+    assert decision.authority_decision_allows_review is False
+    assert decision.authority_receipt_ref is None
+    assert "reason-ref:authority:no-active-lease-for-domain-capability" in (
+        decision.authority_reason_refs
+    )
+    assert "AUTHORITY_LEASE_SCOPE_NOT_GRANTED_FOR_REVIEW" in decision.reason_codes
