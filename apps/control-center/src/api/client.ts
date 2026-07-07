@@ -5257,6 +5257,27 @@ function isSafeRuntimeSessionContinuity(
     value.status === "read_only_multi_surface_session_continuity_posture" &&
     value.route_ref === "GET /api/runtime/session-continuity" &&
     value.cli_ref === "uaa runtime inspect-session-continuity" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-session-continuity-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    TRUST_AUTHORITY_DECISION_OUTCOMES.includes(
+      value.authority_state_decision_outcome,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    value.authority_state_status.length > 0 &&
+    typeof value.authority_state_operator_message === "string" &&
+    value.authority_state_operator_message.length > 0 &&
+    isNonEmptyStringArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    isNonEmptyStringArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
+    value.unsupported_adapter_refs.includes(
+      "adapter-ref:session-continuity-remote-session:not-implemented",
+    ) &&
     value.surface_count === value.surfaces.length &&
     value.current_count ===
       value.surfaces.filter((surface) => surface.continuity_state === "current")

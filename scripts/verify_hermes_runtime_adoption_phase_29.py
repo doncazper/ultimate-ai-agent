@@ -12,6 +12,9 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_SESSION_CONTINUITY_AUTHORITY_MAPPING_REF,
+    RUNTIME_SESSION_CONTINUITY_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_SESSION_CONTINUITY_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_SESSION_CONTINUITY_BLOCKED_AUTHORITY_REFS,
     build_runtime_session_continuity_read_model,
 )
@@ -35,6 +38,28 @@ def main() -> int:
         failures.append("session continuity CLI ref is stale")
     if read_model.status != "read_only_multi_surface_session_continuity_posture":
         failures.append("session continuity posture is not read-only")
+    if (
+        read_model.authority_state_route_ref
+        != RUNTIME_SESSION_CONTINUITY_AUTHORITY_STATE_ROUTE_REF
+    ):
+        failures.append("session continuity AuthorityState route ref drifted")
+    if (
+        read_model.authority_state_cli_ref
+        != RUNTIME_SESSION_CONTINUITY_AUTHORITY_STATE_CLI_REF
+    ):
+        failures.append("session continuity AuthorityState CLI ref drifted")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_SESSION_CONTINUITY_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("session continuity AuthorityState mapping ref drifted")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("session continuity read model must allow read-only inspection")
+    if (
+        "adapter-ref:session-continuity-remote-session:not-implemented"
+        not in read_model.unsupported_adapter_refs
+    ):
+        failures.append("session continuity unsupported remote-session adapter missing")
     if read_model.surface_count < 5:
         failures.append("session continuity lacks required surfaces")
     if read_model.stale_count < 1 or read_model.conflict_count < 1:
@@ -95,6 +120,7 @@ def main() -> int:
         "redacted_status_only",
         "external_message_gateway_performed",
         "remote_session_performed",
+        "authority_state",
     ]:
         if expected not in cli_text:
             failures.append(f"CLI missing {expected}")
@@ -133,6 +159,14 @@ def main() -> int:
     else:
         payload = json.loads(cli_result.stdout)
         read_model_payload = payload["runtime_session_continuity"]
+        authority_state = payload.get("authority_state", {})
+        if (
+            authority_state.get("mapping_ref")
+            != RUNTIME_SESSION_CONTINUITY_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("session continuity CLI AuthorityState mapping drifted")
+        if authority_state.get("decision_outcome") != "allow":
+            failures.append("session continuity CLI AuthorityState outcome drifted")
         if payload["external_message_gateway_performed"] is not False:
             failures.append("session continuity CLI claims external message gateway")
         if payload["account_sync_performed"] is not False:

@@ -81,7 +81,7 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_profile_isolation_read_model_from_authority_catalog,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model_from_authority_catalog,
-    build_runtime_session_continuity_read_model,
+    build_runtime_session_continuity_read_model_from_authority_catalog,
     build_runtime_session_search_read_model,
     build_runtime_session_lineage_read_model,
     build_runtime_streaming_progress_read_model_from_authority_catalog,
@@ -791,6 +791,13 @@ def _print_session_continuity(read_model: dict[str, Any]) -> None:
     print(f"Snapshot hash: {read_model['snapshot_hash_ref']}")
     print(f"Route: {read_model['route_ref']}")
     print(f"CLI: {read_model['cli_ref']}")
+    print(
+        "Authority: "
+        f"{read_model['authority_state_decision_outcome']} "
+        f"({read_model['authority_state_status']})"
+    )
+    print(f"Authority mapping: {read_model['authority_state_mapping_ref']}")
+    print(f"Authority decision: {read_model['authority_state_decision_ref']}")
     print(f"Primary session: {read_model['primary_session_ref']}")
     print(
         "Surfaces: "
@@ -2897,11 +2904,22 @@ def _inspect_doctor_diagnostics(args: argparse.Namespace) -> int:
 
 
 def _inspect_session_continuity(args: argparse.Namespace) -> int:
-    read_model = build_runtime_session_continuity_read_model().model_dump(mode="json")
+    authority_state = AuthorityLeaseStore().build_state_read_model()
+    read_model = build_runtime_session_continuity_read_model_from_authority_catalog(
+        authority_decision_catalog=authority_state.decision_catalog,
+    ).model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
         "command_ref": "repo-local-command:uaa-runtime-inspect-session-continuity",
         "runtime_session_continuity": read_model,
+        "authority_state": {
+            "route_ref": read_model["authority_state_route_ref"],
+            "cli_ref": read_model["authority_state_cli_ref"],
+            "mapping_ref": read_model["authority_state_mapping_ref"],
+            "catalog_ref": read_model["authority_state_catalog_ref"],
+            "decision_ref": read_model["authority_state_decision_ref"],
+            "decision_outcome": read_model["authority_state_decision_outcome"],
+        },
         "safe_refs_only": True,
         "redacted_status_only": True,
         "raw_transcripts_omitted": True,

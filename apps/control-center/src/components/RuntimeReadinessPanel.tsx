@@ -1260,6 +1260,21 @@ export function RuntimeReadinessPanel({
             <dd>{sessionContinuity.cli_ref}</dd>
           </div>
           <div>
+            <dt>Authority</dt>
+            <dd>
+              {sessionContinuity.authority_state_decision_outcome} /{" "}
+              {sessionContinuity.authority_state_status}
+            </dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{sessionContinuity.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{sessionContinuity.authority_state_decision_ref}</dd>
+          </div>
+          <div>
             <dt>Primary session</dt>
             <dd>{sessionContinuity.primary_session_ref}</dd>
           </div>
@@ -1309,6 +1324,12 @@ export function RuntimeReadinessPanel({
         <h4>Blocked authority</h4>
         <ul className="compact-list">
           {sessionContinuity.blocked_authority_refs.slice(0, 5).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+        <h4>Unsupported adapters</h4>
+        <ul className="compact-list">
+          {sessionContinuity.unsupported_adapter_refs.slice(0, 6).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>

@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_SESSION_CONTINUITY_AUTHORITY_MAPPING_REF,
+    RUNTIME_SESSION_CONTINUITY_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_SESSION_CONTINUITY_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_SESSION_CONTINUITY_BLOCKED_AUTHORITY_REFS,
     RUNTIME_SESSION_CONTINUITY_CONTRACT_REF,
     RuntimeSessionContinuityReadModel,
@@ -26,6 +29,27 @@ def test_session_continuity_is_safe_ref_read_only_posture() -> None:
     assert read_model.status == "read_only_multi_surface_session_continuity_posture"
     assert read_model.route_ref == "GET /api/runtime/session-continuity"
     assert read_model.cli_ref == "uaa runtime inspect-session-continuity"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_SESSION_CONTINUITY_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_SESSION_CONTINUITY_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_SESSION_CONTINUITY_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_reason_refs
+    assert (
+        "adapter-ref:session-continuity-remote-session:not-implemented"
+        in read_model.unsupported_adapter_refs
+    )
     assert read_model.surface_count == 5
     assert read_model.current_count == 2
     assert read_model.stale_count == 1
@@ -108,6 +132,17 @@ def test_session_continuity_read_model_denies_authority_flags(field: str) -> Non
         RuntimeSessionContinuityReadModel(**payload)
 
 
+def test_session_continuity_rejects_authority_mapping_drift() -> None:
+    payload = build_runtime_session_continuity_read_model().model_dump(mode="json")
+    payload["authority_state_mapping_ref"] = "lane-ref:wrong-session-continuity"
+
+    with pytest.raises(
+        ValueError,
+        match="RUNTIME_SESSION_CONTINUITY_AUTHORITY_MAPPING_MISMATCH",
+    ):
+        RuntimeSessionContinuityReadModel(**payload)
+
+
 @pytest.mark.parametrize(
     "field",
     [
@@ -143,6 +178,10 @@ def test_session_continuity_api_returns_safe_read_model() -> None:
     assert body["operation"] == "api_runtime_session_continuity"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/session-continuity"
+    assert data["authority_state_mapping_ref"] == (
+        RUNTIME_SESSION_CONTINUITY_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["external_message_gateway_enabled"] is False
     assert data["account_sync_enabled"] is False
     assert data["connector_write_enabled"] is False
@@ -168,11 +207,20 @@ def test_session_continuity_cli_uses_same_read_model() -> None:
 
     payload = json.loads(result.stdout)
     read_model = payload["runtime_session_continuity"]
+    authority_state = payload["authority_state"]
     assert payload["safe_refs_only"] is True
+    assert (
+        authority_state["mapping_ref"] == RUNTIME_SESSION_CONTINUITY_AUTHORITY_MAPPING_REF
+    )
+    assert authority_state["decision_outcome"] == "allow"
     assert payload["external_message_gateway_performed"] is False
     assert payload["account_sync_performed"] is False
     assert payload["connector_write_performed"] is False
     assert payload["remote_session_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/session-continuity"
     assert read_model["cli_ref"] == "uaa runtime inspect-session-continuity"
+    assert (
+        read_model["authority_state_cli_ref"]
+        == RUNTIME_SESSION_CONTINUITY_AUTHORITY_STATE_CLI_REF
+    )
     assert read_model["surface_count"] == 5

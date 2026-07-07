@@ -1,8 +1,9 @@
 # UAA Hermes Runtime Session Continuity
 
-Phase 29 adds a backend-owned read model for multi-surface runtime session
-continuity. It is a UAA-native operator-control posture, not a messaging gateway,
-account sync system, connector write lane, or remote session runtime.
+Phase 29 adds a backend-owned, AuthorityState-bound read model for
+multi-surface runtime session continuity. It is a UAA-native operator-control
+posture, not a messaging gateway, account sync system, connector write lane, or
+remote session runtime.
 
 ## Full-Strength
 
@@ -17,6 +18,11 @@ The current implementation exposes safe session continuity refs only:
 
 - `GET /api/runtime/session-continuity`
 - `uaa runtime inspect-session-continuity`
+- AuthorityState route/CLI/mapping/catalog/decision/reason refs for
+  `lane-ref:runtime-session-continuity-read-model`
+- unsupported adapter refs for external gateway, account sync, connector write,
+  remote session, turn-material persistence, provider-material persistence, and
+  authority minting
 - source labels for Control Center desktop, CLI, delegated runtime, Coding
   Cockpit, and future mobile posture
 - current, stale, conflict-review, and blocked states
@@ -24,7 +30,8 @@ The current implementation exposes safe session continuity refs only:
 - Control Center presentation in the Runtime panel
 
 No raw transcripts, prompts, responses, provider payloads, account material, or
-local paths are persisted.
+local paths are persisted. The Control Center can inspect the decision refs but
+cannot mint or widen authority.
 
 ## Blocked / Needs Authority
 

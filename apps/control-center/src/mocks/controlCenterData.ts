@@ -16302,6 +16302,30 @@ export const mockControlCenterData: ControlCenterData = {
     snapshot_hash_ref: "snapshot-hash-ref:runtime-session-continuity:mock",
     route_ref: "GET /api/runtime/session-continuity",
     cli_ref: "uaa runtime inspect-session-continuity",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref: "lane-ref:runtime-session-continuity-read-model",
+    authority_state_catalog_ref:
+      "authority-catalog-ref:runtime-session-continuity-read-model",
+    authority_state_decision_ref:
+      "authority-decision-ref:runtime-session-continuity-read-model:allow",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Read-only mode allows session continuity inspection; external gateways, account sync, connector writes, remote sessions, raw turn persistence, provider material persistence, and authority minting remain unavailable.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:session-continuity-external-message-gateway:not-implemented",
+      "adapter-ref:session-continuity-account-sync:not-implemented",
+      "adapter-ref:session-continuity-connector-write:not-implemented",
+      "adapter-ref:session-continuity-remote-session:not-implemented",
+      "adapter-ref:session-continuity-turn-material-persistence:not-implemented",
+      "adapter-ref:session-continuity-provider-material-persistence:not-implemented",
+      "adapter-ref:session-continuity-authority-mint:not-implemented",
+    ],
     control_center_ref: "control-center-route:runtime",
     primary_session_ref: "session-ref:runtime-continuity:operator-loop",
     safe_summary:

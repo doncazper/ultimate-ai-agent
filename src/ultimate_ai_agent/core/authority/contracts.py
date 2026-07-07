@@ -3047,6 +3047,34 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-session-continuity-read-model",
+            "Runtime session continuity read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/session-continuity"],
+            ["repo-local-command:uaa-runtime-inspect-session-continuity"],
+            (
+                "Session continuity inspection reads session refs, surface "
+                "labels, staleness states, conflict states, proof refs, "
+                "blockers, and next safe actions under Workspace read "
+                "authority. External messaging gateways, account sync, "
+                "connector writes, remote sessions, raw turn persistence, "
+                "provider material persistence, and authority minting remain "
+                "blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:session-continuity-external-message-gateway:not-implemented",
+                "adapter-ref:session-continuity-account-sync:not-implemented",
+                "adapter-ref:session-continuity-connector-write:not-implemented",
+                "adapter-ref:session-continuity-remote-session:not-implemented",
+                "adapter-ref:session-continuity-turn-material-persistence:not-implemented",
+                "adapter-ref:session-continuity-provider-material-persistence:not-implemented",
+                "adapter-ref:session-continuity-authority-mint:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

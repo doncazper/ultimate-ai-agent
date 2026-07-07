@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -30,6 +34,14 @@ RUNTIME_SESSION_CONTINUITY_PROOF_REF = (
 RUNTIME_SESSION_CONTINUITY_VERIFIER_REF = (
     "verifier-ref:hermes-runtime-adoption:phase-29:session-continuity"
 )
+RUNTIME_SESSION_CONTINUITY_AUTHORITY_STATE_ROUTE_REF = "GET /api/runtime/authority-state"
+RUNTIME_SESSION_CONTINUITY_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_SESSION_CONTINUITY_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-session-continuity-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_SESSION_CONTINUITY_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:session-continuity-no-external-message-gateway",
@@ -150,6 +162,16 @@ class RuntimeSessionContinuityReadModel(BaseModel):
     snapshot_hash_ref: str = "snapshot-hash-ref:runtime-session-continuity:pending"
     route_ref: str = RUNTIME_SESSION_CONTINUITY_ROUTE_REF
     cli_ref: str = RUNTIME_SESSION_CONTINUITY_CLI_REF
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     primary_session_ref: str = "session-ref:runtime-continuity:operator-loop"
     safe_summary: str = (
@@ -203,6 +225,9 @@ class RuntimeSessionContinuityReadModel(BaseModel):
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
             (self.primary_session_ref, "primary_session_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for value, field_name in [
@@ -210,10 +235,23 @@ class RuntimeSessionContinuityReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "promotion_path_refs",
             "proof_refs",
@@ -226,6 +264,13 @@ class RuntimeSessionContinuityReadModel(BaseModel):
                     validate_safe_execution_text(value, field_name)
                 else:
                     validate_execution_ref(value, field_name)
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_SESSION_CONTINUITY_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_SESSION_CONTINUITY_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_SESSION_CONTINUITY_AUTHORITY_DECISION_INVALID")
         if self.surface_count != len(self.surfaces):
             raise ValueError("RUNTIME_SESSION_CONTINUITY_SURFACE_COUNT_DRIFT")
         expected_counts = {
@@ -323,6 +368,16 @@ def _surface(
 
 
 def build_runtime_session_continuity_read_model() -> RuntimeSessionContinuityReadModel:
+    return build_runtime_session_continuity_read_model_from_authority_catalog(
+        authority_decision_catalog=build_authority_decision_catalog()
+    )
+
+
+def build_runtime_session_continuity_read_model_from_authority_catalog(
+    *,
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> RuntimeSessionContinuityReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     surfaces = [
         _surface(
             "control-center-desktop",
@@ -401,9 +456,25 @@ def build_runtime_session_continuity_read_model() -> RuntimeSessionContinuityRea
     payload_for_hash: dict[str, object] = {
         "surfaces": [surface.model_dump(mode="json") for surface in surfaces],
         "blocked": list(RUNTIME_SESSION_CONTINUITY_BLOCKED_AUTHORITY_REFS),
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
     }
     return RuntimeSessionContinuityReadModel(
         snapshot_hash_ref=_snapshot_hash_ref(payload_for_hash),
+        authority_state_route_ref=RUNTIME_SESSION_CONTINUITY_AUTHORITY_STATE_ROUTE_REF,
+        authority_state_cli_ref=RUNTIME_SESSION_CONTINUITY_AUTHORITY_STATE_CLI_REF,
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         surfaces=surfaces,
         surface_count=len(surfaces),
         current_count=sum(
@@ -448,3 +519,16 @@ def build_runtime_session_continuity_read_model() -> RuntimeSessionContinuityRea
             "next-safe-action-ref:session-continuity:design-delivery-receipts",
         ],
     )
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> AuthorityDecisionCatalogEntry:
+    for entry in authority_decision_catalog:
+        if entry.lane_ref == RUNTIME_SESSION_CONTINUITY_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_SESSION_CONTINUITY_AUTHORITY_MAPPING_NOT_FOUND")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))

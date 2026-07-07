@@ -268,9 +268,12 @@ credential writes, runtime config mutation, raw log/local path persistence,
 provider payload persistence, Control Center authority minting, and production
 authority remain blocked.
 `GET /api/runtime/session-continuity` exposes a protected read-only Python Core
-Hermes Runtime Adoption Phase 29 multi-surface session continuity posture. It
-returns session refs, source labels, staleness refs, conflict refs, proof refs,
-verifier refs, and blocked authority refs only. External messaging gateways,
+Hermes Runtime Adoption Phase 29 AuthorityState-bound multi-surface session
+continuity posture. It returns session refs, source labels, staleness refs,
+conflict refs, proof refs, verifier refs, blocked authority refs,
+AuthorityState route/CLI/mapping/catalog/decision/reason refs, unsupported
+adapter refs, and a decision-bound snapshot hash for
+`lane-ref:runtime-session-continuity-read-model`. External messaging gateways,
 account sync, connector writes, remote sessions, raw transcript/provider payload
 persistence, Control Center authority minting, and production authority remain
 blocked.

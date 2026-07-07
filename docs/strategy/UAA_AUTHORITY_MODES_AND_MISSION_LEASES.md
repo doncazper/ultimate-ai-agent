@@ -60,11 +60,11 @@ surfaces are:
   current `allow`, `ask`, `deny`, or `degrade_to_draft` policy outcome with
   safe refs, route/CLI refs, audit refs, receipt refs when applicable, and
   no execution.
-- Runtime worktree-per-agent, staged orchestration, background job inspection,
-  subagent isolation, LSP diagnostics, preview rail, slash command registry,
-  result classification, logging profile, interrupt redirect, voice/media
-  posture, messaging gateway posture, remote execution posture, plugin
-  metadata posture, and skill marketplace posture consume that
+- Runtime session continuity, worktree-per-agent, staged orchestration,
+  background job inspection, subagent isolation, LSP diagnostics, preview rail,
+  slash command registry, result classification, logging profile, interrupt
+  redirect, voice/media posture, messaging gateway posture, remote execution
+  posture, plugin metadata posture, and skill marketplace posture consume that
   same AuthorityState catalog instead of carrying
   standalone blocker language:
   worktree implementer/reviewer/verifier lanes expose mapped decision refs and

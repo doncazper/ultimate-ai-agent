@@ -7955,6 +7955,19 @@ describe("Web Control Center shell", () => {
     ).toBeGreaterThan(0);
     expect(screen.getByText("Coding cockpit")).toBeInTheDocument();
     expect(
+      screen.getByText("lane-ref:runtime-session-continuity-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-decision-ref:runtime-session-continuity-read-model:allow",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "adapter-ref:session-continuity-remote-session:not-implemented",
+      ),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText("blocked-authority:session-continuity-no-remote-session"),
     ).toBeInTheDocument();
     expect(screen.getByText("MCP")).toBeInTheDocument();
