@@ -8,6 +8,12 @@ This report inventories the visible Control Center route registry in
 contracts used by the TypeScript shell. It does not grant runtime authority.
 Python Agent Core remains the product truth boundary.
 
+Companion capability-first coverage lives in
+`docs/control_center/capability_surface_manifest.json` and
+`docs/control_center/CAPABILITY_SURFACE_COVERAGE.md`. That manifest starts from
+operator-facing capabilities and records their Python/API, CLI/script, UI
+route, visible control/action, authority, gap, and evidence refs.
+
 ## Summary
 
 What was wired in this pass:

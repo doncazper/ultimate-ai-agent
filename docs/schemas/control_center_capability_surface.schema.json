@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ultimate-ai-agent.local/schemas/control_center_capability_surface.schema.json",
+  "title": "Control Center Capability Surface Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "baseline",
+    "scope",
+    "route_status_manifest_ref",
+    "release_surface_manifest_ref",
+    "ui_wiring_report_ref",
+    "api_manifest_ref",
+    "status_vocabulary",
+    "runtime_authority_added",
+    "public_beta_claim_enabled",
+    "production_readiness_claim_enabled",
+    "capabilities"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "uaa-control-center-capability-surface.v1"
+    },
+    "status": {
+      "const": "active_capability_surface_coverage_seed_no_runtime_authority"
+    },
+    "baseline": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "const": "operator-facing capabilities only; internal helper functions are out of scope"
+    },
+    "route_status_manifest_ref": {
+      "const": "docs/control_center/route_status_manifest.json"
+    },
+    "release_surface_manifest_ref": {
+      "const": "docs/control_center/release_surface_manifest.json"
+    },
+    "ui_wiring_report_ref": {
+      "const": "docs/control_center/UI_WIRING_REPORT.md"
+    },
+    "api_manifest_ref": {
+      "const": "/api/manifest"
+    },
+    "status_vocabulary": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "const": "ui_api_cli_wired"
+        },
+        {
+          "const": "partial_surface_coverage"
+        },
+        {
+          "const": "backend_or_cli_only"
+        },
+        {
+          "const": "mock_or_static_only"
+        },
+        {
+          "const": "blocked_intentionally"
+        }
+      ],
+      "minItems": 5,
+      "maxItems": 5
+    },
+    "runtime_authority_added": {
+      "const": false
+    },
+    "public_beta_claim_enabled": {
+      "const": false
+    },
+    "production_readiness_claim_enabled": {
+      "const": false
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/capability"
+      }
+    }
+  },
+  "$defs": {
+    "api_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "path",
+        "operation_id"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "operation_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability_id",
+        "label",
+        "python_core_owner",
+        "api_routes",
+        "cli_paths",
+        "ui_routes",
+        "control_action_ids",
+        "authority_posture",
+        "status",
+        "missing_reason",
+        "tests_evidence_refs"
+      ],
+      "properties": {
+        "capability_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "python_core_owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "api_routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/api_route"
+          }
+        },
+        "cli_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "ui_routes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^/"
+          },
+          "uniqueItems": true
+        },
+        "control_action_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "authority_posture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "ui_api_cli_wired",
+            "partial_surface_coverage",
+            "backend_or_cli_only",
+            "mock_or_static_only",
+            "blocked_intentionally"
+          ]
+        },
+        "missing_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tests_evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

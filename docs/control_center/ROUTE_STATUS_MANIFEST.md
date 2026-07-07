@@ -26,6 +26,12 @@ Product language contract:
 docs/control_center/PRODUCT_LANGUAGE_RULES.md
 ```
 
+Capability-first coverage:
+
+```text
+docs/control_center/capability_surface_manifest.json
+```
+
 Operator readiness taxonomy:
 
 ```text
@@ -132,6 +138,13 @@ The pytest lane compares manifest route entries with OpenAPI operation ids and
 API manifest side-effect classes. The frontend verifier confirms that current
 Control Center routes have manifest entries and that unsafe or unimplemented
 actions are not marked as ready.
+
+Capability surface verification additionally checks that every visible route
+and visible action id belongs to at least one operator-facing capability row:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/verify_control_center_capability_surface.py
+```
 
 ## Rollback
 

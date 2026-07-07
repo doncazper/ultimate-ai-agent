@@ -1,0 +1,1020 @@
+{
+  "schema_version": "uaa-control-center-capability-surface.v1",
+  "status": "active_capability_surface_coverage_seed_no_runtime_authority",
+  "baseline": "v0.104.0 / 0.104.0",
+  "scope": "operator-facing capabilities only; internal helper functions are out of scope",
+  "route_status_manifest_ref": "docs/control_center/route_status_manifest.json",
+  "release_surface_manifest_ref": "docs/control_center/release_surface_manifest.json",
+  "ui_wiring_report_ref": "docs/control_center/UI_WIRING_REPORT.md",
+  "api_manifest_ref": "/api/manifest",
+  "status_vocabulary": [
+    "ui_api_cli_wired",
+    "partial_surface_coverage",
+    "backend_or_cli_only",
+    "mock_or_static_only",
+    "blocked_intentionally"
+  ],
+  "runtime_authority_added": false,
+  "public_beta_claim_enabled": false,
+  "production_readiness_claim_enabled": false,
+  "capabilities": [
+    {
+      "capability_id": "start_here_read_model",
+      "label": "Start Here local loop summary",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/start_here.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/start-here/summary",
+          "operation_id": "get_control_center_start_here_summary"
+        }
+      ],
+      "cli_paths": [],
+      "ui_routes": [
+        "/start"
+      ],
+      "control_action_ids": [
+        "navigate-start-here"
+      ],
+      "authority_posture": "read-only local loop entry point; execution and external authority remain blocked",
+      "status": "partial_surface_coverage",
+      "missing_reason": "dedicated CLI inspection path is not present yet",
+      "tests_evidence_refs": [
+        "tests/test_control_center_start_here.py",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ]
+    },
+    {
+      "capability_id": "today_daily_loop_summary",
+      "label": "Today daily loop summary",
+      "python_core_owner": "src/ultimate_ai_agent/core/storage/founder_loop.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/today/summary",
+          "operation_id": "get_control_center_today_summary"
+        }
+      ],
+      "cli_paths": [
+        "scripts/inspect_today_loop.py",
+        "scripts/dev/uaa_founder_loop.py"
+      ],
+      "ui_routes": [
+        "/today"
+      ],
+      "control_action_ids": [
+        "navigate-today"
+      ],
+      "authority_posture": "read-only storage-backed summary using safe refs and bounded summaries",
+      "status": "ui_api_cli_wired",
+      "missing_reason": "none",
+      "tests_evidence_refs": [
+        "tests/test_control_center_founder_loop_api.py",
+        "tests/test_founder_loop_storage.py",
+        "scripts/verify_uaa_p1_068_today_product_spine_contract.py"
+      ]
+    },
+    {
+      "capability_id": "today_to_action_envelope",
+      "label": "Today to Action envelope proposal",
+      "python_core_owner": "src/ultimate_ai_agent/core/storage/founder_loop.py",
+      "api_routes": [
+        {
+          "method": "POST",
+          "path": "/control-center/today/action-envelope",
+          "operation_id": "post_control_center_today_action_envelope"
+        }
+      ],
+      "cli_paths": [
+        "scripts/dev/uaa_founder_loop.py"
+      ],
+      "ui_routes": [
+        "/today",
+        "/actions"
+      ],
+      "control_action_ids": [
+        "ui-control:today.create-action-envelope",
+        "navigate-actions-inbox"
+      ],
+      "authority_posture": "workspace/draft AuthorityLease-gated proposal receipt only; action execution remains blocked",
+      "status": "ui_api_cli_wired",
+      "missing_reason": "none",
+      "tests_evidence_refs": [
+        "tests/test_fcc_v1_003_founder_loop_vertical_slice.py",
+        "scripts/verify_fcc_v1_003_founder_loop_vertical_slice.py"
+      ]
+    },
+    {
+      "capability_id": "source_readiness_contracts",
+      "label": "Source Inbox readiness and draft-only connector posture",
+      "python_core_owner": "src/ultimate_ai_agent/core/storage/founder_loop.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/sources/readiness",
+          "operation_id": "get_control_center_sources_readiness"
+        }
+      ],
+      "cli_paths": [
+        "scripts/inspect_source_readiness_metadata_contracts.py",
+        "scripts/inspect_connector_draft_proposals.py"
+      ],
+      "ui_routes": [
+        "/inbox"
+      ],
+      "control_action_ids": [
+        "navigate-inbox"
+      ],
+      "authority_posture": "read-only and draft-only metadata posture; live source ingestion, auth, sends, and writes remain blocked",
+      "status": "partial_surface_coverage",
+      "missing_reason": "email/calendar live metadata-read contracts and source ingestion remain future scoped work",
+      "tests_evidence_refs": [
+        "tests/test_control_center_founder_loop_api.py",
+        "scripts/verify_fcc_sources_001_source_readiness_draft_only_inputs.py",
+        "scripts/verify_beta_10_connector_draft_only.py"
+      ]
+    },
+    {
+      "capability_id": "plans_to_actions_bridge",
+      "label": "Plans to Actions bridge",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/plans_to_actions.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/today/summary",
+          "operation_id": "get_control_center_today_summary"
+        }
+      ],
+      "cli_paths": [
+        "scripts/inspect_plans_to_actions_bridge.py"
+      ],
+      "ui_routes": [
+        "/plans"
+      ],
+      "control_action_ids": [
+        "navigate-plans"
+      ],
+      "authority_posture": "proposal/read-model bridge only; plans do not execute work",
+      "status": "partial_surface_coverage",
+      "missing_reason": "Plans still depend on Today summary slices instead of a dedicated Plans summary route",
+      "tests_evidence_refs": [
+        "tests/test_plans_to_actions_bridge.py",
+        "scripts/verify_product_loop_006_plans_to_actions.py"
+      ]
+    },
+    {
+      "capability_id": "work_board_local_board",
+      "label": "Work Board read model and exact local board mutations",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/work_board.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/work-board",
+          "operation_id": "get_control_center_work_board"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/reorder",
+          "operation_id": "post_control_center_work_board_reorder"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/cards",
+          "operation_id": "post_control_center_work_board_cards"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/work-board/tasks",
+          "operation_id": "post_control_center_work_board_tasks"
+        }
+      ],
+      "cli_paths": [
+        "scripts/dev/uaa_work_board.py"
+      ],
+      "ui_routes": [
+        "/work-board"
+      ],
+      "control_action_ids": [
+        "navigate-work-board",
+        "ui-control:work-board.reorder",
+        "ui-control:work-board.create-card",
+        "ui-control:work-board.create-task"
+      ],
+      "authority_posture": "read model plus exact local board mutation receipts; broad execution and external side effects remain blocked",
+      "status": "ui_api_cli_wired",
+      "missing_reason": "none",
+      "tests_evidence_refs": [
+        "tests/test_control_center_work_board.py",
+        "scripts/verify_control_center_release_surface.py"
+      ]
+    },
+    {
+      "capability_id": "action_inbox_decision_lanes",
+      "label": "Action Inbox decision lanes",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/action_inbox_decision_lanes.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/actions/inbox",
+          "operation_id": "get_control_center_actions_inbox"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/actions/{action_id}/approve",
+          "operation_id": "post_control_center_actions_action_id_approve"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/actions/{action_id}/edit",
+          "operation_id": "post_control_center_actions_action_id_edit"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/actions/{action_id}/reject",
+          "operation_id": "post_control_center_actions_action_id_reject"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/actions/{action_id}/defer",
+          "operation_id": "post_control_center_actions_action_id_defer"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/actions/{action_id}/receipt",
+          "operation_id": "get_control_center_actions_action_id_receipt"
+        }
+      ],
+      "cli_paths": [
+        "scripts/inspect_action_inbox_decision_lanes.py",
+        "scripts/dev/uaa_founder_loop.py"
+      ],
+      "ui_routes": [
+        "/actions"
+      ],
+      "control_action_ids": [
+        "navigate-actions-inbox",
+        "ui-control:actions.approve",
+        "ui-control:actions.edit",
+        "ui-control:actions.reject",
+        "ui-control:actions.defer"
+      ],
+      "authority_posture": "backend-owned decisions and receipts; approval refs are identifiers and do not grant generic execution",
+      "status": "ui_api_cli_wired",
+      "missing_reason": "none",
+      "tests_evidence_refs": [
+        "tests/test_action_inbox_decision_lanes.py",
+        "tests/test_fcc_v1_002_action_inbox_state_machine.py",
+        "scripts/verify_product_loop_005_action_inbox_decision_lanes.py"
+      ]
+    },
+    {
+      "capability_id": "approval_queue_summary",
+      "label": "Approval queue and summary inspection",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/dashboard.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/approvals/summary",
+          "operation_id": "get_control_center_approvals_summary"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/approvals/queue",
+          "operation_id": "get_control_center_approvals_queue"
+        }
+      ],
+      "cli_paths": [],
+      "ui_routes": [
+        "/approvals"
+      ],
+      "control_action_ids": [
+        "navigate-approvals"
+      ],
+      "authority_posture": "read-only approval posture and queue projection; approval UI cannot mint authority",
+      "status": "partial_surface_coverage",
+      "missing_reason": "dedicated CLI inspection path for the approval queue is not present yet",
+      "tests_evidence_refs": [
+        "tests/test_control_center_status_surfaces.py",
+        "scripts/verify_control_center_frontend.py"
+      ]
+    },
+    {
+      "capability_id": "morning_briefing_summary",
+      "label": "Morning Briefing summary",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/morning_briefing.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/morning-briefing/summary",
+          "operation_id": "get_control_center_morning_briefing_summary"
+        }
+      ],
+      "cli_paths": [
+        "scripts/inspect_morning_briefing_v1.py"
+      ],
+      "ui_routes": [
+        "/briefing"
+      ],
+      "control_action_ids": [
+        "navigate-morning-briefing"
+      ],
+      "authority_posture": "read-only briefing summary over safe refs; live source ingestion and connector runtime remain blocked",
+      "status": "partial_surface_coverage",
+      "missing_reason": "source-specific live readiness and refresh contracts remain future scoped work",
+      "tests_evidence_refs": [
+        "tests/test_morning_briefing_v1.py",
+        "tests/test_fcc_briefing_001_morning_briefing_today_plan.py",
+        "scripts/verify_product_loop_007_morning_briefing_v1.py"
+      ]
+    },
+    {
+      "capability_id": "memory_review_decisions",
+      "label": "Memory review and decision receipts",
+      "python_core_owner": "src/ultimate_ai_agent/core/storage/founder_loop.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/memory/review",
+          "operation_id": "get_control_center_memory_review"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/memory/workbench",
+          "operation_id": "get_control_center_memory_workbench"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/memory/context-packs",
+          "operation_id": "get_control_center_memory_context_packs"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/memory/review/{candidate_ref}/accept",
+          "operation_id": "post_control_center_memory_review_candidate_ref_accept"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/memory/review/{candidate_ref}/correct",
+          "operation_id": "post_control_center_memory_review_candidate_ref_correct"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/memory/review/{candidate_ref}/reject",
+          "operation_id": "post_control_center_memory_review_candidate_ref_reject"
+        }
+      ],
+      "cli_paths": [
+        "scripts/inspect_memory_merge_supersede_posture.py",
+        "scripts/dev/uaa_founder_loop.py"
+      ],
+      "ui_routes": [
+        "/memory"
+      ],
+      "control_action_ids": [
+        "navigate-memory",
+        "ui-control:memory.accept",
+        "ui-control:memory.correct",
+        "ui-control:memory.reject"
+      ],
+      "authority_posture": "review receipts only; memory remains recall, not truth or automatic context injection",
+      "status": "ui_api_cli_wired",
+      "missing_reason": "none",
+      "tests_evidence_refs": [
+        "tests/test_founder_loop_storage_memory_review.py",
+        "tests/test_fcc_v1_005_memory_review_decisions.py",
+        "scripts/verify_fcc_v1_005_memory_review_decisions.py"
+      ]
+    },
+    {
+      "capability_id": "evidence_timeline",
+      "label": "Evidence Timeline inspection",
+      "python_core_owner": "src/ultimate_ai_agent/core/storage/founder_loop.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/evidence/timeline",
+          "operation_id": "get_control_center_evidence_timeline"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/runs/observability",
+          "operation_id": "get_control_center_runs_observability"
+        }
+      ],
+      "cli_paths": [
+        "scripts/inspect_evidence_timeline_narrative.py",
+        "scripts/inspect_operator_run_timeline.py"
+      ],
+      "ui_routes": [
+        "/evidence"
+      ],
+      "control_action_ids": [
+        "navigate-evidence"
+      ],
+      "authority_posture": "read-only safe-ref evidence and run observability; evidence refs do not grant authority",
+      "status": "ui_api_cli_wired",
+      "missing_reason": "none",
+      "tests_evidence_refs": [
+        "tests/test_control_center_founder_loop_evidence_timeline.py",
+        "tests/test_evidence_timeline_narrative_v1.py",
+        "scripts/verify_product_loop_010_evidence_timeline_narrative.py"
+      ]
+    },
+    {
+      "capability_id": "settings_authority_posture",
+      "label": "Settings and AuthorityLease posture",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/operational_status.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/settings/status",
+          "operation_id": "get_control_center_settings_status"
+        },
+        {
+          "method": "GET",
+          "path": "/api/runtime/authority-state",
+          "operation_id": "get_api_runtime_authority_state"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-decisions/preview",
+          "operation_id": "post_api_runtime_authority_decisions_preview"
+        },
+        {
+          "method": "POST",
+          "path": "/api/runtime/authority-missions/plan",
+          "operation_id": "post_api_runtime_authority_missions_plan"
+        }
+      ],
+      "cli_paths": [
+        "scripts/inspect_settings_authority_posture.py",
+        "scripts/dev/uaa_runtime.py"
+      ],
+      "ui_routes": [
+        "/settings",
+        "/trust"
+      ],
+      "control_action_ids": [
+        "navigate-settings",
+        "navigate-trust"
+      ],
+      "authority_posture": "read-only posture, decision preview, and mission planning; no settings toggle grants authority",
+      "status": "ui_api_cli_wired",
+      "missing_reason": "none",
+      "tests_evidence_refs": [
+        "tests/test_settings_kill_switch_clarity.py",
+        "tests/test_governed_runtime_api_routes.py",
+        "scripts/verify_product_loop_011_settings_kill_switch_clarity.py"
+      ]
+    },
+    {
+      "capability_id": "proof_detail_inspection",
+      "label": "Proof detail inspection",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/proof.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/proof/index",
+          "operation_id": "get_control_center_proof_index"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/proof/{proof_ref}",
+          "operation_id": "get_control_center_proof_proof_ref"
+        }
+      ],
+      "cli_paths": [
+        "scripts/inspect_founder_loop_v1_product_proof.py"
+      ],
+      "ui_routes": [
+        "/proof"
+      ],
+      "control_action_ids": [
+        "navigate-proof"
+      ],
+      "authority_posture": "read-only proof refs, receipt refs, evidence refs, approval refs, rollback refs, and blocked authority refs only",
+      "status": "partial_surface_coverage",
+      "missing_reason": "CLI covers proof/product proof inspection but not a full arbitrary proof detail lookup command",
+      "tests_evidence_refs": [
+        "tests/test_control_center_proof_spine.py",
+        "tests/test_founder_loop_v1_product_proof.py",
+        "scripts/verify_founder_loop_v1_product_proof.py"
+      ]
+    },
+    {
+      "capability_id": "setup_assistant_summary",
+      "label": "macOS-first Setup Assistant summary",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/dashboard.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/setup-assistant/summary",
+          "operation_id": "get_control_center_setup_assistant_summary"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/agent-loop/thread",
+          "operation_id": "get_control_center_agent_loop_thread"
+        }
+      ],
+      "cli_paths": [
+        "scripts/dev/uaa_setup.py"
+      ],
+      "ui_routes": [
+        "/setup"
+      ],
+      "control_action_ids": [
+        "navigate-setup-assistant"
+      ],
+      "authority_posture": "read-only setup/readiness plan; installer side effects and credential capture remain blocked",
+      "status": "partial_surface_coverage",
+      "missing_reason": "setup receipt and rollback inspection remain future scoped work",
+      "tests_evidence_refs": [
+        "tests/test_control_center_status_surfaces.py",
+        "scripts/verify_beta_02_setup_assistant_local_package.py"
+      ]
+    },
+    {
+      "capability_id": "local_models_status",
+      "label": "Local model and provider readiness status",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/operational_status.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/v1/models",
+          "operation_id": "get_v1_models"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/local-models/status",
+          "operation_id": "get_control_center_local_models_status"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/providers/setup-guide",
+          "operation_id": "get_control_center_providers_setup_guide"
+        }
+      ],
+      "cli_paths": [
+        "scripts/dev/uaa_local_model.py",
+        "scripts/inspect_provider_setup_guide.py",
+        "scripts/inspect_provider_credential_readiness.py"
+      ],
+      "ui_routes": [
+        "/models"
+      ],
+      "control_action_ids": [
+        "navigate-models"
+      ],
+      "authority_posture": "read-only local model/provider readiness; lifecycle actions and provider invocation remain blocked unless separately scoped",
+      "status": "partial_surface_coverage",
+      "missing_reason": "lifecycle start/stop/switch status receipts and broad provider invocation are intentionally not surfaced",
+      "tests_evidence_refs": [
+        "tests/test_uaa_p1_066_local_model_control_center_status.py",
+        "tests/test_provider_credential_readiness_contracts.py",
+        "scripts/verify_uaa_p1_066_local_model_control_center_status.py"
+      ]
+    },
+    {
+      "capability_id": "chat_local_operator_handoff",
+      "label": "Chat local operator receipt and handoff",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/chat_to_loop_handoff.py",
+      "api_routes": [
+        {
+          "method": "POST",
+          "path": "/v1/chat/completions",
+          "operation_id": "post_v1_chat_completions"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/turn-router/preview",
+          "operation_id": "post_control_center_turn_router_preview"
+        }
+      ],
+      "cli_paths": [
+        "scripts/inspect_chat_to_loop_handoff.py",
+        "scripts/dev/uaa_turn_router.py"
+      ],
+      "ui_routes": [
+        "/chat"
+      ],
+      "control_action_ids": [
+        "navigate-chat-shell",
+        "preview-turn-router-diagnostics",
+        "ui-control:chat.create-turn",
+        "ui-control:chat.handoff-to-loop"
+      ],
+      "authority_posture": "redacted local probe and reviewable handoff receipts only; model output is not authority",
+      "status": "ui_api_cli_wired",
+      "missing_reason": "none",
+      "tests_evidence_refs": [
+        "tests/test_chat_to_loop_handoff_v1.py",
+        "tests/test_control_center_no_execution.py",
+        "scripts/verify_product_loop_009_chat_to_loop_handoff.py"
+      ]
+    },
+    {
+      "capability_id": "crm_local_command_center",
+      "label": "CRM local command center",
+      "python_core_owner": "src/ultimate_ai_agent/core/crm/local_command_center.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/crm/summary",
+          "operation_id": "get_control_center_crm_summary"
+        },
+        {
+          "method": "POST",
+          "path": "/control-center/crm/local-mutations",
+          "operation_id": "post_control_center_crm_local_mutations"
+        }
+      ],
+      "cli_paths": [
+        "scripts/dev/uaa_crm.py"
+      ],
+      "ui_routes": [
+        "/crm"
+      ],
+      "control_action_ids": [
+        "navigate-crm",
+        "ui-control:crm.local-mutation"
+      ],
+      "authority_posture": "local CRM read routes and exact local mutation receipts; external CRM writes, sync, sends, and provider calls remain blocked",
+      "status": "partial_surface_coverage",
+      "missing_reason": "external connector read/write lanes remain blocked and are not surfaced as available",
+      "tests_evidence_refs": [
+        "tests/test_crm_local_command_center.py",
+        "tests/test_crm_local_command_center_api_routes.py",
+        "scripts/verify_crm_local_command_center.py"
+      ]
+    },
+    {
+      "capability_id": "action_preview_preflight",
+      "label": "Action preview preflight",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/actions.py",
+      "api_routes": [
+        {
+          "method": "POST",
+          "path": "/control-center/actions/preview",
+          "operation_id": "post_control_center_actions_preview"
+        }
+      ],
+      "cli_paths": [],
+      "ui_routes": [
+        "/action-preview"
+      ],
+      "control_action_ids": [
+        "submit-action-preview"
+      ],
+      "authority_posture": "validation-only preflight; preview never executes, grants, dispatches, sends, or enables anything",
+      "status": "partial_surface_coverage",
+      "missing_reason": "dedicated CLI parity for action preview is not present yet",
+      "tests_evidence_refs": [
+        "tests/test_control_center_action_preview.py",
+        "scripts/verify_control_center_frontend.py"
+      ]
+    },
+    {
+      "capability_id": "runtime_readiness_and_manual_smoke",
+      "label": "Runtime readiness, capability matrix, and manual smoke validation",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/operational_status.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/runtime/readiness",
+          "operation_id": "get_runtime_readiness"
+        },
+        {
+          "method": "GET",
+          "path": "/runtime/capability-matrix",
+          "operation_id": "get_runtime_capability_matrix"
+        },
+        {
+          "method": "POST",
+          "path": "/runtime/smoke-reports/validate",
+          "operation_id": "post_runtime_smoke_reports_validate"
+        }
+      ],
+      "cli_paths": [
+        "scripts/dev/uaa_runtime.py"
+      ],
+      "ui_routes": [
+        "/runtime",
+        "/runtime/local",
+        "/runtime/manual-smoke"
+      ],
+      "control_action_ids": [
+        "navigate-runtime",
+        "navigate-local-runtime",
+        "navigate-manual-smoke"
+      ],
+      "authority_posture": "read-only readiness and validation-only smoke report posture; unrestricted runtime execution remains blocked",
+      "status": "ui_api_cli_wired",
+      "missing_reason": "none",
+      "tests_evidence_refs": [
+        "tests/test_runtime_readiness_report.py",
+        "tests/test_runtime_capability_matrix.py",
+        "tests/test_runtime_readiness_api_routes.py"
+      ]
+    },
+    {
+      "capability_id": "api_route_inventory",
+      "label": "API route inventory and manifest inspection",
+      "python_core_owner": "src/ultimate_ai_agent/api/manifest.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/api/manifest",
+          "operation_id": "get_api_manifest"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/routes",
+          "operation_id": "get_control_center_routes"
+        }
+      ],
+      "cli_paths": [
+        "scripts/verify_openapi_contract.py",
+        "scripts/verify_control_center_release_surface.py"
+      ],
+      "ui_routes": [
+        "/api-routes"
+      ],
+      "control_action_ids": [
+        "navigate-api-routes"
+      ],
+      "authority_posture": "read-only route contract inventory; contracts do not grant runtime capability",
+      "status": "partial_surface_coverage",
+      "missing_reason": "frontend typed full /api/manifest client model remains a known follow-up",
+      "tests_evidence_refs": [
+        "tests/test_api_manifest.py",
+        "tests/test_control_center_release_surface_manifest.py",
+        "scripts/verify_openapi_contract.py"
+      ]
+    },
+    {
+      "capability_id": "coding_cockpit_readiness",
+      "label": "Coding cockpit readiness and review surfaces",
+      "python_core_owner": "src/ultimate_ai_agent/core/code/coding_cockpit.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/coding/context",
+          "operation_id": "get_control_center_coding_context"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/patch-apply-readiness",
+          "operation_id": "get_control_center_coding_patch_apply_readiness"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/test-command-readiness",
+          "operation_id": "get_control_center_coding_test_command_readiness"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/git-review",
+          "operation_id": "get_control_center_coding_git_review"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/session",
+          "operation_id": "get_control_center_coding_session"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/patch-proposal",
+          "operation_id": "get_control_center_coding_patch_proposal"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/live-preview",
+          "operation_id": "get_control_center_coding_live_preview"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/coding/multi-agent-review",
+          "operation_id": "get_control_center_coding_multi_agent_review"
+        }
+      ],
+      "cli_paths": [
+        "scripts/dev/uaa_coding.py"
+      ],
+      "ui_routes": [
+        "/coding"
+      ],
+      "control_action_ids": [
+        "navigate-coding-cockpit"
+      ],
+      "authority_posture": "readiness and review-only coding cockpit; patch apply, arbitrary shell, Git mutation, and live preview execution remain exact-scoped future work",
+      "status": "partial_surface_coverage",
+      "missing_reason": "approved patch apply execution and broader coding authority lanes remain blocked",
+      "tests_evidence_refs": [
+        "tests/test_coding_cockpit_read_model.py",
+        "scripts/verify_uaa_p1_075_governed_code_workbench.py"
+      ]
+    },
+    {
+      "capability_id": "file_review_and_context_proposals",
+      "label": "File review and context proposal surfaces",
+      "python_core_owner": "src/ultimate_ai_agent/core/files",
+      "api_routes": [
+        {
+          "method": "POST",
+          "path": "/files/refs/validate",
+          "operation_id": "post_files_refs_validate"
+        },
+        {
+          "method": "POST",
+          "path": "/files/read/preview",
+          "operation_id": "post_files_read_preview"
+        },
+        {
+          "method": "POST",
+          "path": "/files/review/approvals/capture",
+          "operation_id": "post_files_review_approvals_capture"
+        }
+      ],
+      "cli_paths": [],
+      "ui_routes": [
+        "/files",
+        "/files/review",
+        "/context/proposals"
+      ],
+      "control_action_ids": [
+        "navigate-files",
+        "navigate-file-review",
+        "toggle-review-only-file-decision",
+        "navigate-context-proposals"
+      ],
+      "authority_posture": "validation/preview and review-only posture; raw file content, raw paths, writes, imports, and context injection remain blocked",
+      "status": "mock_or_static_only",
+      "missing_reason": "safe GET read models for file refs, file review packets, and context proposals are missing",
+      "tests_evidence_refs": [
+        "tests/test_control_center_frontend_safety_verifier.py",
+        "docs/control_center/UI_WIRING_REPORT.md"
+      ]
+    },
+    {
+      "capability_id": "receipt_event_ledger_preview",
+      "label": "Receipt and event ledger preview surfaces",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/dashboard.py",
+      "api_routes": [
+        {
+          "method": "POST",
+          "path": "/receipts/preview",
+          "operation_id": "post_receipts_preview"
+        },
+        {
+          "method": "POST",
+          "path": "/events/validate",
+          "operation_id": "post_events_validate"
+        }
+      ],
+      "cli_paths": [],
+      "ui_routes": [
+        "/receipts",
+        "/events",
+        "/events/timeline"
+      ],
+      "control_action_ids": [
+        "navigate-receipts",
+        "navigate-events",
+        "navigate-event-timeline",
+        "select-local-detail-card"
+      ],
+      "authority_posture": "validation-only preview and mock timeline posture; receipts/events do not authorize future work",
+      "status": "partial_surface_coverage",
+      "missing_reason": "safe receipt list, event list, and event timeline read-model routes are not present yet",
+      "tests_evidence_refs": [
+        "tests/test_control_center_frontend_safety_verifier.py",
+        "docs/control_center/UI_WIRING_REPORT.md"
+      ]
+    },
+    {
+      "capability_id": "private_trial_packet",
+      "label": "Private product loop trial packet",
+      "python_core_owner": "src/ultimate_ai_agent/core/readiness/private_operator_trial.py",
+      "api_routes": [],
+      "cli_paths": [
+        "scripts/inspect_product_loop_trial_script.py"
+      ],
+      "ui_routes": [
+        "/private-trial"
+      ],
+      "control_action_ids": [
+        "navigate-private-trial-packet"
+      ],
+      "authority_posture": "local/private manual review artifact only; no public beta, telemetry export, or production readiness",
+      "status": "mock_or_static_only",
+      "missing_reason": "static/manual packet intentionally has no backend live-state route",
+      "tests_evidence_refs": [
+        "tests/test_product_loop_012_private_trial_script.py",
+        "scripts/verify_product_loop_012_private_trial_script.py"
+      ]
+    },
+    {
+      "capability_id": "foundation_gate_and_storage_status",
+      "label": "Foundation Gate and storage status inspection",
+      "python_core_owner": "src/ultimate_ai_agent/core/gate",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/foundation-gate/summary",
+          "operation_id": "get_control_center_foundation_gate_summary"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/storage/status",
+          "operation_id": "get_control_center_storage_status"
+        }
+      ],
+      "cli_paths": [
+        "scripts/run_foundation_gate.py"
+      ],
+      "ui_routes": [
+        "/foundation-gate",
+        "/storage"
+      ],
+      "control_action_ids": [
+        "navigate-foundation-gate",
+        "navigate-storage-status"
+      ],
+      "authority_posture": "read-only verification and storage posture; gate visibility is evidence, not authority",
+      "status": "partial_surface_coverage",
+      "missing_reason": "storage-specific CLI inspection remains a follow-up if storage becomes operator-critical",
+      "tests_evidence_refs": [
+        "tests/test_control_center_status_surfaces.py",
+        "scripts/verify_control_center_frontend.py"
+      ]
+    },
+    {
+      "capability_id": "overview_dashboard_operator_loop",
+      "label": "Overview, dashboard, operator loop, and differentiators",
+      "python_core_owner": "src/ultimate_ai_agent/core/control_center/dashboard.py",
+      "api_routes": [
+        {
+          "method": "GET",
+          "path": "/control-center/dashboard",
+          "operation_id": "get_control_center_dashboard"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/manifest",
+          "operation_id": "get_control_center_manifest"
+        },
+        {
+          "method": "GET",
+          "path": "/control-center/status",
+          "operation_id": "get_control_center_status"
+        }
+      ],
+      "cli_paths": [],
+      "ui_routes": [
+        "/",
+        "/dashboard",
+        "/operator-loop",
+        "/differentiators"
+      ],
+      "control_action_ids": [
+        "navigate-overview",
+        "navigate-dashboard",
+        "navigate-operator-loop",
+        "navigate-differentiators"
+      ],
+      "authority_posture": "read-only summary and product posture surfaces; mixed proof/demo cards must not become product truth",
+      "status": "partial_surface_coverage",
+      "missing_reason": "operator-loop and differentiator cards still need tighter proof refs or inline data-source disclosure",
+      "tests_evidence_refs": [
+        "tests/test_control_center_dashboard.py",
+        "tests/test_control_center_status_surfaces.py",
+        "docs/control_center/UI_WIRING_REPORT.md"
+      ]
+    },
+    {
+      "capability_id": "future_domain_governance_surfaces",
+      "label": "Remote worker, mobile, and plugin governance planning",
+      "python_core_owner": "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md",
+      "api_routes": [],
+      "cli_paths": [],
+      "ui_routes": [
+        "/remote-workers",
+        "/mobile-planning",
+        "/plugin-governance"
+      ],
+      "control_action_ids": [
+        "navigate-remote-workers",
+        "navigate-mobile-planning",
+        "navigate-plugin-governance"
+      ],
+      "authority_posture": "planning and blocked-state visibility only; remote execution, mobile sensors/control, and plugin runtime import remain blocked",
+      "status": "blocked_intentionally",
+      "missing_reason": "these domains are intentionally future-scoped until exact authority lanes are accepted",
+      "tests_evidence_refs": [
+        "tests/test_control_center_release_surface_manifest.py",
+        "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
+      ]
+    }
+  ]
+}
