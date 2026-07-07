@@ -145,6 +145,22 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     }
     assert target_domains <= mapped_domains
     assert len(read_model.decision_catalog) == len(read_model.capability_mappings)
+    assert read_model.decision_summary.total_capabilities == len(
+        read_model.decision_catalog
+    )
+    assert read_model.decision_summary.active_lease_count == len(
+        read_model.active_leases
+    )
+    assert read_model.decision_summary.outcome_counts["allow"] > 0
+    assert read_model.decision_summary.outcome_counts["deny"] > 0
+    assert read_model.decision_summary.outcome_counts["degrade_to_draft"] > 0
+    assert "reason-ref:authority:adapter-unsupported" in (
+        read_model.decision_summary.blocked_reason_refs
+    )
+    assert read_model.decision_summary.unsupported_adapter_refs
+    assert read_model.decision_summary.safe_refs_only is True
+    assert read_model.decision_summary.execution_performed is False
+    assert read_model.decision_summary.control_center_grants_authority is False
     assert {
         str(getattr(entry.decision.outcome, "value", entry.decision.outcome))
         for entry in read_model.decision_catalog
@@ -1005,6 +1021,18 @@ def test_authority_state_api_cli_and_settings_surface(
     assert len(runtime_body["data"]["decision_catalog"]) == len(
         runtime_body["data"]["capability_mappings"]
     )
+    assert runtime_body["data"]["decision_summary"]["total_capabilities"] == len(
+        runtime_body["data"]["decision_catalog"]
+    )
+    assert (
+        runtime_body["data"]["decision_summary"]["outcome_counts"][
+            "degrade_to_draft"
+        ]
+        > 0
+    )
+    assert "reason-ref:authority:no-active-lease-for-domain-capability" in (
+        runtime_body["data"]["decision_summary"]["blocked_reason_refs"]
+    )
     assert any(
         entry["decision"]["outcome"] == "degrade_to_draft"
         for entry in runtime_body["data"]["decision_catalog"]
@@ -1023,10 +1051,14 @@ def test_authority_state_api_cli_and_settings_surface(
     assert len(authority_state["decision_catalog"]) == len(
         authority_state["capability_mappings"]
     )
+    assert authority_state["decision_summary"]["total_capabilities"] == len(
+        authority_state["decision_catalog"]
+    )
 
     assert exit_code == 0
     cli_payload = capsys.readouterr().out
     assert "authority_state_read_model" in cli_payload
+    assert "decision_summary" in cli_payload
     assert "decision_catalog" in cli_payload
     assert "raw_paths_omitted" in cli_payload
 
@@ -1036,8 +1068,19 @@ def test_authority_state_api_cli_and_settings_surface(
     assert "issued=" in cli_text
     assert "expires=" in cli_text
     assert "Decision catalog:" in cli_text
+    assert "Decision summary:" in cli_text
+    assert "Outcome counts:" in cli_text
+    assert "Blocked reasons:" in cli_text
     assert "authority-capability-ref:runtime-command-focused-pytest" in cli_text
     assert "source: lane-ref:runtime-command-focused-pytest" in cli_text
+
+    summary_exit_code = uaa_runtime.main(["inspect-authority-state", "--summary"])
+    assert summary_exit_code == 0
+    summary_text = capsys.readouterr().out
+    assert "Decision summary:" in summary_text
+    assert "Outcome counts:" in summary_text
+    assert "Decision catalog:" not in summary_text
+    assert "authority-capability-ref:runtime-command-focused-pytest" not in summary_text
 
 
 def test_authority_decision_preview_api_and_cli_are_read_only(

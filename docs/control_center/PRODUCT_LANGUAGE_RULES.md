@@ -92,6 +92,11 @@ AuthorityLease issue attempts are denied by the local kill switch and must show
 previews. Do not describe the kill switch as executing external revocation,
 closing apps, stopping browser sessions, canceling payments, or mutating
 connectors unless a later tested adapter implements that exact action.
+Authority cockpit copy should surface
+`authority_lease_state.decision_summary` before the full decision catalog:
+outcome counts, active lease count, blocked reason refs, unsupported adapter
+refs, and the no-execution/no-mutation posture. The summary is inspection
+metadata only and must not be described as a grant of authority.
 `/settings` may revoke active leases through safe-disable posture and may preview
 concrete mode/domain/capability decisions or delegated mission plans through
 validation-only preview routes. For an issue-ready mission plan, `/settings` may

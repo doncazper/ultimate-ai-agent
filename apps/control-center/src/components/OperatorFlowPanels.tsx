@@ -1901,6 +1901,51 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
               <dd>{authorityLeaseState.receipts_required ? "required" : "missing"}</dd>
             </div>
           </dl>
+          <p>{authorityLeaseState.decision_summary.operator_summary}</p>
+          <dl className="metadata-list" aria-label="Authority decision summary">
+            <div>
+              <dt>Catalog</dt>
+              <dd>{authorityLeaseState.decision_summary.total_capabilities}</dd>
+            </div>
+            <div>
+              <dt>Allowed</dt>
+              <dd>
+                {authorityLeaseState.decision_summary.outcome_counts.allow ?? 0}
+              </dd>
+            </div>
+            <div>
+              <dt>Ask</dt>
+              <dd>{authorityLeaseState.decision_summary.outcome_counts.ask ?? 0}</dd>
+            </div>
+            <div>
+              <dt>Draft</dt>
+              <dd>
+                {authorityLeaseState.decision_summary.outcome_counts
+                  .degrade_to_draft ?? 0}
+              </dd>
+            </div>
+            <div>
+              <dt>Denied</dt>
+              <dd>{authorityLeaseState.decision_summary.outcome_counts.deny ?? 0}</dd>
+            </div>
+            <div>
+              <dt>Unsupported</dt>
+              <dd>
+                {authorityLeaseState.decision_summary.unsupported_adapter_refs.length}
+              </dd>
+            </div>
+          </dl>
+          <div
+            className="note-list"
+            aria-label="Authority decision blocked reasons"
+          >
+            {authorityLeaseState.decision_summary.blocked_reason_refs.map((ref) => (
+              <span key={ref}>{ref}</span>
+            ))}
+            {authorityLeaseState.decision_summary.unsupported_adapter_refs.map((ref) => (
+              <span key={ref}>{ref}</span>
+            ))}
+          </div>
           <div className="note-list" aria-label="Authority mode outcomes">
             {authorityLeaseState.policy_outcomes.map((outcome) => (
               <span key={outcome}>{outcome.replaceAll("_", " ")}</span>

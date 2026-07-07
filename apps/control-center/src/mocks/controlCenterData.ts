@@ -11669,6 +11669,39 @@ export const mockControlCenterData: ControlCenterData = {
             "Requires Approved safe local work with workspace/execute plus RuntimeGateway allowlist and receipts.",
         },
       ],
+      decision_summary: {
+        schema_version: "uaa-authority-decision-summary.v1",
+        total_capabilities: 2,
+        active_lease_count: 1,
+        outcome_counts: {
+          allow: 1,
+          ask: 0,
+          deny: 1,
+          degrade_to_draft: 0,
+        },
+        domain_counts: {
+          browser: 1,
+          workspace: 1,
+        },
+        status_counts: {
+          implemented_mock_fallback: 1,
+          planned_unsupported_adapter: 1,
+        },
+        allowed_capability_refs: ["authority-capability-ref:mock-workspace-read"],
+        ask_capability_refs: [],
+        degraded_capability_refs: [],
+        denied_capability_refs: ["authority-capability-ref:mock-browser-click"],
+        blocked_reason_refs: ["reason-ref:authority:adapter-unsupported"],
+        unsupported_adapter_refs: [
+          "adapter-ref:browser-execution:not-implemented",
+        ],
+        operator_summary:
+          "Mock authority summary covers two fallback capabilities for layout only: one allowed read and one denied unsupported browser action.",
+        safe_refs_only: true,
+        execution_performed: false,
+        mutation_performed: false,
+        control_center_grants_authority: false,
+      },
       decision_catalog: [
         {
           catalog_ref: "authority-decision-catalog-ref:mock-workspace-read",

@@ -11376,6 +11376,13 @@ describe("Web Control Center shell", () => {
     );
     expect(screen.getAllByText(/Unknown authority/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Degraded/i).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Authority decision summary")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Mock authority summary covers two fallback capabilities/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Authority decision blocked reasons"),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Authority lease decisions")).toBeInTheDocument();
     expect(
       screen.getByLabelText("Authority decision catalog"),

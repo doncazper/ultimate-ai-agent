@@ -21,6 +21,7 @@ surfaces are:
 - `POST /api/runtime/authority-missions/plan`
 - `GET /control-center/settings/status#authority_lease_state`
 - `scripts/dev/uaa_runtime.py inspect-authority-state --json`
+- `scripts/dev/uaa_runtime.py inspect-authority-state --summary`
 - `scripts/dev/uaa_runtime.py preview-authority-decision --json`
 - `scripts/dev/uaa_runtime.py plan-authority-mission --json`
 - `POST /api/runtime/authority-leases`
@@ -50,6 +51,11 @@ surfaces are:
   current `allow`, `ask`, `deny`, or `degrade_to_draft` policy outcome with
   safe refs, route/CLI refs, audit refs, receipt refs when applicable, and
   no execution.
+- `GET /api/runtime/authority-state#decision_summary` and
+  `scripts/dev/uaa_runtime.py inspect-authority-state --summary` provide the
+  compact operator/API parity view over the same decision catalog: capability
+  totals, outcome counts, status/domain coverage, blocked reason refs,
+  unsupported adapter refs, and no execution or mutation.
 - `UAA_AUTHORITY_LEASE_KILL_SWITCH=1` engages the local AuthorityLease kill
   switch. New lease issue attempts are denied with a redacted receipt and
   `reason-ref:authority:lease-kill-switch-engaged`; state, Settings, CLI, and

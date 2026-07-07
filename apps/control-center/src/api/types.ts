@@ -12033,6 +12033,26 @@ export interface AuthorityDecisionCatalogEntry {
   control_center_grants_authority: false;
 }
 
+export interface AuthorityDecisionSummary {
+  schema_version: "uaa-authority-decision-summary.v1";
+  total_capabilities: number;
+  active_lease_count: number;
+  outcome_counts: Record<string, number>;
+  domain_counts: Record<string, number>;
+  status_counts: Record<string, number>;
+  allowed_capability_refs: string[];
+  ask_capability_refs: string[];
+  degraded_capability_refs: string[];
+  denied_capability_refs: string[];
+  blocked_reason_refs: string[];
+  unsupported_adapter_refs: string[];
+  operator_summary: string;
+  safe_refs_only: true;
+  execution_performed: false;
+  mutation_performed: false;
+  control_center_grants_authority: false;
+}
+
 export interface AuthorityStateReadModel {
   schema_version: "uaa-authority-state.v1";
   contract_ref: string;
@@ -12047,6 +12067,7 @@ export interface AuthorityStateReadModel {
   policy_outcomes: AuthorityDecisionOutcome[];
   active_leases: AuthorityLease[];
   capability_mappings: AuthorityCapabilityMapping[];
+  decision_summary: AuthorityDecisionSummary;
   decision_catalog: AuthorityDecisionCatalogEntry[];
   recent_receipts: AuthorityLeaseReceipt[];
   sample_decisions: AuthorityPolicyDecision[];

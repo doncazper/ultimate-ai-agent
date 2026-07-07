@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections import Counter
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
@@ -766,6 +767,61 @@ class AuthorityLeaseApproveAndIssueRequest(_AuthorityModel):
         return self
 
 
+class AuthorityDecisionSummary(_AuthorityModel):
+    schema_version: Literal["uaa-authority-decision-summary.v1"] = (
+        "uaa-authority-decision-summary.v1"
+    )
+    total_capabilities: int = Field(default=0, ge=0)
+    active_lease_count: int = Field(default=0, ge=0)
+    outcome_counts: dict[str, int] = Field(default_factory=dict)
+    domain_counts: dict[str, int] = Field(default_factory=dict)
+    status_counts: dict[str, int] = Field(default_factory=dict)
+    allowed_capability_refs: list[str] = Field(default_factory=list)
+    ask_capability_refs: list[str] = Field(default_factory=list)
+    degraded_capability_refs: list[str] = Field(default_factory=list)
+    denied_capability_refs: list[str] = Field(default_factory=list)
+    blocked_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
+    operator_summary: str = Field(..., min_length=1, max_length=520)
+    safe_refs_only: bool = True
+    execution_performed: bool = False
+    mutation_performed: bool = False
+    control_center_grants_authority: bool = False
+
+    @model_validator(mode="after")
+    def validate_summary(self) -> "AuthorityDecisionSummary":
+        for counts, field_name in [
+            (self.outcome_counts, "authority_decision_summary_outcome"),
+            (self.domain_counts, "authority_decision_summary_domain"),
+            (self.status_counts, "authority_decision_summary_status"),
+        ]:
+            for key, value in counts.items():
+                validate_safe_task_text(key, field_name)
+                if value < 0:
+                    raise ValueError("AUTHORITY_DECISION_SUMMARY_COUNT_INVALID")
+        for refs, field_name in [
+            (self.allowed_capability_refs, "authority_decision_summary_allowed_ref"),
+            (self.ask_capability_refs, "authority_decision_summary_ask_ref"),
+            (self.degraded_capability_refs, "authority_decision_summary_degraded_ref"),
+            (self.denied_capability_refs, "authority_decision_summary_denied_ref"),
+            (self.blocked_reason_refs, "authority_decision_summary_reason_ref"),
+            (
+                self.unsupported_adapter_refs,
+                "authority_decision_summary_unsupported_ref",
+            ),
+        ]:
+            _validate_ref_list(refs, field_name)
+        validate_safe_task_text(self.operator_summary, "authority_decision_summary")
+        if (
+            not self.safe_refs_only
+            or self.execution_performed
+            or self.mutation_performed
+            or self.control_center_grants_authority
+        ):
+            raise ValueError("AUTHORITY_DECISION_SUMMARY_MUST_NOT_EXECUTE")
+        return self
+
+
 class AuthorityLeaseApprovalRequirement(_AuthorityModel):
     schema_version: Literal["uaa-authority-lease-approval-requirement.v1"] = (
         "uaa-authority-lease-approval-requirement.v1"
@@ -932,6 +988,7 @@ class AuthorityStateReadModel(_AuthorityModel):
     )
     active_leases: list[AuthorityLease] = Field(default_factory=list)
     capability_mappings: list[AuthorityCapabilityMapping] = Field(default_factory=list)
+    decision_summary: AuthorityDecisionSummary
     decision_catalog: list[AuthorityDecisionCatalogEntry] = Field(default_factory=list)
     recent_receipts: list[AuthorityLeaseReceipt] = Field(default_factory=list)
     sample_decisions: list[AuthorityPolicyDecision] = Field(default_factory=list)
@@ -2889,6 +2946,11 @@ def build_authority_state_read_model(
 ) -> AuthorityStateReadModel:
     leases = active_leases or build_default_authority_leases()
     capability_mappings = build_existing_lane_authority_mappings()
+    decision_catalog = build_authority_decision_catalog(
+        capability_mappings,
+        leases,
+        kill_switch_engaged=kill_switch_engaged,
+    )
     samples = [
         evaluate_authority_request(
             AuthorityActionRequest(
@@ -2945,11 +3007,11 @@ def build_authority_state_read_model(
         operator_summary=operator_summary,
         active_leases=leases,
         capability_mappings=capability_mappings,
-        decision_catalog=build_authority_decision_catalog(
-            capability_mappings,
-            leases,
-            kill_switch_engaged=kill_switch_engaged,
+        decision_summary=build_authority_decision_summary(
+            decision_catalog,
+            active_lease_count=len(leases),
         ),
+        decision_catalog=decision_catalog,
         recent_receipts=recent_receipts or [],
         sample_decisions=samples,
         kill_switch_engaged=kill_switch_engaged,
@@ -2971,6 +3033,65 @@ def build_authority_decision_catalog(
         )
         for mapping in mappings
     ]
+
+
+def build_authority_decision_summary(
+    decision_catalog: list[AuthorityDecisionCatalogEntry],
+    *,
+    active_lease_count: int,
+) -> AuthorityDecisionSummary:
+    outcome_counts = Counter(
+        _enum_value(entry.decision.outcome) for entry in decision_catalog
+    )
+    domain_counts = Counter(_enum_value(entry.decision.domain) for entry in decision_catalog)
+    status_counts = Counter(entry.status for entry in decision_catalog)
+    capability_refs_by_outcome: dict[str, list[str]] = {
+        outcome.value: [] for outcome in AuthorityDecisionOutcome
+    }
+    blocked_reason_refs: list[str] = []
+    unsupported_adapter_refs: list[str] = []
+    for entry in decision_catalog:
+        outcome = _enum_value(entry.decision.outcome)
+        capability_refs_by_outcome.setdefault(outcome, []).append(
+            entry.authority_capability_ref
+        )
+        if outcome != AuthorityDecisionOutcome.allow.value:
+            blocked_reason_refs.extend(entry.decision.reason_refs)
+        unsupported_adapter_refs.extend(entry.unsupported_adapter_refs)
+    allowed = outcome_counts.get(AuthorityDecisionOutcome.allow.value, 0)
+    asked = outcome_counts.get(AuthorityDecisionOutcome.ask.value, 0)
+    degraded = outcome_counts.get(AuthorityDecisionOutcome.degrade_to_draft.value, 0)
+    denied = outcome_counts.get(AuthorityDecisionOutcome.deny.value, 0)
+    return AuthorityDecisionSummary(
+        total_capabilities=len(decision_catalog),
+        active_lease_count=active_lease_count,
+        outcome_counts={
+            outcome.value: outcome_counts.get(outcome.value, 0)
+            for outcome in AuthorityDecisionOutcome
+        },
+        domain_counts=dict(sorted(domain_counts.items())),
+        status_counts=dict(sorted(status_counts.items())),
+        allowed_capability_refs=capability_refs_by_outcome[
+            AuthorityDecisionOutcome.allow.value
+        ],
+        ask_capability_refs=capability_refs_by_outcome[
+            AuthorityDecisionOutcome.ask.value
+        ],
+        degraded_capability_refs=capability_refs_by_outcome[
+            AuthorityDecisionOutcome.degrade_to_draft.value
+        ],
+        denied_capability_refs=capability_refs_by_outcome[
+            AuthorityDecisionOutcome.deny.value
+        ],
+        blocked_reason_refs=sorted(set(blocked_reason_refs)),
+        unsupported_adapter_refs=sorted(set(unsupported_adapter_refs)),
+        operator_summary=(
+            f"Authority catalog covers {len(decision_catalog)} capabilities under "
+            f"{active_lease_count} active lease(s): {allowed} allowed, {asked} ask, "
+            f"{degraded} degrade to draft, {denied} denied. Unsupported adapters "
+            "remain blocked until implemented and tested."
+        ),
+    )
 
 
 def _authority_decision_catalog_entry(

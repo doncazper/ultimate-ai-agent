@@ -1926,6 +1926,17 @@ def _authority_ref_summary(refs: list[str]) -> str:
     return ", ".join(refs) if refs else "none"
 
 
+def _authority_counts_summary(
+    counts: dict[str, Any],
+    ordered_keys: list[str] | None = None,
+) -> str:
+    if ordered_keys:
+        items = [(key, counts.get(key, 0)) for key in ordered_keys if key in counts]
+    else:
+        items = sorted(counts.items())
+    return ", ".join(f"{key}={value}" for key, value in items) if items else "none"
+
+
 def _inspect_authority_state(args: argparse.Namespace) -> int:
     read_model = AuthorityLeaseStore().build_state_read_model().model_dump(mode="json")
     if args.json:
@@ -1961,20 +1972,43 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
                 f"{_authority_ref_summary(lease['unsupported_adapter_refs'])}"
             )
         print(f"Capability mappings: {len(read_model['capability_mappings'])}")
-        print(f"Decision catalog: {len(read_model['decision_catalog'])}")
-        for entry in read_model["decision_catalog"]:
-            decision = entry["decision"]
-            requirement = _authority_decision_requirement_dict(decision)
-            print(
-                f"- {decision['outcome']} {entry['authority_capability_ref']} "
-                f"{decision['domain']}/{decision['capability']}: {requirement}"
-            )
-            print(f"  catalog: {entry['catalog_ref']}")
-            print(f"  source: {entry['lane_ref']}")
-            print(f"  status: {entry['status']}")
-            print(f"  lease: {decision['lease_ref'] or 'none'}")
-            print(f"  reasons: {_authority_ref_summary(decision['reason_refs'])}")
-            print(f"  unsupported adapters: {_authority_ref_summary(entry['unsupported_adapter_refs'])}")
+        summary = read_model["decision_summary"]
+        print(f"Decision summary: {summary['operator_summary']}")
+        print(
+            "Outcome counts: "
+            f"{_authority_counts_summary(summary['outcome_counts'], read_model['policy_outcomes'])}"
+        )
+        print(
+            "Domain counts: "
+            f"{_authority_counts_summary(summary['domain_counts'], read_model['target_domains'])}"
+        )
+        print(f"Status counts: {_authority_counts_summary(summary['status_counts'])}")
+        print(
+            "Blocked reasons: "
+            f"{_authority_ref_summary(summary['blocked_reason_refs'])}"
+        )
+        print(
+            "Unsupported adapters: "
+            f"{_authority_ref_summary(summary['unsupported_adapter_refs'])}"
+        )
+        if not args.summary:
+            print(f"Decision catalog: {len(read_model['decision_catalog'])}")
+            for entry in read_model["decision_catalog"]:
+                decision = entry["decision"]
+                requirement = _authority_decision_requirement_dict(decision)
+                print(
+                    f"- {decision['outcome']} {entry['authority_capability_ref']} "
+                    f"{decision['domain']}/{decision['capability']}: {requirement}"
+                )
+                print(f"  catalog: {entry['catalog_ref']}")
+                print(f"  source: {entry['lane_ref']}")
+                print(f"  status: {entry['status']}")
+                print(f"  lease: {decision['lease_ref'] or 'none'}")
+                print(f"  reasons: {_authority_ref_summary(decision['reason_refs'])}")
+                print(
+                    "  unsupported adapters: "
+                    f"{_authority_ref_summary(entry['unsupported_adapter_refs'])}"
+                )
         print("Sample decisions:")
         for decision in read_model["sample_decisions"]:
             requirement = _authority_decision_requirement_dict(decision)
@@ -3933,6 +3967,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Inspect AuthorityLease V1 modes, domains, leases, and decisions.",
     )
     authority_state.add_argument("--json", action="store_true", help="Emit safe JSON.")
+    authority_state.add_argument(
+        "--summary",
+        action="store_true",
+        help="Print a compact operator-readable authority summary before detailed refs.",
+    )
     authority_state.set_defaults(func=_inspect_authority_state)
 
     authority_preview = subparsers.add_parser(
