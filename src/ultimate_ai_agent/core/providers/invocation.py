@@ -97,6 +97,10 @@ TINY_PROVIDER_INVOCATION_SCOPE_REFS = (
 TINY_PROVIDER_RECEIPT_SUMMARY = (
     "Scoped provider capability recorded a redacted receipt using a scoped adapter."
 )
+_LEGACY_TINY_PROVIDER_RECEIPT_SUMMARIES = {
+    "Tiny exact-approved provider lane recorded a redacted receipt using an injected adapter.",
+    "Tiny exact-approved provider lane recorded a redacted receipt using a scoped adapter.",
+}
 _TINY_PROVIDER_EXECUTION_GRANT_TOKEN = object()
 
 _TINY_PROVIDER_INVOCATION_SCOPES = {
@@ -1372,7 +1376,7 @@ def evaluate_tiny_provider_invocation(
             request,
             status=missing_status,
             reason_codes=[missing_status.value.upper()],
-            safe_message="Tiny provider invocation is blocked because an exact required ref is missing.",
+            safe_message="Scoped provider capability is blocked because an exact required ref is missing.",
             required_next_action="provide_exact_provider_model_credential_cost_budget_and_receipt_refs",
         )
     scope = _tiny_provider_scope(request.provider_ref)
@@ -1381,7 +1385,7 @@ def evaluate_tiny_provider_invocation(
             request,
             status=TinyProviderInvocationStatus.blocked_provider_not_allowed,
             reason_codes=["PROVIDER_REF_NOT_ALLOWED"],
-            safe_message="Tiny provider lane is scoped to two named provider refs only.",
+            safe_message="Scoped provider capability is limited to two named provider refs only.",
             required_next_action="use_an_allowlisted_single_provider_scope_ref",
         )
     if request.model_ref != scope["model_ref"]:
@@ -1389,7 +1393,7 @@ def evaluate_tiny_provider_invocation(
             request,
             status=TinyProviderInvocationStatus.blocked_model_not_allowed,
             reason_codes=["MODEL_REF_NOT_ALLOWED"],
-            safe_message="Tiny provider lane requires the exact model ref for the selected provider scope.",
+            safe_message="Scoped provider capability requires the exact model ref for the selected provider scope.",
             required_next_action="use_the_exact_model_ref_for_the_selected_provider_scope",
         )
     if request.policy_ref != scope["policy_ref"]:
@@ -1397,7 +1401,7 @@ def evaluate_tiny_provider_invocation(
             request,
             status=TinyProviderInvocationStatus.blocked_missing_policy_validation,
             reason_codes=["POLICY_REF_NOT_ALLOWED"],
-            safe_message="Tiny provider lane requires the exact PolicyEngine policy ref for the selected provider scope.",
+            safe_message="Scoped provider capability requires the exact PolicyEngine policy ref for the selected provider scope.",
             required_next_action="use_the_exact_policy_ref_for_the_selected_provider_scope",
         )
 
@@ -1627,7 +1631,7 @@ def evaluate_tiny_provider_invocation(
             request,
             status=TinyProviderInvocationStatus.blocked_provider_not_allowed,
             reason_codes=["PROVIDER_SCOPE_NOT_ALLOWED"],
-            safe_message="Tiny provider lane requires one exact provider/model/policy scope.",
+            safe_message="Scoped provider capability requires one exact provider/model/policy scope.",
             required_next_action="use_an_allowlisted_single_provider_scope_ref",
             authority_decision=authority_decision,
             cost_decision=cost_decision,
@@ -2336,6 +2340,8 @@ def _normalize_receipt_payload_for_replay(payload: object) -> dict[str, object]:
     if not isinstance(payload, dict):
         raise ValueError("TINY_PROVIDER_INVOCATION_RECEIPT_STORE_PAYLOAD_DENIED")
     normalized = dict(payload)
+    if normalized.get("safe_summary") in _LEGACY_TINY_PROVIDER_RECEIPT_SUMMARIES:
+        normalized["safe_summary"] = TINY_PROVIDER_RECEIPT_SUMMARY
     normalized["reason_codes"] = _sanitize_reason_codes(
         normalized.get("reason_codes"),
         fallback="REDACTED_LEGACY_RECEIPT_REASON",

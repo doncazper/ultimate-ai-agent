@@ -46,6 +46,7 @@ from ultimate_ai_agent.core.providers.invocation import (
     TINY_PROVIDER_INVOCATION_POLICY_REF,
     TINY_PROVIDER_INVOCATION_PROVIDER_REF,
     TINY_PROVIDER_INVOCATION_ROUTE,
+    TINY_PROVIDER_RECEIPT_SUMMARY,
 )
 from tests.tiny_provider_invocation_helpers import (
     OverBudgetTinyProviderInvocationAdapter,
@@ -579,6 +580,24 @@ def test_legacy_receipt_without_completeness_fields_fails_closed_on_replay(
     assert "LEGACY_RECEIPT_COMPLETENESS_MISSING" in decision.receipt.reason_codes
     assert "unsafe lowercase reason" not in decision.receipt.reason_codes
     assert "FURTHER_PROVIDER_USE_BLOCKED" in decision.reason_codes
+
+
+def test_legacy_receipt_summary_replays_as_scoped_provider_capability(
+    tmp_path: Path,
+) -> None:
+    store = TinyProviderInvocationReceiptStore(tmp_path / "legacy-summary.jsonl")
+    legacy_payload = receipt_payload(
+        safe_summary=(
+            "Tiny exact-approved provider lane recorded a redacted receipt using a scoped adapter."
+        )
+    )
+    store.path.parent.mkdir(parents=True, exist_ok=True)
+    store.path.write_text(json.dumps(legacy_payload) + "\n", encoding="utf-8")
+
+    receipts = store.list_receipts()
+
+    assert len(receipts) == 1
+    assert receipts[0].safe_summary == TINY_PROVIDER_RECEIPT_SUMMARY
 
 
 def test_receipt_allows_scoped_network_flag_but_rejects_raw_persistence() -> None:
