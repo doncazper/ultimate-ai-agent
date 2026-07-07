@@ -115,6 +115,11 @@ def evaluate_gate_architecture(root: Path | None = None) -> GateArchitectureRepo
             failures.append(
                 f"{item.relative_path} has {line_count} lines; ceiling is {ceiling}"
             )
+        if relative_path in {
+            LEGACY_EVALUATOR_RELATIVE_PATH,
+            EVALUATION_CONTEXT_RELATIVE_PATH,
+        }:
+            failures.extend(_global_patch_failures(path))
         if relative_path == LEGACY_EVALUATOR_RELATIVE_PATH:
             failures.extend(_legacy_evaluator_failures(path))
     for path in sorted(gate_dir.rglob("*.py")):
@@ -134,11 +139,6 @@ def _line_count(path: Path) -> int:
 def _legacy_evaluator_failures(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
     failures: list[str] = []
-    for fragment in LEGACY_EVALUATOR_FORBIDDEN_GLOBAL_PATCH_FRAGMENTS:
-        if fragment in text:
-            failures.append(
-                f"{path.as_posix()} contains evaluator-owned global patch fragment {fragment!r}"
-            )
     tree = ast.parse(text)
     evaluate_lines = 0
     for node in ast.walk(tree):
@@ -150,6 +150,17 @@ def _legacy_evaluator_failures(path: Path) -> list[str]:
             f"{path.as_posix()} evaluate() has {evaluate_lines} lines; "
             f"ceiling is {LEGACY_EVALUATE_METHOD_LINE_CEILING}"
         )
+    return failures
+
+
+def _global_patch_failures(path: Path) -> list[str]:
+    text = path.read_text(encoding="utf-8")
+    failures: list[str] = []
+    for fragment in LEGACY_EVALUATOR_FORBIDDEN_GLOBAL_PATCH_FRAGMENTS:
+        if fragment in text:
+            failures.append(
+                f"{path.as_posix()} contains gate-owned global patch fragment {fragment!r}"
+            )
     return failures
 
 

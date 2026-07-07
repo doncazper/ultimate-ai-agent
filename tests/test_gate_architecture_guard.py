@@ -94,6 +94,13 @@ def test_gate_architecture_guard_ratchets_legacy_evaluator_debt() -> None:
     assert "Path.rglob =" not in text
     assert "Path.read_text =" not in text
     assert "app.openapi =" not in text
+    context_text = (
+        ROOT / "src/ultimate_ai_agent/core/gate/evaluation_context.py"
+    ).read_text(encoding="utf-8")
+    assert "Path.rglob =" not in context_text
+    assert "Path.read_text =" not in context_text
+    assert "app.openapi =" not in context_text
+    assert "api_openapi.verify_openapi_contract =" not in context_text
     gate_source = ROOT / "src/ultimate_ai_agent/core/gate"
     import ast
 

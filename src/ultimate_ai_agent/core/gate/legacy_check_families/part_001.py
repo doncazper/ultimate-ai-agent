@@ -910,7 +910,7 @@ class FoundationGateLegacyChecksPart001Mixin:
         from ultimate_ai_agent.api.app import app
         from ultimate_ai_agent.api.openapi import verify_openapi_contract
 
-        status = verify_openapi_contract(app)
+        status = self._verify_openapi_contract(app)
         failures = list(status.errors)
         if not status.openapi_generated:
             failures.append("OpenAPI schema was not generated")
@@ -1084,7 +1084,7 @@ class FoundationGateLegacyChecksPart001Mixin:
     ) -> FoundationGateResult:
         from ultimate_ai_agent.api.app import app
 
-        schema = app.openapi()
+        schema = self._openapi_schema()
         failures = []
         route = schema.get("paths", {}).get("/model-runtime/simulate", {}).get("post")
         if not route:

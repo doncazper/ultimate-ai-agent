@@ -330,7 +330,7 @@ class FoundationGateLegacyChecksPart042Mixin:
         try:
             from ultimate_ai_agent.api.app import app
 
-            failures.extend(m150_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m150_openapi_route_failures(self._openapi_paths()))
         except Exception as exc:
             failures.append(f"M150 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])
@@ -523,7 +523,7 @@ class FoundationGateLegacyChecksPart042Mixin:
             from ultimate_ai_agent.api.app import app
             from ultimate_ai_agent.api.openapi import verify_openapi_contract
 
-            paths = set(app.openapi().get("paths", {}))
+            paths = set(self._openapi_paths())
             for route in M151_LOCAL_OPENWEBUI_TEST_ROUTES:
                 if route not in paths:
                     failures.append(
@@ -548,7 +548,7 @@ class FoundationGateLegacyChecksPart042Mixin:
                 failures.append(
                     f"M151 forbidden authority route(s) present: {', '.join(present)}"
                 )
-            contract_status = verify_openapi_contract(app)
+            contract_status = self._verify_openapi_contract(app)
             if contract_status.errors:
                 failures.extend(contract_status.errors)
         except Exception as exc:
@@ -885,8 +885,8 @@ class FoundationGateLegacyChecksPart042Mixin:
             from ultimate_ai_agent.api.app import app
             from ultimate_ai_agent.api.openapi import verify_openapi_contract
 
-            failures.extend(m152_openapi_route_failures(app.openapi().get("paths", {})))
-            contract_status = verify_openapi_contract(app)
+            failures.extend(m152_openapi_route_failures(self._openapi_paths()))
+            contract_status = self._verify_openapi_contract(app)
             if contract_status.errors:
                 failures.extend(contract_status.errors)
         except Exception as exc:
@@ -1145,7 +1145,7 @@ class FoundationGateLegacyChecksPart042Mixin:
                             f"{validated.contract_ref} unsafe flag true: {field_name}"
                         )
 
-            failures.extend(m152_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m152_openapi_route_failures(self._openapi_paths()))
             failures.extend(
                 m152_local_model_management_forbidden_fragment_failures(self.root)
             )

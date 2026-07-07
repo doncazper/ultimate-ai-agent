@@ -688,8 +688,8 @@ class FoundationGateLegacyChecksPart043Mixin:
             from ultimate_ai_agent.api.app import app
             from ultimate_ai_agent.api.openapi import verify_openapi_contract
 
-            failures.extend(m166_openapi_route_failures(app.openapi().get("paths", {})))
-            contract_status = verify_openapi_contract(app)
+            failures.extend(m166_openapi_route_failures(self._openapi_paths()))
+            contract_status = self._verify_openapi_contract(app)
             if contract_status.errors:
                 failures.extend(contract_status.errors)
         except Exception as exc:
@@ -1029,8 +1029,8 @@ class FoundationGateLegacyChecksPart043Mixin:
             from ultimate_ai_agent.api.app import app
             from ultimate_ai_agent.api.openapi import verify_openapi_contract
 
-            failures.extend(m167_openapi_route_failures(app.openapi().get("paths", {})))
-            contract_status = verify_openapi_contract(app)
+            failures.extend(m167_openapi_route_failures(self._openapi_paths()))
+            contract_status = self._verify_openapi_contract(app)
             if contract_status.errors:
                 failures.extend(contract_status.errors)
         except Exception as exc:

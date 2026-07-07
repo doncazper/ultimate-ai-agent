@@ -610,7 +610,7 @@ class FoundationGateLegacyChecksPart004Mixin:
         )
 
         try:
-            openapi_paths = app.openapi().get("paths", {})
+            openapi_paths = self._openapi_paths()
         except Exception as exc:
             failures.append(f"M16 OpenAPI route guard could not generate schema: {exc}")
         else:
@@ -779,7 +779,7 @@ class FoundationGateLegacyChecksPart004Mixin:
         )
 
         try:
-            openapi_paths = app.openapi().get("paths", {})
+            openapi_paths = self._openapi_paths()
         except Exception as exc:
             failures.append(f"M17 OpenAPI route guard could not generate schema: {exc}")
         else:
@@ -947,7 +947,7 @@ class FoundationGateLegacyChecksPart004Mixin:
         )
 
         try:
-            openapi_paths = app.openapi().get("paths", {})
+            openapi_paths = self._openapi_paths()
         except Exception as exc:
             failures.append(
                 f"M17 hardening OpenAPI route guard could not generate schema: {exc}"
@@ -1128,7 +1128,7 @@ class FoundationGateLegacyChecksPart004Mixin:
         )
 
         try:
-            openapi_paths = app.openapi().get("paths", {})
+            openapi_paths = self._openapi_paths()
         except Exception as exc:
             failures.append(f"M18 OpenAPI route guard could not generate schema: {exc}")
         else:

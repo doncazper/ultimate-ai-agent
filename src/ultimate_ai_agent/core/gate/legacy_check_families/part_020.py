@@ -283,7 +283,7 @@ class FoundationGateLegacyChecksPart020Mixin:
         try:
             from ultimate_ai_agent.api.app import app
 
-            failures.extend(m81_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m81_openapi_route_failures(self._openapi_paths()))
         except Exception as exc:
             failures.append(f"M81 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])
@@ -606,7 +606,7 @@ class FoundationGateLegacyChecksPart020Mixin:
         try:
             from ultimate_ai_agent.api.app import app
 
-            failures.extend(m82_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m82_openapi_route_failures(self._openapi_paths()))
         except Exception as exc:
             failures.append(f"M82 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])
@@ -960,7 +960,7 @@ class FoundationGateLegacyChecksPart020Mixin:
         try:
             from ultimate_ai_agent.api.app import app
 
-            failures.extend(m83_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m83_openapi_route_failures(self._openapi_paths()))
         except Exception as exc:
             failures.append(f"M83 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])
@@ -1330,7 +1330,7 @@ class FoundationGateLegacyChecksPart020Mixin:
         try:
             from ultimate_ai_agent.api.app import app
 
-            failures.extend(m84_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m84_openapi_route_failures(self._openapi_paths()))
         except Exception as exc:
             failures.append(f"M84 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])

@@ -117,7 +117,7 @@ class FoundationGateLegacyChecksPart005Mixin:
             )
 
         try:
-            openapi_paths = app.openapi().get("paths", {})
+            openapi_paths = self._openapi_paths()
         except Exception as exc:
             failures.append(f"M19 OpenAPI route guard could not generate schema: {exc}")
         else:
@@ -351,7 +351,7 @@ class FoundationGateLegacyChecksPart005Mixin:
             )
 
         try:
-            openapi_paths = app.openapi().get("paths", {})
+            openapi_paths = self._openapi_paths()
         except Exception as exc:
             failures.append(f"M20 OpenAPI route guard could not generate schema: {exc}")
         else:
@@ -552,7 +552,7 @@ class FoundationGateLegacyChecksPart005Mixin:
             )
 
         try:
-            openapi_paths = app.openapi().get("paths", {})
+            openapi_paths = self._openapi_paths()
         except Exception as exc:
             failures.append(f"M21 OpenAPI route guard could not generate schema: {exc}")
         else:
@@ -699,7 +699,7 @@ class FoundationGateLegacyChecksPart005Mixin:
             )
 
         try:
-            openapi_paths = app.openapi().get("paths", {})
+            openapi_paths = self._openapi_paths()
         except Exception as exc:
             failures.append(f"M22 OpenAPI route guard could not generate schema: {exc}")
         else:
@@ -877,7 +877,7 @@ class FoundationGateLegacyChecksPart005Mixin:
                 failures.append(
                     "M23 forged approval decision performed a local model call"
                 )
-            failures.extend(m23_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m23_openapi_route_failures(self._openapi_paths()))
         except Exception as exc:
             failures.append(f"M23 first local LLM call safety validation failed: {exc}")
 
@@ -1021,7 +1021,7 @@ class FoundationGateLegacyChecksPart005Mixin:
             if raw_export.allowed:
                 failures.append("M24 allowed raw memory export")
 
-            failures.extend(m24_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m24_openapi_route_failures(self._openapi_paths()))
         except Exception as exc:
             failures.append(f"M24 memory provider local store validation failed: {exc}")
 
@@ -1312,7 +1312,7 @@ class FoundationGateLegacyChecksPart005Mixin:
         try:
             from ultimate_ai_agent.api.app import app
 
-            failures.extend(m25_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m25_openapi_route_failures(self._openapi_paths()))
         except Exception as exc:
             failures.append(f"M25 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])

@@ -408,6 +408,15 @@ class FoundationGateLegacyChecksPart044Mixin:
         match = re.search(pattern, self._read(path))
         return match.group(1) if match else None
 
+    def _openapi_schema(self) -> dict[str, Any]:
+        return self._context.openapi_schema()
+
+    def _openapi_paths(self) -> dict[str, Any]:
+        return self._context.openapi_paths()
+
+    def _verify_openapi_contract(self, candidate_app: Any | None = None) -> Any:
+        return self._context.verify_openapi_contract(candidate_app)
+
     def _runtime_lines(self) -> Iterable[tuple[str, int, str]]:
         for rel_path in self._tracked_runtime_files():
             if _is_static_safety_scan_allowed_file(rel_path, ()):

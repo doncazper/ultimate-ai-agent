@@ -1,20 +1,15 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 from pathlib import Path
-from threading import RLock
 from typing import Any, Iterator
-
-
-_LEGACY_GLOBAL_CACHE_LOCK = RLock()
 
 
 class GateEvaluationContext:
     """Per-run caches for Foundation Gate filesystem and OpenAPI reads.
 
-    The legacy evaluator still contains historical direct ``Path`` and OpenAPI
-    calls. Keep that compatibility path serialized here so the evaluator no
-    longer owns process-wide monkeypatch mechanics.
+    Evaluation caches live on this object and are passed through evaluator
+    helpers explicitly. Gate evaluation must not patch process-wide ``Path`` or
+    OpenAPI behavior.
     """
 
     def __init__(self, root: Path) -> None:
@@ -52,56 +47,23 @@ class GateEvaluationContext:
             self._read_text_cache[key] = path.read_text(*args, **kwargs)
         return self._read_text_cache[key]
 
-    @contextmanager
-    def install_legacy_global_caches(self) -> Iterator[None]:
-        from ultimate_ai_agent.api import app as api_app
-        from ultimate_ai_agent.api import openapi as api_openapi
+    def openapi_schema(self) -> Any:
+        if "schema" not in self._openapi_schema_cache:
+            from ultimate_ai_agent.api.app import app
 
-        with _LEGACY_GLOBAL_CACHE_LOCK:
-            original_rglob = Path.rglob
-            original_read_text = Path.read_text
-            app = api_app.app
-            original_openapi = app.openapi
-            original_verify_openapi_contract = api_openapi.verify_openapi_contract
+            self._openapi_schema_cache["schema"] = app.openapi()
+        return self._openapi_schema_cache["schema"]
 
-            def cached_rglob(path: Path, pattern: str) -> Any:
-                if not self.is_cacheable(path):
-                    return original_rglob(path, pattern)
-                key = (path, pattern)
-                if key not in self._rglob_cache:
-                    self._rglob_cache[key] = tuple(original_rglob(path, pattern))
-                return iter(self._rglob_cache[key])
+    def openapi_paths(self) -> dict[str, Any]:
+        return self.openapi_schema().get("paths", {})
 
-            def cached_read_text(path: Path, *args: Any, **kwargs: Any) -> Any:
-                if not self.is_cacheable(path):
-                    return original_read_text(path, *args, **kwargs)
-                key = (path, args, tuple(sorted(kwargs.items())))
-                if key not in self._read_text_cache:
-                    self._read_text_cache[key] = original_read_text(path, *args, **kwargs)
-                return self._read_text_cache[key]
+    def verify_openapi_contract(self, candidate_app: Any | None = None) -> Any:
+        from ultimate_ai_agent.api.app import app
+        from ultimate_ai_agent.api.openapi import verify_openapi_contract
 
-            def cached_openapi() -> Any:
-                if "schema" not in self._openapi_schema_cache:
-                    self._openapi_schema_cache["schema"] = original_openapi()
-                return self._openapi_schema_cache["schema"]
-
-            def cached_verify_openapi_contract(candidate_app: Any) -> Any:
-                if candidate_app is not app:
-                    return original_verify_openapi_contract(candidate_app)
-                if "status" not in self._openapi_contract_cache:
-                    self._openapi_contract_cache["status"] = (
-                        original_verify_openapi_contract(candidate_app)
-                    )
-                return self._openapi_contract_cache["status"]
-
-            Path.rglob = cached_rglob
-            Path.read_text = cached_read_text
-            app.openapi = cached_openapi
-            api_openapi.verify_openapi_contract = cached_verify_openapi_contract
-            try:
-                yield
-            finally:
-                Path.rglob = original_rglob
-                Path.read_text = original_read_text
-                app.openapi = original_openapi
-                api_openapi.verify_openapi_contract = original_verify_openapi_contract
+        target_app = candidate_app or app
+        if target_app is not app:
+            return verify_openapi_contract(target_app)
+        if "status" not in self._openapi_contract_cache:
+            self._openapi_contract_cache["status"] = verify_openapi_contract(target_app)
+        return self._openapi_contract_cache["status"]

@@ -31,12 +31,11 @@ class FoundationGateEvaluator(FoundationGateLegacyChecksMixin):
         self._context = GateEvaluationContext(self.root)
         selected_criteria = criteria or default_foundation_gate_criteria()
         evaluator_map = self._evaluator_map(selected_criteria)
-        with self._context.install_legacy_global_caches():
-            results = [
-                evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
-                for criterion in selected_criteria
-            ]
-            version = self._active_version() or "unknown"
+        results = [
+            evaluator_map.get(criterion.criterion_id, self._skipped)(criterion)
+            for criterion in selected_criteria
+        ]
+        version = self._active_version() or "unknown"
         return build_foundation_gate_report(
             version=version, results=results, trace_id="trace_foundation_gate"
         )

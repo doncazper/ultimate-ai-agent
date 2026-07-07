@@ -12,7 +12,7 @@ class FoundationGateLegacyChecksPart018Mixin:
         try:
             from ultimate_ai_agent.api.app import app
 
-            failures.extend(m73_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m73_openapi_route_failures(self._openapi_paths()))
         except Exception as exc:
             failures.append(f"M73 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])
@@ -344,7 +344,7 @@ class FoundationGateLegacyChecksPart018Mixin:
         try:
             from ultimate_ai_agent.api.app import app
 
-            failures.extend(m74_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m74_openapi_route_failures(self._openapi_paths()))
         except Exception as exc:
             failures.append(f"M74 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])
@@ -668,7 +668,7 @@ class FoundationGateLegacyChecksPart018Mixin:
         try:
             from ultimate_ai_agent.api.app import app
 
-            failures.extend(m75_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m75_openapi_route_failures(self._openapi_paths()))
         except Exception as exc:
             failures.append(f"M75 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])
@@ -976,7 +976,7 @@ class FoundationGateLegacyChecksPart018Mixin:
         try:
             from ultimate_ai_agent.api.app import app
 
-            failures.extend(m76_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m76_openapi_route_failures(self._openapi_paths()))
         except Exception as exc:
             failures.append(f"M76 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])
@@ -1295,7 +1295,7 @@ class FoundationGateLegacyChecksPart018Mixin:
         try:
             from ultimate_ai_agent.api.app import app
 
-            failures.extend(m77_openapi_route_failures(app.openapi().get("paths", {})))
+            failures.extend(m77_openapi_route_failures(self._openapi_paths()))
         except Exception as exc:
             failures.append(f"M77 OpenAPI route validation failed: {exc}")
         return self._result(criterion, failures, [])
