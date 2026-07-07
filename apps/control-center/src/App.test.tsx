@@ -8198,6 +8198,19 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText("uaa runtime inspect-streaming-progress"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("lane-ref:runtime-streaming-progress-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-policy-decision-ref:mock-runtime-streaming-progress",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "adapter-ref:runtime-streaming-progress-live-sse:not-implemented",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("stale_disconnected")).toBeInTheDocument();
     expect(screen.getByText("Runtime profiles")).toBeInTheDocument();
     expect(screen.getByText("GET /api/runtime/profiles")).toBeInTheDocument();

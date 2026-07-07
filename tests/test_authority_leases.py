@@ -791,6 +791,25 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    streaming_progress = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-streaming-progress-read-model"
+    )
+    assert streaming_progress.domain == "workspace"
+    assert streaming_progress.capability == "read"
+    assert streaming_progress.required_mode == "read_only"
+    assert streaming_progress.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/streaming-progress" in streaming_progress.route_refs
+    assert "adapter-ref:runtime-streaming-progress-live-sse:not-implemented" in (
+        streaming_progress.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane[
+            "lane-ref:runtime-streaming-progress-read-model"
+        ].decision.outcome
+        == "allow"
+    )
     browser_action = next(
         mapping
         for mapping in read_model.capability_mappings

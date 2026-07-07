@@ -361,7 +361,10 @@ Contract rules:
   `GET /api/runtime/streaming-progress` exposes the Hermes Runtime Adoption
   Phase 05 backend-owned runtime streaming progress posture for ordered,
   redacted event previews, stale/disconnected stream state, event hash refs,
-  and proof refs. It is read-model only and does not open SSE/WebSocket
+  and proof refs. It now also returns the AuthorityState mapping, catalog,
+  decision, reason, unsupported-adapter, and decision-bound snapshot refs for
+  `lane-ref:runtime-streaming-progress-read-model` under Read-only
+  `workspace/read`. It is read-model only and does not open SSE/WebSocket
   subscriptions, reconnect to Hermes, ingest live runtime events, or persist
   raw runtime/tool/generated/log/prompt/response payloads.
   `GET /api/runtime/profiles` exposes the Hermes Runtime Adoption Phase 06

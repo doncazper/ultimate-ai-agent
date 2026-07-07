@@ -369,6 +369,15 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.runtimeStreamingProgress.sse_transport_enabled).toBe(false);
     expect(data.runtimeStreamingProgress.websocket_transport_enabled).toBe(false);
     expect(data.runtimeStreamingProgress.event_ingest_enabled).toBe(false);
+    expect(data.runtimeStreamingProgress.authority_state_mapping_ref).toBe(
+      "lane-ref:runtime-streaming-progress-read-model",
+    );
+    expect(data.runtimeStreamingProgress.authority_state_decision_outcome).toBe(
+      "allow",
+    );
+    expect(data.runtimeStreamingProgress.unsupported_adapter_refs).toContain(
+      "adapter-ref:runtime-streaming-progress-live-sse:not-implemented",
+    );
     expect(data.runtimeStreamingProgress.stale_stream).toBe(true);
     expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
     expect(data.routeStates["/runtime"].backendRouteRefs).toContain(

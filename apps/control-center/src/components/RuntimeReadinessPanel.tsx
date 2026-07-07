@@ -3569,6 +3569,22 @@ export function RuntimeReadinessPanel({
             <dd>{streamingProgress.cli_ref}</dd>
           </div>
           <div>
+            <dt>Authority</dt>
+            <dd>{streamingProgress.authority_state_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{streamingProgress.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision</dt>
+            <dd>{streamingProgress.authority_state_decision_outcome}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{streamingProgress.authority_state_decision_ref}</dd>
+          </div>
+          <div>
             <dt>Events</dt>
             <dd>{streamingProgress.event_count}</dd>
           </div>
@@ -3621,6 +3637,20 @@ export function RuntimeReadinessPanel({
           {streamingProgress.blocked_authority_refs.slice(0, 5).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
+        </ul>
+        <h4>Unsupported adapters</h4>
+        <ul className="compact-list">
+          {streamingProgress.unsupported_adapter_refs.slice(0, 5).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+        <h4>Authority reason</h4>
+        <ul className="compact-list">
+          {streamingProgress.authority_state_reason_refs
+            .slice(0, 3)
+            .map((ref) => (
+              <li key={ref}>{ref}</li>
+            ))}
         </ul>
       </article>
       <article className="info-card">

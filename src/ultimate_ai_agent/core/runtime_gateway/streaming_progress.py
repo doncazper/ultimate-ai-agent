@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -29,6 +35,19 @@ RUNTIME_STREAMING_PROGRESS_CLI_REF = "uaa runtime inspect-streaming-progress"
 RUNTIME_STREAMING_PROGRESS_PROOF_REF = (
     "proof-ref:runtime-streaming-progress:phase-05"
 )
+RUNTIME_STREAMING_PROGRESS_SNAPSHOT_REF = (
+    "runtime-streaming-progress-snapshot-ref:hermes-agent:event-preview"
+)
+RUNTIME_STREAMING_PROGRESS_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_STREAMING_PROGRESS_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_STREAMING_PROGRESS_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-streaming-progress-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 
 class RuntimeStreamingProgressEventKind(str, Enum):
@@ -108,6 +127,8 @@ class RuntimeStreamingProgressEventPreview(BaseModel):
 class RuntimeStreamingProgressReadModel(BaseModel):
     schema_version: str = "runtime_streaming_progress.v1"
     contract_ref: str = RUNTIME_STREAMING_PROGRESS_CONTRACT_REF
+    snapshot_ref: str = RUNTIME_STREAMING_PROGRESS_SNAPSHOT_REF
+    snapshot_hash_ref: str
     route_ref: str = RUNTIME_STREAMING_PROGRESS_ROUTE_REF
     cli_ref: str = RUNTIME_STREAMING_PROGRESS_CLI_REF
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
@@ -118,6 +139,16 @@ class RuntimeStreamingProgressReadModel(BaseModel):
     stream_state: RuntimeStreamingProgressStreamState = (
         RuntimeStreamingProgressStreamState.stale_disconnected
     )
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     event_previews: list[RuntimeStreamingProgressEventPreview]
     event_count: int
     stale_stream: bool = True
@@ -155,10 +186,15 @@ class RuntimeStreamingProgressReadModel(BaseModel):
     def validate_read_model(self) -> "RuntimeStreamingProgressReadModel":
         for value, field_name in [
             (self.contract_ref, "contract_ref"),
+            (self.snapshot_ref, "snapshot_ref"),
+            (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
             (self.runtime_identity_ref, "runtime_identity_ref"),
             (self.runtime_run_ref, "runtime_run_ref"),
             (self.uaa_durable_run_ref, "uaa_durable_run_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for value, field_name in [
@@ -166,16 +202,36 @@ class RuntimeStreamingProgressReadModel(BaseModel):
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
             (self.status, "status"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "proof_refs",
             "next_safe_action_refs",
         ):
             for ref in getattr(self, field_name):
                 validate_execution_ref(ref, field_name)
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_STREAMING_PROGRESS_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_STREAMING_PROGRESS_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_STREAMING_PROGRESS_AUTHORITY_DECISION_INVALID")
         if self.event_count != len(self.event_previews):
             raise ValueError("RUNTIME_STREAMING_PROGRESS_EVENT_COUNT_DRIFT")
         sequences = [event.sequence for event in self.event_previews]
@@ -215,6 +271,16 @@ class RuntimeStreamingProgressReadModel(BaseModel):
 
 
 def build_runtime_streaming_progress_read_model() -> RuntimeStreamingProgressReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog=None)
+    return build_runtime_streaming_progress_read_model_from_authority_catalog(
+        authority_decision_catalog=[authority_entry]
+    )
+
+
+def build_runtime_streaming_progress_read_model_from_authority_catalog(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeStreamingProgressReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     blocked_refs = [
         *GOVERNED_RUNTIME_REQUIRED_BLOCKED_AUTHORITY_REFS,
         "blocked-authority:runtime-streaming-progress-live-sse",
@@ -277,6 +343,19 @@ def build_runtime_streaming_progress_read_model() -> RuntimeStreamingProgressRea
         ),
     ]
     return RuntimeStreamingProgressReadModel(
+        snapshot_hash_ref=_snapshot_hash_ref(events, authority_entry),
+        authority_state_route_ref=RUNTIME_STREAMING_PROGRESS_AUTHORITY_STATE_ROUTE_REF,
+        authority_state_cli_ref=RUNTIME_STREAMING_PROGRESS_AUTHORITY_STATE_CLI_REF,
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         event_previews=events,
         event_count=len(events),
         blocked_authority_refs=blocked_refs,
@@ -298,3 +377,34 @@ def build_runtime_streaming_progress_read_model() -> RuntimeStreamingProgressRea
             "next-safe-action-ref:runtime-streaming-progress:bind-proof-refs",
         ],
     )
+
+
+def _snapshot_hash_ref(
+    events: list[RuntimeStreamingProgressEventPreview],
+    authority_entry: AuthorityDecisionCatalogEntry,
+) -> str:
+    payload = {
+        "contract_ref": RUNTIME_STREAMING_PROGRESS_CONTRACT_REF,
+        "snapshot_ref": RUNTIME_STREAMING_PROGRESS_SNAPSHOT_REF,
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
+        "event_previews": [event.model_dump(mode="json") for event in events],
+    }
+    digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    return f"snapshot-hash-ref:runtime-streaming-progress:{digest[:16]}"
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    for entry in catalog:
+        if entry.lane_ref == RUNTIME_STREAMING_PROGRESS_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_STREAMING_PROGRESS_AUTHORITY_MAPPING_MISSING")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))

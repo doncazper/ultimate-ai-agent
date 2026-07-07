@@ -420,6 +420,13 @@ mapping/catalog/decision/reason/unsupported-adapter refs for
 `lane-ref:runtime-approval-bridge-read-model`. It does not send approval,
 denial, timeout, or scope-mismatch resolutions to Hermes or any delegated
 runtime.
+`GET /api/runtime/streaming-progress` exposes a protected read-only Python Core
+Hermes Runtime Adoption Phase 05 streaming-progress posture for ordered,
+redacted event previews, stale/disconnected stream state, event hash refs,
+proof refs, and the AuthorityState mapping/catalog/decision/reason/unsupported-
+adapter refs for `lane-ref:runtime-streaming-progress-read-model`. It does not
+open SSE/WebSocket subscriptions, reconnect to Hermes, ingest live runtime
+events, or persist raw runtime/tool/generated/log/prompt/response payloads.
 `GET /api/runtime/profiles` exposes a protected read-only Python Core Hermes
 Runtime Adoption Phase 06 profile isolation posture for UAA-owned profile refs
 that stay separate from delegated runtime profile refs, safe display labels,

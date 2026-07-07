@@ -2941,6 +2941,30 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-streaming-progress-read-model",
+            "Runtime streaming progress read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/streaming-progress"],
+            ["repo-local-command:uaa-runtime-inspect-streaming-progress"],
+            (
+                "Runtime streaming progress inspection reads ordered redacted "
+                "event previews, hashes, proof refs, blocked transport refs, "
+                "and next safe action refs under Workspace read authority. "
+                "Live transport, reconnect, event ingest, tool execution, and "
+                "raw material persistence remain blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:runtime-streaming-progress-live-sse:not-implemented",
+                "adapter-ref:runtime-streaming-progress-websocket:not-implemented",
+                "adapter-ref:runtime-streaming-progress-reconnect:not-implemented",
+                "adapter-ref:runtime-streaming-progress-event-ingest:not-implemented",
+                "adapter-ref:runtime-streaming-progress-raw-payload:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

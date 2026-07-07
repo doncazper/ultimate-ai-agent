@@ -1,12 +1,14 @@
 # UAA Hermes Runtime Streaming Progress
 
-Status: Phase 05 repo-safe read model.
+Status: Phase 05 AuthorityState-bound repo-safe read model.
 
 UAA now exposes a backend-owned runtime streaming progress posture for optional
 Hermes delegation. This is not a live stream subscription, SSE, WebSocket, or
 direct runtime connection. It models ordered, redacted event previews for
 delegated runtime progress with proof refs, event hash refs, stale-stream
-labeling, bounded preview limits, and blocked live-transport refs.
+labeling, bounded preview limits, and blocked live-transport refs. The read
+model evaluates as `lane-ref:runtime-streaming-progress-read-model` under the
+Read-only `workspace/read` AuthorityLease decision.
 
 Implemented:
 
@@ -18,6 +20,9 @@ Implemented:
   proof ref, event hash ref, redaction status, and bounded preview limit.
 - Stale/disconnected stream posture that prevents the UI from presenting a
   fixture or local preview as a live runtime stream.
+- AuthorityState binding with route/CLI refs, catalog ref, decision ref,
+  decision outcome, reason refs, unsupported adapter refs, and a
+  decision-bound snapshot hash.
 - `GET /api/runtime/streaming-progress`.
 - `scripts/dev/uaa_runtime.py inspect-streaming-progress`.
 - Control Center `/runtime` display of the streaming progress route, CLI,

@@ -25,6 +25,21 @@ def _assert_streaming_progress_payload(payload: dict[str, object]) -> None:
         _fail("unexpected streaming progress schema")
     if payload.get("status") != "read_model_event_preview_only":
         _fail("streaming progress must stay read-model preview only")
+    if payload.get("authority_state_route_ref") != "GET /api/runtime/authority-state":
+        _fail("streaming progress must expose AuthorityState route parity")
+    if (
+        payload.get("authority_state_mapping_ref")
+        != "lane-ref:runtime-streaming-progress-read-model"
+    ):
+        _fail("streaming progress must bind to the AuthorityState lane mapping")
+    if payload.get("authority_state_decision_outcome") != "allow":
+        _fail("default read-only lease must allow streaming-progress inspection")
+    unsupported = payload.get("unsupported_adapter_refs")
+    if not isinstance(unsupported, list) or (
+        "adapter-ref:runtime-streaming-progress-live-sse:not-implemented"
+        not in unsupported
+    ):
+        _fail("live SSE adapter must remain unsupported")
     if payload.get("stream_state") != "stale_disconnected":
         _fail("streaming progress must be visibly stale/disconnected")
     if payload.get("stale_stream") is not True:
@@ -139,6 +154,11 @@ def main() -> None:
     _assert_streaming_progress_payload(
         cli_payload.get("runtime_streaming_progress", {})
     )
+    if (
+        cli_payload.get("authority_state", {}).get("mapping_ref")
+        != "lane-ref:runtime-streaming-progress-read-model"
+    ):
+        _fail("CLI must report AuthorityState mapping ref")
     print(
         "Hermes Runtime Adoption Phase 05 streaming progress verification passed."
     )

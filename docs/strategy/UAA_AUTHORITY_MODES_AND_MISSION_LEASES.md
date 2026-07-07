@@ -124,6 +124,11 @@ surfaces are:
   sends, auto-approve, approve-all, standing authority, expired-grant reuse,
   ambiguous-grant authority, raw runtime approval payload persistence, and
   Control Center authority minting remain blocked.
+  Runtime streaming progress exposes the Read-only `workspace/read` redacted
+  event-preview inspection decision while live SSE/WebSocket subscription,
+  reconnect/resume, event ingestion, direct runtime subscription, raw
+  runtime/tool/token/log/prompt/response persistence, and fake liveness remain
+  blocked.
   These API/CLI surfaces remain safe-ref inspection only unless exact active
   leases, implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and
