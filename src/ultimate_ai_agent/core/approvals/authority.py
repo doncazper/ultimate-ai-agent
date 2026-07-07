@@ -13,7 +13,14 @@ from ultimate_ai_agent.core.approvals.enums import (
 from ultimate_ai_agent.core.approvals.grants import ApprovalGrant
 from ultimate_ai_agent.core.approvals.requests import ApprovalRequest
 from ultimate_ai_agent.core.approvals.validation import refs_subset, risk_value
-from ultimate_ai_agent.core.authority import AuthorityLease, AuthorityLeaseStatus
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityLease,
+    AuthorityLeaseStatus,
+    AuthorityPolicyDecision,
+    build_default_authority_leases,
+    evaluate_authority_request,
+)
 from ultimate_ai_agent.core.hygiene.policies import ClassificationValue, DataClassification
 from ultimate_ai_agent.core.planning.validation import validate_task_ref
 from ultimate_ai_agent.core.time import utc_now
@@ -149,6 +156,20 @@ class LocalApprovalAuthority:
         if active_only:
             leases = [lease for lease in leases if lease.is_active()]
         return leases
+
+    def load_authority_lease_for_validation(self, lease: AuthorityLease) -> None:
+        self._authority_leases[lease.lease_ref] = lease
+
+    def evaluate_authority_scope(
+        self,
+        request: AuthorityActionRequest,
+        *,
+        include_default_read_only: bool = False,
+    ) -> AuthorityPolicyDecision:
+        leases = self.list_authority_leases(active_only=True)
+        if include_default_read_only and not leases:
+            leases = build_default_authority_leases()
+        return evaluate_authority_request(request, leases)
 
     def _scope_failures(self, request: ApprovalValidationRequest, grant: ApprovalGrant) -> list[str]:
         failures: list[str] = []

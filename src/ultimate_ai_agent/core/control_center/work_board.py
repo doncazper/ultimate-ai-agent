@@ -1521,36 +1521,40 @@ def _validate_work_board_authority(
     action_ref: str,
     route_ref: str,
     active_authority_leases: list[AuthorityLease] | None,
+    approval_authority: LocalApprovalAuthority | None = None,
 ):
-    leases = (
-        active_authority_leases
-        if active_authority_leases is not None
-        else active_work_board_authority_leases()
-    )
-    decision = evaluate_authority_request(
-        AuthorityActionRequest(
-            action_ref=action_ref,
-            domain=AuthorityDomain.workspace,
-            capability=AuthorityCapability.write,
-            safe_summary=(
-                "Evaluate Workspace write authority for exact Work Board local mutation."
-            ),
-            route_ref=route_ref,
-            requested_mode=TrustMode.ask_before_changes,
-            draft_fallback_available=True,
-            rollback_ref=(
-                WORK_BOARD_REORDER_ROLLBACK_REF
-                if route_ref == WORK_BOARD_REORDER_ROUTE_REF
-                else WORK_BOARD_CARD_CREATE_ROLLBACK_REF
-            ),
-            safe_disable_ref=(
-                WORK_BOARD_REORDER_SAFE_DISABLE_REF
-                if route_ref == WORK_BOARD_REORDER_ROUTE_REF
-                else WORK_BOARD_CARD_CREATE_SAFE_DISABLE_REF
-            ),
+    action_request = AuthorityActionRequest(
+        action_ref=action_ref,
+        domain=AuthorityDomain.workspace,
+        capability=AuthorityCapability.write,
+        safe_summary=(
+            "Evaluate Workspace write authority for exact Work Board local mutation."
         ),
-        leases,
+        route_ref=route_ref,
+        requested_mode=TrustMode.ask_before_changes,
+        draft_fallback_available=True,
+        rollback_ref=(
+            WORK_BOARD_REORDER_ROLLBACK_REF
+            if route_ref == WORK_BOARD_REORDER_ROUTE_REF
+            else WORK_BOARD_CARD_CREATE_ROLLBACK_REF
+        ),
+        safe_disable_ref=(
+            WORK_BOARD_REORDER_SAFE_DISABLE_REF
+            if route_ref == WORK_BOARD_REORDER_ROUTE_REF
+            else WORK_BOARD_CARD_CREATE_SAFE_DISABLE_REF
+        ),
     )
+    if active_authority_leases is not None:
+        decision = evaluate_authority_request(action_request, active_authority_leases)
+    elif approval_authority is not None and approval_authority.list_authority_leases(
+        active_only=True
+    ):
+        decision = approval_authority.evaluate_authority_scope(action_request)
+    else:
+        decision = evaluate_authority_request(
+            action_request,
+            active_work_board_authority_leases(),
+        )
     if decision.outcome not in {
         AuthorityDecisionOutcome.allow.value,
         AuthorityDecisionOutcome.ask.value,
@@ -1680,6 +1684,7 @@ class WorkBoardStateStore:
             action_ref=WORK_BOARD_REORDER_AUTHORITY_ACTION_REF,
             route_ref=WORK_BOARD_REORDER_ROUTE_REF,
             active_authority_leases=self._active_authority_leases,
+            approval_authority=approval_authority,
         )
         receipt = WorkBoardReorderReceipt(
             board_ref=WORK_BOARD_BOARD_REF,
@@ -1771,6 +1776,7 @@ class WorkBoardStateStore:
             action_ref=WORK_BOARD_CARD_CREATE_AUTHORITY_ACTION_REF,
             route_ref=WORK_BOARD_CARD_CREATE_ROUTE_REF,
             active_authority_leases=self._active_authority_leases,
+            approval_authority=approval_authority,
         )
         new_card = _local_card_from_request(request, card_ref=approval_preview.card_ref)
         new_layout = {

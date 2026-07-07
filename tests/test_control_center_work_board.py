@@ -270,7 +270,7 @@ def test_control_center_work_board_card_create_route_requires_exact_approval(
     assert not (tmp_path / "work_board" / "work_board_state.json").exists()
 
 
-def test_work_board_state_store_persists_with_external_exact_approval(
+def test_work_board_state_store_persists_with_external_exact_approval_and_lease(
     tmp_path: Path,
 ) -> None:
     base_board = build_work_board_read_model(apply_persisted_state=False)
@@ -292,10 +292,7 @@ def test_work_board_state_store_persists_with_external_exact_approval(
         columns=reordered_columns,
     )
     idempotency_ref = "idempotency-ref:work-board-test-reorder"
-    store = WorkBoardStateStore(
-        tmp_path / "work_board",
-        active_authority_leases=[_workspace_write_lease()],
-    )
+    store = WorkBoardStateStore(tmp_path / "work_board")
     approval_preview = prepare_work_board_reorder_approval(
         request,
         columns=base_board.columns,
@@ -303,6 +300,7 @@ def test_work_board_state_store_persists_with_external_exact_approval(
         idempotency_ref=idempotency_ref,
     )
     authority = LocalApprovalAuthority()
+    authority.issue_authority_lease(_workspace_write_lease())
     authority.create_request(approval_preview.approval_request)
     authority.grant(
         approval_preview.approval_request.approval_request_id,
@@ -445,7 +443,7 @@ def test_work_board_reorder_requires_active_workspace_write_lease(
     assert not (tmp_path / "work_board" / "work_board_state.json").exists()
 
 
-def test_work_board_state_store_persists_card_create_with_external_exact_approval(
+def test_work_board_state_store_persists_card_create_with_external_exact_approval_and_lease(
     tmp_path: Path,
 ) -> None:
     base_board = build_work_board_read_model(apply_persisted_state=False)
@@ -458,10 +456,7 @@ def test_work_board_state_store_persists_card_create_with_external_exact_approva
         tags=["local", "approved"],
     )
     idempotency_ref = "idempotency-ref:work-board-test-card-create"
-    store = WorkBoardStateStore(
-        tmp_path / "work_board",
-        active_authority_leases=[_workspace_write_lease()],
-    )
+    store = WorkBoardStateStore(tmp_path / "work_board")
     approval_preview = prepare_work_board_card_create_approval(
         request,
         columns=base_board.columns,
@@ -469,6 +464,7 @@ def test_work_board_state_store_persists_card_create_with_external_exact_approva
         idempotency_ref=idempotency_ref,
     )
     authority = LocalApprovalAuthority()
+    authority.issue_authority_lease(_workspace_write_lease())
     authority.create_request(approval_preview.approval_request)
     authority.grant(
         approval_preview.approval_request.approval_request_id,

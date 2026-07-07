@@ -334,7 +334,7 @@ Adapt existing systems:
 | Existing Area | Change |
 |---|---|
 | `PolicyEngine` | Evaluate actions against active leases and domain grants. |
-| `LocalApprovalAuthority` | Issue session/mission leases, not only one-action approval refs. |
+| `LocalApprovalAuthority` | Track and evaluate session/mission leases alongside one-action approval refs; no approval ref grants authority unless the lease domain/capability decision also allows or asks. |
 | `RuntimeGateway` | Execute when the action is inside the active lease. |
 | `WebAccessGateway` | Support browser/web domain policies beyond permanent blocked posture. |
 | Connector modules | Use domain grants for calendar, messages, email, contacts, Home Assistant, and shopping. |
