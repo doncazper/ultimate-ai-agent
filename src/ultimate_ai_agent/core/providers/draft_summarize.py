@@ -111,8 +111,9 @@ class ProviderDraftSummarizeResult(BaseModel):
         "preview for operator review; model output is not truth or action authority."
     )
     next_safe_action: str = (
-        "Review the draft preview manually; approve a separate exact lane before any "
-        "send, write, memory update, context injection, or action execution."
+        "Review the draft preview manually; require a separate AuthorityLease-"
+        "gated capability before any send, write, memory update, context "
+        "injection, or action execution."
     )
     output_is_draft_only: bool = True
     transient_preview_returned_to_requester_only: bool = True

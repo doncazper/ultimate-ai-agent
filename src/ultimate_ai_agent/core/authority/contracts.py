@@ -1937,7 +1937,8 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
                 "Records a redacted RuntimeGateway invocation proposal only; "
                 "adapter execution, approval, command execution, model calls, "
                 "browser automation, connector writes, and production authority "
-                "remain denied unless a later exact lane is approved."
+                "remain denied unless an AuthorityLease-gated capability is "
+                "implemented, approved, and active."
             ),
         ),
         _mapping(

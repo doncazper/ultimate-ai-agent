@@ -154,8 +154,8 @@ class RuntimeCheckpointRollbackReadModel(BaseModel):
     cli_ref: str = RUNTIME_CHECKPOINT_ROLLBACK_CLI_REF
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     safe_summary: str = (
-        "Checkpoint rollback posture exposes exact lane refs, receipts, and "
-        "blocked broad snapshot or rollback execution authority."
+        "Checkpoint rollback posture exposes AuthorityLease capability refs, "
+        "receipts, and blocked broad snapshot or rollback execution authority."
     )
     lanes: list[RuntimeCheckpointRollbackLane]
     lane_count: int = 0
@@ -332,7 +332,8 @@ def _default_lanes() -> list[RuntimeCheckpointRollbackLane]:
             status=RuntimeCheckpointLaneStatus.exact_local_receipt_posture,
             safe_summary=(
                 "Work Board reorder has exact local receipt posture; rollback "
-                "execution remains blocked outside a future exact lane."
+                "execution remains blocked until a rollback AuthorityLease "
+                "capability is implemented and active."
             ),
             checkpoint_available=True,
             checkpoint_ref="checkpoint-ref:work-board-reorder:previous-order",

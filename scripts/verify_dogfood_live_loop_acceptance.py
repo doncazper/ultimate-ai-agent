@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -13,6 +14,15 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AUTHORITY_STATE_DIR_ENV,
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
+    TrustMode,
+)
 from ultimate_ai_agent.core.control_center.dogfood_live_loop import (  # noqa: E402
     DOGFOOD_LIVE_LOOP_ACTION_REF,
     DOGFOOD_LIVE_LOOP_FIXTURE_REF,
@@ -31,6 +41,33 @@ DOC = ROOT / "docs/control_center/DOGFOOD_LIVE_LOOP_ACCEPTANCE.md"
 INDEX = ROOT / "docs/DOCUMENTATION_INDEX.md"
 RELEASE_SURFACE = ROOT / "docs/control_center/CONTROL_CENTER_RELEASE_SURFACE.md"
 TRUTH_PACKET = ROOT / "docs/roadmap/PRODUCT_RELEASE_TRUTH_PACKET.md"
+
+
+def _workspace_write_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:verifier-dogfood-workspace-write",
+        mode=TrustMode.ask_before_changes,
+        domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
+        safe_summary=(
+            "Verifier lease grants Workspace write for dogfood local task commit."
+        ),
+    )
+
+
+def _issue_workspace_write_lease(state_dir: Path) -> None:
+    AuthorityLeaseStore(state_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.ask_before_changes,
+            requested_domains={
+                AuthorityDomain.workspace: [AuthorityCapability.write],
+            },
+            decision_reason_ref="decision-reason-ref:verifier-dogfood-authority-lease",
+            safe_summary=(
+                "Verifier session lease grants Workspace write for dogfood CLI seeding."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:verifier-dogfood-authority-lease",
+    )
 
 
 def _read(path: Path) -> str:
@@ -56,7 +93,12 @@ def _require_absent(path: Path, snippets: list[str], failures: list[str]) -> Non
 def _validate_live_read_model(failures: list[str]) -> None:
     with tempfile.TemporaryDirectory(prefix="dogfood-live-loop-") as temp_dir:
         state_dir = Path(temp_dir) / "founder_loop"
-        repo = FounderLoopRepository(state_dir)
+        authority_state_dir = Path(temp_dir) / "authority"
+        _issue_workspace_write_lease(authority_state_dir)
+        repo = FounderLoopRepository(
+            state_dir,
+            active_authority_leases=[_workspace_write_lease()],
+        )
         read_model = build_dogfood_live_loop_acceptance_read_model(
             repo=repo,
             seed_fixture=True,
@@ -78,6 +120,7 @@ def _validate_live_read_model(failures: list[str]) -> None:
             check=False,
             capture_output=True,
             text=True,
+            env={**os.environ, AUTHORITY_STATE_DIR_ENV: str(authority_state_dir)},
         )
 
     if read_model.get("fixture_ref") != DOGFOOD_LIVE_LOOP_FIXTURE_REF:

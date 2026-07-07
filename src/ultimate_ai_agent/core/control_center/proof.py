@@ -1107,7 +1107,8 @@ def _operator_workspace_spine_record(
         ),
         next_safe_action=(
             f"Inspect {OPERATOR_WORKSPACE_SPINE_CLI_REF}; promote live Git, "
-            "preview, command, or coworker authority as separate exact lanes."
+            "preview, command, or coworker authority as AuthorityLease-gated "
+            "capabilities."
         ),
     )
 

@@ -403,7 +403,8 @@ def build_runtime_doctor_diagnostics_read_model() -> RuntimeDoctorDiagnosticsRea
             status=RuntimeDoctorDiagnosticStatus.ok,
             display_label="Authority",
             safe_summary=(
-                "Authority posture points to exact lanes and blocked refs without minting power."
+                "Authority posture points to AuthorityLease capabilities and "
+                "blocked refs without minting power."
             ),
             signal_refs=[
                 "diagnostic-signal-ref:runtime-doctor:trust-authority",

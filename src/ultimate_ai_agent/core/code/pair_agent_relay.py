@@ -691,8 +691,8 @@ def build_coding_pair_agent_relay_read_model() -> CodingPairAgentRelayReadModel:
         repo_safe_current_state=(
             "UAA exposes the pair-run contract, state machine, adapter registry "
             "posture, receipt refs, artifact refs, and unblock prompt. "
-            "Foreground adapter launch remains blocked until the exact lane is "
-            "approved and proven."
+            "Foreground adapter launch remains blocked until an AuthorityLease-"
+            "gated capability is implemented, approved, and proven."
         ),
         safe_summary=(
             "Pair Agents is preview/readiness only. Agent output would be "

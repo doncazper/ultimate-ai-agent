@@ -97,7 +97,7 @@ def _workspace_write_lease() -> AuthorityLease:
         mode=TrustMode.ask_before_changes,
         domains={AuthorityDomain.workspace: [AuthorityCapability.write]},
         safe_summary=(
-            "Test lease grants Workspace write for exact approved Action Inbox "
+            "Test lease grants Workspace write for AuthorityLease-gated Action Inbox "
             "local task commits."
         ),
     )
@@ -115,7 +115,11 @@ def _history_answers() -> dict[str, dict[str, object]]:
     }
 
 
-def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, object]:
+def _approve_local_task_seed_action(
+    repo: FounderLoopRepository,
+    *,
+    active_authority_leases: list[AuthorityLease] | None = None,
+) -> dict[str, object]:
     receipt = repo.record_action_decision(
         action_id="local-task-create-scorecard",
         decision="approve",
@@ -123,6 +127,7 @@ def _approve_local_task_seed_action(repo: FounderLoopRepository) -> dict[str, ob
             decision_reason_ref="decision-reason-ref:test-local-task-action-approval",
         ),
         idempotency_key_ref="idempotency-ref:test-local-task-action-approval",
+        active_authority_leases=active_authority_leases,
     )
     assert receipt["status"] == "approved"
     return next(
@@ -185,7 +190,10 @@ def test_founder_loop_local_task_commit_requires_workspace_write_lease(
         tmp_path / "founder_loop",
         active_authority_leases=build_default_authority_leases(),
     )
-    action = _approve_local_task_seed_action(repo)
+    action = _approve_local_task_seed_action(
+        repo,
+        active_authority_leases=[_workspace_write_lease()],
+    )
 
     with pytest.raises(FounderLoopAuthorityError) as exc_info:
         repo.commit_local_task(

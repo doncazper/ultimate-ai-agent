@@ -2765,7 +2765,8 @@ def _evidence_audit_group_definition(
         "execution_receipts": {
             "label": "Execution receipts",
             "safe_summary": (
-                "Recorded receipts are grouped for accepted exact lanes and receipt-only decisions."
+                "Recorded receipts are grouped for accepted AuthorityLease "
+                "capabilities and receipt-only decisions."
             ),
             "next_safe_action": (
                 "Inspect receipt envelopes and proof refs; do not infer broader execution authority."

@@ -284,8 +284,9 @@ def build_runtime_remote_execution_posture_read_model() -> (
         _backend(
             RuntimeExecutionBackendKind.local_workspace,
             "Local workspace",
-            "Local workspace execution authority remains limited to separately "
-            "approved exact lanes; this abstraction grants no generic execution.",
+            "Local workspace execution authority remains limited to active "
+            "AuthorityLease-gated capabilities; this abstraction grants no "
+            "generic execution.",
         ),
         _backend(
             RuntimeExecutionBackendKind.local_container,

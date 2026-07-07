@@ -96,8 +96,9 @@ class ConnectorDraftProposalItem(BaseModel):
     safe_summary: str
     redacted_outline: list[str] = Field(default_factory=list)
     next_safe_action: str = (
-        "Review the draft proposal refs; use a separately graduated exact lane "
-        "before any send, write, account action, or connector runtime."
+        "Review the draft proposal refs; require a separately approved "
+        "AuthorityLease-gated capability before any send, write, account action, "
+        "or connector runtime."
     )
     safe_refs_only: bool = True
     draft_only: bool = True
@@ -482,7 +483,8 @@ def _calendar_draft_item(calendar: Any) -> ConnectorDraftProposalItem:
         redacted_outline=[
             "Review bounded calendar metadata refs.",
             "Prepare a draft hold outline for local operator review.",
-            "Keep calendar writes and invite sends blocked until a later exact lane.",
+            "Keep calendar writes and invite sends blocked until a later "
+            "AuthorityLease-gated capability.",
         ],
     )
 

@@ -129,9 +129,9 @@ class ModelProviderAuthoritySummary(BaseModel):
     production_authority_enabled: bool = False
     raw_prompt_response_provider_payload_persisted: bool = False
     safe_summary: str = (
-        "Model/provider handling is wired as governed exact lanes, safe refs, "
-        "cost hooks, local lifecycle posture, and router traces. Broad runtime "
-        "provider execution remains blocked."
+        "Model/provider handling is wired as governed AuthorityLease capabilities, "
+        "safe refs, cost hooks, local lifecycle posture, and router traces. Broad "
+        "runtime provider execution remains blocked."
     )
 
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
@@ -291,7 +291,8 @@ class ModelMetadataDiscoveryPosture(BaseModel):
     safe_summary: str = (
         "Model metadata comes from reviewed static provider catalog refs, "
         "safe local inventory refs, and the local gateway model ref. Live "
-        "provider discovery remains blocked unless an exact lane approves it."
+        "provider discovery remains blocked unless an AuthorityLease-gated "
+        "capability approves it."
     )
 
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
@@ -967,8 +968,9 @@ class ModelProviderResearchPosture(BaseModel):
         ]
     )
     next_safe_action: str = (
-        "Use the control-plane CLI/API/UI to inspect readiness and exact blockers; "
-        "promote live calls or external research only through a later exact lane."
+        "Use the control-plane CLI/API/UI to inspect readiness and AuthorityLease "
+        "blockers; promote live calls or external research only through a later "
+        "AuthorityLease-gated capability."
     )
     provider_sdk_call_enabled: bool = False
     remote_model_call_enabled: bool = False

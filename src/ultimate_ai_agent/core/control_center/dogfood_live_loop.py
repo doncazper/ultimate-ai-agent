@@ -271,7 +271,7 @@ class DogfoodLiveLoopAcceptanceReadModel(BaseModel):
 
 
 def seed_dogfood_live_loop_fixture(repo: FounderLoopRepository) -> dict[str, Any]:
-    """Seed the deterministic local daily loop through existing exact lanes."""
+    """Seed the deterministic local daily loop through accepted capabilities."""
 
     action_at_start = _find_action(repo.list_action_inbox(limit=50))
     existing_commit_receipt = _existing_commit_receipt_projection(action_at_start)

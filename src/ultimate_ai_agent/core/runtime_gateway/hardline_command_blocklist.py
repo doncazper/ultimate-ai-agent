@@ -296,7 +296,10 @@ def classify_hardline_command_argv(
     safe_summary = (
         f"Command shape is hardline denied as {category.value}."
         if denied
-        else "Command shape passes the hardline floor and still needs exact lane checks."
+        else (
+            "Command shape passes the hardline floor and still needs "
+            "AuthorityLease capability checks."
+        )
     )
     return RuntimeHardlineCommandClassification(
         candidate_ref=candidate_ref or _candidate_ref(normalized),
