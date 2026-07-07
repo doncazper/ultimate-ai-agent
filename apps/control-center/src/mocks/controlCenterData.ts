@@ -5923,6 +5923,11 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
       authority_state: "available_now",
       authority_state_label: "available now",
       operator_posture: "enabled_read_only",
+      authority_domain_ref: "authority-domain-ref:workspace",
+      authority_capability_ref: "authority-capability-ref:read",
+      required_authority_mode: "read_only",
+      authority_lease_requirement_ref:
+        "authority-lease-requirement-ref:mock-local-read-preview:workspace:read",
       current_posture:
         "Mock fallback says local read models are the intended lowest-friction lane.",
       approval_posture: "No approval for local read/preview once backend-owned.",
@@ -5963,6 +5968,11 @@ const trustAuthorityMatrix: TrustAuthorityMatrix = {
       authority_state: "blocked",
       authority_state_label: "blocked",
       operator_posture: "blocked",
+      authority_domain_ref: "authority-domain-ref:apps",
+      authority_capability_ref: "authority-capability-ref:write",
+      required_authority_mode: "full_machine_access_session",
+      authority_lease_requirement_ref:
+        "authority-lease-requirement-ref:mock-external-mutation:apps:write",
       current_posture:
         "External sends, writes, provider calls, browser, and shell work remain blocked.",
       approval_posture:

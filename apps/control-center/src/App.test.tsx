@@ -4006,6 +4006,22 @@ describe("Web Control Center shell", () => {
           "promotion-path-ref:trust:provider-draft-summarize:live-provider-separate-contract",
         ),
       ).toBeInTheDocument();
+      expect(screen.getAllByText("AuthorityLease requirement").length).toBeGreaterThan(
+        0,
+      );
+      expect(screen.getAllByText("provider model calls").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("workspace").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("draft").length).toBeGreaterThan(0);
+      expect(
+        screen.getByText(
+          "authority-lease-requirement-ref:provider-draft-summarize:provider_model_calls:draft",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "authority-lease-requirement-ref:local-task-commit:workspace:write",
+        ),
+      ).toBeInTheDocument();
       expect(
         screen.queryByRole("button", {
           name: /Approve|Execute|Send|Apply|Write|Sync|OAuth|Authorize|Connect account|Sign in/i,
@@ -15733,6 +15749,10 @@ type TrustFixtureLane = {
   authority_state: string;
   authority_state_label: string;
   operator_posture: string;
+  authority_domain_ref: string;
+  authority_capability_ref: string;
+  required_authority_mode: string;
+  authority_lease_requirement_ref: string;
   current_posture: string;
   approval_posture: string;
   operator_can_do_now: string;
@@ -15766,6 +15786,11 @@ function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
       authority_state: "available_now",
       authority_state_label: "available now",
       operator_posture: "enabled_read_only",
+      authority_domain_ref: "authority-domain-ref:workspace",
+      authority_capability_ref: "authority-capability-ref:read",
+      required_authority_mode: "read_only",
+      authority_lease_requirement_ref:
+        "authority-lease-requirement-ref:today-loop-read:workspace:read",
       route_refs: ["GET /control-center/today/summary"],
       proof_refs: ["proof-ref:founder-loop-v1:governed-local-loop"],
       cli_inspection_refs: [
@@ -15783,6 +15808,11 @@ function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
       authority_state: "available_now",
       authority_state_label: "available now",
       operator_posture: "review_only",
+      authority_domain_ref: "authority-domain-ref:provider_model_calls",
+      authority_capability_ref: "authority-capability-ref:draft",
+      required_authority_mode: "read_only",
+      authority_lease_requirement_ref:
+        "authority-lease-requirement-ref:provider-draft-summarize:provider_model_calls:draft",
       route_refs: ["provider-draft-summarize-lane:exact-approved:v1"],
       proof_refs: ["proof-ref:provider-draft-summarize:exact"],
       cli_inspection_refs: [
@@ -15812,6 +15842,11 @@ function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
       authority_state: "available_now",
       authority_state_label: "available now",
       operator_posture: "review_only",
+      authority_domain_ref: "authority-domain-ref:email",
+      authority_capability_ref: "authority-capability-ref:draft",
+      required_authority_mode: "read_only",
+      authority_lease_requirement_ref:
+        "authority-lease-requirement-ref:connector-draft-only:email:draft",
       route_refs: ["GET /control-center/sources/readiness#connector_draft_proposals"],
       proof_refs: ["proof-ref:connector-draft-only-proposals:v1"],
       cli_inspection_refs: [
@@ -15837,6 +15872,11 @@ function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
       authority_state: "approval_required",
       authority_state_label: "approval required",
       operator_posture: "approval_required",
+      authority_domain_ref: "authority-domain-ref:workspace",
+      authority_capability_ref: "authority-capability-ref:write",
+      required_authority_mode: "ask_before_changes",
+      authority_lease_requirement_ref:
+        "authority-lease-requirement-ref:local-task-commit:workspace:write",
       route_refs: [
         "POST /control-center/actions/{action_id}/local-task/commit",
       ],
@@ -15867,6 +15907,11 @@ function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
       authority_state: "approval_required",
       authority_state_label: "approval required",
       operator_posture: "approval_required",
+      authority_domain_ref: "authority-domain-ref:email",
+      authority_capability_ref: "authority-capability-ref:send",
+      required_authority_mode: "full_machine_access_session",
+      authority_lease_requirement_ref:
+        "authority-lease-requirement-ref:connector-write-low-risk:email:send",
       route_refs: ["GET /control-center/sources/readiness#connector_draft_proposals"],
       proof_refs: ["proof-ref:connector-write:low-risk-exact"],
       safe_disable_refs: ["safe-disable-ref:connector-write:low-risk"],
@@ -15927,6 +15972,11 @@ function trustFixtureLane(
     authority_state: "available_now",
     authority_state_label: "available now",
     operator_posture: "enabled_read_only",
+    authority_domain_ref: "authority-domain-ref:workspace",
+    authority_capability_ref: "authority-capability-ref:read",
+    required_authority_mode: "read_only",
+    authority_lease_requirement_ref:
+      "authority-lease-requirement-ref:test:workspace:read",
     current_posture: "Backend-owned Trust lane posture.",
     approval_posture: "No approval required for read-only inspection.",
     operator_can_do_now: "Inspect backend-owned Trust refs.",

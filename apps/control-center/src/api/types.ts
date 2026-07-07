@@ -271,6 +271,10 @@ export interface TrustAuthorityLane {
   authority_state: TrustAuthorityState;
   authority_state_label: string;
   operator_posture: TrustOperatorPosture;
+  authority_domain_ref: string;
+  authority_capability_ref: string;
+  required_authority_mode: string;
+  authority_lease_requirement_ref: string;
   current_posture: string;
   approval_posture: string;
   operator_can_do_now: string;

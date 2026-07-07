@@ -102,6 +102,21 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     assert all(lane.safe_disable_refs for lane in parsed.lanes)
     assert all(lane.rollback_refs for lane in parsed.lanes)
     assert all(lane.promotion_path_refs for lane in parsed.lanes)
+    assert all(
+        lane.authority_domain_ref.startswith("authority-domain-ref:")
+        for lane in parsed.lanes
+    )
+    assert all(
+        lane.authority_capability_ref.startswith("authority-capability-ref:")
+        for lane in parsed.lanes
+    )
+    assert all(
+        lane.authority_lease_requirement_ref.startswith(
+            "authority-lease-requirement-ref:"
+        )
+        for lane in parsed.lanes
+    )
+    assert all(lane.required_authority_mode for lane in parsed.lanes)
     assert set(parsed.cli_inspection_refs) == {
         ref for lane in parsed.lanes for ref in lane.cli_inspection_refs
     }
@@ -135,6 +150,25 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
         not any(ref.endswith(":no-mutation") for ref in lane.rollback_refs)
         for lane in tier_3_plus
     )
+    lanes_by_ref = {lane.lane_ref: lane for lane in parsed.lanes}
+    command_lane = lanes_by_ref["trust-lane:governed-command-execution"]
+    assert command_lane.authority_domain_ref == "authority-domain-ref:workspace"
+    assert command_lane.authority_capability_ref == "authority-capability-ref:execute"
+    assert command_lane.required_authority_mode == "ask_before_changes"
+    assert (
+        command_lane.authority_lease_requirement_ref
+        == "authority-lease-requirement-ref:governed-command-execution:workspace:execute"
+    )
+    provider_lane = lanes_by_ref["trust-lane:provider-model-invocation"]
+    assert (
+        provider_lane.authority_domain_ref
+        == "authority-domain-ref:provider_model_calls"
+    )
+    assert provider_lane.authority_capability_ref == "authority-capability-ref:execute"
+    assert provider_lane.required_authority_mode == "full_machine_access_session"
+    browser_lane = lanes_by_ref["trust-lane:browser-low-risk-action"]
+    assert browser_lane.authority_domain_ref == "authority-domain-ref:browser"
+    assert browser_lane.authority_capability_ref == "authority-capability-ref:click"
     _assert_no_runtime_authority(matrix)
 
 

@@ -136,6 +136,10 @@ class TrustAuthorityLane(BaseModel):
     authority_state: TrustAuthorityState
     authority_state_label: str = Field(..., min_length=1, max_length=120)
     operator_posture: TrustOperatorPosture
+    authority_domain_ref: str = Field(..., min_length=1)
+    authority_capability_ref: str = Field(..., min_length=1)
+    required_authority_mode: str = Field(..., min_length=1, max_length=120)
+    authority_lease_requirement_ref: str = Field(..., min_length=1)
     current_posture: str = Field(..., min_length=1, max_length=700)
     approval_posture: str = Field(..., min_length=1, max_length=500)
     operator_can_do_now: str = Field(..., min_length=1, max_length=500)
@@ -175,6 +179,15 @@ class TrustAuthorityLane(BaseModel):
         ):
             validate_safe_execution_text(str(getattr(self, field_name)), field_name)
         _validate_text_list(self.route_refs, "route_refs")
+        _validate_ref_list(
+            [
+                self.authority_domain_ref,
+                self.authority_capability_ref,
+                self.authority_lease_requirement_ref,
+            ],
+            "authority_lease_mapping_refs",
+        )
+        validate_safe_execution_text(self.required_authority_mode, "required_authority_mode")
         _validate_ref_list(self.proof_refs, "proof_refs")
         _validate_text_list(self.verifier_refs, "verifier_refs")
         _validate_text_list(self.docs_refs, "docs_refs")
@@ -378,8 +391,9 @@ def build_trust_authority_matrix_read_model(
         operator_summary=(
             "UAA can inspect local read models, previews, drafts, proof, evidence, "
             "memory review state, exact local receipt lanes, governed runtime "
-            "lanes, and high-authority promotion paths that remain blocked "
-            "until exact route, CLI, receipt, rollback, and verifier contracts exist."
+            "capabilities, and high-authority mode/domain requirements that remain "
+            "blocked until an active AuthorityLease plus exact route, CLI, receipt, "
+            "rollback, and verifier contracts exist."
         ),
         lanes=lanes,
         tier_summaries=tier_summaries,
@@ -427,8 +441,9 @@ def build_trust_authority_matrix_read_model(
         ),
         next_safe_action=(
             "Use available local read, preview, draft, proof, evidence, and exact "
-            "local receipt lanes; graduate external and standing authority only "
-            "through separate verifier-backed PRs."
+            "local receipt capabilities; use Trust rows to inspect the required "
+            "AuthorityLease mode, domain, and capability before any external or "
+            "standing authority is proposed."
         ),
     )
     return model.model_dump(mode="json")
@@ -1210,6 +1225,9 @@ def _lane(
     docs_refs: list[str],
     authority_state_label: str | None = None,
     operator_posture: TrustOperatorPosture | None = None,
+    authority_domain_ref: str | None = None,
+    authority_capability_ref: str | None = None,
+    required_authority_mode: str | None = None,
     cli_inspection_refs: list[str] | None = None,
     safe_disable_refs: list[str] | None = None,
     rollback_refs: list[str] | None = None,
@@ -1220,6 +1238,13 @@ def _lane(
     requires_rollback_posture: bool = False,
 ) -> TrustAuthorityLane:
     lane_suffix = _lane_suffix(lane_ref)
+    default_domain_ref, default_capability_ref = _default_authority_mapping_refs(
+        lane_ref=lane_ref,
+        lane_kind=lane_kind,
+        tier=tier,
+    )
+    domain_ref = authority_domain_ref or default_domain_ref
+    capability_ref = authority_capability_ref or default_capability_ref
     return TrustAuthorityLane(
         lane_ref=lane_ref,
         label=label,
@@ -1232,6 +1257,15 @@ def _lane(
         or _authority_state_label(authority_state),
         operator_posture=operator_posture
         or _expected_operator_posture(authority_state, tier),
+        authority_domain_ref=domain_ref,
+        authority_capability_ref=capability_ref,
+        required_authority_mode=required_authority_mode
+        or _required_authority_mode_for_tier(tier, lane_kind),
+        authority_lease_requirement_ref=(
+            f"authority-lease-requirement-ref:{lane_suffix}:"
+            f"{domain_ref.removeprefix('authority-domain-ref:')}:"
+            f"{capability_ref.removeprefix('authority-capability-ref:')}"
+        ),
         current_posture=current_posture,
         approval_posture=approval_posture,
         operator_can_do_now=operator_can_do_now,
@@ -1302,6 +1336,63 @@ def _expected_operator_posture(
     if authority_state == "planned":
         return "planned"
     return "blocked"
+
+
+def _default_authority_mapping_refs(
+    *,
+    lane_ref: str,
+    lane_kind: TrustAuthorityLaneKind,
+    tier: int,
+) -> tuple[str, str]:
+    lane = lane_ref.removeprefix("trust-lane:")
+    if "memory" in lane:
+        capability = "write" if tier >= 3 else "read"
+        return "authority-domain-ref:memory", f"authority-capability-ref:{capability}"
+    if "provider" in lane or "model" in lane:
+        capability = "execute" if tier >= 4 else "draft"
+        return (
+            "authority-domain-ref:provider_model_calls",
+            f"authority-capability-ref:{capability}",
+        )
+    if "connector-draft" in lane:
+        return "authority-domain-ref:email", "authority-capability-ref:draft"
+    if "connector-write" in lane:
+        return "authority-domain-ref:email", "authority-capability-ref:send"
+    if "web-evidence" in lane or "browser" in lane:
+        capability = "click" if tier >= 4 else "observe"
+        return "authority-domain-ref:browser", f"authority-capability-ref:{capability}"
+    if "production" in lane:
+        return "authority-domain-ref:cloud_production", "authority-capability-ref:deploy"
+    if "background-autonomy" in lane:
+        return "authority-domain-ref:apps", "authority-capability-ref:execute"
+    if "issue-tracker" in lane:
+        return "authority-domain-ref:apps", "authority-capability-ref:write"
+    if "governed-command" in lane:
+        return "authority-domain-ref:workspace", "authority-capability-ref:execute"
+    if "work-board" in lane or "local-task" in lane:
+        return "authority-domain-ref:workspace", "authority-capability-ref:write"
+    if lane_kind == "draft_proposal":
+        return "authority-domain-ref:workspace", "authority-capability-ref:draft"
+    if lane_kind == "reversible_local_mutation":
+        return "authority-domain-ref:workspace", "authority-capability-ref:write"
+    if lane_kind == "external_mutation":
+        return "authority-domain-ref:apps", "authority-capability-ref:write"
+    if lane_kind == "background_standing_authority":
+        return "authority-domain-ref:apps", "authority-capability-ref:execute"
+    return "authority-domain-ref:workspace", "authority-capability-ref:read"
+
+
+def _required_authority_mode_for_tier(
+    tier: int,
+    lane_kind: TrustAuthorityLaneKind,
+) -> str:
+    if tier <= 2:
+        return "read_only"
+    if tier == 3:
+        return "ask_before_changes"
+    if lane_kind == "background_standing_authority":
+        return "delegated_mission_autonomous_window"
+    return "full_machine_access_session"
 
 
 def _authority_state_label(authority_state: TrustAuthorityState) -> str:

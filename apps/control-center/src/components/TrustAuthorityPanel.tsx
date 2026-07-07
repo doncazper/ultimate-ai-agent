@@ -193,6 +193,18 @@ function LaneColumn({
                 value={formatTrustLabel(lane.operator_posture)}
               />
               <DetailTerm
+                label="Lease mode"
+                value={formatTrustLabel(lane.required_authority_mode)}
+              />
+              <DetailTerm
+                label="Domain"
+                value={formatAuthorityRef(lane.authority_domain_ref)}
+              />
+              <DetailTerm
+                label="Capability"
+                value={formatAuthorityRef(lane.authority_capability_ref)}
+              />
+              <DetailTerm
                 label="Approval"
                 value={lane.requires_exact_approval ? "exact required" : "not required"}
               />
@@ -223,6 +235,10 @@ function LaneColumn({
               title="Safe-disable and rollback"
               refs={[...lane.safe_disable_refs, ...lane.rollback_refs]}
             />
+            <RefGroup
+              title="AuthorityLease requirement"
+              refs={authorityLeaseRequirementRefs(lane)}
+            />
             <RefGroup title="Promotion path" refs={lane.promotion_path_refs} />
             {(tone === "blocked" || lane.blocked_authority_refs.length > 0) ? (
               <RefGroup title="Blocked authority" refs={lane.blocked_authority_refs} />
@@ -239,8 +255,23 @@ function stateLabel(state: TrustAuthorityState): string {
   return state.replaceAll("_", " ");
 }
 
-function formatTrustLabel(value: string): string {
-  return value.replaceAll("_", " ");
+function formatTrustLabel(value: string | undefined): string {
+  return (value ?? "unknown").replaceAll("_", " ");
+}
+
+function formatAuthorityRef(value: string | undefined): string {
+  return (value ?? "authority-domain-ref:unknown")
+    .replace(/^authority-(domain|capability)-ref:/, "")
+    .replaceAll("_", " ");
+}
+
+function authorityLeaseRequirementRefs(lane: TrustAuthorityLane): string[] {
+  return [
+    lane.authority_lease_requirement_ref ??
+      "authority-lease-requirement-ref:unknown",
+    lane.authority_domain_ref ?? "authority-domain-ref:unknown",
+    lane.authority_capability_ref ?? "authority-capability-ref:unknown",
+  ];
 }
 
 function DetailTerm({ label, value }: { label: string; value: string }) {
