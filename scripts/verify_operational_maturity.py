@@ -80,7 +80,7 @@ LADDER_LABELS = {
     6: "rollback_safe_disable_verified",
     7: "routine_operational_loop",
 }
-AUTHORITY_TIER_DOC_REF = "docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"
+AUTHORITY_TIER_DOC_REF = "docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md"
 AUTHORITY_TIER_DOCTRINE = "Earned authority, low friction by default, strict only where consequences justify it."
 EXPECTED_USABLE_AUTHORITY_TIERS = {
     0: "tier_0_ui_ephemeral_state",
@@ -117,17 +117,16 @@ TIER_MODEL_REQUIRED_GUARDRAILS = {
     "draft_available_does_not_mean_send_available",
     "preview_available_does_not_mean_runtime_execution",
 }
-USABLE_AUTHORITY_PLAN_SNIPPETS = {
-    "earned authority, low friction by default, strict only where consequences justify it",
-    "tier 0",
-    "tier 1",
-    "tier 2",
-    "tier 3",
-    "tier 4",
-    "tier 5",
-    "no approval required",
-    "approval is required only to commit",
-    "draft available is not send available",
+AUTHORITY_MODE_CANON_SNIPPETS = {
+    "active authority foundation canon for authoritylease v1",
+    "mode/domain/lease authority",
+    "operator-selected session leases",
+    "mission-scoped leases",
+    "unsupported browser/app/payment/calendar/messages/home assistant adapters "
+    "remain denied or draft-degraded",
+    "read-only",
+    "ask before changes",
+    "approved safe local work",
 }
 PRODUCT_LANGUAGE_TIER_SNIPPETS = {
     "usable authority tiers",
@@ -481,6 +480,7 @@ def _append_schema_shape_failures(
         "blocked_authorities",
         "missing_contracts",
         "smallest_next_operational_action",
+        "authority_capabilities",
     ]:
         if field not in module_required:
             failures.append(f"operational maturity schema missing module field {field}")
@@ -680,9 +680,9 @@ def _append_authority_tier_model_failures(
         failures.append(f"authority tier plan missing {AUTHORITY_TIER_DOC_REF}")
     else:
         plan_text = _compact_text(plan_path)
-        for snippet in sorted(USABLE_AUTHORITY_PLAN_SNIPPETS):
+        for snippet in sorted(AUTHORITY_MODE_CANON_SNIPPETS):
             if snippet not in plan_text:
-                failures.append(f"authority tier plan missing '{snippet}'")
+                failures.append(f"authority mode canon missing '{snippet}'")
 
     product_language_text = _compact_text(
         root / PRODUCT_LANGUAGE_RULES_PATH.relative_to(ROOT)
@@ -1374,37 +1374,34 @@ def _append_memory_context_pack_manifest_failures(
     lanes = {
         str(lane.get("lane_id")): lane for lane in module.get("graduated_lanes", [])
     }
-    if "context_injection" in lanes or "context_pack_preview_materialization" in lanes:
-        failures.append("memory must not graduate context_injection in prerequisite PR")
-    lane = lanes.get(MEMORY_REVIEWED_RECALL_WRITE_LANE_ID)
-    if lane is None:
-        failures.append("memory reviewed recall-write graduated lane missing")
-        return
-    lane_routes = set(lane.get("backend_routes", []))
-    for route_ref in MEMORY_REVIEWED_RECALL_WRITE_ROUTES:
-        if route_ref not in lane_routes:
-            failures.append(
-                f"memory reviewed recall-write lane missing route {route_ref}"
-            )
-    posture_refs = set(lane.get("rollback_or_safe_disable_refs", []))
-    for posture_ref in MEMORY_REVIEWED_RECALL_WRITE_POSTURE_REFS:
-        if posture_ref not in posture_refs:
-            failures.append(
-                f"memory reviewed recall-write lane missing posture ref {posture_ref}"
-            )
-    if lane.get("cli_parity_ref") != MEMORY_REVIEWED_RECALL_WRITE_CLI_REF:
-        failures.append("memory reviewed recall-write lane CLI parity ref drifted")
-    lane_tests = set(lane.get("focused_test_refs", []))
-    for test_ref in MEMORY_REVIEWED_RECALL_WRITE_TEST_REFS:
-        if test_ref not in lane_tests:
-            failures.append(
-                f"memory reviewed recall-write lane missing focused test {test_ref}"
-            )
-    capabilities = {
-        str(capability.get("legacy_lane_id")): capability
+    capabilities_by_id = {
+        str(capability.get("capability_id")): capability
         for capability in module.get("authority_capabilities", [])
     }
-    capability = capabilities.get(MEMORY_REVIEWED_RECALL_WRITE_LANE_ID)
+    capabilities_by_legacy_lane = {
+        str(capability.get("legacy_lane_id")): capability
+        for capability in module.get("authority_capabilities", [])
+        if capability.get("legacy_lane_id")
+    }
+    if "context_injection" in lanes or "context_pack_preview_materialization" in lanes:
+        failures.append(
+            "memory must not mark context_injection as implemented authority capability "
+            "or legacy graduated lane"
+        )
+    for capability in module.get("authority_capabilities", []):
+        legacy_lane_id = str(capability.get("legacy_lane_id", ""))
+        if legacy_lane_id in {
+            "context_injection",
+            "context_pack_preview_materialization",
+        }:
+            failures.append(
+                "memory must not mark context_injection as implemented authority capability "
+                "or legacy graduated lane"
+            )
+            break
+    capability = capabilities_by_id.get(
+        MEMORY_REVIEWED_RECALL_WRITE_AUTHORITY_CAPABILITY_ID
+    ) or capabilities_by_legacy_lane.get(MEMORY_REVIEWED_RECALL_WRITE_LANE_ID)
     if capability is None:
         failures.append("memory reviewed recall-write authority capability missing")
         return
@@ -1428,6 +1425,51 @@ def _append_memory_context_pack_manifest_failures(
             failures.append(
                 "memory reviewed recall-write authority capability missing "
                 f"posture ref {posture_ref}"
+            )
+    capability_routes = set(capability.get("backend_routes", []))
+    for route_ref in MEMORY_REVIEWED_RECALL_WRITE_ROUTES:
+        if route_ref not in capability_routes:
+            failures.append(
+                "memory reviewed recall-write authority capability missing "
+                f"route {route_ref}"
+            )
+    if capability.get("cli_parity_ref") != MEMORY_REVIEWED_RECALL_WRITE_CLI_REF:
+        failures.append(
+            "memory reviewed recall-write authority capability CLI parity ref drifted"
+        )
+    capability_tests = set(capability.get("focused_test_refs", []))
+    for test_ref in MEMORY_REVIEWED_RECALL_WRITE_TEST_REFS:
+        if test_ref not in capability_tests:
+            failures.append(
+                "memory reviewed recall-write authority capability missing "
+                f"focused test {test_ref}"
+            )
+    lane = lanes.get(MEMORY_REVIEWED_RECALL_WRITE_LANE_ID)
+    if lane is None:
+        return
+    lane_routes = set(lane.get("backend_routes", []))
+    for route_ref in MEMORY_REVIEWED_RECALL_WRITE_ROUTES:
+        if route_ref not in lane_routes:
+            failures.append(
+                f"memory reviewed recall-write legacy lane missing route {route_ref}"
+            )
+    posture_refs = set(lane.get("rollback_or_safe_disable_refs", []))
+    for posture_ref in MEMORY_REVIEWED_RECALL_WRITE_POSTURE_REFS:
+        if posture_ref not in posture_refs:
+            failures.append(
+                "memory reviewed recall-write legacy lane missing posture ref "
+                f"{posture_ref}"
+            )
+    if lane.get("cli_parity_ref") != MEMORY_REVIEWED_RECALL_WRITE_CLI_REF:
+        failures.append(
+            "memory reviewed recall-write legacy lane CLI parity ref drifted"
+        )
+    lane_tests = set(lane.get("focused_test_refs", []))
+    for test_ref in MEMORY_REVIEWED_RECALL_WRITE_TEST_REFS:
+        if test_ref not in lane_tests:
+            failures.append(
+                "memory reviewed recall-write legacy lane missing focused test "
+                f"{test_ref}"
             )
 
 
@@ -1593,14 +1635,18 @@ def _append_authority_capability_failures(
     }
     if legacy_lane_ids and not capabilities:
         failures.append(
-            f"{module_id} implemented lanes must map to authority_capabilities"
+            f"{module_id} implemented authority requires authority_capabilities"
         )
         return
     for capability_id, capability in capabilities.items():
-        legacy_lane_id = str(capability.get("legacy_lane_id"))
-        if legacy_lane_id not in legacy_lane_ids:
+        legacy_lane_id = capability.get("legacy_lane_id")
+        if (
+            legacy_lane_id
+            and legacy_lane_ids
+            and str(legacy_lane_id) not in legacy_lane_ids
+        ):
             failures.append(
-                f"{module_id}:{capability_id} authority capability missing legacy lane binding"
+                f"{module_id}:{capability_id} authority capability legacy lane binding drifted"
             )
         if int(capability.get("rank", -1)) < 5:
             failures.append(
@@ -1669,32 +1715,20 @@ def _append_first_lane_failures(
         str(lane.get("lane_id")): lane
         for lane in action_inbox.get("graduated_lanes", [])
     }
-    lane = lanes.get(LOCAL_TASK_LANE_ID)
-    if lane is None:
-        failures.append("Action Inbox local_task_create graduated lane missing")
-        return
-    if lane.get("rank") != 5:
-        failures.append("local_task_create lane must be rank 5")
-    for expected, field in [
-        (LOCAL_TASK_ROUTE, "backend_routes"),
-        (LOCAL_TASK_RECEIPT_REF, "receipt_refs"),
-        (LOCAL_TASK_EVENT_REF, "evidence_refs"),
-        (LOCAL_TASK_ROLLBACK_REF, "rollback_or_safe_disable_refs"),
-        (LOCAL_TASK_SAFE_DISABLE_REF, "rollback_or_safe_disable_refs"),
-    ]:
-        if expected not in set(lane.get(field, [])):
-            failures.append(f"local_task_create lane missing {expected}")
-    if lane.get("rollback_or_safe_disable_required") is not True:
-        failures.append("local_task_create lane must require rollback or safe-disable")
-    if "rollback_execution" not in set(lane.get("blocked_authorities", [])):
-        failures.append("local_task_create lane must keep rollback_execution blocked")
-    capabilities = {
-        str(capability.get("legacy_lane_id")): capability
+    capabilities_by_id = {
+        str(capability.get("capability_id")): capability
         for capability in action_inbox.get("authority_capabilities", [])
     }
-    capability = capabilities.get(LOCAL_TASK_LANE_ID)
+    capabilities_by_legacy_lane = {
+        str(capability.get("legacy_lane_id")): capability
+        for capability in action_inbox.get("authority_capabilities", [])
+        if capability.get("legacy_lane_id")
+    }
+    capability = capabilities_by_id.get(
+        LOCAL_TASK_AUTHORITY_CAPABILITY_ID
+    ) or capabilities_by_legacy_lane.get(LOCAL_TASK_LANE_ID)
     if capability is None:
-        failures.append("local_task_create authority capability mapping missing")
+        failures.append("Action Inbox local_task_create authority capability missing")
     else:
         expected_capability_fields = {
             "capability_id": LOCAL_TASK_AUTHORITY_CAPABILITY_ID,
@@ -1716,7 +1750,32 @@ def _append_first_lane_failures(
                 failures.append(
                     f"local_task_create authority capability missing {expected_ref}"
                 )
-    _append_local_task_repeatability_gate_failures(failures, lane, root)
+        if LOCAL_TASK_ROUTE not in set(capability.get("backend_routes", [])):
+            failures.append(
+                f"local_task_create authority capability missing {LOCAL_TASK_ROUTE}"
+            )
+        _append_local_task_repeatability_gate_failures(failures, capability, root)
+    lane = lanes.get(LOCAL_TASK_LANE_ID)
+    if lane is not None:
+        if lane.get("rank") != 5:
+            failures.append("local_task_create legacy lane must be rank 5")
+        for expected, field in [
+            (LOCAL_TASK_ROUTE, "backend_routes"),
+            (LOCAL_TASK_RECEIPT_REF, "receipt_refs"),
+            (LOCAL_TASK_EVENT_REF, "evidence_refs"),
+            (LOCAL_TASK_ROLLBACK_REF, "rollback_or_safe_disable_refs"),
+            (LOCAL_TASK_SAFE_DISABLE_REF, "rollback_or_safe_disable_refs"),
+        ]:
+            if expected not in set(lane.get(field, [])):
+                failures.append(f"local_task_create legacy lane missing {expected}")
+        if lane.get("rollback_or_safe_disable_required") is not True:
+            failures.append(
+                "local_task_create legacy lane must require rollback or safe-disable"
+            )
+        if "rollback_execution" not in set(lane.get("blocked_authorities", [])):
+            failures.append(
+                "local_task_create legacy lane must keep rollback_execution blocked"
+            )
     route = routes_by_ref.get(LOCAL_TASK_ROUTE)
     if route is None:
         failures.append("local_task_create route missing from API manifest")
@@ -1743,15 +1802,16 @@ def _append_first_lane_failures(
 
 def _append_local_task_repeatability_gate_failures(
     failures: list[str],
-    lane: dict[str, Any],
+    capability: dict[str, Any],
     root: Path,
 ) -> None:
-    if lane.get("repeatability_gate_ref") != LOCAL_TASK_REPEATABILITY_GATE_REF:
+    if capability.get("repeatability_gate_ref") != LOCAL_TASK_REPEATABILITY_GATE_REF:
         failures.append(
-            f"local_task_create lane must declare {LOCAL_TASK_REPEATABILITY_GATE_REF}"
+            "local_task_create authority capability must declare "
+            f"{LOCAL_TASK_REPEATABILITY_GATE_REF}"
         )
 
-    focused_test_refs = set(lane.get("focused_test_refs", []))
+    focused_test_refs = set(capability.get("focused_test_refs", []))
     for ref in sorted(LOCAL_TASK_REPEATABILITY_REQUIRED_FOCUSED_TEST_REFS):
         if ref not in focused_test_refs:
             failures.append(f"local_task_create repeatability gate missing {ref}")
@@ -1762,7 +1822,7 @@ def _append_local_task_repeatability_gate_failures(
             "local_task_create.repeatability.focused_test_refs",
         )
 
-    frontend_refs = set(lane.get("frontend_repeatability_test_refs", []))
+    frontend_refs = set(capability.get("frontend_repeatability_test_refs", []))
     for ref in sorted(LOCAL_TASK_REPEATABILITY_REQUIRED_FRONTEND_TEST_REFS):
         if ref not in frontend_refs:
             failures.append(
@@ -1775,7 +1835,7 @@ def _append_local_task_repeatability_gate_failures(
             "local_task_create.repeatability.frontend_repeatability_test_refs",
         )
 
-    verifier_refs = set(lane.get("verifier_repeatability_refs", []))
+    verifier_refs = set(capability.get("verifier_repeatability_refs", []))
     for ref in sorted(LOCAL_TASK_REPEATABILITY_REQUIRED_VERIFIER_REFS):
         if ref not in verifier_refs:
             failures.append(
@@ -1882,6 +1942,37 @@ def _append_ref_resolution_failures(
                     root,
                     str(cli_ref),
                     f"{module_id}:{lane_id}.cli_parity_ref",
+                )
+        for capability in module.get("authority_capabilities", []):
+            capability_id = str(capability.get("capability_id"))
+            for ref in capability.get("focused_test_refs", []):
+                _append_repo_ref_failure(
+                    failures,
+                    root,
+                    str(ref),
+                    f"{module_id}:{capability_id}.focused_test_refs",
+                )
+            cli_ref = capability.get("cli_parity_ref")
+            if cli_ref:
+                _append_cli_or_script_ref_failure(
+                    failures,
+                    root,
+                    str(cli_ref),
+                    f"{module_id}:{capability_id}.cli_parity_ref",
+                )
+            for ref in capability.get("frontend_repeatability_test_refs", []):
+                _append_source_ref_failure(
+                    failures,
+                    root,
+                    str(ref),
+                    f"{module_id}:{capability_id}.frontend_repeatability_test_refs",
+                )
+            for ref in capability.get("verifier_repeatability_refs", []):
+                _append_source_ref_failure(
+                    failures,
+                    root,
+                    str(ref),
+                    f"{module_id}:{capability_id}.verifier_repeatability_refs",
                 )
 
 

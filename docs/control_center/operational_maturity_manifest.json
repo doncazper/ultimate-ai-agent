@@ -4,7 +4,7 @@
   "baseline": "v0.104.0 / 0.104.0",
   "ladder_doc_ref": "docs/control_center/OPERATIONALIZATION_LADDER.md",
   "verifier_ref": "scripts/verify_operational_maturity.py",
-  "authority_tier_doc_ref": "docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md",
+  "authority_tier_doc_ref": "docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md",
   "authority_tier_model": {
     "doctrine": "Earned authority, low friction by default, strict only where consequences justify it.",
     "tiers": [
@@ -130,7 +130,7 @@
         "tier_id": "tier_5_background_standing_authority",
         "label": "Background/standing authority",
         "durable_truth_owner": "Python Agent Core owns revocation, pause/cancel/kill, queue inspection, budgets, replay/audit, observability, and safe-disable.",
-        "approval_posture": "Separate explicit graduation is required for every scoped background or standing authority lane.",
+        "approval_posture": "Every scoped background or standing authority claim requires an explicit AuthorityLease mode, domain, capability, constraints envelope, receipt, audit, redaction, rollback/safe-disable posture, and visible kill-switch state.",
         "examples": [
           "scheduled sync",
           "background provider calls",
@@ -315,7 +315,24 @@
           "focused_test_refs": [
             "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_requires_exact_approval_and_records_evidence",
             "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_denies_when_safe_disabled",
-            "tests/test_control_center_api_routes.py::test_control_center_action_local_task_commit_requires_exact_approval_and_receipts"
+            "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_rejects_unsupported_action_kind",
+            "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_rejects_expired_backend_approval",
+            "tests/test_control_center_api_routes.py::test_control_center_action_local_task_commit_requires_exact_approval_and_receipts",
+            "tests/test_control_center_api_routes.py::test_control_center_action_local_task_commit_denies_safe_disabled_lane",
+            "tests/test_fcc_v1_003_founder_loop_vertical_slice.py::test_founder_loop_cli_commits_local_task_with_safe_refs"
+          ],
+          "repeatability_gate_ref": "FCC-ACTION-002",
+          "frontend_repeatability_test_refs": [
+            "apps/control-center/src/App.test.tsx::commits only the eligible Action Inbox local-task create lane through the typed route",
+            "apps/control-center/src/App.test.tsx::keeps local task commit receipt local and explicit when backend read-model refresh fails",
+            "apps/control-center/src/App.test.tsx::shows replay posture from the refreshed Action Inbox read model",
+            "apps/control-center/src/App.test.tsx::keeps conflicting local task commits out of committed UI state"
+          ],
+          "verifier_repeatability_refs": [
+            "scripts/verify_operational_maturity.py::_append_mock_fallback_fixture_failures",
+            "scripts/verify_operational_maturity.py::_append_behavior_probe_failures",
+            "scripts/verify_operational_maturity.py::_append_cli_probe_failures",
+            "scripts/verify_operational_maturity.py::_append_local_task_repeatability_gate_failures"
           ],
           "operator_copy": "Requires Ask before changes or stronger mode with Workspace write AuthorityLease scope plus exact approval, idempotency, receipts, audit, redaction, and safe-disable refs."
         }
@@ -352,7 +369,8 @@
       "real_local_mutation": false,
       "durable_receipt": false,
       "evidence_timeline_event": false,
-      "graduated_lanes": []
+      "graduated_lanes": [],
+      "authority_capabilities": []
     },
     {
       "module_id": "memory",
@@ -540,7 +558,8 @@
       "real_local_mutation": false,
       "durable_receipt": true,
       "evidence_timeline_event": true,
-      "graduated_lanes": []
+      "graduated_lanes": [],
+      "authority_capabilities": []
     },
     {
       "module_id": "evidence",
@@ -576,7 +595,8 @@
       "real_local_mutation": false,
       "durable_receipt": true,
       "evidence_timeline_event": true,
-      "graduated_lanes": []
+      "graduated_lanes": [],
+      "authority_capabilities": []
     },
     {
       "module_id": "local_models",
@@ -653,7 +673,8 @@
       "real_local_mutation": false,
       "durable_receipt": false,
       "evidence_timeline_event": false,
-      "graduated_lanes": []
+      "graduated_lanes": [],
+      "authority_capabilities": []
     },
     {
       "module_id": "inbox_sources_connectors",
@@ -702,7 +723,8 @@
       "real_local_mutation": false,
       "durable_receipt": false,
       "evidence_timeline_event": false,
-      "graduated_lanes": []
+      "graduated_lanes": [],
+      "authority_capabilities": []
     },
     {
       "module_id": "settings",
@@ -766,7 +788,8 @@
       "real_local_mutation": false,
       "durable_receipt": false,
       "evidence_timeline_event": false,
-      "graduated_lanes": []
+      "graduated_lanes": [],
+      "authority_capabilities": []
     }
   ]
 }

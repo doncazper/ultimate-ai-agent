@@ -31,7 +31,7 @@
       "const": "scripts/verify_operational_maturity.py"
     },
     "authority_tier_doc_ref": {
-      "const": "docs/control_center/USABLE_AUTHORITY_GRADUATION_PLAN.md"
+      "const": "docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md"
     },
     "authority_tier_model": {
       "$ref": "#/$defs/authority_tier_model"
@@ -189,7 +189,6 @@
       "additionalProperties": false,
       "required": [
         "capability_id",
-        "legacy_lane_id",
         "rank",
         "honest_status",
         "authority_domain_ref",
@@ -235,6 +234,15 @@
         "backend_routes": { "type": "array", "items": { "type": "string" } },
         "cli_parity_ref": { "type": ["string", "null"] },
         "focused_test_refs": { "type": "array", "items": { "type": "string" } },
+        "repeatability_gate_ref": { "type": ["string", "null"] },
+        "frontend_repeatability_test_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "verifier_repeatability_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "operator_copy": { "type": "string", "minLength": 1 }
       }
     },
@@ -307,7 +315,7 @@
         "real_local_mutation",
         "durable_receipt",
         "evidence_timeline_event",
-        "graduated_lanes"
+        "authority_capabilities"
       ],
       "properties": {
         "module_id": { "type": "string", "minLength": 1 },

@@ -81,6 +81,12 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
     assert schema["$defs"]["rank"]["maximum"] == 7
     assert "authority_tier_model" in schema["$defs"]
     assert "authority_capability" in schema["$defs"]
+    assert "authority_capabilities" in schema["$defs"]["module"]["required"]
+    assert "graduated_lanes" not in schema["$defs"]["module"]["required"]
+    assert (
+        "legacy_lane_id"
+        not in schema["$defs"]["authority_capability"]["required"]
+    )
     assert set(LADDER_LABELS.values()) == {
         "docs_only",
         "read_only_status",
@@ -133,6 +139,19 @@ def test_operational_maturity_manifest_declares_canonical_ladder() -> None:
         == LOCAL_TASK_AUTHORITY_LEASE_REQUIREMENT_REF
     )
     assert local_task_capability["active_lease_required"] is True
+    assert (
+        local_task_capability["repeatability_gate_ref"]
+        == LOCAL_TASK_REPEATABILITY_GATE_REF
+    )
+    assert LOCAL_TASK_REPEATABILITY_REQUIRED_FOCUSED_TEST_REFS.issubset(
+        set(local_task_capability["focused_test_refs"])
+    )
+    assert LOCAL_TASK_REPEATABILITY_REQUIRED_FRONTEND_TEST_REFS.issubset(
+        set(local_task_capability["frontend_repeatability_test_refs"])
+    )
+    assert LOCAL_TASK_REPEATABILITY_REQUIRED_VERIFIER_REFS.issubset(
+        set(local_task_capability["verifier_repeatability_refs"])
+    )
     assert "AuthorityLease" in local_task_capability["operator_copy"]
     assert MEMORY_CONTEXT_PACK_ROUTE in modules["memory"]["backend_routes"]
     assert MEMORY_CONTEXT_PACK_PREVIEW_ROUTE in modules["memory"]["backend_routes"]
@@ -232,21 +251,26 @@ def test_operational_maturity_gate_docs_exist() -> None:
 def test_operational_maturity_verifier_requires_local_task_posture_refs() -> None:
     manifest = _manifest_copy()
     modules = {module["module_id"]: module for module in manifest["modules"]}
-    lane = modules["action_inbox"]["graduated_lanes"][0]
-    lane["rollback_or_safe_disable_refs"] = []
+    capability = modules["action_inbox"]["authority_capabilities"][0]
+    capability["rollback_or_safe_disable_refs"] = []
 
     failures = verify(manifest_override=manifest)
 
+    posture_failure = (
+        "action_inbox:authority-capability:action-inbox:local-task-create "
+        "authority capability requires posture refs"
+    )
     assert any(
-        "action_inbox:local_task_create rank 5 lane requires posture refs" in failure
+        posture_failure in failure for failure in failures
+    )
+    assert any(
+        f"local_task_create authority capability missing {LOCAL_TASK_ROLLBACK_REF}"
+        in failure
         for failure in failures
     )
     assert any(
-        f"local_task_create lane missing {LOCAL_TASK_ROLLBACK_REF}" in failure
-        for failure in failures
-    )
-    assert any(
-        f"local_task_create lane missing {LOCAL_TASK_SAFE_DISABLE_REF}" in failure
+        f"local_task_create authority capability missing {LOCAL_TASK_SAFE_DISABLE_REF}"
+        in failure
         for failure in failures
     )
 
@@ -262,7 +286,7 @@ def test_operational_maturity_verifier_requires_authority_capability_mapping() -
     failures = verify(manifest_override=manifest)
 
     assert any(
-        "action_inbox implemented lanes must map to authority_capabilities" in failure
+        "action_inbox implemented authority requires authority_capabilities" in failure
         for failure in failures
     )
     assert any(
@@ -275,16 +299,17 @@ def test_operational_maturity_verifier_requires_authority_capability_mapping() -
 def test_operational_maturity_verifier_requires_local_task_repeatability_gate() -> None:
     manifest = _manifest_copy()
     modules = {module["module_id"]: module for module in manifest["modules"]}
-    lane = modules["action_inbox"]["graduated_lanes"][0]
-    lane["repeatability_gate_ref"] = None
-    lane["focused_test_refs"] = []
-    lane["frontend_repeatability_test_refs"] = []
-    lane["verifier_repeatability_refs"] = []
+    capability = modules["action_inbox"]["authority_capabilities"][0]
+    capability["repeatability_gate_ref"] = None
+    capability["focused_test_refs"] = []
+    capability["frontend_repeatability_test_refs"] = []
+    capability["verifier_repeatability_refs"] = []
 
     failures = verify(manifest_override=manifest)
 
     assert any(
-        "local_task_create lane must declare FCC-ACTION-002" in failure
+        "local_task_create authority capability must declare FCC-ACTION-002"
+        in failure
         for failure in failures
     )
     assert any(
@@ -319,7 +344,8 @@ def test_operational_maturity_verifier_requires_local_task_safe_disable_flag() -
         for failure in failures
     )
     assert any(
-        "local_task_create lane must require rollback or safe-disable" in failure
+        "local_task_create legacy lane must require rollback or safe-disable"
+        in failure
         for failure in failures
     )
 
@@ -342,7 +368,8 @@ def test_operational_maturity_verifier_requires_rollback_execution_blocked() -> 
         for failure in failures
     )
     assert any(
-        "local_task_create lane must keep rollback_execution blocked" in failure
+        "local_task_create legacy lane must keep rollback_execution blocked"
+        in failure
         for failure in failures
     )
 
@@ -614,9 +641,12 @@ def test_operational_maturity_rejects_context_injection_graduated_lane() -> None
     failures: list[str] = []
     _append_memory_context_pack_manifest_failures(failures, memory)
 
+    context_injection_failure = (
+        "memory must not mark context_injection as implemented authority capability "
+        "or legacy graduated lane"
+    )
     assert any(
-        "memory must not graduate context_injection in prerequisite PR" in failure
-        for failure in failures
+        context_injection_failure in failure for failure in failures
     )
 
 
