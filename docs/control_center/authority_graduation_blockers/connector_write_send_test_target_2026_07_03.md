@@ -106,7 +106,8 @@ local injected transport or UI-only send state.
 - send-to-self/test-target delivery
 - production account access
 - account sync
-- OAuth/credential collection outside a separately graduated test-account lane
+- OAuth/credential collection outside an exact test-account AuthorityLease
+  scope
 - archive/delete/label/move/calendar write/CRM write
 - background delivery workers, schedulers, retries, or polling
 - connector-derived memory write or context injection

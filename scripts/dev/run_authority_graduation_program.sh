@@ -22,7 +22,7 @@ if ! command -v "$CODEX_BIN" >/dev/null 2>&1; then
   exit 127
 fi
 
-echo "Running Authority Graduation Program prompt pack from:"
+echo "Running legacy authority capability prompt pack from:"
 echo "  $ROOT"
 echo
 echo "Prompt:"

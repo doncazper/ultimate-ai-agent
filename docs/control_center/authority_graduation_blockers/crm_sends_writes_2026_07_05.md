@@ -1,7 +1,7 @@
 # CRM Sends And Writes Blocker
 
 Date: 2026-07-05
-Status: blocked pending exact authority graduation
+Status: blocked pending exact AuthorityLease domain/capability support
 
 ## Blocked Capability
 
@@ -13,12 +13,12 @@ external systems.
 
 ## Required Before Unblock
 
-- Exact lane definition for one write or send action, not a broad CRM-write
-  flag.
+- Exact domain/capability definition for one write or send action, not a broad
+  CRM-write flag.
 - Target test account or local-only harness with no production target.
 - Draft/review envelope with exact subject, target ref, payload summary ref,
   risk class, side-effect class, approval scope ref, and expected receipt ref.
-- PolicyEngine and LocalApprovalAuthority validation for the exact lane.
+- PolicyEngine and LocalApprovalAuthority validation for the exact capability.
 - Idempotency, replay/conflict behavior, safe-disable posture, and rollback or
   rollback-readiness posture.
 - Durable redacted receipt with no raw body, contact detail, account material,

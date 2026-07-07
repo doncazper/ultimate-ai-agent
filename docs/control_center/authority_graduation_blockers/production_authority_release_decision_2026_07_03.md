@@ -7,7 +7,7 @@ Date: 2026-07-03
 
 ## Existing Verified Posture
 
-This Authority Graduation Program run improved several private dogfood lanes:
+This authority capability review improved several private dogfood capabilities:
 
 - Web Evidence has narrow read-only GET proof through `WebAccessGateway`.
 - Browser Observe has injected observe-only proof with live browser runtime still
@@ -26,10 +26,11 @@ operation, and production authority claims.
 
 ## Why This Was Not Unblocked
 
-Production Authority is not a normal feature lane. It requires a separate
-accepted release milestone and manual signoff after multiple authority lanes
-have real dogfood receipts, failure posture, rollback plans, release-surface
-truth, product-language review, and security/redaction gates.
+Production Authority is not a normal feature capability. It requires a separate
+accepted release milestone and manual signoff after multiple AuthorityLease
+domain/capability scopes have real dogfood receipts, failure posture, rollback
+plans, release-surface truth, product-language review, and security/redaction
+gates.
 
 That promotion was not safe in this run because:
 

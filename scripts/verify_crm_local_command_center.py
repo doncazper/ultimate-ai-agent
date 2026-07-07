@@ -44,6 +44,24 @@ DOC_REFS = [
     "docs/prompts/crm_local_command_center/unblock_crm_connector_read_lanes.prompt.md",
     "docs/prompts/crm_local_command_center/unblock_crm_sends_writes.prompt.md",
 ]
+CRM_BLOCKER_REQUIRED_FRAGMENTS = {
+    "docs/control_center/authority_graduation_blockers/crm_connector_read_lanes_2026_07_05.md": [
+        "blocked pending exact authoritylease domain/capability support",
+        "exact connector/source scope and named test account scope",
+        "the authority model is mode/domain/capability inside an active authoritylease",
+    ],
+    "docs/control_center/authority_graduation_blockers/crm_sends_writes_2026_07_05.md": [
+        "blocked pending exact authoritylease domain/capability support",
+        "exact domain/capability definition for one write or send action",
+        "validation for the exact capability",
+    ],
+}
+CRM_BLOCKER_FORBIDDEN_FRAGMENTS = {
+    "blocked pending exact authority graduation",
+    "named test account lane",
+    "exact lane definition",
+    "validation for the exact lane",
+}
 READ_PATHS = [
     "/control-center/crm/summary",
     "/control-center/crm/relationships",
@@ -300,6 +318,13 @@ def _assert_docs() -> None:
         if "unblock_crm" in rel_path or "authority_graduation_blockers" in rel_path:
             if "blocked" not in text and "do not add" not in text:
                 _fail(f"{rel_path} missing blocked/unblock authority language")
+        for fragment in CRM_BLOCKER_REQUIRED_FRAGMENTS.get(rel_path, []):
+            if fragment not in text:
+                _fail(f"{rel_path} missing AuthorityLease blocker fragment: {fragment}")
+        if rel_path in CRM_BLOCKER_REQUIRED_FRAGMENTS:
+            for fragment in CRM_BLOCKER_FORBIDDEN_FRAGMENTS:
+                if fragment in text:
+                    _fail(f"{rel_path} contains stale authority wording: {fragment}")
 
 
 def _assert_manifests() -> None:

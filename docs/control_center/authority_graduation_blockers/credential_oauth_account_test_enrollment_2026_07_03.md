@@ -77,7 +77,8 @@ prerequisites are unavailable.
 - OAuth flow and token exchange
 - cookie/session handling
 - account sync
-- connector reads beyond separately graduated read-only sync
+- connector reads beyond separately implemented and tested read-only
+  AuthorityLease scope
 - connector writes/sends
 - provider/model calls from credential presence
 - browser automation

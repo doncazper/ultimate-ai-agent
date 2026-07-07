@@ -39,8 +39,9 @@ Start Here, Today, Action Inbox, Proof, Evidence, Memory, Trust, and Settings
 are the current beta-05 repo-safe daily-loop surfaces for product-language
 enforcement. Source Inbox remains visible in primary navigation for route
 reachability and visual-baseline continuity, but it is a supporting
-source-readiness surface until read-only connector/source contracts graduate; it
-must not be described as the primary daily work queue.
+source-readiness surface until read-only connector/source contracts are
+implemented under AuthorityLease evaluation; it must not be described as the
+primary daily work queue.
 
 Action Inbox may be described as a real backend-owned work queue only when copy
 is tied to `action_inbox_work_queue_read_model`, exact safe refs, approval
@@ -69,8 +70,9 @@ Use `GET /api/runtime/authority-state`,
 `scripts/dev/uaa_runtime.py preview-authority-decision --json` and
 `scripts/dev/uaa_runtime.py plan-authority-mission --json` as the current
 inspection source of truth for active mode, domain grants, existing legacy lane
-mappings, policy decisions, receipts, audit refs, rollback/safe-disable posture,
-kill-switch visibility, active lease and lease-receipt issued/expires
+mappings retained for compatibility, policy decisions, receipts, audit refs,
+rollback/safe-disable posture, kill-switch visibility, active lease and
+lease-receipt issued/expires
 timestamps, and mission-scoped lease requirements. Use
 `authority_lease_state.capability_mappings` to explain every target domain,
 including planned or unsupported adapters, without implying live execution. Use

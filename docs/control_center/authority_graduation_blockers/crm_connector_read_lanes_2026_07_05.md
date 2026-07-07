@@ -1,7 +1,7 @@
-# CRM Connector Read Lanes Blocker
+# CRM Connector Read Capability Blocker
 
 Date: 2026-07-05
-Status: blocked pending exact authority graduation
+Status: blocked pending exact AuthorityLease domain/capability support
 
 Readiness contract:
 `posture-ref:crm-connector-read-lanes:v1`
@@ -11,7 +11,7 @@ CLI inspection:
 
 ## Blocked Capability
 
-CRM connector read lanes remain blocked. CRM M2 implements only local read
+CRM connector read capabilities remain blocked. CRM M2 implements only local read
 models, local storage posture, redacted import preview, and exact local
 mutation receipts. It does not read from external CRM providers, email,
 calendar, contacts, browser sessions, or authenticated accounts.
@@ -23,7 +23,7 @@ refs, and promotion path while keeping runtime reads disabled by default.
 
 ## Required Before Unblock
 
-- Exact connector/source scope and named test account lane.
+- Exact connector/source scope and named test account scope.
 - PolicyEngine route and source decision coverage.
 - LocalApprovalAuthority scope for each connector read attempt.
 - Read-only adapter boundary through approved gateway contracts only.
@@ -35,6 +35,11 @@ refs, and promotion path while keeping runtime reads disabled by default.
 - Safe-disable and rollback-readiness posture.
 - Focused tests, OpenAPI/manifest route classification, docs, and verifier
   coverage.
+
+Stable refs in this blocker may still contain `lane` because older core,
+frontend, and verifier fixtures consume those identifiers. They are
+compatibility refs only; the authority model is mode/domain/capability inside
+an active AuthorityLease.
 
 ## Current Repo-Safe Readiness State
 

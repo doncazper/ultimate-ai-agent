@@ -15,13 +15,13 @@ execution, or public distribution.
 `docs/control_center/BACKGROUND_AUTONOMOUS_PROVIDER_CALLS_PROMOTION_PLAN.md`
 is planning-only: Control Center has no background provider queue dispatch,
 scheduler control, autonomous provider-call control, billing authority toggle,
-broad provider router toggle, or new API runtime route for that lane.
+broad provider router toggle, or new API runtime route for that capability.
 
 Control Center and OpenWebUI remain shells. Python Agent Core, PolicyEngine,
 LocalApprovalAuthority, route side-effect classification, OpenAPI checks, and
 Foundation Gate checks remain the authority boundaries.
 
-Authority posture is migrating from legacy lane-graduation language to
+Authority posture is migrating from legacy one-off lane promotion language to
 AuthorityLease V1: operator-selected trust modes, explicit domains,
 session/mission scope, constraints, receipts, audit, redaction, rollback,
 safe-disable, and kill-switch visibility. The current inspection surfaces are
