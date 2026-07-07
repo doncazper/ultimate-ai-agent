@@ -92,11 +92,21 @@ and `/task-decomposition/plans/execute` return a durable, redacted blocked/draft
 decision with authority decision refs, required domain/capability refs, audit
 refs, receipt posture, and rollback/safe-disable refs instead of silently
 executing or claiming broad shell/tool authority.
-Provider/model transport remains blocked by authority policy unless a later
-supported provider/model execution lease is implemented and tested. Existing
-local loopback model requests may carry `mission_ref` for policy evaluation, but
-that does not grant remote provider SDK calls, web fetching, tools/functions,
-streaming, or provider payload persistence.
+The tiny exact-approved provider invocation lane now requires an active
+`provider_model_calls/execute` AuthorityLease before it can proceed to its
+existing PolicyEngine, CostGovernor, exact LocalApprovalAuthority, adapter,
+idempotency, and redacted receipt gates. The default API route passes only
+persisted active leases and returns `authority_required` without one; direct
+core/CLI test paths must inject the explicit provider execution lease before
+exact approval is meaningful. This does not grant broad provider routing,
+autonomous/background model calls, billing authority, provider SDK authority, or
+payload persistence, and the default adapter remains disabled/no-execution.
+Provider/model transport outside the two named exact tiny adapter scopes remains
+blocked by authority policy unless a later supported provider/model execution
+lease is implemented and tested. Existing local loopback model requests may
+carry `mission_ref` for policy evaluation, but that does not grant remote
+provider SDK calls, web fetching, tools/functions, streaming, or provider
+payload persistence.
 
 ## Core Problem
 

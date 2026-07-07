@@ -9,6 +9,12 @@ from tempfile import TemporaryDirectory
 from pydantic import SecretStr
 
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.authority import (
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+)
 from ultimate_ai_agent.core.providers import (
     PROVIDER_DRAFT_SUMMARIZE_BLOCKED_AUTHORITY_REFS,
     PROVIDER_DRAFT_SUMMARIZE_LANE_REF,
@@ -138,6 +144,25 @@ def _exact_authority_for(
         approval_request.approval_request_id,
         approved_by_actor_id="operator:local",
         approval_ref=request.approval_ref,
+    )
+    authority.issue_authority_lease(
+        AuthorityLease(
+            lease_ref="authority-lease-ref:provider-draft-summarize-execute-cli",
+            mode=TrustMode.full_machine_access_session,
+            domains={
+                AuthorityDomain.provider_model_calls: [
+                    AuthorityCapability.read,
+                    AuthorityCapability.execute,
+                ]
+            },
+            constraints={
+                "provider_lane_ref": "provider-invocation-lane:tiny-exact-approved:v1"
+            },
+            safe_summary=(
+                "CLI fixture lease grants exact provider model call execution "
+                "for provider draft summarize inspection."
+            ),
+        )
     )
     return authority
 

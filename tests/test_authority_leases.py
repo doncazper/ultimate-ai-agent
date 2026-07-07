@@ -123,6 +123,19 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert file_write_proposal.domain == "files"
     assert file_write_proposal.capability == "prepare"
     assert file_write_proposal.status == "implemented_exact_lease_required_proposal_only"
+    provider_invocation = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /control-center/providers/exact-approved-lanes/tiny"
+        in mapping.route_refs
+    )
+    assert provider_invocation.domain == "provider_model_calls"
+    assert provider_invocation.capability == "execute"
+    assert provider_invocation.required_mode == "full_machine_access_session"
+    assert (
+        provider_invocation.status
+        == "implemented_exact_lease_required_provider_cost_governed"
+    )
     assert {decision.outcome for decision in read_model.sample_decisions} >= {
         "allow",
         "deny",
@@ -200,6 +213,27 @@ def test_authority_mode_defaults_are_mode_specific_and_fail_closed(
         ref.startswith("adapter-ref:browser:")
         for ref in full_machine_receipt.unsupported_adapter_refs
     )
+
+    provider_lease, provider_receipt = store.issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.full_machine_access_session,
+            requested_domains={
+                AuthorityDomain.provider_model_calls: [
+                    AuthorityCapability.read,
+                    AuthorityCapability.execute,
+                ]
+            },
+            decision_reason_ref="reason-ref:test-full-machine-provider-explicit",
+            safe_summary="Select explicit provider model call authority.",
+        ),
+        idempotency_ref="idempotency-ref:test-full-machine-provider-explicit",
+    )
+    assert provider_lease is not None
+    assert provider_receipt.status == "issued"
+    assert provider_receipt.granted_domains == {
+        "provider_model_calls": ["read", "execute"]
+    }
+    assert provider_receipt.denied_domain_refs == []
 
     delegated_lease, delegated_receipt = store.issue_lease(
         AuthorityLeaseIssueRequest(
@@ -806,7 +840,7 @@ def test_authority_lease_issue_revoke_api_and_cli_are_durable(
     )
     assert (
         "adapter-ref:provider_model_calls:execute"
-        "-not-implemented-for-authority-lease-v1"
+        "-not-available-for-authority-mode-v1"
     ) in receipt["unsupported_adapter_refs"]
 
     state = client.get("/api/runtime/authority-state")

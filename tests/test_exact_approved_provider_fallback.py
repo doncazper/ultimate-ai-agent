@@ -31,6 +31,7 @@ from tests.tiny_provider_invocation_helpers import (
     available_credential_resolution,
     available_second_credential_resolution,
     invocation_request,
+    provider_model_execute_lease,
     second_invocation_request,
 )
 
@@ -47,6 +48,7 @@ def _authority_for(
             approved_by_actor_id="operator:local",
             approval_ref=request.approval_ref,
         )
+    authority.issue_authority_lease(provider_model_execute_lease())
     return authority
 
 

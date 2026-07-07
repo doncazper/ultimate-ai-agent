@@ -7,6 +7,14 @@ import pytest
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
+from ultimate_ai_agent.core.authority import (
+    AUTHORITY_STATE_DIR_ENV,
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLeaseIssueRequest,
+    AuthorityLeaseStore,
+    TrustMode,
+)
 from ultimate_ai_agent.core.providers import (
     DeterministicTinyProviderInvocationAdapter,
     SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
@@ -38,9 +46,11 @@ from ultimate_ai_agent.core.providers.invocation import (
 )
 from tests.tiny_provider_invocation_helpers import (
     OverBudgetTinyProviderInvocationAdapter,
+    exact_approval_only_authority_for,
     exact_authority_for,
     evaluate_with_exact_approval,
     invocation_request,
+    provider_model_execute_lease,
     receipt_payload,
     second_invocation_request,
 )
@@ -228,12 +238,30 @@ def test_unscoped_cost_adapter_blocks_before_receipt() -> None:
     assert decision.receipt is None
 
 
-def test_exact_approval_is_required_before_adapter_execution() -> None:
-    decision = evaluate_tiny_provider_invocation(invocation_request())
+def test_authority_lease_is_required_before_provider_lane_execution() -> None:
+    decision = evaluate_tiny_provider_invocation(
+        invocation_request(),
+        approval_authority=exact_approval_only_authority_for(invocation_request()),
+    )
+
+    assert decision.allowed is False
+    assert decision.status == TinyProviderInvocationStatus.authority_required
+    assert "AUTHORITY_LEASE_REQUIRED" in decision.reason_codes
+    assert decision.authority_decision is not None
+    assert decision.authority_decision.outcome == "deny"
+
+
+def test_exact_approval_is_required_after_authority_lease() -> None:
+    decision = evaluate_tiny_provider_invocation(
+        invocation_request(),
+        active_authority_leases=[provider_model_execute_lease()],
+    )
 
     assert decision.allowed is False
     assert decision.status == TinyProviderInvocationStatus.approval_required
     assert "APPROVAL_REF_UNKNOWN" in decision.reason_codes
+    assert decision.authority_decision is not None
+    assert decision.authority_decision.outcome == "allow"
 
 
 def test_default_adapter_remains_approved_no_execution_after_exact_approval() -> None:
@@ -617,7 +645,11 @@ def test_tiny_provider_route_rejects_missing_idempotency_before_handler() -> Non
     assert response.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
 
 
-def test_tiny_provider_route_defaults_to_no_execution_with_idempotency() -> None:
+def test_tiny_provider_route_defaults_to_no_execution_with_idempotency(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
     client = TestClient(app)
     request = invocation_request()
 
@@ -630,12 +662,51 @@ def test_tiny_provider_route_defaults_to_no_execution_with_idempotency() -> None
     assert response.status_code == 200
     payload = response.json()
     assert payload["success"] is False
-    assert payload["data"]["status"] == "approval_required"
+    assert payload["data"]["status"] == "authority_required"
+    assert payload["data"]["authority_decision"]["outcome"] == "deny"
     assert payload["data"]["receipt"] is None
     evidence_refs = [item["evidence_ref"] for item in payload["evidence"]]
     assert request.expected_receipt_ref not in evidence_refs
     assert request.cost_estimate_ref in evidence_refs
     assert request.budget_decision_ref in evidence_refs
+
+
+def test_tiny_provider_route_uses_persisted_authority_lease_before_approval(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    authority_dir = tmp_path / "authority"
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_dir))
+    lease, receipt = AuthorityLeaseStore(authority_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.full_machine_access_session,
+            requested_domains={
+                AuthorityDomain.provider_model_calls: [AuthorityCapability.execute]
+            },
+            decision_reason_ref="reason-ref:test-provider-route-authority",
+            safe_summary="Select provider execution authority for this session.",
+        ),
+        idempotency_ref="idempotency-ref:test-provider-route-authority",
+    )
+    assert lease is not None
+    assert receipt.status == "issued"
+    client = TestClient(app)
+    request = invocation_request(
+        invocation_ref="provider-invocation-ref:tiny:route-authority"
+    )
+
+    response = client.post(
+        TINY_PROVIDER_INVOCATION_ROUTE,
+        headers={"X-UAA-Idempotency-Key": request.idempotency_ref},
+        json=request.model_dump(mode="json"),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is False
+    assert payload["data"]["status"] == "approval_required"
+    assert payload["data"]["authority_decision"]["outcome"] == "allow"
+    assert payload["data"]["authority_decision"]["lease_ref"] == lease.lease_ref
 
 
 def test_client_supplied_approval_grants_are_not_accepted() -> None:

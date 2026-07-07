@@ -6,15 +6,17 @@ hardening; broad callable provider runtime remains future gated.
 This plan defines the minimum promotion checklist for one tiny exact-approved
 provider/model lane. The current implementation adds typed contracts, a
 disabled-default Control Center route, CostGovernor blocking, redacted receipt
-storage, actual usage/cost receipt completeness checks, CLI inspection, UI
-posture labels, and two core-only single-provider adapter scopes:
+storage, AuthorityLease `provider_model_calls/execute` preflight, actual
+usage/cost receipt completeness checks, CLI inspection, UI posture labels, and
+two core-only single-provider adapter scopes:
 OpenAI-compatible and Anthropic-compatible. Each adapter scope remains
-disabled-by-default and blocked unless explicitly constructed with exact scoped
-approval, known cost posture, injected transient credential resolution, durable
-receipt replay storage, and its matching scoped transport. The second adapter
-is prerequisite evidence for the separate Exact-Approved Provider Fallback
-lane; it does not itself turn the default API route or router dry-run into
-fallback execution authority.
+disabled-by-default and blocked unless explicitly constructed inside an active
+provider execution AuthorityLease with exact scoped approval, known cost
+posture, injected transient credential resolution, durable receipt replay
+storage, and its matching scoped transport. The second adapter is prerequisite
+evidence for the separate Exact-Approved Provider Fallback lane; it does not
+itself turn the default API route or router dry-run into fallback execution
+authority.
 It does not add provider
 credential validation authority through the invocation lane, provider SDK
 calls, broad callable provider routing, unbounded or router-dry-run fallback
@@ -36,6 +38,7 @@ parity, and UI blocked-state parity green.
 
 The tiny lane requires all of the following before adapter execution can occur:
 
+- active AuthorityLease granting `provider_model_calls/execute`
 - `credential_ref`
 - `provider_ref`
 - `model_ref`
@@ -65,11 +68,12 @@ The tiny lane requires all of the following before adapter execution can occur:
   scope refs without fallback execution
 
 Every lane attempt must fail closed when any required ref, policy validation,
-approval scope, budget decision, receipt ref, or safe-disable posture is
-missing. The default API route uses a disabled adapter and does not load
-approval grants, so it can only return blocked, cost-blocked, approval-required,
-or approval-invalid posture. The Python core evaluator can reach
-`approved_no_execution` only when an exact approval authority is injected and
+AuthorityLease scope, approval scope, budget decision, receipt ref, or
+safe-disable posture is missing. The default API route uses a disabled adapter
+and does not load approval grants, so it can only return blocked, cost-blocked,
+authority-required, approval-required, or approval-invalid posture. The Python
+core evaluator can reach `approved_no_execution` only when an active provider
+execution AuthorityLease and exact approval authority are injected and
 cost/policy gates pass while the adapter remains disabled.
 
 If a scoped network attempt occurs and actual paid-cost metadata is unavailable,
@@ -93,6 +97,7 @@ The contract distinguishes these states before broad callable provider runtime e
 - `blocked_missing_expected_receipt_ref`
 - `blocked_provider_not_allowed`
 - `blocked_model_not_allowed`
+- `authority_required`
 - `approval_required`
 - `approval_invalid`
 - `cost_blocked`
@@ -103,8 +108,9 @@ The contract distinguishes these states before broad callable provider runtime e
 
 Approval refs, credential refs, provider refs, model refs, and max-approved USD
 refs remain identifiers. They do not authorize provider calls unless the exact
-lane contract validates the complete scope, passes CostGovernor checks, runs
-through the one scoped adapter, and records redacted receipts.
+lane contract validates active AuthorityLease domain/capability, validates the
+complete exact approval scope, passes CostGovernor checks, runs through the one
+scoped adapter, and records redacted receipts.
 
 ## Receipt And Evidence Rules
 
@@ -127,6 +133,8 @@ Receipts must store safe refs and redacted summaries only:
 - credential ref
 - provider ref
 - model ref
+- AuthorityLease decision ref, audit ref, lease ref, and receipt ref when
+  provider execution authority is evaluated
 - approval scope ref
 - idempotency ref
 - rollback or safe-disable ref
@@ -154,6 +162,7 @@ backend-owned data:
 - cost blocked
 - unknown paid cost
 - no provider authority
+- authority required
 - live adapter blocked
 - receipt recorded
 - usage captured
@@ -191,6 +200,7 @@ authority, or callable runtime from metadata visibility.
 Any future adapter enablement PR must keep typed runtime contracts, focused
 tests, OpenAPI/route truth, CLI inspection parity, Action Inbox/Settings/Models
 blocked-state UI parity, CostGovernor enforcement, receipt storage, policy
-validation, redaction tests, revocation or safe-disable proof, and a verifier
-that fails if any provider lane can run without exact approval and complete
-policy/cost/receipt posture.
+validation, AuthorityLease `provider_model_calls/execute` evaluation,
+redaction tests, revocation or safe-disable proof, and a verifier that fails if
+any provider lane can run without active lease authority, exact approval, and
+complete policy/cost/receipt posture.

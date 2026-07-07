@@ -1177,6 +1177,7 @@ def _local_implemented_authority_capabilities() -> dict[
         AuthorityDomain.provider_model_calls: {
             AuthorityCapability.observe,
             AuthorityCapability.read,
+            AuthorityCapability.execute,
         },
     }
 
@@ -1239,6 +1240,19 @@ def _allowed_domain_capabilities(
                 AuthorityCapability.execute,
             },
         }
+    if mode == TrustMode.full_local_workspace_session:
+        return {
+            **_local_implemented_authority_capabilities(),
+            AuthorityDomain.provider_model_calls: {
+                AuthorityCapability.observe,
+                AuthorityCapability.read,
+            },
+        }
+    if mode in {
+        TrustMode.full_machine_access_session,
+        TrustMode.delegated_mission_autonomous_window,
+    }:
+        return _local_implemented_authority_capabilities()
     return _local_implemented_authority_capabilities()
 
 
@@ -1935,6 +1949,23 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
                 "adapter-ref:email-live-fetch:not-implemented",
                 "adapter-ref:calendar-live-fetch:not-implemented",
             ],
+        ),
+        _mapping(
+            "lane-ref:provider-tiny-exact-approved-invocation",
+            "Tiny exact-approved provider invocation",
+            AuthorityDomain.provider_model_calls,
+            AuthorityCapability.execute,
+            TrustMode.full_machine_access_session,
+            "implemented_exact_lease_required_provider_cost_governed",
+            ["POST /control-center/providers/exact-approved-lanes/tiny"],
+            ["scripts/inspect_tiny_provider_invocation_lane.py"],
+            (
+                "Requires Full machine access with provider_model_calls/execute "
+                "AuthorityLease scope plus exact provider/model/policy/cost approval, "
+                "idempotency, redacted receipts, and safe-disable refs; no broad "
+                "provider router, autonomous calls, billing authority, or payload "
+                "persistence is granted."
+            ),
         ),
         _mapping(
             "lane-ref:browser-shopping-mission",

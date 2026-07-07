@@ -4,6 +4,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi import Header
 
 from ultimate_ai_agent.api.route_registration import register_router_once
+from ultimate_ai_agent.core.authority import AuthorityLeaseStore
 from ultimate_ai_agent.core.hygiene.envelopes import ResultEnvelope
 from ultimate_ai_agent.core.providers import (
     ExactProviderCredentialValidationRequest,
@@ -107,7 +108,10 @@ def post_control_center_providers_exact_approved_lane_tiny(
             },
             redactions_applied=["provider_invocation_refs_only"],
         )
-    decision = evaluate_tiny_provider_invocation(request)
+    decision = evaluate_tiny_provider_invocation(
+        request,
+        active_authority_leases=AuthorityLeaseStore().list_leases(active_only=True),
+    )
     evidence = [
         {"evidence_ref": request.cost_estimate_ref},
         {"evidence_ref": request.budget_decision_ref},

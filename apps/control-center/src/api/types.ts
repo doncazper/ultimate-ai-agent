@@ -8427,6 +8427,7 @@ export interface TinyProviderInvocationReadiness {
     | "blocked_model_not_allowed"
     | "unknown_paid_cost_blocked"
     | "cost_blocked"
+    | "authority_required"
     | "approval_required"
     | "approval_invalid"
     | "approved_no_execution"

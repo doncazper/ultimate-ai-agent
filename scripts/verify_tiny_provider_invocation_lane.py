@@ -13,6 +13,12 @@ from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.api.rate_limits import route_rate_limit_group
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.authority import (
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+)
 from ultimate_ai_agent.core.providers import (
     DeterministicTinyProviderInvocationAdapter,
     SECOND_TINY_LIVE_PROVIDER_ADAPTER_REF,
@@ -126,6 +132,26 @@ def _second_request(**overrides: object) -> TinyProviderInvocationRequest:
     return TinyProviderInvocationRequest(**values)
 
 
+def _provider_execute_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:provider-model-calls-execute-verify",
+        mode=TrustMode.full_machine_access_session,
+        domains={
+            AuthorityDomain.provider_model_calls: [
+                AuthorityCapability.read,
+                AuthorityCapability.execute,
+            ]
+        },
+        constraints={
+            "provider_lane_ref": "provider-invocation-lane:tiny-exact-approved:v1"
+        },
+        safe_summary=(
+            "Verifier lease grants exact provider model call execution for "
+            "scoped provider invocation checks."
+        ),
+    )
+
+
 def _exact_authority_for(request: TinyProviderInvocationRequest) -> LocalApprovalAuthority:
     authority = LocalApprovalAuthority()
     approval_request = build_tiny_provider_invocation_approval_request(request)
@@ -135,6 +161,7 @@ def _exact_authority_for(request: TinyProviderInvocationRequest) -> LocalApprova
         approved_by_actor_id="operator:local",
         approval_ref=request.approval_ref,
     )
+    authority.issue_authority_lease(_provider_execute_lease())
     return authority
 
 
@@ -362,7 +389,12 @@ def main() -> int:
     elif actual_over_budget.receipt is not None:
         failures.append("unscoped over-budget adapter recorded a receipt")
 
-    no_approval = evaluate_tiny_provider_invocation(_request())
+    no_approval_authority = LocalApprovalAuthority()
+    no_approval_authority.issue_authority_lease(_provider_execute_lease())
+    no_approval = evaluate_tiny_provider_invocation(
+        _request(),
+        approval_authority=no_approval_authority,
+    )
     if no_approval.status != TinyProviderInvocationStatus.approval_required:
         failures.append("missing exact approval did not block")
 

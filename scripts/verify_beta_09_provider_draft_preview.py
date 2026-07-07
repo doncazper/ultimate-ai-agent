@@ -12,6 +12,12 @@ from pydantic import SecretStr
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.manifest import build_api_manifest
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
+from ultimate_ai_agent.core.authority import (
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+)
 from ultimate_ai_agent.core.control_center.founder_loop import (
     FounderLoopControlCenterService,
 )
@@ -122,6 +128,25 @@ def _exact_authority_for(
         approval_request.approval_request_id,
         approved_by_actor_id="operator:local",
         approval_ref=request.approval_ref,
+    )
+    authority.issue_authority_lease(
+        AuthorityLease(
+            lease_ref="authority-lease-ref:provider-draft-preview-execute-verify",
+            mode=TrustMode.full_machine_access_session,
+            domains={
+                AuthorityDomain.provider_model_calls: [
+                    AuthorityCapability.read,
+                    AuthorityCapability.execute,
+                ]
+            },
+            constraints={
+                "provider_lane_ref": "provider-invocation-lane:tiny-exact-approved:v1"
+            },
+            safe_summary=(
+                "Verifier lease grants exact provider model call execution for "
+                "provider draft preview checks."
+            ),
+        )
     )
     return authority
 

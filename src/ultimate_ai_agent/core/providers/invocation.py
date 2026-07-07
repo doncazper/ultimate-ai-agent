@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import threading
 from enum import Enum
@@ -11,6 +12,17 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError,
 from ultimate_ai_agent.core.approvals import LocalApprovalAuthority
 from ultimate_ai_agent.core.approvals.enums import ApprovalRiskLevel, ApprovalSubjectType
 from ultimate_ai_agent.core.approvals.requests import ApprovalRequest
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityCapability,
+    AuthorityDecisionOutcome,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityPolicyDecision,
+    TrustMode,
+    build_default_authority_leases,
+    evaluate_authority_request,
+)
 from ultimate_ai_agent.core.capabilities.enums import (
     CapabilityKind,
     CoordinationMode,
@@ -129,6 +141,7 @@ class TinyProviderInvocationStatus(str, Enum):
     blocked_model_not_allowed = "blocked_model_not_allowed"
     unknown_paid_cost_blocked = "unknown_paid_cost_blocked"
     cost_blocked = "cost_blocked"
+    authority_required = "authority_required"
     approval_required = "approval_required"
     approval_invalid = "approval_invalid"
     approved_no_execution = "approved_no_execution"
@@ -924,6 +937,7 @@ class TinyProviderInvocationDecision(_TinyProviderInvocationModel):
     reason_codes: list[str] = Field(default_factory=list)
     safe_message: str = Field(..., min_length=1)
     required_next_action: str | None = None
+    authority_decision: AuthorityPolicyDecision | None = None
     cost_decision: CostDecision | None = None
     receipt: TinyProviderInvocationReceipt | None = None
     redacted_output_preview: str | None = Field(default=None, max_length=2048)
@@ -938,6 +952,11 @@ class TinyProviderInvocationDecision(_TinyProviderInvocationModel):
             raise ValueError("TINY_PROVIDER_INVOCATION_DECISION_ALLOWED_STATUS_DENIED")
         if self.allowed and self.receipt is None:
             raise ValueError("TINY_PROVIDER_INVOCATION_DECISION_RECEIPT_REQUIRED")
+        if self.allowed and (
+            self.authority_decision is None
+            or self.authority_decision.outcome != AuthorityDecisionOutcome.allow.value
+        ):
+            raise ValueError("TINY_PROVIDER_INVOCATION_DECISION_AUTHORITY_REQUIRED")
         if self.redacted_output_preview is not None:
             validate_safe_execution_text(
                 self.redacted_output_preview,
@@ -1289,6 +1308,49 @@ def required_provider_invocation_resource_refs(
     return list(dict.fromkeys(refs))
 
 
+def build_tiny_provider_invocation_authority_request(
+    request: TinyProviderInvocationRequest,
+) -> AuthorityActionRequest:
+    scope = _tiny_provider_scope_for_request(request)
+    action_digest = hashlib.sha256(request.invocation_ref.encode("utf-8")).hexdigest()[
+        :24
+    ]
+    return AuthorityActionRequest(
+        action_ref=f"authority-action-ref:provider-invocation:{action_digest}",
+        domain=AuthorityDomain.provider_model_calls,
+        capability=AuthorityCapability.execute,
+        safe_summary=(
+            "Evaluate the exact-approved provider invocation lane using safe refs, "
+            "CostGovernor scope, LocalApprovalAuthority scope, and redacted receipts."
+        ),
+        resource_refs=[
+            request.provider_ref,
+            request.model_ref,
+            request.policy_ref,
+            f"authority-resource-ref:provider-invocation:{action_digest}",
+        ],
+        route_ref=f"POST {TINY_PROVIDER_INVOCATION_ROUTE}",
+        lane_ref="provider-invocation-lane:tiny-exact-approved:v1",
+        adapter_ref=(
+            scope["adapter_ref"]
+            if scope is not None
+            else "provider-adapter-ref:tiny-exact-approved:unknown-scope"
+        ),
+        requested_mode=TrustMode.full_machine_access_session,
+        constraints={
+            "provider_ref": request.provider_ref,
+            "model_ref": request.model_ref,
+            "policy_ref": request.policy_ref,
+            "provider_invocation_scope_ref": (
+                f"authority-resource-ref:provider-invocation:{action_digest}"
+            ),
+        },
+        draft_fallback_available=False,
+        rollback_ref=request.safe_disable_ref,
+        safe_disable_ref=request.safe_disable_ref,
+    )
+
+
 def evaluate_tiny_provider_invocation(
     request: TinyProviderInvocationRequest,
     *,
@@ -1296,6 +1358,7 @@ def evaluate_tiny_provider_invocation(
     cost_governor: CostGovernor | None = None,
     policy_engine: PolicyEngine | None = None,
     approval_authority: LocalApprovalAuthority | None = None,
+    active_authority_leases: list[AuthorityLease] | None = None,
     receipt_store: TinyProviderInvocationReceiptStore | None = None,
 ) -> TinyProviderInvocationDecision:
     adapter = adapter or DisabledTinyProviderInvocationAdapter()
@@ -1407,6 +1470,43 @@ def evaluate_tiny_provider_invocation(
             cost_decision=cost_decision,
         )
 
+    authority_request = build_tiny_provider_invocation_authority_request(request)
+    authority_leases = active_authority_leases
+    if authority_leases is None:
+        authority_leases = approval_authority.list_authority_leases(active_only=True)
+    authority_decision = evaluate_authority_request(
+        authority_request,
+        authority_leases or build_default_authority_leases(),
+    )
+    if authority_decision.outcome != AuthorityDecisionOutcome.allow.value:
+        return _blocked_decision(
+            request,
+            status=TinyProviderInvocationStatus.authority_required,
+            reason_codes=list(
+                dict.fromkeys(
+                    [
+                        "AUTHORITY_LEASE_REQUIRED",
+                        *[
+                            ref.removeprefix("reason-ref:authority:")
+                            .replace("-", "_")
+                            .upper()
+                            for ref in authority_decision.reason_refs
+                        ],
+                    ]
+                )
+            ),
+            safe_message=(
+                "Requires Full machine access for this session plus the "
+                "provider_model_calls domain and execute capability before "
+                "provider lane execution can proceed."
+            ),
+            required_next_action=(
+                "select_full_machine_access_with_provider_model_calls_execute_scope"
+            ),
+            authority_decision=authority_decision,
+            cost_decision=cost_decision,
+        )
+
     approval_request = build_tiny_provider_invocation_approval_request(request)
     approval_decision = approval_authority.validate_for_request(
         approval_request,
@@ -1424,6 +1524,7 @@ def evaluate_tiny_provider_invocation(
             reason_codes=list(approval_decision.reason_codes),
             safe_message="Exact LocalApprovalAuthority scope is required before provider lane execution.",
             required_next_action="request_exact_local_approval_for_provider_lane",
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         )
 
@@ -1437,6 +1538,7 @@ def evaluate_tiny_provider_invocation(
                     reason_codes=["IDEMPOTENCY_SCOPE_CONFLICT"],
                     safe_message="Tiny provider invocation idempotency ref already has a different receipt scope.",
                     required_next_action="use_a_new_exact_idempotency_ref_for_changed_scope",
+                    authority_decision=authority_decision,
                     cost_decision=cost_decision,
                 )
             return TinyProviderInvocationDecision(
@@ -1449,6 +1551,7 @@ def evaluate_tiny_provider_invocation(
                     )
                 ),
                 safe_message="Tiny provider invocation returned an existing redacted receipt for the exact idempotency ref.",
+                authority_decision=authority_decision,
                 cost_decision=cost_decision,
                 receipt=replay_receipt,
             )
@@ -1464,6 +1567,7 @@ def evaluate_tiny_provider_invocation(
                     "has incomplete usage or actual paid cost metadata awaiting review."
                 ),
                 required_next_action="review_incomplete_provider_receipt_before_retry",
+                authority_decision=authority_decision,
                 cost_decision=cost_decision,
             ).model_copy(update={"receipt": blocking_receipt})
 
@@ -1477,6 +1581,7 @@ def evaluate_tiny_provider_invocation(
             ],
             safe_message="Exact approval and cost gates validated, but the tiny provider adapter is disabled by default.",
             required_next_action="keep_provider_adapter_disabled_until_scoped_enablement",
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         )
 
@@ -1491,6 +1596,7 @@ def evaluate_tiny_provider_invocation(
             ],
             safe_message="Scoped live provider adapter is blocked until durable receipt replay storage is available.",
             required_next_action="provide_tiny_provider_receipt_store_before_live_invocation",
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         )
 
@@ -1510,6 +1616,7 @@ def evaluate_tiny_provider_invocation(
             required_next_action=(
                 "enforce_tiny_provider_receipt_store_requirement_before_live_invocation"
             ),
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         )
 
@@ -1521,6 +1628,7 @@ def evaluate_tiny_provider_invocation(
             reason_codes=["PROVIDER_SCOPE_NOT_ALLOWED"],
             safe_message="Tiny provider lane requires one exact provider/model/policy scope.",
             required_next_action="use_an_allowlisted_single_provider_scope_ref",
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         )
     adapter_scope_reason = _adapter_scope_reason(adapter, request, request_scope)
@@ -1538,6 +1646,7 @@ def evaluate_tiny_provider_invocation(
                 "or model ref does not match the exact provider/model scope."
             ),
             required_next_action="use_the_exact_adapter_for_the_provider_scope",
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         )
     execution_grant = (
@@ -1564,6 +1673,7 @@ def evaluate_tiny_provider_invocation(
                 "and was blocked fail-closed before transport."
             ),
             required_next_action="inspect_live_provider_adapter_preflight_scope",
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         )
     except Exception:
@@ -1580,6 +1690,7 @@ def evaluate_tiny_provider_invocation(
                 "fail-closed before transport."
             ),
             required_next_action="inspect_live_provider_adapter_preflight_scope",
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         )
     if preflight_block_reason is not None:
@@ -1596,6 +1707,7 @@ def evaluate_tiny_provider_invocation(
                 "because its exact preflight scope is not satisfied."
             ),
             required_next_action="inspect_live_provider_adapter_preflight_scope",
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         )
 
@@ -1632,6 +1744,7 @@ def evaluate_tiny_provider_invocation(
                         "Tiny provider invocation returned an existing redacted "
                         "receipt for the exact idempotency ref before transport."
                     ),
+                    authority_decision=authority_decision,
                     cost_decision=cost_decision,
                     receipt=reserved_receipt,
                 )
@@ -1658,6 +1771,7 @@ def evaluate_tiny_provider_invocation(
                 "accept the exact execution grant contract."
             ),
             required_next_action="inspect_live_provider_adapter_execution_grant_contract",
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         ).model_copy(update={"receipt": network_attempt_receipt})
     except (ValueError, ValidationError):
@@ -1674,6 +1788,7 @@ def evaluate_tiny_provider_invocation(
                 "metadata and was blocked fail-closed."
             ),
             required_next_action="inspect_live_provider_adapter_receipt_scope",
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         ).model_copy(update={"receipt": network_attempt_receipt})
     except Exception:
@@ -1690,6 +1805,7 @@ def evaluate_tiny_provider_invocation(
                 "blocked fail-closed with only redacted receipt posture."
             ),
             required_next_action="inspect_live_provider_adapter_safe_disable_ref",
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         ).model_copy(update={"receipt": network_attempt_receipt})
     transport_scope_reason = _transport_scope_reason(adapter, transport_receipt, receipt_store)
@@ -1707,6 +1823,7 @@ def evaluate_tiny_provider_invocation(
                 "authority scope did not match the exact live adapter boundary."
             ),
             required_next_action="inspect_provider_adapter_transport_scope_before_retry",
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         ).model_copy(update={"receipt": network_attempt_receipt})
     if transport_receipt.status == "blocked":
@@ -1754,6 +1871,7 @@ def evaluate_tiny_provider_invocation(
                 "provider adapter blocked before invocation."
             ),
             required_next_action="inspect_live_provider_adapter_posture_and_safe_disable_ref",
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         ).model_copy(update={"receipt": blocked_receipt})
     completeness = _receipt_completeness_from_transport(
@@ -1801,6 +1919,7 @@ def evaluate_tiny_provider_invocation(
                 "was unavailable after the scoped adapter returned."
             ),
             required_next_action="review_incomplete_provider_cost_receipt_before_retry",
+            authority_decision=authority_decision,
             cost_decision=cost_decision,
         ).model_copy(update={"receipt": blocked_receipt})
     actual_estimate = CostEstimate(
@@ -1865,6 +1984,7 @@ def evaluate_tiny_provider_invocation(
             ),
             safe_message="Provider adapter usage or billed cost exceeded the exact approved budget.",
             required_next_action="review_actual_usage_and_request_new_exact_budget_approval",
+            authority_decision=authority_decision,
             cost_decision=actual_cost_decision,
         ).model_copy(update={"receipt": blocked_receipt})
     receipt = _receipt_from_transport(
@@ -1893,6 +2013,7 @@ def evaluate_tiny_provider_invocation(
         status=TinyProviderInvocationStatus.receipt_recorded,
         reason_codes=list(receipt.reason_codes),
         safe_message="Tiny exact-approved provider lane produced a redacted receipt.",
+        authority_decision=authority_decision,
         cost_decision=actual_cost_decision,
         receipt=receipt,
         redacted_output_preview=transport_receipt.redacted_output_preview,
@@ -1936,6 +2057,7 @@ def _blocked_decision(
     reason_codes: list[str],
     safe_message: str,
     required_next_action: str,
+    authority_decision: AuthorityPolicyDecision | None = None,
     cost_decision: CostDecision | None = None,
 ) -> TinyProviderInvocationDecision:
     return TinyProviderInvocationDecision(
@@ -1945,6 +2067,7 @@ def _blocked_decision(
         reason_codes=reason_codes,
         safe_message=safe_message,
         required_next_action=required_next_action,
+        authority_decision=authority_decision,
         cost_decision=cost_decision,
     )
 
