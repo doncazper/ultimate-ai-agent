@@ -148,6 +148,9 @@ and `/task-decomposition/plans/execute` return a durable, redacted blocked/draft
 decision with authority decision refs, required domain/capability refs, audit
 refs, receipt posture, and rollback/safe-disable refs instead of silently
 executing or claiming broad shell/tool authority.
+The same task execution authority decision observes the local AuthorityLease
+kill switch, so an active workspace lease cannot start registered handlers while
+`UAA_AUTHORITY_LEASE_KILL_SWITCH=1` is engaged.
 Governed Runtime Action Inbox command execution now re-evaluates the current
 active AuthorityLease scope immediately before an approved command starts. A
 command that was approved under a workspace execute lease degrades back to a

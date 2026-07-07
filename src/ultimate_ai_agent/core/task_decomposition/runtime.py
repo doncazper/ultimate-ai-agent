@@ -25,6 +25,7 @@ from ultimate_ai_agent.core.authority import (
     AuthorityLeaseStore,
     AuthorityPolicyDecision,
     TrustMode,
+    authority_lease_kill_switch_engaged,
     build_default_authority_leases,
     evaluate_authority_request,
 )
@@ -492,6 +493,14 @@ class TaskDecompositionService:
     def from_env(cls) -> "TaskDecompositionService":
         path = os.environ.get("UAA_TASK_DECOMPOSITION_REGISTRY", DEFAULT_REGISTRY_PATH)
         return cls(registry_store=CapabilityRegistryStore(CapabilityRegistryStoreConfig(registry_path=path)))
+
+    def current_authority_leases(self) -> list[AuthorityLease]:
+        if self._active_authority_leases is not None:
+            return list(self._active_authority_leases)
+        return active_task_decomposition_authority_leases()
+
+    def authority_lease_kill_switch_engaged(self) -> bool:
+        return authority_lease_kill_switch_engaged()
 
     def latest_durable_run(self, run_id: str) -> DurableRunRecord | None:
         return self.durable_run_storage.latest_run_record(self._durable_run_id(run_id))
@@ -1337,11 +1346,7 @@ class TaskDecompositionService:
         route_ref: str,
         action_ref: str,
     ) -> AuthorityPolicyDecision:
-        leases = (
-            self._active_authority_leases
-            if self._active_authority_leases is not None
-            else active_task_decomposition_authority_leases()
-        )
+        leases = self.current_authority_leases()
         return evaluate_authority_request(
             AuthorityActionRequest(
                 action_ref=action_ref,
@@ -1365,6 +1370,7 @@ class TaskDecompositionService:
                 lane_ref=TASK_DECOMPOSITION_EXECUTE_AUTHORITY_LANE_REF,
                 requested_mode=TrustMode.approved_safe_local_work_session,
                 draft_fallback_available=True,
+                kill_switch_engaged=self.authority_lease_kill_switch_engaged(),
                 rollback_ref=TASK_DECOMPOSITION_EXECUTE_ROLLBACK_REF,
                 safe_disable_ref=TASK_DECOMPOSITION_EXECUTE_SAFE_DISABLE_REF,
             ),

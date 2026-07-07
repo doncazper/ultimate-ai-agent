@@ -6,7 +6,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 import ultimate_ai_agent.api.app as api_app
-from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
+from ultimate_ai_agent.core.authority import (
+    AUTHORITY_LEASE_KILL_SWITCH_ENV,
+    AUTHORITY_STATE_DIR_ENV,
+)
 from ultimate_ai_agent.core.task_decomposition import (
     CapabilityCallContext,
     CapabilityRegistryStore,
@@ -248,6 +251,36 @@ def test_task_decomposition_run_requires_workspace_execute_authority_lease(
     assert execution["authority_required_capability_refs"] == [
         "authority-capability-ref:execute"
     ]
+    assert "TASK_DECOMPOSITION_WORKSPACE_EXECUTE_AUTHORITY_REQUIRED" in execution["reason_codes"]
+    assert "Summarize this request directly" not in response.text
+
+
+def test_task_decomposition_run_rechecks_authority_kill_switch_before_execution(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    client, _service = _client(monkeypatch, tmp_path)
+    monkeypatch.setenv(AUTHORITY_LEASE_KILL_SWITCH_ENV, "1")
+    client.post("/task-decomposition/examples/init", headers=TASK_API_HEADERS)
+
+    response = client.post(
+        "/task-decomposition/run",
+        headers=TASK_API_HEADERS,
+        json={
+            "raw_request": "Summarize this request directly.",
+            "context": {},
+            "idempotency_key": "p1-027-authority-kill-switch",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is False
+    execution = body["data"]["execution"]
+    assert execution["status"] == "awaiting_approval"
+    assert execution["authority_decision_outcome"] == "deny"
+    assert execution["authority_lease_ref"] is None
+    assert "reason-ref:authority:kill-switch-engaged" in execution["reason_codes"]
     assert "TASK_DECOMPOSITION_WORKSPACE_EXECUTE_AUTHORITY_REQUIRED" in execution["reason_codes"]
     assert "Summarize this request directly" not in response.text
 
