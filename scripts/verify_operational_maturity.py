@@ -1249,6 +1249,12 @@ def _append_ladder_doc_failures(failures: list[str], ladder_text: str) -> None:
         "rank 3 or higher requires backend-owned receipt state",
         "rank 4 or higher requires exact scope",
         "rank 5 or higher requires a real allowlisted local state change",
+        "authoritylease capability conveyor",
+        "docs/strategy/uaa_authority_modes_and_mission_leases.md",
+        "unknown authority remains denied",
+        "first implemented authority capability",
+        "authority-capability:action-inbox:local-task-create",
+        "active workspace/write lease",
         "post /control-center/actions/{action_id}/local-task/commit",
         "local_task_create",
     ]:
@@ -2867,7 +2873,7 @@ def _append_status_doc_failures(
             "docs/control_center/operationalization_ladder.md",
             "docs/control_center/authority_candidate_scorecard.json",
             "docs/control_center/authority_ramp_conveyor.md",
-            "promotion gate",
+            "authoritylease capability",
         ]:
             if snippet not in text:
                 failures.append(

@@ -105,19 +105,20 @@ metadata, CLI/core/API parity, focused tests, and redacted evidence.
 Rank 2+ backend-owned status routes must also declare `ui_status_binding`
 evidence in the manifest: the Control Center endpoint/client/type/component/test
 refs that surface the status, or a documented backend-only reason and blocker.
-Candidate Next lanes must stay scoped to that maturity scorecard and may not
-claim operational status without the same manifest and verifier proof.
-The future-authority gate is the Authority Graduation Program at the
-legacy-stable path `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`, with the
-canonical authority candidate scorecard at
-`docs/control_center/authority_candidate_scorecard.json`. The fixed first
-implementation lane is `read_only_real_world_web_fetch` through
+Candidate next capabilities must stay scoped to that maturity scorecard and may
+not claim operational status without the same manifest and verifier proof.
+The future-authority gate is the AuthorityLease capability conveyor anchored in
+`docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md`, with the
+legacy-stable conveyor path `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`
+and the canonical authority candidate scorecard at
+`docs/control_center/authority_candidate_scorecard.json`. The fixed first web
+implementation capability is `read_only_real_world_web_fetch` through
 `WebAccessGateway`; connector writes, memory writes, shell/subprocess local
 maintenance, browser automation, provider/model authority, and context
 injection are ranked there only as follow-on candidates and are not selected
-for a new authority capability. The current follow-on authority capability
-decision is no-go; Action Inbox `local_task_create` remains the only rank 5
-local write authority capability. That rank 5 capability depends on explicit
+for implemented authority. The current follow-on authority capability decision
+is no-go; Action Inbox `local_task_create` remains the only rank 5 local write
+authority capability. That rank 5 capability depends on explicit
 safe-disable/rollback posture refs and backend denial when the capability is
 disabled; it is not a rank 6 rollback execution or broader action-execution
 promotion.

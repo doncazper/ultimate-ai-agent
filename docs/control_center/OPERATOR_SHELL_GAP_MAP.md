@@ -146,23 +146,26 @@ operated from a command-line or repo-local script path. Product behavior must no
 live only in React state; UI-only state is limited to presentation concerns such
 as filters, expanded panels, selected tabs, and layout preferences.
 
-Operational maturity is now a promotion gate enforced by
+Operational maturity is now an AuthorityLease capability maturity gate enforced by
 `docs/control_center/operational_maturity_manifest.json`,
 `docs/control_center/OPERATIONALIZATION_LADDER.md`, and
-`scripts/verify_operational_maturity.py`. No module or lane may move from
-planned, proposal, partial, or proofed-review posture to operational behavior
-without a manifest rank change, verifier pass, backend-owned receipts, and the
-required CLI/core/API parity evidence. Rank 2+ backend-owned status routes now
-also require a manifest `ui_status_binding` so Control Center UI/API copy cannot
-say Settings, Local Models, or future status modules are missing, mock-only, or
-not wired while backend status exists; explicitly backend-only status must carry
-a reason, doc ref, and blocker ref.
-Future authority classes are ranked by
-`docs/control_center/authority_candidate_scorecard.json` and explained in
-`docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`. That scorecard is also a
-promotion gate: no connector write, memory write, shell/subprocess, browser
-automation, provider/model authority, or context-injection lane is selected
-until the candidate has exact scope, approval, idempotency, receipt/evidence,
+`scripts/verify_operational_maturity.py`. No module or AuthorityLease
+capability may move from planned, proposal, partial, or proofed-review posture
+to operational behavior without a manifest rank change, verifier pass,
+backend-owned receipts, active lease requirements, exact mode/domain/capability
+scope, and the required CLI/core/API parity evidence. Rank 2+ backend-owned
+status routes now also require a manifest `ui_status_binding` so Control Center
+UI/API copy cannot say Settings, Local Models, or future status modules are
+missing, mock-only, or not wired while backend status exists; explicitly
+backend-only status must carry a reason, doc ref, and blocker ref.
+Future authority classes are governed by the AuthorityLease foundation in
+`docs/strategy/UAA_AUTHORITY_MODES_AND_MISSION_LEASES.md`, ranked by
+`docs/control_center/authority_candidate_scorecard.json`, and explained in the
+legacy-stable conveyor doc `docs/control_center/AUTHORITY_RAMP_CONVEYOR.md`.
+That scorecard is also a capability gate: no connector write, memory write,
+shell/subprocess, browser automation, provider/model authority, or context
+injection capability is selected until the candidate has exact mode, domain,
+capability, active lease requirement, approval, idempotency, receipt/evidence,
 rollback or safe-disable, redaction, CLI/API/core parity, and focused test
 refs. The current scorecard decision is no-go for new authority; the existing
 Action Inbox `local_task_create` remains the only rank 5 local write authority
