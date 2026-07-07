@@ -269,7 +269,7 @@ def _append_static_failures(failures: list[str]) -> None:
     required_fragments = {
         LANE_DOC: list(REQUIRED_DOC_FRAGMENTS),
         AUTHORITY_BOARD: [
-            "Connector Write / Send Lane",
+            "Connector Write / Send Capability",
             "Connector Draft-Only Proposal",
             "live connector runtime",
         ],
