@@ -161,7 +161,11 @@ def report_only_receipt(command_mode: str) -> FoundationGateCommandReceipt:
         command_mode=command_mode,
         status="report_only",
         satisfied_by="typed-foundation-gate-evaluator",
-        safe_summary="No external commands were run; only the typed Foundation Gate report was generated.",
+        safe_summary=(
+            "No external verifier commands were run. The typed Foundation Gate "
+            "evaluator and latency summary still run local read/probe code; use "
+            "--no-write-latest when the latest report files must not be updated."
+        ),
     )
 
 
@@ -392,7 +396,7 @@ def main(argv: list[str] | None = None) -> int:
         default="full",
         help=(
             "Command mode. full runs the master verifier once; legacy-full preserves the old targeted+baseline+skill+verify_all sequence; "
-            "report-only only generates the typed report; ci-after-verify-all records an external CI verification receipt; "
+            "report-only skips external verifier commands but still runs local typed evaluator/probe summaries; ci-after-verify-all records an external CI verification receipt; "
             "ci-parallel records verification satisfied by required parallel CI jobs."
         ),
     )

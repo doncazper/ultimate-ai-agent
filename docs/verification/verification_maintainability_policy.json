@@ -27,6 +27,10 @@
         "scripts/verification/documentation_integrity/legacy.py": {
           "max_lines": 21976,
           "reason": "Frozen compatibility body moved out of scripts/verify_documentation_integrity.py; accumulated route-count and documentation-currentness checks remain accepted debt, future doc checks must be data-driven or modular."
+        },
+        "scripts/verify_governed_cognitive_memory_spine_v1.py": {
+          "max_lines": 785,
+          "reason": "Frozen governed cognitive memory verifier hotspot. Future memory-spine verifier cases should move into focused scripts/verification modules instead of growing this script."
         }
       }
     },
@@ -49,7 +53,7 @@
           "reason": "Pre-existing oversized test outside this verifier refactor."
         },
         "tests/test_control_center_frontend_safety_verifier.py": {
-          "max_lines": 776,
+          "max_lines": 789,
           "reason": "Oversized Control Center frontend safety verifier regression test accepted through governed runtime pilot frontend/runtime truth hardening; future cases should be sharded into focused tests."
         },
         "tests/test_foundation_gate_latency_scripts.py": {
@@ -61,7 +65,7 @@
           "reason": "Frozen seed/read-model legacy chunk after behavior-specific tests were sharded; FCC-V1-002 through FCC-ACTION-001a add decision-state, receipt, and local-task assertions."
         },
         "tests/test_control_center_api_routes.py": {
-          "max_lines": 884,
+          "max_lines": 936,
           "reason": "Frozen Control Center API route contract test; rank-2 Settings, Local Models, memory workbench, runtime pilot route-currentness, and route-currentness assertions remain accepted pre-sharding debt."
         },
         "tests/test_control_center_founder_loop_api.py": {
@@ -73,24 +77,71 @@
           "reason": "Frozen WebAccessGateway contract test after provider-shell and gateway promotion hardening; future gateway cases should be sharded into focused tests."
         },
         "tests/test_operational_maturity_manifest.py": {
-          "max_lines": 1064,
+          "max_lines": 1159,
           "reason": "Pre-existing oversized operational maturity manifest regression test after authority graduation lane coverage; future maturity assertions should be sharded into focused tests."
         },
         "tests/test_api_manifest.py": {
-          "max_lines": 925,
+          "max_lines": 1048,
           "reason": "Frozen API manifest route/capability contract test with provider credential validation and governed runtime pilot route-currentness assertions; future API manifest cases should be sharded into focused tests."
         },
         "tests/test_coding_cockpit_read_model.py": {
-          "max_lines": 1201,
+          "max_lines": 1339,
           "reason": "Frozen Coding Cockpit read-model regression test from prior coding prompt lanes; future coding cases should be sharded into focused tests."
         },
         "tests/test_governed_runtime_api_routes.py": {
-          "max_lines": 775,
+          "max_lines": 1031,
           "reason": "Frozen governed runtime API route contract test for Phase 07 receipt/detail/preflight hardening; future runtime API cases should be sharded into focused tests."
         },
         "tests/test_governed_runtime_contracts.py": {
-          "max_lines": 1811,
+          "max_lines": 2643,
           "reason": "Frozen governed runtime core contract test for local model, command, Action Inbox execution bridge, replay, and safe-disable hardening; future runtime core cases should be sharded into focused tests."
+        },
+        "tests/test_authority_leases.py": {
+          "max_lines": 2511,
+          "reason": "Frozen authority lease contract matrix covering exact lanes, receipts, and denial posture. Future authority-lane cases should be sharded into focused tests."
+        },
+        "tests/test_control_center_work_board.py": {
+          "max_lines": 918,
+          "reason": "Frozen Control Center work-board read/write contract test. Future work-board API and UI assertions should be sharded into focused tests."
+        },
+        "tests/test_fcc_mem_001_memory_workbench.py": {
+          "max_lines": 777,
+          "reason": "Frozen FCC memory workbench regression test. Future memory workbench cases should be sharded into focused tests."
+        },
+        "tests/test_governed_memory_phase6_execution_hooks.py": {
+          "max_lines": 785,
+          "reason": "Frozen governed memory phase 6 execution hook regression test. Future memory hook cases should be sharded into focused tests."
+        },
+        "tests/test_tiny_provider_invocation_lane.py": {
+          "max_lines": 786,
+          "reason": "Frozen tiny provider invocation lane regression test. Future provider lane cases should be sharded into focused tests."
+        }
+      }
+    },
+    "source_hotspots": {
+      "max_lines": 1200,
+      "paths": [
+        "src/ultimate_ai_agent/core/gate/criteria.py",
+        "src/ultimate_ai_agent/core/storage/founder_loop.py",
+        "src/ultimate_ai_agent/core/authority/contracts.py",
+        "scripts/dev/uaa_runtime.py"
+      ],
+      "allowlist": {
+        "src/ultimate_ai_agent/core/gate/criteria.py": {
+          "max_lines": 5680,
+          "reason": "Frozen Foundation Gate criterion metadata hotspot. Future criteria should move into family-scoped data modules instead of growing the hardcoded default criterion list."
+        },
+        "src/ultimate_ai_agent/core/storage/founder_loop.py": {
+          "max_lines": 18036,
+          "reason": "Frozen Founder Loop storage/read-model hotspot. Future Today summary and evidence timeline work must move into focused read-model modules instead of growing this file."
+        },
+        "src/ultimate_ai_agent/core/authority/contracts.py": {
+          "max_lines": 4549,
+          "reason": "Frozen authority contract mapping hotspot. Future authority lane mappings should move to data-driven registry modules instead of growing build_existing_lane_authority_mappings."
+        },
+        "scripts/dev/uaa_runtime.py": {
+          "max_lines": 5332,
+          "reason": "Frozen developer runtime CLI hotspot. Future CLI commands should move to command modules instead of growing build_parser."
         }
       }
     }

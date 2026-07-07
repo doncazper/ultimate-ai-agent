@@ -20,6 +20,9 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     CONTROL_CENTER_CODING_COCKPIT_ROUTES,
     CONTROL_CENTER_PROVIDER_CREDENTIAL_VALIDATION_ROUTES,
     CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES,
+    CONTROL_CENTER_CRM_COMMAND_CENTER_ROUTES,
+    CONTROL_CENTER_RUNTIME_COCKPIT_ROUTES,
+    CONTROL_CENTER_WORK_BOARD_COMMAND_ROUTES,
     CONTROL_CENTER_WORK_BOARD_ROUTES,
     FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
     FOUNDER_LOOP_LOCAL_TASK_COMMIT_ROUTES,
@@ -30,6 +33,8 @@ from ultimate_ai_agent.core.gate.evaluator_modules.route_boundaries import (
     GOVERNED_RUNTIME_PILOT_CONTRACT_ROUTES,
     POST_MILESTONE_SAFE_ROUTE_FAMILIES,
     RUN_ATTACHED_APPROVAL_QUEUE_ROUTES,
+    UAA_RUNTIME_CONTROL_PLANE_ROUTES,
+    UAA_RUNTIME_EXTENSION_ROUTES,
     _historical_openapi_path_set,
     _post_m151_route_boundary_path_set,
 )
@@ -58,6 +63,17 @@ def test_foundation_gate_legacy_imports_remain_compatible() -> None:
     assert PackageFoundationGateEvaluator is FoundationGateEvaluator
     assert callable(m36_openapi_route_failures)
     assert callable(m167_openapi_route_failures)
+
+
+def test_foundation_gate_criterion_ids_match_check_method_convention() -> None:
+    evaluator = FoundationGateEvaluator(ROOT)
+    missing = [
+        criterion.criterion_id
+        for criterion in default_foundation_gate_criteria()
+        if not callable(getattr(evaluator, f"check_{criterion.criterion_id}", None))
+    ]
+
+    assert missing == []
 
 
 def test_route_contract_module_delegates_to_legacy_facade_without_output_drift() -> (
@@ -190,6 +206,25 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
     assert CONTROL_CENTER_WORK_BOARD_ROUTES == {
         "/control-center/work-board",
     }
+    assert CONTROL_CENTER_WORK_BOARD_COMMAND_ROUTES == {
+        "/control-center/work-board/cards",
+        "/control-center/work-board/reorder",
+        "/control-center/work-board/tasks",
+    }
+    assert CONTROL_CENTER_CRM_COMMAND_CENTER_ROUTES == {
+        "/control-center/crm/follow-ups",
+        "/control-center/crm/local-mutations",
+        "/control-center/crm/pipelines",
+        "/control-center/crm/relationships",
+        "/control-center/crm/smart-lists",
+        "/control-center/crm/summary",
+        "/control-center/crm/timeline",
+    }
+    assert CONTROL_CENTER_RUNTIME_COCKPIT_ROUTES == {
+        "/control-center/agent-loop/thread",
+        "/control-center/providers/runtime-control-plane",
+        "/control-center/runtime-readiness/summary",
+    }
     assert GOVERNED_RUNTIME_PILOT_CONTRACT_ROUTES == {
         "/api/runtime/capabilities",
         "/api/runtime/command/run",
@@ -201,6 +236,26 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "/api/runtime/local-model/call",
         "/api/runtime/safe-disable",
     }
+    assert UAA_RUNTIME_EXTENSION_ROUTES == {
+        "/api/runtime/background-jobs",
+        "/api/runtime/doctor-diagnostics",
+        "/api/runtime/logging-profile",
+        "/api/runtime/lsp-diagnostics",
+        "/api/runtime/managed-scope-policy",
+        "/api/runtime/mcp-catalog-filtering",
+        "/api/runtime/messaging-gateway-posture",
+        "/api/runtime/plugin-metadata-posture",
+        "/api/runtime/preview-rail",
+        "/api/runtime/remote-execution-posture",
+        "/api/runtime/result-classification",
+        "/api/runtime/session-continuity",
+        "/api/runtime/skill-marketplace-posture",
+        "/api/runtime/slash-command-registry",
+        "/api/runtime/subagent-isolation",
+        "/api/runtime/voice-media-posture",
+        "/api/runtime/worktree-per-agent",
+    }
+    assert len(paths & UAA_RUNTIME_CONTROL_PLANE_ROUTES) == 55
     assert RUN_ATTACHED_APPROVAL_QUEUE_ROUTES == {
         "/control-center/approvals/queue",
     }
@@ -211,7 +266,10 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "control_center_provider_credential_validation",
         "control_center_provider_router_dry_run",
         "control_center_coding_cockpit",
+        "control_center_crm_command_center",
+        "control_center_runtime_cockpit",
         "control_center_work_board",
+        "control_center_work_board_commands",
         "control_center_setup_assistant",
         "control_center_tiny_provider_lane",
         "founder_loop",
@@ -222,6 +280,7 @@ def test_post_milestone_safe_route_families_are_explicitly_normalized() -> None:
         "run_attached_approval_queue",
         "task_decomposition",
         "turn_contract_router_diagnostic",
+        "uaa_runtime_control_plane",
         "visual_proof",
         "web_evidence_product_slice",
         "v1_local_model_gateway",

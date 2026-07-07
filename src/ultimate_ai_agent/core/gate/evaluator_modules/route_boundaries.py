@@ -3,6 +3,16 @@ from __future__ import annotations
 import re
 from typing import Iterable, List
 
+from ultimate_ai_agent.api.manifest import (
+    CONTROL_CENTER_CRM_LOCAL_MUTATION_PATHS,
+    CONTROL_CENTER_WORK_BOARD_CARD_CREATE_PATHS,
+    CONTROL_CENTER_WORK_BOARD_REORDER_PATHS,
+    CONTROL_CENTER_WORK_BOARD_TASK_CREATE_PATHS,
+    GOVERNED_RUNTIME_MUTATING_PATHS,
+    GOVERNED_RUNTIME_READONLY_PATHS,
+    LOCAL_READONLY_PATHS,
+)
+
 EXPECTED_M16_OPENAPI_PATH_COUNT = 79
 M16_FORBIDDEN_BACKEND_ROUTES = (
     "/events/timeline",
@@ -2550,6 +2560,52 @@ GOVERNED_RUNTIME_PILOT_CONTRACT_ROUTES = frozenset(
         "/api/runtime/safe-disable",
     }
 )
+UAA_RUNTIME_EXTENSION_ROUTES = frozenset(
+    {
+        "/api/runtime/background-jobs",
+        "/api/runtime/doctor-diagnostics",
+        "/api/runtime/logging-profile",
+        "/api/runtime/lsp-diagnostics",
+        "/api/runtime/managed-scope-policy",
+        "/api/runtime/mcp-catalog-filtering",
+        "/api/runtime/messaging-gateway-posture",
+        "/api/runtime/plugin-metadata-posture",
+        "/api/runtime/preview-rail",
+        "/api/runtime/remote-execution-posture",
+        "/api/runtime/result-classification",
+        "/api/runtime/session-continuity",
+        "/api/runtime/skill-marketplace-posture",
+        "/api/runtime/slash-command-registry",
+        "/api/runtime/subagent-isolation",
+        "/api/runtime/voice-media-posture",
+        "/api/runtime/worktree-per-agent",
+    }
+)
+UAA_RUNTIME_CONTROL_PLANE_ROUTES = frozenset(
+    GOVERNED_RUNTIME_READONLY_PATHS
+    | GOVERNED_RUNTIME_MUTATING_PATHS
+    | UAA_RUNTIME_EXTENSION_ROUTES
+)
+CONTROL_CENTER_CRM_COMMAND_CENTER_ROUTES = frozenset(
+    {
+        path
+        for path in LOCAL_READONLY_PATHS
+        if path.startswith("/control-center/crm/")
+    }
+    | CONTROL_CENTER_CRM_LOCAL_MUTATION_PATHS
+)
+CONTROL_CENTER_WORK_BOARD_COMMAND_ROUTES = frozenset(
+    CONTROL_CENTER_WORK_BOARD_CARD_CREATE_PATHS
+    | CONTROL_CENTER_WORK_BOARD_REORDER_PATHS
+    | CONTROL_CENTER_WORK_BOARD_TASK_CREATE_PATHS
+)
+CONTROL_CENTER_RUNTIME_COCKPIT_ROUTES = frozenset(
+    {
+        "/control-center/agent-loop/thread",
+        "/control-center/providers/runtime-control-plane",
+        "/control-center/runtime-readiness/summary",
+    }
+)
 
 POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "founder_loop": FOUNDER_LOOP_CONTROL_CENTER_ROUTES,
@@ -2561,8 +2617,12 @@ POST_MILESTONE_SAFE_ROUTE_FAMILIES = {
     "control_center_provider_router_dry_run": CONTROL_CENTER_PROVIDER_ROUTER_DRY_RUN_ROUTES,
     "control_center_coding_cockpit": CONTROL_CENTER_CODING_COCKPIT_ROUTES,
     "control_center_work_board": CONTROL_CENTER_WORK_BOARD_ROUTES,
+    "control_center_work_board_commands": CONTROL_CENTER_WORK_BOARD_COMMAND_ROUTES,
+    "control_center_crm_command_center": CONTROL_CENTER_CRM_COMMAND_CENTER_ROUTES,
+    "control_center_runtime_cockpit": CONTROL_CENTER_RUNTIME_COCKPIT_ROUTES,
     "control_center_tiny_provider_lane": CONTROL_CENTER_TINY_PROVIDER_LANE_ROUTES,
     "governed_runtime_pilot_contracts": GOVERNED_RUNTIME_PILOT_CONTRACT_ROUTES,
+    "uaa_runtime_control_plane": UAA_RUNTIME_CONTROL_PLANE_ROUTES,
     "mattermost": MATTERMOST_AGENT_ROOMS_ROUTES,
     "packaging_proof": PACKAGING_PROOF_ROUTE_BOUNDARY_ROUTES,
     "redacted_observability": M167_REDACTED_OBSERVABILITY_ROUTES,

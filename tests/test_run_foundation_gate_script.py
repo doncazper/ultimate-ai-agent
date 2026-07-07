@@ -153,6 +153,11 @@ def test_run_foundation_gate_writes_requested_output(tmp_path: Path, monkeypatch
     assert payload["overall_status"] == "passed"
     assert payload["command_mode"] == "report-only"
     assert payload["command_receipts"][0]["status"] == "report_only"
+    assert (
+        "No external verifier commands were run"
+        in payload["command_receipts"][0]["safe_summary"]
+    )
+    assert "local read/probe code" in payload["command_receipts"][0]["safe_summary"]
     assert payload["latency_gate"]["schema_version"] == "uaa_foundation_gate_latency_summary.v1"
     assert payload["latency_gate"]["status"] == "passed"
     assert payload["latency_gate"]["foundation_gate_report_json"] == (
