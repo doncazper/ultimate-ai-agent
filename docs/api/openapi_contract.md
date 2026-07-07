@@ -269,9 +269,13 @@ Contract rules:
   `GET /api/runtime/lsp-diagnostics` exposes the Hermes Runtime Adoption Phase
   34 backend-owned semantic diagnostics proof posture. It returns diagnostic
   refs, safe source scope refs, evidence refs, receipt-plan refs, proof refs,
-  verifier refs, promotion refs, redaction refs, and blocked authority refs
-  only. Language-server launch, dependency install, shell execution, file
-  reads/writes, provider calls, raw path persistence, and raw diagnostic
+  verifier refs, promotion refs, redaction refs, AuthorityState
+  route/CLI/mapping/catalog/decision/reason refs, unsupported adapter refs, and
+  blocked authority refs only. The
+  `lane-ref:runtime-lsp-diagnostics-evidence` decision is denied because
+  language-server launch/file-read/diagnostic-extraction adapters are
+  unsupported. Language-server launch, dependency install, shell execution,
+  file reads/writes, provider calls, raw path persistence, and raw diagnostic
   payload persistence remain blocked.
   `GET /api/runtime/preview-rail` exposes the Hermes Runtime Adoption Phase 35
   backend-owned right preview rail posture. It returns safe source refs,

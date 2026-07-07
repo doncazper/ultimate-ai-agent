@@ -154,6 +154,16 @@ def main() -> int:
     else:
         payload = json.loads(cli_result.stdout)
         read_model_payload = payload["runtime_lsp_diagnostics"]
+        authority_state = payload.get("authority_state")
+        if not isinstance(authority_state, dict):
+            failures.append("LSP diagnostics CLI missing authority state")
+        elif (
+            authority_state.get("mapping_ref")
+            != RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("LSP diagnostics CLI authority mapping drifted")
+        elif authority_state.get("decision_outcome") != "deny":
+            failures.append("LSP diagnostics CLI authority decision drifted")
         if payload["language_server_started"] is not False:
             failures.append("LSP diagnostics CLI claims server launch")
         if payload["dependency_install_performed"] is not False:

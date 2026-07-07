@@ -334,9 +334,13 @@ persistence, shell execution, and provider calls remain blocked.
 `GET /api/runtime/lsp-diagnostics` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 34 semantic diagnostics proof posture. It returns
 diagnostic refs, safe source scope refs, evidence refs, receipt-plan refs,
-proof refs, verifier refs, promotion refs, redaction refs, and blocked
-authority refs only. Language-server launch, dependency install, shell
-execution, file reads/writes, provider calls, raw path persistence, and raw
+proof refs, verifier refs, promotion refs, redaction refs, AuthorityState
+route/CLI/mapping/catalog/decision/reason refs, unsupported adapter refs, and
+blocked authority refs only. The
+`lane-ref:runtime-lsp-diagnostics-evidence` decision is denied because
+language-server launch/file-read/diagnostic-extraction adapters are
+unsupported. Language-server launch, dependency install, shell execution, file
+reads/writes, provider calls, raw path persistence, and raw
 diagnostic payload persistence remain blocked.
 `GET /api/runtime/preview-rail` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 35 right preview rail posture. It returns safe

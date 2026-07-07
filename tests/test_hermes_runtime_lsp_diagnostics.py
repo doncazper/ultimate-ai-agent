@@ -169,6 +169,7 @@ def test_lsp_diagnostics_api_returns_safe_read_model() -> None:
     assert body["success"] is True
     assert body["operation"] == "api_runtime_lsp_diagnostics"
     data = body["data"]
+    assert body["trace_id"] == data["snapshot_hash_ref"]
     assert data["route_ref"] == "GET /api/runtime/lsp-diagnostics"
     assert (
         data["authority_state_mapping_ref"]
@@ -221,6 +222,16 @@ def test_lsp_diagnostics_cli_uses_same_read_model() -> None:
     assert payload["file_read_performed"] is False
     assert payload["file_write_performed"] is False
     assert payload["provider_call_performed"] is False
+    assert payload["authority_state"]["mapping_ref"] == (
+        RUNTIME_LSP_DIAGNOSTICS_AUTHORITY_MAPPING_REF
+    )
+    assert payload["authority_state"]["decision_outcome"] == "deny"
+    assert payload["authority_state"]["reason_refs"] == [
+        "reason-ref:authority:adapter-unsupported"
+    ]
+    assert "adapter-ref:lsp-server-launch:not-implemented" in (
+        payload["authority_state"]["unsupported_adapter_refs"]
+    )
     assert read_model["route_ref"] == "GET /api/runtime/lsp-diagnostics"
     assert read_model["cli_ref"] == "uaa runtime inspect-lsp-diagnostics"
     assert (

@@ -343,6 +343,16 @@ def _diagnostic(
 def build_runtime_lsp_diagnostics_read_model(
     authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
 ) -> RuntimeLspDiagnosticsReadModel:
+    return build_runtime_lsp_diagnostics_read_model_from_authority_catalog(
+        authority_decision_catalog=authority_decision_catalog
+        or build_authority_decision_catalog(),
+    )
+
+
+def build_runtime_lsp_diagnostics_read_model_from_authority_catalog(
+    *,
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> RuntimeLspDiagnosticsReadModel:
     authority_entry = _authority_entry(authority_decision_catalog)
     diagnostics = [
         _diagnostic(

@@ -23,6 +23,9 @@ The current implementation is read/evidence only:
   evaluates as Full local workspace `workspace/read` authority through
   `GET /api/runtime/authority-state` and
   `repo-local-command:uaa-runtime-inspect-authority-state`.
+- `scripts/dev/uaa_runtime.py inspect-lsp-diagnostics` returns the same
+  mapping, decision, reason, and unsupported adapter refs as the Python Core
+  read model.
 - Control Center renders diagnostic refs, safe source scope refs, evidence refs,
   receipt-plan refs, proof refs, redaction posture, promotion requirements, and
   blocked authority refs, authority decision refs, blocked reason refs, and

@@ -466,6 +466,7 @@ from ultimate_ai_agent.core.runtime_gateway.lsp_diagnostics import (
     RuntimeLspDiagnosticStatus,
     RuntimeLspDiagnosticsReadModel,
     build_runtime_lsp_diagnostics_read_model,
+    build_runtime_lsp_diagnostics_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.preview_rail import (
     RUNTIME_PREVIEW_RAIL_AUTHORITY_MAPPING_REF,
@@ -1204,6 +1205,7 @@ __all__ = [
     "build_runtime_worktree_per_agent_read_model",
     "build_runtime_worktree_per_agent_read_model_from_authority_catalog",
     "build_runtime_lsp_diagnostics_read_model",
+    "build_runtime_lsp_diagnostics_read_model_from_authority_catalog",
     "build_runtime_preview_rail_read_model",
     "build_runtime_slash_command_registry_read_model",
     "build_runtime_interrupt_redirect_read_model",
