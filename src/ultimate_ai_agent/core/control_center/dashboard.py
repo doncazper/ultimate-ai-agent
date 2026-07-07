@@ -963,7 +963,7 @@ def build_provider_settings_diagnostics(
                 ],
             ),
             ProviderSettingsDiagnosticItem(
-                diagnostic_ref="provider-settings-diagnostic:tiny-lane",
+                diagnostic_ref="provider-settings-diagnostic:scoped-provider-capability",
                 label="Scoped provider capability",
                 state="disabled",
                 state_label="Disabled",
@@ -977,7 +977,7 @@ def build_provider_settings_diagnostics(
                     "execution remains disabled."
                 ),
                 blocked_authority_refs=[
-                    "blocked-state:provider-settings-tiny-lane-disabled",
+                    "blocked-state:provider-settings-scoped-provider-capability-disabled",
                     "blocked-state:provider-settings-live-adapter-blocked",
                     "blocked-state:provider-settings-incomplete-cost-blocks-use",
                 ],

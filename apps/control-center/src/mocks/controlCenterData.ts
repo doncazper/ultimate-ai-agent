@@ -4916,7 +4916,7 @@ const providerSettingsDiagnosticItems: ProviderSettingsDiagnosticItem[] = [
     cliInspectionRefs: ["scripts/inspect_tiny_provider_invocation_lane.py"],
   }),
   providerSettingsDiagnosticItem({
-    diagnosticRef: "provider-settings-diagnostic:tiny-lane",
+    diagnosticRef: "provider-settings-diagnostic:scoped-provider-capability",
     label: "Scoped provider capability",
     state: "disabled",
     stateLabel: "Disabled",
@@ -4933,7 +4933,7 @@ const providerSettingsDiagnosticItems: ProviderSettingsDiagnosticItem[] = [
     nextSafeAction:
       "Inspect exact scope and receipt requirements; default execution remains disabled.",
     blockedAuthorityRefs: [
-      "blocked-state:provider-settings-tiny-lane-disabled",
+      "blocked-state:provider-settings-scoped-provider-capability-disabled",
       "blocked-state:provider-settings-live-adapter-blocked",
       "blocked-state:provider-settings-incomplete-cost-blocks-use",
     ],
