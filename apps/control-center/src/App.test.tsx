@@ -11380,6 +11380,14 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getByText(/Mock authority summary covers two fallback capabilities/i),
     ).toBeInTheDocument();
+    const modeReadiness = screen.getByLabelText("Authority mode readiness");
+    expect(modeReadiness).toBeInTheDocument();
+    expect(modeReadiness).toHaveTextContent("full machine access session");
+    expect(modeReadiness).toHaveTextContent("blocked default scope unsupported");
+    expect(modeReadiness).toHaveTextContent("approval required");
+    expect(
+      screen.getByLabelText("Authority mode blocked reasons"),
+    ).toHaveTextContent("reason-ref:authority:adapter-unsupported");
     expect(
       screen.getByLabelText("Authority decision blocked reasons"),
     ).toBeInTheDocument();

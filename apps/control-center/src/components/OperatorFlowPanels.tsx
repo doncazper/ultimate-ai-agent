@@ -27,6 +27,7 @@ import type {
   AuthorityDecisionPreview,
   AuthorityLease,
   AuthorityLeaseMutationResult,
+  AuthorityModeCatalogEntry,
   AuthorityMissionPlan,
   AuthorityMissionPlanRequest,
   AuthorityPolicyDecision,
@@ -1612,6 +1613,18 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   }, [data.settingsStatus]);
   const settingsStatus = settingsSnapshot;
   const authorityLeaseState = settingsStatus.authority_lease_state;
+  const authorityModeCatalogByMode = new Map(
+    authorityLeaseState.mode_catalog.map((entry) => [entry.mode, entry]),
+  );
+  const authorityModeBlockedRefs = Array.from(
+    new Set(
+      authorityLeaseState.mode_catalog.flatMap((entry) => [
+        ...entry.blocked_reason_refs,
+        ...entry.denied_default_domain_refs,
+        ...entry.unsupported_adapter_refs,
+      ]),
+    ),
+  ).sort();
   const revokableLease = authorityLeaseState.active_leases.find(
     (lease) => lease.status === "active" && lease.mode !== "read_only",
   );
@@ -1620,7 +1633,8 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
     setSettingsSnapshot(refreshed);
   }
   async function handleAuthorityMode(option: (typeof AUTHORITY_MODE_OPTIONS)[number]) {
-    if (option.disabled) {
+    const modeReadiness = authorityModeCatalogByMode.get(option.mode);
+    if (option.disabled || modeReadiness?.issue_ready === false) {
       return;
     }
     setAuthorityPendingMode(option.mode);
@@ -1953,22 +1967,62 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
           </div>
           <div
             className="operator-action-panel"
+            aria-label="Authority mode readiness"
+          >
+            <ul className="compact-list">
+              {authorityLeaseState.mode_catalog.map((entry) => (
+                <li key={entry.mode}>
+                  <strong>{entry.mode.replaceAll("_", " ")}</strong>
+                  <small>{authorityModeReadinessLabel(entry)}</small>
+                  <small>{entry.operator_summary}</small>
+                  <small>
+                    Default grant:{" "}
+                    {authorityDomainRecordLabels(
+                      entry.granted_default_domains,
+                    ).join("; ")}
+                  </small>
+                </li>
+              ))}
+            </ul>
+            <div
+              className="note-list"
+              aria-label="Authority mode blocked reasons"
+            >
+              {authorityModeBlockedRefs.length > 0 ? (
+                authorityModeBlockedRefs.map((ref) => (
+                  <span key={ref}>{ref}</span>
+                ))
+              ) : (
+                <span>no blocked mode reasons</span>
+              )}
+            </div>
+          </div>
+          <div
+            className="operator-action-panel"
             aria-label="Authority mode controls"
           >
             <div className="action-button-row">
-              {AUTHORITY_MODE_OPTIONS.map((option) => (
-                <button
-                  className="secondary-button"
-                  disabled={Boolean(option.disabled) || authorityPendingMode !== undefined}
-                  key={option.mode}
-                  onClick={() => void handleAuthorityMode(option)}
-                  type="button"
-                >
-                  {authorityPendingMode === option.mode
-                    ? `Recording ${option.label}`
-                    : option.label}
-                </button>
-              ))}
+              {AUTHORITY_MODE_OPTIONS.map((option) => {
+                const modeReadiness = authorityModeCatalogByMode.get(option.mode);
+                const modeBlocked = modeReadiness?.issue_ready === false;
+                return (
+                  <button
+                    className="secondary-button"
+                    disabled={
+                      Boolean(option.disabled) ||
+                      modeBlocked ||
+                      authorityPendingMode !== undefined
+                    }
+                    key={option.mode}
+                    onClick={() => void handleAuthorityMode(option)}
+                    type="button"
+                  >
+                    {authorityPendingMode === option.mode
+                      ? `Recording ${option.label}`
+                      : option.label}
+                  </button>
+                );
+              })}
             </div>
             <ul className="compact-list">
               {AUTHORITY_MODE_OPTIONS.map((option) => (
@@ -2792,6 +2846,18 @@ function authorityDecisionRequirementLabel(decision: AuthorityPolicyDecision) {
       "authority-capability-ref",
     ) || decision.capability.replaceAll("_", " ");
   return `Requires ${mode} + ${domain} domain + ${capability} capability.`;
+}
+
+function authorityModeReadinessLabel(entry: AuthorityModeCatalogEntry) {
+  const status = entry.status.replaceAll("_", " ");
+  const approval = entry.approval_required
+    ? "approval required"
+    : "approval not required";
+  const readiness = entry.issue_ready ? "issue-ready" : "not issue-ready";
+  const scope = entry.requires_mission_ref
+    ? "mission scope required"
+    : `${entry.scope} scope`;
+  return `${status}; ${approval}; ${readiness}; ${scope}.`;
 }
 
 function authorityMissionRequirementLabel(plan: AuthorityMissionPlan) {

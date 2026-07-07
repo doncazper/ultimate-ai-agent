@@ -1947,6 +1947,35 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
         print(f"Contract: {read_model['contract_ref']}")
         print(f"API: {read_model['api_ref']}")
         print(f"Summary: {read_model['operator_summary']}")
+        print(f"Mode readiness: {len(read_model['mode_catalog'])}")
+        for mode_entry in read_model["mode_catalog"]:
+            approval = "approval_required" if mode_entry["approval_required"] else "approval_not_required"
+            issue_ready = "issue_ready" if mode_entry["issue_ready"] else "not_issue_ready"
+            print(
+                f"- {mode_entry['mode']} scope={mode_entry['scope']} "
+                f"status={mode_entry['status']} {approval} {issue_ready}"
+            )
+            print(f"  summary: {mode_entry['operator_summary']}")
+            print(
+                "  default request: "
+                f"{_authority_domain_summary(mode_entry['default_requested_domains'])}"
+            )
+            print(
+                "  default grant: "
+                f"{_authority_domain_summary(mode_entry['granted_default_domains'])}"
+            )
+            print(
+                "  denied defaults: "
+                f"{_authority_ref_summary(mode_entry['denied_default_domain_refs'])}"
+            )
+            print(
+                "  unsupported adapters: "
+                f"{_authority_ref_summary(mode_entry['unsupported_adapter_refs'])}"
+            )
+            print(
+                "  blocked reasons: "
+                f"{_authority_ref_summary(mode_entry['blocked_reason_refs'])}"
+            )
         print(f"Active leases: {len(read_model['active_leases'])}")
         for lease in read_model["active_leases"]:
             print(

@@ -12053,6 +12053,26 @@ export interface AuthorityDecisionSummary {
   control_center_grants_authority: false;
 }
 
+export interface AuthorityModeCatalogEntry {
+  schema_version: "uaa-authority-mode-catalog-entry.v1";
+  mode: AuthorityTrustMode;
+  scope: "session" | "mission";
+  status: string;
+  default_requested_domains: Record<string, string[]>;
+  grantable_domains: Record<string, string[]>;
+  granted_default_domains: Record<string, string[]>;
+  denied_default_domain_refs: string[];
+  unsupported_adapter_refs: string[];
+  blocked_reason_refs: string[];
+  approval_required: boolean;
+  issue_ready: boolean;
+  requires_mission_ref: boolean;
+  safe_refs_only: true;
+  execution_performed: false;
+  mutation_performed: false;
+  operator_summary: string;
+}
+
 export interface AuthorityStateReadModel {
   schema_version: "uaa-authority-state.v1";
   contract_ref: string;
@@ -12065,6 +12085,7 @@ export interface AuthorityStateReadModel {
   target_modes: AuthorityTrustMode[];
   target_domains: AuthorityDomain[];
   policy_outcomes: AuthorityDecisionOutcome[];
+  mode_catalog: AuthorityModeCatalogEntry[];
   active_leases: AuthorityLease[];
   capability_mappings: AuthorityCapabilityMapping[];
   decision_summary: AuthorityDecisionSummary;

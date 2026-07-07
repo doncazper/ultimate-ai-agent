@@ -76,6 +76,13 @@ lease-receipt issued/expires
 timestamps, and mission-scoped lease requirements. Use
 `authority_lease_state.capability_mappings` to explain every target domain,
 including planned or unsupported adapters, without implying live execution. Use
+`authority_lease_state.mode_catalog` before mode controls to say whether each
+trust mode default scope is issue-ready, approval-required, mission-scoped, or
+blocked by denied/unsupported refs. Do not infer readiness from a button label,
+roadmap lane, or legacy graduation status; Full Machine and Delegated Mission
+copy must remain blocked when the catalog reports unsupported shell, app,
+browser, payment, settings, or external adapters.
+Use
 `POST /api/runtime/authority-leases`,
 `POST /api/runtime/authority-leases/approve-and-issue`,
 `POST /api/runtime/authority-leases/revoke`,

@@ -822,6 +822,73 @@ class AuthorityDecisionSummary(_AuthorityModel):
         return self
 
 
+class AuthorityModeCatalogEntry(_AuthorityModel):
+    schema_version: Literal["uaa-authority-mode-catalog-entry.v1"] = (
+        "uaa-authority-mode-catalog-entry.v1"
+    )
+    mode: TrustMode
+    scope: AuthorityLeaseScope
+    status: str = Field(..., min_length=1, max_length=80)
+    default_requested_domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
+        default_factory=dict
+    )
+    grantable_domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
+        default_factory=dict
+    )
+    granted_default_domains: dict[AuthorityDomain, list[AuthorityCapability]] = Field(
+        default_factory=dict
+    )
+    denied_default_domain_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
+    blocked_reason_refs: list[str] = Field(default_factory=list)
+    approval_required: bool = False
+    issue_ready: bool = False
+    requires_mission_ref: bool = False
+    safe_refs_only: bool = True
+    execution_performed: bool = False
+    mutation_performed: bool = False
+    operator_summary: str = Field(..., min_length=1, max_length=520)
+
+    @model_validator(mode="after")
+    def validate_mode_catalog_entry(self) -> "AuthorityModeCatalogEntry":
+        for value in [self.mode, self.scope, self.status]:
+            validate_safe_task_text(_enum_value(value), "authority_mode_catalog_text")
+        for domains, field_name in [
+            (self.default_requested_domains, "authority_mode_default_domain"),
+            (self.grantable_domains, "authority_mode_grantable_domain"),
+        ]:
+            if not domains:
+                raise ValueError("AUTHORITY_MODE_CATALOG_DOMAINS_REQUIRED")
+            for domain, capabilities in domains.items():
+                validate_safe_task_text(_enum_value(domain), field_name)
+                if not capabilities:
+                    raise ValueError("AUTHORITY_MODE_CATALOG_CAPABILITIES_REQUIRED")
+                for capability in capabilities:
+                    validate_safe_task_text(
+                        _enum_value(capability),
+                        "authority_mode_catalog_capability",
+                    )
+        for domain, capabilities in self.granted_default_domains.items():
+            validate_safe_task_text(_enum_value(domain), "authority_mode_granted_domain")
+            if not capabilities:
+                raise ValueError("AUTHORITY_MODE_CATALOG_CAPABILITIES_REQUIRED")
+            for capability in capabilities:
+                validate_safe_task_text(
+                    _enum_value(capability),
+                    "authority_mode_catalog_capability",
+                )
+        for refs, field_name in [
+            (self.denied_default_domain_refs, "authority_mode_denied_ref"),
+            (self.unsupported_adapter_refs, "authority_mode_unsupported_ref"),
+            (self.blocked_reason_refs, "authority_mode_blocked_reason_ref"),
+        ]:
+            _validate_ref_list(refs, field_name)
+        validate_safe_task_text(self.operator_summary, "authority_mode_catalog_summary")
+        if not self.safe_refs_only or self.execution_performed or self.mutation_performed:
+            raise ValueError("AUTHORITY_MODE_CATALOG_MUST_NOT_EXECUTE")
+        return self
+
+
 class AuthorityLeaseApprovalRequirement(_AuthorityModel):
     schema_version: Literal["uaa-authority-lease-approval-requirement.v1"] = (
         "uaa-authority-lease-approval-requirement.v1"
@@ -986,6 +1053,7 @@ class AuthorityStateReadModel(_AuthorityModel):
     policy_outcomes: list[AuthorityDecisionOutcome] = Field(
         default_factory=lambda: list(AuthorityDecisionOutcome)
     )
+    mode_catalog: list[AuthorityModeCatalogEntry] = Field(default_factory=list)
     active_leases: list[AuthorityLease] = Field(default_factory=list)
     capability_mappings: list[AuthorityCapabilityMapping] = Field(default_factory=list)
     decision_summary: AuthorityDecisionSummary
@@ -1614,6 +1682,144 @@ def _filter_requested_domains(
                 f"adapter-ref:{domain_value.value}:not-implemented-for-authority-lease-v1"
             )
     return granted, list(dict.fromkeys(denied_refs)), list(dict.fromkeys(unsupported_refs))
+
+
+def _sorted_domain_capabilities(
+    domains: dict[AuthorityDomain, list[AuthorityCapability] | set[AuthorityCapability]],
+) -> dict[AuthorityDomain, list[AuthorityCapability]]:
+    sorted_domains: dict[AuthorityDomain, list[AuthorityCapability]] = {}
+    for domain, capabilities in sorted(domains.items(), key=lambda item: _enum_value(item[0])):
+        sorted_domains[AuthorityDomain(domain)] = sorted(
+            [AuthorityCapability(capability) for capability in capabilities],
+            key=_enum_value,
+        )
+    return sorted_domains
+
+
+def _authority_mode_catalog_status(
+    *,
+    issue_ready: bool,
+    approval_required: bool,
+    granted_domains: dict[AuthorityDomain, list[AuthorityCapability]],
+    denied_refs: list[str],
+    unsupported_refs: list[str],
+    kill_switch_engaged: bool,
+) -> str:
+    if kill_switch_engaged:
+        return "blocked_kill_switch_engaged"
+    if issue_ready and approval_required:
+        return "issue_ready_approval_required"
+    if issue_ready:
+        return "issue_ready_no_approval_required"
+    if granted_domains and (denied_refs or unsupported_refs):
+        return "partial_explicit_scope_required"
+    return "blocked_default_scope_unsupported"
+
+
+def _authority_mode_catalog_summary(
+    mode: TrustMode,
+    *,
+    status: str,
+    granted_domains: dict[AuthorityDomain, list[AuthorityCapability]],
+    unsupported_refs: list[str],
+) -> str:
+    mode_label = mode.value.replace("_", " ")
+    granted_count = sum(len(capabilities) for capabilities in granted_domains.values())
+    if status == "blocked_kill_switch_engaged":
+        return (
+            f"{mode_label} cannot issue while the AuthorityLease kill switch is engaged."
+        )
+    if status.startswith("issue_ready"):
+        return (
+            f"{mode_label} default scope is issue-ready for {granted_count} "
+            "governed domain capabilities; unsupported adapters are not granted."
+        )
+    if status == "partial_explicit_scope_required":
+        return (
+            f"{mode_label} has implemented local sub-scope available, but the "
+            "default request includes unsupported adapters; request an exact "
+            "implemented domain/capability subset."
+        )
+    return (
+        f"{mode_label} default scope is blocked because {len(unsupported_refs)} "
+        "unsupported adapter ref(s) remain planned or blocked."
+    )
+
+
+def build_authority_mode_catalog(
+    *,
+    kill_switch_engaged: bool = False,
+) -> list[AuthorityModeCatalogEntry]:
+    entries: list[AuthorityModeCatalogEntry] = []
+    for mode in TrustMode:
+        scope = (
+            AuthorityLeaseScope.mission
+            if mode == TrustMode.delegated_mission_autonomous_window
+            else AuthorityLeaseScope.session
+        )
+        requested = _default_requested_domains(mode)
+        request = AuthorityLeaseIssueRequest(
+            mode=mode,
+            scope=scope,
+            mission_ref=(
+                "mission-ref:authority-mode-catalog:delegated"
+                if scope == AuthorityLeaseScope.mission
+                else None
+            ),
+            requested_domains=requested,
+            decision_reason_ref=f"reason-ref:authority-mode-catalog:{mode.value}",
+            safe_summary=(
+                f"Evaluate default AuthorityLease readiness for {mode.value} mode."
+            ),
+        )
+        granted, denied_refs, unsupported_refs = _filter_requested_domains(request)
+        approval_required = _authority_lease_requires_approval(request, granted)
+        issue_ready = bool(granted) and not denied_refs and not unsupported_refs and not kill_switch_engaged
+        blocked_reason_refs: list[str] = []
+        if kill_switch_engaged:
+            blocked_reason_refs.append("reason-ref:authority:kill-switch-engaged")
+        if denied_refs:
+            blocked_reason_refs.append("reason-ref:authority:mode-default-scope-denied")
+        if unsupported_refs:
+            blocked_reason_refs.append("reason-ref:authority:adapter-unsupported")
+        if scope == AuthorityLeaseScope.mission:
+            blocked_reason_refs.append("reason-ref:authority:mission-scope-required")
+        status = _authority_mode_catalog_status(
+            issue_ready=issue_ready,
+            approval_required=approval_required,
+            granted_domains=granted,
+            denied_refs=denied_refs,
+            unsupported_refs=unsupported_refs,
+            kill_switch_engaged=kill_switch_engaged,
+        )
+        entries.append(
+            AuthorityModeCatalogEntry(
+                mode=mode,
+                scope=scope,
+                status=status,
+                default_requested_domains=_sorted_domain_capabilities(requested),
+                grantable_domains=_sorted_domain_capabilities(
+                    {
+                        domain: capabilities
+                        for domain, capabilities in _allowed_domain_capabilities(mode).items()
+                    }
+                ),
+                granted_default_domains=_sorted_domain_capabilities(granted),
+                denied_default_domain_refs=denied_refs,
+                unsupported_adapter_refs=unsupported_refs,
+                blocked_reason_refs=list(dict.fromkeys(blocked_reason_refs)),
+                approval_required=approval_required,
+                issue_ready=issue_ready,
+                requires_mission_ref=scope == AuthorityLeaseScope.mission,
+                operator_summary=_authority_mode_catalog_summary(
+                    mode,
+                    status=status,
+                    granted_domains=granted,
+                    unsupported_refs=unsupported_refs,
+                ),
+            )
+        )
+    return entries
 
 
 def _authority_lease_requires_approval(
@@ -3005,6 +3211,9 @@ def build_authority_state_read_model(
     return AuthorityStateReadModel(
         active_mode=TrustMode(leases[-1].mode) if leases else TrustMode.read_only,
         operator_summary=operator_summary,
+        mode_catalog=build_authority_mode_catalog(
+            kill_switch_engaged=kill_switch_engaged,
+        ),
         active_leases=leases,
         capability_mappings=capability_mappings,
         decision_summary=build_authority_decision_summary(

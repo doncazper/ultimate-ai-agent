@@ -56,6 +56,13 @@ surfaces are:
   compact operator/API parity view over the same decision catalog: capability
   totals, outcome counts, status/domain coverage, blocked reason refs,
   unsupported adapter refs, and no execution or mutation.
+- `GET /api/runtime/authority-state#mode_catalog` and Control Center
+  `/settings` show backend-evaluated readiness for each target trust mode:
+  default requested domains, grantable local domain subsets, default grants,
+  approval requirements, mission-scope requirements, blocked reason refs, and
+  unsupported adapter refs. This catalog replaces lane-graduation copy with
+  explicit mode/domain/lease posture; blocked high-authority defaults remain
+  blocked until exact adapters and tests exist.
 - `UAA_AUTHORITY_LEASE_KILL_SWITCH=1` engages the local AuthorityLease kill
   switch. New lease issue attempts are denied with a redacted receipt and
   `reason-ref:authority:lease-kill-switch-engaged`; state, Settings, CLI, and

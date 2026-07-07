@@ -161,6 +161,32 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert read_model.decision_summary.safe_refs_only is True
     assert read_model.decision_summary.execution_performed is False
     assert read_model.decision_summary.control_center_grants_authority is False
+    assert len(read_model.mode_catalog) == len(read_model.target_modes)
+    mode_catalog = {entry.mode: entry for entry in read_model.mode_catalog}
+    assert mode_catalog["read_only"].status == "issue_ready_no_approval_required"
+    assert mode_catalog["read_only"].issue_ready is True
+    assert mode_catalog["read_only"].approval_required is False
+    assert mode_catalog["full_local_workspace_session"].issue_ready is True
+    assert mode_catalog["full_local_workspace_session"].approval_required is True
+    assert mode_catalog["full_machine_access_session"].issue_ready is False
+    assert (
+        mode_catalog["full_machine_access_session"].status
+        == "blocked_default_scope_unsupported"
+    )
+    assert mode_catalog["full_machine_access_session"].unsupported_adapter_refs
+    assert mode_catalog["delegated_mission_autonomous_window"].issue_ready is False
+    assert (
+        mode_catalog["delegated_mission_autonomous_window"].requires_mission_ref
+        is True
+    )
+    assert "reason-ref:authority:adapter-unsupported" in (
+        mode_catalog["delegated_mission_autonomous_window"].blocked_reason_refs
+    )
+    assert all(entry.safe_refs_only for entry in read_model.mode_catalog)
+    assert all(
+        not entry.execution_performed and not entry.mutation_performed
+        for entry in read_model.mode_catalog
+    )
     assert {
         str(getattr(entry.decision.outcome, "value", entry.decision.outcome))
         for entry in read_model.decision_catalog
@@ -691,6 +717,15 @@ def test_authority_lease_kill_switch_blocks_new_lease_issue_api_cli_and_state(
     assert "reason-ref:authority:kill-switch-engaged" in (
         state_model.decision_summary.blocked_reason_refs
     )
+    assert all(not entry.issue_ready for entry in state_model.mode_catalog)
+    assert all(
+        entry.status == "blocked_kill_switch_engaged"
+        for entry in state_model.mode_catalog
+    )
+    assert all(
+        "reason-ref:authority:kill-switch-engaged" in entry.blocked_reason_refs
+        for entry in state_model.mode_catalog
+    )
 
     preview = store.preview_decision(
         AuthorityActionRequest(
@@ -1045,6 +1080,16 @@ def test_authority_state_api_cli_and_settings_surface(
     assert runtime_body["data"]["unknown_authority_default"] == "deny"
     assert "issued_at" in runtime_body["data"]["active_leases"][0]
     assert "expires_at" in runtime_body["data"]["active_leases"][0]
+    assert len(runtime_body["data"]["mode_catalog"]) == len(
+        runtime_body["data"]["target_modes"]
+    )
+    runtime_modes = {
+        entry["mode"]: entry for entry in runtime_body["data"]["mode_catalog"]
+    }
+    assert runtime_modes["read_only"]["issue_ready"] is True
+    assert runtime_modes["read_only"]["approval_required"] is False
+    assert runtime_modes["full_machine_access_session"]["issue_ready"] is False
+    assert runtime_modes["full_machine_access_session"]["unsupported_adapter_refs"]
     assert len(runtime_body["data"]["decision_catalog"]) == len(
         runtime_body["data"]["capability_mappings"]
     )
@@ -1074,6 +1119,14 @@ def test_authority_state_api_cli_and_settings_surface(
     assert authority_state["unsupported_adapters_claimed_execution"] is False
     assert "issued_at" in authority_state["active_leases"][0]
     assert "expires_at" in authority_state["active_leases"][0]
+    assert len(authority_state["mode_catalog"]) == len(
+        authority_state["target_modes"]
+    )
+    assert any(
+        entry["mode"] == "delegated_mission_autonomous_window"
+        and entry["requires_mission_ref"] is True
+        for entry in authority_state["mode_catalog"]
+    )
     assert authority_state["decision_catalog"]
     assert len(authority_state["decision_catalog"]) == len(
         authority_state["capability_mappings"]
@@ -1085,6 +1138,7 @@ def test_authority_state_api_cli_and_settings_surface(
     assert exit_code == 0
     cli_payload = capsys.readouterr().out
     assert "authority_state_read_model" in cli_payload
+    assert "mode_catalog" in cli_payload
     assert "decision_summary" in cli_payload
     assert "decision_catalog" in cli_payload
     assert "raw_paths_omitted" in cli_payload
@@ -1094,6 +1148,9 @@ def test_authority_state_api_cli_and_settings_surface(
     cli_text = capsys.readouterr().out
     assert "issued=" in cli_text
     assert "expires=" in cli_text
+    assert "Mode readiness:" in cli_text
+    assert "full_machine_access_session" in cli_text
+    assert "blocked_default_scope_unsupported" in cli_text
     assert "Decision catalog:" in cli_text
     assert "Decision summary:" in cli_text
     assert "Outcome counts:" in cli_text
