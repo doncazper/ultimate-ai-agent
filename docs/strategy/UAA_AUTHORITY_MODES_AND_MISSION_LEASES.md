@@ -39,6 +39,11 @@ surfaces are:
 - `GET /api/runtime/authority-state#capability_mappings` has at least one
   explicit mapping row for every target AuthorityLease domain; unsupported
   adapters remain `planned` or blocked rows and do not become executable.
+- `GET /api/runtime/authority-state#decision_catalog` evaluates every
+  capability mapping against the active AuthorityLease set and reports the
+  current `allow`, `ask`, `deny`, or `degrade_to_draft` policy outcome with
+  safe refs, route/CLI refs, audit refs, receipt refs when applicable, and
+  no execution.
 - Control Center `/settings` authority mode controls for implemented local
   domain subsets, revoke receipts, decision previews for concrete
   mode/domain/capability requests, and mission-plan previews for delegated

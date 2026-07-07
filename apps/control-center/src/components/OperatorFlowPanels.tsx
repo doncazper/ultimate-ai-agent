@@ -23,6 +23,7 @@ import type {
   ControlCenterSettingsFeatureFlagPosture,
   ControlCenterSettingsKillSwitchPosture,
   AuthorityActionRequest,
+  AuthorityDecisionCatalogEntry,
   AuthorityDecisionPreview,
   AuthorityLease,
   AuthorityLeaseMutationResult,
@@ -2394,6 +2395,15 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
 
       <div
         className="operator-boundary-list"
+        aria-label="Authority decision catalog"
+      >
+        {authorityLeaseState.decision_catalog.map((entry) => (
+          <AuthorityDecisionCatalogCard entry={entry} key={entry.catalog_ref} />
+        ))}
+      </div>
+
+      <div
+        className="operator-boundary-list"
         aria-label="Authority lease decisions"
       >
         {authorityLeaseState.sample_decisions.map((decision) => (
@@ -2621,6 +2631,69 @@ export function SettingsOperatorPanel({ data }: { data: ControlCenterData }) {
   );
 }
 
+function AuthorityDecisionCatalogCard({
+  entry,
+}: {
+  entry: AuthorityDecisionCatalogEntry;
+}) {
+  const decision = entry.decision;
+  return (
+    <article
+      className={`surface-state-card ${authorityDecisionPostureClass(decision)}`}
+      aria-label={`Authority catalog ${entry.label} ${decision.outcome}`}
+      role="status"
+    >
+      <span className="surface-state-kind">
+        {decision.outcome.replaceAll("_", " ")}
+      </span>
+      <strong>{entry.label}</strong>
+      <small>{entry.status.replaceAll("_", " ")}</small>
+      <p>{entry.operator_summary}</p>
+      <p>{decision.operator_message}</p>
+      <dl className="metadata-list">
+        <div>
+          <dt>Requirement</dt>
+          <dd>{authorityDecisionRequirementLabel(decision)}</dd>
+        </div>
+        <div>
+          <dt>Lease</dt>
+          <dd>{decision.lease_ref ?? "authority-lease-ref:required"}</dd>
+        </div>
+        <div>
+          <dt>Known</dt>
+          <dd>{decision.known_authority ? "yes" : "no"}</dd>
+        </div>
+        <div>
+          <dt>Adapter</dt>
+          <dd>{decision.unsupported_adapter ? "unsupported" : "available"}</dd>
+        </div>
+      </dl>
+      <div className="note-list" aria-label={`${entry.catalog_ref} refs`}>
+        <span>{entry.catalog_ref}</span>
+        <span>{entry.lane_ref}</span>
+        <span>{decision.decision_ref}</span>
+        <span>{decision.audit_record_ref}</span>
+        {decision.receipt_ref ? <span>{decision.receipt_ref}</span> : null}
+        {entry.route_refs.slice(0, 2).map((ref) => (
+          <span key={ref}>{ref}</span>
+        ))}
+        {entry.cli_refs.slice(0, 2).map((ref) => (
+          <span key={ref}>{ref}</span>
+        ))}
+        {entry.evidence_refs.slice(0, 2).map((ref) => (
+          <span key={ref}>{ref}</span>
+        ))}
+        {entry.unsupported_adapter_refs.map((ref) => (
+          <span key={ref}>{ref}</span>
+        ))}
+        {decision.reason_refs.map((ref) => (
+          <span key={ref}>{ref}</span>
+        ))}
+      </div>
+    </article>
+  );
+}
+
 function settingsPostureClass(stateLabel: string) {
   if (stateLabel === "Blocked") {
     return "blocked";
@@ -2630,6 +2703,16 @@ function settingsPostureClass(stateLabel: string) {
   }
   if (stateLabel === "Degraded" || stateLabel === "Partial") {
     return "partial";
+  }
+  return "blocked";
+}
+
+function authorityDecisionPostureClass(decision: AuthorityPolicyDecision) {
+  if (decision.outcome === "allow") {
+    return "partial";
+  }
+  if (decision.outcome === "ask" || decision.outcome === "degrade_to_draft") {
+    return "denied";
   }
   return "blocked";
 }

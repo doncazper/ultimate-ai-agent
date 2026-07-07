@@ -11293,6 +11293,23 @@ describe("Web Control Center shell", () => {
     expect(screen.getAllByText(/Degraded/i).length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Authority lease decisions")).toBeInTheDocument();
     expect(
+      screen.getByLabelText("Authority decision catalog"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", {
+        name: /Authority catalog Mock workspace read allow/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", {
+        name: /Authority catalog Mock browser click deny/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("authority-decision-catalog-ref:mock-workspace-read"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("lane-ref:browser-action-adapter")).toBeInTheDocument();
+    expect(
       screen.getByRole("status", { name: /Authority decision allow/i }),
     ).toBeInTheDocument();
     expect(

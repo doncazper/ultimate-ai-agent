@@ -141,6 +141,36 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         str(getattr(domain, "value", domain)) for domain in read_model.target_domains
     }
     assert target_domains <= mapped_domains
+    assert len(read_model.decision_catalog) == len(read_model.capability_mappings)
+    assert {
+        str(getattr(entry.decision.outcome, "value", entry.decision.outcome))
+        for entry in read_model.decision_catalog
+    } >= {"allow", "deny", "degrade_to_draft"}
+    assert all(entry.safe_refs_only for entry in read_model.decision_catalog)
+    assert all(
+        not entry.execution_performed and not entry.mutation_performed
+        for entry in read_model.decision_catalog
+    )
+    assert all(
+        not entry.control_center_grants_authority
+        for entry in read_model.decision_catalog
+    )
+    catalog_by_lane = {
+        entry.lane_ref: entry for entry in read_model.decision_catalog
+    }
+    assert (
+        catalog_by_lane["lane-ref:runtime-command-focused-pytest"].decision.outcome
+        == "degrade_to_draft"
+    )
+    assert (
+        catalog_by_lane["lane-ref:shell-arbitrary-command-adapter"].decision.outcome
+        == "deny"
+    )
+    assert (
+        catalog_by_lane["lane-ref:shell-arbitrary-command-adapter"]
+        .decision.unsupported_adapter
+        is True
+    )
     shell_adapter = next(
         mapping
         for mapping in read_model.capability_mappings
@@ -825,6 +855,13 @@ def test_authority_state_api_cli_and_settings_surface(
     assert runtime_body["data"]["unknown_authority_default"] == "deny"
     assert "issued_at" in runtime_body["data"]["active_leases"][0]
     assert "expires_at" in runtime_body["data"]["active_leases"][0]
+    assert len(runtime_body["data"]["decision_catalog"]) == len(
+        runtime_body["data"]["capability_mappings"]
+    )
+    assert any(
+        entry["decision"]["outcome"] == "degrade_to_draft"
+        for entry in runtime_body["data"]["decision_catalog"]
+    )
 
     assert settings_response.status_code == 200
     settings_body = settings_response.json()
@@ -834,10 +871,15 @@ def test_authority_state_api_cli_and_settings_surface(
     assert authority_state["unsupported_adapters_claimed_execution"] is False
     assert "issued_at" in authority_state["active_leases"][0]
     assert "expires_at" in authority_state["active_leases"][0]
+    assert authority_state["decision_catalog"]
+    assert len(authority_state["decision_catalog"]) == len(
+        authority_state["capability_mappings"]
+    )
 
     assert exit_code == 0
     cli_payload = capsys.readouterr().out
     assert "authority_state_read_model" in cli_payload
+    assert "decision_catalog" in cli_payload
     assert "raw_paths_omitted" in cli_payload
 
     text_exit_code = uaa_runtime.main(["inspect-authority-state"])
@@ -845,6 +887,8 @@ def test_authority_state_api_cli_and_settings_surface(
     cli_text = capsys.readouterr().out
     assert "issued=" in cli_text
     assert "expires=" in cli_text
+    assert "Decision catalog:" in cli_text
+    assert "lane-ref:runtime-command-focused-pytest" in cli_text
 
 
 def test_authority_decision_preview_api_and_cli_are_read_only(

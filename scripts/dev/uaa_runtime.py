@@ -1922,6 +1922,19 @@ def _inspect_authority_state(args: argparse.Namespace) -> int:
                 f"{_authority_ref_summary(lease['unsupported_adapter_refs'])}"
             )
         print(f"Capability mappings: {len(read_model['capability_mappings'])}")
+        print(f"Decision catalog: {len(read_model['decision_catalog'])}")
+        for entry in read_model["decision_catalog"]:
+            decision = entry["decision"]
+            requirement = _authority_decision_requirement_dict(decision)
+            print(
+                f"- {decision['outcome']} {entry['lane_ref']} "
+                f"{decision['domain']}/{decision['capability']}: {requirement}"
+            )
+            print(f"  catalog: {entry['catalog_ref']}")
+            print(f"  status: {entry['status']}")
+            print(f"  lease: {decision['lease_ref'] or 'none'}")
+            print(f"  reasons: {_authority_ref_summary(decision['reason_refs'])}")
+            print(f"  unsupported adapters: {_authority_ref_summary(entry['unsupported_adapter_refs'])}")
         print("Sample decisions:")
         for decision in read_model["sample_decisions"]:
             requirement = _authority_decision_requirement_dict(decision)

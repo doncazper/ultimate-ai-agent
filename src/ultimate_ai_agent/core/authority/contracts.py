@@ -471,6 +471,51 @@ class AuthorityDecisionPreview(_AuthorityModel):
         return self
 
 
+class AuthorityDecisionCatalogEntry(_AuthorityModel):
+    catalog_ref: str = Field(..., min_length=1)
+    lane_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1, max_length=120)
+    status: str = Field(..., min_length=1, max_length=80)
+    route_refs: list[str] = Field(default_factory=list)
+    cli_refs: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
+    decision: AuthorityPolicyDecision
+    operator_summary: str = Field(..., min_length=1, max_length=520)
+    safe_refs_only: bool = True
+    execution_performed: bool = False
+    mutation_performed: bool = False
+    control_center_grants_authority: bool = False
+
+    @model_validator(mode="after")
+    def validate_catalog_entry(self) -> "AuthorityDecisionCatalogEntry":
+        _validate_ref_list(
+            [
+                self.catalog_ref,
+                self.lane_ref,
+                *self.evidence_refs,
+                *self.unsupported_adapter_refs,
+            ],
+            "authority_decision_catalog_ref",
+        )
+        for text in [
+            self.label,
+            self.status,
+            self.operator_summary,
+            *self.route_refs,
+            *self.cli_refs,
+        ]:
+            validate_safe_task_text(text, "authority_decision_catalog_text")
+        if (
+            not self.safe_refs_only
+            or self.execution_performed
+            or self.mutation_performed
+            or self.control_center_grants_authority
+        ):
+            raise ValueError("AUTHORITY_DECISION_CATALOG_MUST_NOT_EXECUTE")
+        return self
+
+
 class AuthorityMissionPlanRequest(_AuthorityModel):
     schema_version: Literal["uaa-authority-mission-plan-request.v1"] = (
         "uaa-authority-mission-plan-request.v1"
@@ -878,6 +923,7 @@ class AuthorityStateReadModel(_AuthorityModel):
     )
     active_leases: list[AuthorityLease] = Field(default_factory=list)
     capability_mappings: list[AuthorityCapabilityMapping] = Field(default_factory=list)
+    decision_catalog: list[AuthorityDecisionCatalogEntry] = Field(default_factory=list)
     recent_receipts: list[AuthorityLeaseReceipt] = Field(default_factory=list)
     sample_decisions: list[AuthorityPolicyDecision] = Field(default_factory=list)
     kill_switch_visible: bool = True
@@ -2755,6 +2801,7 @@ def build_authority_state_read_model(
     recent_receipts: list[AuthorityLeaseReceipt] | None = None,
 ) -> AuthorityStateReadModel:
     leases = active_leases or build_default_authority_leases()
+    capability_mappings = build_existing_lane_authority_mappings()
     samples = [
         evaluate_authority_request(
             AuthorityActionRequest(
@@ -2801,10 +2848,83 @@ def build_authority_state_read_model(
             "pretending execution exists."
         ),
         active_leases=leases,
-        capability_mappings=build_existing_lane_authority_mappings(),
+        capability_mappings=capability_mappings,
+        decision_catalog=build_authority_decision_catalog(
+            capability_mappings,
+            leases,
+        ),
         recent_receipts=recent_receipts or [],
         sample_decisions=samples,
     )
+
+
+def build_authority_decision_catalog(
+    capability_mappings: list[AuthorityCapabilityMapping] | None = None,
+    leases: list[AuthorityLease] | None = None,
+) -> list[AuthorityDecisionCatalogEntry]:
+    mappings = capability_mappings or build_existing_lane_authority_mappings()
+    effective_leases = leases or build_default_authority_leases()
+    return [
+        _authority_decision_catalog_entry(mapping, effective_leases)
+        for mapping in mappings
+    ]
+
+
+def _authority_decision_catalog_entry(
+    mapping: AuthorityCapabilityMapping,
+    leases: list[AuthorityLease],
+) -> AuthorityDecisionCatalogEntry:
+    unsupported_adapter = bool(mapping.unsupported_adapter_refs) or mapping.status.startswith(
+        "planned_unsupported"
+    )
+    decision = evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref=_authority_catalog_action_ref(mapping.lane_ref),
+            domain=AuthorityDomain(mapping.domain),
+            capability=AuthorityCapability(mapping.capability),
+            safe_summary=f"Evaluate AuthorityLease decision posture for {mapping.label}.",
+            route_ref=mapping.route_refs[0] if mapping.route_refs else None,
+            lane_ref=mapping.lane_ref,
+            requested_mode=TrustMode(mapping.required_mode),
+            draft_fallback_available=_mapping_supports_draft_fallback(mapping),
+            unsupported_adapter=unsupported_adapter,
+            rollback_ref=f"rollback-ref:authority-decision-catalog:{_safe_mapping_suffix(mapping.lane_ref)}",
+            safe_disable_ref=f"safe-disable-ref:authority-decision-catalog:{_safe_mapping_suffix(mapping.lane_ref)}",
+        ),
+        leases,
+    )
+    return AuthorityDecisionCatalogEntry(
+        catalog_ref=f"authority-decision-catalog-ref:{_safe_mapping_suffix(mapping.lane_ref)}",
+        lane_ref=mapping.lane_ref,
+        label=mapping.label,
+        status=mapping.status,
+        route_refs=mapping.route_refs,
+        cli_refs=mapping.cli_refs,
+        evidence_refs=mapping.evidence_refs,
+        unsupported_adapter_refs=mapping.unsupported_adapter_refs,
+        decision=decision,
+        operator_summary=(
+            f"{mapping.label} currently evaluates to "
+            f"{_enum_value(decision.outcome)} under active AuthorityLease scope."
+        ),
+    )
+
+
+def _authority_catalog_action_ref(lane_ref: str) -> str:
+    return f"authority-action-ref:catalog:{_safe_mapping_suffix(lane_ref)}"
+
+
+def _safe_mapping_suffix(lane_ref: str) -> str:
+    return lane_ref.split(":", 1)[-1].replace("_", "-")
+
+
+def _mapping_supports_draft_fallback(mapping: AuthorityCapabilityMapping) -> bool:
+    if mapping.unsupported_adapter_refs:
+        return False
+    capability = AuthorityCapability(mapping.capability)
+    if capability in READ_PREPARE_CAPABILITIES:
+        return True
+    return mapping.status.startswith("implemented")
 
 
 def _mapping(

@@ -11973,6 +11973,23 @@ export interface AuthorityCapabilityMapping {
   operator_copy: string;
 }
 
+export interface AuthorityDecisionCatalogEntry {
+  catalog_ref: string;
+  lane_ref: string;
+  label: string;
+  status: string;
+  route_refs: string[];
+  cli_refs: string[];
+  evidence_refs: string[];
+  unsupported_adapter_refs: string[];
+  decision: AuthorityPolicyDecision;
+  operator_summary: string;
+  safe_refs_only: true;
+  execution_performed: false;
+  mutation_performed: false;
+  control_center_grants_authority: false;
+}
+
 export interface AuthorityStateReadModel {
   schema_version: "uaa-authority-state.v1";
   contract_ref: string;
@@ -11987,6 +12004,7 @@ export interface AuthorityStateReadModel {
   policy_outcomes: AuthorityDecisionOutcome[];
   active_leases: AuthorityLease[];
   capability_mappings: AuthorityCapabilityMapping[];
+  decision_catalog: AuthorityDecisionCatalogEntry[];
   recent_receipts: AuthorityLeaseReceipt[];
   sample_decisions: AuthorityPolicyDecision[];
   kill_switch_visible: boolean;
