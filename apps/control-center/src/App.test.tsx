@@ -2435,7 +2435,7 @@ describe("Web Control Center shell", () => {
       ).toBeInTheDocument();
       expect(
         within(cockpit).getByText(
-          "Pair Agents is backend-owned preview/readiness. Foreground adapter execution is blocked until the exact lane is approved and proven.",
+          "Pair Agents is backend-owned preview/readiness. Foreground adapter execution requires an approved AuthorityLease-gated capability with receipts.",
         ),
       ).toBeInTheDocument();
       expect(within(cockpit).getByText("Agent A implementer slot")).toBeInTheDocument();
@@ -8193,7 +8193,7 @@ describe("Web Control Center shell", () => {
       screen.getByText("connector-draft-proposal-ref:calendar-event"),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText("blocked; future exact lane required").length,
+      screen.getAllByText("requires send/write AuthorityLease capability").length,
     ).toBeGreaterThan(0);
     expect(
       screen.getByText(
@@ -11595,7 +11595,7 @@ describe("Web Control Center shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("governed_control_plane_wired")).toBeInTheDocument();
     expect(
-      screen.getByText(/Live provider adapter lanes/i),
+      screen.getByText(/Live provider adapter capabilities/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/Secret status/i)).toBeInTheDocument();
     expect(screen.getByText(/Network allowlists/i)).toBeInTheDocument();

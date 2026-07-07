@@ -599,7 +599,7 @@ function PairAgentRelayPreview({
       </div>
       <p className="safe-copy">
         {authoritative
-          ? "Pair Agents is backend-owned preview/readiness. Foreground adapter execution is blocked until the exact lane is approved and proven."
+          ? "Pair Agents is backend-owned preview/readiness. Foreground adapter execution requires an approved AuthorityLease-gated capability with receipts."
           : "Pair Agents is non-authoritative fallback data only."}
       </p>
       <div className="coding-item-stack">

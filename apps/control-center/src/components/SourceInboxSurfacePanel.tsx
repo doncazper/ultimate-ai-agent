@@ -487,7 +487,7 @@ function ConnectorDraftProposalCards({
                 label="Approval to send/write"
                 value={
                   proposal.approval_required_to_send
-                    ? "blocked; future exact lane required"
+                    ? "requires send/write AuthorityLease capability"
                     : "not required"
                 }
               />

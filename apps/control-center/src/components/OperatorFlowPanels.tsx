@@ -1098,9 +1098,9 @@ function ModelProviderControlPlanePanel({
         aria-label="Model provider control plane details"
       >
         <ReadinessGateCard
-          title="Live provider adapter lanes"
-          status={`${controlPlane.provider_adapters.length} exact lanes`}
-          summary="Provider adapters are wired as exact lanes with receipt-before-network, endpoint refs, credential refs, and CostGovernor posture."
+          title="Live provider adapter capabilities"
+          status={`${controlPlane.provider_adapters.length} capability refs`}
+          summary="Provider adapters are wired as governed capabilities with receipt-before-network, endpoint refs, credential refs, and CostGovernor posture."
           details={[
             ["First adapter", controlPlane.provider_adapters[0]?.adapter_ref ?? "not reported"],
             [

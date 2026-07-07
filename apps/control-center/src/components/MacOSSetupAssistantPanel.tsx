@@ -151,8 +151,8 @@ export function MacOSSetupAssistantPanel({
         <p>
           Provider setup is reference-only and not needed for the local loop.
           Secret entry, provider validation, provider SDK calls, billing, and
-          model invocation remain blocked unless a separate exact lane is
-          approved.
+          model invocation remain blocked unless an accepted AuthorityLease-gated
+          capability is implemented and tested.
         </p>
       </article>
 
