@@ -1,11 +1,12 @@
 # UAA Hermes Runtime Run Events
 
-Status: Phase 03 repo-safe read/proposal model.
+Status: Phase 03 AuthorityState-bound repo-safe read/proposal model.
 
 UAA now exposes a backend-owned runtime run/event posture for optional Hermes
 delegation. This is not a live runs API. It models lifecycle states, event refs,
-stop posture, and approval-wait state without creating, stopping, approving, or
-streaming delegated runtime runs.
+stop posture, and approval-wait state under the Read-only `workspace/read`
+AuthorityLease decision without creating, stopping, approving, or streaming
+delegated runtime runs.
 
 Implemented:
 
@@ -14,10 +15,13 @@ Implemented:
 - Safe event-ref grammar with proof binding and redaction status.
 - One approval-wait proposal sample with blocked create, stop, approval
   resolution, retry/recovery, and live stream flags.
+- AuthorityState binding as `lane-ref:runtime-run-events-read-model`, with
+  route/CLI refs, catalog ref, decision ref, decision outcome, reason refs,
+  unsupported adapter refs, and a decision-bound snapshot hash.
 - `GET /api/runtime/run-events`.
 - `scripts/dev/uaa_runtime.py inspect-run-events`.
 - Control Center `/runtime` display of proposal, event, proof, and blocked
-  posture.
+  posture plus the AuthorityState mapping and decision refs.
 
 Blocked:
 

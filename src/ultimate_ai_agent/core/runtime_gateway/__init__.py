@@ -93,11 +93,15 @@ from ultimate_ai_agent.core.runtime_gateway.capability_discovery import (
     build_runtime_capability_discovery_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.run_events import (
+    RUNTIME_RUN_EVENTS_AUTHORITY_MAPPING_REF,
+    RUNTIME_RUN_EVENTS_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_RUN_EVENTS_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_RUN_EVENTS_CLI_REF,
     RUNTIME_RUN_EVENTS_CONTRACT_REF,
     RUNTIME_RUN_EVENTS_ROUTE_REF,
     RUNTIME_RUN_EVENTS_SAMPLE_DURABLE_RUN_REF,
     RUNTIME_RUN_EVENTS_SAMPLE_RUN_REF,
+    RUNTIME_RUN_EVENTS_SNAPSHOT_REF,
     RuntimeExternalRunLifecycleState,
     RuntimeRunControlPosture,
     RuntimeRunEventKind,
@@ -108,6 +112,7 @@ from ultimate_ai_agent.core.runtime_gateway.run_events import (
     RuntimeRunProposalReadModel,
     RuntimeUaaDurableRunState,
     build_runtime_run_events_read_model,
+    build_runtime_run_events_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.approval_bridge import (
     RUNTIME_APPROVAL_BRIDGE_ACTION_INBOX_REF,
@@ -770,6 +775,10 @@ __all__ = [
     "RuntimeToolsetSideEffectClass",
     "RuntimeToolsetSupportStatus",
     "RuntimeToolsetUaaAllowanceStatus",
+    "RUNTIME_RUN_EVENTS_AUTHORITY_MAPPING_REF",
+    "RUNTIME_RUN_EVENTS_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_RUN_EVENTS_AUTHORITY_STATE_ROUTE_REF",
+    "RUNTIME_RUN_EVENTS_SNAPSHOT_REF",
     "RuntimeExternalRunLifecycleState",
     "RuntimeRunControlPosture",
     "RuntimeRunEventKind",
@@ -1066,6 +1075,7 @@ __all__ = [
     "classify_sensitive_context_candidate",
     "classify_hardline_command_argv",
     "build_runtime_run_events_read_model",
+    "build_runtime_run_events_read_model_from_authority_catalog",
     "validate_runtime_approval_scope",
     "build_default_runtime_capabilities",
     "build_runtime_delegation_adapter_read_model",

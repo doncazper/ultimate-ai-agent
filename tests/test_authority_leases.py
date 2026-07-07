@@ -755,6 +755,23 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         catalog_by_lane["lane-ref:runtime-tool-registry-read-model"].decision.outcome
         == "allow"
     )
+    run_events = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-run-events-read-model"
+    )
+    assert run_events.domain == "workspace"
+    assert run_events.capability == "read"
+    assert run_events.required_mode == "read_only"
+    assert run_events.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/run-events" in run_events.route_refs
+    assert "adapter-ref:runtime-run-create:not-implemented" in (
+        run_events.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane["lane-ref:runtime-run-events-read-model"].decision.outcome
+        == "allow"
+    )
     browser_action = next(
         mapping
         for mapping in read_model.capability_mappings

@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_RUN_EVENTS_AUTHORITY_MAPPING_REF,
+    RUNTIME_RUN_EVENTS_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_RUN_EVENTS_AUTHORITY_STATE_ROUTE_REF,
     RuntimeRunEventsReadModel,
     RuntimeRunProposalReadModel,
     build_runtime_run_events_read_model,
@@ -21,6 +24,21 @@ def test_runtime_run_events_are_proposal_read_model_only() -> None:
 
     assert read_model.schema_version == "runtime_run_events.v1"
     assert read_model.status == "proposal_read_model_only"
+    assert read_model.authority_state_route_ref == (
+        RUNTIME_RUN_EVENTS_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert read_model.authority_state_cli_ref == RUNTIME_RUN_EVENTS_AUTHORITY_STATE_CLI_REF
+    assert read_model.authority_state_mapping_ref == (
+        RUNTIME_RUN_EVENTS_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_reason_refs
+    assert "adapter-ref:runtime-run-create:not-implemented" in (
+        read_model.unsupported_adapter_refs
+    )
     assert read_model.uaa_controls_authority is True
     assert read_model.control_center_talks_directly_to_runtime is False
     assert read_model.no_mutation_routes_registered is True
@@ -77,6 +95,12 @@ def test_runtime_run_events_rejects_mutation_and_completion_claims() -> None:
     with pytest.raises(ValueError, match="FAKE_COMPLETION_DENIED"):
         RuntimeRunProposalReadModel(**proposal)
 
+    authority_drift = build_runtime_run_events_read_model().model_dump()
+    authority_drift["authority_state_mapping_ref"] = "lane-ref:wrong-runtime-run-events"
+
+    with pytest.raises(ValueError, match="AUTHORITY_MAPPING_MISMATCH"):
+        RuntimeRunEventsReadModel(**authority_drift)
+
 
 def test_api_runtime_run_events_route_returns_safe_refs() -> None:
     response = client.get("/api/runtime/run-events")
@@ -87,6 +111,14 @@ def test_api_runtime_run_events_route_returns_safe_refs() -> None:
     data = body["data"]
     assert data["schema_version"] == "runtime_run_events.v1"
     assert data["route_ref"] == "GET /api/runtime/run-events"
+    assert data["authority_state_route_ref"] == "GET /api/runtime/authority-state"
+    assert data["authority_state_mapping_ref"] == (
+        "lane-ref:runtime-run-events-read-model"
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
+    assert "adapter-ref:runtime-run-live-event-stream:not-implemented" in (
+        data["unsupported_adapter_refs"]
+    )
     assert data["create_run_route_enabled"] is False
     assert data["stop_run_route_enabled"] is False
     assert data["approval_resolution_route_enabled"] is False
@@ -116,6 +148,13 @@ def test_cli_runtime_run_events_uses_same_read_model() -> None:
     assert payload["run_creation_performed"] is False
     assert payload["stop_performed"] is False
     assert payload["approval_resolution_performed"] is False
+    assert payload["authority_state"]["mapping_ref"] == (
+        "lane-ref:runtime-run-events-read-model"
+    )
+    assert payload["authority_state"]["decision_outcome"] == "allow"
     assert read_model["route_ref"] == "GET /api/runtime/run-events"
     assert read_model["cli_ref"] == "uaa runtime inspect-run-events"
+    assert read_model["authority_state_cli_ref"] == (
+        "repo-local-command:uaa-runtime-inspect-authority-state"
+    )
     assert read_model["completed_run_count"] == 0

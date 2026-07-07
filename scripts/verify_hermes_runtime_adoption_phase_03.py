@@ -20,6 +20,19 @@ def main() -> int:
 
     if read_model.status != "proposal_read_model_only":
         failures.append("runtime run events must remain proposal/read-model only")
+    if read_model.authority_state_route_ref != "GET /api/runtime/authority-state":
+        failures.append("run events must expose AuthorityState route parity")
+    if (
+        read_model.authority_state_mapping_ref
+        != "lane-ref:runtime-run-events-read-model"
+    ):
+        failures.append("run events must bind to the AuthorityState lane mapping")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("default read-only lease must allow run-event inspection")
+    if "adapter-ref:runtime-run-create:not-implemented" not in (
+        read_model.unsupported_adapter_refs
+    ):
+        failures.append("run creation adapter must remain explicitly unsupported")
     if not read_model.uaa_controls_authority:
         failures.append("UAA must remain the authority owner")
     if not read_model.no_mutation_routes_registered:
@@ -55,6 +68,11 @@ def main() -> int:
         body = response.json()
         if body.get("data", {}).get("schema_version") != "runtime_run_events.v1":
             failures.append("API route did not return runtime_run_events.v1")
+        if (
+            body.get("data", {}).get("authority_state_mapping_ref")
+            != "lane-ref:runtime-run-events-read-model"
+        ):
+            failures.append("API route did not return AuthorityState mapping ref")
 
     cli = subprocess.run(
         [
@@ -74,6 +92,11 @@ def main() -> int:
             failures.append("CLI payload must report no execution")
         if payload.get("stop_performed") is not False:
             failures.append("CLI payload must report no stop")
+        if (
+            payload.get("authority_state", {}).get("mapping_ref")
+            != "lane-ref:runtime-run-events-read-model"
+        ):
+            failures.append("CLI payload must report AuthorityState mapping ref")
 
     if failures:
         print("Hermes runtime adoption Phase 03 verification failed:")

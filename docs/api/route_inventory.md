@@ -408,7 +408,9 @@ path/content persistence, and production authority remain blocked.
 `GET /api/runtime/run-events` exposes a protected read-only Python Core Hermes
 Runtime Adoption Phase 03 run/event posture for external runtime lifecycle
 state, UAA durable run state mapping, event-ref grammar, proof binding, blocked
-stop posture, and approval-wait proposals. It does not create delegated runs,
+stop posture, approval-wait proposals, and the AuthorityState mapping/catalog/
+decision/reason/unsupported-adapter refs for
+`lane-ref:runtime-run-events-read-model`. It does not create delegated runs,
 stop delegated runs, resolve runtime approvals, or stream live events.
 `GET /api/runtime/profiles` exposes a protected read-only Python Core Hermes
 Runtime Adoption Phase 06 profile isolation posture for UAA-owned profile refs

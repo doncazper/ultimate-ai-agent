@@ -6945,6 +6945,31 @@ function isSafeRuntimeRunEvents(
   return (
     value.schema_version === "runtime_run_events.v1" &&
     value.status === "proposal_read_model_only" &&
+    value.route_ref === "GET /api/runtime/run-events" &&
+    value.cli_ref === "uaa runtime inspect-run-events" &&
+    isSafeTrustAuthorityRef(value.snapshot_ref) &&
+    isSafeTrustAuthorityRef(value.snapshot_hash_ref) &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-run-events-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    TRUST_AUTHORITY_DECISION_OUTCOMES.includes(
+      value.authority_state_decision_outcome,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    value.authority_state_status.length > 0 &&
+    typeof value.authority_state_operator_message === "string" &&
+    value.authority_state_operator_message.length > 0 &&
+    isNonEmptyStringArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    isNonEmptyStringArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.includes(
+      "adapter-ref:runtime-run-create:not-implemented",
+    ) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
     value.uaa_controls_authority === true &&
     value.no_mutation_routes_registered === true &&
     value.safe_refs_only === true &&

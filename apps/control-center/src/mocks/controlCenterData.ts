@@ -15048,12 +15048,37 @@ export const mockControlCenterData: ControlCenterData = {
   runtimeRunEvents: {
     schema_version: "runtime_run_events.v1",
     contract_ref: "contract-ref:runtime-run-events:v1",
+    snapshot_ref:
+      "runtime-run-events-snapshot-ref:hermes-agent:proposal-read-model",
+    snapshot_hash_ref: "snapshot-hash-ref:runtime-run-events:mock",
     route_ref: "GET /api/runtime/run-events",
     cli_ref: "uaa runtime inspect-run-events",
     control_center_ref: "control-center-route:runtime",
     runtime_identity_ref: "runtime-identity-ref:hermes-agent:optional-target",
     adapter_ref: "runtime-delegation-adapter:hermes-agent",
     status: "proposal_read_model_only",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref: "lane-ref:runtime-run-events-read-model",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-run-events-read-model",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:mock-runtime-run-events",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Run-events inspection is allowed under read-only Workspace authority; mutation adapters remain unsupported.",
+    authority_state_reason_refs: [
+      "reason-ref:authority-lease-active:read-only-workspace",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:runtime-run-create:not-implemented",
+      "adapter-ref:runtime-run-stop:not-implemented",
+      "adapter-ref:runtime-run-approval-resolution:not-implemented",
+      "adapter-ref:runtime-run-live-event-stream:not-implemented",
+      "adapter-ref:runtime-run-retry-recovery:not-implemented",
+    ],
     lifecycle_mappings: [
       {
         runtime_state: "proposed",

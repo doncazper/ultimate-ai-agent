@@ -2891,6 +2891,31 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-run-events-read-model",
+            "Runtime run events read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/run-events"],
+            ["repo-local-command:uaa-runtime-inspect-run-events"],
+            (
+                "Runtime run/event inspection reads lifecycle mappings, "
+                "approval-wait proposal metadata, proof refs, receipt-plan "
+                "refs, blocked refs, and safe event refs under Workspace read "
+                "authority. It does not create or stop runs, resolve approvals, "
+                "stream live events, call providers, execute tools, or persist "
+                "raw runtime payloads."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:runtime-run-create:not-implemented",
+                "adapter-ref:runtime-run-stop:not-implemented",
+                "adapter-ref:runtime-run-approval-resolution:not-implemented",
+                "adapter-ref:runtime-run-live-event-stream:not-implemented",
+                "adapter-ref:runtime-run-retry-recovery:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

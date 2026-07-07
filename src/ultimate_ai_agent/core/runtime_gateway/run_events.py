@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -26,6 +32,17 @@ RUNTIME_RUN_EVENTS_SAMPLE_RUN_REF = (
 RUNTIME_RUN_EVENTS_SAMPLE_DURABLE_RUN_REF = (
     "durable-run-ref:runtime-delegation:approval-wait-sample"
 )
+RUNTIME_RUN_EVENTS_SNAPSHOT_REF = (
+    "runtime-run-events-snapshot-ref:hermes-agent:proposal-read-model"
+)
+RUNTIME_RUN_EVENTS_AUTHORITY_STATE_ROUTE_REF = "GET /api/runtime/authority-state"
+RUNTIME_RUN_EVENTS_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_RUN_EVENTS_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-run-events-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 
 class RuntimeExternalRunLifecycleState(str, Enum):
@@ -221,12 +238,24 @@ class RuntimeRunProposalReadModel(BaseModel):
 class RuntimeRunEventsReadModel(BaseModel):
     schema_version: str = "runtime_run_events.v1"
     contract_ref: str = RUNTIME_RUN_EVENTS_CONTRACT_REF
+    snapshot_ref: str = RUNTIME_RUN_EVENTS_SNAPSHOT_REF
+    snapshot_hash_ref: str
     route_ref: str = RUNTIME_RUN_EVENTS_ROUTE_REF
     cli_ref: str = RUNTIME_RUN_EVENTS_CLI_REF
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     runtime_identity_ref: str = "runtime-identity-ref:hermes-agent:optional-target"
     adapter_ref: str = "runtime-delegation-adapter:hermes-agent"
     status: str = "proposal_read_model_only"
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     lifecycle_mappings: list[RuntimeRunLifecycleMapping]
     event_ref_grammar: RuntimeRunEventRefGrammar = Field(
         default_factory=RuntimeRunEventRefGrammar
@@ -269,9 +298,14 @@ class RuntimeRunEventsReadModel(BaseModel):
     def validate_read_model(self) -> "RuntimeRunEventsReadModel":
         for value, field_name in [
             (self.contract_ref, "contract_ref"),
+            (self.snapshot_ref, "snapshot_ref"),
+            (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
             (self.runtime_identity_ref, "runtime_identity_ref"),
             (self.adapter_ref, "adapter_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for value, field_name in [
@@ -279,16 +313,33 @@ class RuntimeRunEventsReadModel(BaseModel):
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
             (self.status, "status"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "proof_refs",
             "next_safe_action_refs",
         ):
             for ref in getattr(self, field_name):
                 validate_execution_ref(ref, field_name)
+        if self.authority_state_mapping_ref != RUNTIME_RUN_EVENTS_AUTHORITY_MAPPING_REF:
+            raise ValueError("RUNTIME_RUN_EVENT_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_RUN_EVENT_AUTHORITY_DECISION_INVALID")
         if self.proposal_count != len(self.run_proposals):
             raise ValueError("RUNTIME_RUN_EVENT_PROPOSAL_COUNT_DRIFT")
         expected_approval_wait = sum(
@@ -386,6 +437,16 @@ def _sample_events() -> list[RuntimeRunEventPreview]:
 
 
 def build_runtime_run_events_read_model() -> RuntimeRunEventsReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog=None)
+    return build_runtime_run_events_read_model_from_authority_catalog(
+        authority_decision_catalog=[authority_entry]
+    )
+
+
+def build_runtime_run_events_read_model_from_authority_catalog(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeRunEventsReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     events = _sample_events()
     proposal = RuntimeRunProposalReadModel(
         proposal_ref="runtime-run-proposal-ref:hermes-agent:approval-wait-sample",
@@ -485,6 +546,24 @@ def build_runtime_run_events_read_model() -> RuntimeRunEventsReadModel:
         ),
     ]
     return RuntimeRunEventsReadModel(
+        snapshot_hash_ref=_snapshot_hash_ref(
+            lifecycle_mappings=mappings,
+            run_proposals=[proposal],
+            event_previews=events,
+            authority_entry=authority_entry,
+        ),
+        authority_state_route_ref=RUNTIME_RUN_EVENTS_AUTHORITY_STATE_ROUTE_REF,
+        authority_state_cli_ref=RUNTIME_RUN_EVENTS_AUTHORITY_STATE_CLI_REF,
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         lifecycle_mappings=mappings,
         run_proposals=[proposal],
         event_previews=events,
@@ -509,3 +588,43 @@ def build_runtime_run_events_read_model() -> RuntimeRunEventsReadModel:
             "next-safe-action-ref:runtime-run-events:bind-action-inbox-approval",
         ],
     )
+
+
+def _snapshot_hash_ref(
+    *,
+    lifecycle_mappings: list[RuntimeRunLifecycleMapping],
+    run_proposals: list[RuntimeRunProposalReadModel],
+    event_previews: list[RuntimeRunEventPreview],
+    authority_entry: AuthorityDecisionCatalogEntry,
+) -> str:
+    payload = {
+        "contract_ref": RUNTIME_RUN_EVENTS_CONTRACT_REF,
+        "snapshot_ref": RUNTIME_RUN_EVENTS_SNAPSHOT_REF,
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
+        "lifecycle_mappings": [
+            mapping.model_dump(mode="json") for mapping in lifecycle_mappings
+        ],
+        "run_proposals": [
+            proposal.model_dump(mode="json") for proposal in run_proposals
+        ],
+        "event_previews": [event.model_dump(mode="json") for event in event_previews],
+    }
+    digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    return f"snapshot-hash-ref:runtime-run-events:{digest[:16]}"
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    for entry in catalog:
+        if entry.lane_ref == RUNTIME_RUN_EVENTS_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_RUN_EVENT_AUTHORITY_MAPPING_MISSING")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))

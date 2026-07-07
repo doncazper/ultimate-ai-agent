@@ -114,7 +114,11 @@ surfaces are:
   Tool registry availability exposes the Read-only `workspace/read` registry
   decision while tool invocation, execution, remote discovery, live web fetch,
   provider calls, plugin import, connector write activation, raw tool payload
-  persistence, and production authority remain blocked.
+  persistence, and production authority remain blocked. Runtime run-events
+  exposes the Read-only `workspace/read` lifecycle/proposal inspection decision
+  while run creation, stop/cancel execution, approval resolution, live event
+  streaming, retry/recovery execution, provider/model calls, tool execution,
+  raw runtime payload persistence, and production authority remain blocked.
   These API/CLI surfaces remain safe-ref inspection only unless exact active
   leases, implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and

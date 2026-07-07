@@ -303,6 +303,13 @@ describe("loadControlCenterData summary endpoint wiring", () => {
     expect(data.runtimeRunEvents.stop_run_route_enabled).toBe(false);
     expect(data.runtimeRunEvents.approval_resolution_route_enabled).toBe(false);
     expect(data.runtimeRunEvents.completed_run_count).toBe(0);
+    expect(data.runtimeRunEvents.authority_state_mapping_ref).toBe(
+      "lane-ref:runtime-run-events-read-model",
+    );
+    expect(data.runtimeRunEvents.authority_state_decision_outcome).toBe("allow");
+    expect(data.runtimeRunEvents.unsupported_adapter_refs).toContain(
+      "adapter-ref:runtime-run-create:not-implemented",
+    );
     expect(data.routeStates["/runtime"].state).toBe("mock_fallback");
     expect(data.routeStates["/runtime"].backendRouteRefs).toContain(
       "GET /api/runtime/run-events",

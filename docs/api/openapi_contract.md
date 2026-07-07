@@ -343,8 +343,12 @@ Contract rules:
   path/content persistence, and production authority remain blocked.
   `GET /api/runtime/run-events` exposes the Hermes Runtime Adoption Phase 03
   backend-owned runtime run/event posture for lifecycle mappings, event refs,
-  stop posture, and approval-wait proposals. It is read/proposal only and does
-  not create runs, stop runs, resolve approvals, or stream live events.
+  stop posture, and approval-wait proposals. It now also returns the
+  AuthorityState mapping, catalog, decision, reason, unsupported-adapter, and
+  decision-bound snapshot refs for
+  `lane-ref:runtime-run-events-read-model` under Read-only `workspace/read`.
+  It is read/proposal only and does not create runs, stop runs, resolve
+  approvals, or stream live events.
   `GET /api/runtime/approval-bridge` exposes the Hermes Runtime Adoption Phase
   04 backend-owned runtime approval bridge posture for approval envelopes,
   Action Inbox projection refs, proof refs, denial/timeout/scope-mismatch

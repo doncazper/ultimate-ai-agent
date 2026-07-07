@@ -8180,6 +8180,17 @@ describe("Web Control Center shell", () => {
     expect(screen.getByText("GET /api/runtime/run-events")).toBeInTheDocument();
     expect(screen.getByText("uaa runtime inspect-run-events")).toBeInTheDocument();
     expect(screen.getByText("Approval-wait proposal lane")).toBeInTheDocument();
+    expect(
+      screen.getByText("lane-ref:runtime-run-events-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("authority-policy-decision-ref:mock-runtime-run-events"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "adapter-ref:runtime-run-live-event-stream:not-implemented",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("Streaming progress")).toBeInTheDocument();
     expect(
       screen.getByText("GET /api/runtime/streaming-progress"),
