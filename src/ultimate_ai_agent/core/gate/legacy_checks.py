@@ -1,0 +1,105 @@
+from __future__ import annotations
+
+from ultimate_ai_agent.core.gate import legacy_support as _legacy_support
+from ultimate_ai_agent.core.gate.legacy_support import *  # noqa: F401,F403
+from ultimate_ai_agent.core.gate.legacy_check_families.part_001 import FoundationGateLegacyChecksPart001Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_002 import FoundationGateLegacyChecksPart002Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_003 import FoundationGateLegacyChecksPart003Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_004 import FoundationGateLegacyChecksPart004Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_005 import FoundationGateLegacyChecksPart005Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_006 import FoundationGateLegacyChecksPart006Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_007 import FoundationGateLegacyChecksPart007Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_008 import FoundationGateLegacyChecksPart008Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_009 import FoundationGateLegacyChecksPart009Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_010 import FoundationGateLegacyChecksPart010Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_011 import FoundationGateLegacyChecksPart011Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_012 import FoundationGateLegacyChecksPart012Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_013 import FoundationGateLegacyChecksPart013Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_014 import FoundationGateLegacyChecksPart014Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_015 import FoundationGateLegacyChecksPart015Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_016 import FoundationGateLegacyChecksPart016Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_017 import FoundationGateLegacyChecksPart017Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_018 import FoundationGateLegacyChecksPart018Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_019 import FoundationGateLegacyChecksPart019Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_020 import FoundationGateLegacyChecksPart020Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_021 import FoundationGateLegacyChecksPart021Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_022 import FoundationGateLegacyChecksPart022Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_023 import FoundationGateLegacyChecksPart023Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_024 import FoundationGateLegacyChecksPart024Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_025 import FoundationGateLegacyChecksPart025Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_026 import FoundationGateLegacyChecksPart026Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_027 import FoundationGateLegacyChecksPart027Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_028 import FoundationGateLegacyChecksPart028Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_029 import FoundationGateLegacyChecksPart029Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_030 import FoundationGateLegacyChecksPart030Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_031 import FoundationGateLegacyChecksPart031Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_032 import FoundationGateLegacyChecksPart032Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_033 import FoundationGateLegacyChecksPart033Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_034 import FoundationGateLegacyChecksPart034Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_035 import FoundationGateLegacyChecksPart035Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_036 import FoundationGateLegacyChecksPart036Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_037 import FoundationGateLegacyChecksPart037Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_038 import FoundationGateLegacyChecksPart038Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_039 import FoundationGateLegacyChecksPart039Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_040 import FoundationGateLegacyChecksPart040Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_041 import FoundationGateLegacyChecksPart041Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_042 import FoundationGateLegacyChecksPart042Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_043 import FoundationGateLegacyChecksPart043Mixin
+from ultimate_ai_agent.core.gate.legacy_check_families.part_044 import FoundationGateLegacyChecksPart044Mixin
+
+
+class FoundationGateLegacyChecksMixin(
+    FoundationGateLegacyChecksPart001Mixin,
+    FoundationGateLegacyChecksPart002Mixin,
+    FoundationGateLegacyChecksPart003Mixin,
+    FoundationGateLegacyChecksPart004Mixin,
+    FoundationGateLegacyChecksPart005Mixin,
+    FoundationGateLegacyChecksPart006Mixin,
+    FoundationGateLegacyChecksPart007Mixin,
+    FoundationGateLegacyChecksPart008Mixin,
+    FoundationGateLegacyChecksPart009Mixin,
+    FoundationGateLegacyChecksPart010Mixin,
+    FoundationGateLegacyChecksPart011Mixin,
+    FoundationGateLegacyChecksPart012Mixin,
+    FoundationGateLegacyChecksPart013Mixin,
+    FoundationGateLegacyChecksPart014Mixin,
+    FoundationGateLegacyChecksPart015Mixin,
+    FoundationGateLegacyChecksPart016Mixin,
+    FoundationGateLegacyChecksPart017Mixin,
+    FoundationGateLegacyChecksPart018Mixin,
+    FoundationGateLegacyChecksPart019Mixin,
+    FoundationGateLegacyChecksPart020Mixin,
+    FoundationGateLegacyChecksPart021Mixin,
+    FoundationGateLegacyChecksPart022Mixin,
+    FoundationGateLegacyChecksPart023Mixin,
+    FoundationGateLegacyChecksPart024Mixin,
+    FoundationGateLegacyChecksPart025Mixin,
+    FoundationGateLegacyChecksPart026Mixin,
+    FoundationGateLegacyChecksPart027Mixin,
+    FoundationGateLegacyChecksPart028Mixin,
+    FoundationGateLegacyChecksPart029Mixin,
+    FoundationGateLegacyChecksPart030Mixin,
+    FoundationGateLegacyChecksPart031Mixin,
+    FoundationGateLegacyChecksPart032Mixin,
+    FoundationGateLegacyChecksPart033Mixin,
+    FoundationGateLegacyChecksPart034Mixin,
+    FoundationGateLegacyChecksPart035Mixin,
+    FoundationGateLegacyChecksPart036Mixin,
+    FoundationGateLegacyChecksPart037Mixin,
+    FoundationGateLegacyChecksPart038Mixin,
+    FoundationGateLegacyChecksPart039Mixin,
+    FoundationGateLegacyChecksPart040Mixin,
+    FoundationGateLegacyChecksPart041Mixin,
+    FoundationGateLegacyChecksPart042Mixin,
+    FoundationGateLegacyChecksPart043Mixin,
+    FoundationGateLegacyChecksPart044Mixin,
+):
+    """Compatibility composition of split legacy Foundation Gate checks."""
+
+    pass
+
+
+__all__ = [
+    *_legacy_support.__all__,
+    "FoundationGateLegacyChecksMixin",
+]

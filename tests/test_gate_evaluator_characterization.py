@@ -48,6 +48,7 @@ from ultimate_ai_agent.core.gate.evaluators import (
     FoundationGateEvaluator,
     GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES,
     STATIC_SAFETY_EVALUATOR_DATA_FILES,
+    STATIC_SAFETY_EVALUATOR_DATA_PREFIXES,
     _is_static_safety_scan_allowed_file,
     m21_forbidden_openwebui_runtime_fragment_failures,
     m36_openapi_route_failures,
@@ -332,21 +333,73 @@ def test_foundation_gate_failure_classification_fixture_is_safe_and_bounded() ->
     assert "/Users/" not in json.dumps(summary)
 
 
-def test_static_safety_evaluator_data_file_exemption_is_exact() -> None:
+def test_static_safety_evaluator_data_exemption_is_scoped() -> None:
+    criteria_file = "src/ultimate_ai_agent/core/gate/criteria.py"
+    evaluator_facade_file = "src/ultimate_ai_agent/core/gate/evaluators.py"
+    legacy_checks_file = "src/ultimate_ai_agent/core/gate/legacy_checks.py"
     route_boundary_data_file = (
         "src/ultimate_ai_agent/core/gate/evaluator_modules/route_boundaries.py"
     )
+    legacy_support_file = "src/ultimate_ai_agent/core/gate/legacy_support.py"
+    legacy_check_family_files = {
+        f"src/ultimate_ai_agent/core/gate/legacy_check_families/part_{part_number:03d}.py"
+        for part_number in range(1, 45)
+    }
+    criteria_family_files = {
+        "src/ultimate_ai_agent/core/gate/criteria_families/foundation_core.py",
+        "src/ultimate_ai_agent/core/gate/criteria_families/runtime_authority_bootstrap.py",
+        "src/ultimate_ai_agent/core/gate/criteria_families/control_center_shell.py",
+        "src/ultimate_ai_agent/core/gate/criteria_families/product_spine_m21_m66.py",
+        "src/ultimate_ai_agent/core/gate/criteria_families/safety_expansion_m67_m98.py",
+        "src/ultimate_ai_agent/core/gate/criteria_families/post_m100_m99_m130.py",
+        "src/ultimate_ai_agent/core/gate/criteria_families/autonomy_alpha_m131_m150.py",
+        "src/ultimate_ai_agent/core/gate/criteria_families/local_model_m151_m167.py",
+        "src/ultimate_ai_agent/core/gate/criteria_families/cross_release_docs.py",
+    }
     command_adapter_file = "src/ultimate_ai_agent/core/runtime_gateway/command.py"
 
-    assert STATIC_SAFETY_EVALUATOR_DATA_FILES == frozenset({route_boundary_data_file})
+    assert STATIC_SAFETY_EVALUATOR_DATA_FILES == frozenset(
+        {
+            criteria_file,
+            evaluator_facade_file,
+            legacy_checks_file,
+            route_boundary_data_file,
+            legacy_support_file,
+        }
+        | legacy_check_family_files
+        | criteria_family_files
+    )
+    assert STATIC_SAFETY_EVALUATOR_DATA_PREFIXES == (
+        "src/ultimate_ai_agent/core/gate/checkpoint_builders/",
+    )
     assert GOVERNED_RUNTIME_COMMAND_ADAPTER_STATIC_SCAN_ALLOWED_FILES == frozenset(
         {command_adapter_file}
     )
+    assert _is_static_safety_scan_allowed_file(criteria_file, frozenset())
+    assert _is_static_safety_scan_allowed_file(evaluator_facade_file, frozenset())
+    assert _is_static_safety_scan_allowed_file(legacy_checks_file, frozenset())
     assert _is_static_safety_scan_allowed_file(route_boundary_data_file, frozenset())
+    assert _is_static_safety_scan_allowed_file(legacy_support_file, frozenset())
+    assert _is_static_safety_scan_allowed_file(
+        "src/ultimate_ai_agent/core/gate/legacy_check_families/part_001.py",
+        frozenset(),
+    )
+    assert _is_static_safety_scan_allowed_file(
+        "src/ultimate_ai_agent/core/gate/criteria_families/product_spine_m21_m66.py",
+        frozenset(),
+    )
+    assert _is_static_safety_scan_allowed_file(
+        "src/ultimate_ai_agent/core/gate/checkpoint_builders/m150_ultimate_ai_agent_alpha.py",
+        frozenset(),
+    )
     assert _is_static_safety_scan_allowed_file(command_adapter_file, frozenset())
     assert _is_static_safety_scan_allowed_file("src/allowed.py", {"src/allowed.py"})
     assert not _is_static_safety_scan_allowed_file(
         "src/ultimate_ai_agent/core/gate/evaluator_modules/route_contracts.py",
+        frozenset(),
+    )
+    assert not _is_static_safety_scan_allowed_file(
+        "src/ultimate_ai_agent/core/gate/checkpoint_builder_notes.py",
         frozenset(),
     )
 

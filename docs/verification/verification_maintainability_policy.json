@@ -128,8 +128,8 @@
       ],
       "allowlist": {
         "src/ultimate_ai_agent/core/gate/criteria.py": {
-          "max_lines": 5680,
-          "reason": "Frozen Foundation Gate criterion metadata hotspot. Future criteria should move into family-scoped data modules instead of growing the hardcoded default criterion list."
+          "max_lines": 120,
+          "reason": "Foundation Gate criterion facade after family split. Future criteria metadata must stay in family-scoped modules instead of growing this facade."
         },
         "src/ultimate_ai_agent/core/storage/founder_loop.py": {
           "max_lines": 18036,
