@@ -5158,6 +5158,27 @@ function isSafeRuntimeDoctorDiagnostics(
     value.status === "read_only_diagnostics_posture" &&
     value.route_ref === "GET /api/runtime/doctor-diagnostics" &&
     value.cli_ref === "uaa runtime inspect-doctor-diagnostics" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-doctor-diagnostics-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    TRUST_AUTHORITY_DECISION_OUTCOMES.includes(
+      value.authority_state_decision_outcome,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    value.authority_state_status.length > 0 &&
+    typeof value.authority_state_operator_message === "string" &&
+    value.authority_state_operator_message.length > 0 &&
+    isNonEmptyStringArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    isNonEmptyStringArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
+    value.unsupported_adapter_refs.includes(
+      "adapter-ref:runtime-doctor-install:not-implemented",
+    ) &&
     value.diagnostic_count === value.diagnostics.length &&
     value.ok_count ===
       value.diagnostics.filter((item) => item.status === "ok").length &&

@@ -260,10 +260,13 @@ persistence, production enforcement, and production authority remain blocked.
 `GET /api/runtime/doctor-diagnostics` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 28 runtime doctor diagnostics posture. It returns
 diagnostic refs, setup/runtime/provider/tool/protected-material/service/
-authority status refs, CLI refs, proof refs, next-safe-action refs, and blocked
-authority refs only. Installs, service starts, credential writes, runtime config
-mutation, raw log/local path persistence, provider payload persistence, Control
-Center authority minting, and production authority remain blocked.
+authority status refs, CLI refs, proof refs, next-safe-action refs, blocked
+authority refs, AuthorityState route/CLI/mapping/catalog/decision/reason refs,
+unsupported adapter refs, and decision-bound snapshot hashes for
+`lane-ref:runtime-doctor-diagnostics-read-model`. Installs, service starts,
+credential writes, runtime config mutation, raw log/local path persistence,
+provider payload persistence, Control Center authority minting, and production
+authority remain blocked.
 `GET /api/runtime/session-continuity` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 29 multi-surface session continuity posture. It
 returns session refs, source labels, staleness refs, conflict refs, proof refs,

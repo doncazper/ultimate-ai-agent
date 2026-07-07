@@ -3021,6 +3021,32 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-doctor-diagnostics-read-model",
+            "Runtime doctor diagnostics read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/doctor-diagnostics"],
+            ["repo-local-command:uaa-runtime-inspect-doctor-diagnostics"],
+            (
+                "Runtime doctor inspection reads setup, runtime, provider, "
+                "tool, protected material, service, authority, proof, blocker, "
+                "and next safe action refs under Workspace read authority. "
+                "Installs, service starts, credential writes, runtime config "
+                "mutation, provider payload persistence, and authority minting "
+                "remain blocked."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:runtime-doctor-install:not-implemented",
+                "adapter-ref:runtime-doctor-service-start:not-implemented",
+                "adapter-ref:runtime-doctor-protected-material-write:not-implemented",
+                "adapter-ref:runtime-doctor-config-mutation:not-implemented",
+                "adapter-ref:runtime-doctor-provider-material-persistence:not-implemented",
+                "adapter-ref:runtime-doctor-authority-mint:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:runtime-command-git-status",
             "Git status",
             AuthorityDomain.workspace,

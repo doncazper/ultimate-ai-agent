@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_MAPPING_REF,
+    RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_DOCTOR_DIAGNOSTICS_BLOCKED_AUTHORITY_REFS,
     RUNTIME_DOCTOR_DIAGNOSTICS_CONTRACT_REF,
     RuntimeDoctorDiagnosticItem,
@@ -26,6 +29,26 @@ def test_doctor_diagnostics_are_read_only_redacted_status() -> None:
     assert read_model.status == "read_only_diagnostics_posture"
     assert read_model.route_ref == "GET /api/runtime/doctor-diagnostics"
     assert read_model.cli_ref == "uaa runtime inspect-doctor-diagnostics"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_reason_refs
+    assert "adapter-ref:runtime-doctor-install:not-implemented" in (
+        read_model.unsupported_adapter_refs
+    )
     assert read_model.diagnostic_count == 8
     assert read_model.ok_count == 3
     assert read_model.review_count == 4
@@ -104,6 +127,14 @@ def test_doctor_read_model_denies_authority_flags(field: str) -> None:
         RuntimeDoctorDiagnosticsReadModel(**payload)
 
 
+def test_doctor_read_model_rejects_authority_mapping_drift() -> None:
+    payload = build_runtime_doctor_diagnostics_read_model().model_dump(mode="json")
+    payload["authority_state_mapping_ref"] = "lane-ref:runtime-doctor-drift"
+
+    with pytest.raises(ValueError, match="AUTHORITY_MAPPING_MISMATCH"):
+        RuntimeDoctorDiagnosticsReadModel(**payload)
+
+
 @pytest.mark.parametrize(
     "field",
     [
@@ -140,6 +171,11 @@ def test_doctor_diagnostics_api_returns_safe_read_model() -> None:
     assert body["operation"] == "api_runtime_doctor_diagnostics"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/doctor-diagnostics"
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
     assert data["install_enabled"] is False
     assert data["service_start_enabled"] is False
     assert data["credential_write_enabled"] is False
@@ -165,10 +201,19 @@ def test_doctor_diagnostics_cli_uses_same_read_model() -> None:
 
     payload = json.loads(result.stdout)
     read_model = payload["runtime_doctor_diagnostics"]
+    assert (
+        payload["authority_state"]["mapping_ref"]
+        == RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_MAPPING_REF
+    )
+    assert payload["authority_state"]["decision_outcome"] == "allow"
     assert payload["install_performed"] is False
     assert payload["service_start_performed"] is False
     assert payload["credential_write_performed"] is False
     assert payload["runtime_config_mutation_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/doctor-diagnostics"
     assert read_model["cli_ref"] == "uaa runtime inspect-doctor-diagnostics"
+    assert (
+        read_model["authority_state_cli_ref"]
+        == RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_CLI_REF
+    )
     assert read_model["diagnostic_count"] == 8

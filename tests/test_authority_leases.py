@@ -848,6 +848,25 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.outcome
         == "allow"
     )
+    doctor_diagnostics = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-doctor-diagnostics-read-model"
+    )
+    assert doctor_diagnostics.domain == "workspace"
+    assert doctor_diagnostics.capability == "read"
+    assert doctor_diagnostics.required_mode == "read_only"
+    assert doctor_diagnostics.status == "implemented_authority_bound_read_model"
+    assert "GET /api/runtime/doctor-diagnostics" in doctor_diagnostics.route_refs
+    assert "adapter-ref:runtime-doctor-install:not-implemented" in (
+        doctor_diagnostics.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane[
+            "lane-ref:runtime-doctor-diagnostics-read-model"
+        ].decision.outcome
+        == "allow"
+    )
     browser_action = next(
         mapping
         for mapping in read_model.capability_mappings

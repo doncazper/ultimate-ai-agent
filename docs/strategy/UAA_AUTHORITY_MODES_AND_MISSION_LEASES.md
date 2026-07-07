@@ -139,6 +139,10 @@ surfaces are:
   writes, MDM delivery, protected material management, unsigned config
   overrides, production enforcement, raw config/path/account/credential
   persistence, and Control Center authority minting remain blocked.
+  Runtime doctor diagnostics exposes the Read-only `workspace/read` local
+  diagnostic inspection decision while installs, service starts, credential
+  writes, runtime config mutation, raw log/path persistence, provider payload
+  persistence, and Control Center authority minting remain blocked.
   These API/CLI surfaces remain safe-ref inspection only unless exact active
   leases, implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and

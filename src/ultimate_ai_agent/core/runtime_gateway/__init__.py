@@ -310,6 +310,9 @@ from ultimate_ai_agent.core.runtime_gateway.managed_scope_policy import (
     build_runtime_managed_scope_policy_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.doctor_diagnostics import (
+    RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_MAPPING_REF,
+    RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_DOCTOR_DIAGNOSTICS_BLOCKED_AUTHORITY_REFS,
     RUNTIME_DOCTOR_DIAGNOSTICS_CLI_REF,
     RUNTIME_DOCTOR_DIAGNOSTICS_CONTRACT_REF,
@@ -322,6 +325,7 @@ from ultimate_ai_agent.core.runtime_gateway.doctor_diagnostics import (
     RuntimeDoctorDiagnosticStatus,
     RuntimeDoctorDiagnosticsReadModel,
     build_runtime_doctor_diagnostics_read_model,
+    build_runtime_doctor_diagnostics_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.session_continuity import (
     RUNTIME_SESSION_CONTINUITY_BLOCKED_AUTHORITY_REFS,
@@ -939,6 +943,9 @@ __all__ = [
     "RUNTIME_MANAGED_SCOPE_POLICY_ROUTE_REF",
     "RUNTIME_MANAGED_SCOPE_POLICY_SNAPSHOT_REF",
     "RUNTIME_MANAGED_SCOPE_POLICY_VERIFIER_REF",
+    "RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_MAPPING_REF",
+    "RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_CLI_REF",
+    "RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_ROUTE_REF",
     "RUNTIME_DOCTOR_DIAGNOSTICS_BLOCKED_AUTHORITY_REFS",
     "RUNTIME_DOCTOR_DIAGNOSTICS_CLI_REF",
     "RUNTIME_DOCTOR_DIAGNOSTICS_CONTRACT_REF",
@@ -1092,6 +1099,7 @@ __all__ = [
     "build_runtime_managed_scope_policy_read_model",
     "build_runtime_managed_scope_policy_read_model_from_authority_catalog",
     "build_runtime_doctor_diagnostics_read_model",
+    "build_runtime_doctor_diagnostics_read_model_from_authority_catalog",
     "build_runtime_session_continuity_read_model",
     "build_runtime_mcp_catalog_filtering_read_model",
     "build_runtime_background_jobs_read_model",

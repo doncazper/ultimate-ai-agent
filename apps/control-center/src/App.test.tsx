@@ -7930,6 +7930,17 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("uaa runtime inspect-doctor-diagnostics").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("lane-ref:runtime-doctor-diagnostics-read-model"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-decision-ref:runtime-doctor-diagnostics-read-model:allow",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("adapter-ref:runtime-doctor-install:not-implemented"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Protected material")).toBeInTheDocument();
     expect(
       screen.getByText("blocked-authority:runtime-doctor-no-installs"),

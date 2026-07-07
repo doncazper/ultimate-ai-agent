@@ -16209,6 +16209,29 @@ export const mockControlCenterData: ControlCenterData = {
     snapshot_hash_ref: "snapshot-hash-ref:runtime-doctor:mock",
     route_ref: "GET /api/runtime/doctor-diagnostics",
     cli_ref: "uaa runtime inspect-doctor-diagnostics",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref: "lane-ref:runtime-doctor-diagnostics-read-model",
+    authority_state_catalog_ref:
+      "authority-catalog-ref:runtime-doctor-diagnostics-read-model",
+    authority_state_decision_ref:
+      "authority-decision-ref:runtime-doctor-diagnostics-read-model:allow",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Read-only mode allows runtime doctor diagnostics inspection; installs, service starts, credential writes, runtime config mutation, provider payload persistence, and authority minting remain unavailable.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:runtime-doctor-install:not-implemented",
+      "adapter-ref:runtime-doctor-service-start:not-implemented",
+      "adapter-ref:runtime-doctor-protected-material-write:not-implemented",
+      "adapter-ref:runtime-doctor-config-mutation:not-implemented",
+      "adapter-ref:runtime-doctor-provider-material-persistence:not-implemented",
+      "adapter-ref:runtime-doctor-authority-mint:not-implemented",
+    ],
     control_center_ref: "control-center-route:runtime",
     safe_summary:
       "Runtime doctor diagnostics mock fallback explains local setup and readiness with redacted status refs only.",

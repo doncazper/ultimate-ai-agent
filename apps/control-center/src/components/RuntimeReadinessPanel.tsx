@@ -1163,6 +1163,21 @@ export function RuntimeReadinessPanel({
             <dd>{doctorDiagnostics.cli_ref}</dd>
           </div>
           <div>
+            <dt>Authority</dt>
+            <dd>
+              {doctorDiagnostics.authority_state_decision_outcome} /{" "}
+              {doctorDiagnostics.authority_state_status}
+            </dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{doctorDiagnostics.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{doctorDiagnostics.authority_state_decision_ref}</dd>
+          </div>
+          <div>
             <dt>Diagnostics</dt>
             <dd>{doctorDiagnostics.diagnostic_count}</dd>
           </div>
@@ -1216,6 +1231,12 @@ export function RuntimeReadinessPanel({
         <h4>Blocked authority</h4>
         <ul className="compact-list">
           {doctorDiagnostics.blocked_authority_refs.slice(0, 5).map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+        <h4>Unsupported adapters</h4>
+        <ul className="compact-list">
+          {doctorDiagnostics.unsupported_adapter_refs.slice(0, 6).map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>

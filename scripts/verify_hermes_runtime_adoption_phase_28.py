@@ -12,6 +12,9 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_MAPPING_REF,
+    RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_DOCTOR_DIAGNOSTICS_BLOCKED_AUTHORITY_REFS,
     build_runtime_doctor_diagnostics_read_model,
 )
@@ -35,6 +38,28 @@ def main() -> int:
         failures.append("doctor diagnostics CLI ref is stale")
     if read_model.status != "read_only_diagnostics_posture":
         failures.append("doctor diagnostics posture is not read-only")
+    if (
+        read_model.authority_state_route_ref
+        != RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_ROUTE_REF
+    ):
+        failures.append("doctor diagnostics AuthorityState route ref drifted")
+    if (
+        read_model.authority_state_cli_ref
+        != RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_CLI_REF
+    ):
+        failures.append("doctor diagnostics AuthorityState CLI ref drifted")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("doctor diagnostics AuthorityState mapping ref drifted")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("doctor diagnostics read model must allow read-only inspection")
+    if (
+        "adapter-ref:runtime-doctor-install:not-implemented"
+        not in read_model.unsupported_adapter_refs
+    ):
+        failures.append("doctor diagnostics unsupported install adapter missing")
     if read_model.diagnostic_count < 8:
         failures.append("doctor diagnostics lacks required diagnostic domains")
     if read_model.blocked_count < 1 or read_model.review_count < 1:
@@ -90,6 +115,7 @@ def main() -> int:
         "redacted_status_only",
         "raw_logs_omitted",
         "service_start_performed",
+        "authority_state",
     ]:
         if expected not in cli_text:
             failures.append(f"CLI missing {expected}")
@@ -128,6 +154,14 @@ def main() -> int:
     else:
         payload = json.loads(cli_result.stdout)
         read_model_payload = payload["runtime_doctor_diagnostics"]
+        authority_state = payload.get("authority_state", {})
+        if (
+            authority_state.get("mapping_ref")
+            != RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("doctor diagnostics CLI AuthorityState mapping drifted")
+        if authority_state.get("decision_outcome") != "allow":
+            failures.append("doctor diagnostics CLI AuthorityState outcome drifted")
         if payload["install_performed"] is not False:
             failures.append("doctor diagnostics CLI claims install")
         if payload["service_start_performed"] is not False:

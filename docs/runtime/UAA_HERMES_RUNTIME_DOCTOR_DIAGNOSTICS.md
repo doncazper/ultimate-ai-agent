@@ -1,6 +1,6 @@
 # UAA Hermes Runtime Doctor Diagnostics
 
-Status: Hermes Runtime Adoption Phase 28, repo-safe read model.
+Status: Hermes Runtime Adoption Phase 28, AuthorityState-bound repo-safe read model.
 
 ## Full-Strength
 
@@ -15,11 +15,14 @@ Phase 28 adds Python Core ownership for redacted local diagnostic posture:
 - `RuntimeDoctorDiagnosticsReadModel`
 - `GET /api/runtime/doctor-diagnostics`
 - `scripts/dev/uaa_runtime.py inspect-doctor-diagnostics`
+- Authority mapping `lane-ref:runtime-doctor-diagnostics-read-model` as
+  Read-only `workspace/read`
 - Control Center `/runtime` doctor diagnostics card
 
 The read model exposes diagnostic refs, source route refs, CLI refs, proof refs,
-blocked authority refs, and next-safe-action refs. It stores safe refs and
-bounded summaries only.
+blocked authority refs, next-safe-action refs, AuthorityState route/CLI/mapping/
+catalog/decision/reason refs, unsupported adapter refs, and decision-bound
+snapshot hashes. It stores safe refs and bounded summaries only.
 
 ## Blocked / Needs Authority
 

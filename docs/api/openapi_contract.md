@@ -194,10 +194,13 @@ Contract rules:
   `GET /api/runtime/doctor-diagnostics` exposes the Hermes Runtime Adoption
   Phase 28 backend-owned runtime doctor diagnostics posture. It returns
   diagnostic refs, setup/runtime/provider/tool/protected-material/service/
-  authority status refs, CLI refs, proof refs, next-safe-action refs, and
-  blocked authority refs only. It does not install dependencies, start
-  services, write credentials, mutate runtime config, persist raw logs or local
-  paths, persist provider payloads, or mint authority from Control Center.
+  authority status refs, CLI refs, proof refs, next-safe-action refs, blocked
+  authority refs, AuthorityState route/CLI/mapping/catalog/decision/reason refs,
+  unsupported adapter refs, and decision-bound snapshot hashes for
+  `lane-ref:runtime-doctor-diagnostics-read-model` under Read-only
+  `workspace/read`. It does not install dependencies, start services, write
+  credentials, mutate runtime config, persist raw logs or local paths, persist
+  provider payloads, or mint authority from Control Center.
   `GET /api/runtime/session-continuity` exposes the Hermes Runtime Adoption
   Phase 29 backend-owned multi-surface session continuity posture. It returns
   session refs, source labels, staleness refs, conflict refs, proof refs,

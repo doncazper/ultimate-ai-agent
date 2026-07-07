@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -30,6 +34,16 @@ RUNTIME_DOCTOR_DIAGNOSTICS_PROOF_REF = (
 RUNTIME_DOCTOR_DIAGNOSTICS_VERIFIER_REF = (
     "verifier-ref:hermes-runtime-adoption:phase-28:doctor-diagnostics"
 )
+RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-doctor-diagnostics-read-model"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_DOCTOR_DIAGNOSTICS_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:runtime-doctor-no-installs",
@@ -129,6 +143,16 @@ class RuntimeDoctorDiagnosticsReadModel(BaseModel):
     snapshot_hash_ref: str = "snapshot-hash-ref:runtime-doctor:pending"
     route_ref: str = RUNTIME_DOCTOR_DIAGNOSTICS_ROUTE_REF
     cli_ref: str = RUNTIME_DOCTOR_DIAGNOSTICS_CLI_REF
+    authority_state_route_ref: str
+    authority_state_cli_ref: str
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
     safe_summary: str = (
         "Runtime doctor diagnostics explain local setup and readiness using "
@@ -180,6 +204,9 @@ class RuntimeDoctorDiagnosticsReadModel(BaseModel):
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for value, field_name in [
@@ -187,10 +214,23 @@ class RuntimeDoctorDiagnosticsReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
         for field_name in (
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "blocked_authority_refs",
             "promotion_path_refs",
             "proof_refs",
@@ -203,6 +243,13 @@ class RuntimeDoctorDiagnosticsReadModel(BaseModel):
                     validate_safe_execution_text(value, field_name)
                 else:
                     validate_execution_ref(value, field_name)
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_DOCTOR_AUTHORITY_MAPPING_MISMATCH")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_DOCTOR_AUTHORITY_DECISION_INVALID")
         if self.diagnostic_count != len(self.diagnostics):
             raise ValueError("RUNTIME_DOCTOR_DIAGNOSTIC_COUNT_DRIFT")
         status_counts = {
@@ -293,6 +340,16 @@ def _diagnostic_item(
 
 
 def build_runtime_doctor_diagnostics_read_model() -> RuntimeDoctorDiagnosticsReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog=None)
+    return build_runtime_doctor_diagnostics_read_model_from_authority_catalog(
+        authority_decision_catalog=[authority_entry]
+    )
+
+
+def build_runtime_doctor_diagnostics_read_model_from_authority_catalog(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeDoctorDiagnosticsReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     diagnostics = [
         _diagnostic_item(
             "setup",
@@ -435,9 +492,25 @@ def build_runtime_doctor_diagnostics_read_model() -> RuntimeDoctorDiagnosticsRea
     payload_for_hash: dict[str, object] = {
         "diagnostics": [item.model_dump(mode="json") for item in diagnostics],
         "blocked": list(RUNTIME_DOCTOR_DIAGNOSTICS_BLOCKED_AUTHORITY_REFS),
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
     }
     return RuntimeDoctorDiagnosticsReadModel(
         snapshot_hash_ref=_snapshot_hash_ref(payload_for_hash),
+        authority_state_route_ref=RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_ROUTE_REF,
+        authority_state_cli_ref=RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_STATE_CLI_REF,
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         diagnostics=diagnostics,
         diagnostic_count=len(diagnostics),
         ok_count=sum(
@@ -480,3 +553,17 @@ def build_runtime_doctor_diagnostics_read_model() -> RuntimeDoctorDiagnosticsRea
             "next-safe-action-ref:runtime-doctor:bind-approval-and-receipt",
         ],
     )
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    for entry in catalog:
+        if entry.lane_ref == RUNTIME_DOCTOR_DIAGNOSTICS_AUTHORITY_MAPPING_REF:
+            return entry
+    raise ValueError("RUNTIME_DOCTOR_AUTHORITY_MAPPING_MISSING")
+
+
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))
