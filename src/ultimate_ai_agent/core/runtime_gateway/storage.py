@@ -904,7 +904,11 @@ class RuntimeInvocationStore:
                 return replayed
             receipt = build_blocked_receipt(
                 record,
-                safe_summary="Runtime execution remains blocked for unpromoted authority; operator summary omitted.",
+                safe_summary=(
+                    "Runtime execution remains blocked until an active "
+                    "AuthorityLease capability and approval binding allow the "
+                    "requested adapter; operator summary omitted."
+                ),
             )
             updated = record.model_copy(
                 update={

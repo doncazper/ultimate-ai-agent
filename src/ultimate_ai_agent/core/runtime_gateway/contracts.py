@@ -498,7 +498,9 @@ class RuntimeInvocationReceipt(BaseModel):
                 self.browser_automation_performed,
             ]
         ):
-            raise ValueError("RUNTIME_RECEIPT_EXECUTION_DENIED_FOR_UNPROMOTED_AUTHORITY")
+            raise ValueError(
+                "RUNTIME_RECEIPT_EXECUTION_DENIED_WITHOUT_AUTHORITY_LEASE_CAPABILITY"
+            )
         return self
 
 
@@ -699,7 +701,10 @@ class RuntimeExecuteRequest(BaseModel):
     expected_payload_fingerprint_ref: str | None = None
     expected_policy_decision_ref: str | None = None
     command_request: dict[str, Any] | None = None
-    safe_summary: str = "Execute request records a blocked receipt for unpromoted authority only."
+    safe_summary: str = (
+        "Execute request records a blocked receipt until an active "
+        "AuthorityLease capability and approval binding allow execution."
+    )
     metadata_refs: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid")
@@ -983,7 +988,7 @@ def build_policy_decision(
         ]
     else:
         reason_codes = [
-            "GOVERNED_RUNTIME_EXECUTION_DISABLED_OR_UNPROMOTED",
+            "GOVERNED_RUNTIME_EXECUTION_DISABLED_OR_AUTHORITY_LEASE_REQUIRED",
             "RUNTIME_ADAPTER_EXECUTION_BLOCKED",
         ]
     if approval_ref or request.approval_ref:

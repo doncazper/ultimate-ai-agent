@@ -285,11 +285,21 @@ def test_governed_runtime_invocation_flow_records_blocked_receipt(tmp_path, monk
         json={"safe_summary": "operator execute api summary should not persist"},
     )
     assert execute.status_code == 200
-    assert execute.json()["success"] is False
-    assert execute.json()["data"]["execution_performed"] is False
-    assert execute.json()["data"]["blocked_reason"] == (
-        "RUNTIME_ADAPTER_EXECUTION_BLOCKED_FOR_UNPROMOTED_AUTHORITY"
+    execute_body = execute.json()
+    assert execute_body["success"] is False
+    assert execute_body["data"]["execution_performed"] is False
+    assert execute_body["data"]["blocked_reason"] == (
+        "RUNTIME_ADAPTER_EXECUTION_REQUIRES_ACTIVE_AUTHORITY_LEASE_CAPABILITY"
     )
+    assert execute_body["data"]["authority_decision_outcome"] in {
+        None,
+        "degrade_to_draft",
+    }
+    assert (
+        "blocked-state:runtime-adapter-execution:authority-lease-required"
+        in execute_body["data"]["blocked_reason_refs"]
+    )
+    assert "required domain/capability" in execute_body["data"]["next_safe_action"]
     execute_replay = client.post(
         f"/api/runtime/invocations/{invocation_ref}/execute",
         headers={"x-uaa-idempotency-key": "idempotency-ref:runtime-api-execute"},

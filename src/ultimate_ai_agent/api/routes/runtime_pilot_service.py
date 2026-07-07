@@ -1503,7 +1503,21 @@ def post_api_runtime_invocations_id_execute(
             "record": record.model_dump(mode="json"),
             "execution_performed": False,
             "adapter_execution_enabled": False,
-            "blocked_reason": "RUNTIME_ADAPTER_EXECUTION_BLOCKED_FOR_UNPROMOTED_AUTHORITY",
+            "blocked_reason": "RUNTIME_ADAPTER_EXECUTION_REQUIRES_ACTIVE_AUTHORITY_LEASE_CAPABILITY",
+            "authority_decision_outcome": record.policy_decision.authority_decision_outcome,
+            "authority_required_mode": record.policy_decision.authority_required_mode,
+            "authority_required_domain": record.policy_decision.authority_domain,
+            "authority_required_capability": record.policy_decision.authority_capability,
+            "authority_operator_message": record.policy_decision.authority_operator_message,
+            "blocked_reason_refs": [
+                "reason-ref:authority:no-active-lease-for-runtime-adapter",
+                "blocked-state:runtime-adapter-execution:authority-lease-required",
+                "blocked-state:runtime-adapter-execution:approval-binding-required",
+            ],
+            "next_safe_action": (
+                "Select a trust mode that grants the required domain/capability, "
+                "then use the approval-bound command execution path with receipts."
+            ),
         },
         evidence=[{"evidence_ref": "evidence-ref:governed-runtime-execution-blocked"}],
         redactions_applied=list(GOVERNED_RUNTIME_REDACTIONS),
