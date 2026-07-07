@@ -13,6 +13,7 @@ import type {
   RuntimeLoggingProfileReadModel,
   RuntimeLspDiagnosticsReadModel,
   RuntimeManagedScopePolicyReadModel,
+  RuntimeMessagingGatewayPostureReadModel,
   RuntimeMcpCatalogFilteringReadModel,
   RuntimeSubagentIsolationReadModel,
   RuntimeSessionContinuityReadModel,
@@ -66,6 +67,7 @@ export function RuntimeReadinessPanel({
   loggingProfile,
   resultClassification,
   voiceMediaPosture,
+  messagingGatewayPosture,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -98,6 +100,7 @@ export function RuntimeReadinessPanel({
   loggingProfile: RuntimeLoggingProfileReadModel;
   resultClassification: RuntimeResultClassificationReadModel;
   voiceMediaPosture: RuntimeVoiceMediaPostureReadModel;
+  messagingGatewayPosture: RuntimeMessagingGatewayPostureReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -2214,6 +2217,129 @@ export function RuntimeReadinessPanel({
         <h4>Authority reason</h4>
         <ul className="compact-list">
           {voiceMediaPosture.authority_state_reason_refs.map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Messaging gateways</p>
+            <h3>Posture inspection</h3>
+          </div>
+          <span className="status-pill compact">
+            {messagingGatewayPosture.status}
+          </span>
+        </div>
+        <p>{messagingGatewayPosture.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{messagingGatewayPosture.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{messagingGatewayPosture.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Authority</dt>
+            <dd>{messagingGatewayPosture.authority_state_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{messagingGatewayPosture.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision</dt>
+            <dd>{messagingGatewayPosture.authority_state_decision_outcome}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{messagingGatewayPosture.authority_state_decision_ref}</dd>
+          </div>
+          <div>
+            <dt>Platforms</dt>
+            <dd>{messagingGatewayPosture.platform_count}</dd>
+          </div>
+          <div>
+            <dt>Blocked platforms</dt>
+            <dd>{messagingGatewayPosture.blocked_platform_count}</dd>
+          </div>
+          <div>
+            <dt>Connector runtime</dt>
+            <dd>
+              {messagingGatewayPosture.connector_runtime_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Sends</dt>
+            <dd>{messagingGatewayPosture.send_enabled ? "enabled" : "blocked"}</dd>
+          </div>
+          <div>
+            <dt>OAuth/webhooks</dt>
+            <dd>
+              {messagingGatewayPosture.oauth_enabled ||
+              messagingGatewayPosture.webhook_exposure_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Message material</dt>
+            <dd>
+              {messagingGatewayPosture.raw_message_persisted
+                ? "stored"
+                : "omitted"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Platform</th>
+                <th>Status</th>
+                <th>Inbound</th>
+                <th>Outbound</th>
+                <th>OAuth</th>
+                <th>Webhook</th>
+              </tr>
+            </thead>
+            <tbody>
+              {messagingGatewayPosture.platforms.map((platform) => (
+                <tr key={platform.platform_ref}>
+                  <td>{platform.display_label}</td>
+                  <td>{platform.status}</td>
+                  <td>{platform.inbound_readiness_ref}</td>
+                  <td>{platform.outbound_write_label_ref}</td>
+                  <td>{platform.oauth_label_ref}</td>
+                  <td>{platform.webhook_label_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h4>Unsupported adapters</h4>
+        <ul className="compact-list">
+          {messagingGatewayPosture.unsupported_adapter_refs
+            .slice(0, 6)
+            .map((ref) => (
+              <li key={ref}>{ref}</li>
+            ))}
+        </ul>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {messagingGatewayPosture.blocked_authority_refs
+            .slice(0, 6)
+            .map((ref) => (
+              <li key={ref}>{ref}</li>
+            ))}
+        </ul>
+        <h4>Authority reason</h4>
+        <ul className="compact-list">
+          {messagingGatewayPosture.authority_state_reason_refs.map((ref) => (
             <li key={ref}>{ref}</li>
           ))}
         </ul>

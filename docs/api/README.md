@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `243`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `244` route
+Current OpenAPI path count: `244`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `245` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview plus AuthorityLease mission planning routes add no-effect
@@ -64,6 +64,11 @@ Hermes Runtime Adoption Phase 41 adds `GET /api/runtime/voice-media-posture`
 as a protected read-only voice/media posture route with microphone, camera,
 upload, transcription, generation, provider call, external delivery, and media
 material persistence blocked.
+Hermes Runtime Adoption Phase 42 adds
+`GET /api/runtime/messaging-gateway-posture` as a protected read-only messaging
+gateway posture route with connector runtime, connector reads, sends, OAuth,
+webhook exposure, account sync, external writes, raw message persistence, and
+Control Center authority minting blocked.
 
 The API boundary is metadata-first, validation-first, approval-aware for
 local/dev policy checks, simulated/fallback-first for model runtime behavior,

@@ -2,14 +2,14 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `242`.
+Current OpenAPI path count: `244`.
 
 This inventory is generated from the FastAPI application and `/api/manifest`. It is the route ownership and side-effect classification map for the current local-first API boundary.
 
 ## Current Route Boundary
 
-- Manifest route operations: `243`
-- OpenAPI paths: `242`
+- Manifest route operations: `245`
+- OpenAPI paths: `244`
 - Production runtime authority: blocked
 - Public release authority: blocked
 
@@ -28,7 +28,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | `extension-catalog` | 1 | `extension-catalog` | `extension_catalog_service` | future auth required | `validation_only`:1 | medium | stable/generated from path; unique | status_available_not_completion |
 | `files` | 6 | `workspace-files` | `workspace_files_service` | future auth required and local safe refs | `local_dev_workspace_only`:6 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `foundation-gate` | 2 | `foundation-gate` | `verification_service` | future auth required | `validation_only`:2 | medium | stable/generated from path; unique | status_available_not_completion |
-| `governed-runtime` | 52 | `governed-runtime` | `runtime_pilot_service` | future auth required and exact approval before broader execution | `local_dev_workspace_only`:49, `validation_only`:3 | high | stable/generated from path; unique | partial_backend_not_product_ready |
+| `governed-runtime` | 54 | `governed-runtime` | `runtime_pilot_service` | future auth required and exact approval before broader execution | `local_dev_workspace_only`:51, `validation_only`:3 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `kernel` | 1 | `kernel` | `kernel_service` | future auth required | `local_dev_workspace_only`:1 | high | stable/generated from path; unique | partial_backend_not_product_ready |
 | `ledger` | 3 | `ledger` | `evidence_service` | future auth required | `validation_only`:3 | medium | stable/generated from path; unique | partial_backend_not_product_ready |
 | `mattermost` | 8 | `mattermost` | `integrations_service` | disabled by default and future auth required | `local_dev_workspace_only`:8 | high | stable/generated from path; unique | partial_backend_not_product_ready |
@@ -96,6 +96,7 @@ This inventory is generated from the FastAPI application and `/api/manifest`. It
 | GET | `/api/runtime/result-classification` | `get_api_runtime_result_classification` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/run-events` | `get_api_runtime_run_events` | `local_dev_workspace_only` | no | future | yes |
 | POST | `/api/runtime/safe-disable` | `post_api_runtime_safe_disable` | `local_dev_workspace_only` | no | future | yes |
+| GET | `/api/runtime/messaging-gateway-posture` | `get_api_runtime_messaging_gateway_posture` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/session-continuity` | `get_api_runtime_session_continuity` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/session-lineage` | `get_api_runtime_session_lineage` | `local_dev_workspace_only` | no | future | yes |
 | GET | `/api/runtime/session-search` | `get_api_runtime_session_search` | `local_dev_workspace_only` | no | future | yes |

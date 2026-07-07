@@ -51,6 +51,7 @@ import type {
   RuntimeSubagentReviewArtifact,
   RuntimeLspDiagnosticEvidenceContract,
   RuntimeLoggingProfileRecord,
+  RuntimeMessagingGatewayPlatform,
   RuntimePreviewRailSlot,
   RuntimeResultClassificationRecord,
   RuntimeRunControlProposal,
@@ -71,7 +72,7 @@ import type {
 
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
-export const MOCK_OPENAPI_ROUTE_COUNT = 236;
+export const MOCK_OPENAPI_ROUTE_COUNT = 244;
 export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 90;
 
 function runtimeToolRegistryEntry(
@@ -2518,7 +2519,10 @@ const runtimeVoiceMediaBlockedRefs = [
 
 function runtimeVoiceMediaLane(
   slug: string,
-  overrides: Pick<RuntimeVoiceMediaLane, "lane_kind" | "display_label" | "safe_summary">,
+  overrides: Pick<
+    RuntimeVoiceMediaLane,
+    "lane_kind" | "display_label" | "safe_summary"
+  >,
 ): RuntimeVoiceMediaLane {
   return {
     lane_ref: `voice-media-lane-ref:runtime:${slug}`,
@@ -2600,6 +2604,98 @@ const runtimeVoiceMediaLanes = [
     display_label: "External media delivery",
     safe_summary:
       "Mock external media delivery posture keeps send and publish authority blocked.",
+  }),
+];
+
+const runtimeMessagingGatewayBlockedRefs = [
+  "blocked-authority:messaging-gateway-no-connector-runtime",
+  "blocked-authority:messaging-gateway-no-sends",
+  "blocked-authority:messaging-gateway-no-oauth",
+  "blocked-authority:messaging-gateway-no-webhook-exposure",
+  "blocked-authority:messaging-gateway-no-account-sync",
+  "blocked-authority:messaging-gateway-no-external-writes",
+  "blocked-authority:messaging-gateway-no-raw-message-persistence",
+  "blocked-authority:messaging-gateway-no-control-center-authority-mint",
+];
+
+function runtimeMessagingGatewayPlatform(
+  slug: string,
+  overrides: Pick<
+    RuntimeMessagingGatewayPlatform,
+    "platform_kind" | "display_label" | "safe_summary"
+  >,
+): RuntimeMessagingGatewayPlatform {
+  return {
+    platform_ref: `messaging-platform-ref:runtime:${slug}`,
+    platform_kind: overrides.platform_kind,
+    display_label: overrides.display_label,
+    status: "blocked_until_authority",
+    safe_summary: overrides.safe_summary,
+    connector_label_ref: `connector-label-ref:messaging:${slug}`,
+    inbound_readiness_ref: `inbound-readiness-ref:messaging:${slug}`,
+    outbound_write_label_ref: `outbound-write-label-ref:messaging:${slug}`,
+    oauth_label_ref: `oauth-label-ref:messaging:${slug}`,
+    webhook_label_ref: `webhook-label-ref:messaging:${slug}`,
+    account_sync_label_ref: `account-sync-label-ref:messaging:${slug}`,
+    redaction_policy_ref: `redaction-policy-ref:messaging:${slug}`,
+    proof_ref: `proof-ref:messaging-gateway:${slug}`,
+    blocked_authority_refs: runtimeMessagingGatewayBlockedRefs,
+    promotion_path_refs: [
+      `promotion-path-ref:messaging:${slug}:account-ref`,
+      `promotion-path-ref:messaging:${slug}:delivery-receipt`,
+      `promotion-path-ref:messaging:${slug}:revoke-safe-disable`,
+    ],
+    next_safe_action_refs: [
+      `next-safe-action-ref:messaging:${slug}:connector-contract`,
+    ],
+    connector_runtime_enabled: false,
+    connector_read_enabled: false,
+    send_enabled: false,
+    oauth_enabled: false,
+    webhook_exposure_enabled: false,
+    account_sync_enabled: false,
+    external_write_enabled: false,
+    raw_message_persisted: false,
+    control_center_mints_authority: false,
+  };
+}
+
+const runtimeMessagingGatewayPlatforms = [
+  runtimeMessagingGatewayPlatform("email", {
+    platform_kind: "email",
+    display_label: "Email",
+    safe_summary:
+      "Mock email gateway posture keeps connector runtime, reads, sends, OAuth, sync, and raw message persistence blocked.",
+  }),
+  runtimeMessagingGatewayPlatform("slack", {
+    platform_kind: "slack",
+    display_label: "Slack",
+    safe_summary:
+      "Mock Slack gateway posture keeps OAuth, workspace sync, webhooks, and sends blocked.",
+  }),
+  runtimeMessagingGatewayPlatform("telegram", {
+    platform_kind: "telegram",
+    display_label: "Telegram",
+    safe_summary:
+      "Mock Telegram gateway posture keeps bot runtime, webhook exposure, and sends blocked.",
+  }),
+  runtimeMessagingGatewayPlatform("sms", {
+    platform_kind: "sms",
+    display_label: "SMS",
+    safe_summary:
+      "Mock SMS gateway posture keeps account sync, sends, and external delivery blocked.",
+  }),
+  runtimeMessagingGatewayPlatform("discord", {
+    platform_kind: "discord",
+    display_label: "Discord",
+    safe_summary:
+      "Mock Discord gateway posture keeps OAuth, bot runtime, webhooks, and sends blocked.",
+  }),
+  runtimeMessagingGatewayPlatform("generic-webhook", {
+    platform_kind: "generic_webhook",
+    display_label: "Generic webhook",
+    safe_summary:
+      "Mock generic webhook posture keeps inbound exposure and external writes blocked.",
   }),
 ];
 
@@ -16748,6 +16844,85 @@ export const mockControlCenterData: ControlCenterData = {
       "raw_media_omitted",
       "device_identifiers_omitted",
       "provider_payloads_omitted",
+    ],
+  },
+  runtimeMessagingGatewayPosture: {
+    schema_version: "runtime_messaging_gateway_posture.v1",
+    contract_ref:
+      "contract-ref:hermes-runtime-adoption-messaging-gateway-posture:v1",
+    status: "metadata_readiness_map_only",
+    snapshot_ref: "messaging-gateway-posture-snapshot-ref:runtime:phase-42",
+    snapshot_hash_ref: "snapshot-hash-ref:messaging-gateway-posture:mock",
+    route_ref: "GET /api/runtime/messaging-gateway-posture",
+    cli_ref: "uaa runtime inspect-messaging-gateway-posture",
+    doc_ref: "docs/runtime/UAA_HERMES_RUNTIME_MESSAGING_GATEWAY_POSTURE.md",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-messaging-gateway-posture-read-model",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-messaging-gateway-posture-read-model",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:mock-runtime-messaging-gateway-posture",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Allowed by active authority lease for safe messaging posture inspection only.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:messaging-gateway-email:not-implemented",
+      "adapter-ref:messaging-gateway-slack:not-implemented",
+      "adapter-ref:messaging-gateway-telegram:not-implemented",
+      "adapter-ref:messaging-gateway-sms:not-implemented",
+      "adapter-ref:messaging-gateway-discord:not-implemented",
+      "adapter-ref:messaging-gateway-webhook:not-implemented",
+    ],
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime messaging gateway mock fallback shows blocked readiness labels only; connector runtime, reads, sends, OAuth, webhooks, sync, and writes stay blocked.",
+    platforms: runtimeMessagingGatewayPlatforms,
+    platform_count: runtimeMessagingGatewayPlatforms.length,
+    blocked_platform_count: runtimeMessagingGatewayPlatforms.filter(
+      (platform) => platform.status === "blocked_until_authority",
+    ).length,
+    connector_runtime_enabled: false,
+    connector_read_enabled: false,
+    send_enabled: false,
+    oauth_enabled: false,
+    webhook_exposure_enabled: false,
+    account_sync_enabled: false,
+    external_write_enabled: false,
+    raw_message_persisted: false,
+    control_center_mints_authority: false,
+    blocked_authority_refs: runtimeMessagingGatewayBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:messaging-gateway:connector-read-write-authority",
+      "promotion-path-ref:messaging-gateway:account-refs",
+      "promotion-path-ref:messaging-gateway:delivery-receipt",
+      "promotion-path-ref:messaging-gateway:revoke-safe-disable",
+      "promotion-path-ref:messaging-gateway:redaction-proof",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-42:messaging-gateway-posture",
+      "proof-ref:messaging-gateway:posture-only",
+      "proof-ref:messaging-gateway:connector-authority-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-42:messaging-gateway-posture",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:messaging-gateway:connector-read-contract",
+      "next-safe-action-ref:messaging-gateway:send-write-approval-contract",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_messages_omitted",
+      "account_material_omitted",
+      "connector_payloads_omitted",
     ],
   },
   runtimeApprovalBridge: {

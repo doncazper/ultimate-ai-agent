@@ -11,6 +11,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     RUNTIME_MESSAGING_GATEWAY_BLOCKED_AUTHORITY_REFS,
+    RUNTIME_MESSAGING_GATEWAY_POSTURE_AUTHORITY_MAPPING_REF,
+    RUNTIME_MESSAGING_GATEWAY_POSTURE_ROUTE_REF,
     build_runtime_messaging_gateway_posture_read_model,
 )
 
@@ -28,8 +30,23 @@ def main() -> int:
 
     if read_model.status != "metadata_readiness_map_only":
         failures.append("messaging gateway status is not metadata-only")
+    if read_model.route_ref != RUNTIME_MESSAGING_GATEWAY_POSTURE_ROUTE_REF:
+        failures.append("messaging gateway route ref drifted")
     if read_model.cli_ref != "uaa runtime inspect-messaging-gateway-posture":
         failures.append("messaging gateway CLI ref drifted")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_MESSAGING_GATEWAY_POSTURE_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("messaging gateway AuthorityState mapping drifted")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("messaging gateway posture inspection is not allowed")
+    if "reason-ref:authority:active-lease-grants-domain-capability" not in (
+        read_model.authority_state_reason_refs
+    ):
+        failures.append("messaging gateway active lease reason missing")
+    if not read_model.unsupported_adapter_refs:
+        failures.append("messaging gateway unsupported adapter refs missing")
     if read_model.platform_count != 6:
         failures.append("messaging gateway platform count drifted")
     if read_model.blocked_platform_count != read_model.platform_count:
@@ -82,12 +99,14 @@ def main() -> int:
         "Full-Strength",
         "Repo-Safe",
         "Blocked / Needs Authority",
-        "Exact Promotion Path",
+        "AuthorityState",
+        "Exact Authority Path",
         "connector runtime",
         "connector reads",
         "sends",
         "OAuth",
         "webhook exposure",
+        "GET /api/runtime/messaging-gateway-posture",
         "Planning text and readiness labels do not grant",
     ]:
         if expected not in doc_text:
@@ -97,6 +116,8 @@ def main() -> int:
     for expected in [
         "inspect-messaging-gateway-posture",
         "runtime_messaging_gateway_posture",
+        "authority_state_mapping_ref",
+        "authority_state_decision_outcome",
         "send_performed",
         "oauth_performed",
         "webhook_exposure_performed",
@@ -131,6 +152,7 @@ def main() -> int:
         failures.append("messaging gateway CLI failed")
     else:
         payload = json.loads(cli_result.stdout)
+        read_model_payload = payload["runtime_messaging_gateway_posture"]
         for field in [
             "connector_runtime_performed",
             "connector_read_performed",
@@ -142,8 +164,15 @@ def main() -> int:
         ]:
             if payload[field] is not False:
                 failures.append(f"CLI claims {field}")
-        if payload["runtime_messaging_gateway_posture"]["platform_count"] != 6:
+        if read_model_payload["platform_count"] != 6:
             failures.append("CLI returned stale platform count")
+        if (
+            read_model_payload["authority_state_mapping_ref"]
+            != RUNTIME_MESSAGING_GATEWAY_POSTURE_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("CLI returned stale AuthorityState mapping")
+        if read_model_payload["authority_state_decision_outcome"] != "allow":
+            failures.append("CLI returned stale AuthorityState decision")
 
     if failures:
         for failure in failures:

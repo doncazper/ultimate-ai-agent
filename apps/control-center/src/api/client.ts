@@ -59,6 +59,7 @@ import type {
   RuntimePreviewRailReadModel,
   RuntimeInterruptRedirectReadModel,
   RuntimeLoggingProfileReadModel,
+  RuntimeMessagingGatewayPostureReadModel,
   RuntimeResultClassificationReadModel,
   RuntimeVoiceMediaPostureReadModel,
   RuntimeSessionContinuityReadModel,
@@ -468,6 +469,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
       API_ENDPOINTS.runtimeVoiceMediaPosture,
     ),
   ] as const);
+  const runtimeMessagingGatewayPostureSettledPromise = Promise.allSettled([
+    read<RuntimeMessagingGatewayPostureReadModel>(
+      API_ENDPOINTS.runtimeMessagingGatewayPosture,
+    ),
+  ] as const);
   const results = await Promise.allSettled([
     read<ControlCenterManifest>(API_ENDPOINTS.controlCenterManifest),
     read<ControlCenterDashboardSnapshot>(
@@ -619,6 +625,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     await runtimeResultClassificationSettledPromise;
   const runtimeVoiceMediaPostureResult =
     await runtimeVoiceMediaPostureSettledPromise;
+  const runtimeMessagingGatewayPostureResult =
+    await runtimeMessagingGatewayPostureSettledPromise;
 
   const manifest = fulfilledValue(results[0]);
   const dashboard = fulfilledValue(results[1]);
@@ -691,6 +699,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   );
   const runtimeVoiceMediaPosture = fulfilledValue(
     runtimeVoiceMediaPostureResult[0],
+  );
+  const runtimeMessagingGatewayPosture = fulfilledValue(
+    runtimeMessagingGatewayPostureResult[0],
   );
   const setupAssistantSource = fulfilledValue(results[7]);
   const setupAssistant = normalizeMacOSSetupAssistant(
@@ -881,6 +892,10 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   )
     ? runtimeVoiceMediaPosture
     : undefined;
+  const safeRuntimeMessagingGatewayPosture =
+    isSafeRuntimeMessagingGatewayPosture(runtimeMessagingGatewayPosture)
+      ? runtimeMessagingGatewayPosture
+      : undefined;
   const normalizedFounderToday = normalizeFounderToday(founderToday);
   const normalizedFounderStartHere = normalizeFounderStartHere(founderStartHere);
   const normalizedProofIndex = normalizeProofIndex(proofIndex);
@@ -1073,6 +1088,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     safeRuntimeResultClassification === undefined;
   const runtimeVoiceMediaPostureFallbackUsed =
     safeRuntimeVoiceMediaPosture === undefined;
+  const runtimeMessagingGatewayPostureFallbackUsed =
+    safeRuntimeMessagingGatewayPosture === undefined;
 
   const routeStates = buildRouteReadStates([
     routeReadStateInput({
@@ -1231,9 +1248,15 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         "GET /api/runtime/background-jobs",
         "GET /api/runtime/subagent-isolation",
         "GET /api/runtime/worktree-per-agent",
+        "GET /api/runtime/staged-orchestration",
         "GET /api/runtime/lsp-diagnostics",
         "GET /api/runtime/preview-rail",
         "GET /api/runtime/slash-command-registry",
+        "GET /api/runtime/interrupt-redirect",
+        "GET /api/runtime/logging-profile",
+        "GET /api/runtime/result-classification",
+        "GET /api/runtime/voice-media-posture",
+        "GET /api/runtime/messaging-gateway-posture",
       ],
       endpointReturned:
         runtimeReadiness !== undefined &&
@@ -1266,7 +1289,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeInterruptRedirect !== undefined &&
         runtimeLoggingProfile !== undefined &&
         runtimeResultClassification !== undefined &&
-        runtimeVoiceMediaPosture !== undefined,
+        runtimeVoiceMediaPosture !== undefined &&
+        runtimeMessagingGatewayPosture !== undefined,
       warningRefs: [
         ...(runtimeDelegationAdapterFallbackUsed
           ? ["RUNTIME_DELEGATION_ADAPTER_MOCK_FALLBACK"]
@@ -1355,6 +1379,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         ...(runtimeVoiceMediaPostureFallbackUsed
           ? ["RUNTIME_VOICE_MEDIA_POSTURE_MOCK_FALLBACK"]
           : []),
+        ...(runtimeMessagingGatewayPostureFallbackUsed
+          ? ["RUNTIME_MESSAGING_GATEWAY_POSTURE_MOCK_FALLBACK"]
+          : []),
       ],
       usedFallback:
         runtimeReadiness === undefined ||
@@ -1387,7 +1414,8 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
         runtimeInterruptRedirectFallbackUsed ||
         runtimeLoggingProfileFallbackUsed ||
         runtimeResultClassificationFallbackUsed ||
-        runtimeVoiceMediaPostureFallbackUsed,
+        runtimeVoiceMediaPostureFallbackUsed ||
+        runtimeMessagingGatewayPostureFallbackUsed,
     }),
     routeReadStateInput({
       route: "/briefing",
@@ -1504,6 +1532,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeLoggingProfile === undefined ||
     runtimeResultClassification === undefined ||
     runtimeVoiceMediaPosture === undefined ||
+    runtimeMessagingGatewayPosture === undefined ||
     codingSession === undefined ||
     codingContext === undefined ||
     codingPatchProposal === undefined ||
@@ -1554,8 +1583,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     (runtimeInterruptRedirectResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeLoggingProfileResult[0].status === "fulfilled" ? 1 : 0) +
     (runtimeResultClassificationResult[0].status === "fulfilled" ? 1 : 0) +
-    (runtimeVoiceMediaPostureResult[0].status === "fulfilled" ? 1 : 0);
-  const expectedReadCount = results.length + 30;
+    (runtimeVoiceMediaPostureResult[0].status === "fulfilled" ? 1 : 0) +
+    (runtimeMessagingGatewayPostureResult[0].status === "fulfilled" ? 1 : 0);
+  const expectedReadCount = results.length + 31;
   const dashboardWithEndpointSummaries: ControlCenterDashboardSnapshot = {
     ...normalizedDashboard.value,
     approval_summary:
@@ -1691,6 +1721,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeVoiceMediaPosture:
       safeRuntimeVoiceMediaPosture ??
       mockControlCenterData.runtimeVoiceMediaPosture,
+    runtimeMessagingGatewayPosture:
+      safeRuntimeMessagingGatewayPosture ??
+      mockControlCenterData.runtimeMessagingGatewayPosture,
     m15Review: mockControlCenterData.m15Review,
     runAttachedApprovalQueue:
       approvalQueue ?? mockControlCenterData.runAttachedApprovalQueue,
@@ -1795,6 +1828,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     !runtimeLoggingProfileFallbackUsed &&
     !runtimeResultClassificationFallbackUsed &&
     !runtimeVoiceMediaPostureFallbackUsed &&
+    !runtimeMessagingGatewayPostureFallbackUsed &&
     !modelProviderControlPlaneFallbackUsed &&
     !providerCredentialReadinessFallbackUsed &&
     !runObservabilityEndpointFallbackUsed &&
@@ -1848,6 +1882,7 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     runtimeLoggingProfileFallbackUsed ||
     runtimeResultClassificationFallbackUsed ||
     runtimeVoiceMediaPostureFallbackUsed ||
+    runtimeMessagingGatewayPostureFallbackUsed ||
     modelProviderControlPlaneFallbackUsed ||
     providerCredentialReadinessFallbackUsed ||
     approvalQueueEndpointFallbackUsed ||
@@ -1954,6 +1989,9 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
   } else if (runtimeVoiceMediaPostureFallbackUsed) {
     degradedSafeMessage =
       "Runtime voice/media posture was unavailable or unsafe; non-authoritative mock fallback kept microphone, camera, upload, generation, provider, and delivery authority blocked.";
+  } else if (runtimeMessagingGatewayPostureFallbackUsed) {
+    degradedSafeMessage =
+      "Runtime messaging gateway posture was unavailable or unsafe; non-authoritative mock fallback kept connector runtime, reads, sends, OAuth, webhooks, sync, and writes blocked.";
   } else if (
     founderLoopFieldFallbackUsed ||
     normalizedFounderStartHere.usedFallback ||
@@ -6389,6 +6427,87 @@ function isSafeRuntimeVoiceMediaPosture(
         lane.external_delivery_enabled === false &&
         lane.raw_media_persisted === false &&
         lane.control_center_mints_authority === false,
+    ) &&
+    deniedTopLevelFlags.every((flag) => value[flag] === false)
+  );
+}
+
+function isSafeRuntimeMessagingGatewayPosture(
+  value: RuntimeMessagingGatewayPostureReadModel | undefined,
+): value is RuntimeMessagingGatewayPostureReadModel {
+  if (value === undefined || !Array.isArray(value.platforms)) {
+    return false;
+  }
+  const allowedPlatformKinds = new Set([
+    "email",
+    "slack",
+    "telegram",
+    "sms",
+    "discord",
+    "generic_webhook",
+  ]);
+  const deniedTopLevelFlags: Array<
+    keyof RuntimeMessagingGatewayPostureReadModel
+  > = [
+    "connector_runtime_enabled",
+    "connector_read_enabled",
+    "send_enabled",
+    "oauth_enabled",
+    "webhook_exposure_enabled",
+    "account_sync_enabled",
+    "external_write_enabled",
+    "raw_message_persisted",
+    "control_center_mints_authority",
+  ];
+  return (
+    value.schema_version === "runtime_messaging_gateway_posture.v1" &&
+    value.status === "metadata_readiness_map_only" &&
+    value.route_ref === "GET /api/runtime/messaging-gateway-posture" &&
+    value.cli_ref === "uaa runtime inspect-messaging-gateway-posture" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    value.authority_state_mapping_ref ===
+      "lane-ref:runtime-messaging-gateway-posture-read-model" &&
+    isSafeTrustAuthorityRef(value.authority_state_catalog_ref) &&
+    isSafeTrustAuthorityRef(value.authority_state_decision_ref) &&
+    hasExactStringValue(
+      value.authority_state_decision_outcome,
+      TRUST_AUTHORITY_DECISION_OUTCOMES,
+    ) &&
+    typeof value.authority_state_status === "string" &&
+    typeof value.authority_state_operator_message === "string" &&
+    Array.isArray(value.authority_state_reason_refs) &&
+    value.authority_state_reason_refs.every(isSafeTrustAuthorityRef) &&
+    Array.isArray(value.unsupported_adapter_refs) &&
+    value.unsupported_adapter_refs.every(isSafeTrustAuthorityRef) &&
+    value.platform_count === 6 &&
+    value.platform_count === value.platforms.length &&
+    value.blocked_platform_count === value.platforms.length &&
+    isNonEmptyStringArray(value.blocked_authority_refs) &&
+    value.blocked_authority_refs.includes(
+      "blocked-authority:messaging-gateway-no-connector-runtime",
+    ) &&
+    isNonEmptyStringArray(value.promotion_path_refs) &&
+    isNonEmptyStringArray(value.proof_refs) &&
+    isNonEmptyStringArray(value.verifier_refs) &&
+    isNonEmptyStringArray(value.next_safe_action_refs) &&
+    value.platforms.every(
+      (platform) =>
+        allowedPlatformKinds.has(platform.platform_kind) &&
+        platform.status === "blocked_until_authority" &&
+        isNonEmptyStringArray(platform.blocked_authority_refs) &&
+        isNonEmptyStringArray(platform.promotion_path_refs) &&
+        isNonEmptyStringArray(platform.next_safe_action_refs) &&
+        platform.connector_runtime_enabled === false &&
+        platform.connector_read_enabled === false &&
+        platform.send_enabled === false &&
+        platform.oauth_enabled === false &&
+        platform.webhook_exposure_enabled === false &&
+        platform.account_sync_enabled === false &&
+        platform.external_write_enabled === false &&
+        platform.raw_message_persisted === false &&
+        platform.control_center_mints_authority === false,
     ) &&
     deniedTopLevelFlags.every((flag) => value[flag] === false)
   );

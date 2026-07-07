@@ -3,13 +3,20 @@ import subprocess
 import sys
 
 import pytest
+from fastapi.testclient import TestClient
 
+from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_MESSAGING_GATEWAY_POSTURE_AUTHORITY_MAPPING_REF,
     RUNTIME_MESSAGING_GATEWAY_BLOCKED_AUTHORITY_REFS,
+    RUNTIME_MESSAGING_GATEWAY_POSTURE_ROUTE_REF,
     RuntimeMessagingGatewayPlatform,
     RuntimeMessagingGatewayPostureReadModel,
     build_runtime_messaging_gateway_posture_read_model,
 )
+
+
+client = TestClient(app)
 
 
 def test_messaging_gateway_is_metadata_readiness_only() -> None:
@@ -17,7 +24,25 @@ def test_messaging_gateway_is_metadata_readiness_only() -> None:
 
     assert read_model.schema_version == "runtime_messaging_gateway_posture.v1"
     assert read_model.status == "metadata_readiness_map_only"
+    assert read_model.route_ref == RUNTIME_MESSAGING_GATEWAY_POSTURE_ROUTE_REF
     assert read_model.cli_ref == "uaa runtime inspect-messaging-gateway-posture"
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_MESSAGING_GATEWAY_POSTURE_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_route_ref == "GET /api/runtime/authority-state"
+    assert (
+        read_model.authority_state_cli_ref
+        == "repo-local-command:uaa-runtime-inspect-authority-state"
+    )
+    assert read_model.authority_state_decision_outcome == "allow"
+    assert read_model.authority_state_status == "implemented_authority_bound_read_model"
+    assert "reason-ref:authority:active-lease-grants-domain-capability" in (
+        read_model.authority_state_reason_refs
+    )
+    assert "adapter-ref:messaging-gateway-email:not-implemented" in (
+        read_model.unsupported_adapter_refs
+    )
     assert read_model.platform_count == 6
     assert read_model.blocked_platform_count == 6
     assert read_model.connector_runtime_enabled is False
@@ -32,6 +57,29 @@ def test_messaging_gateway_is_metadata_readiness_only() -> None:
     assert set(RUNTIME_MESSAGING_GATEWAY_BLOCKED_AUTHORITY_REFS).issubset(
         set(read_model.blocked_authority_refs)
     )
+
+
+def test_messaging_gateway_route_returns_authority_bound_read_model() -> None:
+    response = client.get("/api/runtime/messaging-gateway-posture")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert body["operation"] == "api_runtime_messaging_gateway_posture"
+    data = body["data"]
+    assert data["schema_version"] == "runtime_messaging_gateway_posture.v1"
+    assert data["route_ref"] == "GET /api/runtime/messaging-gateway-posture"
+    assert (
+        data["authority_state_mapping_ref"]
+        == "lane-ref:runtime-messaging-gateway-posture-read-model"
+    )
+    assert data["authority_state_decision_outcome"] == "allow"
+    assert data["platform_count"] == 6
+    assert data["blocked_platform_count"] == 6
+    assert data["connector_runtime_enabled"] is False
+    assert data["send_enabled"] is False
+    assert data["oauth_enabled"] is False
+    assert data["external_write_enabled"] is False
 
 
 def test_messaging_gateway_platform_labels_are_blocked() -> None:
@@ -145,5 +193,11 @@ def test_messaging_gateway_cli_uses_same_read_model() -> None:
     assert payload["oauth_performed"] is False
     assert payload["webhook_exposure_performed"] is False
     assert payload["external_write_performed"] is False
+    assert read_model["route_ref"] == "GET /api/runtime/messaging-gateway-posture"
+    assert (
+        read_model["authority_state_mapping_ref"]
+        == "lane-ref:runtime-messaging-gateway-posture-read-model"
+    )
+    assert read_model["authority_state_decision_outcome"] == "allow"
     assert read_model["platform_count"] == 6
     assert read_model["blocked_platform_count"] == 6

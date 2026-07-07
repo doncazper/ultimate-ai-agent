@@ -65,6 +65,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_logging_profile_read_model,
     build_runtime_result_classification_read_model,
     build_runtime_voice_media_posture_read_model,
+    build_runtime_messaging_gateway_posture_read_model,
     build_runtime_profile_isolation_read_model,
     build_runtime_prompt_stability_tiers_read_model,
     build_runtime_run_events_read_model,
@@ -647,6 +648,25 @@ def get_api_runtime_voice_media_posture() -> ResultEnvelope:
         data=read_model.model_dump(mode="json"),
         evidence=[
             {"evidence_ref": "evidence-ref:runtime-voice-media-posture:phase-41"}
+        ],
+        redactions_applied=read_model.redactions_applied,
+    )
+
+
+@router.get("/messaging-gateway-posture", response_model=ResultEnvelope)
+def get_api_runtime_messaging_gateway_posture() -> ResultEnvelope:
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_runtime_messaging_gateway_posture_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
+    return ResultEnvelope(
+        success=True,
+        operation="api_runtime_messaging_gateway_posture",
+        service="GovernedRuntimeAPI",
+        trace_id=read_model.snapshot_ref,
+        data=read_model.model_dump(mode="json"),
+        evidence=[
+            {"evidence_ref": "evidence-ref:runtime-messaging-gateway-posture:phase-42"}
         ],
         redactions_applied=read_model.redactions_applied,
     )

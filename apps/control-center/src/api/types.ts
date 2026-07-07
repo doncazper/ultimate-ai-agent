@@ -11729,6 +11729,87 @@ export interface RuntimeVoiceMediaPostureReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeMessagingPlatformKind =
+  | "email"
+  | "slack"
+  | "telegram"
+  | "sms"
+  | "discord"
+  | "generic_webhook";
+
+export type RuntimeMessagingGatewayStatus =
+  | "readiness_label_only"
+  | "blocked_until_authority";
+
+export interface RuntimeMessagingGatewayPlatform {
+  platform_ref: string;
+  platform_kind: RuntimeMessagingPlatformKind;
+  display_label: string;
+  status: RuntimeMessagingGatewayStatus;
+  safe_summary: string;
+  connector_label_ref: string;
+  inbound_readiness_ref: string;
+  outbound_write_label_ref: string;
+  oauth_label_ref: string;
+  webhook_label_ref: string;
+  account_sync_label_ref: string;
+  redaction_policy_ref: string;
+  proof_ref: string;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  connector_runtime_enabled: boolean;
+  connector_read_enabled: boolean;
+  send_enabled: boolean;
+  oauth_enabled: boolean;
+  webhook_exposure_enabled: boolean;
+  account_sync_enabled: boolean;
+  external_write_enabled: boolean;
+  raw_message_persisted: boolean;
+  control_center_mints_authority: boolean;
+}
+
+export interface RuntimeMessagingGatewayPostureReadModel {
+  schema_version: "runtime_messaging_gateway_posture.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  doc_ref: string;
+  authority_state_route_ref: string;
+  authority_state_cli_ref: string;
+  authority_state_mapping_ref: string;
+  authority_state_catalog_ref: string;
+  authority_state_decision_ref: string;
+  authority_state_decision_outcome: AuthorityDecisionOutcome;
+  authority_state_status: string;
+  authority_state_operator_message: string;
+  authority_state_reason_refs: string[];
+  unsupported_adapter_refs: string[];
+  control_center_ref: string;
+  safe_summary: string;
+  platforms: RuntimeMessagingGatewayPlatform[];
+  platform_count: number;
+  blocked_platform_count: number;
+  connector_runtime_enabled: boolean;
+  connector_read_enabled: boolean;
+  send_enabled: boolean;
+  oauth_enabled: boolean;
+  webhook_exposure_enabled: boolean;
+  account_sync_enabled: boolean;
+  external_write_enabled: boolean;
+  raw_message_persisted: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -13289,6 +13370,7 @@ export interface ControlCenterData {
   runtimeLoggingProfile: RuntimeLoggingProfileReadModel;
   runtimeResultClassification: RuntimeResultClassificationReadModel;
   runtimeVoiceMediaPosture: RuntimeVoiceMediaPostureReadModel;
+  runtimeMessagingGatewayPosture: RuntimeMessagingGatewayPostureReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

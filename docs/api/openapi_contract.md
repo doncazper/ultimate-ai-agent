@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `243`.
+Current OpenAPI path count: `244`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -288,6 +288,15 @@ Contract rules:
   upload, transcription, media generation, provider calls, external delivery,
   media material persistence, Control Center authority minting, production
   authority, and public release claims remain blocked.
+  `GET /api/runtime/messaging-gateway-posture` exposes the Hermes Runtime
+  Adoption Phase 42 backend-owned messaging gateway posture. It returns email,
+  Slack, Telegram, SMS, Discord, and generic webhook readiness labels,
+  connector label refs, inbound refs, outbound write label refs, OAuth refs,
+  webhook refs, account-sync refs, redaction refs, proof refs, authority refs,
+  unsupported adapter refs, and blocked authority refs only. Connector runtime,
+  connector reads, sends, OAuth, webhook exposure, account sync, external
+  writes, raw message persistence, Control Center authority minting,
+  production authority, and public release claims remain blocked.
   `GET /api/runtime/context-references` exposes the Hermes Runtime Adoption
   Phase 16 backend-owned context-reference posture. It returns safe-ref grammar,
   preview refs, budget estimates, why-included refs, and blocked URL/live-fetch

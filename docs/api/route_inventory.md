@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `243`.
+Current OpenAPI path count: `244`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 166 |
+| `local_sensitive` | 167 |
 | `mutating_requires_authority` | 48 |
 
 Allowed current side-effect classes are:
@@ -354,6 +354,15 @@ verifier refs, authority refs, and blocked authority refs only. Microphone
 access, camera access, file/media upload, transcription, media generation,
 provider calls, external delivery, media material persistence, and Control
 Center authority minting remain blocked.
+`GET /api/runtime/messaging-gateway-posture` exposes a protected read-only
+Python Core Hermes Runtime Adoption Phase 42 messaging gateway posture. It
+returns email, Slack, Telegram, SMS, Discord, and generic webhook readiness
+labels, connector label refs, inbound refs, outbound write label refs, OAuth
+refs, webhook refs, account-sync refs, redaction refs, proof refs, authority
+refs, unsupported adapter refs, and blocked authority refs only. Connector
+runtime, connector reads, sends, OAuth, webhook exposure, account sync,
+external writes, raw message persistence, and Control Center authority minting
+remain blocked.
 `GET /api/runtime/context-references` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 16 context-reference posture. It returns
 safe-ref grammar, preview refs, budget estimates, why-included refs, and

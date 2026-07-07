@@ -3099,6 +3099,32 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-messaging-gateway-posture-read-model",
+            "Runtime messaging gateway posture read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/messaging-gateway-posture"],
+            ["repo-local-command:uaa-runtime-inspect-messaging-gateway-posture"],
+            (
+                "Messaging gateway posture inspection reads platform, "
+                "connector, inbound/outbound, OAuth, webhook, account-sync, "
+                "redaction, proof, and blocked refs under Workspace read "
+                "authority. It does not enable connector runtime/reads, sends, "
+                "OAuth, webhooks, sync, writes, message persistence, or "
+                "Control Center authority minting."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:messaging-gateway-email:not-implemented",
+                "adapter-ref:messaging-gateway-slack:not-implemented",
+                "adapter-ref:messaging-gateway-telegram:not-implemented",
+                "adapter-ref:messaging-gateway-sms:not-implemented",
+                "adapter-ref:messaging-gateway-discord:not-implemented",
+                "adapter-ref:messaging-gateway-webhook:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:staged-orchestration-approved-runtime-command",
             "Staged orchestration approved runtime command step",
             AuthorityDomain.workspace,

@@ -1,6 +1,7 @@
 # UAA Hermes Runtime Messaging Gateway Posture
 
-Status: Phase 42 repo-safe Python Core read model.  
+Status: Phase 42 repo-safe Python Core read model.
+Route: `GET /api/runtime/messaging-gateway-posture`
 CLI: `scripts/dev/uaa_runtime.py inspect-messaging-gateway-posture`  
 Core: `src/ultimate_ai_agent/core/runtime_gateway/messaging_gateway_posture.py`
 
@@ -14,7 +15,11 @@ connector authority is proven.
 
 ## Repo-Safe
 
-The current implementation is a metadata readiness map only:
+The current implementation is a Python Core read model, API route, CLI
+inspection path, and Control Center display only. The read model is now bound to
+AuthorityState as `lane-ref:runtime-messaging-gateway-posture-read-model`, which
+evaluates as Workspace/read under the active read-only lease. That allowed
+decision applies only to inspecting safe messaging gateway labels and refs.
 
 - email readiness label
 - Slack readiness label
@@ -28,6 +33,22 @@ labels, OAuth labels, webhook labels, account-sync labels, redaction policy
 refs, proof refs, blocked authority refs, and promotion path refs. It does not
 run any connector, fetch accounts, expose a webhook, send messages, or write to
 external services.
+
+## AuthorityState
+
+The safe inspection capability is governed by:
+
+- route: `GET /api/runtime/messaging-gateway-posture`
+- CLI: `repo-local-command:uaa-runtime-inspect-messaging-gateway-posture`
+- AuthorityState route: `GET /api/runtime/authority-state`
+- AuthorityState CLI: `repo-local-command:uaa-runtime-inspect-authority-state`
+- mapping ref: `lane-ref:runtime-messaging-gateway-posture-read-model`
+- domain/capability: `workspace/read`
+- required mode: `read_only`
+
+Known authority inside the active lease allows only posture inspection. Email,
+Slack, Telegram, SMS, Discord, and webhook adapters remain unsupported and do
+not become executable from this read model.
 
 ## Blocked / Needs Authority
 
@@ -43,9 +64,10 @@ The following remain blocked:
 - raw message persistence
 - Control Center authority minting
 
-## Exact Promotion Path
+## Exact Authority Path
 
-Promotion requires:
+Execution authority requires later, exact AuthorityLease-governed adapter lanes
+for each messaging action. Those later lanes must prove:
 
 1. exact connector read/write authority
 2. account refs with no raw account material persistence
