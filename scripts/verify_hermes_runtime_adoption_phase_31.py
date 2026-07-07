@@ -158,6 +158,16 @@ def main() -> int:
     else:
         payload = json.loads(cli_result.stdout)
         read_model_payload = payload["runtime_background_jobs"]
+        authority_state = payload.get("authority_state")
+        if not isinstance(authority_state, dict):
+            failures.append("background jobs CLI missing authority state")
+        elif (
+            authority_state.get("mapping_ref")
+            != RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("background jobs CLI authority mapping drifted")
+        elif authority_state.get("decision_outcome") != "deny":
+            failures.append("background jobs CLI authority decision drifted")
         if payload["scheduler_started"] is not False:
             failures.append("background jobs CLI claims scheduler start")
         if payload["background_worker_started"] is not False:

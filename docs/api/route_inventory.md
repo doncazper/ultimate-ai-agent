@@ -305,9 +305,12 @@ persistence, and Control Center authority minting remain blocked.
 Hermes Runtime Adoption Phase 31 background job posture. It returns durable job
 proposal refs, schedule policies, approval scope refs, idempotency refs,
 safe-disable refs, receipt plans, failure handling refs, proof refs, verifier
-refs, and blocked authority refs only. Schedulers, workers, run-now,
-pause/resume mutation, autonomous retries, external delivery, provider calls,
-shell execution, and connector writes remain blocked.
+refs, AuthorityState route/CLI/mapping/catalog/decision/reason refs,
+unsupported adapter refs, and blocked authority refs only. The
+`lane-ref:background-autonomy-scoped` decision is denied because worker and
+supervisor adapters are unsupported. Schedulers, workers, run-now, pause/resume
+mutation, autonomous retries, external delivery, provider calls, shell
+execution, and connector writes remain blocked.
 `GET /api/runtime/subagent-isolation` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 32 subagent isolation posture. It returns role
 refs, scope envelopes, context/tool/memory grant refs, budget refs,

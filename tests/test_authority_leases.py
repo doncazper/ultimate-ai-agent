@@ -1150,6 +1150,13 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
     assert background_autonomy.capability == "execute"
     assert background_autonomy.required_mode == "delegated_mission_autonomous_window"
     assert background_autonomy.status == "planned_unsupported_adapter"
+    assert "GET /api/runtime/background-jobs" in background_autonomy.route_refs
+    assert "repo-local-command:uaa-runtime-inspect-background-jobs" in (
+        background_autonomy.cli_refs
+    )
+    assert "adapter-ref:background-worker-runtime:not-implemented" in (
+        background_autonomy.unsupported_adapter_refs
+    )
     assert (
         catalog_by_lane["lane-ref:background-autonomy-scoped"].decision.outcome
         == "deny"

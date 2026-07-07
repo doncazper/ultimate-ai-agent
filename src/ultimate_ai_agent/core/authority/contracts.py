@@ -4186,8 +4186,15 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             AuthorityCapability.execute,
             TrustMode.delegated_mission_autonomous_window,
             "planned_unsupported_adapter",
-            ["autonomy-lane-ref:scoped-background-work-session"],
-            ["scripts/dev/uaa_runtime.py inspect-authority-state"],
+            [
+                "GET /api/runtime/background-jobs",
+                "GET /api/runtime/authority-state",
+                "autonomy-lane-ref:scoped-background-work-session",
+            ],
+            [
+                "repo-local-command:uaa-runtime-inspect-background-jobs",
+                "scripts/dev/uaa_runtime.py inspect-authority-state",
+            ],
             (
                 "Scoped background autonomy is a known delegated Apps/execute "
                 "capability, but worker runtime, queue supervisor, checkpoints, "

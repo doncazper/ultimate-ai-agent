@@ -52,7 +52,7 @@ from ultimate_ai_agent.core.runtime_gateway import (
     build_runtime_context_budget_pressure_read_model_from_authority_catalog,
     build_runtime_delegation_adapter_read_model,
     build_runtime_doctor_diagnostics_read_model_from_authority_catalog,
-    build_runtime_background_jobs_read_model,
+    build_runtime_background_jobs_read_model_from_authority_catalog,
     build_runtime_hardline_command_blocklist_read_model_from_authority_catalog,
     build_runtime_managed_scope_policy_read_model_from_authority_catalog,
     build_runtime_mcp_catalog_filtering_read_model_from_authority_catalog,
@@ -516,14 +516,14 @@ def get_api_runtime_mcp_catalog_filtering() -> ResultEnvelope:
 @router.get("/background-jobs", response_model=ResultEnvelope)
 def get_api_runtime_background_jobs() -> ResultEnvelope:
     authority_state = _authority_store().build_state_read_model()
-    read_model = build_runtime_background_jobs_read_model(
+    read_model = build_runtime_background_jobs_read_model_from_authority_catalog(
         authority_decision_catalog=authority_state.decision_catalog,
     )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_background_jobs",
         service="GovernedRuntimeAPI",
-        trace_id=read_model.snapshot_ref,
+        trace_id=read_model.snapshot_hash_ref,
         data=read_model.model_dump(mode="json"),
         evidence=[{"evidence_ref": "evidence-ref:runtime-background-jobs:phase-31"}],
         redactions_applied=read_model.redactions_applied,

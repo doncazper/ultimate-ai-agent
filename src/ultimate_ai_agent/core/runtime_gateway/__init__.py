@@ -409,6 +409,7 @@ from ultimate_ai_agent.core.runtime_gateway.background_jobs import (
     RuntimeBackgroundJobStatus,
     RuntimeBackgroundJobsReadModel,
     build_runtime_background_jobs_read_model,
+    build_runtime_background_jobs_read_model_from_authority_catalog,
 )
 from ultimate_ai_agent.core.runtime_gateway.subagent_isolation import (
     RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF,
@@ -1189,6 +1190,7 @@ __all__ = [
     "build_runtime_mcp_catalog_filtering_read_model",
     "build_runtime_mcp_catalog_filtering_read_model_from_authority_catalog",
     "build_runtime_background_jobs_read_model",
+    "build_runtime_background_jobs_read_model_from_authority_catalog",
     "build_runtime_subagent_isolation_read_model",
     "build_runtime_worktree_per_agent_read_model",
     "build_runtime_lsp_diagnostics_read_model",

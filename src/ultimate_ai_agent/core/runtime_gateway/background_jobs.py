@@ -390,6 +390,16 @@ def _job(
 def build_runtime_background_jobs_read_model(
     authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
 ) -> RuntimeBackgroundJobsReadModel:
+    return build_runtime_background_jobs_read_model_from_authority_catalog(
+        authority_decision_catalog=authority_decision_catalog
+        or build_authority_decision_catalog(),
+    )
+
+
+def build_runtime_background_jobs_read_model_from_authority_catalog(
+    *,
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry],
+) -> RuntimeBackgroundJobsReadModel:
     authority_entry = _authority_entry(authority_decision_catalog)
     jobs = [
         _job(

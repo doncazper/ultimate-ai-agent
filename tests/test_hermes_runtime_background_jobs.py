@@ -178,6 +178,7 @@ def test_background_jobs_api_returns_safe_read_model() -> None:
     assert body["success"] is True
     assert body["operation"] == "api_runtime_background_jobs"
     data = body["data"]
+    assert body["trace_id"] == data["snapshot_hash_ref"]
     assert data["route_ref"] == "GET /api/runtime/background-jobs"
     assert data["authority_state_route_ref"] == "GET /api/runtime/authority-state"
     assert (
@@ -227,6 +228,16 @@ def test_background_jobs_cli_uses_same_read_model() -> None:
     assert payload["provider_call_performed"] is False
     assert payload["shell_execution_performed"] is False
     assert payload["connector_write_performed"] is False
+    assert payload["authority_state"]["mapping_ref"] == (
+        RUNTIME_BACKGROUND_JOBS_AUTHORITY_MAPPING_REF
+    )
+    assert payload["authority_state"]["decision_outcome"] == "deny"
+    assert payload["authority_state"]["reason_refs"] == [
+        "reason-ref:authority:adapter-unsupported"
+    ]
+    assert "adapter-ref:background-worker-runtime:not-implemented" in (
+        payload["authority_state"]["unsupported_adapter_refs"]
+    )
     assert read_model["route_ref"] == "GET /api/runtime/background-jobs"
     assert read_model["cli_ref"] == "uaa runtime inspect-background-jobs"
     assert (
