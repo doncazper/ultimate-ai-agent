@@ -1062,6 +1062,28 @@ export function RuntimeReadinessPanel({
             <dd>{subagentIsolation.cli_ref}</dd>
           </div>
           <div>
+            <dt>AuthorityState</dt>
+            <dd>{subagentIsolation.authority_state_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Capability</dt>
+            <dd>{subagentIsolation.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision</dt>
+            <dd>
+              <span>{subagentIsolation.authority_state_decision_outcome}</span>
+              <br />
+              <span>{subagentIsolation.authority_state_decision_ref}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Reason</dt>
+            <dd>
+              {subagentIsolation.authority_state_reason_refs[0] ?? "none"}
+            </dd>
+          </div>
+          <div>
             <dt>Roles</dt>
             <dd>{subagentIsolation.role_count}</dd>
           </div>

@@ -15871,6 +15871,25 @@ export const mockControlCenterData: ControlCenterData = {
     route_ref: "GET /api/runtime/subagent-isolation",
     cli_ref: "uaa runtime inspect-subagent-isolation",
     control_center_ref: "control-center-route:runtime",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-subagent-isolation-live-dispatch",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-subagent-isolation-live-dispatch",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:mock-subagent-isolation-live-dispatch",
+    authority_state_decision_outcome: "deny",
+    authority_state_status: "planned_unsupported_adapter",
+    authority_state_operator_message:
+      "Denied because the requested adapter is not implemented.",
+    authority_state_reason_refs: ["reason-ref:authority:adapter-unsupported"],
+    unsupported_adapter_refs: [
+      "adapter-ref:subagent-live-dispatch:not-implemented",
+      "adapter-ref:subagent-tool-sharing:not-implemented",
+      "adapter-ref:subagent-memory-transfer:not-implemented",
+    ],
     safe_summary:
       "Runtime subagent isolation mock fallback shows role contracts and blocked dispatch labels only.",
     roles: runtimeSubagentIsolationRoles,

@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from ultimate_ai_agent.api.app import app  # noqa: E402
 from ultimate_ai_agent.api.manifest import build_api_manifest  # noqa: E402
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
+    RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF,
     RUNTIME_SUBAGENT_ISOLATION_BLOCKED_AUTHORITY_REFS,
     build_runtime_subagent_isolation_read_model,
 )
@@ -33,6 +34,23 @@ def main() -> int:
         failures.append("subagent isolation route ref is stale")
     if read_model.cli_ref != "uaa runtime inspect-subagent-isolation":
         failures.append("subagent isolation CLI ref is stale")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("subagent isolation authority mapping ref is stale")
+    if read_model.authority_state_decision_outcome != "deny":
+        failures.append("subagent isolation authority decision must deny by default")
+    if read_model.authority_state_status != "planned_unsupported_adapter":
+        failures.append("subagent isolation authority status must remain unsupported")
+    if "reason-ref:authority:adapter-unsupported" not in (
+        read_model.authority_state_reason_refs
+    ):
+        failures.append("subagent isolation authority decision lacks adapter reason")
+    if "adapter-ref:subagent-live-dispatch:not-implemented" not in (
+        read_model.unsupported_adapter_refs
+    ):
+        failures.append("subagent isolation live dispatch adapter ref missing")
     if read_model.status != "identity_isolation_readiness":
         failures.append("subagent isolation posture is not readiness state")
     if read_model.role_count != 3:
@@ -118,7 +136,9 @@ def main() -> int:
             "Full-Strength",
             "Repo-Safe",
             "Blocked / Needs Authority",
-            "Exact Promotion Path",
+            "AuthorityState",
+            "Exact Authority Path",
+            RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF,
             ROUTE,
             "inspect-subagent-isolation",
         ]:
@@ -152,6 +172,13 @@ def main() -> int:
             failures.append("subagent isolation CLI claims connector write")
         if read_model_payload["route_ref"] != f"GET {ROUTE}":
             failures.append("subagent isolation CLI returned stale route ref")
+        if (
+            read_model_payload["authority_state_mapping_ref"]
+            != RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("subagent isolation CLI returned stale authority mapping")
+        if read_model_payload["authority_state_decision_outcome"] != "deny":
+            failures.append("subagent isolation CLI should show denied authority")
 
     if failures:
         for failure in failures:

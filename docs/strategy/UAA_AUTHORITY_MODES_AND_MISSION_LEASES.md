@@ -60,15 +60,19 @@ surfaces are:
   current `allow`, `ask`, `deny`, or `degrade_to_draft` policy outcome with
   safe refs, route/CLI refs, audit refs, receipt refs when applicable, and
   no execution.
-- Runtime worktree-per-agent, staged orchestration, and background job inspection
-  consume that same AuthorityState catalog instead of carrying standalone blocker language:
+- Runtime worktree-per-agent, staged orchestration, background job inspection,
+  and subagent isolation consume that same AuthorityState catalog instead of
+  carrying standalone blocker language:
   worktree implementer/reviewer/verifier lanes expose mapped decision refs and
   outcomes, staged orchestration exposes the read-model `workspace/prepare`
   decision plus the stronger approved-runtime-command `workspace/execute`
   requirement, background jobs expose the delegated-mission
   `apps/execute` background-autonomy decision plus unsupported worker/supervisor
-  adapter refs, and these API/CLI surfaces remain safe-ref inspection only unless
-  exact active leases, implemented adapters, and existing runtime gates pass.
+  adapter refs, and subagent isolation exposes the delegated-mission
+  `apps/execute` live-dispatch decision plus unsupported dispatch/tool-sharing/
+  memory-transfer adapter refs. These API/CLI surfaces remain safe-ref
+  inspection only unless exact active leases, implemented adapters, and existing
+  runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and
   `scripts/dev/uaa_runtime.py inspect-authority-state --summary` provide the
   compact operator/API parity view over the same decision catalog: capability

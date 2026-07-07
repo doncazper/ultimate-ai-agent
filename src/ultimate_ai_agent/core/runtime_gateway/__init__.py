@@ -339,6 +339,9 @@ from ultimate_ai_agent.core.runtime_gateway.background_jobs import (
     build_runtime_background_jobs_read_model,
 )
 from ultimate_ai_agent.core.runtime_gateway.subagent_isolation import (
+    RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF,
+    RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_SUBAGENT_ISOLATION_BLOCKED_AUTHORITY_REFS,
     RUNTIME_SUBAGENT_ISOLATION_CLI_REF,
     RUNTIME_SUBAGENT_ISOLATION_CONTRACT_REF,

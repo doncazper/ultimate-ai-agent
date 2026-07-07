@@ -3446,6 +3446,27 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-subagent-isolation-live-dispatch",
+            "Runtime subagent live dispatch",
+            AuthorityDomain.apps,
+            AuthorityCapability.execute,
+            TrustMode.delegated_mission_autonomous_window,
+            "planned_unsupported_adapter",
+            ["GET /api/runtime/subagent-isolation"],
+            ["repo-local-command:uaa-runtime-inspect-subagent-isolation"],
+            (
+                "Subagent live dispatch is modeled as delegated Apps/execute "
+                "authority, but no live subagent dispatch, tool-sharing, "
+                "cross-agent memory transfer, budgeted fanout, checkpoint, "
+                "cancellation, or receipted worker adapter is implemented."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:subagent-live-dispatch:not-implemented",
+                "adapter-ref:subagent-tool-sharing:not-implemented",
+                "adapter-ref:subagent-memory-transfer:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:cloud-production-deploy-adapter",
             "Cloud production deploy adapter",
             AuthorityDomain.cloud_production,

@@ -7957,6 +7957,17 @@ describe("Web Control Center shell", () => {
     expect(
       screen.getAllByText("uaa runtime inspect-subagent-isolation").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("lane-ref:runtime-subagent-isolation-live-dispatch"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "authority-policy-decision-ref:mock-subagent-isolation-live-dispatch",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("reason-ref:authority:adapter-unsupported").length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("Implementer")).toBeInTheDocument();
     expect(screen.getByText("Disagreement summary")).toBeInTheDocument();
     expect(

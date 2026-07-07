@@ -641,6 +641,28 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         catalog_by_lane["lane-ref:background-autonomy-scoped"].decision.outcome
         == "deny"
     )
+    subagent_live_dispatch = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if mapping.lane_ref == "lane-ref:runtime-subagent-isolation-live-dispatch"
+    )
+    assert subagent_live_dispatch.domain == "apps"
+    assert subagent_live_dispatch.capability == "execute"
+    assert (
+        subagent_live_dispatch.required_mode
+        == "delegated_mission_autonomous_window"
+    )
+    assert subagent_live_dispatch.status == "planned_unsupported_adapter"
+    assert "GET /api/runtime/subagent-isolation" in subagent_live_dispatch.route_refs
+    assert "adapter-ref:subagent-live-dispatch:not-implemented" in (
+        subagent_live_dispatch.unsupported_adapter_refs
+    )
+    assert (
+        catalog_by_lane[
+            "lane-ref:runtime-subagent-isolation-live-dispatch"
+        ].decision.outcome
+        == "deny"
+    )
     cloud_production_deploy = next(
         mapping
         for mapping in read_model.capability_mappings

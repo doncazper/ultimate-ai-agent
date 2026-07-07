@@ -502,7 +502,10 @@ def get_api_runtime_background_jobs() -> ResultEnvelope:
 
 @router.get("/subagent-isolation", response_model=ResultEnvelope)
 def get_api_runtime_subagent_isolation() -> ResultEnvelope:
-    read_model = build_runtime_subagent_isolation_read_model()
+    authority_state = _authority_store().build_state_read_model()
+    read_model = build_runtime_subagent_isolation_read_model(
+        authority_decision_catalog=authority_state.decision_catalog,
+    )
     return ResultEnvelope(
         success=True,
         operation="api_runtime_subagent_isolation",

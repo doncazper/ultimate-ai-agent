@@ -7,6 +7,9 @@ from fastapi.testclient import TestClient
 
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.core.runtime_gateway import (
+    RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF,
+    RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_STATE_CLI_REF,
+    RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_STATE_ROUTE_REF,
     RUNTIME_SUBAGENT_ISOLATION_BLOCKED_AUTHORITY_REFS,
     RUNTIME_SUBAGENT_ISOLATION_CONTRACT_REF,
     RuntimeSubagentIsolationReadModel,
@@ -27,6 +30,32 @@ def test_subagent_isolation_is_readiness_only() -> None:
     assert read_model.status == "identity_isolation_readiness"
     assert read_model.route_ref == "GET /api/runtime/subagent-isolation"
     assert read_model.cli_ref == "uaa runtime inspect-subagent-isolation"
+    assert (
+        read_model.authority_state_route_ref
+        == RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_STATE_ROUTE_REF
+    )
+    assert (
+        read_model.authority_state_cli_ref
+        == RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_STATE_CLI_REF
+    )
+    assert (
+        read_model.authority_state_mapping_ref
+        == RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF
+    )
+    assert read_model.authority_state_catalog_ref.startswith(
+        "authority-decision-catalog-ref:"
+    )
+    assert read_model.authority_state_decision_ref.startswith(
+        "authority-policy-decision-ref:"
+    )
+    assert read_model.authority_state_decision_outcome == "deny"
+    assert read_model.authority_state_status == "planned_unsupported_adapter"
+    assert "reason-ref:authority:adapter-unsupported" in (
+        read_model.authority_state_reason_refs
+    )
+    assert "adapter-ref:subagent-live-dispatch:not-implemented" in (
+        read_model.unsupported_adapter_refs
+    )
     assert read_model.role_count == 3
     assert read_model.review_artifact_count == 3
     assert read_model.contract_ready_count == 1
@@ -172,6 +201,18 @@ def test_subagent_isolation_api_returns_safe_read_model() -> None:
     assert body["operation"] == "api_runtime_subagent_isolation"
     data = body["data"]
     assert data["route_ref"] == "GET /api/runtime/subagent-isolation"
+    assert (
+        data["authority_state_mapping_ref"]
+        == RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF
+    )
+    assert data["authority_state_decision_outcome"] == "deny"
+    assert data["authority_state_status"] == "planned_unsupported_adapter"
+    assert "reason-ref:authority:adapter-unsupported" in (
+        data["authority_state_reason_refs"]
+    )
+    assert "adapter-ref:subagent-live-dispatch:not-implemented" in (
+        data["unsupported_adapter_refs"]
+    )
     assert data["role_count"] == 3
     assert data["live_dispatch_enabled"] is False
     assert data["background_fanout_enabled"] is False
@@ -211,4 +252,13 @@ def test_subagent_isolation_cli_uses_same_read_model() -> None:
     assert payload["connector_write_performed"] is False
     assert read_model["route_ref"] == "GET /api/runtime/subagent-isolation"
     assert read_model["cli_ref"] == "uaa runtime inspect-subagent-isolation"
+    assert (
+        read_model["authority_state_mapping_ref"]
+        == RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF
+    )
+    assert read_model["authority_state_decision_outcome"] == "deny"
+    assert read_model["authority_state_status"] == "planned_unsupported_adapter"
+    assert "reason-ref:authority:adapter-unsupported" in (
+        read_model["authority_state_reason_refs"]
+    )
     assert read_model["role_count"] == 3

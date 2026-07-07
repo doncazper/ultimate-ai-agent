@@ -19,9 +19,14 @@ The current implementation is metadata/readiness only:
 - Python Agent Core owns `RuntimeSubagentIsolationReadModel`.
 - API route: `GET /api/runtime/subagent-isolation`.
 - CLI inspection: `scripts/dev/uaa_runtime.py inspect-subagent-isolation`.
+- AuthorityState binding:
+  `lane-ref:runtime-subagent-isolation-live-dispatch` evaluates as delegated
+  `apps/execute` authority through `GET /api/runtime/authority-state` and
+  `repo-local-command:uaa-runtime-inspect-authority-state`.
 - Control Center renders role refs, scope envelopes, context pack grants, tool
   grants, memory grants, budgets, kill switches, receipt plans, proof refs,
-  review artifacts, and blocked authority refs.
+  review artifacts, blocked authority refs, authority decision refs, blocked
+  reason refs, and unsupported adapter refs.
 - Mock fallback is visibly non-authoritative and keeps the same blocked
   dispatch posture.
 - Agent output is represented only as safe refs and review artifacts.
@@ -43,9 +48,16 @@ These remain blocked:
 - Control Center minting authority
 - raw transcript or raw agent-output persistence
 
-## Exact Promotion Path
+Known but unsupported adapter refs:
 
-Promotion requires all of the following before any real subagent lane can run:
+- `adapter-ref:subagent-live-dispatch:not-implemented`
+- `adapter-ref:subagent-tool-sharing:not-implemented`
+- `adapter-ref:subagent-memory-transfer:not-implemented`
+
+## Exact Authority Path
+
+Live dispatch requires all of the following before any real subagent lane can
+run under an active AuthorityLease:
 
 - role contract
 - scope envelope
@@ -62,6 +74,11 @@ Promotion requires all of the following before any real subagent lane can run:
 - route side-effect classification
 - Control Center labels that distinguish readiness, review-only, blocked, and
   executable states
+
+Unknown authority remains denied. Known subagent dispatch authority inside the
+current catalog remains denied because the live dispatch, tool-sharing, memory
+transfer, fan-out, checkpoint, cancellation, and receipted worker adapters are
+not implemented or tested.
 
 ## Verification
 

@@ -6,6 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
+    build_authority_decision_catalog,
+)
 from ultimate_ai_agent.core.execution.validation import (
     validate_execution_ref,
     validate_safe_execution_text,
@@ -30,6 +34,16 @@ RUNTIME_SUBAGENT_ISOLATION_PROOF_REF = (
 RUNTIME_SUBAGENT_ISOLATION_VERIFIER_REF = (
     "verifier-ref:hermes-runtime-adoption:phase-32:subagent-isolation"
 )
+RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_STATE_ROUTE_REF = (
+    "GET /api/runtime/authority-state"
+)
+RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_STATE_CLI_REF = (
+    "repo-local-command:uaa-runtime-inspect-authority-state"
+)
+RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF = (
+    "lane-ref:runtime-subagent-isolation-live-dispatch"
+)
+_AUTHORITY_DECISION_OUTCOMES = {"allow", "ask", "deny", "degrade_to_draft"}
 
 RUNTIME_SUBAGENT_ISOLATION_BLOCKED_AUTHORITY_REFS: tuple[str, ...] = (
     "blocked-authority:subagent-isolation-no-live-dispatch",
@@ -176,6 +190,16 @@ class RuntimeSubagentIsolationReadModel(BaseModel):
     route_ref: str = RUNTIME_SUBAGENT_ISOLATION_ROUTE_REF
     cli_ref: str = RUNTIME_SUBAGENT_ISOLATION_CLI_REF
     control_center_ref: str = RUNTIME_DELEGATION_CONTROL_CENTER_REF
+    authority_state_route_ref: str = RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_STATE_ROUTE_REF
+    authority_state_cli_ref: str = RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_STATE_CLI_REF
+    authority_state_mapping_ref: str
+    authority_state_catalog_ref: str
+    authority_state_decision_ref: str
+    authority_state_decision_outcome: str
+    authority_state_status: str
+    authority_state_operator_message: str
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     safe_summary: str = (
         "Subagent isolation posture exposes role contracts, scope envelopes, "
         "review artifacts, and blocked dispatch labels only."
@@ -229,6 +253,9 @@ class RuntimeSubagentIsolationReadModel(BaseModel):
             (self.snapshot_ref, "snapshot_ref"),
             (self.snapshot_hash_ref, "snapshot_hash_ref"),
             (self.control_center_ref, "control_center_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
         ]:
             validate_execution_ref(value, field_name)
         for value, field_name in [
@@ -236,6 +263,17 @@ class RuntimeSubagentIsolationReadModel(BaseModel):
             (self.status, "status"),
             (self.route_ref, "route_ref"),
             (self.cli_ref, "cli_ref"),
+            (self.authority_state_route_ref, "authority_state_route_ref"),
+            (self.authority_state_cli_ref, "authority_state_cli_ref"),
+            (
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            ),
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(value, field_name)
@@ -245,6 +283,8 @@ class RuntimeSubagentIsolationReadModel(BaseModel):
             "proof_refs",
             "verifier_refs",
             "next_safe_action_refs",
+            "authority_state_reason_refs",
+            "unsupported_adapter_refs",
             "redactions_applied",
         ):
             for value in getattr(self, field_name):
@@ -252,6 +292,13 @@ class RuntimeSubagentIsolationReadModel(BaseModel):
                     validate_safe_execution_text(value, field_name)
                 else:
                     validate_execution_ref(value, field_name)
+        if (
+            self.authority_state_mapping_ref
+            != RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF
+        ):
+            raise ValueError("RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_UNKNOWN")
+        if self.authority_state_decision_outcome not in _AUTHORITY_DECISION_OUTCOMES:
+            raise ValueError("RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_OUTCOME_UNKNOWN")
         if self.role_count != len(self.roles):
             raise ValueError("RUNTIME_SUBAGENT_ROLE_COUNT_DRIFT")
         if self.review_artifact_count != len(self.review_artifacts):
@@ -321,6 +368,10 @@ def _snapshot_hash_ref(payload: dict[str, object]) -> str:
     return f"snapshot-hash-ref:runtime-subagent-isolation:{digest}"
 
 
+def _authority_value(value: object) -> str:
+    return str(getattr(value, "value", value))
+
+
 def _role(
     slug: str,
     *,
@@ -366,7 +417,10 @@ def _artifact(
     )
 
 
-def build_runtime_subagent_isolation_read_model() -> RuntimeSubagentIsolationReadModel:
+def build_runtime_subagent_isolation_read_model(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None = None,
+) -> RuntimeSubagentIsolationReadModel:
+    authority_entry = _authority_entry(authority_decision_catalog)
     roles = [
         _role(
             "implementer",
@@ -437,9 +491,23 @@ def build_runtime_subagent_isolation_read_model() -> RuntimeSubagentIsolationRea
             artifact.model_dump(mode="json") for artifact in review_artifacts
         ],
         "blocked": list(RUNTIME_SUBAGENT_ISOLATION_BLOCKED_AUTHORITY_REFS),
+        "authority_state_decision_ref": authority_entry.decision.decision_ref,
+        "authority_state_decision_outcome": _authority_value(
+            authority_entry.decision.outcome
+        ),
     }
     return RuntimeSubagentIsolationReadModel(
         snapshot_hash_ref=_snapshot_hash_ref(payload_for_hash),
+        authority_state_mapping_ref=authority_entry.lane_ref,
+        authority_state_catalog_ref=authority_entry.catalog_ref,
+        authority_state_decision_ref=authority_entry.decision.decision_ref,
+        authority_state_decision_outcome=_authority_value(
+            authority_entry.decision.outcome
+        ),
+        authority_state_status=authority_entry.status,
+        authority_state_operator_message=authority_entry.decision.operator_message,
+        authority_state_reason_refs=list(authority_entry.decision.reason_refs),
+        unsupported_adapter_refs=list(authority_entry.unsupported_adapter_refs),
         roles=roles,
         review_artifacts=review_artifacts,
         role_count=len(roles),
@@ -484,3 +552,13 @@ def build_runtime_subagent_isolation_read_model() -> RuntimeSubagentIsolationRea
             "next-safe-action-ref:subagent-isolation:keep-dispatch-blocked",
         ],
     )
+
+
+def _authority_entry(
+    authority_decision_catalog: list[AuthorityDecisionCatalogEntry] | None,
+) -> AuthorityDecisionCatalogEntry:
+    catalog = authority_decision_catalog or build_authority_decision_catalog()
+    entries = {entry.lane_ref: entry for entry in catalog}
+    if RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF not in entries:
+        raise ValueError("RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_CATALOG_MISSING")
+    return entries[RUNTIME_SUBAGENT_ISOLATION_AUTHORITY_MAPPING_REF]
