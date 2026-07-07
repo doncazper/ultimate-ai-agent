@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from ultimate_ai_agent.api.app import app
+from ultimate_ai_agent.core.authority import AuthorityDomain
 from ultimate_ai_agent.core.control_center.founder_loop import (
     FounderLoopControlCenterService,
 )
@@ -117,6 +118,49 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
         for lane in parsed.lanes
     )
     assert all(lane.required_authority_mode for lane in parsed.lanes)
+    assert parsed.authority_domain_coverage
+    coverage_by_ref = {
+        coverage.domain_ref: coverage for coverage in parsed.authority_domain_coverage
+    }
+    assert set(coverage_by_ref) == {
+        f"authority-domain-ref:{domain.value}" for domain in AuthorityDomain
+    }
+    workspace_coverage = coverage_by_ref["authority-domain-ref:workspace"]
+    assert workspace_coverage.status == "implemented"
+    assert workspace_coverage.implemented_mapping_count > 0
+    assert "lane-ref:runtime-command-focused-pytest" in (
+        workspace_coverage.visible_mapping_refs
+    )
+    shell_coverage = coverage_by_ref["authority-domain-ref:shell"]
+    assert shell_coverage.status == "planned"
+    assert shell_coverage.planned_mapping_count == 1
+    assert "lane-ref:shell-arbitrary-command-adapter" in (
+        shell_coverage.visible_mapping_refs
+    )
+    assert "adapter-ref:shell-arbitrary-command:not-implemented" in (
+        shell_coverage.unsupported_adapter_refs
+    )
+    calendar_coverage = coverage_by_ref["authority-domain-ref:calendar"]
+    assert calendar_coverage.status == "partial"
+    assert calendar_coverage.partial_mapping_count == 1
+    for coverage in parsed.authority_domain_coverage:
+        assert coverage.active_lease_required is True
+        assert coverage.safe_refs_only is True
+        assert coverage.execution_claimed is False
+        assert coverage.known_authority is True
+        assert coverage.mapping_count == (
+            coverage.implemented_mapping_count
+            + coverage.partial_mapping_count
+            + coverage.planned_mapping_count
+        )
+        assert coverage.hidden_mapping_ref_count == (
+            coverage.mapping_count - len(coverage.visible_mapping_refs)
+        )
+        assert coverage.authority_state_route_ref == "GET /api/runtime/authority-state"
+        assert (
+            coverage.authority_state_cli_ref
+            == "repo-local-command:uaa-runtime-inspect-authority-state"
+        )
     assert set(parsed.cli_inspection_refs) == {
         ref for lane in parsed.lanes for ref in lane.cli_inspection_refs
     }
@@ -247,6 +291,23 @@ def test_trust_authority_matrix_rejects_posture_ref_drift(
     )
     matrix = service.trust_authority_matrix()
     matrix["safe_disable_refs"] = []
+
+    with pytest.raises(ValidationError):
+        TrustAuthorityMatrixReadModel(**matrix)
+
+
+def test_trust_authority_matrix_rejects_domain_coverage_drift(
+    tmp_path: Path,
+) -> None:
+    service = FounderLoopControlCenterService(
+        FounderLoopRepository(tmp_path / "founder_loop")
+    )
+    matrix = service.trust_authority_matrix()
+    matrix["authority_domain_coverage"] = [
+        coverage
+        for coverage in matrix["authority_domain_coverage"]
+        if coverage["domain_ref"] != "authority-domain-ref:shell"
+    ]
 
     with pytest.raises(ValidationError):
         TrustAuthorityMatrixReadModel(**matrix)

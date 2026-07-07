@@ -8490,6 +8490,7 @@ const TRUST_AUTHORITY_DENIED_FLAGS = [
 const TRUST_AUTHORITY_MATRIX_ARRAYS = [
   "lanes",
   "tier_summaries",
+  "authority_domain_coverage",
   "available_now_lane_refs",
   "approval_required_lane_refs",
   "planned_lane_refs",
@@ -8517,6 +8518,11 @@ const TRUST_AUTHORITY_LANE_ARRAYS = [
   "blocked_authority_refs",
 ] as const;
 
+const TRUST_AUTHORITY_DOMAIN_COVERAGE_ARRAYS = [
+  "visible_mapping_refs",
+  "unsupported_adapter_refs",
+] as const;
+
 const TRUST_AUTHORITY_STATES = [
   "available_now",
   "approval_required",
@@ -8530,6 +8536,13 @@ const TRUST_AUTHORITY_LANE_KINDS = [
   "reversible_local_mutation",
   "external_mutation",
   "background_standing_authority",
+] as const;
+
+const TRUST_AUTHORITY_DOMAIN_COVERAGE_STATUSES = [
+  "implemented",
+  "partial",
+  "planned",
+  "unknown",
 ] as const;
 
 const TRUST_AUTHORITY_TIER_LABELS: Record<number, { id: string; label: string }> = {
@@ -8571,6 +8584,10 @@ function isSafeTrustAuthorityMatrix(value: unknown): value is TrustAuthorityMatr
     (value.lanes as unknown[]).every(isSafeTrustAuthorityLane) &&
     (value.tier_summaries as unknown[]).length > 0 &&
     (value.tier_summaries as unknown[]).every(isSafeTrustAuthorityTierSummary) &&
+    (value.authority_domain_coverage as unknown[]).length > 0 &&
+    (value.authority_domain_coverage as unknown[]).every(
+      isSafeTrustAuthorityDomainCoverage,
+    ) &&
     hasTrustAuthorityMatrixRefParity(value)
   );
 }
@@ -8668,6 +8685,76 @@ function hasTrustAuthorityMatrixRefParity(
       uniqueStrings(lanes.flatMap((lane) => stringArray(lane[field]))),
     ),
   );
+}
+
+function isSafeTrustAuthorityDomainCoverage(value: unknown): boolean {
+  if (!isPlainRecord(value)) {
+    return false;
+  }
+  const mappingCount =
+    typeof value.mapping_count === "number" ? value.mapping_count : -1;
+  const implementedCount =
+    typeof value.implemented_mapping_count === "number"
+      ? value.implemented_mapping_count
+      : -1;
+  const partialCount =
+    typeof value.partial_mapping_count === "number"
+      ? value.partial_mapping_count
+      : -1;
+  const plannedCount =
+    typeof value.planned_mapping_count === "number"
+      ? value.planned_mapping_count
+      : -1;
+  const visibleMappingRefs = stringArray(value.visible_mapping_refs);
+  return (
+    typeof value.domain_ref === "string" &&
+    value.domain_ref.startsWith("authority-domain-ref:") &&
+    typeof value.label === "string" &&
+    hasExactStringValue(value.status, TRUST_AUTHORITY_DOMAIN_COVERAGE_STATUSES) &&
+    typeof value.known_authority === "boolean" &&
+    mappingCount >= 0 &&
+    implementedCount >= 0 &&
+    partialCount >= 0 &&
+    plannedCount >= 0 &&
+    mappingCount === implementedCount + partialCount + plannedCount &&
+    typeof value.hidden_mapping_ref_count === "number" &&
+    value.hidden_mapping_ref_count === mappingCount - visibleMappingRefs.length &&
+    TRUST_AUTHORITY_DOMAIN_COVERAGE_ARRAYS.every((field) =>
+      Array.isArray(value[field]),
+    ) &&
+    visibleMappingRefs.every(isSafeTrustAuthorityRef) &&
+    stringArray(value.unsupported_adapter_refs).every(isSafeTrustAuthorityRef) &&
+    typeof value.authority_state_route_ref === "string" &&
+    value.authority_state_route_ref === "GET /api/runtime/authority-state" &&
+    typeof value.authority_state_cli_ref === "string" &&
+    value.authority_state_cli_ref ===
+      "repo-local-command:uaa-runtime-inspect-authority-state" &&
+    typeof value.operator_summary === "string" &&
+    !containsUnsafeTrustText(value.label) &&
+    !containsUnsafeTrustText(value.operator_summary) &&
+    value.known_authority === (mappingCount > 0) &&
+    value.active_lease_required === true &&
+    value.safe_refs_only === true &&
+    value.execution_claimed === false
+  );
+}
+
+function isSafeTrustAuthorityRef(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0) {
+    return false;
+  }
+  const lowered = value.toLowerCase();
+  if (
+    EVIDENCE_NARRATIVE_UNSAFE_REF_FRAGMENTS.some((fragment) =>
+      lowered.includes(fragment),
+    )
+  ) {
+    return false;
+  }
+  if (value.includes("@") || value.includes("\\") || value.includes(" ")) {
+    return false;
+  }
+  return /^[A-Za-z0-9:_./-]+$/.test(value);
 }
 
 function isSafeTrustAuthorityTierSummary(value: unknown): boolean {

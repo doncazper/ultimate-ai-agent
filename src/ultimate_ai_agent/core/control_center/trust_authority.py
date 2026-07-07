@@ -4,6 +4,14 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityDomain,
+    build_authority_state_read_model,
+)
+from ultimate_ai_agent.core.authority.contracts import (
+    AUTHORITY_STATE_API_REF,
+    AUTHORITY_STATE_CLI_REF,
+)
 from ultimate_ai_agent.core.control_center.founder_loop_runs_integration import (
     FOUNDER_LOOP_RUNS_INTEGRATION_PRIMARY_PROOF_REF,
 )
@@ -97,6 +105,12 @@ TrustAuthorityLaneKind = Literal[
     "reversible_local_mutation",
     "external_mutation",
     "background_standing_authority",
+]
+TrustAuthorityDomainCoverageStatus = Literal[
+    "implemented",
+    "partial",
+    "planned",
+    "unknown",
 ]
 
 _DENIED_FLAGS = (
@@ -252,6 +266,67 @@ class TrustAuthorityTierSummary(BaseModel):
         return self
 
 
+class TrustAuthorityDomainCoverage(BaseModel):
+    domain_ref: str = Field(..., min_length=1)
+    label: str = Field(..., min_length=1, max_length=120)
+    status: TrustAuthorityDomainCoverageStatus
+    known_authority: bool
+    mapping_count: int = Field(..., ge=0)
+    implemented_mapping_count: int = Field(..., ge=0)
+    partial_mapping_count: int = Field(..., ge=0)
+    planned_mapping_count: int = Field(..., ge=0)
+    hidden_mapping_ref_count: int = Field(..., ge=0)
+    visible_mapping_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
+    authority_state_route_ref: str = AUTHORITY_STATE_API_REF
+    authority_state_cli_ref: str = AUTHORITY_STATE_CLI_REF
+    operator_summary: str = Field(..., min_length=1, max_length=520)
+    active_lease_required: bool = True
+    safe_refs_only: bool = True
+    execution_claimed: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_coverage(self) -> "TrustAuthorityDomainCoverage":
+        validate_execution_ref(self.domain_ref, "authority_domain_ref")
+        validate_safe_execution_text(self.label, "authority_domain_label")
+        validate_safe_execution_text(self.status, "authority_domain_status")
+        validate_safe_execution_text(
+            self.operator_summary,
+            "authority_domain_operator_summary",
+        )
+        _validate_ref_list(self.visible_mapping_refs, "visible_mapping_refs")
+        _validate_ref_list(self.unsupported_adapter_refs, "unsupported_adapter_refs")
+        _validate_text_list([self.authority_state_route_ref], "authority_state_route_ref")
+        _validate_text_list([self.authority_state_cli_ref], "authority_state_cli_ref")
+        if self.authority_state_route_ref != AUTHORITY_STATE_API_REF:
+            raise ValueError("Trust authority domain coverage route drift")
+        if self.authority_state_cli_ref != AUTHORITY_STATE_CLI_REF:
+            raise ValueError("Trust authority domain coverage CLI drift")
+        if self.mapping_count != (
+            self.implemented_mapping_count
+            + self.partial_mapping_count
+            + self.planned_mapping_count
+        ):
+            raise ValueError("Trust authority domain coverage count drift")
+        if self.hidden_mapping_ref_count != (
+            self.mapping_count - len(self.visible_mapping_refs)
+        ):
+            raise ValueError("Trust authority domain coverage hidden ref drift")
+        if self.known_authority != (self.mapping_count > 0):
+            raise ValueError("Trust authority domain coverage known authority drift")
+        if self.status == "unknown" and self.known_authority:
+            raise ValueError("Trust authority domain coverage unknown status drift")
+        if (
+            not self.active_lease_required
+            or not self.safe_refs_only
+            or self.execution_claimed
+        ):
+            raise ValueError("Trust authority domain coverage must stay inspection-only")
+        return self
+
+
 class TrustAuthorityMatrixReadModel(BaseModel):
     schema_version: str = "control-center-trust-authority-matrix.v1"
     contract_ref: str = TRUST_AUTHORITY_MATRIX_CONTRACT_REF
@@ -267,6 +342,9 @@ class TrustAuthorityMatrixReadModel(BaseModel):
     operator_summary: str = Field(..., min_length=1, max_length=700)
     lanes: list[TrustAuthorityLane] = Field(default_factory=list)
     tier_summaries: list[TrustAuthorityTierSummary] = Field(default_factory=list)
+    authority_domain_coverage: list[TrustAuthorityDomainCoverage] = Field(
+        default_factory=list
+    )
     available_now_lane_refs: list[str] = Field(default_factory=list)
     approval_required_lane_refs: list[str] = Field(default_factory=list)
     planned_lane_refs: list[str] = Field(default_factory=list)
@@ -332,6 +410,15 @@ class TrustAuthorityMatrixReadModel(BaseModel):
         lane_refs = [lane.lane_ref for lane in self.lanes]
         if len(lane_refs) != len(set(lane_refs)):
             raise ValueError("Trust authority lane refs must be unique")
+        domain_coverage_refs = [
+            coverage.domain_ref for coverage in self.authority_domain_coverage
+        ]
+        if len(domain_coverage_refs) != len(set(domain_coverage_refs)):
+            raise ValueError("Trust authority domain coverage refs must be unique")
+        if set(domain_coverage_refs) != {
+            _authority_domain_ref(domain) for domain in AuthorityDomain
+        }:
+            raise ValueError("Trust authority domain coverage must include all domains")
         if set(self.available_now_lane_refs) != {
             lane.lane_ref for lane in self.lanes if lane.authority_state == "available_now"
         }:
@@ -388,6 +475,7 @@ def build_trust_authority_matrix_read_model(
     )
     lanes = _trust_authority_lanes(primary_loop_proof_ref=primary_loop_proof_ref)
     tier_summaries = _tier_summaries(lanes)
+    authority_domain_coverage = _authority_domain_coverage()
     model = TrustAuthorityMatrixReadModel(
         doctrine="Earned authority, low friction by default, strict only where consequences justify it.",
         operator_summary=(
@@ -399,6 +487,7 @@ def build_trust_authority_matrix_read_model(
         ),
         lanes=lanes,
         tier_summaries=tier_summaries,
+        authority_domain_coverage=authority_domain_coverage,
         available_now_lane_refs=[
             lane.lane_ref for lane in lanes if lane.authority_state == "available_now"
         ],
@@ -1314,6 +1403,170 @@ def _tier_summaries(lanes: list[TrustAuthorityLane]) -> list[TrustAuthorityTierS
             )
         )
     return summaries
+
+
+def _authority_domain_coverage() -> list[TrustAuthorityDomainCoverage]:
+    authority_state = build_authority_state_read_model(active_leases=[])
+    mappings = authority_state.capability_mappings
+    coverage: list[TrustAuthorityDomainCoverage] = []
+    for domain in AuthorityDomain:
+        domain_value = _enum_value(domain)
+        domain_mappings = [
+            mapping
+            for mapping in mappings
+            if _enum_value(getattr(mapping, "domain", "")) == domain_value
+        ]
+        implemented_refs = [
+            mapping.lane_ref
+            for mapping in domain_mappings
+            if _mapping_status_bucket(mapping.status) == "implemented"
+        ]
+        partial_refs = [
+            mapping.lane_ref
+            for mapping in domain_mappings
+            if _mapping_status_bucket(mapping.status) == "partial"
+        ]
+        planned_refs = [
+            mapping.lane_ref
+            for mapping in domain_mappings
+            if _mapping_status_bucket(mapping.status) == "planned"
+        ]
+        all_mapping_refs = [
+            *implemented_refs,
+            *partial_refs,
+            *planned_refs,
+        ]
+        visible_mapping_refs = [
+            ref for ref in all_mapping_refs if _is_visible_trust_authority_ref(ref)
+        ]
+        unsupported_adapter_refs = _merge_unique(
+            [
+                ref
+                for mapping in domain_mappings
+                for ref in mapping.unsupported_adapter_refs
+                if _is_visible_trust_authority_ref(ref)
+            ]
+        )
+        coverage.append(
+            TrustAuthorityDomainCoverage(
+                domain_ref=_authority_domain_ref(domain),
+                label=_authority_domain_label(domain_value),
+                status=_domain_coverage_status(
+                    implemented_count=len(implemented_refs),
+                    partial_count=len(partial_refs),
+                    planned_count=len(planned_refs),
+                ),
+                known_authority=bool(domain_mappings),
+                mapping_count=len(all_mapping_refs),
+                implemented_mapping_count=len(implemented_refs),
+                partial_mapping_count=len(partial_refs),
+                planned_mapping_count=len(planned_refs),
+                hidden_mapping_ref_count=len(all_mapping_refs)
+                - len(visible_mapping_refs),
+                visible_mapping_refs=visible_mapping_refs,
+                unsupported_adapter_refs=unsupported_adapter_refs,
+                operator_summary=_domain_coverage_summary(
+                    domain_label=_authority_domain_label(domain_value),
+                    mapping_count=len(all_mapping_refs),
+                    implemented_count=len(implemented_refs),
+                    partial_count=len(partial_refs),
+                    planned_count=len(planned_refs),
+                    unsupported_adapter_count=len(unsupported_adapter_refs),
+                ),
+            )
+        )
+    return coverage
+
+
+def _mapping_status_bucket(status: str) -> TrustAuthorityDomainCoverageStatus:
+    if status.startswith("implemented"):
+        return "implemented"
+    if status.startswith("partial"):
+        return "partial"
+    if status.startswith("planned") or status.startswith("blocked"):
+        return "planned"
+    return "unknown"
+
+
+def _domain_coverage_status(
+    *,
+    implemented_count: int,
+    partial_count: int,
+    planned_count: int,
+) -> TrustAuthorityDomainCoverageStatus:
+    if implemented_count > 0:
+        return "implemented"
+    if partial_count > 0:
+        return "partial"
+    if planned_count > 0:
+        return "planned"
+    return "unknown"
+
+
+def _domain_coverage_summary(
+    *,
+    domain_label: str,
+    mapping_count: int,
+    implemented_count: int,
+    partial_count: int,
+    planned_count: int,
+    unsupported_adapter_count: int,
+) -> str:
+    if mapping_count == 0:
+        return (
+            f"{domain_label} has no AuthorityLease capability mappings; unknown "
+            "authority remains denied."
+        )
+    return (
+        f"{domain_label} has {mapping_count} AuthorityLease capability mappings: "
+        f"{implemented_count} implemented, {partial_count} partial, and "
+        f"{planned_count} planned. Unsupported adapter refs stay inspection-only."
+        if unsupported_adapter_count
+        else (
+            f"{domain_label} has {mapping_count} AuthorityLease capability "
+            f"mappings: {implemented_count} implemented, {partial_count} "
+            f"partial, and {planned_count} planned."
+        )
+    )
+
+
+def _authority_domain_ref(domain: AuthorityDomain) -> str:
+    return f"authority-domain-ref:{_enum_value(domain)}"
+
+
+def _authority_domain_label(domain_value: str) -> str:
+    return domain_value.replace("_", " ")
+
+
+def _enum_value(value: Any) -> str:
+    return str(getattr(value, "value", value))
+
+
+_VISIBLE_TRUST_AUTHORITY_REF_UNSAFE_FRAGMENTS = (
+    "credential",
+    "password",
+    "secret",
+    "bearer",
+    "token",
+    "authorization",
+    "username",
+    "hostname",
+    "serial",
+)
+
+
+def _is_visible_trust_authority_ref(value: str) -> bool:
+    lowered = value.lower()
+    if any(
+        fragment in lowered
+        for fragment in _VISIBLE_TRUST_AUTHORITY_REF_UNSAFE_FRAGMENTS
+    ):
+        return False
+    try:
+        validate_execution_ref(value, "visible_trust_authority_ref")
+    except ValueError:
+        return False
+    return True
 
 
 def _tier_operator_summary(tier: int, lanes: list[TrustAuthorityLane]) -> str:

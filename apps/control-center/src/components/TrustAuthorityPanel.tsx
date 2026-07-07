@@ -1,4 +1,5 @@
 import type {
+  TrustAuthorityDomainCoverage,
   TrustAuthorityLane,
   TrustAuthorityMatrix,
   TrustAuthorityState,
@@ -23,6 +24,7 @@ export function TrustAuthorityPanel({
   const plannedRows = laneRows.filter((lane) => lane.authority_state === "planned");
   const blockedRows = laneRows.filter((lane) => lane.authority_state === "blocked");
   const fallbackLaneRefs = matrix.lanes.map((lane) => lane.lane_ref);
+  const domainCoverageRows = authoritative ? matrix.authority_domain_coverage : [];
   return (
     <section className="page-section" aria-labelledby="trust-heading">
       <div className="section-heading">
@@ -112,6 +114,8 @@ export function TrustAuthorityPanel({
         ))}
       </div>
 
+      <DomainCoveragePanel rows={domainCoverageRows} />
+
       <div className="two-column-grid">
         <LaneColumn
           lanes={availableRows}
@@ -158,6 +162,71 @@ export function TrustAuthorityPanel({
           : "Reconnect to the local backend before using Trust to choose a next safe action."}
       </p>
     </section>
+  );
+}
+
+function DomainCoveragePanel({ rows }: { rows: TrustAuthorityDomainCoverage[] }) {
+  return (
+    <div className="panel-card" aria-label="AuthorityLease domain coverage">
+      <div className="list-card-header">
+        <div>
+          <h3>AuthorityLease Domain Coverage</h3>
+          <p>
+            Domain capabilities are governed by the Python Core AuthorityState
+            map. Known authority still requires an active lease; unsupported
+            adapters stay planned or blocked.
+          </p>
+        </div>
+        <span className="status-pill compact">{rows.length} domains</span>
+      </div>
+      <div className="stacked-list compact">
+        {rows.map((row) => (
+          <article className="list-card compact" key={row.domain_ref}>
+            <div className="list-card-header">
+              <div>
+                <strong>{row.label}</strong>
+                <p>{row.operator_summary}</p>
+              </div>
+              <span className="status-pill compact">
+                {formatTrustLabel(row.status)}
+              </span>
+            </div>
+            <div className="detail-grid compact">
+              <DetailTerm label="Domain" value={formatAuthorityRef(row.domain_ref)} />
+              <DetailTerm
+                label="Known"
+                value={row.known_authority ? "yes" : "denied"}
+              />
+              <DetailTerm label="Mappings" value={String(row.mapping_count)} />
+              <DetailTerm
+                label="Implemented"
+                value={String(row.implemented_mapping_count)}
+              />
+              <DetailTerm label="Partial" value={String(row.partial_mapping_count)} />
+              <DetailTerm label="Planned" value={String(row.planned_mapping_count)} />
+              <DetailTerm
+                label="Hidden refs"
+                value={String(row.hidden_mapping_ref_count)}
+              />
+              <DetailTerm
+                label="Lease"
+                value={row.active_lease_required ? "required" : "missing"}
+              />
+            </div>
+            <RefGroup
+              title="AuthorityState route and CLI"
+              refs={[row.authority_state_route_ref, row.authority_state_cli_ref]}
+            />
+            <RefGroup title="Visible mappings" refs={row.visible_mapping_refs} />
+            <RefGroup
+              title="Unsupported adapters"
+              refs={row.unsupported_adapter_refs}
+            />
+          </article>
+        ))}
+        {rows.length === 0 ? <p className="muted">none</p> : null}
+      </div>
+    </div>
   );
 }
 

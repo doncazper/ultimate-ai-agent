@@ -39,6 +39,7 @@ import type {
   AuthorityLease,
   AuthorityLeaseReceipt,
   AuthorityMissionPlan,
+  TrustAuthorityDomainCoverage,
 } from "./api/types";
 import { EmptyState, ErrorState, LoadingState } from "./components/DataState";
 import {
@@ -4026,6 +4027,27 @@ describe("Web Control Center shell", () => {
         ),
       ).toBeInTheDocument();
       expect(
+        screen.getByLabelText("AuthorityLease domain coverage"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", {
+          name: "AuthorityLease Domain Coverage",
+        }),
+      ).toBeInTheDocument();
+      expect(screen.getAllByText("shell").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("planned").length).toBeGreaterThan(0);
+      expect(
+        screen.getByText("lane-ref:shell-arbitrary-command-adapter"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("adapter-ref:shell-arbitrary-command:not-implemented"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getAllByText(
+          "repo-local-command:uaa-runtime-inspect-authority-state",
+        ).length,
+      ).toBeGreaterThan(0);
+      expect(
         screen.queryByRole("button", {
           name: /Approve|Execute|Send|Apply|Write|Sync|OAuth|Authorize|Connect account|Sign in/i,
         }),
@@ -4137,6 +4159,24 @@ describe("Web Control Center shell", () => {
           ...betaTrustAuthorityMatrix(),
           safe_disable_refs: [],
         }),
+      },
+      {
+        name: "missing domain coverage",
+        mutate: () => ({
+          ...betaTrustAuthorityMatrix(),
+          authority_domain_coverage: [],
+        }),
+      },
+      {
+        name: "coverage claims execution",
+        mutate: () => {
+          const matrix = betaTrustAuthorityMatrix();
+          matrix.authority_domain_coverage[0] = {
+            ...matrix.authority_domain_coverage[0],
+            execution_claimed: true,
+          };
+          return matrix;
+        },
       },
       {
         name: "control center grants authority",
@@ -15817,6 +15857,7 @@ function backendOwnedTrustAuthorityMatrix() {
         operator_summary: "Backend-owned Trust tier summary fixture.",
       }),
     ),
+    authority_domain_coverage: trustDomainCoverageFixture(),
   };
 }
 
@@ -16015,6 +16056,7 @@ function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
       "Backend-owned Trust fixture shows enabled, review-only, approval-required, and blocked lanes.",
     lanes,
     tier_summaries: trustTierSummaries(lanes),
+    authority_domain_coverage: trustDomainCoverageFixture(),
     available_now_lane_refs: lanes
       .filter((lane) => lane.authority_state === "available_now")
       .map((lane) => lane.lane_ref),
@@ -16038,6 +16080,16 @@ function betaTrustAuthorityMatrix(overrides: Record<string, unknown> = {}) {
     blocked_authority_refs: trustLaneUnion(lanes, "blocked_authority_refs"),
     ...overrides,
   };
+}
+
+function trustDomainCoverageFixture(): TrustAuthorityDomainCoverage[] {
+  return mockControlCenterData.trustAuthorityMatrix.authority_domain_coverage.map(
+    (coverage) => ({
+      ...coverage,
+      visible_mapping_refs: [...coverage.visible_mapping_refs],
+      unsupported_adapter_refs: [...coverage.unsupported_adapter_refs],
+    }),
+  );
 }
 
 function trustFixtureLane(

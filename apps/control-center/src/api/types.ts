@@ -307,6 +307,32 @@ export interface TrustAuthorityTierSummary {
   operator_summary: string;
 }
 
+export type TrustAuthorityDomainCoverageStatus =
+  | "implemented"
+  | "partial"
+  | "planned"
+  | "unknown";
+
+export interface TrustAuthorityDomainCoverage {
+  domain_ref: string;
+  label: string;
+  status: TrustAuthorityDomainCoverageStatus;
+  known_authority: boolean;
+  mapping_count: number;
+  implemented_mapping_count: number;
+  partial_mapping_count: number;
+  planned_mapping_count: number;
+  hidden_mapping_ref_count: number;
+  visible_mapping_refs: string[];
+  unsupported_adapter_refs: string[];
+  authority_state_route_ref: string;
+  authority_state_cli_ref: string;
+  operator_summary: string;
+  active_lease_required: boolean;
+  safe_refs_only: boolean;
+  execution_claimed: boolean;
+}
+
 export interface TrustAuthorityMatrix {
   schema_version: "control-center-trust-authority-matrix.v1";
   contract_ref: string;
@@ -322,6 +348,7 @@ export interface TrustAuthorityMatrix {
   operator_summary: string;
   lanes: TrustAuthorityLane[];
   tier_summaries: TrustAuthorityTierSummary[];
+  authority_domain_coverage: TrustAuthorityDomainCoverage[];
   available_now_lane_refs: string[];
   approval_required_lane_refs: string[];
   planned_lane_refs: string[];
