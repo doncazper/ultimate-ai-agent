@@ -30,7 +30,8 @@ safe-disable, and kill-switch visibility. The current inspection surfaces are
 `scripts/dev/uaa_runtime.py inspect-authority-state --json`; the compact
 operator parity view is
 `scripts/dev/uaa_runtime.py inspect-authority-state --summary` plus
-`authority_lease_state.decision_summary`, which exposes capability totals,
+`authority_lease_state.mode_catalog` and `authority_lease_state.decision_summary`,
+which expose mode readiness, default requested domains, capability totals,
 outcome counts, blocked reason refs, and unsupported adapter refs without
 execution or mutation. Operator-selected
 session leases are recorded through `POST /api/runtime/authority-leases`,
