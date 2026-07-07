@@ -1,7 +1,8 @@
 # UAA Hermes Runtime Skill Marketplace Posture
 
-Status: Phase 45 repo-safe Python Core read model.  
-CLI: `scripts/dev/uaa_runtime.py inspect-skill-marketplace-posture`  
+Status: Phase 45 repo-safe Python Core read model.
+Route: `GET /api/runtime/skill-marketplace-posture`
+CLI: `scripts/dev/uaa_runtime.py inspect-skill-marketplace-posture`
 Core: `src/ultimate_ai_agent/core/runtime_gateway/skill_marketplace_posture.py`
 
 ## Full-Strength
@@ -14,7 +15,9 @@ receipts, and proof before activation.
 
 ## Repo-Safe
 
-The current implementation is a signal, review, and adaptation posture only:
+The current implementation is a signal, review, and adaptation posture only,
+owned by Python Core and visible through the API route, CLI inspection, and
+Control Center display:
 
 - external discovery signals
 - quarantine
@@ -28,6 +31,17 @@ External popularity, stars, downloads, reviews, screenshots, publisher claims,
 and marketplace copy are discovery signals only, not trust. Every external or
 agent-created skill must become a reviewed UAA-owned adaptation before it can
 request any future activation grant.
+
+## AuthorityState
+
+Skill marketplace posture inspection is mapped to
+`lane-ref:runtime-skill-marketplace-posture-read-model` as `workspace/read`
+under Read-only mode. `GET /api/runtime/skill-marketplace-posture` and
+`scripts/dev/uaa_runtime.py inspect-skill-marketplace-posture --json` report the
+active AuthorityState mapping, decision ref, decision outcome, reason refs, and
+unsupported adapter refs. Known read-only inspection inside the default active
+lease is allowed; unknown skill marketplace authority and unsupported external
+skill adapters are denied.
 
 ## Blocked / Needs Authority
 
@@ -43,9 +57,9 @@ The following remain blocked:
 - raw marketplace payload persistence
 - Control Center authority minting
 
-## Exact Promotion Path
+## Exact Authority Path
 
-Promotion requires:
+Any future skill marketplace activation capability requires:
 
 1. reviewed UAA-owned adaptation
 2. local registry entry

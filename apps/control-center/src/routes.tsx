@@ -552,6 +552,7 @@ export function renderRoute(path: string, data: ControlCenterData) {
           messagingGatewayPosture={data.runtimeMessagingGatewayPosture}
           remoteExecutionPosture={data.runtimeRemoteExecutionPosture}
           pluginMetadataPosture={data.runtimePluginMetadataPosture}
+          skillMarketplacePosture={data.runtimeSkillMarketplacePosture}
         />
       );
     case "/operator-loop":

@@ -11,6 +11,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     RUNTIME_SKILL_MARKETPLACE_BLOCKED_AUTHORITY_REFS,
+    RUNTIME_SKILL_MARKETPLACE_POSTURE_AUTHORITY_MAPPING_REF,
+    RUNTIME_SKILL_MARKETPLACE_POSTURE_ROUTE_REF,
     build_runtime_skill_marketplace_posture_read_model,
 )
 
@@ -29,8 +31,23 @@ def main() -> int:
 
     if read_model.status != "signal_review_adaptation_only":
         failures.append("skill marketplace status is not signal/review/adaptation only")
+    if read_model.route_ref != RUNTIME_SKILL_MARKETPLACE_POSTURE_ROUTE_REF:
+        failures.append("skill marketplace route ref drifted")
     if read_model.cli_ref != "uaa runtime inspect-skill-marketplace-posture":
         failures.append("skill marketplace CLI ref drifted")
+    if (
+        read_model.authority_state_mapping_ref
+        != RUNTIME_SKILL_MARKETPLACE_POSTURE_AUTHORITY_MAPPING_REF
+    ):
+        failures.append("skill marketplace AuthorityState mapping drifted")
+    if read_model.authority_state_decision_outcome != "allow":
+        failures.append("skill marketplace posture inspection is not allowed")
+    if "reason-ref:authority:active-lease-grants-domain-capability" not in (
+        read_model.authority_state_reason_refs
+    ):
+        failures.append("skill marketplace active lease reason missing")
+    if not read_model.unsupported_adapter_refs:
+        failures.append("skill marketplace unsupported adapter refs missing")
     if read_model.stage_count != 7:
         failures.append("skill marketplace stage count drifted")
     if read_model.blocked_execution_count != 1:
@@ -83,9 +100,11 @@ def main() -> int:
         "Full-Strength",
         "Repo-Safe",
         "Blocked / Needs Authority",
-        "Exact Promotion Path",
+        "AuthorityState",
+        "Exact Authority Path",
         "discovery signals only, not trust",
         "reviewed UAA-owned adaptation",
+        "GET /api/runtime/skill-marketplace-posture",
         "Planning text and external discovery signals do not grant",
     ]:
         if expected not in doc_text:
@@ -95,6 +114,8 @@ def main() -> int:
     for expected in [
         "inspect-skill-marketplace-posture",
         "runtime_skill_marketplace_posture",
+        "authority_state_mapping_ref",
+        "authority_state_decision_outcome",
         "external_popularity_trusted",
         "direct_marketplace_install_performed",
         "automatic_skill_write_performed",
@@ -142,6 +163,7 @@ def main() -> int:
         failures.append("skill marketplace CLI failed")
     else:
         payload = json.loads(cli_result.stdout)
+        read_model_payload = payload["runtime_skill_marketplace_posture"]
         for field in [
             "external_popularity_trusted",
             "external_code_execution_performed",
@@ -154,8 +176,15 @@ def main() -> int:
         ]:
             if payload[field] is not False:
                 failures.append(f"CLI claims {field}")
-        if payload["runtime_skill_marketplace_posture"]["stage_count"] != 7:
+        if read_model_payload["stage_count"] != 7:
             failures.append("CLI returned stale stage count")
+        if (
+            read_model_payload["authority_state_mapping_ref"]
+            != RUNTIME_SKILL_MARKETPLACE_POSTURE_AUTHORITY_MAPPING_REF
+        ):
+            failures.append("CLI returned stale AuthorityState mapping")
+        if read_model_payload["authority_state_decision_outcome"] != "allow":
+            failures.append("CLI returned stale AuthorityState decision")
 
     if failures:
         for failure in failures:

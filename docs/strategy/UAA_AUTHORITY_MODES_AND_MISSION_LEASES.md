@@ -63,8 +63,8 @@ surfaces are:
 - Runtime worktree-per-agent, staged orchestration, background job inspection,
   subagent isolation, LSP diagnostics, preview rail, slash command registry,
   result classification, logging profile, interrupt redirect, voice/media
-  posture, messaging gateway posture, remote execution posture, and plugin
-  metadata posture consume that
+  posture, messaging gateway posture, remote execution posture, plugin
+  metadata posture, and skill marketplace posture consume that
   same AuthorityState catalog instead of carrying
   standalone blocker language:
   worktree implementer/reviewer/verifier lanes expose mapped decision refs and
@@ -101,7 +101,11 @@ surfaces are:
   runtime, sends, remote host access, cloud sandboxes, plugin runtime import,
   hooks, package installation, marketplace content execution, connector writes,
   provider calls, raw material persistence, and Control Center authority minting
-  remain blocked.
+  remain blocked. Skill marketplace posture exposes Read-only `workspace/read`
+  signal/review/adaptation inspection while external code execution, direct
+  marketplace install, runtime import, automatic skill writes, provider calls,
+  browser automation, connector writes, raw marketplace material persistence,
+  and Control Center authority minting remain blocked.
   These API/CLI surfaces remain safe-ref inspection only unless exact active
   leases, implemented adapters, and existing runtime gates pass.
 - `GET /api/runtime/authority-state#decision_summary` and

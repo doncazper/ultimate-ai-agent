@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `246`.
+Current OpenAPI path count: `247`.
 
 The OpenAPI schema is the public route contract for the current FastAPI API
 boundary. `/api/manifest` is the typed metadata and route-inventory endpoint
@@ -317,6 +317,16 @@ Contract rules:
   marketplace content execution, plugin code execution, connector writes,
   provider calls, raw manifest persistence, Control Center authority minting,
   production authority, and public release claims remain blocked.
+  `GET /api/runtime/skill-marketplace-posture` exposes the Hermes Runtime
+  Adoption Phase 45 backend-owned skill marketplace posture. It returns
+  discovery signal, quarantine, review, adaptation proposal, UAA-owned
+  adaptation, activation grant, and execution-block refs, AuthorityState
+  mapping refs, decision refs, reason refs, unsupported adapter refs, receipt
+  refs, proof refs, and blocked authority refs only. External code execution,
+  direct marketplace installation, runtime import, automatic skill writes,
+  provider calls, browser automation, connector writes, raw marketplace payload
+  persistence, Control Center authority minting, production authority, and
+  public release claims remain blocked.
   `GET /api/runtime/context-references` exposes the Hermes Runtime Adoption
   Phase 16 backend-owned context-reference posture. It returns safe-ref grammar,
   preview refs, budget estimates, why-included refs, and blocked URL/live-fetch

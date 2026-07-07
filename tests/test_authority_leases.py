@@ -526,6 +526,31 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         ].decision.unsupported_adapter
         is False
     )
+    skill_marketplace_posture = mappings_by_lane[
+        "lane-ref:runtime-skill-marketplace-posture-read-model"
+    ]
+    assert skill_marketplace_posture.domain == "workspace"
+    assert skill_marketplace_posture.capability == "read"
+    assert skill_marketplace_posture.required_mode == "read_only"
+    assert (
+        skill_marketplace_posture.status == "implemented_authority_bound_read_model"
+    )
+    assert "GET /api/runtime/skill-marketplace-posture" in (
+        skill_marketplace_posture.route_refs
+    )
+    assert skill_marketplace_posture.unsupported_adapter_blocks_capability is False
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-skill-marketplace-posture-read-model"
+        ].decision.outcome
+        == "allow"
+    )
+    assert (
+        decision_by_lane[
+            "lane-ref:runtime-skill-marketplace-posture-read-model"
+        ].decision.unsupported_adapter
+        is False
+    )
     staged_runtime_command = mappings_by_lane[
         "lane-ref:staged-orchestration-approved-runtime-command"
     ]

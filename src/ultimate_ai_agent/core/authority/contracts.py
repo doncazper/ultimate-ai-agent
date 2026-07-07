@@ -3181,6 +3181,34 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ],
         ),
         _mapping(
+            "lane-ref:runtime-skill-marketplace-posture-read-model",
+            "Runtime skill marketplace posture read model",
+            AuthorityDomain.workspace,
+            AuthorityCapability.read,
+            TrustMode.read_only,
+            "implemented_authority_bound_read_model",
+            ["GET /api/runtime/skill-marketplace-posture"],
+            ["repo-local-command:uaa-runtime-inspect-skill-marketplace-posture"],
+            (
+                "Skill marketplace posture inspection reads discovery signal, "
+                "quarantine, review, adaptation, activation grant, receipt, "
+                "proof, and blocked refs under Workspace read authority. It "
+                "does not enable external code, marketplace installs, runtime "
+                "imports, automatic skill writes, provider calls, browser "
+                "automation, connector writes, or raw marketplace persistence."
+            ),
+            unsupported_adapter_refs=[
+                "adapter-ref:skill-marketplace-external-code:not-implemented",
+                "adapter-ref:skill-marketplace-direct-install:not-implemented",
+                "adapter-ref:skill-marketplace-runtime-import:not-implemented",
+                "adapter-ref:skill-marketplace-skill-write:not-implemented",
+                "adapter-ref:skill-marketplace-provider-call:not-implemented",
+                "adapter-ref:skill-marketplace-browser-automation:not-implemented",
+                "adapter-ref:skill-marketplace-connector-write:not-implemented",
+                "adapter-ref:skill-marketplace-raw-payload:not-implemented",
+            ],
+        ),
+        _mapping(
             "lane-ref:staged-orchestration-approved-runtime-command",
             "Staged orchestration approved runtime command step",
             AuthorityDomain.workspace,

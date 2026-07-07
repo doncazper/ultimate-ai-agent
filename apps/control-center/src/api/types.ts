@@ -11975,6 +11975,92 @@ export interface RuntimePluginMetadataPostureReadModel {
   redactions_applied: string[];
 }
 
+export type RuntimeSkillMarketplaceStageKind =
+  | "external_discovery_signal"
+  | "quarantine"
+  | "review"
+  | "adaptation_proposal"
+  | "uaa_owned_adaptation"
+  | "activation_grant"
+  | "execution_block";
+
+export type RuntimeSkillMarketplaceStageStatus =
+  | "signal_only"
+  | "review_required"
+  | "blocked_until_owned_adaptation";
+
+export interface RuntimeSkillMarketplaceStage {
+  stage_ref: string;
+  stage_kind: RuntimeSkillMarketplaceStageKind;
+  display_label: string;
+  status: RuntimeSkillMarketplaceStageStatus;
+  safe_summary: string;
+  signal_policy_ref: string;
+  quarantine_ref: string;
+  review_ref: string;
+  adaptation_ref: string;
+  activation_grant_ref: string;
+  safe_disable_ref: string;
+  receipt_plan_ref: string;
+  proof_ref: string;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  next_safe_action_refs: string[];
+  external_popularity_is_trust: boolean;
+  external_code_execution_enabled: boolean;
+  direct_marketplace_install_enabled: boolean;
+  runtime_import_enabled: boolean;
+  automatic_skill_write_enabled: boolean;
+  provider_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  raw_marketplace_payload_persisted: boolean;
+  control_center_mints_authority: boolean;
+}
+
+export interface RuntimeSkillMarketplacePostureReadModel {
+  schema_version: "runtime_skill_marketplace_posture.v1";
+  contract_ref: string;
+  status: string;
+  snapshot_ref: string;
+  snapshot_hash_ref: string;
+  route_ref: string;
+  cli_ref: string;
+  doc_ref: string;
+  authority_state_route_ref: string;
+  authority_state_cli_ref: string;
+  authority_state_mapping_ref: string;
+  authority_state_catalog_ref: string;
+  authority_state_decision_ref: string;
+  authority_state_decision_outcome: AuthorityDecisionOutcome;
+  authority_state_status: string;
+  authority_state_operator_message: string;
+  authority_state_reason_refs: string[];
+  unsupported_adapter_refs: string[];
+  control_center_ref: string;
+  safe_summary: string;
+  stages: RuntimeSkillMarketplaceStage[];
+  stage_count: number;
+  review_required_count: number;
+  blocked_execution_count: number;
+  external_popularity_is_trust: boolean;
+  external_code_execution_enabled: boolean;
+  direct_marketplace_install_enabled: boolean;
+  runtime_import_enabled: boolean;
+  automatic_skill_write_enabled: boolean;
+  provider_call_enabled: boolean;
+  browser_automation_enabled: boolean;
+  connector_write_enabled: boolean;
+  raw_marketplace_payload_persisted: boolean;
+  control_center_mints_authority: boolean;
+  blocked_authority_refs: string[];
+  promotion_path_refs: string[];
+  proof_refs: string[];
+  verifier_refs: string[];
+  next_safe_action_refs: string[];
+  redactions_applied: string[];
+}
+
 export interface RuntimeCapabilityDiscoveryReadModel {
   schema_version: "runtime_capability_discovery.v1";
   contract_ref: string;
@@ -13538,6 +13624,7 @@ export interface ControlCenterData {
   runtimeMessagingGatewayPosture: RuntimeMessagingGatewayPostureReadModel;
   runtimeRemoteExecutionPosture: RuntimeRemoteExecutionPostureReadModel;
   runtimePluginMetadataPosture: RuntimePluginMetadataPostureReadModel;
+  runtimeSkillMarketplacePosture: RuntimeSkillMarketplacePostureReadModel;
   m15Review: M15ReviewData;
   runAttachedApprovalQueue: RunAttachedApprovalQueue;
   m16Trace: M16TraceData;

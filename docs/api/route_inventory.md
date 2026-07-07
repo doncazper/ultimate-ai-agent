@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `246`.
+Current OpenAPI path count: `247`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -44,7 +44,7 @@ Current route classification summary:
 |---|---:|
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
-| `local_sensitive` | 169 |
+| `local_sensitive` | 170 |
 | `mutating_requires_authority` | 48 |
 
 Allowed current side-effect classes are:
@@ -382,6 +382,15 @@ refs, proof refs, authority refs, unsupported adapter refs, and blocked
 authority refs only. Runtime imports, hooks, package installation, marketplace
 content execution, plugin code execution, connector writes, provider calls, raw
 manifest persistence, and Control Center authority minting remain blocked.
+`GET /api/runtime/skill-marketplace-posture` exposes a protected read-only
+Python Core Hermes Runtime Adoption Phase 45 skill marketplace posture. It
+returns discovery signal, quarantine, review, adaptation proposal, UAA-owned
+adaptation, activation grant, and execution-block labels, AuthorityState mapping
+refs, decision refs, reason refs, unsupported adapter refs, receipt refs, proof
+refs, and blocked authority refs only. External code execution, direct
+marketplace installation, runtime import, automatic skill writes, provider
+calls, browser automation, connector writes, raw marketplace payload
+persistence, and Control Center authority minting remain blocked.
 `GET /api/runtime/context-references` exposes a protected read-only Python Core
 Hermes Runtime Adoption Phase 16 context-reference posture. It returns
 safe-ref grammar, preview refs, budget estimates, why-included refs, and

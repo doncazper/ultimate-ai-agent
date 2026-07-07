@@ -16088,6 +16088,12 @@ describe("Web Control Center shell", () => {
     expect(
       isAllowedReadEndpoint(API_ENDPOINTS.runtimePluginMetadataPosture),
     ).toBe(true);
+    expect(API_ENDPOINTS.runtimeSkillMarketplacePosture).toBe(
+      "/api/runtime/skill-marketplace-posture",
+    );
+    expect(
+      isAllowedReadEndpoint(API_ENDPOINTS.runtimeSkillMarketplacePosture),
+    ).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.actionPreview)).toBe(true);
     expect(isPreviewEndpoint(API_ENDPOINTS.turnRouterPreview)).toBe(true);
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterDashboard)).toBe(
@@ -17292,6 +17298,8 @@ function envelopeForReadEndpoint(url: string) {
       mockControlCenterData.runtimeRemoteExecutionPosture,
     [API_ENDPOINTS.runtimePluginMetadataPosture]:
       mockControlCenterData.runtimePluginMetadataPosture,
+    [API_ENDPOINTS.runtimeSkillMarketplacePosture]:
+      mockControlCenterData.runtimeSkillMarketplacePosture,
     [API_ENDPOINTS.setupAssistantSummary]: mockApiData.setupAssistantSummary,
     [API_ENDPOINTS.providerSetupGuide]: mockControlCenterData.providerCatalog,
     [API_ENDPOINTS.modelProviderControlPlane]:

@@ -49,6 +49,7 @@ import type {
   RuntimeMcpServerCatalogEntry,
   RuntimeMcpToolSlice,
   RuntimePluginMetadataSurface,
+  RuntimeSkillMarketplaceStage,
   RuntimeSubagentIsolationRole,
   RuntimeSubagentReviewArtifact,
   RuntimeLspDiagnosticEvidenceContract,
@@ -2893,6 +2894,114 @@ const runtimePluginMetadataSurfaces = [
     display_label: "Skill bundles",
     safe_summary:
       "Mock skill bundle metadata is inspectable only; skill runtime import and marketplace execution stay blocked.",
+  }),
+];
+
+const runtimeSkillMarketplaceBlockedRefs = [
+  "blocked-authority:skill-marketplace-no-external-code-execution",
+  "blocked-authority:skill-marketplace-no-direct-install",
+  "blocked-authority:skill-marketplace-no-runtime-import",
+  "blocked-authority:skill-marketplace-no-automatic-skill-write",
+  "blocked-authority:skill-marketplace-no-provider-call",
+  "blocked-authority:skill-marketplace-no-browser-automation",
+  "blocked-authority:skill-marketplace-no-connector-write",
+  "blocked-authority:skill-marketplace-no-raw-marketplace-persistence",
+  "blocked-authority:skill-marketplace-no-control-center-authority-mint",
+];
+
+function runtimeSkillMarketplaceStage(
+  slug: string,
+  overrides: Pick<
+    RuntimeSkillMarketplaceStage,
+    "stage_kind" | "display_label" | "status" | "safe_summary"
+  >,
+): RuntimeSkillMarketplaceStage {
+  return {
+    stage_ref: `skill-marketplace-stage-ref:runtime:${slug}`,
+    stage_kind: overrides.stage_kind,
+    display_label: overrides.display_label,
+    status: overrides.status,
+    safe_summary: overrides.safe_summary,
+    signal_policy_ref: `signal-policy-ref:skill-marketplace:${slug}`,
+    quarantine_ref: `quarantine-ref:skill-marketplace:${slug}`,
+    review_ref: `review-ref:skill-marketplace:${slug}`,
+    adaptation_ref: `adaptation-ref:skill-marketplace:${slug}`,
+    activation_grant_ref: `activation-grant-ref:skill-marketplace:${slug}`,
+    safe_disable_ref: `safe-disable-ref:skill-marketplace:${slug}`,
+    receipt_plan_ref: `receipt-plan-ref:skill-marketplace:${slug}`,
+    proof_ref: `proof-ref:skill-marketplace:${slug}`,
+    blocked_authority_refs: runtimeSkillMarketplaceBlockedRefs,
+    promotion_path_refs: [
+      `promotion-path-ref:skill-marketplace:${slug}:quarantine`,
+      `promotion-path-ref:skill-marketplace:${slug}:review`,
+      `promotion-path-ref:skill-marketplace:${slug}:uaa-owned-adaptation`,
+      `promotion-path-ref:skill-marketplace:${slug}:activation-grant`,
+    ],
+    next_safe_action_refs: [
+      `next-safe-action-ref:skill-marketplace:${slug}:review-contract`,
+    ],
+    external_popularity_is_trust: false,
+    external_code_execution_enabled: false,
+    direct_marketplace_install_enabled: false,
+    runtime_import_enabled: false,
+    automatic_skill_write_enabled: false,
+    provider_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    raw_marketplace_payload_persisted: false,
+    control_center_mints_authority: false,
+  };
+}
+
+const runtimeSkillMarketplaceStages = [
+  runtimeSkillMarketplaceStage("external-discovery-signal", {
+    stage_kind: "external_discovery_signal",
+    display_label: "External discovery signals",
+    status: "signal_only",
+    safe_summary:
+      "Mock popularity, reviews, screenshots, and publisher claims remain discovery signals only.",
+  }),
+  runtimeSkillMarketplaceStage("quarantine", {
+    stage_kind: "quarantine",
+    display_label: "Quarantine",
+    status: "review_required",
+    safe_summary:
+      "Mock external or agent-created skill ideas require quarantine before review.",
+  }),
+  runtimeSkillMarketplaceStage("review", {
+    stage_kind: "review",
+    display_label: "Review",
+    status: "review_required",
+    safe_summary:
+      "Mock review captures source, safety, license, product fit, and blocked authority without running code.",
+  }),
+  runtimeSkillMarketplaceStage("adaptation-proposal", {
+    stage_kind: "adaptation_proposal",
+    display_label: "Adaptation proposal",
+    status: "review_required",
+    safe_summary:
+      "Mock adaptation proposals stay reviewable plans or diffs, not automatic skill writes.",
+  }),
+  runtimeSkillMarketplaceStage("uaa-owned-adaptation", {
+    stage_kind: "uaa_owned_adaptation",
+    display_label: "UAA-owned adaptation",
+    status: "review_required",
+    safe_summary:
+      "Mock UAA-owned adaptations can later request activation grants only after review.",
+  }),
+  runtimeSkillMarketplaceStage("activation-grant", {
+    stage_kind: "activation_grant",
+    display_label: "Activation grant",
+    status: "blocked_until_owned_adaptation",
+    safe_summary:
+      "Mock activation remains blocked until manifest, scan, approval, receipts, rollback, and safe-disable posture are proven.",
+  }),
+  runtimeSkillMarketplaceStage("execution-block", {
+    stage_kind: "execution_block",
+    display_label: "Execution block",
+    status: "blocked_until_owned_adaptation",
+    safe_summary:
+      "Mock external skill execution, direct marketplace install, and runtime import stay blocked.",
   }),
 ];
 
@@ -17283,6 +17392,91 @@ export const mockControlCenterData: ControlCenterData = {
       "raw_manifests_omitted",
       "package_payloads_omitted",
       "external_code_omitted",
+    ],
+  },
+  runtimeSkillMarketplacePosture: {
+    schema_version: "runtime_skill_marketplace_posture.v1",
+    contract_ref:
+      "contract-ref:hermes-runtime-adoption-skill-marketplace-posture:v1",
+    status: "signal_review_adaptation_only",
+    snapshot_ref: "skill-marketplace-posture-snapshot-ref:runtime:phase-45",
+    snapshot_hash_ref: "snapshot-hash-ref:skill-marketplace-posture:mock",
+    route_ref: "GET /api/runtime/skill-marketplace-posture",
+    cli_ref: "uaa runtime inspect-skill-marketplace-posture",
+    doc_ref: "docs/runtime/UAA_HERMES_RUNTIME_SKILL_MARKETPLACE_POSTURE.md",
+    authority_state_route_ref: "GET /api/runtime/authority-state",
+    authority_state_cli_ref:
+      "repo-local-command:uaa-runtime-inspect-authority-state",
+    authority_state_mapping_ref:
+      "lane-ref:runtime-skill-marketplace-posture-read-model",
+    authority_state_catalog_ref:
+      "authority-decision-catalog-ref:runtime-skill-marketplace-posture-read-model",
+    authority_state_decision_ref:
+      "authority-policy-decision-ref:mock-runtime-skill-marketplace-posture",
+    authority_state_decision_outcome: "allow",
+    authority_state_status: "implemented_authority_bound_read_model",
+    authority_state_operator_message:
+      "Allowed by active authority lease for safe skill marketplace posture inspection only.",
+    authority_state_reason_refs: [
+      "reason-ref:authority:active-lease-grants-domain-capability",
+    ],
+    unsupported_adapter_refs: [
+      "adapter-ref:skill-marketplace-external-code:not-implemented",
+      "adapter-ref:skill-marketplace-direct-install:not-implemented",
+      "adapter-ref:skill-marketplace-runtime-import:not-implemented",
+      "adapter-ref:skill-marketplace-skill-write:not-implemented",
+      "adapter-ref:skill-marketplace-provider-call:not-implemented",
+      "adapter-ref:skill-marketplace-browser-automation:not-implemented",
+      "adapter-ref:skill-marketplace-connector-write:not-implemented",
+      "adapter-ref:skill-marketplace-raw-payload:not-implemented",
+    ],
+    control_center_ref: "control-center-route:runtime",
+    safe_summary:
+      "Runtime skill marketplace mock fallback shows discovery, quarantine, review, adaptation, activation, and execution-block posture only; external code, installs, imports, automatic skill writes, provider calls, browser automation, connector writes, and raw marketplace payloads stay blocked.",
+    stages: runtimeSkillMarketplaceStages,
+    stage_count: runtimeSkillMarketplaceStages.length,
+    review_required_count: runtimeSkillMarketplaceStages.filter(
+      (stage) => stage.status === "review_required",
+    ).length,
+    blocked_execution_count: runtimeSkillMarketplaceStages.filter(
+      (stage) => stage.stage_kind === "execution_block",
+    ).length,
+    external_popularity_is_trust: false,
+    external_code_execution_enabled: false,
+    direct_marketplace_install_enabled: false,
+    runtime_import_enabled: false,
+    automatic_skill_write_enabled: false,
+    provider_call_enabled: false,
+    browser_automation_enabled: false,
+    connector_write_enabled: false,
+    raw_marketplace_payload_persisted: false,
+    control_center_mints_authority: false,
+    blocked_authority_refs: runtimeSkillMarketplaceBlockedRefs,
+    promotion_path_refs: [
+      "promotion-path-ref:skill-marketplace:reviewed-uaa-owned-adaptation",
+      "promotion-path-ref:skill-marketplace:local-registry-entry",
+      "promotion-path-ref:skill-marketplace:static-product-review",
+      "promotion-path-ref:skill-marketplace:approval-safe-disable",
+      "promotion-path-ref:skill-marketplace:rollback-receipt-proof",
+    ],
+    proof_refs: [
+      "proof-ref:hermes-runtime-adoption:phase-45:skill-marketplace-posture",
+      "proof-ref:skill-marketplace:posture-only",
+      "proof-ref:skill-marketplace:runtime-authority-blocked",
+    ],
+    verifier_refs: [
+      "verifier-ref:hermes-runtime-adoption:phase-45:skill-marketplace-posture",
+    ],
+    next_safe_action_refs: [
+      "next-safe-action-ref:skill-marketplace:adaptation-review-schema",
+      "next-safe-action-ref:skill-marketplace:local-registry-contract",
+    ],
+    redactions_applied: [
+      "safe_refs_only",
+      "bounded_summaries_only",
+      "raw_marketplace_payloads_omitted",
+      "external_code_omitted",
+      "publisher_material_omitted",
     ],
   },
   runtimeApprovalBridge: {

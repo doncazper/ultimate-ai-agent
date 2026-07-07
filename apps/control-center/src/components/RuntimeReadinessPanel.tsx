@@ -16,6 +16,7 @@ import type {
   RuntimeMessagingGatewayPostureReadModel,
   RuntimeMcpCatalogFilteringReadModel,
   RuntimePluginMetadataPostureReadModel,
+  RuntimeSkillMarketplacePostureReadModel,
   RuntimeSubagentIsolationReadModel,
   RuntimeSessionContinuityReadModel,
   RuntimeToolRegistryAvailabilityReadModel,
@@ -72,6 +73,7 @@ export function RuntimeReadinessPanel({
   messagingGatewayPosture,
   remoteExecutionPosture,
   pluginMetadataPosture,
+  skillMarketplacePosture,
 }: {
   report: RuntimeReadinessReport;
   matrix: RuntimeCapabilityMatrix;
@@ -107,6 +109,7 @@ export function RuntimeReadinessPanel({
   messagingGatewayPosture: RuntimeMessagingGatewayPostureReadModel;
   remoteExecutionPosture: RuntimeRemoteExecutionPostureReadModel;
   pluginMetadataPosture: RuntimePluginMetadataPostureReadModel;
+  skillMarketplacePosture: RuntimeSkillMarketplacePostureReadModel;
 }) {
   const booleans = [
     ["Production readiness claim", report.production_ready],
@@ -493,6 +496,146 @@ export function RuntimeReadinessPanel({
             </dd>
           </div>
         </dl>
+      </article>
+      <article className="info-card">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Skill marketplace</p>
+            <h3>Signal review posture</h3>
+          </div>
+          <span className="status-pill compact">
+            {skillMarketplacePosture.status}
+          </span>
+        </div>
+        <p>{skillMarketplacePosture.safe_summary}</p>
+        <dl className="detail-grid">
+          <div>
+            <dt>Route</dt>
+            <dd>{skillMarketplacePosture.route_ref}</dd>
+          </div>
+          <div>
+            <dt>CLI</dt>
+            <dd>{skillMarketplacePosture.cli_ref}</dd>
+          </div>
+          <div>
+            <dt>Authority</dt>
+            <dd>{skillMarketplacePosture.authority_state_route_ref}</dd>
+          </div>
+          <div>
+            <dt>Capability mapping</dt>
+            <dd>{skillMarketplacePosture.authority_state_mapping_ref}</dd>
+          </div>
+          <div>
+            <dt>Decision</dt>
+            <dd>{skillMarketplacePosture.authority_state_decision_outcome}</dd>
+          </div>
+          <div>
+            <dt>Decision ref</dt>
+            <dd>{skillMarketplacePosture.authority_state_decision_ref}</dd>
+          </div>
+          <div>
+            <dt>Stages</dt>
+            <dd>{skillMarketplacePosture.stage_count}</dd>
+          </div>
+          <div>
+            <dt>Review required</dt>
+            <dd>{skillMarketplacePosture.review_required_count}</dd>
+          </div>
+          <div>
+            <dt>Execution blocks</dt>
+            <dd>{skillMarketplacePosture.blocked_execution_count}</dd>
+          </div>
+          <div>
+            <dt>Popularity as trust</dt>
+            <dd>
+              {skillMarketplacePosture.external_popularity_is_trust
+                ? "trusted"
+                : "not trust"}
+            </dd>
+          </div>
+          <div>
+            <dt>External code</dt>
+            <dd>
+              {skillMarketplacePosture.external_code_execution_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Install/import</dt>
+            <dd>
+              {skillMarketplacePosture.direct_marketplace_install_enabled ||
+              skillMarketplacePosture.runtime_import_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Provider/browser</dt>
+            <dd>
+              {skillMarketplacePosture.provider_call_enabled ||
+              skillMarketplacePosture.browser_automation_enabled
+                ? "enabled"
+                : "blocked"}
+            </dd>
+          </div>
+          <div>
+            <dt>Raw marketplace</dt>
+            <dd>
+              {skillMarketplacePosture.raw_marketplace_payload_persisted
+                ? "stored"
+                : "omitted"}
+            </dd>
+          </div>
+        </dl>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Stage</th>
+                <th>Status</th>
+                <th>Signal</th>
+                <th>Review</th>
+                <th>Adaptation</th>
+                <th>Receipt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {skillMarketplacePosture.stages.map((stage) => (
+                <tr key={stage.stage_ref}>
+                  <td>{stage.display_label}</td>
+                  <td>{stage.status}</td>
+                  <td>{stage.signal_policy_ref}</td>
+                  <td>{stage.review_ref}</td>
+                  <td>{stage.adaptation_ref}</td>
+                  <td>{stage.receipt_plan_ref}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h4>Unsupported adapters</h4>
+        <ul className="compact-list">
+          {skillMarketplacePosture.unsupported_adapter_refs
+            .slice(0, 6)
+            .map((ref) => (
+              <li key={ref}>{ref}</li>
+            ))}
+        </ul>
+        <h4>Blocked authority</h4>
+        <ul className="compact-list">
+          {skillMarketplacePosture.blocked_authority_refs
+            .slice(0, 6)
+            .map((ref) => (
+              <li key={ref}>{ref}</li>
+            ))}
+        </ul>
+        <h4>Authority reason</h4>
+        <ul className="compact-list">
+          {skillMarketplacePosture.authority_state_reason_refs.map((ref) => (
+            <li key={ref}>{ref}</li>
+          ))}
+        </ul>
       </article>
       <article className="info-card">
         <div className="panel-heading compact-heading">

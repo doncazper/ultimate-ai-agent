@@ -2,8 +2,8 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `246`, generated from the FastAPI application and
-exposed through `/api/manifest`. `/api/manifest` currently reports `247` route
+Current OpenAPI path count: `247`, generated from the FastAPI application and
+exposed through `/api/manifest`. `/api/manifest` currently reports `248` route
 operations because governed runtime pilot routes intentionally have both `GET`
 and `POST` contracts on `/api/runtime/invocations`, and the Turn Contract
 Router preview plus AuthorityLease mission planning routes add no-effect
@@ -80,6 +80,12 @@ metadata posture route with runtime imports, hooks, package installation,
 marketplace content execution, plugin code execution, connector writes,
 provider calls, raw manifest persistence, and Control Center authority minting
 blocked.
+Hermes Runtime Adoption Phase 45 adds
+`GET /api/runtime/skill-marketplace-posture` as a protected read-only skill
+marketplace posture route with external code execution, direct marketplace
+installation, runtime import, automatic skill writes, provider calls, browser
+automation, connector writes, raw marketplace payload persistence, and Control
+Center authority minting blocked.
 
 The API boundary is metadata-first, validation-first, approval-aware for
 local/dev policy checks, simulated/fallback-first for model runtime behavior,
