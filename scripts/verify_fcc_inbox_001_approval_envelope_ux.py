@@ -33,6 +33,12 @@ DOC_REF = "docs/control_center/FCC_INBOX_001_APPROVAL_ENVELOPE_UX.md"
 VERIFIER_REF = "scripts/verify_fcc_inbox_001_approval_envelope_ux.py"
 ACTION_INBOX_ROUTE = "GET /control-center/actions/inbox"
 LOCAL_TASK_COMMIT_ROUTE = "POST /control-center/actions/{action_id}/local-task/commit"
+LOCAL_TASK_AUTHORITY_CAPABILITY_ID = (
+    "authority-capability:action-inbox:local-task-create"
+)
+LOCAL_TASK_AUTHORITY_DOMAIN_REF = "authority-domain-ref:workspace"
+LOCAL_TASK_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:write"
+LOCAL_TASK_AUTHORITY_MODE_REF = "authority-mode-ref:ask-before-changes"
 READ_MODEL_SOURCE = "python_core_action_inbox_read_model"
 
 
@@ -235,25 +241,45 @@ def _validate_operational_maturity(root: Path, failures: list[str]) -> None:
         if not isinstance(values, list) or expected not in values:
             failures.append(f"action_inbox maturity {field} missing {expected}")
 
-    lanes = action_inbox.get("graduated_lanes")
-    if not isinstance(lanes, list):
-        failures.append("action_inbox maturity missing graduated lanes")
+    capabilities = action_inbox.get("authority_capabilities")
+    if not isinstance(capabilities, list):
+        failures.append("action_inbox maturity missing authority_capabilities")
         return
-    local_task_lane = next(
+    local_task_capability = next(
         (
             item
-            for item in lanes
-            if isinstance(item, dict) and item.get("lane_id") == "local_task_create"
+            for item in capabilities
+            if isinstance(item, dict)
+            and item.get("capability_id") == LOCAL_TASK_AUTHORITY_CAPABILITY_ID
         ),
         None,
     )
-    if not isinstance(local_task_lane, dict):
-        failures.append("action_inbox local_task_create lane missing")
+    if not isinstance(local_task_capability, dict):
+        failures.append("action_inbox local_task_create authority capability missing")
         return
-    if local_task_lane.get("rank") != 5:
-        failures.append("local_task_create lane must remain rank 5")
-    if LOCAL_TASK_COMMIT_ROUTE not in set(local_task_lane.get("backend_routes", [])):
-        failures.append("local_task_create lane missing commit route")
+    if local_task_capability.get("rank") != 5:
+        failures.append("local_task_create authority capability must remain rank 5")
+    expected_fields = {
+        "authority_domain_ref": LOCAL_TASK_AUTHORITY_DOMAIN_REF,
+        "authority_capability_ref": LOCAL_TASK_AUTHORITY_CAPABILITY_REF,
+        "required_mode_ref": LOCAL_TASK_AUTHORITY_MODE_REF,
+        "active_lease_required": True,
+        "exact_approval_required": True,
+        "idempotency_required": True,
+        "receipts_required": True,
+        "audit_required": True,
+        "redaction_required": True,
+    }
+    for field, expected in expected_fields.items():
+        if local_task_capability.get(field) != expected:
+            failures.append(
+                "local_task_create authority capability "
+                f"{field} drifted from {expected!r}"
+            )
+    if LOCAL_TASK_COMMIT_ROUTE not in set(
+        local_task_capability.get("backend_routes", [])
+    ):
+        failures.append("local_task_create authority capability missing commit route")
 
 
 def _validate_active_docs(root: Path, failures: list[str]) -> None:

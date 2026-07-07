@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import scripts.verify_fcc_inbox_001_approval_envelope_ux as verifier
@@ -60,12 +61,37 @@ def test_action_inbox_read_model_exposes_backend_owned_envelope_and_receipts(
 
 
 def test_action_inbox_maturity_rank_remains_bounded() -> None:
-    manifest = (
-        ROOT / "docs/control_center/operational_maturity_manifest.json"
-    ).read_text(encoding="utf-8")
+    manifest = json.loads(
+        (ROOT / "docs/control_center/operational_maturity_manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    action_inbox = next(
+        module
+        for module in manifest["modules"]
+        if module["module_id"] == "action_inbox"
+    )
+    local_task_capability = next(
+        capability
+        for capability in action_inbox["authority_capabilities"]
+        if capability["capability_id"] == verifier.LOCAL_TASK_AUTHORITY_CAPABILITY_ID
+    )
 
-    assert '"module_id": "action_inbox"' in manifest
-    assert '"current_rank": 3' in manifest
-    assert '"lane_id": "local_task_create"' in manifest
-    assert '"rank": 5' in manifest
-    assert verifier.VERIFIER_REF in manifest
+    assert action_inbox["current_rank"] == 3
+    assert local_task_capability["rank"] == 5
+    assert local_task_capability["legacy_lane_id"] == "local_task_create"
+    assert (
+        local_task_capability["authority_domain_ref"]
+        == verifier.LOCAL_TASK_AUTHORITY_DOMAIN_REF
+    )
+    assert (
+        local_task_capability["authority_capability_ref"]
+        == verifier.LOCAL_TASK_AUTHORITY_CAPABILITY_REF
+    )
+    assert (
+        local_task_capability["required_mode_ref"]
+        == verifier.LOCAL_TASK_AUTHORITY_MODE_REF
+    )
+    assert local_task_capability["active_lease_required"] is True
+    assert local_task_capability["exact_approval_required"] is True
+    assert verifier.VERIFIER_REF in action_inbox["verifier_refs"]
