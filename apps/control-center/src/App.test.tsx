@@ -1219,6 +1219,13 @@ function backendOwnedWorkBoardFixture(overrides: Record<string, unknown> = {}) {
     card_create_route_available: true,
     card_create_route_ref: "POST /control-center/work-board/cards",
     latest_card_create_receipt_ref: null,
+    local_task_records: [],
+    local_task_create_enabled: true,
+    local_task_create_contract_available: true,
+    approval_required_for_task_create: true,
+    task_create_route_available: true,
+    task_create_route_ref: "POST /control-center/work-board/tasks",
+    latest_task_create_receipt_ref: null,
     issue_tracker_write_enabled: false,
     connector_write_enabled: false,
     shell_subprocess_execution_enabled: false,
@@ -2570,6 +2577,12 @@ describe("Web Control Center shell", () => {
       ).toBeInTheDocument();
       expect(
         within(board).getByText("GET /control-center/work-board"),
+      ).toBeInTheDocument();
+      expect(
+        within(board).getByText("POST /control-center/work-board/tasks"),
+      ).toBeInTheDocument();
+      expect(
+        within(board).getByRole("button", { name: "Record local task" }),
       ).toBeInTheDocument();
       expect(
         within(board).getByText("scripts/dev/uaa_work_board.py inspect-board"),
@@ -15790,6 +15803,12 @@ describe("Web Control Center shell", () => {
     );
     expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterWorkBoard)).toBe(
       true,
+    );
+    expect(API_ENDPOINTS.controlCenterWorkBoardTasks).toBe(
+      "/control-center/work-board/tasks",
+    );
+    expect(isAllowedReadEndpoint(API_ENDPOINTS.controlCenterWorkBoardTasks)).toBe(
+      false,
     );
     expect(chatTurnReceiptEndpoint("chat-turn:test")).toBe(
       "/control-center/chat/turns/chat-turn%3Atest/receipt",

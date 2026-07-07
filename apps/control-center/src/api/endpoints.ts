@@ -33,6 +33,7 @@ export const API_ENDPOINTS = {
   controlCenterWorkBoard: "/control-center/work-board",
   controlCenterWorkBoardCards: "/control-center/work-board/cards",
   controlCenterWorkBoardReorder: "/control-center/work-board/reorder",
+  controlCenterWorkBoardTasks: "/control-center/work-board/tasks",
   controlCenterProofIndex: "/control-center/proof/index",
   trustAuthorityMatrix: "/control-center/trust-authority/matrix",
   founderTodayActionEnvelope: "/control-center/today/action-envelope",

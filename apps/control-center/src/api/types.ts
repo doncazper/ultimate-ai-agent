@@ -1392,6 +1392,17 @@ export interface WorkBoardCardCreateRequest {
   metadata_refs?: string[];
 }
 
+export interface WorkBoardTaskCreateRequest {
+  board_ref?: string;
+  decision?: "approve";
+  approval_ref?: string;
+  exact_scope_ref?: string;
+  action_envelope_ref?: string;
+  decision_reason_ref: string;
+  card_ref: string;
+  metadata_refs?: string[];
+}
+
 export interface WorkBoardReorderReceipt {
   schema_version: "uaa-work-board-reorder-receipt.v1";
   contract_ref: string;
@@ -1461,6 +1472,63 @@ export interface WorkBoardCardCreateReceipt {
   production_authority_enabled: boolean;
 }
 
+export interface WorkBoardTaskCreateReceipt {
+  schema_version: "uaa-work-board-task-create-receipt.v1";
+  contract_ref: string;
+  board_ref: string;
+  receipt_ref: string;
+  status: "applied" | "replayed";
+  card_ref: string;
+  local_task_ref: string;
+  approval_ref: string;
+  approval_decision_ref: string;
+  approval_validation_ref: string;
+  exact_scope_ref: string;
+  action_envelope_ref: string;
+  idempotency_ref: string;
+  payload_fingerprint_ref: string;
+  safe_disable_ref: string;
+  rollback_ref: string;
+  proof_ref: string;
+  evidence_ref: string;
+  route_ref: string;
+  applied_at_ref: string;
+  safe_summary: string;
+  replayed: boolean;
+  raw_paths_included: boolean;
+  raw_content_included: boolean;
+  task_execution_performed: boolean;
+  issue_tracker_write_performed: boolean;
+  connector_write_performed: boolean;
+  provider_model_call_performed: boolean;
+  shell_subprocess_execution_performed: boolean;
+  browser_automation_performed: boolean;
+  background_autonomy_performed: boolean;
+  production_authority_enabled: boolean;
+}
+
+export interface WorkBoardLocalTaskReadModel {
+  local_task_ref: string;
+  card_ref: string;
+  title: string;
+  safe_summary: string;
+  status: "local_task_recorded";
+  receipt_ref: string;
+  proof_refs: string[];
+  evidence_refs: string[];
+  blocker_refs: string[];
+  cli_inspection_refs: string[];
+  raw_path_included: boolean;
+  raw_content_included: boolean;
+  task_execution_enabled: boolean;
+  issue_tracker_write_enabled: boolean;
+  connector_write_enabled: boolean;
+  shell_subprocess_execution_enabled: boolean;
+  browser_automation_enabled: boolean;
+  background_autonomy_enabled: boolean;
+  production_authority_enabled: boolean;
+}
+
 export interface WorkBoardDragDropPostureReadModel {
   posture_ref: string;
   safe_summary: string;
@@ -1498,6 +1566,7 @@ export interface WorkBoardReadModel {
   full_strength_goal: string;
   columns: WorkBoardColumnReadModel[];
   cards: WorkBoardCardReadModel[];
+  local_task_records: WorkBoardLocalTaskReadModel[];
   blocked_lanes: WorkBoardBlockedLaneReadModel[];
   drag_drop_posture: WorkBoardDragDropPostureReadModel;
   proof_refs: string[];
@@ -1524,6 +1593,12 @@ export interface WorkBoardReadModel {
   card_create_route_available: boolean;
   card_create_route_ref: string;
   latest_card_create_receipt_ref: string | null;
+  local_task_create_enabled: boolean;
+  local_task_create_contract_available: boolean;
+  approval_required_for_task_create: boolean;
+  task_create_route_available: boolean;
+  task_create_route_ref: string;
+  latest_task_create_receipt_ref: string | null;
   issue_tracker_write_enabled: boolean;
   connector_write_enabled: boolean;
   shell_subprocess_execution_enabled: boolean;

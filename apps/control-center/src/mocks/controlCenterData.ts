@@ -70,7 +70,7 @@ import type {
 type EvidenceHistoryKey = keyof FounderLoopEvidenceHistoryAnswers;
 
 export const MOCK_OPENAPI_ROUTE_COUNT = 236;
-export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 89;
+export const MOCK_CONTROL_CENTER_ROUTE_COUNT = 90;
 
 function runtimeToolRegistryEntry(
   slug: string,
@@ -11154,6 +11154,7 @@ export const mockWorkBoard: WorkBoardReadModel = {
       ["coding", "cockpit"],
     ),
   ],
+  local_task_records: [],
   blocked_lanes: [
     {
       lane_ref: "blocked-lane:work-board-mock-fallback-persistence",
@@ -11228,6 +11229,12 @@ export const mockWorkBoard: WorkBoardReadModel = {
   card_create_route_available: false,
   card_create_route_ref: "POST /control-center/work-board/cards",
   latest_card_create_receipt_ref: null,
+  local_task_create_enabled: false,
+  local_task_create_contract_available: false,
+  approval_required_for_task_create: true,
+  task_create_route_available: false,
+  task_create_route_ref: "POST /control-center/work-board/tasks",
+  latest_task_create_receipt_ref: null,
   issue_tracker_write_enabled: false,
   connector_write_enabled: false,
   shell_subprocess_execution_enabled: false,

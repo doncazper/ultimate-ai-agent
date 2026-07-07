@@ -686,6 +686,9 @@ CONTROL_CENTER_WORK_BOARD_REORDER_PATHS = {
 CONTROL_CENTER_WORK_BOARD_CARD_CREATE_PATHS = {
     "/control-center/work-board/cards",
 }
+CONTROL_CENTER_WORK_BOARD_TASK_CREATE_PATHS = {
+    "/control-center/work-board/tasks",
+}
 CONTROL_CENTER_WEB_EVIDENCE_PRODUCT_SLICE_PATHS = {
     "/control-center/web-evidence/attach",
 }
@@ -1056,6 +1059,14 @@ def route_classification_for_path(
         return (
             ApiRouteClassification.mutating_requires_authority,
             "Work Board local card-create authority route; exact local approval, idempotency, safe card refs, receipt, rollback-readiness, and safe-disable posture required while archive, assignment, issue tracker, connector, shell, browser, background, and production authority remain blocked",
+        )
+    if (
+        normalized_method == "POST"
+        and path in CONTROL_CENTER_WORK_BOARD_TASK_CREATE_PATHS
+    ):
+        return (
+            ApiRouteClassification.mutating_requires_authority,
+            "Work Board local task-record authority route; exact local approval, Workspace/write AuthorityLease, idempotency, safe task refs, receipt, rollback-readiness, and safe-disable posture required while task execution, archive, assignment, issue tracker, connector, shell, browser, background, and production authority remain blocked",
         )
     if normalized_method == "POST" and path in CONTROL_CENTER_MEMORY_FEEDBACK_PATHS:
         return (

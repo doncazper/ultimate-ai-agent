@@ -6,7 +6,11 @@ import type {
   WorkBoardColumnReadModel,
   WorkBoardReadModel,
 } from "../api/types";
-import { createWorkBoardCard, persistWorkBoardOrder } from "../api/client";
+import {
+  createWorkBoardCard,
+  createWorkBoardTask,
+  persistWorkBoardOrder,
+} from "../api/client";
 import { SafeAlert } from "./SafeAlert";
 import { NorthStarIcon } from "./NorthStarIcon";
 
@@ -40,11 +44,15 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
   );
   const [isPersisting, setIsPersisting] = useState(false);
   const [isCreatingCard, setIsCreatingCard] = useState(false);
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [lastReceiptRef, setLastReceiptRef] = useState(
     board.latest_reorder_receipt_ref ?? "",
   );
   const [lastCardCreateReceiptRef, setLastCardCreateReceiptRef] = useState(
     board.latest_card_create_receipt_ref ?? "",
+  );
+  const [lastTaskCreateReceiptRef, setLastTaskCreateReceiptRef] = useState(
+    board.latest_task_create_receipt_ref ?? "",
   );
   const [selectedCardRef, setSelectedCardRef] = useState(
     board.cards[0]?.card_ref ?? "",
@@ -62,6 +70,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
     setLayout(nextLayout);
     setLastReceiptRef(board.latest_reorder_receipt_ref ?? "");
     setLastCardCreateReceiptRef(board.latest_card_create_receipt_ref ?? "");
+    setLastTaskCreateReceiptRef(board.latest_task_create_receipt_ref ?? "");
     setSelectedCardRef(board.cards[0]?.card_ref ?? "");
     setNotice(board.drag_drop_posture.safe_summary);
     setSelectedBlockedLaneRef(board.blocked_lanes[0]?.lane_ref ?? "");
@@ -73,6 +82,7 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
     board.drag_drop_posture.safe_summary,
     board.latest_card_create_receipt_ref,
     board.latest_reorder_receipt_ref,
+    board.latest_task_create_receipt_ref,
   ]);
 
   const cards = useMemo(
@@ -147,6 +157,17 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
     board.approval_required_for_card_create &&
     board.card_create_route_available &&
     board.card_create_route_ref.length > 0;
+  const selectedCardIsBackendOwned =
+    selectedCard !== undefined &&
+    board.cards.some((card) => card.card_ref === selectedCard.card_ref);
+  const canCreateTask =
+    backendOwned &&
+    selectedCardIsBackendOwned &&
+    board.local_task_create_enabled &&
+    board.local_task_create_contract_available &&
+    board.approval_required_for_task_create &&
+    board.task_create_route_available &&
+    board.task_create_route_ref.length > 0;
 
   function moveCard(
     cardRef: string,
@@ -303,6 +324,37 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
       );
     } finally {
       setIsCreatingCard(false);
+    }
+  }
+
+  async function createLocalTaskRecord() {
+    if (!canCreateTask || !selectedCard) {
+      openBlockedLane();
+      return;
+    }
+    setIsCreatingTask(true);
+    try {
+      const idempotencyRef = `idempotency-ref:work-board-task-create-${Date.now()}`;
+      const receipt = await createWorkBoardTask(
+        {
+          decision_reason_ref: "decision-reason-ref:work-board-ui-task-create",
+          card_ref: selectedCard.card_ref,
+          metadata_refs: ["metadata-ref:work-board-ui-task-create"],
+        },
+        idempotencyRef,
+      );
+      setLastTaskCreateReceiptRef(receipt.receipt_ref);
+      setNotice(
+        `Exact approved local task record persisted with receipt ${receipt.receipt_ref}. Refresh the board to load ${receipt.local_task_ref}.`,
+      );
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Work Board local task record could not reach the local backend route.",
+      );
+    } finally {
+      setIsCreatingTask(false);
     }
   }
 
@@ -548,8 +600,12 @@ export function WorkBoardPanel({ authoritative, board }: WorkBoardPanelProps) {
             backendOwned={backendOwned}
             board={board}
             card={selectedCard}
+            canCreateTask={canCreateTask}
+            createLocalTaskRecord={createLocalTaskRecord}
+            isCreatingTask={isCreatingTask}
             lastCardCreateReceiptRef={lastCardCreateReceiptRef}
             lastReceiptRef={lastReceiptRef}
+            lastTaskCreateReceiptRef={lastTaskCreateReceiptRef}
             openBlockedLane={openBlockedLane}
             selectedBlockedLane={selectedBlockedLane}
           />
@@ -803,8 +859,12 @@ function WorkBoardInspector({
   backendOwned,
   board,
   card,
+  canCreateTask,
+  createLocalTaskRecord,
+  isCreatingTask,
   lastCardCreateReceiptRef,
   lastReceiptRef,
+  lastTaskCreateReceiptRef,
   openBlockedLane,
   selectedBlockedLane,
 }: {
@@ -812,8 +872,12 @@ function WorkBoardInspector({
   backendOwned: boolean;
   board: WorkBoardReadModel;
   card?: WorkBoardCardReadModel;
+  canCreateTask: boolean;
+  createLocalTaskRecord: () => void;
+  isCreatingTask: boolean;
   lastCardCreateReceiptRef: string;
   lastReceiptRef: string;
+  lastTaskCreateReceiptRef: string;
   openBlockedLane: (laneRef?: string) => void;
   selectedBlockedLane?: WorkBoardReadModel["blocked_lanes"][number];
 }) {
@@ -845,7 +909,20 @@ function WorkBoardInspector({
             {lastCardCreateReceiptRef ||
               "receipt-ref:work-board-card-create:not-yet-recorded"}
           </span>
+          <span>{board.task_create_route_ref}</span>
+          <span>
+            {lastTaskCreateReceiptRef ||
+              "receipt-ref:work-board-task-create:not-yet-recorded"}
+          </span>
         </div>
+        <button
+          disabled={!canCreateTask || isCreatingTask}
+          onClick={createLocalTaskRecord}
+          type="button"
+        >
+          <NorthStarIcon name="check-circle" />
+          {isCreatingTask ? "Recording task" : "Record local task"}
+        </button>
         <button onClick={() => openBlockedLane()} type="button">
           <NorthStarIcon name="lock" />
           Show external lanes

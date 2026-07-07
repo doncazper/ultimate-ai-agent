@@ -186,7 +186,7 @@ FORBIDDEN_ENDPOINTS = [
 FORBIDDEN_ENDPOINT_BOUNDARY = re.compile(
     r"(?:/(?=$|[\"'`\s?#),;}])|(?=$|[\"'`\s?#),;}]))"
 )
-MAX_SCOPED_FRONTEND_POST_HELPERS = 20
+MAX_SCOPED_FRONTEND_POST_HELPERS = 21
 
 DANGEROUS_BUTTON_LABELS = [
     "Approve",

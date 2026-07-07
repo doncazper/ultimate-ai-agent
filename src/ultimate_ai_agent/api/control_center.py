@@ -28,8 +28,10 @@ from ultimate_ai_agent.core.control_center.work_board import (
     WorkBoardReorderRequest,
     WorkBoardStateStore,
     WorkBoardStorageConflictError,
+    WorkBoardTaskCreateRequest,
     prepare_work_board_card_create_approval,
     prepare_work_board_reorder_approval,
+    prepare_work_board_task_create_approval,
 )
 from ultimate_ai_agent.core.code import (
     build_coding_cockpit_session_seed,
@@ -634,6 +636,110 @@ def post_control_center_work_board_card_create(
     return ResultEnvelope(
         success=True,
         operation="control_center_work_board_card_create",
+        service="ControlCenterWorkBoardAPI",
+        trace_id=receipt.receipt_ref,
+        data=receipt.model_dump(mode="json"),
+        evidence=[{"evidence_ref": receipt.evidence_ref}],
+        redactions_applied=[
+            "safe_refs_only",
+            "receipt_refs_only",
+            "raw_content_omitted",
+        ],
+    )
+
+
+@router.post("/work-board/tasks", response_model=ResultEnvelope)
+def post_control_center_work_board_task_create(
+    request: WorkBoardTaskCreateRequest,
+    x_uaa_idempotency_key: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_KEY_HEADER,
+    ),
+    x_uaa_idempotency_ref: str | None = Header(
+        default=None,
+        alias=IDEMPOTENCY_REF_HEADER,
+    ),
+) -> ResultEnvelope:
+    idempotency_ref = _work_board_idempotency_ref(
+        x_uaa_idempotency_key,
+        x_uaa_idempotency_ref,
+    )
+    base_board = build_work_board_read_model()
+    try:
+        receipt = WorkBoardStateStore().persist_task_create(
+            request,
+            columns=base_board.columns,
+            cards=base_board.cards,
+            idempotency_ref=idempotency_ref,
+        )
+    except WorkBoardStorageConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": str(exc) or "WORK_BOARD_TASK_CREATE_IDEMPOTENCY_CONFLICT",
+                "safe_message": (
+                    "The Work Board task create idempotency ref already exists "
+                    "with a different safe card payload, or the card already has "
+                    "a local task record."
+                ),
+            },
+        ) from exc
+    except WorkBoardApprovalError as exc:
+        required_refs = dict(exc.required_refs)
+        if not required_refs:
+            try:
+                approval_preview = prepare_work_board_task_create_approval(
+                    request,
+                    cards=base_board.cards,
+                    idempotency_ref=idempotency_ref,
+                )
+                required_refs = {
+                    "approval_ref": approval_preview.expected_approval_ref,
+                    "exact_scope_ref": approval_preview.exact_scope_ref,
+                    "action_envelope_ref": approval_preview.action_envelope_ref,
+                    "local_task_ref": approval_preview.local_task_ref,
+                }
+            except ValueError:
+                required_refs = {}
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "WORK_BOARD_TASK_CREATE_APPROVAL_DENIED",
+                "safe_message": (
+                    "Work Board task create requires an exact approved approval "
+                    "ref, scope ref, and action envelope before local task record "
+                    "persistence."
+                ),
+                "reason_refs": exc.reason_refs,
+                "required_refs": required_refs,
+            },
+        ) from exc
+    except WorkBoardAuthorityError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "WORK_BOARD_TASK_CREATE_AUTHORITY_DENIED",
+                "safe_message": (
+                    "Work Board task create requires an active AuthorityLease "
+                    "granting Workspace write after exact approval validates. "
+                    "It only records a local task ref; no execution or external "
+                    "sync is performed."
+                ),
+                "reason_refs": exc.reason_refs,
+                "required_refs": dict(exc.required_refs),
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "WORK_BOARD_TASK_CREATE_UNSAFE_INPUT",
+                "safe_message": "The Work Board task create request contains unsafe refs.",
+            },
+        ) from exc
+    return ResultEnvelope(
+        success=True,
+        operation="control_center_work_board_task_create",
         service="ControlCenterWorkBoardAPI",
         trace_id=receipt.receipt_ref,
         data=receipt.model_dump(mode="json"),

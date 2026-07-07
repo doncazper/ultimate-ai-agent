@@ -119,6 +119,8 @@ import type {
   WorkBoardReadModel,
   WorkBoardReorderReceipt,
   WorkBoardReorderRequest,
+  WorkBoardTaskCreateReceipt,
+  WorkBoardTaskCreateRequest,
 } from "./types";
 import { resolveApiBaseUrl } from "./baseUrl";
 import {
@@ -955,6 +957,11 @@ export async function loadControlCenterData(): Promise<ControlCenterData> {
     workBoard.approval_required_for_card_create !== true ||
     workBoard.card_create_route_available !== true ||
     typeof workBoard.card_create_route_ref !== "string" ||
+    workBoard.local_task_create_enabled !== true ||
+    workBoard.local_task_create_contract_available !== true ||
+    workBoard.approval_required_for_task_create !== true ||
+    workBoard.task_create_route_available !== true ||
+    typeof workBoard.task_create_route_ref !== "string" ||
     workBoard.drag_drop_posture?.durable_reorder_enabled !== true ||
     workBoard.drag_drop_posture?.backend_mutation_route_available !== true ||
     workBoard.drag_drop_posture?.approval_required !== true;
@@ -2746,6 +2753,42 @@ export async function createWorkBoardCard(
         extractErrorMessage(
           data,
           "Work Board card create was not persisted; inspect blocked refs.",
+        ),
+      ),
+    );
+  }
+  return receipt;
+}
+
+export async function createWorkBoardTask(
+  request: WorkBoardTaskCreateRequest,
+  idempotencyRef: string,
+): Promise<WorkBoardTaskCreateReceipt> {
+  if (!API_BASE_POLICY.allowed) {
+    throw new Error(API_BASE_POLICY.safeMessage);
+  }
+  const response = await fetch(
+    `${API_BASE_POLICY.baseUrl}${API_ENDPOINTS.controlCenterWorkBoardTasks}`,
+    {
+      method: "POST",
+      headers: withLocalApiAuthHeaders({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-UAA-Idempotency-Key": idempotencyRef,
+      }),
+      body: JSON.stringify(request),
+    },
+  );
+  const data = (await readJsonSafely(
+    response,
+  )) as ResultEnvelope<WorkBoardTaskCreateReceipt>;
+  const receipt = data.result ?? data.data;
+  if (!response.ok || !receipt) {
+    throw new Error(
+      sanitizeForDisplay(
+        extractErrorMessage(
+          data,
+          "Work Board task record was not persisted; inspect blocked refs.",
         ),
       ),
     );

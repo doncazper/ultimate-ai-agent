@@ -2,7 +2,7 @@
 
 Current active baseline: **v0.104.0**
 
-Current OpenAPI path count: `241`.
+Current OpenAPI path count: `242`.
 
 The API route inventory is generated from FastAPI route metadata and exposed by
 `/api/manifest`. The manifest route count is the authoritative current count.
@@ -45,7 +45,7 @@ Current route classification summary:
 | `public_metadata` | 3 |
 | `local_readonly` | 27 |
 | `local_sensitive` | 165 |
-| `mutating_requires_authority` | 46 |
+| `mutating_requires_authority` | 48 |
 
 Allowed current side-effect classes are:
 
@@ -534,6 +534,9 @@ authority.
 - `GET /control-center/storage/status`
 - `POST /control-center/web-evidence/attach`
 - `GET /control-center/work-board`
+- `POST /control-center/work-board/reorder`
+- `POST /control-center/work-board/cards`
+- `POST /control-center/work-board/tasks`
 
 These routes expose storage-backed Founder Loop v1 summaries for Today, Action
 Inbox, Memory Review, Morning Briefing, local storage status, Action Inbox
@@ -545,8 +548,9 @@ loop summary, FCC-MEM-022 feedback receipts, observation-candidate previews,
 probe index summaries, contradiction previews, and one allowlisted
 WebAccessGateway web evidence preview receipt path. The Work Board route
 exposes backend-owned Kanban safe refs, local preview posture, blocked
-mutation refs, proof refs, and CLI inspection refs only; drag/drop remains
-presentation preview and creates no durable board order.
+mutation refs, proof refs, exact approved reorder/local-card-create/local-task
+receipt refs, and CLI inspection refs only; drag/drop remains presentation
+preview until persisted through an exact approval-bound Work Board route.
 Action decision routes record backend-owned
 approve/edit/reject/defer state, validate exact approval scope for approve where
 required, handle idempotency replay/conflict locally, and return safe receipt
