@@ -5,6 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionCatalogEntry,
     AuthorityDomain,
     build_authority_state_read_model,
 )
@@ -111,6 +112,12 @@ TrustAuthorityDomainCoverageStatus = Literal[
     "partial",
     "planned",
     "unknown",
+]
+TrustAuthorityDecisionOutcome = Literal[
+    "allow",
+    "ask",
+    "deny",
+    "degrade_to_draft",
 ]
 
 _DENIED_FLAGS = (
@@ -346,6 +353,14 @@ class TrustAuthorityCapabilityCatalogEntry(BaseModel):
     safe_disable_refs: list[str] = Field(default_factory=list)
     rollback_refs: list[str] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list)
+    authority_state_catalog_ref: str | None = None
+    authority_state_mapping_ref: str | None = None
+    authority_state_decision_ref: str | None = None
+    authority_state_decision_outcome: TrustAuthorityDecisionOutcome | None = None
+    authority_state_status: str | None = Field(default=None, max_length=80)
+    authority_state_operator_message: str | None = Field(default=None, max_length=520)
+    authority_state_reason_refs: list[str] = Field(default_factory=list)
+    unsupported_adapter_refs: list[str] = Field(default_factory=list)
     safe_summary: str = Field(..., min_length=1, max_length=520)
     safe_refs_only: bool = True
     control_center_grants_authority: bool = False
@@ -365,12 +380,33 @@ class TrustAuthorityCapabilityCatalogEntry(BaseModel):
             ],
             "authority_capability_catalog_refs",
         )
+        for value, field_name in (
+            (self.authority_state_catalog_ref, "authority_state_catalog_ref"),
+            (self.authority_state_mapping_ref, "authority_state_mapping_ref"),
+            (self.authority_state_decision_ref, "authority_state_decision_ref"),
+        ):
+            if value is not None:
+                validate_execution_ref(value, field_name)
         for field_name in (
             "label",
             "required_authority_mode",
             "safe_summary",
         ):
             validate_safe_execution_text(str(getattr(self, field_name)), field_name)
+        if self.authority_state_decision_outcome is not None:
+            validate_safe_execution_text(
+                self.authority_state_decision_outcome,
+                "authority_state_decision_outcome",
+            )
+        for value, field_name in (
+            (self.authority_state_status, "authority_state_status"),
+            (
+                self.authority_state_operator_message,
+                "authority_state_operator_message",
+            ),
+        ):
+            if value is not None:
+                validate_safe_execution_text(value, field_name)
         _validate_text_list(self.route_refs, "route_refs")
         _validate_ref_list(self.proof_refs, "proof_refs")
         _validate_text_list(self.verifier_refs, "verifier_refs")
@@ -378,6 +414,19 @@ class TrustAuthorityCapabilityCatalogEntry(BaseModel):
         _validate_ref_list(self.safe_disable_refs, "safe_disable_refs")
         _validate_ref_list(self.rollback_refs, "rollback_refs")
         _validate_ref_list(self.blocked_authority_refs, "blocked_authority_refs")
+        _validate_ref_list(
+            self.authority_state_reason_refs,
+            "authority_state_reason_refs",
+        )
+        _validate_ref_list(self.unsupported_adapter_refs, "unsupported_adapter_refs")
+        if self.authority_state_mapping_ref is None and (
+            self.authority_state_catalog_ref is not None
+            or self.authority_state_decision_ref is not None
+            or self.authority_state_decision_outcome is not None
+            or self.authority_state_reason_refs
+            or self.unsupported_adapter_refs
+        ):
+            raise ValueError("Trust authority decision fields require mapping ref")
         if (
             not self.active_lease_required
             or not self.unknown_authority_denied
@@ -1444,8 +1493,10 @@ def _authority_capability_catalog(
     lanes: list[TrustAuthorityLane],
 ) -> list[TrustAuthorityCapabilityCatalogEntry]:
     entries: list[TrustAuthorityCapabilityCatalogEntry] = []
+    authority_state_decisions = _authority_state_decisions_by_lane_suffix()
     for lane in lanes:
         lane_suffix = _lane_suffix(lane.lane_ref)
+        authority_state_entry = authority_state_decisions.get(lane_suffix)
         domain_suffix = lane.authority_domain_ref.removeprefix(
             "authority-domain-ref:"
         )
@@ -1475,15 +1526,89 @@ def _authority_capability_catalog(
                 safe_disable_refs=list(lane.safe_disable_refs),
                 rollback_refs=list(lane.rollback_refs),
                 blocked_authority_refs=list(lane.blocked_authority_refs),
-                safe_summary=(
-                    f"{lane.label} is represented as an AuthorityLease "
-                    f"{domain_suffix}/{capability_suffix} capability. Unknown "
-                    "authority remains denied; an active matching lease is "
-                    "required before any non-read effect."
+                authority_state_catalog_ref=(
+                    authority_state_entry.catalog_ref
+                    if authority_state_entry is not None
+                    else None
+                ),
+                authority_state_mapping_ref=(
+                    authority_state_entry.lane_ref
+                    if authority_state_entry is not None
+                    else None
+                ),
+                authority_state_decision_ref=(
+                    authority_state_entry.decision.decision_ref
+                    if authority_state_entry is not None
+                    else None
+                ),
+                authority_state_decision_outcome=(
+                    _enum_value(authority_state_entry.decision.outcome)
+                    if authority_state_entry is not None
+                    else None
+                ),
+                authority_state_status=(
+                    authority_state_entry.status
+                    if authority_state_entry is not None
+                    else None
+                ),
+                authority_state_operator_message=(
+                    authority_state_entry.decision.operator_message
+                    if authority_state_entry is not None
+                    else None
+                ),
+                authority_state_reason_refs=(
+                    list(authority_state_entry.decision.reason_refs)
+                    if authority_state_entry is not None
+                    else []
+                ),
+                unsupported_adapter_refs=(
+                    list(authority_state_entry.unsupported_adapter_refs)
+                    if authority_state_entry is not None
+                    else []
+                ),
+                safe_summary=_authority_capability_catalog_summary(
+                    lane=lane,
+                    domain_suffix=domain_suffix,
+                    capability_suffix=capability_suffix,
+                    authority_state_entry=authority_state_entry,
                 ),
             )
         )
     return entries
+
+
+def _authority_state_decisions_by_lane_suffix() -> dict[
+    str,
+    AuthorityDecisionCatalogEntry,
+]:
+    authority_state = build_authority_state_read_model(active_leases=[])
+    return {
+        entry.lane_ref.removeprefix("lane-ref:").replace("_", "-"): entry
+        for entry in authority_state.decision_catalog
+        if _is_visible_trust_authority_ref(entry.lane_ref)
+    }
+
+
+def _authority_capability_catalog_summary(
+    *,
+    lane: TrustAuthorityLane,
+    domain_suffix: str,
+    capability_suffix: str,
+    authority_state_entry: AuthorityDecisionCatalogEntry | None,
+) -> str:
+    base = (
+        f"{lane.label} is represented as an AuthorityLease "
+        f"{domain_suffix}/{capability_suffix} capability. Unknown authority "
+        "remains denied; an active matching lease is required before any "
+        "non-read effect."
+    )
+    if authority_state_entry is None:
+        return base
+    outcome = _enum_value(authority_state_entry.decision.outcome)
+    return (
+        f"{base} AuthorityState currently evaluates the mapped capability "
+        f"as {outcome}."
+    )
 
 
 def _lane(

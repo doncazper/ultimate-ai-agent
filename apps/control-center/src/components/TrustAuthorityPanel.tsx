@@ -229,6 +229,22 @@ function CapabilityCatalogPanel({
                 value={row.active_lease_required ? "required" : "missing"}
               />
               <DetailTerm
+                label="Policy"
+                value={
+                  row.authority_state_decision_outcome
+                    ? formatTrustLabel(row.authority_state_decision_outcome)
+                    : "unmapped"
+                }
+              />
+              <DetailTerm
+                label="State"
+                value={
+                  row.authority_state_status
+                    ? formatTrustLabel(row.authority_state_status)
+                    : "unmapped"
+                }
+              />
+              <DetailTerm
                 label="Unknown"
                 value={row.unknown_authority_denied ? "denied" : "allowed"}
               />
@@ -237,9 +253,25 @@ function CapabilityCatalogPanel({
                 value={row.execution_claimed ? "claimed" : "not claimed"}
               />
             </div>
+            {row.authority_state_operator_message ? (
+              <p className="muted">{row.authority_state_operator_message}</p>
+            ) : null}
             <RefGroup
               title="Catalog and source"
               refs={[row.catalog_ref, row.source_lane_ref]}
+            />
+            <RefGroup
+              title="AuthorityState decision"
+              refs={[
+                row.authority_state_catalog_ref,
+                row.authority_state_mapping_ref,
+                row.authority_state_decision_ref,
+                ...row.authority_state_reason_refs,
+              ].filter((ref): ref is string => Boolean(ref))}
+            />
+            <RefGroup
+              title="Unsupported adapters"
+              refs={row.unsupported_adapter_refs}
             />
             <RefGroup
               title="AuthorityLease requirement"

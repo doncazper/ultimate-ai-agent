@@ -8576,6 +8576,15 @@ const TRUST_AUTHORITY_CAPABILITY_CATALOG_ARRAYS = [
   "safe_disable_refs",
   "rollback_refs",
   "blocked_authority_refs",
+  "authority_state_reason_refs",
+  "unsupported_adapter_refs",
+] as const;
+
+const TRUST_AUTHORITY_DECISION_OUTCOMES = [
+  "allow",
+  "ask",
+  "deny",
+  "degrade_to_draft",
 ] as const;
 
 const TRUST_AUTHORITY_STATES = [
@@ -8668,7 +8677,8 @@ function isSafeTrustAuthorityLane(value: unknown): boolean {
     hasExpectedTrustTier(value) &&
     (value.tier < 4 ||
       value.authority_state === "blocked" ||
-      value.authority_state === "approval_required") &&
+      value.authority_state === "approval_required" ||
+      value.authority_state === "planned") &&
     typeof value.authority_state_label === "string" &&
     typeof value.operator_posture === "string" &&
     typeof value.current_posture === "string" &&
@@ -8782,6 +8792,12 @@ function isSafeTrustAuthorityCapabilityCatalogEntry(value: unknown): boolean {
   if (!isPlainRecord(value)) {
     return false;
   }
+  const authorityStateCatalogRef = value.authority_state_catalog_ref;
+  const authorityStateMappingRef = value.authority_state_mapping_ref;
+  const authorityStateDecisionRef = value.authority_state_decision_ref;
+  const authorityStateDecisionOutcome = value.authority_state_decision_outcome;
+  const authorityStateStatus = value.authority_state_status;
+  const authorityStateOperatorMessage = value.authority_state_operator_message;
   return (
     typeof value.catalog_ref === "string" &&
     value.catalog_ref.startsWith("authority-capability-catalog-ref:") &&
@@ -8806,10 +8822,37 @@ function isSafeTrustAuthorityCapabilityCatalogEntry(value: unknown): boolean {
     stringArray(value.safe_disable_refs).every(isSafeTrustAuthorityRef) &&
     stringArray(value.rollback_refs).every(isSafeTrustAuthorityRef) &&
     stringArray(value.blocked_authority_refs).every(isSafeTrustAuthorityRef) &&
+    stringArray(value.authority_state_reason_refs).every(isSafeTrustAuthorityRef) &&
+    stringArray(value.unsupported_adapter_refs).every(isSafeTrustAuthorityRef) &&
+    (authorityStateCatalogRef === null ||
+      authorityStateCatalogRef === undefined ||
+      isSafeTrustAuthorityRef(authorityStateCatalogRef)) &&
+    (authorityStateMappingRef === null ||
+      authorityStateMappingRef === undefined ||
+      isSafeTrustAuthorityRef(authorityStateMappingRef)) &&
+    (authorityStateDecisionRef === null ||
+      authorityStateDecisionRef === undefined ||
+      isSafeTrustAuthorityRef(authorityStateDecisionRef)) &&
+    (authorityStateDecisionOutcome === null ||
+      authorityStateDecisionOutcome === undefined ||
+      hasExactStringValue(
+        authorityStateDecisionOutcome,
+        TRUST_AUTHORITY_DECISION_OUTCOMES,
+      )) &&
+    (authorityStateStatus === null ||
+      authorityStateStatus === undefined ||
+      typeof authorityStateStatus === "string") &&
+    (authorityStateOperatorMessage === null ||
+      authorityStateOperatorMessage === undefined ||
+      typeof authorityStateOperatorMessage === "string") &&
     typeof value.safe_summary === "string" &&
     !containsUnsafeTrustText(value.label) &&
     !containsUnsafeTrustText(value.required_authority_mode) &&
     !containsUnsafeTrustText(value.safe_summary) &&
+    (typeof authorityStateStatus !== "string" ||
+      !containsUnsafeTrustText(authorityStateStatus)) &&
+    (typeof authorityStateOperatorMessage !== "string" ||
+      !containsUnsafeTrustText(authorityStateOperatorMessage)) &&
     value.active_lease_required === true &&
     value.unknown_authority_denied === true &&
     value.safe_refs_only === true &&

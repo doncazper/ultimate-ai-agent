@@ -41,6 +41,10 @@ surfaces are:
   projects each legacy Trust row into a governed AuthorityLease capability
   entry with mode, domain, capability, lease requirement, source row,
   safe-disable, rollback, blocked-authority, proof, verifier, API, and CLI refs.
+  When a Trust row maps to an AuthorityState capability mapping, the catalog
+  also exposes the AuthorityState catalog ref, mapping ref, policy decision ref,
+  `allow`/`ask`/`deny`/`degrade_to_draft` outcome, reason refs, status, operator
+  message, and unsupported adapter refs.
   This is the compatibility bridge away from the old lane-promotion product
   concept: operators inspect governed capabilities, not broad allow flags.
 - `GET /api/runtime/authority-state#capability_mappings` has at least one

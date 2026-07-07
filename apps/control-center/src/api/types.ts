@@ -352,6 +352,14 @@ export interface TrustAuthorityCapabilityCatalogEntry {
   safe_disable_refs: string[];
   rollback_refs: string[];
   blocked_authority_refs: string[];
+  authority_state_catalog_ref: string | null;
+  authority_state_mapping_ref: string | null;
+  authority_state_decision_ref: string | null;
+  authority_state_decision_outcome: AuthorityDecisionOutcome | null;
+  authority_state_status: string | null;
+  authority_state_operator_message: string | null;
+  authority_state_reason_refs: string[];
+  unsupported_adapter_refs: string[];
   safe_summary: string;
   safe_refs_only: boolean;
   control_center_grants_authority: boolean;

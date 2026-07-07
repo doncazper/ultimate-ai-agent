@@ -135,6 +135,13 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
     catalog_by_lane = {
         entry.source_lane_ref: entry for entry in parsed.authority_capability_catalog
     }
+    planned_unsupported_lane_refs = (
+        "trust-lane:issue-tracker-sync",
+        "trust-lane:connector-write-low-risk",
+        "trust-lane:browser-low-risk-action",
+        "trust-lane:background-autonomy-scoped",
+        "trust-lane:production-authority-gate",
+    )
     for lane in parsed.lanes:
         entry = catalog_by_lane[lane.lane_ref]
         assert entry.authority_domain_ref == lane.authority_domain_ref
@@ -149,6 +156,24 @@ def test_trust_authority_matrix_explains_available_approval_and_blocked(
         assert entry.safe_refs_only is True
         assert entry.control_center_grants_authority is False
         assert entry.execution_claimed is False
+    for lane_ref in planned_unsupported_lane_refs:
+        expected_mapping_ref = lane_ref.replace("trust-lane:", "lane-ref:")
+        entry = catalog_by_lane[lane_ref]
+        assert entry.authority_state_mapping_ref == expected_mapping_ref
+        assert entry.authority_state_catalog_ref == (
+            "authority-decision-catalog-ref:"
+            f"{lane_ref.removeprefix('trust-lane:')}"
+        )
+        assert entry.authority_state_decision_ref is not None
+        assert entry.authority_state_decision_ref.startswith(
+            "authority-policy-decision-ref:"
+        )
+        assert entry.authority_state_decision_outcome == "deny"
+        assert entry.authority_state_status == "planned_unsupported_adapter"
+        assert "reason-ref:authority:adapter-unsupported" in (
+            entry.authority_state_reason_refs
+        )
+        assert entry.unsupported_adapter_refs
     assert parsed.authority_domain_coverage
     coverage_by_ref = {
         coverage.domain_ref: coverage for coverage in parsed.authority_domain_coverage

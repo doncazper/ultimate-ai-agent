@@ -16328,6 +16328,13 @@ function trustCapabilityCatalogFixture(lanes: TrustFixtureLane[]) {
       /^authority-capability-ref:/,
       "",
     );
+    const hasPlannedUnsupportedAdapter = lane.authority_state === "planned";
+    const authorityStateRef = hasPlannedUnsupportedAdapter
+      ? `lane-ref:${laneSuffix}`
+      : null;
+    const unsupportedAdapterRefs = hasPlannedUnsupportedAdapter
+      ? [`adapter-ref:${laneSuffix}:not-implemented`]
+      : [];
     return {
       catalog_ref: `authority-capability-catalog-ref:${laneSuffix}:${domain}:${capability}`,
       source_lane_ref: lane.lane_ref,
@@ -16347,6 +16354,26 @@ function trustCapabilityCatalogFixture(lanes: TrustFixtureLane[]) {
       safe_disable_refs: [...lane.safe_disable_refs],
       rollback_refs: [...lane.rollback_refs],
       blocked_authority_refs: [...lane.blocked_authority_refs],
+      authority_state_catalog_ref: hasPlannedUnsupportedAdapter
+        ? `authority-decision-catalog-ref:${laneSuffix}`
+        : null,
+      authority_state_mapping_ref: authorityStateRef,
+      authority_state_decision_ref: hasPlannedUnsupportedAdapter
+        ? `authority-policy-decision-ref:${laneSuffix}`
+        : null,
+      authority_state_decision_outcome: hasPlannedUnsupportedAdapter
+        ? "deny"
+        : null,
+      authority_state_status: hasPlannedUnsupportedAdapter
+        ? "planned_unsupported_adapter"
+        : null,
+      authority_state_operator_message: hasPlannedUnsupportedAdapter
+        ? "Fallback planned unsupported adapter remains denied."
+        : null,
+      authority_state_reason_refs: hasPlannedUnsupportedAdapter
+        ? ["reason-ref:authority:adapter-unsupported"]
+        : [],
+      unsupported_adapter_refs: unsupportedAdapterRefs,
       safe_summary: `${lane.label} is represented as an AuthorityLease ${domain}/${capability} capability. Unknown authority remains denied; an active matching lease is required before any non-read effect.`,
       safe_refs_only: true,
       control_center_grants_authority: false,
