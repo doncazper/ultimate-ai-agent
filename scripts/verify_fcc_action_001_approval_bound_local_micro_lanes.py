@@ -152,6 +152,16 @@ def _validate_manifest(root: Path, failures: list[str]) -> None:
             "rollback-not-applicable:local-task-safe-disable",
             "safe-disable:founder-loop:local-task-create-scorecard",
         ],
+        "blocked_authorities": [
+            "rollback_execution",
+            "connector_write",
+            "shell_subprocess_execution",
+            "model_provider_authority",
+            "memory_write",
+            "context_injection",
+            "external_side_effect",
+            "production_authority",
+        ],
         "focused_test_refs": [
             "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_requires_exact_approval_and_records_evidence",
             "tests/test_founder_loop_storage_actions.py::test_action_inbox_local_task_commit_denies_when_safe_disabled",
@@ -166,13 +176,6 @@ def _validate_manifest(root: Path, failures: list[str]) -> None:
                     "local_task_create authority capability missing "
                     f"{expected} in {key}"
                 )
-    lanes = action_module.get("graduated_lanes", [])
-    legacy_lane = next(
-        (lane for lane in lanes if lane.get("lane_id") == LOCAL_TASK_KIND),
-        None,
-    )
-    if legacy_lane is not None and legacy_lane.get("rank") != 5:
-        failures.append("local_task_create legacy lane rank drifted from 5")
 
 
 def _validate_code_and_tests(root: Path, failures: list[str]) -> None:

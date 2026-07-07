@@ -68,6 +68,9 @@ def test_local_task_create_is_only_rank5_action_authority_capability() -> None:
     assert FOUNDER_LOOP_LOCAL_TASK_ROLLBACK_REF in capability[
         "rollback_or_safe_disable_refs"
     ]
+    assert "rollback_execution" in capability["blocked_authorities"]
+    assert "connector_write" in capability["blocked_authorities"]
+    assert "shell_subprocess_execution" in capability["blocked_authorities"]
 
 
 def test_local_task_commit_receipt_denies_broader_authority() -> None:
