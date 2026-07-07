@@ -26,6 +26,10 @@ read-only authority mode/domain/lease inspection route with safe refs only,
 plus `POST /api/runtime/authority-leases` and
 `POST /api/runtime/authority-leases/revoke` as idempotency-bound local lease
 selection receipt routes.
+`POST /api/runtime/hermes/chat` is also AuthorityLease-gated: exact guarded
+Hermes CLI chat requires active `workspace/execute` scope before Hermes
+discovery or subprocess execution, and records authority decision refs on the
+redacted receipt.
 Hermes Runtime Adoption Phase 35 adds `GET /api/runtime/preview-rail` as a
 protected read-only preview-rail posture route with safe refs and bounded
 preview plans only.

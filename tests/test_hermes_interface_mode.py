@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from ultimate_ai_agent.api.app import app
 from ultimate_ai_agent.api.local_auth import LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV
 from ultimate_ai_agent.api.rate_limits import reset_api_rate_limit_state
+from ultimate_ai_agent.core.authority import AUTHORITY_STATE_DIR_ENV
 from ultimate_ai_agent.core.runtime_gateway import (
     HERMES_CLI_ENV,
     HERMES_INTERFACE_MODE_ENABLED_ENV,
@@ -19,6 +20,10 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeInterfaceMode,
     build_hermes_context_pack_read_model,
     build_runtime_interface_mode_read_model,
+)
+from tests.authority_helpers import (
+    issue_workspace_execute_authority_lease,
+    workspace_execute_authority_lease,
 )
 
 
@@ -128,6 +133,7 @@ def test_hermes_chat_uses_exact_guarded_argv_and_redacted_receipt(
     receipt = HermesCliAdapter(runner=runner).chat(
         request,
         idempotency_ref="idempotency-ref:hermes-chat-test",
+        active_authority_leases=[workspace_execute_authority_lease()],
     )
 
     assert observed == [
@@ -186,8 +192,11 @@ def test_runtime_hermes_api_routes_return_backend_read_models(
     monkeypatch,
 ) -> None:
     fake = _fake_hermes(tmp_path)
+    authority_dir = tmp_path / "authority"
+    issue_workspace_execute_authority_lease(authority_dir)
     monkeypatch.setenv(HERMES_CLI_ENV, str(fake))
     monkeypatch.setenv(HERMES_INTERFACE_MODE_ENABLED_ENV, "1")
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(authority_dir))
     monkeypatch.setenv(LOCAL_API_AUTH_DISABLED_FOR_DEV_ONLY_ENV, "1")
     reset_api_rate_limit_state()
 
@@ -209,6 +218,10 @@ def test_runtime_hermes_api_routes_return_backend_read_models(
     assert context_pack.json()["data"]["schema_version"] == "hermes_context_pack.v1"
     assert chat.status_code == 200
     receipt = chat.json()["data"]["receipt"]
+    assert receipt["status"] == "receipt_recorded"
+    assert receipt["execution_performed"] is True
+    assert receipt["authority_decision_outcome"] == "allow"
+    assert receipt["authority_lease_ref"]
     assert receipt["query_ref"].startswith("hermes-query-ref:")
     assert receipt["raw_prompt_persisted"] is False
     assert receipt["raw_output_persisted"] is False
@@ -239,9 +252,12 @@ def test_runtime_cli_interface_mode_and_hermes_context_pack(
     monkeypatch,
 ) -> None:
     fake = _fake_hermes(tmp_path)
+    authority_dir = tmp_path / "authority"
+    issue_workspace_execute_authority_lease(authority_dir)
     env = os.environ.copy()
     env[HERMES_CLI_ENV] = str(fake)
     env[HERMES_INTERFACE_MODE_ENABLED_ENV] = "1"
+    env[AUTHORITY_STATE_DIR_ENV] = str(authority_dir)
 
     interface = subprocess.run(
         [

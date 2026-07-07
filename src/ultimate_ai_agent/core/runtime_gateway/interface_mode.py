@@ -13,6 +13,16 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ultimate_ai_agent.core.authority import (
+    AuthorityActionRequest,
+    AuthorityCapability,
+    AuthorityDecisionOutcome,
+    AuthorityDomain,
+    AuthorityLease,
+    AuthorityPolicyDecision,
+    TrustMode,
+    evaluate_authority_request,
+)
 from ultimate_ai_agent.core.execution.validation import (
     SECRET_LIKE_RE,
     RAW_LOCAL_PATH_RE,
@@ -31,6 +41,16 @@ HERMES_CONTEXT_PACK_ROUTE_REF = "GET /api/runtime/hermes/context-pack"
 HERMES_CONTEXT_PACK_CLI_REF = "uaa runtime inspect-hermes-context-pack"
 HERMES_CHAT_ROUTE_REF = "POST /api/runtime/hermes/chat"
 HERMES_CHAT_CLI_REF = "uaa runtime hermes-chat"
+HERMES_CHAT_AUTHORITY_ACTION_REF = "authority-action-ref:hermes-interface-chat"
+HERMES_CHAT_AUTHORITY_LANE_REF = "lane-ref:hermes-interface-chat-exact-cli"
+HERMES_CHAT_AUTHORITY_DOMAIN_REF = "authority-domain-ref:workspace"
+HERMES_CHAT_AUTHORITY_CAPABILITY_REF = "authority-capability-ref:execute"
+HERMES_CHAT_AUTHORITY_REQUIRED_MODE_REF = (
+    "authority-mode-ref:approved-safe-local-work-session"
+)
+HERMES_CHAT_AUTHORITY_REQUIRED_BLOCKED_REF = (
+    "blocked-authority:hermes-workspace-execute-authority-required"
+)
 HERMES_CONTEXT_PACK_REF = "hermes-context-pack-ref:uaa-curated-runtime-interface-mode"
 HERMES_CLI_ENV = "UAA_HERMES_CLI_PATH"
 HERMES_INTERFACE_MODE_ENABLED_ENV = "UAA_HERMES_INTERFACE_MODE_ENABLED"
@@ -388,6 +408,7 @@ class HermesChatRequest(BaseModel):
     mode: RuntimeInterfaceMode = RuntimeInterfaceMode.shell_guarded
     query: str = Field(..., min_length=1, max_length=4_000)
     context_pack_ref: str = HERMES_CONTEXT_PACK_REF
+    mission_ref: str | None = None
     operator_submission_acknowledged: bool = False
     raw_prompt_persisted: bool = False
     raw_output_persisted: bool = False
@@ -399,6 +420,8 @@ class HermesChatRequest(BaseModel):
     def validate_chat_request(self) -> "HermesChatRequest":
         validate_safe_execution_text(self.schema_version, "schema_version")
         validate_execution_ref(self.context_pack_ref, "context_pack_ref")
+        if self.mission_ref:
+            validate_execution_ref(self.mission_ref, "mission_ref")
         _validate_hermes_query(self.query)
         if self.mode == RuntimeInterfaceMode.operator_override.value:
             if not self.operator_submission_acknowledged:
@@ -439,6 +462,14 @@ class HermesChatReceiptReadModel(BaseModel):
     blocked_reason_refs: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     proof_refs: list[str] = Field(default_factory=list)
+    authority_decision_ref: str | None = None
+    authority_decision_outcome: str | None = None
+    authority_lease_ref: str | None = None
+    authority_domain_ref: str | None = None
+    authority_capability_ref: str | None = None
+    authority_required_mode_ref: str | None = None
+    authority_audit_ref: str | None = None
+    authority_policy_receipt_ref: str | None = None
     redactions_applied: list[str] = Field(
         default_factory=lambda: list(HERMES_INTERFACE_MODE_REDACTIONS)
     )
@@ -460,11 +491,23 @@ class HermesChatReceiptReadModel(BaseModel):
             validate_execution_ref(self.output_ref, "hermes_output_ref")
         for ref in [*self.blocked_reason_refs, *self.evidence_refs, *self.proof_refs]:
             validate_execution_ref(ref, "hermes_chat_receipt_ref")
+        for ref in [
+            self.authority_decision_ref,
+            self.authority_lease_ref,
+            self.authority_domain_ref,
+            self.authority_capability_ref,
+            self.authority_required_mode_ref,
+            self.authority_audit_ref,
+            self.authority_policy_receipt_ref,
+        ]:
+            if ref:
+                validate_execution_ref(ref, "hermes_chat_authority_ref")
         for value in [
             self.schema_version,
             self.model_output_authority,
             self.memory_update_policy,
             self.output_summary or "output-summary-ref:none",
+            self.authority_decision_outcome or "authority-decision-outcome:none",
             *self.redactions_applied,
         ]:
             validate_safe_execution_text(value, "hermes_chat_receipt_text")
@@ -480,6 +523,11 @@ class HermesChatReceiptReadModel(BaseModel):
             raise ValueError("HERMES_CHAT_RAW_PERSISTENCE_DENIED")
         if self.external_handoff_only and self.execution_performed:
             raise ValueError("HERMES_PASS_THROUGH_EXECUTION_DENIED")
+        if self.execution_performed:
+            if self.authority_decision_outcome != AuthorityDecisionOutcome.allow.value:
+                raise ValueError("HERMES_EXECUTION_REQUIRES_AUTHORITY_ALLOW")
+            if not self.authority_lease_ref:
+                raise ValueError("HERMES_EXECUTION_REQUIRES_AUTHORITY_LEASE")
         return self
 
 
@@ -560,6 +608,7 @@ class HermesCliAdapter:
         request: HermesChatRequest,
         *,
         idempotency_ref: str,
+        active_authority_leases: list[AuthorityLease] | None = None,
     ) -> HermesChatReceiptReadModel:
         validate_execution_ref(idempotency_ref, "idempotency_ref")
         if not is_hermes_interface_mode_enabled():
@@ -576,6 +625,32 @@ class HermesCliAdapter:
             )
         if request.mode == RuntimeInterfaceMode.pure_hermes_pass_through.value:
             return _hermes_external_handoff_receipt(request, idempotency_ref)
+        authority_decision = _hermes_chat_authority_decision(
+            request,
+            active_authority_leases or [],
+        )
+        if authority_decision.outcome != AuthorityDecisionOutcome.allow.value:
+            return _hermes_blocked_receipt(
+                request,
+                idempotency_ref,
+                cli_ref="hermes-cli-ref:authority-not-evaluated",
+                status=HermesChatStatus.blocked,
+                blocked_reason_refs=list(
+                    dict.fromkeys(
+                        [
+                            HERMES_CHAT_AUTHORITY_REQUIRED_BLOCKED_REF,
+                            *authority_decision.reason_refs,
+                            *authority_decision.required_domain_refs,
+                            *authority_decision.required_capability_refs,
+                        ]
+                    )
+                ),
+                output_summary=(
+                    "Hermes CLI chat requires active Workspace execute "
+                    "AuthorityLease scope before UAA discovers or executes Hermes."
+                ),
+                authority_decision=authority_decision,
+            )
         cli_path, discovery_source, cli_ref = self.discover_cli()
         if cli_path is None:
             return _hermes_blocked_receipt(
@@ -587,6 +662,7 @@ class HermesCliAdapter:
                 output_summary=(
                     "Hermes CLI is not configured; no Hermes chat execution occurred."
                 ),
+                authority_decision=authority_decision,
             )
         del discovery_source
         try:
@@ -603,6 +679,7 @@ class HermesCliAdapter:
                     "Hermes chat was blocked before execution because the transient "
                     "query included unsafe command-shaped content."
                 ),
+                authority_decision=authority_decision,
             )
         result = self._runner(
             argv=(
@@ -656,6 +733,14 @@ class HermesCliAdapter:
             blocked_reason_refs=blocked,
             evidence_refs=["evidence-ref:hermes-interface-mode-chat-receipt"],
             proof_refs=["proof-ref:hermes-interface-mode-exact-argv"],
+            authority_decision_ref=authority_decision.decision_ref,
+            authority_decision_outcome=authority_decision.outcome,
+            authority_lease_ref=authority_decision.lease_ref,
+            authority_domain_ref=HERMES_CHAT_AUTHORITY_DOMAIN_REF,
+            authority_capability_ref=HERMES_CHAT_AUTHORITY_CAPABILITY_REF,
+            authority_required_mode_ref=HERMES_CHAT_AUTHORITY_REQUIRED_MODE_REF,
+            authority_audit_ref=authority_decision.audit_record_ref,
+            authority_policy_receipt_ref=authority_decision.receipt_ref,
         )
 
 
@@ -1081,6 +1166,45 @@ def _chat_receipt_ref(
     )
 
 
+def _hermes_chat_authority_decision(
+    request: HermesChatRequest,
+    active_authority_leases: list[AuthorityLease],
+) -> AuthorityPolicyDecision:
+    query_ref = _query_ref(request.query)
+    resource_refs = [request.context_pack_ref, query_ref]
+    if request.mission_ref:
+        resource_refs.append(request.mission_ref)
+    return evaluate_authority_request(
+        AuthorityActionRequest(
+            action_ref=f"{HERMES_CHAT_AUTHORITY_ACTION_REF}:{query_ref.split(':')[-1]}",
+            domain=AuthorityDomain.workspace,
+            capability=AuthorityCapability.execute,
+            safe_summary=(
+                "Evaluate Workspace execute authority for exact guarded Hermes "
+                "CLI chat."
+            ),
+            resource_refs=resource_refs,
+            route_ref=HERMES_CHAT_ROUTE_REF,
+            lane_ref=HERMES_CHAT_AUTHORITY_LANE_REF,
+            adapter_ref="adapter-ref:hermes-cli-exact-chat",
+            requested_mode=TrustMode.approved_safe_local_work_session,
+            constraints=(
+                {"mission_ref": request.mission_ref} if request.mission_ref else {}
+            )
+            | {
+                "context_pack_ref": request.context_pack_ref,
+                "exact_argv_shape_ref": HERMES_EXACT_CHAT_ARGV_SHAPE_REF,
+                "raw_prompt_persisted": False,
+                "raw_output_persisted": False,
+            },
+            draft_fallback_available=False,
+            rollback_ref="rollback-ref:hermes-interface-chat-disable-mode",
+            safe_disable_ref="safe-disable-ref:hermes-interface-mode",
+        ),
+        active_authority_leases,
+    )
+
+
 def _hermes_external_handoff_receipt(
     request: HermesChatRequest,
     idempotency_ref: str,
@@ -1118,6 +1242,7 @@ def _hermes_blocked_receipt(
     blocked_reason_refs: list[str],
     output_summary: str,
     unsafe_arg_blocked: bool = False,
+    authority_decision: AuthorityPolicyDecision | None = None,
 ) -> HermesChatReceiptReadModel:
     return HermesChatReceiptReadModel(
         receipt_ref=_chat_receipt_ref(request, idempotency_ref, status=status),
@@ -1133,6 +1258,28 @@ def _hermes_blocked_receipt(
         blocked_reason_refs=blocked_reason_refs,
         evidence_refs=["evidence-ref:hermes-interface-mode-blocked-receipt"],
         proof_refs=["proof-ref:hermes-interface-mode-fail-closed"],
+        authority_decision_ref=(
+            authority_decision.decision_ref if authority_decision else None
+        ),
+        authority_decision_outcome=(
+            authority_decision.outcome if authority_decision else None
+        ),
+        authority_lease_ref=authority_decision.lease_ref if authority_decision else None,
+        authority_domain_ref=(
+            HERMES_CHAT_AUTHORITY_DOMAIN_REF if authority_decision else None
+        ),
+        authority_capability_ref=(
+            HERMES_CHAT_AUTHORITY_CAPABILITY_REF if authority_decision else None
+        ),
+        authority_required_mode_ref=(
+            HERMES_CHAT_AUTHORITY_REQUIRED_MODE_REF if authority_decision else None
+        ),
+        authority_audit_ref=(
+            authority_decision.audit_record_ref if authority_decision else None
+        ),
+        authority_policy_receipt_ref=(
+            authority_decision.receipt_ref if authority_decision else None
+        ),
     )
 
 

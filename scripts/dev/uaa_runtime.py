@@ -397,6 +397,19 @@ def _print_hermes_chat(receipt: dict[str, Any]) -> None:
     print(f"External handoff only: {receipt['external_handoff_only']}")
     print(f"Output summary: {receipt.get('output_summary') or 'none'}")
     print(f"Memory updates: {receipt['memory_update_policy']}")
+    if receipt.get("authority_decision_ref"):
+        print(
+            "Authority: "
+            f"outcome={receipt.get('authority_decision_outcome') or 'unknown'} "
+            f"lease={receipt.get('authority_lease_ref') or 'none'}"
+        )
+        print(
+            "Requires: "
+            f"{receipt.get('authority_required_mode_ref') or 'active-mode'} + "
+            f"{receipt.get('authority_domain_ref') or 'domain'} + "
+            f"{receipt.get('authority_capability_ref') or 'capability'}"
+        )
+        print(f"Authority decision: {receipt['authority_decision_ref']}")
     print("Blocked:")
     for ref in receipt["blocked_reason_refs"] or ["none"]:
         print(f"- {ref}")
@@ -2166,6 +2179,7 @@ def _hermes_chat(args: argparse.Namespace) -> int:
         request = HermesChatRequest(
             mode=args.mode,
             query=args.query,
+            mission_ref=args.mission_ref,
             operator_submission_acknowledged=True,
         )
     except ValidationError:
@@ -2211,6 +2225,7 @@ def _hermes_chat(args: argparse.Namespace) -> int:
     receipt = HermesCliAdapter().chat(
         request,
         idempotency_ref=args.idempotency_ref,
+        active_authority_leases=active_runtime_authority_leases(),
     ).model_dump(mode="json")
     payload = {
         "schema_version": "governed-runtime-cli:v1",
@@ -4079,6 +4094,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--query",
         required=True,
         help="Transient Hermes query; it is hashed only and not persisted.",
+    )
+    hermes_chat.add_argument(
+        "--mission-ref",
+        default=None,
+        help="Optional mission ref for mission-scoped AuthorityLease matching.",
     )
     hermes_chat.add_argument(
         "--idempotency-ref",

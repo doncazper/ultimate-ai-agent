@@ -21,6 +21,12 @@ from ultimate_ai_agent.core.runtime_gateway import (  # noqa: E402
     build_runtime_interface_mode_read_model,
     verify_hermes_interface_mode_contract,
 )
+from ultimate_ai_agent.core.authority import (  # noqa: E402
+    AuthorityCapability,
+    AuthorityDomain,
+    AuthorityLease,
+    TrustMode,
+)
 
 
 def _runner(
@@ -95,7 +101,22 @@ def main() -> int:
                 operator_submission_acknowledged=True,
             ),
             idempotency_ref="idempotency-ref:hermes-interface-mode-safe-chat",
+            active_authority_leases=[
+                AuthorityLease(
+                    lease_ref="authority-lease-ref:hermes-verifier-workspace-execute",
+                    mode=TrustMode.approved_safe_local_work_session,
+                    domains={
+                        AuthorityDomain.workspace: [AuthorityCapability.execute],
+                    },
+                    safe_summary=(
+                        "Verifier lease grants Workspace execute for exact Hermes "
+                        "interface-mode chat."
+                    ),
+                )
+            ],
         )
+        if safe_chat.authority_decision_outcome != "allow":
+            failures.append("Hermes safe chat did not record authority allow.")
         if safe_chat.raw_prompt_persisted or safe_chat.raw_output_persisted:
             failures.append("Hermes chat receipt persisted raw prompt or raw output.")
         if safe_chat.query_ref.startswith("Summarize"):

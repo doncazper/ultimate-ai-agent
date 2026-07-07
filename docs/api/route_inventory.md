@@ -151,10 +151,12 @@ evidence/proof refs, and explicit false flags for raw record, transcript, path,
 log, credential, and unbounded private content exposure.
 `POST /api/runtime/hermes/chat` exposes the exact guarded Hermes CLI chat lane
 for `hermes chat --query ... --quiet --source uaa-control-center`. It is
-classified `mutating_requires_authority`, requires idempotency, returns a
-redacted receipt, hashes query content, summarizes output, and blocks yolo,
-oneshot, arbitrary args/toolsets, shell strings, raw persistence, direct Memory
-writes, browser automation, connector writes, and production authority.
+classified `mutating_requires_authority`, requires active `workspace/execute`
+AuthorityLease scope before Hermes CLI discovery or subprocess execution,
+requires idempotency, returns a redacted receipt with authority decision refs,
+hashes query content, summarizes output, and blocks yolo, oneshot, arbitrary
+args/toolsets, shell strings, raw persistence, direct Memory writes, browser
+automation, connector writes, and production authority.
 `GET /api/runtime/capability-discovery` exposes a protected read-only Python
 Core Hermes Runtime Adoption Phase 02 capability discovery posture for models,
 runs, events, approvals, sessions, skills, toolsets, jobs, and blocked actions.

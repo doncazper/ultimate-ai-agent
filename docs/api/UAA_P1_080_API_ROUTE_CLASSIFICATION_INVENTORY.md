@@ -65,7 +65,9 @@ inspection routes, plus the Hermes Runtime Adoption Phase 04 approval bridge
 read-model route, plus the Hermes Runtime Adoption Phase 05 streaming progress
 read-model route, plus the Hermes Runtime Adoption Phase 06 profile isolation
 read-model route, plus the AuthorityLease decision preview and mission planning
-routes.
+routes. Hermes interface-mode chat is a mutating governed runtime route and now
+requires active `workspace/execute` AuthorityLease scope before exact guarded
+Hermes CLI discovery or subprocess execution.
 Governed runtime pilot Phase 08 includes backend-owned parity-loop inspection
 over prepared-turn, route-binding, durable-run, staged orchestration,
 role-provider, Action Inbox, receipt, signed-evidence, and blocked-state refs.

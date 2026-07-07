@@ -12,6 +12,9 @@ from pydantic import ValidationError
 
 from ultimate_ai_agent.core.runtime_gateway import (
     GovernedCommandRuntimeAdapter,
+    HermesChatRequest,
+    HermesCliAdapter,
+    HermesProcessResult,
     LocalModelRuntimeAdapter,
     RuntimeCommandExecutionRequest,
     RuntimeCommandRunResult,
@@ -25,6 +28,13 @@ from ultimate_ai_agent.core.runtime_gateway import (
     RuntimeLocalModelMessage,
     build_default_runtime_capabilities,
     runtime_command_invocation_request,
+)
+from ultimate_ai_agent.core.runtime_gateway.interface_mode import (
+    HERMES_CHAT_AUTHORITY_CAPABILITY_REF,
+    HERMES_CHAT_AUTHORITY_DOMAIN_REF,
+    HERMES_CHAT_AUTHORITY_REQUIRED_BLOCKED_REF,
+    HERMES_CLI_ENV,
+    HERMES_INTERFACE_MODE_ENABLED_ENV,
 )
 from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeApprovalBindingRequest,
@@ -54,6 +64,85 @@ def _runtime_store_with_workspace_execute(tmp_path: Path) -> RuntimeInvocationSt
         tmp_path,
         active_authority_leases=[workspace_execute_authority_lease()],
     )
+
+
+def test_hermes_cli_chat_requires_workspace_execute_authority(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(HERMES_INTERFACE_MODE_ENABLED_ENV, "1")
+    called = False
+
+    def runner(**_kwargs) -> HermesProcessResult:
+        nonlocal called
+        called = True
+        return HermesProcessResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=1,
+            output_bytes=b"should not run",
+        )
+
+    receipt = HermesCliAdapter(runner=runner, cwd=tmp_path).chat(
+        HermesChatRequest(
+            mode="shell_guarded",
+            query="summarize current safe runtime posture",
+        ),
+        idempotency_ref="idempotency-ref:hermes-chat-no-authority",
+        active_authority_leases=[],
+    )
+
+    assert receipt.status == "blocked"
+    assert receipt.execution_performed is False
+    assert called is False
+    assert receipt.authority_decision_outcome == "deny"
+    assert receipt.authority_lease_ref is None
+    assert receipt.authority_domain_ref == HERMES_CHAT_AUTHORITY_DOMAIN_REF
+    assert receipt.authority_capability_ref == HERMES_CHAT_AUTHORITY_CAPABILITY_REF
+    assert HERMES_CHAT_AUTHORITY_REQUIRED_BLOCKED_REF in receipt.blocked_reason_refs
+
+
+def test_hermes_cli_chat_records_authority_refs_when_allowed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    hermes_bin = tmp_path / "hermes"
+    hermes_bin.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    hermes_bin.chmod(0o755)
+    monkeypatch.setenv(HERMES_INTERFACE_MODE_ENABLED_ENV, "1")
+    monkeypatch.setenv(HERMES_CLI_ENV, str(hermes_bin))
+    observed_argv: tuple[str, ...] | None = None
+
+    def runner(**kwargs) -> HermesProcessResult:
+        nonlocal observed_argv
+        observed_argv = kwargs["argv"]
+        return HermesProcessResult(
+            exit_code=0,
+            timed_out=False,
+            duration_ms=2,
+            output_bytes=b"safe redacted answer",
+        )
+
+    receipt = HermesCliAdapter(runner=runner, cwd=tmp_path).chat(
+        HermesChatRequest(
+            mode="shell_guarded",
+            query="summarize current safe runtime posture",
+        ),
+        idempotency_ref="idempotency-ref:hermes-chat-allowed",
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
+
+    assert observed_argv is not None
+    assert observed_argv[:2] == (str(hermes_bin), "chat")
+    assert "--query" in observed_argv
+    assert receipt.status == "receipt_recorded"
+    assert receipt.execution_performed is True
+    assert receipt.authority_decision_outcome == "allow"
+    assert receipt.authority_lease_ref == "authority-lease-ref:test-workspace-execute"
+    assert receipt.authority_domain_ref == HERMES_CHAT_AUTHORITY_DOMAIN_REF
+    assert receipt.authority_capability_ref == HERMES_CHAT_AUTHORITY_CAPABILITY_REF
+    assert receipt.authority_audit_ref
+    assert receipt.authority_policy_receipt_ref
 
 
 def _runtime_request(summary: str = "safe governed runtime summary") -> RuntimeInvocationRequest:

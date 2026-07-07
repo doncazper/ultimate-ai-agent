@@ -982,7 +982,7 @@ def route_classification_for_path(
     if normalized_method == "POST" and path == "/api/runtime/hermes/chat":
         return (
             ApiRouteClassification.mutating_requires_authority,
-            "Hermes interface-mode chat route permits only exact Hermes CLI chat argv with query hashing, redacted output receipts, idempotency, and visible mode posture; yolo, oneshot, arbitrary args, toolset passthrough, shell strings, raw persistence, direct memory writes, and production authority remain blocked.",
+            "Hermes interface-mode chat route requires active workspace/execute AuthorityLease scope before exact Hermes CLI chat argv discovery/execution; query hashing, redacted output receipts, idempotency, authority decision refs, and visible mode posture required while yolo, oneshot, arbitrary args, toolset passthrough, shell strings, raw persistence, direct memory writes, browser automation, connector writes, and production authority remain blocked.",
         )
     if normalized_method == "POST" and path == "/api/runtime/invocations/{id}/approve":
         return (

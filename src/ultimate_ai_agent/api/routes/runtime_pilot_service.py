@@ -271,7 +271,11 @@ def post_api_runtime_hermes_chat(
     ),
 ) -> ResultEnvelope:
     idempotency_ref = _idempotency_ref(x_uaa_idempotency_key, x_uaa_idempotency_ref)
-    receipt = HermesCliAdapter().chat(request, idempotency_ref=idempotency_ref)
+    receipt = HermesCliAdapter().chat(
+        request,
+        idempotency_ref=idempotency_ref,
+        active_authority_leases=active_runtime_authority_leases(),
+    )
     return ResultEnvelope(
         success=receipt.status in {"receipt_recorded", "external_handoff_only"},
         operation="api_runtime_hermes_chat",
@@ -286,6 +290,14 @@ def post_api_runtime_hermes_chat(
             "raw_output_persisted": receipt.raw_output_persisted,
             "model_output_authority": receipt.model_output_authority,
             "memory_update_policy": receipt.memory_update_policy,
+            "authority_decision_ref": receipt.authority_decision_ref,
+            "authority_decision_outcome": receipt.authority_decision_outcome,
+            "authority_lease_ref": receipt.authority_lease_ref,
+            "authority_domain_ref": receipt.authority_domain_ref,
+            "authority_capability_ref": receipt.authority_capability_ref,
+            "authority_required_mode_ref": receipt.authority_required_mode_ref,
+            "authority_audit_ref": receipt.authority_audit_ref,
+            "authority_policy_receipt_ref": receipt.authority_policy_receipt_ref,
         },
         evidence=[{"evidence_ref": "evidence-ref:hermes-interface-mode-chat"}],
         redactions_applied=receipt.redactions_applied,

@@ -1901,6 +1901,23 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             "Requires Approved safe local work with workspace/execute plus RuntimeGateway allowlist and receipts.",
         ),
         _mapping(
+            "lane-ref:hermes-interface-chat-exact-cli",
+            "Hermes exact CLI chat",
+            AuthorityDomain.workspace,
+            AuthorityCapability.execute,
+            TrustMode.approved_safe_local_work_session,
+            "implemented_exact_lease_required_external_runtime",
+            ["POST /api/runtime/hermes/chat"],
+            ["scripts/dev/uaa_runtime.py hermes-chat"],
+            (
+                "Requires Approved safe local work with workspace/execute "
+                "AuthorityLease scope before UAA discovers or executes the exact "
+                "guarded Hermes CLI chat argv; arbitrary args, yolo/oneshot, "
+                "tool passthrough, raw persistence, direct memory writes, browser "
+                "automation, connector writes, and production authority remain denied."
+            ),
+        ),
+        _mapping(
             "lane-ref:task-decomposition-plan-execute",
             "Task decomposition local plan execution",
             AuthorityDomain.workspace,

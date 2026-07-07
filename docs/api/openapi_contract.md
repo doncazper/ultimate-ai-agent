@@ -101,9 +101,12 @@ Contract rules:
   refs, why-shown refs, evidence/proof refs, and explicit false flags for raw
   Memory/CRM/chat/path/log/credential exposure.
   `POST /api/runtime/hermes/chat` is a mutating-requires-authority local
-  interface route for exact Hermes CLI chat argv only. It requires idempotency,
-  returns a redacted receipt, hashes the query, summarizes output, and keeps
-  Hermes output as untrusted proposal text with Memory updates candidate-only.
+  interface route for exact Hermes CLI chat argv only. It requires active
+  `workspace/execute` AuthorityLease scope before Hermes CLI discovery or
+  subprocess execution, requires idempotency, returns a redacted receipt with
+  authority decision/audit/receipt refs, hashes the query, summarizes output,
+  and keeps Hermes output as untrusted proposal text with Memory updates
+  candidate-only.
   `GET /api/runtime/capability-discovery` exposes the Hermes Runtime Adoption
   Phase 02 backend-owned runtime capability discovery posture for models, runs,
   events, approvals, sessions, skills, toolsets, jobs, and blocked actions. It

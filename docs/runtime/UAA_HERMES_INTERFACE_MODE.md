@@ -37,6 +37,9 @@ Modes:
 Hermes CLI scope:
 
 - Hermes CLI scope is inactive unless `UAA_HERMES_INTERFACE_MODE_ENABLED=1`.
+- Guarded Hermes chat also requires active `workspace/execute` AuthorityLease
+  scope. Without that lease, UAA records a blocked authority receipt before
+  Hermes CLI discovery or subprocess execution.
 - Discovery reads `UAA_HERMES_CLI_PATH` or PATH and returns a hashed safe ref.
 - Readiness uses exact argv `hermes status --all`.
 - Guarded chat uses exact argv

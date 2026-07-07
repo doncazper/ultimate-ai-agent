@@ -82,6 +82,15 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         task_decomposition_execute.status
         == "implemented_exact_lease_required_local_orchestration"
     )
+    hermes_chat = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /api/runtime/hermes/chat" in mapping.route_refs
+    )
+    assert hermes_chat.domain == "workspace"
+    assert hermes_chat.capability == "execute"
+    assert hermes_chat.required_mode == "approved_safe_local_work_session"
+    assert hermes_chat.status == "implemented_exact_lease_required_external_runtime"
     work_board_card_create = next(
         mapping
         for mapping in read_model.capability_mappings

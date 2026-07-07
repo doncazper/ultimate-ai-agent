@@ -134,6 +134,14 @@ lease is implemented and tested. Existing local loopback model requests may
 carry `mission_ref` for policy evaluation, but that does not grant remote
 provider SDK calls, web fetching, tools/functions, streaming, or provider
 payload persistence.
+Hermes interface-mode chat is now mapped into the same runtime authority model:
+`POST /api/runtime/hermes/chat` may run the exact guarded Hermes CLI chat argv
+only after active `workspace/execute` AuthorityLease scope is present. Missing
+scope returns a blocked receipt with authority decision refs before Hermes CLI
+discovery or subprocess execution. Disabled mode and pure external handoff
+remain non-executing; yolo/oneshot, arbitrary args, toolset passthrough, raw
+prompt/output persistence, direct memory writes, browser automation, connector
+writes, and production authority remain denied.
 
 ## Core Problem
 

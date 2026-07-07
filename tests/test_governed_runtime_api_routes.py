@@ -13,6 +13,11 @@ from ultimate_ai_agent.core.runtime_gateway import (
 )
 from ultimate_ai_agent.core.runtime_gateway.storage import RUNTIME_GATEWAY_STATE_DIR_ENV
 from ultimate_ai_agent.core.runtime_gateway.local_model import RUNTIME_LOCAL_MODEL_ENABLED_ENV
+from ultimate_ai_agent.core.runtime_gateway.interface_mode import (
+    HERMES_CHAT_AUTHORITY_CAPABILITY_REF,
+    HERMES_CHAT_AUTHORITY_REQUIRED_BLOCKED_REF,
+    HERMES_INTERFACE_MODE_ENABLED_ENV,
+)
 from ultimate_ai_agent.core.local_model_management.gateway import UAA_LLAMA_CPP_BASE_URL_ENV
 
 
@@ -169,6 +174,13 @@ def test_governed_runtime_post_routes_require_idempotency(tmp_path, monkeypatch)
             "safe_summary": "Inspect repo status with redacted output.",
         },
     )
+    hermes_chat = client.post(
+        "/api/runtime/hermes/chat",
+        json={
+            "mode": "shell_guarded",
+            "query": "summarize current safe runtime posture",
+        },
+    )
     authority_lease = client.post(
         "/api/runtime/authority-leases",
         json={
@@ -184,6 +196,8 @@ def test_governed_runtime_post_routes_require_idempotency(tmp_path, monkeypatch)
     assert local_model.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
     assert command.status_code == 428
     assert command.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
+    assert hermes_chat.status_code == 428
+    assert hermes_chat.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
     assert authority_lease.status_code == 428
     assert authority_lease.json()["code"] == "API_IDEMPOTENCY_REQUIRED"
 
@@ -384,6 +398,7 @@ def test_governed_runtime_routes_are_manifest_visible_with_safe_posture() -> Non
         "/api/runtime/authority-leases",
         "/api/runtime/authority-leases/revoke",
         "/api/runtime/command/run",
+        "/api/runtime/hermes/chat",
         "/api/runtime/local-model/call",
         "/api/runtime/invocations/{id}/approve",
         "/api/runtime/invocations/{id}/execute",
@@ -405,6 +420,9 @@ def test_governed_runtime_rate_limit_group_handles_dynamic_routes() -> None:
         "governed_runtime_pilot"
     )
     assert route_rate_limit_group("POST", "/api/runtime/command/run") == (
+        "governed_runtime_pilot"
+    )
+    assert route_rate_limit_group("POST", "/api/runtime/hermes/chat") == (
         "governed_runtime_pilot"
     )
     assert route_rate_limit_group("POST", "/api/runtime/authority-leases") == (
@@ -430,6 +448,7 @@ def test_governed_runtime_openapi_contains_exact_contract_routes() -> None:
         "/api/runtime/authority-missions/plan",
         "/api/runtime/invocations",
         "/api/runtime/command/run",
+        "/api/runtime/hermes/chat",
         "/api/runtime/local-model/call",
         "/api/runtime/invocations/{id}",
         "/api/runtime/invocations/{id}/receipt",
@@ -508,6 +527,36 @@ def test_governed_runtime_local_model_call_records_safe_failure_receipt(
     )
     assert "api prompt should not persist" not in persisted
     assert "RUNTIME_LOCAL_MODEL_POLICY_EXECUTION_BLOCKED" in persisted
+
+
+def test_governed_runtime_hermes_chat_requires_workspace_execute_authority(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
+    monkeypatch.setenv(HERMES_INTERFACE_MODE_ENABLED_ENV, "1")
+    reset_api_rate_limit_state()
+
+    response = client.post(
+        "/api/runtime/hermes/chat",
+        headers={"x-uaa-idempotency-key": "idempotency-ref:hermes-chat-api-no-lease"},
+        json={
+            "mode": "shell_guarded",
+            "query": "summarize current safe runtime posture",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is False
+    data = body["data"]
+    assert data["execution_performed"] is False
+    assert data["authority_decision_outcome"] == "deny"
+    assert data["authority_lease_ref"] is None
+    assert data["authority_capability_ref"] == HERMES_CHAT_AUTHORITY_CAPABILITY_REF
+    receipt = data["receipt"]
+    assert receipt["authority_decision_outcome"] == "deny"
+    assert HERMES_CHAT_AUTHORITY_REQUIRED_BLOCKED_REF in receipt["blocked_reason_refs"]
 
 
 def test_governed_runtime_command_run_records_redacted_receipt(
