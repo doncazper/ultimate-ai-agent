@@ -2960,6 +2960,18 @@ export interface FounderLoopRuntimeActionInboxBridgeItem {
   command_intent?: string | null;
   status: string;
   approval_validated: boolean;
+  authority_scope_required: boolean;
+  authority_scope_allowed: boolean;
+  authority_decision_ref?: string | null;
+  authority_decision_outcome?: AuthorityDecisionOutcome | string | null;
+  authority_lease_ref?: string | null;
+  authority_domain_ref?: string | null;
+  authority_capability_ref?: string | null;
+  authority_required_mode_ref?: string | null;
+  authority_reason_refs: string[];
+  authority_audit_ref?: string | null;
+  authority_policy_receipt_ref?: string | null;
+  authority_operator_message?: string | null;
   execution_performed: boolean;
   exact_scope_ref: string;
   approval_ref: string;

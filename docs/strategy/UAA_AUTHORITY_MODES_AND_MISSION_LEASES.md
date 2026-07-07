@@ -148,6 +148,10 @@ LocalApprovalAuthority validation from AuthorityLease scope allowance, and
 approval binding refreshes the current active lease decision so a pending
 proposal can become executable after the operator selects the required
 mode/domain lease.
+Control Center Action Inbox renders those runtime authority facts directly:
+authority decision outcome, lease, domain, capability, required mode, audit,
+policy receipt, operator message, and blocked reason refs are cockpit-visible
+without adding execution controls.
 The RuntimeGateway invocation lifecycle is also mapped into authority domains:
 `POST /api/runtime/invocations` is a workspace draft record-only route,
 `POST /api/runtime/invocations/{id}/approve` and

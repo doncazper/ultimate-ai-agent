@@ -901,6 +901,21 @@ def test_governed_runtime_action_inbox_execute_rejects_changed_scope(
     assert bridge["items"][0]["action_envelope_ref"] == (
         envelope["action_envelope_ref"]
     )
+    assert bridge["items"][0]["authority_scope_allowed"] is True
+    assert bridge["items"][0]["authority_decision_outcome"] == "allow"
+    assert bridge["items"][0]["authority_lease_ref"]
+    assert bridge["items"][0]["authority_domain_ref"] == (
+        "authority-domain-ref:workspace"
+    )
+    assert bridge["items"][0]["authority_capability_ref"] == (
+        "authority-capability-ref:execute"
+    )
+    assert bridge["items"][0]["authority_required_mode_ref"] == (
+        "authority-mode-ref:approved-safe-local-work-session"
+    )
+    assert bridge["items"][0]["authority_reason_refs"]
+    assert bridge["items"][0]["authority_audit_ref"]
+    assert bridge["items"][0]["authority_policy_receipt_ref"]
     assert bridge["items"][0]["receipt_refs"]
 
 

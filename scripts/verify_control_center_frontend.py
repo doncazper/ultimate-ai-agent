@@ -1879,6 +1879,14 @@ def _provider_credential_readiness_failures(root: Path) -> list[str]:
             "blocked_authority_refs",
             "expected_receipt_refs",
             "proof_ref",
+            "Authority scope",
+            "authority_scope_allowed",
+            "authority_decision_outcome",
+            "authority_lease_ref",
+            "authority_domain_ref",
+            "authority_capability_ref",
+            "authority_required_mode_ref",
+            "Authority reason refs",
         ]:
             if fragment not in founder_text:
                 failures.append(

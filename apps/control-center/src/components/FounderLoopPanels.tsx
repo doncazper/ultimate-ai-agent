@@ -1242,6 +1242,44 @@ function RuntimeActionInboxBridgePanel({
                 value={item.approval_validated ? "yes" : "no"}
               />
               <DetailTerm
+                label="Authority scope"
+                value={
+                  item.authority_scope_required
+                    ? item.authority_scope_allowed
+                      ? "allowed by active lease"
+                      : "requires active lease"
+                    : "not required"
+                }
+              />
+              <DetailTerm
+                label="Authority outcome"
+                value={String(item.authority_decision_outcome ?? "missing")}
+              />
+              <DetailTerm
+                label="Authority lease"
+                value={item.authority_lease_ref ?? "not active"}
+              />
+              <DetailTerm
+                label="Authority domain"
+                value={item.authority_domain_ref ?? "missing"}
+              />
+              <DetailTerm
+                label="Authority capability"
+                value={item.authority_capability_ref ?? "missing"}
+              />
+              <DetailTerm
+                label="Required mode"
+                value={item.authority_required_mode_ref ?? "missing"}
+              />
+              <DetailTerm
+                label="Authority audit"
+                value={item.authority_audit_ref ?? "missing"}
+              />
+              <DetailTerm
+                label="Authority receipt"
+                value={item.authority_policy_receipt_ref ?? "missing"}
+              />
+              <DetailTerm
                 label="Execution performed"
                 value={item.execution_performed ? "yes" : "no"}
               />
@@ -1304,6 +1342,13 @@ function RuntimeActionInboxBridgePanel({
                 item.approval_validation_ref,
               ].filter((ref): ref is string => typeof ref === "string")}
             />
+            <RefListWithFallback
+              emptyLabel="Authority reason refs: none"
+              refs={item.authority_reason_refs}
+            />
+            {item.authority_operator_message ? (
+              <p className="muted">{item.authority_operator_message}</p>
+            ) : null}
             <RefListWithFallback
               emptyLabel="Blocked reason refs: none"
               refs={item.blocked_reason_refs}

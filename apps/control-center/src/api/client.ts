@@ -11280,6 +11280,7 @@ const RUNTIME_ACTION_INBOX_BRIDGE_ITEM_REQUIRED_STRINGS = [
 ] as const;
 
 const RUNTIME_ACTION_INBOX_BRIDGE_ITEM_REQUIRED_ARRAYS = [
+  "authority_reason_refs",
   "receipt_refs",
   "evidence_refs",
   "blocked_reason_refs",
@@ -11458,6 +11459,15 @@ function isSafeRuntimeActionInboxBridgeItem(value: unknown): boolean {
   const commandIntent = value.command_intent;
   const approvalDecisionRef = value.approval_decision_ref;
   const approvalValidationRef = value.approval_validation_ref;
+  const authorityDecisionRef = value.authority_decision_ref;
+  const authorityDecisionOutcome = value.authority_decision_outcome;
+  const authorityLeaseRef = value.authority_lease_ref;
+  const authorityDomainRef = value.authority_domain_ref;
+  const authorityCapabilityRef = value.authority_capability_ref;
+  const authorityRequiredModeRef = value.authority_required_mode_ref;
+  const authorityAuditRef = value.authority_audit_ref;
+  const authorityPolicyReceiptRef = value.authority_policy_receipt_ref;
+  const authorityOperatorMessage = value.authority_operator_message;
   const receiptRef = value.receipt_ref;
   const executionResultRef = value.execution_result_ref;
   const signedEvidenceRef = value.signed_evidence_ref;
@@ -11472,6 +11482,33 @@ function isSafeRuntimeActionInboxBridgeItem(value: unknown): boolean {
     (approvalValidationRef === null ||
       approvalValidationRef === undefined ||
       isSafeActionWorkQueueRef(approvalValidationRef)) &&
+    (authorityDecisionRef === null ||
+      authorityDecisionRef === undefined ||
+      isSafeActionWorkQueueRef(authorityDecisionRef)) &&
+    (authorityDecisionOutcome === null ||
+      authorityDecisionOutcome === undefined ||
+      typeof authorityDecisionOutcome === "string") &&
+    (authorityLeaseRef === null ||
+      authorityLeaseRef === undefined ||
+      isSafeActionWorkQueueRef(authorityLeaseRef)) &&
+    (authorityDomainRef === null ||
+      authorityDomainRef === undefined ||
+      isSafeActionWorkQueueRef(authorityDomainRef)) &&
+    (authorityCapabilityRef === null ||
+      authorityCapabilityRef === undefined ||
+      isSafeActionWorkQueueRef(authorityCapabilityRef)) &&
+    (authorityRequiredModeRef === null ||
+      authorityRequiredModeRef === undefined ||
+      isSafeActionWorkQueueRef(authorityRequiredModeRef)) &&
+    (authorityAuditRef === null ||
+      authorityAuditRef === undefined ||
+      isSafeActionWorkQueueRef(authorityAuditRef)) &&
+    (authorityPolicyReceiptRef === null ||
+      authorityPolicyReceiptRef === undefined ||
+      isSafeActionWorkQueueRef(authorityPolicyReceiptRef)) &&
+    (authorityOperatorMessage === null ||
+      authorityOperatorMessage === undefined ||
+      typeof authorityOperatorMessage === "string") &&
     (receiptRef === null ||
       receiptRef === undefined ||
       isSafeActionWorkQueueRef(receiptRef)) &&
@@ -11485,6 +11522,8 @@ function isSafeRuntimeActionInboxBridgeItem(value: unknown): boolean {
       signedEvidenceVerifierRef === undefined ||
       isSafeActionWorkQueueRef(signedEvidenceVerifierRef)) &&
     typeof value.approval_validated === "boolean" &&
+    typeof value.authority_scope_required === "boolean" &&
+    typeof value.authority_scope_allowed === "boolean" &&
     typeof value.execution_performed === "boolean" &&
     typeof value.timed_out === "boolean" &&
     value.command_output_persisted === false &&
@@ -11501,6 +11540,7 @@ function isSafeRuntimeActionInboxBridgeItem(value: unknown): boolean {
     isSafeActionWorkQueueRef(value.payload_fingerprint_ref) &&
     isSafeActionWorkQueueRef(value.rollback_ref) &&
     isSafeActionWorkQueueRef(value.safe_disable_ref) &&
+    (value.authority_reason_refs as string[]).every(isSafeActionWorkQueueRef) &&
     (value.receipt_refs as string[]).every(isSafeActionWorkQueueRef) &&
     (value.evidence_refs as string[]).every(isSafeActionWorkQueueRef) &&
     (value.blocked_reason_refs as string[]).every(isSafeActionWorkQueueRef) &&

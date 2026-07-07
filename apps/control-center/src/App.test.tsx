@@ -1473,6 +1473,22 @@ function runtimeActionInboxBridgeFixture(
     command_intent: "focused_pytest",
     status: "receipt_recorded",
     approval_validated: true,
+    authority_scope_required: true,
+    authority_scope_allowed: true,
+    authority_decision_ref: "authority-decision-ref:runtime-app-test",
+    authority_decision_outcome: "allow",
+    authority_lease_ref: "authority-lease-ref:runtime-app-test",
+    authority_domain_ref: "authority-domain-ref:workspace",
+    authority_capability_ref: "authority-capability-ref:execute",
+    authority_required_mode_ref:
+      "authority-mode-ref:approved-safe-local-work-session",
+    authority_reason_refs: [
+      "reason-ref:authority:active-workspace-execute-lease",
+    ],
+    authority_audit_ref: "authority-audit-ref:runtime-app-test",
+    authority_policy_receipt_ref: "authority-receipt-ref:runtime-app-test",
+    authority_operator_message:
+      "Workspace execute is allowed by the active AuthorityLease.",
     execution_performed: true,
     exact_scope_ref: "scope-ref:runtime-app-test",
     approval_ref: "approval-ref:runtime-app-test",
@@ -6461,6 +6477,22 @@ describe("Web Control Center shell", () => {
     expect(bridge).toHaveTextContent("runtime-loop-stage-ref:signed-evidence");
     expect(bridge).toHaveTextContent("focused_pytest");
     expect(bridge).toHaveTextContent("runtime-invocation:app-test");
+    expect(bridge).toHaveTextContent("allowed by active lease");
+    expect(bridge).toHaveTextContent("allow");
+    expect(bridge).toHaveTextContent("authority-lease-ref:runtime-app-test");
+    expect(bridge).toHaveTextContent("authority-domain-ref:workspace");
+    expect(bridge).toHaveTextContent("authority-capability-ref:execute");
+    expect(bridge).toHaveTextContent(
+      "authority-mode-ref:approved-safe-local-work-session",
+    );
+    expect(bridge).toHaveTextContent("authority-audit-ref:runtime-app-test");
+    expect(bridge).toHaveTextContent("authority-receipt-ref:runtime-app-test");
+    expect(bridge).toHaveTextContent(
+      "reason-ref:authority:active-workspace-execute-lease",
+    );
+    expect(bridge).toHaveTextContent(
+      "Workspace execute is allowed by the active AuthorityLease.",
+    );
     expect(bridge).toHaveTextContent("receipt:runtime-command:app-test");
     expect(bridge).toHaveTextContent("runtime-action-signed-envelope-ref:app-test");
     expect(bridge).toHaveTextContent(
