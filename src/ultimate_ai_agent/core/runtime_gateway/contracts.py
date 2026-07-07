@@ -882,10 +882,13 @@ def build_policy_decision(
                 action_ref=request.action_ref or invocation_ref,
                 domain=AuthorityDomain.provider_model_calls,
                 capability=AuthorityCapability.execute,
-                safe_summary="Evaluate provider model call authority for governed runtime.",
+                safe_summary=(
+                    "Evaluate local loopback provider model call authority for "
+                    "governed runtime."
+                ),
                 resource_refs=resource_refs,
                 route_ref="POST /api/runtime/local-model/call",
-                requested_mode=TrustMode.approved_safe_local_work_session,
+                requested_mode=TrustMode.full_machine_access_session,
                 constraints=authority_constraints,
                 draft_fallback_available=True,
             )

@@ -486,6 +486,7 @@ def test_governed_runtime_local_model_call_records_safe_failure_receipt(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
     monkeypatch.setenv(RUNTIME_LOCAL_MODEL_ENABLED_ENV, "1")
     monkeypatch.setenv(UAA_LLAMA_CPP_BASE_URL_ENV, "http://127.0.0.1:9")
     reset_api_rate_limit_state()
@@ -509,6 +510,15 @@ def test_governed_runtime_local_model_call_records_safe_failure_receipt(
     assert body["data"]["record"]["receipt"]["model_output_non_authoritative"] is True
     assert body["data"]["record"]["policy_decision"]["authority_decision_outcome"] == (
         "degrade_to_draft"
+    )
+    assert body["data"]["record"]["policy_decision"]["authority_domain"] == (
+        "provider_model_calls"
+    )
+    assert body["data"]["record"]["policy_decision"]["authority_capability"] == (
+        "execute"
+    )
+    assert body["data"]["record"]["policy_decision"]["authority_required_mode"] == (
+        "full_machine_access_session"
     )
     invocation_ref = body["data"]["record"]["invocation_ref"]
 
@@ -934,6 +944,7 @@ def test_governed_runtime_local_model_call_is_disabled_by_default(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
     monkeypatch.delenv(RUNTIME_LOCAL_MODEL_ENABLED_ENV, raising=False)
     reset_api_rate_limit_state()
 
@@ -959,6 +970,7 @@ def test_governed_runtime_local_model_call_blocks_non_loopback_url_redacted(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv(RUNTIME_GATEWAY_STATE_DIR_ENV, str(tmp_path))
+    monkeypatch.setenv(AUTHORITY_STATE_DIR_ENV, str(tmp_path / "authority"))
     monkeypatch.setenv(RUNTIME_LOCAL_MODEL_ENABLED_ENV, "1")
     reset_api_rate_limit_state()
 

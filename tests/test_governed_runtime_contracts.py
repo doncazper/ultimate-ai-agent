@@ -51,6 +51,7 @@ from ultimate_ai_agent.core.control_center.runtime_action_bridge import (
 )
 from ultimate_ai_agent.core.time import utc_now
 from tests.authority_helpers import (
+    provider_model_execute_authority_lease,
     workspace_execute_authority_lease,
     workspace_execute_mission_authority_lease,
 )
@@ -63,6 +64,13 @@ def _runtime_store_with_workspace_execute(tmp_path: Path) -> RuntimeInvocationSt
     return RuntimeInvocationStore(
         tmp_path,
         active_authority_leases=[workspace_execute_authority_lease()],
+    )
+
+
+def _runtime_store_with_provider_model_execute(tmp_path: Path) -> RuntimeInvocationStore:
+    return RuntimeInvocationStore(
+        tmp_path,
+        active_authority_leases=[provider_model_execute_authority_lease()],
     )
 
 
@@ -444,6 +452,13 @@ def test_runtime_gateway_local_model_call_blocks_without_provider_execute_author
     assert result.record.policy_decision.authority_decision_outcome == (
         "degrade_to_draft"
     )
+    assert result.record.policy_decision.authority_domain == "provider_model_calls"
+    assert result.record.policy_decision.authority_capability == "execute"
+    assert (
+        result.record.policy_decision.authority_required_mode
+        == "full_machine_access_session"
+    )
+    assert result.record.policy_decision.authority_lease_ref is None
     assert replay.replayed is True
 
     persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
@@ -452,6 +467,67 @@ def test_runtime_gateway_local_model_call_blocks_without_provider_execute_author
     assert "local prompt should not persist" not in persisted
     assert "UAA_LOCAL_RUNTIME_OK" not in persisted
     assert "raw_prompt" not in persisted
+    assert "provider_payload" not in persisted
+
+
+def test_runtime_gateway_local_model_call_requires_full_machine_provider_lease(
+    tmp_path: Path,
+) -> None:
+    calls = 0
+
+    def transport_factory(request: RuntimeLocalModelCallRequest) -> FakeM164GatewayTransport:
+        nonlocal calls
+        calls += 1
+        return FakeM164GatewayTransport("UAA_LOCAL_RUNTIME_OK")
+
+    gateway = RuntimeGateway(
+        store=_runtime_store_with_provider_model_execute(tmp_path),
+        local_model_adapter=LocalModelRuntimeAdapter(
+            transport_factory=transport_factory,
+        ),
+        local_model_runtime_enabled=True,
+    )
+    request = RuntimeLocalModelCallRequest(
+        base_url="http://127.0.0.1:8080",
+        model_ref="uaa-local-runtime",
+        messages=[
+            RuntimeLocalModelMessage(role="user", content="allowed prompt should not persist")
+        ],
+        safe_summary="Run local model runtime as an untrusted proposal.",
+        allow_bounded_preview=True,
+        max_preview_chars=40,
+    )
+
+    result = gateway.invoke_local_model(
+        request,
+        idempotency_ref="idempotency-ref:runtime-local-model-authority-success",
+    )
+
+    assert calls == 1
+    assert result.record.status == "receipt_recorded"
+    assert result.error_category is None
+    assert result.record.policy_decision.allowed_to_execute is True
+    assert result.record.policy_decision.authority_decision_outcome == "allow"
+    assert (
+        result.record.policy_decision.authority_lease_ref
+        == "authority-lease-ref:test-provider-model-execute"
+    )
+    assert result.record.policy_decision.authority_domain == "provider_model_calls"
+    assert result.record.policy_decision.authority_capability == "execute"
+    assert (
+        result.record.policy_decision.authority_required_mode
+        == "full_machine_access_session"
+    )
+    assert result.record.receipt is not None
+    assert result.record.receipt.model_call_performed is True
+    assert result.record.receipt.model_output_non_authoritative is True
+    assert result.response_preview == "UAA_LOCAL_RUNTIME_OK"
+
+    persisted = (tmp_path / "runtime_gateway_invocations.jsonl").read_text(
+        encoding="utf-8"
+    )
+    assert "allowed prompt should not persist" not in persisted
+    assert "UAA_LOCAL_RUNTIME_OK" not in persisted
     assert "provider_payload" not in persisted
 
 

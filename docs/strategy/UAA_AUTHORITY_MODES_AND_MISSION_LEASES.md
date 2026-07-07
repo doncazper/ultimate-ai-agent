@@ -101,6 +101,16 @@ and `/task-decomposition/plans/execute` return a durable, redacted blocked/draft
 decision with authority decision refs, required domain/capability refs, audit
 refs, receipt posture, and rollback/safe-disable refs instead of silently
 executing or claiming broad shell/tool authority.
+The governed runtime local-model call route now also uses the mode/domain
+foundation: `POST /api/runtime/local-model/call` requires active
+`provider_model_calls/execute` AuthorityLease scope with Full machine access
+before the loopback model transport can run. Missing lease scope produces a
+degraded draft decision naming Full machine access plus the
+provider_model_calls domain and execute capability. The route remains
+loopback/configured-endpoint only, records metadata-only receipts, treats model
+output as untrusted proposal text, and does not authorize remote provider SDK
+calls, tools/functions, streaming, memory/file writes, connector writes,
+browser automation, billing, or production authority.
 The tiny exact-approved provider invocation lane now requires an active
 `provider_model_calls/execute` AuthorityLease before it can proceed to its
 existing PolicyEngine, CostGovernor, exact LocalApprovalAuthority, adapter,

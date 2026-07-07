@@ -30,6 +30,12 @@ selection receipt routes.
 Hermes CLI chat requires active `workspace/execute` scope before Hermes
 discovery or subprocess execution, and records authority decision refs on the
 redacted receipt.
+`POST /api/runtime/local-model/call` is AuthorityLease-gated as
+`provider_model_calls/execute`: configured loopback local-model transport
+requires Full machine access scope before execution, records metadata-only
+receipts, treats model output as untrusted proposal text, and still denies
+remote provider SDK calls, tools/functions, streaming, connector writes,
+browser automation, billing, and production authority.
 Hermes Runtime Adoption Phase 35 adds `GET /api/runtime/preview-rail` as a
 protected read-only preview-rail posture route with safe refs and bounded
 preview plans only.

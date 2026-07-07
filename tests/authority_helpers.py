@@ -176,3 +176,40 @@ def issue_workspace_execute_authority_lease(state_dir: Path) -> None:
         ),
         idempotency_ref="idempotency-ref:test-workspace-execute-authority",
     )
+
+
+def provider_model_execute_authority_lease() -> AuthorityLease:
+    return AuthorityLease(
+        lease_ref="authority-lease-ref:test-provider-model-execute",
+        mode=TrustMode.full_machine_access_session,
+        domains={
+            AuthorityDomain.provider_model_calls: [
+                AuthorityCapability.read,
+                AuthorityCapability.execute,
+            ]
+        },
+        safe_summary=(
+            "Test lease grants provider model call read and execute authority "
+            "for exact local loopback runtime calls."
+        ),
+    )
+
+
+def issue_provider_model_execute_authority_lease(state_dir: Path) -> None:
+    AuthorityLeaseStore(state_dir).issue_lease(
+        AuthorityLeaseIssueRequest(
+            mode=TrustMode.full_machine_access_session,
+            requested_domains={
+                AuthorityDomain.provider_model_calls: [
+                    AuthorityCapability.read,
+                    AuthorityCapability.execute,
+                ]
+            },
+            decision_reason_ref="decision-reason-ref:test-provider-model-authority",
+            safe_summary=(
+                "Test session lease grants provider model call execute authority "
+                "for exact local loopback runtime calls."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:test-provider-model-authority",
+    )

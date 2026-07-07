@@ -328,6 +328,10 @@ Contract rules:
   approval-ref bindings, metadata-only local model receipts, redacted command
   receipts, blocked execution receipts, and safe-disable posture. Model output
   is untrusted proposal text, and command output is redacted and bounded.
+  Configured local loopback model calls require active
+  `provider_model_calls/execute` AuthorityLease scope under Full machine access
+  before transport execution; without that lease, `/api/runtime/local-model/call`
+  degrades to a draft-style blocked receipt with authority decision refs.
   `uaa runtime status`, `uaa runtime capabilities`, `uaa runtime invocations
   list/show`, `uaa runtime receipts show`, `uaa runtime safe-disable`, and
   `uaa actions approve|deny` are local inspection/exact-envelope decision

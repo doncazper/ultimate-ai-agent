@@ -2126,6 +2126,23 @@ def build_existing_lane_authority_mappings() -> list[AuthorityCapabilityMapping]
             ),
         ),
         _mapping(
+            "lane-ref:runtime-local-model-loopback-call",
+            "Local loopback model call",
+            AuthorityDomain.provider_model_calls,
+            AuthorityCapability.execute,
+            TrustMode.full_machine_access_session,
+            "implemented_exact_lease_required_local_loopback",
+            ["POST /api/runtime/local-model/call"],
+            ["repo-local-command:uaa-runtime-local-model-call"],
+            (
+                "Requires Full machine access with provider_model_calls/execute "
+                "AuthorityLease scope before local loopback model runtime can run; "
+                "model output remains an untrusted proposal, and remote provider "
+                "SDK calls, tools/functions, streaming, memory/file writes, connector "
+                "writes, browser automation, and production authority remain denied."
+            ),
+        ),
+        _mapping(
             "lane-ref:provider-tiny-exact-approved-invocation",
             "Tiny exact-approved provider invocation",
             AuthorityDomain.provider_model_calls,

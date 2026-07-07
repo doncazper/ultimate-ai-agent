@@ -161,6 +161,18 @@ def test_authority_state_read_model_exposes_modes_domains_and_mappings() -> None
         provider_credential_validation.status
         == "implemented_exact_lease_required_non_invoking_validation"
     )
+    local_model_runtime = next(
+        mapping
+        for mapping in read_model.capability_mappings
+        if "POST /api/runtime/local-model/call" in mapping.route_refs
+    )
+    assert local_model_runtime.domain == "provider_model_calls"
+    assert local_model_runtime.capability == "execute"
+    assert local_model_runtime.required_mode == "full_machine_access_session"
+    assert (
+        local_model_runtime.status
+        == "implemented_exact_lease_required_local_loopback"
+    )
     web_evidence = next(
         mapping
         for mapping in read_model.capability_mappings

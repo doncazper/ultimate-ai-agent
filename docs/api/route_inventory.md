@@ -157,6 +157,13 @@ requires idempotency, returns a redacted receipt with authority decision refs,
 hashes query content, summarizes output, and blocks yolo, oneshot, arbitrary
 args/toolsets, shell strings, raw persistence, direct Memory writes, browser
 automation, connector writes, and production authority.
+`POST /api/runtime/local-model/call` is a mutating-requires-authority governed
+runtime lane for configured loopback local-model calls only. It requires active
+`provider_model_calls/execute` AuthorityLease scope under Full machine access
+before transport execution, records metadata-only/redacted receipts, treats
+model output as untrusted proposal text, and denies remote provider SDK calls,
+tools/functions, streaming, connector writes, browser automation, billing, and
+production authority.
 `GET /api/runtime/capability-discovery` exposes a protected read-only Python
 Core Hermes Runtime Adoption Phase 02 capability discovery posture for models,
 runs, events, approvals, sessions, skills, toolsets, jobs, and blocked actions.
