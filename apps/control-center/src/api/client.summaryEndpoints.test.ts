@@ -477,7 +477,7 @@ function baseRouteData(): Record<string, unknown> {
       current_posture:
         lane.authority_state === "available_now"
           ? "Backend-owned local read and preview posture is available for review."
-          : "External mutation remains blocked until exact lanes graduate.",
+          : "External mutation requires an implemented AuthorityLease domain/capability scope plus exact approval and receipts.",
       operator_can_do_now:
         lane.authority_state === "available_now"
           ? "Inspect backend-owned local read and preview surfaces."

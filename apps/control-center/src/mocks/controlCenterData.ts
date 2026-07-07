@@ -10885,7 +10885,7 @@ export const mockWorkBoard: WorkBoardReadModel = {
       column_ref: "work-board-column:blocked",
       label: "Blocked",
       status: "blocked",
-      safe_summary: "Mock blocked lane keeps ungraduated authority visible.",
+      safe_summary: "Mock blocked lane keeps missing AuthorityLease scope visible.",
       card_refs: ["work-board-card:mock-external-sync"],
       wip_limit: 8,
       blocked_authority_refs: [
@@ -12965,7 +12965,7 @@ export const mockControlCenterData: ControlCenterData = {
     raw_local_path_persisted: false,
     credential_material_persisted: false,
     safe_summary:
-      "UAA owns authority and receipts; delegated runtimes provide optional capability metadata until exact approved lanes graduate.",
+      "UAA owns authority and receipts; delegated runtimes provide optional capability metadata until implemented AuthorityLease scope and exact approval are present.",
     redactions_applied: [
       "safe_refs_only",
       "bounded_summaries_only",

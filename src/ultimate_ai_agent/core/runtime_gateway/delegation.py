@@ -112,7 +112,8 @@ class RuntimeDelegationAdapterReadModel(BaseModel):
     credential_material_persisted: bool = False
     safe_summary: str = (
         "UAA owns authority and receipts; delegated runtimes provide optional "
-        "capability metadata until exact approved lanes graduate."
+        "capability metadata until implemented AuthorityLease scope and exact "
+        "approval are present."
     )
     redactions_applied: list[str] = Field(
         default_factory=lambda: list(GOVERNED_RUNTIME_REDACTIONS)

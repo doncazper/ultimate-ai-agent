@@ -249,8 +249,8 @@ class ActionToolCodeLaneCatalogReadModel(BaseModel):
     unblock_prompts: list[ActionToolCodeUnblockPrompt] = Field(default_factory=list)
     blocked_authority_refs: list[str] = Field(default_factory=list)
     next_safe_action: str = (
-        "Inspect lane eligibility and receipts; graduate each blocked capability "
-        "through an exact authority lane before execution."
+        "Inspect capability mappings, required AuthorityLease domain/capability "
+        "scope, receipts, and blocked reasons before execution."
     )
     operator_summary: str = Field(..., min_length=1, max_length=700)
     generic_tool_execution_enabled: bool = False
@@ -368,8 +368,9 @@ def build_action_tool_code_lane_catalog_read_model(
         blocked_authority_refs=blocked_refs,
         operator_summary=(
             f"{len(entries)} action, tool, runtime, and code lanes are inspectable; "
-            "only exact local/approved micro-lanes may produce receipts, while "
-            "generic tool execution remains blocked."
+            "implemented local and approval-bound capabilities may produce receipts "
+            "only inside active AuthorityLease scope, while generic tool execution "
+            "remains denied."
         ),
     )
 

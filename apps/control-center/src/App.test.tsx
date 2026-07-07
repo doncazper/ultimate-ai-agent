@@ -1826,9 +1826,9 @@ function actionToolCodeLaneCatalogFixture(
       "blocked-authority:action-tool-code:no-production-authority",
     ],
     next_safe_action:
-      "Inspect lane eligibility and graduate each blocked capability through exact authority.",
+      "Inspect capability mappings, required AuthorityLease scope, receipts, and blocked reasons before execution.",
     operator_summary:
-      "Four action, tool, runtime, and code lanes are inspectable; only exact micro-lanes may produce receipts.",
+      "Four action, tool, runtime, and code lanes are inspectable; implemented local and approval-bound capabilities may produce receipts only inside active AuthorityLease scope.",
     ...flags,
     ...overrides,
   };
@@ -15778,7 +15778,7 @@ function backendOwnedTrustAuthorityMatrix() {
       current_posture:
         lane.authority_state === "available_now"
           ? "Backend-owned local read and preview posture is available for review."
-          : "External mutation remains blocked until exact lanes graduate.",
+          : "External mutation requires an implemented AuthorityLease domain/capability scope plus exact approval and receipts.",
       operator_can_do_now:
         lane.authority_state === "available_now"
           ? "Inspect backend-owned local read and preview surfaces."
