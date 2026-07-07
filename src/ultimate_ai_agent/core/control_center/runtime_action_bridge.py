@@ -85,6 +85,18 @@ class RuntimeActionInboxBridgeItem(BaseModel):
     command_intent: str | None = None
     status: str = Field(..., min_length=1, max_length=120)
     approval_validated: bool = False
+    authority_scope_required: bool = True
+    authority_scope_allowed: bool = False
+    authority_decision_ref: str | None = None
+    authority_decision_outcome: str | None = None
+    authority_lease_ref: str | None = None
+    authority_domain_ref: str | None = None
+    authority_capability_ref: str | None = None
+    authority_required_mode_ref: str | None = None
+    authority_reason_refs: list[str] = Field(default_factory=list)
+    authority_audit_ref: str | None = None
+    authority_policy_receipt_ref: str | None = None
+    authority_operator_message: str | None = None
     execution_performed: bool = False
     exact_scope_ref: str = Field(..., min_length=1)
     approval_ref: str = Field(..., min_length=1)
@@ -132,6 +144,13 @@ class RuntimeActionInboxBridgeItem(BaseModel):
             (self.execution_result_ref, "execution_result_ref"),
             (self.signed_evidence_ref, "signed_evidence_ref"),
             (self.signed_evidence_verifier_ref, "signed_evidence_verifier_ref"),
+            (self.authority_decision_ref, "authority_decision_ref"),
+            (self.authority_lease_ref, "authority_lease_ref"),
+            (self.authority_domain_ref, "authority_domain_ref"),
+            (self.authority_capability_ref, "authority_capability_ref"),
+            (self.authority_required_mode_ref, "authority_required_mode_ref"),
+            (self.authority_audit_ref, "authority_audit_ref"),
+            (self.authority_policy_receipt_ref, "authority_policy_receipt_ref"),
         ]:
             if value is not None:
                 validate_execution_ref(value, field_name)
@@ -140,6 +159,14 @@ class RuntimeActionInboxBridgeItem(BaseModel):
             (self.requested_authority, "requested_authority"),
             (self.command_intent or "not_applicable", "command_intent"),
             (self.status, "status"),
+            (
+                self.authority_decision_outcome or "authority-decision-outcome:none",
+                "authority_decision_outcome",
+            ),
+            (
+                self.authority_operator_message or "authority-message:none",
+                "authority_operator_message",
+            ),
             (self.signed_evidence_verification_status, "signed_evidence_verification_status"),
             (self.receipt_status, "receipt_status"),
             (self.safe_summary, "safe_summary"),
@@ -150,6 +177,7 @@ class RuntimeActionInboxBridgeItem(BaseModel):
         for field_name in (
             "receipt_refs",
             "evidence_refs",
+            "authority_reason_refs",
             "blocked_reason_refs",
             "blocked_authority_refs",
         ):
@@ -440,6 +468,18 @@ def _item_for_record(record: RuntimeInvocationRecord) -> RuntimeActionInboxBridg
         ),
         status=str(_runtime_value(record.status)),
         approval_validated=bool(envelope.approval_validated),
+        authority_scope_required=bool(envelope.authority_scope_required),
+        authority_scope_allowed=bool(envelope.authority_scope_allowed),
+        authority_decision_ref=envelope.authority_decision_ref,
+        authority_decision_outcome=envelope.authority_decision_outcome,
+        authority_lease_ref=envelope.authority_lease_ref,
+        authority_domain_ref=envelope.authority_domain_ref,
+        authority_capability_ref=envelope.authority_capability_ref,
+        authority_required_mode_ref=envelope.authority_required_mode_ref,
+        authority_reason_refs=list(envelope.authority_reason_refs),
+        authority_audit_ref=envelope.authority_audit_ref,
+        authority_policy_receipt_ref=envelope.authority_policy_receipt_ref,
+        authority_operator_message=envelope.authority_operator_message,
         execution_performed=bool(record.receipt and record.receipt.execution_performed),
         exact_scope_ref=envelope.exact_scope_ref,
         approval_ref=envelope.approval_ref,

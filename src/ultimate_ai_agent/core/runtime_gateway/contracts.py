@@ -118,6 +118,18 @@ class RuntimeActionInboxApprovalEnvelope(BaseModel):
     safe_disable_ref: str = GOVERNED_RUNTIME_SAFE_DISABLE_REF
     safe_disable_posture_ref: str = GOVERNED_RUNTIME_SAFE_DISABLE_POSTURE_REF
     approval_validated: bool = False
+    authority_scope_required: bool = True
+    authority_scope_allowed: bool = False
+    authority_decision_ref: str | None = None
+    authority_decision_outcome: str | None = None
+    authority_lease_ref: str | None = None
+    authority_domain_ref: str | None = None
+    authority_capability_ref: str | None = None
+    authority_required_mode_ref: str | None = None
+    authority_reason_refs: list[str] = Field(default_factory=list)
+    authority_audit_ref: str | None = None
+    authority_policy_receipt_ref: str | None = None
+    authority_operator_message: str | None = None
     execution_performed: bool = False
     stale_policy: bool = False
     scope_mismatch: bool = False
@@ -148,6 +160,13 @@ class RuntimeActionInboxApprovalEnvelope(BaseModel):
             (self.rollback_ref, "rollback_ref"),
             (self.safe_disable_ref, "safe_disable_ref"),
             (self.safe_disable_posture_ref, "safe_disable_posture_ref"),
+            (self.authority_decision_ref, "authority_decision_ref"),
+            (self.authority_lease_ref, "authority_lease_ref"),
+            (self.authority_domain_ref, "authority_domain_ref"),
+            (self.authority_capability_ref, "authority_capability_ref"),
+            (self.authority_required_mode_ref, "authority_required_mode_ref"),
+            (self.authority_audit_ref, "authority_audit_ref"),
+            (self.authority_policy_receipt_ref, "authority_policy_receipt_ref"),
         ]:
             if value is not None:
                 validate_execution_ref(value, field_name)
@@ -155,10 +174,23 @@ class RuntimeActionInboxApprovalEnvelope(BaseModel):
             (self.schema_version, "schema_version"),
             (self.adapter_id, "adapter_id"),
             (self.risk_class, "risk_class"),
+            (
+                self.authority_decision_outcome or "authority-decision-outcome:none",
+                "authority_decision_outcome",
+            ),
+            (
+                self.authority_operator_message or "authority-message:none",
+                "authority_operator_message",
+            ),
             (self.safe_summary, "safe_summary"),
         ]:
             validate_safe_execution_text(str(value), field_name)
-        for field_name in ("blocked_reason_refs", "evidence_refs", "receipt_refs"):
+        for field_name in (
+            "authority_reason_refs",
+            "blocked_reason_refs",
+            "evidence_refs",
+            "receipt_refs",
+        ):
             for ref in getattr(self, field_name):
                 validate_execution_ref(ref, field_name)
         if self.command_intent is None and self.requested_authority == RuntimeAuthority.allowlisted_command.value:
@@ -288,6 +320,13 @@ class RuntimePolicyDecision(BaseModel):
     authority_domain: str | None = None
     authority_capability: str | None = None
     authority_required_mode: str | None = None
+    authority_reason_refs: list[str] = Field(default_factory=list)
+    authority_audit_ref: str | None = None
+    authority_policy_receipt_ref: str | None = None
+    authority_rollback_ref: str | None = None
+    authority_safe_disable_ref: str | None = None
+    authority_known_authority: bool | None = None
+    authority_unsupported_adapter: bool | None = None
     authority_operator_message: str | None = None
     safe_summary: str = "RuntimeGateway policy recorded a governed runtime decision."
     redactions_applied: list[str] = Field(
@@ -308,9 +347,15 @@ class RuntimePolicyDecision(BaseModel):
         for value, field_name in [
             (self.authority_decision_ref, "authority_decision_ref"),
             (self.authority_lease_ref, "authority_lease_ref"),
+            (self.authority_audit_ref, "authority_audit_ref"),
+            (self.authority_policy_receipt_ref, "authority_policy_receipt_ref"),
+            (self.authority_rollback_ref, "authority_rollback_ref"),
+            (self.authority_safe_disable_ref, "authority_safe_disable_ref"),
         ]:
             if value:
                 validate_execution_ref(value, field_name)
+        for ref in self.authority_reason_refs:
+            validate_execution_ref(ref, "authority_reason_ref")
         for value, field_name in [
             (self.authority_decision_outcome, "authority_decision_outcome"),
             (self.authority_domain, "authority_domain"),
@@ -1030,6 +1075,37 @@ def build_policy_decision(
         ),
         authority_required_mode=(
             authority_decision.required_mode
+            if authority_decision is not None
+            else None
+        ),
+        authority_reason_refs=(
+            list(authority_decision.reason_refs)
+            if authority_decision is not None
+            else []
+        ),
+        authority_audit_ref=(
+            authority_decision.audit_record_ref
+            if authority_decision is not None
+            else None
+        ),
+        authority_policy_receipt_ref=(
+            authority_decision.receipt_ref if authority_decision is not None else None
+        ),
+        authority_rollback_ref=(
+            authority_decision.rollback_ref if authority_decision is not None else None
+        ),
+        authority_safe_disable_ref=(
+            authority_decision.safe_disable_ref
+            if authority_decision is not None
+            else None
+        ),
+        authority_known_authority=(
+            authority_decision.known_authority
+            if authority_decision is not None
+            else None
+        ),
+        authority_unsupported_adapter=(
+            authority_decision.unsupported_adapter
             if authority_decision is not None
             else None
         ),

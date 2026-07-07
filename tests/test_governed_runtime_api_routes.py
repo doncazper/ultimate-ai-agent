@@ -121,11 +121,17 @@ def _activate_workspace_execute_authority(
         payload["scope"] = "mission"
         payload["mission_ref"] = mission_ref
     response = client.post(
-        "/api/runtime/authority-leases",
+        "/api/runtime/authority-leases/approve-and-issue",
         headers={
             "x-uaa-idempotency-key": f"idempotency-ref:authority-runtime-{suffix}"
         },
-        json=payload,
+        json={
+            "lease_issue_request": payload,
+            "approved_by_actor_ref": "operator-ref:test-runtime-authority",
+            "approval_safe_summary": (
+                "Approve exact governed runtime workspace command authority."
+            ),
+        },
     )
     assert response.status_code == 200
     assert response.json()["success"] is True
@@ -855,6 +861,9 @@ def test_governed_runtime_action_inbox_execute_rejects_changed_scope(
     assert approve_body["data"]["approval_validated"] is True
     assert approve_body["data"]["approval_status"] == "approved_pending_execution"
     envelope = approve_body["data"]["record"]["action_inbox_envelope"]
+    assert envelope["authority_scope_allowed"] is True
+    assert envelope["authority_decision_outcome"] == "allow"
+    assert envelope["authority_lease_ref"]
 
     changed_command = command_request.model_copy(
         update={

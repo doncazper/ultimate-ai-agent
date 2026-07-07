@@ -51,6 +51,7 @@ from ultimate_ai_agent.core.control_center.runtime_action_bridge import (
 )
 from ultimate_ai_agent.core.time import utc_now
 from tests.authority_helpers import (
+    issue_workspace_execute_authority_lease,
     provider_model_execute_authority_lease,
     workspace_execute_authority_lease,
     workspace_execute_mission_authority_lease,
@@ -762,6 +763,9 @@ def test_runtime_launcher_command_run_cli_records_receipts_and_mission_scope(
             "idempotency-ref:runtime-cli-command-mission",
             "--summary",
             "Authorize mission-bound runtime command inspection.",
+            "--approve",
+            "--approved-by-actor-ref",
+            "operator-ref:test-runtime-authority",
             "--json",
         ],
         check=True,
@@ -1126,6 +1130,9 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
     assert approved.status == "approved_pending_execution"
     assert approved.action_inbox_envelope is not None
     assert approved.action_inbox_envelope.approval_validated is True
+    assert approved.action_inbox_envelope.authority_scope_allowed is True
+    assert approved.action_inbox_envelope.authority_decision_outcome == "allow"
+    assert approved.action_inbox_envelope.authority_lease_ref
     assert approved.policy_decision.command_execution_enabled is True
     assert result.record.status == "receipt_recorded"
     assert result.record.receipt is not None
@@ -1156,6 +1163,9 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
     assert read_model["items"][0]["action_envelope_ref"] == (
         approved.action_inbox_envelope.action_envelope_ref
     )
+    assert read_model["items"][0]["authority_scope_allowed"] is True
+    assert read_model["items"][0]["authority_decision_outcome"] == "allow"
+    assert read_model["items"][0]["authority_lease_ref"]
 
     cli = subprocess.run(
         [
@@ -1290,6 +1300,69 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_command_once(
     assert "stderr" not in persisted
 
 
+def test_runtime_gateway_action_inbox_approval_uses_current_authority_lease(
+    tmp_path: Path,
+) -> None:
+    command_request = _approved_runtime_command_request()
+    proposal_store = RuntimeInvocationStore(
+        tmp_path,
+        active_authority_leases=[],
+    )
+    created = proposal_store.create_invocation(
+        runtime_command_invocation_request(command_request),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-create-before-lease",
+    )
+    assert created.record.policy_decision.authority_decision_outcome == (
+        "degrade_to_draft"
+    )
+    assert created.record.policy_decision.allowed_to_execute is False
+
+    approval_store = RuntimeInvocationStore(
+        tmp_path,
+        active_authority_leases=[workspace_execute_authority_lease()],
+    )
+    command_intent = str(getattr(command_request.intent, "value", command_request.intent))
+    refs = _runtime_action_inbox_refs(
+        created.record,
+        command_intent=command_intent,
+    )
+
+    approved = approval_store.bind_approval(
+        created.record.invocation_ref,
+        RuntimeApprovalBindingRequest(
+            decision="approve",
+            action_envelope_ref=refs["action_envelope_ref"],
+            exact_scope_ref=refs["exact_scope_ref"],
+            expected_payload_fingerprint_ref=created.record.payload_fingerprint_ref,
+            expected_policy_decision_ref=(
+                created.record.policy_decision.policy_decision_ref
+            ),
+            adapter_id="governed-command-runtime-adapter",
+            command_intent=command_intent,
+            risk_class="medium",
+            expires_at=utc_now() + timedelta(minutes=30),
+            safe_summary=(
+                "Action Inbox approved one exact governed runtime command lane."
+            ),
+        ),
+        idempotency_ref="idempotency-ref:runtime-action-inbox-approve-after-lease",
+    )
+
+    assert approved.status == "approved_pending_execution"
+    assert approved.action_inbox_envelope is not None
+    assert approved.action_inbox_envelope.approval_validated is True
+    assert approved.action_inbox_envelope.authority_scope_allowed is True
+    assert approved.action_inbox_envelope.authority_decision_outcome == "allow"
+    assert approved.action_inbox_envelope.authority_lease_ref == (
+        "authority-lease-ref:test-workspace-execute"
+    )
+    assert approved.policy_decision.allowed_to_execute is True
+    assert approved.policy_decision.authority_decision_outcome == "allow"
+    assert approved.policy_decision.authority_lease_ref == (
+        "authority-lease-ref:test-workspace-execute"
+    )
+
+
 def test_runtime_gateway_action_inbox_execute_requires_workspace_execute_lease(
     tmp_path: Path,
 ) -> None:
@@ -1326,6 +1399,16 @@ def test_runtime_gateway_action_inbox_execute_requires_workspace_execute_lease(
     )
 
     assert calls == []
+    assert approved.status == "execution_blocked"
+    assert approved.action_inbox_envelope is not None
+    assert approved.action_inbox_envelope.approval_validated is True
+    assert approved.action_inbox_envelope.authority_scope_allowed is False
+    assert approved.action_inbox_envelope.authority_decision_outcome == (
+        "degrade_to_draft"
+    )
+    assert "blocked-state:runtime-authority-lease-required" in (
+        approved.action_inbox_envelope.blocked_reason_refs
+    )
     assert approved.policy_decision.allowed_to_execute is False
     assert approved.policy_decision.authority_decision_outcome == "degrade_to_draft"
     assert result.record.status == "execution_blocked"
@@ -1492,6 +1575,13 @@ def test_runtime_gateway_action_inbox_execute_blocks_mission_lease_without_missi
     )
 
     assert calls == []
+    assert approved.status == "execution_blocked"
+    assert approved.action_inbox_envelope is not None
+    assert approved.action_inbox_envelope.approval_validated is True
+    assert approved.action_inbox_envelope.authority_scope_allowed is False
+    assert "reason-ref:authority:mission-scope-mismatch" in (
+        approved.action_inbox_envelope.authority_reason_refs
+    )
     assert approved.policy_decision.allowed_to_execute is False
     assert approved.policy_decision.authority_decision_outcome == "degrade_to_draft"
     assert "AUTHORITY_LEASE_REQUIRED_FOR_RUNTIME_EXECUTION" in (
@@ -1677,6 +1767,9 @@ def test_runtime_gateway_action_inbox_approval_executes_exact_repo_doctor_comman
 def test_runtime_launcher_actions_approve_and_deny_by_safe_selector_ref(
     tmp_path: Path,
 ) -> None:
+    env = os.environ.copy()
+    env["UAA_AUTHORITY_STATE_DIR"] = str(tmp_path / "authority")
+    issue_workspace_execute_authority_lease(Path(env["UAA_AUTHORITY_STATE_DIR"]))
     store = _runtime_store_with_workspace_execute(tmp_path)
     command_request = _approved_runtime_command_request()
     created = store.create_invocation(
@@ -1716,6 +1809,7 @@ def test_runtime_launcher_actions_approve_and_deny_by_safe_selector_ref(
         check=False,
         capture_output=True,
         text=True,
+        env=env,
     )
     assert preflight.returncode == 2
     assert "Governed runtime Action Inbox decision preflight" in preflight.stdout
@@ -1740,6 +1834,7 @@ def test_runtime_launcher_actions_approve_and_deny_by_safe_selector_ref(
         check=True,
         capture_output=True,
         text=True,
+        env=env,
     )
     assert "Governed runtime Action Inbox decision preflight" in approved.stdout
     assert "Governed runtime invocation" in approved.stdout
@@ -1791,6 +1886,7 @@ def test_runtime_launcher_actions_approve_and_deny_by_safe_selector_ref(
         check=True,
         capture_output=True,
         text=True,
+        env=env,
     )
     assert "Governed runtime invocation" in denied.stdout
     assert str(tmp_path / "deny") not in denied.stdout

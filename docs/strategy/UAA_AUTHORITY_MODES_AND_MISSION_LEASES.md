@@ -143,6 +143,11 @@ command that was approved under a workspace execute lease degrades back to a
 blocked draft receipt if that lease is no longer active at execution time; old
 approval refs and stale policy decision refs cannot keep execution authority
 alive.
+Runtime Action Inbox approval envelopes also separate exact
+LocalApprovalAuthority validation from AuthorityLease scope allowance, and
+approval binding refreshes the current active lease decision so a pending
+proposal can become executable after the operator selects the required
+mode/domain lease.
 The RuntimeGateway invocation lifecycle is also mapped into authority domains:
 `POST /api/runtime/invocations` is a workspace draft record-only route,
 `POST /api/runtime/invocations/{id}/approve` and

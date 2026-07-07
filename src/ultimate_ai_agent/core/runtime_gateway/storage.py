@@ -21,6 +21,7 @@ from ultimate_ai_agent.core.approvals import (
     LocalApprovalAuthority,
 )
 from ultimate_ai_agent.core.authority import (
+    AuthorityDecisionOutcome,
     AuthorityLease,
     AuthorityLeaseStore,
     build_default_authority_leases,
@@ -52,6 +53,7 @@ from ultimate_ai_agent.core.runtime_gateway.contracts import (
     RuntimeInvocationReceipt,
     RuntimeInvocationRequest,
     RuntimeInvocationStatus,
+    RuntimePolicyDecision,
     RuntimeSafeDisableRequest,
     RuntimeSafeDisableState,
     build_blocked_receipt,
@@ -423,7 +425,13 @@ def _action_inbox_envelope_for_request(
     record: RuntimeInvocationRecord,
     request: RuntimeApprovalBindingRequest,
     idempotency_ref: str,
-) -> tuple[RuntimeActionInboxApprovalEnvelope, RuntimeInvocationStatus, bool]:
+    active_authority_leases: list[AuthorityLease],
+) -> tuple[
+    RuntimeActionInboxApprovalEnvelope,
+    RuntimeInvocationStatus,
+    bool,
+    RuntimePolicyDecision,
+]:
     now = utc_now()
     decision_value = getattr(request.decision, "value", request.decision)
     command_intent_value = (
@@ -539,43 +547,6 @@ def _action_inbox_envelope_for_request(
             blocked_reason_refs.extend(
                 f"approval-reason-ref:{reason}" for reason in decision_result.reason_codes
             )
-    envelope = RuntimeActionInboxApprovalEnvelope(
-        action_envelope_ref=expected_action_envelope_ref,
-        invocation_ref=record.invocation_ref,
-        adapter_id=adapter_id,
-        requested_authority=record.request.requested_authority,
-        command_intent=derived_command_intent,
-        exact_scope_ref=exact_scope_ref,
-        payload_fingerprint_ref=record.payload_fingerprint_ref,
-        policy_decision_ref=record.policy_decision.policy_decision_ref,
-        approval_ref=approval_ref_for_envelope,
-        approval_scope_ref=request.approval_scope_ref,
-        approval_decision_ref=approval_decision_ref,
-        approval_validation_ref=approval_validation_ref,
-        risk_class="medium",
-        expires_at=request.expires_at or (now + timedelta(minutes=30)),
-        decision=decision_value,
-        idempotency_ref=idempotency_ref,
-        rollback_ref=GOVERNED_RUNTIME_ROLLBACK_REF,
-        safe_disable_ref=GOVERNED_RUNTIME_SAFE_DISABLE_REF,
-        safe_disable_posture_ref=GOVERNED_RUNTIME_SAFE_DISABLE_POSTURE_REF,
-        stale_policy=expected_policy != record.policy_decision.policy_decision_ref,
-        scope_mismatch=expected_payload != record.payload_fingerprint_ref,
-        runtime_profile_weaker_or_disabled=(
-            record.request.requested_profile != "operator-approved"
-        ),
-        safe_disable_active=_operator_safe_disable_active(record),
-        blocked_reason_refs=blocked_reason_refs,
-        evidence_refs=[
-            _hash_ref(
-                "runtime-evidence-ref",
-                {
-                    "invocation_ref": record.invocation_ref,
-                    "operation": f"approval-{decision_value}",
-                },
-            )
-        ],
-    )
     approval_allowed = (
         not blocked_reason_refs
         and decision_value == RuntimeActionInboxApprovalDecision.approve.value
@@ -594,20 +565,115 @@ def _action_inbox_envelope_for_request(
         status = RuntimeInvocationStatus.approval_expired
     elif blocked_reason_refs:
         status = RuntimeInvocationStatus.execution_blocked
-    validated = approval_allowed and not blocked_reason_refs
-    envelope = envelope.model_copy(
-        update={
-            "status": status,
-            "approval_validated": validated,
-            "blocked_reason_refs": list(dict.fromkeys([*blocked_reason_refs, *approval_reason_refs])),
-            "updated_at": utc_now(),
-        }
-    )
+    validated = approval_allowed
     command_gateway_validated = (
         validated
         and record.request.requested_authority == RuntimeAuthority.allowlisted_command.value
     )
-    return envelope, status, command_gateway_validated
+    policy_decision = build_policy_decision(
+        record.request,
+        invocation_ref=record.invocation_ref,
+        approval_ref=approval_ref_for_envelope,
+        status=status,
+        command_gateway_validated=command_gateway_validated,
+        active_authority_leases=active_authority_leases,
+    )
+    authority_scope_allowed = (
+        policy_decision.authority_decision_outcome == AuthorityDecisionOutcome.allow.value
+    )
+    authority_blocked_reason_refs: list[str] = []
+    if approval_allowed and not authority_scope_allowed:
+        authority_blocked_reason_refs = list(
+            dict.fromkeys(
+                [
+                    "blocked-state:runtime-authority-lease-required",
+                    *policy_decision.authority_reason_refs,
+                ]
+            )
+        )
+        status = RuntimeInvocationStatus.execution_blocked
+        policy_decision = policy_decision.model_copy(
+            update={"invocation_status": status}
+        )
+    envelope = RuntimeActionInboxApprovalEnvelope(
+        action_envelope_ref=expected_action_envelope_ref,
+        invocation_ref=record.invocation_ref,
+        adapter_id=adapter_id,
+        requested_authority=record.request.requested_authority,
+        command_intent=derived_command_intent,
+        exact_scope_ref=exact_scope_ref,
+        payload_fingerprint_ref=record.payload_fingerprint_ref,
+        policy_decision_ref=policy_decision.policy_decision_ref,
+        approval_ref=approval_ref_for_envelope,
+        approval_scope_ref=request.approval_scope_ref,
+        approval_decision_ref=approval_decision_ref,
+        approval_validation_ref=approval_validation_ref,
+        risk_class="medium",
+        expires_at=request.expires_at or (now + timedelta(minutes=30)),
+        decision=decision_value,
+        idempotency_ref=idempotency_ref,
+        rollback_ref=GOVERNED_RUNTIME_ROLLBACK_REF,
+        safe_disable_ref=GOVERNED_RUNTIME_SAFE_DISABLE_REF,
+        safe_disable_posture_ref=GOVERNED_RUNTIME_SAFE_DISABLE_POSTURE_REF,
+        authority_scope_allowed=authority_scope_allowed,
+        authority_decision_ref=policy_decision.authority_decision_ref,
+        authority_decision_outcome=policy_decision.authority_decision_outcome,
+        authority_lease_ref=policy_decision.authority_lease_ref,
+        authority_domain_ref=(
+            f"authority-domain-ref:{policy_decision.authority_domain}"
+            if policy_decision.authority_domain
+            else None
+        ),
+        authority_capability_ref=(
+            f"authority-capability-ref:{policy_decision.authority_capability}"
+            if policy_decision.authority_capability
+            else None
+        ),
+        authority_required_mode_ref=(
+            f"authority-mode-ref:{str(policy_decision.authority_required_mode).replace('_', '-')}"
+            if policy_decision.authority_required_mode
+            else None
+        ),
+        authority_reason_refs=list(policy_decision.authority_reason_refs),
+        authority_audit_ref=policy_decision.authority_audit_ref,
+        authority_policy_receipt_ref=policy_decision.authority_policy_receipt_ref,
+        authority_operator_message=policy_decision.authority_operator_message,
+        stale_policy=expected_policy != record.policy_decision.policy_decision_ref,
+        scope_mismatch=expected_payload != record.payload_fingerprint_ref,
+        runtime_profile_weaker_or_disabled=(
+            record.request.requested_profile != "operator-approved"
+        ),
+        safe_disable_active=_operator_safe_disable_active(record),
+        blocked_reason_refs=list(
+            dict.fromkeys([*blocked_reason_refs, *authority_blocked_reason_refs])
+        ),
+        evidence_refs=[
+            _hash_ref(
+                "runtime-evidence-ref",
+                {
+                    "invocation_ref": record.invocation_ref,
+                    "operation": f"approval-{decision_value}",
+                },
+            )
+        ],
+    )
+    envelope = envelope.model_copy(
+        update={
+            "status": status,
+            "approval_validated": validated,
+            "blocked_reason_refs": list(
+                dict.fromkeys(
+                    [
+                        *blocked_reason_refs,
+                        *authority_blocked_reason_refs,
+                        *approval_reason_refs,
+                    ]
+                )
+            ),
+            "updated_at": utc_now(),
+        }
+    )
+    return envelope, status, command_gateway_validated, policy_decision
 
 
 def active_runtime_authority_leases() -> list[AuthorityLease]:
@@ -791,20 +857,13 @@ class RuntimeInvocationStore:
             if replayed is not None:
                 return replayed
             if request.action_envelope_ref:
-                envelope, status, command_gateway_validated = (
+                envelope, status, _command_gateway_validated, policy_decision = (
                     _action_inbox_envelope_for_request(
                         record=record,
                         request=request,
                         idempotency_ref=idempotency_ref,
+                        active_authority_leases=self._active_authority_leases,
                     )
-                )
-                policy_decision = build_policy_decision(
-                    record.request,
-                    invocation_ref=record.invocation_ref,
-                    approval_ref=envelope.approval_ref,
-                    status=status,
-                    command_gateway_validated=command_gateway_validated,
-                    active_authority_leases=self._active_authority_leases,
                 )
                 policy_decision = policy_decision.model_copy(
                     update={
@@ -835,7 +894,7 @@ class RuntimeInvocationStore:
                                 reason_ref="reason-ref:governed-runtime-action-inbox-approved",
                                 safe_summary="Runtime profile is active for this exact Action Inbox approved invocation only.",
                             )
-                            if command_gateway_validated
+                            if policy_decision.command_execution_enabled
                             else record.safe_disable
                         ),
                         "status": _status_after_safe_disable(record, status),

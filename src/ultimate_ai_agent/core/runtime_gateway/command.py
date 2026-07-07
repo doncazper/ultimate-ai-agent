@@ -48,6 +48,7 @@ COMMAND_RUNTIME_ALLOWED_SYSTEM_EXECUTABLES = {
     "git": (Path("/usr/bin/git"), Path("/bin/git")),
     "make": (Path("/usr/bin/make"), Path("/bin/make")),
 }
+DEFAULT_SAFE_DISABLE_REASON_REF = "reason-ref:governed-runtime-phase-02-disabled"
 
 
 class RuntimeCommandExecutionRequest(BaseModel):
@@ -675,12 +676,18 @@ def _approved_command_block_reason(
         or record.status == RuntimeInvocationStatus.approval_expired.value
     ):
         return "RUNTIME_COMMAND_ACTION_INBOX_APPROVAL_EXPIRED"
+    explicit_safe_disable_active = (
+        (envelope.safe_disable_active or record.safe_disable.active)
+        and record.safe_disable.reason_ref != DEFAULT_SAFE_DISABLE_REASON_REF
+    )
+    if explicit_safe_disable_active:
+        return "RUNTIME_COMMAND_SAFE_DISABLED"
+    if envelope.approval_validated and not envelope.authority_scope_allowed:
+        return "RUNTIME_COMMAND_POLICY_EXECUTION_BLOCKED"
     if record.status != RuntimeInvocationStatus.approved_pending_execution.value:
         return "RUNTIME_COMMAND_ACTION_INBOX_ENVELOPE_NOT_APPROVED"
     if not envelope.approval_validated:
         return "RUNTIME_COMMAND_ACTION_INBOX_APPROVAL_NOT_VALIDATED"
-    if envelope.safe_disable_active or record.safe_disable.active:
-        return "RUNTIME_COMMAND_SAFE_DISABLED"
     if request.requested_profile != RuntimeProfile.operator_approved.value:
         return "RUNTIME_COMMAND_OPERATOR_APPROVED_PROFILE_REQUIRED"
     if record.request.requested_profile != RuntimeProfile.operator_approved.value:
